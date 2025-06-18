@@ -22,10 +22,11 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref }}
-      - uses: earthly/actions-setup@main
       - name: Check Broken Links
         run: earthly --ci +check-broken-links-pr --VERBOSE=true

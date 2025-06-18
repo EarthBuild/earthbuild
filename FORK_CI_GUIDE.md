@@ -63,13 +63,16 @@ The CI relies on several external services.
 - **Local Action `.github/actions/stage2-setup`**: This composite action contains much of the problematic logic.
   - **Action Required**: This action needs to be heavily modified to remove the Docker mirror, the Earthly Cloud secret fetching, and other hardcoded values.
 
-## Summary of Actionable Steps:
+## Progress Update
+
+- The private Docker mirror (`registry-1.docker.io.mirror.corp.earthly.dev`) has been removed from `build-earthly.yml` and `reusable-test.yml`.
+- The `.github/actions/stage2-setup/action.yml` has been updated to remove mirror-related inputs and steps.
+- The main CI workflow, `ci-docker-ubuntu.yml`, has been simplified by removing jobs that depend on the private mirror, cloud provider secrets (GCP/ECR), and internal release processes.
+
+## Next Steps
 
 1.  **Fork and Update Actions**: Fork `earthly/actions-setup`.
 2.  **Create Forked Repos**: Create `earthly-staging` and `homebrew-earthly` under `earthbuild`.
 3.  **Create Secrets**: Set up all necessary secrets in the forked repository's settings.
-4.  **Remove Docker Mirror**: Clean all references to `registry-1.docker.io.mirror.corp.earthly.dev`.
-5.  **Remove Earthly Secret Management**: Replace `earthly secret` calls with standard GitHub secrets.
-6.  **Setup S3 for Releases**: Configure an S3 bucket for package hosting.
-7.  **Update Release Scripts**: Modify `release/release.sh` and other scripts to use the new `earthbuild` resources and secrets.
-8.  **Review and Parameterize**: Go through workflows and scripts to replace hardcoded `earthly` references with configurable variables. 
+4.  **Update Release Scripts**: Modify `release/release.sh` and other scripts to use the new `earthbuild` resources and secrets.
+5.  **Review and Parameterize**: Go through workflows and scripts to replace hardcoded `earthly` references with configurable variables. 

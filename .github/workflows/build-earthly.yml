@@ -61,12 +61,8 @@ jobs:
         if: inputs.BINARY == 'podman'
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} $(which earthly) bootstrap
-      - name: Docker Login
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
-        if: inputs.BINARY == 'docker'
-      - name: Podman Login
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} login docker.io --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
-        if: inputs.BINARY == 'podman'
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
         run: ${{inputs.SUDO}} $(which earthly) +update-buildkit --BUILDKIT_GIT_SHA=$(cat earthly-next)

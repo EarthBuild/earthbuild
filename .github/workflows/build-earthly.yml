@@ -30,6 +30,8 @@ jobs:
     name: build (and push) earthly using ${{inputs.BINARY}} and earthly-next=${{inputs.USE_NEXT}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
+    # Needed for the +ci-release target to push to the GitHub Container Registry for later builds
+    permissions: write-all
     env:
       FORCE_COLOR: 1
       EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"

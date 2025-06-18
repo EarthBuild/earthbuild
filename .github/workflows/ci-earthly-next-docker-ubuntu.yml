@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   build-earthly-with-next:
+    permissions: write-all
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"

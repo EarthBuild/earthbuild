@@ -31,6 +31,7 @@ jobs:
 #    needs: check-essential-files
     # allow the job to execute even if check-essential-files is skipped
     if: ${{ !failure() }}
+    permissions: write-all
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"

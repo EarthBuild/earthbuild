@@ -37,7 +37,7 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: earthly/actions-setup@main
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -59,16 +59,8 @@ jobs:
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
-      - name: Docker mirror login (Earthly Only)
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} login registry-1.docker.io.mirror.corp.earthly.dev --username "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}" --password "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} $(which earthly) bootstrap
-      - name: Configure Earthly to use mirror (Earthly Only)
-        run: |-
-          ${{inputs.SUDO}} $(which earthly) config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Docker Login
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
         if: inputs.BINARY == 'docker'

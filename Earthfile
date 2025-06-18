@@ -348,7 +348,8 @@ earthly:
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG EARTHLY_GIT_HASH
-    ARG DEFAULT_BUILDKITD_IMAGE=docker.io/earthly/buildkitd:$VERSION # The image needs to be fully qualified for alternative frontend support.
+    # TODO: this works for CI but the final value should probably come from dockerhub
+    ARG DEFAULT_BUILDKITD_IMAGE=ghcr.io/earthbuild/buildkit:$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
     ARG GOCACHE=/go-cache
     RUN mkdir -p build

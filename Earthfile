@@ -23,6 +23,12 @@ RUN apk add --update --no-cache \
 
 WORKDIR /earthly
 
+ARG GH_ORG="earthbuild"
+ARG GH_REPO="earthbuild"
+ARG REGISTRY_BASE="ghcr.io"
+
+ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$GH_ORG/$GH_REPO
+
 # deps downloads and caches all dependencies for earthly. When called directly,
 # go.mod and go.sum will be updated locally.
 deps:
@@ -465,17 +471,18 @@ earthly-docker:
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthly") /usr/bin/earthly
-    ARG DOCKERHUB_USER="earthly"
     ARG DOCKERHUB_IMG="earthly"
+
+    # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
     # arguments to the save SAVE IMAGE do not. Using variables here doesn't work
     # either, unfortunately, as the names are quoted and treated as a single arg.
     IF [ "$PUSH_LATEST_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $DOCKERHUB_USER/$DOCKERHUB_IMG:$TAG $DOCKERHUB_USER/$DOCKERHUB_IMG:latest
+       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
     ELSE IF [ "$PUSH_PRERELEASE_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $DOCKERHUB_USER/$DOCKERHUB_IMG:$TAG $DOCKERHUB_USER/$DOCKERHUB_IMG:prerelease
+       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
     ELSE
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $DOCKERHUB_USER/$DOCKERHUB_IMG:$TAG
+       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
 # earthly-integration-test-base builds earthly docker and then
@@ -501,6 +508,8 @@ earthly-integration-test-base:
     ARG DOCKERHUB_AUTH=false
 
     COPY setup-registry.sh .
+
+    # TODO: Check this
     IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
         RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
         RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass USE_EARTHLY_MIRROR=true ./setup-registry.sh
@@ -529,7 +538,7 @@ prerelease:
         --platform=linux/arm64 \
         ./buildkitd+buildkitd --TAG=prerelease  --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     COPY (+earthly-all/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
-    SAVE IMAGE --push earthly/earthlybinaries:prerelease
+    SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:

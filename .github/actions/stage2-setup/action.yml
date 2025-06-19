@@ -60,17 +60,13 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - if: ${{ inputs.BINARY == 'docker' }}
-      run: ${{inputs.SUDO}} ${{inputs.BINARY}} login  --username "${{ inputs.DOCKERHUB_USERNAME }}" --password "${{ inputs.DOCKERHUB_PASSWORD }}"
-      shell: bash
-    - if: ${{ inputs.BINARY != 'docker' }}
-      run: ${{inputs.SUDO}} ${{inputs.BINARY}} login docker.io --username "${{ inputs.DOCKERHUB_USERNAME }}" --password "${{ inputs.DOCKERHUB_PASSWORD }}"
+    - run: echo "${{ inputs.DOCKERHUB_PASSWORD }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u "${{ inputs.DOCKERHUB_USERNAME }}" --password-stdin
       shell: bash
     - run: |-
         echo "Extracting earthly binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        BUILDKITD_IMAGE=docker.io/earthly/buildkitd-staging ${{inputs.SUDO}} ./earthly upgrade
+        BUILDKITD_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
         mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")

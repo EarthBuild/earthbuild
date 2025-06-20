@@ -7,17 +7,80 @@ In 2025, earthly [announced a pivot to a different business
 model](https://web.archive.org/web/20250420142821/https://earthly.dev/blog/shutting-down-earthfiles-cloud/),
 no longer maintaining `earthly` to focus on entirely different products and directions.
 
-## Features removed
+In response, the community has forked the project under the name `EarthBuild` to continue its development and maintenance.
 
-In earthly's original monitization model, they offered managed hosting of `earthly/buildkitd` instances
-through their "satellite" product.
+## What to Expect from EarthBuild
 
-This included clouds, accounts, billing, cloud secret management and "value add" features like "auto skip."
+<!-- 
+  TODO: It would be good to add more details here about the project's governance,
+  roadmap, and where to find community support (e.g., Slack, Discord, GitHub Discussions).
+  This is critical information for any organization considering this migration.
+-->
+EarthBuild is a community-driven project. This means development is no longer backed by a single corporation but by a collective of users and contributors.
 
-In the community fork of earthly, no monetization is attempted; therefore these features no longer make sense
-and have been removed from the earthly CLI binary.
+- **Stability**: The immediate goal of EarthBuild is to provide a stable, reliable build tool for the community.
+- **Open Governance**: The project aims for an open and transparent governance model.
+- **Community Support**: Support is available through community channels.
 
-### CLI Commands
+## Key Changes
+
+The most significant change is the removal of all features related to Earthly's commercial cloud offering. EarthBuild focuses on being a great, self-hosted build tool.
+
+### Binary Name Change
+
+The command-line tool has been renamed from `earthly` to `earth`. You will need to update your scripts, CI configurations, and any local aliases.
+
+```diff
+- earthly +all
++ earth +all
+```
+
+In CI 
+
+### Installation
+
+To switch to EarthBuild, you will need to use the new installation scripts.
+
+<!-- TODO: Add a link to the new installation instructions. -->
+```bash
+# Example of a potential new installation command
+/bin/bash -c "$(curl -fsSL https://.../install.sh)"
+```
+
+You should remove the old `earthly` binary from your systems to avoid confusion.
+
+## Removed Features and Alternatives
+
+The following commands and flags, mostly related to Earthly Cloud, have been removed.
+
+### Removed Commands
+
+| Command(s)                | Description                                       | Alternative / Migration Path                                                                                                                                                                                            |
+| ------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account`                 | Managed Earthly accounts.                         | Not applicable. EarthBuild does not have a concept of user accounts.                                                                                                                                                    |
+| `org`, `orgs`             | Managed Earthly organizations.                    | Not applicable.                                                                                                                                                                                                         |
+| `project`, `projects`     | Managed Earthly projects.                         | Not applicable.                                                                                                                                                                                                         |
+| `satellite`, `satellites` | Managed remote runners (Buildkitd instances).     | You can run your own Buildkitd instances on any infrastructure and connect to them using `earth --buildkit-host <host>`. See [remote runners documentation](remote-runners.md). <!-- TODO: Verify link -->               |
+| `cloud`, `clouds`         | Configured Cloud Installations for BYOC plans.    | See `satellite` alternative.                                                                                                                                                                                            |
+| `secret`, `secrets`       | Managed cloud secrets.                            | Use standard environment variables, `--secret` flags with local files (`--secret-file-path`), or integrate with your own secret management solution (e.g., HashiCorp Vault, AWS Secrets Manager) within your Earthfiles. |
+| `web`                     | Opened the Earthly Cloud web UI.                  | Not applicable.                                                                                                                                                                                                         |
+| `billing`                 | Viewed Earthly billing information.               | Not applicable.                                                                                                                                                                                                         |
+| `gha`                     | Managed GitHub Actions integrations.              | The core GitHub Actions integration remains. See the CI section below. This command was for a specific, now-removed, part of that integration.                                                                        |
+| `prune-auto-skip`         | Pruned auto-skip data.                            | The auto-skip feature has been removed, so this command is no longer needed.                                                                                                                                            |
+
+### Removed & Changed CLI Options
+
+- `--satellite`, `--sat`, `--no-satellite`, `--no-sat`: Removed. Use `--buildkit-host` (or configuration) explicitly to connect to a remote Buildkitd instance.
+- `--auto-skip`, `--no-auto-skip`: The `auto-skip` feature, which depended on Earthly's cloud services, has
+  been removed. If you are interested in this feature being restored in the community edition see https://github.com/EarthBuild/earthbuild/issues/3
+- `--auth-token`: This flag is now only used for authenticating with registries, not Earthly Cloud.
+- The binary name in help texts and other places is now `earth` instead of `earthly`.
+
+---
+
+## Detailed CLI Diff
+
+Here is a `diff` of the CLI help output to highlight the changes.
 
 ```diff
 NAME:
@@ -36,16 +99,16 @@ USAGE:
 
 
 COMMANDS:
-   bootstrap                   Bootstraps earthly installation including buildkit image download and optionally shell autocompletion
+   bootstrap                   Bootstraps installation including buildkit image download and optionally shell autocompletion
    docker-build                *beta* Build a Dockerfile without an Earthfile
 -   account                     Create or manage an Earthly account
-   config                      Edits your Earthly configuration file
+   config                      Edits your configuration file
    doc                         Document targets from an Earthfile
    init                        *experimental* Initialize an Earthfile for the current project
    ls                          List targets from an Earthfile
 -   org, orgs                   Create or manage your Earthly orgs
 -   project, projects           Manage Earthly projects
-   prune                       Prune Earthly build cache
+   prune                       Prune build cache
 -   prune-auto-skip             Prune Earthly auto-skip data
    registry, registries        *beta* Manage registry access
 -   satellite, satellites, sat  Create and manage Earthly Satellites
@@ -59,7 +122,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --config value                   Path to config file [$EARTHLY_CONFIG]
    --ssh-auth-sock value            The SSH auth socket to use for ssh-agent forwarding (default: "/private/tmp/com.apple.launchd.ZviWbhl8ar/Listeners") [$EARTHLY_SSH_AUTH_SOCK]
-   --auth-token value               Force Earthly account login to authenticate with supplied token [$EARTHLY_TOKEN]
+-   --auth-token value               Force Earthly account login to authenticate with supplied token [$EARTHLY_TOKEN]
    --git-username value             The git username to use for git HTTPS authentication [$GIT_USERNAME]
    --git-password value             The git password to use for git HTTPS authentication [$GIT_PASSWORD]
    --verbose, -V                    Enable verbose logging (default: false) [$EARTHLY_VERBOSE]
@@ -78,7 +141,7 @@ GLOBAL OPTIONS:
    --no-output                      Do not output artifacts or images
                                     (using --push is still allowed) (default: false) [$EARTHLY_NO_OUTPUT]
    --no-cache                       Do not use cache while building (default: false) [$EARTHLY_NO_CACHE]
-   --auto-skip                      Skip buildkit if target has already been built (default: false) [$EARTHLY_AUTO_SKIP]
+-   --auto-skip                      Skip buildkit if target has already been built (default: false) [$EARTHLY_AUTO_SKIP]
    --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands (default: false) [$EARTHLY_ALLOW_PRIVILEGED]
    --max-remote-cache               Saves all intermediate images too in the remote cache (default: false) [$EARTHLY_MAX_REMOTE_CACHE]
    --save-inline-cache              Enable cache inlining when pushing images (default: false) [$EARTHLY_SAVE_INLINE_CACHE]
@@ -87,29 +150,15 @@ GLOBAL OPTIONS:
    --interactive, -i                Enable interactive debugging (default: false) [$EARTHLY_INTERACTIVE]
    --strict                         Disallow usage of features that may create unrepeatable builds (default: false) [$EARTHLY_STRICT]
 -   --satellite value, --sat value   The name of satellite to use for this build. [$EARTHLY_SATELLITE]
-   --no-satellite, --no-sat         Disables the use of a selected satellite for this build. (default: false) [$EARTHLY_NO_SATELLITE]
+-   --no-satellite, --no-sat         Disables the use of a selected satellite for this build. (default: false) [$EARTHLY_NO_SATELLITE]
    --buildkit-image value           The docker image to use for the buildkit daemon (default: "docker.io/earthly/buildkitd:v0.8.15") [$EARTHLY_BUILDKIT_IMAGE]
    --remote-cache value             A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHLY_REMOTE_CACHE]
    --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images (default: false) [$EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY]
 -   --no-auto-skip                   Disable auto-skip functionality (default: false) [$EARTHLY_NO_AUTO_SKIP]
-   --github-annotations             Enable Git Hub Actions workflow specific output (default: false) [$GITHUB_ACTIONS]
+   --github-annotations             Enable GitHub Actions workflow specific output. When enabled, errors and warnings are reported as annotations in GitHub. (default: false) [$GITHUB_ACTIONS]
    --help, -h                       show help
    --version, -v                    print the version
 ```
-
-TODO:
-
-- `--no-satellite` Is there an equivalent?
-- what is `--github-annotations`?
-
-Commands removed
-
-- Billing
-- 
-
-### CLI Options
-
-- Autoskip TODO: add a link to a ticket to bring this back
 
 ## CI
 
@@ -127,6 +176,21 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
        - name: Setup Earthly
 -         uses: earthly/actions-setup@main
 +         uses: earthbuild/actions-setup@main
+         with:
+-          earthly-version: v0.8.5 # example
++          version: v0.9.0 # example, use the latest earthbuild version
        - name: Run build
-         run: earthly --ci +all
+-         run: earthly --ci +all
++         run: earth --ci +all
 ```
+
+<!-- TODO discuss versioning. Do we call the first build of the fork v0.9.0? -->
+The `--github-annotations` flag or the `GITHUB_ACTIONS=true` environment variable can be used to enable more detailed output for GitHub Actions, including annotations for errors and warnings directly in your workflow runs.
+
+
+## Hint 🤖
+
+It's 2025.
+Provide this document to your agent of choice to pick up the heavy lifting at your org.
+
+<!-- TODO test efficacy of the migration on largescale repositories and adjust -->

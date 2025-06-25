@@ -1,11 +1,11 @@
-name: Podman Mac CI
+name: Podman CI macOs scheduled
 
 on:
   schedule:
-    - cron: '0 6 * * * ' # Every day at 6:00AM UTC (~midnight CST pending DST)
+    - cron: '0 0 * * *'
 
 jobs:
-  tests:
+  podman-macos-test:
     name: +testing-gha-podman
     runs-on: macos-13 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
@@ -25,10 +25,10 @@ jobs:
       PODMAN_MEMORY_MB: 13000
       PODMAN_DISK_SPACE_GB: 13
     steps:
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: earthly/actions-setup@main
       - name: Install podman
         run: brew install podman
       - name: Podman Mac Helper

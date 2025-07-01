@@ -35,17 +35,29 @@ The command-line tool has been renamed from `earthly` to `earth`. You will need 
 + earth +all
 ```
 
-In CI 
+In the `earthlybuild/actions-setup` github action, we've aliased `earthly` to `earth`, logging the deprecated
+usage, to ease the switch.
+
+<!-- TODO: Is this a good idea? Do we provide a version that is breaking later to ease switching? Or do we break immediately? -->
+In version `vX.X.X` we will release a breaking change that removes the alias.
+As of that version, you must update your CI configuration to use `earth` instead of `earthly` to reference the
+CLI binary.
+We recommend using this period of overlap to update your CI configuration in preparation of the release.
 
 ### Installation
 
 To switch to EarthBuild, you will need to use the new installation scripts.
 
 <!-- TODO: Add a link to the new installation instructions. -->
+<!-- TODO: What do we want the new installer to do? Install aliases? Move config? -->
 ```bash
 # Example of a potential new installation command
 /bin/bash -c "$(curl -fsSL https://.../install.sh)"
 ```
+
+- Mac - Brew
+- Nix?
+- WSL?
 
 You should remove the old `earthly` binary from your systems to avoid confusion.
 
@@ -160,6 +172,12 @@ GLOBAL OPTIONS:
    --version, -v                    print the version
 ```
 
+## Syntax
+
+<!-- Deprecation plan for the following, logging a warning for now and breaking in the next version: -->
+<!-- EARTHLY_* variables -->
+<!-- PROJECT -->
+
 ## CI
 
 ### GitHub Actions
@@ -185,7 +203,15 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
 ```
 
 <!-- TODO discuss versioning. Do we call the first build of the fork v0.9.0? -->
-The `--github-annotations` flag or the `GITHUB_ACTIONS=true` environment variable can be used to enable more detailed output for GitHub Actions, including annotations for errors and warnings directly in your workflow runs.
+The `--github-annotations` flag or the `GITHUB_ACTIONS=true` environment variable can be used to enable more
+detailed output for GitHub Actions, including annotations for errors and warnings directly in your workflow
+runs.
+
+## Syntax
+
+Largely unchanged
+
+Note things we'll depreacte in `v0.9`
 
 
 ## Hint 🤖
@@ -193,4 +219,4 @@ The `--github-annotations` flag or the `GITHUB_ACTIONS=true` environment variabl
 It's 2025.
 Provide this document to your agent of choice to pick up the heavy lifting at your org.
 
-<!-- TODO test efficacy of the migration on largescale repositories and adjust -->
+<!-- TODO test efficacy of the migration on largescale repositories using clause/gemini and adjust doc -->

@@ -99,7 +99,7 @@ release-github:
     ARG GITHUB_USER="earthly"
     ARG EARTHLY_REPO="earthly"
     ARG DOCKERHUB_HOST="docker.io"
-    ARG DOCKERHUB_USER="earthly"
+    ARG DOCKERHUB_USER="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PRERELEASE="false"
     ARG EARTHLY_GIT_HASH

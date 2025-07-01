@@ -10,11 +10,8 @@ jobs:
     runs-on: macos-13 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       BUILT_EARTHLY_PATH: build/darwin/amd64/earthly
-      DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
-      DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
 
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,14 +46,10 @@ jobs:
         run: podman version
       - name: Virtualization check
         run: sysctl -a | grep machdep.cpu.features
-      - name: Docker mirror login via Podman (Earthly Only)
-        run: podman login registry-1.docker.io.mirror.corp.earthly.dev --username "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}" --password "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-      - name: Configure Earthly to use mirror (Earthly Only)
+      - name: Configure Earthly to use GCR mirror
         run: |-
           earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+          mirrors = [\"mirror.gcr.io\"]'"
       - name: Bootstrap Earthly using released earthly
         run: earthly bootstrap
       - name: Build latest earthly using released earthly

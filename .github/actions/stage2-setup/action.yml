@@ -64,8 +64,6 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - run: echo "${{ inputs.GHCR_PASSWORD }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u "${{ inputs.GHCR_USERNAME }}" --password-stdin
-      shell: bash
     - run: |-
         echo "Extracting earthly binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
@@ -77,6 +75,11 @@ runs:
         ${{inputs.SUDO}} ls "${HOME}/.earthly/"
         ${{inputs.SUDO}} mv "${HOME}/.earthly/earthly-$TAG" "${{inputs.BUILT_EARTHLY_PATH}}"
         echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
+      shell: bash
+    - run: |-
+        echo "Configuring earthbuild to use GCR mirror"
+        ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+        mirrors = [\"mirror.gcr.io\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-

@@ -13,8 +13,8 @@ if [ "$USE_EARTHLY_MIRROR" = "true" ]; then
     echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTHLY_MIRROR option"
     exit 1
   fi
-  DOCKERHUB_MIRROR="registry-1.docker.io.mirror.corp.earthly.dev"
-  DOCKERHUB_MIRROR_AUTH="true"
+  DOCKERHUB_MIRROR="mirror.gcr.io"
+  DOCKERHUB_MIRROR_AUTH="false"
 fi
 
 mkdir -p "$(dirname "$configpath")"

@@ -89,7 +89,7 @@ runs:
         echo "Extracting earthly binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        BUILDKITD_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging ${{inputs.SUDO}} ./earthly upgrade
+        ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
         mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")

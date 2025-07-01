@@ -31,6 +31,27 @@ inputs:
   EARTHLY_ORG:
     description: "The Earthly organization"
     required: false
+  EARTHLY_TOKEN:
+    description: "Earthly token (legacy - not used with GCR mirror)"
+    required: false
+  GHCR_USERNAME:
+    description: "GHCR username (legacy - now uses github.actor)"
+    required: false
+  GHCR_PASSWORD:
+    description: "GHCR password (legacy - now uses GITHUB_TOKEN)"
+    required: false
+  DOCKERHUB_USERNAME:
+    description: "Docker Hub username (legacy - not needed with GCR mirror)"
+    required: false
+  DOCKERHUB_PASSWORD:
+    description: "Docker Hub password (legacy - not needed with GCR mirror)"
+    required: false
+  DOCKERHUB_MIRROR_USERNAME:
+    description: "Docker Hub mirror username (legacy - GCR mirror is public)"
+    required: false
+  DOCKERHUB_MIRROR_PASSWORD:
+    description: "Docker Hub mirror password (legacy - GCR mirror is public)"
+    required: false
 
 runs:
   using: "composite"

@@ -25,6 +25,13 @@ on:
       EXTRA_ARGS:
         required: false
         type: string
+      USE_SATELLITE:
+        required: false
+        type: boolean
+        default: false
+      SATELLITE_NAME:
+        required: false
+        type: string
 
 jobs:
   test:

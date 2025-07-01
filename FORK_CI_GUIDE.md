@@ -40,7 +40,7 @@ The CI workflows require numerous secrets. These need to be created in the `eart
 
 The CI relies on several external services.
 
-- **Private Docker Mirror (`registry-1.docker.io.mirror.corp.earthly.dev`)**: This is a major blocker. The original CI uses a private Docker mirror for performance.
+- **Private Docker Mirror (`registry-1.docker.io.mirror.corp.earthly.dev`)**: This was originally a major blocker. The private mirror has been replaced with Google's public mirror (`mirror.gcr.io`).
   - **Action Required**: Remove all steps and configurations related to this mirror. This includes:
     - `docker login` steps for the mirror.
     - `earthly config` commands that set the mirror.
@@ -65,7 +65,7 @@ The CI relies on several external services.
 
 ## Progress Update
 
-- The private Docker mirror (`registry-1.docker.io.mirror.corp.earthly.dev`) has been removed from `build-earthly.yml` and `reusable-test.yml`.
+- The private Docker mirror (`registry-1.docker.io.mirror.corp.earthly.dev`) has been replaced with Google's public mirror (`mirror.gcr.io`) in all workflows and scripts.
 - The `.github/actions/stage2-setup/action.yml` has been updated to remove mirror-related inputs and steps.
 - The main CI workflow, `ci-docker-ubuntu.yml`, has been simplified by removing jobs that depend on the private mirror, cloud provider secrets (GCP/ECR), and internal release processes.
 

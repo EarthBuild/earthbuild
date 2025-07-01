@@ -25,7 +25,7 @@ chmod 600 "$dockerconfig"
 cat > "$dockerconfig" <<EOF
 {
 	"auths": {
-		"registry-1.docker.io.mirror.corp.earthly.dev": {
+    "mirror.gcr.io": {
 			"auth": "$ENCODED_AUTH"
 		}
 	}
@@ -36,7 +36,7 @@ EOF
 # earthly-entrypoint.sh starts buildkit instead of the earthly binary,
 # as a result the buildkit_additional_config value in ~/.earthly/config.yml is ignored.
 export EARTHLY_ADDITIONAL_BUILDKIT_CONFIG='[registry."docker.io"]
-  mirrors = ["registry-1.docker.io.mirror.corp.earthly.dev"]'
+  mirrors = ["mirror.gcr.io"]'
 
 function finish {
   status="$?"

@@ -65,7 +65,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ env.GITHUB_TOKEN }}
     - if: inputs.BINARY == 'docker'
       uses: docker/setup-qemu-action@v3
       with:

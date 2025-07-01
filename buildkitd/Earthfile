@@ -79,14 +79,14 @@ buildkitd:
     VOLUME /tmp/earthly
     ENTRYPOINT ["/usr/bin/entrypoint.sh", "buildkitd", "--config=/etc/buildkitd.toml"]
     
-    ARG GH_ORG="earthbuild"
+    ARG CR_ORG="earthbuild"
     # TODO: push this to buildkit repo or the main earthly repo under a specific tag?
-    ARG GH_REPO="buildkit"
+    ARG CR_REPO="buildkit"
     ARG IMAGE_REGISTRY="ghcr.io"
 
     # Ensure that the image we save is a fully qualified name. Podman defaults to "localhost", while Docker defaults to
     # "docker.io". This keeps it consistent across both frontends.
-    SAVE IMAGE --push $IMAGE_REGISTRY/$GH_ORG/$GH_REPO:$TAG
+    SAVE IMAGE --push $IMAGE_REGISTRY/$CR_ORG/$CR_REPO:$TAG
 
 buildkit-sha:
     RUN apk add git

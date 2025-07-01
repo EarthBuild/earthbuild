@@ -23,11 +23,11 @@ RUN apk add --update --no-cache \
 
 WORKDIR /earthly
 
-ARG GH_ORG="earthbuild"
-ARG GH_REPO="earthbuild"
+ARG CR_ORG="earthbuild"
+ARG CR_REPO="earthbuild"
 ARG REGISTRY_BASE="ghcr.io"
 
-ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$GH_ORG/$GH_REPO
+ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 # deps downloads and caches all dependencies for earthly. When called directly,
 # go.mod and go.sum will be updated locally.

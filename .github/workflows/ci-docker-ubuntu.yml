@@ -65,7 +65,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group1:
@@ -79,7 +79,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group2:
@@ -93,7 +93,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group3:
@@ -107,7 +107,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group4:
@@ -121,7 +121,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group5:
@@ -135,7 +135,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group6:
@@ -149,7 +149,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group7:
@@ -163,7 +163,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group8:
@@ -177,7 +177,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group9:
@@ -191,7 +191,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group10:
@@ -205,7 +205,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group11:
@@ -219,7 +219,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group12:
@@ -233,7 +233,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-slow:
@@ -247,7 +247,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-kind:
@@ -261,7 +261,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-test-account:
@@ -275,7 +275,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-registry-command-dockerhub:
@@ -289,7 +289,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-registry-command-multi:
@@ -303,7 +303,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-web-command:
@@ -317,7 +317,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-oidc-command:
@@ -331,7 +331,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-qemu:
@@ -346,7 +346,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-examples-1:
@@ -532,7 +532,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-misc"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group1:
@@ -546,7 +546,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group1"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group2:
@@ -560,7 +560,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group2"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group3:
@@ -574,7 +574,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group3"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group4:
@@ -588,7 +588,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group4"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-slow:
@@ -602,7 +602,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-slow"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-qemu:
@@ -616,7 +616,7 @@ jobs:
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       TARGET_NAME: "+test-qemu"
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-git-metadata-test:
@@ -643,7 +643,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group1:
@@ -658,7 +658,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group2:
@@ -673,7 +673,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group3:
@@ -688,7 +688,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group4:
@@ -703,7 +703,7 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-slow:
@@ -718,5 +718,5 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit

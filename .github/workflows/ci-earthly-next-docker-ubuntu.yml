@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   build-earthly-with-next:
+    permissions: write-all
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
@@ -38,7 +39,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group2:
@@ -52,7 +53,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group3:
@@ -66,7 +67,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group4:
@@ -80,7 +81,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group5:
@@ -94,7 +95,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group6:
@@ -108,7 +109,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group7:
@@ -122,7 +123,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group8:
@@ -136,7 +137,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group9:
@@ -150,7 +151,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group10:
@@ -164,7 +165,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group11:
@@ -178,7 +179,7 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group12:
@@ -192,5 +193,5 @@ jobs:
       USE_NEXT: true
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
-      EXTRA_ARGS: "--auto-skip"
+      # EXTRA_ARGS: "--auto-skip"
     secrets: inherit

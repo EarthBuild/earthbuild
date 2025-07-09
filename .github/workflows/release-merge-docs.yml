@@ -22,9 +22,9 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: earthly/actions-setup@main
       - name: Execute merge
         run: earthly --push --ci +merge-main-to-docs

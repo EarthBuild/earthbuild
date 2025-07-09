@@ -103,8 +103,7 @@ done
 # Yes, there is a bug in the upstream YAML parser. Sorry about the jank here.
 # https://github.com/go-yaml/yaml/issues/423
 "$earthly" config global.buildkit_additional_config "'[registry.\"docker.io\"]
-
- mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
+ mirrors = [\"mirror.gcr.io\"]'"
 
 # setup secrets
 set +x # dont echo secrets
@@ -113,8 +112,8 @@ echo "DOCKERHUB_PASS=$($earthly secret --org earthly-technologies --project core
 echo "DOCKERHUB_MIRROR_USER=$($earthly secret --org earthly-technologies --project core get -n dockerhub-mirror/user || kill $$)" > .secret
 echo "DOCKERHUB_MIRROR_PASS=$($earthly secret --org earthly-technologies --project core get -n dockerhub-mirror/pass || kill $$)" >> .secret
 # setup args
-echo "DOCKERHUB_MIRROR_AUTH=true" > .arg
-echo "DOCKERHUB_MIRROR=registry-1.docker.io.mirror.corp.earthly.dev" >> .arg
+echo "DOCKERHUB_MIRROR_AUTH=false" > .arg
+echo "DOCKERHUB_MIRROR=mirror.gcr.io" >> .arg
 set -x
 
 # stop the released earthly buildkitd container (to preserve memory)

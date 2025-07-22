@@ -211,7 +211,7 @@ runs.
 
 Largely unchanged
 
-Note things we'll depreacte in `v0.9`
+Note things we'll deprecate in `v0.9`
 
 
 ## Hint 🤖

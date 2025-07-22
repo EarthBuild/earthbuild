@@ -18,7 +18,7 @@ In response, the community has forked the project under the name `EarthBuild` to
 -->
 EarthBuild is a community-driven project. This means development is no longer backed by a single corporation but by a collective of users and contributors.
 
-- **Stability**: The immediate goal of EarthBuild is to provide a stable, reliable build tool for the community.
+- **Stability**: The immediate goal of EarthBuild is to provide a secure, stable & reliable build tool for the community.
 - **Open Governance**: The project aims for an open and transparent governance model.
 - **Community Support**: Support is available through community channels.
 

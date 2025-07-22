@@ -11,11 +11,12 @@ In response, the community has forked the project under the name `EarthBuild` to
 
 ## What to Expect from EarthBuild
 
-<!-- 
+<!--
   TODO: It would be good to add more details here about the project's governance,
   roadmap, and where to find community support (e.g., Slack, Discord, GitHub Discussions).
   This is critical information for any organization considering this migration.
 -->
+
 EarthBuild is a community-driven project. This means development is no longer backed by a single corporation but by a collective of users and contributors.
 
 - **Stability**: The immediate goal of EarthBuild is to provide a secure, stable & reliable build tool for the community.
@@ -24,7 +25,20 @@ EarthBuild is a community-driven project. This means development is no longer ba
 
 ## Key Changes
 
-The most significant change is the removal of all features related to Earthly's commercial cloud offering. EarthBuild focuses on being a great, self-hosted build tool.
+The most significant change is the removal of all features related to Earthly's commercial cloud offering.
+EarthBuild focuses on being a great, self-hosted build tool.
+
+Features related to the cloud-hosted earthly commercial offering were removed in the [final release of earthly
+`v0.8.16`](https://github.com/earthly/earthly/releases/tag/v0.8.16) and will never be present in EarthBuild
+releases.
+
+We will maintain compatibility while logging warnings for other, more invasive, changes for releases of
+EarthBuild on the `v0.8.x` minor version.
+
+We will publish a breaking change to these features in the first unique minor version for EarthBuild, `v0.9.x`.
+
+These changes include renaming of configuration variables from `EARTHLY_*` to `EARTHBUILD_*`, removal of Earthfile syntax related to cloud
+hosting like `PROJECT` and naming of built-in arguments like `ARG EARTHLY_GIT_PROJECT_NAME` to `ARG EARTHBUILD_GIT_PROJECT_NAME`.
 
 ### Binary Name Change
 
@@ -38,10 +52,11 @@ The command-line tool has been renamed from `earthly` to `earth`. You will need 
 In the `earthlybuild/actions-setup` github action, we've aliased `earthly` to `earth`, logging the deprecated
 usage, to ease the switch.
 
-<!-- TODO: Is this a good idea? Do we provide a version that is breaking later to ease switching? Or do we break immediately? -->
 In version `v0.9.0` we will release a breaking change that removes the alias.
+
 As of that version, you must update your CI configuration to use `earth` instead of `earthly` to reference the
 CLI binary.
+
 We recommend using this period of overlap to update your CI configuration in preparation of the release.
 
 ### Installation
@@ -50,6 +65,7 @@ To switch to EarthBuild, you will need to use the new installation scripts.
 
 <!-- TODO: Add a link to the new installation instructions. -->
 <!-- TODO: What do we want the new installer to do? Install aliases? Move config? -->
+
 ```bash
 # Example of a potential new installation command
 /bin/bash -c "$(curl -fsSL https://.../install.sh)"
@@ -67,18 +83,18 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 
 ### Removed Commands
 
-| Command(s)                | Description                                       | Alternative / Migration Path                                                                                                                                                                                            |
-| ------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `account`                 | Managed Earthly accounts.                         | Not applicable. EarthBuild does not have a concept of user accounts.                                                                                                                                                    |
-| `org`, `orgs`             | Managed Earthly organizations.                    | Not applicable.                                                                                                                                                                                                         |
-| `project`, `projects`     | Managed Earthly projects.                         | Not applicable.                                                                                                                                                                                                         |
-| `satellite`, `satellites` | Managed remote runners (Buildkitd instances).     | You can run your own Buildkitd instances on any infrastructure and connect to them using `earth --buildkit-host <host>`. See [remote runners documentation](remote-runners.md). <!-- TODO: Verify link -->               |
-| `cloud`, `clouds`         | Configured Cloud Installations for BYOC plans.    | See `satellite` alternative.                                                                                                                                                                                            |
-| `secret`, `secrets`       | Managed cloud secrets.                            | Use standard environment variables, `--secret` flags with local files (`--secret-file-path`), or integrate with your own secret management solution (e.g., HashiCorp Vault, AWS Secrets Manager) within your Earthfiles. |
-| `web`                     | Opened the Earthly Cloud web UI.                  | Not applicable.                                                                                                                                                                                                         |
-| `billing`                 | Viewed Earthly billing information.               | Not applicable.                                                                                                                                                                                                         |
-| `gha`                     | Managed GitHub Actions integrations.              | The core GitHub Actions integration remains. See the CI section below. This command was for a specific, now-removed, part of that integration.                                                                        |
-| `prune-auto-skip`         | Pruned auto-skip data.                            | The auto-skip feature has been removed, so this command is no longer needed.                                                                                                                                            |
+| Command(s)                | Description                                    | Alternative / Migration Path                                                                                                                                                                                             |
+| ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `account`                 | Managed Earthly accounts.                      | Not applicable. EarthBuild does not have a concept of user accounts.                                                                                                                                                     |
+| `org`, `orgs`             | Managed Earthly organizations.                 | Not applicable.                                                                                                                                                                                                          |
+| `project`, `projects`     | Managed Earthly projects.                      | Not applicable.                                                                                                                                                                                                          |
+| `satellite`, `satellites` | Managed remote runners (Buildkitd instances).  | You can run your own Buildkitd instances on any infrastructure and connect to them using `earth --buildkit-host <host>`. See [remote buildkit documentation](docs/ci-integration/remote-buildkit.md).                    |
+| `cloud`, `clouds`         | Configured Cloud Installations for BYOC plans. | See `satellite` alternative.                                                                                                                                                                                             |
+| `secret`, `secrets`       | Managed cloud secrets.                         | Use standard environment variables, `--secret` flags with local files (`--secret-file-path`), or integrate with your own secret management solution (e.g., HashiCorp Vault, AWS Secrets Manager) within your Earthfiles. |
+| `web`                     | Opened the Earthly Cloud web UI.               | Not applicable.                                                                                                                                                                                                          |
+| `billing`                 | Viewed Earthly billing information.            | Not applicable.                                                                                                                                                                                                          |
+| `gha`                     | Managed GitHub Actions integrations.           | The core GitHub Actions integration remains. See the CI section below. This command was for a specific, now-removed, part of that integration.                                                                           |
+| `prune-auto-skip`         | Pruned auto-skip data.                         | The auto-skip feature has been removed, so this command is no longer needed.                                                                                                                                             |
 
 ### Removed & Changed CLI Options
 
@@ -97,7 +113,7 @@ All `EARTHLY_*` environment variables have been renamed to `EARTHBUILD_*` to ref
 The following environment variables have been removed along with their associated features:
 
 - `EARTHLY_TOKEN` - Used for Earthly Cloud authentication
-- `EARTHLY_AUTO_SKIP` - Controlled auto-skip functionality  
+- `EARTHLY_AUTO_SKIP` - Controlled auto-skip functionality
 - `EARTHLY_NO_AUTO_SKIP` - Disabled auto-skip functionality
 - `EARTHLY_SATELLITE` - Selected satellite for builds
 - `EARTHLY_NO_SATELLITE` - Disabled satellite usage
@@ -113,7 +129,7 @@ conventions:
 
 - `DO_NOT_TRACK` - Standard analytics opt-out variable
 - `GIT_USERNAME` - Git authentication username
-- `GIT_PASSWORD` - Git authentication password  
+- `GIT_PASSWORD` - Git authentication password
 - `GITHUB_ACTIONS` - GitHub Actions environment detection
 
 ---
@@ -197,13 +213,13 @@ GLOBAL OPTIONS:
 
 ## Syntax
 
-Largely unchanged
+The core syntax of Earthfiles is largely unchanged.
 
-Note things we'll deprecate in `v0.9`
+Again, this will be logged as a warning in `v0.8.x` and removed, treated as an error, in `v0.9.x`.
 
-<!-- Deprecation plan for the following, logging a warning for now and breaking in the next version: -->
-<!-- EARTHLY_* variables -->
-<!-- PROJECT -->
+The exception here is that the `PROJECT` command is removed entirely since it related to the cloud offering.
+
+Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTHBUILD_*`.
 
 ## CI
 
@@ -228,11 +244,6 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
 -         run: earthly --ci +all
 +         run: earth --ci +all
 ```
-
-<!-- TODO discuss versioning. Do we call the first build of the fork v0.9.0? -->
-The `--github-annotations` flag or the `GITHUB_ACTIONS=true` environment variable can be used to enable more
-detailed output for GitHub Actions, including annotations for errors and warnings directly in your workflow
-runs.
 
 ## Hint 🤖
 

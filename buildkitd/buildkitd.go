@@ -84,8 +84,7 @@ func NewClient(ctx context.Context, console conslogging.ConsoleLogger, image, co
 
 	isLocal := isLocalBuildkit(settings)
 	if !isLocal {
-		remoteConsole := console
-		remoteConsole = console.WithPrefix("buildkitd")
+		remoteConsole := console.WithPrefix("buildkitd")
 		remoteConsole.Printf("Connecting to %s...", settings.BuildkitAddress)
 
 		info, workerInfo, err := waitForConnection(ctx, containerName, settings, fe, opts...)

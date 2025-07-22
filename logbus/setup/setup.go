@@ -28,8 +28,7 @@ type BusSetup struct {
 	InitialManifest  *logstream.RunManifest
 	execStatsTracker *execstatssummary.Tracker
 
-	logStreamerStarted bool
-	verbose            bool
+	verbose bool
 }
 
 // New creates a new BusSetup.

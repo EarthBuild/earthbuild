@@ -76,7 +76,7 @@ get_latest_binary() {
     fi
 
     dst="$bindir/earthly-${bintag}"
-    "$frontend_bin" pull --platform="$bk_platform" "ghcr.io/earthbuild/buildkit:${bintag}" >&2
+    "$frontend_bin" pull --platform="$bk_platform" "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${bintag}" >&2
     "$frontend_bin" cp earthly_binary:"$earth_bin_path" "$dst" >&2
     "$frontend_bin" rm earthly_binary >&2
     echo "extracted $earth_bin_path to $dst" >&2
@@ -88,7 +88,7 @@ do_reset() {
     "$frontend_bin" rm -f earthly-buildkitd || true
     rm -f "$bindir/earthly-${bintag}"
     "$frontend_bin" rm --force earthly_binary 2>/dev/null || true
-    "$frontend_bin" rmi -f "ghcr.io/earthbuild/buildkit:${bintag}" || true
+    "$frontend_bin" rmi -f "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${bintag}" || true
     "$frontend_bin" rmi -f "ghcr.io/earthbuild/earthbuild:earthlybinaries-${bintag}" || true
 }
 

@@ -39,7 +39,7 @@ In the `earthlybuild/actions-setup` github action, we've aliased `earthly` to `e
 usage, to ease the switch.
 
 <!-- TODO: Is this a good idea? Do we provide a version that is breaking later to ease switching? Or do we break immediately? -->
-In version `vX.X.X` we will release a breaking change that removes the alias.
+In version `v0.9.0` we will release a breaking change that removes the alias.
 As of that version, you must update your CI configuration to use `earth` instead of `earthly` to reference the
 CLI binary.
 We recommend using this period of overlap to update your CI configuration in preparation of the release.
@@ -84,9 +84,37 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 
 - `--satellite`, `--sat`, `--no-satellite`, `--no-sat`: Removed. Use `--buildkit-host` (or configuration) explicitly to connect to a remote Buildkitd instance.
 - `--auto-skip`, `--no-auto-skip`: The `auto-skip` feature, which depended on Earthly's cloud services, has
-  been removed. If you are interested in this feature being restored in the community edition see https://github.com/EarthBuild/earthbuild/issues/3
-- `--auth-token`: This flag is now only used for authenticating with registries, not Earthly Cloud.
+  been removed. If you are interested in this feature being restored in the community edition see <https://github.com/EarthBuild/earthbuild/issues/3>
+- `--auth-token`: This flag has been removed since it was used for authenticating with Earthly Cloud. For registry authentication, use standard Docker authentication methods.
 - The binary name in help texts and other places is now `earth` instead of `earthly`.
+
+### Environment Variable Changes
+
+All `EARTHLY_*` environment variables have been renamed to `EARTHBUILD_*` to reflect the project's new identity. The following environment variables are affected:
+
+#### Removed Environment Variables
+
+The following environment variables have been removed along with their associated features:
+
+- `EARTHLY_TOKEN` - Used for Earthly Cloud authentication
+- `EARTHLY_AUTO_SKIP` - Controlled auto-skip functionality  
+- `EARTHLY_NO_AUTO_SKIP` - Disabled auto-skip functionality
+- `EARTHLY_SATELLITE` - Selected satellite for builds
+- `EARTHLY_NO_SATELLITE` - Disabled satellite usage
+
+#### Migration Strategy
+
+**Immediate:** EarthBuild will continue to recognize `EARTHLY_*` environment variables in the current version but will log deprecation warnings encouraging migration to `EARTHBUILD_*` variables.
+
+**Future Breaking Change:** In version `vX.X.X`, support for `EARTHLY_*` environment variables will be removed entirely. You must update your environment configurations before upgrading to that version.
+
+**Standard Variables Unchanged:** Some environment variables remain unchanged as they follow standard
+conventions:
+
+- `DO_NOT_TRACK` - Standard analytics opt-out variable
+- `GIT_USERNAME` - Git authentication username
+- `GIT_PASSWORD` - Git authentication password  
+- `GITHUB_ACTIONS` - GitHub Actions environment detection
 
 ---
 
@@ -132,47 +160,46 @@ COMMANDS:
    help, h                     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --config value                   Path to config file [$EARTHLY_CONFIG]
-   --ssh-auth-sock value            The SSH auth socket to use for ssh-agent forwarding (default: "/private/tmp/com.apple.launchd.ZviWbhl8ar/Listeners") [$EARTHLY_SSH_AUTH_SOCK]
--   --auth-token value               Force Earthly account login to authenticate with supplied token [$EARTHLY_TOKEN]
+   --config value                   Path to config file [$EARTHBUILD_CONFIG]
+   --ssh-auth-sock value            The SSH auth socket to use for ssh-agent forwarding (default: "/private/tmp/com.apple.launchd.ZviWbhl8ar/Listeners") [$EARTHBUILD_SSH_AUTH_SOCK]
    --git-username value             The git username to use for git HTTPS authentication [$GIT_USERNAME]
    --git-password value             The git password to use for git HTTPS authentication [$GIT_PASSWORD]
-   --verbose, -V                    Enable verbose logging (default: false) [$EARTHLY_VERBOSE]
+   --verbose, -V                    Enable verbose logging (default: false) [$EARTHBUILD_VERBOSE]
    --buildkit-host value            The URL to use for connecting to a buildkit host
-                                      If empty, earthly will attempt to start a buildkitd instance via docker run [$EARTHLY_BUILDKIT_HOST]
-                                    Disable collection of analytics (default: false) [$EARTHLY_DISABLE_ANALYTICS, $DO_NOT_TRACK]
-   --env-file-path value            Use values from this file as earthly environment variables; values are no longer used as --build-arg's or --secret's (default: ".env") [$EARTHLY_ENV_FILE_PATH]
-   --arg-file-path value            Use values from this file as earthly buildargs (default: ".arg") [$EARTHLY_ARG_FILE_PATH]
-   --secret-file-path value         Use values from this file as earthly secrets (default: ".secret") [$EARTHLY_SECRET_FILE_PATH]
+                                      If empty, earthly will attempt to start a buildkitd instance via docker run [$EARTHBUILD_BUILDKIT_HOST]
+                                    Disable collection of analytics (default: false) [$EARTHBUILD_DISABLE_ANALYTICS, $DO_NOT_TRACK]
+   --env-file-path value            Use values from this file as earthly environment variables; values are no longer used as --build-arg's or --secret's (default: ".env") [$EARTHBUILD_ENV_FILE_PATH]
+   --arg-file-path value            Use values from this file as earthly buildargs (default: ".arg") [$EARTHBUILD_ARG_FILE_PATH]
+   --secret-file-path value         Use values from this file as earthly secrets (default: ".secret") [$EARTHBUILD_SECRET_FILE_PATH]
    --artifact, -a                   Output specified artifact; a wildcard (*) can be used to output all artifacts (default: false)
    --image                          Output only docker image of the specified target (default: false)
-   --push                           Push docker images and execute RUN --push commands (default: false) [$EARTHLY_PUSH]
+   --push                           Push docker images and execute RUN --push commands (default: false) [$EARTHBUILD_PUSH]
    --ci                             Execute in CI mode.
-                                    Implies --no-output --strict (default: false) [$EARTHLY_CI]
-   --output                         Allow artifacts or images to be output, even when running under --ci mode (default: false) [$EARTHLY_OUTPUT]
+                                    Implies --no-output --strict (default: false) [$EARTHBUILD_CI]
+   --output                         Allow artifacts or images to be output, even when running under --ci mode (default: false) [$EARTHBUILD_OUTPUT]
    --no-output                      Do not output artifacts or images
-                                    (using --push is still allowed) (default: false) [$EARTHLY_NO_OUTPUT]
-   --no-cache                       Do not use cache while building (default: false) [$EARTHLY_NO_CACHE]
--   --auto-skip                      Skip buildkit if target has already been built (default: false) [$EARTHLY_AUTO_SKIP]
-   --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands (default: false) [$EARTHLY_ALLOW_PRIVILEGED]
-   --max-remote-cache               Saves all intermediate images too in the remote cache (default: false) [$EARTHLY_MAX_REMOTE_CACHE]
-   --save-inline-cache              Enable cache inlining when pushing images (default: false) [$EARTHLY_SAVE_INLINE_CACHE]
+                                    (using --push is still allowed) (default: false) [$EARTHBUILD_NO_OUTPUT]
+   --no-cache                       Do not use cache while building (default: false) [$EARTHBUILD_NO_CACHE]
+   --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands (default: false) [$EARTHBUILD_ALLOW_PRIVILEGED]
+   --max-remote-cache               Saves all intermediate images too in the remote cache (default: false) [$EARTHBUILD_MAX_REMOTE_CACHE]
+   --save-inline-cache              Enable cache inlining when pushing images (default: false) [$EARTHBUILD_SAVE_INLINE_CACHE]
    --use-inline-cache               Attempt to use any inline cache that may have been previously pushed
-                                    uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from (default: false) [$EARTHLY_USE_INLINE_CACHE]
-   --interactive, -i                Enable interactive debugging (default: false) [$EARTHLY_INTERACTIVE]
-   --strict                         Disallow usage of features that may create unrepeatable builds (default: false) [$EARTHLY_STRICT]
--   --satellite value, --sat value   The name of satellite to use for this build. [$EARTHLY_SATELLITE]
--   --no-satellite, --no-sat         Disables the use of a selected satellite for this build. (default: false) [$EARTHLY_NO_SATELLITE]
-   --buildkit-image value           The docker image to use for the buildkit daemon (default: "docker.io/earthly/buildkitd:v0.8.15") [$EARTHLY_BUILDKIT_IMAGE]
-   --remote-cache value             A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHLY_REMOTE_CACHE]
-   --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images (default: false) [$EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY]
--   --no-auto-skip                   Disable auto-skip functionality (default: false) [$EARTHLY_NO_AUTO_SKIP]
+                                    uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from (default: false) [$EARTHBUILD_USE_INLINE_CACHE]
+   --interactive, -i                Enable interactive debugging (default: false) [$EARTHBUILD_INTERACTIVE]
+   --strict                         Disallow usage of features that may create unrepeatable builds (default: false) [$EARTHBUILD_STRICT]
+   --buildkit-image value           The docker image to use for the buildkit daemon (default: "docker.io/earthly/buildkitd:v0.8.15") [$EARTHBUILD_BUILDKIT_IMAGE]
+   --remote-cache value             A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHBUILD_REMOTE_CACHE]
+   --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images (default: false) [$EARTHBUILD_DISABLE_REMOTE_REGISTRY_PROXY]
    --github-annotations             Enable GitHub Actions workflow specific output. When enabled, errors and warnings are reported as annotations in GitHub. (default: false) [$GITHUB_ACTIONS]
    --help, -h                       show help
    --version, -v                    print the version
 ```
 
 ## Syntax
+
+Largely unchanged
+
+Note things we'll deprecate in `v0.9`
 
 <!-- Deprecation plan for the following, logging a warning for now and breaking in the next version: -->
 <!-- EARTHLY_* variables -->
@@ -206,13 +233,6 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
 The `--github-annotations` flag or the `GITHUB_ACTIONS=true` environment variable can be used to enable more
 detailed output for GitHub Actions, including annotations for errors and warnings directly in your workflow
 runs.
-
-## Syntax
-
-Largely unchanged
-
-Note things we'll deprecate in `v0.9`
-
 
 ## Hint 🤖
 

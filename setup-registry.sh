@@ -28,7 +28,7 @@ if [ -n "$DOCKERHUB_MIRROR" ]; then
   cat>>"$configpath"<<EOF
   buildkit_additional_config: |
     [registry."docker.io"]
-      mirrors = ["$DOCKERHUB_MIRROR"]
+      mirrors = ["https://mirror.gcr.io", "https://public.ecr.aws", "$DOCKERHUB_MIRROR"]
 EOF
   # create a second registry config for the mirror if either insecure or http flags must be set
   if [ "$DOCKERHUB_MIRROR_INSECURE" = "true" ] || [ "$DOCKERHUB_MIRROR_HTTP" = "true" ]; then
@@ -72,5 +72,9 @@ elif [ "$DOCKERHUB_AUTH" = "true" ]; then
   fi
   docker login --username="$DOCKERHUB_USER" --password="$DOCKERHUB_PASS"
 else
-  echo >&2 "WARNING: no dockerhub mirror has been setup; you may get rate limited"
+  cat>>"$configpath"<<EOF
+  buildkit_additional_config: |
+    [registry."docker.io"]
+      mirrors = ["https://mirror.gcr.io", "https://public.ecr.aws"]
+EOF
 fi

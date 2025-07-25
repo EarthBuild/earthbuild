@@ -18,11 +18,6 @@ PATH="$(realpath "$(dirname "$0")/../acbtest"):$PATH"
 date +%s > /tmp/last-earthly-prerelease-check
 
 set +x # dont remove or the token will be leaked
-if [ -z "${EARTHLY_TOKEN:-}" ]; then
-  echo "using EARTHLY_TOKEN from earthly secrets"
-  EARTHLY_TOKEN="$(earthly secrets --org earthly-technologies --project core get earthly-token-for-satellite-tests)"
-  export EARTHLY_TOKEN
-fi
 test -n "$EARTHLY_TOKEN" || (echo "error: EARTHLY_TOKEN is not set" && exit 1)
 set -x
 

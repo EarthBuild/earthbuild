@@ -1,19 +1,12 @@
 # Remote BuildKit 
 
-{% hint style='info' %}
-##### Note
-This guide is related to self-hosting a remote BuildKit, however, Self-Hosted Satellites **beta** are now available. Self-Hosted Satellites provide more features, have better security, and are easier to deploy than remote BuildKit. Check out the [Self-Hosted Satellites Guide](../cloud/satellites/self-hosted.md) for more details. If your use case cannot tolerate a cloud-based control plane, however, then self-hosting a remote BuildKit is still supported.
-{% endhint %}
-
 ## Introduction
 
 In some cases, you may want to run a remote instance of [`earthly/buildkitd`](https://hub.docker.com/r/earthly/buildkitd). This guide is intended to help you identify if you might benefit from this configuration, and to help you set it up correctly.
 
-If you are looking for a way to use remote runners without the complexities of managing them yourself, you may want to consider [Earthly Satellites](../cloud/satellites.md): remote runners managed by Earthly.
-
 ### Why Remote?
 
-Running a remote daemon is a unique feature of Earthly. It allows the build to happen elsewhere; even when executing it from your local development machine. The key benefit of remote execution is having instant access to the cache, thus making builds dramatically faster compared to many traditional CI setups that require uploading and downloading the cache.
+Running a remote daemon is a unique feature of EarthBuild. It allows the build to happen elsewhere; even when executing it from your local development machine. The key benefit of remote execution is having instant access to the cache, thus making builds dramatically faster compared to many traditional CI setups that require uploading and downloading the cache.
 
 ### Running Remote BuildKit
 
@@ -21,7 +14,7 @@ To run a remote BuildKit instance, deploy and configure the image [`earthly/buil
 
 #### Networking
 
-A remote daemon should be reachable by all clients intending to use it. Earthly uses ports `8371-8373` to communicate, so these should be open and available.
+A remote daemon should be reachable by all clients intending to use it. EarthBuild uses ports `8371-8373` to communicate, so these should be open and available.
 
 #### Mounts
 
@@ -64,15 +57,15 @@ For complete details, see the [documentation for `earthly/buildkitd` on DockerHu
 
 #### Client
 
-Normally, Earthly will try to start and manage its own `earthly/buildkitd` daemon. However, when relying on a remote `earthly/buildkitd` instance, Earthly will not attempt to manage this daemon. Here are the configuration options needed to use a remote instance:
+Normally, EarthBuild will try to start and manage its own `earthly/buildkitd` daemon. However, when relying on a remote `earthly/buildkitd` instance, EarthBuild will not attempt to manage this daemon. Here are the configuration options needed to use a remote instance:
 
 **`buildkit_host`**
 
-This is the address of the remote daemon. It should look something like this: `tcp://my-cool-remote-daemon:8372`. If the hostname is considered to be a "local" one, Earthly will fall back to the Local-Remote behaviors described below. For reference; all IPv6 Loopback addresses, `127.0.0.1`, and `[localhost](http://localhost)` are considered to be "local". The machine's hostname is not considered "local".
+This is the address of the remote daemon. It should look something like this: `tcp://my-cool-remote-daemon:8372`. If the hostname is considered to be a "local" one, EarthBuild will fall back to the Local-Remote behaviors described below. For reference; all IPv6 Loopback addresses, `127.0.0.1`, and `[localhost](http://localhost)` are considered to be "local". The machine's hostname is not considered "local".
 
 **`tlsca` / `tlscert` / `tlskey`**
 
-These are the paths to the certificates and keys used by the client when communicating with an mTLS-enabled daemon. These paths are relative to the Earthly config (usually `~/.earthly/config.yaml`, unless absolute paths are specified.
+These are the paths to the certificates and keys used by the client when communicating with an mTLS-enabled daemon. These paths are relative to the EarthBuild config (usually `~/.earthly/config.yaml`, unless absolute paths are specified.
 
 **`tls_enabled`**
 
@@ -81,5 +74,5 @@ Set this to `false` when using TLS is not desired.
 
 ### Local-Remote
 
-It is also possible to use the remote protocols (TCP and mTLS) locally, while still letting Earthly manage the daemon container.  
-Earthly will (optionally) generate its own certificates, and connect to the daemon using `tcp://127.0.0.1:8372`. This is a great way to test some of the remote capabilities without having to generate certificates or manage a separate machine.
+It is also possible to use the remote protocols (TCP and mTLS) locally, while still letting EarthBuild manage the daemon container.
+EarthBuild will (optionally) generate its own certificates, and connect to the daemon using `tcp://127.0.0.1:8372`. This is a great way to test some of the remote capabilities without having to generate certificates or manage a separate machine.

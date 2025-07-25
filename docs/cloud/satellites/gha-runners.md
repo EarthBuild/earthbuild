@@ -74,12 +74,6 @@ earthly gha add \
 
 This feature needs to be enabled during satellite creation to be able to use it.
 
-#### Earthly-Cloud satellites
-Launch the satellite with the `enable-gha-runner` [feature-flag](https://docs.earthly.dev/earthly-cloud/satellites/managing#changing-feature-flags) enabled.
-```
-earthly satellite launch --feature-flag enable-gha-runner <satellite-name>
-``` 
-
 #### Self-hosted satellites
 To enable the GH runner for a self-hosted satellite, set this environment entry when launching it:
 ```

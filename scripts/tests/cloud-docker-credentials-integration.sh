@@ -13,14 +13,8 @@ echo "running tests with $earthly"
 date +%s > /tmp/last-earthly-prerelease-check
 
 set +x # dont remove or the token will be leaked
-if [ -z "${EARTHLY_TOKEN:-}" ]; then
-  echo "using EARTHLY_TOKEN from earthly secrets"
-  EARTHLY_TOKEN="$(earthly secrets --org earthly-technologies --project core get earthly-token-for-satellite-tests)"
-  export EARTHLY_TOKEN
-fi
 test -n "$EARTHLY_TOKEN" || (echo "error: EARTHLY_TOKEN is not set" && exit 1)
 set -x
-
 EARTHLY_INSTALLATION_NAME="earthly-integration"
 export EARTHLY_INSTALLATION_NAME
 rm -rf "$HOME/.earthly.integration/"

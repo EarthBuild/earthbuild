@@ -23,12 +23,15 @@ global:
   disable_analytics: true
 EOF
 
+// In July 2025, the following Docker Hub mirrors offer anonymous free pulling.
+PUBLIC_MIRRORS='"https://mirror.gcr.io", "https://public.ecr.aws"'
+
 if [ -n "$DOCKERHUB_MIRROR" ]; then
   # create a mirror entry for dockerhub (aka docker.io)
   cat>>"$configpath"<<EOF
   buildkit_additional_config: |
     [registry."docker.io"]
-      mirrors = ["$DOCKERHUB_MIRROR", "https://mirror.gcr.io", "https://public.ecr.aws"]
+      mirrors = ["$DOCKERHUB_MIRROR", $PUBLIC_MIRRORS]
 EOF
   # create a second registry config for the mirror if either insecure or http flags must be set
   if [ "$DOCKERHUB_MIRROR_INSECURE" = "true" ] || [ "$DOCKERHUB_MIRROR_HTTP" = "true" ]; then
@@ -75,6 +78,6 @@ else
   cat>>"$configpath"<<EOF
   buildkit_additional_config: |
     [registry."docker.io"]
-      mirrors = ["https://mirror.gcr.io", "https://public.ecr.aws"]
+      mirrors = [$PUBLIC_MIRRORS]
 EOF
 fi

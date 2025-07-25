@@ -27,9 +27,6 @@ type BusSetup struct {
 	BusDebugWriter   *writersub.RawWriterSub
 	InitialManifest  *logstream.RunManifest
 	execStatsTracker *execstatssummary.Tracker
-
-	logStreamerStarted bool
-	verbose            bool
 }
 
 // New creates a new BusSetup.
@@ -45,7 +42,6 @@ func New(ctx context.Context, bus *logbus.Bus, debug, verbose, displayStats, for
 			CreatedAtUnixNanos: uint64(bus.CreatedAt().UnixNano()),
 		},
 		execStatsTracker: execStatsTracker,
-		verbose:          verbose,
 	}
 	bs.Formatter = formatter.New(ctx, bs.Bus, debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
 	bs.Bus.AddRawSubscriber(bs.Formatter)

@@ -1,20 +1,17 @@
-name: Podman Mac CI
+name: Podman CI macOs scheduled
 
 on:
   schedule:
-    - cron: '0 6 * * * ' # Every day at 6:00AM UTC (~midnight CST pending DST)
+    - cron: '0 0 * * *'
 
 jobs:
-  tests:
+  podman-macos-test:
     name: +testing-gha-podman
     runs-on: macos-13 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       BUILT_EARTHLY_PATH: build/darwin/amd64/earthly
-      DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
-      DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
 
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -25,10 +22,10 @@ jobs:
       PODMAN_MEMORY_MB: 13000
       PODMAN_DISK_SPACE_GB: 13
     steps:
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: earthly/actions-setup@main
       - name: Install podman
         run: brew install podman
       - name: Podman Mac Helper
@@ -49,14 +46,10 @@ jobs:
         run: podman version
       - name: Virtualization check
         run: sysctl -a | grep machdep.cpu.features
-      - name: Docker mirror login via Podman (Earthly Only)
-        run: podman login registry-1.docker.io.mirror.corp.earthly.dev --username "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}" --password "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-      - name: Configure Earthly to use mirror (Earthly Only)
+      - name: Configure Earthly to use GCR mirror
         run: |-
           earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+          mirrors = [\"mirror.gcr.io\"]'"
       - name: Bootstrap Earthly using released earthly
         run: earthly bootstrap
       - name: Build latest earthly using released earthly

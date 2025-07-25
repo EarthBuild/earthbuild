@@ -1,47 +1,71 @@
-name: stage2 setup
-description: copies earthly binary from stage1 of build, configure dockerhub mirror, and bootstrap
-author: Earthly technologies
+name: 'Stage 2 Setup'
+description: 'Setup for self-hosted earthly runners'
 inputs:
+  earthly_version:
+    description: 'The earthly version to use'
+    required: false
+    default: 'latest'
   BUILT_EARTHLY_PATH:
+    description: "Path to the built earthly binary"
     required: true
-    type: string
   BINARY:
+    description: "The container engine to use (e.g., 'docker' or 'podman')"
     required: true
-    type: string
   SUDO:
-    type: string
+    description: "Sudo command if needed"
     required: false
   USE_QEMU:
+    description: "Whether to set up QEMU"
     required: false
-    type: boolean
   USE_SATELLITE:
+    description: "Whether to use an Earthly satellite"
     required: false
-    type: boolean
-    default: false
+    default: "false"
   USE_NEXT:
+    description: "Whether to use earthly-next"
     required: false
-    type: boolean
-    default: false
+    default: "false"
   SATELLITE_NAME:
+    description: "Name of the satellite to use"
     required: false
-    type: string
   EARTHLY_ORG:
+    description: "The Earthly organization"
     required: false
-    type: string
-  DOCKERHUB_MIRROR_USERNAME:
-    required: true
-  DOCKERHUB_MIRROR_PASSWORD:
-    required: true
-  DOCKERHUB_USERNAME:
-    required: true
-  DOCKERHUB_PASSWORD:
-    required: true
   EARTHLY_TOKEN:
-    required: true
+    description: "Earthly token (legacy - not used with GCR mirror)"
+    required: false
+  GHCR_USERNAME:
+    description: "GHCR username (legacy - now uses github.actor)"
+    required: false
+  GHCR_PASSWORD:
+    description: "GHCR password (legacy - now uses GITHUB_TOKEN)"
+    required: false
+  DOCKERHUB_USERNAME:
+    description: "Docker Hub username (legacy - not needed with GCR mirror)"
+    required: false
+  DOCKERHUB_PASSWORD:
+    description: "Docker Hub password (legacy - not needed with GCR mirror)"
+    required: false
+  DOCKERHUB_MIRROR_USERNAME:
+    description: "Docker Hub mirror username (legacy - GCR mirror is public)"
+    required: false
+  DOCKERHUB_MIRROR_PASSWORD:
+    description: "Docker Hub mirror password (legacy - GCR mirror is public)"
+    required: false
 
 runs:
   using: "composite"
   steps:
+    - name: Unset CI
+      shell: bash
+      run: |
+        unset CI
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ env.GITHUB_TOKEN }}
     - if: inputs.BINARY == 'docker'
       uses: docker/setup-qemu-action@v3
       with:
@@ -61,19 +85,11 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - run: ${{inputs.SUDO}} ${{inputs.BINARY}} login registry-1.docker.io.mirror.corp.earthly.dev --username "${{ inputs.DOCKERHUB_MIRROR_USERNAME }}" --password "${{ inputs.DOCKERHUB_MIRROR_PASSWORD }}"
-      shell: bash
-    - if: ${{ inputs.BINARY == 'docker' }}
-      run: ${{inputs.SUDO}} ${{inputs.BINARY}} login  --username "${{ inputs.DOCKERHUB_USERNAME }}" --password "${{ inputs.DOCKERHUB_PASSWORD }}"
-      shell: bash
-    - if: ${{ inputs.BINARY != 'docker' }}
-      run: ${{inputs.SUDO}} ${{inputs.BINARY}} login docker.io --username "${{ inputs.DOCKERHUB_USERNAME }}" --password "${{ inputs.DOCKERHUB_PASSWORD }}"
-      shell: bash
     - run: |-
         echo "Extracting earthly binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        BUILDKITD_IMAGE=docker.io/earthly/buildkitd-staging ${{inputs.SUDO}} ./earthly upgrade
+        ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
         mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
@@ -81,27 +97,17 @@ runs:
         ${{inputs.SUDO}} mv "${HOME}/.earthly/earthly-$TAG" "${{inputs.BUILT_EARTHLY_PATH}}"
         echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
       shell: bash
+    - run: |-
+        echo "Configuring earthbuild to use GCR mirror"
+        ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+        mirrors = [\"mirror.gcr.io\"]'"
+      shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
         export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
         (strings ${{inputs.BUILT_EARTHLY_PATH}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
         echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
-      shell: bash
-    - run: |-
-        echo "Setting up mirror credentials in .arg and .secret"
-        export earthly="${{inputs.BUILT_EARTHLY_PATH}}"
-        # setup secrets
-        echo "DOCKERHUB_MIRROR_USER=$($earthly secret --org earthly-technologies --project core get -n dockerhub-mirror/user || kill $$)" > .secret
-        echo "DOCKERHUB_MIRROR_PASS=$($earthly secret --org earthly-technologies --project core get -n dockerhub-mirror/pass || kill $$)" >> .secret
-        # setup args
-        echo "DOCKERHUB_MIRROR_AUTH=true" > .arg
-        echo "DOCKERHUB_MIRROR=registry-1.docker.io.mirror.corp.earthly.dev" >> .arg
-      shell: bash
-    - run: |-
-        echo "Configuring earthly to use mirror"
-        ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
-        mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} bootstrap

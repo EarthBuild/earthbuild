@@ -1,5 +1,4 @@
 VERSION 0.8
-PROJECT earthly-technologies/core
 
 # TODO update to 3.18; however currently "podman login" (used under not-a-unit-test.sh) will error with
 # "Error: default OCI runtime "crun" not found: invalid argument".
@@ -23,6 +22,12 @@ RUN apk add --update --no-cache \
     util-linux
 
 WORKDIR /earthly
+
+ARG CR_ORG="earthbuild"
+ARG CR_REPO="earthbuild"
+ARG REGISTRY_BASE="ghcr.io"
+
+ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 # deps downloads and caches all dependencies for earthly. When called directly,
 # go.mod and go.sum will be updated locally.
@@ -349,7 +354,8 @@ earthly:
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG EARTHLY_GIT_HASH
-    ARG DEFAULT_BUILDKITD_IMAGE=docker.io/earthly/buildkitd:$VERSION # The image needs to be fully qualified for alternative frontend support.
+    # TODO: this works for CI but the final value should probably come from dockerhub
+    ARG DEFAULT_BUILDKITD_IMAGE=$IMAGE_REGISTRY:buildkitd-$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
     ARG GOCACHE=/go-cache
     RUN mkdir -p build
@@ -465,17 +471,18 @@ earthly-docker:
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthly") /usr/bin/earthly
-    ARG DOCKERHUB_USER="earthly"
     ARG DOCKERHUB_IMG="earthly"
+
+    # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
     # arguments to the save SAVE IMAGE do not. Using variables here doesn't work
     # either, unfortunately, as the names are quoted and treated as a single arg.
     IF [ "$PUSH_LATEST_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $DOCKERHUB_USER/$DOCKERHUB_IMG:$TAG $DOCKERHUB_USER/$DOCKERHUB_IMG:latest
+       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
     ELSE IF [ "$PUSH_PRERELEASE_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $DOCKERHUB_USER/$DOCKERHUB_IMG:$TAG $DOCKERHUB_USER/$DOCKERHUB_IMG:prerelease
+       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
     ELSE
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $DOCKERHUB_USER/$DOCKERHUB_IMG:$TAG
+       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
 # earthly-integration-test-base builds earthly docker and then
@@ -501,6 +508,8 @@ earthly-integration-test-base:
     ARG DOCKERHUB_AUTH=false
 
     COPY setup-registry.sh .
+
+    # TODO: Check this
     IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
         RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
         RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass USE_EARTHLY_MIRROR=true ./setup-registry.sh
@@ -529,7 +538,7 @@ prerelease:
         --platform=linux/arm64 \
         ./buildkitd+buildkitd --TAG=prerelease  --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     COPY (+earthly-all/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
-    SAVE IMAGE --push earthly/earthlybinaries:prerelease
+    SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
@@ -550,8 +559,10 @@ ci-release:
     BUILD \
         --platform=linux/amd64 \
         ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="docker.io/earthly/buildkitd-staging:${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
-    SAVE IMAGE --push earthly/earthlybinaries:${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
+    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
+
+    # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
+    SAVE IMAGE --cache-from=docker.io/earthly/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
 
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly

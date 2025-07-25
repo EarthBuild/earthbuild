@@ -14,6 +14,7 @@ on:
 
 jobs:
   build-earthly:
+    permissions: write-all
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
@@ -53,19 +54,15 @@ jobs:
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
-          docker login registry-1.docker.io.mirror.corp.earthly.dev --username "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}" --password "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
-
       - name: Retrieve earthly from build-earthly job
         run: |-
           BUILDKITD_IMAGE=docker.io/earthly/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
           mkdir -p $(dirname "./build/linux/amd64/earthly")
           mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
-      - name: Configure Earthly to use mirror (Earthly Only)
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Configure Earthly to use GCR mirror
         run: |-
           ./build/linux/amd64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
-
-          mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
+          mirrors = [\"mirror.gcr.io\"]'"
       - name: staging releases
         run: |-
             set -euo pipefail

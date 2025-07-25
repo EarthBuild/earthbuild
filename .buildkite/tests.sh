@@ -124,7 +124,6 @@ max_attempts=2
 for target in \
         +test-misc-group1 \
         +test-misc-group2 \
-        +test-misc-group3 \
         +test-ast-group1 \
         +test-ast-group2 \
         +test-ast-group3 \

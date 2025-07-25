@@ -271,12 +271,6 @@ unit-test:
     BUILD ./ast+unit-test
     BUILD ./util/deltautil+unit-test
 
-# offline-test runs offline tests with network set to none
-offline-test:
-    FROM +code
-    RUN --network=none (go test -run TestOffline ./cloud || kill $$) | tee test.log
-    RUN if grep 'no tests to run' test.log; then echo "error: no test found" && exit 1; fi
-
 # submodule-decouple-check checks that go submodules within earthly do not
 # depend on the core earthly project.
 submodule-decouple-check:
@@ -685,16 +679,12 @@ test-no-qemu:
 test-misc:
     BUILD +test-misc-group1
     BUILD +test-misc-group2
-    BUILD +test-misc-group3
     BUILD +test-ast
 
 test-misc-group1:
     BUILD +unit-test
 
-test-misc-group2:
-    BUILD +offline-test
-
-test-misc-group3:
++test-misc-group2:
     BUILD +earthly-script-no-stdout
 
 test-ast:

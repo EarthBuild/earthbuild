@@ -23,7 +23,7 @@ global:
   disable_analytics: true
 EOF
 
-// In July 2025, the following Docker Hub mirrors offer anonymous free pulling.
+# In July 2025, the following Docker Hub mirrors offer anonymous free pulling.
 PUBLIC_MIRRORS='"https://mirror.gcr.io", "https://public.ecr.aws"'
 
 if [ -n "$DOCKERHUB_MIRROR" ]; then

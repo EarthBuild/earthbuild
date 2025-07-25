@@ -1,6 +1,6 @@
 # Remote runners
 
-Earthly supports running builds remotely via remote runners. Remote runners allow you to benefit from sharing the cache with other users of that remote runner. This is especially useful in CI environments where you want to share the cache between runs.
+EarthBuild supports running builds remotely via remote runners. Remote runners allow you to benefit from sharing the cache with other users of that remote runner. This is especially useful in CI environments where you want to share the cache between runs.
 
 ## Benefits
 
@@ -24,7 +24,7 @@ When using remote runners, even though the build executes remotely, the followin
 
 ## Get started
 
-Self-hosting a remote BuildKit is the best approach. To get started self-hosting BuildKit, see the [remote BuildKit page](ci-integration/remote-buildkit.md).
+Self-hosting a remote BuildKit is the approach. To get started self-hosting BuildKit, see the [remote BuildKit page](ci-integration/remote-buildkit.md).
 
 ### Types of Remote Runners
 

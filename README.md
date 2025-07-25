@@ -85,7 +85,7 @@ Earthly is great for both monorepos and polyrepos. You can split your build logi
 
 ### 💨 Fast Builds
 
-Earthly automatically executes build targets in parallel and makes maximum use of cache. This makes builds fast. Earthly also has powerful shared caching capabilities that speed up builds frequently run across a team or in sandboxed environments, such as Earthly Satellites, GitHub Actions, or your CI.
+Earthly automatically executes build targets in parallel and makes maximum use of cache. This makes builds fast. Earthly also has powerful shared caching capabilities that speed up builds frequently run across a team or in sandboxed environments, such as Earthly remote BuildKits, GitHub Actions, or your CI.
 
 If your build has multiple steps, Earthly will:
 1. Build a directed acyclic graph (DAG).

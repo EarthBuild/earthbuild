@@ -38,4 +38,4 @@ Below is a comparison of the different features available with each kind of remo
 | Managed TLS Certificates                                                    | ❌ No                   |
 | Auto-Sleep                                                                  | ❌ No                   |
 | Auto-Updates                                                                | ❌ No                   |
-| [GitHub Actions integration](cloud/satellites/gha-runners.md)               | ❌ No                   |
+| GitHub Actions integration                                                  | ❌ No                   |

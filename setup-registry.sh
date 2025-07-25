@@ -28,7 +28,7 @@ if [ -n "$DOCKERHUB_MIRROR" ]; then
   cat>>"$configpath"<<EOF
   buildkit_additional_config: |
     [registry."docker.io"]
-      mirrors = ["https://mirror.gcr.io", "https://public.ecr.aws", "$DOCKERHUB_MIRROR"]
+      mirrors = ["$DOCKERHUB_MIRROR", "https://mirror.gcr.io", "https://public.ecr.aws"]
 EOF
   # create a second registry config for the mirror if either insecure or http flags must be set
   if [ "$DOCKERHUB_MIRROR_INSECURE" = "true" ] || [ "$DOCKERHUB_MIRROR_HTTP" = "true" ]; then

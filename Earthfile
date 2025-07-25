@@ -684,7 +684,7 @@ test-misc:
 test-misc-group1:
     BUILD +unit-test
 
-+test-misc-group2:
+test-misc-group2:
     BUILD +earthly-script-no-stdout
 
 test-ast:

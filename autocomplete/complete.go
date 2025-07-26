@@ -353,10 +353,6 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 	compLine = compLine[:compPoint]
 	subCommands := app.Commands
 
-	// TODO all the urfave/cli commands need to be moved out of the main package
-	// so they could be directly referenced rather than storing a list of strings of seen commands
-	commandValues := []string{}
-
 	flagValues := map[string]string{}
 	flagValuePotentialFuncs := map[string]FlagValuePotentialFn{}
 
@@ -428,9 +424,6 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 					if foundCmd != nil {
 						subCommands = foundCmd.Subcommands
 						cmd = foundCmd
-
-						// TODO once urfave/cli commands are moved out of main, this should be removed (and instead the cmd pointer could simply be compared to determine which command we are referencing)
-						commandValues = append(commandValues, cmd.Name)
 					}
 					state = commandState
 				}

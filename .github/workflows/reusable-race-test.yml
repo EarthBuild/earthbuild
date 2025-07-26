@@ -28,6 +28,13 @@ on:
       EXTRA_ARGS:
         required: false
         type: string
+      USE_SATELLITE:
+        required: false
+        type: boolean
+        default: false
+      SATELLITE_NAME:
+        required: false
+        type: string
 
 jobs:
   test-race:
@@ -45,10 +52,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/stage2-setup
         with:
-          DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
-          DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
-          DOCKERHUB_USERNAME: "${{ secrets.DOCKERHUB_USERNAME }}"
-          DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_TOKEN }}"
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
           BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
@@ -64,7 +69,7 @@ jobs:
         run: ${{ inputs.BUILT_EARTHLY_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
       - name: Execute tests
         run: |-
-          GORACE="halt_on_error=1" go run -race ./cmd/earthly/*.go --buildkit-image earthly/buildkitd:race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
+          GORACE="halt_on_error=1" go run -race ./cmd/earthly/*.go --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
             ${{inputs.TEST_TARGET}}
       - name: Buildkit logs (runs on failure)
         run: docker logs earthly-buildkitd || true

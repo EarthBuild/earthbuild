@@ -1,14 +1,7 @@
 package autocomplete
 
 import (
-	"github.com/poy/onpar/matchers"
 	"github.com/stretchr/testify/assert"
-)
-
-var (
-	equal        = matchers.Equal
-	not          = matchers.Not
-	haveOccurred = matchers.HaveOccurred
 )
 
 var (

@@ -30,6 +30,8 @@ jobs:
     name: build (and push) earthly using ${{inputs.BINARY}} and earthly-next=${{inputs.USE_NEXT}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
+    # Needed for the +ci-release target to push to the GitHub Container Registry for later builds
+    permissions: write-all
     env:
       FORCE_COLOR: 1
       EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
@@ -37,7 +39,7 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: earthly/actions-setup@main
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -59,22 +61,14 @@ jobs:
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
-      - name: Docker mirror login (Earthly Only)
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} login registry-1.docker.io.mirror.corp.earthly.dev --username "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}" --password "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} $(which earthly) bootstrap
-      - name: Configure Earthly to use mirror (Earthly Only)
+      - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} $(which earthly) config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"registry-1.docker.io.mirror.corp.earthly.dev\"]'"
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-      - name: Docker Login
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
-        if: inputs.BINARY == 'docker'
-      - name: Podman Login
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} login docker.io --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
-        if: inputs.BINARY == 'podman'
+          mirrors = [\"mirror.gcr.io\"]'"
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
         run: ${{inputs.SUDO}} $(which earthly) +update-buildkit --BUILDKIT_GIT_SHA=$(cat earthly-next)

@@ -54,6 +54,7 @@ runs:
       run: |
         unset CI
     - name: Login to GHCR
+      if: inputs.BINARY == 'docker'
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
@@ -70,7 +71,7 @@ runs:
     - if: ${{ inputs.BINARY == 'podman' }}
       run: |-
         echo "Setting up podman"
-        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -rf /usr/bin/docker
+        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -f /usr/bin/docker
         ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
         podman version && podman info && podman info --debug
       shell: bash

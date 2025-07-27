@@ -107,3 +107,10 @@ runs:
       shell: bash
     - run: echo "stage2-setup action complete"
       shell: bash
+    - if: ${{ inputs.BINARY == 'podman' }}
+      run: |-
+        echo "Re-setting up docker"
+        ${{inputs.SUDO}} apt-get purge podman; ${{inputs.SUDO}} rm -rf /usr/bin/docker
+        ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y docker-engine docker docker.io docker-ce docker-ce-cli && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+        docker version
+      shell: bash

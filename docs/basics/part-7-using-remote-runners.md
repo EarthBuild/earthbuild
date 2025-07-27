@@ -12,49 +12,9 @@ Remote runners are especially useful in a few specific circumstances:
 * You have **a build that requires running on a specific CPU architecture** natively.
 * You have **a slow internet connection**.
 
-There are two types of remote runners:
+There is one type of remote runner:
 
-* Earthly Satellites (managed by Earthly; free up to 6,000 minutes/month; get started now by visiting the [sign up](https://cloud.earthly.dev/login) page)
 * Remote BuildKit (free, self-hosted)
-
-### Using Earthly Satellites
-
-Earthly Satellites are remote runners managed by the Earthly team.
-
-To get started, first you need to [sign up for Earthly Cloud](https://cloud.earthly.dev/login) for free.
-
-Then, you can select the org that you are part of, and create a satellite.
-
-```bash
-earthly org select <my-org>
-earthly sat launch my-satellite
-```
-
-Once a satellite has been launched it is automatically selected for use. If you ever need to switch the satellite yourself, you can use the command...
-
-```bash
-earthly sat select my-satellite
-```
-
-Additionally, you can go back to performing local builds with the command...
-
-```bash
-earthly sat unselect
-```
-
-And then run Earthly builds as usual.
-
-```bash
-earthly +my-target
-```
-
-Or, you can use a satellite as part of the build without selecting first
-
-```bash
-earthly --sat my-satellite +my-target
-```
-
-For more information, check out the [Earthly Satellites](../cloud/satellites.md) page.
 
 ### Using a Remote BuildKit
 

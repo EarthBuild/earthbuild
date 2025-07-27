@@ -86,11 +86,3 @@
     * [Self-Hosted Satellites](cloud/satellites/self-hosted.md)
     * [GitHub runners](cloud/satellites/gha-runners.md)
     * [Best Practices](cloud/satellites/best-practices.md)
-    * [Bring Your Own Cloud (BYOC)](cloud/satellites/byoc/byoc.md)
-      * AWS
-        * [Requirements](cloud/satellites/byoc/aws/requirements.md)
-        * [CloudFormation](cloud/satellites/byoc/aws/cloudformation.md)
-        * [Terraform](cloud/satellites/byoc/aws/terraform.md)
-        * [Manual](cloud/satellites/byoc/aws/manual.md)
-      * VPN
-        * [Tailscale](cloud/satellites/byoc/vpn/tailscale.md)

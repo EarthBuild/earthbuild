@@ -802,7 +802,8 @@ ci-arg-test:
         --output_contains="CI environment"
 
 private-image-test:
-    FROM earthly/private-test:latest
+    # NOTE(jhorsts): I assume any private image is good - use dindtest.
+    FROM ghcr.io/earthbuild/dindtest:alpine-3.22-docker-28.3.0-r0
     RUN --entrypoint echo hello world
 
 gen-dockerfile-test:

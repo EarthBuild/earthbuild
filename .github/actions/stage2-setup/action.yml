@@ -24,9 +24,6 @@ inputs:
   EARTHLY_ORG:
     description: "The Earthly organization"
     required: false
-  EARTHLY_TOKEN:
-    description: "Earthly token (legacy - not used with GCR mirror)"
-    required: false
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
     required: false

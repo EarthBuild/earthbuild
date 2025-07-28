@@ -12,9 +12,6 @@ echo "running tests with $earthly"
 # which would mess with the secrets data being fetched)
 date +%s > /tmp/last-earthly-prerelease-check
 
-set +x # dont remove or the token will be leaked
-test -n "$EARTHLY_TOKEN" || (echo "error: EARTHLY_TOKEN is not set" && exit 1)
-set -x
 EARTHLY_INSTALLATION_NAME="earthly-integration"
 export EARTHLY_INSTALLATION_NAME
 rm -rf "$HOME/.earthly.integration/"

@@ -41,33 +41,6 @@ Here's a quick breakdown:
 - `-v earthly-tmp:/tmp/earthly:rw` mounts (and creates, if necessary) the `earthly-tmp` Docker volume into the containers `/tmp/earthly`. This is used as a temporary/working directory for `buildkitd` during builds.
 - `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
 
-### Usage with Satellites and No Local Code
-
-This example utilizes an [Earthly Satellite](https://docs.earthly.dev/earthly-cloud/satellites) to perform builds. The code to be built is downloaded directly from GitHub.
-
-```bash
-docker run -t -e NO_BUILDKIT=1 -e EARTHLY_TOKEN=<my-token> earthly/earthly:v0.8.13 --ci --org <my-org> --sat <my-sat> github.com/earthly/earthly+for-linux
-```
-
-Here's what this does:
-
-- `-e EARTHLY_TOKEN=<my-token>` passes along an Earthly token such that Earthly can access satellites. This token can be created via `earthly account create-token`.
-- `--org <my-org>` specifies the organization that the satellite belongs to.
-- `--sat <my-sat>` specifies the satellite to use.
-- `github.com/earthly/earthly+for-linux` specifies the target to build. This target is located on GitHub, and will be pulled from the Satellite.
-
-### Usage for non-build commands
-
-This example shows how to use the Earthly container to run non-build commands. This is useful for running commands like `earthly account`, or `earthly secret`.
-
-```bash
-docker run -t -e NO_BUILDKIT=1 -e EARTHLY_TOKEN=<my-token> earthly/earthly:v0.8.13 account list-tokens
-```
-
-```bash
-docker run -t -e NO_BUILDKIT=1 -e EARTHLY_TOKEN=<my-token> earthly/earthly:v0.8.13 secret get foo
-```
-
 ## Using This Image
 
 ### Requirements

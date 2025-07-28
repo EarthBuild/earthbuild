@@ -42,7 +42,6 @@ import (
 	"github.com/earthly/earthly/util/llbutil/llbfactory"
 	"github.com/earthly/earthly/util/llbutil/pllb"
 	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/oidcutil"
 	"github.com/earthly/earthly/util/platutil"
 	"github.com/earthly/earthly/util/shell"
 	"github.com/earthly/earthly/util/stringutil"
@@ -643,7 +642,6 @@ type ConvertRunOpts struct {
 	InteractiveKeep      bool
 	InteractiveSaveFiles []debuggercommon.SaveFilesSettings
 	WithAWSCredentials   bool
-	OIDCInfo             *oidcutil.AWSOIDCInfo
 	RawOutput            bool
 
 	// Internal.
@@ -2391,35 +2389,6 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 		return c.mts.Final.MainState, nil
 	}
-}
-
-func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
-
-	var (
-		runOpts   = []llb.RunOption{}
-		extraEnvs = []string{}
-	)
-
-	//set additional params in case oidc is in play
-	var setOIDCInfo func(values url.Values) // no-op by default
-	if oidcInfo != nil {
-		setOIDCInfo = secretprovider.SetURLValuesFunc(oidcInfo)
-	}
-	// Add LLB secrets for each of the typical secrets which will then be
-	// sourced from the environment during lookup.
-	for _, secretName := range secretprovider.AWSCredentials {
-		secretPath := path.Join("/run/secrets", secretName)
-		secretOpts := []llb.SecretOption{
-			llb.SecretID(c.secretID(secretName, setOIDCInfo)),
-			llb.SecretFileOpt(0, 0, 0444),
-		}
-		runOpts = append(runOpts, llb.AddSecret(secretPath, secretOpts...))
-		if envName, ok := secretprovider.AWSEnvName(secretName); ok {
-			extraEnvs = append(extraEnvs, fmt.Sprintf("%s=\"$(cat %s)\"", envName, secretPath))
-		}
-	}
-
-	return runOpts, extraEnvs, nil
 }
 
 // secretID returns query parameter style string that contains the secret

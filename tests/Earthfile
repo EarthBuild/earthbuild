@@ -213,7 +213,6 @@ ga-no-qemu-group11:
 ga-no-qemu-group12:
     BUILD --pass-args ./warn-if-not-logged-in+test
     BUILD --pass-args ./with-docker-validate-labels+all
-    BUILD --pass-args +test-aws-oidc
     BUILD --pass-args +run-no-cache-save-artifact
 
 ga-no-qemu-slow:
@@ -248,12 +247,11 @@ ga-no-qemu:
 # Note that this target is split up under github action workflows
 # since they are flaky and having the ability to restart them individually
 # saves a lot of time
-tests-that-require-earthly-technologies-account-access:
-    BUILD --pass-args +test-earthly-mirror-was-setup
-    BUILD --pass-args ./account+test
-    BUILD --pass-args ./registry-command+test
-    BUILD --pass-args ./web+test
-    BUILD --pass-args ./oidc+test
+# tests-that-require-earthly-technologies-account-access:
+#     BUILD --pass-args +test-earthly-mirror-was-setup
+#     BUILD --pass-args ./account+test
+#     BUILD --pass-args ./registry-command+test
+#     BUILD --pass-args ./web+test
 
 # tests that only run on linux amd64
 # Note: this target is used to validate the USERPLATFORM user arg,
@@ -1191,10 +1189,6 @@ push-build:
     RUN cat output | perl -pe 'BEGIN {$status=1} END {exit $status} $status=0 if /\+run1 \| 1\n/;'
     RUN cat output | perl -pe 'BEGIN {$status=1} END {exit $status} $status=0 if /\+run2 \| 2\n/;'
 
-test-earthly-mirror-was-setup:
-    DO +RUN_EARTHLY --verbose=false --earthfile=true.earth --target=+true --post_command="> /tmp/output 2>&1"
-    RUN acbgrep mirror.gcr.io /etc/buildkitd.toml
-
 build-arg-repeat:
     DO +RUN_EARTHLY --earthfile=build-arg-repeat.earth --target=+build-all-1
     RUN test -f ./output/out-other-1
@@ -1621,20 +1615,6 @@ test-aws-flag-envs:
    RUN cat earthly.output | acbgrep "AWS_ACCESS_KEY_ID=aws-access-key"
    RUN cat earthly.output | acbgrep "AWS_REGION=us-west-1"
    RUN cat earthly.output | acbgrep "AWS_SECRET_ACCESS_KEY=aws-secret-key"
-
-# test-aws-oidc tests expected errors for misusing of oidc flag
-# for happy path test go to <repo>/tests/oidc
-test-aws-oidc:
-   DO +RUN_EARTHLY --earthfile=aws-flag.earth --target=+oidc --should_fail=true --output_contains="RUN --aws-oidc requires the --run-with-aws-oidc feature flag"
-   DO +RUN_EARTHLY --earthfile=aws-flag.earth --extra_args="--allow-privileged" --target=+oidc-with-docker --should_fail=true --output_contains="RUN --aws-oidc requires the --run-with-aws-oidc feature flag"
-   # enable flag
-   RUN sed -i "1s/VERSION \(.*\)/VERSION --run-with-aws-oidc \1/" Earthfile
-   # empty oidc flag
-   DO +RUN_EARTHLY --target=+oidc --should_fail=true --output_contains="role-arn must be specified"
-   DO +RUN_EARTHLY --extra_args="--allow-privileged" --target=+oidc-with-docker --should_fail=true --output_contains="role-arn must be specified"
-   # invalid oidc flag
-   DO +RUN_EARTHLY --target=+oidc --extra_args="--build-arg OIDC=\"foo=bar\"" --should_fail=true --output_contains="invalid value for oidc flag: 1 error(s) decoding"
-   DO +RUN_EARTHLY --extra_args="--allow-privileged" --target=+oidc-with-docker --extra_args="--build-arg OIDC=\"foo=bar\"" --should_fail=true --output_contains="invalid value for oidc flag: 1 error(s) decoding"
 
 test-aws-flag-configs:
    RUN mkdir -p /root/.aws

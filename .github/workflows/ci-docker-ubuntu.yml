@@ -399,18 +399,6 @@ jobs:
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
-  docker-secret-integrations:
-    needs: build-earthly
-    if: ${{ !failure() }}
-    uses: ./.github/workflows/reusable-secrets-integrations.yml
-    with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-    secrets: inherit
-
   docker-bootstrap-integrations:
     needs: build-earthly
     if: ${{ !failure() }}

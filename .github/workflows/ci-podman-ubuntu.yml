@@ -401,19 +401,6 @@ jobs:
 #      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
 #    secrets: inherit
 #
-#  podman-secret-integrations:
-#    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
-#    if: ${{ !failure() }}
-#    uses: ./.github/workflows/reusable-secrets-integrations.yml
-#    with:
-#      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-#      RUNS_ON: "ubuntu-latest"
-#      BINARY: "podman"
-#      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-#    secrets: inherit
-#
 #  podman-bootstrap-integrations:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
 #    needs: build-earthly

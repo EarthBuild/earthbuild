@@ -17,4 +17,4 @@ test-connect:
     RUN apk add openssl
     WORKDIR /test
     COPY ./test.ca ./
-    RUN timeout 10 /bin/sh -c 'echo "Q" | openssl s_client -connect '"$REGISTRY"':443 -CAfile ./test.ca'
+    RUN timeout 10 /bin/sh -c 'echo "Q" | openssl s_client -verbose -connect '"$REGISTRY"':443 -CAfile ./test.ca'

@@ -668,7 +668,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 	if len(cmd.Args) < 1 {
 		return i.errorf(cmd.SourceLocation, "not enough arguments for RUN")
 	}
-	opts := commandflag.RunOpts{OIDC: defaultZeroStringFlag}
+	opts := commandflag.RunOpts{}
 	args, err := flagutil.ParseArgsWithValueModifierCleaned("RUN", &opts, flagutil.GetArgsCopy(cmd), i.flagValModifierFuncWithContext(ctx))
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "invalid RUN arguments %v", cmd.Args)
@@ -717,11 +717,6 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 		return i.errorf(cmd.SourceLocation, "RUN --aws requires the --run-with-aws feature flag")
 	}
 
-	awsOIDCInfo, err := i.handleOIDC(ctx, &cmd, &opts)
-	if err != nil {
-		return err
-	}
-
 	if opts.RawOutput && !i.converter.opt.Features.RawOutput {
 		return i.errorf(cmd.SourceLocation, "RUN --raw-output requires the --raw-output feature flag")
 	}
@@ -747,7 +742,6 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 			InteractiveKeep:      opts.InteractiveKeep,
 			InteractiveSaveFiles: i.interactiveSaveFiles,
 			WithAWSCredentials:   opts.WithAWS,
-			OIDCInfo:             awsOIDCInfo,
 			RawOutput:            opts.RawOutput,
 		}
 		err = i.converter.Run(ctx, opts)
@@ -773,7 +767,6 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 		i.withDocker.Interactive = opts.Interactive
 		i.withDocker.interactiveKeep = opts.InteractiveKeep
 		i.withDocker.WithAWSCredentials = opts.WithAWS
-		i.withDocker.OIDCInfo = awsOIDCInfo
 
 		// TODO: Could this be allowed in the future, if dynamic build args
 		//       are expanded ahead of time?

@@ -244,15 +244,6 @@ ga-no-qemu:
     BUILD +ga-no-qemu-group12
     BUILD +ga-no-qemu-slow
 
-# Note that this target is split up under github action workflows
-# since they are flaky and having the ability to restart them individually
-# saves a lot of time
-# tests-that-require-earthly-technologies-account-access:
-#     BUILD --pass-args +test-earthly-mirror-was-setup
-#     BUILD --pass-args ./account+test
-#     BUILD --pass-args ./registry-command+test
-#     BUILD --pass-args ./web+test
-
 # tests that only run on linux amd64
 # Note: this target is used to validate the USERPLATFORM user arg,
 # and should not be used to programmatically detect if this should be

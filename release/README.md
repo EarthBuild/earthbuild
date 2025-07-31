@@ -103,10 +103,10 @@ earthly/dind images and their releases are maintained in [project repo](https://
 
 We currently have syntax highlighting for the following:
 1. [vscode + github](https://github.com/earthly/earthfile-grammar)
-1. [intellij](https://github.com/earthly/earthly-intellij-plugin) (py, go, java)
-1. [vim](https://github.com/earthly/earthly.vim)
+1. [intellij](https://github.com/EarthBuild/earthly-intellij-plugin) (py, go, java)
+1. [vim](https://github.com/EarthBuild/earthly.vim)
 1. [sublime](https://github.com/earthly/sublimetext-earthly-syntax)
-1. [emacs](https://github.com/earthly/earthly-emacs)
+1. [emacs](https://github.com/EarthBuild/earthly-emacs)
 
 
 #### VSCode + GitHub
@@ -127,11 +127,11 @@ Intellij pulls its syntax highlighting from the [same repo used by VSCODE + GitH
     1. go
     1. main
 
-    Follow the instructions on how to sign and release as written in the [README](https://github.com/earthly/earthly-intellij-plugin#signing-requires-earthly-technologies-org-membership)
+    Follow the instructions on how to sign and release as written in the [README](https://github.com/EarthBuild/earthly-intellij-plugin#signing-requires-earthly-technologies-org-membership)
 
 #### Vim
 
-1. Go to the [repo](https://github.com/earthly/earthly.vim)
+1. Go to the [repo](https://github.com/EarthBuild/earthly.vim)
 1. Make relevant updates and test
 1. Once merged to main it will be released
 
@@ -143,6 +143,6 @@ Intellij pulls its syntax highlighting from the [same repo used by VSCODE + GitH
 
 #### Emacs
 
-1. Go to the [repo](https://github.com/earthly/earthly-emacs)
+1. Go to the [repo](https://github.com/EarthBuild/earthly-emacs)
 1. Make relevant updates and test
 1. Once merged to main it will be released

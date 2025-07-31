@@ -486,7 +486,7 @@ remote-test:
     RUN --privileged \
         --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthly \
-        -- --no-output github.com/earthly/hello-world:main+hello
+        -- --no-output github.com/EarthBuild/hello-world:main+hello
     RUN --privileged \
         --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthly \

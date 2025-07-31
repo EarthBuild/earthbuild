@@ -9,14 +9,14 @@ build:
     DO ./some/local/path+PRINT --string="IMPORT example"
     COPY ./some/local/path+get-file/file.txt ./
     RUN cat file.txt
-    BUILD github.com/earthly/hello-world:main+hello
+    BUILD github.com/EarthBuild/hello-world:main+hello
 ```
 
 can be refactored as:
 
 ```Dockerfile
 IMPORT ./some/local/path AS lib
-IMPORT github.com/earthly/hello-world:main
+IMPORT github.com/EarthBuild/hello-world:main
 
 build:
     DO lib+PRINT --string="IMPORT example"

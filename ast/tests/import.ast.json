@@ -21,7 +21,7 @@
     {
       "command": {
         "args": [
-          "github.com/earthly/hello-world:main",
+          "github.com/EarthBuild/hello-world:main",
           "AS",
           "hello-dolly"
         ],

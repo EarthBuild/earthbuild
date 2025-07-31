@@ -54,7 +54,7 @@ jobs:
         run: |-
           ${{inputs.SUDO}} ${{inputs.BINARY}} stop earthly-buildkitd || true && \
           for i in 1 2 3 4; do
-              ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} github.com/earthly/hello-world+hello & \
+              ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} github.com/EarthBuild/hello-world+hello & \
               pids[${i}]=$!
           done && \
           for pid in ${pids[*]}; do

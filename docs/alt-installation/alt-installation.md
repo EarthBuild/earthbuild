@@ -248,15 +248,15 @@ For a full list of configuration options, see the [Configuration reference](../e
 To verify that the installation works correctly, you can issue a simple build of an existing hello-world project
 
 ```bash
-earthly github.com/earthly/hello-world:main+hello
+earthly github.com/EarthBuild/hello-world:main+hello
 ```
 
 You should see the output
 
 ```
-github.com/earthly/hello-world:main+hello | --> RUN [echo 'Hello, world!']
-github.com/earthly/hello-world:main+hello | Hello, world!
-github.com/earthly/hello-world:main+hello | Target github.com/earthly/hello-world:main+hello built successfully
+github.com/EarthBuild/hello-world:main+hello | --> RUN [echo 'Hello, world!']
+github.com/EarthBuild/hello-world:main+hello | Hello, world!
+github.com/EarthBuild/hello-world:main+hello | Target github.com/EarthBuild/hello-world:main+hello built successfully
 =========================== SUCCESS ===========================
 ```
 

@@ -13,7 +13,7 @@ local-target:
     RUN echo "hi"
 
 remote:
-    FROM DOCKERFILE github.com/earthly/test-remote/from-dockerfile:40080b4fc1fd4881f5123f03ba030055efbbbafe+create-dockerfile/
+    FROM DOCKERFILE github.com/EarthBuild/test-remote/from-dockerfile:40080b4fc1fd4881f5123f03ba030055efbbbafe+create-dockerfile/
     RUN echo "hi"
 
 create-dockerfile:

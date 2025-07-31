@@ -138,7 +138,7 @@ WORKDIR /scala-example
 RUN apk add openjdk11 bash wget postgresql-client
 ```
 
-[Full file](https://github.com/earthly/earthly-example-scala/blob/main/integration/Earthfile)
+[Full file](https://github.com/EarthBuild/earthly-example-scala/blob/main/integration/Earthfile)
 
 {% sample lang="Project Files" %}
 We then install SBT
@@ -212,7 +212,7 @@ docker:
     ENTRYPOINT ["java","-cp","target/scala-2.12/scala-example-assembly-1.0.jar","Main"]
     SAVE IMAGE scala-example:latest 
 ```
-[Full file](https://github.com/earthly/earthly-example-scala/blob/main/integration/Earthfile)
+[Full file](https://github.com/EarthBuild/earthly-example-scala/blob/main/integration/Earthfile)
 
 {% endmethod %}
 
@@ -252,7 +252,7 @@ We can now run our tests both locally and in the CI pipeline, in a reproducible 
 +integration-test | Removing local-postgres-ui ... done
 +integration-test | Removing local-postgres    ... done
 +integration-test | Removing network scala-example_default
-+integration-test | Target github.com/earthly/earthly-example-scala/integration:main+integration-test built successfully
++integration-test | Target github.com/EarthBuild/earthly-example-scala/integration:main+integration-test built successfully
 ...
 ```
 This means that if an integration test fails in the build pipeline, you can easily reproduce it locally.  
@@ -307,7 +307,7 @@ We can then run this and check that our application with its dependencies, produ
 +smoke-test | Removing local-postgres-ui ... done
 +smoke-test | Removing local-postgres    ... done
 +smoke-test | Removing network scala-example_default
-+smoke-test | Target github.com/earthly/earthly-example-scala/integration:main+smoke-test built successfully
++smoke-test | Target github.com/EarthBuild/earthly-example-scala/integration:main+smoke-test built successfully
 =========================== SUCCESS ===========================
 ...
 ```
@@ -327,7 +327,7 @@ all:
 ``` bash
 > earthly -P +all
 ...
-+all | Target github.com/earthly/earthly-example-scala/integration:main+all built successfully
++all | Target github.com/EarthBuild/earthly-example-scala/integration:main+all built successfully
 =========================== SUCCESS ===========================
 ```
 

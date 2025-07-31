@@ -1,7 +1,7 @@
 VERSION 0.8
 FROM alpine:3.18
 
-IMPORT github.com/earthly/test-remote/privileged:main
+IMPORT github.com/EarthBuild/test-remote/privileged:main
 
 test-reject-copy:
     COPY test-remote/privileged+privileged/proc-status .

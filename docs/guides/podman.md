@@ -33,7 +33,7 @@ global:
 
 Then, you can run a basic hello world example to see earthly using the appropriate container frontend.
 ```bash
-> earthly github.com/earthly/hello-world:main+hello
+> earthly github.com/EarthBuild/hello-world:main+hello
  1. Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
 
@@ -106,7 +106,7 @@ To fix this issue, try removing or renaming the `~/.docker/config.json` file.
 ### Earthly CLI - no frontend initialized
 Seeing the error on startup means the check for podman has failed.
 ```bash
-> earthly github.com/earthly/hello-world:main+hello
+> earthly github.com/EarthBuild/hello-world:main+hello
  1. Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
 

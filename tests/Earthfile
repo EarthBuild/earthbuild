@@ -486,16 +486,16 @@ remote-test:
     RUN --privileged \
         --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthly \
-        -- --no-output github.com/earthly/hello-world:main+hello
+        -- --no-output github.com/EarthBuild/hello-world:main+hello
     RUN --privileged \
         --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthly \
-        -- --no-output github.com/earthly/test-remote/privileged:main+locally && \
+        -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
         ls /tmp/hostname.3d4b1831-c07e-4b2d-805e-2b8ce578bb50
     RUN --privileged \
         --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthly \
-        -- --no-output github.com/earthly/test-remote/builtin-args:main+test
+        -- --no-output github.com/EarthBuild/test-remote/builtin-args:main+test
 
 transitive-args-test:
     DO +RUN_EARTHLY --earthfile=transitive-args.earth --extra_args="--build-arg SOMEARG=xyz" --target=+test
@@ -1173,15 +1173,15 @@ save-artifact-selective-referencing-remote:
     BUILD +save-artifact-selective-referencing-remote-test3
 
 save-remote-artifact-selective:
-    DO +RUN_EARTHLY --target=github.com/earthly/test-remote/output/versioned:main+savelocal
+    DO +RUN_EARTHLY --target=github.com/EarthBuild/test-remote/output/versioned:main+savelocal
     RUN test -f ./output/testfile
 
 dont-save-indirect-remote-artifact:
-    DO +RUN_EARTHLY --target=github.com/earthly/test-remote/output/versioned:main+copy-from-savelocal
+    DO +RUN_EARTHLY --target=github.com/EarthBuild/test-remote/output/versioned:main+copy-from-savelocal
     RUN test ! -f ./output/testfile
 
 remote-earthfile-must-have-version:
-    DO +RUN_EARTHLY --target=github.com/earthly/test-remote/output/no-version:main+copy-from-savelocal --should_fail=true --output_contains="No version specified in github.com/earthly/test-remote/output/no-version"
+    DO +RUN_EARTHLY --target=github.com/EarthBuild/test-remote/output/no-version:main+copy-from-savelocal --should_fail=true --output_contains="No version specified in github.com/EarthBuild/test-remote/output/no-version"
     RUN test ! -f ./output/testfile
 
 push-build:

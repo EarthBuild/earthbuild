@@ -435,7 +435,7 @@
         {
           "command": {
             "args": [
-              "github.com/earthly/earthly-command-example:main+COPY_CAT"
+              "github.com/EarthBuild/earthly-command-example:main+COPY_CAT"
             ],
             "name": "DO"
           }
@@ -608,7 +608,7 @@
         {
           "command": {
             "args": [
-              "github.com/earthly/earthly-command-example:main+TOUCH",
+              "github.com/EarthBuild/earthly-command-example:main+TOUCH",
               "--file=something"
             ],
             "name": "DO"
@@ -638,7 +638,7 @@
         {
           "command": {
             "args": [
-              "github.com/earthly/earthly-command-example:main+TOUCH"
+              "github.com/EarthBuild/earthly-command-example:main+TOUCH"
             ],
             "name": "DO"
           }

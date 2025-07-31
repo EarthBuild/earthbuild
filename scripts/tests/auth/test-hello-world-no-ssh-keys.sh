@@ -8,4 +8,4 @@ eval "$(ssh-agent)"
 ssh-add -l | grep 'The agent has no identities'
 
 # test earthly can access a public repo
-"$earthly" github.com/earthly/hello-world:main+hello
+"$earthly" github.com/EarthBuild/hello-world:main+hello

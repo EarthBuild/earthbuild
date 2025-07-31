@@ -99,7 +99,7 @@ As a distinct example of a complete build, you can take a look at Earthly's own 
 
 GitBook currently has a bug where any references to an "Earthfile" gets confused with "docs/Earthfile" and somehow appends a /README.md
 
-e.g. https://github.com/earthly/earthly/blob/main/Earthfile is changed to https://github.com/earthly/earthly/blob/main/Earthfile/README.md
+e.g. https://github.com/EarthBuild/earthbuild/blob/main/Earthfile is changed to https://github.com/EarthBuild/earthbuidl/blob/main/Earthfile/README.md
 
 Here's a snip from an support request with gitbook:
 
@@ -107,7 +107,7 @@ Here's a snip from an support request with gitbook:
 
     There is a file:
 
-    https://github.com/earthly/earthly/blob/main/Earthfile
+    https://github.com/EarthBuild/earthbuild/blob/main/Earthfile
 
     And you want to reference it directly in your GitBook space as a link.
 
@@ -115,7 +115,7 @@ Here's a snip from an support request with gitbook:
 
     So when it sees that reference, it assumes you are referencing a default README.md file under that folder. The folder I am talking about is this one:
 
-    https://github.com/earthly/earthly/tree/main/docs/earthfile
+    https://github.com/EarthBuild/earthbuild/tree/main/docs/earthfile
 
     Now, the question is, if there's an easy way out of this.
 
@@ -126,11 +126,11 @@ Here's a snip from an support request with gitbook:
     One not very ideal workaround I thought of is to temporarily switch to shortened URLs for those that fail because of this scenario.
 
 
-* [Earthfile](https://github.com/earthly/earthly/blob/main/Earthfile) - the root build file
-* [buildkitd/Earthfile](https://github.com/earthly/earthly/blob/main/buildkitd/Earthfile) - the build of the BuildKit daemon
-* [AST/parser/Earthfile](https://github.com/earthly/earthly/blob/main/ast/parser/Earthfile) - the build of the parser, which generates .go files
-* [tests/Earthfile](https://github.com/earthly/earthly/blob/main/tests/Earthfile) - system and smoke tests
-* [earthfile-grammar/Earthfile](https://github.com/earthly/earthfile-grammar/blob/main/Earthfile) - the build of the VS Code extension
+* [Earthfile](https://github.com/EarthBuild/earthbuild/blob/main/Earthfile) - the root build file
+* [buildkitd/Earthfile](https://github.com/EarthBuild/earthbuild/blob/main/buildkitd/Earthfile) - the build of the BuildKit daemon
+* [AST/parser/Earthfile](https://github.com/EarthBuild/earthbuild/blob/main/ast/parser/Earthfile) - the build of the parser, which generates .go files
+* [tests/Earthfile](https://github.com/EarthBuild/earthbuild/blob/main/tests/Earthfile) - system and smoke tests
+* [earthfile-grammar/Earthfile](https://github.com/EarthBuild/earthfile-grammar/blob/main/Earthfile) - the build of the VS Code extension
 -->
 
 * [Earthfile](https://tinyurl.com/yt3d3cx6) - the root build file

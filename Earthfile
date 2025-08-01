@@ -853,7 +853,7 @@ examples-2:
     BUILD ./examples/rust+docker
     BUILD ./examples/multiplatform+all
     BUILD ./examples/multiplatform-cross-compile+build-all-platforms
-    BUILD github.com/earthly/hello-world:main+hello
+    BUILD github.com/EarthBuild/hello-world:main+hello
     BUILD ./examples/cache-command/npm+docker
     BUILD ./examples/cache-command/mvn+docker
 

@@ -26,7 +26,6 @@ import (
 	"github.com/earthly/earthly/variables"
 
 	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
 )
@@ -34,9 +33,6 @@ import (
 const maxCommandRenameWarnings = 3
 
 var errCannotAsync = errors.New("cannot run async operation")
-
-// use as default to differentiate between an un specified string flag and a specified flag with empty value
-var defaultZeroStringFlag = uuid.NewString()
 
 // Interpreter interprets Earthly AST's into calls to the converter.
 type Interpreter struct {

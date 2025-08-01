@@ -22,11 +22,6 @@ const (
 	awsSecretKey    = "aws:secret_key"
 	awsSessionToken = "aws:session_token"
 	awsRegion       = "aws:region"
-
-	roleARNURLParam         = "role-arn"
-	regionURLParam          = "region"
-	sessionDurationURLParam = "session-duration"
-	sessionNameURLParam     = "session-name"
 )
 
 // AWSCredentials contains the basic set of credentials that users will need to

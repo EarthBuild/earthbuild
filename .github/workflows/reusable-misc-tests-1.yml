@@ -69,9 +69,6 @@ jobs:
         run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly ${{inputs.BUILT_EARTHLY_PATH}} --timeout 180
       - name: Execute version test
         run: "${{inputs.BUILT_EARTHLY_PATH}} --version"
-      - name: Log in to GitHub Container Registry (non fork only)
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        if: github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute docker2earth test
         run: "./tests/docker2earth/test.sh"
       - name: Execute remote-cache test

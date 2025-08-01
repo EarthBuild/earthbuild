@@ -63,9 +63,7 @@ jobs:
       - name: Execute earthly ${{inputs.BINARY}} command
         run: (cd tests/docker && ${{inputs.SUDO}} ../../${{inputs.BUILT_EARTHLY_PATH}} docker-build --tag examples-test-docker:latest . && diff <(docker run --rm examples-test-docker:latest) <(echo "hello dockerfile") )
       - name: Execute private image test (Earthly Only) # TODO move to separate workflow
-        run: |
-          ${{inputs.SUDO}} docker pull ghcr.io/earthbuild/dindtest:alpine-3.22-docker-28.3.0-r0
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci ./tests+private-image-test
+        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci ./tests+private-image-test
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute save images test
         run: frontend=${{inputs.BINARY}} ./tests/save-images/test.sh

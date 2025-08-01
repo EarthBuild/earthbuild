@@ -244,7 +244,6 @@ unit-test:
     ARG DOCKERHUB_MIRROR_INSECURE=false
     ARG DOCKERHUB_MIRROR_HTTP=false
     ARG DOCKERHUB_MIRROR_AUTH=false
-    ARG DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=false
 
     IF [ -n "$DOCKERHUB_MIRROR" ]
         RUN mkdir -p /etc/docker
@@ -254,14 +253,7 @@ unit-test:
         END
         RUN echo "}" >> /etc/docker/daemon.json
     END
-    IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
-        RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
-        WITH DOCKER
-            RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user \
-                --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass \
-                USE_EARTHLY_MIRROR=true ./not-a-unit-test.sh
-        END
-    ELSE IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
+    IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         WITH DOCKER
             RUN --secret DOCKERHUB_MIRROR_USER \
                 --secret DOCKERHUB_MIRROR_PASS \
@@ -496,7 +488,6 @@ earthly-integration-test-base:
     ARG DOCKERHUB_MIRROR_INSECURE=false
     ARG DOCKERHUB_MIRROR_HTTP=false
     ARG DOCKERHUB_MIRROR_AUTH=false
-    ARG DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=false
 
     # DOCKERHUB_AUTH will login to docker hub (and pull from docker hub rather than a mirror)
     ARG DOCKERHUB_AUTH=false
@@ -504,10 +495,7 @@ earthly-integration-test-base:
     COPY setup-registry.sh .
 
     # TODO: Check this
-    IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
-        RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
-        RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass USE_EARTHLY_MIRROR=true ./setup-registry.sh
-    ELSE IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
+    IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         RUN --secret DOCKERHUB_MIRROR_USER --secret DOCKERHUB_MIRROR_PASS ./setup-registry.sh
     ELSE IF [ "$DOCKERHUB_AUTH" = "true" ]
         RUN --secret DOCKERHUB_USER --secret DOCKERHUB_PASS ./setup-registry.sh
@@ -834,7 +822,6 @@ examples-1:
     BUILD ./examples/cutoff-optimization+run
     BUILD ./examples/import+build
     BUILD ./examples/secrets+base
-    BUILD ./examples/cloud-secrets+base
 
 examples-2:
     BUILD ./examples/readme/go1+all

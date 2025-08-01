@@ -254,7 +254,7 @@ earthly +release-short --SECRET_ID=""
 
 It is also possible to mount a secret as a file with `RUN --mount type=secret,id=secret-id,target=/path/of/secret,chmod=0400`. See `--mount` below.
 
-For more information on how to use secrets see the [Secrets guide](../guides/secrets.md). See also the [Cloud secrets guide](../cloud/cloud-secrets.md).
+For more information on how to use secrets see the [Secrets guide](../guides/secrets.md).
 
 ##### `--network=none`
 
@@ -1023,18 +1023,6 @@ Avoid using feature flags for critical workflows. You should only use feature fl
 {% endhint %}
 
 All features are described in [the version-specific features reference](./features.md).
-
-## PROJECT
-
-#### Synopsis
-
-* `PROJECT <org-name>/<project-name>`
-
-#### Description
-
-The command `PROJECT` marks the current Earthfile as being part of the project belonging to the [Earthly organization](https://docs.earthly.dev/earthly-cloud/overview) `<org-name>` and the project `<project-name>`. The project is used by Earthly to retrieve [cloud-based secrets](../cloud/cloud-secrets.md) and build logs belonging to the project.
-
-The `PROJECT` command can only be used in the `base` recipe and it applies to the entire Earthfile. The `PROJECT` command can never contain any `ARG`s that need expanding.
 
 ## GIT CLONE
 

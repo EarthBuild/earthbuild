@@ -165,18 +165,6 @@ DOCKERHUB_MIRROR_USER=<my-mirror-username>
 DOCKERHUB_MIRROR_PASS=<my-mirror-password>
 ```
 
-### Running tests using earthly's internal mirror (only for members of the earthly org)
-
-If you have access to `earthly-technologies/core`, you can make use of the internal mirror by running:
-
-```bash
-./build/*/*/earthly -P \
-  ./tests+all --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true
-```
-
-which will use the credentials which are stored in earthly's [cloud-hosted secrets](https://docs.earthly.dev/earthly-cloud/cloud-secrets).
-
-
 ## Updates to buildkit or fsutil
 
 Earthly is built against a fork of [buildkit](https://github.com/earthly/buildkit) and [fsutil](https://github.com/earthly/fsutil).

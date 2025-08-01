@@ -63,7 +63,7 @@ jobs:
       - name: Execute earthly ${{inputs.BINARY}} command
         run: (cd tests/docker && ${{inputs.SUDO}} ../../${{inputs.BUILT_EARTHLY_PATH}} docker-build --tag examples-test-docker:latest . && diff <(docker run --rm examples-test-docker:latest) <(echo "hello dockerfile") )
       - name: Log in to GitHub Container Registry (non fork only)
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} docker login ghcr.io -u ${{ github.actor }} --password-stdin
         if: github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute private image test (Earthly Only) # TODO move to separate workflow
         run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci ./tests+private-image-test

@@ -41,8 +41,6 @@ export EARTHLY_INSTALLATION_NAME
 rm -rf "$HOME/.earthly.integration/"
 
 echo "$earthly"
-# ensure earthly login works (and print out who gets logged in)
-"$earthly" account login
 
 # start buildkitd container
 "$earthly" bootstrap

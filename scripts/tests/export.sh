@@ -22,8 +22,6 @@ export EARTHLY_INSTALLATION_NAME
 rm -rf "$HOME/.earthly.integration/"
 
 echo "$earthly"
-# ensure earthly login works (and print out who gets logged in)
-"$earthly" account login
 
 # Test 1: export without anything
 echo ==== Running test 1 ====

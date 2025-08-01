@@ -16,9 +16,6 @@ EARTHLY_INSTALLATION_NAME="earthly-integration"
 export EARTHLY_INSTALLATION_NAME
 rm -rf "$HOME/.earthly.integration/"
 
-# ensure earthly login works (and print out who gets logged in)
-"$earthly" account login
-
 # A username / password has been stored in the cloud to a docker hub user (that is not part of earthly) via:
 #   earthly secret --org earthly-technologies --project core-test-cloud-docker-credentials-test set std/registry/registry-1.docker.io/username verygoodusername
 #   earthly secret --org earthly-technologies --project core-test-cloud-docker-credentials-test set std/registry/registry-1.docker.io/password verygoodpassword # just kidding

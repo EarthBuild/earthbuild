@@ -17,14 +17,14 @@ if [ -n "${DOCKERHUB_MIRROR_USERNAME:-}" ] || [ -n "${DOCKERHUB_MIRROR_PASSWORD:
   dockerconfig="$(mktemp /tmp/earthly-image-test-docker-config.XXXXXX)"
   chmod 600 "$dockerconfig"
   cat > "$dockerconfig" <<EOF
-  {
-    "auths": {
-      "mirror.gcr.io": {
-        "auth": "$ENCODED_AUTH"
-      }
+{
+  "auths": {
+    "mirror.gcr.io": {
+      "auth": "$ENCODED_AUTH"
     }
   }
-  EOF
+}
+EOF
 fi
 
 # Note that it is not possible to use GLOBAL_CONFIG for this, due to the fact

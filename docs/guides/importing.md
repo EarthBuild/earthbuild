@@ -40,7 +40,7 @@ target2:
 When importing from other repositories, making use of the `IMPORT` command helps to keep the Earthfile clean and readable. The `IMPORT` command takes an Earthfile reference, and optionally an import alias. For example:
 
 ```Dockerfile
-IMPORT github.com/earthly/hello-world:main AS hello-world
+IMPORT github.com/EarthBuild/hello-world:main AS hello-world
 
 ...
 
@@ -49,7 +49,7 @@ my-target:
     COPY hello-world+hello/hello.txt ./
 ```
 
-In this example, the target `my-target` uses the import alias `hello-world` to reference a GitHub repository called `github.com/earthly/hello-world`, and the target `hello` within that repository. The `AS hello-world` part is optional, and is only needed if the import alias is different from the repository name.
+In this example, the target `my-target` uses the import alias `hello-world` to reference a GitHub repository called `github.com/EarthBuild/hello-world`, and the target `hello` within that repository. The `AS hello-world` part is optional, and is only needed if the import alias is different from the repository name.
 
 `BUILD` is used to simply issue the build of the referenced target. Commands like `COPY` or `FROM` can be used to import artifacts or images, respectively.
 
@@ -70,7 +70,7 @@ my-target:
 Importing can also be done inline, without the need for an `IMPORT` command. This is useful for importing a single target or artifact from a remote repository. For example:
 
 ```Dockerfile
-BUILD github.com/earthly/hello-world:main+hello
+BUILD github.com/EarthBuild/hello-world:main+hello
 COPY ./some/other/dir+my-target/out.txt ./
 ```
 

@@ -10,5 +10,5 @@ fi
 
 "$earthly" --version
 
-"$earthly" github.com/earthly/earthly-example-scala/simple:main+test
-"$earthly" github.com/earthly/earthly-example-scala/simple:main+docker
+"$earthly" github.com/EarthBuild/earthly-example-scala/simple:main+test
+"$earthly" github.com/EarthBuild/earthly-example-scala/simple:main+docker

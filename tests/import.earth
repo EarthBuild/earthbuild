@@ -1,8 +1,8 @@
 VERSION 0.8
 
-IMPORT github.com/earthly/earthly-command-example:main
-IMPORT github.com/earthly/earthly-command-example:import AS command-import
-IMPORT github.com/earthly/hello-world:main AS hello-dolly
+IMPORT github.com/EarthBuild/earthly-command-example:main
+IMPORT github.com/EarthBuild/earthly-command-example:import AS command-import
+IMPORT github.com/EarthBuild/hello-world:main AS hello-dolly
 
 all:
     BUILD +test-command

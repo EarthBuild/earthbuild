@@ -731,12 +731,6 @@ The provider to use when logging into the web ui.
 The command `earthly docker-build` builds a docker image from a Dockerfile instead of an Earthfile.
 The `<build-context-dir>` is the path where the Dockerfile build context exists. By default, it is assumed that a file named Dockerfile exists in that directory.
 
-Just like a regular build, `docker-build` can be used with a satellite. For example:
-```shell
-earthly docker-build --sat my-satellite --tag my-image:latest .
-```
-For more information see the [Using Satellites guide](../cloud/satellites/using.md).
-
 Additionally, all other build options are supported when using `docker-build`. For more information see [build-options](#build-options).
 
 #### Examples

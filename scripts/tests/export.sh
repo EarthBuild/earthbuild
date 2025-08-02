@@ -198,7 +198,7 @@ b:
 EOF
 
 # This simply tests that this does not hang (#1945).
-timeout -k 11m 10m "$earthly" --ci --push --remote-cache earthly/test-cache:export-test-7 +test7
+timeout -k 11m 10m "$earthly" --ci --push --remote-cache EarthBuild/test-cache:export-test-7 +test7
 
 # Test 8: Earthly LABELS
 echo ==== Running test 8 ====

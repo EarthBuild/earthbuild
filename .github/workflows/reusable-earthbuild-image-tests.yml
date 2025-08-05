@@ -29,7 +29,7 @@ on:
 
 
 jobs:
-  earthly-image-tests:
+  earthbuild-image-tests:
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
     env:

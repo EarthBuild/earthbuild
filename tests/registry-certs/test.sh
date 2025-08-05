@@ -15,7 +15,7 @@ test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 # Cleanup previous run.
 "$frontend" stop registry || true
 "$frontend" rm registry || true
-"$frontend" rm network registry-certs || true
+"$frontend" network rm registry-certs || true
 rm -rf "$testdir/certs" || true
 
 # Define network settings. I've chosen a subnet that is unlikely to conflict

@@ -58,7 +58,7 @@ jobs:
       - name: Build the earthly docker image
         run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} +earthly-docker --TAG=image-test
       - name: "Run the earthly image tests"
-        run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=earthly/earthly:image-test ./scripts/tests/earthly-image.sh
+        run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd

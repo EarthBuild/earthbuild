@@ -55,9 +55,9 @@ jobs:
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Build the earthly docker image
+      - name: Build the earthbuild docker image
         run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} +earthly-docker --TAG=image-test
-      - name: "Run the earthly image tests"
+      - name: "Run the earthbuild image tests"
         run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}

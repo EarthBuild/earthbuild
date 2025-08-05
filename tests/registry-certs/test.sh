@@ -15,17 +15,18 @@ test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 # Cleanup previous run.
 "$frontend" stop registry || true
 "$frontend" rm registry || true
-"$frontend" rm network registry-certs || true
+"$frontend" network disconnect registry-certs earthly-buildkitd || true
+"$frontend" network rm registry-certs || true
 rm -rf "$testdir/certs" || true
 
-# Create user defined network.
-"$frontend" network create -d bridge registry-certs
-
-# Start registry to get its IP address.
-"$frontend" run --rm -d --network registry-certs --name registry registry:2
-export REGISTRY_IP="$("$frontend" inspect -f {{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}} registry)"
+# Define network settings. I've chosen a subnet that is unlikely to conflict
+# with default Docker networks.
+export REGISTRY_IP="172.29.0.2"
 export REGISTRY="$REGISTRY_IP"
-"$frontend" stop registry
+SUBNET="172.29.0.0/16"
+
+# Create user defined network.
+"$frontend" network create --subnet="$SUBNET" -d bridge registry-certs
 
 # Generate certs.
 "$earthly" \
@@ -43,6 +44,10 @@ export REGISTRY="$REGISTRY_IP"
     -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
     -p "127.0.0.1:5443:443" \
     --name registry registry:2
+
+# Ensure buildkitd can connect to the registry-certs network so that
+# build containers can communicate with the registry.
+"$frontend" network connect registry-certs earthly-buildkitd
 
 # Test.
 set +e

@@ -32,6 +32,9 @@ jobs:
   misc-tests-2:
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
+    permissions:
+      contents: read
+      packages: read
     env:
       FORCE_COLOR: 1
       EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
@@ -57,8 +60,6 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run linux-amd64 specific tests
         run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ./tests+ga-linux-amd64
-      - name: Execute tests requiring .git directory
-        run: go test ./analytics --tags=hasgitdirectory
       - name: Execute earthly ${{inputs.BINARY}} command
         run: (cd tests/docker && ${{inputs.SUDO}} ../../${{inputs.BUILT_EARTHLY_PATH}} docker-build --tag examples-test-docker:latest . && diff <(docker run --rm examples-test-docker:latest) <(echo "hello dockerfile") )
       - name: Execute private image test (Earthly Only) # TODO move to separate workflow

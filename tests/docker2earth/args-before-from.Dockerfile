@@ -4,7 +4,7 @@ ARG GO_MINOR=16
 ARG GO_VERSION="${GO_MAJOR}.${GO_MINOR}"
 FROM "${BASE}:${GO_VERSION}"
 WORKDIR /go/src/github.com/alexellis/href-counter/
-COPY app.go go.mod go.sum /go/src/github.com/alexellis/href-counter/app/
+COPY app.go .
 RUN go mod init
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 

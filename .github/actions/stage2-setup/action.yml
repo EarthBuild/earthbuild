@@ -21,9 +21,6 @@ inputs:
     description: "Whether to use earthly-next"
     required: false
     default: 'false'
-  EARTHLY_ORG:
-    description: "The Earthly organization"
-    required: false
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
     required: false

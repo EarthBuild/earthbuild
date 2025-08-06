@@ -1,6 +1,7 @@
 FROM golang:1.24
 WORKDIR /go/src/github.com/alexellis/href-counter/
-COPY app.go go.mod go.sum /go/src/github.com/alexellis/href-counter/app/
+COPY app.go .
+RUN go mod init
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
 FROM alpine:latest AS greet

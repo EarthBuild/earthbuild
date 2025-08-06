@@ -494,7 +494,6 @@ earthly-integration-test-base:
 
     COPY setup-registry.sh .
 
-    # TODO: Check this
     IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         RUN --secret DOCKERHUB_MIRROR_USER --secret DOCKERHUB_MIRROR_PASS ./setup-registry.sh
     ELSE IF [ "$DOCKERHUB_AUTH" = "true" ]

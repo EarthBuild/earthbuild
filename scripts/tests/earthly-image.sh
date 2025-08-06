@@ -8,22 +8,10 @@ FRONTEND=${FRONTEND:-docker}
 EARTHLY_IMAGE=${EARTHLY_IMAGE:-earthly/earthly:dev-main}
 PATH="$(realpath "$(dirname "$0")/../acbtest"):$PATH"
 
-if [ -n "${DOCKERHUB_MIRROR_USERNAME:-}" ] || [ -n "${DOCKERHUB_MIRROR_PASSWORD:-}" ]; then
-  test -n "$DOCKERHUB_MIRROR_USERNAME" || (echo "error: DOCKERHUB_MIRROR_USERNAME is not set" && exit 1)
-  test -n "$DOCKERHUB_MIRROR_PASSWORD" || (echo "error: DOCKERHUB_MIRROR_PASSWORD is not set" && exit 1)
-
-  ENCODED_AUTH="$(echo -n "$DOCKERHUB_MIRROR_USERNAME:$DOCKERHUB_MIRROR_PASSWORD" | base64 -w 0)"
-
-  dockerconfig="$(mktemp /tmp/earthly-image-test-docker-config.XXXXXX)"
-  chmod 600 "$dockerconfig"
-  cat > "$dockerconfig" <<EOF
-{
-  "auths": {
-    "mirror.gcr.io": {
-      "auth": "$ENCODED_AUTH"
-    }
-  }
-}
+dockerconfig="$(mktemp /tmp/earthly-image-test-docker-config.XXXXXX)"
+chmod 600 "$dockerconfig"
+cat > "$dockerconfig" <<EOF
+{}
 EOF
 fi
 
@@ -31,7 +19,7 @@ fi
 # earthly-entrypoint.sh starts buildkit instead of the earthly binary,
 # as a result the buildkit_additional_config value in ~/.earthly/config.yml is ignored.
 export EARTHLY_ADDITIONAL_BUILDKIT_CONFIG='[registry."docker.io"]
-  mirrors = ["mirror.gcr.io"]'
+  mirrors = ["mirror.gcr.io", "public.ecr.aws"]'
 
 function finish {
   status="$?"

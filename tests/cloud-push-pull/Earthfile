@@ -57,22 +57,23 @@ google-container-repository:
 azure-container-registry:
     COPY azure-container-registry.earth ./Earthfile
 
-   # Note that we dont have to install a cred helper here, also the cred helper wouldnt help here anyways
-    RUN --secret AZ_USERNAME=azure/ci-cd-username \
-        --secret AZ_PASSWORD=azure/ci-cd-password \
-        (test -n "$AZ_USERNAME" || (echo "ERROR: AZ_USERNAME not set"; exit 1)) && \
-        (test -n "$AZ_PASSWORD" || (echo "ERROR: AZ_PASSWORD not set"; exit 1)) && \
-        docker login earthlyintegrationtest.azurecr.io --username "$AZ_USERNAME" --password "$AZ_PASSWORD"
+# TODO: Sort out azure login.
+#    # Note that we dont have to install a cred helper here, also the cred helper wouldn't help here anyway
+#     RUN --secret AZ_USERNAME=azure/ci-cd-username \
+#         --secret AZ_PASSWORD=azure/ci-cd-password \
+#         (test -n "$AZ_USERNAME" || (echo "ERROR: AZ_USERNAME not set"; exit 1)) && \
+#         (test -n "$AZ_PASSWORD" || (echo "ERROR: AZ_PASSWORD not set"; exit 1)) && \
+#         docker login earthlyintegrationtest.azurecr.io --username "$AZ_USERNAME" --password "$AZ_PASSWORD"
 
-    RUN --privileged \
-    --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
-    -- --ci --push +push
+#     RUN --privileged \
+#     --entrypoint \
+#     --mount=type=tmpfs,target=/tmp/earthly \
+#     -- --ci --push +push
 
-    RUN --privileged \
-    --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
-    -- -P +pull
+#     RUN --privileged \
+#     --entrypoint \
+#     --mount=type=tmpfs,target=/tmp/earthly \
+#     -- -P +pull
 
 amazon-elastic-container-registry:
     RUN apk add go aws-cli

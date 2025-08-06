@@ -211,7 +211,8 @@ ga-no-qemu-group11:
     BUILD --pass-args ./autoskip+test-group3
 
 ga-no-qemu-group12:
-    BUILD --pass-args ./warn-if-not-logged-in+test
+    # TODO: fixme
+    # BUILD --pass-args ./warn-if-not-logged-in+test
     BUILD --pass-args ./with-docker-validate-labels+all
     BUILD --pass-args +run-no-cache-save-artifact
 

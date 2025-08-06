@@ -4,8 +4,9 @@ FROM --pass-args ..+base
 WORKDIR /test
 
 all:
-    BUILD +google-artifact-registry
-    BUILD +google-container-repository
+    # TODO: fixme by setting up GCP login
+    # BUILD +google-artifact-registry
+    # BUILD +google-container-repository
     BUILD +azure-container-registry
     BUILD +amazon-elastic-container-registry
 

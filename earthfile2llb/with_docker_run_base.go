@@ -9,6 +9,7 @@ import (
 	"github.com/containerd/containerd/platforms"
 	debuggercommon "github.com/earthly/earthly/debugger/common"
 	"github.com/earthly/earthly/util/llbutil"
+	"github.com/earthly/earthly/util/oidcutil"
 	"github.com/earthly/earthly/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -50,6 +51,7 @@ type WithDockerOpt struct {
 	Interactive           bool
 	interactiveKeep       bool
 	WithAWSCredentials    bool
+	OIDCInfo              *oidcutil.AWSOIDCInfo
 	Pulls                 []DockerPullOpt
 	Loads                 []DockerLoadOpt
 	ComposeFiles          []string

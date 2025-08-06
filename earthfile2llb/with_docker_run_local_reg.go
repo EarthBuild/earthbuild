@@ -122,6 +122,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 		InteractiveKeep:      opt.interactiveKeep,
 		InteractiveSaveFiles: opt.TryCatchSaveArtifacts,
 		WithAWSCredentials:   opt.WithAWSCredentials,
+		OIDCInfo:             opt.OIDCInfo,
 	}
 
 	_, err = w.c.internalRun(ctx, crOpts)

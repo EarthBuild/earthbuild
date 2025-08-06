@@ -171,6 +171,7 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 		InteractiveKeep:      opt.interactiveKeep,
 		InteractiveSaveFiles: opt.TryCatchSaveArtifacts,
 		WithAWSCredentials:   opt.WithAWSCredentials,
+		OIDCInfo:             opt.OIDCInfo,
 	}
 
 	// TODO: /tmp/earthly should not be hard-coded here. It should match whatever

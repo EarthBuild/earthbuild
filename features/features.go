@@ -75,6 +75,7 @@ type Features struct {
 	RawOutput                     bool `long:"raw-output" description:"allow for --raw-output on RUN commands"`
 	GitAuthorEmailNameArgs        bool `long:"git-author-email-name-args" description:"includes EARTHLY_GIT_AUTHOR_EMAIL and EARTHLY_GIT_AUTHOR_NAME builtin ARGs"`
 	AllowWithoutEarthlyLabels     bool `long:"allow-without-earthly-labels" description:"Allow the usage of --without-earthly-labels in SAVE IMAGE"`
+	RunWithAWSOIDC                bool `long:"run-with-aws-oidc" description:"make AWS credentials via OIDC provider available to RUN commands"`
 	DockerCache                   bool `long:"docker-cache" description:"enable the WITH DOCKER --cache-id option"`
 
 	// version numbers

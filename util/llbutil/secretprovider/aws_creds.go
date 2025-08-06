@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/earthly/earthly/util/hint"
+	"github.com/earthly/earthly/util/oidcutil"
 )
 
 // Internal reserved credentials names used to acquire the equivalent values
@@ -22,6 +23,11 @@ const (
 	awsSecretKey    = "aws:secret_key"
 	awsSessionToken = "aws:session_token"
 	awsRegion       = "aws:region"
+
+	roleARNURLParam         = "role-arn"
+	regionURLParam          = "region"
+	sessionDurationURLParam = "session-duration"
+	sessionNameURLParam     = "session-name"
 )
 
 // AWSCredentials contains the basic set of credentials that users will need to
@@ -47,7 +53,7 @@ func AWSEnvName(name string) (string, bool) {
 	return envName, ok
 }
 
-// AWSCredentialProvider can load AWS settings from the environment
+// AWSCredentialProvider can load AWS settings from the environment or oidc provider
 type AWSCredentialProvider struct{}
 
 // NewAWSCredentialProvider creates and returns a credential provider for AWS.
@@ -96,7 +102,7 @@ func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]b
 	}
 
 	if val == "" && secretName != awsRegion {
-		// the region may be provided by a separate arg/env if it's not provided in the local env
+		// the region may be provided by a separate arg/env if it's not provided in the local env or oidc configuration
 		// Use a custom error here as not to fall back on other secret providers.
 		return nil, errors.Errorf("AWS setting %s not found in environment", secretName)
 	}
@@ -114,6 +120,19 @@ func getCFG(ctx context.Context) (aws.Config, error) {
 		return aws.Config{}, errors.Wrap(err, "failed to load AWS config")
 	}
 	return cfg, nil
+}
+
+// SetURLValuesFunc returs a function that takes url.Values and sets oidc values.
+// This is used by SecretID() to be able to identify secrets from this provider
+func SetURLValuesFunc(awsInfo *oidcutil.AWSOIDCInfo) func(values url.Values) {
+	return func(values url.Values) {
+		values.Set(sessionNameURLParam, awsInfo.SessionName)
+		values.Set(roleARNURLParam, awsInfo.RoleARN.String())
+		values.Set(regionURLParam, awsInfo.Region)
+		if awsInfo.SessionDuration != nil {
+			values.Set(sessionDurationURLParam, awsInfo.SessionDuration.String())
+		}
+	}
 }
 
 func handleError(err error, region string) error {

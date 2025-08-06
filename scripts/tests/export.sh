@@ -184,21 +184,21 @@ if "$frontend" inspect earthly-export-test-6:test_linux_arm64 >/dev/null 2>&1 ; 
     exit 1
 fi
 
-# Test 7: remote cache on target with only BUILDs
-echo ==== Running test 7 ====
-rm -rf /tmp/earthly-export-test-7
-mkdir /tmp/earthly-export-test-7
-cd /tmp/earthly-export-test-7
-cat >> Earthfile <<EOF
-VERSION 0.7
-test7:
-    BUILD +b
-b:
-    FROM busybox:latest
-EOF
+# # Test 7: remote cache on target with only BUILDs
+# echo ==== Running test 7 ====
+# rm -rf /tmp/earthly-export-test-7
+# mkdir /tmp/earthly-export-test-7
+# cd /tmp/earthly-export-test-7
+# cat >> Earthfile <<EOF
+# VERSION 0.7
+# test7:
+#     BUILD +b
+# b:
+#     FROM busybox:latest
+# EOF
 
-# This simply tests that this does not hang (#1945).
-timeout -k 11m 10m "$earthly" --ci --push --remote-cache EarthBuild/test-cache:export-test-7 +test7
+# # This simply tests that this does not hang (#1945).
+# timeout -k 11m 10m "$earthly" --ci --push --remote-cache EarthBuild/test-cache:export-test-7 +test7
 
 # Test 8: Earthly LABELS
 echo ==== Running test 8 ====

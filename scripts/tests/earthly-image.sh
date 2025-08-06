@@ -13,7 +13,6 @@ chmod 600 "$dockerconfig"
 cat > "$dockerconfig" <<EOF
 {}
 EOF
-fi
 
 # Note that it is not possible to use GLOBAL_CONFIG for this, due to the fact
 # earthly-entrypoint.sh starts buildkit instead of the earthly binary,

@@ -8,7 +8,7 @@ on:
 jobs:
   podman-macos-test:
     name: +testing-gha-podman
-    runs-on: macos-15 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
+    runs-on: macos-13 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -20,7 +20,7 @@ jobs:
       # matches hardware specs of macos-12 self-hosted machine
       # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
       PODMAN_CPUS: 3
-      PODMAN_MEMORY_MB: 6144
+      PODMAN_MEMORY_MB: 13000
       PODMAN_DISK_SPACE_GB: 13
     steps:
       - uses: earthbuild/actions-setup@main
@@ -30,8 +30,8 @@ jobs:
       - name: Install podman
         run: brew install podman
       - name: Podman Mac Helper
-        # the $(ls /opt/homebrew/Cellar/podman) fills in the version number
-        run: sudo /opt/homebrew/Cellar/podman/$(ls /opt/homebrew/Cellar/podman)/bin/podman-mac-helper install \
+        # the $(ls /usr/local/Cellar/podman) fills in the version number
+        run: sudo /usr/local/Cellar/podman/$(ls /usr/local/Cellar/podman)/bin/podman-mac-helper install \
           && echo "DOCKER_HOST=unix:///Users/runner/.local/share/containers/podman/machine/podman-machine-default/podman.sock" >> $GITHUB_ENV
       - name: Init and start podman machine
         run: podman machine init --now --cpus ${{ env.PODMAN_CPUS }} --disk-size ${{ env.PODMAN_DISK_SPACE_GB }} --memory ${{ env.PODMAN_MEMORY_MB }} --rootful=true

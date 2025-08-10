@@ -30,8 +30,8 @@ jobs:
       - name: Install podman
         run: brew install podman
       - name: Podman Mac Helper
-        # the $(ls /usr/local/Cellar/podman) fills in the version number
-        run: sudo /usr/local/Cellar/podman/$(ls /usr/local/Cellar/podman)/bin/podman-mac-helper install \
+        # the $(ls /opt/homebrew/Cellar/podman) fills in the version number
+        run: sudo /opt/homebrew/Cellar/podman/$(ls /opt/homebrew/Cellar/podman)/bin/podman-mac-helper install \
           && echo "DOCKER_HOST=unix:///Users/runner/.local/share/containers/podman/machine/podman-machine-default/podman.sock" >> $GITHUB_ENV
       - name: Init and start podman machine
         run: podman machine init --now --cpus ${{ env.PODMAN_CPUS }} --disk-size ${{ env.PODMAN_DISK_SPACE_GB }} --memory ${{ env.PODMAN_MEMORY_MB }} --rootful=true

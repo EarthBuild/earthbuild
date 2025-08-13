@@ -1,0 +1,91 @@
+name: earthbuild Build
+
+on:
+  workflow_call:
+    inputs:
+      BUILT_EARTHBUILD_PATH:
+        required: true
+        type: string
+      BINARY:
+        required: true
+        type: string
+      SUDO:
+        type: string
+        required: false
+      RUNS_ON:
+        required: true
+        type: string
+      SKIP_JOB:
+        required: false
+        type: boolean
+        default: false
+      USE_NEXT:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+
+  build-earthbuild:
+    name: build (and push) earthbuild using ${{inputs.BINARY}} and earthbuild-next=${{inputs.USE_NEXT}}
+    if: ${{!inputs.SKIP_JOB}}
+    runs-on: ${{inputs.RUNS_ON}}
+    # Needed for the +ci-release target to push to the GitHub Container Registry for later builds
+    permissions: write-all
+    env:
+      FORCE_COLOR: 1
+      EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+      EARTHBUILD_INSTALL_ID: "earthbuild-githubactions"
+      # Used in our github action as the token - TODO: look to change it into an input
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@main
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Put back the git branch into git (earthbuild uses it for tagging)"
+        run: |
+          branch=""
+          if [ -n "$GITHUB_HEAD_REF" ]; then
+            branch="$GITHUB_HEAD_REF"
+          else
+            branch="${GITHUB_REF##*/}"
+          fi
+          git checkout -b "$branch" || true
+      - name: remove Docker
+        run: ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -rf /usr/bin/docker
+        if: inputs.BINARY != 'docker'
+      - name: Install Podman (with apt-get)
+        run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+        if: inputs.binary == 'podman'
+      - name: Podman debug info
+        run: podman version && podman info && podman info --debug
+        if: inputs.BINARY == 'podman'
+      - name: earthbuild bootstrap
+        run: ${{inputs.SUDO}} $(which earthbuild) bootstrap
+      - name: Configure earthbuild to use GCR mirror
+        run: |-
+          ${{inputs.SUDO}} $(which earthbuild) config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\"]'"
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Update Buildkit to earthbuild-next
+        if: inputs.USE_NEXT
+        run: ${{inputs.SUDO}} $(which earthbuild) +update-buildkit --BUILDKIT_GIT_SHA=$(cat earthbuild-next)
+      - name: Build latest earthbuild using released earthbuild
+        run: ${{inputs.SUDO}} $(which earthbuild) --use-inline-cache +for-linux
+      - name: earthbuild bootstrap using latest earthbuild build
+        run: ${{inputs.SUDO}} ./build/linux/amd64/earthbuild bootstrap
+      - name: Set EARTHBUILD_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHBUILD_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthbuild_version_flag_overrides)"
+          echo "EARTHBUILD_VERSION_FLAG_OVERRIDES=$EARTHBUILD_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Build and push +ci-release using latest earthbuild build
+        run: |-
+          export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
+          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+          ${{inputs.SUDO}} ./build/linux/amd64/earthbuild --ci --push --build-arg TAG_SUFFIX +ci-release
+      - name: Buildkit logs (runs on failure)
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthbuild-buildkitd
+        if: ${{ failure() }}

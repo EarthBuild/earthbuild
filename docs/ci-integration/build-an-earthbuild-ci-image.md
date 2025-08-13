@@ -1,0 +1,111 @@
+# Building An earthbuild CI Image
+
+## Introduction
+
+This guide is intended to help you create your own Docker image with earthbuild inside it for your containerized CI workflows.
+
+## Getting Started
+
+There are two ways to build a containerized CI image with earthbuild:
+
+- Extending the `earthbuild/earthbuild` image with an external runner/agent
+- Adding earthbuild to an existing image
+
+This guide will cover both approaches to constructing your image. 
+
+### Extending The `earthbuild/earthbuild` Image
+
+This is the recommended approach when adopting earthbuild into your containerized CI. Start by basing your custom image on ours:
+
+```docker
+FROM earthbuild/earthbuild:v0.8.16
+RUN ... # Add your agent, certificates, tools...
+```
+
+When extending our image, be sure to pin to a specific version to avoid accidental future breakage as `earthbuild` evolves.
+
+The `earthbuild/earthbuild` image is Alpine Linux based. To add tools to the image, you can use `apk`:
+
+```docker
+apk add --no-cache my-cool-tool
+```
+
+If you are adding a tool from outside the Alpine Linux repositories, test it to ensure it is compatible. Alpine uses `musl`, which *can* create incompatibilities with some software. 
+
+Also, you should embed any configuration that your earthbuild image might need (to avoid having it in your build scripts, or mounted from a host somewhere). You can do this in-line with the [`earthbuild config` command](../earthbuild-command/earthbuild-command.md#earthbuild-config).
+
+### Adding earthbuild To An Existing Image
+
+This section will cover adding earthbuild to an existing image when:
+
+- Docker-In-Docker is configured for the base image
+- earthbuild will be connecting to a remote `earthbuild/buildkitd` instance
+
+While it is possible to configure a locally-ran `earthbuild/buildkitd` instance within an image (it's how `earthbuild/earthbuild` works), the steps and tweaks are beyond the scope of this guide.
+
+#### Docker-In-Docker
+
+In this setup, earthbuild will be allowed to manage an instance of its `earthbuild/buildkitd` daemon over a live Docker socket.
+
+To enable this, simply follow the installation instructions within your Dockerfile/Earthfile as you would on any other host. An example of installing this can be found below.
+
+```docker
+RUN wget https://github.com/earthbuild/earthbuild/releases/download/v0.8.16/earthbuild-linux-amd64 -O /usr/local/bin/earthbuild && \
+    chmod +x /usr/local/bin/earthbuild && \
+    /usr/local/bin/earthbuild bootstrap
+```
+
+As with the Docker containers, be sure to pin the version in the download URL to avoid any accidental future breakage. Assuming Docker is also installed and available, you should be able to invoke earthbuild without any additional configuration.
+
+#### Remote Daemon
+
+When connecting to a remote daemon, follow the Docker-In-Docker installation instructions above to get the binary. Then you'll need to issue a few `earthbuild config` commands to ensure the container is set up to automatically use the remote daemon. It might look something like this:
+
+```docker
+RUN earthbuild config global.buildkit_host buildkit_host: 'tcp://myhost:8372'
+```
+
+For more details on using a remote BuildKit daemon, [see our guide](./remote-buildkit.md).
+
+## cgroups v2 Considerations
+
+When cgroups v2 is detected by the `earthbuild/earthbuild` image's default entrypoint, it moves it's process under an isolated cgroup. If a different entrypoint is used (i.e. a custom user supplied script),
+the root process must be moved into a separate cgroup, for example:
+
+```bash
+if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
+    echo "detected cgroups v2; moving pid $$ to subgroup"
+
+    # move the process under a new cgroup to prevent buildkitd/entrypoint.sh
+    # from getting a "sh: write error: Resource busy" error while enabling controllers
+    # via echo +pids > /sys/fs/cgroup/cgroup.subtree_control
+    mkdir -p /sys/fs/cgroup/my-entrypoint
+    echo "$$" > /sys/fs/cgroup/my-entrypoint/cgroup.procs
+fi
+```
+
+If this step is not performed before the buildkitd process starts up, buildkitd will be unable to initialize it's own cgroup (due to the container's root cgroup already having processes directly under it), and will
+fail with the error: `sh: write error: Resource busy`.
+
+## An important note about running the image
+
+When running the built image in your CI of choice, if you're not using a remote daemon, earthbuild will start BuildKit within the same container. In this case, it is important to ensure that the directory used by BuildKit to cache the builds is mounted as a Docker volume. Failing to do so may result in excessive disk usage, slow builds, or earthbuild not functioning properly.
+
+{% hint style='danger' %}
+##### Important
+We *strongly* recommend using a Docker volume for mounting `/tmp/earthbuild`. If you do not, BuildKit can consume excessive disk space, operate very slowly, or it might not function correctly.
+{% endhint %}
+
+In some environments, not mounting `/tmp/earthbuild` as a Docker volume results in the following error:
+
+```
+--> WITH DOCKER RUN --privileged ...
+...
+rm: can't remove '/var/earthbuild/dind/...': Resource busy
+```
+
+In EKS, users reported that mounting an EBS volume, instead of a Kubernetes `emptyDir` worked.
+
+This part of our documentation needs improvement. If you have a Kubernetes-based setup, please [let us know](https://github.com/earthbuild/earthbuild/issues) how you have mounted `/tmp/earthbuild` and whether `WITH DOCKER` worked well for you.
+
+For more information, see the [documentation for `earthbuild/earthbuild` on DockerHub](https://hub.docker.com/r/earthbuild/earthbuild).

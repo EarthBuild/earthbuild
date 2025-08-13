@@ -5,7 +5,7 @@ inputs:
     description: "The earthbuild version to use"
     required: false
     default: "latest"
-  built_earthbuild_path:
+  BUILT_EARTHBUILD_PATH:
     description: "Path to the built earthbuild binary"
     required: true
   BINARY:
@@ -21,7 +21,7 @@ inputs:
     description: "Whether to use earthbuild-next"
     required: false
     default: "false"
-  earthbuild_org:
+  EARTHBUILD_ORG:
     description: "The earthbuild organization"
     required: false
   EARTHBUILD_TOKEN:
@@ -85,26 +85,26 @@ runs:
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthbuild upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthbuild # restore non-sudo user ownership
-        test -n "${{inputs.built_earthbuild_path}}" || (echo "built_earthbuild_path is empty" && exit 1)
-        mkdir -p $(dirname "${{inputs.built_earthbuild_path}}")
+        test -n "${{inputs.BUILT_EARTHBUILD_PATH}}" || (echo "BUILT_EARTHBUILD_PATH is empty" && exit 1)
+        mkdir -p $(dirname "${{inputs.BUILT_EARTHBUILD_PATH}}")
         ${{inputs.SUDO}} ls "${HOME}/.earthbuild/"
-        ${{inputs.SUDO}} mv "${HOME}/.earthbuild/earthbuild-$TAG" "${{inputs.built_earthbuild_path}}"
-        echo "extracted ${{inputs.built_earthbuild_path}}"
+        ${{inputs.SUDO}} mv "${HOME}/.earthbuild/earthbuild-$TAG" "${{inputs.BUILT_EARTHBUILD_PATH}}"
+        echo "extracted ${{inputs.BUILT_EARTHBUILD_PATH}}"
       shell: bash
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
-        ${{inputs.built_earthbuild_path}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+        ${{inputs.BUILT_EARTHBUILD_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
         mirrors = [\"mirror.gcr.io\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
         export expected_buildkit_client_sha="$(cat earthbuild-next | head -c 12)"
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings ${{inputs.built_earthbuild_path}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthbuild binary" && exit 1)
+        (strings ${{inputs.BUILT_EARTHBUILD_PATH}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthbuild binary" && exit 1)
         echo "correctly found $expected_buildkit_client_sha in earthbuild binary; this confirms earthbuild-next was used"
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
-      run: ${{inputs.SUDO}} ${{inputs.built_earthbuild_path}} bootstrap
+      run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHBUILD_PATH}} bootstrap
       shell: bash
     - run: echo "stage2-setup action complete"
       shell: bash

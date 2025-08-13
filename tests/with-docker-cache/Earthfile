@@ -6,7 +6,7 @@ img:
   SAVE IMAGE img
 
 debug-dind:
-  FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+  FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
   RUN mkdir /etc/docker && echo '{"debug": true}' > /etc/docker/daemon.json
 
 wd:
@@ -18,8 +18,8 @@ wd:
     RUN \
       if [ "$CHECK_CACHED_TAG_EXISTS" = "true" ]; then \
         echo "performing check due to CHECK_CACHED_TAG_EXISTS=$CHECK_CACHED_TAG_EXISTS"; \
-        grep 'Calling POST.*earthly_cached_[0-9a-f]\+' /var/log/docker.log || (echo "no reference to earthly_cached_[0-9a-f]+; which indicates no docker image data exists in the cache" && exit 1); \
-        echo "found instance of earthly_cached_ tag; check passed"; \
+        grep 'Calling POST.*earthbuild_cached_[0-9a-f]\+' /var/log/docker.log || (echo "no reference to earthbuild_cached_[0-9a-f]+; which indicates no docker image data exists in the cache" && exit 1); \
+        echo "found instance of earthbuild_cached_ tag; check passed"; \
       else \
         echo "skipping check due to CHECK_CACHED_TAG_EXISTS=$CHECK_CACHED_TAG_EXISTS"; \
       fi

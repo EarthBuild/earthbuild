@@ -19,6 +19,6 @@ docker:
     FROM alpine:3
     WORKDIR /app
     RUN apk add --no-cache --update bash openssl
-    COPY +build/prod/rel/earthly .
-    CMD ["/app/bin/earthly", "start"]
-    SAVE IMAGE --push earthly/examples:elixir
+    COPY +build/prod/rel/earthbuild .
+    CMD ["/app/bin/earthbuild", "start"]
+    SAVE IMAGE --push earthbuild/examples:elixir

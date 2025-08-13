@@ -10,8 +10,8 @@ jobs:
     runs-on: macos-13 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
-      BUILT_EARTHLY_PATH: build/darwin/amd64/earthly
+      EARTHBUILD_INSTALL_ID: "earthbuild-githubactions"
+      BUILT_EARTHBUILD_PATH: build/darwin/amd64/earthbuild
 
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,29 +46,29 @@ jobs:
         run: podman version
       - name: Virtualization check
         run: sysctl -a | grep machdep.cpu.features
-      - name: Configure Earthly to use GCR mirror
+      - name: Configure earthbuild to use GCR mirror
         run: |-
-          earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          earthbuild config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\"]'"
-      - name: Bootstrap Earthly using released earthly
-        run: earthly bootstrap
-      - name: Build latest earthly using released earthly
-        run: earthly -P --use-inline-cache +for-darwin
-      - name: Re-bootstrap Earthly using latest earthly build
-        run: ${{ env.BUILT_EARTHLY_PATH }} bootstrap
-      - name: rebuild earthly using latest earthly build
-        run: ${{ env.BUILT_EARTHLY_PATH }} -P --use-inline-cache +for-darwin
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Bootstrap earthbuild using released earthbuild
+        run: earthbuild bootstrap
+      - name: Build latest earthbuild using released earthbuild
+        run: earthbuild -P --use-inline-cache +for-darwin
+      - name: Re-bootstrap earthbuild using latest earthbuild build
+        run: ${{ env.BUILT_EARTHBUILD_PATH }} bootstrap
+      - name: rebuild earthbuild using latest earthbuild build
+        run: ${{ env.BUILT_EARTHBUILD_PATH }} -P --use-inline-cache +for-darwin
+      - name: Set EARTHBUILD_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTHBUILD_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthbuild_version_flag_overrides)"
+          echo "EARTHBUILD_VERSION_FLAG_OVERRIDES=$EARTHBUILD_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       # Note - we only run the non-qemu tests here because we have not figured out cross-compilation on Mac using Podman yet
       - name: Execute tests-no-qemu
-        run: ${{env.BUILT_EARTHLY_PATH}} --ci -P +test-no-qemu
+        run: ${{env.BUILT_EARTHBUILD_PATH}} --ci -P +test-no-qemu
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute fail test
-        run: "! ${{ env.BUILT_EARTHLY_PATH }} --ci ./tests/fail+test-fail"
+        run: "! ${{ env.BUILT_EARTHBUILD_PATH }} --ci ./tests/fail+test-fail"
       - name: Buildkit logs (runs on failure)
-        run: podman logs earthly-buildkitd
+        run: podman logs earthbuild-buildkitd
         if: ${{ failure() }}

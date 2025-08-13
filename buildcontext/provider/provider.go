@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/fsutilprogress"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/util/fsutilprogress"
 
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"

@@ -2,4 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: Community Slack
     about: Join our community Slack
-    url: https://earthly.dev/slack
+    url: https://earthbuild.dev/slack # TODO: (ds) create a slack channel for earthbuild

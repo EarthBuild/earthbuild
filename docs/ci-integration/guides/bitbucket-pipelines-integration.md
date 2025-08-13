@@ -1,20 +1,20 @@
 # Bitbucket Pipelines integration
 
-Bitbucket Pipelines run in a shared Docker environment and do not support running Earthly builds directly due to [restrictions](https://jira.atlassian.com/browse/BCLOUD-21419) that Bitbucket has put in place.
+Bitbucket Pipelines run in a shared Docker environment and do not support running earthbuild builds directly due to [restrictions](https://jira.atlassian.com/browse/BCLOUD-21419) that Bitbucket has put in place.
 
-You can however, run Earthly builds on Bitbucket pipelines via [remote runners](../../remote-runners.md) such as [Earthly Satellites](../../cloud/satellites.md). Because Bitbucket Pipelines run as containers you can also use the official Earthly Docker image. Here is an example of a Bitbucket Pipeline build. This example assumes your Earthfile has a `+build` target defined.
+You can however, run EarthBuild builds on Bitbucket pipelines using the official EarthBuild Docker image. Here is an example of a Bitbucket Pipeline build. This example assumes your Earthfile has a `+build` target defined.
 
 ```yml
 # ./bitbucket-pipelines.yml
 
-image: earthly/earthly:v0.8.13
+image: earthbuild/earthbuild:v0.8.16
 
 pipelines:
   default:
     - step:
-        name: "Set Earthly token"
+        name: "Set earthbuild token"
         script:
-          - export EARTHLY_TOKEN=$EARTHLY_TOKEN
+          - export EARTHBUILD_TOKEN=$EARTHBUILD_TOKEN
     - step:
         name: "Docker login"
         script:
@@ -22,7 +22,7 @@ pipelines:
     - step:
         name: "Build"
         script:
-          - earthly --ci --push --sat $EARTHLY_SAT --org $EARTHLY_ORG +build
+          - earthbuild --ci --push --sat $EARTHBUILD_SAT --org $EARTHBUILD_ORG +build
 ```
 
 For a complete guide on CI integration see the [CI integration guide](../overview.md).

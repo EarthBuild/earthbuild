@@ -13,7 +13,7 @@
       "dockerDashComposeVersion": "v2"
     }
   },
-  // earthly does best with a fair amount of storage for caching
+  // earthbuild does best with a fair amount of storage for caching
   "hostRequirements": {
     "cpus": 4,
     "memory": "8gb",
@@ -21,11 +21,11 @@
   },
   "portsAttributes": {
     "8371": {
-      "label": "Earthly BuildKit",
+      "label": "earthbuild BuildKit",
       "onAutoForward": "ignore"
     },
     "8373": {
-      "label": "Earthly BuildKit",
+      "label": "earthbuild BuildKit",
       "onAutoForward": "ignore"
     }
   }

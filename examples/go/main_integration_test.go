@@ -16,14 +16,14 @@ func TestIntegration(t *testing.T) {
 		DB:       0,  // use default DB
 	})
 
-	err := rdb.Set(ctx, "howCoolIsEarthly", howCoolIsEarthly, 0).Err()
+	err := rdb.Set(ctx, "howCoolIsearthbuild", howCoolIsearthbuild, 0).Err()
 	if err != nil {
 		panic(err)
 	}
 
-	resultFromDB, err := rdb.Get(ctx, "howCoolIsEarthly").Result()
+	resultFromDB, err := rdb.Get(ctx, "howCoolIsearthbuild").Result()
 	if err != nil {
 		panic(err)
 	}
-	require.Equal(t, howCoolIsEarthly, resultFromDB)
+	require.Equal(t, howCoolIsearthbuild, resultFromDB)
 }

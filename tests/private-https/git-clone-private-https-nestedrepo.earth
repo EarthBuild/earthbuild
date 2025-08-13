@@ -3,7 +3,7 @@ FROM alpine/git:v2.43.0
 test:
     WORKDIR /test
 
-    # TODO: it is not possible to clone this repo using the user/password that's configured in the earthly config
+    # TODO: it is not possible to clone this repo using the user/password that's configured in the earthbuild config
     # GIT CLONE --branch main https://selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo.git myrepo
 
     # Nor, is it possible to reference the repo via ssh, like this
@@ -12,8 +12,8 @@ test:
     # instead it's required to include the username/password here
     GIT CLONE --branch main https://testuser:keepitsecret@selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo.git myrepo
 
-    # however the substitute/pattern is working when calling earthly from the cli
-    # e.g. earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello (which is done immediately after by the Earthfile that calls this test)
+    # however the substitute/pattern is working when calling earthbuild from the cli
+    # e.g. earthbuild --config \$earthbuild_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello (which is done immediately after by the Earthfile that calls this test)
     # which implies this earthfile could do a BUILD selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo+hello
 
     WORKDIR /test/myrepo

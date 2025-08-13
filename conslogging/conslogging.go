@@ -237,7 +237,7 @@ func (cl ConsoleLogger) PrintPhaseFooter(phase string, disabled bool, special st
 
 // PrintSuccess prints the success message.
 func (cl ConsoleLogger) PrintSuccess() {
-	cl.PrintBar(successColor, "🌍 Earthly Build  ✅ SUCCESS", "")
+	cl.PrintBar(successColor, "🌍 earthbuild Build  ✅ SUCCESS", "")
 }
 
 // PrintFailure prints the failure message.
@@ -345,7 +345,7 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string
 	fmt.Fprintf(w, fullFormat, a...)
 }
 
-// PrintBar prints an earthly message bar.
+// PrintBar prints an earthbuild message bar.
 func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	w := new(bytes.Buffer)
 	cl.mu.Lock()

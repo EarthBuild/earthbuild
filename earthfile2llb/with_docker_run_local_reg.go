@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
+	"github.com/earthbuild/cloud-api/logstream"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/logbus/solvermon"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
 	"github.com/pkg/errors"
 )
 

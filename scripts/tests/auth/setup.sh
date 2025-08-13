@@ -2,22 +2,22 @@
 set -eu
 
 if [ -z ${GITHUB_ACTIONS+x} ]; then
-    echo "this script should only be run from GHA; if run locally it will modify your ssh settings and earthly config"
+    echo "this script should only be run from GHA; if run locally it will modify your ssh settings and earthbuild config"
     exit 1
 fi
 
-earthly=${earthly:=earthly}
-earthly=$(realpath "$earthly")
-echo "running tests with $earthly"
+earthbuild=${earthbuild:=earthbuild}
+earthbuild=$(realpath "$earthbuild")
+echo "running tests with $earthbuild"
 
-# ensure earthly login works (and print out who gets logged in)
-"$earthly" account login
+# ensure earthbuild login works (and print out who gets logged in)
+"$earthbuild" account login
 
-# these tests require the EARTHLY_TOKEN not be set
-unset EARTHLY_TOKEN
+# these tests require the EARTHBUILD_TOKEN not be set
+unset EARTHBUILD_TOKEN
 
 # make sure ssh-agent is not running
 test -z "${SSH_AUTH_SOCK:-}"
 
 # make sure tests start without a config
-rm -f ~/.earthly-dev/config.yml
+rm -f ~/.earthbuild-dev/config.yml

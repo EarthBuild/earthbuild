@@ -1,6 +1,6 @@
 VERSION --try 0.7
 
-PROJECT earthly-technologies/core
+PROJECT earthbuild-technologies/core
 
 FROM alpine
 

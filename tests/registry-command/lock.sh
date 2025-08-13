@@ -6,14 +6,14 @@ PROJECT="registry-command-test-project"
 
 oldlockvalue=""
 while true; do
-    lock="$(earthly secrets --org "$ORG" --project "$PROJECT" get lock || true)"
+    lock="$(earthbuild secrets --org "$ORG" --project "$PROJECT" get lock || true)"
     if [ -z "$lock" ]; then
         echo "no lock exists; proceeding to lock it"
         break
     fi
     if [ "$lock" = "$oldlockvalue" ]; then
         echo "lock value hasn't changed; forcing it open"
-        earthly secrets --org "$ORG" --project "$PROJECT" rm lock || true
+        earthbuild secrets --org "$ORG" --project "$PROJECT" rm lock || true
         sleep $[ ( $RANDOM % 5 ) + 1 ]s
         continue
     fi
@@ -29,11 +29,11 @@ done
 id="$(uuidgen)"
 test -n "$id"
 
-earthly secrets --org "$ORG" --project "$PROJECT" set lock "$id"
+earthbuild secrets --org "$ORG" --project "$PROJECT" set lock "$id"
 
 sleep 1
 
-lock="$(earthly secrets --org "$ORG" --project "$PROJECT" get lock)"
+lock="$(earthbuild secrets --org "$ORG" --project "$PROJECT" get lock)"
 if [ "$lock" != "$id" ]; then
   echo "failed to lock"
   exec ./lock.sh # try again

@@ -2,13 +2,13 @@
 
 ## Introduction
 
-One of the core features of Earthly is support for build arguments. Build arguments are declared with `ARG` and
+One of the core features of earthbuild is support for build arguments. Build arguments are declared with `ARG` and
 can be used to dynamically set environment variables inside the context of [RUN commands](../earthfile/earthfile.md#run).
 
 Build arguments can be passed between targets or from the command line. They encourage
 writing generic Earthfiles and ultimately promote greater code-reuse.
 
-Another closely related primitive that Earthly offers is the variable (declared with `LET`). Variables are similar to build arguments, except that they cannot be used as parameters.
+Another closely related primitive that earthbuild offers is the variable (declared with `LET`). Variables are similar to build arguments, except that they cannot be used as parameters.
 
 ## A Quick Example
 
@@ -26,16 +26,16 @@ hello:
     RUN echo "hello $name"
 ```
 
-Then we will specify a value for the `name` argument on the command line when we invoke `earthly`:
+Then we will specify a value for the `name` argument on the command line when we invoke `earthbuild`:
 
 ```bash
-earthly +hello --name=world
+earthbuild +hello --name=world
 ```
 
 This will output
 
 ```
-    buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+    buildkitd | Found buildkit daemon as docker container (earthbuild-buildkitd)
 alpine:latest | --> Load metadata linux/arm64
          +foo | --> FROM alpine:latest
          +foo | 100% resolve docker.io/library/alpine:latest@sha256:21a3deaa0d32a8057914f36584b5288d2e5ecc984380bc0118285c70fa8c9300
@@ -45,7 +45,7 @@ alpine:latest | --> Load metadata linux/arm64
        output | --> exporting outputs
 ```
 
-If we re-run `earthly +hello --name=world`, we will see that the echo command is cached (and won't re-display the hello world text):
+If we re-run `earthbuild +hello --name=world`, we will see that the echo command is cached (and won't re-display the hello world text):
 
 ```
 +foo | *cached* --> RUN echo "hello $name"
@@ -83,7 +83,7 @@ Argument values can be set multiple ways:
    The value can be directly specified on the command line (as shown in the previous example):
    
    ```
-   earthly +hello --HELLO=world --FOO=bar
+   earthbuild +hello --HELLO=world --FOO=bar
    ```
 
 2. From environment variables
@@ -93,33 +93,33 @@ Argument values can be set multiple ways:
    ```bash
    export HELLO="world"
    export FOO="bar"
-   earthly +hello --HELLO="$HELLO" --FOO="$FOO"
+   earthbuild +hello --HELLO="$HELLO" --FOO="$FOO"
    ```
 
-3. Via the `EARTHLY_BUILD_ARGS` environment variable
+3. Via the `EARTHBUILD_BUILD_ARGS` environment variable
 
-    The value can also be set via the `EARTHLY_BUILD_ARGS` environment variable.
+    The value can also be set via the `EARTHBUILD_BUILD_ARGS` environment variable.
     
     ```bash
-    export EARTHLY_BUILD_ARGS="HELLO=world,FOO=bar"
-    earthly +hello
+    export EARTHBUILD_BUILD_ARGS="HELLO=world,FOO=bar"
+    earthbuild +hello
     ```
 
-    This may be useful if you have a set of build args that you'd like to always use and would prefer not to have to specify them on the command line every time. The `EARTHLY_BUILD_ARGS` environment variable may also be stored in your `~/.bashrc` file, or some other shell-specific startup script.
+    This may be useful if you have a set of build args that you'd like to always use and would prefer not to have to specify them on the command line every time. The `EARTHBUILD_BUILD_ARGS` environment variable may also be stored in your `~/.bashrc` file, or some other shell-specific startup script.
 
 4. From an `.arg` file
 
    It is also possible to create an `.arg` file to contain the build arguments to pass
-   to earthly. First create an `.arg` file with:
+   to earthbuild. First create an `.arg` file with:
    
    ```
    name=eggplant
    ```
    
-   Then simply run earthly:
+   Then simply run earthbuild:
    
    ```bash
-   earthly +hello
+   earthbuild +hello
    ```
 
 ## Passing Argument values to targets
@@ -135,7 +135,7 @@ hello:
     RUN echo "hello $name"
 ```
 
-Arg overrides within the same Earthfile are passed automatically to each other. In the example below, if you are calling `earthly +greeting --name=world`, the `--name=world` override will be passed to `+hello` as well.
+Arg overrides within the same Earthfile are passed automatically to each other. In the example below, if you are calling `earthbuild +greeting --name=world`, the `--name=world` override will be passed to `+hello` as well.
 
 ```Dockerfile
 greeting:
@@ -161,7 +161,7 @@ BUILD --pass-args +hello
 
 ### Matrix builds
 
-If multiple build arguments values are defined for the same argument name, Earthly will build the target for each value; this makes it easy to configure a "build matrix" within Earthly.
+If multiple build arguments values are defined for the same argument name, earthbuild will build the target for each value; this makes it easy to configure a "build matrix" within earthbuild.
 
 For example, we can create a new `greetings` target which calls `+hello` multiple times:
 
@@ -173,10 +173,10 @@ greetings:
         --name=eggplant
 ```
 
-Then when we call `earthly +greetings`, earthly will call `+hello` three times:
+Then when we call `earthbuild +greetings`, earthbuild will call `+hello` three times:
 
 ```
-     buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+     buildkitd | Found buildkit daemon as docker container (earthbuild-buildkitd)
  alpine:latest | --> Load metadata linux/amd64
          +base | --> FROM alpine:latest
          +base | resolve docker.io/library/alpine:latest@sha256:69e70a79f2d41ab5d637de98c1e0b055206ba40a8145e7bddb55ccc04e13cf8f ... 100%

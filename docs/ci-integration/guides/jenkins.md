@@ -2,14 +2,14 @@
 
 ## Overview
 
-Jenkins has multiple modes of operation, and each of them require some consideration when installing Earthly. These modes include:
+Jenkins has multiple modes of operation, and each of them require some consideration when installing earthbuild. These modes include:
 
  * Standalone, dedicated runners
  * Ephemeral cloud runners
 
 ### Compatibility
 
-Earthly has been tested with Jenkins in a standalone runner configuration, and using the Docker Cloud provider.
+earthbuild has been tested with Jenkins in a standalone runner configuration, and using the Docker Cloud provider.
 
 ### Resources
 
@@ -31,7 +31,7 @@ Ensure that the Docker Cloud provider is installed and has a Docker daemon avail
 
 ### Installation
 
-You'll need to [create your own runner image](../build-an-earthly-ci-image.md). Heres an example of what this might look like, when basing your runner off our `earthly/earthly` image:
+You'll need to [create your own runner image](../build-an-earthbuild-ci-image.md). Heres an example of what this might look like, when basing your runner off our `earthbuild/earthbuild` image:
 
 ```docker
 ARG VERSION=4.9
@@ -51,28 +51,28 @@ Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through
 
 ## Additional Notes
 
-`earthly` misinterprets the Jenkins environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
+`earthbuild` misinterprets the Jenkins environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
 
 ## Example
 
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get earthbuild off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
-You can find our [Jenkins example on GitHub](https://github.com/earthly/ci-examples/tree/main/jenkins).
+You can find our [Jenkins example on GitHub](https://github.com/earthbuild/ci-examples/tree/main/jenkins).
 
-To run it yourself, clone the [`ci-examples` repository](https://github.com/earthly/ci-examples), and then run (from the root of the repository):
+To run it yourself, clone the [`ci-examples` repository](https://github.com/earthbuild/ci-examples), and then run (from the root of the repository):
 
 ```go
-earthly ./jenkins+start
+earthbuild ./jenkins+start
 ```
 
-This will start a local Jenkins server, minimally configured to spawn `earthly` builds using the Docker cloud plugin.
+This will start a local Jenkins server, minimally configured to spawn `earthbuild` builds using the Docker cloud plugin.
 
-To run a build in this demo, you will need to configure a build pipeline. To do that, we have an [example project with a Jenkinsfile](https://github.com/earthly/ci-example-project). To configure the build pipeline for the example project:
+To run a build in this demo, you will need to configure a build pipeline. To do that, we have an [example project with a Jenkinsfile](https://github.com/earthbuild/ci-example-project). To configure the build pipeline for the example project:
 
 - Open the Jenkins demo by going to [`http://localhost:8000`](http://localhost:8080/)
 - Click "New Item", on the left
@@ -87,7 +87,7 @@ To run a build in this demo, you will need to configure a build pipeline. To do 
 - Make the following changes:
     - Choose "Pipeline script from SCM" for the Definition
     - Choose "Git" as the SCM, once the option appears
-    - Set the repository URL to [`https://github.com/earthly/ci-example-project`](https://github.com/earthly/ci-example-project)
+    - Set the repository URL to [`https://github.com/earthbuild/ci-example-project`](https://github.com/earthbuild/ci-example-project)
     - Set the branch specifier to `*/main`
 
 ![Configuring all the SCM options for the build](img/Jenkins3.png)
@@ -102,7 +102,7 @@ To run a build in this demo, you will need to configure a build pipeline. To do 
 
 ### Notes
 
-If you broke the example environment, you can run `earthly ./jenkins+cleanup` to clean up before trying to run again from scratch.
+If you broke the example environment, you can run `earthbuild ./jenkins+cleanup` to clean up before trying to run again from scratch.
 
 #### TLS
 
@@ -114,4 +114,4 @@ To allow the `docker` client to access a daemon protected with TLS, you will nee
 
 Also, ensure that you are using the correct port for TLS. In this image of our example cloud, we are using port `2375`, which is traditionally the insecure port for a `docker` daemon. In a TLS environment, `docker` expects port `2376`.
 
-If you are using an external `earthly-buildkitd` with Jenkins, [you should be using mTLS](../remote-buildkit.md). You will need to add the keys and certificates used there as credentials too.
+If you are using an external `earthbuild-buildkitd` with Jenkins, [you should be using mTLS](../remote-buildkit.md). You will need to add the keys and certificates used there as credentials too.

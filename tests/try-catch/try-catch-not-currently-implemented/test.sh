@@ -1,16 +1,16 @@
 #!/bin/bash
-# This test is designed to be run directly by github actions or on your host (i.e. not earthly-in-earthly)
+# This test is designed to be run directly by github actions or on your host (i.e. not earthbuild-in-earthbuild)
 set -uxe
 set -o pipefail
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-echo "using earthly=$(realpath "$earthly")"
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+echo "using earthbuild=$(realpath "$earthbuild")"
 
 rm .testdata || true # cleanup
 
-! "$earthly" $@ +test 2>&1 | tee .earthlyoutput
+! "$earthbuild" $@ +test 2>&1 | tee .earthbuildoutput
 ! test -f .testdata
 
-grep "TRY/FINALLY doesn't (currently) support CATCH statements" .earthlyoutput
+grep "TRY/FINALLY doesn't (currently) support CATCH statements" .earthbuildoutput

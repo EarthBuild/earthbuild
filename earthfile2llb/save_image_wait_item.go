@@ -3,8 +3,8 @@ package earthfile2llb
 import (
 	"sync"
 
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/waitutil"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/waitutil"
 )
 
 type saveImageWaitItem struct {

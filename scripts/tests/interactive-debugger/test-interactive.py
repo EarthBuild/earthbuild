@@ -17,15 +17,15 @@ def import_test_func(path, func_name='test_interactive'):
     spec.loader.exec_module(foo)
     return getattr(foo, func_name)
 
-def get_earthly_binary(earthly):
-    if os.path.isfile(earthly):
-        return earthly
-    if os.path.sep not in earthly:
+def get_earthbuild_binary(earthbuild):
+    if os.path.isfile(earthbuild):
+        return earthbuild
+    if os.path.sep not in earthbuild:
         for path in os.environ['PATH'].split(':'):
-            fullpath = os.path.join(path, earthly)
+            fullpath = os.path.join(path, earthbuild)
             if os.path.isfile(fullpath):
                 return fullpath
-    raise RuntimeError(f'failed to find earthly binary: {earthly}')
+    raise RuntimeError(f'failed to find earthbuild binary: {earthbuild}')
 
 def print_box(msg):
     n = len(msg)
@@ -37,13 +37,13 @@ def print_box(msg):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--earthly', help="earthly binary to run test against", default='earthly')
+    parser.add_argument('-e', '--earthbuild', help="earthbuild binary to run test against", default='earthbuild')
     parser.add_argument('-t', '--timeout', help="fail test if it takes longer than this many seconds", type=float, default=30.0)
     parser.add_argument('--test', help="run specified test instead of all tests")
     args = parser.parse_args()
 
-    earthly_path = os.path.realpath(get_earthly_binary(args.earthly))
-    print(f'Running interactive tests against "{earthly_path}"')
+    earthbuild_path = os.path.realpath(get_earthbuild_binary(args.earthbuild))
+    print(f'Running interactive tests against "{earthbuild_path}"')
 
     tests = (
         ('test-simple', import_test_func(os.path.join(script_dir, 'simple', 'test-simple.py'))),
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     summary_msgs = []
     for test_name, test in tests:
         print_box(f'Running {test_name}')
-        test_exit_code = test(earthly_path, args.timeout)
+        test_exit_code = test(earthbuild_path, args.timeout)
         if test_exit_code == 2:
             msg = f'{test_name} timed out'
             print(msg)

@@ -1,13 +1,13 @@
-module github.com/earthly/earthly/examples/go-monorepo/services/one
+module github.com/earthbuild/earthbuild/examples/go-monorepo/services/one
 
 go 1.21
 
 require (
-	github.com/earthly/earthly/examples/go-monorepo/libs/hello v0.0.0
+	github.com/earthbuild/earthbuild/examples/go-monorepo/libs/hello v0.0.0
 	github.com/labstack/echo/v4 v4.9.0
 )
 
-replace github.com/earthly/earthly/examples/go-monorepo/libs/hello v0.0.0 => ../../libs/hello
+replace github.com/earthbuild/earthbuild/examples/go-monorepo/libs/hello v0.0.0 => ../../libs/hello
 
 require (
 	github.com/labstack/gommon v0.3.1 // indirect

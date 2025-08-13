@@ -9,8 +9,8 @@ describe('sayHello', () => {
         return response.data;
     }
 
-    it('should say Hello Earthly if nothing is passed', async () => {
-        expect(await call()).toBe('Hello Earthly');
+    it('should say Hello earthbuild if nothing is passed', async () => {
+        expect(await call()).toBe('Hello earthbuild');
     });
 
     it('should say Hello World if World is passed', async () => {

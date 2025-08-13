@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
+	"github.com/earthbuild/cloud-api/logstream"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/logbus/solvermon"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )
@@ -208,7 +208,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	}
 
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthly/dind")))
+		"/var/earthbuild/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
 		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
@@ -223,15 +223,15 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		// Note that the "cache_" prefix here is used to prevent auto-cleanup
 		dindID = "cache_" + opt.CacheID
 	}
-	// We will pass along the variable EARTHLY_DOCKER_LOAD_REGISTRY via a secret
+	// We will pass along the variable EARTHBUILD_DOCKER_LOAD_REGISTRY via a secret
 	// to prevent busting the cache, as the intermediate image names are
 	// different every time.
 	dockerLoadRegistrySecretID := fmt.Sprintf(
-		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID)
+		"%s-%s-EARTHBUILD_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID)
 	crOpts.extraRunOpts = append(
 		crOpts.extraRunOpts,
 		llb.AddSecret(
-			"EARTHLY_DOCKER_LOAD_REGISTRY",
+			"EARTHBUILD_DOCKER_LOAD_REGISTRY",
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
 		))

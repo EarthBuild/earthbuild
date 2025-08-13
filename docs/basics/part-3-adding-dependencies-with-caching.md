@@ -1,8 +1,8 @@
 
-To copy the files for [this example ( Part 3 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part3) run
+To copy the files for [this example ( Part 3 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part3) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part3/part3 ./part3
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part3/part3 ./part3
 ```
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
 
@@ -12,7 +12,7 @@ Now let's imagine that we want to add some dependencies to our app. In Go, that 
 `./go.mod`
 
 ```go.mod
-module github.com/earthly/earthly/examples/go
+module github.com/earthbuild/earthbuild/examples/go
 
 go 1.13
 
@@ -123,10 +123,10 @@ docker:
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 3 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part3) run
+To copy the files for [this example ( Part 3 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part3) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part3/part3 ./part3
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part3/part3 ./part3
 ```
 
 Note that in our case, only the JavaScript version has an example where `FROM +deps` is used in more than one place: both in `build` and in `docker`. Nevertheless, all versions show how dependencies may be separated.
@@ -167,10 +167,10 @@ docker:
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 3 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part3) run
+To copy the files for [this example ( Part 3 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part3) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part3/part3 ./part3
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part3/part3 ./part3
 ```
 
 `./Earthfile`
@@ -206,10 +206,10 @@ docker:
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 3 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part3) run
+To copy the files for [this example ( Part 3 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part3) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part3/part3 ./part3
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part3/part3 ./part3
 ```
 
 `./Earthfile`

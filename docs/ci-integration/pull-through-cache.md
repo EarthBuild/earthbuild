@@ -47,11 +47,11 @@ http:
       hosts: [my.cool.mirror.horse]
 ```
 
-The currently shipping `library/registry` image does not support the DNS-01 challenge yet, and [some of the LetsEncrypt challenge support is getting out of date](https://github.com/distribution/distribution/issues/3041). If you need this, there is a [tracking issue](https://github.com/docker/distribution-library-image/issues/96); We have had success by [building the binary ourselves](https://github.com/earthly/registry/blob/3f06d1fc5d7f456b63b870b2851fd18cd2098dcf/Earthfile#L3-L11) and replacing it in the image that Docker ships.
+The currently shipping `library/registry` image does not support the DNS-01 challenge yet, and [some of the LetsEncrypt challenge support is getting out of date](https://github.com/distribution/distribution/issues/3041). If you need this, there is a [tracking issue](https://github.com/docker/distribution-library-image/issues/96); We have had success by [building the binary ourselves](https://github.com/earthbuild/registry/blob/3f06d1fc5d7f456b63b870b2851fd18cd2098dcf/Earthfile#L3-L11) and replacing it in the image that Docker ships.
 
 #### Use An Insecure Mirror
 
-By default, Earthly expects your mirror to be using TLS. While this is not recommended, you can use an unsecured mirror by specifying the following config in the `buildkit_additional_config` setting:
+By default, earthbuild expects your mirror to be using TLS. While this is not recommended, you can use an unsecured mirror by specifying the following config in the `buildkit_additional_config` setting:
 
 ```yaml
 global:
@@ -165,9 +165,9 @@ If the cache is correctly configured, the pull command should work, and you shou
 192.168.0.126 - - [22/Mar/2022:19:10:39 +0000] "HEAD /v2/library/alpine/manifests/3.15 HTTP/1.1" 200 1638 "" "docker/20.10.12 go/go1.16.12 git-commit/459d0df kernel/5.13.0-35-generic os/linux arch/amd64 UpstreamClient(Docker-Client/20.10.12 \\(linux\\))"
 ```
 
-### Configuring Earthly to Use the Cache
+### Configuring earthbuild to Use the Cache
 
-To configure earthly to use the cache, you must edit `~/.earthly/config.yml` to include:
+To configure earthbuild to use the cache, you must edit `~/.earthbuild/config.yml` to include:
 
 ```yaml
 global:
@@ -178,10 +178,10 @@ global:
       insecure = true
 ```
 
-The next time earthly is run, it will detect the configuration change and will restart the `earthly-buildkitd` container to reflect these settings.
+The next time earthbuild is run, it will detect the configuration change and will restart the `earthbuild-buildkitd` container to reflect these settings.
 
 You can force these settings to be applied, and verify the mirror appears in the BuildKit config by running:
 
 ```bash
-earthly bootstrap && docker exec earthly-buildkitd cat /etc/buildkitd.toml
+earthbuild bootstrap && docker exec earthbuild-buildkitd cat /etc/buildkitd.toml
 ```

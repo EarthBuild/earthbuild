@@ -4,20 +4,20 @@ WORKDIR /dotnet-example
 
 deps:
     # copying project files and restoring NuGet packages allows docker to cache the layer and only re-build it when NuGet packages change
-    COPY src/HelloEarthly/HelloEarthly.csproj src/HelloEarthly/
-    RUN dotnet restore src/HelloEarthly
+    COPY src/Helloearthbuild/Helloearthbuild.csproj src/Helloearthbuild/
+    RUN dotnet restore src/Helloearthbuild
 
 build:
     FROM +deps
     COPY src src
 
-    # make sure you have /bin and /obj in .earthlyignore, as their content from context might cause problems
-    RUN dotnet publish --no-restore src/HelloEarthly -o publish
+    # make sure you have /bin and /obj in .earthbuildignore, as their content from context might cause problems
+    RUN dotnet publish --no-restore src/Helloearthbuild -o publish
 
     SAVE ARTIFACT publish AS LOCAL publish
 
 docker:
     FROM mcr.microsoft.com/dotnet/core/runtime:3.1.6-alpine3.12
     COPY +build/publish .
-    ENTRYPOINT ["dotnet", "HelloEarthly.dll"]
-    SAVE IMAGE --push earthly/examples:dotnet
+    ENTRYPOINT ["dotnet", "Helloearthbuild.dll"]
+    SAVE IMAGE --push earthbuild/examples:dotnet

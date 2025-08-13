@@ -2,7 +2,7 @@ VERSION 0.8
 
 ARG --global REGISTRY
 ARG --global REGISTRY_IP
-ARG --global EARTHLY_BUILD_ARGS="REGISTRY"
+ARG --global EARTHBUILD_BUILD_ARGS="REGISTRY"
 ARG --global REGISTRY_CONFIG="
 [registry.\"$REGISTRY\"]
   insecure = true
@@ -37,30 +37,30 @@ all:
 test-push-pull:
     FROM +test-base
     # Running with tmpfs mount = no local cache.
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test-push
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test-pull
+    DO --pass-args +DO_REMOTE_CACHE_earthbuild --target=+test-push
+    DO --pass-args +DO_REMOTE_CACHE_earthbuild --target=+test-pull
 
 test-connect:
     FROM +test-base
     COPY ./certs/domain.crt ./test.ca
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test-connect
+    DO --pass-args +DO_REMOTE_CACHE_earthbuild --target=+test-connect
 
-# Work around the lack of variable overriding, since the base image already includes EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
-DO_REMOTE_CACHE_EARTHLY:
+# Work around the lack of variable overriding, since the base image already includes earthbuild_ADDITIONAL_BUILDKIT_CONFIG
+DO_REMOTE_CACHE_earthbuild:
     FUNCTION
 
-    ARG EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
+    ARG earthbuild_ADDITIONAL_BUILDKIT_CONFIG
     ARG REGISTRY_CONFIG
     ARG target
 
     RUN --privileged \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
-        ( EARTHLY_ADDITIONAL_BUILDKIT_CONFIG=$EARTHLY_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
-            /usr/bin/earthly-entrypoint.sh --ci --push \
+        ( earthbuild_ADDITIONAL_BUILDKIT_CONFIG=$earthbuild_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
+            /usr/bin/earthbuild-entrypoint.sh --ci --push \
             --build-arg REGISTRY=$REGISTRY \
             $target; echo exit_code=$? \
         ) 2>&1 | tee ./output && \
         if ! tail -n 1 output | grep 'exit_code=0'; then \
-            echo "ERROR: earthly failed (exit_code=0 not found)" && tail -n 1 output && exit 1; \
+            echo "ERROR: earthbuild failed (exit_code=0 not found)" && tail -n 1 output && exit 1; \
         fi

@@ -8,5 +8,5 @@
 .secret
 .vscode
 .idea
-.tmp-earthly-out*
+.tmp-earthbuild-out*
 .DS_Store

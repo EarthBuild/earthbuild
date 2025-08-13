@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/earthly/earthly/debugger/common"
+	"github.com/earthbuild/earthbuild/debugger/common"
 
 	"github.com/alessio/shellescape"
 	"github.com/moby/buildkit/session/secrets"
@@ -43,8 +43,8 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", c.cmd+" "+shellescape.Quote(name))
 	envs := os.Environ()
 	if q.Get("v") == "1" {
-		envs = append(envs, "EARTHLY_ORG="+shellescape.Quote(q.Get("org")))
-		envs = append(envs, "EARTHLY_PROJECT="+shellescape.Quote(q.Get("project")))
+		envs = append(envs, "EARTHBUILD_ORG="+shellescape.Quote(q.Get("org")))
+		envs = append(envs, "earthbuild_PROJECT="+shellescape.Quote(q.Get("project")))
 	}
 	cmd.Env = envs
 	cmd.Stderr = os.Stderr
@@ -54,7 +54,7 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				exitStatus := status.ExitStatus()
 				if exitStatus == 2 {
-					// exit code of 2 indicates secret not found (and earthly should continue looking in other stores)
+					// exit code of 2 indicates secret not found (and earthbuild should continue looking in other stores)
 					return nil, secrets.ErrNotFound
 				}
 			}

@@ -4,15 +4,15 @@ WORKDIR /var/app
 
 build:
     RUN apt update && apt install zip -y 
-    COPY earthly-example/ .
+    COPY earthbuild-example/ .
     RUN lein uberjar
-    RUN ./extractJarVersion target/uberjar/earthly-example-*-standalone.jar > version
-    SAVE ARTIFACT target/uberjar/earthly-example-*-standalone.jar earthly-example-standalone.jar
+    RUN ./extractJarVersion target/uberjar/earthbuild-example-*-standalone.jar > version
+    SAVE ARTIFACT target/uberjar/earthbuild-example-*-standalone.jar earthbuild-example-standalone.jar
     SAVE ARTIFACT version
 
 docker:
     FROM openjdk:22-slim-bullseye
     COPY +build/* .
     EXPOSE 8080
-    ENTRYPOINT java -Dserver.port=8080 -jar earthly-example-standalone.jar
+    ENTRYPOINT java -Dserver.port=8080 -jar earthbuild-example-standalone.jar
     SAVE IMAGE clojure-example:$(cat version)

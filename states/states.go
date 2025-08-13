@@ -5,17 +5,17 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	"sync"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states/dedup"
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/waitutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/states/dedup"
+	"github.com/earthbuild/earthbuild/states/image"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/waitutil"
+	"github.com/earthbuild/earthbuild/variables"
 	"github.com/google/uuid"
 )
 
-// MultiTarget holds LLB states representing multiple earthly targets,
+// MultiTarget holds LLB states representing multiple earthbuild targets,
 // in the order in which they should be built.
 type MultiTarget struct {
 	// Visited represents the previously visited states, grouped by target
@@ -44,7 +44,7 @@ func (mts *MultiTarget) All() []*SingleTarget {
 	return mts.Visited.All()
 }
 
-// SingleTarget holds LLB states representing an earthly target.
+// SingleTarget holds LLB states representing an earthbuild target.
 type SingleTarget struct {
 	// ID is a random unique string.
 	ID                     string
@@ -329,7 +329,7 @@ type SaveImage struct {
 	DockerTag    string
 	Push         bool
 	InsecurePush bool
-	// CacheHint instructs Earthly to save a separate ref for this image, even if no tag is
+	// CacheHint instructs earthbuild to save a separate ref for this image, even if no tag is
 	// provided.
 	CacheHint           bool
 	HasPushDependencies bool

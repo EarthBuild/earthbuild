@@ -8,58 +8,58 @@ WORKDIR /test
 test:
     COPY expected-*.yml .
 
-    # Ensure earthly doesn't create overridden config files when they don't exist
-    RUN earthly --config config.yml config global.cache_size_mb 10 2>&1 | grep 'failed to read from config.yml: open config.yml: no such file or directory'
+    # Ensure earthbuild doesn't create overridden config files when they don't exist
+    RUN earthbuild --config config.yml config global.cache_size_mb 10 2>&1 | grep 'failed to read from config.yml: open config.yml: no such file or directory'
 
     RUN touch config.yml
 
     # Adding various configs of different types
-    RUN earthly --config config.yml config global.cache_size_mb 10
+    RUN earthbuild --config config.yml config global.cache_size_mb 10
     RUN test "$(cat config.yml)" = "$(cat expected-1.yml)"
 
-    RUN earthly --config config.yml config 'git."example.com".password' hunter2
+    RUN earthbuild --config config.yml config 'git."example.com".password' hunter2
     RUN test "$(cat config.yml)" = "$(cat expected-2.yml)"
 
-    RUN earthly --config config.yml config global.buildkit_additional_args "['userns', '--host']"
+    RUN earthbuild --config config.yml config global.buildkit_additional_args "['userns', '--host']"
     RUN test "$(cat config.yml)" = "$(cat expected-3.yml)"
 
-    RUN earthly --config config.yml config global.conversion_parallelism 5
+    RUN earthbuild --config config.yml config global.conversion_parallelism 5
     RUN test "$(cat config.yml)" = "$(cat expected-4.yml)"
 
     # --delete should remove a config
-    RUN earthly --config config.yml config global.conversion_parallelism --delete
+    RUN earthbuild --config config.yml config global.conversion_parallelism --delete
     RUN test "$(cat config.yml)" = "$(cat expected-5.yml)"
 
     # --help and -h should succeed
-    RUN earthly config global.conversion_parallelism --help
-    RUN earthly config global.conversion_parallelism -h
+    RUN earthbuild config global.conversion_parallelism --help
+    RUN earthbuild config global.conversion_parallelism -h
     # Ensure configs haven't changed by running help
     RUN test "$(cat config.yml)" = "$(cat expected-5.yml)"
 
     # Edge cases
-    RUN earthly --config config.yml config global.conversion_parallelism oops; test $? = 1
-    RUN earthly --config config.yml config global.conversion_parallelism ""; test $? = 1
-    RUN earthly --config config.yml config global.buildkit_image ""
+    RUN earthbuild --config config.yml config global.conversion_parallelism oops; test $? = 1
+    RUN earthbuild --config config.yml config global.conversion_parallelism ""; test $? = 1
+    RUN earthbuild --config config.yml config global.buildkit_image ""
 
-    # test earthly runs when no default config is present
-    RUN ! test -f /root/.earthly/config.yml
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    # test earthbuild runs when no default config is present
+    RUN ! test -f /root/.earthbuild/config.yml
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
-    # test earthly can write to default config location
-    RUN earthly config global.cache_size_mb 10
-    RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-1.yml)"
+    # test earthbuild can write to default config location
+    RUN earthbuild config global.cache_size_mb 10
+    RUN test "$(cat /root/.earthbuild/config.yml)" = "$(cat expected-1.yml)"
 
-    # test earthly fails when explicitly set to use a different config that doesn't exist
-    DO --pass-args +RUN_EARTHLY_ARGS --extra_args="--config=this-does-not-exist.yml" --earthfile="hello.earth" --target="+hello" --should_fail="true" --output_contains="failed to read from this-does-not-exist.yml"
+    # test earthbuild fails when explicitly set to use a different config that doesn't exist
+    DO --pass-args +RUN_earthbuild_ARGS --extra_args="--config=this-does-not-exist.yml" --earthfile="hello.earth" --target="+hello" --should_fail="true" --output_contains="failed to read from this-does-not-exist.yml"
 
-    # test earthly runs with new cache percentage setting
-    RUN earthly config global.cache_size_pct 50
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    # test earthbuild runs with new cache percentage setting
+    RUN earthbuild config global.cache_size_pct 50
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     # test that it still runs alongside a size settings
-    RUN earthly config global.cache_size_mb 100
-    RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-6.yml)"
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    RUN earthbuild config global.cache_size_mb 100
+    RUN test "$(cat /root/.earthbuild/config.yml)" = "$(cat expected-6.yml)"
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     RUN touch /tmp/config.yml
     RUN chmod 400 /tmp/config.yml
@@ -68,50 +68,50 @@ test:
     RUN addgroup -S testgroup
     RUN adduser -S -G testgroup testuser
 
-    # required to allow testuser to call +RUN_EARTHLY_ARGS
-    RUN chmod 0777 /tmp/earthly-script
+    # required to allow testuser to call +RUN_earthbuild_ARGS
+    RUN chmod 0777 /tmp/earthbuild-script
 
-    # required to allow testuser to call +RUN_EARTHLY_ARGS
+    # required to allow testuser to call +RUN_earthbuild_ARGS
 
     USER testuser
     WORKDIR /home/testuser
 
     # test correct user location is used by default
-    RUN earthly config global.cache_size_mb 10
-    RUN test "$(cat /home/testuser/.earthly/config.yml)" = "$(cat /test/expected-1.yml)"
+    RUN earthbuild config global.cache_size_mb 10
+    RUN test "$(cat /home/testuser/.earthbuild/config.yml)" = "$(cat /test/expected-1.yml)"
 
     # test correct user location is used when set elsewhere
-    RUN touch ~/.earthly/other-config.yml
-    RUN EARTHLY_CONFIG=~/.earthly/other-config.yml earthly config global.cache_size_mb 10
-    RUN test "$(cat /home/testuser/.earthly/other-config.yml)" = "$(cat /test/expected-1.yml)"
+    RUN touch ~/.earthbuild/other-config.yml
+    RUN EARTHBUILD_CONFIG=~/.earthbuild/other-config.yml earthbuild config global.cache_size_mb 10
+    RUN test "$(cat /home/testuser/.earthbuild/other-config.yml)" = "$(cat /test/expected-1.yml)"
 
     # test correct user location is used when set elsewhere with different installation dir
-    RUN mkdir ~/.earthly-not-test && touch ~/.earthly-not-test/other-config.yml
-    RUN EARTHLY_INSTALLATION_NAME=earthly-test EARTHLY_CONFIG=~/.earthly-not-test/other-config.yml earthly config global.cache_size_mb 10
-    RUN test "$(cat /home/testuser/.earthly-not-test/other-config.yml)" = "$(cat /test/expected-1.yml)"
+    RUN mkdir ~/.earthbuild-not-test && touch ~/.earthbuild-not-test/other-config.yml
+    RUN EARTHBUILD_INSTALLATION_NAME=earthbuild-test EARTHBUILD_CONFIG=~/.earthbuild-not-test/other-config.yml earthbuild config global.cache_size_mb 10
+    RUN test "$(cat /home/testuser/.earthbuild-not-test/other-config.yml)" = "$(cat /test/expected-1.yml)"
 
     # test correct user location is used when set with different installation dir
-    RUN EARTHLY_INSTALLATION_NAME=earthly-test2 earthly config global.cache_size_mb 10
-    RUN test "$(cat /home/testuser/.earthly-test2/config.yml)" = "$(cat /test/expected-1.yml)"
+    RUN EARTHBUILD_INSTALLATION_NAME=earthbuild-test2 earthbuild config global.cache_size_mb 10
+    RUN test "$(cat /home/testuser/.earthbuild-test2/config.yml)" = "$(cat /test/expected-1.yml)"
 
     # check permission error is correctly returned
     COPY hello.earth Earthfile
-    RUN ! earthly --config=/tmp/config.yml --verbose +hello > output.txt 2>&1
+    RUN ! earthbuild --config=/tmp/config.yml --verbose +hello > output.txt 2>&1
     RUN cat output.txt | grep 'Error: read config: failed to read from /tmp/config.yml: open /tmp/config.yml: permission denied'
 
-    # check permission error is correctly returned even when earthly attempts to read from the default location
-    # to make this test work, a symbolic link is required (chown root:root /home/testuser/.earthly/config.yml doesnt work)
-    RUN rm /home/testuser/.earthly/config.yml
-    RUN ln -s /tmp/config.yml /home/testuser/.earthly/config.yml
+    # check permission error is correctly returned even when earthbuild attempts to read from the default location
+    # to make this test work, a symbolic link is required (chown root:root /home/testuser/.earthbuild/config.yml doesnt work)
+    RUN rm /home/testuser/.earthbuild/config.yml
+    RUN ln -s /tmp/config.yml /home/testuser/.earthbuild/config.yml
 
-    RUN ! earthly --verbose +hello > output.txt 2>&1
-    RUN cat output.txt | grep 'Error: read config: failed to read from /home/testuser/.earthly/config.yml: open /home/testuser/.earthly/config.yml: permission denied'
+    RUN ! earthbuild --verbose +hello > output.txt 2>&1
+    RUN cat output.txt | grep 'Error: read config: failed to read from /home/testuser/.earthbuild/config.yml: open /home/testuser/.earthbuild/config.yml: permission denied'
 
     # make it obvious that this test passed, due to the previous grep displaying "Error: ..." when it passes
     RUN echo "config test passed"
 
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG target="+all"
@@ -119,7 +119,7 @@ RUN_EARTHLY_ARGS:
     ARG exec_cmd
     ARG should_fail=false
     ARG output_contains
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail \

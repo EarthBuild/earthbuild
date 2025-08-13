@@ -16,16 +16,16 @@ test-command-in-sub-dir:
     COPY target-that-calls-command.earth /the-test/Earthfile
     COPY other-target-that-calls-command.earth /the-test/other/path/Earthfile
     RUN touch /this-file-exists-locally
-    DO --pass-args +RUN_EARTHLY_ARGS --target=/the-test+test
+    DO --pass-args +RUN_earthbuild_ARGS --target=/the-test+test
     RUN test "$(cat /the-test/data)" = "I am running in /the-test"
-    DO --pass-args +RUN_EARTHLY_ARGS --target=/the-test+test --should-fail=true
+    DO --pass-args +RUN_earthbuild_ARGS --target=/the-test+test --should-fail=true
 
     # cleanup
     RUN rm /the-test/data
     RUN find /the-test | grep -v data
 
     # next test a target that calls the same UDC from a different location
-    DO --pass-args +RUN_EARTHLY_ARGS --target=/the-test+test-other
+    DO --pass-args +RUN_earthbuild_ARGS --target=/the-test+test-other
     RUN ! test -f /the-test/data
     RUN test "$(cat /the-test/other/path/data)" = "I am running in /the-test/other/path"
 
@@ -34,7 +34,7 @@ test-command-in-sub-dir:
     RUN find /the-test | grep -v data
 
     # finally test both targets that call the same locally command result in both files being created
-    DO --pass-args +RUN_EARTHLY_ARGS --target=/the-test+test-both
+    DO --pass-args +RUN_earthbuild_ARGS --target=/the-test+test-both
     RUN test "$(cat /the-test/data)" = "I am running in /the-test"
     RUN test "$(cat /the-test/other/path/data)" = "I am running in /the-test/other/path"
 
@@ -44,15 +44,15 @@ test-udc-that-calls-other-udc:
     COPY command.earth some/subdir/Earthfile
     COPY command-that-calls-command.earth some/subdir/submarine/Earthfile
     COPY target-that-calls-command-that-calls-command.earth Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --target=+test
     RUN test "$(cat data)" = "I am running in /my/test"
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG target
     ARG should_fail=false
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earthly/earthly/util/proj"
+	"github.com/earthbuild/earthbuild/util/proj"
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 )

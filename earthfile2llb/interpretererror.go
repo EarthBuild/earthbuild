@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/util/stringutil"
 	"github.com/pkg/errors"
 )
 
@@ -75,7 +75,7 @@ func (ie InterpreterError) Unwrap() error {
 	return ie.cause
 }
 
-// Stack returns the Earthly stack within the error.
+// Stack returns the earthbuild stack within the error.
 func (ie InterpreterError) Stack() string {
 	return ie.stack
 }

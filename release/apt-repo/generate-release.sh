@@ -15,14 +15,14 @@ do_hash() {
 }
 
 cat << EOF
-Origin: Earthly Technologies
-Label: Earthly
+Origin: earthbuild Technologies
+Label: earthbuild
 Suite: stable
 Codename: stable
 Version: 1.0
 Architectures: amd64 arm64 arm7
 Components: main
-Description: Earthly software repository
+Description: earthbuild software repository
 Date: $(date -R)
 EOF
 do_hash "MD5Sum" "md5sum"

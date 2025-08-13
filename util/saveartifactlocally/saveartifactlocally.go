@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/gatewaycrafter"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/util/gatewaycrafter"
 
 	reccopy "github.com/otiai10/copy"
 	"github.com/pkg/errors"

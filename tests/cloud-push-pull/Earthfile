@@ -1,5 +1,5 @@
 VERSION 0.8
-PROJECT earthly-technologies/core
+PROJECT earthbuild-technologies/core
 FROM --pass-args ..+base
 WORKDIR /test
 
@@ -30,12 +30,12 @@ google-artifact-registry:
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --ci --push +push
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P +pull
 
 google-container-repository:
@@ -46,12 +46,12 @@ google-container-repository:
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --ci --push +push
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P +pull
 
 azure-container-registry:
@@ -62,16 +62,16 @@ azure-container-registry:
         --secret AZ_PASSWORD=azure/ci-cd-password \
         (test -n "$AZ_USERNAME" || (echo "ERROR: AZ_USERNAME not set"; exit 1)) && \
         (test -n "$AZ_PASSWORD" || (echo "ERROR: AZ_PASSWORD not set"; exit 1)) && \
-        docker login earthlyintegrationtest.azurecr.io --username "$AZ_USERNAME" --password "$AZ_PASSWORD"
+        docker login earthbuildintegrationtest.azurecr.io --username "$AZ_USERNAME" --password "$AZ_PASSWORD"
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --ci --push +push
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P +pull
 
 amazon-elastic-container-registry:
@@ -102,7 +102,7 @@ amazon-elastic-container-registry:
     --secret ACCT_ID=aws/account-id \
     --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --build-arg ACCT_ID --ci --push +push
 
     RUN --secret AWS_ACCESS_KEY_ID=aws/ci-cd-access-key \
@@ -110,5 +110,5 @@ amazon-elastic-container-registry:
     --secret ACCT_ID=aws/account-id \
     --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --build-arg ACCT_ID -P +pull

@@ -2,4 +2,4 @@ VERSION 0.8
 FROM alpine:3.18
 
 test1:
-    LABEL dev.earthly.foo=bar
+    LABEL dev.earthbuild.foo=bar

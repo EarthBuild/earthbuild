@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "github.com/EarthBuild/earthly-command-example:main"
+          "github.com/EarthBuild/earthbuild-command-example:main"
         ],
         "name": "IMPORT"
       }
@@ -11,7 +11,7 @@
     {
       "command": {
         "args": [
-          "github.com/EarthBuild/earthly-command-example:import",
+          "github.com/EarthBuild/earthbuild-command-example:import",
           "AS",
           "command-import"
         ],
@@ -73,7 +73,7 @@
         {
           "command": {
             "args": [
-              "earthly-command-example+TOUCH",
+              "earthbuild-command-example+TOUCH",
               "--file=foo"
             ],
             "name": "DO"

@@ -10,12 +10,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthly/earthly/dockertar"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/dockertar"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )
@@ -174,17 +174,17 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 		OIDCInfo:             opt.OIDCInfo,
 	}
 
-	// TODO: /tmp/earthly should not be hard-coded here. It should match whatever
-	//       buildkit's image EARTHLY_TMP_DIR is set to.
+	// TODO: /tmp/earthbuild should not be hard-coded here. It should match whatever
+	//       buildkit's image EARTHBUILD_TMP_DIR is set to.
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthly/dind")))
+		"/var/earthbuild/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
 		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
 
 	var tarPaths []string
 	for index, tl := range w.tarLoads {
-		loadDir := fmt.Sprintf("/var/earthly/load-%d", index)
+		loadDir := fmt.Sprintf("/var/earthbuild/load-%d", index)
 		crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(loadDir, tl.state, llb.Readonly))
 		tarPaths = append(tarPaths, path.Join(loadDir, "image.tar"))
 	}
@@ -316,7 +316,7 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 	tarContext, err := w.c.opt.SolveCache.Do(ctx, solveID, func(ctx context.Context, _ states.StateKey) (pllb.State, error) {
 		// Use a builder to create docker .tar file, mount it via a local build
 		// context, then docker load it within the current side effects state.
-		outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
+		outDir, err := os.MkdirTemp(os.TempDir(), "earthbuild-docker-load")
 		if err != nil {
 			return pllb.State{}, errors.Wrap(err, "mk temp dir for docker load")
 		}

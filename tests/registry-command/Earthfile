@@ -1,5 +1,5 @@
 VERSION 0.8
-PROJECT earthly-technologies/core
+PROJECT earthbuild-technologies/core
 FROM --pass-args ..+base
 
 IMPORT .. AS tests
@@ -11,7 +11,7 @@ test-dockerhub:
     COPY lock.sh unlock.sh \
         test-dockerhub-project.sh test-dockerhub-user.sh \
         .
-    RUN --secret EARTHLY_TOKEN=fake-user-write-token \
+    RUN --secret earthbuild_TOKEN=fake-user-write-token \
         --secret AWS_ACCESS_KEY_ID=aws/ci-cd-access-key \
         --secret AWS_SECRET_ACCESS_KEY=aws/ci-cd-access-secret \
         ./lock.sh && ( \
@@ -25,14 +25,14 @@ test-ecr:
         test-ecr-project.sh test-ecr-user.sh \
         .
 
-    ENV EARTHLY_EXEC_CMD=/test/test-ecr.sh
-    RUN --secret EARTHLY_TOKEN=fake-user-write-token \
+    ENV EARTHBUILD_EXEC_CMD=/test/test-ecr.sh
+    RUN --secret earthbuild_TOKEN=fake-user-write-token \
         --secret AWS_ACCESS_KEY_ID=aws/ci-cd-access-key \
         --secret AWS_SECRET_ACCESS_KEY=aws/ci-cd-access-secret \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly
+        --mount=type=tmpfs,target=/tmp/earthbuild
 
 test-gcp:
     COPY lock.sh unlock.sh \
@@ -40,28 +40,28 @@ test-gcp:
         test-gcp-project.sh test-gcp-user.sh \
         .
 
-    ENV EARTHLY_EXEC_CMD=/test/test-gcp.sh
-    RUN --secret EARTHLY_TOKEN=fake-user-write-token \
+    ENV EARTHBUILD_EXEC_CMD=/test/test-gcp.sh
+    RUN --secret earthbuild_TOKEN=fake-user-write-token \
         --secret GCP_KEY=gcp/ci-cd-key \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly
+        --mount=type=tmpfs,target=/tmp/earthbuild
 
 test-multi:
     COPY lock.sh unlock.sh \
         test-multi.sh \
         .
 
-    ENV EARTHLY_EXEC_CMD=/test/test-multi.sh
-    RUN --secret EARTHLY_TOKEN=fake-user-write-token \
+    ENV EARTHBUILD_EXEC_CMD=/test/test-multi.sh
+    RUN --secret earthbuild_TOKEN=fake-user-write-token \
         --secret GCP_KEY=gcp/ci-cd-key \
         --secret AWS_ACCESS_KEY_ID=aws/ci-cd-access-key \
         --secret AWS_SECRET_ACCESS_KEY=aws/ci-cd-access-secret \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly
+        --mount=type=tmpfs,target=/tmp/earthbuild
 
 test:
     BUILD +test-dockerhub

@@ -77,7 +77,7 @@ jobs:
 
     # - run: |
     #     go version
-    #     go build ./cmd/earthly/*.go
+    #     go build ./cmd/earthbuild/*.go
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

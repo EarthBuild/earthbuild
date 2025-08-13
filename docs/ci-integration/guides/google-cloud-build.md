@@ -2,11 +2,11 @@
 
 ## Overview
 
-Google's Cloud Build is a popular, hosted build platform with deep integrations into the Google Cloud ecosystem. It includes native support for containerized builds, as well as other build scenarios. This guide will cover the use of Earthly within the `cloudbuild.yaml` spec (though it should be easily ported over to the `json` format if desired).
+Google's Cloud Build is a popular, hosted build platform with deep integrations into the Google Cloud ecosystem. It includes native support for containerized builds, as well as other build scenarios. This guide will cover the use of earthbuild within the `cloudbuild.yaml` spec (though it should be easily ported over to the `json` format if desired).
 
 ### Compatibility
 
-Earthly itself is able to run as expected within Cloud Build, including privileged mode features like `WITH DOCKER`. However, Application Default Credentials are not available, so any `gcloud` or `gsutil` commands within your `Earthfile` will require additional manual configuration via a service account.
+earthbuild itself is able to run as expected within Cloud Build, including privileged mode features like `WITH DOCKER`. However, Application Default Credentials are not available, so any `gcloud` or `gsutil` commands within your `Earthfile` will require additional manual configuration via a service account.
 
 ### Resources
 
@@ -54,9 +54,9 @@ Click "Add Key", and then "Create New Key". Choose "JSON" as the key format, and
 
 ![The list view of available keys for a Google Cloud service account](img/google-cloud-build-5.png)
 
-Stash the key in your secret management utility of choice. You'll need to make this key available to your build at runtime. For the rest of our example, we will be using Earthly's [Cloud Secrets](../../cloud/cloud-secrets.md).
+Stash the key in your secret management utility of choice. You'll need to make this key available to your build at runtime. For the rest of our example, we will be using Google Cloud Build's secret management capabilities.
 
-Often, external secrets management requires some kind of bootstrapping secret (or additional integration) to allow you to access the rest of the secrets in your store. Earthly is no different. We will keep our `EARTHLY_TOKEN` in [Googles Secret Manager](https://cloud.google.com/build/docs/securing-builds/use-secrets) for ease of use.
+Often, external secrets management requires some kind of bootstrapping secret (or additional integration) to allow you to access the rest of the secrets in your store. earthbuild is no different. We will keep our `EARTHBUILD_TOKEN` in [Googles Secret Manager](https://cloud.google.com/build/docs/securing-builds/use-secrets) for ease of use.
 
 {% hint style='danger' %}
 ##### Note
@@ -67,18 +67,18 @@ It is also possible to perform these steps via the CLI; the steps are [also deta
 
 ## Additional Notes
 
-`earthly` misinterprets the Cloud Build environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
+`earthbuild` misinterprets the Cloud Build environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
 
 ## Example
 
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get earthbuild off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
-You can find our [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml) and the [`Earthfile`](https://github.com/earthly/ci-example-project/blob/main/Earthfile) used on GitHub.
+You can find our [`cloudbuild.yaml`](https://github.com/earthbuild/ci-example-project/blob/main/cloudbuild.yaml) and the [`Earthfile`](https://github.com/earthbuild/ci-example-project/blob/main/Earthfile) used on GitHub.
 
 Start by adding a new [Trigger](https://console.cloud.google.com/cloud-build/triggers). Triggers are the things that link changes in your source code with new instances of builds in Cloud Build. Start by clicking on "Create Trigger".
 
@@ -92,7 +92,7 @@ Configure your source repository. If you do not see your desired repository in t
 
 ![Creating a trigger for Google Cloud Build, specifying a repository and branch name](img/google-cloud-build-8.png)
 
-Finally, fill in the "Configuration" section. For Earthly, you can only use the "Cloud Build configuration file", as Earthly itself will _also_ be running containers. Our example will also be using an embedded [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml).
+Finally, fill in the "Configuration" section. For earthbuild, you can only use the "Cloud Build configuration file", as earthbuild itself will _also_ be running containers. Our example will also be using an embedded [`cloudbuild.yaml`](https://github.com/earthbuild/ci-example-project/blob/main/cloudbuild.yaml).
 
 ![Creating a trigger for Google Cloud Build, specifying the configuration, including cloudbuild location and configuration type](img/google-cloud-build-9.png)
 
@@ -100,35 +100,35 @@ Click "Done" and you will be navigated back to the Triggers list view. To test t
 
 ![Google Cloud Build Trigger list, with the manual run button highlighted](img/google-cloud-build-10.png)
 
-Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml) file in our sample repository. This file is also a key part of the build, so lets break this down as well.
+Running this build will use the [`cloudbuild.yaml`](https://github.com/earthbuild/ci-example-project/blob/main/cloudbuild.yaml) file in our sample repository. This file is also a key part of the build, so lets break this down as well.
 
-[The first step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one Earthly image](https://hub.docker.com/r/earthly/earthly) to do a simple build.
+[The first step](https://github.com/earthbuild/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one earthbuild image](https://hub.docker.com/r/earthbuild/earthbuild) to do a simple build.
 
 ```yaml
   - id: 'build'
-    name: 'earthly/earthly:v0.8.13'
+    name: 'earthbuild/earthbuild:v0.8.16'
     args:
       - --ci
       - --push
       - +build
 ```
 
-[The second step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L8-L13) runs a sample, Google Cloud Build only example to show how you would use an external service account to do things that normally requires credentials.
+[The second step](https://github.com/earthbuild/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L8-L13) runs a sample, Google Cloud Build only example to show how you would use an external service account to do things that normally requires credentials.
 
 ```yaml
   - id: 'gcp-test'
-    name: 'earthly/earthly:v0.8.13'
+    name: 'earthbuild/earthbuild:v0.8.16'
     args:
       - +gcp-cloudbuild
     secretEnv:
-      - 'EARTHLY_TOKEN'
+      - 'EARTHBUILD_TOKEN'
 ```
 
-The secret environment variable bootstraps the Earthly secret store, and we can load it from Google's Secret Store like this:
+The secret environment variable bootstraps the earthbuild secret store, and we can load it from Google's Secret Store like this:
 
 ```yaml
 availableSecrets:
   secretManager:
-  - versionName: projects/earthly-jupyterlab/secrets/EARTHLY_TOKEN/versions/2
-    env: 'EARTHLY_TOKEN'
+  - versionName: projects/earthbuild-jupyterlab/secrets/EARTHBUILD_TOKEN/versions/2
+    env: 'EARTHBUILD_TOKEN'
 ```

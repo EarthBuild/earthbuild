@@ -22,7 +22,7 @@ test-basic:
     RUN test -f a.txt
 
 test-remote-no-context:
-    DO github.com/EarthBuild/earthly-function-example:main+COPY_CAT
+    DO github.com/EarthBuild/earthbuild-function-example:main+COPY_CAT
     RUN test -f message.txt
 
 test-nested:
@@ -46,10 +46,10 @@ test-recursive:
     RUN ! test -f ./0
 
 test-remote-touch:
-    DO github.com/EarthBuild/earthly-function-example:main+TOUCH --file=something
+    DO github.com/EarthBuild/earthbuild-function-example:main+TOUCH --file=something
     RUN test -f ./something
     RUN ! test -f ./touched
-    DO github.com/EarthBuild/earthly-function-example:main+TOUCH
+    DO github.com/EarthBuild/earthbuild-function-example:main+TOUCH
     RUN test -f ./touched
 
 test-scope:

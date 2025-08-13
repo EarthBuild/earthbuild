@@ -2,7 +2,7 @@
 
 ## Overview
 
-The headers in this document provide a skeleton to fill in when adding documentation for a new CI platform. This section should include an overview of how Earthly might fit into this CI. If the CI offers multiple modes, we should mention them even if they are not all documented.
+The headers in this document provide a skeleton to fill in when adding documentation for a new CI platform. This section should include an overview of how earthbuild might fit into this CI. If the CI offers multiple modes, we should mention them even if they are not all documented.
 
 ### Compatibility
 
@@ -18,15 +18,15 @@ This section should contain all special tweaks needed that are different than th
 
 ### Dependencies
 
-Any special dependencies needed for this CI, w.r.t. Earthly. Probably a rare section.
+Any special dependencies needed for this CI, w.r.t. earthbuild. Probably a rare section.
 
 ### Installation
 
-Any special installation instructions needed for this CI, w.r.t. Earthly. Special configuration or example targets for configuring a container-based CI would go here.
+Any special installation instructions needed for this CI, w.r.t. earthbuild. Special configuration or example targets for configuring a container-based CI would go here.
 
 ### Configuration
 
-Most common section. Any special, or recommended configuration (for Earthly or dependencies) for this CI.
+Most common section. Any special, or recommended configuration (for earthbuild or dependencies) for this CI.
 
 ## Additional Notes
 
@@ -37,11 +37,11 @@ Any extra notes regarding the CI that aren't per-setup-section.
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get earthbuild off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
-This should walk through (and/or link to) an example using Earthly with this CI.
+This should walk through (and/or link to) an example using earthbuild with this CI.
 
 ### Notes
 

@@ -19,7 +19,7 @@ ping -c 1 buildkitsandbox
 curl https://selfsigned.example.com/testuser/repo.git/info/refs?service=git-upload-pack
 
 test -z \"\$SSH_AUTH_SOCK\"
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
 
 git-clone-public-https-empty-netrc:
@@ -28,17 +28,17 @@ git-clone-public-https-empty-netrc:
     RUN echo "
 > ~/.netrc
 
-earthly --config \$earthly_config --verbose -D +test
-earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
-" >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-public-https.earth --exec_cmd=/tmp/test-earthly-script
+earthbuild --config \$earthbuild_config --verbose -D +test
+earthbuild --config \$earthbuild_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
+" >> /tmp/test-earthbuild-script
+    DO --pass-args +RUN_earthbuild_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-public-https.earth --exec_cmd=/tmp/test-earthbuild-script
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG pre_command
     ARG exec_cmd
-    DO ..+RUN_EARTHLY \
+    DO ..+RUN_earthbuild \
         --earthfile=$earthfile \
         --pre_command=$pre_command \
         --exec_cmd=$exec_cmd

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/earthbuild/earthbuild/conslogging"
 
 	"github.com/pkg/errors"
 )

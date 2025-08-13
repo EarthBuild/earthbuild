@@ -3,7 +3,7 @@ FROM alpine:3.18
 RUN apk add jq
 WORKDIR /test
 
-COPY ../..+earthly/earthly /usr/local/bin/earthly
+COPY ../..+earthbuild/earthbuild /usr/local/bin/earthbuild
 
 # all runs all tests
 all:
@@ -134,7 +134,7 @@ test:
     DO --pass-args +INPUT_COPY --TEST=$TEST --INPUT_FROM_DIR=$INPUT_FROM_DIR --INPUT_FROM_TARGET=$INPUT_FROM_TARGET
     COPY ${TEST}.ast.json ./expected.json
     RUN jq -S . ./expected.json >./expected.pretty.json
-    RUN earthly debug ast ${TEST}.earth >./actual.json
+    RUN earthbuild debug ast ${TEST}.earth >./actual.json
     RUN jq -S . ./actual.json >./actual.pretty.json
     RUN diff ./actual.pretty.json ./expected.pretty.json
 
@@ -143,7 +143,7 @@ update-expected:
     ARG INPUT_FROM_DIR=../../tests
     ARG INPUT_FROM_TARGET=ast-test-input
     DO --pass-args +INPUT_COPY --TEST=$TEST --INPUT_FROM_DIR=$INPUT_FROM_DIR --INPUT_FROM_TARGET=$INPUT_FROM_TARGET
-    RUN earthly debug ast ${TEST}.earth >./expected.json
+    RUN earthbuild debug ast ${TEST}.earth >./expected.json
     RUN jq -S . ./expected.json >./expected.pretty.json
     SAVE ARTIFACT ./expected.pretty.json AS LOCAL ./${TEST}.ast.json
 

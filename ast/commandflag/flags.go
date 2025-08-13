@@ -6,7 +6,7 @@ import (
 
 // NOTE: Any new flags must be accompanied by the introduction of a new `VERSION` feature flag.
 // This applies to new features which do **not** break backwards compatibility, which is needed
-// to ensure an Earthfile that uses `VERSION 0.7` can be built by **any** of the earthly-v0.7.x binaries.
+// to ensure an Earthfile that uses `VERSION 0.7` can be built by **any** of the earthbuild-v0.7.x binaries.
 
 type IfOpts struct {
 	Privileged bool     `long:"privileged" description:"Enable privileged mode"`
@@ -26,7 +26,7 @@ type ForOpts struct {
 }
 
 type RunOpts struct {
-	Push            bool     `long:"push" description:"Execute this command only if the build succeeds and also if earthly is invoked in push mode"`
+	Push            bool     `long:"push" description:"Execute this command only if the build succeeds and also if earthbuild is invoked in push mode"`
 	Privileged      bool     `long:"privileged" description:"Enable privileged mode"`
 	WithEntrypoint  bool     `long:"entrypoint" description:"Include the entrypoint of the image when running the command"`
 	WithDocker      bool     `long:"with-docker" description:"Deprecated"`
@@ -45,13 +45,13 @@ type RunOpts struct {
 type FromOpts struct {
 	AllowPrivileged bool     `long:"allow-privileged" description:"Allow commands under remote targets to enable privileged mode"`
 	PassArgs        bool     `long:"pass-args" description:"Pass arguments to external targets"`
-	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced Earthly target"`
+	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced earthbuild target"`
 	Platform        string   `long:"platform" description:"The platform to use"`
 }
 
 type FromDockerfileOpts struct {
 	AllowPrivileged bool     `long:"allow-privileged" description:"Allow command to assume privileged mode"`
-	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced Earthly target and also to the Dockerfile build"`
+	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced earthbuild target and also to the Dockerfile build"`
 	Platform        string   `long:"platform" description:"The platform to use"`
 	Target          string   `long:"target" description:"The Dockerfile target to inherit from"`
 	Path            string   `short:"f" description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference"`
@@ -69,7 +69,7 @@ type CopyOpts struct {
 	AllowPrivileged bool     `long:"allow-privileged" description:"Allow targets to assume privileged mode"`
 	PassArgs        bool     `long:"pass-args" description:"Pass arguments to external targets"`
 	Platform        string   `long:"platform" description:"The platform to use"`
-	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced Earthly target"`
+	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced earthbuild target"`
 }
 
 type SaveArtifactOpts struct {
@@ -81,17 +81,17 @@ type SaveArtifactOpts struct {
 }
 
 type SaveImageOpts struct {
-	Push                 bool     `long:"push" description:"Push the image to the remote registry provided that the build succeeds and also that earthly is invoked in push mode"`
-	CacheHint            bool     `long:"cache-hint" description:"Instruct Earthly that the current target should be saved entirely as part of the remote cache"`
+	Push                 bool     `long:"push" description:"Push the image to the remote registry provided that the build succeeds and also that earthbuild is invoked in push mode"`
+	CacheHint            bool     `long:"cache-hint" description:"Instruct earthbuild that the current target should be saved entirely as part of the remote cache"`
 	Insecure             bool     `long:"insecure" description:"Use unencrypted connection for the push"`
 	NoManifestList       bool     `long:"no-manifest-list" description:"Do not include a manifest list (specifying the platform) in the creation of the image"`
 	CacheFrom            []string `long:"cache-from" description:"Declare additional cache import as a Docker tag"`
-	WithoutEarthlyLabels bool     `long:"without-earthly-labels" description:"Disable build information dev.earthly labels to reduce the chance of changing images digests."`
+	WithoutearthbuildLabels bool     `long:"without-earthbuild-labels" description:"Disable build information dev.earthbuild labels to reduce the chance of changing images digests."`
 }
 
 type BuildOpts struct {
 	Platforms       []string `long:"platform" description:"The platform to use"`
-	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced Earthly target"`
+	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced earthbuild target"`
 	AllowPrivileged bool     `long:"allow-privileged" description:"Allow targets to assume privileged mode"`
 	PassArgs        bool     `long:"pass-args" description:"Pass arguments to external targets"`
 	AutoSkip        bool     `long:"auto-skip" description:"Use auto-skip to bypass the target if nothing has changed"`
@@ -113,9 +113,9 @@ type HealthCheckOpts struct {
 type WithDockerOpts struct {
 	ComposeFiles    []string `long:"compose" description:"A compose file used to bring up services from"`
 	ComposeServices []string `long:"service" description:"A compose service to bring up"`
-	Loads           []string `long:"load" description:"An image produced by Earthly which is loaded as a Docker image"`
+	Loads           []string `long:"load" description:"An image produced by earthbuild which is loaded as a Docker image"`
 	Platform        string   `long:"platform" description:"The platform to use"`
-	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced Earthly target"`
+	BuildArgs       []string `long:"build-arg" description:"A build arg override passed on to a referenced earthbuild target"`
 	Pulls           []string `long:"pull" description:"An image which is pulled and made available in the docker cache"`
 	AllowPrivileged bool     `long:"allow-privileged" description:"Allow targets referenced by load to assume privileged mode"`
 	PassArgs        bool     `long:"pass-args" description:"Pass arguments to external targets"`

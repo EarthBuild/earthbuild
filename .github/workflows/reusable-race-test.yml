@@ -1,9 +1,9 @@
-name: Test Earthly (-race)
+name: Test earthbuild (-race)
 
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTHBUILD_PATH:
         required: true
         type: string
       BINARY:
@@ -43,8 +43,8 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+      EARTHBUILD_INSTALL_ID: "earthbuild-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -54,21 +54,21 @@ jobs:
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+          built_earthbuild_path: "${{ inputs.BUILT_EARTHBUILD_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTHBUILD_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Build latest earthly/buildkitd image using released earthly
-        run: ${{ inputs.BUILT_EARTHLY_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+          EARTHBUILD_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthbuild_version_flag_overrides)"
+          echo "EARTHBUILD_VERSION_FLAG_OVERRIDES=$EARTHBUILD_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Build latest earthbuild/buildkitd image using released earthbuild
+        run: ${{ inputs.BUILT_EARTHBUILD_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
       - name: Execute tests
         run: |-
-          GORACE="halt_on_error=1" go run -race ./cmd/earthly/*.go --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
+          GORACE="halt_on_error=1" go run -race ./cmd/earthbuild/*.go --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
             ${{inputs.TEST_TARGET}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: docker logs earthly-buildkitd || true
+        run: docker logs earthbuild-buildkitd || true

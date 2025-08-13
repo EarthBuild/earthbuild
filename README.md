@@ -1,12 +1,12 @@
 # EarthBuild
 
-## [This is a community fork of Earthly!](https://github.com/earthly/earthly/issues/4313#issuecomment-2975691386)
-This community fork is endorsed and supported by [earthly](https://github.com/earthly).
+## [This is a community fork of earthbuild!](https://github.com/earthbuild/earthbuild/issues/4313#issuecomment-2975691386)
+This community fork is endorsed and supported by [earthbuild](https://github.com/earthbuild).
 We're actively working on migrating things like the website and [the CI](https://github.com/EarthBuild/earthbuild/pull/1) to community versions.
 
 **Contributions welcome!**
 
-If you're interested in understanding why the community fork is happening, [this issue has a relevant discussion](https://github.com/earthly/earthly/issues/4313).
+If you're interested in understanding why the community fork is happening, [this issue has a relevant discussion](https://github.com/earthbuild/earthbuild/issues/4313).
 
 ---------------------------------
 
@@ -22,7 +22,7 @@ If you're interested in understanding why the community fork is happening, [this
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://earthbuild.dev)
 [![Install EarthBuild](https://img.shields.io/github/v/release/EarthBuild/earthbuild.svg?label=install&color=1f626c)](https://earthbuild.dev/get-earthbuild)
-[![Docker Hub](https://img.shields.io/badge/docker%20hub-earthly-blue)](https://hub.docker.com/u/earthly)
+[![Docker Hub](https://img.shields.io/badge/docker%20hub-earthbuild-blue)](https://hub.docker.com/u/earthbuild)
 [![License MPL-2](https://img.shields.io/badge/license-MPL-blue.svg)](./LICENSE)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=246903803)
@@ -44,7 +44,7 @@ If you're interested in understanding why the community fork is happening, [this
 🌎 [EarthBuild](https://earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
 
 <br/>
-<div align="center"><a href="https://earthbuild.dev/get-earthbuild"><img src="docs/img/get-earthly-button.png" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
+<div align="center"><a href="https://earthbuild.dev/get-earthbuild"><img src="docs/img/get-earthbuild-button.png" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
 
 ---------------------------------
 
@@ -161,7 +161,7 @@ Reference pages
 
 ### A simple example (for Go)
 
-```earthly
+```earthbuild
 # Earthfile
 VERSION 0.8
 FROM golang:1.15-alpine3.13
@@ -199,9 +199,9 @@ func main() {
 }
 ```
 
-Invoke the build using `earthly +all`.
+Invoke the build using `earthbuild +all`.
 
-<div align="center"><a href="https://asciinema.org/a/351683?speed=2"><img src="img/demo-351683.gif" alt="Demonstration of a simple Earthly build" title="View on asciinema.org" width="600px" /></a></div>
+<div align="center"><a href="https://asciinema.org/a/351683?speed=2"><img src="img/demo-351683.gif" alt="Demonstration of a simple earthbuild build" title="View on asciinema.org" width="600px" /></a></div>
 
 Examples for other languages are available in the [examples dir](./examples).
 
@@ -210,19 +210,19 @@ Examples for other languages are available in the [examples dir](./examples).
 
 ### ⛓ Parallelization that just works
 
-Whenever possible, Earthly automatically executes targets in parallel.
+Whenever possible, earthbuild automatically executes targets in parallel.
 
-<div align="center"><a href="https://asciinema.org/a/351678?speed=2"><img src="img/demo-351678.gif" alt="Demonstration of Earthly's parallelization" title="View on asciinema.org" width="600px" /></a></div>
+<div align="center"><a href="https://asciinema.org/a/351678?speed=2"><img src="img/demo-351678.gif" alt="Demonstration of earthbuild's parallelization" title="View on asciinema.org" width="600px" /></a></div>
 
 ### 💾 Caching that works the same as Docker builds
 
-<div align="center"><a href="https://asciinema.org/a/351674?speed=2"><img src="img/demo-351674.gif" alt="Demonstration of Earthly's caching" title="View on asciinema.org" width="600px" /></a></div>
+<div align="center"><a href="https://asciinema.org/a/351674?speed=2"><img src="img/demo-351674.gif" alt="Demonstration of earthbuild's caching" title="View on asciinema.org" width="600px" /></a></div>
 
 ### 🛠 Multi-platform support
 
 Build for multiple platforms in parallel.
 
-```earthly
+```earthbuild
 VERSION 0.8
 all:
     BUILD \
@@ -242,7 +242,7 @@ build:
 
 No need to ask your team to install `protoc`, a specific version of Python, Java 1.6, or the .NET Core ecosystem. Install once in your Earthfile, and it works for everyone. Or even better, you can just make use of the rich Docker Hub ecosystem.
 
-```earthly
+```earthbuild
 VERSION 0.8
 FROM golang:1.15-alpine3.13
 WORKDIR /proto-example
@@ -285,7 +285,7 @@ Examples
 
 * Same directory (same Earthfile)
 
-  ```earthly
+  ```earthbuild
   BUILD +some-target
   FROM +some-target
   COPY +some-target/my-artifact ./
@@ -293,7 +293,7 @@ Examples
 
 * Other directories
 
-  ```earthly
+  ```earthbuild
   BUILD ./some/local/path+some-target
   FROM ./some/local/path+some-target
   COPY ./some/local/path+some-target/my-artifact ./
@@ -301,7 +301,7 @@ Examples
 
 * Other repositories
 
-  ```earthly
+  ```earthbuild
   BUILD github.com/someone/someproject:v1.2.3+some-target
   FROM github.com/someone/someproject:v1.2.3+some-target
   COPY github.com/someone/someproject:v1.2.3+some-target/my-artifact ./
@@ -312,10 +312,10 @@ Examples
 Secrets are never stored within an image's layers and they are only available to the commands that need them.
 
 ```bash
-earthly set /user/github/token 'shhh...'
+earthbuild set /user/github/token 'shhh...'
 ```
 
-```earthly
+```earthbuild
 release:
   RUN --push --secret GITHUB_TOKEN=user/github/token github-release upload file.bin
 ```
@@ -325,9 +325,9 @@ release:
 
 ### How is EarthBuild different from Dockerfiles?
 
-[Dockerfiles](https://docs.docker.com/engine/reference/builder/) were designed for specifying the make-up of Docker images and that's where Dockerfiles stop. Earthly takes some key principles of Dockerfiles (like layer caching) but expands on the use cases. For example, Earthly can output regular artifacts, run unit and integration tests, and create several Docker images at a time - all outside the scope of Dockerfiles.
+[Dockerfiles](https://docs.docker.com/engine/reference/builder/) were designed for specifying the make-up of Docker images and that's where Dockerfiles stop. earthbuild takes some key principles of Dockerfiles (like layer caching) but expands on the use cases. For example, earthbuild can output regular artifacts, run unit and integration tests, and create several Docker images at a time - all outside the scope of Dockerfiles.
 
-It is possible to use Dockerfiles in combination with other technologies (e.g., Makefiles or bash files) to solve such use cases. However, these combinations are difficult to parallelize, challenging to scale across repositories as they lack a robust import system, and often vary in style from one team to another. Earthly does not have these limitations as it was designed as a general-purpose build system.
+It is possible to use Dockerfiles in combination with other technologies (e.g., Makefiles or bash files) to solve such use cases. However, these combinations are difficult to parallelize, challenging to scale across repositories as they lack a robust import system, and often vary in style from one team to another. earthbuild does not have these limitations as it was designed as a general-purpose build system.
 
 For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/docs/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
 
@@ -339,7 +339,7 @@ Check out the [Earthfile reference doc page](https://docs.earthbuild.dev/docs/ea
 
 Yes! You can use the command `FROM DOCKERFILE` to inherit the commands in an existing Dockerfile.
 
-```earthly
+```earthbuild
 build:
   FROM DOCKERFILE .
   SAVE IMAGE some-image:latest
@@ -363,4 +363,4 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 
 <h2 align="center">Licensing</h2>
 
-Earthly is licensed under the Mozilla Public License Version 2.0. See [LICENSE](./LICENSE).
+earthbuild is licensed under the Mozilla Public License Version 2.0. See [LICENSE](./LICENSE).

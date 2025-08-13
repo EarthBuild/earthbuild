@@ -1,6 +1,6 @@
 # Next.js on Netlify Example
 
-This page will walk you through an example of how to build a Next.js hello world website and deploy it to Netlify using Earthly.  
+This page will walk you through an example of how to build a Next.js hello world website and deploy it to Netlify using earthbuild.  
   
 For this example, we are using the [basic-css](https://github.com/vercel/next.js/tree/canary/examples/basic-css) Next.js example that is included in [Vercel's Next.js repository](https://github.com/vercel/next.js).  
   
@@ -96,13 +96,13 @@ to = "/static/:splat"
 status = 200
 force = true
 ```
-We must supply two secrets for `build` and `deploy` to function properly. Read [our docs](https://docs.earthly.dev/docs/guides/build-args#passing-secrets-to-run-commands) for more information on how to use secrets in Earthly and the different ways to supply secrets for an Earthly build.
+We must supply two secrets for `build` and `deploy` to function properly. Read [our docs](https://docs.earthbuild.dev/docs/guides/build-args#passing-secrets-to-run-commands) for more information on how to use secrets in earthbuild and the different ways to supply secrets for an earthbuild build.
 1.  `NETLIFY_AUTH_TOKEN`:  Sets the `NETLIFY_AUTH_TOKEN` environment variable to the secret value you provide. Read [Netlify's docs](https://docs.netlify.com/cli/get-started/#authentication) for more information on how to get an auth token.
 2.  `NETLIFY_SITE_ID`:  Sets the `NETLIFY_SITE_ID` environment variable to the secret value you provide. Read [Netlify's docs](https://docs.netlify.com/cli/get-started/#link-with-an-environment-variable) for more information on how to get your site id.
   
-To verify that your site builds correctly but not deploy, run `earthly +build` (assumes using a .env file to supply secrets) or `earthly --secret NETLIFY_AUTH_TOKEN=[your_auth_token] --secret NETLIFY_SITE_ID=[your_site_id] +build`.
+To verify that your site builds correctly but not deploy, run `earthbuild +build` (assumes using a .env file to supply secrets) or `earthbuild --secret NETLIFY_AUTH_TOKEN=[your_auth_token] --secret NETLIFY_SITE_ID=[your_site_id] +build`.
   
-To build and deploy your site, run `earthly --push +deploy` (assumes using a .env file to supply arguments) or `earthly --push --secret NETLIFY_AUTH_TOKEN=[your_auth_token] --secret NETLIFY_SITE_ID=[your_site_id] +deploy`.
+To build and deploy your site, run `earthbuild --push +deploy` (assumes using a .env file to supply arguments) or `earthbuild --push --secret NETLIFY_AUTH_TOKEN=[your_auth_token] --secret NETLIFY_SITE_ID=[your_site_id] +deploy`.
 
 **Note:** If you are using a .env file, it should contain the following.
 ```

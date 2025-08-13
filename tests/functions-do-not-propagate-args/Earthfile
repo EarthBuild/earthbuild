@@ -8,13 +8,13 @@ test-all:
 test-v07:
     COPY propagate.earth Earthfile
     RUN sed -i "s/VERSION_STRING_TO_REPLACE/VERSION --use-function-keyword 0.7/g" Earthfile
-    DO --pass-args +RUN_EARTHLY --target=+test --contains-output="A was not propagated"
+    DO --pass-args +RUN_earthbuild --target=+test --contains-output="A was not propagated"
 
 test-v08:
     COPY propagate.earth Earthfile
     RUN sed -i "s/VERSION_STRING_TO_REPLACE/VERSION 0.8/g" Earthfile
-    DO --pass-args +RUN_EARTHLY --target=+test --contains-output="A was not propagated"
+    DO --pass-args +RUN_earthbuild --target=+test --contains-output="A was not propagated"
 
-RUN_EARTHLY:
+RUN_earthbuild:
     FUNCTION
-    DO --pass-args ..+RUN_EARTHLY
+    DO --pass-args ..+RUN_earthbuild

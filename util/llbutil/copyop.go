@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )
@@ -19,7 +19,7 @@ import (
 func CopyOp(ctx context.Context, srcState pllb.State, srcs []string, destState pllb.State, dest string, allowWildcard, isDir, keepTs bool, chown string, chmod *fs.FileMode, ifExists, symlinkNoFollow, merge bool, opts ...llb.ConstraintsOpt) (pllb.State, error) {
 	destAdjusted := dest
 	if dest == "." || dest == "" || len(srcs) > 1 {
-		destAdjusted += string("/") // TODO: needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		destAdjusted += string("/") // TODO: needs to be the containers platform, not the earthbuild hosts platform. For now, this is always Linux.
 	}
 	var baseCopyOpts []llb.CopyOption
 	if chown != "" {
@@ -82,7 +82,7 @@ func CopyWithRunOptions(srcState pllb.State, src, dest string, platr *platutil.R
 	// The following executes the `copy` command, which is a custom executable
 	// contained in the Dockerfile COPY image above. The following .Run()
 	// operation executes in a state constructed from that Dockerfile COPY image,
-	// with the Earthly user's state mounted at /dest on that image.
+	// with the earthbuild user's state mounted at /dest on that image.
 	opts = append(opts, []llb.RunOption{
 		llb.ReadonlyRootFS(),
 		llb.Shlexf("copy %s /dest/%s", src, dest)}...)

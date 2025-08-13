@@ -1,6 +1,6 @@
 VERSION 0.8
 
-PROJECT earthly-technologies/core
+PROJECT earthbuild-technologies/core
 
 FROM alpine
 

@@ -6,16 +6,16 @@ buildkitd:
     ARG BUILDKIT_PROJECT
     IF [ "$BUILDKIT_PROJECT" != "" ]
         IF case "$BUILDKIT_PROJECT" in ../*) true;; *) false;; esac
-            # Assuming this is coming from the main Earthly Earthfile.
+            # Assuming this is coming from the main earthbuild Earthfile.
             ARG BUILDKIT_BASE_IMAGE=../$BUILDKIT_PROJECT+build
         ELSE
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/earthly/buildkit:531b303aa8ec03c29c2ceaa140eb0a6d32e6f6f3+build
+        ARG BUILDKIT_BASE_IMAGE=github.com/earthbuild/buildkit:531b303aa8ec03c29c2ceaa140eb0a6d32e6f6f3+build
     END
-    ARG EARTHLY_TARGET_TAG_DOCKER
-    ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG EARTHBUILD_TARGET_TAG_DOCKER
+    ARG TAG="dev-$EARTHBUILD_TARGET_TAG_DOCKER"
 
     FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
@@ -58,13 +58,13 @@ buildkitd:
 
     # Scripts and binaries used for the builds.
     COPY ../+debugger/earth_debugger /usr/bin/earth_debugger
-    COPY ./dockerd-wrapper.sh /var/earthly/dockerd-wrapper.sh
-    COPY ./docker-auto-install.sh /var/earthly/docker-auto-install.sh
+    COPY ./dockerd-wrapper.sh /var/earthbuild/dockerd-wrapper.sh
+    COPY ./docker-auto-install.sh /var/earthbuild/docker-auto-install.sh
     COPY ./oom-adjust.sh.template /bin/oom-adjust.sh.template
     COPY ./runc-ps /bin/runc-ps
 
-    ENV EARTHLY_RESET_TMP_DIR=false
-    ENV EARTHLY_TMP_DIR=/tmp/earthly
+    ENV EARTHBUILD_RESET_TMP_DIR=false
+    ENV EARTHBUILD_TMP_DIR=/tmp/earthbuild
     ENV BUILDKIT_DEBUG=false
     ENV BUILDKIT_MAX_PARALLELISM=20
     ENV BUILDKIT_LOCAL_REGISTRY_LISTEN_PORT=8371
@@ -72,15 +72,15 @@ buildkitd:
     ENV CACHE_SIZE_MB=0
     ENV CACHE_SIZE_PCT=0
     ENV NETWORK_MODE=cni
-    ARG EARTHLY_GIT_HASH
-    ENV EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH
+    ARG EARTHBUILD_GIT_HASH
+    ENV EARTHBUILD_GIT_HASH=$EARTHBUILD_GIT_HASH
     ENV BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE
-    ENV EARTHLY_CACHE_VERSION="2" # whenever this value changes, a forced cache reset is performed
-    VOLUME /tmp/earthly
+    ENV EARTHBUILD_CACHE_VERSION="2" # whenever this value changes, a forced cache reset is performed
+    VOLUME /tmp/earthbuild
     ENTRYPOINT ["/usr/bin/entrypoint.sh", "buildkitd", "--config=/etc/buildkitd.toml"]
     
     ARG CR_ORG="earthbuild"
-    # TODO: push this to buildkit repo or the main earthly repo under a specific tag?
+    # TODO: push this to buildkit repo or the main earthbuild repo under a specific tag?
     ARG CR_REPO="earthbuild"
     ARG IMAGE_REGISTRY="ghcr.io"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
@@ -92,17 +92,17 @@ buildkitd:
 buildkit-sha:
     RUN apk add git
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
+    ARG BUILDKIT_GIT_BRANCH=earthbuild-main
     ARG --required BUILDKIT_GIT_ORG
     RUN --no-cache set -e; \
         if [ "$(echo -n $BUILDKIT_GIT_SHA | wc -c)" = 40 ]; then \
-            echo "pinning github.com/earthly/buildkit to reference git sha1: $BUILDKIT_GIT_SHA"; \
+            echo "pinning github.com/earthbuild/buildkit to reference git sha1: $BUILDKIT_GIT_SHA"; \
             buildkit_sha1="$BUILDKIT_GIT_SHA"; \
         else \
             test -z "$BUILDKIT_GIT_SHA"; \
             echo "looking up branch $BUILDKIT_GIT_BRANCH"; \
             buildkit_sha1=$(git ls-remote --refs -q https://github.com/$BUILDKIT_GIT_ORG/buildkit.git "$BUILDKIT_GIT_BRANCH" | awk 'BEGIN { FS = "[ \t]+" } {print $1}'); \
-            echo "pinning github.com/earthly/buildkit@${BUILDKIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
+            echo "pinning github.com/earthbuild/buildkit@${BUILDKIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
         fi && \
         test -n "$buildkit_sha1" && \
         echo "$buildkit_sha1" > buildkit_sha
@@ -120,7 +120,7 @@ update-buildkit-earthfile:
             sed -i 's/\(^[ \t]\+ARG BUILDKIT_BASE_IMAGE\)=github.com\/.*\/buildkit.*/\1=github.com\/'$BUILDKIT_GIT_ORG'\/buildkit:'$BUILDKIT_GIT_SHA'+build/g' Earthfile; \
         fi
 
-# export-docker-script is used to copy the dind install script remotely via another Earthly target
+# export-docker-script is used to copy the dind install script remotely via another earthbuild target
 export-docker-script:
     FROM alpine
     COPY docker-auto-install.sh .

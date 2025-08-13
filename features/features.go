@@ -11,8 +11,8 @@ import (
 	goflags "github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/util/flagutil"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/util/flagutil"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
@@ -20,7 +20,7 @@ import (
 type Features struct {
 	// Never enabled by default
 	NoUseRegistryForWithDocker bool `long:"no-use-registry-for-with-docker" description:"disable use-registry-for-with-docker"` // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
-	EarthlyCIRunnerArg         bool `long:"earthly-ci-runner-arg" description:"includes EARTHLY_CI_RUNNER ARG"`                 // earthly CI was discontinued, no reason to enable this by default
+	earthbuildCIRunnerArg         bool `long:"earthbuild-ci-runner-arg" description:"includes EARTHLY_CI_RUNNER ARG"`                 // earthbuild CI was discontinued, no reason to enable this by default
 
 	// VERSION 0.5
 	ExecAfterParallel        bool `long:"exec-after-parallel" enabled_in_version:"0.5" description:"force execution after parallel conversion"`
@@ -29,19 +29,19 @@ type Features struct {
 
 	// VERSION 0.6
 	ForIn                      bool `long:"for-in" enabled_in_version:"0.6" description:"allow the use of the FOR command"`
-	NoImplicitIgnore           bool `long:"no-implicit-ignore" enabled_in_version:"0.6" description:"disable implicit ignore rules to exclude .tmp-earthly-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context"`
+	NoImplicitIgnore           bool `long:"no-implicit-ignore" enabled_in_version:"0.6" description:"disable implicit ignore rules to exclude .tmp-earthbuild-out/, build.earth, Earthfile, .earthignore and .earthbuildignore when resolving local context"`
 	ReferencedSaveOnly         bool `long:"referenced-save-only" enabled_in_version:"0.6" description:"only save artifacts that are directly referenced"`
 	RequireForceForUnsafeSaves bool `long:"require-force-for-unsafe-saves" enabled_in_version:"0.6" description:"require the --force flag when saving to path outside of current path"`
 	UseCopyIncludePatterns     bool `long:"use-copy-include-patterns" enabled_in_version:"0.6" description:"specify an include pattern to buildkit when performing copies"`
 
 	// VERSION 0.7
 	CheckDuplicateImages     bool `long:"check-duplicate-images" enabled_in_version:"0.7" description:"check for duplicate images during output"`
-	EarthlyCIArg             bool `long:"ci-arg" enabled_in_version:"0.7" description:"include EARTHLY_CI arg"`
-	EarthlyGitAuthorArgs     bool `long:"earthly-git-author-args" enabled_in_version:"0.7" description:"includes EARTHLY_GIT_AUTHOR and EARTHLY_GIT_CO_AUTHORS ARGs"`
-	EarthlyLocallyArg        bool `long:"earthly-locally-arg" enabled_in_version:"0.7" description:"includes EARTHLY_LOCALLY ARG"`
-	EarthlyVersionArg        bool `long:"earthly-version-arg" enabled_in_version:"0.7" description:"includes EARTHLY_VERSION and EARTHLY_BUILD_SHA ARGs"`
+	earthbuildCIArg             bool `long:"ci-arg" enabled_in_version:"0.7" description:"include EARTHLY_CI arg"`
+	earthbuildGitAuthorArgs     bool `long:"earthbuild-git-author-args" enabled_in_version:"0.7" description:"includes earthbuild_GIT_AUTHOR and earthbuild_GIT_CO_AUTHORS ARGs"`
+	earthbuildLocallyArg        bool `long:"earthbuild-locally-arg" enabled_in_version:"0.7" description:"includes EARTHLY_LOCALLY ARG"`
+	earthbuildVersionArg        bool `long:"earthbuild-version-arg" enabled_in_version:"0.7" description:"includes EARTHLY_VERSION and EARTHLY_BUILD_SHA ARGs"`
 	ExplicitGlobal           bool `long:"explicit-global" enabled_in_version:"0.7" description:"require base target args to have explicit settings to be considered global args"`
-	GitCommitAuthorTimestamp bool `long:"git-commit-author-timestamp" enabled_in_version:"0.7" description:"include EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP arg"`
+	GitCommitAuthorTimestamp bool `long:"git-commit-author-timestamp" enabled_in_version:"0.7" description:"include earthbuild_GIT_COMMIT_AUTHOR_TIMESTAMP arg"`
 	NewPlatform              bool `long:"new-platform" enabled_in_version:"0.7" description:"enable new platform behavior"`
 	NoTarBuildOutput         bool `long:"no-tar-build-output" enabled_in_version:"0.7" description:"do not print output when creating a tarball to load into WITH DOCKER"`
 	SaveArtifactKeepOwn      bool `long:"save-artifact-keep-own" enabled_in_version:"0.7" description:"always apply the --keep-own flag with SAVE ARTIFACT"`
@@ -57,11 +57,11 @@ type Features struct {
 	// VERSION 0.8
 	NoNetwork                       bool `long:"no-network" enabled_in_version:"0.8" description:"allow the use of RUN --network=none commands"`
 	ArgScopeSet                     bool `long:"arg-scope-and-set" enabled_in_version:"0.8" description:"enable SET to reassign ARGs and prevent ARGs from being redeclared in the same scope"`
-	UseDockerIgnore                 bool `long:"use-docker-ignore" enabled_in_version:"0.8" description:"fallback to .dockerignore incase .earthlyignore or .earthlyignore do not exist in a local \"FROM DOCKERFILE\" target"`
+	UseDockerIgnore                 bool `long:"use-docker-ignore" enabled_in_version:"0.8" description:"fallback to .dockerignore incase .earthbuildignore or .earthbuildignore do not exist in a local \"FROM DOCKERFILE\" target"`
 	PassArgs                        bool `long:"pass-args" enabled_in_version:"0.8" description:"Allow the use of the --pass-arg flag in FROM, BUILD, COPY, WITH DOCKER, and DO commands"`
 	GlobalCache                     bool `long:"global-cache" enabled_in_version:"0.8" description:"enable global caches (shared across different Earthfiles), for cache mounts and CACHEs having an ID"`
 	CachePersistOption              bool `long:"cache-persist-option" enabled_in_version:"0.8" description:"Adds option to persist caches, Changes default CACHE behaviour to not persist"`
-	GitRefs                         bool `long:"git-refs" enabled_in_version:"0.8" description:"includes EARTHLY_GIT_REFS ARG"`
+	GitRefs                         bool `long:"git-refs" enabled_in_version:"0.8" description:"includes earthbuild_GIT_REFS ARG"`
 	UseVisitedUpfrontHashCollection bool `long:"use-visited-upfront-hash-collection" enabled_in_version:"0.8" description:"Uses a new target visitor implementation that computes upfront the hash of the visited targets and adds support for running all targets with the same name but different args in parallel"`
 	UseFunctionKeyword              bool `long:"use-function-keyword" enabled_in_version:"0.8" description:"Use the FUNCTION key word instead of COMMAND"`
 
@@ -73,8 +73,8 @@ type Features struct {
 	RunWithAWS                    bool `long:"run-with-aws" description:"make AWS credentials in the environment or ~/.aws available to RUN commands"`
 	WildcardCopy                  bool `long:"wildcard-copy" description:"allow for the expansion of wildcard (glob) paths for COPY commands"`
 	RawOutput                     bool `long:"raw-output" description:"allow for --raw-output on RUN commands"`
-	GitAuthorEmailNameArgs        bool `long:"git-author-email-name-args" description:"includes EARTHLY_GIT_AUTHOR_EMAIL and EARTHLY_GIT_AUTHOR_NAME builtin ARGs"`
-	AllowWithoutEarthlyLabels     bool `long:"allow-without-earthly-labels" description:"Allow the usage of --without-earthly-labels in SAVE IMAGE"`
+	GitAuthorEmailNameArgs        bool `long:"git-author-email-name-args" description:"includes earthbuild_GIT_AUTHOR_EMAIL and earthbuild_GIT_AUTHOR_NAME builtin ARGs"`
+	AllowWithoutearthbuildLabels     bool `long:"allow-without-earthbuild-labels" description:"Allow the usage of --without-earthbuild-labels in SAVE IMAGE"`
 	DockerCache                   bool `long:"docker-cache" description:"enable the WITH DOCKER --cache-id option"`
 	RunWithAWSOIDC                bool `long:"run-with-aws-oidc" description:"make AWS credentials via OIDC provider available to RUN commands"`
 
@@ -185,7 +185,7 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	var ftrs Features
 	hasVersion := (version != nil)
 	if !hasVersion {
-		// If no version is specified, we default to 0.5 (the Earthly version
+		// If no version is specified, we default to 0.5 (the earthbuild version
 		// before the VERSION command was introduced).
 		version = &spec.Version{
 			Args: []string{"0.5"},

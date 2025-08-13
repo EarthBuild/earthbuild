@@ -22,7 +22,7 @@ function cleanup() {
           echo "buildkite-test passed"
         else
           echo "=== buildkit logs ==="
-          docker logs earthly-dev-buildkitd || true
+          docker logs earthbuild-dev-buildkitd || true
           echo "=== end of buildkit logs ==="
           echo "buildkite-test failed with $status"
         fi
@@ -35,18 +35,18 @@ arch="$(uname -m)"
 
 if [ "$os" = "Darwin" ]; then
     if [ "$arch" = "arm64" ]; then
-        EARTHLY_OS="darwin-m1"
-        download_url="https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-arm64"
-        earthly="./build/darwin/arm64/earthly"
+        EARTHBUILD_OS="darwin-m1"
+        download_url="https://github.com/earthbuild/earthbuild/releases/latest/download/earthbuild-darwin-arm64"
+        earthbuild="./build/darwin/arm64/earthbuild"
     else
-        EARTHLY_OS="darwin"
-        download_url="https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-amd64"
-        earthly="./build/darwin/amd64/earthly"
+        EARTHBUILD_OS="darwin"
+        download_url="https://github.com/earthbuild/earthbuild/releases/latest/download/earthbuild-darwin-amd64"
+        earthbuild="./build/darwin/amd64/earthbuild"
     fi
 elif [ "$os" = "Linux" ]; then
-    EARTHLY_OS="linux"
-    download_url="https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64"
-    earthly="./build/linux/amd64/earthly"
+    EARTHBUILD_OS="linux"
+    download_url="https://github.com/earthbuild/earthbuild/releases/latest/download/earthbuild-linux-amd64"
+    earthbuild="./build/linux/amd64/earthbuild"
 else
     echo "failed to handle $os, $arch"
     exit 1
@@ -60,64 +60,64 @@ done
 set -xu
 
 if ! git symbolic-ref -q HEAD >/dev/null; then
-    echo "Add branch info back to git (Earthly uses it for tagging)"
+    echo "Add branch info back to git (earthbuild uses it for tagging)"
     git checkout -B "$BUILDKITE_BRANCH" || true
 fi
 
-echo "Download latest Earthly binary"
+echo "Download latest earthbuild binary"
 if [ -n "$download_url" ]; then
-    curl -o ./earthly-released -L "$download_url" && chmod +x ./earthly-released
-    released_earthly=./earthly-released
+    curl -o ./earthbuild-released -L "$download_url" && chmod +x ./earthbuild-released
+    released_earthbuild=./earthbuild-released
 fi
 
 echo "docker login"
 set +x # dont echo secrets
-DOCKER_USER="$("$released_earthly" secret --org earthly-technologies --project core get -n dockerhub/user)"
-DOCKER_TOKEN="$("$released_earthly" secret --org earthly-technologies --project core get -n dockerhub/token)"
+DOCKER_USER="$("$released_earthbuild" secret --org earthbuild-technologies --project core get -n dockerhub/user)"
+DOCKER_TOKEN="$("$released_earthbuild" secret --org earthbuild-technologies --project core get -n dockerhub/token)"
 test -n "$DOCKER_USER" || (echo "failed to get DOCKER_USER" && exit 1)
 test -n "$DOCKER_TOKEN" || (echo "failed to get DOCKER_TOKEN" && exit 1)
 echo "$DOCKER_TOKEN" | docker login --username "$DOCKER_USER" --password-stdin
 set -x
 
 echo "Prune cache for cross-version compatibility"
-"$released_earthly" prune --reset
+"$released_earthbuild" prune --reset
 
-echo "Build latest earthly using released earthly"
-"$released_earthly" --version
-"$released_earthly" config global.disable_analytics true
-"$released_earthly" +for-"$EARTHLY_OS"
-chmod +x "$earthly"
+echo "Build latest earthbuild using released earthbuild"
+"$released_earthbuild" --version
+"$released_earthbuild" config global.disable_analytics true
+"$released_earthbuild" +for-"$EARTHBUILD_OS"
+chmod +x "$earthbuild"
 
 # WSL2 sometimes gives a "Text file busy" when running the native binary, likely due to crossing the WSL/Windows divide.
 # This should be enough retry to skip that, and fail if theres _actually_ a problem.
 att_max=5
 att_num=1
-until "$earthly" --version || (( att_num == att_max ))
+until "$earthbuild" --version || (( att_num == att_max ))
 do
     echo "Attempt $att_num failed! Trying again in $att_num seconds..."
     sleep $(( att_num++ ))
 done
 
-"$earthly" config global.buildkit_max_parallelism 2
+"$earthbuild" config global.buildkit_max_parallelism 2
 
 # Yes, there is a bug in the upstream YAML parser. Sorry about the jank here.
 # https://github.com/go-yaml/yaml/issues/423
-"$earthly" config global.buildkit_additional_config "'[registry.\"docker.io\"]
+"$earthbuild" config global.buildkit_additional_config "'[registry.\"docker.io\"]
  mirrors = [\"mirror.gcr.io\"]'"
 
 # setup secrets
 set +x # dont echo secrets
-echo "DOCKERHUB_USER=$($earthly secret --org earthly-technologies --project core get -n dockerhub/user || kill $$)" > .secret
-echo "DOCKERHUB_PASS=$($earthly secret --org earthly-technologies --project core get -n dockerhub/pass || kill $$)" >> .secret
-echo "DOCKERHUB_MIRROR_USER=$($earthly secret --org earthly-technologies --project core get -n dockerhub-mirror/user || kill $$)" > .secret
-echo "DOCKERHUB_MIRROR_PASS=$($earthly secret --org earthly-technologies --project core get -n dockerhub-mirror/pass || kill $$)" >> .secret
+echo "DOCKERHUB_USER=$($earthbuild secret --org earthbuild-technologies --project core get -n dockerhub/user || kill $$)" > .secret
+echo "DOCKERHUB_PASS=$($earthbuild secret --org earthbuild-technologies --project core get -n dockerhub/pass || kill $$)" >> .secret
+echo "DOCKERHUB_MIRROR_USER=$($earthbuild secret --org earthbuild-technologies --project core get -n dockerhub-mirror/user || kill $$)" > .secret
+echo "DOCKERHUB_MIRROR_PASS=$($earthbuild secret --org earthbuild-technologies --project core get -n dockerhub-mirror/pass || kill $$)" >> .secret
 # setup args
 echo "DOCKERHUB_MIRROR_AUTH=false" > .arg
 echo "DOCKERHUB_MIRROR=mirror.gcr.io" >> .arg
 set -x
 
-# stop the released earthly buildkitd container (to preserve memory)
-docker rm -f earthly-buildkitd 2> /dev/null || true
+# stop the released earthbuild buildkitd container (to preserve memory)
+docker rm -f earthbuild-buildkitd 2> /dev/null || true
 
 max_attempts=2
 for target in \
@@ -142,14 +142,14 @@ for target in \
         +test-qemu \
         ; do
     for attempt in $(seq 1 "$max_attempts"); do
-        # kill earthly-* containers to release memory (the macstadium machines have limited memory)
+        # kill earthbuild-* containers to release memory (the macstadium machines have limited memory)
         set +e
-        docker ps -a | grep earthly- | awk '{print $1}' | xargs -r docker rm -f
+        docker ps -a | grep earthbuild- | awk '{print $1}' | xargs -r docker rm -f
         set -e
 
         echo "=== running $target (attempt $attempt/$max_attempts ==="
         set +e
-        "$earthly" --ci -P --exec-stats-summary=- "$target"
+        "$earthbuild" --ci -P --exec-stats-summary=- "$target"
         exit_code="$?"
         set -e
 
@@ -167,4 +167,4 @@ for target in \
 done
 
 echo "Execute fail test"
-bash -c "! $earthly --ci ./tests/fail+test-fail"
+bash -c "! $earthbuild --ci ./tests/fail+test-fail"

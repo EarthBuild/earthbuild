@@ -4,25 +4,25 @@ FROM --pass-args ../../+base
 RUN adduser -h /home/bambi -D bambi
 RUN echo "#!/bin/sh
 set -ex
-earthly bootstrap --with-autocomplete --no-buildkit 2>&1 | tee out.txt
+earthbuild bootstrap --with-autocomplete --no-buildkit 2>&1 | tee out.txt
 " > /tmp/bootstrap-script && chmod +x /tmp/bootstrap-script
 
 test-bash-non-root-fallback-dir:
     ARG path="/home/bambi/.local/share/bash-completion/completions"
     RUN mkdir -p "$path"
     USER bambi
-    DO --pass-args +RUN_EARTHLY
-    RUN grep '^complete' "$path/earthly" && \
+    DO --pass-args +RUN_earthbuild
+    RUN grep '^complete' "$path/earthbuild" && \
         grep -i 'successfully enabled bash-completion' out.txt
 
 # simplistic; can't account for installs to previous alternate locations
 test-bash-non-root-no-overwrite:
     ARG path="/home/bambi/.local/share/bash-completion/completions"
     RUN mkdir -p "$path" && \
-        echo "can't touch this" > "$path/earthly" && \
-        md5sum "$path/earthly" > /tmp/sum
+        echo "can't touch this" > "$path/earthbuild" && \
+        md5sum "$path/earthbuild" > /tmp/sum
     USER bambi
-    DO --pass-args +RUN_EARTHLY
+    DO --pass-args +RUN_earthbuild
     RUN md5sum /tmp/sum && \
         grep -i 'bash-completion already present' out.txt
 
@@ -33,16 +33,16 @@ test-bash-non-root-custom-dir:
     ARG path="$BASH_COMPLETION_USER_DIR/bash-completion/completions"
     RUN mkdir -p "$path"
     USER bambi
-    DO --pass-args +RUN_EARTHLY
-    RUN grep '^complete' "$path/earthly" && grep -i 'successfully enabled bash-completion' out.txt
+    DO --pass-args +RUN_earthbuild
+    RUN grep '^complete' "$path/earthbuild" && grep -i 'successfully enabled bash-completion' out.txt
 
 test-bash-non-root-xdg-dir:
     ENV XDG_DATA_HOME=/home/bambi/weird/xdg
     ARG path="$XDG_DATA_HOME/bash-completion/completions"
     RUN mkdir -p "$path"
     USER bambi
-    DO --pass-args +RUN_EARTHLY
-    RUN grep '^complete' "$path/earthly" && grep -i 'successfully enabled bash-completion' out.txt
+    DO --pass-args +RUN_earthbuild
+    RUN grep '^complete' "$path/earthbuild" && grep -i 'successfully enabled bash-completion' out.txt
 
 test-bash-root-no-home-entries:
     # Adding XDG to cheat and do two tests in one... that custom is used, and trumps XDG
@@ -53,8 +53,8 @@ test-bash-root-no-home-entries:
         mkdir -p /root/.local/share/bash-completion/completions
     # for clarity
     USER root
-    DO --pass-args +RUN_EARTHLY
-    RUN test -z "$(find /root -name earthly -type f)"
+    DO --pass-args +RUN_earthbuild
+    RUN test -z "$(find /root -name earthbuild -type f)"
 
 test-all:
     BUILD +test-bash-non-root-fallback-dir
@@ -62,9 +62,9 @@ test-all:
     BUILD +test-bash-non-root-xdg-dir
     BUILD +test-bash-root-no-home-entries
 
-RUN_EARTHLY:
+RUN_earthbuild:
     FUNCTION
     ARG exec_cmd=/tmp/bootstrap-script
-    DO ../../+RUN_EARTHLY \
+    DO ../../+RUN_earthbuild \
         --should_fail=false \
         --exec_cmd=$exec_cmd

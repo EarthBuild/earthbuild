@@ -1,7 +1,7 @@
 {
   "name": "example-typescript-node",
   "version": "1.0.0",
-  "description": "Hello Earthly",
+  "description": "Hello earthbuild",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

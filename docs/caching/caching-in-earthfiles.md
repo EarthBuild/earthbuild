@@ -1,20 +1,20 @@
 # Caching in Earthfiles
 
-Caching is at the heart of how Earthly works. This page will walk you through the key concepts of caching in Earthfiles.
+Caching is at the heart of how earthbuild works. This page will walk you through the key concepts of caching in Earthfiles.
 
-There are three main ways in which Earthly performs caching of builds:
+There are three main ways in which earthbuild performs caching of builds:
 
-1. **Layer-based caching**. If an Earthfile command is run again, and the inputs to that command are the same, then the cache layer is reused. This allows Earthly to skip re-executing parts of the build that have not changed.
-2. **Cache mounts**. Earthly allows you to mount directories into the build environment - either via [`RUN --mount type=cache`](../earthfile/earthfile.md#run), or via the [`CACHE`](../earthfile/earthfile.md#cache) command. These directories are persisted between runs, and can be used to store intermediate build files for incremental compilers, or dependencies that are downloaded from the internet.
-3. **Auto-skip**. Earthly allows you to skip large parts of a build in certain situations via `earthly --auto-skip` or `BUILD --auto-skip`. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
+1. **Layer-based caching**. If an Earthfile command is run again, and the inputs to that command are the same, then the cache layer is reused. This allows EarthBuild to skip re-executing parts of the build that have not changed.
+2. **Cache mounts**. earthbuild allows you to mount directories into the build environment - either via [`RUN --mount type=cache`](../earthfile/earthfile.md#run), or via the [`CACHE`](../earthfile/earthfile.md#cache) command. These directories are persisted between runs, and can be used to store intermediate build files for incremental compilers, or dependencies that are downloaded from the internet.
+3. **Auto-skip**. earthbuild allows you to skip large parts of a build in certain situations via `earthbuild --auto-skip` or `BUILD --auto-skip`. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
 
 ## 1. Layer-based caching
 
-Most commands in an Earthfile create a cache layer as part of the way they execute. You can think of a target in an Earthfile as a cake with multiple layers. If a layer's ingredients change, you need to redo the affected layer, plus any layer on top. Similarly, in an Earthfile target, if the input to a command is different (different ARG values, different source files being COPY'd, or the command itself is different), then Earthly can reuse the layers from a previous run up to that command, but it would have to re-execute that command and what follows after it.
+Most commands in an Earthfile create a cache layer as part of the way they execute. You can think of a target in an Earthfile as a cake with multiple layers. If a layer's ingredients change, you need to redo the affected layer, plus any layer on top. Similarly, in an Earthfile target, if the input to a command is different (different ARG values, different source files being COPY'd, or the command itself is different), then earthbuild can reuse the layers from a previous run up to that command, but it would have to re-execute that command and what follows after it.
 
-If you happen to be familiar with Dockerfile layer caching, then layer caching in Earthly targets will be very familiar to you as it works the same way.
+If you happen to be familiar with Dockerfile layer caching, then layer caching in earthbuild targets will be very familiar to you as it works the same way.
 
-Earthly supports inheriting from other targets, copying artifacts that result from them, or simply issuing the build of another target. These various target cross-references result in a build graph underneath. Thus, one target could influence whether another target is executed - for example, if a source file changes and that results in rebuilding an artifact in `target1`, but then `target2` performs a `COPY` of that artifact, then at least part of `target2` will need to be re-executed too as a result. Earthly deals with all of this automatically.
+earthbuild supports inheriting from other targets, copying artifacts that result from them, or simply issuing the build of another target. These various target cross-references result in a build graph underneath. Thus, one target could influence whether another target is executed - for example, if a source file changes and that results in rebuilding an artifact in `target1`, but then `target2` performs a `COPY` of that artifact, then at least part of `target2` will need to be re-executed too as a result. earthbuild deals with all of this automatically.
 
 Because of how layer caching works, it is best to organize builds in a manner that best utilizes the cache. A common strategy is to download and install dependencies early on in the build. Since the list of dependencies doesn't change very often, this expensive operation will usually be cached. To achieve this, it is important to copy the minimal amount of source files (usually just the file that defines what the dependencies are) before issuing the command that installs the dependencies.
 
@@ -29,7 +29,7 @@ RUN go build ...
 
 In the above example, changing the project's `README.md` or running `git fetch` might cause slow commands like `go mod download` to be re-executed.
 
-Earthly uses `COPY` commands (among other things) to mark certain files as inputs to the build. If any file included in a `COPY` changes, then the build will continue from that `COPY` command onwards. For this reason, you want to be as specific as possible when including files in a `COPY` command. In some cases, you might even have to list files individually.
+earthbuild uses `COPY` commands (among other things) to mark certain files as inputs to the build. If any file included in a `COPY` changes, then the build will continue from that `COPY` command onwards. For this reason, you want to be as specific as possible when including files in a `COPY` command. In some cases, you might even have to list files individually.
 
 Here are some possible ways to improve the above example:
 
@@ -54,7 +54,7 @@ In general, including the smallest set of input files as possible at every step 
 
 ## 2. Cache mounts
 
-Sometimes layer caching is not enough to properly express the best way to cache something. Cache mounts help complement layer caching, by allowing the contents of a directory to be reused across multiple builds. Cache mounts can be helpful in cases where the tool you're using to build within Earthly is able to leverage incremental caching on its own. Some package managers are able to do that for downloaded dependencies.
+Sometimes layer caching is not enough to properly express the best way to cache something. Cache mounts help complement layer caching, by allowing the contents of a directory to be reused across multiple builds. Cache mounts can be helpful in cases where the tool you're using to build within earthbuild is able to leverage incremental caching on its own. Some package managers are able to do that for downloaded dependencies.
 
 <!-- TODO: It would be nice to include a practical example from a programming language -->
 
@@ -85,17 +85,17 @@ The most important limitation to be aware of is that reusing state from a previo
 
 Another limitation is that cache mounts are not great for passing files from one build step to another. This is because a parallel build could interfere with the cache between steps in ways that are difficult to debug. Be especially mindful that builds from different development branches might interact with each other unexpectedly in this situation. It is therefore best to avoid using cache mounts as a mechanism to pass along information. It is best to extract the result of an operation out of the cache mount within the same operation, to ensure that the cache is locked during this time.
 
-Finally, another important limitation is the fact that cache mounts can grow in size indefinitely. While Earthly does garbage-collect layers and cache mounts on a least-recently-used basis, a cache mount that is used frequently could grow more than expected. In such situations, you should consider managing the lifecycle of the cache contents yourself, by removing unused files from it every few runs. A good place for such cleanup operations is within the same layer (same `RUN` command) that uses the contents, at the end.
+Finally, another important limitation is the fact that cache mounts can grow in size indefinitely. While earthbuild does garbage-collect layers and cache mounts on a least-recently-used basis, a cache mount that is used frequently could grow more than expected. In such situations, you should consider managing the lifecycle of the cache contents yourself, by removing unused files from it every few runs. A good place for such cleanup operations is within the same layer (same `RUN` command) that uses the contents, at the end.
 
 ## 3. Auto-skip
 
-Auto-skip is a feature that allows Earthly to skip large parts of a build in certain situations. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
+Auto-skip is a feature that allows EarthBuild to skip large parts of a build in certain situations. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
 
-Unlike layer caching and cache mounts (which store cache local to the runner), auto-skip is a global cache stored in a cloud database. In order to use auto-skip, you will need an [Earthly Cloud](../cloud/overview.md) account.
+Unlike layer caching and cache mounts (which store cache local to the runner), auto-skip is a global cache feature that was previously available through earthbuild Cloud. This feature is not currently available in EarthBuild.
 
-Auto-skip can be enabled for either an entire run, via `earthly --auto-skip` (*experimental*), or for a specific target, via `BUILD --auto-skip` (*coming soon*).
+Auto-skip can be enabled for either an entire run, via `earthbuild --auto-skip` (*experimental*), or for a specific target, via `BUILD --auto-skip` (*coming soon*).
 
-Unlike layer caching, auto-skip is an all-or-nothing type of cache. Either the entire target is skipped, or none of it is. This is because Earthly does not know which parts of the target are affected by the change. If auto-skip does not deem the run to be skipped, then Earthly will fallback to the other forms of caching to run the build as efficiently as possible.
+Unlike layer caching, auto-skip is an all-or-nothing type of cache. Either the entire target is skipped, or none of it is. This is because earthbuild does not know which parts of the target are affected by the change. If auto-skip does not deem the run to be skipped, then earthbuild will fallback to the other forms of caching to run the build as efficiently as possible.
 
 ### When auto-skip is not supported
 
@@ -181,9 +181,9 @@ In certain situations, you might want to disable caching either for a specific c
 
 To disable layer caching, you can use the `--no-cache` flag. For example, `RUN --no-cache echo "Hello"` will always execute the `echo` command, even if the `RUN` command was executed before with the same arguments. Note that this does not disable cache mounts, or auto-skip. A `RUN --no-cache` command can still be skipped by auto-skip.
 
-To disable layer caching and mount caching for an entire run, you can use `earthly --no-cache +my-target`.
+To disable layer caching and mount caching for an entire run, you can use `earthbuild --no-cache +my-target`.
 
-Another way to disable layer caching is to use the `RUN --push` flag. This flag is useful when you want to perform an operation with external effects (e.g. deploying to production). By default Earthly does not run `--push` commands unless the `--push` flag is also specified when invoking Earthly itself (`earthly --push +my-target`). `RUN --push` commands are never cached.
+Another way to disable layer caching is to use the `RUN --push` flag. This flag is useful when you want to perform an operation with external effects (e.g. deploying to production). By default earthbuild does not run `--push` commands unless the `--push` flag is also specified when invoking earthbuild itself (`earthbuild --push +my-target`). `RUN --push` commands are never cached.
 
 To disable auto-skip, simply remove the `--auto-skip` flag.
 
@@ -193,11 +193,11 @@ Debugging caching issues can be tricky. Here are some common issues that you mig
 
 ### Cache size
 
-If the configured cache size is too small, then Earthly might garbage-collect cached layers more often than you might expect. This can manifest in builds randomly not using cache for certain layers. Usually it is the biggest layers that suffer from this (and oftentimes the biggest layers are the most expensive to recreate). This problem is most common on Mac and Windows, where Docker uses a VM with limited disk size. To resolve this, either configure a larger cache size if you are running local builds, or launch a larger Satellite if you are using remote builds via Earthly Satellites. For more information see the [managing cache page](./managing-cache.md).
+If the configured cache size is too small, then EarthBuild might garbage-collect cached layers more often than you might expect. This can manifest in builds randomly not using cache for certain layers. Usually it is the biggest layers that suffer from this (and oftentimes the biggest layers are the most expensive to recreate). This problem is most common on Mac and Windows, where Docker uses a VM with limited disk size. To resolve this, configure a larger cache size for your local builds. For more information see the [managing cache page](./managing-cache.md).
 
 ### ARGs
 
-In Earthly, like in Dockerfiles, ARGs declared in Earthfiles also behave as environment variables within the target they are declared in. This means that if you declare an ARG, and then use it in a `RUN` command, then the `RUN` command will be invalidated if the ARG changes. This is sometimes not very obvious, especially if you are not actually using the value of that ARG.
+In earthbuild, like in Dockerfiles, ARGs declared in Earthfiles also behave as environment variables within the target they are declared in. This means that if you declare an ARG, and then use it in a `RUN` command, then the `RUN` command will be invalidated if the ARG changes. This is sometimes not very obvious, especially if you are not actually using the value of that ARG.
 
 For this reason, it is best to declare ARGs as late as possible within the target they are used in, and try to avoid declaring `--global` ARGs as much as possible. If an ARG is not yet declared, it will not influence the cache state of a layer, allowing for more cache hits. Limiting the scope of ARGs as much as possible will yield better cache performance.
 
@@ -213,4 +213,4 @@ If you have already optimized your cache by maximizing its size, declaring argum
 
 ### Debugging tips
 
-If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [Earthly GitHub repository](https://github.com/earthly/earthly).
+If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [earthbuild GitHub repository](https://github.com/earthbuild/earthbuild).

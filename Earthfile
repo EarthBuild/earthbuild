@@ -21,7 +21,7 @@ RUN apk add --update --no-cache \
     openssh \
     util-linux
 
-WORKDIR /earthly
+WORKDIR /earthbuild
 
 ARG CR_ORG="earthbuild"
 ARG CR_REPO="earthbuild"
@@ -29,7 +29,7 @@ ARG REGISTRY_BASE="ghcr.io"
 
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
-# deps downloads and caches all dependencies for earthly. When called directly,
+# deps downloads and caches all dependencies for earthbuild. When called directly,
 # go.mod and go.sum will be updated locally.
 deps:
     FROM +base
@@ -41,7 +41,7 @@ deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-# code downloads and caches all dependencies for earthly and then copies the go code
+# code downloads and caches all dependencies for earthbuild and then copies the go code
 # directories into the image.
 # If BUILDKIT_PROJECT or CLOUD_API environment variables are set it will also update the go mods
 # for the local versions
@@ -49,7 +49,7 @@ code:
     FROM +deps
     # Use BUILDKIT_PROJECT to point go.mod to a buildkit dir being actively developed. Examples:
     #   --BUILDKIT_PROJECT=../buildkit
-    #   --BUILDKIT_PROJECT=github.com/earthly/buildkit:<git-ref>
+    #   --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:<git-ref>
     ARG BUILDKIT_PROJECT
     IF [ "$BUILDKIT_PROJECT" != "" ]
         COPY --dir "$BUILDKIT_PROJECT"+code/buildkit /buildkit
@@ -58,28 +58,28 @@ code:
     END
     # Use CLOUD_API to point go.mod to a cloud API dir being actively developed. Examples:
     #   --CLOUD_API=../cloud/api+proto/api/public/'*'
-    #   --CLOUD_API=github.com/earthly/cloud/api:<git-ref>+proto/api/public/'*'
-    #   --CLOUD_API=github.com/earthly/cloud-api:<git-ref>+code/'*'
+    #   --CLOUD_API=github.com/earthbuild/cloud/api:<git-ref>+proto/api/public/'*'
+    #   --CLOUD_API=github.com/earthbuild/cloud-api:<git-ref>+code/'*'
     ARG CLOUD_API
     IF [ "$CLOUD_API" != "" ]
         COPY --dir "$CLOUD_API" /cloud-api/
-        RUN go mod edit -replace github.com/earthly/cloud-api=/cloud-api
+        RUN go mod edit -replace github.com/earthbuild/cloud-api=/cloud-api
         RUN go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
     COPY --dir autocomplete buildcontext builder logbus cleanup cmd config conslogging debugger \
-        dockertar docker2earthly domain features internal slog states util variables regproxy ./
+        dockertar docker2earthbuild domain features internal slog states util variables regproxy ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/hint ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
 
-# update-buildkit updates earthly's buildkit dependency.
+# update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
-    ARG BUILDKIT_GIT_ORG=earthly
+    ARG BUILDKIT_GIT_BRANCH=earthbuild-main
+    ARG BUILDKIT_GIT_ORG=earthbuild
     ARG BUILDKIT_GIT_REPO=buildkit
     COPY (./buildkitd+buildkit-sha/buildkit_sha --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$BUILDKIT_GIT_SHA" --BUILDKIT_GIT_BRANCH="$BUILDKIT_GIT_BRANCH") buildkit_sha
     BUILD  ./buildkitd+update-buildkit-earthfile --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$(cat buildkit_sha)" --BUILDKIT_GIT_REPO="$BUILDKIT_GIT_REPO"
@@ -107,7 +107,7 @@ lint-scripts-base:
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
+    COPY ./earthbuild ./scripts/install-all-versions.sh ./buildkitd/entrypoint.sh ./earthbuild-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -131,24 +131,24 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
-# This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-earthly-script-no-stdout:
-    # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
-    # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+# earthbuild-script-no-stdout validates the ./earthbuild script doesn't print anything to stdout (stderr only)
+# This is to ensure commands such as: MYSECRET="$(./earthbuild secrets get -n /user/my-secret)" work
+earthbuild-script-no-stdout:
+    # This validates the ./earthbuild script doesn't print anything to stdout (it should print to stderr)
+    # This is to ensure commands such as: MYSECRET="$(./earthbuild secrets get -n /user/my-secret)" work
+    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
     RUN apk add --no-cache --update bash
-    COPY earthly .earthly_version_flag_overrides .
+    COPY earthbuild .earthbuild_version_flag_overrides .
 
-    # This script performs an explicit "docker pull earthlybinaries:prerelease" which can cause rate-limiting
-    # to work-around this, we will copy an earthly binary in, and disable auto-updating (and therefore don't require a WITH DOCKER)
-    COPY +earthly/earthly /root/.earthly/earthly-prerelease
-    RUN EARTHLY_DISABLE_FRONTEND_DETECTION=true EARTHLY_DISABLE_AUTO_UPDATE=true ./earthly --version > earthly-version-output
+    # This script performs an explicit "docker pull earthbuildbinaries:prerelease" which can cause rate-limiting
+    # to work-around this, we will copy an earthbuild binary in, and disable auto-updating (and therefore don't require a WITH DOCKER)
+    COPY +earthbuild/earthbuild /root/.earthbuild/earthbuild-prerelease
+    RUN EARTHBUILD_DISABLE_FRONTEND_DETECTION=true EARTHBUILD_DISABLE_AUTO_UPDATE=true ./earthbuild --version > earthbuild-version-output
 
-    RUN test "$(cat earthly-version-output | wc -l)" = "1"
-    RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
+    RUN test "$(cat earthbuild-version-output | wc -l)" = "1"
+    RUN grep '^earthbuild version.*$' earthbuild-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthly project.
+# lint runs basic go linters against the earthbuild project.
 lint:
     FROM +code
     COPY ./.golangci.yaml ./
@@ -259,7 +259,7 @@ unit-test:
         WITH DOCKER
             RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user \
                 --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass \
-                USE_EARTHLY_MIRROR=true ./not-a-unit-test.sh
+                USE_EARTHBUILD_MIRROR=true ./not-a-unit-test.sh
         END
     ELSE IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         WITH DOCKER
@@ -276,17 +276,17 @@ unit-test:
     BUILD ./ast+unit-test
     BUILD ./util/deltautil+unit-test
 
-# submodule-decouple-check checks that go submodules within earthly do not
-# depend on the core earthly project.
+# submodule-decouple-check checks that go submodules within earthbuild do not
+# depend on the core earthbuild project.
 submodule-decouple-check:
     FROM +code
-    RUN for submodule in github.com/earthly/earthly/ast github.com/earthly/earthly/util/deltautil; \
+    RUN for submodule in github.com/earthbuild/earthbuild/ast github.com/earthbuild/earthbuild/util/deltautil; \
     do \
         for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
         do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/earthly/earthly" ]; \
+            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/earthbuild/earthbuild" ]; \
             then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/earthly/earthly' module"; \
+               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/earthbuild/earthbuild' module"; \
                exit 1; \
             fi; \
         done; \
@@ -308,25 +308,25 @@ lint-changelog:
     FROM +changelog-parser
     RUN changelogparser --changelog CHANGELOG.md
 
-# debugger builds the earthly debugger and saves the artifact in build/earth_debugger
+# debugger builds the earthbuild debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
     ENV CGO_ENABLED=0
     ARG GOCACHE=/go-cache
     ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
-    ARG EARTHLY_TARGET_TAG
-    ARG VERSION=$EARTHLY_TARGET_TAG
-    ARG EARTHLY_GIT_HASH
+    ARG EARTHBUILD_TARGET_TAG
+    ARG VERSION=$EARTHBUILD_TARGET_TAG
+    ARG EARTHBUILD_GIT_HASH
     RUN --mount=type=cache,target=$GOCACHE \
         go build \
-            -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
+            -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHBUILD_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
             -o build/earth_debugger \
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
 
-# earthly builds the earthly CLI and docker image.
-earthly:
+# earthbuild builds the earthbuild CLI and docker image.
+earthbuild:
     FROM +code
     ENV CGO_ENABLED=0
     ARG GOOS=linux
@@ -341,13 +341,13 @@ earthly:
     #
     #     --GO_GCFLAGS='all=-N -l'
     ARG GO_GCFLAGS
-    ARG EXECUTABLE_NAME="earthly"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG EXECUTABLE_NAME="earthbuild"
+    ARG DEFAULT_INSTALLATION_NAME="earthbuild-dev"
     RUN test -n "$GOOS" && test -n "$GOARCH"
     RUN test "$GOARCH" != "arm" || test -n "$VARIANT"
-    ARG EARTHLY_TARGET_TAG_DOCKER
-    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG EARTHLY_GIT_HASH
+    ARG EARTHBUILD_TARGET_TAG_DOCKER
+    ARG VERSION="dev-$EARTHBUILD_TARGET_TAG_DOCKER"
+    ARG EARTHBUILD_GIT_HASH
     # TODO: this works for CI but the final value should probably come from dockerhub
     ARG DEFAULT_BUILDKITD_IMAGE=$IMAGE_REGISTRY:buildkitd-$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
@@ -356,39 +356,39 @@ earthly:
     RUN printf "$BUILD_TAGS" > ./build/tags && echo "$(cat ./build/tags)"
     RUN printf '-X main.DefaultBuildkitdImage='"$DEFAULT_BUILDKITD_IMAGE" > ./build/ldflags && \
         printf ' -X main.Version='"$VERSION" >> ./build/ldflags && \
-        printf ' -X main.GitSha='"$EARTHLY_GIT_HASH" >> ./build/ldflags && \
+        printf ' -X main.GitSha='"$EARTHBUILD_GIT_HASH" >> ./build/ldflags && \
         printf ' -X main.DefaultInstallationName='"$DEFAULT_INSTALLATION_NAME" >> ./build/ldflags && \
         printf ' '"$GO_EXTRA_LDFLAGS" >> ./build/ldflags && \
         echo "$(cat ./build/ldflags)"
     # Important! If you change the go build options, you may need to also change them
-    # in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
-    # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
+    # in https://github.com/earthbuild/homebrew-earthbuild/blob/main/Formula/earthbuild.rb
+    # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthbuild.rb
     RUN --mount=type=cache,target=$GOCACHE \
         GOARM=${VARIANT#v} go build \
             -tags "$(cat ./build/tags)" \
             -ldflags "$(cat ./build/ldflags)" \
             -gcflags="${GO_GCFLAGS}" \
             -o build/$EXECUTABLE_NAME \
-            cmd/earthly/*.go
+            cmd/earthbuild/*.go
     SAVE ARTIFACT ./build/tags
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"
-    SAVE IMAGE --cache-from=earthly/earthly:main
+    SAVE IMAGE --cache-from=earthbuild/earthbuild:main
 
-# earthly-linux-amd64 builds the earthly artifact  for linux amd64
-earthly-linux-amd64:
+# earthbuild-linux-amd64 builds the earthbuild artifact  for linux amd64
+earthbuild-linux-amd64:
     ARG GO_GCFLAGS
-    COPY --platform=linux/amd64 (+earthly/* \
+    COPY --platform=linux/amd64 (+earthbuild/* \
         --GOARCH=amd64 \
         --VARIANT= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
         ) ./
     SAVE ARTIFACT ./*
 
-# earthly-linux-arm64 builds the earthly artifact  for linux arm64
-earthly-linux-arm64:
+# earthbuild-linux-arm64 builds the earthbuild artifact  for linux arm64
+earthbuild-linux-arm64:
     ARG GO_GCFLAGS
-    COPY (+earthly/* \
+    COPY (+earthbuild/* \
         --GOARCH=arm64 \
         --VARIANT= \
         --GO_EXTRA_LDFLAGS= \
@@ -396,10 +396,10 @@ earthly-linux-arm64:
         ) ./
     SAVE ARTIFACT ./*
 
-# earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
-earthly-darwin-amd64:
+# earthbuild-darwin-amd64 builds the earthbuild artifact  for darwin amd64
+earthbuild-darwin-amd64:
     ARG GO_GCFLAGS=""
-    COPY --platform=linux/amd64 (+earthly/* \
+    COPY --platform=linux/amd64 (+earthbuild/* \
         --GOOS=darwin \
         --GOARCH=amd64 \
         --VARIANT= \
@@ -408,10 +408,10 @@ earthly-darwin-amd64:
         ) ./
     SAVE ARTIFACT ./*
 
-# earthly-darwin-arm64 builds the earthly artifact for darwin arm64
-earthly-darwin-arm64:
+# earthbuild-darwin-arm64 builds the earthbuild artifact for darwin arm64
+earthbuild-darwin-arm64:
     ARG GO_GCFLAGS
-    COPY (+earthly/* \
+    COPY (+earthbuild/* \
         --GOOS=darwin \
         --GOARCH=arm64 \
         --VARIANT= \
@@ -420,75 +420,75 @@ earthly-darwin-arm64:
         ) ./
     SAVE ARTIFACT ./*
 
-# earthly-windows-arm64 builds the earthly artifact  for windows arm64
-earthly-windows-amd64:
+# earthbuild-windows-arm64 builds the earthbuild artifact  for windows arm64
+earthbuild-windows-amd64:
     ARG GO_GCFLAGS
-    COPY --platform=linux/amd64 (+earthly/* \
+    COPY --platform=linux/amd64 (+earthbuild/* \
         --GOOS=windows \
         --GOARCH=amd64 \
         --VARIANT= \
         --GO_EXTRA_LDFLAGS= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
-        --EXECUTABLE_NAME=earthly.exe \
+        --EXECUTABLE_NAME=earthbuild.exe \
         ) ./
     SAVE ARTIFACT ./*
 
-# earthly-all builds earthly for all supported environments
+# earthbuild-all builds earthbuild for all supported environments
 # This includes:
 # linux amd64 and linux arm64
 # Darwin amd64 and arm64
 # Windows amd64
-earthly-all:
-    COPY +earthly-linux-amd64/earthly ./earthly-linux-amd64
-    COPY +earthly-linux-arm64/earthly ./earthly-linux-arm64
-    COPY +earthly-darwin-amd64/earthly ./earthly-darwin-amd64
-    COPY +earthly-darwin-arm64/earthly ./earthly-darwin-arm64
-    COPY +earthly-windows-amd64/earthly.exe ./earthly-windows-amd64.exe
+earthbuild-all:
+    COPY +earthbuild-linux-amd64/earthbuild ./earthbuild-linux-amd64
+    COPY +earthbuild-linux-arm64/earthbuild ./earthbuild-linux-arm64
+    COPY +earthbuild-darwin-amd64/earthbuild ./earthbuild-darwin-amd64
+    COPY +earthbuild-darwin-arm64/earthbuild ./earthbuild-darwin-arm64
+    COPY +earthbuild-windows-amd64/earthbuild.exe ./earthbuild-windows-amd64.exe
     SAVE ARTIFACT ./*
 
-# earthly-docker builds earthly as a docker image and pushes
-earthly-docker:
-    ARG EARTHLY_TARGET_TAG_DOCKER
-    ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
+# earthbuild-docker builds earthbuild as a docker image and pushes
+earthbuild-docker:
+    ARG EARTHBUILD_TARGET_TAG_DOCKER
+    ARG TAG="dev-$EARTHBUILD_TARGET_TAG_DOCKER"
     ARG BUILDKIT_PROJECT
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
     FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
     RUN apk add --update --no-cache docker-cli libcap-ng-utils git
-    ENV EARTHLY_IMAGE=true
-    # When Earthly is run from a container, the registry proxy networking setup
+    ENV EARTHBUILD_IMAGE=true
+    # When earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
-    ENV EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY=true
-    COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
-    ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
+    ENV EARTHBUILD_DISABLE_REMOTE_REGISTRY_PROXY=true
+    COPY earthbuild-entrypoint.sh /usr/bin/earthbuild-entrypoint.sh
+    ENTRYPOINT ["/usr/bin/earthbuild-entrypoint.sh"]
     WORKDIR /workspace
-    COPY (+earthly/earthly --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthly") /usr/bin/earthly
-    ARG DOCKERHUB_IMG="earthly"
+    COPY (+earthbuild/earthbuild --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthbuild") /usr/bin/earthbuild
+    ARG DOCKERHUB_IMG="earthbuild"
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
     # arguments to the save SAVE IMAGE do not. Using variables here doesn't work
     # either, unfortunately, as the names are quoted and treated as a single arg.
     IF [ "$PUSH_LATEST_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
+       SAVE IMAGE --push --cache-from=earthbuild/earthbuild:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
     ELSE IF [ "$PUSH_PRERELEASE_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
+       SAVE IMAGE --push --cache-from=earthbuild/earthbuild:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
     ELSE
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
+       SAVE IMAGE --push --cache-from=earthbuild/earthbuild:main $IMAGE_REGISTRY:$TAG
     END
 
-# earthly-integration-test-base builds earthly docker and then
+# earthbuild-integration-test-base builds earthbuild docker and then
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
-earthly-integration-test-base:
-    FROM --pass-args +earthly-docker
+earthbuild-integration-test-base:
+    FROM --pass-args +earthbuild-docker
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
     ENV NO_DOCKER=1
     ENV NETWORK_MODE=host # Note that this breaks access to embedded registry in WITH DOCKER.
-    ENV EARTHLY_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
+    ENV EARTHBUILD_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
     WORKDIR /test
 
     # The inner buildkit requires Docker hub creds to prevent rate-limiting issues.
@@ -506,7 +506,7 @@ earthly-integration-test-base:
     # TODO: Check this
     IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
         RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
-        RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass USE_EARTHLY_MIRROR=true ./setup-registry.sh
+        RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass USE_EARTHBUILD_MIRROR=true ./setup-registry.sh
     ELSE IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         RUN --secret DOCKERHUB_MIRROR_USER --secret DOCKERHUB_MIRROR_PASS ./setup-registry.sh
     ELSE IF [ "$DOCKERHUB_AUTH" = "true" ]
@@ -516,13 +516,13 @@ earthly-integration-test-base:
     END
     RUN rm ./setup-registry.sh
 
-    # pull out buildkit_additional_config from the earthly config, for the special case of earthly-in-earthly testing
-    # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set
+    # pull out buildkit_additional_config from the earthbuild config, for the special case of earthbuild-in-earthbuild testing
+    # which runs earthbuild-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHBUILD_VERSION_FLAG_OVERRIDES to be set
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
     # cause buildkit to crash -- this is why we first assign it to a tmp variable, followed by an if.
-    ENV EARTHLY_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
+    ENV EARTHBUILD_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthbuild/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
 
-# prerelease builds and pushes the prerelease version of earthly.
+# prerelease builds and pushes the prerelease version of earthbuild.
 # Tagged as prerelease
 prerelease:
     FROM alpine:3.18
@@ -531,58 +531,58 @@ prerelease:
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ./buildkitd+buildkitd --TAG=prerelease  --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    COPY (+earthly-all/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
-    SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
+    COPY (+earthbuild-all/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthbuild) ./
+    SAVE IMAGE --push $IMAGE_REGISTRY:earthbuildbinaries-prerelease
 
-# prerelease-script copies the earthly folder and saves it as an artifact
+# prerelease-script copies the earthbuild folder and saves it as an artifact
 prerelease-script:
     FROM alpine:3.18
-    COPY ./earthly ./
+    COPY ./earthbuild ./
     # This script is useful in other repos too.
-    SAVE ARTIFACT ./earthly
+    SAVE ARTIFACT ./earthbuild
 
-# ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
-# EARTHLY_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
+# ci-release builds earthbuild for linux/amd64 in a container and pushes wtth the tag
+# EARTHBUILD_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     FROM alpine:3.18
     ARG BUILDKIT_PROJECT
-    ARG EARTHLY_GIT_HASH
+    ARG EARTHBUILD_GIT_HASH
     ARG --required TAG_SUFFIX
     BUILD \
         --platform=linux/amd64 \
-        ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
+        ./buildkitd+buildkitd --TAG=${EARTHBUILD_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
+    COPY (+earthbuild/earthbuild --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHBUILD_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHBUILD_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthbuild) ./earthbuild-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
-    SAVE IMAGE --cache-from=docker.io/earthly/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
+    SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthbuildbinaries-${EARTHBUILD_GIT_HASH}-${TAG_SUFFIX}
 
-# for-own builds earthly-buildkitd and the earthly CLI for the current system
-# and saves the final CLI binary locally at ./build/own/earthly
+# for-own builds earthbuild-buildkitd and the earthbuild CLI for the current system
+# and saves the final CLI binary locally at ./build/own/earthbuild
 for-own:
     ARG BUILDKIT_PROJECT
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
-    # the documentation on +earthly for extra detail about this option.
+    # the documentation on +earthbuild for extra detail about this option.
     ARG GO_GCFLAGS
     BUILD ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD +build-ticktock
-    COPY (+earthly/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
-    SAVE ARTIFACT ./earthly AS LOCAL ./build/own/earthly
+    COPY (+earthbuild/earthbuild --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    SAVE ARTIFACT ./earthbuild AS LOCAL ./build/own/earthbuild
 
 # build-ticktock is used for building the ticktock version of buildkit
 # it is only used when BUILDKIT_PROJECT is not overridden
 build-ticktock:
     ARG BUILDKIT_PROJECT
     IF [ -z "$BUILDKIT_PROJECT" ]
-        COPY earthly-next .
-        LET ticktock="$(cat earthly-next)"
-        ARG EARTHLY_TARGET_TAG_DOCKER
-        LET BUILDKIT_TAG="dev-$EARTHLY_TARGET_TAG_DOCKER-ticktock"
-        BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/earthly/buildkit:$ticktock" --TAG=$BUILDKIT_TAG
+        COPY earthbuild-next .
+        LET ticktock="$(cat earthbuild-next)"
+        ARG EARTHBUILD_TARGET_TAG_DOCKER
+        LET BUILDKIT_TAG="dev-$EARTHBUILD_TARGET_TAG_DOCKER-ticktock"
+        BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/earthbuild/buildkit:$ticktock" --TAG=$BUILDKIT_TAG
     END
 
-# for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
+# for-linux builds earthbuild-buildkitd and the earthbuild CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
     ARG BUILDKIT_PROJECT
@@ -590,10 +590,10 @@ for-linux:
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/amd64 +build-ticktock
     BUILD ./ast/parser+parser
-    COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
-    SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
+    COPY (+earthbuild-linux-amd64/earthbuild --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    SAVE ARTIFACT ./earthbuild AS LOCAL ./build/linux/amd64/earthbuild
 
-# for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
+# for-linux-arm64 builds earthbuild-buildkitd and the earthbuild CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux-arm64:
     ARG BUILDKIT_PROJECT
@@ -601,10 +601,10 @@ for-linux-arm64:
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/arm64 +build-ticktock
     BUILD ./ast/parser+parser
-    COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
-    SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
+    COPY (+earthbuild-linux-arm64/earthbuild --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    SAVE ARTIFACT ./earthbuild AS LOCAL ./build/linux/arm64/earthbuild
 
-# for-darwin builds earthly-buildkitd and the earthly CLI for the a darwin amd64 system
+# for-darwin builds earthbuild-buildkitd and the earthbuild CLI for the a darwin amd64 system
 # and saves the final CLI binary locally in the ./build/darwin folder.
 # For arm64 use +for-darwin-m1
 for-darwin:
@@ -613,10 +613,10 @@ for-darwin:
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/amd64 +build-ticktock
     BUILD ./ast/parser+parser
-    COPY (+earthly-darwin-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
-    SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/amd64/earthly
+    COPY (+earthbuild-darwin-amd64/earthbuild --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    SAVE ARTIFACT ./earthbuild AS LOCAL ./build/darwin/amd64/earthbuild
 
-# for-darwin-m1 builds earthly-buildkitd and the earthly CLI for the a darwin m1 system
+# for-darwin-m1 builds earthbuild-buildkitd and the earthbuild CLI for the a darwin m1 system
 # and saves the final CLI binary locally.
 for-darwin-m1:
     ARG BUILDKIT_PROJECT
@@ -624,17 +624,17 @@ for-darwin-m1:
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/arm64 +build-ticktock
     BUILD ./ast/parser+parser
-    COPY (+earthly-darwin-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
-    SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/arm64/earthly
+    COPY (+earthbuild-darwin-arm64/earthbuild --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    SAVE ARTIFACT ./earthbuild AS LOCAL ./build/darwin/arm64/earthbuild
 
-# for-windows builds earthly-buildkitd and the earthly CLI for the a windows system
+# for-windows builds earthbuild-buildkitd and the earthbuild CLI for the a windows system
 # and saves the final CLI binary locally in the ./build/windows folder.
 for-windows:
     ARG GO_GCFLAGS
     # BUILD --platform=linux/amd64 ./buildkitd+buildkitd
     BUILD ./ast/parser+parser
-    COPY (+earthly-windows-amd64/earthly.exe --GO_GCFLAGS="${GO_GCFLAGS}") ./
-    SAVE ARTIFACT ./earthly.exe AS LOCAL ./build/windows/amd64/earthly.exe
+    COPY (+earthbuild-windows-amd64/earthbuild.exe --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    SAVE ARTIFACT ./earthbuild.exe AS LOCAL ./build/windows/amd64/earthbuild.exe
 
 # all-buildkitd builds buildkitd for both linux amd64 and linux arm64
 all-buildkitd:
@@ -646,16 +646,16 @@ all-buildkitd:
 
 # all builds all of the following:
 # - Buildkitd for both linux amd64 and linux arm64
-# - Earthly for all supported environments linux amd64 and linux arm64, Darwin amd64 and arm64, and Windos amd64
-# - Earthly as a container image
-# - Prerelease version of earthly as a container image
+# - earthbuild for all supported environments linux amd64 and linux arm64, Darwin amd64 and arm64, and Windos amd64
+# - earthbuild as a container image
+# - Prerelease version of earthbuild as a container image
 all:
     BUILD +all-buildkitd
-    BUILD +earthly-all
-    BUILD +earthly-docker
+    BUILD +earthbuild-all
+    BUILD +earthbuild-docker
     BUILD +prerelease
 
-# lint-all runs all linting checks against the earthly project.
+# lint-all runs all linting checks against the earthbuild project.
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
@@ -686,7 +686,7 @@ test-no-qemu:
     BUILD --pass-args +test-no-qemu-group12
     BUILD --pass-args +test-no-qemu-slow
 
-# test-misc runs misc (non earthly-in-earthly) tests
+# test-misc runs misc (non earthbuild-in-earthbuild) tests
 test-misc:
     BUILD +test-misc-group1
     BUILD +test-misc-group2
@@ -696,7 +696,7 @@ test-misc-group1:
     BUILD +unit-test
 
 test-misc-group2:
-    BUILD +earthly-script-no-stdout
+    BUILD +earthbuild-script-no-stdout
 
 test-ast:
     BUILD +test-ast-group1
@@ -904,11 +904,11 @@ merge-main-to-docs:
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh
 
-    ARG git_repo="earthly/earthly"
+    ARG git_repo="earthbuild/earthbuild"
     ARG git_url="git@github.com:$git_repo"
-    ARG earthly_lib_version=3.0.1
+    ARG earthbuild_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/earthbuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG to_branch="docs-0.8"
@@ -938,10 +938,10 @@ check-broken-links:
     FROM node:20-alpine3.18
     RUN npm install broken-link-checker -g
     WORKDIR /report
-    ARG ADDRESS=https://docs.earthly.dev
+    ARG ADDRESS=https://docs.earthbuild.dev
     ARG VERBOSE=false
     LET REPORT_FILE_NAME=report.txt
-    LET BLC_COMMAND="blc $ADDRESS -rog --exclude https://twitter.com/EarthlyTech --exclude http://localhost:8080/"
+    LET BLC_COMMAND="blc $ADDRESS -rog --exclude https://twitter.com/earthbuildTech --exclude http://localhost:8080/"
     IF [ $VERBOSE = "true" ]
         RUN --no-cache $BLC_COMMAND |tee $REPORT_FILE_NAME
     ELSE
@@ -973,11 +973,11 @@ open-pr-for-fork:
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh
 
-    ARG earthly_lib_version=3.0.1
+    ARG earthbuild_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    ARG git_repo="earthly/earthly"
+    ARG git_repo="earthbuild/earthbuild"
     LET git_url="git@github.com:$git_repo"
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/earthbuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG --required pr_number
@@ -1003,11 +1003,11 @@ check-broken-links-pr:
     WORKDIR /tmp
     RUN apk add github-cli
     ARG BRANCH
-    ARG EARTHLY_GIT_BRANCH
+    ARG EARTHBUILD_GIT_BRANCH
     LET branch=$BRANCH
     IF [ -z $branch ]
-        SET branch=$EARTHLY_GIT_BRANCH
+        SET branch=$EARTHBUILD_GIT_BRANCH
     END
-    RUN --secret GH_TOKEN=littleredcorvette-github-token gh pr checks $branch --repo earthly/earthly | grep GitBook|awk '{print $5}' > url
+    RUN --secret GH_TOKEN=littleredcorvette-github-token gh pr checks $branch --repo earthbuild/earthbuild | grep GitBook|awk '{print $5}' > url
     ARG VERBOSE
     BUILD --pass-args +check-broken-links --ADDRESS=$(cat url)

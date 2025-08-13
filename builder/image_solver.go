@@ -10,11 +10,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/llbutil"
+	"github.com/earthbuild/earthbuild/logbus/solvermon"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/states/image"
+	"github.com/earthbuild/earthbuild/util/gatewaycrafter"
+	"github.com/earthbuild/earthbuild/util/llbutil"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
@@ -307,7 +307,7 @@ func (m *multiImageSolver) SolveImages(ctx context.Context, imageDefs []*states.
 	solveOpt := &client.SolveOpt{
 		Exports: []client.ExportEntry{
 			{
-				Type:  client.ExporterEarthly,
+				Type:  client.Exporterearthbuild,
 				Attrs: map[string]string{},
 				// Not used but required in client validation.
 				Output: func(map[string]string) (io.WriteCloser, error) {

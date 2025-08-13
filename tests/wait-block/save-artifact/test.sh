@@ -7,8 +7,8 @@ export EARTHLY_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-"$earthly" --version
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+"$earthbuild" --version
 
 # display a pass/fail message at the end
 function finish {
@@ -24,17 +24,17 @@ trap finish EXIT
 # Cleanup from previous tests
 rm -f data
 
-"$earthly" $@ +test
+"$earthbuild" $@ +test
 test "$(cat data)" = "foo"
 
 # next, check for an expected failure
 set +e
-("$earthly" $@ +test-fail; echo $? > earthly.exitcode) 2>&1 | tee earthly.log
+("$earthbuild" $@ +test-fail; echo $? > earthbuild.exitcode) 2>&1 | tee earthbuild.log
 set -e
-test "$(cat earthly.exitcode)" = "1"
-grep 'unable to copy file data, which has is outputted elsewhere' earthly.log
+test "$(cat earthbuild.exitcode)" = "1"
+grep 'unable to copy file data, which has is outputted elsewhere' earthbuild.log
 
-if grep "this magic string should never appear" earthly.log >/dev/null; then
+if grep "this magic string should never appear" earthbuild.log >/dev/null; then
   echo "magic string command should never have run, but did"
   exit 1
 fi

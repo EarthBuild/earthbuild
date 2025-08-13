@@ -3,10 +3,10 @@
 {% hint style='hint' %}
 #### UDCs have been renamed to Functions
 
-Functions used to be called UDCs (User Defined Commands). Earthly 0.7 uses `COMMAND` instead of `FUNCTION`.
+Functions used to be called UDCs (User Defined Commands). earthbuild 0.7 uses `COMMAND` instead of `FUNCTION`.
 {% endhint %}
 
-Earthly Functions are reusable sets of instructions that can be inserted in targets or other functions. In other words, it is a way to import common build steps which can be reused in multiple contexts.
+earthbuild Functions are reusable sets of instructions that can be inserted in targets or other functions. In other words, it is a way to import common build steps which can be reused in multiple contexts.
 
 Unlike targets, functions inherit the (1) build context and (2) the build environment from the caller. Meaning that
 
@@ -81,7 +81,7 @@ PRINT_VAR:
 
 ## Targets vs Functions
 
-Targets and functions are Earthly's core primitives for organizing build recipes. They encapsulate build logic, and from afar they look pretty similar. However, the use-cases for each are vastly different.
+Targets and functions are earthbuild's core primitives for organizing build recipes. They encapsulate build logic, and from afar they look pretty similar. However, the use-cases for each are vastly different.
 
 In general, targets are used to produce specific build results, while functions are used as a way to reuse build logic, when certain commands are repeated in multiple places. As a real-world analogy, targets are more like factories, while functions are more like components that are used to put together factories.
 
@@ -89,7 +89,7 @@ Here is a comparison of the two primitives:
 
 | | Targets | Functions |
 | --- | --- | --- |
-| Represents a collection of Earthly commands | ✅ | ✅ |
+| Represents a collection of earthbuild commands | ✅ | ✅ |
 | Can reference other targets in its body | ✅ | ✅ |
 | Can reference other functions in its body | ✅ | ✅ |
 | Build context | The directory where the Earthfile resides | Inherited from the caller |
@@ -100,6 +100,6 @@ Here is a comparison of the two primitives:
 | Global `ARG` context | Inherited from the base of its own Earthfile | Inherited from the base of its own Earthfile |
 | Can output artifacts | ✅ | ❌ - can issue `SAVE ARTIFACT`, but it's the caller that emits the artifacts |
 | Can output images | ✅ | ❌ - can issue `SAVE IMAGE`, but it's the caller that emits the images |
-| Can be called via `earthly` CLI | ✅ | ❌ |
+| Can be called via `earthbuild` CLI | ✅ | ❌ |
 | Can be used in conjunction with an `IMPORT` | ✅ - `FROM some-import+my-target` | ✅ - `DO some-import+MY_FUNCTION` |
 | Commands that can reference it | `FROM`, `BUILD`, `COPY`, `WITH DOCKER --load`, `FROM DOCKERFILE` | `DO` |

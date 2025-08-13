@@ -1,4 +1,4 @@
-Below you'll find a simple example of an Earthfile. All the magic of Earthly happens in the Earthfile, which you may notice is very similar to a Dockerfile. This is an intentional design decision. Existing Dockerfiles can easily be ported to Earthly by copying them to an Earthfile and tweaking them slightly.
+Below you'll find a simple example of an Earthfile. All the magic of earthbuild happens in the Earthfile, which you may notice is very similar to a Dockerfile. This is an intentional design decision. Existing Dockerfiles can easily be ported to earthbuild by copying them to an Earthfile and tweaking them slightly.
 
 ```Dockerfile
 VERSION 0.8
@@ -16,16 +16,16 @@ docker:
     SAVE IMAGE go-example:latest
 ```
 
-Throughout this tutorial, we'll build up this example Earthfile from scratch and then add even more to it. By the end you'll have a better grasp of how Earthly works and the power and repeatability it can bring to your build process.
+Throughout this tutorial, we'll build up this example Earthfile from scratch and then add even more to it. By the end you'll have a better grasp of how earthbuild works and the power and repeatability it can bring to your build process.
 
-This tutorial focuses on using Earthly with a Go project, but you can find examples of Earthfiles for [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) at the bottom of each page.
+This tutorial focuses on using earthbuild with a Go project, but you can find examples of Earthfiles for [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) at the bottom of each page.
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part1/part1 ./part1
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
 ```
 
 ## Creating Your First Earthfile
@@ -50,16 +50,16 @@ func main() {
 }
 ```
 Earthfiles are always named Earthfile, regardless of their location in the codebase. 
-The Earthfile starts off with a version definition. This will tell Earthly which features to enable and which ones not to so that the build script maintains compatibility over time, even if Earthly itself is updated.
+The Earthfile starts off with a version definition. This will tell earthbuild which features to enable and which ones not to so that the build script maintains compatibility over time, even if earthbuild itself is updated.
 
-The first commands in the file are part of the `base` target and are implicitly inherited by all other targets. Targets are just sets of instructions we can call on from within the Earthfile, or when we run Earthly at the command line. Targets need an environment to run in. These environments come in the form of Docker images. In this case we are saying that all the instructions in our Earthfile will use `golang:1.15-alpine3.13`, [unless we specify otherwise](#target-environments). (More on this in a bit.)
+The first commands in the file are part of the `base` target and are implicitly inherited by all other targets. Targets are just sets of instructions we can call on from within the Earthfile, or when we run earthbuild at the command line. Targets need an environment to run in. These environments come in the form of Docker images. In this case we are saying that all the instructions in our Earthfile will use `golang:1.15-alpine3.13`, [unless we specify otherwise](#target-environments). (More on this in a bit.)
 
 Lastly, we change our working directory to `/go-workdir`.
 
 ## Creating Your First Targets
-Earthly aims to replace Dockerfile, makefile, bash scripts and more. We can take all the setup, configuration and build steps we'd normally define in those files and put them in our Earthfile in the form of `targets`.
+earthbuild aims to replace Dockerfile, makefile, bash scripts and more. We can take all the setup, configuration and build steps we'd normally define in those files and put them in our Earthfile in the form of `targets`.
 
-Let's start by defining a target to build our simple Go app. **When we run Earthly, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earthly +build`.  More on this in the [Running the Build](#running-the-build) section.
+Let's start by defining a target to build our simple Go app. **When we run EarthBuild, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earthbuild +build`.  More on this in the [Running the Build](#running-the-build) section.
 
 Let's start by breaking down our first target.
 
@@ -70,7 +70,7 @@ build:
     SAVE ARTIFACT output/example
 ```
 
-The first thing we do is copy our `main.go` from the **build context** (the directory where the Earthfile resides) to the **build environment** (the containerized environment where Earthly commands are run).
+The first thing we do is copy our `main.go` from the **build context** (the directory where the Earthfile resides) to the **build environment** (the containerized environment where earthbuild commands are run).
 
 Next, we run a go build command against the previously copied `main.go` file.
 
@@ -88,7 +88,7 @@ Here we copy the artifact `/example` produced by another target, `+build`, to th
 
 You may notice the command `COPY +build/... ...`, which has an unfamiliar form if you're coming from Docker. This is a special type of `COPY`, which can be used to pass artifacts from one target to another. In this case, the target `build` (referenced as `+build`) produces an artifact, which has been declared with `SAVE ARTIFACT`, and the target `docker` copies that artifact in its build environment.
 
-With Earthly you have the ability to pass such artifacts or images between targets within the same Earthfile, but also across different Earthfiles across directories or even across repositories. To read more about this, see the [importing guide](../guides/importing.md) or jump to [part 5](./part-5-importing.md) of this guide.
+With earthbuild you have the ability to pass such artifacts or images between targets within the same Earthfile, but also across different Earthfiles across directories or even across repositories. To read more about this, see the [importing guide](../guides/importing.md) or jump to [part 5](./part-5-importing.md) of this guide.
 
 Lastly, we save the current state as a docker image, which will have the docker tag `go-example:latest`. This image is only made available to the host's docker if the entire build succeeds.
 
@@ -120,14 +120,14 @@ The target `+npm`, on the other hand, specifies its own environment with the `FR
 
 ## Running the build
 
-In the example `Earthfile` we have defined two explicit targets: `+build` and `+docker`. **We can tell Earthly to execute a target by passing typing a plus sign (+) followed by the target name.** In this case our docker target calls on our build target, so we can run both with:
+In the example `Earthfile` we have defined two explicit targets: `+build` and `+docker`. **We can tell EarthBuild to execute a target by passing typing a plus sign (+) followed by the target name.** In this case our docker target calls on our build target, so we can run both with:
 
 ```bash
-earthly +docker
+earthbuild +docker
 ```
 The output might look like this:
 
-![Earthly build output](../guides/img/go-example.png)
+![earthbuild build output](../guides/img/go-example.png)
 
 Notice how to the left of `|`, within the output, we can see some targets like `+base`, `+build` and `+docker` . Notice how the output is interleaved between `+docker` and `+build`. This is because the system executes independent build steps in parallel. The reason this is possible effortlessly is because only very few things are shared between the builds of the recipes and those things are declared and obvious. The rest is completely isolated.
 
@@ -135,7 +135,7 @@ In addition, notice how even though the base is used as part of both `build` and
 
 Furthermore, the fact that the `docker` target depends on the `build` target is visible within the command `COPY +build/...`. Through this command, the system knows that it also needs to build the target `+build`, in order to satisfy the dependency on the artifact.
 
-Finally, notice how the output of the build (the docker image and the files) are only written after the build is declared a success. This is due to another isolation principle of Earthly: a build either succeeds completely or it fails altogether.
+Finally, notice how the output of the build (the docker image and the files) are only written after the build is declared a success. This is due to another isolation principle of earthbuild: a build either succeeds completely or it fails altogether.
 
 Once the build has executed, we can run the resulting docker image to try it out:
 
@@ -150,12 +150,12 @@ podman run --rm go-example:latest
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part1/part1 ./part1
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -191,12 +191,12 @@ console.log("hello world");
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part1/part1 ./part1
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -259,12 +259,12 @@ targetCompatibility = 1.8
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part1/part1 ./part1
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
 ```
 
 `./Earthfile`

@@ -1,1 +1,1 @@
-Hosted on [earthly-intellij-plugin repo](https://github.com/EarthBuild/earthly-intellij-plugin).
+Hosted on [earthbuild-intellij-plugin repo](https://github.com/EarthBuild/earthbuild-intellij-plugin).

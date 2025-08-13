@@ -4,10 +4,10 @@ test-ubuntu:
     ARG version=20.10
     FROM ubuntu:$version
     RUN apt-get update && apt-get install -y dpkg-dev wget dpkg-sig curl
-    RUN --no-cache curl https://pkg.earthly.dev/earthly.pgp | apt-key add -
-    RUN --no-cache echo "deb [arch=amd64] https://pkg.earthly.dev/deb/ stable main" > /etc/apt/sources.list.d/earthly.list
-    RUN --no-cache apt-get update && apt-get install -y earthly
-    RUN --no-cache earthly --version
+    RUN --no-cache curl https://pkg.earthbuild.dev/earthbuild.pgp | apt-key add -
+    RUN --no-cache echo "deb [arch=amd64] https://pkg.earthbuild.dev/deb/ stable main" > /etc/apt/sources.list.d/earthbuild.list
+    RUN --no-cache apt-get update && apt-get install -y earthbuild
+    RUN --no-cache earthbuild --version
 
 test-debian:
     ARG version=stretch
@@ -19,10 +19,10 @@ test-debian:
         gnupg \
         lsb-release
 
-    RUN --no-cache curl -fsSL https://pkg.earthly.dev/earthly.pgp | gpg --dearmor -o /usr/share/keyrings/earthly-archive-keyring.gpg
-    RUN --no-cache echo "deb [arch=amd64 signed-by=/usr/share/keyrings/earthly-archive-keyring.gpg] https://pkg.earthly.dev/deb/ stable main" > /etc/apt/sources.list.d/earthly.list
-    RUN --no-cache apt-get update && apt-get install -y earthly
-    RUN --no-cache earthly --version
+    RUN --no-cache curl -fsSL https://pkg.earthbuild.dev/earthbuild.pgp | gpg --dearmor -o /usr/share/keyrings/earthbuild-archive-keyring.gpg
+    RUN --no-cache echo "deb [arch=amd64 signed-by=/usr/share/keyrings/earthbuild-archive-keyring.gpg] https://pkg.earthbuild.dev/deb/ stable main" > /etc/apt/sources.list.d/earthbuild.list
+    RUN --no-cache apt-get update && apt-get install -y earthbuild
+    RUN --no-cache earthbuild --version
 
 test-all:
     BUILD \

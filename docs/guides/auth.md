@@ -1,6 +1,6 @@
 # Authenticating Git and image registries
 
-This page guides you through passing Git and Docker authentication to Earthly builds, to empower related Earthly features, like `GIT CLONE` or `FROM`.
+This page guides you through passing Git and Docker authentication to earthbuild builds, to empower related earthbuild features, like `GIT CLONE` or `FROM`.
 
 {% hint style='danger' %}
 ##### Important
@@ -10,19 +10,19 @@ This page is NOT about passing Git or Docker credentials for your own custom com
 
 ## Git authentication
 
-A number of Earthly features use Git credentials to perform remote Git operations:
+A number of earthbuild features use Git credentials to perform remote Git operations:
 
 * Resolving a build context when referencing remote targets
 * The `GIT CLONE` command
 
-There are two possible ways to pass Git authentication to Earthly builds:
+There are two possible ways to pass Git authentication to earthbuild builds:
 
 * Via SSH agent socket (for SSH-based authentication)
 * Via username-password (usually for HTTPS Git URLs)
 
 #### Auto authentication
 
-Earthly defaults to an `auto` authentication mode, where ssh-based authentication is automatically attempted, and falls back to https-based cloning.
+earthbuild defaults to an `auto` authentication mode, where ssh-based authentication is automatically attempted, and falls back to https-based cloning.
 
 {% hint style='info' %}
 If you are having trouble accessing a private repository and want to use ssh-based authentication, first make sure `ssh-agent` is running and the `SSH_AUTH_SOCK`
@@ -35,16 +35,16 @@ For users who want explicit control over git authentication, the following secti
 
 #### SSH agent socket
 
-Earthly uses the environment variable `SSH_AUTH_SOCK` to detect where the SSH agent socket is located and mounts that socket to the BuildKit daemon container.
+earthbuild uses the environment variable `SSH_AUTH_SOCK` to detect where the SSH agent socket is located and mounts that socket to the BuildKit daemon container.
 (As an exception, on Mac, Docker's compatibility SSH auth socket is used instead).
 
-If you need to override the SSH agent socket, you can set the environment variable `EARTHLY_SSH_AUTH_SOCK`, or use the `--ssh-auth-sock` flag to point to an alternative SSH agent.
+If you need to override the SSH agent socket, you can set the environment variable `EARTHBUILD_SSH_AUTH_SOCK`, or use the `--ssh-auth-sock` flag to point to an alternative SSH agent.
 
-In order for the SSH agent to have the right credentials available, make sure you run `ssh-add` before executing Earthly builds.
+In order for the SSH agent to have the right credentials available, make sure you run `ssh-add` before executing earthbuild builds.
 
-Another key setting is the `auth` mode for the git site that hosts the repository. By default earthly automatically default to `ssh` authentication if the ssh auth agent is running and has at least 1 key loaded, otherwise `earthly` will fallback to using non-authenticated HTTPS.
+Another key setting is the `auth` mode for the git site that hosts the repository. By default earthbuild automatically default to `ssh` authentication if the ssh auth agent is running and has at least 1 key loaded, otherwise `earthbuild` will fallback to using non-authenticated HTTPS.
 
-Sites can be explicitly added to the [earthly config file](../earthly-config/earthly-config.md) under the git section in order to override the auto-authentication mode:
+Sites can be explicitly added to the [earthbuild config file](../earthbuild-config/earthbuild-config.md) under the git section in order to override the auto-authentication mode:
 
 ```yaml
 git:
@@ -55,7 +55,7 @@ git:
 
 #### Username-password authentication
 
-Username-password based authentication can be configured in the [earthly config file](../earthly-config/earthly-config.md) under the git section:
+Username-password based authentication can be configured in the [earthbuild config file](../earthbuild-config/earthbuild-config.md) under the git section:
 
 ```yaml
 git:
@@ -69,7 +69,7 @@ git:
         password: <password>
 ```
 
-If no `user` or `password` are found, earthly will check for entries under [`~/.netrc`](https://everything.curl.dev/usingcurl/netrc).
+If no `user` or `password` are found, earthbuild will check for entries under [`~/.netrc`](https://everything.curl.dev/usingcurl/netrc).
 
 ##### Global override via environment variables (deprecated)
 
@@ -83,10 +83,10 @@ However, environment variable authentication are now deprecated in favor of usin
 #### Self-hosted and private Git Repositories
 
 Currently, `github.com`, `gitlab.com`, and `bitbucket.org` have been tested as SCM providers. Without any host-specific configuration,
-Earthly first attempts to perform a clone over SSH on the default SSH port (22), and will fallback to HTTPS, followed by HTTP.
-In the event access can only be established over HTTP, Earthly will refuse to send credentials due to the insecure nature of HTTP.
+earthbuild first attempts to perform a clone over SSH on the default SSH port (22), and will fallback to HTTPS, followed by HTTP.
+In the event access can only be established over HTTP, earthbuild will refuse to send credentials due to the insecure nature of HTTP.
 
-Earthly can be configured to use a non-standard SSH port, by using the `port` config option:
+earthbuild can be configured to use a non-standard SSH port, by using the `port` config option:
 
 ```yaml
 git:
@@ -96,7 +96,7 @@ git:
         port: 2222
 ```
 
-When Earthly encounters a remote reference such as `ghe.internal.mycompany.com/user/repo+some-target`,
+When earthbuild encounters a remote reference such as `ghe.internal.mycompany.com/user/repo+some-target`,
 the git repository will be cloned using an explicit SSH scheme, for example:
 `git clone ssh://git@ghe.internal.mycompany.com:2222/user/repo.git`.
 
@@ -120,7 +120,7 @@ git:
 
 #### GitLab Subgroups
 
-Earthly, by default, assumes git repos are stored under two levels (i.e. `<org>/<path>.git`). A regular expression must be configured in order to support sub groups:
+earthbuild, by default, assumes git repos are stored under two levels (i.e. `<org>/<path>.git`). A regular expression must be configured in order to support sub groups:
 
 ```yaml
 git:
@@ -153,20 +153,20 @@ Note that patterns are evaluated from the top to the bottom, subgroup specific c
 
 #### Debugging tips
 
-You can run earthly with `--verbose`, which will provide debugging messages to help understand how a remote earthly reference is transformed into a git URL for cloning.
+You can run earthbuild with `--verbose`, which will provide debugging messages to help understand how a remote earthbuild reference is transformed into a git URL for cloning.
 
-You can additionally enable low-level git debugging in BuildKit, by adding the following to your `~/.earthly/config.yml`:
+You can additionally enable low-level git debugging in BuildKit, by adding the following to your `~/.earthbuild/config.yml`:
 
 ```yaml
 global:
   buildkit_additional_args: [ '-e', 'BUILDKIT_DEBUG_GIT=1' ]
 ```
 
-The BuildKit logs can be displayed with `docker logs earthly-buildkitd`.
+The BuildKit logs can be displayed with `docker logs earthbuild-buildkitd`.
 
 ## Docker authentication
 
-Docker credentials are used in Earthly for inheriting from private images (via `FROM`) and for pushing images (via `SAVE IMAGE --push`).
+Docker credentials are used in earthbuild for inheriting from private images (via `FROM`) and for pushing images (via `SAVE IMAGE --push`).
 
 Docker authentication works automatically out of the box. It uses the same Docker libraries to infer the location of the credentials on the system and optionally invoke any necessary credentials store helper to decrypt them.
 
@@ -178,23 +178,23 @@ All you have to do as a user is issue the command
 docker login --username <username>
 ```
 
-before issuing earthly commands, if you have not already done so in the past. If you run into troubles, [you can find out more about `docker login` here](https://docs.docker.com/engine/reference/commandline/login/).
+before issuing earthbuild commands, if you have not already done so in the past. If you run into troubles, [you can find out more about `docker login` here](https://docs.docker.com/engine/reference/commandline/login/).
 
 ### Credential Helpers
 
 Docker can use various credential helpers to automatically generate and use credentials on your behalf. These are usually created by cloud providers to allow Docker to authenticate using the cloud providers own credentials.
 
-You can see examples of configuring Docker to use these, and working with Earthly here:
+You can see examples of configuring Docker to use these, and working with earthbuild here:
 * [Pushing and Pulling Images with AWS ECR](./registries/aws-ecr.md)
 * [Pushing and Pulling Images with GCP Artifact Registry](./registries/gcp-artifact-registry.md)
 * [Pushing and Pulling Images with Azure ACR](./registries/azure-acr.md)
 
 ## Cloud Providers
 
-Currently Earthly provides a built-in way to easily authenticate to AWS during a build.
+Currently earthbuild provides a built-in way to easily authenticate to AWS during a build.
 
 * [Accessing AWS resources](./cloud-providers/aws.md)
 
 ## See also
 
-* The [earthly command reference](../earthly-command/earthly-command.md)
+* The [earthbuild command reference](../earthbuild-command/earthbuild-command.md)

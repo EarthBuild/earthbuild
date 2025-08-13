@@ -3,10 +3,10 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/variables"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
@@ -60,7 +60,7 @@ func TestCollection(topT *testing.T) {
 					Variant:      "bacon",
 				}),
 				BuiltinArgs: variables.DefaultArgs{
-					EarthlyVersion: "some version",
+					earthbuildVersion: "some version",
 				},
 				Features: tc.features,
 			})
@@ -82,7 +82,7 @@ func TestCollection(topT *testing.T) {
 					Variant:      "bacon",
 				}),
 				BuiltinArgs: variables.DefaultArgs{
-					EarthlyVersion: "some version",
+					earthbuildVersion: "some version",
 				},
 				Features: tc.features,
 			})

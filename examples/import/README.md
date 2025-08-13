@@ -30,5 +30,5 @@ Note that the `IMPORT` command only supports Earthfile references, not target re
 To run this example, execute:
 
 ```bash
-earthly +build
+earthbuild +build
 ```

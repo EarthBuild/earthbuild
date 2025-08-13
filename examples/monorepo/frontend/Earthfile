@@ -9,4 +9,4 @@ docker:
     COPY ../js+build/* ./
     EXPOSE 8080
     ENTRYPOINT ["http-server", "."]
-    SAVE IMAGE --push earthly/examples:monorepo
+    SAVE IMAGE --push earthbuild/examples:monorepo

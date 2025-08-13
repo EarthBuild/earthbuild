@@ -6,7 +6,7 @@
           "--global",
           "DIND_IMAGE",
           "=",
-          "earthly/dind:alpine-3.19-docker-25.0.5-r0"
+          "earthbuild/dind:alpine-3.19-docker-25.0.5-r0"
         ],
         "name": "ARG"
       }
@@ -723,7 +723,7 @@
                     "images",
                     "|",
                     "grep",
-                    "earthly/earthly"
+                    "earthbuild/earthbuild"
                   ],
                   "name": "RUN"
                 }
@@ -733,7 +733,7 @@
               "args": [
                 "--platform=linux/amd64",
                 "--pull",
-                "earthly/earthly:v0.6.17"
+                "earthbuild/earthbuild:v0.6.17"
               ],
               "name": "DOCKER"
             }
@@ -926,7 +926,7 @@
             "args": [
               "+cgroup-v2-test",
               "--DIND_IMG=$DIND_IMAGE",
-              "--DIND_IMG=earthly/dind:ubuntu-23.04-docker-25.0.2-1"
+              "--DIND_IMG=earthbuild/dind:ubuntu-23.04-docker-25.0.2-1"
             ],
             "name": "BUILD"
           }
@@ -1003,7 +1003,7 @@
           "command": {
             "args": [
               "pre-script.sh",
-              "/usr/share/earthly/dockerd-wrapper-pre-script"
+              "/usr/share/earthbuild/dockerd-wrapper-pre-script"
             ],
             "name": "COPY"
           }

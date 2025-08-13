@@ -25,8 +25,8 @@ def display_checks(checks):
 
 def get_argparser():
     parser = argparse.ArgumentParser(description='check statuses')
-    parser.add_argument('--org', default='earthly', help='github org')
-    parser.add_argument('--repo', default='earthly', help='github repo')
+    parser.add_argument('--org', default='earthbuild', help='github org')
+    parser.add_argument('--repo', default='earthbuild', help='github repo')
     parser.add_argument('--sha', required=True, help='commit sha to check')
     return parser
 

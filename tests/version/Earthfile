@@ -6,69 +6,69 @@ IMPORT .. AS tests
 WORKDIR /test
 
 test-single-line:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=single-line.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=single-line.earth --target=+test
 
 test-single-line-with-args:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=single-line-with-args.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=single-line-with-args.earth --target=+test
 
 test-single-line-with-comment:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=single-line-with-comment.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=single-line-with-comment.earth --target=+test
 
 test-multi-line:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line.earth --target=+test
 
 test-multi-line-with-comment:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-comment.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-comment.earth --target=+test
 
 test-multi-line-with-comment2:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-comment2.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-comment2.earth --target=+test
 
 test-multi-line-with-comment3:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-comment3.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-comment3.earth --target=+test
 
 test-multi-line-with-comment4:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-comment4.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-comment4.earth --target=+test
 
 test-multi-line-with-args:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-args.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-args.earth --target=+test
 
 test-multi-line-with-args2:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-args2.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-args2.earth --target=+test
 
 test-multi-line-with-newline:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=multi-line-with-empty-newline.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=multi-line-with-empty-newline.earth --target=+test
 
 test-no-feature-flag-overrides:
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --earthfile=invalid-feature-flag-override.earth --target=+test --output_contains="bool flag .--referenced-save-only. cannot have an argument"
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --earthfile=invalid-feature-flag-override.earth --target=+test --output_contains="bool flag .--referenced-save-only. cannot have an argument"
 
 test-version-only-import:
     RUN mkdir subdir
     RUN echo "VERSION 0.8" > subdir/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=version-only-import.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=version-only-import.earth --target=+test
 
-# test-version-only-without-newline tests that earthly will still work with non-POSIX text files
+# test-version-only-without-newline tests that earthbuild will still work with non-POSIX text files
 test-version-only-without-newline:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=version-only.earth --target=+base
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=version-only.earth --target=+base
     RUN test "$(cat Earthfile | wc -l)" = "0" # check Earthfile doesn't contain a newline
 
 test-comment-and-whitespace-before-version:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=comment-and-whitespace-before-version.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=comment-and-whitespace-before-version.earth --target=+test
 
 test-whitespace-then-version:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=whitespace-then-version.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=whitespace-then-version.earth --target=+test
 
 test-invalid-versions:
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --earthfile=invalid-major-version.earth --target=+base
-    RUN acbgrep 'Earthfile version is invalid, supported versions are 0.6, 0.7, or 0.8' earthly.output
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --earthfile=invalid-major-version.earth --target=+base
+    RUN acbgrep 'Earthfile version is invalid, supported versions are 0.6, 0.7, or 0.8' earthbuild.output
 
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --earthfile=invalid-minor-version.earth --target=+base
-    RUN acbgrep 'Earthfile version is invalid, supported versions are 0.6, 0.7, or 0.8' earthly.output
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --earthfile=invalid-minor-version.earth --target=+base
+    RUN acbgrep 'Earthfile version is invalid, supported versions are 0.6, 0.7, or 0.8' earthbuild.output
 
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --earthfile=invalid-patch-version.earth --target=+base
-    RUN acbgrep 'unexpected VERSION arguments; should be VERSION \[flags\] <major-version>.<minor-version>' earthly.output
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --earthfile=invalid-patch-version.earth --target=+base
+    RUN acbgrep 'unexpected VERSION arguments; should be VERSION \[flags\] <major-version>.<minor-version>' earthbuild.output
 
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --earthfile=invalid-format-version.earth --target=+base
-    RUN acbgrep 'unexpected VERSION arguments; should be VERSION \[flags\] <major-version>.<minor-version>' earthly.output
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --earthfile=invalid-format-version.earth --target=+base
+    RUN acbgrep 'unexpected VERSION arguments; should be VERSION \[flags\] <major-version>.<minor-version>' earthbuild.output
 
 test-all:
     BUILD +test-single-line
@@ -89,12 +89,12 @@ test-all:
     BUILD +test-invalid-versions
     BUILD +test-no-feature-flag-overrides
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG target
     ARG should_fail=false
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail

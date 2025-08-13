@@ -5,113 +5,113 @@ set -o pipefail
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../build/linux/amd64/earthly"}
-earthly=$(realpath "$earthly")
+earthbuild=${earthbuild-"../../build/linux/amd64/earthbuild"}
+earthbuild=$(realpath "$earthbuild")
 
 # docker / podman
 frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 
 # so that we can test production/staging binaries
-default_install_name="${default_install_name:-"earthly-dev"}"
+default_install_name="${default_install_name:-"earthbuild-dev"}"
 
 echo "=== Test 1: Hand Bootstrapped ==="
 
-"$earthly" bootstrap
+"$earthbuild" bootstrap
 
 if [[ ! -d "$HOME/.${default_install_name}" ]]; then
   echo ".${default_install_name} directory was missing after bootstrap"
   exit 1
 fi
 
-EARTHLY_INSTALLATION_NAME=earthly-test "$earthly" bootstrap
+EARTHBUILD_INSTALLATION_NAME=earthbuild-test "$earthbuild" bootstrap
 
-if [[ ! -d "$HOME/.earthly-test" ]]; then
-  echo ".earthly-test directory was missing after bootstrap"
+if [[ ! -d "$HOME/.earthbuild-test" ]]; then
+  echo ".earthbuild-test directory was missing after bootstrap"
   exit 1
 fi
 
 echo "----"
-"$earthly" +test | tee hand_boot_output # Hand boots are gloves ;)
+"$earthbuild" +test | tee hand_boot_output # Hand boots are gloves ;)
 
 if  cat hand_boot_output | grep -q "bootstrap |"; then
     echo "build did extra bootstrap"
     exit 1
 fi
 
-rm -rf "$HOME/.${default_install_name}" "$HOME/.earthly-test"
+rm -rf "$HOME/.${default_install_name}" "$HOME/.earthbuild-test"
 
 echo "=== Test 2: Implied Bootstrap ==="
 
-"$earthly" +test
+"$earthbuild" +test
 
 if [[ ! -d "$HOME/.${default_install_name}" ]]; then
   echo ".${default_install_name} directory was missing after bootstrap"
   exit 1
 fi
 
-EARTHLY_INSTALLATION_NAME=earthly-test "$earthly" +test
+EARTHBUILD_INSTALLATION_NAME=earthbuild-test "$earthbuild" +test
 
-if [[ ! -d "$HOME/.earthly-test" ]]; then
-  echo ".earthly-test directory was missing after bootstrap"
+if [[ ! -d "$HOME/.earthbuild-test" ]]; then
+  echo ".earthbuild-test directory was missing after bootstrap"
   exit 1
 fi
 
 echo "----"
-"$earthly" +test | tee imp_boot_output
+"$earthbuild" +test | tee imp_boot_output
 
 if  cat imp_boot_output | grep -q "bootstrap |"; then
     echo "build did extra bootstrap"
     exit 1
 fi
 
-rm -rf "$HOME/.${default_install_name}" "$HOME/.earthly-test"
+rm -rf "$HOME/.${default_install_name}" "$HOME/.earthbuild-test"
 
 echo "=== Test 3: CI ==="
 
-"$earthly" --ci +test
+"$earthbuild" --ci +test
 
 if [[ ! -d "$HOME/.${default_install_name}" ]]; then
   echo ".${default_install_name} directory was missing after bootstrap"
   exit 1
 fi
 
-EARTHLY_INSTALLATION_NAME=earthly-test "$earthly" --ci +test
+EARTHBUILD_INSTALLATION_NAME=earthbuild-test "$earthbuild" --ci +test
 
-if [[ ! -d "$HOME/.earthly-test" ]]; then
- echo ".earthly-test directory was missing after bootstrap"
+if [[ ! -d "$HOME/.earthbuild-test" ]]; then
+ echo ".earthbuild-test directory was missing after bootstrap"
  exit 1
 fi
 
 echo "----"
-"$earthly" --ci +test | tee ci_boot_output
+"$earthbuild" --ci +test | tee ci_boot_output
 
 if  cat ci_boot_output | grep -q "bootstrap |"; then
     echo "build did extra bootstrap"
     exit 1
 fi
 
-rm -rf "$HOME/.${default_install_name}" "$HOME/.earthly-test"
+rm -rf "$HOME/.${default_install_name}" "$HOME/.earthbuild-test"
 
 echo "=== Test 4: With Autocomplete ==="
 
-"$earthly" bootstrap
+"$earthbuild" bootstrap
 
-if [[ -f "/usr/share/bash-completion/completions/earthly" ]]; then
+if [[ -f "/usr/share/bash-completion/completions/earthbuild" ]]; then
   echo "autocompletions were present when they should not have been"
   exit 1
 fi
 
 echo "----"
-sudo "$earthly" bootstrap --with-autocomplete
+sudo "$earthbuild" bootstrap --with-autocomplete
 
-if [[ ! -f "/usr/share/bash-completion/completions/earthly" ]]; then
+if [[ ! -f "/usr/share/bash-completion/completions/earthbuild" ]]; then
   echo "autocompletions were missing when they should have been present"
   exit 1
 fi
 
 rm -rf "$HOME/.${default_install_name}"
-sudo rm -rf "/usr/share/bash-completion/completions/earthly"
+sudo rm -rf "/usr/share/bash-completion/completions/earthbuild"
 
 echo "=== Test 5: Permissions ==="
 
@@ -123,16 +123,16 @@ echo "Current defaults:"
 echo "User : $USR"
 echo "Group: $GRP"
 
-"$earthly" bootstrap
+"$earthbuild" bootstrap
 
 if [[ $(stat --format '%U' "$HOME/.${default_install_name}") != "$USR" ]]; then
-  echo "earthly directory is not owned by the user"
+  echo "earthbuild directory is not owned by the user"
   stat "$HOME/.${default_install_name}"
   exit 1
 fi
 
 if [[ $(stat --format '%G' "$HOME/.${default_install_name}") != "$GRP" ]]; then
-  echo "earthly directory is not owned by the users group"
+  echo "earthbuild directory is not owned by the users group"
   stat "$HOME/.${default_install_name}"
   exit 1
 fi
@@ -142,80 +142,80 @@ echo "----"
 touch $HOME/.${default_install_name}/config.yml
 sudo chown -R 12345:12345 $HOME/.${default_install_name}
 
-sudo "$earthly" bootstrap
+sudo "$earthbuild" bootstrap
 
 if [[ $(stat --format '%U' "$HOME/.${default_install_name}") != "$USR" ]]; then
-  echo "earthly directory is not owned by the user"
+  echo "earthbuild directory is not owned by the user"
   stat "$HOME/.${default_install_name}"
   exit 1
 fi
 
 if [[ $(stat --format '%G' "$HOME/.${default_install_name}") != "$GRP" ]]; then
-  echo "earthly directory is not owned by the users group"
+  echo "earthbuild directory is not owned by the users group"
   stat "$HOME/.${default_install_name}"
   exit 1
 fi
 
 if [[ $(stat --format '%U' "$HOME/.${default_install_name}/config.yml") != "$USR" ]]; then
-  echo "earthly config is not owned by the user"
+  echo "earthbuild config is not owned by the user"
   stat "$HOME/.${default_install_name}/config.yml"
   exit 1
 fi
 
 if [[ $(stat --format '%G' "$HOME/.${default_install_name}/config.yml") != "$GRP" ]]; then
-  echo "earthly config is not owned by the users group"
+  echo "earthbuild config is not owned by the users group"
   stat "$HOME/.${default_install_name}/config.yml"
   exit 1
 fi
 
 echo "=== Test 6: works in read-only directory ==="
 
-sudo mkdir /tmp/earthly-read-only-test
-sudo cp Earthfile /tmp/earthly-read-only-test/.
-sudo chmod 0755 /tmp/earthly-read-only-test/.
+sudo mkdir /tmp/earthbuild-read-only-test
+sudo cp Earthfile /tmp/earthbuild-read-only-test/.
+sudo chmod 0755 /tmp/earthbuild-read-only-test/.
 
 prevdir=$(pwd)
-cd /tmp/earthly-read-only-test/.
+cd /tmp/earthbuild-read-only-test/.
 
 if touch this-should-fail 2>/dev/null; then
   echo "this directory should have been read-only; something is wrong with this test"
   exit 1
 fi
 
-"$earthly" +test
+"$earthbuild" +test
 
 cd "$prevdir"
 
 echo "=== Test 7: Homebrew Source ==="
 
 if which "$frontend" > /dev/null; then
-  "$frontend" rm -f earthly-buildkitd
+  "$frontend" rm -f earthbuild-buildkitd
 fi
 
-bash=$("$earthly" bootstrap --source bash)
+bash=$("$earthbuild" bootstrap --source bash)
 if [[ "$bash" != *"complete -o nospace"* ]]; then
   echo "bash autocompletion appeared to be incorrect"
   echo "$bash"
   exit 1
 fi
 
-zsh=$("$earthly" bootstrap --source zsh)
+zsh=$("$earthbuild" bootstrap --source zsh)
 if [[ "$zsh" != *"complete -o nospace"* ]]; then
   echo "zsh autocompletion appeared to be incorrect"
   echo "$zsh"
   exit 1
 fi
 
-if "$frontend" container ls | grep earthly-buildkitd; then
+if "$frontend" container ls | grep earthbuild-buildkitd; then
   echo "--source created a $frontend container"
   exit 1
 fi
 
 if [[ -f ../../build/linux/amd64/earth ]]; then
-  echo "--source symlinked earthly to earth"
+  echo "--source symlinked earthbuild to earth"
 fi
 
-if ! DOCKER_HOST="$frontend is missing" "$earthly" bootstrap --source zsh > /dev/null 2>&1; then
+if ! DOCKER_HOST="$frontend is missing" "$earthbuild" bootstrap --source zsh > /dev/null 2>&1; then
   echo "--source failed when $frontend was missing"
   exit 1
 fi
@@ -224,13 +224,13 @@ rm -rf "$HOME/.${default_install_name}"
 
 echo "=== Test 8: No Buildkit ==="
 
-"$earthly" bootstrap --no-buildkit
-if "$frontend" container ls | grep earthly-buildkitd; then
+"$earthbuild" bootstrap --no-buildkit
+if "$frontend" container ls | grep earthbuild-buildkitd; then
   echo "--no-buildkit created a $frontend container"
   exit 1
 fi
 
-if ! DOCKER_HOST="$frontend is missing" "$earthly" bootstrap --no-buildkit; then
+if ! DOCKER_HOST="$frontend is missing" "$earthbuild" bootstrap --no-buildkit; then
   echo "--no-buildkit fails when $frontend is missing"
   exit 1
 fi

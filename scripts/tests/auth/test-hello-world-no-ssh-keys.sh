@@ -7,5 +7,5 @@ source "$(dirname "$0")/setup.sh"
 eval "$(ssh-agent)"
 ssh-add -l | grep 'The agent has no identities'
 
-# test earthly can access a public repo
-"$earthly" github.com/EarthBuild/hello-world:main+hello
+# test earthbuild can access a public repo
+"$earthbuild" github.com/EarthBuild/hello-world:main+hello

@@ -1,7 +1,7 @@
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part2) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part2/part2 ./part2
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part2/part2 ./part2
 ```
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
 
@@ -9,7 +9,7 @@ Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#m
 Targets have the ability to produce output outside of the build environment. You can save files and docker images to your local machine or push them to remote repositories. Targets can also run commands that affect the local environment outside of the build, such as running database migrations, but not all targets produce output. Let's take a look at which commands produce output and how to use them.
 
 ## Saving Files
-We've already seen how the command [SAVE ARTIFACT](https://docs.earthly.dev/docs/earthfile#save-artifact) copies a file or directory from the build environment into the target's artifact environment.
+We've already seen how the command [SAVE ARTIFACT](../earthfile/earthfile.md#save-artifact) copies a file or directory from the build environment into the target's artifact environment.
 
 This gives us the ability to copy files between targets, **but it does not allow us to save any files to our local machine.**
 
@@ -34,7 +34,7 @@ build:
     SAVE ARTIFACT output/example AS LOCAL local-output/go-example
 ```
 
-If we run this example with `earthly +build`, we'll see a `local-output` directory show up locally with a `go-example` file inside of it.
+If we run this example with `earthbuild +build`, we'll see a `local-output` directory show up locally with a `go-example` file inside of it.
 
 ## Saving Docker Images
 Saving Docker images to your local machine is easy with the `SAVE IMAGE` command.
@@ -50,10 +50,10 @@ docker:
     ENTRYPOINT ["/go-workdir/example"]
     SAVE IMAGE go-example:latest
 ```
-In this example, running `earthly +docker` will save an image named `go-example` with the tag `latest`.
+In this example, running `earthbuild +docker` will save an image named `go-example` with the tag `latest`.
 
 ```bash
-~$ earthly +docker
+~$ earthbuild +docker
 ...
 ~$ docker image ls
 REPOSITORY          TAG       IMAGE ID       CREATED          SIZE
@@ -79,9 +79,9 @@ docker:
     ENTRYPOINT ["/go-workdir/example"]
     SAVE IMAGE go-example:latest
 ```
-In this case, running `earthly +docker` will not produce any output. In other words, you will not have a `local-output/go-example` written locally, but running `earthly +build` will still produce output as expected.
+In this case, running `earthbuild +docker` will not produce any output. In other words, you will not have a `local-output/go-example` written locally, but running `earthbuild +build` will still produce output as expected.
 
-The exception to this rule is the `BUILD` command. If you want to use `COPY` or `FROM` and still have Earthly create `local-output/go-example` locally, you'll need to use the `BUILD` command to do so.
+The exception to this rule is the `BUILD` command. If you want to use `COPY` or `FROM` and still have earthbuild create `local-output/go-example` locally, you'll need to use the `BUILD` command to do so.
 
 ```Dockerfile
 build:
@@ -95,7 +95,7 @@ docker:
     ENTRYPOINT ["/go-workdir/example"]
     SAVE IMAGE go-example:latest
 ```
-Running `earthly +docker` in this case will now output `local-output/go-example` locally.
+Running `earthbuild +docker` in this case will now output `local-output/go-example` locally.
 
 ## The Push Flag
 
@@ -109,7 +109,7 @@ docker:
     ENTRYPOINT ["/go-workdir/example"]
     SAVE IMAGE --push go-example:latest
 ```
-Note that adding the `--push` flag to `SAVE IMAGE` is not enough, we'll also need to invoke push when we run earthly. `earthly --push +docker`.
+Note that adding the `--push` flag to `SAVE IMAGE` is not enough, we'll also need to invoke push when we run earthbuild. `earthbuild --push +docker`.
 
 #### External Changes
 You can also use `--push` as part of a `RUN` command to define commands that have an effect external to the build. These kinds of effects are only allowed to take place if the entire build succeeds.
@@ -121,7 +121,7 @@ release:
     RUN --push --secret GITHUB_TOKEN=GH_TOKEN github-release upload
 ```
 ```bash
-earthly --push +release
+earthbuild --push +release
 ```
 But also allows you to do things like run database migrations.
 
@@ -131,7 +131,7 @@ migrate:
     RUN --push bundle exec rails db:migrate
 ```
 ```bash
-earthly --push +migrate
+earthbuild --push +migrate
 ```
 Or apply terraform changes
 
@@ -140,22 +140,22 @@ apply:
     RUN --push terraform apply -auto-approve
 ```
 ```bash
-earthly --push +apply
+earthbuild --push +apply
 ```
 **NOTE**
 
-Just like saving files, any command that uses `--push` **will only produce output if called directly**, `earthly --push +target-with-push` **or via a** `BUILD` command. Calling a target via `FROM` or `COPY` will not invoke `--push`.
+Just like saving files, any command that uses `--push` **will only produce output if called directly**, `earthbuild --push +target-with-push` **or via a** `BUILD` command. Calling a target via `FROM` or `COPY` will not invoke `--push`.
 
 ### More Examples
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part2) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part2/part2 ./part2
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part2/part2 ./part2
 ```
 
 `./Earthfile`
@@ -191,12 +191,12 @@ console.log("hello world");
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part2) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part2/part2 ./part2
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part2/part2 ./part2
 ```
 
 `./Earthfile`
@@ -259,12 +259,12 @@ targetCompatibility = 1.8
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part2) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part2/part2 ./part2
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part2/part2 ./part2
 ```
 
 `./Earthfile`

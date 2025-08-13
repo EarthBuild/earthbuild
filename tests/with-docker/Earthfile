@@ -1,6 +1,6 @@
 VERSION 0.8
 
-ARG --global DIND_IMAGE=earthly/dind:alpine-3.19-docker-25.0.5-r0
+ARG --global DIND_IMAGE=earthbuild/dind:alpine-3.19-docker-25.0.5-r0
 FROM $DIND_IMAGE
 
 all:
@@ -114,8 +114,8 @@ docker-pull-test:
     END
 
 docker-pull-test-long:
-    WITH DOCKER --platform=linux/amd64 --pull earthly/earthly:v0.6.17
-        RUN docker images | grep earthly/earthly
+    WITH DOCKER --platform=linux/amd64 --pull earthbuild/earthbuild:v0.6.17
+        RUN docker images | grep earthbuild/earthbuild
     END
 
 docker-load-test-long:
@@ -163,7 +163,7 @@ if-after:
 cgroup-v2-test-all:
     BUILD +cgroup-v2-test \
         --DIND_IMG=$DIND_IMAGE \
-        --DIND_IMG=earthly/dind:ubuntu-23.04-docker-25.0.2-1
+        --DIND_IMG=earthbuild/dind:ubuntu-23.04-docker-25.0.2-1
 
 cgroup-v2-test:
     ARG --required DIND_IMG
@@ -175,7 +175,7 @@ cgroup-v2-test:
     END
 
 pre-script-test:
-    COPY pre-script.sh /usr/share/earthly/dockerd-wrapper-pre-script
+    COPY pre-script.sh /usr/share/earthbuild/dockerd-wrapper-pre-script
     WITH DOCKER
         RUN test -f /the-prescript-was-run
     END

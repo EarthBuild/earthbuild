@@ -68,12 +68,12 @@ test-part:
     ARG lang
     ARG part
     ARG target=docker
-    ARG earthly=earthly
+    ARG earthbuild=earthbuild
     WORKDIR ${lang}
     RUN rm -rf ./test-${part}
-    RUN "$earthly" --artifact +${part}/${part} ./test-${part}
+    RUN "$earthbuild" --artifact +${part}/${part} ./test-${part}
     WORKDIR ./test-${part}
-    RUN "$earthly" -P +"$target"
+    RUN "$earthbuild" -P +"$target"
     IF [ "${lang}" = "js" ] && [ "${part}" != "part1" ] && [ "${part}" != "part2" ] && [ "${part}" != "part6" ]
         RUN docker rm -f js-example
         RUN docker run -d --rm --name js-example ${lang}-example:latest

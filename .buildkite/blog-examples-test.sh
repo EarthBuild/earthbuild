@@ -1,14 +1,14 @@
 #!/bin/bash
 set -xeuo pipefail
 
-earthly="earthly"
-if ! command -v "$earthly"; then
-    earthly="earth"
+earthbuild="earthbuild"
+if ! command -v "$earthbuild"; then
+    earthbuild="earth"
 fi
 
-"$earthly" config global.disable_analytics true
+"$earthbuild" config global.disable_analytics true
 
-"$earthly" --version
+"$earthbuild" --version
 
-"$earthly" github.com/EarthBuild/earthly-example-scala/simple:main+test
-"$earthly" github.com/EarthBuild/earthly-example-scala/simple:main+docker
+"$earthbuild" github.com/EarthBuild/earthbuild-example-scala/simple:main+test
+"$earthbuild" github.com/EarthBuild/earthbuild-example-scala/simple:main+docker

@@ -16,7 +16,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_TARGET"
+              "EARTHBUILD_TARGET"
             ],
             "name": "ARG"
           }
@@ -24,7 +24,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_TARGET_PROJECT"
+              "EARTHBUILD_TARGET_PROJECT"
             ],
             "name": "ARG"
           }
@@ -32,7 +32,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_TARGET_NAME"
+              "EARTHBUILD_TARGET_NAME"
             ],
             "name": "ARG"
           }
@@ -40,7 +40,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_TARGET_TAG"
+              "EARTHBUILD_TARGET_TAG"
             ],
             "name": "ARG"
           }
@@ -56,7 +56,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_GIT_COMMIT_TIMESTAMP"
+              "EARTHBUILD_GIT_COMMIT_TIMESTAMP"
             ],
             "name": "ARG"
           }
@@ -64,7 +64,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP"
+              "EARTHBUILD_GIT_COMMIT_AUTHOR_TIMESTAMP"
             ],
             "name": "ARG"
           }
@@ -72,7 +72,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_GIT_BRANCH"
+              "EARTHBUILD_GIT_BRANCH"
             ],
             "name": "ARG"
           }
@@ -80,7 +80,7 @@
         {
           "command": {
             "args": [
-              "EARTHLY_GIT_REFS"
+              "EARTHBUILD_GIT_REFS"
             ],
             "name": "ARG"
           }
@@ -121,7 +121,7 @@
           "command": {
             "args": [
               "echo",
-              "\"$EARTHLY_TARGET\""
+              "\"$EARTHBUILD_TARGET\""
             ],
             "name": "RUN"
           }
@@ -130,7 +130,7 @@
           "command": {
             "args": [
               "echo",
-              "\"$EARTHLY_TARGET_PROJECT\""
+              "\"$EARTHBUILD_TARGET_PROJECT\""
             ],
             "name": "RUN"
           }
@@ -139,7 +139,7 @@
           "command": {
             "args": [
               "echo",
-              "\"$EARTHLY_TARGET_NAME\""
+              "\"$EARTHBUILD_TARGET_NAME\""
             ],
             "name": "RUN"
           }
@@ -148,7 +148,7 @@
           "command": {
             "args": [
               "echo",
-              "\"$EARTHLY_TARGET_TAG\""
+              "\"$EARTHBUILD_TARGET_TAG\""
             ],
             "name": "RUN"
           }
@@ -175,7 +175,7 @@
           "command": {
             "args": [
               "test",
-              "\"$EARTHLY_TARGET\"",
+              "\"$EARTHBUILD_TARGET\"",
               "==",
               "\"+builtin-args-test\""
             ],
@@ -187,7 +187,7 @@
             "args": [
               "test",
               "-z",
-              "\"$EARTHLY_TARGET_PROJECT\""
+              "\"$EARTHBUILD_TARGET_PROJECT\""
             ],
             "name": "RUN"
           }
@@ -196,7 +196,7 @@
           "command": {
             "args": [
               "test",
-              "\"$EARTHLY_TARGET_NAME\"",
+              "\"$EARTHBUILD_TARGET_NAME\"",
               "==",
               "\"builtin-args-test\""
             ],
@@ -208,7 +208,7 @@
             "args": [
               "test",
               "-z",
-              "\"$EARTHLY_TARGET_TAG\""
+              "\"$EARTHBUILD_TARGET_TAG\""
             ],
             "name": "RUN"
           }
@@ -229,7 +229,7 @@
             "args": [
               "test",
               "-z",
-              "\"$EARTHLY_GIT_COMMIT_TIMESTAMP\""
+              "\"$EARTHBUILD_GIT_COMMIT_TIMESTAMP\""
             ],
             "name": "RUN"
           }
@@ -239,7 +239,7 @@
             "args": [
               "test",
               "-z",
-              "\"$EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP\""
+              "\"$EARTHBUILD_GIT_COMMIT_AUTHOR_TIMESTAMP\""
             ],
             "name": "RUN"
           }
@@ -249,7 +249,7 @@
             "args": [
               "test",
               "-z",
-              "\"$EARTHLY_GIT_BRANCH\""
+              "\"$EARTHBUILD_GIT_BRANCH\""
             ],
             "name": "RUN"
           }
@@ -259,7 +259,7 @@
             "args": [
               "test",
               "-z",
-              "\"$EARTHLY_GIT_REFS\""
+              "\"$EARTHBUILD_GIT_REFS\""
             ],
             "name": "RUN"
           }
@@ -308,7 +308,7 @@
       ]
     },
     {
-      "name": "earthly-ci-runner-builtin-arg-test",
+      "name": "earthbuild-ci-runner-builtin-arg-test",
       "recipe": [
         {
           "command": {

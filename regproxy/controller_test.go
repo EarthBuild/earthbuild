@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	conslog "github.com/earthly/earthly/conslogging"
+	conslog "github.com/earthbuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/require"
 )
 

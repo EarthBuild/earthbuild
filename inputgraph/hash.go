@@ -3,10 +3,10 @@ package inputgraph
 import (
 	"context"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/buildkitskipper/hasher"
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/util/buildkitskipper/hasher"
+	"github.com/earthbuild/earthbuild/variables"
 )
 
 // HashOpt contains all of the options available to the hasher.
@@ -18,7 +18,7 @@ type HashOpt struct {
 	OverridingVars *variables.Scope
 }
 
-// HashTarget produces a hash from an Earthly target.
+// HashTarget produces a hash from an earthbuild target.
 func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
 
 	// Bypass further analysis for remote targets as there's nothing to do

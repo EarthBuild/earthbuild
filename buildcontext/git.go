@@ -9,18 +9,18 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil/synccache"
-	"github.com/earthly/earthly/util/vertexmeta"
+	"github.com/earthbuild/earthbuild/cleanup"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/util/gitutil"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/stringutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/synccache"
+	"github.com/earthbuild/earthbuild/util/vertexmeta"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 
 	"github.com/moby/buildkit/client/llb"
@@ -140,7 +140,7 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 		key = ref.StringCanonical()
 	}
 	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ interface{}) (interface{}, error) {
-		earthfileTmpDir, err := os.MkdirTemp(os.TempDir(), "earthly-git")
+		earthfileTmpDir, err := os.MkdirTemp(os.TempDir(), "earthbuild-git")
 		if err != nil {
 			return nil, errors.Wrap(err, "create temp dir for Earthfile")
 		}

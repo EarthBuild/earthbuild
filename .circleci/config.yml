@@ -7,23 +7,23 @@ jobs:
       - checkout
       - run:
           name: Docker Login
-          command: "docker login registry-1.docker.io.mirror.corp.earthly.dev --username $DOCKERHUB_MIRROR_USERNAME --password $DOCKERHUB_MIRROR_TOKEN"
+          command: "docker login registry-1.docker.io.mirror.corp.earthbuild.dev --username $DOCKERHUB_MIRROR_USERNAME --password $DOCKERHUB_MIRROR_TOKEN"
       - run:
           name: Install QEMU support
           command: "docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64,linux/arm/v7"
       - run:
-          name: Install released earthly
-          command: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
+          name: Install released earthbuild
+          command: "sudo /bin/sh -c 'wget https://github.com/earthbuild/earthbuild/releases/latest/download/earthbuild-linux-amd64 -O /usr/local/bin/earthbuild && chmod +x /usr/local/bin/earthbuild'"
       - run:
-          name: Build latest earthly
-          command: earthly --use-inline-cache +for-linux
+          name: Build latest earthbuild
+          command: earthbuild --use-inline-cache +for-linux
       - run:
           name: Bootstrap
-          command: sudo ./build/linux/amd64/earthly bootstrap
+          command: sudo ./build/linux/amd64/earthbuild bootstrap
       - run:
           name: Run tests
           command: |-
-              ./build/linux/amd64/earthly --ci -P \
+              ./build/linux/amd64/earthbuild --ci -P \
               +smoke-test --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true && echo "circleci tests passed"
 workflows:
   version: 2

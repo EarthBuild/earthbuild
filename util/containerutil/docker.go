@@ -37,7 +37,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 	// To workaround this issue, first we run `docker info` to test docker is running, then again with the
 	// `--format` option.
 	// This is to prevent displaying panic() errors to our users (even though the panic() occurred in the
-	// docker cli binary and not earthly).
+	// docker cli binary and not earthbuild).
 	_, err := fe.commandContextOutput(ctx, "info")
 	if err != nil {
 		return nil, err

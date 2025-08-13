@@ -7,8 +7,8 @@ export EARTHLY_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-"$earthly" --version
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+"$earthbuild" --version
 
 # display a pass/fail message at the end
 function finish {
@@ -21,7 +21,7 @@ function finish {
 }
 trap finish EXIT
 
-"$earthly" +test 2>&1 | tee output
+"$earthbuild" +test 2>&1 | tee output
 
 alphaline=$(grep -n alpha output | awk -F : '{print $1}')
 bravoline=$(grep -n bravo output | awk -F : '{print $1}')

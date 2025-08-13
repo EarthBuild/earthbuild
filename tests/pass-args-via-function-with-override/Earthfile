@@ -6,14 +6,14 @@ test:
     COPY root.earth Earthfile
     COPY sub.earth sub/Earthfile
     COPY subsub.earth sub/submarine/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --target=+test
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG target
     ARG should_fail=false
-    DO --pass-args ..+RUN_EARTHLY \
+    DO --pass-args ..+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail

@@ -7,15 +7,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/dockerutil"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/saveartifactlocally"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/syncutil/serrgroup"
-	"github.com/earthly/earthly/util/waitutil"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/util/dockerutil"
+	"github.com/earthbuild/earthbuild/util/gatewaycrafter"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/saveartifactlocally"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/serrgroup"
+	"github.com/earthbuild/earthbuild/util/waitutil"
 
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
@@ -336,7 +336,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		}
 		c.opt.LocalArtifactWhiteList.Add(saveLocalItem.saveLocal.DestPath)
 
-		outDir, err := c.opt.TempEarthlyOutDir()
+		outDir, err := c.opt.TempearthbuildOutDir()
 		if err != nil {
 			return err
 		}

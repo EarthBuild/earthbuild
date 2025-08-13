@@ -1,6 +1,6 @@
 from markdown import markdown
 
 def hello():
-    return markdown("Hello *Earthly*")
+    return markdown("Hello *earthbuild*")
 
 print(hello())

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"git.sr.ht/~nelsam/hel/pkg/pers"
-	"github.com/earthly/earthly/util/proj"
+	"github.com/earthbuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"

@@ -25,17 +25,17 @@ pack:
     FROM +choco
 
     ARG RELEASE_TAG
-    ARG EARTHLY_VERSION=$(echo "$RELEASE_TAG" | cut -c 2-)
+    ARG EARTHBUILD_VERSION=$(echo "$RELEASE_TAG" | cut -c 2-)
 
     WORKDIR package
-    COPY ./earthly.nuspec.template .
-    RUN envsubst <./earthly.nuspec.template >./earthly.nuspec
+    COPY ./earthbuild.nuspec.template .
+    RUN envsubst <./earthbuild.nuspec.template >./earthbuild.nuspec
 
 
     RUN mkdir tools
     COPY ../..+license/LICENSE ./tools/LICENSE.txt
     COPY ./VERIFICATION.txt ./tools/VERIFICATION.txt
-    RUN curl -L -o tools/earthly.exe https://github.com/earthly/earthly/releases/download/v${EARTHLY_VERSION}/earthly-windows-amd64.exe
+    RUN curl -L -o tools/earthbuild.exe https://github.com/earthbuild/earthbuild/releases/download/v${EARTHBUILD_VERSION}/earthbuild-windows-amd64.exe
 
     RUN choco pack
 

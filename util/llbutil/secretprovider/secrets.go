@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/earthly/earthly/util/hint"
+	"github.com/earthbuild/earthbuild/util/hint"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/secrets"
 	"github.com/pkg/errors"

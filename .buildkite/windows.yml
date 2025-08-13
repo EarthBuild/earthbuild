@@ -5,10 +5,10 @@ steps:
       - ./.buildkite/tests.sh
     key: wsl
     env:
-      EARTHLY_INSTALL_ID: "earthly-buildkite-windows"
+      EARTHBUILD_INSTALL_ID: "earthbuild-buildkite-windows"
       FORCE_COLOR: 1
-      EARTHLY_OS: linux
-      EARTHLY_CONFIG: "./.buildkite/earthly-config-win.yml"
+      EARTHBUILD_OS: linux
+      EARTHBUILD_CONFIG: "./.buildkite/earthbuild-config-win.yml"
     agents:
       os: wsl2
     timeout_in_minutes: 55

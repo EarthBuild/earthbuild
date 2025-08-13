@@ -6,9 +6,9 @@ test-fedora:
     RUN dnf -y install dnf-plugins-core
     RUN --no-cache dnf config-manager \
         --add-repo \
-        https://pkg.earthly.dev/earthly.repo
-    RUN --no-cache dnf -y install earthly
-    RUN --no-cache earthly --version
+        https://pkg.earthbuild.dev/earthbuild.repo
+    RUN --no-cache dnf -y install earthbuild
+    RUN --no-cache earthbuild --version
 
 test-centos:
     ARG version=7
@@ -16,9 +16,9 @@ test-centos:
     RUN yum install -y yum-utils
     RUN --no-cache yum-config-manager \
         --add-repo \
-        https://pkg.earthly.dev/earthly.repo
-    RUN --no-cache yum -y install earthly
-    RUN --no-cache earthly --version
+        https://pkg.earthbuild.dev/earthbuild.repo
+    RUN --no-cache yum -y install earthbuild
+    RUN --no-cache earthbuild --version
 
 test-all:
     BUILD \

@@ -4,7 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var howCoolIsEarthly = "IceCool"
+var howCoolIsearthbuild = "IceCool"
 
 func main() {
 	logrus.Info("hello world")

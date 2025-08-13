@@ -15,8 +15,8 @@ jobs:
     runs-on: "ubuntu-latest"
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+      EARTHBUILD_INSTALL_ID: "earthbuild-githubactions"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
       # Used in our github action as the token - TODO: look to change it into an input
@@ -29,4 +29,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref }}
       - name: Check Broken Links
-        run: earthly --ci +check-broken-links-pr --VERBOSE=true
+        run: earthbuild --ci +check-broken-links-pr --VERBOSE=true

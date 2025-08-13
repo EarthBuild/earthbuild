@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/earthly/earthly/variables/reserved"
+	"github.com/earthbuild/earthbuild/variables/reserved"
 
 	"github.com/pkg/errors"
 )
@@ -44,7 +44,7 @@ func ParseCommandLineArgs(args []string) (*Scope, error) {
 	return ret, nil
 }
 
-// ParseArgs parses args passed as --build-arg to an Earthly command, such as BUILD or FROM.
+// ParseArgs parses args passed as --build-arg to an earthbuild command, such as BUILD or FROM.
 func ParseArgs(args []string, pncvf ProcessNonConstantVariableFunc, current *Collection) (*Scope, error) {
 	ret := NewScope()
 	for _, arg := range args {

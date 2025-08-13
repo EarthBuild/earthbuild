@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# This script will install all released versions of earthly under ~/bin/earthly-v<X.Y.Z>
-# It is intended for earthly developers who need to test against previous versions of earthly
+# This script will install all released versions of earthbuild under ~/bin/earthbuild-v<X.Y.Z>
+# It is intended for earthbuild developers who need to test against previous versions of earthbuild
 # (e.g. making sure a new change doesn't break older versions, or testing out bug reports
 # against older versions).
 set -e
@@ -25,7 +25,7 @@ fi
 
 release_name="earth\\(ly\\)\\?-$os-$arch"
 
-curl -s -L "https://api.github.com/repos/earthly/earthly/releases" > "/tmp/releases.1"
+curl -s -L "https://api.github.com/repos/earthbuild/earthbuild/releases" > "/tmp/releases.1"
 
 if grep -q 'API rate limit' /tmp/releases.1; then
     if [ ! -f "/tmp/releases" ]; then
@@ -48,11 +48,11 @@ for row in $releases; do
     pattern="$version/$release_name"
     urls=$(echo "$row" | base64 -d | jq -r '.assets' | jq -r '.[] | .browser_download_url' | grep "$pattern")
     for  url in $urls; do
-        earthlybin="earthly"
+        earthbuildbin="earthbuild"
         if echo "$url" | grep -w "earth" >/dev/null; then
-            earthlybin="earth"
+            earthbuildbin="earth"
         fi
-        outfile="$outdir/$earthlybin-$version"
+        outfile="$outdir/$earthbuildbin-$version"
 
         if [ ! -f "$outfile" ]; then
             echo "Downloading $url to $outfile"

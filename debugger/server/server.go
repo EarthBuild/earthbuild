@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/earthly/earthly/slog"
+	"github.com/earthbuild/earthbuild/slog"
 
 	"github.com/pkg/errors"
 )

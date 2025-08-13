@@ -3,22 +3,22 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/buildcontext/provider"
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/cmd/earthly/bk"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/syncutil/serrgroup"
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/buildcontext/provider"
+	"github.com/earthbuild/earthbuild/cleanup"
+	"github.com/earthbuild/earthbuild/cmd/earthbuild/bk"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/logbus"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/gatewaycrafter"
+	"github.com/earthbuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/serrgroup"
+	"github.com/earthbuild/earthbuild/variables"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/util/apicaps"
@@ -74,7 +74,7 @@ type ConvertOpt struct {
 	AllowLocally bool
 	// AllowInteractive is an internal feature flag for controlling if interactive sessions can be initiated.
 	AllowInteractive bool
-	// EnableInteractiveDebugger is set to true when earthly is run with the --interactive cli flag
+	// EnableInteractiveDebugger is set to true when earthbuild is run with the --interactive cli flag
 	InteractiveDebuggerEnabled bool
 	// InteractiveDebuggerDebugLevelLogging controls if debug-level-logging is enabled within the interactive-debugger
 	InteractiveDebuggerDebugLevelLogging bool
@@ -97,7 +97,7 @@ type ConvertOpt struct {
 	// IsCI determines whether it is running from a CI environment.
 	IsCI bool
 	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are
-	// for a local or remote target; this is to support the legacy behaviour that was first introduced in earthly (up to 0.5)
+	// for a local or remote target; this is to support the legacy behaviour that was first introduced in earthbuild (up to 0.5)
 	// When this is set to false, SAVE IMAGE commands are only executed when DoSaves is true.
 	ForceSaveImage bool
 	// OnlyFinalTargetImages is used to ignore SAVE IMAGE commands in indirectly referenced targets
@@ -135,7 +135,7 @@ type ConvertOpt struct {
 	// This is used to detect infinite cycles.
 	TargetInputHashStackSet map[string]bool
 
-	// ContainerFrontend is the currently used container frontend, as detected by Earthly at app start. It provides info
+	// ContainerFrontend is the currently used container frontend, as detected by earthbuild at app start. It provides info
 	// and access to commands to manipulate the current container frontend.
 	ContainerFrontend containerutil.ContainerFrontend
 
@@ -152,13 +152,13 @@ type ConvertOpt struct {
 	// LocalArtifactWhiteList points to the per-connection list of seen SAVE ARTIFACT ... AS LOCAL entries
 	LocalArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList
 
-	// InternalSecretStore is a secret store used internally by Earthly.
+	// InternalSecretStore is a secret store used internally by earthbuild.
 	// It is mainly used to pass along parameters to buildkit processes without
 	// invalidating the cache.
 	InternalSecretStore *secretprovider.MutableMapStore
 
-	// TempEarthlyOutDir is a path to a temp dir where artifacts are temporarily saved
-	TempEarthlyOutDir func() (string, error)
+	// TempearthbuildOutDir is a path to a temp dir where artifacts are temporarily saved
+	TempearthbuildOutDir func() (string, error)
 
 	// LLBCaps indicates that builder's capabilities
 	LLBCaps *apicaps.CapSet

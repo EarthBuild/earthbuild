@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/domain"
+	"github.com/earthbuild/cloud-api/logstream"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/domain"
 	"github.com/moby/buildkit/util/sshutil"
 )
 
@@ -214,7 +214,7 @@ func sourceLocationToProto(repoURL, repoHash, fileRelToRepo string, sl *spec.Sou
 		file = sl.File
 	}
 	// Some repository URLs are being provided in Git SSH form. Let's convert
-	// these to HTTP. Example: git@github.com:earthly/earthly.git
+	// these to HTTP. Example: git@github.com:earthbuild/earthbuild.git
 	if sshutil.IsImplicitSSHTransport(repoURL) {
 		repoURL = gitSSHToURL(repoURL)
 	}

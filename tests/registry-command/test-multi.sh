@@ -27,7 +27,7 @@ export GCP_FULL_ADDRESS="$GCP_SERVER/ci-cd-302220"
 export IMAGE="integration-test/test"
 
 clearusersecrets() {
-    earthly secrets ls /user/std/ | xargs -r -n 1 earthly secrets rm
+    earthbuild secrets ls /user/std/ | xargs -r -n 1 earthbuild secrets rm
 }
 
 # clear out secrets from previous test
@@ -39,26 +39,26 @@ set +x # don't remove, or keys will be leaked
 test -n "$AWS_ACCESS_KEY_ID" || (echo "AWS_ACCESS_KEY_ID is empty" && exit 1)
 test -n "$AWS_SECRET_ACCESS_KEY" || (echo "AWS_SECRET_ACCESS_KEY is empty" && exit 1)
 set -x
-earthly registry setup --cred-helper=ecr-login "$ECR_REGISTRY_HOST"
+earthbuild registry setup --cred-helper=ecr-login "$ECR_REGISTRY_HOST"
 
 echo "Setting up GCP credentials"
 set +x # don't remove, or keys will be leaked
 test -n "$GCP_KEY" || (echo "GCP_KEY is empty" && exit 1)
 export GCP_SERVICE_ACCOUNT_KEY="$GCP_KEY" # registry setup reads from this env
 set -x
-earthly registry setup --cred-helper=gcloud "$GCP_SERVER"
+earthbuild registry setup --cred-helper=gcloud "$GCP_SERVER"
 
 
 echo "done setting up cred helper (and secrets)"
 
-earthly registry list | grep "$ECR_REGISTRY_HOST"
-earthly registry list | grep "$GCP_SERVER"
+earthbuild registry list | grep "$ECR_REGISTRY_HOST"
+earthbuild registry list | grep "$GCP_SERVER"
 
 cat > Earthfile <<EOF
 VERSION 0.7
 pull-dockerhub:
-  FROM earthly/rot13
-  RUN which ncat # installed on earthly/rot13
+  FROM earthbuild/rot13
+  RUN which ncat # installed on earthbuild/rot13
 
 pull-ecr:
   FROM $ECR_REGISTRY_HOST/integration-test:latest
@@ -74,7 +74,7 @@ pull:
   BUILD +pull-gcp
 EOF
 
-earthly --config "$earthly_config" --verbose +pull
+earthbuild --config "$earthbuild_config" --verbose +pull
 
 # clear out secrets (just in case project-based registry accidentally uses user-based)
 clearusersecrets

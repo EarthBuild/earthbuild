@@ -3,7 +3,7 @@ package stringutil
 import (
 	"testing"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/earthbuild/cloud-api/logstream"
 	"github.com/stretchr/testify/assert"
 )
 

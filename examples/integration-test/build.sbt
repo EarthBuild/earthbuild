@@ -2,7 +2,7 @@ lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.5"
 
 scalaVersion := "2.12.1"
 name := "scala-example"
-organization := "earthly.dev"
+organization := "earthbuild.dev"
 version := "1.0"
 
 libraryDependencies ++= Seq(

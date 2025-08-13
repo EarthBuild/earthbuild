@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/util/statsstreamparser"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/vertexmeta"
-	"github.com/earthly/earthly/util/xcontext"
+	"github.com/earthbuild/cloud-api/logstream"
+	"github.com/earthbuild/earthbuild/logbus"
+	"github.com/earthbuild/earthbuild/util/statsstreamparser"
+	"github.com/earthbuild/earthbuild/util/stringutil"
+	"github.com/earthbuild/earthbuild/util/vertexmeta"
+	"github.com/earthbuild/earthbuild/util/xcontext"
 	"github.com/moby/buildkit/client"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -80,7 +80,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *clien
 			cmdID = operation
 		case meta.CommandID != "":
 			// If the command ID is set, the Logbus command is guaranteed to
-			// have been created by Earthly in the converter ahead of time.
+			// have been created by earthbuild in the converter ahead of time.
 			cmdID = meta.CommandID
 			createCmd = false
 		default:
@@ -95,7 +95,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *clien
 				category = fmt.Sprintf("internal %s", category)
 			}
 			var cp *logbus.Command
-			// Operations initiated from Earthly have created Logbus commands
+			// Operations initiated from earthbuild have created Logbus commands
 			// ahead-of-time. Others may originate from BuildKit, so we'll have
 			// to create a command at this point.
 			if createCmd {
@@ -113,7 +113,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *clien
 				if !ok {
 					// Note: if we receive a vertex with a full command ID that
 					// does not exist in this process, it may have originated
-					// from another Earthly process. It should be safe to
+					// from another earthbuild process. It should be safe to
 					// ignore, in this case.
 					continue
 				}

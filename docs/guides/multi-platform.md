@@ -1,16 +1,16 @@
 # Multi-platform builds
 
-Earthly has the ability to perform builds for multiple platforms, in parallel. This page walks through setting up your system to support emulation as well as through a few simple examples of how to use this feature.
+earthbuild has the ability to perform builds for multiple platforms, in parallel. This page walks through setting up your system to support emulation as well as through a few simple examples of how to use this feature.
 
-Currently only `linux` is supported as the build platform OS. Building with Windows containers will be available in a future version of Earthly.
+Currently only `linux` is supported as the build platform OS. Building with Windows containers will be available in a future version of earthbuild.
 
-By default, builds are performed on the same architecture as the runner's native architecture. Using the `--platform` flag across various Earthfile commands or as part of the `earthly` command, it is possible to override the build platform and thus be able to execute builds on non-native processor architectures. Execution of non-native binaries can be performed via QEMU emulation.
+By default, builds are performed on the same architecture as the runner's native architecture. Using the `--platform` flag across various Earthfile commands or as part of the `earthbuild` command, it is possible to override the build platform and thus be able to execute builds on non-native processor architectures. Execution of non-native binaries can be performed via QEMU emulation.
 
 In some cases, execution of the build itself does not need to happen on the target architecture, through cross-compilation features of the compiler. Examples of languages that support cross-compilation are Go and Rust. This approach may be more beneficial in many cases, as there is no need to install QEMU and also, the build is more performant.
 
 ## Prerequisites for emulation
 
-In order to execute emulated build steps (usually `RUN`), QEMU needs to be installed and set up. This will allow you to perform Earthly builds on non-native platforms, but also incidentally, to run Docker images on your host system through `docker run --platform=...`.
+In order to execute emulated build steps (usually `RUN`), QEMU needs to be installed and set up. This will allow you to perform earthbuild builds on non-native platforms, but also incidentally, to run Docker images on your host system through `docker run --platform=...`.
 
 ### Windows and Mac
 
@@ -18,7 +18,7 @@ On Mac and on Windows, the Docker Desktop app comes with QEMU readily installed 
 
 ### Apple Silicon (M1 & M2 processors)
 
-Docker for Mac on M1 and M2-based systems uses Rosetta for x86/amd64 emulation. This is **not enabled** by default. To enable it, go to Docker Desktop, open Settings, then Features in Development, and check the box next to "Use Rosetta for x86/amd64 emulation". This will enable emulation for all x86/amd64 containers, including Earthly builds.
+Docker for Mac on M1 and M2-based systems uses Rosetta for x86/amd64 emulation. This is **not enabled** by default. To enable it, go to Docker Desktop, open Settings, then Features in Development, and check the box next to "Use Rosetta for x86/amd64 emulation". This will enable emulation for all x86/amd64 containers, including earthbuild builds.
 
 ![Enabling Rosetta emulation on Apple Silicon-based systems](img/rosetta.png)
 
@@ -29,7 +29,7 @@ On Linux, QEMU needs to be installed manually. On Ubuntu, this can be achieved b
 ```bash
 sudo apt-get install qemu-system binfmt-support qemu-user-static
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-docker stop earthly-buildkitd || true
+docker stop earthbuild-buildkitd || true
 ```
 
 The `docker run` command above enables execution of different multi-architecture containers by QEMU and `binfmt_misc`. It only needs to be run once.
@@ -64,14 +64,14 @@ build:
     ...
 ```
 
-If the `+build` target were invoked without the use of any flag, Earthly would simply perform the build on the native architecture of the host system.
+If the `+build` target were invoked without the use of any flag, earthbuild would simply perform the build on the native architecture of the host system.
 
 However, invoking the target `+build-all-platforms` causes `+build` to execute twice, in parallel: one time on `linux/amd64` and another time on `linux/arm/v7`.
 
-You may also override the target platform when issuing the `earthly` build command. For example:
+You may also override the target platform when issuing the `earthbuild` build command. For example:
 
 ```bash
-earthly --platform=linux/arm64 +build
+earthbuild --platform=linux/arm64 +build
 ```
 
 This would cause the build to execute on the `linux/arm64` architecture.
@@ -102,7 +102,7 @@ build-arm-v7:
     SAVE IMAGE --push org/myimage:latest
 ```
 
-When `earthly --push +build-all-platforms` is executed, the build will push a multi-manifest image to the Docker registry. The manifest will contain two images: one for `linux/amd64` and one for `linux/arm/v7`. This works as such because both targets that save images use the exact same Docker tag for the image.
+When `earthbuild --push +build-all-platforms` is executed, the build will push a multi-manifest image to the Docker registry. The manifest will contain two images: one for `linux/amd64` and one for `linux/arm/v7`. This works as such because both targets that save images use the exact same Docker tag for the image.
 
 Of course, in some situations, the build steps are the same (except they run on different platform), so the two definitions can be merged like so:
 
@@ -116,20 +116,20 @@ build:
     SAVE IMAGE --push org/myimage:latest
 ```
 
-A more complete version of this example is available in [examples/multiplatform](https://github.com/earthly/earthly/tree/main/examples/multiplatform) in GitHub. You may try out this example without cloning by running
+A more complete version of this example is available in [examples/multiplatform](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform) in GitHub. You may try out this example without cloning by running
 
 ```bash
-earthly github.com/earthly/earthly/examples/multiplatform:main+all
-docker run --rm earthly/examples:multiplatform
-docker run --rm earthly/examples:multiplatform_linux_amd64
-docker run --rm earthly/examples:multiplatform_linux_arm_v7
+earthbuild github.com/earthbuild/earthbuild/examples/multiplatform:main+all
+docker run --rm earthbuild/examples:multiplatform
+docker run --rm earthbuild/examples:multiplatform_linux_amd64
+docker run --rm earthbuild/examples:multiplatform_linux_arm_v7
 ```
 
 {% hint style='info' %}
 
 ##### Note
 
-As of the time of writing this article, the `docker` CLI has limited support for working with multi-manifest images locally. For this reason, when exporting an image to the local Docker daemon, Earthly provides the different architectures as different Docker tags.
+As of the time of writing this article, the `docker` CLI has limited support for working with multi-manifest images locally. For this reason, when exporting an image to the local Docker daemon, earthbuild provides the different architectures as different Docker tags.
 
 For example, the above build would yield locally:
 
@@ -217,16 +217,16 @@ build-image:
     SAVE IMAGE --push org/myimage:latest
 ```
 
-The code of this example is available in [examples/multiplatform-cross-compile](https://github.com/earthly/earthly/tree/main/examples/multiplatform-cross-compile) in GitHub. You may try out this example without cloning by running
+The code of this example is available in [examples/multiplatform-cross-compile](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform-cross-compile) in GitHub. You may try out this example without cloning by running
 
 ```bash
-earthly github.com/earthly/earthly/examples/multiplatform-cross-compile:main+build-all-platforms
+earthbuild github.com/earthbuild/earthbuild/examples/multiplatform-cross-compile:main+build-all-platforms
 ```
 
 ### USER platform args
 
 Additional `USER` [builtin build args](../earthfile/builtin-args.md) can be used to determine the architecture of
-the host that called `earthly`. This can be useful to determine if cross-platform emulation was used.
+the host that called `earthbuild`. This can be useful to determine if cross-platform emulation was used.
 
 - `USERPLATFORM` (eg `linux/amd64`)
 - `USEROS` (eg `linux`)
@@ -242,9 +242,9 @@ In other words, the following will **NOT** work on amd64:
 ```Dockerfile
 # Does not work!
 build:
-    FROM --platform=linux/arm64 earthly/dind
-    WITH DOCKER --pull=earthly/examples:multiplatform
-        RUN docker run earthly/examples:multiplatform
+    FROM --platform=linux/arm64 earthbuild/dind
+    WITH DOCKER --pull=earthbuild/examples:multiplatform
+        RUN docker run earthbuild/examples:multiplatform
     END
 ```
 
@@ -252,9 +252,9 @@ However, the following will:
 
 ```
 build:
-    FROM earthly/dind
-    WITH DOCKER --pull=earthly/examples:multiplatform
-        RUN docker run --platform=linux/arm64 earthly/examples:multiplatform
+    FROM earthbuild/dind
+    WITH DOCKER --pull=earthbuild/examples:multiplatform
+        RUN docker run --platform=linux/arm64 earthbuild/examples:multiplatform
     END
 ```
 

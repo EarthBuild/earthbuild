@@ -1,12 +1,12 @@
-name: 'Stage 2 Setup'
-description: 'Setup for self-hosted earthly runners'
+name: "Stage 2 Setup"
+description: "Setup for self-hosted earthbuild runners"
 inputs:
-  earthly_version:
-    description: 'The earthly version to use'
+  earthbuild_version:
+    description: "The earthbuild version to use"
     required: false
-    default: 'latest'
-  BUILT_EARTHLY_PATH:
-    description: "Path to the built earthly binary"
+    default: "latest"
+  built_earthbuild_path:
+    description: "Path to the built earthbuild binary"
     required: true
   BINARY:
     description: "The container engine to use (e.g., 'docker' or 'podman')"
@@ -18,14 +18,14 @@ inputs:
     description: "Whether to set up QEMU"
     required: false
   USE_NEXT:
-    description: "Whether to use earthly-next"
+    description: "Whether to use earthbuild-next"
     required: false
-    default: 'false'
-  EARTHLY_ORG:
-    description: "The Earthly organization"
+    default: "false"
+  earthbuild_org:
+    description: "The earthbuild organization"
     required: false
-  EARTHLY_TOKEN:
-    description: "Earthly token (legacy - not used with GCR mirror)"
+  EARTHBUILD_TOKEN:
+    description: "earthbuild token (legacy - not used with GCR mirror)"
     required: false
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
@@ -80,31 +80,31 @@ runs:
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
     - run: |-
-        echo "Extracting earthly binary from stage1 of build"
+        echo "Extracting earthbuild binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        ${{inputs.SUDO}} ./earthly upgrade
-        ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
-        test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
-        mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
-        ${{inputs.SUDO}} ls "${HOME}/.earthly/"
-        ${{inputs.SUDO}} mv "${HOME}/.earthly/earthly-$TAG" "${{inputs.BUILT_EARTHLY_PATH}}"
-        echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
+        ${{inputs.SUDO}} ./earthbuild upgrade
+        ${{inputs.SUDO}} chown -R $USER ~/.earthbuild # restore non-sudo user ownership
+        test -n "${{inputs.built_earthbuild_path}}" || (echo "built_earthbuild_path is empty" && exit 1)
+        mkdir -p $(dirname "${{inputs.built_earthbuild_path}}")
+        ${{inputs.SUDO}} ls "${HOME}/.earthbuild/"
+        ${{inputs.SUDO}} mv "${HOME}/.earthbuild/earthbuild-$TAG" "${{inputs.built_earthbuild_path}}"
+        echo "extracted ${{inputs.built_earthbuild_path}}"
       shell: bash
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
-        ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+        ${{inputs.built_earthbuild_path}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
         mirrors = [\"mirror.gcr.io\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
-        export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
+        export expected_buildkit_client_sha="$(cat earthbuild-next | head -c 12)"
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings ${{inputs.BUILT_EARTHLY_PATH}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
-        echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
+        (strings ${{inputs.built_earthbuild_path}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthbuild binary" && exit 1)
+        echo "correctly found $expected_buildkit_client_sha in earthbuild binary; this confirms earthbuild-next was used"
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
-      run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} bootstrap
+      run: ${{inputs.SUDO}} ${{inputs.built_earthbuild_path}} bootstrap
       shell: bash
     - run: echo "stage2-setup action complete"
       shell: bash

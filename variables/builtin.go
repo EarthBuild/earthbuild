@@ -7,31 +7,31 @@ import (
 
 	"github.com/containerd/containerd/platforms"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/stringutil"
-	arg "github.com/earthly/earthly/variables/reserved"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/util/gitutil"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/stringutil"
+	arg "github.com/earthbuild/earthbuild/variables/reserved"
 )
 
 // DefaultArgs contains additional builtin ARG values which need
 // to be passed in from outside of the scope of this package.
 type DefaultArgs struct {
-	EarthlyVersion  string
-	EarthlyBuildSha string
+	earthbuildVersion  string
+	earthbuildBuildSha string
 }
 
 // BuiltinArgs returns a scope containing the builtin args.
 func BuiltinArgs(target domain.Target, platr *platutil.Resolver, gitMeta *gitutil.GitMetadata, defaultArgs DefaultArgs, ftrs *features.Features, push bool, ci bool) *Scope {
 	ret := NewScope()
-	ret.Add(arg.EarthlyTarget, target.StringCanonical())
-	ret.Add(arg.EarthlyTargetProject, target.ProjectCanonical())
+	ret.Add(arg.earthbuildTarget, target.StringCanonical())
+	ret.Add(arg.earthbuildTargetProject, target.ProjectCanonical())
 	targetNoTag := target
 	targetNoTag.Tag = ""
-	ret.Add(arg.EarthlyTargetProjectNoTag, targetNoTag.ProjectCanonical())
-	ret.Add(arg.EarthlyTargetName, target.Target)
+	ret.Add(arg.earthbuildTargetProjectNoTag, targetNoTag.ProjectCanonical())
+	ret.Add(arg.earthbuildTargetName, target.Target)
 
 	setTargetTag(ret, target, gitMeta)
 
@@ -44,70 +44,70 @@ func BuiltinArgs(target domain.Target, platr *platutil.Resolver, gitMeta *gituti
 	}
 
 	if ftrs.WaitBlock {
-		ret.Add(arg.EarthlyPush, fmt.Sprintf("%t", push))
+		ret.Add(arg.earthbuildPush, fmt.Sprintf("%t", push))
 	}
 
-	if ftrs.EarthlyVersionArg {
-		ret.Add(arg.EarthlyVersion, defaultArgs.EarthlyVersion)
-		ret.Add(arg.EarthlyBuildSha, defaultArgs.EarthlyBuildSha)
+	if ftrs.earthbuildVersionArg {
+		ret.Add(arg.earthbuildVersion, defaultArgs.earthbuildVersion)
+		ret.Add(arg.earthbuildBuildSha, defaultArgs.earthbuildBuildSha)
 	}
 
-	if ftrs.EarthlyCIArg {
-		ret.Add(arg.EarthlyCI, fmt.Sprintf("%t", ci))
+	if ftrs.earthbuildCIArg {
+		ret.Add(arg.earthbuildCI, fmt.Sprintf("%t", ci))
 	}
 
-	if ftrs.EarthlyLocallyArg {
+	if ftrs.earthbuildLocallyArg {
 		SetLocally(ret, false)
 	}
 
 	if gitMeta != nil {
-		ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
-		ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
+		ret.Add(arg.earthbuildGitHash, gitMeta.Hash)
+		ret.Add(arg.earthbuildGitShortHash, gitMeta.ShortHash)
 		branch := ""
 		if len(gitMeta.Branch) > 0 {
 			branch = gitMeta.Branch[0]
 		}
-		ret.Add(arg.EarthlyGitBranch, branch)
+		ret.Add(arg.earthbuildGitBranch, branch)
 		tag := ""
 		if len(gitMeta.Tags) > 0 {
 			tag = gitMeta.Tags[0]
 		}
-		ret.Add(arg.EarthlyGitTag, tag)
-		ret.Add(arg.EarthlyGitOriginURL, gitMeta.RemoteURL)
-		ret.Add(arg.EarthlyGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
-		ret.Add(arg.EarthlyGitProjectName, getProjectName(gitMeta.RemoteURL))
-		ret.Add(arg.EarthlyGitCommitTimestamp, gitMeta.CommitterTimestamp)
+		ret.Add(arg.earthbuildGitTag, tag)
+		ret.Add(arg.earthbuildGitOriginURL, gitMeta.RemoteURL)
+		ret.Add(arg.earthbuildGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
+		ret.Add(arg.earthbuildGitProjectName, getProjectName(gitMeta.RemoteURL))
+		ret.Add(arg.earthbuildGitCommitTimestamp, gitMeta.CommitterTimestamp)
 
 		if ftrs.GitCommitAuthorTimestamp {
-			ret.Add(arg.EarthlyGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
+			ret.Add(arg.earthbuildGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
 		}
 		if gitMeta.CommitterTimestamp == "" {
-			ret.Add(arg.EarthlySourceDateEpoch, "0")
+			ret.Add(arg.earthbuildSourceDateEpoch, "0")
 		} else {
-			ret.Add(arg.EarthlySourceDateEpoch, gitMeta.CommitterTimestamp)
+			ret.Add(arg.earthbuildSourceDateEpoch, gitMeta.CommitterTimestamp)
 		}
-		if ftrs.EarthlyGitAuthorArgs {
-			ret.Add(arg.EarthlyGitAuthor, gitMeta.AuthorEmail)
-			ret.Add(arg.EarthlyGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
+		if ftrs.earthbuildGitAuthorArgs {
+			ret.Add(arg.earthbuildGitAuthor, gitMeta.AuthorEmail)
+			ret.Add(arg.earthbuildGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
 		}
 		if ftrs.GitAuthorEmailNameArgs {
 			if gitMeta.AuthorName != "" && gitMeta.AuthorEmail != "" {
-				ret.Add(arg.EarthlyGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
+				ret.Add(arg.earthbuildGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
 			}
-			ret.Add(arg.EarthlyGitAuthorEmail, gitMeta.AuthorEmail)
-			ret.Add(arg.EarthlyGitAuthorName, gitMeta.AuthorName)
+			ret.Add(arg.earthbuildGitAuthorEmail, gitMeta.AuthorEmail)
+			ret.Add(arg.earthbuildGitAuthorName, gitMeta.AuthorName)
 		}
 
 		if ftrs.GitRefs {
-			ret.Add(arg.EarthlyGitRefs, strings.Join(gitMeta.Refs, " "))
+			ret.Add(arg.earthbuildGitRefs, strings.Join(gitMeta.Refs, " "))
 		}
 	} else {
 		// Ensure SOURCE_DATE_EPOCH is always available
-		ret.Add(arg.EarthlySourceDateEpoch, "0")
+		ret.Add(arg.earthbuildSourceDateEpoch, "0")
 	}
 
-	if ftrs.EarthlyCIRunnerArg {
-		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
+	if ftrs.earthbuildCIRunnerArg {
+		ret.Add(arg.earthbuildCIRunner, strconv.FormatBool(false))
 	}
 	return ret
 }
@@ -140,7 +140,7 @@ func setNativePlatformArgs(s *Scope, platr *platutil.Resolver) {
 
 // SetLocally sets the locally built-in arg value
 func SetLocally(s *Scope, locally bool) {
-	s.Add(arg.EarthlyLocally, fmt.Sprintf("%v", locally))
+	s.Add(arg.earthbuildLocally, fmt.Sprintf("%v", locally))
 }
 
 // getProjectName returns the deprecated PROJECT_NAME value
@@ -168,13 +168,13 @@ func getProjectName(s string) string {
 
 func setTargetTag(ret *Scope, target domain.Target, gitMeta *gitutil.GitMetadata) {
 	// We prefer branch for these tags if the build is triggered from an action on a branch (pr / push)
-	// https://github.com/earthly/cloud-issues/issues/11#issuecomment-1467308267
+	// https://github.com/earthbuild/cloud-issues/issues/11#issuecomment-1467308267
 	if gitMeta != nil && gitMeta.BranchOverrideTagArg && len(gitMeta.Branch) > 0 {
 		branch := gitMeta.Branch[0]
-		ret.Add(arg.EarthlyTargetTag, branch)
-		ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(branch))
+		ret.Add(arg.earthbuildTargetTag, branch)
+		ret.Add(arg.earthbuildTargetTagDocker, llbutil.DockerTagSafe(branch))
 		return
 	}
-	ret.Add(arg.EarthlyTargetTag, target.Tag)
-	ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
+	ret.Add(arg.earthbuildTargetTag, target.Tag)
+	ret.Add(arg.earthbuildTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
 }

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/earthbuild/earthbuild/conslogging"
 	"github.com/hashicorp/go-multierror"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"

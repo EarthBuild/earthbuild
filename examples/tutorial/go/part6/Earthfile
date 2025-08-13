@@ -18,18 +18,18 @@ docker:
     ARG tag='latest'
     COPY +build/example .
     ENTRYPOINT ["/go-workdir/example"]
-    SAVE IMAGE --push earthly/examples:go
+    SAVE IMAGE --push earthbuild/examples:go
 
 test-setup:
     FROM +deps
     COPY main.go .
     COPY main_integration_test.go .
     ENV CGO_ENABLED=0
-    ENTRYPOINT [ "go", "test", "github.com/earthly/earthly/examples/go"]
+    ENTRYPOINT [ "go", "test", "github.com/earthbuild/earthbuild/examples/go"]
     SAVE IMAGE test:latest
 
 integration-tests:
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml --load tests:latest=+test-setup
         RUN docker run --network=default_go/part6_default tests:latest | grep "ok"

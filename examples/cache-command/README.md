@@ -1,6 +1,6 @@
 # Using the CACHE Command
 
-This guide shows how the `CACHE` command can be used in Earthly to optimize Targets that would normally perform better with incremental changes. Such as when downloading 3rd-party dependencies.
+This guide shows how the `CACHE` command can be used in earthbuild to optimize Targets that would normally perform better with incremental changes. Such as when downloading 3rd-party dependencies.
 
 In such cases, we can optimize the cache so that results from a previous build can be reused when the files a cache depends on change.
 
@@ -11,15 +11,15 @@ Importantly, the results of the cache are persisted, and can be used in subseque
 Examples of when the `CACHE` command becomes useful include the following.
 
 Java/Maven projects using `SNAPSHOT` builds:
-* In such projects, dependencies may change frequently, but we can avoid downloading *all* of them each time in our Earthly Target
+* In such projects, dependencies may change frequently, but we can avoid downloading *all* of them each time in our earthbuild Target
 
 Node.JS/NPM projects with vendored `node_modules` using version ranges:
   * We can avoid downloading all dependencies to our `node_modules` directory and instead only download those which have changed
 
 Elixir's Dialyzer: 
-  * Dialyzer is compiled quickly with incremental code changes and we can take advantage of that in our Earthly Target
+  * Dialyzer is compiled quickly with incremental code changes and we can take advantage of that in our earthbuild Target
 
-In these examples, adding the `CACHE` command allows an Earthly Target to perform more closely to how you would expect when running the commands natively in your local dev environment. 
+In these examples, adding the `CACHE` command allows an earthbuild Target to perform more closely to how you would expect when running the commands natively in your local dev environment. 
 
 ## Usage
 
@@ -44,7 +44,7 @@ deps:
   RUN npm install
 ```
 
-In the above example, our `node_modules` directory is cached within the Earthly Target. When our `package.json` changes, Earthly reuses the contents of `./node_modules` from the previous execution so that only the dependencies that have changed since last time will be downloaded to `node_modules`.
+In the above example, our `node_modules` directory is cached within the earthbuild Target. When our `package.json` changes, earthbuild reuses the contents of `./node_modules` from the previous execution so that only the dependencies that have changed since last time will be downloaded to `node_modules`.
 
 Without the `CACHE` command in the above example, if there's any change to the `package.json` file, *all* of the dependencies would need to be downloaded each time.
 
@@ -57,7 +57,7 @@ Old files no longer used in the cache directory are not automatically cleaned up
 
 For example, if a dependency was cached previously but no longer used (perhaps updated to a new version), the old file would permanently exist in the cache. Doing this enough times may result in a cache directory that becomes quite large. 
 
-A simple solution is to delete the cache by running [`earthly prune`](https://docs.earthly.dev/docs/earthly-command#earthly-prune).
+A simple solution is to delete the cache by running [`earthbuild prune`](https://docs.earthbuild.dev/docs/earthbuild-command#earthbuild-prune).
 
 
 ### Reduced Repeatability
@@ -74,4 +74,4 @@ Some fully functional example projects are contained within subdirectories to de
 
 Take a look at the Earthfiles in these examples to see how they work. 
 
-Feel free to reach out via GitHub Issue or on our [Community Slack channel](https://earthly.dev/slack) if you have any questions or ideas. Thanks for using Earthly!
+Feel free to reach out via GitHub Issue or on our [Community Slack channel](https://earthbuild.dev/slack) if you have any questions or ideas. Thanks for using earthbuild!

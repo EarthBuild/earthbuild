@@ -3,7 +3,7 @@
 
 ## Examples of CI integration
 
-Examples of integrating Earthly into various CI systems can be found on the following pages:
+Examples of integrating earthbuild into various CI systems can be found on the following pages:
 
 * [Circle CI](../ci-integration/guides/circle-integration.md)
 * [GitHub Actions](../ci-integration/guides/gh-actions-integration.md)
@@ -15,85 +15,85 @@ For more general information on CI systems not listed above, see the [CI integra
 
 ## Examples by dev environments
 
-Examples of how Earthly can be integrated into different dev environments
+Examples of how earthbuild can be integrated into different dev environments
 
-* [GitHub Codespaces](https://github.com/earthly/codespaces-example) - shows how Earthly can be used in GitHub Codespaces and Devcontainers
+* [GitHub Codespaces](https://github.com/earthbuild/codespaces-example) - shows how earthbuild can be used in GitHub Codespaces and Devcontainers
 
 ## Example Earthfiles
 
-In this section, you will find some examples of Earthfiles to familiarize yourself with Earthly.
+In this section, you will find some examples of Earthfiles to familiarize yourself with earthbuild.
 
-The code for all the examples is available in the [examples GitHub directory](https://github.com/earthly/earthly/tree/main/examples).
+The code for all the examples is available in the [examples GitHub directory](https://github.com/earthbuild/earthbuild/tree/main/examples).
 
 <!-- NOTE: If you change this, please also change examples/README.md -->
 
 ### Examples from the Basics tutorial
 
-If you are new to Earthly, you may find the [Basics tutorial](../basics/basics.md) helpful.
+If you are new to earthbuild, you may find the [Basics tutorial](../basics/basics.md) helpful.
 
-* [tutorial](https://github.com/earthly/earthly/tree/main/examples/tutorial)
-    * [go](https://github.com/earthly/earthly/tree/main/examples/tutorial/go)
-    * [js](https://github.com/earthly/earthly/tree/main/examples/tutorial/js)
-    * [java](https://github.com/earthly/earthly/tree/main/examples/tutorial/java)
-    * [python](https://github.com/earthly/earthly/tree/main/examples/tutorial/python)
+* [tutorial](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial)
+    * [go](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go)
+    * [js](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js)
+    * [java](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java)
+    * [python](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python)
 
 ### Examples by language
 
-Please note that these examples, although similar, are distinct from the ones used in the [tutorial](https://github.com/earthly/earthly/tree/main/examples/tutorial).
+Please note that these examples, although similar, are distinct from the ones used in the [tutorial](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial).
 
 <!-- vale HouseStyle.Spelling = NO -->
-* [c](https://github.com/earthly/earthly/tree/main/examples/c)
-* [clojure](https://github.com/earthly/earthly/tree/main/examples/clojure)
-* [cobol](https://github.com/earthly/earthly/tree/main/examples/cobol)
-* [cpp](https://github.com/earthly/earthly/tree/main/examples/cpp)
-* [dotnet](https://github.com/earthly/earthly/tree/main/examples/dotnet)
-* [elixir](https://github.com/earthly/earthly/tree/main/examples/elixir)
-* [go](https://github.com/earthly/earthly/tree/main/examples/go)
-* [java](https://github.com/earthly/earthly/tree/main/examples/java)
-* [js](https://github.com/earthly/earthly/tree/main/examples/js)
-* [python](https://github.com/earthly/earthly/tree/main/examples/python)
-* [ruby](https://github.com/earthly/earthly/tree/main/examples/ruby)
-* [ruby-on-rails](https://github.com/earthly/earthly/tree/main/examples/ruby-on-rails)
-* [rust](https://github.com/earthly/earthly/tree/main/examples/rust)
-* [scala](https://github.com/earthly/earthly/tree/main/examples/scala)
-* [typescript-node](https://github.com/earthly/earthly/tree/main/examples/typescript-node)
+* [c](https://github.com/earthbuild/earthbuild/tree/main/examples/c)
+* [clojure](https://github.com/earthbuild/earthbuild/tree/main/examples/clojure)
+* [cobol](https://github.com/earthbuild/earthbuild/tree/main/examples/cobol)
+* [cpp](https://github.com/earthbuild/earthbuild/tree/main/examples/cpp)
+* [dotnet](https://github.com/earthbuild/earthbuild/tree/main/examples/dotnet)
+* [elixir](https://github.com/earthbuild/earthbuild/tree/main/examples/elixir)
+* [go](https://github.com/earthbuild/earthbuild/tree/main/examples/go)
+* [java](https://github.com/earthbuild/earthbuild/tree/main/examples/java)
+* [js](https://github.com/earthbuild/earthbuild/tree/main/examples/js)
+* [python](https://github.com/earthbuild/earthbuild/tree/main/examples/python)
+* [ruby](https://github.com/earthbuild/earthbuild/tree/main/examples/ruby)
+* [ruby-on-rails](https://github.com/earthbuild/earthbuild/tree/main/examples/ruby-on-rails)
+* [rust](https://github.com/earthbuild/earthbuild/tree/main/examples/rust)
+* [scala](https://github.com/earthbuild/earthbuild/tree/main/examples/scala)
+* [typescript-node](https://github.com/earthbuild/earthbuild/tree/main/examples/typescript-node)
 <!-- vale HouseStyle.Spelling = YES -->
 
 ### Examples by use-cases
 
-* [integration-test](https://github.com/earthly/earthly/tree/main/examples/integration-test) - shows how `WITH DOCKER` and `docker-compose` can be used to start up services and then run an integration test suite.
-* [monorepo](https://github.com/earthly/earthly/tree/main/examples/monorepo) - shows how multiple sub-projects can be co-located in a single repository and how the build can be fragmented across these.
-* [multirepo](https://github.com/earthly/earthly/tree/main/examples/multirepo) - shows how artifacts from multiple repositories can be referenced in a single build. See also the `grpc` example for a more extensive use-case.
+* [integration-test](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test) - shows how `WITH DOCKER` and `docker-compose` can be used to start up services and then run an integration test suite.
+* [monorepo](https://github.com/earthbuild/earthbuild/tree/main/examples/monorepo) - shows how multiple sub-projects can be co-located in a single repository and how the build can be fragmented across these.
+* [multirepo](https://github.com/earthbuild/earthbuild/tree/main/examples/multirepo) - shows how artifacts from multiple repositories can be referenced in a single build. See also the `grpc` example for a more extensive use-case.
 
-### Examples by Earthly features
+### Examples by earthbuild features
 
-* [import](https://github.com/earthly/earthly/tree/main/examples/import) - shows how to use the `IMPORT` command to alias Earthfile references.
-* [cutoff-optimization](https://github.com/earthly/earthly/tree/main/examples/cutoff-optimization) - shows that if an intermediate artifact does not change, then the rest of the build will use the cache, even if the source has changed.
-* [multiplatform](https://github.com/earthly/earthly/tree/main/examples/multiplatform) - shows how Earthly can execute builds and create images for multiple platforms, using QEMU emulation.
-* [multiplatform-cross-compile](https://github.com/earthly/earthly/tree/main/examples/multiplatform-cross-compile) - shows has through the use of cross-compilation, you can create images for multiple platforms, without using QEMU emulation.
+* [import](https://github.com/earthbuild/earthbuild/tree/main/examples/import) - shows how to use the `IMPORT` command to alias Earthfile references.
+* [cutoff-optimization](https://github.com/earthbuild/earthbuild/tree/main/examples/cutoff-optimization) - shows that if an intermediate artifact does not change, then the rest of the build will use the cache, even if the source has changed.
+* [multiplatform](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform) - shows how earthbuild can execute builds and create images for multiple platforms, using QEMU emulation.
+* [multiplatform-cross-compile](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform-cross-compile) - shows has through the use of cross-compilation, you can create images for multiple platforms, without using QEMU emulation.
 
 ### Examples by use of other technologies
 
-* [grpc](https://github.com/earthly/earthly/tree/main/examples/grpc) - shows how to use Earthly to compile a protobuf grpc definition into protobuf code for both a Go-based server, and a python-based client, in a multirepo setup.
-* [terraform](https://github.com/earthly/earthly/tree/main/examples/terraform) - shows how Terraform could be used from Earthly.
+* [grpc](https://github.com/earthbuild/earthbuild/tree/main/examples/grpc) - shows how to use earthbuild to compile a protobuf grpc definition into protobuf code for both a Go-based server, and a python-based client, in a multirepo setup.
+* [terraform](https://github.com/earthbuild/earthbuild/tree/main/examples/terraform) - shows how Terraform could be used from earthbuild.
 
 ### Other
 
-* [readme](https://github.com/earthly/earthly/tree/main/examples/readme) - some sample code we used in our README.
-* [tests](https://github.com/earthly/earthly/tree/main/tests) - a suite of tests Earthly uses to ensure that its features are working correctly.
+* [readme](https://github.com/earthbuild/earthbuild/tree/main/examples/readme) - some sample code we used in our README.
+* [tests](https://github.com/earthbuild/earthbuild/tree/main/tests) - a suite of tests earthbuild uses to ensure that its features are working correctly.
 
 ### Larger Examples And Community Examples
 
-* [Earthly, Rust, GoLang, NodeJS and GitHub Actions Example](https://github.com/earthly/earthly-vs-gha)
-* [Cloud Services In GoLang](https://github.com/earthly/cloud-services-example)
-* [Earthfile workshop Repo](https://github.com/earthly/workshop-2023-09-18)
-* [Python & C Example](https://github.com/earthly/pymerge)
-* [Python Docker Example](https://github.com/earthly/build-transpose/blob/main/Earthfile)
-* [Awesome Earthly - Community Examples](https://github.com/earthly/awesome-earthly)
+* [earthbuild, Rust, GoLang, NodeJS and GitHub Actions Example](https://github.com/earthbuild/earthbuild-vs-gha)
+* [Cloud Services In GoLang](https://github.com/earthbuild/cloud-services-example)
+* [Earthfile workshop Repo](https://github.com/earthbuild/workshop-2023-09-18)
+* [Python & C Example](https://github.com/earthbuild/pymerge)
+* [Python Docker Example](https://github.com/earthbuild/build-transpose/blob/main/Earthfile)
+* [Awesome earthbuild - Community Examples](https://github.com/earthbuild/awesome-earthbuild)
 
-### Earthly's own build
+### earthbuild's own build
 
-As a distinct example of a complete build, you can take a look at Earthly's own build. Earthly builds itself, and the build files are available on GitHub:
+As a distinct example of a complete build, you can take a look at earthbuild's own build. earthbuild builds itself, and the build files are available on GitHub:
 
 <!--
 
@@ -139,10 +139,10 @@ Here's a snip from an support request with gitbook:
 * [tests/Earthfile](https://tinyurl.com/2p8ws579) - system and smoke tests
 * [earthfile-grammar/Earthfile](https://tinyurl.com/2vyjprt6) - the build of the VS Code extension
 
-To invoke Earthly's build, check out the code and then run the following in the root of the repository
+To invoke earthbuild's build, check out the code and then run the following in the root of the repository
 
 ```bash
-earthly +all
+earthbuild +all
 ```
 
 [![asciicast](https://asciinema.org/a/313845.svg)](https://asciinema.org/a/313845)

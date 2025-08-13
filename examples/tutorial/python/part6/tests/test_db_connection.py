@@ -7,7 +7,7 @@ class MyIntegrationTests(unittest.TestCase):
         connection = psycopg2.connect(
             host="postgres",
             database="test_db",
-            user="earthly",
+            user="earthbuild",
             password="password")
         
         self.assertEqual(connection.closed, 0)

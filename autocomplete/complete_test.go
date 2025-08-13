@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/conslogging"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/conslogging"
 
 	"github.com/urfave/cli/v2"
 )
@@ -79,61 +79,61 @@ func getPotentials(cmd string) ([]string, error) {
 }
 
 func TestFlagCompletion(t *testing.T) {
-	matches, err := getPotentials("earthly --fl")
+	matches, err := getPotentials("earthbuild --fl")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag ", "--fleet "}, matches)
 }
 
 func TestFlagCompletionWithPreviousFlags(t *testing.T) {
-	matches, err := getPotentials("earthly --fig desertking --fla")
+	matches, err := getPotentials("earthbuild --fig desertking --fla")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag "}, matches)
 }
 
 func TestFlagCompletionWithPreviousFlags2(t *testing.T) {
-	matches, err := getPotentials("earthly --fig ")
+	matches, err := getPotentials("earthbuild --fig ")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{}, matches)
 }
 
 func TestFlagCompletionWithPreviousFlagsContainingEqual(t *testing.T) {
-	matches, err := getPotentials("earthly --fig=desertking --fla")
+	matches, err := getPotentials("earthbuild --fig=desertking --fla")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag "}, matches)
 }
 
 func TestCommandCompletion(t *testing.T) {
-	matches, err := getPotentials("earthly pru")
+	matches, err := getPotentials("earthbuild pru")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"prune "}, matches)
 }
 
 func TestCommandCompletionHidden(t *testing.T) {
-	matches, err := getPotentials("earthly hid")
+	matches, err := getPotentials("earthbuild hid")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{}, matches)
 }
 
 func TestCommandSubCompletion(t *testing.T) {
-	matches, err := getPotentials("earthly sub -")
+	matches, err := getPotentials("earthbuild sub -")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subflag "}, matches)
 }
 
 func TestCommandSubCompletion2(t *testing.T) {
-	matches, err := getPotentials("earthly sub --subflag abba --s")
+	matches, err := getPotentials("earthbuild sub --subflag abba --s")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subsubflag ", "--surf-the-internet "}, matches)
 }
 
 func TestCommandSubSubCompletion(t *testing.T) {
-	matches, err := getPotentials("earthly sub --subflag abba --sub")
+	matches, err := getPotentials("earthbuild sub --subflag abba --sub")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subsubflag "}, matches)
 }
 
 func TestCommandSubSubCompletion2(t *testing.T) {
-	matches, err := getPotentials("earthly sub --subflag abba ")
+	matches, err := getPotentials("earthbuild sub --subflag abba ")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"dancing-queen "}, matches)
 }

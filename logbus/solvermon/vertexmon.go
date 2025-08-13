@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/util/errutil"
-	"github.com/earthly/earthly/util/statsstreamparser"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/vertexmeta"
+	"github.com/earthbuild/cloud-api/logstream"
+	"github.com/earthbuild/earthbuild/logbus"
+	"github.com/earthbuild/earthbuild/util/errutil"
+	"github.com/earthbuild/earthbuild/util/statsstreamparser"
+	"github.com/earthbuild/earthbuild/util/stringutil"
+	"github.com/earthbuild/earthbuild/util/vertexmeta"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
 )
@@ -50,7 +50,7 @@ func getExitCode(errString string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		// See https://github.com/earthly/buildkit/commit/9b0bdb600641f3dd1d96f54ac2d86581ab6433b2
+		// See https://github.com/earthbuild/buildkit/commit/9b0bdb600641f3dd1d96f54ac2d86581ab6433b2
 		if exitCode == math.MaxUint32 {
 			return 0, errNoExitCodeOMM
 		}
@@ -84,7 +84,7 @@ func determineFatalErrorType(errString string, exitCode int, exitParseErr error)
 	if reErrNotFound.MatchString(errString) {
 		return logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND, true
 	}
-	if strings.Contains(errString, errutil.EarthlyGitStdErrMagicString) {
+	if strings.Contains(errString, errutil.earthbuildGitStdErrMagicString) {
 		return logstream.FailureType_FAILURE_TYPE_GIT, true
 	}
 	return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
@@ -123,7 +123,7 @@ func formatErrorMessage(errString, operation string, internal bool, fatalErrorTy
 				"          %s\n"+
 				"      failed: %s", internalStr, operation, reason)
 	case logstream.FailureType_FAILURE_TYPE_GIT:
-		gitStdErr, shorterErr, ok := errutil.ExtractEarthlyGitStdErr(errString)
+		gitStdErr, shorterErr, ok := errutil.ExtractearthbuildGitStdErr(errString)
 		if ok {
 			return fmt.Sprintf(
 				"The%s command\n"+

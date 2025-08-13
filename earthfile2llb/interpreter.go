@@ -11,20 +11,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/ast/command"
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/conslogging"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/internal/version"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/shell"
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/ast/command"
+	"github.com/earthbuild/earthbuild/ast/commandflag"
+	"github.com/earthbuild/earthbuild/ast/hint"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/conslogging"
+	debuggercommon "github.com/earthbuild/earthbuild/debugger/common"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/internal/version"
+	"github.com/earthbuild/earthbuild/util/flagutil"
+	"github.com/earthbuild/earthbuild/util/oidcutil"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/shell"
+	"github.com/earthbuild/earthbuild/variables"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
@@ -39,7 +39,7 @@ var errCannotAsync = errors.New("cannot run async operation")
 // use as default to differentiate between an un specified string flag and a specified flag with empty value
 var defaultZeroStringFlag = uuid.NewString()
 
-// Interpreter interprets Earthly AST's into calls to the converter.
+// Interpreter interprets earthbuild AST's into calls to the converter.
 type Interpreter struct {
 	converter *Converter
 
@@ -572,7 +572,7 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
 	}
 	if len(args) != 1 {
 		if len(args) == 3 && args[1] == "AS" {
-			return i.errorf(cmd.SourceLocation, "AS not supported, use earthly targets instead")
+			return i.errorf(cmd.SourceLocation, "AS not supported, use earthbuild targets instead")
 		}
 		if len(args) < 1 {
 			return i.errorf(cmd.SourceLocation, "invalid number of arguments for FROM: %s", cmd.Args)
@@ -613,7 +613,7 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
 		return i.errorf(cmd.SourceLocation, "the FROM --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
 	}
 
-	i.local = false // FIXME https://github.com/earthly/earthly/issues/2044
+	i.local = false // FIXME https://github.com/earthbuild/earthbuild/issues/2044
 	err = i.converter.From(ctx, imageName, platform, allowPrivileged, opts.PassArgs, expandedBuildArgs)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply FROM %s", imageName)
@@ -1022,7 +1022,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 	}
 	if allArtifacts {
 		if dest == "" || dest == "." || len(srcs) > 1 {
-			dest += string("/") // TODO needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+			dest += string("/") // TODO needs to be the containers platform, not the earthbuild hosts platform. For now, this is always Linux.
 		}
 		for index, src := range srcs {
 			allowPrivileged, err := i.getAllowPrivilegedArtifact(src, opts.AllowPrivileged)
@@ -1194,20 +1194,20 @@ func (i *Interpreter) handleSaveImage(ctx context.Context, cmd spec.Command) err
 		return nil
 	}
 
-	if opts.WithoutEarthlyLabels {
-		if !i.converter.ftrs.AllowWithoutEarthlyLabels {
-			return i.errorf(cmd.SourceLocation, "the SAVE IMAGE --without-earthly-labels flag must be enabled with the VERSION --allow-without-earthly-labels feature flag.")
+	if opts.WithoutearthbuildLabels {
+		if !i.converter.ftrs.AllowWithoutearthbuildLabels {
+			return i.errorf(cmd.SourceLocation, "the SAVE IMAGE --without-earthbuild-labels flag must be enabled with the VERSION --allow-without-earthbuild-labels feature flag.")
 		}
 		// deliberately don't add any labels (i.e. do nothing here)
 	} else {
 		labels := map[string]string{
-			"dev.earthly.version":  version.Version,
-			"dev.earthly.git-sha":  version.GitSha,
-			"dev.earthly.built-by": version.BuiltBy,
+			"dev.earthbuild.version":  version.Version,
+			"dev.earthbuild.git-sha":  version.GitSha,
+			"dev.earthbuild.built-by": version.BuiltBy,
 		}
 		err = i.converter.Label(ctx, labels)
 		if err != nil {
-			return i.wrapError(err, cmd.SourceLocation, "failed to create dev.earthly.* labels during SAVE IMAGE")
+			return i.wrapError(err, cmd.SourceLocation, "failed to create dev.earthbuild.* labels during SAVE IMAGE")
 		}
 	}
 
@@ -1457,7 +1457,7 @@ func (i *Interpreter) handleExpose(ctx context.Context, cmd spec.Command) error 
 	}
 
 	// Dockerfile syntax allows defining host bindings; however, they are ignored when generating the image
-	// see: https://github.com/earthly/buildkit/blob/dad0cead57a2d92d43e44c9212153ffe53d9ebc9/frontend/dockerfile/dockerfile2llb/convert.go#L1207
+	// see: https://github.com/earthbuild/buildkit/blob/dad0cead57a2d92d43e44c9212153ffe53d9ebc9/frontend/dockerfile/dockerfile2llb/convert.go#L1207
 	ps, _, err := nat.ParsePortSpecs(ports)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to parse EXPOSE command")
@@ -1622,8 +1622,8 @@ func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
 			if err != nil {
 				return i.wrapError(err, cmd.SourceLocation, "failed to expand LABEL key %s", arg)
 			}
-			if strings.HasPrefix(key, "dev.earthly.") {
-				return i.wrapError(err, cmd.SourceLocation, "LABEL keys starting with \"dev.earthly.\" are reserved")
+			if strings.HasPrefix(key, "dev.earthbuild.") {
+				return i.wrapError(err, cmd.SourceLocation, "LABEL keys starting with \"dev.earthbuild.\" are reserved")
 			}
 			nextEqual = true
 			nextKey = false
@@ -1682,7 +1682,7 @@ func (i *Interpreter) handleGitClone(ctx context.Context, cmd spec.Command) erro
 
 	convertedGitURL, _, sshCommand, err := i.gitLookup.ConvertCloneURL(gitURL)
 	if err != nil {
-		return i.wrapError(err, cmd.SourceLocation, "unable to use %v with configured earthly credentials from ~/.earthly/config.yml", cmd.Args)
+		return i.wrapError(err, cmd.SourceLocation, "unable to use %v with configured earthbuild credentials from ~/.earthbuild/config.yml", cmd.Args)
 	}
 
 	err = i.converter.GitClone(ctx, convertedGitURL, sshCommand, gitBranch, gitCloneDest, opts.KeepTs)
@@ -2061,7 +2061,7 @@ func (i *Interpreter) handleDoFunction(ctx context.Context, command domain.Comma
 	if !useFunctionCmd && len(i.converter.opt.FilesWithCommandRenameWarning) < maxCommandRenameWarnings && !i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] {
 		i.console.Printf(
 			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
-To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s. Note that switching now may cause breakages for your colleagues if they are using older Earthly versions.
+To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s. Note that switching now may cause breakages for your colleagues if they are using older earthbuild versions.
 `, sourceLocationFile)
 		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = true
 	}

@@ -16,4 +16,4 @@ docker:
     FROM +deps
     COPY +build/src src
     ENTRYPOINT ["ruby", "./src/hello.rb"]
-    SAVE IMAGE --push earthly/examples:ruby
+    SAVE IMAGE --push earthbuild/examples:ruby

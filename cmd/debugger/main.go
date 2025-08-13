@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/slog"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/debugger/common"
+	"github.com/earthbuild/earthbuild/slog"
 
 	"github.com/alessio/shellescape"
 	"github.com/creack/pty"
@@ -113,7 +113,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			log.Error(errors.Wrap(err, "earthly debugger: error closing"))
+			log.Error(errors.Wrap(err, "earthbuild debugger: error closing"))
 		}
 	}()
 
@@ -163,7 +163,7 @@ func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder f
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			log.Error(errors.Wrap(err, "earthly debugger: error closing"))
+			log.Error(errors.Wrap(err, "earthbuild debugger: error closing"))
 		}
 	}()
 
@@ -298,7 +298,7 @@ func main() {
 	}
 
 	conslogger := conslogging.Current(conslogging.ForceColor, conslogging.NoPadding, conslogging.Info, false).
-		WithPrefix("earthly debugger")
+		WithPrefix("earthbuild debugger")
 
 	color.NoColor = false
 
@@ -318,7 +318,7 @@ func main() {
 	if forceInteractive {
 		quotedCmd := shellescape.QuoteCommand(args)
 
-		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 Earthly Build Interactive Session", quotedCmd)
+		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 earthbuild Build Interactive Session", quotedCmd)
 
 		// Sometimes the interactive shell doesn't correctly get a newline
 		// Take a brief pause and issue a new line as a workaround.
@@ -408,7 +408,7 @@ func main() {
 			}
 		}
 
-		// ensure that this always exits with an error status; otherwise it will be cached by earthly
+		// ensure that this always exits with an error status; otherwise it will be cached by earthbuild
 		if exitCode == 0 {
 			exitCode = 1
 		}

@@ -14,31 +14,31 @@ var Equal = require.Equal
 
 func TestVersionAtLeast(t *testing.T) {
 	tests := []struct {
-		earthlyVer Features
+		earthbuildVer Features
 		major      int
 		minor      int
 		expected   bool
 	}{
 		{
-			earthlyVer: Features{Major: 0, Minor: 6},
+			earthbuildVer: Features{Major: 0, Minor: 6},
 			major:      0,
 			minor:      5,
 			expected:   true,
 		},
 		{
-			earthlyVer: Features{Major: 0, Minor: 6},
+			earthbuildVer: Features{Major: 0, Minor: 6},
 			major:      0,
 			minor:      7,
 			expected:   false,
 		},
 		{
-			earthlyVer: Features{Major: 0, Minor: 6},
+			earthbuildVer: Features{Major: 0, Minor: 6},
 			major:      1,
 			minor:      2,
 			expected:   false,
 		},
 		{
-			earthlyVer: Features{Major: 1, Minor: 2},
+			earthbuildVer: Features{Major: 1, Minor: 2},
 			major:      1,
 			minor:      2,
 			expected:   true,
@@ -46,11 +46,11 @@ func TestVersionAtLeast(t *testing.T) {
 	}
 	for _, test := range tests {
 		test := test
-		title := fmt.Sprintf("earthly version %d.%d is at least %d.%d",
-			test.earthlyVer.Major, test.earthlyVer.Minor, test.major, test.minor)
+		title := fmt.Sprintf("earthbuild version %d.%d is at least %d.%d",
+			test.earthbuildVer.Major, test.earthbuildVer.Minor, test.major, test.minor)
 		t.Run(title, func(t *testing.T) {
 			t.Parallel()
-			actual := versionAtLeast(test.earthlyVer, test.major, test.minor)
+			actual := versionAtLeast(test.earthbuildVer, test.major, test.minor)
 			Equal(t, test.expected, actual)
 		})
 	}

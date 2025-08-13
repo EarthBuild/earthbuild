@@ -1,6 +1,6 @@
 #!/bin/bash
-# Note: Most of this test runs as Earthly-in-Earthly so that we can easily send local cache to a tmpfs; however it
-# must be started outside of earthly.
+# Note: Most of this test runs as earthbuild-in-earthbuild so that we can easily send local cache to a tmpfs; however it
+# must be started outside of earthbuild.
 
 set -uxe
 set -o pipefail
@@ -10,7 +10,7 @@ testdir="$(realpath $(dirname "$0"))"
 # docker / podman
 frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
-earthly=${earthly-"$testdir/../../build/linux/amd64/earthly"}
+earthbuild=${earthbuild-"$testdir/../../build/linux/amd64/earthbuild"}
 
 # Cleanup previous run.
 "$frontend" stop registry || true
@@ -33,7 +33,7 @@ fi
 
 # Test.
 set +e
-"$earthly" --allow-privileged \
+"$earthbuild" --allow-privileged \
     --no-output \
     --strict \
     --use-inline-cache \

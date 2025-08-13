@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earthly/earthly/config"
-	"github.com/earthly/earthly/conslogging"
+	"github.com/earthbuild/earthbuild/config"
+	"github.com/earthbuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/assert"
 )
 

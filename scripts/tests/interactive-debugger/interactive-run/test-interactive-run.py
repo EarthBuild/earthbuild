@@ -9,7 +9,7 @@ import shlex
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
-def test_with_exit_code(earthly_path, timeout, exit_code_to_send):
+def test_with_exit_code(earthbuild_path, timeout, exit_code_to_send):
     output = io.StringIO()
 
     # change dir to where our test Earthfile is
@@ -18,7 +18,7 @@ def test_with_exit_code(earthly_path, timeout, exit_code_to_send):
 
     exit_code = 0
     try:
-        c = pexpect.spawn(f'{shlex.quote(earthly_path)} +interactive-target', encoding='utf-8', timeout=timeout)
+        c = pexpect.spawn(f'{shlex.quote(earthbuild_path)} +interactive-target', encoding='utf-8', timeout=timeout)
         c.logfile_read = output
         try:
             try:
@@ -38,11 +38,11 @@ def test_with_exit_code(earthly_path, timeout, exit_code_to_send):
                     raise RuntimeError(f'failed to find text: {expected_text}')
 
             status = c.wait()
-            print(f'earthly exited with code={status}')
+            print(f'earthbuild exited with code={status}')
             if exit_code_to_send and not status:
-                raise RuntimeError(f'earthly should have failed (due to requested exit {exit_code_to_send}), but didnt')
+                raise RuntimeError(f'earthbuild should have failed (due to requested exit {exit_code_to_send}), but didnt')
             if not exit_code_to_send and status:
-                raise RuntimeError('earthly should not have failed')
+                raise RuntimeError('earthbuild should not have failed')
 
             assert not c.isalive()
         except pexpect.exceptions.TIMEOUT as e:
@@ -53,7 +53,7 @@ def test_with_exit_code(earthly_path, timeout, exit_code_to_send):
             exit_code = 1
         finally:
             print('--------------')
-            print('earthly output')
+            print('earthbuild output')
             s = ''.join(ch for ch in output.getvalue() if ch.isprintable() or ch == '\n')
             print(s)
             if exit_code:
@@ -64,10 +64,10 @@ def test_with_exit_code(earthly_path, timeout, exit_code_to_send):
 
     return exit_code
 
-def test_interactive(earthly_path, timeout):
+def test_interactive(earthbuild_path, timeout):
     for code in (0, 73):
         print(f'running test_with_exit_code with code={code}')
-        result = test_with_exit_code(earthly_path, timeout, code)
+        result = test_with_exit_code(earthbuild_path, timeout, code)
         if result:
             return result
     return 0

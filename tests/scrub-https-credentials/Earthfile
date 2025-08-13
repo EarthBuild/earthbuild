@@ -16,11 +16,11 @@ set -ex
 ping -c 1 selfsigned.example.com
 ping -c 1 buildkitsandbox
 
-earthly --config \$earthly_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
-earthly --config \$earthly_config --verbose --debug +gitclone >output.txt 2>&1
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+earthbuild --config \$earthbuild_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
+earthbuild --config \$earthbuild_config --verbose --debug +gitclone >output.txt 2>&1
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=scrub-credentials.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --pre_command=start-nginx-with-git --earthfile=scrub-credentials.earth --exec_cmd=/tmp/test-earthbuild-script
 
     RUN cat output.txt | grep -vw echo | grep 'gitclone done'
     RUN cat output.txt && \
@@ -40,12 +40,12 @@ set -ex
 ping -c 1 selfsigned.example.com
 ping -c 1 buildkitsandbox
 
-earthly --config \$earthly_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
-cat \$earthly_config
-earthly --config \$earthly_config --verbose --debug selfsigned.example.com/repo:main+hello >output.txt 2>&1
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+earthbuild --config \$earthbuild_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
+cat \$earthbuild_config
+earthbuild --config \$earthbuild_config --verbose --debug selfsigned.example.com/repo:main+hello >output.txt 2>&1
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --pre_command=start-nginx-with-git --exec_cmd=/tmp/test-earthbuild-script
 
     # make sure the password doesn't appear anywhere
     RUN cat output.txt && \
@@ -67,18 +67,18 @@ scrub-remote-credentials-on-failure:
     # (and if someone decides to register that username on github, that's fine too, we'll never know the password)
     RUN echo "#!/bin/sh
 set -ex
-earthly --config \$earthly_config config git \"{github.com: {auth: https, user: kallaxtheshelf, password: badpassword}}\"
+earthbuild --config \$earthbuild_config config git \"{github.com: {auth: https, user: kallaxtheshelf, password: badpassword}}\"
 
 set +e
-earthly --config \$earthly_config --verbose --debug github.com/kallaxtheshelf/test-private:main+build >output.txt 2>&1
+earthbuild --config \$earthbuild_config --verbose --debug github.com/kallaxtheshelf/test-private:main+build >output.txt 2>&1
 exit_code=\$?
 if [ \$exit_code -eq 0 ]; then
-    echo ERROR: earthly should have failed but didn\'t.
+    echo ERROR: earthbuild should have failed but didn\'t.
     exit 1
 fi
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
-    DO --pass-args +RUN_EARTHLY_ARGS --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --exec_cmd=/tmp/test-earthbuild-script
 
     RUN grep 'failed to fetch remote' output.txt
     # test the failure message correctly scrubs the credentials
@@ -94,12 +94,12 @@ fi
             echo "OK: password was not leaked"; \
         fi
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG pre_command
     ARG exec_cmd
-    DO ..+RUN_EARTHLY \
+    DO ..+RUN_earthbuild \
         --earthfile=$earthfile \
         --pre_command=$pre_command \
         --exec_cmd=$exec_cmd

@@ -3,7 +3,7 @@ name: Push Integrations
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTHBUILD_PATH:
         required: true
         type: string
       BINARY:
@@ -33,8 +33,8 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+      EARTHBUILD_INSTALL_ID: "earthbuild-githubactions"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -45,21 +45,21 @@ jobs:
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+          built_earthbuild_path: "${{ inputs.BUILT_EARTHBUILD_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTHBUILD_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTHBUILD_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthbuild_version_flag_overrides)"
+          echo "EARTHBUILD_VERSION_FLAG_OVERRIDES=$EARTHBUILD_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Push and Pull Cloud Images
         run: |-
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P  \
+          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHBUILD_PATH}} --ci -P  \
           ./tests/cloud-push-pull+all
       - name: Push Images after RUN --push
         run: ${{inputs.SUDO}} frontend=${{inputs.BINARY}} ./tests/push-images/test.sh
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthbuild-buildkitd || true

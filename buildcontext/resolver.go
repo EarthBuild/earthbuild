@@ -5,24 +5,24 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/earthly/earthly/ast"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/synccache"
+	"github.com/earthbuild/earthbuild/ast"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/cleanup"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/earthbuild/earthbuild/util/gitutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/synccache"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
 )
 
 // DockerfileMetaTarget is a target name prefix which signals the resolver that the build file is a
-// dockerfile. The DockerfileMetaTarget is really not a valid Earthly target otherwise.
+// dockerfile. The DockerfileMetaTarget is really not a valid earthbuild target otherwise.
 const DockerfileMetaTarget = "@dockerfile:"
 
 // Data represents a resolved target's build context data.
@@ -35,7 +35,7 @@ type Data struct {
 	BuildContextFactory llbfactory.Factory
 	// GitMetadata contains git metadata information.
 	GitMetadata *gitutil.GitMetadata
-	// Target is the earthly reference.
+	// Target is the earthbuild reference.
 	Ref domain.Reference
 	// LocalDirs is the local dirs map to be passed as part of the buildkit solve.
 	LocalDirs map[string]string
@@ -96,7 +96,7 @@ func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client,
 	}
 
 	// For local targets, we need to determine the full path relative to the
-	// working directory of Earthly in order to glob for matching paths. We can
+	// working directory of earthbuild in order to glob for matching paths. We can
 	// get this path by joining the targets. The child target will likely still
 	// include *'s (expanded below), but that shouldn't be a problem.
 	ref, err := domain.JoinReferences(parentTarget, target)
@@ -126,7 +126,7 @@ func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client,
 	return ret, nil
 }
 
-// Resolve returns resolved context data for a given Earthly reference. If the reference is a target,
+// Resolve returns resolved context data for a given earthbuild reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
 func (r *Resolver) Resolve(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference) (*Data, error) {
 	if ref.IsUnresolvedImportReference() {

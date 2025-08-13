@@ -19,11 +19,11 @@ build-msi:
 
     WORKDIR /msi
     COPY --build-arg VERSION=$RELEASE_TAG \
-        ../../+earthly-windows-amd64/earthly.exe .
+        ../../+earthbuild-windows-amd64/earthbuild.exe .
     COPY ./icon.ico .
-    COPY ./earthly.wxs .
+    COPY ./earthbuild.wxs .
 
-    RUN wine /wix/candle.exe -o earthly.wixobj -arch x64 earthly.wxs
-    RUN wine /wix/light.exe -o earthly.msi -sval earthly.wixobj
+    RUN wine /wix/candle.exe -o earthbuild.wixobj -arch x64 earthbuild.wxs
+    RUN wine /wix/light.exe -o earthbuild.msi -sval earthbuild.wixobj
 
-    SAVE ARTIFACT earthly.msi AS LOCAL earthly.msi
+    SAVE ARTIFACT earthbuild.msi AS LOCAL earthbuild.msi

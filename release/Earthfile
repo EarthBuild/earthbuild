@@ -1,5 +1,5 @@
 VERSION 0.8
-PROJECT earthly-technologies/core
+PROJECT earthbuild-technologies/core
 FROM alpine:3.18
 
 RUN apk add --update --no-cache \
@@ -7,11 +7,11 @@ RUN apk add --update --no-cache \
 
 release:
     COPY ensure_gha_passing.py /bin/ensure_gha_passing
-    ARG EARTHLY_GIT_HASH
+    ARG EARTHBUILD_GIT_HASH
     ARG --required RELEASE_TAG
     ARG SKIP_GHA_CHECK
     ARG PRERELEASE="false"
-    IF --no-cache test -n "$SKIP_GHA_CHECK" || ensure_gha_passing --sha $EARTHLY_GIT_HASH
+    IF --no-cache test -n "$SKIP_GHA_CHECK" || ensure_gha_passing --sha $EARTHBUILD_GIT_HASH
         BUILD +release-dockerhub --RELEASE_TAG="$RELEASE_TAG"
         BUILD +release-github --RELEASE_TAG="$RELEASE_TAG" --PRERELEASE="$PRERELEASE"
     ELSE
@@ -20,8 +20,8 @@ release:
 
 release-dockerhub:
     ARG --required RELEASE_TAG
-    ARG DOCKERHUB_USER="earthly"
-    ARG DOCKERHUB_IMG="earthly"
+    ARG DOCKERHUB_USER="earthbuild"
+    ARG DOCKERHUB_IMG="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
@@ -37,24 +37,24 @@ perform-release-dockerhub:
     ARG --required RELEASE_TAG
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    ARG DOCKERHUB_USER="earthly"
-    ARG DOCKERHUB_IMG="earthly"
+    ARG DOCKERHUB_USER="earthbuild"
+    ARG DOCKERHUB_IMG="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
-    BUILD +perform-release-earthly-dockerhub
+    BUILD +perform-release-earthbuild-dockerhub
     BUILD +perform-release-buildkitd-dockerhub
 
-perform-release-earthly-dockerhub:
+perform-release-earthbuild-dockerhub:
     ARG --required RELEASE_TAG
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    ARG DOCKERHUB_USER="earthly"
-    ARG DOCKERHUB_IMG="earthly"
+    ARG DOCKERHUB_USER="earthbuild"
+    ARG DOCKERHUB_IMG="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
-        ../+earthly-docker \
+        ../+earthbuild-docker \
         --TAG="$RELEASE_TAG" \
         --DOCKERHUB_USER="$DOCKERHUB_USER" \
         --DOCKERHUB_IMG="$DOCKERHUB_IMG" \
@@ -66,8 +66,8 @@ perform-release-buildkitd-dockerhub:
     ARG --required RELEASE_TAG
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    ARG DOCKERHUB_USER="earthly"
-    ARG DOCKERHUB_IMG="earthly"
+    ARG DOCKERHUB_USER="earthbuild"
+    ARG DOCKERHUB_IMG="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG BUILDKIT_PROJECT
     BUILD \
@@ -94,41 +94,41 @@ release-github:
     RUN apk add file curl jq git gpg gpg-agent
     RUN apk add --update --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing hub
     RUN npm install -g github-release-cli@v1.3.1
-    WORKDIR /earthly
+    WORKDIR /earthbuild
     ARG --required RELEASE_TAG
-    ARG GITHUB_USER="earthly"
-    ARG EARTHLY_REPO="earthly"
+    ARG GITHUB_USER="earthbuild"
+    ARG EARTHBUILD_REPO="earthbuild"
     ARG DOCKERHUB_HOST="docker.io"
     ARG DOCKERHUB_USER="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PRERELEASE="false"
-    ARG EARTHLY_GIT_HASH
-    RUN test -n "$EARTHLY_GIT_HASH"
+    ARG EARTHBUILD_GIT_HASH
+    RUN test -n "$EARTHBUILD_GIT_HASH"
     COPY +release-notes/notes.txt release-notes.txt
-    COPY (../+earthly-all/* \
+    COPY (../+earthbuild-all/* \
          --VERSION=$RELEASE_TAG \
          --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" \
-         --DEFAULT_INSTALLATION_NAME="earthly" \
+         --DEFAULT_INSTALLATION_NAME="earthbuild" \
          ) ./release/
     RUN ls ./release
-    RUN test -f ./release/earthly-linux-amd64 && \
-        test -f ./release/earthly-darwin-amd64 && \
-        test -f ./release/earthly-darwin-arm64 && \
-        test -f ./release/earthly-linux-arm64 && \
-        test -f ./release/earthly-windows-amd64.exe
-    RUN file ./release/earthly-linux-amd64 | grep "x86-64"
-    RUN file ./release/earthly-linux-amd64 | grep "ELF 64-bit"
-    RUN file ./release/earthly-darwin-amd64 | grep "Mach-O 64-bit x86_64"
-    RUN file ./release/earthly-darwin-arm64 | grep "Mach-O 64-bit arm64"
-    RUN file ./release/earthly-linux-arm64 | grep "aarch64"
-    RUN file ./release/earthly-linux-arm64 | grep "ELF 64-bit"
-    RUN file ./release/earthly-windows-amd64.exe | grep "PE32"
+    RUN test -f ./release/earthbuild-linux-amd64 && \
+        test -f ./release/earthbuild-darwin-amd64 && \
+        test -f ./release/earthbuild-darwin-arm64 && \
+        test -f ./release/earthbuild-linux-arm64 && \
+        test -f ./release/earthbuild-windows-amd64.exe
+    RUN file ./release/earthbuild-linux-amd64 | grep "x86-64"
+    RUN file ./release/earthbuild-linux-amd64 | grep "ELF 64-bit"
+    RUN file ./release/earthbuild-darwin-amd64 | grep "Mach-O 64-bit x86_64"
+    RUN file ./release/earthbuild-darwin-arm64 | grep "Mach-O 64-bit arm64"
+    RUN file ./release/earthbuild-linux-arm64 | grep "aarch64"
+    RUN file ./release/earthbuild-linux-arm64 | grep "ELF 64-bit"
+    RUN file ./release/earthbuild-windows-amd64.exe | grep "PE32"
 
     RUN \
-        --mount type=secret,id=release/keys/earthly-private.pgp,target=/release-key/earthly-private.pgp \
-        gpg --import /release-key/earthly-private.pgp && \
-        cd release && sha256sum earthly-* > checksum && \
-        cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
+        --mount type=secret,id=release/keys/earthbuild-private.pgp,target=/release-key/earthbuild-private.pgp \
+        gpg --import /release-key/earthbuild-private.pgp && \
+        cd release && sha256sum earthbuild-* > checksum && \
+        cat checksum | gpg --default-key earthbuild-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
 
     # Defensive check against accidentally copying private key into release directory
     RUN if grep -R "BEGIN PGP PRIVATE KEY BLOCK" *; then echo "private key was leaked" && exit 1; fi
@@ -142,7 +142,7 @@ release-github:
     # This may require work on the "variable types" proposal so that we can pass
     # our artifacts to our test targets.
     FOR release IN linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64.exe
-        RUN grep "$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" ./release/earthly-$release
+        RUN grep "$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" ./release/earthbuild-$release
     END
 
     ARG GITHUB_SECRET_PATH="littleredcorvette-github-token"
@@ -157,19 +157,19 @@ release-github:
           exit 1; \
         fi; \
         # first delete any previously released files (needed in case the previous upload attempt failed)
-        PREV_RELEASE_ID=$(curl -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_USER/$EARTHLY_REPO/releases/tags/$RELEASE_TAG" | jq .id); \
+        PREV_RELEASE_ID=$(curl -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_USER/$EARTHBUILD_REPO/releases/tags/$RELEASE_TAG" | jq .id); \
         if [ -n "$PREV_RELEASE_ID" ] && [ "$PREV_RELEASE_ID" != "null" ]; then \
           echo "deleting previous release ID $PREV_RELEASE_ID"; \
-          curl -H "Authorization: token $GITHUB_TOKEN" --request DELETE "https://api.github.com/repos/$GITHUB_USER/$EARTHLY_REPO/releases/$PREV_RELEASE_ID"; \
+          curl -H "Authorization: token $GITHUB_TOKEN" --request DELETE "https://api.github.com/repos/$GITHUB_USER/$EARTHBUILD_REPO/releases/$PREV_RELEASE_ID"; \
         fi; \
         # next make sure any previous tag is deleted (otherwise github will create an untagged release name vX.Y.Z)
-        curl -H "Authorization: token $GITHUB_TOKEN" --request DELETE "https://api.github.com/repos/$GITHUB_USER/$EARTHLY_REPO/git/refs/tags/$RELEASE_TAG"; \
+        curl -H "Authorization: token $GITHUB_TOKEN" --request DELETE "https://api.github.com/repos/$GITHUB_USER/$EARTHBUILD_REPO/git/refs/tags/$RELEASE_TAG"; \
         # next, upload binaries
         github-release upload \
         --owner "$GITHUB_USER" \
-        --repo "$EARTHLY_REPO" \
+        --repo "$EARTHBUILD_REPO" \
         --prerelease "$PRERELEASE" \
-        --commitish "$EARTHLY_GIT_HASH" \
+        --commitish "$EARTHBUILD_GIT_HASH" \
         --tag "$RELEASE_TAG" \
         --name "$RELEASE_TAG" \
         --body "$(cat release-notes.txt)" \
@@ -178,8 +178,8 @@ release-github:
           echo "ERROR: github-release upload failed: file already exists -- you must delete if from github before proceeding" && exit 1; \
         fi; \
         if grep -i "tag_name is not a valid tag" /tmp/release.log > /dev/null; then \
-          echo "ERROR: github-release upload failed: tag_name is not a valid tag (it could be that the branch you are releasing does not exist on $GITHUB_USER/$EARTHLY_REPO)"; \
-          echo "you might need to do a git push $GITHUB_USER $EARTHLY_GIT_HASH:main (assuming you are not doing a prod release)"; \
+          echo "ERROR: github-release upload failed: tag_name is not a valid tag (it could be that the branch you are releasing does not exist on $GITHUB_USER/$EARTHBUILD_REPO)"; \
+          echo "you might need to do a git push $GITHUB_USER $EARTHBUILD_GIT_HASH:main (assuming you are not doing a prod release)"; \
           exit 1; \
         fi; \
         if grep -i error /tmp/release.log > /dev/null; then \
@@ -213,9 +213,9 @@ release-homebrew:
     ARG GIT_EMAIL="littleredcorvette@users.noreply.github.com"
     ARG --required GITHUB_USER
     ARG --required BREW_REPO
-    ARG --required EARTHLY_REPO
-    ARG EARTHLY_GIT_HASH
-    WORKDIR /earthly/homebrew-earthly
+    ARG --required EARTHBUILD_REPO
+    ARG EARTHBUILD_GIT_HASH
+    WORKDIR /earthbuild/homebrew-earthbuild
 
     RUN git config --global user.name "$GIT_NAME" && \
         git config --global user.email "$GIT_EMAIL"
@@ -235,12 +235,12 @@ release-homebrew:
 
     RUN sed -i \
         -e 's^\(tag: \+\)"v[0-9.]\+"\(,\?\)$^\1"'$RELEASE_TAG'"\2^' \
-        -e 's^\(revision: \+\)"[0-9a-f]\+"\(,\?\)$^\1"'$EARTHLY_GIT_HASH'"\2^' \
-        ./Formula/earthly.rb
+        -e 's^\(revision: \+\)"[0-9a-f]\+"\(,\?\)$^\1"'$EARTHBUILD_GIT_HASH'"\2^' \
+        ./Formula/earthbuild.rb
     RUN echo "Diff:" && git diff
     RUN version=${RELEASE_TAG#v} ;\
         echo version=$version ;\
-        git commit -a --allow-empty -m "earthly $version"
+        git commit -a --allow-empty -m "earthbuild $version"
 
     RUN --mount type=secret,id=littleredcorvette-id_rsa,target=/root/id_rsa \
         --secret SLACK_WEBHOOK_URL=slack-release-webhook \
@@ -248,8 +248,8 @@ release-homebrew:
         eval $(ssh-agent) && \
         cat /root/id_rsa | ssh-add - && \
         git push --force --set-upstream origin "$RELEASE_BRANCH" && \
-        if [ "$BREW_REPO" = "homebrew-earthly" ] && [ "$GITHUB_USER" = "earthly" ]; then \
-            curl -s -X POST -H 'Content-type: application/json' --data '{"text":"Successfully pushed release branch: https://github.com/earthly/homebrew-earthly/tree/'$RELEASE_BRANCH' (this branch will be automatically deleted via GHA once GHA deploy task finishes)"}' "$SLACK_WEBHOOK_URL"; \
+        if [ "$BREW_REPO" = "homebrew-earthbuild" ] && [ "$GITHUB_USER" = "earthbuild" ]; then \
+            curl -s -X POST -H 'Content-type: application/json' --data '{"text":"Successfully pushed release branch: https://github.com/earthbuild/homebrew-earthbuild/tree/'$RELEASE_BRANCH' (this branch will be automatically deleted via GHA once GHA deploy task finishes)"}' "$SLACK_WEBHOOK_URL"; \
         fi
 
 release-repo:

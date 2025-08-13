@@ -3,7 +3,7 @@ FROM alpine:3.18
 
  ARG foo
 # ^^ leading whitespace at the top level causes INDENT/DEDENT confusion in the
-# parser. This error should be caught and output, but should not cause earthly
+# parser. This error should be caught and output, but should not cause earthbuild
 # to panic.
 
 RUN true

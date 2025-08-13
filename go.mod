@@ -1,4 +1,4 @@
-module github.com/earthly/earthly
+module github.com/earthbuild/earthbuild
 
 go 1.21.0
 
@@ -17,9 +17,9 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/earthly/cloud-api v1.0.1-0.20240712142419-23b6f0913996
-	github.com/earthly/earthly/ast v0.0.0-00010101000000-000000000000
-	github.com/earthly/earthly/util/deltautil v0.0.0-20240507235053-335389ed3e2a
+	github.com/earthbuild/cloud-api v1.0.1-0.20240712142419-23b6f0913996
+	github.com/earthbuild/earthbuild/ast v0.0.0-00010101000000-000000000000
+	github.com/earthbuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
 	github.com/elastic/go-sysinfo v1.9.0
 	github.com/fatih/color v1.16.0
 	github.com/gofrs/flock v0.8.1
@@ -134,11 +134,11 @@ require (
 )
 
 replace (
-	github.com/earthly/earthly/ast => ./ast
-	github.com/earthly/earthly/util/deltautil => ./util/deltautil
+	github.com/earthbuild/earthbuild/ast => ./ast
+	github.com/earthbuild/earthbuild/util/deltautil => ./util/deltautil
 	github.com/jdxcode/netrc => github.com/mikejholly/netrc v0.0.0-20221121193719-a154cb29ec2a
 	github.com/jessevdk/go-flags => github.com/alexcb/go-flags v0.0.0-20210722203016-f11d7ecb5ee5
 
-	github.com/moby/buildkit => github.com/earthly/buildkit v0.0.0-20240515200521-531b303aa8ec
-	github.com/tonistiigi/fsutil => github.com/earthly/fsutil v0.0.0-20231030221755-644b08355b65
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20240515200521-531b303aa8ec
+	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65
 )

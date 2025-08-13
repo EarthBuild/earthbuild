@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In some cases, you may want to run a remote instance of [`earthly/buildkitd`](https://hub.docker.com/r/earthly/buildkitd). This guide is intended to help you identify if you might benefit from this configuration, and to help you set it up correctly.
+In some cases, you may want to run a remote instance of [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd). This guide is intended to help you identify if you might benefit from this configuration, and to help you set it up correctly.
 
 ### Why Remote?
 
@@ -10,7 +10,7 @@ Running a remote daemon is a unique feature of EarthBuild. It allows the build t
 
 ### Running Remote BuildKit
 
-To run a remote BuildKit instance, deploy and configure the image [`earthly/buildkitd`](https://hub.docker.com/r/earthly/buildkitd).
+To run a remote BuildKit instance, deploy and configure the image [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd).
 
 #### Networking
 
@@ -18,30 +18,30 @@ A remote daemon should be reachable by all clients intending to use it. EarthBui
 
 #### Mounts
 
-**`/tmp/earthly`**
+**`/tmp/earthbuild`**
 
 This path within the container is the location that BuildKit uses for storing the cache. Because this folder sees _a lot_ of traffic, its important that it remains fast.
 
 {% hint style='danger' %}
 ##### Important
-We *strongly* recommend using a Docker volume for mounting `/tmp/earthly`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
+We *strongly* recommend using a Docker volume for mounting `/tmp/earthbuild`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
 {% endhint %}
 
-In some environments, not mounting `/tmp/earthly` as a Docker volume results in the following error:
+In some environments, not mounting `/tmp/earthbuild` as a Docker volume results in the following error:
 
 ```
 --> WITH DOCKER RUN --privileged ...
 ...
-rm: can't remove '/var/earthly/dind/...': Resource busy
+rm: can't remove '/var/earthbuild/dind/...': Resource busy
 ```
 
 In EKS, users reported that mounting an EBS volume, instead of a Kubernetes `emptyDir` worked.
 
-This part of our documentation needs improvement. If you have a Kubernetes-based setup, please [let us know](https://earthly.dev/slack) how you have mounted `EARTHLY_TMP_DIR` and whether `WITH DOCKER` worked well for you.
+This part of our documentation needs improvement. If you have a Kubernetes-based setup, please [let us know](https://github.com/earthbuild/earthbuild/issues) how you have mounted `EARTHBUILD_TMP_DIR` and whether `WITH DOCKER` worked well for you.
 
 #### Daemon
 
-To configure an `earthly/buildkitd` daemon as a remotely available daemon, you will need to start the container yourself. See our [configuration docs](../earthly-config/earthly-config.md) for more details on all the options available; but here are the ones you need to know:
+To configure an `earthbuild/buildkitd` daemon as a remotely available daemon, you will need to start the container yourself. See our [configuration docs](../earthbuild-config/earthbuild-config.md) for more details on all the options available; but here are the ones you need to know:
 
 **`BUILDKIT_TCP_TRANSPORT_ENABLED`**
 
@@ -53,11 +53,11 @@ Set this to `true` for all daemons that will handle production workloads. This d
 
 Make sure you mount your certificates and keys in the correct location (`/etc/*.pem`).
 
-For complete details, see the [documentation for `earthly/buildkitd` on DockerHub](https://hub.docker.com/r/earthly/buildkitd).
+For complete details, see the [documentation for `earthbuild/buildkitd` on DockerHub](https://hub.docker.com/r/earthbuild/buildkitd).
 
 #### Client
 
-Normally, EarthBuild will try to start and manage its own `earthly/buildkitd` daemon. However, when relying on a remote `earthly/buildkitd` instance, EarthBuild will not attempt to manage this daemon. Here are the configuration options needed to use a remote instance:
+Normally, EarthBuild will try to start and manage its own `earthbuild/buildkitd` daemon. However, when relying on a remote `earthbuild/buildkitd` instance, EarthBuild will not attempt to manage this daemon. Here are the configuration options needed to use a remote instance:
 
 **`buildkit_host`**
 
@@ -65,7 +65,7 @@ This is the address of the remote daemon. It should look something like this: `t
 
 **`tlsca` / `tlscert` / `tlskey`**
 
-These are the paths to the certificates and keys used by the client when communicating with an mTLS-enabled daemon. These paths are relative to the EarthBuild config (usually `~/.earthly/config.yaml`, unless absolute paths are specified.
+These are the paths to the certificates and keys used by the client when communicating with an mTLS-enabled daemon. These paths are relative to the EarthBuild config (usually `~/.earthbuild/config.yaml`, unless absolute paths are specified.
 
 **`tls_enabled`**
 

@@ -1,0 +1,6 @@
+[earthbuild-stable]
+name=earthbuild Stable
+baseurl=https://pkg.earthbuild.dev/rpm/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://pkg.earthbuild.dev/earthbuild.pgp

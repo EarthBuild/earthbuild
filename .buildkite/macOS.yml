@@ -4,8 +4,8 @@ steps:
     commands:
       - ./.buildkite/tests.sh
     env:
-      EARTHLY_INSTALL_ID: "earthly-buildkite-macos"
-      EARTHLY_OS: "darwin"
+      EARTHBUILD_INSTALL_ID: "earthbuild-buildkite-macos"
+      EARTHBUILD_OS: "darwin"
     agents:
       os: macOS
       arch: amd64

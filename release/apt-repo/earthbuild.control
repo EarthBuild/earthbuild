@@ -1,0 +1,7 @@
+Package: earthbuild
+Version: __earthbuild_version__
+Architecture: all
+Maintainer: earthbuild Technologies <support@earthbuild.dev>
+Depends: bash, bash-completion
+Homepage: https://earthbuild.dev
+Description: Build automation tool for the container era.

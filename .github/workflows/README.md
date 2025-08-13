@@ -5,7 +5,7 @@ Documentation for this repo GitHub actions configuration
 ## Skipping PR Workflows (DISABLED! SEE NOTE BELOW)
 
 The following is disabled due to issue https://github.com/orgs/community/discussions/13261.  
-Once this issue is resolved, the configuration can be restored by reverting the changes in [this PR](https://github.com/earthly/earthly/pull/3345)
+Once this issue is resolved, the configuration can be restored by reverting the changes in [this PR](https://github.com/earthbuild/earthbuild/pull/3345)
 
 ### Motivation
 Some PR workflows (workflows triggered by PRs) in this repo might take substantial time to complete,  
@@ -44,6 +44,6 @@ an input argument to the child job. As a matter of standardization, we call this
 This argument is then used to conditionally run the _child_ job instead of the _parent_ job,  
 and so if the child job is skipped, even if it is marked as a required check, it won't get stuck in `pending`.
 
-Lastly, because most jobs are dependent on (`needs` directive) `build-earthly` job, if the latter is skipped, by default - so will the dependent jobs.  
+Lastly, because most jobs are dependent on (`needs` directive) `build-earthbuild` job, if the latter is skipped, by default - so will the dependent jobs.  
 As described before, that is something we need to avoid. To change that default configuration, we change
 the default condition of each dependent job to `$ {{ !failure() }}` which will allow the dependent jobs to run whether the dependency job was successful or if it was skipped.

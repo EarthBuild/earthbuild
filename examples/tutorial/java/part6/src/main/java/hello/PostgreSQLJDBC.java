@@ -12,7 +12,7 @@ public class PostgreSQLJDBC {
          Class.forName("org.postgresql.Driver");
          c = DriverManager
             .getConnection("jdbc:postgresql://postgres:5432/test_db",
-            "earthly", "password");
+            "earthbuild", "password");
       } catch (Exception e) {
          e.printStackTrace();
          System.err.println(e.getClass().getName()+": "+e.getMessage());

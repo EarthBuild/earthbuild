@@ -1,8 +1,8 @@
 package earthfile2llb
 
 import (
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/waitutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/waitutil"
 )
 
 type stateWaitItem struct {

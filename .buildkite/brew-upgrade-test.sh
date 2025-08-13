@@ -4,15 +4,15 @@ set -xeuo pipefail
 cpubrand=$(sysctl -n machdep.cpu.brand_string)
 echo "macOS test running on $cpubrand"
 
-earthly="earthly"
-if ! command -v "$earthly"; then
-    earthly="earth"
+earthbuild="earthbuild"
+if ! command -v "$earthbuild"; then
+    earthbuild="earth"
 fi
 
-brew upgrade earthly
+brew upgrade earthbuild
 
-"$earthly" config global.disable_analytics true
+"$earthbuild" config global.disable_analytics true
 
-"$earthly" --version
+"$earthbuild" --version
 
-"$earthly" github.com/earthly/earthly/examples/go:main+docker
+"$earthbuild" github.com/earthbuild/earthbuild/examples/go:main+docker

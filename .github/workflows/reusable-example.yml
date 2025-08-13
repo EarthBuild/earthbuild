@@ -3,7 +3,7 @@ name: Runs examples1
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTHBUILD_PATH:
         required: true
         type: string
       BINARY:
@@ -21,7 +21,7 @@ on:
       EXAMPLE_NAME:
         required: true
         type: string
-      EARTHLY_ORG:
+      EARTHBUILD_ORG:
         required: false
         type: string
       SKIP_JOB:
@@ -37,9 +37,9 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
-      EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
+      EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+      EARTHBUILD_INSTALL_ID: "earthbuild-githubactions"
+      EARTHBUILD_ORG: "${{inputs.EARTHBUILD_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
       # Used in our github action as the token - TODO: look to change it into an input
@@ -52,28 +52,28 @@ jobs:
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          EARTHBUILD_TOKEN: "${{ secrets.EARTHBUILD_TOKEN }}"
+          built_earthbuild_path: "${{ inputs.BUILT_EARTHBUILD_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTHBUILD_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Link Earthly dir to Earthly dev dir
-        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+          EARTHBUILD_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthbuild_version_flag_overrides)"
+          echo "EARTHBUILD_VERSION_FLAG_OVERRIDES=$EARTHBUILD_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Link earthbuild dir to earthbuild dev dir
+        run: mkdir -p ~/.earthbuild && ln -s ~/.earthbuild ~/.earthbuild-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHBUILD_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
         if: github.event_name != 'push'
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHBUILD_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
         if: github.event_name == 'push'
       - name: Build and test multi-platform example
         run: |
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ./examples/multiplatform+all
-          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthly/examples:multiplatform_linux_arm64 | grep aarch64
+          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHBUILD_PATH}} ./examples/multiplatform+all
+          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthbuild-buildkitd || true

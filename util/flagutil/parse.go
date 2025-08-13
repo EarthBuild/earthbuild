@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/earthbuild/earthbuild/ast/commandflag"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/util/stringutil"
 	"github.com/pkg/errors"
 
 	"github.com/jessevdk/go-flags"

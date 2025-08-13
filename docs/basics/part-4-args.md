@@ -1,16 +1,16 @@
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part4) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part4/part4 ./part4
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part4/part4 ./part4
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
 
 ## Just Like Docker...Mostly
 
-`ARG`s in Earthly work similar to `ARG`s in Dockerfiles, however there are a few differences when it comes to scope. Also, Earthly has a number of [built in `ARG`s](../earthfile/builtin-args.md) that are available to use.
+`ARG`s in earthbuild work similar to `ARG`s in Dockerfiles, however there are a few differences when it comes to scope. Also, earthbuild has a number of [built in `ARG`s](../earthfile/builtin-args.md) that are available to use.
 
-Let's say we wanted to have the option to pass in a tag for our Docker image when we run `earthly +docker`.
+Let's say we wanted to have the option to pass in a tag for our Docker image when we run `earthbuild +docker`.
 
 ```Dockerfile
 docker:
@@ -23,15 +23,15 @@ In our `+docker` target we can create an `ARG` called tag. In this case, we give
 
 Then, down in our `SAVE IMAGE` command, we are able to reference the `ARG` with `$` followed by the `ARG` name.
 
-Now we can take advantage of this when we run Earthly.
+Now we can take advantage of this when we run earthbuild.
 
 ```bash
-earthly +docker --tag='my-new-image-tag'
+earthbuild +docker --tag='my-new-image-tag'
 ```
 In this case `my-new-image-tag` will override the default value and become the new tag for our docker image. If we hadn't passed in a value for tag, then the default `latest` would have been used. 
 
 ```bash
-earthly +docker
+earthbuild +docker
 # tag for image will be 'latest'
 ```
 
@@ -65,9 +65,9 @@ with-copy:
 ```
 
 ## Builtin `ARG`s
-There are a number of builtin `ARG`s that Earthly offers. You can read about a [complete list of them](https://docs.earthly.dev/docs/earthfile/builtin-args), but for now, let's take a look at how they work.
+There are a number of builtin `ARG`s that EarthBuild offers. You can read about a [complete list of them](../earthfile/builtin-args.md), but for now, let's take a look at how they work.
 
-**In order to use Earthly builtin `ARG`s they need to be pre-declared.** Once you do that, you can use them just like any other `ARG`.
+**In order to use earthbuild builtin `ARG`s they need to be pre-declared.** Once you do that, you can use them just like any other `ARG`.
 
 ```Dockerfile
 ARG USERARCH
@@ -81,10 +81,10 @@ In this case we've declared the `ARG` `USERARCH` which is a builtin that holds t
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part4) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part4/part4 ./part4
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part4/part4 ./part4
 ```
 
 `./Earthfile`
@@ -124,10 +124,10 @@ docker:
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part4) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part4/part4 ./part4
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part4/part4 ./part4
 ```
 
 `./Earthfile`
@@ -164,10 +164,10 @@ docker:
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part4) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part4/part4 ./part4
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part4/part4 ./part4
 ```
 
 `./Earthfile`

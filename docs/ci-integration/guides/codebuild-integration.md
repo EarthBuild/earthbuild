@@ -1,13 +1,13 @@
 
 # AWS CodeBuild integration
 
-Here is an example of an AWS CodeBuild build, where we build the Earthly target `+build`.
+Here is an example of an AWS CodeBuild build, where we build the earthbuild target `+build`.
 
 {% hint style='info' %}
 ##### Note
 
 Ensure when you're creating your CodeBuild Project that you enable the `Privileged` flag
-in order to allow Earthly build Docker images.
+in order to allow earthbuild build Docker images.
 
 {% endhint %}
 
@@ -18,14 +18,14 @@ version: 0.2
 phases:
   install:
     commands:
-      - wget https://github.com/earthly/earthly/releases/download/v0.8.13/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
+      - wget https://github.com/earthbuild/earthbuild/releases/download/v0.8.16/earthbuild-linux-amd64 -O /usr/local/bin/earthbuild && chmod +x /usr/local/bin/earthbuild
   pre_build:
     commands:
       - echo Logging into Docker
       - docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
   build:
     commands:
-      - earthly --ci --push +build
+      - earthbuild --ci --push +build
 ```
 
 For a complete guide on CI integration see the [CI integration guide](../overview.md).

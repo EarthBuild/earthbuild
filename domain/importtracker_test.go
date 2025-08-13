@@ -3,7 +3,7 @@ package domain
 import (
 	"testing"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/earthbuild/earthbuild/conslogging"
 
 	"github.com/stretchr/testify/assert"
 )

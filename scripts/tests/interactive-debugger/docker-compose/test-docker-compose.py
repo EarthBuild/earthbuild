@@ -9,7 +9,7 @@ import shlex
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
-def test_interactive(earthly_path, timeout):
+def test_interactive(earthbuild_path, timeout):
     output = io.StringIO()
 
     # change dir to where our test Earthfile is
@@ -18,7 +18,7 @@ def test_interactive(earthly_path, timeout):
 
     exit_code = 0
     try:
-        c = pexpect.spawn(f'{shlex.quote(earthly_path)} -Pi +fail-with-docker-compose', encoding='utf-8', timeout=timeout)
+        c = pexpect.spawn(f'{shlex.quote(earthbuild_path)} -Pi +fail-with-docker-compose', encoding='utf-8', timeout=timeout)
         c.logfile_read = output
         try:
             c.expect('Entering interactive debugger')
@@ -52,7 +52,7 @@ def test_interactive(earthly_path, timeout):
             exit_code = 1
         finally:
             print('--------------')
-            print('earthly output')
+            print('earthbuild output')
             s = ''.join(ch for ch in output.getvalue() if ch.isprintable() or ch == '\n')
             print(s)
             if exit_code:

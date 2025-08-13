@@ -1,5 +1,5 @@
 VERSION 0.8
-PROJECT earthly-technologies/core
+PROJECT earthbuild-technologies/core
 FROM alpine:3.18
 
 deps:
@@ -11,33 +11,33 @@ deps:
 
 deb:
     ARG RELEASE_TAG
-    ARG EARTHLY_PLATFORM
-    RUN test ! -z "$EARTHLY_PLATFORM" || (echo "EARTHLY_PLATFORM is required" && exit 1)
+    ARG EARTHBUILD_PLATFORM
+    RUN test ! -z "$EARTHBUILD_PLATFORM" || (echo "EARTHBUILD_PLATFORM is required" && exit 1)
     ARG RELEASE_TAG_WITHOUT_V=$(echo "$RELEASE_TAG" | cut -c 2-)
-    ARG PKG_NAME=earthly_${RELEASE_TAG_WITHOUT_V}-1_${EARTHLY_PLATFORM}
+    ARG PKG_NAME=earthbuild_${RELEASE_TAG_WITHOUT_V}-1_${EARTHBUILD_PLATFORM}
     FROM +deps
     WORKDIR /work
     RUN mkdir -p $PKG_NAME/DEBIAN
     RUN mkdir -p $PKG_NAME/usr/bin/
     RUN (echo "$RELEASE_TAG" | grep '^v[0-9]\+.[0-9]\+.[0-9]\+$' > /dev/null) || (echo "RELEASE_TAG must be formatted as v1.2.3; instead got \"$RELEASE_TAG\""; exit 1)
-    RUN wget -q "https://github.com/earthly/earthly/releases/download/${RELEASE_TAG}/earthly-linux-$EARTHLY_PLATFORM" -O $PKG_NAME/usr/bin/earthly && chmod +x $PKG_NAME/usr/bin/earthly
-    COPY earthly.control $PKG_NAME/DEBIAN/control
+    RUN wget -q "https://github.com/earthbuild/earthbuild/releases/download/${RELEASE_TAG}/earthbuild-linux-$EARTHBUILD_PLATFORM" -O $PKG_NAME/usr/bin/earthbuild && chmod +x $PKG_NAME/usr/bin/earthbuild
+    COPY earthbuild.control $PKG_NAME/DEBIAN/control
     COPY postinst $PKG_NAME/DEBIAN/postinst
     COPY postrm $PKG_NAME/DEBIAN/postrm
     RUN chmod 0555 $PKG_NAME/DEBIAN/postinst $PKG_NAME/DEBIAN/postrm
-    RUN sed -i "s/__earthly_version__/$RELEASE_TAG_WITHOUT_V/" $PKG_NAME/DEBIAN/control
+    RUN sed -i "s/__earthbuild_version__/$RELEASE_TAG_WITHOUT_V/" $PKG_NAME/DEBIAN/control
     RUN dpkg -b $PKG_NAME
     SAVE ARTIFACT $PKG_NAME.deb AS LOCAL output/debs/$PKG_NAME.deb
 
 deb-amd64:
     COPY \
-        --build-arg  EARTHLY_PLATFORM=amd64 \
+        --build-arg  EARTHBUILD_PLATFORM=amd64 \
         +deb/* ./
     SAVE ARTIFACT *.deb
 
 deb-arm64:
     COPY \
-        --build-arg  EARTHLY_PLATFORM=arm64 \
+        --build-arg  EARTHBUILD_PLATFORM=arm64 \
         +deb/* ./
     SAVE ARTIFACT *.deb
 
@@ -48,33 +48,33 @@ deb-all:
 
 # If for any reason you need to generate a new PGP key, it can be done with
 # this target; however this has already been done once, and our official key has
-# been saved under /release/keys/earthly-private.pgp (and earthly-public.pgp)
+# been saved under /release/keys/earthbuild-private.pgp (and earthbuild-public.pgp)
 generate-new-gpg-key:
     FROM +deps
     WORKDIR /root/pgp-key
     RUN echo "%echo Generating a basic OpenPGP key
 Key-Type: RSA
 Key-Length: 4096
-Name-Real: earthly
-Name-Email: support@earthly.dev
+Name-Real: earthbuild
+Name-Email: support@earthbuild.dev
 Expire-Date: 0
 %no-ask-passphrase
 %no-protection
 %commit
-%echo done" > earthly-pgp.batch
-    RUN rm -rf /root/gpupg && gpg --no-tty --batch --gen-key earthly-pgp.batch
-    RUN gpg --output earthly-pgp-public.pgp --armor --export support@earthly.dev
-    RUN gpg --output earthly-pgp-private.pgp --armor --export-secret-key support@earthly.dev
-    SAVE ARTIFACT earthly-pgp-public.pgp AS LOCAL earthly-pgp-public.pgp
-    SAVE ARTIFACT earthly-pgp-private.pgp AS LOCAL earthly-pgp-private.pgp
+%echo done" > earthbuild-pgp.batch
+    RUN rm -rf /root/gpupg && gpg --no-tty --batch --gen-key earthbuild-pgp.batch
+    RUN gpg --output earthbuild-pgp-public.pgp --armor --export support@earthbuild.dev
+    RUN gpg --output earthbuild-pgp-private.pgp --armor --export-secret-key support@earthbuild.dev
+    SAVE ARTIFACT earthbuild-pgp-public.pgp AS LOCAL earthbuild-pgp-public.pgp
+    SAVE ARTIFACT earthbuild-pgp-private.pgp AS LOCAL earthbuild-pgp-private.pgp
 
 download:
     FROM ../common-repo+aws
     ARG --required S3_BUCKET
     RUN --no-cache \
-        --secret MFA_ARN=+secrets/user/earthly-technologies/aws/mfa-arn \
-        --secret MFA_KEY=+secrets/user/earthly-technologies/aws/mfa-key \
-        --mount type=secret,id=+secrets/user/earthly-technologies/aws/credentials,target=/root/.aws/credentials \
+        --secret MFA_ARN=+secrets/user/earthbuild-technologies/aws/mfa-arn \
+        --secret MFA_KEY=+secrets/user/earthbuild-technologies/aws/mfa-key \
+        --mount type=secret,id=+secrets/user/earthbuild-technologies/aws/credentials,target=/root/.aws/credentials \
         eval $(assume-developer-role) && \
         aws s3 cp --recursive "s3://$S3_BUCKET/deb/" repo
     SAVE ARTIFACT repo AS LOCAL output/repo
@@ -117,15 +117,15 @@ index-and-sign:
     RUN set -e; \
         grep amd64 Release; \
         grep arm64 Release; \
-        ls /repo/pool/main/earthly_*.deb; \
+        ls /repo/pool/main/earthbuild_*.deb; \
         ls /repo/dists/stable/Release;
 
     # Next move on to signing it
     RUN \
-        --mount type=secret,id=release/keys/earthly-private.pgp,target=/release-key/earthly-private.pgp \
-        gpg --import /release-key/earthly-private.pgp
-    RUN gpg --default-key earthly-apt -abs -o /repo/dists/stable/Release.gpg /repo/dists/stable/Release
-    RUN cat /repo/dists/stable/Release | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > /repo/dists/stable/InRelease
+        --mount type=secret,id=release/keys/earthbuild-private.pgp,target=/release-key/earthbuild-private.pgp \
+        gpg --import /release-key/earthbuild-private.pgp
+    RUN gpg --default-key earthbuild-apt -abs -o /repo/dists/stable/Release.gpg /repo/dists/stable/Release
+    RUN cat /repo/dists/stable/Release | gpg --default-key earthbuild-apt -abs --clearsign --no-emit-version > /repo/dists/stable/InRelease
 
     SAVE ARTIFACT /repo AS LOCAL output/signed-repo
 
@@ -148,13 +148,13 @@ upload:
     # upload public key
     ARG --required S3_BUCKET
     RUN --push \
-        --mount type=secret,id=release/keys/earthly-public.pgp,target=/release-key/earthly-public.pgp \
-        --secret MFA_ARN=+secrets/user/earthly-technologies/aws/mfa-arn \
-        --secret MFA_KEY=+secrets/user/earthly-technologies/aws/mfa-key \
-        --mount type=secret,id=+secrets/user/earthly-technologies/aws/credentials,target=/root/.aws/credentials \
-        grep PUBLIC /release-key/earthly-public.pgp >/dev/null && \
+        --mount type=secret,id=release/keys/earthbuild-public.pgp,target=/release-key/earthbuild-public.pgp \
+        --secret MFA_ARN=+secrets/user/earthbuild-technologies/aws/mfa-arn \
+        --secret MFA_KEY=+secrets/user/earthbuild-technologies/aws/mfa-key \
+        --mount type=secret,id=+secrets/user/earthbuild-technologies/aws/credentials,target=/root/.aws/credentials \
+        grep PUBLIC /release-key/earthbuild-public.pgp >/dev/null && \
         eval $(assume-developer-role 1) && \
-        aws s3 cp --acl public-read /release-key/earthly-public.pgp "s3://$S3_BUCKET/earthly.pgp" && \
+        aws s3 cp --acl public-read /release-key/earthbuild-public.pgp "s3://$S3_BUCKET/earthbuild.pgp" && \
         # upload signed repo
         # Note: aws s3 sync doesn't always pickup changes to Release and Packages files, so force a cp to ensure they are uploaded
         aws s3 cp --acl public-read /repo/dists/stable/Release s3://$S3_BUCKET/deb/dists/stable/Release && \

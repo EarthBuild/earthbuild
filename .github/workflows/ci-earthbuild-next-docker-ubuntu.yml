@@ -1,0 +1,197 @@
+name: earthbuild Next Docker CI Ubuntu
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/renovate.json5'
+      - '.github/CODEOWNERS'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-earthbuild-with-next:
+    permissions: write-all
+    uses: ./.github/workflows/build-earthbuild.yml
+    with:
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group1:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group1"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group2:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group2"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group3:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group3"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group4:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group4"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group5:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group5"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group6:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group6"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group7:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group7"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group8:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group8"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group9:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group9"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group10:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group10"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group11:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group11"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthbuild-next-docker-tests-no-qemu-group12:
+    needs: build-earthbuild-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group12"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthbuild-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit

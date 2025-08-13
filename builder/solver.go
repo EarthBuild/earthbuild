@@ -5,13 +5,13 @@ import (
 	"io"
 	"maps"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/fsutilprogress"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/earthfile2llb"
+	"github.com/earthbuild/earthbuild/logbus/solvermon"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/flagutil"
+	"github.com/earthbuild/earthbuild/util/fsutilprogress"
 
 	"github.com/moby/buildkit/client"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -110,7 +110,7 @@ func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onIma
 	return &client.SolveOpt{
 		Exports: []client.ExportEntry{
 			{
-				Type:  client.ExporterEarthly,
+				Type:  client.Exporterearthbuild,
 				Attrs: map[string]string{},
 				Output: func(md map[string]string) (io.WriteCloser, error) {
 					if md["export-image"] != "true" {

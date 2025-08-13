@@ -1,13 +1,13 @@
 #!/bin/bash
-# Note: Most of this test runs as Earthly-in-Earthly so that we can easily mess with the Earthly config
-#       without the host Earthly's config being affected.
+# Note: Most of this test runs as earthbuild-in-earthbuild so that we can easily mess with the earthbuild config
+#       without the host earthbuild's config being affected.
 
 set -uxe
 set -o pipefail
 
 testdir="$(realpath $(dirname "$0"))"
 
-earthly=${earthly-"$testdir/../../build/linux/amd64/earthly"}
+earthbuild=${earthbuild-"$testdir/../../build/linux/amd64/earthbuild"}
 # docker / podman
 frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
@@ -15,7 +15,7 @@ test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 # Cleanup previous run.
 "$frontend" stop registry || true
 "$frontend" rm registry || true
-"$frontend" network disconnect registry-certs earthly-buildkitd || true
+"$frontend" network disconnect registry-certs earthbuild-buildkitd || true
 "$frontend" network rm registry-certs || true
 rm -rf "$testdir/certs" || true
 
@@ -29,7 +29,7 @@ SUBNET="172.29.0.0/16"
 "$frontend" network create --subnet="$SUBNET" -d bridge registry-certs
 
 # Generate certs.
-"$earthly" \
+"$earthbuild" \
     --build-arg REGISTRY \
     --build-arg REGISTRY_IP \
      "$testdir/+certs"
@@ -47,11 +47,11 @@ SUBNET="172.29.0.0/16"
 
 # Ensure buildkitd can connect to the registry-certs network so that
 # build containers can communicate with the registry.
-"$frontend" network connect registry-certs earthly-buildkitd
+"$frontend" network connect registry-certs earthbuild-buildkitd
 
 # Test.
 set +e
-"$earthly" --allow-privileged \
+"$earthbuild" --allow-privileged \
     --ci \
     --build-arg REGISTRY \
     --build-arg REGISTRY_IP \

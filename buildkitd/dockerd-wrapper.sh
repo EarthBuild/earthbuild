@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 
-EARTHLY_DOCKERD_CACHE_DATA=${EARTHLY_DOCKERD_CACHE_DATA:-"false"}
+EARTHBUILD_DOCKERD_CACHE_DATA=${EARTHBUILD_DOCKERD_CACHE_DATA:-"false"}
 
-EARTHLY_DOCKER_WRAPPER_DEBUG=${EARTHLY_DOCKER_WRAPPER_DEBUG:-''}
-if [ "$EARTHLY_DOCKER_WRAPPER_DEBUG" = "1" ]; then
+EARTHBUILD_DOCKER_WRAPPER_DEBUG=${EARTHBUILD_DOCKER_WRAPPER_DEBUG:-''}
+if [ "$EARTHBUILD_DOCKER_WRAPPER_DEBUG" = "1" ]; then
     echo "enabling docker wrapper debug mode"
     set -x
 fi
@@ -13,7 +13,7 @@ fi
 buildkit_docker_registry='172.30.0.1:8371'
 
 # used to prefix images that are persisted to the WITH DOCKER cache
-earthly_cached_docker_image_prefix="earthly_cached_"
+earthbuild_cached_docker_image_prefix="earthbuild_cached_"
 
 detect_docker_compose_cmd() {
     if command -v docker-compose >/dev/null; then
@@ -31,7 +31,7 @@ detect_docker_compose_cmd() {
 # Runs docker-compose with the right -f flags.
 docker_compose_cmd() {
     compose_file_flags=""
-    for f in $EARTHLY_COMPOSE_FILES; do
+    for f in $EARTHBUILD_COMPOSE_FILES; do
         compose_file_flags="$compose_file_flags -f $f"
     done
     export COMPOSE_HTTP_TIMEOUT=600
@@ -42,21 +42,21 @@ docker_compose_cmd() {
 }
 
 write_compose_config() {
-    mkdir -p /tmp/earthly
-    docker_compose_cmd config >/tmp/earthly/compose-config.yml
+    mkdir -p /tmp/earthbuild
+    docker_compose_cmd config >/tmp/earthbuild/compose-config.yml
 }
 
 execute() {
-    if [ -z "$EARTHLY_DOCKERD_DATA_ROOT" ]; then
-        echo "EARTHLY_DOCKERD_DATA_ROOT not set"
+    if [ -z "$EARTHBUILD_DOCKERD_DATA_ROOT" ]; then
+        echo "EARTHBUILD_DOCKERD_DATA_ROOT not set"
         exit 1
     fi
-    mkdir -p "$EARTHLY_DOCKERD_DATA_ROOT"
+    mkdir -p "$EARTHBUILD_DOCKERD_DATA_ROOT"
 
-    EARTHLY_FLOCK_AQUIRED=${EARTHLY_FLOCK_AQUIRED:-''}
+    EARTHBUILD_FLOCK_AQUIRED=${EARTHBUILD_FLOCK_AQUIRED:-''}
 
-    if [ -f "/sys/fs/cgroup/cgroup.controllers" ] && [ -z "$EARTHLY_FLOCK_AQUIRED" ]; then
-        if [ "$EARTHLY_DOCKER_WRAPPER_DEBUG" = "1" ]; then
+    if [ -f "/sys/fs/cgroup/cgroup.controllers" ] && [ -z "$EARTHBUILD_FLOCK_AQUIRED" ]; then
+        if [ "$EARTHBUILD_DOCKER_WRAPPER_DEBUG" = "1" ]; then
             echo >&2 "detected cgroups v2"
         fi
 
@@ -64,7 +64,7 @@ execute() {
         mkdir /sys/fs/cgroup/dockerd-wrapper
         echo $$ > /sys/fs/cgroup/dockerd-wrapper/cgroup.procs
 
-        # earthly wraps dockerd-wrapper.sh with a call via /bin/sh -c '....'
+        # earthbuild wraps dockerd-wrapper.sh with a call via /bin/sh -c '....'
         # so we also need to move the parent pid into this new group, which is weird
         # TODO: we should unwrap this so $$ is all we need to move
         echo 1 > /sys/fs/cgroup/dockerd-wrapper/cgroup.procs
@@ -79,10 +79,10 @@ execute() {
         fi
     fi
 
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ] && [ -z "$EARTHLY_FLOCK_AQUIRED" ]; then
-        FLOCK_PATH="$EARTHLY_DOCKERD_DATA_ROOT/.earthly-docker-lock"
+    if [ "$EARTHBUILD_DOCKERD_CACHE_DATA" = "true" ] && [ -z "$EARTHBUILD_FLOCK_AQUIRED" ]; then
+        FLOCK_PATH="$EARTHBUILD_DOCKERD_DATA_ROOT/.earthbuild-docker-lock"
         echo "aquiring flock for $FLOCK_PATH"
-        export EARTHLY_FLOCK_AQUIRED="true"
+        export EARTHBUILD_FLOCK_AQUIRED="true"
         # dockerd-wrapper.sh will be recursively called once the lock is aquired
         flock "$FLOCK_PATH" "$0" "$@"
         exit 0
@@ -111,38 +111,38 @@ execute() {
         fi
     done
 
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$EARTHBUILD_DOCKERD_CACHE_DATA" = "true" ]; then
         clean_leftover_docker_objects
 
         # rename existing tags, so we can track which ones get re-tagged
         for img in $(docker images -q); do
-            docker tag "$img" "${earthly_cached_docker_image_prefix}${img}"
+            docker tag "$img" "${earthbuild_cached_docker_image_prefix}${img}"
         done
-        docker images -a --format '{{.Repository}}:{{.Tag}}' | grep -v "^$earthly_cached_docker_image_prefix" | xargs --no-run-if-empty docker rmi --force
+        docker images -a --format '{{.Repository}}:{{.Tag}}' | grep -v "^$earthbuild_cached_docker_image_prefix" | xargs --no-run-if-empty docker rmi --force
     fi
 
     load_file_images
     load_registry_images
 
     # delete cached images (which weren't re-tagged via the pull)
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
-        docker images -f reference=$earthly_cached_docker_image_prefix'*' --format '{{.Repository}}:{{.Tag}}' | xargs --no-run-if-empty docker rmi --force
+    if [ "$EARTHBUILD_DOCKERD_CACHE_DATA" = "true" ]; then
+        docker images -f reference=$earthbuild_cached_docker_image_prefix'*' --format '{{.Repository}}:{{.Tag}}' | xargs --no-run-if-empty docker rmi --force
         docker images -f "dangling=true" -q | xargs --no-run-if-empty docker rmi --force
     fi
 
-    if [ "$EARTHLY_START_COMPOSE" = "true" ]; then
+    if [ "$EARTHBUILD_START_COMPOSE" = "true" ]; then
         # shellcheck disable=SC2086
-        docker_compose_cmd up -d $EARTHLY_COMPOSE_SERVICES
+        docker_compose_cmd up -d $EARTHBUILD_COMPOSE_SERVICES
     fi
 
     shift
-    export EARTHLY_WITH_DOCKER=1
+    export EARTHBUILD_WITH_DOCKER=1
     set +e
     "$@"
     exit_code="$?"
     set -e
 
-    if [ "$EARTHLY_START_COMPOSE" = "true" ]; then
+    if [ "$EARTHBUILD_START_COMPOSE" = "true" ]; then
         docker_compose_cmd down --remove-orphans
     fi
     stop_dockerd
@@ -150,10 +150,10 @@ execute() {
 }
 
 start_dockerd() {
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
-        data_root="$EARTHLY_DOCKERD_DATA_ROOT"
+    if [ "$EARTHBUILD_DOCKERD_CACHE_DATA" = "true" ]; then
+        data_root="$EARTHBUILD_DOCKERD_DATA_ROOT"
     else
-        data_root=$(TMPDIR="$EARTHLY_DOCKERD_DATA_ROOT/" mktemp -d)
+        data_root=$(TMPDIR="$EARTHBUILD_DOCKERD_DATA_ROOT/" mktemp -d)
     fi
     echo "Starting dockerd with data root $data_root"
 
@@ -228,7 +228,7 @@ EOF
         if [ "$fail" = "true" ]; then
             # Print dockerd logs on start failure.
             print_dockerd_logs
-            echo "If you are having trouble running docker, try using the official earthly/dind image instead"
+            echo "If you are having trouble running docker, try using the official earthbuild/dind image instead"
             return 1
         fi
         i=$((i+1))
@@ -267,7 +267,7 @@ stop_dockerd() {
 }
 
 wipe_data_root() {
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$EARTHBUILD_DOCKERD_CACHE_DATA" = "true" ]; then
         return 0
     fi
     if ! rm -rf "$1" 2>/dev/null >&2 && [ -n "$(ls -A "$1")" ]; then
@@ -293,9 +293,9 @@ wipe_data_root() {
 }
 
 load_file_images() {
-    if [ -n "$EARTHLY_DOCKER_LOAD_FILES" ]; then
+    if [ -n "$EARTHBUILD_DOCKER_LOAD_FILES" ]; then
         echo "Loading images from BuildKit via tar files..."
-        for img in $EARTHLY_DOCKER_LOAD_FILES; do
+        for img in $EARTHBUILD_DOCKER_LOAD_FILES; do
             docker load -i "$img" || (stop_dockerd; exit 1)
         done
         echo "...done"
@@ -329,14 +329,14 @@ clean_leftover_docker_objects() {
 }
 
 load_registry_images() {
-    EARTHLY_DOCKER_LOAD_REGISTRY=${EARTHLY_DOCKER_LOAD_REGISTRY:-''}
-    if [ -n "$EARTHLY_DOCKER_LOAD_REGISTRY" ]; then
+    EARTHBUILD_DOCKER_LOAD_REGISTRY=${EARTHBUILD_DOCKER_LOAD_REGISTRY:-''}
+    if [ -n "$EARTHBUILD_DOCKER_LOAD_REGISTRY" ]; then
         echo "Loading images from BuildKit via embedded registry..."
 
         start_time="$(get_current_time_ns)"
         bg_processes=""  # Initialize the background processes variable
 
-        for img in $EARTHLY_DOCKER_LOAD_REGISTRY; do
+        for img in $EARTHBUILD_DOCKER_LOAD_REGISTRY; do
             case "$img" in
                 *'|'*)
                     with_reg="$buildkit_docker_registry/$(printf '%s' "$img" | cut -d'|' -f1)"
@@ -372,17 +372,17 @@ load_registry_images() {
     fi
 }
 
-EARTHLY_DOCKER_WRAPPER_DEBUG_CMD=${EARTHLY_DOCKER_WRAPPER_DEBUG_CMD:-''}
-if [ -n "$EARTHLY_DOCKER_WRAPPER_DEBUG_CMD" ]; then
-    echo "Running debug command: $EARTHLY_DOCKER_WRAPPER_DEBUG_CMD"
-    eval "$EARTHLY_DOCKER_WRAPPER_DEBUG_CMD"
+EARTHBUILD_DOCKER_WRAPPER_DEBUG_CMD=${EARTHBUILD_DOCKER_WRAPPER_DEBUG_CMD:-''}
+if [ -n "$EARTHBUILD_DOCKER_WRAPPER_DEBUG_CMD" ]; then
+    echo "Running debug command: $EARTHBUILD_DOCKER_WRAPPER_DEBUG_CMD"
+    eval "$EARTHBUILD_DOCKER_WRAPPER_DEBUG_CMD"
     echo "debug command exited with $?; forcing exit 1 to prevent saving RUN snapshot"
     exit 1
 fi
 
-EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT=${EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT:-"/usr/share/earthly/dockerd-wrapper-pre-script"}
-if [ -f "$EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT" ]; then
-    "$EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT"
+EARTHBUILD_DOCKER_WRAPPER_PRE_SCRIPT=${EARTHBUILD_DOCKER_WRAPPER_PRE_SCRIPT:-"/usr/share/earthbuild/dockerd-wrapper-pre-script"}
+if [ -f "$EARTHBUILD_DOCKER_WRAPPER_PRE_SCRIPT" ]; then
+    "$EARTHBUILD_DOCKER_WRAPPER_PRE_SCRIPT"
 fi
 
 case "$1" in

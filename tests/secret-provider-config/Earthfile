@@ -8,48 +8,48 @@ base-secret-provider:
     RUN echo "#!/bin/sh
 set -ex
 export PATH=/weird/path:\$PATH
-earthly --config \$earthly_config config global.secret_provider test-secret-provider
-earthly --config \$earthly_config --verbose -D +test
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+earthbuild --config \$earthbuild_config config global.secret_provider test-secret-provider
+earthbuild --config \$earthbuild_config --verbose -D +test
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
 test:
     FROM +base-secret-provider
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=test.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=test.earth --exec_cmd=/tmp/test-earthbuild-script
     RUN test "$(cat output/value)" = "my secret is williwaw; don't tell anyone."
 
 test-binary:
     FROM +base-secret-provider
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=test-binary.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=test-binary.earth --exec_cmd=/tmp/test-earthbuild-script
 
 base-secret-provider-with-flag:
     RUN echo "#!/bin/sh
 set -ex
 export PATH=/weird/path:\$PATH
-earthly --config \$earthly_config config global.secret_provider \"test-secret-provider --uppercase\"
-earthly --config \$earthly_config --verbose -D +test
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+earthbuild --config \$earthbuild_config config global.secret_provider \"test-secret-provider --uppercase\"
+earthbuild --config \$earthbuild_config --verbose -D +test
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
 test-with-flag:
     FROM +base-secret-provider-with-flag
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=test.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=test.earth --exec_cmd=/tmp/test-earthbuild-script
     RUN test "$(cat output/value)" = "my secret is WILLIWAW; don't tell anyone."
 
 base-secret-provider-with-env:
     RUN echo "#!/bin/sh
 set -ex
 export PATH=/weird/path:\$PATH
-earthly --config \$earthly_config config global.secret_provider \"rot13=true test-secret-provider\"
-earthly --config \$earthly_config --verbose -D +test
-" >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
+earthbuild --config \$earthbuild_config config global.secret_provider \"rot13=true test-secret-provider\"
+earthbuild --config \$earthbuild_config --verbose -D +test
+" >/tmp/test-earthbuild-script && chmod +x /tmp/test-earthbuild-script
 
 test-with-env:
     FROM +base-secret-provider-with-env
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=test.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=test.earth --exec_cmd=/tmp/test-earthbuild-script
     RUN test "$(cat output/value)" = "my secret is jvyyvjnj; don't tell anyone."
 
 test-with-project-secrets:
     FROM +base-secret-provider-with-flag
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=test-with-project-secrets.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=test-with-project-secrets.earth --exec_cmd=/tmp/test-earthbuild-script
     RUN test "$(cat output/value)" = "my secret is org/project; don't tell anyone."
 
 test-all:
@@ -59,12 +59,12 @@ test-all:
     BUILD +test-with-env
     BUILD +test-with-project-secrets
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG pre_command
     ARG exec_cmd
-    DO ..+RUN_EARTHLY \
+    DO ..+RUN_earthbuild \
         --earthfile=$earthfile \
         --pre_command=$pre_command \
         --exec_cmd=$exec_cmd

@@ -16,9 +16,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/config"
-	"github.com/earthly/earthly/util/fileutil"
+	"github.com/earthbuild/earthbuild/ast/hint"
+	"github.com/earthbuild/earthbuild/config"
+	"github.com/earthbuild/earthbuild/util/fileutil"
 )
 
 type certData struct {
@@ -28,7 +28,7 @@ type certData struct {
 
 const (
 	buildkit = "buildkit"
-	earthly  = "earthly"
+	earthbuild  = "earthbuild"
 
 	typeCert   = "CERTIFICATE"
 	typeRSAKey = "RSA PRIVATE KEY"
@@ -76,7 +76,7 @@ func GenCerts(cfg config.Config, hostname string) error {
 			return hint.Wrap(errors.New("cannot generate missing certificates"),
 				fmt.Sprintf("missing certificates: %v", missing),
 				fmt.Sprintf("found certificates: %v", found),
-				"you may want to stop earthly-buildkitd, delete your certificates, and run 'earthly bootstrap' to regenerate certificates",
+				"you may want to stop earthbuild-buildkitd, delete your certificates, and run 'earthbuild bootstrap' to regenerate certificates",
 			)
 		}
 	}
@@ -98,8 +98,8 @@ func GenCerts(cfg config.Config, hostname string) error {
 	if err := genCert(ca, buildkit, hostname, cfg.Global.ServerTLSKey, cfg.Global.ServerTLSCert); err != nil {
 		return errors.Wrapf(err, "could not generate server TLS key/cert pair for %v", buildkit)
 	}
-	if err := genCert(ca, earthly, hostname, cfg.Global.ClientTLSKey, cfg.Global.ClientTLSCert); err != nil {
-		return errors.Wrapf(err, "could not generate client TLS key/cert pair for %v", earthly)
+	if err := genCert(ca, earthbuild, hostname, cfg.Global.ClientTLSKey, cfg.Global.ClientTLSCert); err != nil {
+		return errors.Wrapf(err, "could not generate client TLS key/cert pair for %v", earthbuild)
 	}
 
 	return nil
@@ -174,7 +174,7 @@ func createTLSCert(ca *certData, key *rsa.PrivateKey, role, path, hostname strin
 	cert := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			Organization: []string{fmt.Sprintf("Earthly GRPC: %v side", role)},
+			Organization: []string{fmt.Sprintf("earthbuild GRPC: %v side", role)},
 		},
 		DNSNames:     []string{hostname},
 		IPAddresses:  []net.IP{net.IPv6loopback, net.ParseIP("127.0.0.1")},
@@ -201,7 +201,7 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2021),
 		Subject: pkix.Name{
-			Organization: []string{"Earthly Buildkit GRPC CA"},
+			Organization: []string{"earthbuild Buildkit GRPC CA"},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),

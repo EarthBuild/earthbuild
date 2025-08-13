@@ -4,7 +4,7 @@ steps:
     commands:
       - bash ./.buildkite/brew-upgrade-test.sh
     env:
-      EARTHLY_INSTALL_ID: "earthly-buildkite-macos"
+      EARTHBUILD_INSTALL_ID: "earthbuild-buildkite-macos"
     agents:
       os: macOS
       arch: amd64

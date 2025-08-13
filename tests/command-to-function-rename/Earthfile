@@ -14,25 +14,25 @@ test-calls-from-other-file:
     RUN mkdir -p some/subdir
     COPY caller.earth Earthfile
     COPY command.earth some/subdir/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --target=+test-successful-command
+    DO --pass-args +RUN_earthbuild_ARGS --target=+test-successful-command
     COPY function.earth some/subdir/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --target=+test-successful-function
+    DO --pass-args +RUN_earthbuild_ARGS --target=+test-successful-function
 
 test-failed-calls:
     WORKDIR /my/test
     RUN mkdir -p some/subdir
     COPY caller.earth Earthfile
     COPY function.earth some/subdir/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --target=+test-failed-command
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --target=+test-failed-command
     COPY command.earth some/subdir/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --target=+test-failed-function
+    DO --pass-args +RUN_earthbuild_ARGS --should_fail=true --target=+test-failed-function
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     COMMAND
     ARG earthfile
     ARG target
     ARG should_fail=false
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail

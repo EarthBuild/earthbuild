@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/earthly/earthly/util/cliutil"
+	"github.com/earthbuild/earthbuild/util/cliutil"
 )
 
 const (
@@ -26,10 +26,10 @@ const (
 	// DefaultDarwinProxyWait is the maximum time to wait for the Darwin registry proxy support container to become available.
 	DefaultDarwinProxyWait = 10 * time.Second
 
-	// DefaultBuildkitScheme is the default scheme earthly uses to connect to its buildkitd. tcp or docker-container.
+	// DefaultBuildkitScheme is the default scheme earthbuild uses to connect to its buildkitd. tcp or docker-container.
 	DefaultBuildkitScheme = "docker-container"
 
-	// DefaultConversionParallelism is the default conversion parallelism that Earthly uses internally to generate LLB for BuildKit to consume.
+	// DefaultConversionParallelism is the default conversion parallelism that earthbuild uses internally to generate LLB for BuildKit to consume.
 	DefaultConversionParallelism = 10
 
 	// DefaultBuildkitMaxParallelism is the default max parallelism for buildkit workers.
@@ -41,11 +41,11 @@ const (
 	// DefaultCAKey is the default path to use when looking for a CA key to use for TLS cert generation.
 	DefaultCAKey = "./certs/ca_key.pem"
 
-	// DefaultClientTLSCert is the default path to use when looking for the Earthly TLS cert
-	DefaultClientTLSCert = "./certs/earthly_cert.pem"
+	// DefaultClientTLSCert is the default path to use when looking for the earthbuild TLS cert
+	DefaultClientTLSCert = "./certs/earthbuild_cert.pem"
 
-	// DefaultClientTLSKey is the default path to use when looking for the Earthly TLS key
-	DefaultClientTLSKey = "./certs/earthly_key.pem"
+	// DefaultClientTLSKey is the default path to use when looking for the earthbuild TLS key
+	DefaultClientTLSKey = "./certs/earthbuild_key.pem"
 
 	// DefaultServerTLSCert is the default path to use when looking for the Buildkit TLS cert
 	DefaultServerTLSCert = "./certs/buildkit_cert.pem"
@@ -85,8 +85,8 @@ type GlobalConfig struct {
 	TLSCAKey                   string        `yaml:"tlsca_key"                      help:"The path to the CA key for generating any missing certificates. Relative paths are interpreted as relative to the config path."`
 	ClientTLSCert              string        `yaml:"tlscert"                        help:"The path to the client cert for verification. Relative paths are interpreted as relative to the config path."`
 	ClientTLSKey               string        `yaml:"tlskey"                         help:"The path to the client key for verification. Relative paths are interpreted as relative to the config path."`
-	ServerTLSCert              string        `yaml:"buildkitd_tlscert"              help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."`
-	ServerTLSKey               string        `yaml:"buildkitd_tlskey"               help:"The path to the server key for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."`
+	ServerTLSCert              string        `yaml:"buildkitd_tlscert"              help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when earthbuild manages buildkit."`
+	ServerTLSKey               string        `yaml:"buildkitd_tlskey"               help:"The path to the server key for verification. Relative paths are interpreted as relative to the config path. Only used when earthbuild manages buildkit."`
 	TLSEnabled                 bool          `yaml:"tls_enabled"                    help:"If TLS should be used to communicate with Buildkit. Only honored when BuildkitScheme is 'tcp'."`
 	ContainerFrontend          string        `yaml:"container_frontend"             help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker' and 'podman' (experimental)."`
 	IPTables                   string        `yaml:"ip_tables"                      help:"Which iptables binary to use. Valid values are iptables-legacy or iptables-nft. Bypasses any autodetection."`
@@ -94,8 +94,8 @@ type GlobalConfig struct {
 	GitImage                   string        `yaml:"git_image"                      help:"Image used to resolve git repositories"`
 
 	// Obsolete.
-	CachePath      string `yaml:"cache_path"         help:" *Deprecated* The path to keep Earthly's cache."`
-	BuildkitScheme string `yaml:"buildkit_transport" help:" *Deprecated* Change how Earthly communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental."`
+	CachePath      string `yaml:"cache_path"         help:" *Deprecated* The path to keep earthbuild's cache."`
+	BuildkitScheme string `yaml:"buildkit_transport" help:" *Deprecated* Change how earthbuild communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental."`
 }
 
 // GitConfig contains git-specific config values
@@ -114,7 +114,7 @@ type GitConfig struct {
 	SSHCommand            string `yaml:"ssh_command"                  help:"Set a value for the core.sshCommand git config option, which allows you to provide custom SSH configuration."`
 }
 
-// Config contains user's configuration values from ~/earthly/config.yml
+// Config contains user's configuration values from ~/earthbuild/config.yml
 type Config struct {
 	Global GlobalConfig         `yaml:"global"    help:"Global configuration object. Requires YAML literal to set directly."`
 	Git    map[string]GitConfig `yaml:"git"       help:"Git configuration object. Requires YAML literal to set directly."`
@@ -122,7 +122,7 @@ type Config struct {
 
 // PortOffset is the offset to use for dev ports.
 func PortOffset(installationName string) int {
-	if installationName == "earthly" {
+	if installationName == "earthbuild" {
 		// No offset for the official release.
 		return 0
 	}
@@ -187,7 +187,7 @@ func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
 }
 
 // Upsert adds or modifies the key to be the specified value.
-// This is saved to disk in your earthly config file.
+// This is saved to disk in your earthbuild config file.
 func Upsert(config []byte, path, value string) ([]byte, error) {
 	base := &yaml.Node{}
 	err := yaml.Unmarshal(config, base)
@@ -538,7 +538,7 @@ func cfgPath(instName, path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return path, nil
 	}
-	cfgDir, err := cliutil.GetOrCreateEarthlyDir(instName)
+	cfgDir, err := cliutil.GetOrCreateearthbuildDir(instName)
 	if err != nil {
 		return "", err
 	}

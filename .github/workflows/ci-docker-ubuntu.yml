@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   # this job will output a boolean value to check whether files that require these tests to run
-  # since all jobs depend on `build-earthly` job, conditionally running it will either cause all jobs to run or skip,
+  # since all jobs depend on `build-earthbuild` job, conditionally running it will either cause all jobs to run or skip,
   # depending on the output value of this job
 #  check-essential-files:
 #    # only run on pull request since push to main is already checking files with paths-ignore
@@ -27,14 +27,14 @@ jobs:
 #    permissions:
 #      pull-requests: read
 #    secrets: inherit
-  build-earthly:
+  build-earthbuild:
 #    needs: check-essential-files
     # allow the job to execute even if check-essential-files is skipped
     if: ${{ !failure() }}
     permissions: write-all
-    uses: ./.github/workflows/build-earthly.yml
+    uses: ./.github/workflows/build-earthbuild.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -42,681 +42,681 @@ jobs:
     secrets: inherit
 
   docker-lint:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+lint-all"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-test-misc:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-misc"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group1:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group1"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group2:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group2"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group3:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group3"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group4:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group4"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group5:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group5"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group6:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group6"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group7:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group7"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group8:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group8"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group9:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group9"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group10:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group10"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group11:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group11"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group12:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group12"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-slow:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-slow"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-kind:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-kind"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-test-account:
     if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
+    needs: build-earthbuild
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "./tests/account+test"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-registry-command-dockerhub:
     if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
+    needs: build-earthbuild
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "./tests/registry-command+test-dockerhub"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-registry-command-multi:
     if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
+    needs: build-earthbuild
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "./tests/registry-command+test-multi"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-web-command:
     if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
+    needs: build-earthbuild
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "./tests/web+test"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-test-oidc-command:
     if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
+    needs: build-earthbuild
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "./tests/oidc+test"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-qemu:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-qemu"
       USE_QEMU: true
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-examples-1:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-1"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-examples-2:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-2"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-examples-3:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-3"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-test-local:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test-local.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       BINARY_COMPOSE: "\"docker compose\""
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-push-integrations:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-secret-integrations:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-secrets-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-bootstrap-integrations:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-repo-auth-tests:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-export-test:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-export-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-docker-build-integrations:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-earthbuild-image-test:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-misc-test-1:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-misc-test-2:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-wait-block-main:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   docker-wait-block-quick:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-misc"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group1:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group1"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group2:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group2"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group3:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group3"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group4:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group4"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-slow:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-slow"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-qemu:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       TARGET_NAME: "+test-qemu"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-git-metadata-test:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
     secrets: inherit
 
   race-test-misc:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       TEST_TARGET: "+test-misc"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group1:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       TEST_TARGET: "+test-no-qemu-group1"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group2:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       TEST_TARGET: "+test-no-qemu-group2"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group3:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       TEST_TARGET: "+test-no-qemu-group3"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group4:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       TEST_TARGET: "+test-no-qemu-group4"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-slow:
-    needs: build-earthly
+    needs: build-earthbuild
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTHBUILD_PATH: "./build/linux/amd64/earthbuild"
       TEST_TARGET: "+test-no-qemu-slow"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.build-earthbuild.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit

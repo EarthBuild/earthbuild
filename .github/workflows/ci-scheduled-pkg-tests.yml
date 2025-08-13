@@ -17,7 +17,7 @@ jobs:
       - name: test apt repo
         run: cat CHANGELOG.md | grep '## v[0-9]\+.[0-9]\+.[0-9]\+' | awk '{print $2}' | head -n 1 > expected-version && test -n "$(cat expected-version)"
       - name: test apt repo
-        run: docker run --rm ubuntu /bin/sh -c 'export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release && curl -fsSL https://pkg.earthly.dev/earthly.pgp | gpg --dearmor -o /usr/share/keyrings/earthly-archive-keyring.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/earthly-archive-keyring.gpg] https://pkg.earthly.dev/deb stable main" > /etc/apt/sources.list.d/earthly.list && apt-get update -y && apt-get install -y earthly && earthly --version' | tee apt.log && tail -n 1 apt.log | grep "earthly version $(cat expected-version)"
+        run: docker run --rm ubuntu /bin/sh -c 'export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release && curl -fsSL https://pkg.earthbuild.dev/earthbuild.pgp | gpg --dearmor -o /usr/share/keyrings/earthbuild-archive-keyring.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/earthbuild-archive-keyring.gpg] https://pkg.earthbuild.dev/deb stable main" > /etc/apt/sources.list.d/earthbuild.list && apt-get update -y && apt-get install -y earthbuild && earthbuild --version' | tee apt.log && tail -n 1 apt.log | grep "earthbuild version $(cat expected-version)"
   yum:
     runs-on: ubuntu-latest
     steps:
@@ -29,4 +29,4 @@ jobs:
       - name: test apt repo
         run: cat CHANGELOG.md | grep '## v[0-9]\+.[0-9]\+.[0-9]\+' | awk '{print $2}' | head -n 1 > expected-version && test -n "$(cat expected-version)"
       - name: test yum repo
-        run: docker run --rm fedora /bin/sh -c 'dnf -y install dnf-plugins-core && dnf config-manager --add-repo https://pkg.earthly.dev/earthly.repo && dnf install -y earthly && earthly --version' | tee yum.log && tail -n 1 yum.log | grep "earthly version $(cat expected-version)"
+        run: docker run --rm fedora /bin/sh -c 'dnf -y install dnf-plugins-core && dnf config-manager --add-repo https://pkg.earthbuild.dev/earthbuild.repo && dnf install -y earthbuild && earthbuild --version' | tee yum.log && tail -n 1 yum.log | grep "earthbuild version $(cat expected-version)"

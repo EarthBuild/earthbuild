@@ -1,18 +1,18 @@
 #!/bin/bash
-# This test is designed to be run directly by github actions or on your host (i.e. not earthly-in-earthly)
+# This test is designed to be run directly by github actions or on your host (i.e. not earthbuild-in-earthbuild)
 set -uxe
 set -o pipefail
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-echo "using earthly=$(realpath "$earthly")"
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+echo "using earthbuild=$(realpath "$earthbuild")"
 
 echo "running test part a"
 rm .testbean || true # cleanup
 rm .testpea || true # cleanup
 
-"$earthly" $@ +test
+"$earthbuild" $@ +test
 
 test -f .testbean
 test -f .testpea
@@ -26,7 +26,7 @@ rm .testbean || true # cleanup
 rm .testpea || true # cleanup
 
 set +e
-"$earthly" $@ +test --fail=yesplease
+"$earthbuild" $@ +test --fail=yesplease
 exit_code="$?"
 
 test -f .testbean

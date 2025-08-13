@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/containerd/containerd/platforms"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
+	debuggercommon "github.com/earthbuild/earthbuild/debugger/common"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/oidcutil"
+	"github.com/earthbuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	dockerdWrapperPath          = "/var/earthly/dockerd-wrapper.sh"
-	dockerAutoInstallScriptPath = "/var/earthly/docker-auto-install.sh"
+	dockerdWrapperPath          = "/var/earthbuild/dockerd-wrapper.sh"
+	dockerAutoInstallScriptPath = "/var/earthbuild/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthly/dind:alpine-3.19-docker-25.0.5-r0"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.19-docker-25.0.5-r0"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -177,7 +177,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
-		Filename: fmt.Sprintf("/tmp/earthly/%s", composeConfigFile),
+		Filename: fmt.Sprintf("/tmp/earthbuild/%s", composeConfigFile),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "read compose config file")
@@ -187,14 +187,14 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
-	dockerRoot := path.Join("/var/earthly/dind", dindID)
+	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
 	params := []string{
-		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
-		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),
-		fmt.Sprintf("EARTHLY_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
+		fmt.Sprintf("EARTHBUILD_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
+		fmt.Sprintf("EARTHBUILD_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),
+		fmt.Sprintf("EARTHBUILD_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
 		// This is not actually used, but it is needed in order to bust the cache
 		// in case an image is updated.
-		fmt.Sprintf("EARTHLY_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
+		fmt.Sprintf("EARTHBUILD_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
 	}
 	params = append(params, composeParams(opt)...)
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
@@ -208,10 +208,10 @@ func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []
 
 func composeParams(opt WithDockerOpt) []string {
 	return []string{
-		fmt.Sprintf("EARTHLY_START_COMPOSE=\"%t\"", (len(opt.ComposeFiles) > 0)),
-		fmt.Sprintf("EARTHLY_COMPOSE_FILES=\"%s\"", strings.Join(opt.ComposeFiles, " ")),
-		fmt.Sprintf("EARTHLY_COMPOSE_SERVICES=\"%s\"", strings.Join(opt.ComposeServices, " ")),
-		// fmt.Sprintf("EARTHLY_DEBUG=\"true\""),
+		fmt.Sprintf("EARTHBUILD_START_COMPOSE=\"%t\"", (len(opt.ComposeFiles) > 0)),
+		fmt.Sprintf("EARTHBUILD_COMPOSE_FILES=\"%s\"", strings.Join(opt.ComposeFiles, " ")),
+		fmt.Sprintf("EARTHBUILD_COMPOSE_SERVICES=\"%s\"", strings.Join(opt.ComposeServices, " ")),
+		// fmt.Sprintf("earthbuild_DEBUG=\"true\""),
 	}
 }
 

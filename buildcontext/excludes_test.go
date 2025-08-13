@@ -11,7 +11,7 @@ func Test_readExcludes(t *testing.T) {
 	testcases := []struct {
 		name                  string
 		earthIgnoreContents   string
-		earthlyIgnoreContents string
+		earthbuildIgnoreContents string
 		dockerIgnoreContents  string
 		useDockerIgnore       bool
 		noImplicitIgnore      bool
@@ -19,24 +19,24 @@ func Test_readExcludes(t *testing.T) {
 		expectedErr           error
 	}{
 		{
-			name:                  "only .earthlyignore",
-			earthlyIgnoreContents: `foobar/`,
-			expectedExcludes:      []string{"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore"},
+			name:                  "only .earthbuildignore",
+			earthbuildIgnoreContents: `foobar/`,
+			expectedExcludes:      []string{"foobar", ".tmp-earthbuild-out/", "build.earth", "Earthfile", ".earthignore", ".earthbuildignore"},
 		},
 		{
 			name:                "only .earthignore",
 			earthIgnoreContents: `foobar/`,
-			expectedExcludes:    []string{"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore"},
+			expectedExcludes:    []string{"foobar", ".tmp-earthbuild-out/", "build.earth", "Earthfile", ".earthignore", ".earthbuildignore"},
 		},
 		{
 			name:                 "only .dockerignore",
 			dockerIgnoreContents: `foobar/`,
 			useDockerIgnore:      true,
-			expectedExcludes:     []string{"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore"},
+			expectedExcludes:     []string{"foobar", ".tmp-earthbuild-out/", "build.earth", "Earthfile", ".earthignore", ".earthbuildignore"},
 		},
 		{
-			name:                  "only .earthlyignore with no implicit ignore",
-			earthlyIgnoreContents: `foobar/`,
+			name:                  "only .earthbuildignore with no implicit ignore",
+			earthbuildIgnoreContents: `foobar/`,
 			noImplicitIgnore:      true,
 			expectedExcludes:      []string{"foobar"},
 		},
@@ -63,8 +63,8 @@ func Test_readExcludes(t *testing.T) {
 			expectedExcludes: []string{},
 		},
 		{
-			name:                  "both .earthignore and .earthlyignore results in error",
-			earthlyIgnoreContents: `foobar/`,
+			name:                  "both .earthignore and .earthbuildignore results in error",
+			earthbuildIgnoreContents: `foobar/`,
 			earthIgnoreContents:   `foobar/`,
 			expectedExcludes:      ImplicitExcludes,
 			expectedErr:           errDuplicateIgnoreFile,
@@ -87,15 +87,15 @@ func Test_readExcludes(t *testing.T) {
 				}
 			}
 
-			if testcase.earthlyIgnoreContents != "" {
-				earthlyIgnoreFile, err := os.Create(filepath.Join(dir, earthlyIgnoreFile))
+			if testcase.earthbuildIgnoreContents != "" {
+				earthbuildIgnoreFile, err := os.Create(filepath.Join(dir, earthbuildIgnoreFile))
 				if err != nil {
-					t.Fatalf("failed to create .earthlyignore file")
+					t.Fatalf("failed to create .earthbuildignore file")
 				}
 
-				_, err = earthlyIgnoreFile.WriteString(testcase.earthlyIgnoreContents)
+				_, err = earthbuildIgnoreFile.WriteString(testcase.earthbuildIgnoreContents)
 				if err != nil {
-					t.Fatalf("failed to write .earthlyignore file")
+					t.Fatalf("failed to write .earthbuildignore file")
 				}
 			}
 

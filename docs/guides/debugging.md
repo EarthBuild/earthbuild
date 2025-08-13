@@ -4,7 +4,7 @@ Traditional debugging of errors during image builds often require a developer to
 commands through out the build commands to help reason about the state of the system before the failure occurs.
 This can be slow and cumbersome.
 
-Earthly provides an interactive mode which gives you access to a root shell when an error occurs, which we'll
+earthbuild provides an interactive mode which gives you access to a root shell when an error occurs, which we'll
 cover in this guide.
 
 Let's consider a test example that prints out a randomly generated phrase:
@@ -34,7 +34,7 @@ print(text_model.make_sentence())
 ```
 
 
-Now we can run it with `earthly +test`, and we'll see a failure has occurred:
+Now we can run it with `earthbuild +test`, and we'll see a failure has occurred:
 
 ```
 =========================== FAILURE ===========================
@@ -48,7 +48,7 @@ Now we can run it with `earthly +test`, and we'll see a failure has occurred:
 Error: solve side effects: solve: failed to solve: rpc error: code = Unknown desc = executor failed running [/bin/sh -c  /usr/bin/earth_debugger /bin/sh -c 'python3 generate_phrase.py']: buildkit-runc did not terminate successfully
 ```
 
-Why can't it find the sherlock.txt file? Let's re-run `earthly` with the `--interactive` (or `-i`) flag: `earthly -i +test`
+Why can't it find the sherlock.txt file? Let's re-run `earthbuild` with the `--interactive` (or `-i`) flag: `earthbuild -i +test`
 
 This time we see a slightly different message:
 
@@ -63,7 +63,7 @@ This time we see a slightly different message:
 +test | root@buildkitsandbox:/code#
 ```
 
-This time rather than exiting, earthly will drop us into an interactive root shell within the container of the build environment.
+This time rather than exiting, earthbuild will drop us into an interactive root shell within the container of the build environment.
 This root shell will allow us to execute arbitrary commands within the container to figure out the problem:
 
 ```
@@ -146,10 +146,10 @@ httpd = HTTPServer(('localhost', 8000), SimpleHTTPRequestHandler)
 httpd.serve_forever()
 ```
 
-Let's fire up our integration test with `earthly -P -i +test`:
+Let's fire up our integration test with `earthbuild -P -i +test`:
 
 ```
-buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+buildkitd | Found buildkit daemon as docker container (earthbuild-buildkitd)
 +base | --> FROM python:3
 context | --> local context .
 +base | resolve docker.io/library/python:3@sha256:e9b7e3b4e9569808066c5901b8a9ad315a9f14ae8d3949ece22ae339fff2cad0 100%
@@ -231,7 +231,7 @@ If you ever want to jump into an interactive debugging session at any point in y
   RUN false
 ```
 
-and run earthly with the `--interactive` (or `-i`) flag.
+and run earthbuild with the `--interactive` (or `-i`) flag.
 
 
 Hopefully you won't run into failures, but if you do the interactive debugger may help you discover the root cause more easily. Happy coding.

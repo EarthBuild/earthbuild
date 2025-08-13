@@ -1,9 +1,9 @@
-defmodule Earthly.MixProject do
+defmodule earthbuild.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :earthly,
+      app: :earthbuild,
       version: "0.1.0",
       elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
@@ -16,7 +16,7 @@ defmodule Earthly.MixProject do
     [
       applications: [:timex],
       extra_applications: [:logger],
-      mod: {Earthly.Application, []}
+      mod: {earthbuild.Application, []}
     ]
   end
 

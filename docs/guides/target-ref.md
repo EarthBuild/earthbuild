@@ -1,6 +1,6 @@
 # Target, artifact and function referencing
 
-This page describes the different types of references used in Earthly:
+This page describes the different types of references used in earthbuild:
 
 * Target references: `<project-ref>+my-target`
 * Artifact references: `<project-ref>+my-target/my-artifact.bin`
@@ -10,7 +10,7 @@ This page describes the different types of references used in Earthly:
 
 ## Target reference
 
-Target references point to an Earthly target. They have the general form
+Target references point to an earthbuild target. They have the general form
 
 `<project-ref>+<target>`
 
@@ -20,7 +20,7 @@ Here are some examples:
 
 * `+build`
 * `./js+deps`
-* `github.com/earthly/earthly:v0.8.13+earthly`
+* `github.com/earthbuild/earthbuild:v0.8.16+earthbuild`
 
 ## Artifact reference
 
@@ -33,7 +33,7 @@ Here are some examples:
 * `+build/my-artifact`
 * `+build/some/artifact/deep/in/a/dir`
 * `./js+build/dist`
-* `github.com/earthly/earthly:v0.8.13+earthly/earthly`
+* `github.com/earthbuild/earthbuild:v0.8.16+earthbuild/earthbuild`
 
 ## Image reference
 
@@ -53,7 +53,7 @@ Here are some examples:
 
 * `+COMPILE`
 * `./js+NPM_INSTALL`
-* `github.com/earthly/earthly:v0.8.13+DOWNLOAD_DIND`
+* `github.com/earthbuild/earthbuild:v0.8.16+DOWNLOAD_DIND`
 
 For more information on functions, see the [functions guide](./functions.md).
 
@@ -61,7 +61,7 @@ For more information on functions, see the [functions guide](./functions.md).
 
 <img src="img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="800px" />
 
-Project references appear in target, artifact and function references. They point to the Earthfile containing the respective target, artifact or function. Below are the different types of project references available in Earthly.
+Project references appear in target, artifact and function references. They point to the Earthfile containing the respective target, artifact or function. Below are the different types of project references available in earthbuild.
 
 ### Local, internal
 
@@ -72,7 +72,7 @@ The simplest form, is where a target, function or artifact is referenced from th
 | (**empty string**) | `+<target-name>` | `+<target-name>/<artifact-path>` | `+<function-name>` |
 | (**empty string**) | `+build` | `+build/out.bin` | `+COMPILE` |
 
-In this form, Earthly will look for the target within the same Earthfile. We call this type of referencing local, internal. Local, because it comes from the same system, and internal, because it is within the same Earthfile.
+In this form, earthbuild will look for the target within the same Earthfile. We call this type of referencing local, internal. Local, because it comes from the same system, and internal, because it is within the same Earthfile.
 
 ### Local, external
 
@@ -92,8 +92,8 @@ Another form of a project reference is the remote form. In this form, the recipe
 | Project ref | Target ref | Artifact ref | Function ref |
 |----|----|----|----|
 | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>/<artifact-path>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<function-name>` |
-| `github.com/earthly/earthly/buildkitd` | `github.com/earthly/earthly/buildkitd+build` | `github.com/earthly/earthly/buildkitd+build/out.bin` | `github.com/earthly/earthly/buildkitd+COMPILE` |
-| `github.com/earthly/earthly:v0.8.13` | `github.com/earthly/earthly:v0.8.13+build` | `github.com/earthly/earthly:v0.8.13+build/out.bin` | `github.com/earthly/earthly:v0.8.13+COMPILE` |
+| `github.com/earthbuild/earthbuild/buildkitd` | `github.com/earthbuild/earthbuild/buildkitd+build` | `github.com/earthbuild/earthbuild/buildkitd+build/out.bin` | `github.com/earthbuild/earthbuild/buildkitd+COMPILE` |
+| `github.com/earthbuild/earthbuild:v0.8.16` | `github.com/earthbuild/earthbuild:v0.8.16+build` | `github.com/earthbuild/earthbuild:v0.8.16+build/out.bin` | `github.com/earthbuild/earthbuild:v0.8.16+COMPILE` |
 
 ### Import reference
 
@@ -102,13 +102,13 @@ Finally, the last form of project referencing is an import reference. Import ref
 | Import command | Project ref | Target ref | Artifact ref | Function ref |
 |----|----|----|----|----|
 | `IMPORT <full-project-ref> AS <import-alias>` | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
-| `IMPORT github.com/earthly/earthly/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
-| `IMPORT github.com/earthly/earthly:v0.8.13` | `earthly` | `earthly+build` | `earthly+build/out.bin` | `earthly+COMPILE` |
+| `IMPORT github.com/earthbuild/earthbuild/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
+| `IMPORT github.com/earthbuild/earthbuild:v0.8.16` | `earthbuild` | `earthbuild+build` | `earthbuild+build/out.bin` | `earthbuild+COMPILE` |
 
 Here is an example in an Earthfile:
 
 ```Dockerfile
-IMPORT github.com/earthly/earthly/buildkitd
+IMPORT github.com/earthbuild/earthbuild/buildkitd
 
 ...
 
@@ -133,10 +133,10 @@ build:
 
 Most references have a canonical form. It is essentially the remote form of the same target, with repository and tag inferred. The canonical form can be useful as a universal identifier for a target.
 
-For example, depending on where the files are stored, the `+build` target could have the canonical form `github.com/some-user/some-project/some/deep/dir:master+build`, where `github.com/some-user/some-project` was inferred as the Git location, based on the Git remote called `origin`, and `/some/deep/dir` was inferred as the sub-directory where `+build` exists within that repository. The Earthly tag is inferred using the following algorithm:
+For example, depending on where the files are stored, the `+build` target could have the canonical form `github.com/some-user/some-project/some/deep/dir:master+build`, where `github.com/some-user/some-project` was inferred as the Git location, based on the Git remote called `origin`, and `/some/deep/dir` was inferred as the sub-directory where `+build` exists within that repository. The earthbuild tag is inferred using the following algorithm:
 
 * If the current HEAD has at least one Git tag, then use the first Git tag listed by Git, otherwise
 * If the repository is not in detached HEAD mode, use the current branch, otherwise
 * Use the current Git hash.
 
-If no Git context is detected by Earthly, then the target does not have a canonical form.
+If no Git context is detected by earthbuild, then the target does not have a canonical form.

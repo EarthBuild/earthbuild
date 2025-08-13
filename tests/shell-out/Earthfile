@@ -13,35 +13,35 @@ test-all:
     BUILD +test-new-shellout-errors-are-detected
 
 test-old:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=old.earth --target=+test
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=old-no-middle-shell-out.earth --target=+test
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=old-ignore-shellout-errors.earth --target=+test
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=old-fail1.earth --target=+test --should_fail=true --output_contains="/valid-\$.echo file..: not found"
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=old-fail2.earth --target=+test --should_fail=true --output_contains="invalid env key definition \$key"
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=old.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=old-no-middle-shell-out.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=old-ignore-shellout-errors.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=old-fail1.earth --target=+test --should_fail=true --output_contains="/valid-\$.echo file..: not found"
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=old-fail2.earth --target=+test --should_fail=true --output_contains="invalid env key definition \$key"
 
 test-old2:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=old2.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=old2.earth --target=+test
 
 test-old-works-with-new:
     COPY old.earth Earthfile
     RUN sed -i "1s/VERSION .*/VERSION 0.8/" Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --target=+test
 
 test-new-shellout-errors-are-detected:
     COPY old-ignore-shellout-errors.earth Earthfile
     RUN sed -i "1s/VERSION .*/VERSION 0.8/" Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --target=+test --should_fail=true
+    DO --pass-args +RUN_earthbuild_ARGS --target=+test --should_fail=true
 
 test-new:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=new.earth --target=+test
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=new.earth --target=+test
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG target
     ARG should_fail=false
     ARG output_contains
-    DO tests+RUN_EARTHLY \
+    DO tests+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail \

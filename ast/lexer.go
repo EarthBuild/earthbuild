@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
-	"github.com/earthly/earthly/ast/parser"
+	"github.com/earthbuild/earthbuild/ast/parser"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 	newlineChannel = antlr.LexerDefaultTokenChannel
 )
 
-// lexer is a lexer for an earthly file, which also emits indentation
+// lexer is a lexer for an earthbuild file, which also emits indentation
 // and dedentation tokens.
 type lexer struct {
 	*parser.EarthLexer

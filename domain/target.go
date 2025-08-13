@@ -13,10 +13,10 @@ const targetNamePattern = "^[a-z][a-zA-Z0-9.\\-]*$"
 
 var targetNameRegex = regexp.MustCompile(targetNamePattern)
 
-// Target is an earthly target identifier.
+// Target is an earthbuild target identifier.
 type Target struct {
 	// Remote representation.
-	GitURL string `json:"gitUrl"` // e.g. "github.com/earthly/earthly/examples/go"
+	GitURL string `json:"gitUrl"` // e.g. "github.com/earthbuild/earthbuild/examples/go"
 	Tag    string `json:"tag"`    // e.g. "main"
 	// Local representation. E.g. in "./some/path+something" this is "./some/path".
 	LocalPath string `json:"localPath"`

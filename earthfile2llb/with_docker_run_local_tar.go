@@ -7,9 +7,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/session/localhost"
 	"github.com/pkg/errors"
@@ -160,7 +160,7 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 }
 
 func (w *withDockerRunLocalTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string, opts ...llb.RunOption) error {
-	outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
+	outDir, err := os.MkdirTemp(os.TempDir(), "earthbuild-docker-load")
 	if err != nil {
 		return errors.Wrap(err, "mk temp dir for docker load")
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/earthbuild/cloud-api/logstream"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -113,7 +113,7 @@ func TestDetermineFatalErrorType(t *testing.T) {
 		},
 		{
 			name:          "git error",
-			errString:     "EARTHLY_GIT_STDERR: Z2l0IC1jI...",
+			errString:     "earthbuild_GIT_STDERR: Z2l0IC1jI...",
 			parseErr:      nil,
 			expectedType:  logstream.FailureType_FAILURE_TYPE_GIT,
 			expectedFatal: true,

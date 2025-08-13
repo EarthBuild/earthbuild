@@ -18,19 +18,19 @@ all:
 #
 #     sudo apt-get install qemu binfmt-support qemu-user-static
 #     docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-#     docker stop earthly-buildkitd || true
+#     docker stop earthbuild-buildkitd || true
 #
 # Then try this example:
 #
-#     earthly +all
-#     docker run --rm earthly/examples:multiplatform
-#     docker run --rm earthly/examples:multiplatform_linux_amd64
-#     docker run --rm earthly/examples:multiplatform_linux_arm64
-#     docker run --rm earthly/examples:multiplatform_linux_arm_v7
-#     docker run --rm earthly/examples:multiplatform_linux_arm_v6
+#     earthbuild +all
+#     docker run --rm earthbuild/examples:multiplatform
+#     docker run --rm earthbuild/examples:multiplatform_linux_amd64
+#     docker run --rm earthbuild/examples:multiplatform_linux_arm64
+#     docker run --rm earthbuild/examples:multiplatform_linux_arm_v7
+#     docker run --rm earthbuild/examples:multiplatform_linux_arm_v6
 #
 docker:
     FROM alpine:3.18
     RUN uname -m
     CMD ["uname", "-m"]
-    SAVE IMAGE --push earthly/examples:multiplatform
+    SAVE IMAGE --push earthbuild/examples:multiplatform

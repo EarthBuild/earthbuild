@@ -1,7 +1,7 @@
 # This demonstrates early cut off optimization from "Build Systems A la Carte"
-# 1) Run `earthly +run`
+# 1) Run `earthbuild +run`
 # 2) Add or remove a comment to main.cpp
-# 3) ReRun `earthly +run`
+# 3) ReRun `earthbuild +run`
 # Result: `build` will rerun, but `link` and `run` will be served from the cache as main.o is unchanged
 
 VERSION 0.8

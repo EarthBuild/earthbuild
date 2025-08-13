@@ -2,13 +2,13 @@ package common
 
 const (
 	// DebuggerSettingsSecretsKey stores the secrets key name
-	DebuggerSettingsSecretsKey = "earthly_debugger_settings"
+	DebuggerSettingsSecretsKey = "earthbuild_debugger_settings"
 
 	// DebuggerDefaultSocketPath is the default socket to connect to (path is inside the container)
-	DebuggerDefaultSocketPath = "/var/run/earthly_interactive"
+	DebuggerDefaultSocketPath = "/var/run/earthbuild_interactive"
 
 	// DefaultSaveFileSocketPath is the default socket to connect to when sending back files (path is inside the container)
-	DefaultSaveFileSocketPath = "/var/run/earthly_save"
+	DefaultSaveFileSocketPath = "/var/run/earthbuild_save"
 )
 
 // DebuggerSettings is used to pass settings to the debugger

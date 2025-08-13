@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
 WORKDIR /scala-example
 RUN apk add openjdk11 bash wget postgresql-client
 
@@ -24,7 +24,7 @@ project-files:
     COPY project project
     # Run sbt for caching purposes.
     RUN touch a.scala && sbt compile && rm a.scala
-    SAVE IMAGE --push earthly/examples:integration-project-files
+    SAVE IMAGE --push earthbuild/examples:integration-project-files
 
 build:
     FROM +project-files
@@ -50,7 +50,7 @@ docker:
     COPY src src
     RUN sbt 'set test in assembly := {}' assembly
     ENTRYPOINT ["java","-cp","target/scala-2.12/scala-example-assembly-1.0.jar","Main"]
-    SAVE IMAGE --push earthly/examples:integration
+    SAVE IMAGE --push earthbuild/examples:integration
 
 smoke-test:
     FROM +project-files

@@ -7,8 +7,8 @@ export EARTHLY_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-"$earthly" --version
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+"$earthbuild" --version
 
 # display a pass/fail message at the end
 function finish {
@@ -24,5 +24,5 @@ trap finish EXIT
 # Cleanup from previous tests
 rm -f data
 
-"$earthly" $@ +test
+"$earthbuild" $@ +test
 test "$(cat data)" = "162948536bc2"

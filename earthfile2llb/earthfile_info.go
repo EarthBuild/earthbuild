@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/platutil"
+	"github.com/earthbuild/earthbuild/ast/commandflag"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/util/flagutil"
+	"github.com/earthbuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 )
 
 // These are functions that are used for getting information about an Earthfile,
-// most notably for `earthly doc` and `earthly ls` output.
+// most notably for `earthbuild doc` and `earthbuild ls` output.
 
 // GetTargets returns a list of targets from an Earthfile.
 // Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used)

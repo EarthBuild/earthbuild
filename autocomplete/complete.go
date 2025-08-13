@@ -11,10 +11,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/util/fileutil"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/earthfile2llb"
+	"github.com/earthbuild/earthbuild/util/fileutil"
 
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v2"
@@ -343,9 +343,9 @@ const (
 type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 
 // GetPotentials returns a list of potential arguments for shell auto completion
-// NOTE: you can cause earthly to run this command with:
+// NOTE: you can cause earthbuild to run this command with:
 //
-//	COMP_LINE="earthly -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
+//	COMP_LINE="earthbuild -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthbuild/main.go
 func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, compLine string, compPoint int, app *cli.App) ([]string, error) {
 	if compPoint > len(compLine) {
 		return nil, errCompPointOutOfBounds
@@ -358,7 +358,7 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 
 	// getWord returns the next word and a boolean if it is valid
 	// TODO this function does not handle escaped space, e.g.
-	// earthly --build-arg key="value with space" +mytarget will fail
+	// earthbuild --build-arg key="value with space" +mytarget will fail
 	hasNextWord := len(compLine) > 0
 	getWord := func() (string, bool) {
 		if !hasNextWord {
@@ -376,7 +376,7 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 		return word, true
 	}
 
-	// remove first word which is most likely "earthly", or "/some/path/to/earthly", etc.
+	// remove first word which is most likely "earthbuild", or "/some/path/to/earthbuild", etc.
 	prevWord, _ := getWord()
 
 	state := rootState

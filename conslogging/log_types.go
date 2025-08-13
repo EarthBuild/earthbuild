@@ -50,7 +50,7 @@ type TargetManifest struct {
 	Summary  string `json:"summary,omitempty"`
 }
 
-// Permissions is the structure for the permissions manifest that can grant view rights to other Earthly users.
+// Permissions is the structure for the permissions manifest that can grant view rights to other earthbuild users.
 type Permissions struct {
 	Version int      `json:"version"`
 	Users   []string `json:"users"`

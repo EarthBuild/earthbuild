@@ -15,8 +15,8 @@ ubuntu:
   RUN apt install -y curl unzip
 
 login:
-  ARG EARTHLY_CI
-  IF [ "$EARTHLY_CI" = "false" ]
+  ARG EARTHBUILD_CI
+  IF [ "$EARTHBUILD_CI" = "false" ]
     ARG --required sso_region
     FROM +python
     # https://github.com/benkehoe/aws-export-credentials
@@ -25,11 +25,11 @@ login:
     COPY +dev.login/aws /root/.aws
     RUN aws-export-credentials --profile default --credentials-file-profile default
     SAVE ARTIFACT /root/.aws/credentials /credentials
-  ELSE IF [ "$EARTHLY_CI" = "true" ]
+  ELSE IF [ "$EARTHBUILD_CI" = "true" ]
     RUN mkdir -p /root/.aws/
     RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --secret AWS_SESSION_TOKEN printf "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY\naws_session_token=$AWS_SESSION_TOKEN\n" >> /root/.aws/credentials
   ELSE
-    RUN echo "bad value for EARTHLY_CI" && exit 1
+    RUN echo "bad value for EARTHBUILD_CI" && exit 1
   END
   SAVE ARTIFACT /root/.aws/credentials /credentials
 
@@ -39,9 +39,9 @@ dev.login.open:
   RUN command -v python3 >/dev/null || (echo "python3 is needed locally" && exit 1)
   # unbuffer will preserve colored output if installed
   IF command -v unbuffer
-    RUN unbuffer earthly +dev.login 2>&1 | tee /dev/tty | grep --line-buffered -Eo "[A-Z]{4}-[A-Z]{4}" | xargs -I % sh -c "python3 -m webbrowser https://device.sso.$sso_region.amazonaws.com/?user_code=%"
+    RUN unbuffer earthbuild +dev.login 2>&1 | tee /dev/tty | grep --line-buffered -Eo "[A-Z]{4}-[A-Z]{4}" | xargs -I % sh -c "python3 -m webbrowser https://device.sso.$sso_region.amazonaws.com/?user_code=%"
   ELSE
-    RUN earthly +dev.login 2>&1 | tee /dev/tty | grep --line-buffered -Eo "[A-Z]{4}-[A-Z]{4}" | xargs -I % sh -c "python3 -m webbrowser https://device.sso.$sso_region.amazonaws.com/?user_code=%"
+    RUN earthbuild +dev.login 2>&1 | tee /dev/tty | grep --line-buffered -Eo "[A-Z]{4}-[A-Z]{4}" | xargs -I % sh -c "python3 -m webbrowser https://device.sso.$sso_region.amazonaws.com/?user_code=%"
   END
 
 # Uses `aws sso login` to login to the AWS account

@@ -1,14 +1,14 @@
-To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part5) run
+To copy the files for [this example ( Part 5 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part5/part5 ./part5
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part5/part5 ./part5
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
 
 ## Calling on Targets From Other Earthfiles
 
-So far we've seen how the `FROM` command in Earthly has the ability to reference another target's image as its base image, like in the case below where the `+build` target uses the image from the `+deps` target.
+So far we've seen how the `FROM` command in earthbuild has the ability to reference another target's image as its base image, like in the case below where the `+build` target uses the image from the `+deps` target.
 
 ```Dockerfile
 VERSION 0.8
@@ -70,9 +70,9 @@ build:
     RUN go build -o output/example main.go
     SAVE ARTIFACT output/example AS LOCAL local-output/go-example
 ```
-This code tells `FROM` that there is another Earthfile in  the `services/service-one` directory and that the Earthfile  contains a target called `+deps`. In this case, if we were to run `+build` Earthly is smart enough to go into the subdirectory, run the  `+deps` target in that Earthfile, and then use it as the base image for `+build`.
+This code tells `FROM` that there is another Earthfile in  the `services/service-one` directory and that the Earthfile  contains a target called `+deps`. In this case, if we were to run `+build` earthbuild is smart enough to go into the subdirectory, run the  `+deps` target in that Earthfile, and then use it as the base image for `+build`.
 
-We can also reference an Earthfile in another repo, which works in a similar way. If the reference does not begin with one of `/`, `./`, or `../`, then earthly treats it as a repository.  See [the reference](../earthfile/earthfile.md#from) for details.
+We can also reference an Earthfile in another repo, which works in a similar way. If the reference does not begin with one of `/`, `./`, or `../`, then earthbuild treats it as a repository.  See [the reference](../earthfile/earthfile.md#from) for details.
 
 ```Dockerfile
 build:
@@ -106,10 +106,10 @@ Then, in our `+build` target we can inherit from any target in the imported Eart
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part5) run
+To copy the files for [this example ( Part 5 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part5/part5 ./part5
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part5/part5 ./part5
 ```
 
 `./Earthfile`
@@ -140,10 +140,10 @@ docker:
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part5) run
+To copy the files for [this example ( Part 5 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part5/part5 ./part5
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part5/part5 ./part5
 ```
 
 
@@ -176,10 +176,10 @@ docker:
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part5) run
+To copy the files for [this example ( Part 5 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part5/part5 ./part5
+earthbuild --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part5/part5 ./part5
 ```
 
 `./Earthfile`

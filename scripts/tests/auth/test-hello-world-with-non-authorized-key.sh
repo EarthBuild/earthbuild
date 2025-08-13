@@ -14,5 +14,5 @@ ssh-add /tmp/non-authorized-ssh-key
 # test that only the above key is loaded
 test "$(ssh-add -l | wc -l)" = "1"
 
-# test earthly can access a public repo
-"$earthly" github.com/EarthBuild/hello-world:main+hello
+# test earthbuild can access a public repo
+"$earthbuild" github.com/EarthBuild/hello-world:main+hello

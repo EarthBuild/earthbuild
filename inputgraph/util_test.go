@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +23,7 @@ func TestParseProjectCommand(t *testing.T) {
 
 	org, project, err := ParseProjectCommand(ctx, target, cons)
 	r.NoError(err)
-	r.Equal("earthly-technologies", org)
+	r.Equal("earthbuild-technologies", org)
 	r.Equal("core", project)
 }
 

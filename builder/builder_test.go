@@ -6,19 +6,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/earthly/earthly/cleanup"
+	"github.com/earthbuild/earthbuild/cleanup"
 )
 
-// TestTempEarthlyOutDir tests that tempEarthlyOutDir always returns the same directory
-func TestTempEarthlyOutDir(t *testing.T) {
+// TestTempEarthbuildOutDir tests that tempEarthbuildOutDir always returns the same directory
+func TestTempEarthbuildOutDir(t *testing.T) {
 	b, _ := NewBuilder(context.Background(), Opt{
 		CleanCollection: cleanup.NewCollection(),
 	})
 
-	outDir1, err := b.tempEarthlyOutDir()
+	outDir1, err := b.tempEarthbuildOutDir()
 	assert.NoError(t, err)
 
-	outDir2, err := b.tempEarthlyOutDir()
+	outDir2, err := b.tempEarthbuildOutDir()
 	assert.NoError(t, err)
 
 	b.opt.CleanCollection.Close()

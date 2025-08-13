@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"git.sr.ht/~nelsam/hel/vegr"
-	"github.com/earthly/earthly/util/proj"
+	"github.com/earthbuild/earthbuild/util/proj"
 )
 
 type mockFS struct {

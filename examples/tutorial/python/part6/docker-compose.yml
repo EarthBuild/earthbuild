@@ -7,7 +7,7 @@ services:
     hostname: postgres
     environment:
       - POSTGRES_DB=test_db
-      - POSTGRES_USER=earthly
+      - POSTGRES_USER=earthbuild
       - POSTGRES_PASSWORD=password
     ports:
       - 5432:5432

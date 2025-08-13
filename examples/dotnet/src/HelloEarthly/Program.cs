@@ -1,7 +1,7 @@
 ﻿using System;
 using NodaTime;
 
-namespace HelloEarthly
+namespace Helloearthbuild
 {
     class Program
     {

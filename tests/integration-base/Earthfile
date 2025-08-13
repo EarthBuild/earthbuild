@@ -1,6 +1,6 @@
 VERSION 0.8
 
-# test-base exists as a way to prevent passing all args to the root earthly-integration-test-base target
+# test-base exists as a way to prevent passing all args to the root earthbuild-integration-test-base target
 test-base:
   ARG DOCKERHUB_MIRROR
   ARG DOCKERHUB_MIRROR_INSECURE=false
@@ -10,7 +10,7 @@ test-base:
   ARG DOCKERHUB_AUTH=false
   ARG BUILDKIT_PROJECT
 
-  FROM ../..+earthly-integration-test-base \
+  FROM ../..+earthbuild-integration-test-base \
     --DOCKERHUB_MIRROR=$DOCKERHUB_MIRROR \
     --DOCKERHUB_MIRROR_INSECURE=$DOCKERHUB_MIRROR_INSECURE \
     --DOCKERHUB_MIRROR_HTTP=$DOCKERHUB_MIRROR_HTTP \
@@ -20,4 +20,4 @@ test-base:
     --BUILDKIT_PROJECT=$BUILDKIT_PROJECT
 
   # uncomment this to debug dockerhub rate-limiting issues
-  #RUN if !grep "registry-1.docker.io.mirror.corp.earthly.dev" /root/.docker/config.json >/dev/null; then echo "The earthly mirror was not setup correctly" && exit 1; fi
+  #RUN if !grep "registry-1.docker.io.mirror.corp.earthbuild.dev" /root/.docker/config.json >/dev/null; then echo "The earthbuild mirror was not setup correctly" && exit 1; fi

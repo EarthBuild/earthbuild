@@ -1,7 +1,7 @@
 package llbfactory
 
 import (
-	"github.com/earthly/earthly/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
 
 	"github.com/moby/buildkit/client/llb"
 )

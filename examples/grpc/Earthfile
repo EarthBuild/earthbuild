@@ -3,25 +3,25 @@ FROM node:13.10.1-alpine3.11
 
 WORKDIR /example-grpc
 
-# This example shows how to use earthly to compile a protobuf grpc definition
+# This example shows how to use earthbuild to compile a protobuf grpc definition
 # into protobuf code for both a Go-based server, and a python-based client.
 #
 # This example spans 5 different git repositories, each containing an Earthfile:
 #
-# 1) https://github.com/EarthBuild/earthly-example-proto
+# 1) https://github.com/EarthBuild/earthbuild-example-proto
 # This repository contains the api.proto definition along with an Earthfile
 # which installs the various protoc tools required to generate the go, python,
 # and ruby code.
 #
-# 2) https://github.com/EarthBuild/earthly-example-proto-server
+# 2) https://github.com/EarthBuild/earthbuild-example-proto-server
 # This repository contains a server written in go along with an Earthfile
 # that pulls in the auto-generated go code from repo 1.
 #
-# 3) https://github.com/EarthBuild/earthly-example-proto-python-client
+# 3) https://github.com/EarthBuild/earthbuild-example-proto-python-client
 # This repository contains a client written in python along with an Earthfile
 # that pulls in the auto-generated python code from repo 1.
 #
-# 4) https://github.com/EarthBuild/earthly-example-proto-ruby-client
+# 4) https://github.com/EarthBuild/earthbuild-example-proto-ruby-client
 # This repository contains a client written in ruby along with an Earthfile
 # that pulls in the auto-generated python code from repo 1.
 
@@ -35,11 +35,11 @@ WORKDIR /example-grpc
 #      the returned value is "salmon".
 
 test:
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
     WITH DOCKER \
-        --load kvserver:latest=github.com/EarthBuild/earthly-example-proto-server:main+kvserver-docker \
-        --load kv-py-client:latest=github.com/EarthBuild/earthly-example-proto-python-client:main+kvclient-docker \
-        --load kv-rb-client:latest=github.com/EarthBuild/earthly-example-proto-ruby-client:main+kv-ruby-client-docker \
+        --load kvserver:latest=github.com/EarthBuild/earthbuild-example-proto-server:main+kvserver-docker \
+        --load kv-py-client:latest=github.com/EarthBuild/earthbuild-example-proto-python-client:main+kvclient-docker \
+        --load kv-rb-client:latest=github.com/EarthBuild/earthbuild-example-proto-ruby-client:main+kv-ruby-client-docker \
         --platform linux/amd64 # Ruby and Python(evidence suggests?) seem to have a hard time building in Docker on M1. https://github.com/grpc/grpc/issues/26664
         RUN --mount=type=cache,target=/go/pkg \
             docker run --name server --network=host -d kvserver:latest && \

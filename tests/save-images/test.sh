@@ -7,21 +7,21 @@ export EARTHLY_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../build/linux/amd64/earthly"}
-"$earthly" --version
+earthbuild=${earthbuild-"../../build/linux/amd64/earthbuild"}
+"$earthbuild" --version
 # docker / podman
 frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 
-# NOTE: the "old behaviour" tests were removed when earthly v0.8 was released
+# NOTE: the "old behaviour" tests were removed when earthbuild v0.8 was released
 # which obsoleted VERSION 0.5 functionality. TODO: rename "new behaviour to current behaviour"
 
 echo "=== ($LINENO): Test New Behaviour ==="
 
 "$frontend" rmi -f myimage:test
 "$frontend" rmi -f mysubimage:test
-"$frontend" rmi -f earthly-test-saveimage:test
-"$earthly" ./new-behaviour+myimage
+"$frontend" rmi -f earthbuild-test-saveimage:test
+"$earthbuild" ./new-behaviour+myimage
 
 "$frontend" inspect myimage:test >/dev/null
 
@@ -33,34 +33,34 @@ fi
 echo "=== ($LINENO): Test New Behaviour referencing remote via from ==="
 
 "$frontend" rmi -f myimage:fromtest
-"$frontend" rmi -f earthly-test-saveimage:test
+"$frontend" rmi -f earthbuild-test-saveimage:test
 
-"$earthly" -V ./new-behaviour-remote+myimage-fromtest
+"$earthbuild" -V ./new-behaviour-remote+myimage-fromtest
 "$frontend" inspect myimage:fromtest >/dev/null
-if "$frontend" inspect earthly-test-saveimage:test >/dev/null; then
-    echo "ERROR ($LINENO): earthly-test-saveimage:test should not have been saved."   # THIS IS LEGIT BROKEN
+if "$frontend" inspect earthbuild-test-saveimage:test >/dev/null; then
+    echo "ERROR ($LINENO): earthbuild-test-saveimage:test should not have been saved."   # THIS IS LEGIT BROKEN
     exit 1
 fi
 
 echo "=== ($LINENO): Test New Behaviour referencing remote via copy ==="
 
 "$frontend" rmi -f myimage:copytest
-"$frontend" rmi -f earthly-test-saveimage:test
+"$frontend" rmi -f earthbuild-test-saveimage:test
 
-"$earthly" ./new-behaviour-remote+myimage-copytest
+"$earthbuild" ./new-behaviour-remote+myimage-copytest
 "$frontend" inspect myimage:copytest >/dev/null
-if "$frontend" inspect earthly-test-saveimage:test >/dev/null; then
-	echo "ERROR ($LINENO) : earthly-test-saveimage:test should not have been save3."
+if "$frontend" inspect earthbuild-test-saveimage:test >/dev/null; then
+	echo "ERROR ($LINENO) : earthbuild-test-saveimage:test should not have been save3."
     exit 1
 fi
 
 echo "=== ($LINENO): Test New Behaviour referencing remote via build ==="
 
 "$frontend" rmi -f myimage:buildtest
-"$frontend" rmi -f earthly-test-saveimage:test
+"$frontend" rmi -f earthbuild-test-saveimage:test
 
-"$earthly" ./new-behaviour-remote+myimage-buildtest
+"$earthbuild" ./new-behaviour-remote+myimage-buildtest
 "$frontend" inspect myimage:buildtest >/dev/null
-"$frontend" inspect earthly-test-saveimage:test >/dev/null
+"$frontend" inspect earthbuild-test-saveimage:test >/dev/null
 
 echo "save-images test passed"

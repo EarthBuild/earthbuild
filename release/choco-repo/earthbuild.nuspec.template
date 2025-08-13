@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>earthbuild</id>
+    <version>${EARTHBUILD_VERSION}</version>
+    <packageSourceUrl>https://github.com/earthbuild/earthbuild</packageSourceUrl>
+    <title>earthbuild</title>
+    <owners>dchw</owners>
+    <authors>The earthbuild Team</authors>
+    <projectUrl>https://earthbuild.dev</projectUrl>
+    <iconUrl>https://rawcdn.githack.com/earthbuild/website-output/b8d3fb0379b6be79c541d1266f7e34706916361c/assets/img/favicon.png</iconUrl>
+    <copyright>2021 earthbuild Technologies, Inc.</copyright>
+    <licenseUrl>https://rawcdn.githack.com/earthbuild/earthbuild/59a5603ceaaca55bdbeda1ce9ba24d5869cecc35/LICENSE</licenseUrl>
+    <projectSourceUrl>https://github.com/earthbuild/earthbuild</projectSourceUrl>
+    <docsUrl>https://docs.earthbuild.dev/</docsUrl>
+    <bugTrackerUrl>https://github.com/earthbuild/earthbuild/issues</bugTrackerUrl>
+    <tags>earthbuild build docker</tags>
+    <summary>Build automation for the container era</summary>
+    <description>
+**🐳 Build anything via containers** - *build images or standalone artifacts (binaries, packages, arbitrary files)*
+
+**🛠 Programming language agnostic** - *allows use of language-specific build tooling*
+
+**🔁 Repeatable builds** - *does not depend on user's local installation: runs the same locally, as in CI*
+
+**⛓ Parallelism that just works** - *build in parallel without special considerations*
+
+**🏘 Mono and Poly-repo friendly** - *ability to split the build definitions across vast project hierarchies*
+
+**💾 Shared caching** - *share build cache between CI runners*
+
+**🔀 Multi-platform** - *build for multiple platforms in parallel*
+
+---------------------------------
+
+[🌍 earthbuild](https://earthbuild.dev) is a build automation tool for the container era. It allows you to execute all your builds in containers. This makes them self-contained, repeatable, portable and parallel. You can use earthbuild to create Docker images and artifacts (eg binaries, packages, arbitrary files).
+    </description>
+    <releaseNotes>https://github.com/earthbuild/earthbuild/releases</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools/**" target="tools" />
+  </files>
+</package>

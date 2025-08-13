@@ -7,10 +7,10 @@ export EARTHLY_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-"$earthly" --version
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+"$earthbuild" --version
 
-echoserver="earthly-test-echoserver"
+echoserver="earthbuild-test-echoserver"
 
 # clean up previous run
 docker kill "$echoserver" || true
@@ -62,7 +62,7 @@ timeout 5 sh -c 'until nc -z $0 $1; do sleep 1; done' 127.0.0.1 $PORT
 
 echo "===test1===" > "/dev/tcp/127.0.0.1/$PORT"
 
-"$earthly" $@ +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
+"$earthbuild" $@ +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
 
 diff <(docker logs "$echoserver" | grep -A 999 '===test1===') <(cat <<EXPECTED
 ===test1===
@@ -73,7 +73,7 @@ EXPECTED
 
 echo "===test2===" > "/dev/tcp/127.0.0.1/$PORT"
 
-"$earthly" --push $@ +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
+"$earthbuild" --push $@ +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
 
 diff <(docker logs "$echoserver" | grep -A 999 '===test2===') <(cat <<EXPECTED
 ===test2===

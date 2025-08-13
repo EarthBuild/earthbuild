@@ -6,22 +6,22 @@ IMPORT .. AS tests
 WORKDIR /test
 
 test-trailing-backslash:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=trailing-backslash.earth --should_fail=true --target=+base
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=trailing-backslash.earth --should_fail=true --target=+base
 
 test-leading-whitespace:
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=leading-whitespace.earth --should_fail=true --target=+base --output_contains="syntax error"
+    DO --pass-args +RUN_earthbuild_ARGS --earthfile=leading-whitespace.earth --should_fail=true --target=+base --output_contains="syntax error"
 
 test-all:
     BUILD +test-trailing-backslash
     BUILD +test-leading-whitespace
 
-RUN_EARTHLY_ARGS:
+RUN_earthbuild_ARGS:
     FUNCTION
     ARG earthfile
     ARG target
     ARG should_fail=false
     ARG output_contains
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_earthbuild \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail \

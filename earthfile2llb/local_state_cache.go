@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/util/inodeutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/inodeutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
 )
 
 // LocalStateCache provides caching of local States

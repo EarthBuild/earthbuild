@@ -21,35 +21,35 @@ import (
 	"github.com/alessio/shellescape"
 	"github.com/containerd/containerd/platforms"
 	"github.com/docker/distribution/reference"
-	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/inputgraph"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/states/dedup"
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/inodeutil"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/shell"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/vertexmeta"
-	"github.com/earthly/earthly/variables"
-	"github.com/earthly/earthly/variables/reserved"
+	"github.com/earthbuild/cloud-api/logstream"
+	"github.com/earthbuild/earthbuild/ast/commandflag"
+	"github.com/earthbuild/earthbuild/ast/hint"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	debuggercommon "github.com/earthbuild/earthbuild/debugger/common"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/inputgraph"
+	"github.com/earthbuild/earthbuild/logbus"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/states/dedup"
+	"github.com/earthbuild/earthbuild/states/image"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/earthbuild/earthbuild/util/gitutil"
+	"github.com/earthbuild/earthbuild/util/inodeutil"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/earthbuild/earthbuild/util/oidcutil"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/shell"
+	"github.com/earthbuild/earthbuild/util/stringutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/util/vertexmeta"
+	"github.com/earthbuild/earthbuild/variables"
+	"github.com/earthbuild/earthbuild/variables/reserved"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
@@ -96,7 +96,7 @@ const (
 	letCmd                               // "LET"
 )
 
-// Converter turns earthly commands to buildkit LLB representation.
+// Converter turns earthbuild commands to buildkit LLB representation.
 type Converter struct {
 	target              domain.Target
 	gitMeta             *gitutil.GitMetadata
@@ -118,7 +118,7 @@ type Converter struct {
 	nextCmdID           int
 }
 
-// NewConverter constructs a new converter for a given earthly target.
+// NewConverter constructs a new converter for a given earthbuild target.
 func NewConverter(ctx context.Context, target domain.Target, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt) (*Converter, error) {
 	opt.BuildContextProvider.AddDirs(bc.LocalDirs)
 	sts.HasDangling = opt.HasDangling
@@ -183,7 +183,7 @@ func NewConverter(ctx context.Context, target domain.Target, bc *buildcontext.Da
 	return c, nil
 }
 
-// From applies the earthly FROM command.
+// From applies the earthbuild FROM command.
 func (c *Converter) From(ctx context.Context, imageName string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string) error {
 	err := c.checkAllowed(fromCmd)
 	if err != nil {
@@ -198,7 +198,7 @@ func (c *Converter) From(ctx context.Context, imageName string, platform platuti
 	if err != nil {
 		return err
 	}
-	c.varCollection.SetLocally(false) // FIXME this will have to change once https://github.com/earthly/earthly/issues/2044 is fixed
+	c.varCollection.SetLocally(false) // FIXME this will have to change once https://github.com/earthbuild/earthbuild/issues/2044 is fixed
 	platform = c.setPlatform(platform)
 	if strings.Contains(imageName, "+") {
 		// Target-based FROM.
@@ -281,7 +281,7 @@ func (c *Converter) fromTarget(ctx context.Context, targetName string, platform 
 	return nil
 }
 
-// FromDockerfile applies the earthly FROM DOCKERFILE command.
+// FromDockerfile applies the earthbuild FROM DOCKERFILE command.
 func (c *Converter) FromDockerfile(ctx context.Context, contextPath string, dfPath string, dfTarget string, platform platutil.Platform, allowPrivileged bool, buildArgs []string) (retErr error) {
 	var err error
 	ctx, err = c.ftrs.WithContext(ctx)
@@ -454,7 +454,7 @@ func (c *Converter) FromDockerfile(ctx context.Context, contextPath string, dfPa
 	return nil
 }
 
-// Locally applies the earthly Locally command.
+// Locally applies the earthbuild Locally command.
 func (c *Converter) Locally(ctx context.Context) error {
 	err := c.checkAllowed(locallyCmd)
 	if err != nil {
@@ -483,7 +483,7 @@ func (c *Converter) Locally(ctx context.Context) error {
 	return nil
 }
 
-// CopyArtifactLocal applies the earthly COPY artifact command which are invoked under a LOCALLY target.
+// CopyArtifactLocal applies the earthbuild COPY artifact command which are invoked under a LOCALLY target.
 func (c *Converter) CopyArtifactLocal(ctx context.Context, artifactName string, dest string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string, isDir bool) error {
 	err := c.checkAllowed(copyCmd)
 	if err != nil {
@@ -534,7 +534,7 @@ func (c *Converter) CopyArtifactLocal(ctx context.Context, artifactName string, 
 	return nil
 }
 
-// CopyArtifact applies the earthly COPY artifact command.
+// CopyArtifact applies the earthbuild COPY artifact command.
 func (c *Converter) CopyArtifact(ctx context.Context, artifactName string, dest string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string, isDir bool, keepTs bool, keepOwn bool, chown string, chmod *fs.FileMode, ifExists, symlinkNoFollow bool) error {
 	err := c.checkAllowed(copyCmd)
 	if err != nil {
@@ -581,7 +581,7 @@ func (c *Converter) CopyArtifact(ctx context.Context, artifactName string, dest 
 	return nil
 }
 
-// CopyClassical applies the earthly COPY command, with classical args.
+// CopyClassical applies the earthbuild COPY command, with classical args.
 func (c *Converter) CopyClassical(ctx context.Context, srcs []string, dest string, isDir bool, keepTs bool, keepOwn bool, chown string, chmod *fs.FileMode, ifExists bool) error {
 	err := c.checkAllowed(copyCmd)
 	if err != nil {
@@ -652,7 +652,7 @@ type ConvertRunOpts struct {
 	statePrep    func(context.Context, pllb.State) (pllb.State, error)
 }
 
-// Run applies the earthly RUN command.
+// Run applies the earthbuild RUN command.
 func (c *Converter) Run(ctx context.Context, opts ConvertRunOpts) error {
 	err := c.checkAllowed(runCmd)
 	if err != nil {
@@ -680,7 +680,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 
 	var exitCodeFile string
 	if opts.Locally {
-		exitCodeDir, err := os.MkdirTemp(os.TempDir(), "earthlyexitcode")
+		exitCodeDir, err := os.MkdirTemp(os.TempDir(), "earthbuildexitcode")
 		if err != nil {
 			return 0, errors.Wrap(err, "create temp dir")
 		}
@@ -689,7 +689,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return os.RemoveAll(exitCodeDir)
 		})
 	} else {
-		exitCodeFile = "/tmp/earthly_if_statement_exit_code"
+		exitCodeFile = "/tmp/earthbuild_if_statement_exit_code"
 		prefix, _, err := c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return 0, err
@@ -776,7 +776,7 @@ func (c *Converter) runCommand(ctx context.Context, outputFileName string, isExp
 
 	var outputFile string
 	if opts.Locally {
-		outputDir, err := os.MkdirTemp(os.TempDir(), "earthlyexproutput")
+		outputDir, err := os.MkdirTemp(os.TempDir(), "earthbuildexproutput")
 		if err != nil {
 			return "", errors.Wrap(err, "create temp dir")
 		}
@@ -835,7 +835,7 @@ func (c *Converter) runCommand(ctx context.Context, outputFileName string, isExp
 	return string(outputDt), nil
 }
 
-// SaveArtifact applies the earthly SAVE ARTIFACT command.
+// SaveArtifact applies the earthbuild SAVE ARTIFACT command.
 func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLocalTo string, keepTs, keepOwn, ifExists, symlinkNoFollow, force, isPush bool) (retErr error) {
 	err := c.checkAllowed(saveArtifactCmd)
 	if err != nil {
@@ -1116,7 +1116,7 @@ func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.DoSaves)
 }
 
-// SaveImage applies the earthly SAVE IMAGE command.
+// SaveImage applies the earthbuild SAVE IMAGE command.
 func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushFlag bool, insecurePush bool, cacheHint bool, cacheFrom []string, noManifestList bool) (retErr error) {
 	err := c.checkAllowed(saveImageCmd)
 	if err != nil {
@@ -1190,7 +1190,7 @@ func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushF
 					c.opt.ExportCoordinator.AddPushedImageSummary(c.target.StringCanonical(), si.DockerTag, c.mts.Final.ID, c.opt.DoPushes)
 				}
 
-				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
+				// TODO this is here as a work-around for https://github.com/earthbuild/earthbuild/issues/2178
 				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
 				// however we don't want to break inline caching for users who are using VERSION 0.7 without any explicit WAIT blocks
 				if !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
@@ -1212,7 +1212,7 @@ func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushF
 	return nil
 }
 
-// Build applies the earthly BUILD command.
+// Build applies the earthbuild BUILD command.
 func (c *Converter) Build(ctx context.Context, fullTargetName string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string, onExecutionSuccess func(context.Context)) error {
 	err := c.checkAllowed(buildCmd)
 	if err != nil {
@@ -1235,7 +1235,7 @@ func (c *Converter) Build(ctx context.Context, fullTargetName string, platform p
 
 type afterParallelFunc func(context.Context, *states.MultiTarget) error
 
-// BuildAsync applies the earthly BUILD command asynchronously.
+// BuildAsync applies the earthbuild BUILD command asynchronously.
 func (c *Converter) BuildAsync(ctx context.Context, fullTargetName string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string, cmdT cmdType, apf afterParallelFunc, sem semutil.Semaphore) error {
 	target, opt, _, err := c.prepBuildTarget(ctx, fullTargetName, platform, allowPrivileged, passArgs, buildArgs, true, cmdT, "", nil)
 	if err != nil {
@@ -1865,7 +1865,7 @@ func (c *Converter) ExpandArgs(ctx context.Context, runOpts ConvertRunOpts, word
 func (c *Converter) absolutizeTarget(fullTargetName string, allowPrivileged bool) (domain.Target, domain.Target, bool, error) {
 	relTarget, err := domain.ParseTarget(fullTargetName)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earthly target parse %s", fullTargetName)
+		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earthbuild target parse %s", fullTargetName)
 	}
 
 	derefedTarget, allowPrivilegedImport, isImport, err := c.varCollection.Imports().Deref(relTarget)
@@ -2222,8 +2222,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
 			}
 		} else {
-			runOpts = append(runOpts, llb.SocketTarget("earthly_interactive", debuggercommon.DebuggerDefaultSocketPath, 0666, 0, 0))
-			runOpts = append(runOpts, llb.SocketTarget("earthly_save_file", debuggercommon.DefaultSaveFileSocketPath, 0666, 0, 0))
+			runOpts = append(runOpts, llb.SocketTarget("earthbuild_interactive", debuggercommon.DebuggerDefaultSocketPath, 0666, 0, 0))
+			runOpts = append(runOpts, llb.SocketTarget("earthbuild_save_file", debuggercommon.DefaultSaveFileSocketPath, 0666, 0, 0))
 		}
 
 		localPathAbs, err := filepath.Abs(c.target.LocalPath)

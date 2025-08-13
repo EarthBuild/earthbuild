@@ -1,6 +1,6 @@
 # Builtin args
 
-Builtin args are variables with values automatically filled-in by Earthly.
+Builtin args are variables with values automatically filled-in by earthbuild.
 
 The value of a builtin arg can never be overridden. However, you can always have an additional `ARG`, which takes as the default value, the value of the builtin arg. The additional arg can be overridden. Example
 
@@ -12,10 +12,10 @@ SAVE IMAGE --push some/name:$TAG
 
 {% hint style='danger' %}
 ##### Important
-Earthly builtin args need to be pre-declared before they can be used. For example
+earthbuild builtin args need to be pre-declared before they can be used. For example
 
 ```Dockerfile
-ARG EARTHLY_TARGET
+ARG earthbuild_TARGET
 RUN echo "The current target is $EARTHLY_TARGET"
 ```
 {% endhint %}
@@ -25,18 +25,18 @@ RUN echo "The current target is $EARTHLY_TARGET"
 | Name | Description | Example value |
 | --- | --- | --- |
 | `EARTHLY_CI` | Whether the build is being executed in --ci mode. | `true`, `false` |
-| `EARTHLY_BUILD_SHA` | The git hash of the commit which built the currently running version of Earthly. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
+| `EARTHLY_BUILD_SHA` | The git hash of the commit which built the currently running version of earthbuild. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
 | `EARTHLY_LOCALLY` | Whether the target is being executed `LOCALLY`. | `true`, `false` |
-| `EARTHLY_PUSH` | Whether `earthly` was called with the `--push` flag, or not. | `true`, `false` |
-| `EARTHLY_VERSION` | The version of Earthly currently running. | `v0.8.0` |
+| `EARTHLY_PUSH` | Whether `earthbuild` was called with the `--push` flag, or not. | `true`, `false` |
+| `EARTHLY_VERSION` | The version of earthbuild currently running. | `v0.8.16` |
 
 ### Target-related args
 
 | Name | Description | Example value |
 | --- | --- | --- |
-| `EARTHLY_TARGET_NAME` | The name part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the name would be `foo` |
-| `EARTHLY_TARGET_PROJECT_NO_TAG` | The project part of the canonical reference of the current target, but without the tag. | For the target `github.com/bar/buz/src:john/work+foo`, this would be `github.com/bar/buz/src` |
-| `EARTHLY_TARGET_PROJECT` | The project part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the canonical project would be `github.com/bar/buz/src:john` |
+| `EARTHBUILD_TARGET_NAME` | The name part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the name would be `foo` |
+| `EARTHBUILD_TARGET_PROJECT_NO_TAG` | The project part of the canonical reference of the current target, but without the tag. | For the target `github.com/bar/buz/src:john/work+foo`, this would be `github.com/bar/buz/src` |
+| `EARTHBUILD_TARGET_PROJECT` | The project part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the canonical project would be `github.com/bar/buz/src:john` |
 | `EARTHLY_TARGET_TAG_DOCKER` | The tag part of the canonical reference of the current target, sanitized for safe use as a docker tag. This is guaranteed to be a valid docker tag, even if no canonical form exists, in which case, `latest` is used. | For the target `github.com/bar/buz/src:john/work+foo`, the docker tag would be `john_work` |
 | `EARTHLY_TARGET_TAG` | The tag part of the canonical reference of the current target. Note that if the target has no [canonical form](../guides/importing.md#canonical-form), the value is an empty string. | For the target `github.com/bar/buz/src:john/work+foo`, the tag would be `john/work` |
 | `EARTHLY_TARGET` | The canonical reference of the current target. | For example, for a target named `foo`, which exists on `john/work` branch, in a repository at `github.com/bar/buz`, in a subdirectory `src`, the canonical reference would be `github.com/bar/buz/src:john/work+foo`. For more information about canonical references, see [importing guide](../guides/importing.md). |
@@ -45,18 +45,18 @@ RUN echo "The current target is $EARTHLY_TARGET"
 
 | Name | Description | Example value | Feature Flag                           |
 | --- | --- | --- |----------------------------------------|
-| `EARTHLY_GIT_AUTHOR` | The git author detected within the build context directory. If no git directory is detected, then the value is an empty string. This is currently the author's email address but the feature flag adds the name as well | `john@example.com` (or `John Doe <john@example.com>` with flag turned on) | `--earthly-git-author-individual-args` |
-| `EARTHLY_GIT_AUTHOR_EMAIL` | The git author email detected within the build context directory. If no git directory is detected, then the value is an empty string. | `john@example.com` | `--earthly-git-author-individual-args` |
-| `EARTHLY_GIT_AUTHOR_NAME` | The git author name detected within the build context directory. If no git directory is detected, then the value is an empty string. | `John Doe` | `--earthly-git-author-individual-args` |
-| `EARTHLY_GIT_CO_AUTHORS` | The git co-authors detected within the build context directory, separated by space. If no git directory is detected, then the value is an empty string. | `Jane Doe <jane@example.com Jack Smith <jack@example.com>` |                                        |
-| `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` | The author timestamp, as unix seconds, of the git commit detected within the build context directory. If no git directory is detected, then the value is an empty string. | `1626881847` |                                        |
-| `EARTHLY_GIT_BRANCH` | The git branch of the git commit detected within the build context directory. If no git directory is detected, then the value is an empty string. | `main` |                                        |
-| `EARTHLY_GIT_COMMIT_TIMESTAMP` | The committer timestamp, as unix seconds, of the git commit detected within the build context directory. If no git directory is detected, then the value is an empty string. | `1626881847` |                                        |
+| `EARTHBUILD_GIT_AUTHOR` | The git author detected within the build context directory. If no git directory is detected, then the value is an empty string. This is currently the author's email address but the feature flag adds the name as well | `john@example.com` (or `John Doe <john@example.com>` with flag turned on) | `--earthbuild-git-author-individual-args` |
+| `EARTHBUILD_GIT_AUTHOR_EMAIL` | The git author email detected within the build context directory. If no git directory is detected, then the value is an empty string. | `john@example.com` | `--earthbuild-git-author-individual-args` |
+| `EARTHBUILD_GIT_AUTHOR_NAME` | The git author name detected within the build context directory. If no git directory is detected, then the value is an empty string. | `John Doe` | `--earthbuild-git-author-individual-args` |
+| `EARTHBUILD_GIT_CO_AUTHORS` | The git co-authors detected within the build context directory, separated by space. If no git directory is detected, then the value is an empty string. | `Jane Doe <jane@example.com Jack Smith <jack@example.com>` |                                        |
+| `EARTHBUILD_GIT_COMMIT_AUTHOR_TIMESTAMP` | The author timestamp, as unix seconds, of the git commit detected within the build context directory. If no git directory is detected, then the value is an empty string. | `1626881847` |                                        |
+| `EARTHBUILD_GIT_BRANCH` | The git branch of the git commit detected within the build context directory. If no git directory is detected, then the value is an empty string. | `main` |                                        |
+| `EARTHBUILD_GIT_COMMIT_TIMESTAMP` | The committer timestamp, as unix seconds, of the git commit detected within the build context directory. If no git directory is detected, then the value is an empty string. | `1626881847` |                                        |
 | `EARTHLY_GIT_HASH` | The git hash detected within the build context directory. If no git directory is detected, then the value is an empty string. Take care when using this arg, as the frequently changing git hash may be cause for not using the cache. | `41cb5666ade67b29e42bef121144456d3977a67a` |                                        |
 | `EARTHLY_GIT_ORIGIN_URL` | The git URL detected within the build context directory. If no git directory is detected, then the value is an empty string. Please note that this may be inconsistent, depending on whether an HTTPS or SSH URL was used. | `git@github.com:bar/buz.git` or `https://github.com/bar/buz.git` |                                        |
 | `EARTHLY_GIT_PROJECT_NAME` | The git project name from within the git URL detected within the build context directory. If no git directory is detected, then the value is an empty string. | `bar/buz` |                                        |
-| `EARTHLY_GIT_REFS` | The git references of the git commit detected within the build context directory, separated by space. If no git directory is detected, then the value is an empty string. | `issue-2735-git-ref main` |                                        |
-| `EARTHLY_GIT_SHORT_HASH` | The first 8 characters of the git hash detected within the build context directory. If no git directory is detected, then the value is an empty string. Take care when using this arg, as the frequently changing git hash may be cause for not using the cache. | `41cb5666` |                                        |
+| `EARTHBUILD_GIT_REFS` | The git references of the git commit detected within the build context directory, separated by space. If no git directory is detected, then the value is an empty string. | `issue-2735-git-ref main` |                                        |
+| `EARTHBUILD_GIT_SHORT_HASH` | The first 8 characters of the git hash detected within the build context directory. If no git directory is detected, then the value is an empty string. Take care when using this arg, as the frequently changing git hash may be cause for not using the cache. | `41cb5666` |                                        |
 | `EARTHLY_SOURCE_DATE_EPOCH` | The timestamp, as unix seconds, of the git commit detected within the build context directory. If no git directory is detected, then the value is `0` (the unix epoch) | `1626881847`, `0` |                                        |
 
 ### Platform-related args
@@ -71,14 +71,14 @@ RUN echo "The current target is $EARTHLY_TARGET"
 | `TARGETOS` | The target OS the target is being built for. | `linux` |
 | `TARGETPLATFORM` | The target platform the target is being built for. This defaults to the native platform. | `linux/arm/v7`, `linux/amd64`, `linux/arm64` |
 | `TARGETVARIANT` | The target processor architecture variant the target is being built for. | `v7` |
-| `USERARCH` | The processor architecture of the user (the environment the `earthly` binary is invoked from). | `arm`, `amd64`, `arm64` |
-| `USEROS` | The OS of the user (the environment the `earthly` binary is invoked from). | `darwin` |
-| `USERPLATFORM` | The platform of the user (the environment the `earthly` binary is invoked from). | `darwin/amd64`, `linux/amd64`, `darwin/arm64` |
-| `USERVARIANT` | The processor architecture variant of the user (the environment the `earthly` binary is invoked from). | `v7` |
+| `USERARCH` | The processor architecture of the user (the environment the `earthbuild` binary is invoked from). | `arm`, `amd64`, `arm64` |
+| `USEROS` | The OS of the user (the environment the `earthbuild` binary is invoked from). | `darwin` |
+| `USERPLATFORM` | The platform of the user (the environment the `earthbuild` binary is invoked from). | `darwin/amd64`, `linux/amd64`, `darwin/arm64` |
+| `USERVARIANT` | The processor architecture variant of the user (the environment the `earthbuild` binary is invoked from). | `v7` |
 
-The default value of the `TARGETPLATFORM` arg is the native platform of the runner, for non-LOCALLY targets. This can be overriden by using the `--platform` flag, when using the `earthly` CLI. For example, `earthly --platform linux/amd64 +my-target` will set the `TARGETPLATFORM` arg to `linux/amd64`. You can also override the target platform in an Earthfile, when issuing `BUILD` commands. For example, `BUILD --platform linux/amd64 +my-target`. Or you can override the platform within the target definition by setting the platform in the `FROM` statement. For example `FROM --platform linux/amd64 alpine:3.13`.
+The default value of the `TARGETPLATFORM` arg is the native platform of the runner, for non-LOCALLY targets. This can be overriden by using the `--platform` flag, when using the `earthbuild` CLI. For example, `earthbuild --platform linux/amd64 +my-target` will set the `TARGETPLATFORM` arg to `linux/amd64`. You can also override the target platform in an Earthfile, when issuing `BUILD` commands. For example, `BUILD --platform linux/amd64 +my-target`. Or you can override the platform within the target definition by setting the platform in the `FROM` statement. For example `FROM --platform linux/amd64 alpine:3.13`.
 
-Under `LOCALLY`, the `TARGETPLATFORM` arg is always set to the user platform (the environment the `earthly` binary is invoked from) and it is not overriden by the `--platform` flag.
+Under `LOCALLY`, the `TARGETPLATFORM` arg is always set to the user platform (the environment the `earthbuild` binary is invoked from) and it is not overriden by the `--platform` flag.
 
 {% hint style='info' %}
 ##### Note

@@ -1,16 +1,16 @@
 #!/bin/sh
 set -e
 
-configpath="/etc/.earthly/config.yml"
+configpath="/etc/.earthbuild/config.yml"
 
 if [ -f "$configpath" ]; then
   echo >&2 "error: $configpath already exists, unable to setup registry"
   exit 1
 fi
 
-if [ "$USE_EARTHLY_MIRROR" = "true" ]; then
+if [ "$USE_EARTHBUILD_MIRROR" = "true" ]; then
   if [ -n "$DOCKERHUB_MIRROR" ]; then
-    echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTHLY_MIRROR option"
+    echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTHBUILD_MIRROR option"
     exit 1
   fi
   DOCKERHUB_MIRROR="mirror.gcr.io"

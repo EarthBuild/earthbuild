@@ -3,7 +3,7 @@ package deltautil
 import (
 	"fmt"
 
-	pb "github.com/earthly/cloud-api/logstream"
+	pb "github.com/earthbuild/cloud-api/logstream"
 	"google.golang.org/protobuf/proto"
 )
 

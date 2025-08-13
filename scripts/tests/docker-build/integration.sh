@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 set -eu
 
-earthly=${earthly:=earthly}
-if [ "$earthly" != "earthly" ]; then
-  earthly=$(realpath "$earthly")
+earthbuild=${earthbuild:=earthbuild}
+if [ "$earthbuild" != "earthbuild" ]; then
+  earthbuild=$(realpath "$earthbuild")
 fi
-echo "running tests with $earthly"
-"$earthly" --version
+echo "running tests with $earthbuild"
+"$earthbuild" --version
 frontend="${frontend:-$(which docker)}"
 tag=test-image:v1.2.3
 tag2="${tag}.4"
 
 PATH="$(realpath "$(dirname "$0")/../../acbtest"):$PATH"
 
-testdir=/tmp/earthly-docker-build-test
+testdir=/tmp/earthbuild-docker-build-test
 mkdir -p $testdir
 
 function reset() {
     chmod 777 -R $testdir >/dev/null 2>&1 || true
-    rm -rf output output2 $testdir/Earthfile $testdir/.dockerignore $testdir/.earthlyignore
+    rm -rf output output2 $testdir/Earthfile $testdir/.dockerignore $testdir/.earthbuildignore
     $frontend rmi -f $tag $tag2 ${tag}_linux_amd64 ${tag}_linux_arm64 >/dev/null 2>&1
 }
 
@@ -31,20 +31,20 @@ trap cleanup EXIT
 function run_test_cmd() {
   cmd=$1
   if  eval GITHUB_ACTIONS="" NO_COLOR=0 "$cmd" > output 2>&1; then
-      echo "earthly docker-build should have failed"
+      echo "earthbuild docker-build should have failed"
       exit 1
   fi
 }
 
 echo "=== test 1 - command fails when build context is not specified:"
 reset
-run_test_cmd "\"$earthly\" docker-build"
+run_test_cmd "\"$earthbuild\" docker-build"
 tail -n1 output > output2
-diff output2 <(echo "Error: no build context path provided. Try earthly docker-build <path>")
+diff output2 <(echo "Error: no build context path provided. Try earthbuild docker-build <path>")
 
 echo "=== test 2 - command fails when more than one build context (non arg flag) is specified:"
 reset
-run_test_cmd "\"$earthly\" docker-build ctx1 ctx2"
+run_test_cmd "\"$earthbuild\" docker-build ctx1 ctx2"
 tail -n1 output > output2
 diff output2 <(echo "Error: invalid arguments ctx1 ctx2")
 
@@ -70,14 +70,14 @@ touch $testdir/good.txt $testdir/bad.txt
 echo "=== test 3 - it creates an image:"
 reset
 
-"$earthly" docker-build -t "$tag" $testdir
+"$earthbuild" docker-build -t "$tag" $testdir
 
 "$frontend" inspect "$tag" > /dev/null
 
 echo "=== test 4 - it creates an image with multiple tags:"
 reset
 
-"$earthly" docker-build -t "$tag" -t "$tag2" $testdir
+"$earthbuild" docker-build -t "$tag" -t "$tag2" $testdir
 
 "$frontend" inspect "$tag" > /dev/null
 "$frontend" inspect "$tag2" > /dev/null
@@ -85,14 +85,14 @@ reset
 echo "=== test 5 - it creates an image without tags"
 reset
 
-"$earthly" docker-build $testdir
+"$earthbuild" docker-build $testdir
 
 echo "=== test 6 - it uses the correct target:"
 
 # use target1:
 reset
 
-"$earthly" docker-build -t "$tag" --target target1 $testdir
+"$earthbuild" docker-build -t "$tag" --target target1 $testdir
 
 "$frontend" run --rm "$tag" | acbgrep target1 > output 2>&1
 
@@ -101,7 +101,7 @@ diff output <(echo "target1")
 # use target2:
 reset
 
-"$earthly" docker-build -t "$tag" --target target2 $testdir
+"$earthbuild" docker-build -t "$tag" --target target2 $testdir
 
 "$frontend" run --rm "$tag" | acbgrep target2 > output 2>&1
 
@@ -112,7 +112,7 @@ echo "=== test 7 - it uses the correct arg value:"
 # use override-value:
 reset
 
-"$earthly" docker-build -t "$tag" $testdir --arg_to_override=override-value
+"$earthbuild" docker-build -t "$tag" $testdir --arg_to_override=override-value
 
 "$frontend" run --rm "$tag" | acbgrep override-value > output 2>&1
 
@@ -121,7 +121,7 @@ diff output <(echo "override-value")
 # use default-value:
 reset
 
-"$earthly" docker-build -t "$tag" $testdir
+"$earthbuild" docker-build -t "$tag" $testdir
 
 "$frontend" run --rm "$tag" | acbgrep default-value > output 2>&1
 
@@ -131,7 +131,7 @@ echo "=== test 8 - it builds the image using the correct platforms (multiple fla
 
 reset
 
-"$earthly" docker-build -t "$tag" --platform linux/amd64 --platform linux/arm64 $testdir
+"$earthbuild" docker-build -t "$tag" --platform linux/amd64 --platform linux/arm64 $testdir
 
 # arm64:
 "$frontend" inspect --format='{{.Architecture}}' "${tag}_linux_arm64" > output
@@ -147,7 +147,7 @@ echo "=== test 9 - it builds the image using the correct platforms (one flag, do
 
 reset
 
-"$earthly" docker-build -t "$tag" --platform linux/amd64,linux/arm64 $testdir
+"$earthbuild" docker-build -t "$tag" --platform linux/amd64,linux/arm64 $testdir
 
 # arm64:
 "$frontend" inspect --format='{{.Architecture}}' "${tag}_linux_arm64" > output
@@ -168,7 +168,7 @@ cat << EOF > $testdir/.dockerignore
 bad.txt
 EOF
 
-"$earthly" docker-build -t "$tag" $testdir
+"$earthbuild" docker-build -t "$tag" $testdir
 
 "$frontend" run --rm "$tag" > output
 
@@ -178,8 +178,8 @@ if grep bad.txt output > /dev/null; then
 fi
 
 # verify file is removed
-if [ -f $testdir/.earthlyignore ]; then
-    >&2 echo "$testdir/.earthlyignore was not removed"
+if [ -f $testdir/.earthbuildignore ]; then
+    >&2 echo "$testdir/.earthbuildignore was not removed"
     exit 1
 fi
 

@@ -1,1 +1,1 @@
-Hosted on [earthly-emacs repo](https://github.com/EarthBuild/earthly-emacs)
+Hosted on [earthbuild-emacs repo](https://github.com/EarthBuild/earthbuild-emacs)

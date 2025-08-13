@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/earthly/earthly/ast/hint"
+	"github.com/earthbuild/earthbuild/ast/hint"
 	"github.com/pkg/errors"
 )
 
@@ -161,7 +161,7 @@ func (g *Golang) ForDir(ctx context.Context, dir string) (Project, error) {
 	out, _, err := g.execer.Command("go", "list", "-f", "{{.Dir}}").Run(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, hint.Wrap(errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
-			"go must be installed for 'go list' so that earthly can read information about your go project",
+			"go must be installed for 'go list' so that earthbuild can read information about your go project",
 		)
 	}
 	rootBytes, err := io.ReadAll(out)

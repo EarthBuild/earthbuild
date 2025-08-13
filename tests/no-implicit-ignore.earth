@@ -4,8 +4,8 @@ WORKDIR /test
 
 all:
     COPY . .
-    # Earthfile and .earthlyignore should be COPY-able when using --no-implicit-ignore
+    # Earthfile and .earthbuildignore should be COPY-able when using --no-implicit-ignore
     RUN ls Earthfile
-    RUN ls .earthlyignore
+    RUN ls .earthbuildignore
     RUN ls notignored/
     RUN ! ls ignored/

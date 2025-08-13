@@ -85,10 +85,10 @@ build:
 docker:
   COPY +build/fibonacci /bin/fibonacci
   ENTRYPOINT ["/bin/fibonacci"]
-  SAVE IMAGE --push earthly/examples:cpp
+  SAVE IMAGE --push earthbuild/examples:cpp
 ```
 
-If you run `earthly +build` for the first time you should see:
+If you run `earthbuild +build` for the first time you should see:
 
 ```
 ...
@@ -110,13 +110,13 @@ However on the next run since the object files were cached you should only see
 ...
 ```
 
-If you need to force a full rebuild, you can run earthly `--no-cache +build` to trigger a clean build; however
+If you need to force a full rebuild, you can run earthbuild `--no-cache +build` to trigger a clean build; however
 this will also rebuild the entire base docker images.
 
 And finally, the fibonacci program can be run via docker:
 
 ```
-~/workspace/earthly/examples/cpp ❯ docker run --rm earthly/examples:cpp
+~/workspace/earthbuild/examples/cpp ❯ docker run --rm earthbuild/examples:cpp
 fib(0) = 0
 fib(1) = 1
 fib(2) = 1

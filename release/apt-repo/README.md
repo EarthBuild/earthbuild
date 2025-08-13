@@ -1,11 +1,11 @@
-# Earthly Debian repository
+# earthbuild Debian repository
 
-We host a Debian repository which Debian and ubuntu users can use to install earthly.
+We host a Debian repository which Debian and ubuntu users can use to install earthbuild.
 
 ## Setup for Ubuntu
 
 TODO: move these notes elsewhere, this readme should only be notes on how to release to our repo, and is only intended for those with
-access to earthly credentials.
+access to earthbuild credentials.
 
 Ubuntu users can use this guide to set up our repo:
 
@@ -19,40 +19,40 @@ First install the following tools:
        gnupg \
        lsb-release
 
-Second, add earthly's official GPG key:
+Second, add earthbuild's official GPG key:
 
-    curl -fsSL https://pkg.earthly.dev/earthly.pgp | sudo gpg --dearmor -o /usr/share/keyrings/earthly-archive-keyring.gpg
+    curl -fsSL https://pkg.earthbuild.dev/earthbuild.pgp | sudo gpg --dearmor -o /usr/share/keyrings/earthbuild-archive-keyring.gpg
 
 
 Finally, set up the stable repository:
 
     echo \
-      "deb [arch=amd64 signed-by=/usr/share/keyrings/earthly-archive-keyring.gpg] https://pkg.earthly.dev/deb \
-      stable main" | sudo tee /etc/apt/sources.list.d/earthly.list > /dev/null
+      "deb [arch=amd64 signed-by=/usr/share/keyrings/earthbuild-archive-keyring.gpg] https://pkg.earthbuild.dev/deb \
+      stable main" | sudo tee /etc/apt/sources.list.d/earthbuild.list > /dev/null
 
 ## Requirements
 
-To package a new version of earthly, ensure the following requirements are met:
+To package a new version of earthbuild, ensure the following requirements are met:
 
-1. you have aws credentials configured in the earthly secret store under `/user/earthly-technologies/aws/credentials`, and have access to the developer role
+1. you have aws credentials configured in the earthbuild secret store under `/user/earthbuild-technologies/aws/credentials`, and have access to the developer role
 
     # you can upload them via
-    earthly secrets set --file ~/.aws/credentials /user/earthly-technologies/aws/credentials
+    earthbuild secrets set --file ~/.aws/credentials /user/earthbuild-technologies/aws/credentials
 
-2. you have access to the earthly-technologies secrets; specifically the following two commands should work:
+2. you have access to the earthbuild-technologies secrets; specifically the following two commands should work:
 
-    earthly secrets ls /earthly-technologies/apt/keys/earthly-apt-public.pgp
-    earthly secrets ls /earthly-technologies/apt/keys/earthly-apt-private.pgp
+    earthbuild secrets ls /earthbuild-technologies/apt/keys/earthbuild-apt-public.pgp
+    earthbuild secrets ls /earthbuild-technologies/apt/keys/earthbuild-apt-private.pgp
 
 ## Release steps
 
-Once earthly has been released to GitHub, visit https://github.com/earthly/earthly/releases to determine the latest version:
+Once earthbuild has been released to GitHub, visit https://github.com/earthbuild/earthbuild/releases to determine the latest version:
 
     export RELEASE_TAG="v0.0.0"
 
 Then run
 
-    earthly +build-and-release --RELEASE_TAG="$RELEASE_TAG"
+    earthbuild +build-and-release --RELEASE_TAG="$RELEASE_TAG"
 
 ### Running steps independently
 
@@ -62,20 +62,20 @@ It is also possible to run steps independently:
 
 To package all platforms
 
-    earthly +deb-all --RELEASE_TAG="$RELEASE_TAG"
+    earthbuild +deb-all --RELEASE_TAG="$RELEASE_TAG"
 
 To package a specific platform
 
-    earthly +deb --RELEASE_TAG="$RELEASE_TAG" --EARTHLY_PLATFORM=arm7
+    earthbuild +deb --RELEASE_TAG="$RELEASE_TAG" --EARTHBUILD_PLATFORM=arm7
 
 #### Cloning the s3 repo to your local disk
 
-    earthly +download
+    earthbuild +download
 
 #### Indexing and signing the repo
 
-    earthly +index-and-sign
+    earthbuild +index-and-sign
 
 #### Uploading the repo to s3
 
-    earthly +upload
+    earthbuild +upload

@@ -1,22 +1,22 @@
 VERSION 0.8
-PROJECT earthly-technologies/example
+PROJECT earthbuild-technologies/example
 FROM alpine:latest
 
 cloud-secrets:
   # This example assumes you have created a project using a command similar to:
-  #   earthly projects --org earthly-technologies --project example
-  # (where earthly-technologies has been replaced by your organization name)
+  #   earthbuild projects --org earthbuild-technologies --project example
+  # (where earthbuild-technologies has been replaced by your organization name)
   #
   # Next, a secret has been set by running:
-  #   earthly secrets --org earthly-technologies --project example set token abc123
+  #   earthbuild secrets --org earthbuild-technologies --project example set token abc123
   #
   # You can verify it was set by running:
-  #   earthly secrets --org earthly-technologies --project example ls
+  #   earthbuild secrets --org earthbuild-technologies --project example ls
   # which should output:
   #   token
 
   # You can also view the secret by running:
-  #   earthly secrets --org earthly-technologies --project example get token
+  #   earthbuild secrets --org earthbuild-technologies --project example get token
   # which should output:
   #   abc123
 

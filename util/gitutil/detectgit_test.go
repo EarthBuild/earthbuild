@@ -26,13 +26,13 @@ func TestParseGitRemoteURL(t *testing.T) {
 			true,
 		},
 		{
-			"ssh://git@github.com/earthly/earthly.git",
-			"github.com/earthly/earthly",
+			"ssh://git@github.com/earthbuild/earthbuild.git",
+			"github.com/earthbuild/earthbuild",
 			true,
 		},
 		{
-			"https://git@github.com/earthly/earthly.git",
-			"github.com/earthly/earthly",
+			"https://git@github.com/earthbuild/earthbuild.git",
+			"github.com/earthbuild/earthbuild",
 			true,
 		},
 	}

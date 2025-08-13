@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# This script tests earthly can reference a self-hosted git repository.
+# This script tests earthbuild can reference a self-hosted git repository.
 # The git repository runs in a second container which is spun up by GHA
 # and is accessible over the localhost on port 2222 ($SSH_PORT)
 #
@@ -10,8 +10,8 @@
 #   2. initializes a bare git repo on the ssh server
 #   3. create a new local git repo with a sample Earthfile
 #   4. pushes that local git repo up to the server, and deletes the local copy
-#   5. configures earthly to be aware of the custom git repo running on port 2222 ($SSH_PORT)
-#   6. and finally tests earthly can remotely reference the Earthfile without having a local copy.
+#   5. configures earthbuild to be aware of the custom git repo running on port 2222 ($SSH_PORT)
+#   6. and finally tests earthbuild can remotely reference the Earthfile without having a local copy.
 
 set -eu
 
@@ -20,15 +20,15 @@ if [ -z ${GITHUB_ACTIONS+x} ]; then
     exit 1
 fi
 
-earthly=${earthly:=earthly}
-earthly=$(realpath "$earthly")
-echo "running tests with $earthly"
+earthbuild=${earthbuild:=earthbuild}
+earthbuild=$(realpath "$earthbuild")
+echo "running tests with $earthbuild"
 
 frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 echo "using frontend $frontend"
 
-# use host IP, otherwise earthly-buildkit won't be able to connect to it
+# use host IP, otherwise earthbuild-buildkit won't be able to connect to it
 ip=$(ifconfig eth0 | grep -w 'inet' | awk '{print $2}')
 test -n "$ip"
 
@@ -113,14 +113,14 @@ git push -u origin trunk
 cd ~
 rm -rf odd-project
 
-# test that earthly has access to it
-"$earthly" config git "{myserver: {pattern: 'myserver/([^/]+)', substitute: 'ssh://root@$ip:$SSH_PORT/root/my/really/weird/path/\$1.git', auth: ssh}}"
+# test that earthbuild has access to it
+"$earthbuild" config git "{myserver: {pattern: 'myserver/([^/]+)', substitute: 'ssh://root@$ip:$SSH_PORT/root/my/really/weird/path/\$1.git', auth: ssh}}"
 
 echo "=== Test remote build under repo root ==="
-$earthly -V myserver/project:trunk+docker
+$earthbuild -V myserver/project:trunk+docker
 
 echo "=== Test remote build under repo subdir ==="
-$earthly -V myserver/project/weirdcommands:trunk+target
+$earthbuild -V myserver/project/weirdcommands:trunk+target
 
 # test that the container was built and runs
 "$frontend" run --rm weirdrepo:latest | grep "hello weird world"
@@ -139,4 +139,4 @@ testweirdtouch:
 EOF
 
 echo "=== Test local build referencing remote commands ==="
-$earthly -V +testweirdtouch
+$earthbuild -V +testweirdtouch

@@ -3,7 +3,7 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/variables"
 )
 
 func TestParseEscapedKeyValue(t *testing.T) {

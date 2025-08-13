@@ -1,7 +1,7 @@
 VERSION 0.8
 
-IMPORT github.com/EarthBuild/earthly-command-example:main
-IMPORT github.com/EarthBuild/earthly-command-example:import AS command-import
+IMPORT github.com/EarthBuild/earthbuild-command-example:main
+IMPORT github.com/EarthBuild/earthbuild-command-example:import AS command-import
 IMPORT github.com/EarthBuild/hello-world:main AS hello-dolly
 
 all:
@@ -11,7 +11,7 @@ all:
 
 test-command:
     FROM alpine:3.18
-    DO earthly-command-example+TOUCH --file=foo
+    DO earthbuild-command-example+TOUCH --file=foo
     RUN test -f ./foo
 
 test-target:

@@ -11,28 +11,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/buildcontext/provider"
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/cmd/earthly/bk"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/regproxy"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/dockerutil"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/gwclientlogger"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/saveartifactlocally"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/buildcontext/provider"
+	"github.com/earthbuild/earthbuild/cleanup"
+	"github.com/earthbuild/earthbuild/cmd/earthbuild/bk"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/earthfile2llb"
+	"github.com/earthbuild/earthbuild/logbus"
+	"github.com/earthbuild/earthbuild/logbus/solvermon"
+	"github.com/earthbuild/earthbuild/regproxy"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/dockerutil"
+	"github.com/earthbuild/earthbuild/util/gatewaycrafter"
+	"github.com/earthbuild/earthbuild/util/gwclientlogger"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/saveartifactlocally"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/variables"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -121,7 +121,7 @@ type BuildOpt struct {
 	ProjectAdder               ProjectAdder
 }
 
-// Builder executes Earthly builds.
+// Builder executes earthbuild builds.
 type Builder struct {
 	s         *solver
 	opt       Opt
@@ -132,7 +132,7 @@ type Builder struct {
 	outDir     string
 }
 
-// NewBuilder returns a new earthly Builder.
+// NewBuilder returns a new earthbuild Builder.
 func NewBuilder(ctx context.Context, opt Opt) (*Builder, error) {
 	b := &Builder{
 		s: &solver{
@@ -152,7 +152,7 @@ func NewBuilder(ctx context.Context, opt Opt) (*Builder, error) {
 	return b, nil
 }
 
-// BuildTarget executes the build of a given Earthly target.
+// BuildTarget executes the build of a given earthbuild target.
 func (b *Builder) BuildTarget(ctx context.Context, target domain.Target, opt BuildOpt) (*states.MultiTarget, error) {
 	mts, err := b.convertAndBuild(ctx, target, opt)
 	if err != nil {
@@ -169,7 +169,7 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 		return nil, false
 	}
 
-	if err := caps.Supports(pb.CapEarthlyRegistryProxy); err != nil {
+	if err := caps.Supports(pb.CapearthbuildRegistryProxy); err != nil {
 		cons.Printf(err.Error())
 		return nil, false
 	}
@@ -306,7 +306,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,
-				TempEarthlyOutDir:                    b.tempEarthlyOutDir,
+				TempearthbuildOutDir:                    b.tempearthbuildOutDir,
 				GlobalWaitBlockFtr:                   opt.GlobalWaitBlockFtr,
 				LLBCaps:                              &caps,
 				InteractiveDebuggerEnabled:           b.opt.InteractiveDebugging,
@@ -337,7 +337,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		// delete the code below.
 
 		// NOTE: this code is still required to support remote caching; it can't be removed until
-		// https://github.com/earthly/earthly/issues/2178 is fixed.
+		// https://github.com/earthbuild/earthbuild/issues/2178 is fixed.
 
 		// *** DO NOT ADD CODE TO THE bf BELOW ***
 
@@ -568,7 +568,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		if !opt.LocalArtifactWhiteList.Exists(destPath) {
 			return "", errors.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
 		}
-		outDir, err := b.tempEarthlyOutDir()
+		outDir, err := b.tempearthbuildOutDir()
 		if err != nil {
 			return "", err
 		}
@@ -580,7 +580,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		return artifactDir, nil
 	}
 	onFinalArtifact := func(childCtx context.Context) (string, error) {
-		return b.tempEarthlyOutDir()
+		return b.tempearthbuildOutDir()
 	}
 	onPull := func(childCtx context.Context, imagesToPull []string, resp map[string]string) error {
 		if b.opt.LocalRegistryAddr == "" {
@@ -630,7 +630,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	if opt.PrintPhases {
 		b.opt.Console.PrintPhaseHeader(PhasePush, !opt.Push, "")
 		if !opt.Push {
-			b.opt.Console.Printf("To enable pushing use earthly --push\n")
+			b.opt.Console.Printf("To enable pushing use earthbuild --push\n")
 		}
 	}
 	if opt.Push && opt.OnlyArtifact == nil && !opt.OnlyFinalTargetImages {
@@ -658,7 +658,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	} else if opt.OnlyArtifact != nil {
 		if mts.Final.GetDoSaves() {
 			outputPhaseSpecial = "single artifact"
-			outDir, err := b.tempEarthlyOutDir()
+			outDir, err := b.tempearthbuildOutDir()
 			if err != nil {
 				return nil, err
 			}
@@ -708,7 +708,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			}
 			if sts.GetDoSaves() {
 				for _, saveLocal := range sts.SaveLocals {
-					outDir, err := b.tempEarthlyOutDir()
+					outDir, err := b.tempearthbuildOutDir()
 					if err != nil {
 						return nil, err
 					}
@@ -733,7 +733,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			if sts.GetDoSaves() && sts.RunPush.HasState {
 				if opt.Push {
 					for _, saveLocal := range sts.RunPush.SaveLocals {
-						outDir, err := b.tempEarthlyOutDir()
+						outDir, err := b.tempearthbuildOutDir()
 						if err != nil {
 							return nil, err
 						}
@@ -859,10 +859,10 @@ func (b *Builder) artifactStateToRef(ctx context.Context, gwClient gwclient.Clie
 		platr, b.opt.CacheImports.AsSlice())
 }
 
-func (b *Builder) tempEarthlyOutDir() (string, error) {
+func (b *Builder) tempearthbuildOutDir() (string, error) {
 	var err error
 	b.outDirOnce.Do(func() {
-		tmpParentDir := ".tmp-earthly-out"
+		tmpParentDir := ".tmp-earthbuild-out"
 		err = os.MkdirAll(tmpParentDir, 0755)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to create dir %s", tmpParentDir)

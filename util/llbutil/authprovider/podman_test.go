@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/earthly/earthly/util/llbutil/authprovider"
+	"github.com/earthbuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth"
 	"github.com/poy/onpar"

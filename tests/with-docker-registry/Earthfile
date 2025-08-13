@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
 
 all:
     BUILD +empty-test
@@ -60,8 +60,8 @@ docker-pull-test:
     END
 
 docker-pull-test-long:
-    WITH DOCKER --platform=linux/amd64 --pull earthly/earthly:v0.6.17
-        RUN docker images | grep earthly/earthly
+    WITH DOCKER --platform=linux/amd64 --pull earthbuild/earthbuild:v0.6.17
+        RUN docker images | grep earthbuild/earthbuild
     END
 
 docker-load-test-long:

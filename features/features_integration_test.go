@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/earthly/earthly/features"
+	"github.com/earthbuild/earthbuild/features"
 )
 
 func TestFeaturesStringEnabled(t *testing.T) {
@@ -94,10 +94,10 @@ func TestAvailableFlags(t *testing.T) {
 
 		// 0.7
 		{"check-duplicate-images", "CheckDuplicateImages"},
-		{"ci-arg", "EarthlyCIArg"},
-		{"earthly-git-author-args", "EarthlyGitAuthorArgs"},
-		{"earthly-locally-arg", "EarthlyLocallyArg"},
-		{"earthly-version-arg", "EarthlyVersionArg"},
+		{"ci-arg", "earthbuildCIArg"},
+		{"earthbuild-git-author-args", "earthbuildGitAuthorArgs"},
+		{"earthbuild-locally-arg", "earthbuildLocallyArg"},
+		{"earthbuild-version-arg", "earthbuildVersionArg"},
 		{"explicit-global", "ExplicitGlobal"},
 		{"git-commit-author-timestamp", "GitCommitAuthorTimestamp"},
 		{"new-platform", "NewPlatform"},
@@ -117,7 +117,7 @@ func TestAvailableFlags(t *testing.T) {
 		{"try", "TryFinally"},
 		{"no-network", "NoNetwork"},
 		{"arg-scope-and-set", "ArgScopeSet"},
-		{"earthly-ci-runner-arg", "EarthlyCIRunnerArg"},
+		{"earthbuild-ci-runner-arg", "earthbuildCIRunnerArg"},
 		{"use-docker-ignore", "UseDockerIgnore"},
 	} {
 		tt := tt
@@ -257,10 +257,10 @@ func TestProcessFlags(t *testing.T) {
 			name: "version v0.7: exist warning message",
 			f: &features.Features{
 				CheckDuplicateImages:     true,
-				EarthlyCIArg:             true,
-				EarthlyGitAuthorArgs:     true,
-				EarthlyLocallyArg:        true,
-				EarthlyVersionArg:        true,
+				earthbuildCIArg:             true,
+				earthbuildGitAuthorArgs:     true,
+				earthbuildLocallyArg:        true,
+				earthbuildVersionArg:        true,
 				ExplicitGlobal:           true,
 				GitCommitAuthorTimestamp: true,
 				NewPlatform:              true,
@@ -280,9 +280,9 @@ func TestProcessFlags(t *testing.T) {
 			expectedWarnings: []string{
 				"--check-duplicate-images",
 				"--ci-arg",
-				"--earthly-git-author-args",
-				"--earthly-locally-arg",
-				"--earthly-version-arg",
+				"--earthbuild-git-author-args",
+				"--earthbuild-locally-arg",
+				"--earthbuild-version-arg",
 				"--explicit-global",
 				"--git-commit-author-timestamp",
 				"--new-platform",
@@ -307,10 +307,10 @@ func TestProcessFlags(t *testing.T) {
 				RequireForceForUnsafeSaves: true,
 				UseCopyIncludePatterns:     true,
 				CheckDuplicateImages:       true,
-				EarthlyCIArg:               true,
-				EarthlyGitAuthorArgs:       true,
-				EarthlyLocallyArg:          true,
-				EarthlyVersionArg:          true,
+				earthbuildCIArg:               true,
+				earthbuildGitAuthorArgs:       true,
+				earthbuildLocallyArg:          true,
+				earthbuildVersionArg:          true,
 				ExplicitGlobal:             true,
 				GitCommitAuthorTimestamp:   true,
 				NewPlatform:                true,
@@ -345,10 +345,10 @@ func TestProcessFlags(t *testing.T) {
 				RequireForceForUnsafeSaves: true,
 				UseCopyIncludePatterns:     true,
 				CheckDuplicateImages:       true,
-				EarthlyCIArg:               true,
-				EarthlyGitAuthorArgs:       true,
-				EarthlyLocallyArg:          true,
-				EarthlyVersionArg:          true,
+				earthbuildCIArg:               true,
+				earthbuildGitAuthorArgs:       true,
+				earthbuildLocallyArg:          true,
+				earthbuildVersionArg:          true,
 				ExplicitGlobal:             true,
 				GitCommitAuthorTimestamp:   true,
 				NewPlatform:                true,

@@ -1,9 +1,9 @@
 package llbutil
 
 import (
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/vertexmeta"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/vertexmeta"
 	"github.com/moby/buildkit/client/llb"
 )
 

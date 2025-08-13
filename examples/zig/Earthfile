@@ -39,4 +39,4 @@ docker:
 
     ENTRYPOINT ["/app/fizzbuzz"]
     CMD ["10"]
-    SAVE IMAGE --push earthly/examples:zig
+    SAVE IMAGE --push earthbuild/examples:zig

@@ -2,10 +2,10 @@
 set -e
 
 if [ "$1" = "remove" ]; then
-    UNABLE_TO_REMOVE="unable to remove earthly-related docker resources"
+    UNABLE_TO_REMOVE="unable to remove earthbuild-related docker resources"
 
-    rm -f /usr/share/bash-completion/completions/earthly
-    rm -f /usr/local/share/zsh/site-functions/_earthly
+    rm -f /usr/share/bash-completion/completions/earthbuild
+    rm -f /usr/local/share/zsh/site-functions/_earthbuild
 
     frontend="${frontend:-$(which docker || which podman || true)}"
     if [ -z "$frontend" ]; then
@@ -19,9 +19,9 @@ if [ "$1" = "remove" ]; then
         exit
     fi
 
-    echo "removing earthly-buildkitd docker/podman container"
-    "$frontend" rm --force earthly-buildkitd
+    echo "removing earthbuild-buildkitd docker/podman container"
+    "$frontend" rm --force earthbuild-buildkitd
 
-    echo "removing earthly-cache docker/podman volume"
-    "$frontend" volume rm --force earthly-cache
+    echo "removing earthbuild-cache docker/podman volume"
+    "$frontend" volume rm --force earthbuild-cache
 fi

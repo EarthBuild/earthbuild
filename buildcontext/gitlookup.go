@@ -21,9 +21,9 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/exp/maps"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/earthbuild/earthbuild/util/stringutil"
 
 	"github.com/jdxcode/netrc"
 	"github.com/moby/buildkit/util/sshutil"
@@ -365,16 +365,16 @@ func (gl *GitLookup) getGitMatcherByPath(path string) (string, *gitMatcher, erro
 	for _, m := range gl.matchers {
 		match := m.re.FindString(path)
 		if match != "" {
-			gl.console.VerbosePrintf("matched earthly reference %s with git config entry %s (regex %s)", path, m.name, m.re)
+			gl.console.VerbosePrintf("matched earthbuild reference %s with git config entry %s (regex %s)", path, m.name, m.re)
 			return match, m, nil
 		}
 	}
 	match := gl.catchAll.re.FindString(path)
 	if match != "" {
-		gl.console.VerbosePrintf("matched earthly reference %s with pre-configured catch-all (regex %s)", path, gl.catchAll.re)
+		gl.console.VerbosePrintf("matched earthbuild reference %s with pre-configured catch-all (regex %s)", path, gl.catchAll.re)
 		return match, gl.catchAll, nil
 	}
-	gl.console.VerbosePrintf("failed to match earthly reference %s with any git matchers", path)
+	gl.console.VerbosePrintf("failed to match earthbuild reference %s with any git matchers", path)
 	return "", nil, ErrNoMatch
 }
 
@@ -609,9 +609,9 @@ func parseGitProtocol(remote string) (string, int) {
 
 // GetCloneURL returns the repo to clone, and a path relative to the repo
 //
-//	"github.com/earthly/earthly"             ---> ("git@github.com/earthly/earthly.git", "")
-//	"github.com/earthly/earthly/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
-//	"github.com/earthly/earthly/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
+//	"github.com/earthbuild/earthbuild"             ---> ("git@github.com/earthbuild/earthbuild.git", "")
+//	"github.com/earthbuild/earthbuild/examples"    ---> ("git@github.com/earthbuild/earthbuild.git", "examples")
+//	"github.com/earthbuild/earthbuild/examples/go" ---> ("git@github.com/earthbuild/earthbuild.git", "examples/go")
 //
 // Additionally a ssh keyscan might be returned (or an empty string indicating none was configured)
 // Also, a custom "git ssh command" may be returned. This is part of this function since the user may
@@ -640,7 +640,7 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 			return "", "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
 		}
 		gitURL := m.re.ReplaceAllString(path, m.sub)
-		gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)", path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
+		gl.console.VerbosePrintf("converted earthbuild reference %s to git url %s (using regex substitution %s)", path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
 		var keyScans []string
 		remote, protocol := parseGitProtocol(gitURL)
 		if protocol == SSHProtocol {
@@ -660,7 +660,7 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 	if err != nil {
 		return "", "", nil, "", err
 	}
-	gl.console.VerbosePrintf("converted earthly reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
+	gl.console.VerbosePrintf("converted earthbuild reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
 	return gitURL, subPath, keyScans, sshCommand, nil
 }
 

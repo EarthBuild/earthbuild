@@ -7,8 +7,8 @@ export EARTHLY_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 
-earthly=${earthly-"../../../build/linux/amd64/earthly"}
-"$earthly" --version
+earthbuild=${earthbuild-"../../../build/linux/amd64/earthbuild"}
+"$earthbuild" --version
 
 # display a pass/fail message at the end
 function finish {
@@ -27,24 +27,24 @@ docker rmi myimg:623cb5fb1b8c4cff8693281095724bb0 || true
 # Do the tests
 
 # first test we can do a regular build
-"$earthly" +build
+"$earthbuild" +build
 test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "1"
 docker rmi myimg:623cb5fb1b8c4cff8693281095724bb0
 
 # copy shouldn't produce an image
-"$earthly" +copy
+"$earthbuild" +copy
 test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
 
 # --no-output should prevent outputting images
-"$earthly" --no-output +build
+"$earthbuild" --no-output +build
 test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
 
 # --image mode only outputs image of directly-referenced image,
 # in the case of +build, there is no SAVE IMAGE
-"$earthly" --image +build
+"$earthbuild" --image +build
 test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
 
 # the +myimg target on the other hand contains an explicit SAVE IMAGE
-"$earthly" --image +myimg
+"$earthbuild" --image +myimg
 test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "1"
 docker rmi myimg:623cb5fb1b8c4cff8693281095724bb0

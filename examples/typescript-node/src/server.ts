@@ -1,4 +1,4 @@
 export function sayHello(who?: string): string {
-    who = who ?? 'Earthly';
+    who = who ?? 'earthbuild';
     return `Hello ${who}`;
 }

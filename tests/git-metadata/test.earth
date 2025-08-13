@@ -13,33 +13,33 @@ test-git-metadata:
     ARG --required expected_branch
     ARG --required expected_refs
     ARG flag_on=true
-    LET expected_author="onlyspammersemailthis@earthly.dev"
+    LET expected_author="onlyspammersemailthis@earthbuild.dev"
     LET expected_author_email=""
     LET expected_author_name=""
     IF [ "$flag_on" = "true" ]
-        SET expected_author="test name <onlyspammersemailthis@earthly.dev>"
-        SET expected_author_email="onlyspammersemailthis@earthly.dev"
+        SET expected_author="test name <onlyspammersemailthis@earthbuild.dev>"
+        SET expected_author_email="onlyspammersemailthis@earthbuild.dev"
         SET expected_author_name="test name"
     END
 
-    ARG EARTHLY_GIT_SHORT_HASH
+    ARG EARTHBUILD_GIT_SHORT_HASH
     ARG EARTHLY_GIT_HASH
-    ARG EARTHLY_GIT_AUTHOR
-    ARG EARTHLY_GIT_AUTHOR_EMAIL
-    ARG EARTHLY_GIT_AUTHOR_NAME
-    ARG EARTHLY_GIT_CO_AUTHORS
-    ARG EARTHLY_GIT_COMMIT_TIMESTAMP
-    ARG EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP
-    ARG EARTHLY_GIT_BRANCH
-    ARG EARTHLY_GIT_REFS
+    ARG EARTHBUILD_GIT_AUTHOR
+    ARG EARTHBUILD_GIT_AUTHOR_EMAIL
+    ARG EARTHBUILD_GIT_AUTHOR_NAME
+    ARG EARTHBUILD_GIT_CO_AUTHORS
+    ARG EARTHBUILD_GIT_COMMIT_TIMESTAMP
+    ARG EARTHBUILD_GIT_COMMIT_AUTHOR_TIMESTAMP
+    ARG EARTHBUILD_GIT_BRANCH
+    ARG EARTHBUILD_GIT_REFS
     RUN test "$EARTHLY_GIT_HASH" = "$expected_sha"
-    RUN test "$EARTHLY_GIT_COMMIT_TIMESTAMP" = "$expected_committer_timestamp"
-    RUN test "$EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP" = "$expected_author_timestamp"
-    RUN test "$EARTHLY_GIT_BRANCH" = "$expected_branch"
-    RUN test "$EARTHLY_GIT_REFS" = "$expected_refs"
-    RUN test -n "$EARTHLY_GIT_SHORT_HASH"
-    RUN echo "$EARTHLY_GIT_HASH" | grep "$EARTHLY_GIT_SHORT_HASH"
-    RUN test "$EARTHLY_GIT_AUTHOR" = "$expected_author"
-    RUN test "$EARTHLY_GIT_AUTHOR_EMAIL" = "$expected_author_email"
-    RUN test "$EARTHLY_GIT_AUTHOR_NAME" = "$expected_author_name"
-    RUN test "$EARTHLY_GIT_CO_AUTHORS" = "testy@earthly.dev cover@earthly.dev"
+    RUN test "$EARTHBUILD_GIT_COMMIT_TIMESTAMP" = "$expected_committer_timestamp"
+    RUN test "$EARTHBUILD_GIT_COMMIT_AUTHOR_TIMESTAMP" = "$expected_author_timestamp"
+    RUN test "$EARTHBUILD_GIT_BRANCH" = "$expected_branch"
+    RUN test "$EARTHBUILD_GIT_REFS" = "$expected_refs"
+    RUN test -n "$EARTHBUILD_GIT_SHORT_HASH"
+    RUN echo "$EARTHLY_GIT_HASH" | grep "$EARTHBUILD_GIT_SHORT_HASH"
+    RUN test "$EARTHBUILD_GIT_AUTHOR" = "$expected_author"
+    RUN test "$EARTHBUILD_GIT_AUTHOR_EMAIL" = "$expected_author_email"
+    RUN test "$EARTHBUILD_GIT_AUTHOR_NAME" = "$expected_author_name"
+    RUN test "$EARTHBUILD_GIT_CO_AUTHORS" = "testy@earthbuild.dev cover@earthbuild.dev"

@@ -5,28 +5,28 @@ set -e
 BASH_COMPLETION_DIR="/usr/share/bash-completion/completions"
 if [ -d "$BASH_COMPLETION_DIR" ]
 then
-    earthly bootstrap --source bash > "$BASH_COMPLETION_DIR/earthly"
+    earthbuild bootstrap --source bash > "$BASH_COMPLETION_DIR/earthbuild"
 fi
 
 # install zsh auto completion
 ZSH_COMPLETION_DIR="/usr/local/share/zsh/site-functions"
 if [ -d "$ZSH_COMPLETION_DIR" ]
 then
-    earthly bootstrap --source zsh > "$ZSH_COMPLETION_DIR/_earthly"
+    earthbuild bootstrap --source zsh > "$ZSH_COMPLETION_DIR/_earthbuild"
 fi
 
 frontend="${frontend:-$(which docker || which podman || true)}"
 if [ -z "$frontend" ]; then
-    echo "neither docker nor podman was found; skipping earthly bootstrap"
+    echo "neither docker nor podman was found; skipping earthbuild bootstrap"
     exit
 fi
 
 if ! "$frontend" info 2>/dev/null >/dev/null
 then
-    echo "unable to query docker/podman daemon; skipping earthly bootstrap"
+    echo "unable to query docker/podman daemon; skipping earthbuild bootstrap"
     exit
 fi
 
-echo "bootstrapping earthly"
-earthly bootstrap
-echo "bootstrapping earthly done"
+echo "bootstrapping earthbuild"
+earthbuild bootstrap
+echo "bootstrapping earthbuild done"

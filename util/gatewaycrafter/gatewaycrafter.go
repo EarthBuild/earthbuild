@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/earthbuild/earthbuild/states/image"
+	"github.com/earthbuild/earthbuild/util/stringutil"
 
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -21,7 +21,7 @@ func NewGatewayCrafter() *GatewayCrafter {
 
 // GatewayCrafter wraps the gwclient.Result object with a helper function
 // which is used to deduplicate code between builder.go and wait_block.go
-// eventually all SAVE IMAGE (and other earthly exporter) logic will be triggered via the WAIT/END PopWaitBlock() function
+// eventually all SAVE IMAGE (and other earthbuild exporter) logic will be triggered via the WAIT/END PopWaitBlock() function
 // and code that direct accesses to the underlying result instance will be removed
 type GatewayCrafter struct {
 	done bool
@@ -52,7 +52,7 @@ func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, i
 	if platformStr != nil {
 		gc.AddMeta(refPrefix+"/platform", []byte(platformStr))
 	}
-	return refPrefix, nil // TODO once all earthlyoutput-metadata-related code is moved into saveimageutil, change to "return err" only
+	return refPrefix, nil // TODO once all earthbuildoutput-metadata-related code is moved into saveimageutil, change to "return err" only
 }
 
 // AddSaveArtifactLocal adds ref and metadata required to trigger an artifact export to the local host

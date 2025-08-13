@@ -1,14 +1,14 @@
 
 # GitHub Actions integration
 
-Here is an example of a GitHub Actions build that uses the [earthly/actions-setup](https://github.com/earthly/actions-setup).
+Here is an example of a GitHub Actions build that uses the [earthbuild/actions-setup](https://github.com/earthbuild/actions-setup).
 
 This example assumes an [Earthfile](../../earthfile/earthfile.md) exists with a `+build` target:
 
 ```yml
 # .github/workflows/ci.yml
 
-name: Earthly +build
+name: earthbuild +build
 
 on:
   push:
@@ -24,23 +24,23 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       FORCE_COLOR: 1
     steps:
-    - uses: earthly/actions-setup@v1
+    - uses: earthbuild/actions-setup@v1
       with:
-        version: v0.8.0
+        version: v0.8.16
     - uses: actions/checkout@v4
     - name: Docker Login
       run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
     - name: Run build
-      run: earthly --ci --push +build
+      run: earthbuild --ci --push +build
 ```
 
-Alternatively, you can skip using the `earthly/actions-setup` job and include
-a step to download earthly instead:
+Alternatively, you can skip using the `earthbuild/actions-setup` job and include
+a step to download earthbuild instead:
 
 ```yml
 # .github/workflows/ci.yml
 
-name: Earthly +build
+name: earthbuild +build
 
 on:
   push:
@@ -59,10 +59,10 @@ jobs:
     - uses: actions/checkout@v4
     - name: Docker Login
       run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
-    - name: Download latest earthly
-      run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.8.13/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
+    - name: Download latest earthbuild
+      run: "sudo /bin/sh -c 'wget https://github.com/earthbuild/earthbuild/releases/download/v0.8.16/earthbuild-linux-amd64 -O /usr/local/bin/earthbuild && chmod +x /usr/local/bin/earthbuild'"
     - name: Run build
-      run: earthly --ci --push +build
+      run: earthbuild --ci --push +build
 ```
 
 For a complete guide on CI integration see the [CI integration guide](../overview.md).

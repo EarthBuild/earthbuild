@@ -44,7 +44,7 @@ detect_jq() {
 
 print_debug() {
     set +u
-    if [ "$EARTHLY_DEBUG" = "true" ] ; then
+    if [ "$EARTHBUILD_DEBUG" = "true" ] ; then
         echo "$@"
     fi
     set -u
@@ -117,9 +117,9 @@ install_dockerd() {
             ;;
 
         *)
-            echo "Warning: Distribution $distro not yet supported for Docker-in-Earthly."
+            echo "Warning: Distribution $distro not yet supported for Docker-in-earthbuild."
             echo "Will attempt to treat like Debian."
-            echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/earthly/earthly/issues"
+            echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/earthbuild/earthbuild/issues"
             install_dockerd_debian_like
             ;;
     esac
@@ -226,7 +226,7 @@ install_jq() {
 }
 
 if [ "$(id -u)" != 0 ]; then
-    echo "Warning: Docker-in-Earthly needs to be run as root user"
+    echo "Warning: Docker-in-earthbuild needs to be run as root user"
 fi
 
 if ! detect_jq; then
@@ -237,15 +237,15 @@ fi
 if ! detect_dockerd; then
     echo "Docker Engine is missing. Attempting to install automatically."
     install_dockerd
-    echo "Docker Engine was missing. It has been installed automatically by Earthly."
+    echo "Docker Engine was missing. It has been installed automatically by earthbuild."
     dockerd --version
-    echo "For better use of cache, try using the official earthly/dind image for WITH DOCKER."
+    echo "For better use of cache, try using the official earthbuild/dind image for WITH DOCKER."
 else
     print_debug "dockerd already installed"
 fi
 
 set +u
-if [ "$EARTHLY_START_COMPOSE" = "true" ] || [ "$EARTHLY_START_COMPOSE" = "" ]; then
+if [ "$EARTHBUILD_START_COMPOSE" = "true" ] || [ "$EARTHBUILD_START_COMPOSE" = "" ]; then
     set -u
     set +e;
     docker_compose="$(detect_docker_compose_cmd)"
@@ -255,10 +255,10 @@ if [ "$EARTHLY_START_COMPOSE" = "true" ] || [ "$EARTHLY_START_COMPOSE" = "" ]; t
         install_docker_compose
 
         docker_compose="$(detect_docker_compose_cmd)"
-        echo "Docker Compose was missing. It has been installed automatically by Earthly."
+        echo "Docker Compose was missing. It has been installed automatically by earthbuild."
 
         $docker_compose --version
-        echo "For better use of cache, try using the official earthly/dind image for WITH DOCKER."
+        echo "For better use of cache, try using the official earthbuild/dind image for WITH DOCKER."
     else
         print_debug "docker-compose already installed"
     fi

@@ -12,10 +12,10 @@ jobs:
           name: Install QEMU support
           command: "docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64,linux/arm/v7"
       - run:
-          name: Install released earthbuild
+          name: Install released Earthbuild
           command: "sudo /bin/sh -c 'wget https://github.com/earthbuild/earthbuild/releases/latest/download/earthbuild-linux-amd64 -O /usr/local/bin/earthbuild && chmod +x /usr/local/bin/earthbuild'"
       - run:
-          name: Build latest earthbuild
+          name: Build latest Earthbuild
           command: earthbuild --use-inline-cache +for-linux
       - run:
           name: Bootstrap
@@ -23,8 +23,8 @@ jobs:
       - run:
           name: Run tests
           command: |-
-              ./build/linux/amd64/earthbuild --ci -P \
-              +smoke-test --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true && echo "circleci tests passed"
+            ./build/linux/amd64/earthbuild --ci -P \
+            +smoke-test --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true && echo "circleci tests passed"
 workflows:
   version: 2
   circle-ci:

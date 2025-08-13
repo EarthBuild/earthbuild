@@ -13,7 +13,7 @@
       "dockerDashComposeVersion": "v2"
     }
   },
-  // earthbuild does best with a fair amount of storage for caching
+  // Earthbuild does best with a fair amount of storage for caching
   "hostRequirements": {
     "cpus": 4,
     "memory": "8gb",

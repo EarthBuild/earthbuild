@@ -9,7 +9,7 @@ earthbuild provides two ways to easily authenticate to AWS in order to access re
 
 ### Local Environment Credentials
 
-earthbuild is able to access AWS credentials from the host.
+Earthbuild is able to access AWS credentials from the host.
 The credentials might be available via environment variables or your `~/.aws` directory.
 
 To use these credentials simply use `RUN --aws in your command`.

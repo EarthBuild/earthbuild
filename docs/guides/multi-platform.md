@@ -1,6 +1,6 @@
 # Multi-platform builds
 
-earthbuild has the ability to perform builds for multiple platforms, in parallel. This page walks through setting up your system to support emulation as well as through a few simple examples of how to use this feature.
+Earthbuild has the ability to perform builds for multiple platforms, in parallel. This page walks through setting up your system to support emulation as well as through a few simple examples of how to use this feature.
 
 Currently only `linux` is supported as the build platform OS. Building with Windows containers will be available in a future version of earthbuild.
 

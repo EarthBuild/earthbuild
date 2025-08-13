@@ -1,4 +1,4 @@
-# earthbuild Changelog
+# Earthbuild Changelog
 
 All notable changes to [earthbuild](https://github.com/earthbuild/earthbuild) will be documented in this file.
 
@@ -89,9 +89,9 @@ All notable changes to [earthbuild](https://github.com/earthbuild/earthbuild) wi
 - Self-hosted satellite connection issue.
 
 ### Changed
-- earthbuild will now use source link format when displaying errors, e.g. `<path>:<line>:<col>` rather than `<path> line <line>:<col>`.
+- Earthbuild will now use source link format when displaying errors, e.g. `<path>:<line>:<col>` rather than `<path> line <line>:<col>`.
 - Improved error messages for cases where a shell is required to run a command such as `IF`, `FOR`, etc.
-- earthbuild will now show a warning when earthbuild anonymously connects to a registry (which increases the chance of being rate-limited).
+- Earthbuild will now show a warning when Earthbuild anonymously connects to a registry (which increases the chance of being rate-limited).
 
 ### Additional Info
 - This release includes changes to buildkit
@@ -130,7 +130,7 @@ All notable changes to [earthbuild](https://github.com/earthbuild/earthbuild) wi
 ### Added
 
 - Warning log when resolving remote references using a git image that doesn't match Buildkit's architecture.
-- New experimental `--exec-stats-summary=<path>` cli flag, which will display a summary of memory and cpu stats when earthbuild exits.
+- New experimental `--exec-stats-summary=<path>` cli flag, which will display a summary of memory and cpu stats when Earthbuild exits.
 - A notice is now displayed when unnecessary feature flags are set (but already enabled by default by the VERSION number). Thanks to [@danqixu](https://github.com/danqixu) for the contribution! [#3641](https://github.com/earthbuild/earthbuild/issues/3641)
 - A warning is displayed if the local buildkit image architecture does not match the host architecture. [#3937](https://github.com/earthbuild/earthbuild/issues/3937)
 
@@ -223,7 +223,7 @@ All notable changes to [earthbuild](https://github.com/earthbuild/earthbuild) wi
 - Fixed an intermittent issue with the registry proxy support container failing immediately on Mac. [#3740](https://github.com/earthbuild/earthbuild/issues/3740)
 - Fixed a problem with parsing empty results when cleaning up old registry proxy support containers on Mac.
 - Fixed a case where a suggested command would incorrectly contain both `--interative` and `--ci`. [#3746](https://github.com/earthbuild/earthbuild/issues/3746)
-- Disabled the registry proxy server when earthbuild is run from within a container. [#3736](https://github.com/earthbuild/earthbuild/issues/3736)
+- Disabled the registry proxy server when Earthbuild is run from within a container. [#3736](https://github.com/earthbuild/earthbuild/issues/3736)
 
 ### Additional Info
 - This release has no changes to buildkit
@@ -234,7 +234,7 @@ All notable changes to [earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 - Added a new `--disable-remote-registry-proxy` cli flag, which can be used to disable the remote registry proxy, which is used by earthbuild when performing a `SAVE IMAGE`
   command with a satellite / remote buildkit instance. This will cause earthbuild to use the slower tar-based loading of docker images. [#3736](https://github.com/earthbuild/earthbuild/issues/3736)
-- A new warning if earthbuild is configured with a cache size less than 10GB; running with a small cache size may lead to unexpected cache misses.
+- A new warning if Earthbuild is configured with a cache size less than 10GB; running with a small cache size may lead to unexpected cache misses.
 
 ### Additional Info
 - This release has no changes to buildkit
@@ -534,7 +534,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Fixed
 - A regression where URLs will not always get shorter when used as a prefix. Partially addresses [#3200](https://github.com/earthbuild/earthbuild/issues/3200).
-- If a build fails because of `qemu` missing, earthbuild will display a proper hint to install it [#3200](https://github.com/earthbuild/earthbuild/issues/3200).
+- If a build fails because of `qemu` missing, Earthbuild will display a proper hint to install it [#3200](https://github.com/earthbuild/earthbuild/issues/3200).
 - Removed erroneous error-message which said error: 0 errors occured [#3306](https://github.com/earthbuild/earthbuild/pull/3306).
 - A race condition when exiting interactive debugger mode resulting in confusing errors [#3200](https://github.com/earthbuild/earthbuild/issues/3200).
 - Docker auto-install script failures related to attempts to read from tty, while verifying docker's pgp key [#3324](https://github.com/earthbuild/earthbuild/pull/3324).
@@ -622,7 +622,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 - Fixed a bug, where the command to create tokens with a set expiration failed.
 - Long pauses at the end of builds, which were characterized by apparent freezes or delays with the message `Waiting on Buildkit...`.
 - `earthbuild account create-token` no longer panics when parsing expiration date
-- `earthbuild account login` could change the active user when the JWT expired and an SSH key existed for a different user; now earthbuild will either refresh the JWT or error
+- `earthbuild account login` could change the active user when the JWT expired and an SSH key existed for a different user; now Earthbuild will either refresh the JWT or error
 
 ### Changed
 - Setting env vars like  `FORCE_COLOR`, or `EARTHBUILD_FULL_TARGET` to `0`, `false`, `FALSE`, or `` (an empty-string) will no longer force the color, use any other value like `1`, `true`, or `yesplease`.
@@ -679,7 +679,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 ### Changed
 - The command `docker-build` now also supports passing multiple platforms using a comma (e.g `--platform linux/amd64,linux/arm64`)
 - Increased temporary lease duration of buildkit's history queue to prevent unknown history in blob errors under high cpu load. [#3000](https://github.com/earthbuild/earthbuild/issues/3000)
-- Performing an `earthbuild account logout` will keep you logged out -- earthbuild will no longer attempt an auto-login via ssh-agent (use `earthbuild account login` to log back in).
+- Performing an `earthbuild account logout` will keep you logged out -- Earthbuild will no longer attempt an auto-login via ssh-agent (use `earthbuild account login` to log back in).
 
 ### Fixed
 - Fixed a bug in satellite update command which was incorrectly changing satellites to medium size.
@@ -734,7 +734,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 - Experimental support for performing a `git lfs pull --include=<path>` when referencing a remote target on the cli, when used with the new `--git-lfs-pull-include` flag. [#2992](https://github.com/earthbuild/earthbuild/pull/2922)
 
 ### Fixed
-- `SAVE IMAGE <img>` was incorrectly pushed when earthbuild was run with the `--push` cli flag (this restores the requirement that images that are pushed must be defined with `SAVE IMAGE --push <img>`). [#2923](https://github.com/earthbuild/earthbuild/issues/2923)
+- `SAVE IMAGE <img>` was incorrectly pushed when Earthbuild was run with the `--push` cli flag (this restores the requirement that images that are pushed must be defined with `SAVE IMAGE --push <img>`). [#2923](https://github.com/earthbuild/earthbuild/issues/2923)
 - Incorrect global ARG values when chaining multiple DO commands together. [#2920](https://github.com/earthbuild/earthbuild/issues/2920)
 - Build args autocompletion under artifact mode.
 
@@ -784,7 +784,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 ### Changed
 
 - Simplified error message when a RUN command fails with an exit code. [#2742](https://github.com/earthbuild/earthbuild/issues/2742)
-- Improved warning messages when earthbuild cloud-based registry auth fails. [#2783](https://github.com/earthbuild/earthbuild/issues/2783)
+- Improved warning messages when Earthbuild cloud-based registry auth fails. [#2783](https://github.com/earthbuild/earthbuild/issues/2783)
 - Deleting a project will prompt for confirmation, unless --force is specified.
 - Updated buildkit with changes up to 4451e1be0e6889ffc56225e54f7e26bd6fdada54.
 
@@ -808,9 +808,9 @@ The documentation for this version is available at the [earthbuild 0.7 documenta
 
 **earthbuild CI**
 
-earthbuild 0.7 is the first version compatible with earthbuild CI.
+Earthbuild 0.7 is the first version compatible with earthbuild CI.
 
-earthbuild 0.7 introduces the new keywords `PIPELINE` and `TRIGGER` to help define earthbuild CI pipelines.
+Earthbuild 0.7 introduces the new keywords `PIPELINE` and `TRIGGER` to help define earthbuild CI pipelines.
 
 ```
 my-pipeline:
@@ -824,7 +824,7 @@ For more information on how to use `PIPELINE` and `TRIGGER`, please see the [ref
 
 **Podman support**
 
-Podman support has now been promoted out of *beta* status and is generally available in 0.7. earthbuild will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
+Podman support has now been promoted out of *beta* status and is generally available in 0.7. Earthbuild will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
 
 Please note that rootful podman is required. Rootless podman is not supported.
 
@@ -913,9 +913,9 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   the earthbuild command line no longer supports accessing or modifying the global secrets. A new `earthbuild secrets migrate` command has been added to help transition the global-based secrets to the new project-based secrets. If you need to manage secrets from earthbuild 0.6 without migrating to the new 0.7 secrets, please use an older earthbuild binary.
 - All `COPY` and `SAVE ARTIFACT` operations now use union filesystem merging for performing the `COPY`. This is similar to `COPY --link` in Dockerfiles, however in earthbuild it is automatically enabled for all such operations. Previously under `VERSION --use-copy-link 0.6`.
 - The platform logic has been improved to allow overriding the platform in situations where previously it was not possible. Additionally, the default platform is now the native platform of the runner, and not of the host running earthbuild. This makes platforms work better in remote runner settings. Previously under `VERSION --new-platform 0.6`.
-- earthbuild will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
+- Earthbuild will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthbuild/earthbuild/issues/2478)
-- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthbuild will print a warning.
+- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but Earthbuild will print a warning.
 - `earthbuild ls` has been promoted from *experimental* to *beta* status.
 - Setting a `VERSION` feature flag boolean to false (or any other value) will now raise an error; previously it was syntactically valid but had no effect.
 - `SAVE ARTIFACT <path> AS LOCAL ...` when used under a `TRY` / `FINALLY` can fail to be fully transferred to the host when the `TRY` command fails (resulting in an partially transferred file); an underflow can still occur, and is now detected and will not export the partial file. [2452](https://github.com/earthbuild/earthbuild/issues/2452)
@@ -961,9 +961,9 @@ The documentation for this version is available at the [earthbuild 0.7 documenta
 
 **earthbuild CI**
 
-earthbuild 0.7 is the first version compatible with earthbuild CI.
+Earthbuild 0.7 is the first version compatible with earthbuild CI.
 
-earthbuild 0.7 introduces the new keywords `PIPELINE` and `TRIGGER` to help define earthbuild CI pipelines.
+Earthbuild 0.7 introduces the new keywords `PIPELINE` and `TRIGGER` to help define earthbuild CI pipelines.
 
 ```
 my-pipeline:
@@ -977,7 +977,7 @@ For more information on how to use `PIPELINE` and `TRIGGER`, please see the [ref
 
 **Podman support**
 
-Podman support has now been promoted out of *beta* status and is generally available in 0.7. earthbuild will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
+Podman support has now been promoted out of *beta* status and is generally available in 0.7. Earthbuild will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
 
 Please note that rootful podman is required. Rootless podman is not supported.
 
@@ -1066,9 +1066,9 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   the earthbuild command line no longer supports accessing or modifying the global secrets. A new `earthbuild secrets migrate` command has been added to help transition the global-based secrets to the new project-based secrets. If you need to manage secrets from earthbuild 0.6 without migrating to the new 0.7 secrets, please use an older earthbuild binary.
 - All `COPY` and `SAVE ARTIFACT` operations now use union filesystem merging for performing the `COPY`. This is similar to `COPY --link` in Dockerfiles, however in earthbuild it is automatically enabled for all such operations. Previously under `VERSION --use-copy-link 0.6`.
 - The platform logic has been improved to allow overriding the platform in situations where previously it was not possible. Additionally, the default platform is now the native platform of the runner, and not of the host running earthbuild. This makes platforms work better in remote runner settings. Previously under `VERSION --new-platform 0.6`.
-- earthbuild will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
+- Earthbuild will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthbuild/earthbuild/issues/2478)
-- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthbuild will print a warning.
+- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but Earthbuild will print a warning.
 - `earthbuild ls` has been promoted from *experimental* to *beta* status.
 - Setting a `VERSION` feature flag boolean to false (or any other value) will now raise an error; previously it was syntactically valid but had no effect.
 - `SAVE ARTIFACT <path> AS LOCAL ...` when used under a `TRY` / `FINALLY` can fail to be fully transferred to the host when the `TRY` command fails (resulting in an partially transferred file); an underflow can still occur, and is now detected and will not export the partial file. [2452](https://github.com/earthbuild/earthbuild/issues/2452)
@@ -1112,9 +1112,9 @@ The documentation for this version is available at the [earthbuild 0.7 documenta
 
 **earthbuild CI**
 
-earthbuild 0.7 is the first version compatible with earthbuild CI.
+Earthbuild 0.7 is the first version compatible with earthbuild CI.
 
-earthbuild 0.7 introduces the new keywords `PIPELINE` and `TRIGGER` to help define earthbuild CI pipelines.
+Earthbuild 0.7 introduces the new keywords `PIPELINE` and `TRIGGER` to help define earthbuild CI pipelines.
 
 ```
 my-pipeline:
@@ -1128,7 +1128,7 @@ For more information on how to use `PIPELINE` and `TRIGGER`, please see the [ref
 
 **Podman support**
 
-Podman support has now been promoted out of *beta* status and is generally available in 0.7. earthbuild will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
+Podman support has now been promoted out of *beta* status and is generally available in 0.7. Earthbuild will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
 
 Please note that rootful podman is required. Rootless podman is not supported.
 
@@ -1208,9 +1208,9 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   the earthbuild command line no longer supports accessing or modifying the global secrets. A new `earthbuild secrets migrate` command has been added to help transition the global-based secrets to the new project-based secrets. If you need to manage secrets from earthbuild 0.6 without migrating to the new 0.7 secrets, please use an older earthbuild binary.
 - All `COPY` and `SAVE ARTIFACT` operations now use union filesystem merging for performing the `COPY`. This is similar to `COPY --link` in Dockerfiles, however in earthbuild it is automatically enabled for all such operations. Previously under `VERSION --use-copy-link 0.6`.
 - The platform logic has been improved to allow overriding the platform in situations where previously it was not possible. Additionally, the default platform is now the native platform of the runner, and not of the host running earthbuild. This makes platforms work better in remote runner settings. Previously under `VERSION --new-platform 0.6`.
-- earthbuild will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
+- Earthbuild will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthbuild/earthbuild/issues/2478)
-- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthbuild will print a warning.
+- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but Earthbuild will print a warning.
 - `earthbuild ls` has been promoted from *experimental* to *beta* status.
 - Setting a `VERSION` feature flag boolean to false (or any other value) will now raise an error; previously it was syntactically valid but had no effect.
 - `SAVE ARTIFACT <path> AS LOCAL ...` when used under a `TRY` / `FINALLY` can fail to be fully transferred to the host when the `TRY` command fails (resulting in an partially transferred file); an underflow can still occur, and is now detected and will not export the partial file. [2452](https://github.com/earthbuild/earthbuild/issues/2452)
@@ -1281,9 +1281,9 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - The Cloud-based secrets model is now project-based; it is not compatible with the older global secrets model. Earthfiles which are defined as `VERSION 0.5` or `VERSION 0.6` will continue to use the old global secrets namespace; however
   the earthbuild command line no longer supports accessing or modifying the global secrets. A new `earthbuild secrets migrate` command has been added to help transition the global-based secrets to the new project-based secrets.
-- earthbuild will automatically shellout to determine the `$HOME` value when referenced; this requires the `--shell-out-anywhere` feature flag. [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
+- Earthbuild will automatically shellout to determine the `$HOME` value when referenced; this requires the `--shell-out-anywhere` feature flag. [#2469](https://github.com/earthbuild/earthbuild/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthbuild/earthbuild/issues/2478)
-- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthbuild will print a warning.
+- The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but Earthbuild will print a warning.
 
 ### Added
 
@@ -1304,7 +1304,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - Added support for a custom `.netrc` file path using the standard `NETRC` environmental variable. [#2426](https://github.com/earthbuild/earthbuild/pull/2426)
 - Ability to run multiple earthbuild installations at a time via `EARTHBUILD_INSTALLATION_NAME` environment variable, or the `--installation-name` CLI flag. The installation name defaults to `earthbuild` if not specified. Different installations use different configurations, different buildkit Daemons, different cache volumes, and different ports.
-- New `EARTHBUILD_CI` builtin arg, which is set to `true` when earthbuild is run with the `--ci` flag, this ARG must be enabled with the `VERSION --ci-arg` feature flag. [#2398](https://github.com/earthbuild/earthbuild/pull/2398)
+- New `EARTHBUILD_CI` builtin arg, which is set to `true` when Earthbuild is run with the `--ci` flag, this ARG must be enabled with the `VERSION --ci-arg` feature flag. [#2398](https://github.com/earthbuild/earthbuild/pull/2398)
 
 ### Changed
 
@@ -1472,7 +1472,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 ### Added
 
 - Adding support for saving artifact from `--interactive-keep`. [#1980](https://github.com/earthbuild/earthbuild/issues/1980)
-- New `EARTHBUILD_PUSH` builtin arg, which is set to `true` when earthbuild is run with the `--push` flag, and the argument
+- New `EARTHBUILD_PUSH` builtin arg, which is set to `true` when Earthbuild is run with the `--push` flag, and the argument
   is referenced under the direct target, or a target which is indirectly referenced via a `BUILD` command; otherwise
   it will be set to `false`. The value mimics when a `RUN --push` command is executed. This feature must be enabled with
   `VERSION --wait-block 0.6`.
@@ -1617,7 +1617,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ### Added
 
-- earthbuild is now 15-30% faster when executing large builds [#1589](https://github.com/earthbuild/earthbuild/issues/1589)
+- Earthbuild is now 15-30% faster when executing large builds [#1589](https://github.com/earthbuild/earthbuild/issues/1589)
 - Experimental `HOST` command, which can be used like this: `HOST <domain> <ip>` to add additional hosts during the execution of your build. To enable this feature, use `VERSION --use-host-command 0.6`. [#1168](https://github.com/earthbuild/earthbuild/issues/1168)
 
 ### Fixed
@@ -2143,7 +2143,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - Support for `FROM DOCKERFILE -f` (https://github.com/earthbuild/earthbuild/pull/950)
 - Fixes missing access to global arguments in user defined commands (https://github.com/earthbuild/earthbuild/pull/947)
-- Users's `~/.earthbuild` directory is now referenced when earthbuild is invoked with sudo
+- Users's `~/.earthbuild` directory is now referenced when Earthbuild is invoked with sudo
 
 
 ## v0.5.10 - 2021-04-19
@@ -2182,7 +2182,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - Fix handling of some escaped quotes (https://github.com/earthbuild/earthbuild/issues/859)
 - Fix: empty targets are now valid (https://github.com/earthbuild/earthbuild/pull/872)
 - Fix some line continuation issues (https://github.com/earthbuild/earthbuild/pull/873 & https://github.com/earthbuild/earthbuild/pull/874)
-- earthbuild now limits parallelism to `20`. This fixes some very large builds attempting to use resources all at the same time
+- Earthbuild now limits parallelism to `20`. This fixes some very large builds attempting to use resources all at the same time
 - Automatically retry TLS handshake timeout errors
 
 ## v0.5.7 - 2021-03-13

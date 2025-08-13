@@ -9,7 +9,7 @@ Jenkins has multiple modes of operation, and each of them require some considera
 
 ### Compatibility
 
-earthbuild has been tested with Jenkins in a standalone runner configuration, and using the Docker Cloud provider.
+Earthbuild has been tested with Jenkins in a standalone runner configuration, and using the Docker Cloud provider.
 
 ### Resources
 

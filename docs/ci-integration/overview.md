@@ -1,4 +1,4 @@
-# earthbuild in CI
+# Earthbuild in CI
 
 Continuous Integration systems are as varied as the companies that use them. Fortunately, earthbuild is flexible enough to fit into most (and where we don't, let us know!). This document serves as a starting point to configuring earthbuild in your CI environment.
 
@@ -12,7 +12,7 @@ We also have instructions for [specific CI systems](#examples); and special-case
 
 ## Dependencies
 
-earthbuild has two software dependencies: `docker` and `git`. Because `earthbuild` will not install these for you, please ensure they are present before proceeding. These tools are very common, so many environments will already have them installed. If you choose to use our prebuilt containers, these dependencies are already included.
+Earthbuild has two software dependencies: `docker` and `git`. Because `earthbuild` will not install these for you, please ensure they are present before proceeding. These tools are very common, so many environments will already have them installed. If you choose to use our prebuilt containers, these dependencies are already included.
 
 `docker` is used to glean information about the containerization environment, and manage our `earthbuild-buildkitd` daemon. It is also used to do things like save images locally on your machine after they have been built by earthbuild. To install `docker`, use the most recent versions [directly from Docker](https://docs.docker.com/engine/install/#server). The versions packaged for many distributions tend to fall behind.
 
@@ -61,7 +61,7 @@ If your private registry can use a [credential helper](https://docs.docker.com/e
 
 Finally, the `earthbuild-buildkitd` daemon requires running in `--privileged` mode, which means that the `docker` daemon needs to be configured to allow this as well. Rootless configurations are currently unsupported.
 
-### earthbuild
+### Earthbuild
 
 `earthbuild` has quite a few configuration options that can either be set through a configuration file or environment variables. See our [configuration reference](../earthbuild-config/earthbuild-config.md) for a complete list of options.
 

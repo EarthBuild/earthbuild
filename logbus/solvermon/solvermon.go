@@ -80,7 +80,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *clien
 			cmdID = operation
 		case meta.CommandID != "":
 			// If the command ID is set, the Logbus command is guaranteed to
-			// have been created by earthbuild in the converter ahead of time.
+			// have been created by Earthbuild in the converter ahead of time.
 			cmdID = meta.CommandID
 			createCmd = false
 		default:

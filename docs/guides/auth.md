@@ -86,7 +86,7 @@ Currently, `github.com`, `gitlab.com`, and `bitbucket.org` have been tested as S
 earthbuild first attempts to perform a clone over SSH on the default SSH port (22), and will fallback to HTTPS, followed by HTTP.
 In the event access can only be established over HTTP, earthbuild will refuse to send credentials due to the insecure nature of HTTP.
 
-earthbuild can be configured to use a non-standard SSH port, by using the `port` config option:
+Earthbuild can be configured to use a non-standard SSH port, by using the `port` config option:
 
 ```yaml
 git:

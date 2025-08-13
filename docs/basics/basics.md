@@ -1,10 +1,10 @@
 # Introduction
 
-earthbuild is a build automation tool that uses docker containers to enforce build repeatability. earthbuild is meant to be run on your local system and in your CI. earthbuild's implicit caching and parallelism will make your builds repeatable and fast.
+Earthbuild is a build automation tool that uses docker containers to enforce build repeatability. Earthbuild is meant to be run on your local system and in your CI. Earthbuild's implicit caching and parallelism will make your builds repeatable and fast.
 
 This tutorial will walk you through a basic example of using earthbuild.
 
-## earthbuild is better logged in
+## Earthbuild is better logged in
 
 This tutorial will guide you through the basics of EarthBuild, a community-maintained fork of earthbuild.
 

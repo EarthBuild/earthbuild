@@ -58,7 +58,7 @@ COPY . .
 COPY * ./
 ```
 
-The problem with this is that many of the files copied are not actually used during the build, however earthbuild will react to changes to them, causing it to reuse cache inefficiently. It's not an issue of file size (though sometimes that too can hurt performance). It is much of an issue of re-executing build commands that wouldn't have to be re-executed.
+The problem with this is that many of the files copied are not actually used during the build, however Earthbuild will react to changes to them, causing it to reuse cache inefficiently. It's not an issue of file size (though sometimes that too can hurt performance). It is much of an issue of re-executing build commands that wouldn't have to be re-executed.
 
 ```Dockerfile
 # Avoid
@@ -195,7 +195,7 @@ Finally, here is a comparison between cross-repo references and `GIT CLONE`:
 
 ### `GIT CLONE` vs `RUN git clone`
 
-earthbuild has a built-in `GIT CLONE` instruction that can be used to clone a Git repository. It is recommended that `GIT CLONE` is used rather than `RUN git clone`, for a few reasons:
+Earthbuild has a built-in `GIT CLONE` instruction that can be used to clone a Git repository. It is recommended that `GIT CLONE` is used rather than `RUN git clone`, for a few reasons:
 
 * earthbuild treats `GIT CLONE` as a first-class input (BuildKit source). As such, earthbuild caches the repository internally and downloading only incremental differences on changes.
 * earthbuild is commit hash-aware, so it'll be able to detect when the build needs to take place versus when there are no changes to be made and the cache can be reused. If a change takes place in the source repository, `RUN git clone` would not be able to detect that, as it is not recognized as an input. So it would naively reuse the cache when it shouldn't.
@@ -370,7 +370,7 @@ If the result of a build needs to be pushed to an external service (or storage p
 
 To execute a custom push command, you can simply use a regular `RUN` command together with the `--push` flag. The `--push` will ensure that:
 
-* The command is only executed when earthbuild is in push mode (`earthbuild --push`)
+* The command is only executed when Earthbuild is in push mode (`earthbuild --push`)
 * No cache is reused for that specific command, causing it to execute every time
 * The command is executed during the push phase of the build, ensuring that everything else (e.g. testing) has completed successfully first
 
@@ -384,7 +384,7 @@ RUN --no-cache --secret GITHUB_TOKEN github-release upload ...
 `RUN --no-cache` should be avoided for this use-case, as it has some potentially dangerous downsides:
 
 * The upload command may be executed in parallel with any testing (meaning that tests might not pass yet the upload may still complete)
-* The upload will execute even when earthbuild is not invoked in `--push` mode.
+* The upload will execute even when Earthbuild is not invoked in `--push` mode.
 
 To address this issue, it is advisable to use `RUN --push` instead.
 
@@ -702,7 +702,7 @@ run-locally:
 
 ### Use `WITH DOCKER --load=+my-target` to pass images to `LOCALLY` targets
 
-earthbuild is able to output Docker images to the local Docker daemon at the end of each build. However, when requiring an image for a `LOCALLY` target, the image needs to be output in the *middle* of the build.
+Earthbuild is able to output Docker images to the local Docker daemon at the end of each build. However, when requiring an image for a `LOCALLY` target, the image needs to be output in the *middle* of the build.
 
 ```Dockerfile
 # Bad
@@ -1145,7 +1145,7 @@ In earthbuild it is possible to drop into the container of a failed step to diag
 
 Historically, build scripts have been constructed by cobbling up multiple technologies together: Makefiles, Bash scripts, Dockerfiles, Python scripts, Ruby scripts, and so on. The possibilities are endless, but also the readability and maintainability of the scripts suffer.
 
-earthbuild has been designed with a few key goals in mind:
+Earthbuild has been designed with a few key goals in mind:
 
 * Repeatability - the builds should just work on another system
 * Readability - the builds should be understandable by any team member on the team, without much effort

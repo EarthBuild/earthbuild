@@ -6,7 +6,7 @@
 Functions used to be called UDCs (User Defined Commands). earthbuild 0.7 uses `COMMAND` instead of `FUNCTION`.
 {% endhint %}
 
-earthbuild Functions are reusable sets of instructions that can be inserted in targets or other functions. In other words, it is a way to import common build steps which can be reused in multiple contexts.
+Earthbuild Functions are reusable sets of instructions that can be inserted in targets or other functions. In other words, it is a way to import common build steps which can be reused in multiple contexts.
 
 Unlike targets, functions inherit the (1) build context and (2) the build environment from the caller. Meaning that
 

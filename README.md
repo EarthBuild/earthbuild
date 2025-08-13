@@ -363,4 +363,4 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 
 <h2 align="center">Licensing</h2>
 
-earthbuild is licensed under the Mozilla Public License Version 2.0. See [LICENSE](./LICENSE).
+Earthbuild is licensed under the Mozilla Public License Version 2.0. See [LICENSE](./LICENSE).

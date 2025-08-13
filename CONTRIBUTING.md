@@ -4,7 +4,7 @@
 
 Please refer to [code-of-conduct.md](./code-of-conduct.md) for details.
 
-## Using earthbuild prerelease
+## Using Earthbuild prerelease
 
 To build earthbuild from source, you need the same requirements as earthbuild. We recommend that you use the prerelease version of earthbuild for development purposes. To launch the prerelease earthbuild, simply use the `./earthbuild` script provided in the root of the earthbuild repository. The prerelease earthbuild tracks the version on main. You can use `./earthbuild --version` to identify which Git hash was used to build it.
 
@@ -179,7 +179,7 @@ which will use the credentials which are stored in earthbuild's [cloud-hosted se
 
 ## Updates to buildkit or fsutil
 
-earthbuild is built against a fork of [buildkit](https://github.com/earthbuild/buildkit) and [fsutil](https://github.com/earthbuild/fsutil).
+Earthbuild is built against a fork of [buildkit](https://github.com/earthbuild/buildkit) and [fsutil](https://github.com/earthbuild/fsutil).
 
 To work with changes to this fork, you can use `earthbuild +for-linux --BUILDKIT_PROJECT=../buildkit`. This will use the local directory `../buildkit` for the buildkit code, when using buildkit in both `go.mod` and when building the buildkitd image.
 
@@ -190,11 +190,11 @@ The linked-PRs should be merged at the same time, in order to prevent earthbuild
 This is because the buildkit tests in the earthbuild fork of buildkit may not all pass -- this is a tech-debt trade-off -- instead of fixing (and extending these tests),
 we instead rely on the earthbuild integration tests to pass before merging in changes to our fork.
 
-The earthbuild-fork of the buildkit repository does not automatically squash commits; if you are submitting a PR for a new feature, it must be squashed manually.
-The buildkit github repo is only setup to explicitly create a new merge commit for all merges -- this means you will have to go update your PR in earthbuild with a reference to
+The Earthbuild-fork of the buildkit repository does not automatically squash commits; if you are submitting a PR for a new feature, it must be squashed manually.
+The buildkit github repo is only setup to explicitly create a new merge commit for all merges -- this means you will have to go update your PR in Earthbuild with a reference to
 the new merge-commit (and wait for tests to run again); however, you may do a `git merge --ff-only <branch> && git push` using git on the command line, which will speed up the merge
-process, since you will not have to edit your linked earthbuild PR (since a fast-forward change will not create a new merge commit, therefore allowing you to keep the existing referenced git sha in the
-earthbuild PR).
+process, since you will not have to edit your linked Earthbuild PR (since a fast-forward change will not create a new merge commit, therefore allowing you to keep the existing referenced git sha in the
+Earthbuild PR).
 
 If on the otherhand, you are pulling in upstream changes from moby, they should never be squashed.
 

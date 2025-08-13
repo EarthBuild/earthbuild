@@ -92,13 +92,13 @@ fi
 exit 2
 ```
 
-Then when earthbuild encounters a command that requires a secret, such as
+Then when Earthbuild encounters a command that requires a secret, such as
 
 ```Dockerfile
 RUN --secret mysecret echo "the passphrase is $mysecret."
 ```
 
-earthbuild will request the secret for `mysecret` by calling `my-secret_provider mysecret`.
+Earthbuild will request the secret for `mysecret` by calling `my-secret_provider mysecret`.
 
 {% hint style='info' %}
 ##### Note
@@ -241,7 +241,7 @@ The git repository hostname. For example `github.com`, or `gitlab.com`
 
 Either `ssh`, `https`, or `auto` (default). If `https` is specified, user and password fields are used
 to authenticate over HTTPS when pulling from git for the corresponding site. If `auto` is specified
-earthbuild will use `ssh` when the ssh-agent is running and has at least one key loaded, and will fallback
+Earthbuild will use `ssh` when the ssh-agent is running and has at least one key loaded, and will fallback
 to using `https` when no ssh-keys are present.
 
 See the [Authentication guide](../guides/auth.md) for a guide on setting up authentication.

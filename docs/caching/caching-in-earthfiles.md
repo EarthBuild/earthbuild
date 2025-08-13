@@ -95,7 +95,7 @@ Unlike layer caching and cache mounts (which store cache local to the runner), a
 
 Auto-skip can be enabled for either an entire run, via `earthbuild --auto-skip` (*experimental*), or for a specific target, via `BUILD --auto-skip` (*coming soon*).
 
-Unlike layer caching, auto-skip is an all-or-nothing type of cache. Either the entire target is skipped, or none of it is. This is because earthbuild does not know which parts of the target are affected by the change. If auto-skip does not deem the run to be skipped, then earthbuild will fallback to the other forms of caching to run the build as efficiently as possible.
+Unlike layer caching, auto-skip is an all-or-nothing type of cache. Either the entire target is skipped, or none of it is. This is because Earthbuild does not know which parts of the target are affected by the change. If auto-skip does not deem the run to be skipped, then Earthbuild will fallback to the other forms of caching to run the build as efficiently as possible.
 
 ### When auto-skip is not supported
 

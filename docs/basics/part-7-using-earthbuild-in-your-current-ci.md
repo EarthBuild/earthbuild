@@ -2,7 +2,7 @@ In this section, we will explore how to use earthbuild in a CI system, such as G
 
 For more information on how to use earthbuild in other CIs such as GitLab, Jenkins, or CircleCI, you can check out the [CI Integration page](../ci-integration/overview.md).
 
-## Using earthbuild in Your Current CI
+## Using Earthbuild in Your Current CI
 
 To use earthbuild in a CI, you typically encode the following steps in your CI's build configuration:
 

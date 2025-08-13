@@ -1,4 +1,4 @@
-# earthbuild command reference
+# Earthbuild command reference
 
 ## earthbuild
 

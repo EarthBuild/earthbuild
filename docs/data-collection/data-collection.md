@@ -1,10 +1,10 @@
-# earthbuild data collection
+# Earthbuild data collection
 
 By default, earthbuild collects anonymized data which we use for measuring performance of the earthbuild command.
 
 ## Installation ID
 
-earthbuild will create a universally unique installation ID (UUID v4) under `~/.earthbuild/install_id`, which
+Earthbuild will create a universally unique installation ID (UUID v4) under `~/.earthbuild/install_id`, which
 is used to track each installation. This ID is randomly created and does not contain any personal data.
 
 
@@ -20,7 +20,7 @@ report which CI system is detected (e.g. GitHub Actions, Circle CI, Travis CI, J
 
 ## Command and exit code
 
-earthbuild will report which command was run (e.g. build, prune, etc), the execution time, and corresponding exit code.
+Earthbuild will report which command was run (e.g. build, prune, etc), the execution time, and corresponding exit code.
 Command line arguments are *not* captured.
 
 ## Disabling analytics

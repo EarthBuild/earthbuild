@@ -57,7 +57,7 @@ The first commands in the file are part of the `base` target and are implicitly 
 Lastly, we change our working directory to `/go-workdir`.
 
 ## Creating Your First Targets
-earthbuild aims to replace Dockerfile, makefile, bash scripts and more. We can take all the setup, configuration and build steps we'd normally define in those files and put them in our Earthfile in the form of `targets`.
+Earthbuild aims to replace Dockerfile, makefile, bash scripts and more. We can take all the setup, configuration and build steps we'd normally define in those files and put them in our Earthfile in the form of `targets`.
 
 Let's start by defining a target to build our simple Go app. **When we run EarthBuild, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earthbuild +build`.  More on this in the [Running the Build](#running-the-build) section.
 

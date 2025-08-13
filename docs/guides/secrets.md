@@ -34,7 +34,7 @@ The file will not be saved to the image snapshot.
 
 ## Setting secret values
 
-The value for `passwd` in examples above must then be supplied when earthbuild is invoked.
+The value for `passwd` in examples above must then be supplied when Earthbuild is invoked.
 
 This is possible in a few ways:
 

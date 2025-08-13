@@ -60,11 +60,11 @@ done
 set -xu
 
 if ! git symbolic-ref -q HEAD >/dev/null; then
-    echo "Add branch info back to git (earthbuild uses it for tagging)"
+    echo "Add branch info back to git (Earthbuild uses it for tagging)"
     git checkout -B "$BUILDKITE_BRANCH" || true
 fi
 
-echo "Download latest earthbuild binary"
+echo "Download latest Earthbuild binary"
 if [ -n "$download_url" ]; then
     curl -o ./earthbuild-released -L "$download_url" && chmod +x ./earthbuild-released
     released_earthbuild=./earthbuild-released
@@ -82,7 +82,7 @@ set -x
 echo "Prune cache for cross-version compatibility"
 "$released_earthbuild" prune --reset
 
-echo "Build latest earthbuild using released earthbuild"
+echo "Build latest Earthbuild using released Earthbuild"
 "$released_earthbuild" --version
 "$released_earthbuild" config global.disable_analytics true
 "$released_earthbuild" +for-"$EARTHBUILD_OS"
@@ -116,7 +116,7 @@ echo "DOCKERHUB_MIRROR_AUTH=false" > .arg
 echo "DOCKERHUB_MIRROR=mirror.gcr.io" >> .arg
 set -x
 
-# stop the released earthbuild buildkitd container (to preserve memory)
+# stop the released Earthbuild buildkitd container (to preserve memory)
 docker rm -f earthbuild-buildkitd 2> /dev/null || true
 
 max_attempts=2
@@ -142,7 +142,7 @@ for target in \
         +test-qemu \
         ; do
     for attempt in $(seq 1 "$max_attempts"); do
-        # kill earthbuild-* containers to release memory (the macstadium machines have limited memory)
+        # kill Earthbuild-* containers to release memory (the macstadium machines have limited memory)
         set +e
         docker ps -a | grep earthbuild- | awk '{print $1}' | xargs -r docker rm -f
         set -e

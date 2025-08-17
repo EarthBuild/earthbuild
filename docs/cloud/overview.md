@@ -11,5 +11,3 @@ To use certain features, Earthly Cloud Secrets, you will additionally need to cr
 ```bash
 earthly project create <project-name>
 ```
-
-

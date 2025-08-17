@@ -77,6 +77,8 @@ This is possible in a few ways:
    earthly +hello
    ```
 
+5. Via cloud-based secrets. This option helps share secrets within a wider team. To read more about this see the [cloud-based secrets guide](../cloud/cloud-secrets.md).
+
 Regardless of the approach chosen from above, once earthly is invoked, in our example, it will output:
 
 ```
@@ -101,3 +103,10 @@ Earthly stores the contents of command-line-supplied secrets in memory on the lo
 daemon will request the secret from the earthly command-line process and will temporarily mount the secret inside the runc container that is evaluating the `RUN` command.
 Once the command finishes the secret is unmounted. It will not persist as an environment variable within the saved container snapshot. Secrets will be kept in-memory
 until the earthly command exits.
+
+Earthly also supports cloud-based shared secrets which can be stored in the cloud. Secrets are never stored in the cloud unless a user creates an earthly account and
+explicitly calls the `earthly secrets set ...` command to transmit the secret to the earthly cloud-based secrets server.
+
+The benefit of storing secrets in the cloud is that they can be shared in CI and across the team, which helps to reproduce CI builds that much more easily.
+
+For more information about cloud-based secrets, check out our [cloud-based secrets management guide](../cloud/cloud-secrets.md).

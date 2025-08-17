@@ -1613,6 +1613,21 @@ test-aws-flag-envs:
    RUN cat earthly.output | acbgrep "AWS_REGION=us-west-1"
    RUN cat earthly.output | acbgrep "AWS_SECRET_ACCESS_KEY=aws-secret-key"
 
+# TODO: reinstate test once we have AWS access.
+# # test-aws-oidc tests expected errors for misusing of oidc flag
+# # for happy path test go to <repo>/tests/oidc
+# test-aws-oidc:
+#    DO +RUN_EARTHLY --earthfile=aws-flag.earth --target=+oidc --should_fail=true --output_contains="RUN --aws-oidc requires the --run-with-aws-oidc feature flag"
+#    DO +RUN_EARTHLY --earthfile=aws-flag.earth --extra_args="--allow-privileged" --target=+oidc-with-docker --should_fail=true --output_contains="RUN --aws-oidc requires the --run-with-aws-oidc feature flag"
+#    # enable flag
+#    RUN sed -i "1s/VERSION \(.*\)/VERSION --run-with-aws-oidc \1/" Earthfile
+#    # empty oidc flag
+#    DO +RUN_EARTHLY --target=+oidc --should_fail=true --output_contains="role-arn must be specified"
+#    DO +RUN_EARTHLY --extra_args="--allow-privileged" --target=+oidc-with-docker --should_fail=true --output_contains="role-arn must be specified"
+#    # invalid oidc flag
+#    DO +RUN_EARTHLY --target=+oidc --extra_args="--build-arg OIDC=\"foo=bar\"" --should_fail=true --output_contains="invalid value for oidc flag: 1 error(s) decoding"
+#    DO +RUN_EARTHLY --extra_args="--allow-privileged" --target=+oidc-with-docker --extra_args="--build-arg OIDC=\"foo=bar\"" --should_fail=true --output_contains="invalid value for oidc flag: 1 error(s) decoding"
+
 test-aws-flag-configs:
    RUN mkdir -p /root/.aws
    RUN echo "[default]

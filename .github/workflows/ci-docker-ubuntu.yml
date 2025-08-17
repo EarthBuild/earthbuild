@@ -264,6 +264,7 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
+  # TODO: The oidc tests are ignored until we have an AWS account to test with.
   # docker-test-oidc-command:
   #   if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
   #   needs: build-earthly

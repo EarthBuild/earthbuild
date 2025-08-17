@@ -184,6 +184,7 @@ if "$frontend" inspect earthly-export-test-6:test_linux_arm64 >/dev/null 2>&1 ; 
     exit 1
 fi
 
+# TODO: We should reinstate this test.
 # # Test 7: remote cache on target with only BUILDs
 # echo ==== Running test 7 ====
 # rm -rf /tmp/earthly-export-test-7

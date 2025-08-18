@@ -159,12 +159,12 @@ install_dockerd_debian_like() {
         apt-transport-https \
         ca-certificates \
         curl \
-        gnupg-agent \
-        software-properties-common
+        gnupg-agent
 
     VERSION="$(. /etc/os-release && echo "$VERSION_ID")"
     case "$distro" in
         ubuntu)
+            apt-get install -y software-properties-common
             MAJOR="$(echo "$VERSION" | awk -F. '{print $1}')"
             if [ "$MAJOR" -ge "22" ]; then
                 install_docker_apt_repo_new
@@ -174,6 +174,9 @@ install_dockerd_debian_like() {
             ;;
 
         debian)
+            if [ "$VERSION" -le "13" ]; then
+                apt-get install -y software-properties-common
+            fi
             if [ "$VERSION" -ge "12" ]; then
                 install_docker_apt_repo_new
             else
@@ -182,6 +185,7 @@ install_dockerd_debian_like() {
             ;;
 
         *)
+            apt-get install -y software-properties-common
             install_docker_apt_repo_old
             ;;
     esac

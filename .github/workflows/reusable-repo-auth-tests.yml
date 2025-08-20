@@ -39,7 +39,6 @@ jobs:
           - 2222:22
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       SSH_PORT: "2222"
       # Used in our github action as the token - TODO: look to change it into an input
@@ -52,7 +51,6 @@ jobs:
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
           BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

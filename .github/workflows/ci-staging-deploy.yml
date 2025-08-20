@@ -29,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_USER: "earthly"
       EARTHLY_REPO: "earthly-staging"

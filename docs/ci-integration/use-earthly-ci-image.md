@@ -27,9 +27,7 @@ Note that using the `earthly` binary as the entrypoint will not start up BuildKi
 
 An alternative option is to use the `earthly/earthly` image in conjunction with a remote BuildKit Daemon. You may use the environment variable `BUILDKIT_HOST` to specify the hostname of the remote BuildKit Daemon. When this environment variable is set, the `earthly/earthly` image will not attempt to start BuildKit and will instead use the remote BuildKit Daemon.
 
-You may also use the `earthly/earthly` image to run a build against an Earthly Satellite. To achieve this you can pass along an `EARTHLY_TOKEN` environment variable, along with the command-line flags `--sat` and `--org`, to point the build to a specific satellite.
-
-For more details on using remote execution, [see our guide on remote BuildKit](./remote-buildkit.md) or the [introduction to Satellites](../cloud/satellites.md).
+For more details on using remote execution, [see our guide on remote BuildKit](./remote-buildkit.md).
 
 #### Mounting the source code
 
@@ -53,7 +51,7 @@ docker run --privileged --rm earthly/earthly:v0.8.13 github.com/foo/bar:my-branc
 
 #### `NO_BUILDKIT` Environment Variable
 
-As the embedded BuildKit daemon requires `--privileged`, for some operations you may be able to use the `NO_BUILDKIT=1` environment variable to disable the embedded BuildKit daemon. This is especially useful when running against a remote BuildKit (like a Satellite), or when not performing a build as part of the command (like when using `earthly account`).
+As the embedded BuildKit daemon requires `--privileged`, for some operations you may be able to use the `NO_BUILDKIT=1` environment variable to disable the embedded BuildKit daemon. This is especially useful when running against a remote BuildKit.
 
 ## An important note about running the image
 

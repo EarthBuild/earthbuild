@@ -254,7 +254,7 @@ earthly +release-short --SECRET_ID=""
 
 It is also possible to mount a secret as a file with `RUN --mount type=secret,id=secret-id,target=/path/of/secret,chmod=0400`. See `--mount` below.
 
-For more information on how to use secrets see the [Secrets guide](../guides/secrets.md). See also the [Cloud secrets guide](../cloud/cloud-secrets.md).
+For more information on how to use secrets see the [Secrets guide](../guides/secrets.md).
 
 ##### `--network=none`
 

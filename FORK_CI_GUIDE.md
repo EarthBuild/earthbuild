@@ -25,9 +25,6 @@ The CI workflows depend on several external GitHub repositories and actions. The
 
 The CI workflows require numerous secrets. These need to be created in the `earthbuild/earthly` repository settings (`Settings -> Secrets and variables -> Actions`).
 
-- **`EARTHLY_TOKEN`**: For interacting with Earthly Cloud (e.g., for remote caching).
-  - **Action Required**: Create an account on [Earthly Cloud](https://cloud.earthly.dev) for the `earthbuild` organization and generate a token.
-
 - **`DOCKERHUB_USERNAME`** and **`DOCKERHUB_TOKEN`**: For pushing and pulling images from Docker Hub.
   - **Action Required**: Create a Docker Hub organization/account for `earthbuild` and create an access token.
 

@@ -34,7 +34,6 @@ jobs:
     permissions: write-all
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

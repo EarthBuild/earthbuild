@@ -13,8 +13,6 @@ redirects:
     guides/auth: guides/auth.md
     guides/cache: caching/managing-cache.md
     docs/guides/cache: caching/managing-cache.md
-    docs/guides/cloud-secrets: cloud/cloud-secrets.md
-    guides/cloud-secrets: cloud/cloud-secrets.md
     guides/debugging: guides/debugging.md
     guides/docker-in-earthly: guides/docker-in-earthly.md
     guides/integration: guides/integration.md
@@ -78,4 +76,3 @@ redirects:
     guides/configuring-registries: guides/auth.md
     guides/shared-cache: ./caching/caching-via-registry.md
     docs/remote-caching: ./caching/caching-via-registry.md
-    earthly-cloud/satellites: cloud/satellites.md

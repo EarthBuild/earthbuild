@@ -102,13 +102,13 @@ Finally, the last form of project referencing is an import reference. Import ref
 | Import command | Project ref | Target ref | Artifact ref | Function ref |
 |----|----|----|----|----|
 | `IMPORT <full-project-ref> AS <import-alias>` | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
-| `IMPORT github.com/earthly/earthly/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
+| `IMPORT github.com/earthly/EarthBuild/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
 | `IMPORT github.com/earthly/earthly:v0.8.13` | `earthly` | `earthly+build` | `earthly+build/out.bin` | `earthly+COMPILE` |
 
 Here is an example in an Earthfile:
 
 ```Dockerfile
-IMPORT github.com/earthly/earthly/buildkitd
+IMPORT github.com/earthly/EarthBuild/buildkitd
 
 ...
 

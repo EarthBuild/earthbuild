@@ -36,7 +36,7 @@
         * [Self-signed certificates](guides/registries/self-signed.md)
     * Using the Earthly Docker Images
         * [earthly/earthly](docker-images/all-in-one.md)
-        * [earthly/buildkitd](docker-images/buildkit-standalone.md)
+        * [EarthBuild/buildkitd](docker-images/buildkit-standalone.md)
     * [Best practices](guides/best-practices.md)
 * [Caching](./caching/caching.md)
     * [Caching in Earthfiles](./caching/caching-in-earthfiles.md)

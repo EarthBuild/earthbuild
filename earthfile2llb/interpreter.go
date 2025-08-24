@@ -1457,7 +1457,7 @@ func (i *Interpreter) handleExpose(ctx context.Context, cmd spec.Command) error 
 	}
 
 	// Dockerfile syntax allows defining host bindings; however, they are ignored when generating the image
-	// see: https://github.com/earthly/buildkit/blob/dad0cead57a2d92d43e44c9212153ffe53d9ebc9/frontend/dockerfile/dockerfile2llb/convert.go#L1207
+	// see: https://github.com/EarthBuild/buildkit/blob/dad0cead57a2d92d43e44c9212153ffe53d9ebc9/frontend/dockerfile/dockerfile2llb/convert.go#L1207
 	ps, _, err := nat.ParsePortSpecs(ports)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to parse EXPOSE command")

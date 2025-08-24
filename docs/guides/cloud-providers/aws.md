@@ -24,10 +24,3 @@ aws:
 ```
 
 For more information, see [here](../../earthfile/earthfile.md#--aws-experimental).
-
-### OIDC (OpenID Connect)
-
-OIDC in useful in cases where credentials are not available in the host (e.g. CI system)
-and/or when authentication requires MFA (multi-factor authentication).
-
-For more information on how to set up & authenticate to AWS via OIDC, see [here](../../cloud/oidc.md). 

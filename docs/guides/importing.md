@@ -175,7 +175,7 @@ Another form of a Earthfile reference is the remote form. In this form, the reci
 | Earthfile ref | Target ref | Artifact ref | Function ref |
 |----|----|----|----|
 | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>/<artifact-path>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<function-name>` |
-| `github.com/earthly/earthly/buildkitd` | `github.com/earthly/earthly/buildkitd+build` | `github.com/earthly/earthly/buildkitd+build/out.bin` | `github.com/earthly/earthly/buildkitd+COMPILE` |
+| `github.com/earthly/earthbuild/buildkitd` | `github.com/earthly/earthbuild/buildkitd+build` | `github.com/earthly/earthly/buildkitd+build/out.bin` | `github.com/earthly/earthly/buildkitd+COMPILE` |
 | `github.com/earthly/earthly:v0.8.13` | `github.com/earthly/earthly:v0.8.13+build` | `github.com/earthly/earthly:v0.8.13+build/out.bin` | `github.com/earthly/earthly:v0.8.13+COMPILE` |
 
 ### Import reference

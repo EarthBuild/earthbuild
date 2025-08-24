@@ -18,7 +18,7 @@ The CI workflows depend on several external GitHub repositories and actions. The
   - **Action Required**: Create a new repository `github.com/earthbuild/homebrew-earthly`.
   - **Update Workflows**: The `release/release.sh` script needs to be updated to use this new tap.
 
-- **`earthly/buildkit`**: The release script uses a specific commit from an `earthly-next` file, which points to a commit in a fork of buildkit.
+- **`EarthBuild/buildkit`**: The release script uses a specific commit from an `earthly-next` file, which points to a commit in a fork of buildkit.
   - **Action Required**: The community will need to decide how to manage the buildkit dependency. The simplest approach is to use an official buildkit release. If custom patches are needed, a fork `github.com/earthbuild/buildkit` will be necessary.
 
 ## 2. Secrets Management

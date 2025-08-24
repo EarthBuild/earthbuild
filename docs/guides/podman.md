@@ -120,7 +120,7 @@ Ensure you have correctly installed podman and, if you are using a Mac, the podm
 
 ### Rootless podman
 Running podman in rootless mode is not supported due to the [earthly/dind](https://hub.docker.com/r/earthly/dind) and 
-[earthly/buildkit](https://hub.docker.com/r/earthly/buildkitd) because they [require privileged access](https://docs.earthly.dev/docs/guides/using-the-earthly-docker-images/buildkit-standalone#requirements).
+[earthbuild/buildkit](https://hub.docker.com/r/earthbuild/buildkitd) because they [require privileged access](https://docs.earthly.dev/docs/guides/using-the-earthly-docker-images/buildkit-standalone#requirements).
 Specifically, [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker) will fail.
 You must use `sudo` on Linux or [set your podman machine to rootful mode on Mac](https://docs.podman.io/en/latest/markdown/podman-machine-set.1.html#rootful) to use [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker).
 

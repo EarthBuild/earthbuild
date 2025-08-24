@@ -365,26 +365,6 @@ The `--aws` flag has experimental status. To use this feature, it must be enable
 
 Makes AWS credentials available to the executed command via the host's environment variables or ~/.aws directory.
 
-##### `--oidc <oidc-spec>` (experimental)
-
-{% hint style='info' %}
-##### Note
-The `--oidc` flag has experimental status and can only be used conjointly with the `--aws` flag. To use this feature, it must be enabled via `VERSION --run-with-aws --run-with-aws-oidc 0.8`.
-{% endhint %}
-
-Makes AWS credentials available to the executed command via AWS OIDC provider.
-
-The `<oidc-spec>` is defined as a series of comma-separated list of key-values. The following keys are allowed:
-
-| Key                | Description                                                                                                                                                                                                                                            | Example                                             |
-|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| `session-name`     | The session name to identify in AWS's logs. If any `RUN ... --oidc` commands use the same `session-name`, they will share the same temporary token                                                                                                     | `session-name=my-session`                           |
-| `role-arn`         | The AWS arn of the role for which to get credentials.                                                                                                                                                                                                  | `role-arn=arn:aws:iam::123456789012:role/some-role` |
-| `region`           | The AWS region to connect to in order to get the credentials. This will also be the region used by the executed AWS command (though the region may be overridden in the command). If the region is not specified, the global AWS endpoint will be used | `region=us-east-1`                                  |
-| `session-duration` | The time the credentials will be valid for before they expire. Default (AWS minimum): 15 minutes.                                                                                                                                                      | `session-duration=20m`                              |
-
-Click [here](../cloud/oidc.md#openid-connect-oidc-authentication) for more information on how to configure OIDC in AWS for Earthly.
-
 ##### `--raw-output` (experimental)
 
 {% hint style='info' %}
@@ -1043,18 +1023,6 @@ Avoid using feature flags for critical workflows. You should only use feature fl
 {% endhint %}
 
 All features are described in [the version-specific features reference](./features.md).
-
-## PROJECT
-
-#### Synopsis
-
-* `PROJECT <org-name>/<project-name>`
-
-#### Description
-
-The command `PROJECT` marks the current Earthfile as being part of the project belonging to the [Earthly organization](https://docs.earthly.dev/earthly-cloud/overview) `<org-name>` and the project `<project-name>`. The project is used by Earthly to retrieve [cloud-based secrets](../cloud/cloud-secrets.md) and build logs belonging to the project.
-
-The `PROJECT` command can only be used in the `base` recipe and it applies to the entire Earthfile. The `PROJECT` command can never contain any `ARG`s that need expanding.
 
 ## GIT CLONE
 

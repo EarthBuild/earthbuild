@@ -14,7 +14,7 @@ Kubernetes isn't a CI per-se, but it _can_ serve as the underpinning for many mo
 
 `earthly` has been tested with the all-in-one `earthly/earthly` mode, and works as long as the pod runs in a `privileged` mode.
 
-It has also been tested with a _single_ remote `earthly/buildkitd` running in `privileged` mode, and an `earthly/earthly` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
+It has also been tested with a _single_ remote `EarthBuild/buildkitd` running in `privileged` mode, and an `earthly/earthly` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
 
 Multi-node `earthly/buildkitd` configurations are currently unsupported.
 

@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/variables/reserved"
+	"domain"
+	"variables/reserved"
 
 	"github.com/pkg/errors"
 )

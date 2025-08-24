@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states/dedup"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/variables"
+	"domain"
+	"states/dedup"
+	"util/platutil"
+	"variables"
 	"github.com/pkg/errors"
 )
 

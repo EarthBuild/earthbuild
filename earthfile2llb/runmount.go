@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )

@@ -12,12 +12,12 @@ import (
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/cmd/earthly/base"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 
-	"github.com/earthly/earthly/autocomplete"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/cliutil"
+	"github.com/EarthBuild/earthbuild/autocomplete"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
 // to enable autocomplete, enter

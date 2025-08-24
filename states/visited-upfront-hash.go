@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/variables"
+	"domain"
+	"util/platutil"
+	"variables"
 )
 
 // visitedUpfrontHashCollection is a collection of visited targets.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 )
 
 var (

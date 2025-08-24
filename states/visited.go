@@ -3,9 +3,9 @@ package states
 import (
 	"context"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/variables"
+	"domain"
+	"util/platutil"
+	"variables"
 )
 
 // VisitedCollection represents a collection of visited targets.

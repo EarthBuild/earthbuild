@@ -272,7 +272,7 @@ unit-test:
 # depend on the core earthly project.
 submodule-decouple-check:
     FROM +code
-    RUN for submodule in github.com/earthly/earthly/ast github.com/earthly/earthly/util/deltautil; \
+    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
     do \
         for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
         do \

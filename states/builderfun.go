@@ -3,7 +3,7 @@ package states
 import (
 	"context"
 
-	"github.com/earthly/earthly/util/platutil"
+	"util/platutil"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 

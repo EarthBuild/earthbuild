@@ -22,34 +22,34 @@ import (
 	"github.com/containerd/containerd/platforms"
 	"github.com/docker/distribution/reference"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/inputgraph"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/states/dedup"
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/inodeutil"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/shell"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/vertexmeta"
-	"github.com/earthly/earthly/variables"
-	"github.com/earthly/earthly/variables/reserved"
+	"github.com/EarthBuild/earthbuild/ast/commandflag"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/states/dedup"
+	"github.com/EarthBuild/earthbuild/states/image"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/inodeutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/util/vertexmeta"
+	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
@@ -198,7 +198,7 @@ func (c *Converter) From(ctx context.Context, imageName string, platform platuti
 	if err != nil {
 		return err
 	}
-	c.varCollection.SetLocally(false) // FIXME this will have to change once https://github.com/earthly/earthly/issues/2044 is fixed
+	c.varCollection.SetLocally(false) // FIXME this will have to change once https://github.com/EarthBuild/earthbuild/issues/2044 is fixed
 	platform = c.setPlatform(platform)
 	if strings.Contains(imageName, "+") {
 		// Target-based FROM.
@@ -1190,7 +1190,7 @@ func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushF
 					c.opt.ExportCoordinator.AddPushedImageSummary(c.target.StringCanonical(), si.DockerTag, c.mts.Final.ID, c.opt.DoPushes)
 				}
 
-				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
+				// TODO this is here as a work-around for https://github.com/EarthBuild/earthbuild/issues/2178
 				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
 				// however we don't want to break inline caching for users who are using VERSION 0.7 without any explicit WAIT blocks
 				if !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {

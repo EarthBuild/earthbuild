@@ -11,20 +11,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/ast/command"
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/conslogging"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/internal/version"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/shell"
-	"github.com/earthly/earthly/variables"
+	"github.com/EarthBuild/earthbuild/ast/command"
+	"github.com/EarthBuild/earthbuild/ast/commandflag"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/version"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
+	"github.com/EarthBuild/earthbuild/variables"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
@@ -613,7 +613,7 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
 		return i.errorf(cmd.SourceLocation, "the FROM --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
 	}
 
-	i.local = false // FIXME https://github.com/earthly/earthly/issues/2044
+	i.local = false // FIXME https://github.com/EarthBuild/earthbuild/issues/2044
 	err = i.converter.From(ctx, imageName, platform, allowPrivileged, opts.PassArgs, expandedBuildArgs)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply FROM %s", imageName)

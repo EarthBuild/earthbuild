@@ -15,7 +15,7 @@ jobs:
       - name: Docker Login (main build)
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: test apt repo
         run: cat CHANGELOG.md | grep '## v[0-9]\+.[0-9]\+.[0-9]\+' | awk '{print $2}' | head -n 1 > expected-version && test -n "$(cat expected-version)"
@@ -30,7 +30,7 @@ jobs:
       - name: Docker Login (main build)
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: test apt repo
         run: cat CHANGELOG.md | grep '## v[0-9]\+.[0-9]\+.[0-9]\+' | awk '{print $2}' | head -n 1 > expected-version && test -n "$(cat expected-version)"

@@ -32,7 +32,7 @@ the [buildkit/docs/dev](https://github.com/moby/buildkit/tree/master/docs/dev) s
 | **pullping** | Once the build function returns (passing a set of LLB references back to buildkit), the BuildKit server will execute the commands, and call the earthlyoutputs exporter, which will call back to the client (Earthly), which will be received by the pullping handler. This will cause earthly to perform a `docker pull ...` against the embedded registry |
 | **dockertar** | The legacy approach for exporting images from BuildKit to the host via a `tar` file; we try to use pullping instead, since it only pulls the needed layers |
 | **logbus** | An interface for writing output to both stdout and the web-based log viewer under cloud.earthly.dev |
-| **earthlyoutputs** | A custom buildkit exporter (within the [earthly/buildkit fork](https://github.com/earthly/buildkit/tree/earthly-main/exporter/earthlyoutputs)), which is used to send images back to earthly |
+| **earthlyoutputs** | A custom buildkit exporter (within the [EarthBuild/buildkit fork](https://github.com/EarthBuild/buildkit/tree/earthly-main/exporter/earthlyoutputs)), which is used to send images back to earthly |
 | **embedded registry** | A [docker registry](https://github.com/distribution/distribution) which runs within the earthly-buildkitd container, used in combination with earthlyoutputs and the pullping callback; also referred to as "local registry" |
 
 ## Guides

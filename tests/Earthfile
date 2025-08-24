@@ -901,20 +901,20 @@ eine-test-base:
     FROM docker:19.03.12-dind
     RUN apk --update --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/
-    ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
+    ENV EARTHLY_BUILDKIT_IMAGE=earthbuild/buildkitd:dind-test
     WORKDIR /test
 
 eine-smoke-test:
     FROM +eine-test-base
     COPY parser-smoke.earth ./Earthfile
-    WITH DOCKER --load earthly/buildkitd:dind-test=../../buildkitd+buildkitd
+    WITH DOCKER --load earthbuild/buildkitd:dind-test=../../buildkitd+buildkitd
         RUN earthly +test
     END
 
 eine-privileged-test:
     FROM +eine-test-base
     COPY privileged.earth ./Earthfile
-    WITH DOCKER --load earthly/buildkitd:dind-test=../../buildkitd+buildkitd
+    WITH DOCKER --load earthbuild/buildkitd:dind-test=../../buildkitd+buildkitd
         RUN earthly --allow-privileged +test
     END
 

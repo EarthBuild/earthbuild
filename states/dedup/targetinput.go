@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"domain"
-	"variables/reserved"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 
 	"github.com/pkg/errors"
 )

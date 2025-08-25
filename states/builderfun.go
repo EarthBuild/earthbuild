@@ -3,7 +3,7 @@ package states
 import (
 	"context"
 
-	"util/platutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 

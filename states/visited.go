@@ -3,9 +3,9 @@ package states
 import (
 	"context"
 
-	"domain"
-	"util/platutil"
-	"variables"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/variables"
 )
 
 // VisitedCollection represents a collection of visited targets.

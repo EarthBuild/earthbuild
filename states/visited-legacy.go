@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"domain"
-	"states/dedup"
-	"util/platutil"
-	"variables"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/states/dedup"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/pkg/errors"
 )
 

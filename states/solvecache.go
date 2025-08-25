@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"util/llbutil/pllb"
-	"util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/pkg/errors"
 )
 

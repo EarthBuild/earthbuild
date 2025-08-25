@@ -4,6 +4,8 @@ go 1.21.0
 
 require (
 	git.sr.ht/~nelsam/hel v0.6.2
+	github.com/EarthBuild/earthbuild/ast v0.0.0-00010101000000-000000000000
+	github.com/EarthBuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
 	github.com/adrg/xdg v0.4.0
 	github.com/alessio/shellescape v1.4.2
 	github.com/alexcb/binarystream v0.0.0-20231130184431-f2f7a7543c6d
@@ -18,8 +20,6 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/earthly/cloud-api v1.0.1-0.20240712142419-23b6f0913996
-	github.com/EarthBuild/earthbuild/ast v0.0.0-00010101000000-000000000000
-	github.com/EarthBuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
 	github.com/elastic/go-sysinfo v1.9.0
 	github.com/fatih/color v1.16.0
 	github.com/gofrs/flock v0.8.1

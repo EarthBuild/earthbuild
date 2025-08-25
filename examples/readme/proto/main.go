@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"examples/readme/proto/pb"
+	"github.com/EarthBuild/earthbuild/examples/readme/proto/pb"
 	"github.com/golang/protobuf/proto"
 )
 

@@ -3,6 +3,7 @@
   extends: [
     'config:recommended',
     'default:pinDigestsDisabled',
+    'security:openssf-scorecard'
   ],
   baseBranches: [
     'main',

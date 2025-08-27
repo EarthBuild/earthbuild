@@ -170,7 +170,7 @@ func (psf *podmanShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 		// buildkit creates weird hybrid docker/OCI images, Podman pulls it in as an OCI image and ends up neglecting the
 		// in-built image tag. We can get around this by "pulling" a tar file and specifying the format at the CLI. This
 		// is more or less what Podman will be doing going forward. For further context, see the linked issues and discussion
-		// here: https://github.com/EarthBuild/earthbuild/issues/1285
+		// here: https://github.com/earthly/earthly/issues/1285
 
 		file, tmpErr := os.CreateTemp("", "earthly-podman-load-*")
 		if tmpErr != nil {

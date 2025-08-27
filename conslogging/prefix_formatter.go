@@ -21,7 +21,7 @@ var (
 	// gitURLRegex matches the url appearing in parentheses for example:
 	// +my-target(https://github/earthly/earthly)
 	gitURLRegex = regexp.MustCompile(`\(.+?\)`)
-	// urlPrefixRegex is used to captured url protocol, for example "https://" in "https://github.com/earthly/earthly"
+	// urlPrefixRegex is used to captured url protocol, for example "https://" in "https://github.com/EarthBuild/earthbuild"
 	urlPrefixRegex = regexp.MustCompile("^.+?//")
 	// targetURLRegex is used to capture any target path - relative (./my-dir+my-target), absolute (/abs/my-dir+my-target) or remote (github.com/my-org-my-repo+my-target)
 	// the url my include an optional branch name or commit sha, e.g. github.com/my-org/my-repo:my-branch+my-target

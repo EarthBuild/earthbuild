@@ -198,7 +198,7 @@ func (c *Converter) From(ctx context.Context, imageName string, platform platuti
 	if err != nil {
 		return err
 	}
-	c.varCollection.SetLocally(false) // FIXME this will have to change once https://github.com/EarthBuild/earthbuild/issues/2044 is fixed
+	c.varCollection.SetLocally(false) // FIXME this will have to change once https://github.com/earthly/earthly/issues/2044 is fixed
 	platform = c.setPlatform(platform)
 	if strings.Contains(imageName, "+") {
 		// Target-based FROM.
@@ -1190,7 +1190,7 @@ func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushF
 					c.opt.ExportCoordinator.AddPushedImageSummary(c.target.StringCanonical(), si.DockerTag, c.mts.Final.ID, c.opt.DoPushes)
 				}
 
-				// TODO this is here as a work-around for https://github.com/EarthBuild/earthbuild/issues/2178
+				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
 				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
 				// however we don't want to break inline caching for users who are using VERSION 0.7 without any explicit WAIT blocks
 				if !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {

@@ -136,7 +136,7 @@ fi
 
 GITHUB_PRERELEASE="$PRERELEASE"
 if [ "$EARTHLY_STAGING" = "true" ]; then
-    # special case to ensure https://github.com/earthly/earthly-staging/releases/latest/download/earthly-linux-amd64 is kept up to date
+    # special case to ensure https://github.com/earthbuild/earthbuild-staging/releases/latest/download/earthbuild-linux-amd64 is kept up to date
     GITHUB_PRERELEASE="false"
 
     # make sure we aren't accidentally doing a regular release

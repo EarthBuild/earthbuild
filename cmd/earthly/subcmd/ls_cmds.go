@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 

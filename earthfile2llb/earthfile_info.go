@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/platutil"
+	"github.com/EarthBuild/earthbuild/ast/commandflag"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 )

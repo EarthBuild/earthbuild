@@ -1,4 +1,4 @@
-module github.com/earthly/earthly/ast
+module github.com/EarthBuild/earthbuild/ast
 
 go 1.21
 

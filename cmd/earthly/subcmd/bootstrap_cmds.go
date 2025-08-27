@@ -14,11 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	"github.com/earthly/earthly/util/cliutil"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/termutil"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/termutil"
 )
 
 type BootstrapInterface interface {

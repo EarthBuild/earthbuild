@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/earthly/earthly/examples/go-monorepo/libs/hello"
+	"examples/go-monorepo/libs/hello"
 	"github.com/labstack/echo/v4"
 )
 

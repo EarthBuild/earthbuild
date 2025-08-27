@@ -1,7 +1,7 @@
 package image
 
 import (
-	"github.com/earthly/earthly/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/moby/buildkit/exporter/containerimage/image"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )

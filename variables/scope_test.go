@@ -3,7 +3,7 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/earthly/earthly/variables"
+	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
 )

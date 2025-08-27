@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/earthly/earthly/variables/reserved"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 )
 
 // Scope represents a variable scope.

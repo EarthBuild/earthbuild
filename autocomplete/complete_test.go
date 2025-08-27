@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/conslogging"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/conslogging"
 
 	"github.com/urfave/cli/v2"
 )

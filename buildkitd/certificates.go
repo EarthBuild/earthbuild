@@ -16,9 +16,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/config"
-	"github.com/earthly/earthly/util/fileutil"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/config"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 )
 
 type certData struct {

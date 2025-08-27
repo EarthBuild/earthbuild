@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
 // ContainerFrontend is an interface specifying all the container options Earthly needs to do.

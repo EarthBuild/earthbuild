@@ -12,8 +12,8 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/debugger/common"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/debugger/common"
 
 	"github.com/creack/pty"
 	"github.com/pkg/errors"

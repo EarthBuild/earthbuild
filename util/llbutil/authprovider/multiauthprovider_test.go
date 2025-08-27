@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"git.sr.ht/~nelsam/hel/pkg/pers"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/llbutil/authprovider"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session/auth"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"

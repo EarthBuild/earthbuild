@@ -1,4 +1,4 @@
-module github.com/earthly/earthly/examples/go-monorepo/services/two
+module github.com/EarthBuild/earthbuild/examples/go-monorepo/services/two
 
 go 1.21
 

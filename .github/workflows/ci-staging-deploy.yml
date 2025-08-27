@@ -29,12 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
-      GITHUB_USER: "earthly"
-      EARTHLY_REPO: "earthly-staging"
-      BREW_REPO: "homebrew-earthly-staging"
-      DOCKERHUB_USER: "earthly"
-      DOCKERHUB_IMG: "earthly-staging"
+      EARTHLY_INSTALL_ID: "earthbuild-githubactions"
+      GITHUB_USER: "earthbuild"
+      EARTHLY_REPO: "earthbuild-staging"
+      BREW_REPO: "homebrew-earthbuild-staging"
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
+      DOCKERHUB_IMG: "earthbuild-staging"
       DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,15 +49,16 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-      - name: Configure earthly accounts (Earthly Only)
+      - name: Configure Dockerhub accounts (Earthbuild Only)
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Retrieve earthly from build-earthly job
+
+      - name: Retrieve earthbuild from build-earthly job
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthly/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
           mkdir -p $(dirname "./build/linux/amd64/earthly")
           mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
       - name: Configure Earthly to use GCR mirror

@@ -232,7 +232,7 @@ if [ "$BUILDKIT_TLS_ENABLED" = "true" ]; then
 fi
 export TLS_ENABLED
 
-if [ -z "$BUILDKIT_GC_ENABLED" ]; then
+if [ "$BUILDKIT_GC_ENABLED" != "false" ]; then
     BUILDKIT_GC_ENABLED=true
 fi
 export BUILDKIT_GC_ENABLED

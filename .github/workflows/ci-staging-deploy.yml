@@ -76,7 +76,7 @@ jobs:
             export earthly="./build/linux/amd64/earthly"
             echo "attempting staging-release version: $RELEASE_TAG"
             eval "$(ssh-agent -s)"
-            echo ${{ secrets.BOT_USER_SSH_KEY }} | ssh-add -
+            echo "${{ secrets.BOT_USER_SSH_KEY }}" | ssh-add -
             git remote add staging git@github.com:earthbuild/earthbuild-staging.git
             git push staging HEAD:pre-release-$RELEASE_TAG
             echo -e "# EarthBuild Changelog\n\nAll notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) will be documented in this file.\n\n## Unreleased\n\n## $RELEASE_TAG - $(date +%Y-%m-%d)\n\nThis pre-release was built from $(git rev-parse HEAD)" > CHANGELOG.md

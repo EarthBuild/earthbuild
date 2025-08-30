@@ -1,8 +1,9 @@
 name: Podman CI macOs scheduled
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
+  # schedule:
+  #   - cron: '0 0 * * *'
+  push:
 
 jobs:
   podman-macos-test:

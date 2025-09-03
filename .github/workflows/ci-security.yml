@@ -2,9 +2,9 @@ name: Security
 
 on:
   push:
-    # paths:
-    #   - '**/go.mod'
-    #   - '**/go.sum'
+    paths:
+      - '**/go.mod'
+      - '**/go.sum'
 
 jobs:
   govulncheck:

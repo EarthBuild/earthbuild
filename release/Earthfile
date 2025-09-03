@@ -146,9 +146,8 @@ release-github:
         RUN grep "$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" ./release/earthly-$release
     END
 
-    ARG GITHUB_SECRET_PATH="littleredcorvette-github-token"
     RUN --push \
-        --secret GITHUB_TOKEN="$GITHUB_SECRET_PATH" \
+        --secret GITHUB_TOKEN \
         set -e; \
         # test github token works
         test -n "$GITHUB_TOKEN"; \
@@ -167,13 +166,13 @@ release-github:
         curl -H "Authorization: token $GITHUB_TOKEN" --request DELETE "https://api.github.com/repos/$GITHUB_USER/$EARTHLY_REPO/git/refs/tags/$RELEASE_TAG"; \
         # next, upload binaries
         github-release upload \
-        --owner "$GITHUB_USER" \
-        --repo "$EARTHLY_REPO" \
-        --prerelease "$PRERELEASE" \
-        --commitish "$EARTHLY_GIT_HASH" \
-        --tag "$RELEASE_TAG" \
-        --name "$RELEASE_TAG" \
-        --body "$(cat release-notes.txt)" \
+            --owner "$GITHUB_USER" \
+            --repo "$EARTHLY_REPO" \
+            --prerelease "$PRERELEASE" \
+            --commitish "$EARTHLY_GIT_HASH" \
+            --tag "$RELEASE_TAG" \
+            --name "$RELEASE_TAG" \
+            --body "$(cat release-notes.txt)" \
         ./release/* 2>&1 | tee /tmp/release.log && \
         if grep -i "already_exists" /tmp/release.log > /dev/null; then \
           echo "ERROR: github-release upload failed: file already exists -- you must delete if from github before proceeding" && exit 1; \

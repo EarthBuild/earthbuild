@@ -27,6 +27,8 @@ jobs:
     name: staging release
     needs: build-earthly
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthbuild-githubactions"

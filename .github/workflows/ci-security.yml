@@ -1,0 +1,23 @@
+name: Security
+
+on:
+  push:
+    # paths:
+    #   - '**/go.mod'
+    #   - '**/go.sum'
+
+jobs:
+  govulncheck:
+    name: Go Vulnerabilities Report
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    env:
+      FORCE_COLOR: 1
+    steps:
+      - uses: earthbuild/actions-setup@main
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Govulncheck
+        run: earthly --ci +govulncheck

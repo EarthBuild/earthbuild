@@ -41,7 +41,7 @@ Don't forget to run `earthly bootstrap` when you are done to finish configuratio
 If a local installation isn't possible, Earthly currently offers two official images:
 
 - [`earthly/earthly`](https://hub.docker.com/r/earthly/earthly), which is a 1-stop shop. It includes a built-in `earthly-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
-- [`earthly/buildkitd`](https://hub.docker.com/r/earthly/buildkitd), which is the same `earthly-buildkitd` container that `earthly` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
+- [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd), which is the same `earthly-buildkitd` container that `earthly` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
 
 If you need to provide additional configuration or tools, [consider building your own image for CI](build-an-earthly-ci-image.md).
 
@@ -81,7 +81,7 @@ Earthly also has a special [`--push`](../earthfile/earthfile.md#push) option tha
 
 If you would like to do cross-platform builds, you will need to install some [`binfmt_misc`](https://github.com/multiarch/qemu-user-static) entries. This can be done by running: `docker run --rm --privileged multiarch/qemu-user-static --reset -p yes`. This installs the needed entries and `qemu-user-static` binaries on your system. This will need to be repeated on each physical box (only once, since its a kernel level change, and the kernel is shared across containers).
 
-To share secrets with `earthly`, use the [`--secret`](../earthfile/earthfile.md#secret-less-than-env-var-greater-than-less-than-secret-ref-greater-than) option to inject secrets into your builds. You could also use our [cloud secrets](../cloud/cloud-secrets.md), for a more seamless experience.
+To share secrets with `earthly`, use the [`--secret`](../earthfile/earthfile.md#secret-less-than-env-var-greater-than-less-than-secret-ref-greater-than) option to inject secrets into your builds.
 
 ### Networking & Security
 

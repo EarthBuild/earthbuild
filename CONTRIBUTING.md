@@ -165,21 +165,9 @@ DOCKERHUB_MIRROR_USER=<my-mirror-username>
 DOCKERHUB_MIRROR_PASS=<my-mirror-password>
 ```
 
-### Running tests using earthly's internal mirror (only for members of the earthly org)
-
-If you have access to `earthly-technologies/core`, you can make use of the internal mirror by running:
-
-```bash
-./build/*/*/earthly -P \
-  ./tests+all --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true
-```
-
-which will use the credentials which are stored in earthly's [cloud-hosted secrets](https://docs.earthly.dev/earthly-cloud/cloud-secrets).
-
-
 ## Updates to buildkit or fsutil
 
-Earthly is built against a fork of [buildkit](https://github.com/earthly/buildkit) and [fsutil](https://github.com/earthly/fsutil).
+Earthly is built against a fork of [buildkit](https://github.com/EarthBuild/buildkit) and [fsutil](https://github.com/earthly/fsutil).
 
 To work with changes to this fork, you can use `earthly +for-linux --BUILDKIT_PROJECT=../buildkit`. This will use the local directory `../buildkit` for the buildkit code, when using buildkit in both `go.mod` and when building the buildkitd image.
 
@@ -248,7 +236,7 @@ In addition to the `./earthly` prerelease script, we maintain a repository dedic
 
 The prerelease versions follow a pseudo-semantic versioning scheme: `0.<epoch>.<decimal-git-sha>`; which is described in greater detail in the repository's [README](https://github.com/earthly/earthly-staging).
 
-Additionally, prerelease docker images are pushed to [earthly/earthly-staging](https://hub.docker.com/r/earthly/earthly-staging/tags) and [earthly/buildkitd-staging](https://hub.docker.com/r/earthly/buildkitd-staging/tags).
+Additionally, prerelease docker images are pushed to [earthly/earthly-staging](https://hub.docker.com/r/earthly/earthly-staging/tags) and [EarthBuild/buildkitd-staging](https://hub.docker.com/r/earthbuild/buildkitd-staging/tags).
 
 ## CLA
 

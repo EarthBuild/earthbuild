@@ -49,7 +49,7 @@ code:
     FROM +deps
     # Use BUILDKIT_PROJECT to point go.mod to a buildkit dir being actively developed. Examples:
     #   --BUILDKIT_PROJECT=../buildkit
-    #   --BUILDKIT_PROJECT=github.com/earthly/buildkit:<git-ref>
+    #   --BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:<git-ref>
     ARG BUILDKIT_PROJECT
     IF [ "$BUILDKIT_PROJECT" != "" ]
         COPY --dir "$BUILDKIT_PROJECT"+code/buildkit /buildkit
@@ -79,7 +79,7 @@ update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
     ARG BUILDKIT_GIT_BRANCH=earthly-main
-    ARG BUILDKIT_GIT_ORG=earthly
+    ARG BUILDKIT_GIT_ORG=EarthBuild
     ARG BUILDKIT_GIT_REPO=buildkit
     COPY (./buildkitd+buildkit-sha/buildkit_sha --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$BUILDKIT_GIT_SHA" --BUILDKIT_GIT_BRANCH="$BUILDKIT_GIT_BRANCH") buildkit_sha
     BUILD  ./buildkitd+update-buildkit-earthfile --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$(cat buildkit_sha)" --BUILDKIT_GIT_REPO="$BUILDKIT_GIT_REPO"
@@ -543,7 +543,7 @@ ci-release:
     COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
-    SAVE IMAGE --cache-from=docker.io/earthly/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
+    SAVE IMAGE --cache-from=docker.io/EarthBuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
 
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
@@ -566,7 +566,7 @@ build-ticktock:
         LET ticktock="$(cat earthly-next)"
         ARG EARTHLY_TARGET_TAG_DOCKER
         LET BUILDKIT_TAG="dev-$EARTHLY_TARGET_TAG_DOCKER-ticktock"
-        BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/earthly/buildkit:$ticktock" --TAG=$BUILDKIT_TAG
+        BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/EarthBuild/buildkit:$ticktock" --TAG=$BUILDKIT_TAG
     END
 
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system

@@ -50,7 +50,7 @@ func getExitCode(errString string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		// See https://github.com/earthly/buildkit/commit/9b0bdb600641f3dd1d96f54ac2d86581ab6433b2
+		// See https://github.com/EarthBuild/buildkit/commit/9b0bdb600641f3dd1d96f54ac2d86581ab6433b2
 		if exitCode == math.MaxUint32 {
 			return 0, errNoExitCodeOMM
 		}

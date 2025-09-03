@@ -6,6 +6,9 @@ all:
         --BASE_IMAGE=docker:20.10.15-dind \
         --BASE_IMAGE=docker:dind \
         --BASE_IMAGE=alpine:latest \
+        # Debian changed some base packages in trixie/13, so test
+        # with bookwork/12 to ensure older versions are still supported
+        --BASE_IMAGE=debian:bookworm \
         --BASE_IMAGE=debian:stable \
         --BASE_IMAGE=debian:stable-slim \
         --BASE_IMAGE=ubuntu:latest \

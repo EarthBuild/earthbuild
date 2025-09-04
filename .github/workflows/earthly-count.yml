@@ -20,10 +20,20 @@ jobs:
       - name: Count occurrences in PR branch
         id: count_pr
         run: |
-          # Run detailed counting script
-          ./.github/scripts/count-earthly.sh
+          # Count total occurrences
+          total_count=$(git grep -i "earthly" 2>/dev/null | wc -l || echo "0")
+          echo "total_count=$total_count" >> $GITHUB_OUTPUT
           
-          # The script sets GITHUB_OUTPUT variables
+          # Count by file type
+          go_count=$(git grep -i "earthly" -- "*.go" 2>/dev/null | wc -l || echo "0")
+          md_count=$(git grep -i "earthly" -- "*.md" 2>/dev/null | wc -l || echo "0")
+          earthfile_count=$(($(git grep -i "earthly" -- "Earthfile" 2>/dev/null | wc -l || echo "0") + $(git grep -i "earthly" -- "*.earth" 2>/dev/null | wc -l || echo "0")))
+          
+          echo "go_count=$go_count" >> $GITHUB_OUTPUT
+          echo "md_count=$md_count" >> $GITHUB_OUTPUT
+          echo "earthfile_count=$earthfile_count" >> $GITHUB_OUTPUT
+          
+          echo "PR branch - Total: $total_count (Go: $go_count, MD: $md_count, Earthfiles: $earthfile_count)"
       
       - name: Checkout main branch
         run: |
@@ -32,13 +42,20 @@ jobs:
       - name: Count occurrences in main branch
         id: count_main
         run: |
-          # Run detailed counting script
-          ./.github/scripts/count-earthly.sh
+          # Count total occurrences
+          total_count=$(git grep -i "earthly" 2>/dev/null | wc -l || echo "0")
+          echo "main_total_count=$total_count" >> $GITHUB_OUTPUT
           
-          # Rename output variables for main branch
-          mv $GITHUB_OUTPUT temp_output
-          sed 's/total_count/main_total_count/g; s/go_count/main_go_count/g; s/md_count/main_md_count/g; s/earthfile_count/main_earthfile_count/g' temp_output > $GITHUB_OUTPUT
-          rm temp_output
+          # Count by file type
+          go_count=$(git grep -i "earthly" -- "*.go" 2>/dev/null | wc -l || echo "0")
+          md_count=$(git grep -i "earthly" -- "*.md" 2>/dev/null | wc -l || echo "0")
+          earthfile_count=$(($(git grep -i "earthly" -- "Earthfile" 2>/dev/null | wc -l || echo "0") + $(git grep -i "earthly" -- "*.earth" 2>/dev/null | wc -l || echo "0")))
+          
+          echo "main_go_count=$go_count" >> $GITHUB_OUTPUT
+          echo "main_md_count=$md_count" >> $GITHUB_OUTPUT
+          echo "main_earthfile_count=$earthfile_count" >> $GITHUB_OUTPUT
+          
+          echo "Main branch - Total: $total_count (Go: $go_count, MD: $md_count, Earthfiles: $earthfile_count)"
       
       - name: Calculate difference
         id: calculate
@@ -143,7 +160,7 @@ jobs:
             
             const botComment = comments.find(comment => 
               comment.user.type === 'Bot' && 
-              comment.body.includes('Earthly → Earthbuild Progress Report')
+              comment.body.includes('Are we earthbuild yet?')
             );
             
             if (botComment) {

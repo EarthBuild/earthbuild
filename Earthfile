@@ -283,13 +283,6 @@ submodule-decouple-check:
             fi; \
         done; \
     done
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/earthly/earthly" ]; \
-            then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/earthly/earthly' module"; \
-               exit 1; \
-            fi; \
-        done; \
-    done
 
 # changelog saves the CHANGELOG.md as an artifact
 changelog:

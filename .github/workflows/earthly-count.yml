@@ -151,7 +151,7 @@ jobs:
             \`\`\`
 
             **Note that the goal is not to reach 0.**
-            There is anticipated to be at least _some_ occurences of `earthly` in the source code due to backwards compatibility with config files and language constructs.
+            There is anticipated to be at least _some_ occurences of \`earthly\` in the source code due to backwards compatibility with config files and language constructs.
             </details>`;
             
             // Find existing comment

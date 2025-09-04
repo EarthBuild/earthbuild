@@ -63,10 +63,13 @@ jobs:
           pr_count=${{ steps.count_pr.outputs.total_count }}
           main_count=${{ steps.count_main.outputs.main_total_count }}
           difference=$((main_count - pr_count))
-          percentage=0
           
+          # Calculate percentage with proper formatting
           if [ $main_count -gt 0 ]; then
-            percentage=$(echo "scale=2; $difference * 100 / $main_count" | bc)
+            # Use awk for better decimal handling
+            percentage=$(awk "BEGIN {printf \"%.2f\", $difference * 100 / $main_count}")
+          else
+            percentage="0.00"
           fi
           
           echo "difference=$difference" >> $GITHUB_OUTPUT
@@ -90,7 +93,7 @@ jobs:
             const prCount = ${{ steps.calculate.outputs.pr_count }};
             const mainCount = ${{ steps.calculate.outputs.main_count }};
             const difference = ${{ steps.calculate.outputs.difference }};
-            const percentage = ${{ steps.calculate.outputs.percentage }};
+            const percentage = '${{ steps.calculate.outputs.percentage }}';
             
             // File type differences
             const goDiff = ${{ steps.calculate.outputs.go_diff }};
@@ -105,7 +108,7 @@ jobs:
               message = `Great progress! You've reduced "earthly" occurrences by **${difference}** (${percentage}%)`;
             } else if (difference < 0) {
               emoji = '⚠️';
-              message = `Warning: "earthly" occurrences have increased by **${Math.abs(difference)}**`;
+              message = `Warning: "earthly" occurrences have increased by **${Math.abs(difference)}** (${Math.abs(parseFloat(percentage))}%)`;
             } else {
               emoji = '➖';
               message = 'No change in "earthly" occurrences';
@@ -133,7 +136,7 @@ jobs:
             |--------|-------------|
             | main   | ${mainCount} |
             | This PR | ${prCount} |
-            | **Difference** | **${difference > 0 ? '-' : '+'}${Math.abs(difference)}** ${percentage > 0 ? `(${percentage}%)` : ''} |
+            | **Difference** | **${difference > 0 ? '-' : '+'}${Math.abs(difference)}** ${difference !== 0 ? `(${Math.abs(parseFloat(percentage))}%)` : ''} |
             ${breakdown}
             
             ---

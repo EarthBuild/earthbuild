@@ -107,7 +107,7 @@ jobs:
             | Earthfiles | ${earthfileDiff > 0 ? '✅ -' + earthfileDiff : earthfileDiff < 0 ? '❌ +' + Math.abs(earthfileDiff) : '➖ No change'} |`;
             }
             
-            const body = `## ${emoji} Earthly → Earthbuild Progress Report
+            const body = `## ${emoji} Are we earthbuild yet?
             
             ${message}
             
@@ -129,6 +129,9 @@ jobs:
             \`\`\`bash
             ./.github/scripts/count-earthly.sh
             \`\`\`
+
+            **Note that the goal is not to reach 0.**
+            There is anticipated to be at least _some_ occurences of `earthly` in the source code due to backwards compatibility with config files and language constructs.
             </details>`;
             
             // Find existing comment

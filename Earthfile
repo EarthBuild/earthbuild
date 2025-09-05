@@ -34,6 +34,9 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 deps:
     FROM +base
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.1
+    # renovate: datasource=go depName=golang.org/x/vuln/cmd/govulncheck
+    ARG govulncheck_version=1.1.3
+    RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY go.mod go.sum ./
     COPY ./ast/go.mod ./ast/go.sum ./ast
     COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
@@ -153,6 +156,11 @@ lint:
     FROM +code
     COPY ./.golangci.yaml ./
     RUN golangci-lint run
+
+# govulncheck runs govulncheck against the earthbuild project.
+govulncheck:
+    FROM +code
+    RUN govulncheck ./...
 
 lint-newline-ending:
     FROM alpine:3.18

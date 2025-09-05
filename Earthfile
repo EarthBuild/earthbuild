@@ -280,13 +280,13 @@ unit-test:
 # depend on the core earthly project.
 submodule-decouple-check:
     FROM +code
-    RUN for submodule in github.com/earthly/earthly/ast github.com/earthly/earthly/util/deltautil; \
+    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
     do \
         for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
         do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/earthly/earthly" ]; \
+            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/EarthBuild/earthbuild" ]; \
             then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/earthly/earthly' module"; \
+               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/EarthBuild/earthbuild' module"; \
                exit 1; \
             fi; \
         done; \

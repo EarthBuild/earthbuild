@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/slog"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/slog"
 
 	"github.com/alessio/shellescape"
 	"github.com/creack/pty"

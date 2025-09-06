@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
-	"github.com/earthly/earthly/ast/parser"
+	"github.com/EarthBuild/earthbuild/ast/parser"
 )
 
 const (

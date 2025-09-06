@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/earthly/earthly/config"
+	"github.com/EarthBuild/earthbuild/config"
 	"github.com/pkg/errors"
 
 	"github.com/urfave/cli/v2"

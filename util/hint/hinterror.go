@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 )
 
 // note that this regex should be updated in case the error format changes in Error()

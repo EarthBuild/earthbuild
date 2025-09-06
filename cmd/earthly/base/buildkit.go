@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/buildkitd"
+	"github.com/EarthBuild/earthbuild/buildkitd"
 )
 
 func (cli *CLI) GetBuildkitClient(cliCtx *cli.Context) (c *client.Client, err error) {

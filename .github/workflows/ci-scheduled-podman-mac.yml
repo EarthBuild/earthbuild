@@ -8,7 +8,7 @@ on:
 jobs:
   podman-macos-test:
     name: +testing-gha-podman
-    runs-on: macos-14 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
+    runs-on: macos-15 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -17,7 +17,7 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # matches hardware specs of macos-12 self-hosted machine
+      # matches hardware specs of macos-15 self-hosted machine
       # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
       PODMAN_CPUS: 3
       PODMAN_MEMORY_MB: 6144

@@ -213,4 +213,4 @@ If you have already optimized your cache by maximizing its size, declaring argum
 
 ### Debugging tips
 
-If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [Earthly GitHub repository](https://github.com/earthly/earthly).
+If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [Earthly GitHub repository](https://github.com/earthbuild/earthbuild).

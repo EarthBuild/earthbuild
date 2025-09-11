@@ -2,10 +2,10 @@
 set -euo pipefail # don't use -x as it will leak the mirror credentials
 
 # to run this locally; in the root of the repo:
-#   ./earthly +earthly-docker && EARTHLY_IMAGE="earthly/earthly:dev-$(git rev-parse --abbrev-ref HEAD | sed 's/\//_/g')" scripts/tests/earthly-image.sh
+#   ./earthly +earthly-docker && EARTHLY_IMAGE="earthbuild/earthbuild:dev-$(git rev-parse --abbrev-ref HEAD | sed 's/\//_/g')" scripts/tests/earthly-image.sh
 
 FRONTEND=${FRONTEND:-docker}
-EARTHLY_IMAGE=${EARTHLY_IMAGE:-earthly/earthly:dev-main}
+EARTHLY_IMAGE=${EARTHLY_IMAGE:-earthbuild/earthbuild:dev-main}
 PATH="$(realpath "$(dirname "$0")/../acbtest"):$PATH"
 
 dockerconfig="$(mktemp /tmp/earthly-image-test-docker-config.XXXXXX)"

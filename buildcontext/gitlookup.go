@@ -609,9 +609,9 @@ func parseGitProtocol(remote string) (string, int) {
 
 // GetCloneURL returns the repo to clone, and a path relative to the repo
 //
-//	"github.com/earthly/earthly"             ---> ("git@github.com/earthly/earthly.git", "")
-//	"github.com/EarthBuild/earthbuild/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
-//	"github.com/EarthBuild/earthbuild/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
+//	"github.com/earthbuild/earthbuild"             ---> ("git@github.com/earthbuild/earthbuild.git", "")
+//	"github.com/EarthBuild/earthbuild/examples"    ---> ("git@github.com/earthbuild/earthbuild.git", "examples")
+//	"github.com/EarthBuild/earthbuild/examples/go" ---> ("git@github.com/earthbuild/earthbuild.git", "examples/go")
 //
 // Additionally a ssh keyscan might be returned (or an empty string indicating none was configured)
 // Also, a custom "git ssh command" may be returned. This is part of this function since the user may

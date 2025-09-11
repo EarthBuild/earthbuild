@@ -20,12 +20,12 @@ Throughout this tutorial, we'll build up this example Earthfile from scratch and
 
 This tutorial focuses on using Earthly with a Go project, but you can find examples of Earthfiles for [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) at the bottom of each page.
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
 ```
 
 ## Creating Your First Earthfile
@@ -150,12 +150,12 @@ podman run --rm go-example:latest
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -191,12 +191,12 @@ console.log("hello world");
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -259,12 +259,12 @@ targetCompatibility = 1.8
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 1 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part1) run
+To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part1) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
 ```
 
 `./Earthfile`

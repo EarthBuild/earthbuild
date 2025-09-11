@@ -187,7 +187,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
-	dockerRoot := path.Join("/var/earthly/dind", dindID)
+	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
 	params := []string{
 		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
 		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),

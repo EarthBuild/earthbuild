@@ -17,19 +17,19 @@ func Test_prettyPrefix(t *testing.T) {
 		{
 			name:          "does not truncate if prefixPadding is NoPadding",
 			prefixPadding: NoPadding,
-			prefix:        "github.com/earthly/earthly:80524f0d82a353b3444e83f056207e15f4d5447c+hello-world",
-			expected:      "github.com/earthly/earthly:80524f0d82a353b3444e83f056207e15f4d5447c+hello-world",
+			prefix:        "github.com/earthbuild/earthbuild:80524f0d82a353b3444e83f056207e15f4d5447c+hello-world",
+			expected:      "github.com/earthbuild/earthbuild:80524f0d82a353b3444e83f056207e15f4d5447c+hello-world",
 		},
 		{
 			name:          "shortens git SHA",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly:80524f0d82a353b3444e83f056207e15f4d5447c+hello-world",
+			prefix:        "github.com/earthbuild/earthbuild:80524f0d82a353b3444e83f056207e15f4d5447c+hello-world",
 			expected:      "g/e/earthly:80524f0+hello-world",
 		},
 		{
 			name:          "keeps branch name",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly:some-feature-branch+hello-world",
+			prefix:        "github.com/earthbuild/earthbuild:some-feature-branch+hello-world",
 			expected:      "g/e/earthly:some-feature-branch+hello-world",
 		},
 		{
@@ -41,7 +41,7 @@ func Test_prettyPrefix(t *testing.T) {
 		{
 			name:          "keeps branch name containing special characters /-_",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly:-_/ryan_-/branch-names/-_in-here+hello-world",
+			prefix:        "github.com/earthbuild/earthbuild:-_/ryan_-/branch-names/-_in-here+hello-world",
 			expected:      "g/e/earthly:-_/ryan_-/branch-names/-_in-here+hello-world",
 		},
 		{
@@ -53,8 +53,8 @@ func Test_prettyPrefix(t *testing.T) {
 		{
 			name:          "simple target with path",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly+run",
-			expected:      "g/earthly/earthly+run",
+			prefix:        "github.com/earthbuild/earthbuild+run",
+			expected:      "g/earthbuild/earthbuild+run",
 		},
 		{
 			name:          "does not add padding if prefix longer than prefixPadding",
@@ -71,7 +71,7 @@ func Test_prettyPrefix(t *testing.T) {
 		{
 			name:          "shortens git URL in brackets",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly+hello-world(github.com/some-repo/some-project)",
+			prefix:        "github.com/earthbuild/earthbuild+hello-world(github.com/some-repo/some-project)",
 			expected:      "g/e/earthly+hello-world(g/s/some-project)",
 		},
 		{
@@ -89,13 +89,13 @@ func Test_prettyPrefix(t *testing.T) {
 		{
 			name:          "shortens git URL in brackets",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly+hello-world(github.com/some-repo/some-project)",
+			prefix:        "github.com/earthbuild/earthbuild+hello-world(github.com/some-repo/some-project)",
 			expected:      "g/e/earthly+hello-world(g/s/some-project)",
 		},
 		{
 			name:          "shortens git URL in brackets while keeping url protocol",
 			prefixPadding: DefaultPadding,
-			prefix:        "github.com/earthly/earthly+hello-world(https://github.com/some-repo/some-project)",
+			prefix:        "github.com/earthbuild/earthbuild+hello-world(https://github.com/some-repo/some-project)",
 			expected:      "g/e/earthly+hello-world(https://g/s/some-project)",
 		},
 		{

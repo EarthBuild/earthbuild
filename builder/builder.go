@@ -337,7 +337,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		// delete the code below.
 
 		// NOTE: this code is still required to support remote caching; it can't be removed until
-		// https://github.com/earthly/earthly/issues/2178 is fixed.
+		// https://github.com/earthbuild/earthbuild/issues/2178 is fixed.
 
 		// *** DO NOT ADD CODE TO THE bf BELOW ***
 

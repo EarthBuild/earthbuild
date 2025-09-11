@@ -221,7 +221,7 @@ ga-no-qemu-slow:
     BUILD --pass-args ./with-docker+all
     BUILD --pass-args ./with-docker-cache+test
     # this has been moved to a seperate target until we get the flakey "tell me who you are" bug
-    # fixed; see https://github.com/earthly/earthly/issues/2567
+    # fixed; see https://github.com/earthbuild/earthbuild/issues/2567
     #BUILD --pass-args ./git-metadata+test
     BUILD --pass-args ./git-ssh-server+all
     BUILD --pass-args ./private-https+all
@@ -884,7 +884,7 @@ no-cache-local-artifact-test:
 empty-git-test:
     RUN git init
     DO +RUN_EARTHLY --earthfile=empty-git.earth --extra_args="--no-output" --target=+test-empty
-    RUN git remote add origin https://github.com/earthly/earthly.git
+    RUN git remote add origin https://github.com/earthbuild/earthbuild.git
     DO +RUN_EARTHLY --earthfile=empty-git.earth --extra_args="--no-output" --target=+test-origin-no-hash
 
 escape-test:
@@ -900,7 +900,7 @@ escape-dir-test:
 eine-test-base:
     FROM docker:19.03.12-dind
     RUN apk --update --no-cache add git
-    COPY ../..+earthly/earthly /usr/local/bin/
+    COPY ../..+earthbuild/earthbuild /usr/local/bin/
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
     WORKDIR /test
 
@@ -1051,7 +1051,7 @@ run-no-cache:
         --grep_flags="-v" --output_contains="\\\*cached\\\* --> .*motd2 \\\.\\\//"
 
 run-no-cache-save-artifact:
-    # based on https://github.com/earthly/earthly/issues/2593#issuecomment-1777657111
+    # based on https://github.com/earthbuild/earthbuild/issues/2593#issuecomment-1777657111
     COPY run-no-cache-save-artifact.earth Earthfile
     RUN touch some-file
     LET numruns=10
@@ -1760,7 +1760,7 @@ eval \$(ssh-agent)
 ssh-add /root/dont-steal-my-key
 
 earthly --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
-earthly --config \$earthly_config github.com/earthly/earthly+base 2>&1 | tee output.txt;
+earthly --config \$earthly_config github.com/earthbuild/earthbuild+base 2>&1 | tee output.txt;
 " >/tmp/run-earthly-with-bad-ssh-cipher && chmod +x /tmp/run-earthly-with-bad-ssh-cipher
     DO +RUN_EARTHLY --exec_cmd=/tmp/run-earthly-with-bad-ssh-cipher
     RUN cat output.txt | acbgrep "Unknown cipher type 'badcipher'"
@@ -1771,7 +1771,7 @@ test-ssh-command-config-via-git-clone-earthfile-command:
     RUN echo "VERSION 0.8
 test:
     FROM alpine
-    GIT CLONE ssh://git@github.com/earthly/earthly.git ./earthly_repo # the command we are testing
+    GIT CLONE ssh://git@github.com/earthbuild/earthbuild.git ./earthly_repo # the command we are testing
 " > Earthfile
 
     RUN echo "#!/bin/sh

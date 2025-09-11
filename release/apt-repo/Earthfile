@@ -20,7 +20,7 @@ deb:
     RUN mkdir -p $PKG_NAME/DEBIAN
     RUN mkdir -p $PKG_NAME/usr/bin/
     RUN (echo "$RELEASE_TAG" | grep '^v[0-9]\+.[0-9]\+.[0-9]\+$' > /dev/null) || (echo "RELEASE_TAG must be formatted as v1.2.3; instead got \"$RELEASE_TAG\""; exit 1)
-    RUN wget -q "https://github.com/earthly/earthly/releases/download/${RELEASE_TAG}/earthly-linux-$EARTHLY_PLATFORM" -O $PKG_NAME/usr/bin/earthly && chmod +x $PKG_NAME/usr/bin/earthly
+    RUN wget -q "https://github.com/earthbuild/earthbuild/releases/download/${RELEASE_TAG}/earthly-linux-$EARTHLY_PLATFORM" -O $PKG_NAME/usr/bin/earthly && chmod +x $PKG_NAME/usr/bin/earthly
     COPY earthly.control $PKG_NAME/DEBIAN/control
     COPY postinst $PKG_NAME/DEBIAN/postinst
     COPY postrm $PKG_NAME/DEBIAN/postrm

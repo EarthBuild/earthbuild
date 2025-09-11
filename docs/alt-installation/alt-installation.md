@@ -10,7 +10,7 @@ This page outlines alternative installation instructions for the `earthly` build
 
 ## Install earthly
 
-Download the binary relevant to your platform from [the releases page](https://github.com/earthly/earthly/releases), rename it to `earthly` and place it in your `bin`.
+Download the binary relevant to your platform from [the releases page](https://github.com/earthbuild/earthbuild/releases), rename it to `earthly` and place it in your `bin`.
 
 To initialize the installation, including adding auto-completion for your shell, run
 
@@ -60,12 +60,12 @@ You may optionally verify the checksum of the downloaded binaries, by performing
 
 5. Download the released `checksum.asc` file:
 
-    You can manually download it from the [the releases page](https://github.com/earthly/earthly/releases).
+    You can manually download it from the [the releases page](https://github.com/earthbuild/earthbuild/releases).
 
     The latest version can be fetched from the command line with:
 
     ```bash
-    wget https://github.com/earthly/earthly/releases/latest/download/checksum.asc
+    wget https://github.com/earthbuild/earthbuild/releases/latest/download/checksum.asc
     ```
 
 6. Verify the `checksum.asc` file was released correctly:
@@ -100,7 +100,7 @@ if the signature verification fails.
 
 Our rpm and deb repositories are currently in **Beta** stage.
 
-* Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/986) for any known problems.
+* Check the [GitHub tracking issue](https://github.com/earthbuild/earthbuild/issues/986) for any known problems.
 * Give us feedback on [Slack](https://earthly.dev/slack).
 {% endhint %}
 
@@ -206,12 +206,12 @@ CentOS users can use our rpm repo to install Earthly.
 Our native Windows release is currently in the **Experimental** stage.
 
 * The release ships with known issues. Many things work, but some don't.
-* Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/1031) for any known problems.
+* Check the [GitHub tracking issue](https://github.com/earthbuild/earthbuild/issues/1031) for any known problems.
 * Give us feedback on [Slack](https://earthly.dev/slack).
 
 {% endhint %}
 
-To install the Windows release, simply [download](https://github.com/earthly/earthly/releases/latest/download/earthly-windows-amd64.exe) the binary (or from our [release page](https://github.com/earthly/earthly/releases/latest/)); and ensure it is within your `PATH`.
+To install the Windows release, simply [download](https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-windows-amd64.exe) the binary (or from our [release page](https://github.com/earthbuild/earthbuild/releases/latest/)); and ensure it is within your `PATH`.
 
 To add `earthly.exe` to your `PATH` environment variable:
 
@@ -228,14 +228,14 @@ If you are going to mostly be working from a WSL2 prompt in Windows, you might w
 
 While installing `earthly` via Homebrew is the recommended approach, you can also download a binary directly. This may be useful when using `earthly` on a Mac in CI scenarios.
 
-* [M1 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-arm64)
-* [x64 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-amd64)
+* [M1 Binary](https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-darwin-arm64)
+* [x64 Binary](https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-darwin-amd64)
 
 When using a precompiled binary, you may need to add an exception to Gatekeeper. [Follow Apple's instructions to add this exception](https://support.apple.com/guide/mac-help/apple-cant-check-app-for-malicious-software-mchleab3a043/mac).
 
 ### Installing from source
 
-To install from source, see the [contributing page](https://github.com/earthly/earthly/blob/main/CONTRIBUTING.md).
+To install from source, see the [contributing page](https://github.com/earthbuild/earthbuild/blob/main/CONTRIBUTING.md).
 
 ## Configuration
 

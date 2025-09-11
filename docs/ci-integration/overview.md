@@ -27,7 +27,7 @@ Once you have ensured that the dependencies are available, you'll need to instal
 This is the simplest method for adding `earthly` to your CI. It will work best on dedicated computers, or in scripted/auto-provisioned build environments. You can pin it to a specific version like so:
 
 ```shell
-wget https://github.com/earthly/earthly/releases/download/v0.8.13/earthly-linux-amd64 -O /usr/local/bin/earthly && \
+wget https://github.com/earthbuild/earthbuild/releases/download/v0.8.13/earthly-linux-amd64 -O /usr/local/bin/earthly && \
 chmod +x /usr/local/bin/earthly && \
 /usr/local/bin/earthly bootstrap
 ```
@@ -40,7 +40,7 @@ Don't forget to run `earthly bootstrap` when you are done to finish configuratio
 
 If a local installation isn't possible, Earthly currently offers two official images:
 
-- [`earthly/earthly`](https://hub.docker.com/r/earthly/earthly), which is a 1-stop shop. It includes a built-in `earthly-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
+- [`earthbuild/earthbuild`](https://hub.docker.com/r/earthbuild/earthbuild), which is a 1-stop shop. It includes a built-in `earthly-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
 - [`earthly/buildkitd`](https://hub.docker.com/r/earthly/buildkitd), which is the same `earthly-buildkitd` container that `earthly` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
 
 If you need to provide additional configuration or tools, [consider building your own image for CI](build-an-earthly-ci-image.md).

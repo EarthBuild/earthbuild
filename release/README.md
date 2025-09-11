@@ -5,7 +5,7 @@
   ```bash
   ./earthly secrets --org earthly-technologies --project core ls
   ```
-* Choose the next [release tag](https://github.com/earthly/earthly/releases).
+* Choose the next [release tag](https://github.com/earthbuild/earthbuild/releases).
   ```bash
   export RELEASE_TAG="v..."
   ```
@@ -18,7 +18,7 @@
   git checkout main && git pull
   ```
 * Update the CHANGELOG.md with the corresponding release notes and open a PR
-  * Use a comparison such as https://github.com/earthly/earthly/compare/v0.8.13...main (replace the versions in the URL with the previously released version) or a tool such as `gitk` (aka `git-gui`) to see which PRs will go into this release.
+  * Use a comparison such as https://github.com/earthbuild/earthbuild/compare/v0.8.13...main (replace the versions in the URL with the previously released version) or a tool such as `gitk` (aka `git-gui`) to see which PRs will go into this release.
 * Make sure that main build is green for all platforms (check build status for the latest commit on GitHub).
 * Make sure the following build status are green:
   | Platform      | Status        |
@@ -30,13 +30,13 @@
   cd release
   env -i HOME="$HOME" PATH="$PATH" SSH_AUTH_SOCK="$SSH_AUTH_SOCK" RELEASE_TAG="$RELEASE_TAG" USER="$USER" PRERELEASE="$PRERELEASE" ./release.sh
   ```
-* Wait for the [Merge main to docs-0.8 on New Earthly Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New Earthly Release](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml)
+* Wait for the [Merge main to docs-0.8 on New Earthly Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New Earthly Release](https://github.com/earthbuild/earthbuild/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthbuild/earthbuild/actions/workflows/release-merge-docs.yml)
 In case the workflow fails the manual process is:
   ```shell
     git checkout docs-0.8 && git pull && git merge main && git push
     ```
 * Updating the Earthly version in our docs:
-  [Renovate](https://www.mend.io/renovate/) will open a PR targeting `docs-0.8` branch to update all docs as soon as a new release is available in this repo which you should then review & merge (An example PR can be found [here](https://github.com/earthly/earthly/pull/3285/files)).
+  [Renovate](https://www.mend.io/renovate/) will open a PR targeting `docs-0.8` branch to update all docs as soon as a new release is available in this repo which you should then review & merge (An example PR can be found [here](https://github.com/earthbuild/earthbuild/pull/3285/files)).
 * Merge `docs-0.8` into `main`.
   ```shell
     git checkout main && git merge docs-0.8 && git push
@@ -48,7 +48,7 @@ In case the workflow fails the manual process is:
     `git checkout main && git push`
 
 <!-- vale HouseStyle.Spelling = YES -->
-* Wait for the [Check Docs for Broken Links](../.github/workflows/docs-checks-links.yml) workflow to complete; this workflow validates https://docs.earthly.dev does not contain any broken links. You can watch for it here: [![Check Docs for Broken Links](https://github.com/earthly/earthly/actions/workflows/docs-checks-links.yml/badge.svg?event=push)](https://github.com/earthly/earthly/actions/workflows/docs-checks-links.yml)
+* Wait for the [Check Docs for Broken Links](../.github/workflows/docs-checks-links.yml) workflow to complete; this workflow validates https://docs.earthly.dev does not contain any broken links. You can watch for it here: [![Check Docs for Broken Links](https://github.com/earthbuild/earthbuild/actions/workflows/docs-checks-links.yml/badge.svg?event=push)](https://github.com/earthbuild/earthbuild/actions/workflows/docs-checks-links.yml)
 * Verify the [Homebrew release job](https://github.com/earthly/homebrew-earthly) has successfully run and has merged the new `release-v...` branch into `main`.
 * Copy the release notes you have written before and paste them in the Earthly Community slack channel `#announcements`, together with a link to the release's GitHub page. If you have Slack markdown editing activated, you can copy the markdown version of the text.
 
@@ -60,7 +60,7 @@ In case the workflow fails the manual process is:
 
 To perform a test release to a personal repo, first:
 
-1. fork a copy of both `earthly/earthly`, and `earthly/homebrew-earthly`
+1. fork a copy of both `earthbuild/earthbuild`, and `earthly/homebrew-earthly`
 2. commit your changes you wish to release and push them to your personal repo.
 3. save a copy of your GitHub token to `user/github-token` (e.g. `earthly secrets set /user/github-token keep-it-secret`)
 
@@ -82,7 +82,7 @@ If the release-homebrew fails with a rejected git push, you may have to delete t
 
 If you need to rollback/disable a version:
 
-1. Go to [GitHub releases](https://github.com/earthly/earthly/releases), click on the `edit release` button, then check the `This is a prerelease` checkbox.
+1. Go to [GitHub releases](https://github.com/earthbuild/earthbuild/releases), click on the `edit release` button, then check the `This is a prerelease` checkbox.
 2. Check out the [earthly/homebrew-earthly](https://github.com/earthly/homebrew-earthly) repo, and run:
 ```bash
 git checkout main

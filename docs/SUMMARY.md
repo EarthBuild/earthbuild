@@ -35,7 +35,7 @@
         * [Azure ACR](guides/registries/azure-acr.md)
         * [Self-signed certificates](guides/registries/self-signed.md)
     * Using the Earthly Docker Images
-        * [earthly/earthly](docker-images/all-in-one.md)
+        * [earthbuild/earthbuild](docker-images/all-in-one.md)
         * [earthly/buildkitd](docker-images/buildkit-standalone.md)
     * [Best practices](guides/best-practices.md)
 * [Caching](./caching/caching.md)

@@ -1,7 +1,7 @@
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part2) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part2/part2 ./part2
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part2/part2 ./part2
 ```
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
 
@@ -150,12 +150,12 @@ Just like saving files, any command that uses `--push` **will only produce outpu
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part2) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part2/part2 ./part2
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part2/part2 ./part2
 ```
 
 `./Earthfile`
@@ -191,12 +191,12 @@ console.log("hello world");
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part2) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part2/part2 ./part2
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part2/part2 ./part2
 ```
 
 `./Earthfile`
@@ -259,12 +259,12 @@ targetCompatibility = 1.8
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 2 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part2) run
+To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part2) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part2/part2 ./part2
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part2/part2 ./part2
 ```
 
 `./Earthfile`

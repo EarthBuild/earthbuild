@@ -5,7 +5,7 @@ Running unit tests in a build pipeline is relatively simple. By definition, unit
 ** This guide will take an existing application with integration tests and show how they can be easily run inside earthly, both in the local development environment as well as in the build pipeline. **
 ## Prerequisites 
 
-*This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthly/earthly/tree/main/examples) for guidance on using earthly in other languages.*
+*This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthbuild/earthbuild/tree/main/examples) for guidance on using earthly in other languages.*
 
 ### Our Application
 
@@ -171,7 +171,7 @@ project-files:
     RUN touch a.scala && sbt compile && rm a.scala
 ```
 
-<!-- due to gitbook bug, https://github.com/earthly/earthly/blob/main/examples/integration-test/Earthfile changed to https://tinyurl.com/4m6hbd6a -->
+<!-- due to gitbook bug, https://github.com/earthbuild/earthbuild/blob/main/examples/integration-test/Earthfile changed to https://tinyurl.com/4m6hbd6a -->
 
 [Full file](https://tinyurl.com/4m6hbd6a)
 
@@ -335,5 +335,5 @@ There we have it, a reproducible integration process. If you have questions abou
 
 ## See also
 * [Docker In Earthly](./docker-in-earthly.md)
-* [Source code for example](https://github.com/earthly/earthly/tree/main/examples/integration-test)
+* [Source code for example](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test)
 * [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)

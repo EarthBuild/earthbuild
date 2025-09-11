@@ -349,7 +349,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:        "git-lfs-pull-include",
 			EnvVars:     []string{"EARTHLY_GIT_LFS_PULL_INCLUDE"},
-			Usage:       "When referencing a remote target, perform a git lfs pull include prior to running the target. Note that this flag is (hopefully) temporary, see https://github.com/earthly/earthly/issues/2921 for details.",
+			Usage:       "When referencing a remote target, perform a git lfs pull include prior to running the target. Note that this flag is (hopefully) temporary, see https://github.com/earthbuild/earthbuild/issues/2921 for details.",
 			Destination: &global.GitLFSPullInclude,
 			Hidden:      true, // Experimental
 		},

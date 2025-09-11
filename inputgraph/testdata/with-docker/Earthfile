@@ -31,6 +31,6 @@ with-docker-load-args:
 with-docker-load-remote:
     BUILD +load-target
     FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
-    WITH DOCKER --load foo=github.com/earthly/earthly:6610b73131f94cbe594dba3b90665748f21a9b8d+license
+    WITH DOCKER --load foo=github.com/earthbuild/earthbuild:6610b73131f94cbe594dba3b90665748f21a9b8d+license
          RUN echo "loaded"
     END

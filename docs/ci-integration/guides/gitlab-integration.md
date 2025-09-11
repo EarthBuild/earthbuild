@@ -15,7 +15,7 @@ variables:
   FORCE_COLOR: 1
   EARTHLY_EXEC_CMD: "/bin/sh"
 
-image: earthly/earthly:v0.8.13
+image: earthbuild/earthbuild:v0.8.13
 
 before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -26,7 +26,7 @@ earthly:
     - earthly --ci --push -P +build
 ```
 
-Note that in this particular configuration, the `earthly/earthly` image will first
+Note that in this particular configuration, the `earthbuild/earthbuild` image will first
 start BuildKit under the same container via the image's entrypoint script; however
 by setting `EARTHLY_EXEC_CMD=/bin/sh`, the `/usr/bin/earthly-entrypoint.sh` script
 will present a shell rather than call the earthly binary. This bootstrapping occurs

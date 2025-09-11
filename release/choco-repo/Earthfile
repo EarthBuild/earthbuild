@@ -35,7 +35,7 @@ pack:
     RUN mkdir tools
     COPY ../..+license/LICENSE ./tools/LICENSE.txt
     COPY ./VERIFICATION.txt ./tools/VERIFICATION.txt
-    RUN curl -L -o tools/earthly.exe https://github.com/earthly/earthly/releases/download/v${EARTHLY_VERSION}/earthly-windows-amd64.exe
+    RUN curl -L -o tools/earthly.exe https://github.com/earthbuild/earthbuild/releases/download/v${EARTHLY_VERSION}/earthly-windows-amd64.exe
 
     RUN choco pack
 

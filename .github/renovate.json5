@@ -53,14 +53,14 @@
       matchStrings: [
         'earthly/releases/download/(?<currentValue>.+?)/',
         '- uses: earthly/actions/setup-earthly@.*?[\\s\\n]+.*?[\\s\\n]+with:[\\s\\n]*version: (?<currentValue>.+?)[\\s\\n/]+',
-        "'earthly/earthly:(?<currentValue>.+?)'",
-        'github.com/earthly/earthly:(?<currentValue>.+?)(\\+|`)',
-        '(:|\\s+)earthly/earthly:(?<currentValue>.+?)[\\s\\n/]+',
+        "'earthbuild/earthbuild:(?<currentValue>.+?)'",
+        'github.com/earthbuild/earthbuild:(?<currentValue>.+?)(\\+|`)',
+        '(:|\\s+)earthbuild/earthbuild:(?<currentValue>.+?)[\\s\\n/]+',
         'the `latest` tag is `(?<currentValue>.+?)`',
         'earthly/compare/(?<currentValue>.+?)\\.\\.\\.main',
         'earthly/satellite:(?<currentValue>.+?)\\n',
       ],
-      depNameTemplate: 'earthly/earthly',
+      depNameTemplate: 'earthbuild/earthbuild',
       datasourceTemplate: 'github-releases',
     },
     {
@@ -109,7 +109,7 @@
   packageRules: [
     {
       matchPackageNames: [
-        'earthly/earthly',
+        'earthbuild/earthbuild',
       ],
       matchDatasources: [
         'github-releases',
@@ -123,8 +123,8 @@
       automerge: true,
     },
     {
-      // Point earthly/earthly updates in docs to docs-0.8 branch by:
-      // 1. disable all PRs targeting docs-0.8 for all packages except earthly/earthly
+      // Point earthbuild/earthbuild updates in docs to docs-0.8 branch by:
+      // 1. disable all PRs targeting docs-0.8 for all packages except earthbuild/earthbuild
       matchBaseBranches: [
         'docs-0.8',
       ],
@@ -135,12 +135,12 @@
       ],
     },
     {
-      // 2. disable PRs targeting main for earthly/earthly
+      // 2. disable PRs targeting main for earthbuild/earthbuild
       matchBaseBranches: [
         'main',
       ],
       matchPackageNames: [
-        'earthly/earthly',
+        'earthbuild/earthbuild',
       ],
       enabled: false,
     },
@@ -227,7 +227,7 @@
       allowedVersions: '/^ubuntu-23\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
-    // disable any dependencies in docs/ & examples/ except for earthly/earthly and earthbuild/dind (temporary until we add other dependencies)
+    // disable any dependencies in docs/ & examples/ except for earthbuild/earthbuild and earthbuild/dind (temporary until we add other dependencies)
     {
       matchFileNames: [
         'examples/**',
@@ -236,11 +236,11 @@
       enabled: false,
       matchPackageNames: [
         '!earthbuild/dind',
-        '!earthly/earthly',
+        '!earthbuild/earthbuild',
       ],
     },
     {
-      // group all examples and docs updates in one PR (except for earthly/earthly which is in a different PR)
+      // group all examples and docs updates in one PR (except for earthbuild/earthbuild which is in a different PR)
       matchFileNames: [
         'examples/**',
         'docs/**',
@@ -248,7 +248,7 @@
       separateMajorMinor: false,
       groupName: 'docs-dependencies',
       matchPackageNames: [
-        '!earthly/earthly',
+        '!earthbuild/earthbuild',
       ],
     },
   ],

@@ -1,12 +1,12 @@
 # EarthBuild
 
-## [This is a community fork of Earthly!](https://github.com/earthly/earthly/issues/4313#issuecomment-2975691386)
+## [This is a community fork of Earthly!](https://github.com/earthbuild/earthbuild/issues/4313#issuecomment-2975691386)
 This community fork is endorsed and supported by [earthly](https://github.com/earthly).
 We're actively working on migrating things like the website and [the CI](https://github.com/EarthBuild/earthbuild/pull/1) to community versions.
 
 **Contributions welcome!**
 
-If you're interested in understanding why the community fork is happening, [this issue has a relevant discussion](https://github.com/earthly/earthly/issues/4313).
+If you're interested in understanding why the community fork is happening, [this issue has a relevant discussion](https://github.com/earthbuild/earthbuild/issues/4313).
 
 ---------------------------------
 

@@ -145,7 +145,7 @@ earthly-script-no-stdout:
 
     # This script performs an explicit "docker pull earthlybinaries:prerelease" which can cause rate-limiting
     # to work-around this, we will copy an earthly binary in, and disable auto-updating (and therefore don't require a WITH DOCKER)
-    COPY +earthly/earthly /root/.earthly/earthly-prerelease
+    COPY +earthbuild/earthbuild /root/.earthbuild/earthbuild-prerelease
     RUN EARTHLY_DISABLE_FRONTEND_DETECTION=true EARTHLY_DISABLE_AUTO_UPDATE=true ./earthly --version > earthly-version-output
 
     RUN test "$(cat earthly-version-output | wc -l)" = "1"
@@ -326,7 +326,7 @@ debugger:
     SAVE ARTIFACT build/earth_debugger
 
 # earthly builds the earthly CLI and docker image.
-earthly:
+earthbuild:
     FROM +code
     ENV CGO_ENABLED=0
     ARG GOOS=linux
@@ -373,7 +373,7 @@ earthly:
     SAVE ARTIFACT ./build/tags
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"
-    SAVE IMAGE --cache-from=earthly/earthly:main
+    SAVE IMAGE --cache-from=earthbuild/earthbuild:main
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
@@ -464,7 +464,7 @@ earthly-docker:
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
-    COPY (+earthly/earthly --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthly") /usr/bin/earthly
+    COPY (+earthbuild/earthbuild --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthly") /usr/bin/earthly
     ARG DOCKERHUB_IMG="earthly"
 
     # TODO update cache-from to use earthbuild/earthbuild:main
@@ -472,11 +472,11 @@ earthly-docker:
     # arguments to the save SAVE IMAGE do not. Using variables here doesn't work
     # either, unfortunately, as the names are quoted and treated as a single arg.
     IF [ "$PUSH_LATEST_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
+       SAVE IMAGE --push --cache-from=earthbuild/earthbuild:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
     ELSE IF [ "$PUSH_PRERELEASE_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
+       SAVE IMAGE --push --cache-from=earthbuild/earthbuild:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
     ELSE
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
+       SAVE IMAGE --push --cache-from=earthbuild/earthbuild:main $IMAGE_REGISTRY:$TAG
     END
 
 # earthly-integration-test-base builds earthly docker and then
@@ -548,7 +548,7 @@ ci-release:
     BUILD \
         --platform=linux/amd64 \
         ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
+    COPY (+earthbuild/earthbuild --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
     SAVE IMAGE --cache-from=docker.io/earthly/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
@@ -562,7 +562,7 @@ for-own:
     ARG GO_GCFLAGS
     BUILD ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD +build-ticktock
-    COPY (+earthly/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
+    COPY (+earthbuild/earthbuild --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/own/earthly
 
 # build-ticktock is used for building the ticktock version of buildkit
@@ -897,7 +897,7 @@ merge-main-to-docs:
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh
 
-    ARG git_repo="earthly/earthly"
+    ARG git_repo="earthbuild/earthbuild"
     ARG git_url="git@github.com:$git_repo"
     ARG earthly_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
@@ -968,7 +968,7 @@ open-pr-for-fork:
 
     ARG earthly_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    ARG git_repo="earthly/earthly"
+    ARG git_repo="earthbuild/earthbuild"
     LET git_url="git@github.com:$git_repo"
     DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
@@ -1001,6 +1001,6 @@ check-broken-links-pr:
     IF [ -z $branch ]
         SET branch=$EARTHLY_GIT_BRANCH
     END
-    RUN --secret GH_TOKEN=littleredcorvette-github-token gh pr checks $branch --repo earthly/earthly | grep GitBook|awk '{print $5}' > url
+    RUN --secret GH_TOKEN=littleredcorvette-github-token gh pr checks $branch --repo earthbuild/earthbuild | grep GitBook|awk '{print $5}' > url
     ARG VERBOSE
     BUILD --pass-args +check-broken-links --ADDRESS=$(cat url)

@@ -25,7 +25,7 @@ fi
 
 release_name="earth\\(ly\\)\\?-$os-$arch"
 
-curl -s -L "https://api.github.com/repos/earthly/earthly/releases" > "/tmp/releases.1"
+curl -s -L "https://api.github.com/repos/earthbuild/earthbuild/releases" > "/tmp/releases.1"
 
 if grep -q 'API rate limit' /tmp/releases.1; then
     if [ ! -f "/tmp/releases" ]; then

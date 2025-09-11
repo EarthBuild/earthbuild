@@ -27,7 +27,7 @@ We recommend you install Earthly on your computer, so you can follow along and
 
 ## Questions & Feedback
 
-If you have any questions, feedback or suggestions for Earthly or this tutorial feel free to reach out to us on our [Slack community](https://earthly.dev/slack) or open a [GitHub issue](https://github.com/earthly/earthly/issues). Earthly is free and open and we love and appreciate feedback and contributions from the community!
+If you have any questions, feedback or suggestions for Earthly or this tutorial feel free to reach out to us on our [Slack community](https://earthly.dev/slack) or open a [GitHub issue](https://github.com/earthbuild/earthbuild/issues). Earthly is free and open and we love and appreciate feedback and contributions from the community!
 
 ## Get Started with Earthly
 

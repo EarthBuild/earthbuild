@@ -600,7 +600,7 @@
             "body": [
               {
                 "command": {
-                  "args": ["docker", "images", "|", "grep", "earthly/earthly"],
+                  "args": ["docker", "images", "|", "grep", "earthbuild/earthbuild"],
                   "name": "RUN"
                 }
               }
@@ -609,7 +609,7 @@
               "args": [
                 "--platform=linux/amd64",
                 "--pull",
-                "earthly/earthly:v0.6.17"
+                "earthbuild/earthbuild:v0.6.17"
               ],
               "name": "DOCKER"
             }

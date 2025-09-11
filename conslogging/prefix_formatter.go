@@ -19,7 +19,7 @@ var (
 	//	Prefix must be exactly 40 characters
 	githubRegex = regexp.MustCompile(`:[a-f0-9]{40}\+`)
 	// gitURLRegex matches the url appearing in parentheses for example:
-	// +my-target(https://github/earthly/earthly)
+	// +my-target(https://github/earthbuild/earthbuild)
 	gitURLRegex = regexp.MustCompile(`\(.+?\)`)
 	// urlPrefixRegex is used to captured url protocol, for example "https://" in "https://github.com/EarthBuild/earthbuild"
 	urlPrefixRegex = regexp.MustCompile("^.+?//")

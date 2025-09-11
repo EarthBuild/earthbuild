@@ -613,7 +613,7 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
 		return i.errorf(cmd.SourceLocation, "the FROM --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
 	}
 
-	i.local = false // FIXME https://github.com/earthly/earthly/issues/2044
+	i.local = false // FIXME https://github.com/earthbuild/earthbuild/issues/2044
 	err = i.converter.From(ctx, imageName, platform, allowPrivileged, opts.PassArgs, expandedBuildArgs)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply FROM %s", imageName)

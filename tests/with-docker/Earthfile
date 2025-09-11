@@ -114,8 +114,8 @@ docker-pull-test:
     END
 
 docker-pull-test-long:
-    WITH DOCKER --platform=linux/amd64 --pull earthly/earthly:v0.6.17
-        RUN docker images | grep earthly/earthly
+    WITH DOCKER --platform=linux/amd64 --pull earthbuild/earthbuild:v0.6.17
+        RUN docker images | grep earthbuild/earthbuild
     END
 
 docker-load-test-long:

@@ -4,7 +4,7 @@ set -ex
 # earthly does not (yet) have fine control over controlling the order of RUN --push commands (they all happen at the end)
 # Our release process requires the following commands be done in order:
 # - uploading binaries to github (as a --push command)
-# - pushing a new commit to the earthly/earthly-homebrew repo
+# - pushing a new commit to the earthbuild/earthbuild-homebrew repo
 # - downloading the binaries from github and existing binaries from s3 buckets
 # - signing those apt and yum packages containing those binaries
 # - and pushing signed up to s3 buckets (which back our apt and yum repos)
@@ -123,7 +123,7 @@ else
     ("$earthly" secrets --org earthly-technologies --project core ls >/dev/null) || (echo "ERROR: current user does not have access to the earthly-technologies core project"; exit 1);
 fi
 
-existing_release=$(curl -s https://api.github.com/repos/earthly/earthly/releases/tags/$RELEASE_TAG | jq -r .tag_name)
+existing_release=$(curl -s https://api.github.com/repos/earthbuild/earthbuild/releases/tags/$RELEASE_TAG | jq -r .tag_name)
 if [ "$existing_release" != "null" ]; then
     test "$OVERWRITE_RELEASE" = "1" || (echo "a release for $RELEASE_TAG already exists, to proceed with overwriting this release set OVERWRITE_RELEASE=1" && exit 1);
     echo "overwriting existing release for $RELEASE_TAG"
@@ -136,7 +136,7 @@ fi
 
 GITHUB_PRERELEASE="$PRERELEASE"
 if [ "$EARTHLY_STAGING" = "true" ]; then
-    # special case to ensure https://github.com/earthly/earthly-staging/releases/latest/download/earthly-linux-amd64 is kept up to date
+    # special case to ensure https://github.com/earthbuild/earthbuild-staging/releases/latest/download/earthly-linux-amd64 is kept up to date
     GITHUB_PRERELEASE="false"
 
     # make sure we aren't accidentally doing a regular release

@@ -35,10 +35,10 @@ In order to upgrade to `VERSION 0.8` safely, follow these steps:
 
 When upgrading between `VERSION`s, keep in mind that you will encounter backwards-incompatible changes. Check out the change log of each version for more information.
 
-* [0.8](https://github.com/earthly/earthly/releases/tag/v0.8.0-rc1)
-* [0.7](https://github.com/earthly/earthly/releases/tag/v0.7.0)
-* [0.6](https://github.com/earthly/earthly/releases/tag/v0.6.0)
-* [0.5](https://github.com/earthly/earthly/releases/tag/v0.5.0)
+* [0.8](https://github.com/earthbuild/earthbuild/releases/tag/v0.8.0-rc1)
+* [0.7](https://github.com/earthbuild/earthbuild/releases/tag/v0.7.0)
+* [0.6](https://github.com/earthbuild/earthbuild/releases/tag/v0.6.0)
+* [0.5](https://github.com/earthbuild/earthbuild/releases/tag/v0.5.0)
 
 ## Specifying Version and features
 

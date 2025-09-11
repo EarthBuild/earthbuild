@@ -1,7 +1,7 @@
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part6) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part6/part6 ./part6
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part6/part6 ./part6
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
@@ -133,7 +133,7 @@ test-setup:
     COPY main.go .
     COPY main_integration_test.go .
     ENV CGO_ENABLED=0
-    ENTRYPOINT ["go", "test", "github.com/earthly/earthly/examples/go"]
+    ENTRYPOINT ["go", "test", "github.com/earthbuild/earthbuild/examples/go"]
     SAVE IMAGE test:latest
 
 integration-tests:
@@ -157,10 +157,10 @@ earthly --allow-privileged +integration-tests
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part6) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part6/part6 ./part6
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
 ```
 In this example, we use `WITH DOCKER` to run a frontend app and backend api together using Earthly.
 
@@ -365,12 +365,12 @@ Now you can run `earthly -P +app-with-api` to run the app and api side-by-side.
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part6) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part6/part6 ./part6
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part6/part6 ./part6
 ```
 
 `./Earthfile`
@@ -499,10 +499,10 @@ dependencies {
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part6) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part6/part6 ./part6
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part6/part6 ./part6
 ```
 `./tests/test_db_connection.py`
 

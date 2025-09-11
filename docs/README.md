@@ -16,7 +16,7 @@ Earthly's key features/benefits are:
   * **🛠 Compatible with Every Language, Framework, and Build Tool**  
     One of the key principles of Earthly is that the best build tooling for a specific language is built by the community of that language itself. Earthly does not intend to replace any language-specific build tooling, but rather to leverage and augment them. Earthly works with the compilers and build tools you use. If it runs on Linux, it runs on Earthly. And you don’t have to rewrite your existing builds or replace your `package.json`, `go.mod`, `build.gradle`, or `Cargo.toml` files. You can use Earthly as a wrapper around your existing tooling and still get Earthly’s repeatable builds, parallel execution, and build caching.
   * **🏘 Great for Monorepos and Polyrepos**  
-    Earthly is great for both [monorepos](https://github.com/earthly/earthly/tree/main/examples/monorepo) and [polyrepos](https://github.com/earthly/earthly/tree/main/examples/multirepo). You can split your build logic across multiple Earthfiles, placing some deeper inside the directory structure or even in other repositories. Referencing targets from other Earthfiles is easy regardless of where they are stored. So you can organize your build logic however makes the most sense for your project.
+    Earthly is great for both [monorepos](https://github.com/earthbuild/earthbuild/tree/main/examples/monorepo) and [polyrepos](https://github.com/earthbuild/earthbuild/tree/main/examples/multirepo). You can split your build logic across multiple Earthfiles, placing some deeper inside the directory structure or even in other repositories. Referencing targets from other Earthfiles is easy regardless of where they are stored. So you can organize your build logic however makes the most sense for your project.
   * **💨 Fast Builds**  
     Earthly automatically executes build targets in parallel and makes maximum use of cache. This makes builds fast. Earthly also has powerful shared caching capabilities that speed up builds frequently run across a team or in sandboxed environments, such as Earthly Satellites, GitHub Actions, or your CI.  
     &nbsp;  
@@ -38,11 +38,11 @@ For a full list of installation options see the [alternative installation page](
 
 If you are new to Earthly, check out the [Basics page](./basics/basics.md), to get started.
 
-A high-level overview is available on [the Earthly GitHub page](https://github.com/earthly/earthly).
+A high-level overview is available on [the Earthly GitHub page](https://github.com/earthbuild/earthbuild).
 
 ## Quick Links
 
-* [Earthly GitHub page](https://github.com/earthly/earthly)
+* [Earthly GitHub page](https://github.com/earthbuild/earthbuild)
 * [Earthly basics](./basics/basics.md)
 * [Earthfile reference](./earthfile/earthfile.md)
 * [Earthly command reference](./earthly-command/earthly-command.md)

@@ -16,7 +16,7 @@ rpm:
     WORKDIR /work
     RUN test ! -z "$EARTHLY_PLATFORM" || (echo "EARTHLY_PLATFORM is required" && exit 1)
     RUN (echo "$RELEASE_TAG" | grep '^v[0-9]\+.[0-9]\+.[0-9]\+$' > /dev/null) || (echo "RELEASE_TAG must be formatted as v1.2.3; instead got \"$RELEASE_TAG\""; exit 1)
-    RUN wget -q "https://github.com/earthly/earthly/releases/download/${RELEASE_TAG}/earthly-linux-$EARTHLY_PLATFORM" -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
+    RUN wget -q "https://github.com/earthbuild/earthbuild/releases/download/${RELEASE_TAG}/earthly-linux-$EARTHLY_PLATFORM" -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
 
     IF [ "$EARTHLY_PLATFORM" = "amd64" ]
         ENV ARCH_TARGET=x86_64

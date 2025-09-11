@@ -284,7 +284,7 @@
               "test",
               "\"$EARTHLY_TARGET\"",
               "==",
-              "\"github.com/earthly/earthly+test-origin-no-hash\""
+              "\"github.com/earthbuild/earthbuild+test-origin-no-hash\""
             ],
             "name": "RUN"
           }
@@ -295,7 +295,7 @@
               "test",
               "\"$EARTHLY_TARGET_PROJECT\"",
               "==",
-              "\"github.com/earthly/earthly\""
+              "\"github.com/earthbuild/earthbuild\""
             ],
             "name": "RUN"
           }
@@ -317,7 +317,7 @@
               "test",
               "\"$EARTHLY_GIT_ORIGIN_URL\"",
               "==",
-              "\"https://github.com/earthly/earthly.git\""
+              "\"https://github.com/earthbuild/earthbuild.git\""
             ],
             "name": "RUN"
           }
@@ -328,7 +328,7 @@
               "test",
               "\"$EARTHLY_GIT_PROJECT_NAME\"",
               "==",
-              "\"earthly/earthly\""
+              "\"earthbuild/earthbuild\""
             ],
             "name": "RUN"
           }

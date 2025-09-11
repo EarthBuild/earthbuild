@@ -50,6 +50,6 @@ Additionally, because cargo does not make a good distinction between intermediat
 
 ## Finally
 
-For a complete Earthfile example on how to use Rust in Earthly, visit the [rust example directory on GitHub](https://github.com/earthly/earthly/tree/main/examples/rust).
+For a complete Earthfile example on how to use Rust in Earthly, visit the [rust example directory on GitHub](https://github.com/earthbuild/earthbuild/tree/main/examples/rust).
 
 See also the reference documentation for [lib/rust](https://github.com/earthly/lib/tree/main/rust), to understand the different parameters used with `rust+INIT` and `rust+CARGO`.

@@ -1,8 +1,8 @@
 # Test for --without-earthly-labels feature
 VERSION  --allow-without-earthly-labels 0.8
 
-ARG --global DIND_IMAGE="earthly/dind:ubuntu-23.04-docker-25.0.2-1"
-    
+ARG --global DIND_IMAGE="earthbuild/dind:ubuntu-23.04-docker-25.0.2-1"
+
 all:
     BUILD +test-without-labels
     BUILD +test-with-labels
@@ -20,12 +20,12 @@ myimage-with-labels:
 test-without-labels:
     FROM $DIND_IMAGE
     WITH DOCKER --load=+myimage-without-labels
-        RUN docker inspect myimage:test | jq -r '.[].Config.Labels' | grep -q null 
+        RUN docker inspect myimage:test | jq -r '.[].Config.Labels' | grep -q null
     END
 
 test-with-labels:
     FROM $DIND_IMAGE
     WITH DOCKER --load=+myimage-with-labels
         # We just test that fields aren't null.
-        RUN docker inspect myimage:test | jq -e '.[].Config.Labels' > /dev/null 
+        RUN docker inspect myimage:test | jq -e '.[].Config.Labels' > /dev/null
     END

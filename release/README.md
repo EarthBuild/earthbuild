@@ -97,7 +97,7 @@ git push
 ### dind
 
 Docker-in-Docker (dind) images change less frequently than earthly, but take a long time to build.
-earthly/dind images and their releases are maintained in [project repo](https://github.com/earthly/dind).
+earthbuild/dind images and their releases are maintained in [project repo](https://github.com/EarthBuild/dind).
 
 ### Syntax Highlighting Releases
 

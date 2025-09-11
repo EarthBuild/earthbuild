@@ -23,11 +23,11 @@ docker:
     SAVE IMAGE java-example:$tag
 
 integration-tests:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
-	COPY ./docker-compose.yml .
-	RUN apk update
-	RUN apk add postgresql-client
-	WITH DOCKER --compose docker-compose.yml --load app:latest=+docker
-		RUN while ! pg_isready --host=localhost --port=5432; do sleep 1; done ;\
-			docker run --network=default_java/part6_default app | grep "Opened database successfully!"
-	END
+  FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+  COPY ./docker-compose.yml .
+  RUN apk update
+  RUN apk add postgresql-client
+  WITH DOCKER --compose docker-compose.yml --load app:latest=+docker
+    RUN while ! pg_isready --host=localhost --port=5432; do sleep 1; done ;\
+      docker run --network=default_java/part6_default app | grep "Opened database successfully!"
+  END

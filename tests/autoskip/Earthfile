@@ -47,7 +47,7 @@ test-group3:
     BUILD +test-copy-target-let
     BUILD +test-expand-set
     BUILD +test-copy-target-set
-	BUILD +test-multi-platform-build-failure
+  BUILD +test-multi-platform-build-failure
 
 test-files:
     RUN echo hello > my-file

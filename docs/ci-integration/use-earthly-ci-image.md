@@ -67,7 +67,7 @@ In some environments, not mounting `/tmp/earthly` as a Docker volume results in 
 ```
 --> WITH DOCKER RUN --privileged ...
 ...
-rm: can't remove '/var/earthly/dind/...': Resource busy
+rm: can't remove '/var/earthbuild/dind/...': Resource busy
 ```
 
 For more information, see the [documentation for `earthly/earthly` on DockerHub](https://hub.docker.com/r/earthly/earthly).

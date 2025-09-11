@@ -5,24 +5,20 @@
         "args": [
           "DIND_IMAGE",
           "=",
-          "earthly/dind:alpine-3.19-docker-25.0.5-r0"
+          "earthbuild/dind:alpine-3.19-docker-25.0.5-r0"
         ],
         "name": "ARG"
       }
     },
     {
       "command": {
-        "args": [
-          "$DIND_IMAGE"
-        ],
+        "args": ["$DIND_IMAGE"],
         "name": "FROM"
       }
     },
     {
       "command": {
-        "args": [
-          "/test"
-        ],
+        "args": ["/test"],
         "name": "WORKDIR"
       }
     }
@@ -51,27 +47,20 @@
       "recipe": [
         {
           "command": {
-            "args": [
-              "jbergknoff/postgresql-client:latest"
-            ],
+            "args": ["jbergknoff/postgresql-client:latest"],
             "name": "FROM"
           }
         },
         {
           "command": {
-            "args": [
-              "-c",
-              "SELECT * FROM country WHERE country_id = '76'"
-            ],
+            "args": ["-c", "SELECT * FROM country WHERE country_id = '76'"],
             "execMode": true,
             "name": "CMD"
           }
         },
         {
           "command": {
-            "args": [
-              "print-countries:latest"
-            ],
+            "args": ["print-countries:latest"],
             "name": "SAVE IMAGE"
           }
         }
@@ -82,30 +71,19 @@
       "recipe": [
         {
           "command": {
-            "args": [
-              "apk",
-              "add",
-              "postgresql-client"
-            ],
+            "args": ["apk", "add", "postgresql-client"],
             "name": "RUN"
           }
         },
         {
           "command": {
-            "args": [
-              "docker-compose.yml",
-              "."
-            ],
+            "args": ["docker-compose.yml", "."],
             "name": "COPY"
           }
         },
         {
           "command": {
-            "args": [
-              "INDEX",
-              "=",
-              "0"
-            ],
+            "args": ["INDEX", "=", "0"],
             "docs": "Index is used to create parallel tests.\n",
             "name": "ARG"
           }
@@ -157,8 +135,6 @@
     }
   ],
   "version": {
-    "args": [
-      "0.8"
-    ]
+    "args": ["0.8"]
   }
 }

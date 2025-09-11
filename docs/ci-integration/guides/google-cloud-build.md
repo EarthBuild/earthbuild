@@ -54,9 +54,7 @@ Click "Add Key", and then "Create New Key". Choose "JSON" as the key format, and
 
 ![The list view of available keys for a Google Cloud service account](img/google-cloud-build-5.png)
 
-Stash the key in your secret management utility of choice. You'll need to make this key available to your build at runtime. For the rest of our example, we will be using Earthly's [Cloud Secrets](../../cloud/cloud-secrets.md).
-
-Often, external secrets management requires some kind of bootstrapping secret (or additional integration) to allow you to access the rest of the secrets in your store. Earthly is no different. We will keep our `EARTHLY_TOKEN` in [Googles Secret Manager](https://cloud.google.com/build/docs/securing-builds/use-secrets) for ease of use.
+Stash the key in your secret management utility of choice. You'll need to make this key available to your build at runtime.
 
 {% hint style='danger' %}
 ##### Note
@@ -74,7 +72,7 @@ It is also possible to perform these steps via the CLI; the steps are [also deta
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/EarthBuild/earthbuild/issues/new)!
 
 {% endhint %}
 
@@ -111,24 +109,4 @@ Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/c
       - --ci
       - --push
       - +build
-```
-
-[The second step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L8-L13) runs a sample, Google Cloud Build only example to show how you would use an external service account to do things that normally requires credentials.
-
-```yaml
-  - id: 'gcp-test'
-    name: 'earthly/earthly:v0.8.13'
-    args:
-      - +gcp-cloudbuild
-    secretEnv:
-      - 'EARTHLY_TOKEN'
-```
-
-The secret environment variable bootstraps the Earthly secret store, and we can load it from Google's Secret Store like this:
-
-```yaml
-availableSecrets:
-  secretManager:
-  - versionName: projects/earthly-jupyterlab/secrets/EARTHLY_TOKEN/versions/2
-    env: 'EARTHLY_TOKEN'
 ```

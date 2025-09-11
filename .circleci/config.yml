@@ -24,7 +24,7 @@ jobs:
           name: Run tests
           command: |-
               ./build/linux/amd64/earthly --ci -P \
-              +smoke-test --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true && echo "circleci tests passed"
+              +smoke-test && echo "circleci tests passed"
 workflows:
   version: 2
   circle-ci:

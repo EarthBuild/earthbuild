@@ -264,75 +264,20 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
-  docker-tests-test-account:
-    if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "./tests/account+test"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
-    secrets: inherit
-
-  docker-test-registry-command-dockerhub:
-    if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "./tests/registry-command+test-dockerhub"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
-    secrets: inherit
-
-  docker-test-registry-command-multi:
-    if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "./tests/registry-command+test-multi"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
-    secrets: inherit
-
-  docker-test-web-command:
-    if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "./tests/web+test"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
-    secrets: inherit
-
-  docker-test-oidc-command:
-    if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: build-earthly
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "./tests/oidc+test"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
-    secrets: inherit
+  # TODO: The oidc tests are ignored until we have an AWS account to test with.
+  # docker-test-oidc-command:
+  #   if: ${{ !failure() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+  #   needs: build-earthly
+  #   uses: ./.github/workflows/reusable-test.yml
+  #   with:
+  #     TEST_TARGET: "./tests/oidc+test"
+  #     BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+  #     RUNS_ON: "ubuntu-latest"
+  #     BINARY: "docker"
+  #     SUDO: ""
+  #     SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+  #     # EXTRA_ARGS: "--auto-skip"
+  #   secrets: inherit
 
   docker-tests-qemu:
     needs: build-earthly
@@ -405,18 +350,6 @@ jobs:
     needs: build-earthly
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-push-integrations.yml
-    with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-    secrets: inherit
-
-  docker-secret-integrations:
-    needs: build-earthly
-    if: ${{ !failure() }}
-    uses: ./.github/workflows/reusable-secrets-integrations.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"

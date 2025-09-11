@@ -16,19 +16,19 @@ import (
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc/codes"
 
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	"github.com/earthly/earthly/cmd/earthly/helper"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/inputgraph"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/errutil"
-	"github.com/earthly/earthly/util/hint"
-	"github.com/earthly/earthly/util/params"
-	"github.com/earthly/earthly/util/reflectutil"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/errutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/util/params"
+	"github.com/EarthBuild/earthbuild/util/reflectutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"google.golang.org/grpc/status"
 )
 
@@ -300,7 +300,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			)
 			app.BaseCLI.Console().Warnf(
 				"Error: It seems that buildkitd is shutting down or it has crashed. " +
-					"You can report crashes at https://github.com/earthly/earthly/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 				app.printCrashLogs(ctx)
 			}
@@ -314,7 +314,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			)
 			app.BaseCLI.Console().Warnf(
 				"Error: It seems that buildkitd is shutting down or it has crashed. " +
-					"You can report crashes at https://github.com/earthly/earthly/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 				app.printCrashLogs(ctx)
 			}
@@ -329,7 +329,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 				app.BaseCLI.Console().Warnf(
 					"Error: It seems that buildkitd had an issue. " +
-						"You can report crashes at https://github.com/earthly/earthly/issues/new.")
+						"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 				app.printCrashLogs(ctx)
 			}
 			return 6

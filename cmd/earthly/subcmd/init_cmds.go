@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/earthly/earthly/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/hint"
 
-	"github.com/earthly/earthly/util/proj"
+	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )

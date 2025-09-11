@@ -2,7 +2,7 @@
 
 ## Introduction
 
-It is common for builds to be able to access AWS resources (For example, one might want to upload artifacts to S3).  
+It is common for builds to be able to access AWS resources (For example, one might want to upload artifacts to S3).
 Earthly provides two ways to easily authenticate to AWS in order to access resources.
 
 ## Authentication Methods

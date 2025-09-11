@@ -34,6 +34,9 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 deps:
     FROM +base
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.1
+    # renovate: datasource=go depName=golang.org/x/vuln/cmd/govulncheck
+    ARG govulncheck_version=1.1.3
+    RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY go.mod go.sum ./
     COPY ./ast/go.mod ./ast/go.sum ./ast
     COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
@@ -154,6 +157,11 @@ lint:
     COPY ./.golangci.yaml ./
     RUN golangci-lint run
 
+# govulncheck runs govulncheck against the earthbuild project.
+govulncheck:
+    FROM +code
+    RUN govulncheck ./...
+
 lint-newline-ending:
     FROM alpine:3.18
     WORKDIR /everything
@@ -244,7 +252,6 @@ unit-test:
     ARG DOCKERHUB_MIRROR_INSECURE=false
     ARG DOCKERHUB_MIRROR_HTTP=false
     ARG DOCKERHUB_MIRROR_AUTH=false
-    ARG DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=false
 
     IF [ -n "$DOCKERHUB_MIRROR" ]
         RUN mkdir -p /etc/docker
@@ -254,14 +261,7 @@ unit-test:
         END
         RUN echo "}" >> /etc/docker/daemon.json
     END
-    IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
-        RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
-        WITH DOCKER
-            RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user \
-                --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass \
-                USE_EARTHLY_MIRROR=true ./not-a-unit-test.sh
-        END
-    ELSE IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
+    IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         WITH DOCKER
             RUN --secret DOCKERHUB_MIRROR_USER \
                 --secret DOCKERHUB_MIRROR_PASS \
@@ -280,13 +280,13 @@ unit-test:
 # depend on the core earthly project.
 submodule-decouple-check:
     FROM +code
-    RUN for submodule in github.com/earthly/earthly/ast github.com/earthly/earthly/util/deltautil; \
+    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
     do \
         for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
         do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/earthly/earthly" ]; \
+            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/EarthBuild/earthbuild" ]; \
             then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/earthly/earthly' module"; \
+               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/EarthBuild/earthbuild' module"; \
                exit 1; \
             fi; \
         done; \
@@ -496,18 +496,13 @@ earthly-integration-test-base:
     ARG DOCKERHUB_MIRROR_INSECURE=false
     ARG DOCKERHUB_MIRROR_HTTP=false
     ARG DOCKERHUB_MIRROR_AUTH=false
-    ARG DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=false
 
     # DOCKERHUB_AUTH will login to docker hub (and pull from docker hub rather than a mirror)
     ARG DOCKERHUB_AUTH=false
 
     COPY setup-registry.sh .
 
-    # TODO: Check this
-    IF [ "$DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS" = "true" ]
-        RUN if [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]; then echo "ERROR: DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS and DOCKERHUB_MIRROR_AUTH are mutually exclusive" && exit 1; fi
-        RUN --secret DOCKERHUB_MIRROR_USER=dockerhub-mirror/user --secret DOCKERHUB_MIRROR_PASS=dockerhub-mirror/pass USE_EARTHLY_MIRROR=true ./setup-registry.sh
-    ELSE IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
+    IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         RUN --secret DOCKERHUB_MIRROR_USER --secret DOCKERHUB_MIRROR_PASS ./setup-registry.sh
     ELSE IF [ "$DOCKERHUB_AUTH" = "true" ]
         RUN --secret DOCKERHUB_USER --secret DOCKERHUB_PASS ./setup-registry.sh
@@ -834,7 +829,6 @@ examples-1:
     BUILD ./examples/cutoff-optimization+run
     BUILD ./examples/import+build
     BUILD ./examples/secrets+base
-    BUILD ./examples/cloud-secrets+base
 
 examples-2:
     BUILD ./examples/readme/go1+all
@@ -861,7 +855,6 @@ examples-3:
     BUILD ./examples/typescript-node+docker
     BUILD ./examples/bazel+run
     BUILD ./examples/bazel+image
-    BUILD ./examples/aws-sso+base
     BUILD ./examples/mkdocs+build
     BUILD ./examples/zig+docker
 

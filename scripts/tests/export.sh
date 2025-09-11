@@ -17,17 +17,11 @@ PATH="$(realpath "$(dirname "$0")/../acbtest"):$PATH"
 # which would mess with the secrets data being fetched)
 date +%s > /tmp/last-earthly-prerelease-check
 
-set +x # dont remove or the token will be leaked
-test -n "$EARTHLY_TOKEN" || (echo "error: EARTHLY_TOKEN is not set" && exit 1)
-set -x
-
 EARTHLY_INSTALLATION_NAME="earthly-integration"
 export EARTHLY_INSTALLATION_NAME
 rm -rf "$HOME/.earthly.integration/"
 
 echo "$earthly"
-# ensure earthly login works (and print out who gets logged in)
-"$earthly" account login
 
 # Test 1: export without anything
 echo ==== Running test 1 ====
@@ -190,21 +184,22 @@ if "$frontend" inspect earthly-export-test-6:test_linux_arm64 >/dev/null 2>&1 ; 
     exit 1
 fi
 
-# Test 7: remote cache on target with only BUILDs
-echo ==== Running test 7 ====
-rm -rf /tmp/earthly-export-test-7
-mkdir /tmp/earthly-export-test-7
-cd /tmp/earthly-export-test-7
-cat >> Earthfile <<EOF
-VERSION 0.7
-test7:
-    BUILD +b
-b:
-    FROM busybox:latest
-EOF
+# TODO: We should reinstate this test.
+# # Test 7: remote cache on target with only BUILDs
+# echo ==== Running test 7 ====
+# rm -rf /tmp/earthly-export-test-7
+# mkdir /tmp/earthly-export-test-7
+# cd /tmp/earthly-export-test-7
+# cat >> Earthfile <<EOF
+# VERSION 0.7
+# test7:
+#     BUILD +b
+# b:
+#     FROM busybox:latest
+# EOF
 
-# This simply tests that this does not hang (#1945).
-timeout -k 11m 10m "$earthly" --ci --push --remote-cache earthly/test-cache:export-test-7 +test7
+# # This simply tests that this does not hang (#1945).
+# timeout -k 11m 10m "$earthly" --ci --push --remote-cache EarthBuild/test-cache:export-test-7 +test7
 
 # Test 8: Earthly LABELS
 echo ==== Running test 8 ====

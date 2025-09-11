@@ -36,7 +36,6 @@ jobs:
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
       FORCE_COLOR: 1
     steps:
     - uses: earthly/actions/setup-earthly@v1

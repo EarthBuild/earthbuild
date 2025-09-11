@@ -38,7 +38,6 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
@@ -55,7 +54,6 @@ jobs:
           DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
           DOCKERHUB_USERNAME: "${{ secrets.DOCKERHUB_USERNAME }}"
           DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_TOKEN }}"
-          EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
           BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

@@ -2,16 +2,17 @@ package states
 
 import (
 	"context"
-	"github.com/moby/buildkit/client/llb"
 	"sync"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states/dedup"
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/waitutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/moby/buildkit/client/llb"
+
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/states/dedup"
+	"github.com/EarthBuild/earthbuild/states/image"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/waitutil"
+	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/google/uuid"
 )
 

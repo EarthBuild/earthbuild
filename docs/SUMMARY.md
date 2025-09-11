@@ -74,15 +74,3 @@
     * [Bitbucket Pipelines](ci-integration/guides/bitbucket-pipelines-integration.md)
     * [Woodpecker CI](ci-integration/guides/woodpecker-integration.md)
     * [Kubernetes](ci-integration/guides/kubernetes.md)
-
-## ☁️ Earthly Cloud
-
-* [Overview](cloud/overview.md)
-* [Managing permissions](cloud/managing-permissions.md)
-* [Cloud secrets](cloud/cloud-secrets.md)
-* [Earthly Satellites](cloud/satellites.md)
-    * [Managing Satellites](cloud/satellites/managing.md)
-    * [Using Satellites](cloud/satellites/using.md)
-    * [Self-Hosted Satellites](cloud/satellites/self-hosted.md)
-    * [GitHub runners](cloud/satellites/gha-runners.md)
-    * [Best Practices](cloud/satellites/best-practices.md)

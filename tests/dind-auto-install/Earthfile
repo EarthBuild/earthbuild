@@ -6,14 +6,17 @@ all:
         --BASE_IMAGE=docker:20.10.15-dind \
         --BASE_IMAGE=docker:dind \
         --BASE_IMAGE=alpine:latest \
+        # Debian changed some base packages in trixie/13, so test
+        # with bookwork/12 to ensure older versions are still supported
+        --BASE_IMAGE=debian:bookworm \
         --BASE_IMAGE=debian:stable \
         --BASE_IMAGE=debian:stable-slim \
         --BASE_IMAGE=ubuntu:latest \
         --BASE_IMAGE=amazonlinux:1 \
         --BASE_IMAGE=amazonlinux:2 \
-        --BASE_IMAGE=earthbuild/dind:alpine-3.19-docker-25.0.2-r0 \
-        --BASE_IMAGE=earthbuild/dind:ubuntu-20.04-docker-24.0.5-1 \
-        --BASE_IMAGE=earthbuild/dind:ubuntu-23.04-docker-24.0.5-1
+        --BASE_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r1 \
+        --BASE_IMAGE=earthbuild/dind:ubuntu-20.04-docker-28.1.1-1 \
+        --BASE_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.3.3-1
 
 test:
     ARG --required BASE_IMAGE

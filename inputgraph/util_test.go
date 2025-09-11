@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/stretchr/testify/require"
 )
 

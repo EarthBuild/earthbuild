@@ -3,7 +3,7 @@ package stringutil_test
 import (
 	"testing"
 
-	. "github.com/earthly/earthly/util/stringutil"
+	. "github.com/EarthBuild/earthbuild/util/stringutil"
 
 	"github.com/stretchr/testify/require"
 )

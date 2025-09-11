@@ -1,12 +1,12 @@
 # OpenID Connect (OIDC) Authentication
 
 Earthly can support cases where you might require access to a 3rd-party cloud provider as part of your build, without storing secrets in your CI or accessing credentials from your local environment.
-This is especially useful in CI where otherwise, authentication requires MFA(multi-factor authentication).  
+This is especially useful in CI where otherwise, authentication requires MFA(multi-factor authentication).
 The OIDC protocol allows you to access the provider without storing credentials in your local environment or CI.
 
 ## Introduction
 
-This page covers how to set up OIDC with cloud providers. 
+This page covers how to set up OIDC with cloud providers.
 At the moment the only AWS is supported.
 
 ## Cloud Providers
@@ -81,4 +81,4 @@ aws:
     RUN --aws --oidc=$OIDC aws s3 ls
 ```
 
-For more information on the `RUN --aws --oidc` flags, see [here](../earthfile/earthfile.md#--oidc-oidc-spec-experimental) 
+For more information on the `RUN --aws --oidc` flags, see [here](../earthfile/earthfile.md#--oidc-oidc-spec-experimental)

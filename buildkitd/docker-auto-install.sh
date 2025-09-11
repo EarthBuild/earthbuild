@@ -119,7 +119,7 @@ install_dockerd() {
         *)
             echo "Warning: Distribution $distro not yet supported for Docker-in-Earthly."
             echo "Will attempt to treat like Debian."
-            echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/earthly/earthly/issues"
+            echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/EarthBuild/earthbuild/issues"
             install_dockerd_debian_like
             ;;
     esac
@@ -133,15 +133,12 @@ apt_get_update() {
     fi
 }
 
-install_docker_apt_repo_old() {
-    curl -fsSL "https://download.docker.com/linux/$distro/gpg" | apt-key add -
-    add-apt-repository \
-        "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/$distro \
-        $(lsb_release -cs) \
-        stable"
-}
-
-install_docker_apt_repo_new() {
+install_docker_apt_repo() {
+    apt-get install --no-install-recommends -y \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gpg
     install -m 0755 -d /etc/apt/keyrings
     curl -fsSL "https://download.docker.com/linux/$distro/gpg" | gpg --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
@@ -155,36 +152,7 @@ install_dockerd_debian_like() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get remove -y docker docker-engine docker.io containerd runc || true
     apt_get_update
-    apt-get install -y \
-        apt-transport-https \
-        ca-certificates \
-        curl \
-        gnupg-agent \
-        software-properties-common
-
-    VERSION="$(. /etc/os-release && echo "$VERSION_ID")"
-    case "$distro" in
-        ubuntu)
-            MAJOR="$(echo "$VERSION" | awk -F. '{print $1}')"
-            if [ "$MAJOR" -ge "22" ]; then
-                install_docker_apt_repo_new
-            else
-                install_docker_apt_repo_old
-            fi
-            ;;
-
-        debian)
-            if [ "$VERSION" -ge "12" ]; then
-                install_docker_apt_repo_new
-            else
-                install_docker_apt_repo_old
-            fi
-            ;;
-
-        *)
-            install_docker_apt_repo_old
-            ;;
-    esac
+    install_docker_apt_repo
     apt-get update # dont use apt_get_update since we must update the newly added apt repo
     if [ -n "$DOCKER_VERSION" ]; then
         apt-get install -y docker-ce="$DOCKER_VERSION" docker-ce-cli="$DOCKER_VERSION"

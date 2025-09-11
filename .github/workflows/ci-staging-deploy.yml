@@ -29,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_USER: "earthly"
       EARTHLY_REPO: "earthly-staging"
@@ -52,8 +51,10 @@ jobs:
           fetch-depth: 0
       - name: Configure earthly accounts (Earthly Only)
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        run: |-
-          docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password "${{ secrets.DOCKERHUB_TOKEN }}"
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Retrieve earthly from build-earthly job
         run: |-
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade

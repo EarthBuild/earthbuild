@@ -242,7 +242,7 @@ In other words, the following will **NOT** work on amd64:
 ```Dockerfile
 # Does not work!
 build:
-    FROM --platform=linux/arm64 earthly/dind
+    FROM --platform=linux/arm64 earthbuild/dind
     WITH DOCKER --pull=earthly/examples:multiplatform
         RUN docker run earthly/examples:multiplatform
     END
@@ -252,7 +252,7 @@ However, the following will:
 
 ```
 build:
-    FROM earthly/dind
+    FROM earthbuild/dind
     WITH DOCKER --pull=earthly/examples:multiplatform
         RUN docker run --platform=linux/arm64 earthly/examples:multiplatform
     END

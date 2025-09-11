@@ -2,8 +2,8 @@ name: Update Docker Hub READMEs
 
 on:
   push:
-    branches: [ main ]
-    paths: [ docs/docker-images/*.md ]
+    branches: [main]
+    paths: [docs/docker-images/*.md]
 
 jobs:
   update-docker-hub-readmes:
@@ -25,12 +25,11 @@ jobs:
           repository: earthly/earthly
           readme-filepath: ./docs/docker-images/all-in-one.md
           short-description: ${{ github.event.repository.description }}
-      - name: Update DockerHub description for earthly/buildkitd
+      - name: Update DockerHub description for earthbuild/dind
         uses: peter-evans/dockerhub-description@v4.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: earthly/buildkitd
+          repository: earthbuild/dind
           readme-filepath: ./docs/docker-images/buildkit-standalone.md
           short-description: Standalone Earthly buildkitd image
-

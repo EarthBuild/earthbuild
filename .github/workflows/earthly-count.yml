@@ -6,7 +6,7 @@ on:
 
 jobs:
   count-earthly:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       pull-requests: write

@@ -1647,7 +1647,7 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		var mountOpts []llb.MountOption
 		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, shareMode))
 		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
-		var mountMode int
+		var mountMode os.FileMode
 		if opts.Mode == "" {
 			opts.Mode = "0644"
 		}
@@ -1663,7 +1663,7 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		}
 		c.persistentCacheDirs[mountTarget] = states.CacheMount{
 			Persisted: persisted,
-			RunOption: pllb.AddMount(mountTarget, pllb.Scratch().File(pllb.Mkdir("/cache", os.FileMode(mountMode))), mountOpts...),
+			RunOption: pllb.AddMount(mountTarget, pllb.Scratch().File(pllb.Mkdir("/cache", mountMode)), mountOpts...),
 		}
 	}
 	return nil

@@ -32,7 +32,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 	var mountTarget string
 	var mountID string
 	var mountType string
-	var mountMode int
+	var mountMode os.FileMode
 	var mountOpts []llb.MountOption
 	sharingMode := llb.CacheMountLocked
 	kvPairs := strings.Split(mount, ",")
@@ -188,7 +188,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		secretName := strings.TrimPrefix(secretID, "+secrets/")
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(secretName)),
-			llb.SecretFileOpt(0, 0, mountMode),
+			llb.SecretFileOpt(0, 0, int(mountMode)),
 		}
 		return []llb.RunOption{llb.AddSecret(mountTarget, secretOpts...)}, nil
 	default:
@@ -198,12 +198,14 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 
 var errInvalidOctal = errors.New("invalid octal")
 
-func ParseMode(s string) (int, error) {
+func ParseMode(s string) (os.FileMode, error) {
 	if len(s) == 0 || s[0] != '0' {
 		return 0, errInvalidOctal
 	}
-	mode, err := strconv.Atoi(s)
-	return mode, err
+
+	mode, err := strconv.ParseUint(s, 8, 32)
+
+	return os.FileMode(mode), err
 }
 
 // cacheKey returns a key that can be used to uniquely identify the target.

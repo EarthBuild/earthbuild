@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/earthly/earthly/features"
+	"github.com/EarthBuild/earthbuild/features"
 )
 
 func TestFeaturesStringEnabled(t *testing.T) {

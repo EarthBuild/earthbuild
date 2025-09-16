@@ -4,11 +4,11 @@ import (
 	"github.com/moby/buildkit/client"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/cmd/earthly/flag"
-	"github.com/earthly/earthly/config"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/logbus/setup"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/config"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logbus/setup"
 )
 
 type CLI interface {

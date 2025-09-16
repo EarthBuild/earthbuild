@@ -21,9 +21,9 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/exp/maps"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 
 	"github.com/jdxcode/netrc"
 	"github.com/moby/buildkit/util/sshutil"
@@ -610,8 +610,8 @@ func parseGitProtocol(remote string) (string, int) {
 // GetCloneURL returns the repo to clone, and a path relative to the repo
 //
 //	"github.com/earthly/earthly"             ---> ("git@github.com/earthly/earthly.git", "")
-//	"github.com/earthly/earthly/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
-//	"github.com/earthly/earthly/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
+//	"github.com/EarthBuild/earthbuild/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
+//	"github.com/EarthBuild/earthbuild/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
 //
 // Additionally a ssh keyscan might be returned (or an empty string indicating none was configured)
 // Also, a custom "git ssh command" may be returned. This is part of this function since the user may

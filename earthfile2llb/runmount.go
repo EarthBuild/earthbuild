@@ -3,6 +3,7 @@ package earthfile2llb
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -146,7 +147,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		}
 		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, sharingMode))
 		state = c.cacheContext
-		state = state.File(pllb.Mkdir("/cache", os.FileMode(mountMode)))
+		state = state.File(pllb.Mkdir("/cache", mountMode))
 		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
 		return []llb.RunOption{pllb.AddMount(mountTarget, state, mountOpts...)}, nil
 	case "tmpfs":
@@ -180,6 +181,10 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			// TODO: Perhaps this should just default to the current user automatically from
 			//       buildkit side. Then we wouldn't need to open this up to everyone.
 			mountMode = 0444
+		}
+		// check the upper bound to convert from uint32 to int
+		if mountMode > math.MaxInt32 {
+			return nil, errors.Errorf("mode is too large: 0%o", mountMode)
 		}
 		secretID := mountID
 		if secretID == "" {

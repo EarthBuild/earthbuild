@@ -1647,13 +1647,12 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		var mountOpts []llb.MountOption
 		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, shareMode))
 		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
-		var mountMode os.FileMode
-		if opts.Mode == "" {
-			opts.Mode = "0644"
-		}
-		mountMode, err = ParseMode(opts.Mode)
-		if err != nil {
-			return errors.Errorf("failed to parse mount mode %s", opts.Mode)
+		mountMode := os.FileMode(0644)
+		if opts.Mode != "" {
+			mountMode, err = ParseMode(opts.Mode)
+			if err != nil {
+				return errors.Errorf("failed to parse mount mode %s", opts.Mode)
+			}
 		}
 		persisted := true // Without new --cache-persist-option we use old behaviour which is persisted
 		if c.ftrs.CachePersistOption {

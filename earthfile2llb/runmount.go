@@ -202,8 +202,8 @@ func ParseMode(s string) (int, error) {
 	if len(s) == 0 || s[0] != '0' {
 		return 0, errInvalidOctal
 	}
-	mode, err := strconv.ParseInt(s, 8, 64)
-	return int(mode), err
+	mode, err := strconv.Atoi(s)
+	return mode, err
 }
 
 // cacheKey returns a key that can be used to uniquely identify the target.

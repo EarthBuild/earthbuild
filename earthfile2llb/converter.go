@@ -18,10 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alessio/shellescape"
-	"github.com/containerd/containerd/platforms"
-	"github.com/docker/distribution/reference"
-	"github.com/earthly/cloud-api/logstream"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -50,6 +46,10 @@ import (
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
+	"github.com/alessio/shellescape"
+	"github.com/containerd/containerd/platforms"
+	"github.com/docker/distribution/reference"
+	"github.com/earthly/cloud-api/logstream"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
@@ -732,7 +732,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return 0, errors.Wrap(err, "read exit code")
 		}
 	}
-	exitCode, err := strconv.ParseInt(string(bytes.TrimSpace(codeDt)), 10, 64)
+	exitCode, err := strconv.Atoi(string(bytes.TrimSpace(codeDt)))
 	if err != nil {
 		return 0, errors.Wrap(err, "parse exit code as int")
 	}

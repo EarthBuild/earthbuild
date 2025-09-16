@@ -182,10 +182,16 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			//       buildkit side. Then we wouldn't need to open this up to everyone.
 			mountMode = 0444
 		}
+
 		// check the upper bound to convert from uint32 to int
-		if mountMode > math.MaxInt32 {
+		var mode int
+
+		if mountMode <= math.MaxInt32 {
+			mode = int(mountMode)
+		} else {
 			return nil, errors.Errorf("mode is too large: 0%o", mountMode)
 		}
+
 		secretID := mountID
 		if secretID == "" {
 			secretID = path.Clean(mountTarget)
@@ -193,7 +199,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		secretName := strings.TrimPrefix(secretID, "+secrets/")
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(secretName)),
-			llb.SecretFileOpt(0, 0, int(mountMode)),
+			llb.SecretFileOpt(0, 0, mode),
 		}
 		return []llb.RunOption{llb.AddSecret(mountTarget, secretOpts...)}, nil
 	default:

@@ -3,10 +3,10 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/variables"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"

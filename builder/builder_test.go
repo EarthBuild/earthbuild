@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/earthly/earthly/cleanup"
+	"github.com/EarthBuild/earthbuild/cleanup"
 )
 
 // TestTempEarthlyOutDir tests that tempEarthlyOutDir always returns the same directory

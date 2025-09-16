@@ -9,8 +9,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/util/flagutil"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
 )
 
 type Prune struct {

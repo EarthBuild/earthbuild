@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/earthly/earthly/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
 const (

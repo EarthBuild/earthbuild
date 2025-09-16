@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthly/earthly/util/dockerutil"
+	"github.com/EarthBuild/earthbuild/util/dockerutil"
 )
 
 // ExportCoordinator is a thread-safe data-store used for coordinating the export

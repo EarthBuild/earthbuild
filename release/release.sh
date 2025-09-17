@@ -32,6 +32,7 @@ set -ex
 #  performing a regular release
 #    env -i HOME="$HOME" PATH="$PATH" SSH_AUTH_SOCK="$SSH_AUTH_SOCK" RELEASE_TAG=v0.6.0 ./release.sh
 #
+# TODO convert this to an EB target per best practice "do not wrap"
 
 # must happen before we change dirs
 if [[ "$earthly" == .* ]]; then

@@ -3,6 +3,7 @@ package earthfile2llb
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -32,7 +33,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 	var mountTarget string
 	var mountID string
 	var mountType string
-	var mountMode int
+	var mountMode os.FileMode
 	var mountOpts []llb.MountOption
 	sharingMode := llb.CacheMountLocked
 	kvPairs := strings.Split(mount, ",")
@@ -146,7 +147,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		}
 		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, sharingMode))
 		state = c.cacheContext
-		state = state.File(pllb.Mkdir("/cache", os.FileMode(mountMode)))
+		state = state.File(pllb.Mkdir("/cache", mountMode))
 		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
 		return []llb.RunOption{pllb.AddMount(mountTarget, state, mountOpts...)}, nil
 	case "tmpfs":
@@ -181,6 +182,16 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			//       buildkit side. Then we wouldn't need to open this up to everyone.
 			mountMode = 0444
 		}
+
+		// check the upper bound to convert from uint32 to int
+		var mode int
+
+		if mountMode <= math.MaxInt32 {
+			mode = int(mountMode)
+		} else {
+			return nil, errors.Errorf("mode is too large: 0%o", mountMode)
+		}
+
 		secretID := mountID
 		if secretID == "" {
 			secretID = path.Clean(mountTarget)
@@ -188,7 +199,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		secretName := strings.TrimPrefix(secretID, "+secrets/")
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(secretName)),
-			llb.SecretFileOpt(0, 0, mountMode),
+			llb.SecretFileOpt(0, 0, mode),
 		}
 		return []llb.RunOption{llb.AddSecret(mountTarget, secretOpts...)}, nil
 	default:
@@ -198,12 +209,14 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 
 var errInvalidOctal = errors.New("invalid octal")
 
-func ParseMode(s string) (int, error) {
+func ParseMode(s string) (os.FileMode, error) {
 	if len(s) == 0 || s[0] != '0' {
 		return 0, errInvalidOctal
 	}
-	mode, err := strconv.ParseInt(s, 8, 64)
-	return int(mode), err
+
+	mode, err := strconv.ParseUint(s, 8, 32)
+
+	return os.FileMode(mode), err
 }
 
 // cacheKey returns a key that can be used to uniquely identify the target.

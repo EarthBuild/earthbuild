@@ -88,7 +88,71 @@ release-notes:
     END
     SAVE ARTIFACT notes.txt
 
+# signed-release creates the release directory containing binaries for all archs and platforms plus release
+# notes and GPG signatures to later zip and upload to github
+signed-release:
+    # TODO lock down version
+    FROM alpine:latest
+
+    ARG --required GITHUB_USER
+    ARG --required EARTHLY_REPO
+    ARG --required DOCKERHUB_HOST
+    ARG --required DOCKERHUB_USER
+    ARG --required DOCKERHUB_BUILDKIT_IMG
+    ARG --required PRERELEASE
+
+    ARG EARTHLY_GIT_HASH
+
+    RUN apk add file gpg gpg-agent
+
+    COPY +release-notes/notes.txt release-notes.txt
+
+    COPY (../+earthly-all/* \
+         --VERSION=$RELEASE_TAG \
+         --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" \
+         --DEFAULT_INSTALLATION_NAME="earthly" \
+         ) ./release/
+
+
+    RUN test -f ./release/earthly-linux-amd64 && \
+        test -f ./release/earthly-darwin-amd64 && \
+        test -f ./release/earthly-darwin-arm64 && \
+        test -f ./release/earthly-linux-arm64 && \
+        test -f ./release/earthly-windows-amd64.exe
+
+    RUN file ./release/earthly-linux-amd64 | grep "x86-64"
+    RUN file ./release/earthly-linux-amd64 | grep "ELF 64-bit"
+    RUN file ./release/earthly-darwin-amd64 | grep "Mach-O 64-bit x86_64"
+    RUN file ./release/earthly-darwin-arm64 | grep "Mach-O 64-bit arm64"
+    RUN file ./release/earthly-linux-arm64 | grep "aarch64"
+    RUN file ./release/earthly-linux-arm64 | grep "ELF 64-bit"
+    RUN file ./release/earthly-windows-amd64.exe | grep "PE32"
+
+    # GPG Sign
+    # TODO generate and share an earthbuild org GPG key. Determine how to provide secret
+    RUN \
+        --mount type=secret,id=release/keys/earthly-private.pgp,target=/release-key/earthly-private.pgp \
+        gpg --import /release-key/earthly-private.pgp && \
+        cd release && sha256sum earthly-* > checksum && \
+        cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
+
+    SAVE ARTIFACT ./release
+
+# release-github produces tg
 release-github:
+    FROM something-with-gh-cli
+
+    ARG GITHUB_USER="earthbuild"
+    ARG EARTHLY_REPO="earthbuild"
+    ARG DOCKERHUB_HOST="ghcr.io"
+    ARG DOCKERHUB_USER="earthbuild"
+    ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
+    ARG PRERELEASE="false"
+    ARG EARTHLY_GIT_HASH
+
+    COPY signed-release
+
+release-github-old:
     FROM ../+node
     RUN apk add file curl jq git gpg gpg-agent
     RUN apk add --update --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing hub
@@ -97,21 +161,24 @@ release-github:
         npm install -g github-release-cli@v1.3.1
     WORKDIR /earthly
     ARG --required RELEASE_TAG
-    ARG GITHUB_USER="earthly"
-    ARG EARTHLY_REPO="earthly"
-    ARG DOCKERHUB_HOST="docker.io"
+    ARG GITHUB_USER="earthbuild"
+    ARG EARTHLY_REPO="earthbuild"
+    ARG DOCKERHUB_HOST="ghcr.io"
     ARG DOCKERHUB_USER="earthbuild"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PRERELEASE="false"
     ARG EARTHLY_GIT_HASH
     RUN test -n "$EARTHLY_GIT_HASH"
+
     COPY +release-notes/notes.txt release-notes.txt
     COPY (../+earthly-all/* \
          --VERSION=$RELEASE_TAG \
          --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" \
          --DEFAULT_INSTALLATION_NAME="earthly" \
          ) ./release/
+
     RUN ls ./release
+
     RUN test -f ./release/earthly-linux-amd64 && \
         test -f ./release/earthly-darwin-amd64 && \
         test -f ./release/earthly-darwin-arm64 && \

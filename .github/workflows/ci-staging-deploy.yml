@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthbuild-githubactions"

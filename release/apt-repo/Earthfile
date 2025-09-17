@@ -48,25 +48,27 @@ deb-all:
 
 # If for any reason you need to generate a new PGP key, it can be done with
 # this target; however this has already been done once, and our official key has
-# been saved under /release/keys/earthly-private.pgp (and earthly-public.pgp)
+# been saved under /release/keys/earthbuild-private.pgp (and earthbuild-public.pgp)
 generate-new-gpg-key:
     FROM +deps
     WORKDIR /root/pgp-key
+
+    ARG ORG_EMAIL="webmaster@earthbuild.dev"
     RUN echo "%echo Generating a basic OpenPGP key
 Key-Type: RSA
 Key-Length: 4096
-Name-Real: earthly
-Name-Email: support@earthly.dev
+Name-Real: earthbuild
+Name-Email: ${ORG_EMAIL}
 Expire-Date: 0
 %no-ask-passphrase
 %no-protection
 %commit
-%echo done" > earthly-pgp.batch
-    RUN rm -rf /root/gpupg && gpg --no-tty --batch --gen-key earthly-pgp.batch
-    RUN gpg --output earthly-pgp-public.pgp --armor --export support@earthly.dev
-    RUN gpg --output earthly-pgp-private.pgp --armor --export-secret-key support@earthly.dev
-    SAVE ARTIFACT earthly-pgp-public.pgp AS LOCAL earthly-pgp-public.pgp
-    SAVE ARTIFACT earthly-pgp-private.pgp AS LOCAL earthly-pgp-private.pgp
+%echo done" > earthbuild-pgp.batch
+    RUN rm -rf /root/gpupg && gpg --no-tty --batch --gen-key earthbuild-pgp.batch
+    RUN gpg --output earthbuild-pgp-public.pgp --armor --export "${ORG_EMAIL}"
+    RUN gpg --output earthbuild-pgp-private.pgp --armor --export-secret-key "${ORG_EMAIL}"
+    SAVE ARTIFACT earthbuild-pgp-public.pgp AS LOCAL earthbuild-pgp-public.pgp
+    SAVE ARTIFACT earthbuild-pgp-private.pgp AS LOCAL earthbuild-pgp-private.pgp
 
 download:
     FROM ../common-repo+aws

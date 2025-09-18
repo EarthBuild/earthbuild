@@ -2265,7 +2265,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - Switch to BSL license. For [more information about this decision, take a look at our blog post](https://blog.earthly.dev/every-open-core-company-should-be-a-source-available-company/).
 - `--platform` setting is now automatically propagated between Earthfiles. In addition, you can now specify the empty string `--platform=` to automatically detect your system's architecture.
-- `earthly/dind` images now available for `linux/arm/v7` and `linux/arm64`
+- `earthbuild/dind` images now available for `linux/arm/v7` and `linux/arm64`
 - Improved visibility of platform used for each build step, as well as for any build args that have been overridden.
 - Allow saving an artifact after a `RUN --push` (https://github.com/earthly/earthly/pull/735)
 - Allow specifying `--no-cache` for a single `RUN` command (https://github.com/earthly/earthly/issues/585)

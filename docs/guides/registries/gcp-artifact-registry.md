@@ -77,7 +77,7 @@ Loaded image: <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with
 Using this credential helper; you can also pull images without any special handling in an Earthfile:
 
 ```
-FROM earthly/dind:alpine-main
+FROM earthbuild/dind:alpine-main
 
 run:
     WITH DOCKER --pull <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love
@@ -94,8 +94,8 @@ And here is how you would run it:
 u/e/h/hello-earthly:with-love | --> Load metadata linux/amd64
 u/e/h/hello-earthly:with-love | --> DOCKER PULL <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love
 u/e/h/hello-earthly:with-love | [          ] resolve <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love@sha256:08f310b4520418a60f7c12b168167ea22b886bc03d43ab87058e959ef5c14cf2 ... 0%                               [██████████] resolve <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love@sha256:08f310b4520418a60f7c12b168167ea22b886bc03d43ab87058e959ef5c14cf2 ... 100%
-               +base | --> FROM earthly/dind:alpine-main
-               +base | [██████████] resolve docker.io/earthly/dind:alpine-main@sha256:09f497f0114de1f3ac6ce2da05568fcb50b0a4fd8b9025ed7c67dc952d092766 ... 100%
+               +base | --> FROM earthbuild/dind:alpine-main
+               +base | [██████████] resolve docker.io/earthbuild/dind:alpine-main@sha256:09f497f0114de1f3ac6ce2da05568fcb50b0a4fd8b9025ed7c67dc952d092766 ... 100%
                 +run | *cached* --> WITH DOCKER (install deps)
                 +run | *cached* --> WITH DOCKER RUN docker run <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love
               output | --> exporting outputs

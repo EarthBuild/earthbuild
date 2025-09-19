@@ -410,7 +410,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 				gitTags2 = append(gitTags2, gitTag)
 			}
 		}
-		gitCommiterTs := strings.SplitN(string(gitCommitterTsBytes), "\n", 2)[0]
+		gitCommitterTs := strings.SplitN(string(gitCommitterTsBytes), "\n", 2)[0]
 		gitAuthorTs := strings.SplitN(string(gitAuthorTsBytes), "\n", 2)[0]
 		gitRefs := strings.Split(string(gitRefsBytes), "\n")
 		var gitRefs2 []string
@@ -437,7 +437,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 			shortHash:      gitShortHash,
 			branches:       gitBranches2,
 			tags:           gitTags2,
-			committerTs:    gitCommiterTs,
+			committerTs:    gitCommitterTs,
 			authorTs:       gitAuthorTs,
 			authorEmail:    gitAuthorEmail,
 			authorName:     gitAuthorName,

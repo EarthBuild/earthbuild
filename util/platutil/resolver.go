@@ -27,7 +27,7 @@ func NewResolver(nativePlatform specs.Platform) *Resolver {
 }
 
 // SubResolver returns a copy of this resolver, but with the current and default
-// platform overriden.
+// platform overridden.
 func (r *Resolver) SubResolver(newPlatform Platform) *Resolver {
 	if newPlatform == DefaultPlatform {
 		newPlatform = r.defaultPlatform

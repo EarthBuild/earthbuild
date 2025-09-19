@@ -7,7 +7,7 @@ if [ -f "$earthly" ]; then
   earthly=$(realpath "$earthly")
 fi
 
-# used for testing backwards compatability issues
+# used for testing backwards compatibility issues
 crustly="${crustly:=earthly-v0.8.0}"
 if [ -f "$crustly" ]; then
   crustly=$(realpath "$crustly")

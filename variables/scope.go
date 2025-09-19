@@ -125,7 +125,7 @@ func (s *Scope) BuildArgs(opts ...ScopeOpt) []string {
 	return args
 }
 
-// RemoveReservedArgsFromScope returns a new scope ommits any builtin arguments
+// RemoveReservedArgsFromScope returns a new scope omits any builtin arguments
 func RemoveReservedArgsFromScope(scope *Scope) *Scope {
 	s := NewScope()
 	for k, v := range scope.variables {

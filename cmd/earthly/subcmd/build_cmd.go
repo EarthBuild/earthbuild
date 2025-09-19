@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/containerd/containerd/platforms"
@@ -607,7 +608,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 			if !strings.Contains(host, ".") {
 				host += ".com"
 			}
-			pattern = host + "/[^/]+/[^/]+"
+			pattern = regexp.QuoteMeta(host) + "/[^/]+/[^/]+"
 		}
 		auth := v.Auth
 		suffix := v.Suffix

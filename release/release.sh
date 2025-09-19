@@ -32,6 +32,7 @@ set -ex
 #  performing a regular release
 #    env -i HOME="$HOME" PATH="$PATH" SSH_AUTH_SOCK="$SSH_AUTH_SOCK" RELEASE_TAG=v0.6.0 ./release.sh
 #
+# TODO convert this to an EB target per best practice "do not wrap"
 
 # must happen before we change dirs
 if [[ "$earthly" == .* ]]; then
@@ -53,20 +54,14 @@ fi
 
 test -f "$earthly" || (echo "ERROR: earthly is set to $earthly which does not exist" && exit 1)
 
-# TODO once v 0.7 is fully released, we can remove this
-if ! "$earthly" secrets --help 2>&1 | grep migrate > /dev/null; then
-    echo "you are using an older version of earthly, please upgrade to v0.7.X (or build it from main)"
-    exit 1
-fi
-
 # Set default values
-export GITHUB_USER=${GITHUB_USER:-earthly}
+export GITHUB_USER=${GITHUB_USER:-earthbuild}
 export DOCKERHUB_HOST=${DOCKERHUB_HOST:-docker.io}
-export DOCKERHUB_USER=${DOCKERHUB_USER:-earthly}
-export DOCKERHUB_IMG=${DOCKERHUB_IMG:-earthly}
+export DOCKERHUB_USER=${DOCKERHUB_USER:-earthbuild}
+export DOCKERHUB_IMG=${DOCKERHUB_IMG:-earthbuild}
 export DOCKERHUB_BUILDKIT_IMG=${DOCKERHUB_BUILDKIT_IMG:-buildkitd}
-export EARTHLY_REPO=${EARTHLY_REPO:-earthly}
-export BREW_REPO=${BREW_REPO:-homebrew-earthly}
+export EARTHLY_REPO=${EARTHLY_REPO:-earthbuild}
+export BREW_REPO=${BREW_REPO:-homebrew-earthbuild}
 export GITHUB_SECRET_PATH=$GITHUB_SECRET_PATH
 export PRERELEASE=${PRERELEASE:-true}
 export SKIP_CHANGELOG_DATE_TEST=${SKIP_CHANGELOG_DATE_TEST:-false}
@@ -85,7 +80,7 @@ if [[ "$RELEASE_TAG" =~ "rc" ]] && [ "$PRERELEASE" != "true" ]; then
 fi
 
 PRODUCTION_RELEASE="false"
-if [ "$GITHUB_USER" = "earthly" ] && [ "$EARTHLY_REPO" = "earthly" ]; then
+if [ "$GITHUB_USER" = "earthbuild" ] && [ "$EARTHLY_REPO" = "earthbuild" ]; then
     PRODUCTION_RELEASE="true"
     if [ "$DOCKERHUB_HOST" != "docker.io" ]; then
         echo "expected DOCKERHUB_HOST=docker.io but got $DOCKERHUB_HOST"
@@ -117,12 +112,6 @@ fi
 # fail-fast if release-notes do not exist (or if date is incorrect)
 "$earthly" --build-arg RELEASE_TAG --build-arg SKIP_CHANGELOG_DATE_TEST +release-notes
 
-if [ -n "$GITHUB_SECRET_PATH" ]; then
-    GITHUB_SECRET_PATH_BUILD_ARG="--build-arg GITHUB_SECRET_PATH=$GITHUB_SECRET_PATH"
-else
-    ("$earthly" secrets --org earthly-technologies --project core ls >/dev/null) || (echo "ERROR: current user does not have access to the earthly-technologies core project"; exit 1);
-fi
-
 existing_release=$(curl -s https://api.github.com/repos/earthly/earthly/releases/tags/$RELEASE_TAG | jq -r .tag_name)
 if [ "$existing_release" != "null" ]; then
     test "$OVERWRITE_RELEASE" = "1" || (echo "a release for $RELEASE_TAG already exists, to proceed with overwriting this release set OVERWRITE_RELEASE=1" && exit 1);
@@ -136,7 +125,7 @@ fi
 
 GITHUB_PRERELEASE="$PRERELEASE"
 if [ "$EARTHLY_STAGING" = "true" ]; then
-    # special case to ensure https://github.com/earthly/earthly-staging/releases/latest/download/earthly-linux-amd64 is kept up to date
+    # special case to ensure https://github.com/earthbuild/earthbuild-staging/releases/latest/download/earthbuild-linux-amd64 is kept up to date
     GITHUB_PRERELEASE="false"
 
     # make sure we aren't accidentally doing a regular release
@@ -154,8 +143,19 @@ fi
 echo "earthlynext is $earthlynext"
 
 "$earthly" --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="$PRERELEASE" --PUSH_LATEST_TAG="$PUSH_LATEST_TAG" --RELEASE_TAG="$RELEASE_TAG"
-"$earthly" --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG-ticktock" --BUILDKIT_PROJECT=github.com/earthly/buildkit:$earthlynext
-"$earthly" --push --build-arg GITHUB_USER --build-arg EARTHLY_REPO --build-arg BREW_REPO --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_BUILDKIT_IMG --build-arg RELEASE_TAG --build-arg SKIP_CHANGELOG_DATE_TEST $GITHUB_SECRET_PATH_BUILD_ARG +release-github --PRERELEASE="$GITHUB_PRERELEASE"
+"$earthly" --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG-ticktock" --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:$earthlynext
+"$earthly" --push \
+    --secret GITHUB_TOKEN="$GITHUB_TOKEN" \
+    --secret GPG_PRIVATE="$GPG_PRIVATE"
+    +release-github \
+    --GITHUB_USER="$GITHUB_USER" \
+    --EARTHLY_REPO="$EARTHLY_REPO" \
+    --BREW_REPO="$BREW_REPO" \
+    --DOCKERHUB_USER="$DOCKERHUB_USER" \
+    --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
+    --RELEASE_TAG="$RELEASE_TAG" \
+    --SKIP_CHANGELOG_DATE_TEST="$SKIP_CHANGELOG_DATE_TEST" \
+    --PRERELEASE="$GITHUB_PRERELEASE"
 
 if [ "$PRERELEASE" != "false" ]; then
     echo "exiting due to PRERELEASE=$PRERELEASE"
@@ -167,7 +167,7 @@ if [ "$EARTHLY_STAGING" = "true" ]; then
     exit 0
 fi
 
-echo "homebrew release with gu=$GITHUB_USER; er=$EARTHLY_REPO; br=$BREW_REPO; du=$DOCKERHUB_USER; rt=$RELEASE_TAG"
+echo "homebrew release with GITHUB_USER=$GITHUB_USER; EARTHLY_REPO=$EARTHLY_REPO; BREW_REPO=$BREW_REPO; DOCKERHUB_USER=$DOCKERHUB_USER; RELEASE_TAG=$RELEASE_TAG"
 "$earthly" --push --build-arg GITHUB_USER --build-arg EARTHLY_REPO --build-arg BREW_REPO --build-arg DOCKERHUB_USER --build-arg RELEASE_TAG $GITHUB_SECRET_PATH_BUILD_ARG +release-homebrew
 
 if [ "$PRODUCTION_RELEASE" = "true" ]; then

@@ -63,7 +63,7 @@ earthly --config \$earthly_config --verbose --debug selfsigned.example.com/repo:
 
 
 scrub-remote-credentials-on-failure:
-    # this test uses a non-existant user named "kallaxtheshelf"
+    # this test uses a non-existent user named "kallaxtheshelf"
     # (and if someone decides to register that username on github, that's fine too, we'll never know the password)
     RUN echo "#!/bin/sh
 set -ex

@@ -26,7 +26,7 @@ All notable changes to [Earthly](https://github.com/earthly/earthly) will be doc
 ### Fixed
 - Link-scoped devices will now properly autodetect MTU settings. 
 - Better error reporting when cross-target copy references a file that does not exist. [#4221](https://github.com/earthly/earthly/issues/4221)
-- AWS credentials are propogated into `WITH DOCKER`. [#4241](https://github.com/earthly/earthly/issues/4241)
+- AWS credentials are propagated into `WITH DOCKER`. [#4241](https://github.com/earthly/earthly/issues/4241)
 
 ### Changed
 - Allow using `localhost` as a remote address when using satellites.
@@ -84,7 +84,7 @@ All notable changes to [Earthly](https://github.com/earthly/earthly) will be doc
 - Support for using HTTP(S) proxies when connecting to satellites.
 
 ### Fixed
-- Backwards compatability issue where `WITH DOCKER` would fail with `EARTHLY_DOCKERD_CACHE_DATA: parameter not set` when using an older version of the earthly in combination with a satellite running v0.8.10.
+- Backwards compatibility issue where `WITH DOCKER` would fail with `EARTHLY_DOCKERD_CACHE_DATA: parameter not set` when using an older version of the earthly in combination with a satellite running v0.8.10.
 
 ### Additional Info
 - This release includes changes to buildkit
@@ -236,7 +236,7 @@ All notable changes to [Earthly](https://github.com/earthly/earthly) will be doc
 
 - Fixed an intermittent issue with the registry proxy support container failing immediately on Mac. [#3740](https://github.com/earthly/earthly/issues/3740)
 - Fixed a problem with parsing empty results when cleaning up old registry proxy support containers on Mac.
-- Fixed a case where a suggested command would incorrectly contain both `--interative` and `--ci`. [#3746](https://github.com/earthly/earthly/issues/3746)
+- Fixed a case where a suggested command would incorrectly contain both `--interactive` and `--ci`. [#3746](https://github.com/earthly/earthly/issues/3746)
 - Disabled the registry proxy server when Earthly is run from within a container. [#3736](https://github.com/earthly/earthly/issues/3736)
 
 ### Additional Info
@@ -530,7 +530,7 @@ It should be noted that some of these features break backwards compatibility. Se
 ### Fixed
 - Fixed reduced parallelism regression which occurred when the target is the same but has different args -- can be enabled with `VERSION --use-visited-upfront-hash-collection` [#2377](https://github.com/earthly/earthly/issues/2377)
 - `prune --age` did not support `d` (for days) suffix, even thought `earthly --help` said it did [#3401](https://github.com/earthly/earthly/issues/3401)
-- `buildkit scheduler error: return leaving incoming open` which occured during deduplication of opperations within buildkit; cherry-picked 100d3cb6b6903be50f7a3e5dba193515aa9530fa from upstream buildkit repo. [#2957](https://github.com/earthly/earthly/issues/2957)
+- `buildkit scheduler error: return leaving incoming open` which occurred during deduplication of operations within buildkit; cherry-picked 100d3cb6b6903be50f7a3e5dba193515aa9530fa from upstream buildkit repo. [#2957](https://github.com/earthly/earthly/issues/2957)
 - Changed `WITH DOCKER` to pull images in parallel [#2351](https://github.com/earthly/earthly/issues/2351)
 
 ### Changed
@@ -549,7 +549,7 @@ It should be noted that some of these features break backwards compatibility. Se
 ### Fixed
 - A regression where URLs will not always get shorter when used as a prefix. Partially addresses [#3200](https://github.com/earthly/earthly/issues/3200).
 - If a build fails because of `qemu` missing, earthly will display a proper hint to install it [#3200](https://github.com/earthly/earthly/issues/3200).
-- Removed erroneous error-message which said error: 0 errors occured [#3306](https://github.com/earthly/earthly/pull/3306).
+- Removed erroneous error-message which said error: 0 errors occurred [#3306](https://github.com/earthly/earthly/pull/3306).
 - A race condition when exiting interactive debugger mode resulting in confusing errors [#3200](https://github.com/earthly/earthly/issues/3200).
 - Docker auto-install script failures related to attempts to read from tty, while verifying docker's pgp key [#3324](https://github.com/earthly/earthly/pull/3324).
 - Issue affecting pulling images in Podman [#2471](https://github.com/earthly/earthly/issues/2471).
@@ -730,7 +730,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 ## v0.7.6 - 2023-05-23
 
 ### Added
-- Better error messages when git opperations fail.
+- Better error messages when git operations fail.
 - Added a `runc-ps` script under the earthly-buildkitd container to make it easier to see what processes are running.
 
 ### Fixed
@@ -793,7 +793,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 
 ### Fixed
 
-- SAVE IMAGE --push did not always work under `VERSION 0.7`, when image was refrenced by a `FROM` or `COPY`, followed by a `BUILD`. [#2762](https://github.com/earthly/earthly/issues/2762)
+- SAVE IMAGE --push did not always work under `VERSION 0.7`, when image was referenced by a `FROM` or `COPY`, followed by a `BUILD`. [#2762](https://github.com/earthly/earthly/issues/2762)
 
 ### Changed
 
@@ -1302,7 +1302,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 ### Added
 
 - New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit, this ARG must be enabled with the `VERSION --git-commit-author-timestamp` feature flag. [#2462](https://github.com/earthly/earthly/pull/2462)
-- Allow custom image to be used for git opperations. [#2027](https://github.com/earthly/earthly/issues/2027)
+- Allow custom image to be used for git operations. [#2027](https://github.com/earthly/earthly/issues/2027)
 
 ### Fixed
 
@@ -1337,7 +1337,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ### Added
 
-- Cache mounts sharing mode can now be specified via `RUN --mount type=cache,sharing=shared` via `CACHE --sharing=shared`. Allowed values are `locked` (default - lock concurrent acccess to the cache), `shared` (allow concurrent access) and `private` (create a new empty cache on concurrent access).
+- Cache mounts sharing mode can now be specified via `RUN --mount type=cache,sharing=shared` via `CACHE --sharing=shared`. Allowed values are `locked` (default - lock concurrent access to the cache), `shared` (allow concurrent access) and `private` (create a new empty cache on concurrent access).
 
 ### Changed
 

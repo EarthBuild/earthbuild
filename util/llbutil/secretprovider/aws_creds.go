@@ -122,7 +122,7 @@ func getCFG(ctx context.Context) (aws.Config, error) {
 	return cfg, nil
 }
 
-// SetURLValuesFunc returs a function that takes url.Values and sets oidc values.
+// SetURLValuesFunc returns a function that takes url.Values and sets oidc values.
 // This is used by SecretID() to be able to identify secrets from this provider
 func SetURLValuesFunc(awsInfo *oidcutil.AWSOIDCInfo) func(values url.Values) {
 	return func(values url.Values) {

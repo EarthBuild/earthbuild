@@ -38,7 +38,7 @@ const (
 	// EndShellSession identifies the end of a shell session data packet
 	EndShellSession = 0x02
 
-	// PtyData identifies the psuedo terminal (pty) data payload packet
+	// PtyData identifies the pseudo terminal (pty) data payload packet
 	PtyData = 0x03
 
 	// WinSizeData identifies the terminal window data payload packet

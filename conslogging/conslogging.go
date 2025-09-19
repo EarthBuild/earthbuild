@@ -286,7 +286,7 @@ type GHAError struct {
 	col     int32
 }
 
-func (e *GHAError) FormatedMessage() string {
+func (e *GHAError) FormattedMessage() string {
 	if e.file != "" {
 		return fmt.Sprintf("file=%s,line=%d,col=%d,title=Error::%s", e.file, e.line, e.col, e.message)
 	} else {
@@ -315,7 +315,7 @@ func (cl *ConsoleLogger) PrintGHAError(message string, fns ...GHAErrorOpt) {
 		fn(&ge)
 	}
 
-	cl.printGithubActionsControl(errorCommand, ge.FormatedMessage())
+	cl.printGithubActionsControl(errorCommand, ge.FormattedMessage())
 }
 
 type ghHeader string

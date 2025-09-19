@@ -220,7 +220,7 @@ ga-no-qemu-slow:
     BUILD +server
     BUILD --pass-args ./with-docker+all
     BUILD --pass-args ./with-docker-cache+test
-    # this has been moved to a seperate target until we get the flakey "tell me who you are" bug
+    # this has been moved to a separate target until we get the flakey "tell me who you are" bug
     # fixed; see https://github.com/earthly/earthly/issues/2567
     #BUILD --pass-args ./git-metadata+test
     BUILD --pass-args ./git-ssh-server+all
@@ -1255,7 +1255,7 @@ platform-output:
     RUN test -f ./out-arm64
     RUN ! test -f ./out-amd64
 
-# command tests the 0.7 functionality of the COMMAND keyword, it is here for backward compatability
+# command tests the 0.7 functionality of the COMMAND keyword, it is here for backward compatibility
 command:
     RUN echo "hello command" >./message.txt
     DO +RUN_EARTHLY --earthfile=command.earth --target=+all-positive

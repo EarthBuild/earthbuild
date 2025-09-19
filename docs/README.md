@@ -30,7 +30,7 @@ Earthly's key features/benefits are:
 
 ## Installation
 
-The best way to install EarthBuild is by folowing the [installation instructions](https://earthly.dev/get-earthly).
+The best way to install EarthBuild is by following the [installation instructions](https://earthly.dev/get-earthly).
 
 For a full list of installation options see the [alternative installation page](./alt-installation/alt-installation.md).
 

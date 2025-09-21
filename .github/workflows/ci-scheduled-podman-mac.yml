@@ -23,7 +23,7 @@ jobs:
       PODMAN_DISK_SPACE_GB: 13
     steps:
       - uses: earthbuild/actions-setup@main
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install podman

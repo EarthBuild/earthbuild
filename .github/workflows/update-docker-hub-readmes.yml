@@ -14,7 +14,7 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Update DockerHub description for earthly/earthly
@@ -33,4 +33,3 @@ jobs:
           repository: earthly/buildkitd
           readme-filepath: ./docs/docker-images/buildkit-standalone.md
           short-description: Standalone Earthly buildkitd image
-

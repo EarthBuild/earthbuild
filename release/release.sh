@@ -146,7 +146,7 @@ echo "earthlynext is $earthlynext"
 "$earthly" --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG-ticktock" --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:$earthlynext
 "$earthly" --push \
     --secret GITHUB_TOKEN="$GITHUB_TOKEN" \
-    --secret GPG_PRIVATE="$GPG_PRIVATE"
+    --secret GPG_PRIVATE="$GPG_PRIVATE" \
     +release-github \
     --GITHUB_USER="$GITHUB_USER" \
     --EARTHLY_REPO="$EARTHLY_REPO" \

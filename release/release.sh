@@ -157,25 +157,26 @@ echo "earthlynext is $earthlynext"
     --SKIP_CHANGELOG_DATE_TEST="$SKIP_CHANGELOG_DATE_TEST" \
     --PRERELEASE="$GITHUB_PRERELEASE"
 
-if [ "$PRERELEASE" != "false" ]; then
-    echo "exiting due to PRERELEASE=$PRERELEASE"
-    exit 0
-fi
+# TODO: re-enable brew, apt/yum release
+# if [ "$PRERELEASE" != "false" ]; then
+#     echo "exiting due to PRERELEASE=$PRERELEASE"
+#     exit 0
+# fi
 
-if [ "$EARTHLY_STAGING" = "true" ]; then
-    echo "exiting due to EARTHLY_STAGING=$EARTHLY_STAGING"
-    exit 0
-fi
+# if [ "$EARTHLY_STAGING" = "true" ]; then
+#     echo "exiting due to EARTHLY_STAGING=$EARTHLY_STAGING"
+#     exit 0
+# fi
 
-echo "homebrew release with GITHUB_USER=$GITHUB_USER; EARTHLY_REPO=$EARTHLY_REPO; BREW_REPO=$BREW_REPO; DOCKERHUB_USER=$DOCKERHUB_USER; RELEASE_TAG=$RELEASE_TAG"
-"$earthly" --push --build-arg GITHUB_USER --build-arg EARTHLY_REPO --build-arg BREW_REPO --build-arg DOCKERHUB_USER --build-arg RELEASE_TAG $GITHUB_SECRET_PATH_BUILD_ARG +release-homebrew
+# echo "homebrew release with GITHUB_USER=$GITHUB_USER; EARTHLY_REPO=$EARTHLY_REPO; BREW_REPO=$BREW_REPO; DOCKERHUB_USER=$DOCKERHUB_USER; RELEASE_TAG=$RELEASE_TAG"
+# "$earthly" --push --build-arg GITHUB_USER --build-arg EARTHLY_REPO --build-arg BREW_REPO --build-arg DOCKERHUB_USER --build-arg RELEASE_TAG $GITHUB_SECRET_PATH_BUILD_ARG +release-homebrew
 
-if [ "$PRODUCTION_RELEASE" = "true" ]; then
-    echo "releasing to apt under s3://$S3_BUCKET/deb"
-    "$earthly" --push --build-arg RELEASE_TAG --build-arg S3_BUCKET ./apt-repo+build-and-release
+# if [ "$PRODUCTION_RELEASE" = "true" ]; then
+#     echo "releasing to apt under s3://$S3_BUCKET/deb"
+#     "$earthly" --push --build-arg RELEASE_TAG --build-arg S3_BUCKET ./apt-repo+build-and-release
 
-    echo "releasing to yum under s3://$S3_BUCKET/yum"
-    "$earthly" --push --build-arg RELEASE_TAG --build-arg S3_BUCKET ./yum-repo+build-and-release
-else
-    echo "staging apt and yum repos are currently disabled" // TODO s3 related release needs to be updated to work with MFA
-fi
+#     echo "releasing to yum under s3://$S3_BUCKET/yum"
+#     "$earthly" --push --build-arg RELEASE_TAG --build-arg S3_BUCKET ./yum-repo+build-and-release
+# else
+#     echo "staging apt and yum repos are currently disabled" // TODO s3 related release needs to be updated to work with MFA
+# fi

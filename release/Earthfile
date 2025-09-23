@@ -136,10 +136,16 @@ signed-release:
 
     SAVE ARTIFACT ./release
 
+gh-cli:
+    FROM alpine:3.20
+
+    RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
+    
+    RUN apk add --no-cache github-cli
+
 # release-github produces tg
 release-github:
-    # TODO lock down version
-    FROM ghcr.io/cli/cli:latest
+    FROM +gh-cli
 
     ARG GITHUB_USER="earthbuild"
     ARG EARTHLY_REPO="earthbuild"

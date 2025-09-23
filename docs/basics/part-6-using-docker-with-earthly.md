@@ -10,14 +10,14 @@ Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#m
 
 You may find that you need to run Docker commands inside a target. For those cases Earthly offers `WITH DOCKER`. `WITH DOCKER` will initialize a Docker daemon that can be used in the context of a `RUN` command.
 
-Whenever you need to use `WITH DOCKER` we recommend (though it is not required) that you use Earthly's own Docker in Docker (dind) image: `earthbuild/dind:alpine-3.19-docker-25.0.5-r0`.
+Whenever you need to use `WITH DOCKER` we recommend (though it is not required) that you use Earthly's own Docker in Docker (dind) image: `earthbuild/dind:alpine-3.20-docker-26.1.5-r0`.
 
-Notice `WITH DOCKER` creates a block of code that has an `END` keyword. Everything that happens within this block is going to take place within our `earthbuild/dind:alpine-3.19-docker-25.0.5-r0` container.
+Notice `WITH DOCKER` creates a block of code that has an `END` keyword. Everything that happens within this block is going to take place within our `earthbuild/dind:alpine-3.20-docker-26.1.5-r0` container.
 
 ### Pulling an Image
 ```Dockerfile
 hello:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     WITH DOCKER --pull hello-world
         RUN docker run hello-world
     END
@@ -35,7 +35,7 @@ my-hello-world:
     SAVE IMAGE my-hello:latest
 
 hello:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     WITH DOCKER --load hello:latest=+my-hello-world
         RUN docker run hello:latest
     END
@@ -137,7 +137,7 @@ test-setup:
     SAVE IMAGE test:latest
 
 integration-tests:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml --load tests:latest=+test-setup
         RUN docker run --network=default_go/part6_default tests:latest
@@ -145,7 +145,7 @@ integration-tests:
 ```
 When we use the `--compose` flag, Earthly will start up the services defined in the `docker-compose` file for us. In this case, we built a separate image that copies in our test files and uses the command to run the tests as its `ENTRYPOINT`. We can then load this image into our `WITH DOCKER` command. Note that loading an image will not run it by default, we need to explicitly run the image after we load it.
 
-You'll need to use `--allow-privileged` (or `-P` for short) to run this example. 
+You'll need to use `--allow-privileged` (or `-P` for short) to run this example.
 
 ```bash
 earthly --allow-privileged +integration-tests
@@ -346,7 +346,7 @@ api-docker:
 
 # Run your app and api side by side
 app-with-api:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     RUN apk add curl
     WITH DOCKER \
         --load app:latest=+app-docker \
@@ -401,7 +401,7 @@ docker:
     SAVE IMAGE java-example:$tag
 
 with-postgresql:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     COPY ./docker-compose.yml .
     RUN apk update
     RUN apk add postgresql-client
@@ -416,7 +416,7 @@ with-postgresql:
 
 ```yml
 version: "3.9"
-   
+
 services:
   db:
     image: postgres
@@ -518,7 +518,7 @@ class MyIntegrationTests(unittest.TestCase):
             database="test_db",
             user="earthly",
             password="password")
-        
+
         self.assertEqual(connection.closed, 0)
 
 if __name__ == '__main__':
@@ -527,7 +527,7 @@ if __name__ == '__main__':
 
 ```yml
 version: "3.9"
-   
+
 services:
   db:
     image: postgres
@@ -559,7 +559,7 @@ build:
     COPY . .
 
 run-tests:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     COPY ./docker-compose.yml .
     COPY ./tests ./tests
     RUN apk update

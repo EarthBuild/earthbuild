@@ -304,7 +304,7 @@ In certain cases, it may be desirable to execute certain targets on the host mac
 Suppose we wanted the following target to be executed on against the host's Docker daemon:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
 WORKDIR /app
 COPY docker-compose.yml ./
 WITH DOCKER --compose docker-compose.yml \
@@ -335,7 +335,7 @@ ARG run_locally=false
 IF [ "$run_locally" = "true" ]
     LOCALLY
 ELSE
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     WORKDIR /app
     COPY docker-compose.yml ./
 END
@@ -1062,7 +1062,7 @@ The best supported option, however, is to use the `earthbuild/dind` image, if po
 ```Dockerfile
 # Best - if possible
 integration-test:
-    FROM earthbuild/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN ...
@@ -1210,7 +1210,7 @@ base:
     SAVE IMAGE –push earthly/blog-base-image:latest
 
 build:
-    # Use the cached base image for builds  
+    # Use the cached base image for builds
     FROM earthly/blog-base-image:latest
     RUN ...
 ```

@@ -15,7 +15,7 @@ oidc:
     test $result -eq $expected || (echo "expected $expected env vars for AWS but got $result" && exit 1)
 
 oidc-with-docker:
-    FROM earthbuild/dind:alpine-3.20-docker-26.1.5-r0
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 
     # set baseline - expects no envs with AWS_ prefix
     LET expected=0

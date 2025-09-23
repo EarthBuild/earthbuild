@@ -6,7 +6,7 @@
           "--global",
           "DIND_IMAGE",
           "=",
-          "earthbuild/dind:alpine-3.20-docker-26.1.5-r0"
+          "earthbuild/dind:alpine-3.22-docker-28.3.3-r1"
         ],
         "name": "ARG"
       }

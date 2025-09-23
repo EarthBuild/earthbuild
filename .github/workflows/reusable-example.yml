@@ -55,6 +55,15 @@ jobs:
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           SUDO: "${{ inputs.SUDO }}"
+      # In ubuntu-latest, +examples-1 fails with "failed to register layer: no space left on device"
+      - name: Free up more space
+        if: ${{ inputs.RUNS_ON == 'ubuntu-latest' }}
+        run: |
+          du -hd1 /usr/share/dotnet
+          sudo rm -rf /usr/share/dotnet
+
+          du -hd1 /usr/local/lib/android
+          sudo rm -rf /usr/local/lib/android
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail

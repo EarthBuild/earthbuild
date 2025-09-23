@@ -16,9 +16,10 @@ alpine-kind:
     END
 
 ubuntu-kind:
-    ARG DIND_IMAGE=earthbuild/dind:ubuntu-23.04-docker-25.0.2-1
+    ARG DIND_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.4.0-1
     FROM $DIND_IMAGE
     RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
+    RUN -i foo
     WITH DOCKER
         RUN ./kind create cluster --verbosity 99999 --retain
     END

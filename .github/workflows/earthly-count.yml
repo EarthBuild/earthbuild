@@ -1,0 +1,185 @@
+name: Track Earthly to Earthbuild Progress
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  count-earthly:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Count occurrences in PR branch
+        id: count_pr
+        run: |
+          # Count total occurrences
+          total_count=$(git grep -i "earthly" 2>/dev/null | wc -l || echo "0")
+          echo "total_count=$total_count" >> $GITHUB_OUTPUT
+
+          # Count by file type
+          go_count=$(git grep -i "earthly" -- "*.go" 2>/dev/null | wc -l || echo "0")
+          md_count=$(git grep -i "earthly" -- "*.md" 2>/dev/null | wc -l || echo "0")
+          earthfile_count=$(($(git grep -i "earthly" -- "Earthfile" 2>/dev/null | wc -l || echo "0") + $(git grep -i "earthly" -- "*.earth" 2>/dev/null | wc -l || echo "0")))
+
+          echo "go_count=$go_count" >> $GITHUB_OUTPUT
+          echo "md_count=$md_count" >> $GITHUB_OUTPUT
+          echo "earthfile_count=$earthfile_count" >> $GITHUB_OUTPUT
+
+          echo "PR branch - Total: $total_count (Go: $go_count, MD: $md_count, Earthfiles: $earthfile_count)"
+
+      - name: Checkout main branch
+        run: |
+          git checkout origin/main
+
+      - name: Count occurrences in main branch
+        id: count_main
+        run: |
+          # Count total occurrences
+          total_count=$(git grep -i "earthly" 2>/dev/null | wc -l || echo "0")
+          echo "main_total_count=$total_count" >> $GITHUB_OUTPUT
+
+          # Count by file type
+          go_count=$(git grep -i "earthly" -- "*.go" 2>/dev/null | wc -l || echo "0")
+          md_count=$(git grep -i "earthly" -- "*.md" 2>/dev/null | wc -l || echo "0")
+          earthfile_count=$(($(git grep -i "earthly" -- "Earthfile" 2>/dev/null | wc -l || echo "0") + $(git grep -i "earthly" -- "*.earth" 2>/dev/null | wc -l || echo "0")))
+
+          echo "main_go_count=$go_count" >> $GITHUB_OUTPUT
+          echo "main_md_count=$md_count" >> $GITHUB_OUTPUT
+          echo "main_earthfile_count=$earthfile_count" >> $GITHUB_OUTPUT
+
+          echo "Main branch - Total: $total_count (Go: $go_count, MD: $md_count, Earthfiles: $earthfile_count)"
+
+      - name: Calculate difference
+        id: calculate
+        run: |
+          pr_count=${{ steps.count_pr.outputs.total_count }}
+          main_count=${{ steps.count_main.outputs.main_total_count }}
+          difference=$((main_count - pr_count))
+
+          # Calculate percentage with proper formatting
+          if [ $main_count -gt 0 ]; then
+            # Use awk for better decimal handling
+            percentage=$(awk "BEGIN {printf \"%.2f\", $difference * 100 / $main_count}")
+          else
+            percentage="0.00"
+          fi
+
+          echo "difference=$difference" >> $GITHUB_OUTPUT
+          echo "percentage=$percentage" >> $GITHUB_OUTPUT
+          echo "pr_count=$pr_count" >> $GITHUB_OUTPUT
+          echo "main_count=$main_count" >> $GITHUB_OUTPUT
+
+          # Calculate differences by type
+          go_diff=$((${{ steps.count_main.outputs.main_go_count }} - ${{ steps.count_pr.outputs.go_count }}))
+          md_diff=$((${{ steps.count_main.outputs.main_md_count }} - ${{ steps.count_pr.outputs.md_count }}))
+          earthfile_diff=$((${{ steps.count_main.outputs.main_earthfile_count }} - ${{ steps.count_pr.outputs.earthfile_count }}))
+
+          echo "go_diff=$go_diff" >> $GITHUB_OUTPUT
+          echo "md_diff=$md_diff" >> $GITHUB_OUTPUT
+          echo "earthfile_diff=$earthfile_diff" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  #v8.0.0
+        with:
+          script: |
+            const prCount = ${{ steps.calculate.outputs.pr_count }};
+            const mainCount = ${{ steps.calculate.outputs.main_count }};
+            const difference = ${{ steps.calculate.outputs.difference }};
+            const percentage = '${{ steps.calculate.outputs.percentage }}';
+
+            // File type differences
+            const goDiff = ${{ steps.calculate.outputs.go_diff }};
+            const mdDiff = ${{ steps.calculate.outputs.md_diff }};
+            const earthfileDiff = ${{ steps.calculate.outputs.earthfile_diff }};
+
+            let emoji = '📊';
+            let message = '';
+
+            if (difference > 0) {
+              emoji = '🎉';
+              message = `Great progress! You've reduced "earthly" occurrences by **${difference}** (${percentage}%)`;
+            } else if (difference < 0) {
+              emoji = '⚠️';
+              message = `Warning: "earthly" occurrences have increased by **${Math.abs(difference)}** (${Math.abs(parseFloat(percentage))}%)`;
+            } else {
+              emoji = '➖';
+              message = 'No change in "earthly" occurrences';
+            }
+
+            // Build detailed breakdown
+            let breakdown = '';
+            if (goDiff !== 0 || mdDiff !== 0 || earthfileDiff !== 0) {
+              breakdown = `
+
+            ### 📁 Changes by file type:
+            | File Type | Change |
+            |-----------|--------|
+            | Go files (.go) | ${goDiff > 0 ? '✅ -' + goDiff : goDiff < 0 ? '❌ +' + Math.abs(goDiff) : '➖ No change'} |
+            | Documentation (.md) | ${mdDiff > 0 ? '✅ -' + mdDiff : mdDiff < 0 ? '❌ +' + Math.abs(mdDiff) : '➖ No change'} |
+            | Earthfiles | ${earthfileDiff > 0 ? '✅ -' + earthfileDiff : earthfileDiff < 0 ? '❌ +' + Math.abs(earthfileDiff) : '➖ No change'} |`;
+            }
+
+            const body = `## ${emoji} Are we earthbuild yet?
+
+            ${message}
+
+            ### 📈 Overall Progress
+            | Branch | Total Count |
+            |--------|-------------|
+            | main   | ${mainCount} |
+            | This PR | ${prCount} |
+            | **Difference** | **${difference > 0 ? '-' : '+'}${Math.abs(difference)}** ${difference !== 0 ? `(${Math.abs(parseFloat(percentage))}%)` : ''} |
+            ${breakdown}
+
+            ---
+            *Keep up the great work migrating from Earthly to Earthbuild!* 🚀
+
+            <details>
+            <summary>💡 Tips for finding more occurrences</summary>
+
+            Run locally to see detailed breakdown:
+            \`\`\`bash
+            ./.github/scripts/count-earthly.sh
+            \`\`\`
+
+            **Note that the goal is not to reach 0.**
+            There is anticipated to be at least _some_ occurences of \`earthly\` in the source code due to backwards compatibility with config files and language constructs.
+            </details>`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Are we earthbuild yet?')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }

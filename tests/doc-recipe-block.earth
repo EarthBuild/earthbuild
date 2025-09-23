@@ -41,5 +41,5 @@ foo:
     # eggs is just one of the image names, and yet it should still be recognized for this multiple-name SAVE IMAGE format.
     SAVE IMAGE bacon eggs
 
-    # cache-hint SAVE IMAGE is not currently added to the docs ouptut
+    # cache-hint SAVE IMAGE is not currently added to the docs output
     SAVE IMAGE --cache-hint

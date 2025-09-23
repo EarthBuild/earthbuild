@@ -7,7 +7,7 @@ test:
     RUN test "$TEST_ARG_1" == "abracadabra"
     RUN --secret MY_SECRET=+secrets/TEST_SEC_2 test "$MY_SECRET" == "foo"
     RUN --secret MY_SECRET=TEST_SEC_2 test "$MY_SECRET" == "foo"
-    # Not pre-declared - should not be overriden by .env.
+    # Not pre-declared - should not be overridden by .env.
     RUN test "$TEST_ARG_3" == ""
     RUN test -z "$TEST_IN_DOTENV" # only set in .env, which is no longer used for build-args
 

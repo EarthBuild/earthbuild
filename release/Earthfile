@@ -147,6 +147,10 @@ gh-cli:
 release-github:
     FROM +gh-cli
 
+    ARG --required RELEASE_TAG
+
+    COPY +release-notes/notes.txt release-notes.txt
+
     ARG GITHUB_USER="earthbuild"
     ARG EARTHLY_REPO="earthbuild"
     ARG DOCKERHUB_HOST="ghcr.io"
@@ -156,27 +160,6 @@ release-github:
     ARG EARTHLY_GIT_HASH
 
     COPY (+signed-release/release --GITHUB_USER="${GITHUB_USER}" --EARTHLY_REPO="${EARTHLY_REPO}" --DOCKERHUB_HOST="${DOCKERHUB_HOST}" --DOCKERHUB_USER="${DOCKERHUB_USER}" --DOCKERHUB_BUILDKIT_IMG="${DOCKERHUB_BUILDKIT_IMG}" --PRERELEASE="${PRERELEASE}") ./release
-
-release-github-old:
-    FROM ../+node
-    RUN apk add file curl jq git gpg gpg-agent
-    RUN apk add --update --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing hub
-    RUN \
-        --mount type=cache,target=/root/.npm,id=npm \
-        npm install -g github-release-cli@v1.3.1
-    WORKDIR /earthly
-    ARG --required RELEASE_TAG
-    ARG GITHUB_USER="earthbuild"
-    ARG EARTHLY_REPO="earthbuild"
-    ARG DOCKERHUB_HOST="ghcr.io"
-    ARG DOCKERHUB_USER="earthbuild"
-    ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
-    ARG PRERELEASE="false"
-    ARG EARTHLY_GIT_HASH
-    RUN test -n "$EARTHLY_GIT_HASH"
-    COPY +signed-release/release ./release
-
-    COPY +release-notes/notes.txt release-notes.txt
 
     RUN --push \
         --secret GITHUB_TOKEN \

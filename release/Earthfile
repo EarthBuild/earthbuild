@@ -147,6 +147,10 @@ gh-cli:
 release-github:
     FROM +gh-cli
 
+    ARG --required RELEASE_TAG
+
+    COPY +release-notes/notes.txt release-notes.txt
+
     ARG GITHUB_USER="earthbuild"
     ARG EARTHLY_REPO="earthbuild"
     ARG DOCKERHUB_HOST="ghcr.io"
@@ -156,8 +160,6 @@ release-github:
     ARG EARTHLY_GIT_HASH
 
     COPY (+signed-release/release --GITHUB_USER="${GITHUB_USER}" --EARTHLY_REPO="${EARTHLY_REPO}" --DOCKERHUB_HOST="${DOCKERHUB_HOST}" --DOCKERHUB_USER="${DOCKERHUB_USER}" --DOCKERHUB_BUILDKIT_IMG="${DOCKERHUB_BUILDKIT_IMG}" --PRERELEASE="${PRERELEASE}") ./release
-
-    COPY +release-notes/notes.txt release-notes.txt
 
     RUN --push \
         --secret GITHUB_TOKEN \

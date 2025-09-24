@@ -155,7 +155,7 @@ release-github:
     ARG PRERELEASE="false"
     ARG EARTHLY_GIT_HASH
 
-    COPY +signed-release/release ./release
+    COPY (+signed-release/release --GITHUB_USER="${GITHUB_USER}" --EARTHLY_REPO="${EARTHLY_REPO}" --DOCKERHUB_HOST="${DOCKERHUB_HOST}" --DOCKERHUB_USER="${DOCKERHUB_USER}" --DOCKERHUB_BUILDKIT_IMG="${DOCKERHUB_BUILDKIT_IMG}" --PRERELEASE="${PRERELEASE}") ./release
 
     COPY +release-notes/notes.txt release-notes.txt
 

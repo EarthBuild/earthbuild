@@ -165,8 +165,10 @@ release-github:
         # test github token works
         test -n "$GITHUB_TOKEN"; \
         export GH_TOKEN="$GITHUB_TOKEN"; \
-        if ! gh api user -q .login > /tmp/authenticated.github.user; then \
-          echo "failed to authenticate; check your git token"; \
+        # Validate token has access to the target repo (works with Actions tokens)
+        if ! gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null 2>&1; then \
+          echo "failed to authenticate or insufficient repo permissions for $GITHUB_USER/$EARTHLY_REPO"; \
+          echo "if running in GitHub Actions across repos, use a PAT with 'contents:write' for the target repo"; \
           exit 1; \
         fi; \
         # first delete any previously released files (needed in case the previous upload attempt failed)

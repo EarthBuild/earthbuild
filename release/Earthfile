@@ -94,6 +94,8 @@ signed-release:
     # TODO lock down version
     FROM alpine:latest
 
+    RUN apk add file gpg gpg-agent
+
     ARG --required GITHUB_USER
     ARG --required EARTHLY_REPO
     ARG --required DOCKERHUB_HOST
@@ -102,8 +104,6 @@ signed-release:
     ARG --required PRERELEASE
 
     ARG EARTHLY_GIT_HASH
-
-    RUN apk add file gpg gpg-agent
 
     COPY (../+earthly-all/* \
          --VERSION=$RELEASE_TAG \
@@ -128,9 +128,7 @@ signed-release:
 
     # GPG Sign
     # TODO generate and share an earthbuild org GPG key. Determine how to provide secret
-    RUN \
-        --mount type=secret,id=release/keys/earthly-private.pgp,target=/release-key/earthly-private.pgp \
-        gpg --import /release-key/earthly-private.pgp && \
+    RUN --secret GPG_PRIVATE echo "${GPG_PRIVATE}" | gpg --import && \
         cd release && sha256sum earthly-* > checksum && \
         cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
 
@@ -149,7 +147,7 @@ release-github:
 
     ARG --required RELEASE_TAG
 
-    COPY +release-notes/notes.txt release-notes.txt
+    COPY (+release-notes/notes.txt --RELEASE_TAG="${RELEASE_TAG}") release-notes.txt
 
     ARG GITHUB_USER="earthbuild"
     ARG EARTHLY_REPO="earthbuild"

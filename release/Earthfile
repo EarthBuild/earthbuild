@@ -159,24 +159,21 @@ release-github:
 
     COPY (+signed-release/release --GITHUB_USER="${GITHUB_USER}" --EARTHLY_REPO="${EARTHLY_REPO}" --DOCKERHUB_HOST="${DOCKERHUB_HOST}" --DOCKERHUB_USER="${DOCKERHUB_USER}" --DOCKERHUB_BUILDKIT_IMG="${DOCKERHUB_BUILDKIT_IMG}" --PRERELEASE="${PRERELEASE}") ./release
 
-    RUN --push \
+    RUN \
         --secret GITHUB_TOKEN \
-        set -e; \
-        # test github token works
+        set -euo pipefail; \
+        # test github token works and has access to the target repo
         test -n "$GITHUB_TOKEN"; \
         export GH_TOKEN="$GITHUB_TOKEN"; \
-        # Validate token has access to the target repo (works with Actions tokens)
-        if ! gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null 2>&1; then \
-          echo "failed to authenticate or insufficient repo permissions for $GITHUB_USER/$EARTHLY_REPO"; \
-          echo "if running in GitHub Actions across repos, use a PAT with 'contents:write' for the target repo"; \
-          exit 1; \
-        fi; \
-        # first delete any previously released files (needed in case the previous upload attempt failed)
-        if gh release view "$RELEASE_TAG" --repo "$GITHUB_USER/$EARTHLY_REPO" >/dev/null 2>&1; then \
-          echo "deleting previous release $RELEASE_TAG"; \
-          gh release delete "$RELEASE_TAG" --repo "$GITHUB_USER/$EARTHLY_REPO" --cleanup-tag -y; \
-        fi; \
-        # next, create release and upload binaries
+        gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
+
+    RUN --push \
+        --secret GITHUB_TOKEN \
+        set -euo pipefail; \
+        export GH_TOKEN="$GITHUB_TOKEN"; \
+        # delete any previous release/tag if present (ignore errors)
+        gh release delete "$RELEASE_TAG" --repo "$GITHUB_USER/$EARTHLY_REPO" --cleanup-tag -y || true; \
+        # create release and upload binaries
         if [ "$PRERELEASE" = "true" ]; then PRERELEASE_FLAG="--prerelease"; else PRERELEASE_FLAG=""; fi; \
         gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_USER/$EARTHLY_REPO" \
@@ -184,18 +181,7 @@ release-github:
             --notes-file release-notes.txt \
             --target "$EARTHLY_GIT_HASH" \
             $PRERELEASE_FLAG \
-            ./release/* 2>&1 | tee /tmp/release.log && \
-        if grep -iE "(already_exists|already exists)" /tmp/release.log > /dev/null; then \
-          echo "ERROR: gh release create failed: release already exists -- you must delete it from GitHub before proceeding" && exit 1; \
-        fi; \
-        if grep -iE "(tag_name is not a valid tag|not a valid tag|invalid tag name)" /tmp/release.log > /dev/null; then \
-          echo "ERROR: gh release create failed: tag_name is not a valid tag (it could be that the branch you are releasing does not exist on $GITHUB_USER/$EARTHLY_REPO)"; \
-          echo "you might need to do a git push $GITHUB_USER $EARTHLY_GIT_HASH:main (assuming you are not doing a prod release)"; \
-          exit 1; \
-        fi; \
-        if grep -i error /tmp/release.log > /dev/null; then \
-          echo "ERROR: gh release create failed: check the above release.log output" && exit 1; \
-        fi
+            ./release/*
 
 release-homebrew:
     RUN apk add --update --no-cache \

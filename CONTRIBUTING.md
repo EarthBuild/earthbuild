@@ -244,20 +244,8 @@ changed to `~/.earthly-dev/config.yml`. The standard location is not used as a f
 
 ## Prereleases
 
-In addition to the `./earthly` prerelease script, we maintain a repository dedicated to [prereleases versions](https://github.com/earthly/earthly-staging/releases) of earthly.
+In addition to the `./earthly` prerelease script, we maintain a repository dedicated to [prereleases versions](https://github.com/earthbuild/earthbuild-staging/releases) of earthly.
 
-The prerelease versions follow a pseudo-semantic versioning scheme: `0.<epoch>.<decimal-git-sha>`; which is described in greater detail in the repository's [README](https://github.com/earthly/earthly-staging).
+The prerelease versions follow a pseudo-semantic versioning scheme: `0.<epoch>.<decimal-git-sha>`; which is described in greater detail in the repository's [README](https://github.com/earthbuild/earthbuild-staging).
 
-Additionally, prerelease docker images are pushed to [earthly/earthly-staging](https://hub.docker.com/r/earthly/earthly-staging/tags) and [earthly/buildkitd-staging](https://hub.docker.com/r/earthly/buildkitd-staging/tags).
-
-## CLA
-
-### Individual
-
-All contributions must indicate agreement to the [Earthly Contributor License Agreement](https://gist.github.com/vladaionescu/ed990fa149a38a53ac74b64155bc6766) by logging into GitHub via the CLA assistant and signing the provided CLA. The CLA assistant will automatically notify the PRs that require CLA signing.
-
-### Entity
-
-If you are an entity, please use the [Earthly Contributor License Agreement form](https://earthly.dev/cla-form) in addition to requiring your individual contributors to sign all contributions.
-
-[^dir]: Depending on the point in time earthly is being built the actual location [may be different](#config)
+Additionally, prerelease docker images are pushed to [earthbuild/earthbuild-staging](https://hub.docker.com/r/earthly/earthbuild-staging/tags) and [earthbuild/buildkitd-staging](https://hub.docker.com/r/earthbuild/buildkitd-staging/tags).

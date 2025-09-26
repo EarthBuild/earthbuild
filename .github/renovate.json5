@@ -78,11 +78,12 @@
     },
     {
       customType: 'regex',
+      description: "Update _version ARGs and ENVs in Earthfile",
       managerFilePatterns: [
         '/^Earthfile$/',
       ],
       matchStrings: [
-        '\\s*#\\s*renovate:\\s*datasource=(?<datasource>.*?)\\s+depName=(?<depName>.*?)[\\s\\n]+(versioning=(?<versioning>.*?)\\s+)?ARG\\s+.*?(_VERSION|_VER|version)=(?<currentValue>.*?)($|\\s|\\n)',
+        '# renovate: datasource=(?<datasource>[a-z-]+?)(?: depName=(?<depName>.+?))? packageName=(?<packageName>.+?)(?: versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG) .+?\\_version=(?<currentValue>.+?)\\s',
       ],
     },
     {

@@ -1,6 +1,6 @@
 VERSION 0.8
 
-ARG --global KIND_VERSION=0.20.0
+ARG --global KIND_VERSION=0.30.0
 
 all:
     BUILD +alpine-kind

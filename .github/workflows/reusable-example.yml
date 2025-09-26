@@ -62,7 +62,6 @@ jobs:
           du -hd1 /usr/local/lib/android
           sudo rm -rf /usr/local/lib/android
 
-          docker images ls
           sudo apt-get remove -y '^aspnetcore-.*'
           sudo apt-get remove -y 'php.*'
           sudo apt-get autoremove -y

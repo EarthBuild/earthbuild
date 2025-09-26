@@ -341,7 +341,10 @@ debugger:
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
     ARG EARTHLY_GIT_HASH
-    RUN --mount=type=cache,target=$GOCACHE \
+    RUN \
+        --mount type=cache,sharing=shared,id=go-mod,target=/go/pkg/mod \
+        --mount type=cache,sharing=shared,id=go-build,target=/root/.cache/go-build \
+        --mount=type=cache,target=$GOCACHE \
         go build \
             -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
@@ -387,7 +390,10 @@ earthly:
     # Important! If you change the go build options, you may need to also change them
     # in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
     # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
-    RUN --mount=type=cache,target=$GOCACHE \
+    RUN \
+        --mount type=cache,sharing=shared,id=go-mod,target=/go/pkg/mod \
+        --mount type=cache,sharing=shared,id=go-build,target=/root/.cache/go-build \
+        --mount=type=cache,target=$GOCACHE \
         GOARM=${VARIANT#v} go build \
             -tags "$(cat ./build/tags)" \
             -ldflags "$(cat ./build/ldflags)" \

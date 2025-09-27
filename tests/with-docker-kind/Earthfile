@@ -9,8 +9,7 @@ all:
 alpine-kind:
     ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     FROM $DIND_IMAGE
-    RUN apk add curl
-    RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
+    RUN wget -O ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
         RUN ./kind create cluster --verbosity 99999 --retain
     END
@@ -20,5 +19,6 @@ ubuntu-kind:
     FROM $DIND_IMAGE
     RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
-        RUN ./kind create cluster --verbosity 99999 --retain
+        RUN ./kind create cluster --verbosity 99999 --retain; \
+            docker logs kind-control-plane
     END

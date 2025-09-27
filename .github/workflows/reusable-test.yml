@@ -51,6 +51,12 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+      # The dind detects the host's IPv6 capability and then requires IPv6 NAT
+      # to create networks for kind. So we load it here.
+      # Ref: https://github.com/moby/moby/pull/47062
+      - name: Load kernel module IPv6 NAT for kind
+        if: ${{ inputs.TEST_TARGET == '+test-no-qemu-kind' }}
+        run: sudo modprobe ip6table_nat
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}

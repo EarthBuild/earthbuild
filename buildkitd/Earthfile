@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM alpine:3.18
+FROM alpine:3.22
 
 buildkitd:
     ARG BUILDKIT_PROJECT
@@ -78,7 +78,7 @@ buildkitd:
     ENV EARTHLY_CACHE_VERSION="2" # whenever this value changes, a forced cache reset is performed
     VOLUME /tmp/earthly
     ENTRYPOINT ["/usr/bin/entrypoint.sh", "buildkitd", "--config=/etc/buildkitd.toml"]
-    
+
     ARG CR_ORG="earthbuild"
     # TODO: push this to buildkit repo or the main earthly repo under a specific tag?
     ARG CR_REPO="earthbuild"

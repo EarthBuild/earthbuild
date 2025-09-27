@@ -62,10 +62,14 @@ jobs:
           du -hd1 /usr/local/lib/android
           sudo rm -rf /usr/local/lib/android
 
-          sudo apt-get remove -y '^aspnetcore-.*'
-          sudo apt-get remove -y 'php.*'
-          sudo apt-get autoremove -y
-          sudo apt-get clean
+          du -hd1 /usr/share/dotnet
+          sudo rm -rf /usr/share/dotnet
+
+          # not worth it - less than 100MB, time consuming
+          # sudo apt-get remove -y '^aspnetcore-.*'
+          # sudo apt-get remove -y 'php.*'
+          # sudo apt-get autoremove -y
+          # sudo apt-get clean
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail

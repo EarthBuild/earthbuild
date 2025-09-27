@@ -4,7 +4,7 @@ ARG --global KIND_VERSION=0.30.0
 
 all:
     BUILD +alpine-kind
-    BUILD +ubuntu-kind
+    # BUILD +ubuntu-kind
 
 alpine-kind:
     ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r1

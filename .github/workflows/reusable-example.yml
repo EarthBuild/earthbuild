@@ -59,17 +59,17 @@ jobs:
       - name: Free up more space
         if: ${{ inputs.RUNS_ON == 'ubuntu-latest' }}
         run: |
+          # Deleting android frees up 9.8G
           du -hd1 /usr/local/lib/android
           sudo rm -rf /usr/local/lib/android
 
+          # Deleting dotnet frees up 3.4G
           du -hd1 /usr/share/dotnet
           sudo rm -rf /usr/share/dotnet
 
-          # not worth it - less than 100MB, time consuming
-          # sudo apt-get remove -y '^aspnetcore-.*'
-          # sudo apt-get remove -y 'php.*'
-          # sudo apt-get autoremove -y
-          # sudo apt-get clean
+          free -h
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail

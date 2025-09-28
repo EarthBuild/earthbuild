@@ -1,12 +1,14 @@
 VERSION 0.8
 
-FROM ../../+base
+IMPORT ../.. AS root
+
+FROM root+base
 
 # deps downloads and caches all dependencies for the deltautil package. When
 # called directly, go.mod and go.sum will be updated locally.
 deps:
     COPY go.mod go.sum ./
-    DO +GOCACHE
+    DO root+GOCACHE
     RUN go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
@@ -19,7 +21,7 @@ code:
 unit-test:
     FROM +code
     ARG testname
-    DO +GOCACHE
+    DO root+GOCACHE
     RUN \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi && \
         go test -race -count 1 $testarg ./...

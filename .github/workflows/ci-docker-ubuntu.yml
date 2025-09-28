@@ -257,7 +257,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-kind"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-22.04"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}

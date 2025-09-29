@@ -11,10 +11,10 @@ alpine-kind:
     FROM $DIND_IMAGE
     RUN wget -O ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
-        RUN ./kind create cluster --verbosity 99999 --retain || {
-            ./kind export logs ./logs &&
-            cat ./logs/*.txt ./logs/kind-control-plane/* &&
-            exit 1;
+        RUN ./kind create cluster --verbosity 99999 --retain || { \
+            ./kind export logs ./logs && \
+            cat ./logs/*.txt ./logs/kind-control-plane/* && \
+            exit 1; \
             }
     END
 
@@ -23,9 +23,9 @@ ubuntu-kind:
     FROM $DIND_IMAGE
     RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
-        RUN ./kind create cluster --verbosity 99999 --retain || {
-            ./kind export logs ./logs &&
-            cat ./logs/*.txt ./logs/kind-control-plane/* &&
-            exit 1;
+        RUN ./kind create cluster --verbosity 99999 --retain || { \
+            ./kind export logs ./logs && \
+            cat ./logs/*.txt ./logs/kind-control-plane/* && \
+            exit 1; \
             }
     END

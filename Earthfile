@@ -35,7 +35,7 @@ deps:
     FROM +base
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.1
     # renovate: datasource=go depName=golang.org/x/vuln/cmd/govulncheck
-    ARG govulncheck_version=1.1.3
+    ARG govulncheck_version=1.1.4
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY go.mod go.sum ./
     COPY ./ast/go.mod ./ast/go.sum ./ast

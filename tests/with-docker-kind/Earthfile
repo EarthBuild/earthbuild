@@ -18,7 +18,7 @@ alpine-kind:
     WITH DOCKER
         RUN ./kind create cluster --verbosity 99999 --retain || { \
                 ./kind export logs ./logs && \
-                cat ./logs/*.txt ./logs/kind-control-plane/* && \
+                find ./logs -type f -exec cat {} + && \
                 exit 1; \
             }
     END
@@ -30,7 +30,7 @@ ubuntu-kind:
     WITH DOCKER
         RUN ./kind create cluster --verbosity 99999 --retain || { \
                 ./kind export logs ./logs && \
-                cat ./logs/*.txt ./logs/kind-control-plane/* && \
+                find ./logs -type f -exec cat {} + && \
                 exit 1; \
             }
     END

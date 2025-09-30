@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "alpine/git:v2.43.0"
+          "alpine/git:v2.49.1"
         ],
         "name": "FROM"
       }

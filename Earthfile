@@ -33,13 +33,10 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 # go.mod and go.sum will be updated locally.
 deps:
     FROM +base
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.1
-    # renovate: datasource=go depName=golang.org/x/vuln/cmd/govulncheck
-    ARG govulncheck_version=1.1.3
-    RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY go.mod go.sum ./
     COPY ./ast/go.mod ./ast/go.sum ./ast
     COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
+    DO +GOCACHE
     RUN go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
@@ -57,6 +54,7 @@ code:
     IF [ "$BUILDKIT_PROJECT" != "" ]
         COPY --dir "$BUILDKIT_PROJECT"+code/buildkit /buildkit
         RUN go mod edit -replace github.com/moby/buildkit=/buildkit
+        DO +GOCACHE
         RUN go mod download
     END
     # Use CLOUD_API to point go.mod to a cloud API dir being actively developed. Examples:
@@ -67,6 +65,7 @@ code:
     IF [ "$CLOUD_API" != "" ]
         COPY --dir "$CLOUD_API" /cloud-api/
         RUN go mod edit -replace github.com/earthly/cloud-api=/cloud-api
+        DO +GOCACHE
         RUN go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
@@ -76,6 +75,7 @@ code:
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/hint ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
+    SAVE ARTIFACT /earthly
 
 # update-buildkit updates earthly's buildkit dependency.
 update-buildkit:
@@ -153,14 +153,26 @@ earthly-script-no-stdout:
 
 # lint runs basic go linters against the earthly project.
 lint:
-    FROM +code
-    COPY ./.golangci.yaml ./
-    RUN golangci-lint run
+    # renovate: datasource=github-releases packageName=golangci/golangci-lint
+    ENV golangci_lint_version=1.64.8
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+    COPY ./.golangci.yaml .
+    COPY --dir +code/earthly /
+    DO +GOCACHE
+    RUN \
+        --mount type=cache,target=/root/.cache/golangci_lint \
+        golangci-lint run
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
-    FROM +code
-    RUN govulncheck ./...
+    # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
+    ENV govulncheck_version=1.1.3
+    RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
+    COPY --dir +code/earthly /
+    DO +GOCACHE
+    RUN \
+        --mount type=cache,target=/root/.cache/go-vulncheck \
+        govulncheck ./...
 
 lint-newline-ending:
     FROM alpine:3.18
@@ -221,8 +233,13 @@ markdown-spellcheck:
 # mocks runs 'go generate' against this module and saves generated mock files
 # locally.
 mocks:
-    FROM +code
-    RUN go install git.sr.ht/~nelsam/hel@latest && go install golang.org/x/tools/cmd/goimports@latest
+    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
+    ENV hel_version=0.6.6
+    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
+    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
+    ENV goimports_version=0.24.1
+    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
+    COPY --dir +code/earthly /
     RUN go generate ./...
     FOR mockfile IN $(find . -name 'helheim*_test.go')
         SAVE ARTIFACT $mockfile AS LOCAL $mockfile
@@ -231,6 +248,7 @@ mocks:
 unit-test-parser:
     FROM +deps
     COPY scripts/unit-test-parser/main.go .
+    DO +GOCACHE
     RUN go build -o testparser main.go
     SAVE ARTIFACT testparser
 
@@ -312,12 +330,12 @@ lint-changelog:
 debugger:
     FROM +code
     ENV CGO_ENABLED=0
-    ARG GOCACHE=/go-cache
     ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
     ARG EARTHLY_GIT_HASH
-    RUN --mount=type=cache,target=$GOCACHE \
+    DO +GOCACHE
+    RUN \
         go build \
             -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
@@ -351,7 +369,6 @@ earthly:
     # TODO: this works for CI but the final value should probably come from dockerhub
     ARG DEFAULT_BUILDKITD_IMAGE=$IMAGE_REGISTRY:buildkitd-$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
-    ARG GOCACHE=/go-cache
     RUN mkdir -p build
     RUN printf "$BUILD_TAGS" > ./build/tags && echo "$(cat ./build/tags)"
     RUN printf '-X main.DefaultBuildkitdImage='"$DEFAULT_BUILDKITD_IMAGE" > ./build/ldflags && \
@@ -363,7 +380,8 @@ earthly:
     # Important! If you change the go build options, you may need to also change them
     # in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
     # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
-    RUN --mount=type=cache,target=$GOCACHE \
+    DO +GOCACHE
+    RUN \
         GOARM=${VARIANT#v} go build \
             -tags "$(cat ./build/tags)" \
             -ldflags "$(cat ./build/ldflags)" \
@@ -890,8 +908,8 @@ merge-main-to-docs:
         git config --global url."git@github.com:".insteadOf "https://github.com/"
 
     ARG TARGETARCH
-    # renovate: datasource=github-releases depName=cli/cli
-    ARG gh_version=v2.79.0
+    # renovate: datasource=github-releases packageName=cli/cli
+    ENV gh_version=v2.80.0
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
@@ -959,8 +977,8 @@ open-pr-for-fork:
         git config --global url."git@github.com:".insteadOf "https://github.com/"
 
     ARG TARGETARCH
-    # renovate: datasource=github-releases depName=cli/cli
-    ARG gh_version=v2.79.0
+    # renovate: datasource=github-releases packageName=cli/cli
+    ENV gh_version=v2.80.0
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
@@ -1004,3 +1022,9 @@ check-broken-links-pr:
     RUN --secret GH_TOKEN=littleredcorvette-github-token gh pr checks $branch --repo earthly/earthly | grep GitBook|awk '{print $5}' > url
     ARG VERBOSE
     BUILD --pass-args +check-broken-links --ADDRESS=$(cat url)
+
+# GOCACHE adds shared cache mounts to speed up the Go mod caching and builds.
+GOCACHE:
+  FUNCTION
+  CACHE --sharing=shared --id=go-mod /go/pkg/mod
+  CACHE --sharing=shared --id=go-build /root/.cache/go-build

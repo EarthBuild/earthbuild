@@ -909,7 +909,7 @@ merge-main-to-docs:
 
     ARG TARGETARCH
     # renovate: datasource=github-releases packageName=cli/cli
-    ENV gh_version=v2.79.0
+    ENV gh_version=v2.80.0
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
@@ -978,7 +978,7 @@ open-pr-for-fork:
 
     ARG TARGETARCH
     # renovate: datasource=github-releases packageName=cli/cli
-    ENV gh_version=v2.79.0
+    ENV gh_version=v2.80.0
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \

@@ -3,7 +3,8 @@
   extends: [
     'config:recommended',
     'default:pinDigestsDisabled',
-    'security:openssf-scorecard'
+    'security:openssf-scorecard',
+    ':semanticCommits',
   ],
   baseBranchPatterns: [
     'main',

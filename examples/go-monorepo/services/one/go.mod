@@ -1,6 +1,6 @@
 module github.com/EarthBuild/earthbuild/examples/go-monorepo/services/one
 
-go 1.21
+go 1.25.1
 
 require (
 	github.com/EarthBuild/earthbuild/examples/go-monorepo/libs/hello v0.0.0

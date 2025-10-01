@@ -775,7 +775,7 @@ An example, for Go, you might have a development image, that contains the entire
 
 ```Dockerfile
 # Avoid: production image is bloated
-FROM go:1.16
+FROM golang:1.25
 RUN apk add ... # development + production dependencies
 build:
     COPY ...
@@ -790,7 +790,7 @@ Here is a way to address this:
 
 ```Dockerfile
 # Good
-FROM go:1.16
+FROM golang:1.25
 RUN apk add ... # development dependencies
 build:
     COPY ...
@@ -1210,7 +1210,7 @@ base:
     SAVE IMAGE –push earthly/blog-base-image:latest
 
 build:
-    # Use the cached base image for builds  
+    # Use the cached base image for builds
     FROM earthly/blog-base-image:latest
     RUN ...
 ```

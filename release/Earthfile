@@ -141,6 +141,18 @@ gh-cli:
     
     RUN apk add --no-cache github-cli
 
+gh-auth-debug:
+    FROM +gh-cli
+    ARG GITHUB_USER="earthbuild"
+    ARG EARTHLY_REPO="earthbuild-staging"
+    RUN \
+        --secret GITHUB_TOKEN \
+        set -euo pipefail; \
+        test -n "$GITHUB_TOKEN"; \
+        export GH_TOKEN="$GITHUB_TOKEN"; \
+        gh --version; \
+        gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
+
 # release-github produces tg
 release-github:
     FROM +gh-cli

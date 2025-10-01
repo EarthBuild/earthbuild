@@ -57,7 +57,6 @@ jobs:
           SUDO: "${{ inputs.SUDO }}"
       # In ubuntu-latest, +examples-1 fails with "failed to register layer: no space left on device"
       - name: Free up more space
-        if: ${{ inputs.RUNS_ON == 'ubuntu-latest' }}
         run: |
           # Deleting android frees up 9.8G
           du -hd1 /usr/local/lib/android

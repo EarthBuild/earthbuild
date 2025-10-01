@@ -156,12 +156,13 @@ lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
     ENV golangci_lint_version=2.5.0
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+    ENV golangci_lint_conf=$(pwd)/.golangci.yaml
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
     DO +GOCACHE
     RUN \
         --mount type=cache,target=/root/.cache/golangci_lint \
-        golangci-lint run
+        find . -name go.mod -execdir golangci-lint run -c $golangci_lint_conf \;
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:

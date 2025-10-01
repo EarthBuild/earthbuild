@@ -92,20 +92,10 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM alpine:3.18
-
-    ARG TARGETARCH
-
-    IF [ $TARGETARCH == "arm64" ]
-        RUN echo "Downloading, and manually installing shellcheck for ARM" && \
-            wget https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.aarch64.tar.xz && \
-            tar -xf shellcheck-stable.linux.aarch64.tar.xz && \
-            mv shellcheck-stable/shellcheck /usr/bin/shellcheck
-    ELSE
-        RUN echo "Installing shellcheck from Alpine repos" && \
-            apk add --update --no-cache shellcheck
-    END
-
+    # renovate: datasource=docker packageName=alpine
+    ARG alpine_version=3.22
+    FROM alpine:$alpine_version
+    RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
 
 lint-scripts-misc:

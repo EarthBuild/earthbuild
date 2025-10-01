@@ -93,7 +93,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.22
+    ARG alpine_version=3.22.1
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts

@@ -144,18 +144,22 @@ echo "earthlynext is $earthlynext"
 
 "$earthly" --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="$PRERELEASE" --PUSH_LATEST_TAG="$PUSH_LATEST_TAG" --RELEASE_TAG="$RELEASE_TAG"
 "$earthly" --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG-ticktock" --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:$earthlynext
-"$earthly" --push \
-    --secret GITHUB_TOKEN="$GITHUB_TOKEN" \
-    --secret GPG_PRIVATE="$GPG_PRIVATE" \
-    +release-github \
-    --GITHUB_USER="$GITHUB_USER" \
-    --EARTHLY_REPO="$EARTHLY_REPO" \
-    --BREW_REPO="$BREW_REPO" \
-    --DOCKERHUB_USER="$DOCKERHUB_USER" \
-    --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
-    --RELEASE_TAG="$RELEASE_TAG" \
-    --SKIP_CHANGELOG_DATE_TEST="$SKIP_CHANGELOG_DATE_TEST" \
-    --PRERELEASE="$GITHUB_PRERELEASE"
+if [ "$SKIP_GITHUB_RELEASE" != "true" ]; then
+  "$earthly" --push \
+      --secret GITHUB_TOKEN="$GITHUB_TOKEN" \
+      --secret GPG_PRIVATE="$GPG_PRIVATE" \
+      +release-github \
+      --GITHUB_USER="$GITHUB_USER" \
+      --EARTHLY_REPO="$EARTHLY_REPO" \
+      --BREW_REPO="$BREW_REPO" \
+      --DOCKERHUB_USER="$DOCKERHUB_USER" \
+      --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
+      --RELEASE_TAG="$RELEASE_TAG" \
+      --SKIP_CHANGELOG_DATE_TEST="$SKIP_CHANGELOG_DATE_TEST" \
+      --PRERELEASE="$GITHUB_PRERELEASE"
+else
+  echo "Skipping GitHub release due to SKIP_GITHUB_RELEASE=true"
+fi
 
 # TODO: re-enable brew, apt/yum release
 # if [ "$PRERELEASE" != "false" ]; then

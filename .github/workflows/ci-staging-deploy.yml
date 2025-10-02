@@ -40,7 +40,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       - name: Retrieve earthbuild from build-earthly job
-        run: |-
+        run: |
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
           mkdir -p $(dirname "./build/linux/amd64/earthly")
           mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly

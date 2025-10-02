@@ -204,15 +204,12 @@ lint-newline-ending:
         done; \
         exit $code
 
-vale:
-    WORKDIR /
-    RUN curl -sfL https://install.goreleaser.com/github.com/ValeLint/vale.sh | sh -s v2.10.3
-    WORKDIR /etc/vale
-    COPY .vale/ .
-
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
-    FROM --platform=linux/amd64 +vale
+    # renovate: datasource=docker packageName=jdkato/vale
+    ARG vale_version=3.12.0
+    FROM jdkato/vale:v$vale_version
+    COPY .vale/ /etc/vale
     WORKDIR /everything
     COPY . .
     # TODO figure out a way to ignore this pattern in vale (doesn't seem to be working under spelling's filter option)

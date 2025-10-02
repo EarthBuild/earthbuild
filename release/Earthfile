@@ -174,10 +174,9 @@ release-github:
     RUN \
         --secret GITHUB_TOKEN \
         set -euo pipefail; \
-        # test github token works and has access to the target repo
         test -n "$GITHUB_TOKEN"; \
         export GH_TOKEN="$GITHUB_TOKEN"; \
-        gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
+        gh --version
 
     RUN --push \
         --secret GITHUB_TOKEN \

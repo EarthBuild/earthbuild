@@ -333,6 +333,32 @@ jobs:
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
+  docker-examples-4:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-example.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      EXAMPLE_NAME: "+examples-4"
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
+  docker-examples-5:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-example.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      EXAMPLE_NAME: "+examples-5"
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
   docker-test-local:
     needs: build-earthly
     if: ${{ !failure() }}

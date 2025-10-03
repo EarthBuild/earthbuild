@@ -35,11 +35,6 @@
     '**/vendor/**',
     '**/__fixtures__/**',
   ],
-  enabledManagers: [
-    'custom.regex',
-    'github-actions',
-    'dockerfile',
-  ],
   dockerfile: {
     managerFilePatterns: [
       '/Earthfile/',
@@ -84,7 +79,7 @@
         '/^Earthfile$/',
       ],
       matchStrings: [
-        '# renovate: datasource=(?<datasource>[a-z-]+?)(?: depName=(?<depName>.+?))? packageName=(?<packageName>.+?)(?: versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG) .+?\\_version=(?<currentValue>.+?)\\s',
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
       ],
     },
     {

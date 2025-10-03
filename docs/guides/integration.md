@@ -1,15 +1,15 @@
 # Integration Testing With Earthly
 
-Running unit tests in a build pipeline is relatively simple. By definition, unit tests have no external dependencies. Things get more interesting when we want to test how our service integrates with other services and external systems. A service may have dependencies on external file systems, on databases, on external message queues, or other services. An ergonomic and effective development environment should have simple ways to construct and run integration tests. It should be easy to run these tests locally on the developer machine and in the build pipeline. 
+Running unit tests in a build pipeline is relatively simple. By definition, unit tests have no external dependencies. Things get more interesting when we want to test how our service integrates with other services and external systems. A service may have dependencies on external file systems, on databases, on external message queues, or other services. An ergonomic and effective development environment should have simple ways to construct and run integration tests. It should be easy to run these tests locally on the developer machine and in the build pipeline.
 
 ** This guide will take an existing application with integration tests and show how they can be easily run inside earthly, both in the local development environment as well as in the build pipeline. **
-## Prerequisites 
+## Prerequisites
 
 *This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthly/earthly/tree/main/examples) for guidance on using earthly in other languages.*
 
 ### Our Application
 
-The application we start with is simple. It returns the first 5 countries alphabetically via standard out. It has unit tests and integration tests. The integration tests require a datastore with the correct data in place.  
+The application we start with is simple. It returns the first 5 countries alphabetically via standard out. It has unit tests and integration tests. The integration tests require a datastore with the correct data in place.
 
 {% method %}
 {% sample lang="App" %}
@@ -23,8 +23,8 @@ Object Main extends App {
   {
     implicit val cs = IO.contextShift(ExecutionContext.global)
     val xa = Transactor.fromDriverManager[IO](
-      "org.postgresql.Driver", 
-      "jdbc:postgresql://localhost:5432/iso3166", 
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/iso3166",
       "postgres",
       "postgres"
     )
@@ -72,8 +72,8 @@ class DatabaseIntegrationTest extends FlatSpec {
   implicit val cs = IO.contextShift(ExecutionContext.global)
 
   val xa = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver", 
-    "jdbc:postgresql://localhost:5432/iso3166", 
+    "org.postgresql.Driver",
+    "jdbc:postgresql://localhost:5432/iso3166",
     "postgres",
     "postgres"
   )
@@ -130,10 +130,10 @@ We start with a simple Earthfile that can build and create a docker image for ou
 {% method %}
 {% sample lang="Base Earthly Target" %}
 
-We start from an appropriate docker image and set up a working directory. 
+We start from an appropriate docker image and set up a working directory.
 ``` Dockerfile
 VERSION 0.8
-FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 WORKDIR /scala-example
 RUN apk add openjdk11 bash wget postgresql-client
 ```
@@ -144,7 +144,7 @@ RUN apk add openjdk11 bash wget postgresql-client
 We then install SBT
 
 ``` Dockerfile
-sbt: 
+sbt:
     #Scala
     # Defaults if not specified
     ARG sbt_version=1.3.2
@@ -210,7 +210,7 @@ docker:
     COPY src src
     RUN sbt assembly
     ENTRYPOINT ["java","-cp","target/scala-2.12/scala-example-assembly-1.0.jar","Main"]
-    SAVE IMAGE scala-example:latest 
+    SAVE IMAGE scala-example:latest
 ```
 [Full file](https://github.com/EarthBuild/earthly-example-scala/blob/main/integration/Earthfile)
 
@@ -218,7 +218,7 @@ docker:
 
 See the [Basics Guide](../basics/basics.md) for more details on these steps, including how they might differ in Go, JavaScript, Java, and Python.
 
-## In-App Integration Testing 
+## In-App Integration Testing
 
 Since our service has a docker-compose file of dependencies, running integration tests is easy.
 
@@ -227,7 +227,7 @@ Our integration target needs to copy in our source code and our Dockerfile and t
 integration-test:
     FROM +project-files
     COPY src src
-    COPY docker-compose.yml ./ 
+    COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
             sbt it:test
@@ -255,13 +255,13 @@ We can now run our tests both locally and in the CI pipeline, in a reproducible 
 +integration-test | Target github.com/EarthBuild/earthly-example-scala/integration:main+integration-test built successfully
 ...
 ```
-This means that if an integration test fails in the build pipeline, you can easily reproduce it locally.  
+This means that if an integration test fails in the build pipeline, you can easily reproduce it locally.
 
 ## End to End Integration Tests
 
-Our first integration test used was part of the service we were testing. This is one way to exercise integration code paths. Another useful form of integration testing is end-to-end testing. In this form of integration testing, we start up the application and test it from the outside. 
+Our first integration test used was part of the service we were testing. This is one way to exercise integration code paths. Another useful form of integration testing is end-to-end testing. In this form of integration testing, we start up the application and test it from the outside.
 
-In our simplified case example, with a single code path, a test that verifies the application starts and produces the desired output is sufficient. 
+In our simplified case example, with a single code path, a test that verifies the application starts and produces the desired output is sufficient.
 
 {% method %}
 {% sample lang="Test Script" %}
@@ -278,8 +278,8 @@ assert_eq "$expected" "$results"n
 ``` dockerfile
 smoke-test:
     FROM +project-files
-    COPY docker-compose.yml ./ 
-    COPY src/smoketest ./ 
+    COPY docker-compose.yml ./
+    COPY src/smoketest ./
     WITH DOCKER --compose docker-compose.yml --load=+docker
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
             ./smoketest.sh

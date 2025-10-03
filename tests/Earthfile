@@ -164,15 +164,6 @@ ga-no-qemu-group6:
     BUILD +cache-test
     BUILD --pass-args ./scrub-https-credentials+all
     BUILD --pass-args ./autocompletion/install+test-all
-    BUILD +cache-cmd
-    BUILD --pass-args ./config+test
-    BUILD +arg-redeclare-error
-    BUILD +ssh
-    BUILD +builtin-args-test
-    BUILD +remote-test
-    BUILD +save-artifact-dont-overwrite
-    BUILD --pass-args ./with-docker-expose+all
-    BUILD --pass-args ./logbus+test-all
 
 ga-no-qemu-group7:
     BUILD +cache-mount-arg
@@ -202,13 +193,25 @@ ga-no-qemu-group8:
     BUILD --pass-args ./raw-output+test-all
 
 ga-no-qemu-group9:
-    BUILD --pass-args ./autoskip+test-group1
+    BUILD +cache-cmd
+    BUILD --pass-args ./config+test
+    BUILD +arg-redeclare-error
+    # Autoskip not currently available so don't test it
+    # BUILD --pass-args ./autoskip+test-group1
 
 ga-no-qemu-group10:
-    BUILD --pass-args ./autoskip+test-group2
+    BUILD +ssh
+    BUILD +builtin-args-test
+    BUILD +remote-test
+    # Autoskip not currently available so don't test it
+    # BUILD --pass-args ./autoskip+test-group2
 
 ga-no-qemu-group11:
-    BUILD --pass-args ./autoskip+test-group3
+    BUILD +save-artifact-dont-overwrite
+    BUILD --pass-args ./with-docker-expose+all
+    BUILD --pass-args ./logbus+test-all
+    # Autoskip not currently available so don't test it
+    # BUILD --pass-args ./autoskip+test-group3
 
 ga-no-qemu-group12:
     # TODO: fixme

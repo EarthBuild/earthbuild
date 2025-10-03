@@ -85,7 +85,7 @@ Loaded image: helloearthly.azurecr.io/hello-earthly:with-love
 By logging in and optionally installing the credential helper; you can also pull images without any special handling in an Earthfile:
 
 ```
-FROM earthly/dind:alpine-main
+FROM earthbuild/dind:alpine-main
 
 run:
     WITH DOCKER --pull helloearthly.azurecr.io/hello-earthly:with-love
@@ -102,8 +102,8 @@ And here is how you would run it:
 h/hello-earthly:with-love | --> Load metadata linux/amd64
 h/hello-earthly:with-love | --> DOCKER PULL helloearthly.azurecr.io/hello-earthly:with-love
 h/hello-earthly:with-love | [██████████] resolve helloearthly.azurecr.io/hello-earthly:with-love@sha256:02df2d4600094d5550f7475b868ce9bb17d6c3a529e9669a453bbba7b2cdb659 ... 100%
-               +base | --> FROM earthly/dind:alpine-main
-               +base | [██████████] resolve docker.io/earthly/dind:alpine-main@sha256:09f497f0114de1f3ac6ce2da05568fcb50b0a4fd8b9025ed7c67dc952d092766 ... 100%
+               +base | --> FROM earthbuild/dind:alpine-main
+               +base | [██████████] resolve docker.io/earthbuild/dind:alpine-main@sha256:09f497f0114de1f3ac6ce2da05568fcb50b0a4fd8b9025ed7c67dc952d092766 ... 100%
                 +run | *cached* --> WITH DOCKER (install deps)
                 +run | --> WITH DOCKER RUN docker run helloearthly.azurecr.io/hello-earthly:with-love
                 +run | Loading images...

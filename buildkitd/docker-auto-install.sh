@@ -207,7 +207,7 @@ if ! detect_dockerd; then
     install_dockerd
     echo "Docker Engine was missing. It has been installed automatically by Earthly."
     dockerd --version
-    echo "For better use of cache, try using the official earthly/dind image for WITH DOCKER."
+    echo "For better use of cache, try using the official earthbuild/dind image for WITH DOCKER."
 else
     print_debug "dockerd already installed"
 fi
@@ -226,7 +226,7 @@ if [ "$EARTHLY_START_COMPOSE" = "true" ] || [ "$EARTHLY_START_COMPOSE" = "" ]; t
         echo "Docker Compose was missing. It has been installed automatically by Earthly."
 
         $docker_compose --version
-        echo "For better use of cache, try using the official earthly/dind image for WITH DOCKER."
+        echo "For better use of cache, try using the official earthbuild/dind image for WITH DOCKER."
     else
         print_debug "docker-compose already installed"
     fi

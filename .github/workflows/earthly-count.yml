@@ -21,7 +21,7 @@ jobs:
         id: count_pr
         run: |
           # Count total occurrences
-          total_count=$(git grep -i "earthly" 2>/dev/null | wc -l || echo "0")
+          total_count=$(git grep -i "earthly" -- ':!.github/workflows/earthly-count.yml' 2>/dev/null | wc -l || echo "0")
           echo "total_count=$total_count" >> $GITHUB_OUTPUT
 
           # Count by file type
@@ -43,7 +43,7 @@ jobs:
         id: count_main
         run: |
           # Count total occurrences
-          total_count=$(git grep -i "earthly" 2>/dev/null | wc -l || echo "0")
+          total_count=$(git grep -i "earthly" -- ':!.github/workflows/earthly-count.yml' 2>/dev/null | wc -l || echo "0")
           echo "main_total_count=$total_count" >> $GITHUB_OUTPUT
 
           # Count by file type

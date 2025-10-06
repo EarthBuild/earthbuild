@@ -3,7 +3,8 @@
   extends: [
     'config:recommended',
     'default:pinDigestsDisabled',
-    'security:openssf-scorecard'
+    'security:openssf-scorecard',
+    ':semanticCommits',
   ],
   baseBranchPatterns: [
     'main',
@@ -33,11 +34,6 @@
     '**/bower_components/**',
     '**/vendor/**',
     '**/__fixtures__/**',
-  ],
-  enabledManagers: [
-    'custom.regex',
-    'github-actions',
-    'dockerfile',
   ],
   dockerfile: {
     managerFilePatterns: [
@@ -78,11 +74,12 @@
     },
     {
       customType: 'regex',
+      description: "Update _version ARGs and ENVs in Earthfile",
       managerFilePatterns: [
         '/^Earthfile$/',
       ],
       matchStrings: [
-        '\\s*#\\s*renovate:\\s*datasource=(?<datasource>.*?)\\s+depName=(?<depName>.*?)[\\s\\n]+(versioning=(?<versioning>.*?)\\s+)?ARG\\s+.*?(_VERSION|_VER|version)=(?<currentValue>.*?)($|\\s|\\n)',
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
       ],
     },
     {

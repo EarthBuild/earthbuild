@@ -28,4 +28,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref }}
       - name: Check Broken Links
-        run: earthly --ci +check-broken-links-pr --VERBOSE=true
+        run: |
+          earthly --ci --secret littleredcorvette-github-token=${{ secrets.GITHUB_TOKEN }} +check-broken-links-pr --VERBOSE=true

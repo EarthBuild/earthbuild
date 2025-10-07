@@ -8,7 +8,6 @@ deps:
     COPY go.mod go.sum ./
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum

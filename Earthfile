@@ -153,7 +153,7 @@ lint:
     COPY --dir +code/earthly /
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         --mount type=cache,target=/root/.cache/golangci_lint \
         golangci-lint run
 
@@ -165,7 +165,7 @@ govulncheck:
     COPY --dir +code/earthly /
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         --mount type=cache,target=/root/.cache/go-vulncheck \
         govulncheck ./...
 
@@ -242,7 +242,7 @@ unit-test-parser:
     COPY scripts/unit-test-parser/main.go .
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go build -o testparser main.go
     SAVE ARTIFACT testparser
 
@@ -330,7 +330,7 @@ debugger:
     ARG EARTHLY_GIT_HASH
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go build \
             -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
@@ -377,7 +377,7 @@ earthly:
     # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         GOARM=${VARIANT#v} go build \
             -tags "$(cat ./build/tags)" \
             -ldflags "$(cat ./build/ldflags)" \

@@ -22,7 +22,7 @@ unit-test:
     ARG testname
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi && \
         go test -race -count 1 $testarg ./...
 

@@ -21,7 +21,7 @@ const (
 	dockerdWrapperPath          = "/var/earthly/dockerd-wrapper.sh"
 	dockerAutoInstallScriptPath = "/var/earthly/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthly/dind:alpine-3.19-docker-25.0.5-r0"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.22-docker-28.3.3-r1"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -187,7 +187,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
-	dockerRoot := path.Join("/var/earthly/dind", dindID)
+	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
 	params := []string{
 		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
 		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),

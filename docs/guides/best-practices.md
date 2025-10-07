@@ -33,7 +33,7 @@ Below we list some of the best practices that we have found to be useful in desi
     * [Repository structure: Place build logic as close to the relevant code as possible](#repository-structure-place-build-logic-as-close-to-the-relevant-code-as-possible)
     * [Repository structure: Do not place all Earthfiles in a dedicated directory](#repository-structure-do-not-place-all-earthfiles-in-a-dedicated-directory)
     * [Pattern: Pass-through artifacts or images](#pattern-pass-through-artifacts-or-images)
-    * [Use `earthly/dind`](#use-earthly-dind)
+    * [Use `earthbuild/dind`](#use-earthly-dind)
     * [Pattern: Saving artifacts resulting from a `WITH DOCKER`](#pattern-saving-artifacts-resulting-from-a-with-docker)
 * [Usage-specific](#usage-specific)
     * [Use `--ci` when running in CI](#use-ci-when-running-in-ci)
@@ -304,7 +304,7 @@ In certain cases, it may be desirable to execute certain targets on the host mac
 Suppose we wanted the following target to be executed on against the host's Docker daemon:
 
 ```Dockerfile
-FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 WORKDIR /app
 COPY docker-compose.yml ./
 WITH DOCKER --compose docker-compose.yml \
@@ -335,7 +335,7 @@ ARG run_locally=false
 IF [ "$run_locally" = "true" ]
     LOCALLY
 ELSE
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     WORKDIR /app
     COPY docker-compose.yml ./
 END
@@ -1024,9 +1024,9 @@ build-wrapper:
 
 This allows for `+build-wrapper` to reuse the logic in `+build`, but ultimately to create an image that is saved under a different name. This can then be used in a `WITH DOCKER --load` statement directly (whereas if there was no image pass-through, then `+build-wrapper` couldn't have been used).
 
-### Use `earthly/dind`
+### Use `earthbuild/dind`
 
-When using `WITH DOCKER`, it is recommended that you use the official `earthly/dind` image (preferably `:alpine`) for running Docker-in-Docker. Earthly's `WITH DOCKER` requires that the Docker engine is installed already in the image it is running in.
+When using `WITH DOCKER`, it is recommended that you use the official `earthbuild/dind` image (preferably `:alpine`) for running Docker-in-Docker. Earthly's `WITH DOCKER` requires that the Docker engine is installed already in the image it is running in.
 
 If Docker engine is not detected, `WITH DOCKER` will need to first install it - it usually does so automatically - however, the cache will be inefficient. Consider the following example:
 
@@ -1057,12 +1057,12 @@ integration-test:
     END
 ```
 
-The best supported option, however, is to use the `earthly/dind` image, if possible.
+The best supported option, however, is to use the `earthbuild/dind` image, if possible.
 
 ```Dockerfile
 # Best - if possible
 integration-test:
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN ...
@@ -1210,7 +1210,7 @@ base:
     SAVE IMAGE –push earthly/blog-base-image:latest
 
 build:
-    # Use the cached base image for builds  
+    # Use the cached base image for builds
     FROM earthly/blog-base-image:latest
     RUN ...
 ```

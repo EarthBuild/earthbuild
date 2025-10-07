@@ -1,15 +1,14 @@
 VERSION 0.8
 
-IMPORT .. AS root
-
-FROM root+base
+FROM ../+base
 
 # deps downloads and caches all dependencies for the ast package. When called
 # directly, go.mod and go.sum will be updated locally.
 deps:
     COPY go.mod go.sum ./
-    DO root+GOCACHE
-    RUN go mod download
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
@@ -21,8 +20,9 @@ code:
 unit-test:
     FROM +code
     ARG testname
-    DO root+GOCACHE
     RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build  \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi && \
         go test -race -count 1 $testarg ./...
 

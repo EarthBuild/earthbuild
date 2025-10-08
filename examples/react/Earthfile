@@ -5,7 +5,7 @@ build:
   WORKDIR /app
   COPY package.json package-lock.json .
   RUN npm ci
-  COPY --dir src public .
+  COPY --dir src .
   COPY jsconfig.json next.config.mjs .
   RUN npm run build
   SAVE ARTIFACT ./out prod

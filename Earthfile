@@ -884,14 +884,17 @@ license:
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
 
-# npm-update-all helps keep all node package-lock.json files up to date.
-npm-update-all:
+node:
     FROM node:24.9.0-alpine3.22
     # renovate: datasource=npm packageName=npm
-    ARG npm_version=11.6.1
+    LET npm_version=11.6.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
-        npm install -g npm@$npm_version && foo
+        npm install -g npm@$npm_version
+
+# npm-update-all helps keep all node package-lock.json files up to date.
+npm-update-all:
+    FROM +node
     COPY . /code
     WORKDIR /code
     FOR nodepath IN \
@@ -956,12 +959,7 @@ merge-main-to-docs:
 
 # check-broken-links checks for broken links in our docs website
 check-broken-links:
-    FROM node:24.9.0-alpine3.22
-    # renovate: datasource=npm packageName=npm
-    ARG npm_version=11.6.1
-    RUN \
-        --mount type=cache,target=/root/.npm,id=npm \
-        npm install -g npm@$npm_version
+    FROM +node
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g broken-link-checker

@@ -9,7 +9,10 @@ test1:
     SAVE IMAGE --push --insecure $REGISTRY/test1:latest
 
 test2-base:
-    FROM node:13.10.1-alpine3.11
+    FROM node:24.9.0-alpine3.22
+    # renovate: datasource=npm packageName=npm
+    ARG npm_version=11.6.1
+    RUN npm install -g npm@$npm_version
     WORKDIR /js-example
 
 test2-deps:

@@ -1,7 +1,7 @@
 VERSION 0.8
 
 build:
-  FROM node:16.10.0-alpine
+  FROM node:24.9.0-alpine3.22
   WORKDIR /app
   COPY package.json ./
   COPY yarn.lock ./

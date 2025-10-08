@@ -68,7 +68,7 @@ code:
         COPY --dir "$CLOUD_API" /cloud-api/
         RUN go mod edit -replace github.com/earthly/cloud-api=/cloud-api
         RUN \
-            --mount type=cache,sharing=shared,id=go-mod,target=/go/pkg/mod \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/

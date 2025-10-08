@@ -56,7 +56,7 @@ code:
         COPY --dir "$BUILDKIT_PROJECT"+code/buildkit /buildkit
         RUN go mod edit -replace github.com/moby/buildkit=/buildkit
         RUN \
-            --mount type=cache,sharing=shared,id=go-mod,target=/go/pkg/mod \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             go mod download
     END
     # Use CLOUD_API to point go.mod to a cloud API dir being actively developed. Examples:

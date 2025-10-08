@@ -867,11 +867,11 @@ examples-4:
         BUILD ./examples/integration-test+integration-test
     END
     BUILD ./examples/java+docker
-    BUILD ./examples/monorepo+all
     BUILD ./examples/multirepo+docker
 
 examples-5:
     BUILD ./examples/js+docker
+    BUILD ./examples/monorepo+all
     BUILD ./examples/react+docker
     BUILD ./examples/typescript-node+docker
     BUILD ./examples/cutoff-optimization+run

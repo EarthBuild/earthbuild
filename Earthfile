@@ -884,9 +884,17 @@ license:
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
 
+node:
+    FROM node:24.9.0-alpine3.22
+    # renovate: datasource=npm packageName=npm
+    LET npm_version=11.6.1
+    RUN \
+        --mount type=cache,target=/root/.npm,id=npm \
+        npm install -g npm@$npm_version
+
 # npm-update-all helps keep all node package-lock.json files up to date.
 npm-update-all:
-    FROM node:16.16.0-alpine3.15
+    FROM +node
     COPY . /code
     WORKDIR /code
     FOR nodepath IN \
@@ -900,7 +908,9 @@ npm-update-all:
             examples/tutorial/js/part6/api \
             examples/tutorial/js/part6/app \
             tests/remote-cache/test2
-        RUN cd $nodepath && npm update
+        RUN \
+            --mount type=cache,target=/root/.npm,id=npm \
+            cd $nodepath && npm update
         SAVE ARTIFACT --if-exists $nodepath/package-lock.json AS LOCAL $nodepath/package-lock.json
     END
 
@@ -949,8 +959,10 @@ merge-main-to-docs:
 
 # check-broken-links checks for broken links in our docs website
 check-broken-links:
-    FROM node:20-alpine3.18
-    RUN npm install broken-link-checker -g
+    FROM +node
+    RUN \
+        --mount type=cache,target=/root/.npm,id=npm \
+        npm install -g broken-link-checker
     WORKDIR /report
     ARG ADDRESS=https://docs.earthly.dev
     ARG VERBOSE=false

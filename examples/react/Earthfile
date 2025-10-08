@@ -1,14 +1,14 @@
 VERSION 0.8
 
 build:
-  FROM node:16.10.0-alpine
+  FROM node:24.9.0-alpine3.22
   WORKDIR /app
-  COPY package.json ./
-  COPY yarn.lock ./
-  RUN yarn install --frozen-lockfile
-  COPY . .
-  RUN yarn build
-  SAVE ARTIFACT ./build prod
+  COPY package.json package-lock.json .
+  RUN npm ci
+  COPY --dir src .
+  COPY jsconfig.json next.config.mjs .
+  RUN npm run build
+  SAVE ARTIFACT ./out prod
 
 docker:
   FROM nginx:stable-alpine

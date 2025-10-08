@@ -12,7 +12,7 @@ all:
     END
 
 alpine-kind:
-    ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+    ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r2
     FROM $DIND_IMAGE
     RUN wget -O ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER

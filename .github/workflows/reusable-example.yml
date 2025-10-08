@@ -28,6 +28,11 @@ on:
         required: false
         type: boolean
         default: false
+      # In ubuntu, +examples-1 fails with "failed to register layer: no space left on device"
+      # Ideally, we don't free up more space: it slows down a job by up to 5 minutes.
+      MORE_SPACE:
+        type: boolean
+        default: false
 
 
 jobs:
@@ -55,8 +60,8 @@ jobs:
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           SUDO: "${{ inputs.SUDO }}"
-      # In ubuntu-latest, +examples-1 fails with "failed to register layer: no space left on device"
       - name: Free up more space
+        if: ${{inputs.MORE_SPACE}}
         run: |
           # Deleting android frees up 9.8G
           du -hd1 /usr/local/lib/android

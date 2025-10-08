@@ -93,7 +93,9 @@ release-github:
     FROM ../+node
     RUN apk add file curl jq git gpg gpg-agent
     RUN apk add --update --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing hub
-    RUN npm install -g github-release-cli@v1.3.1
+    RUN \
+        --mount type=cache,target=/root/.npm,id=npm \
+        npm install -g github-release-cli@v1.3.1
     WORKDIR /earthly
     ARG --required RELEASE_TAG
     ARG GITHUB_USER="earthly"

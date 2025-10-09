@@ -41,7 +41,7 @@ test:
         --load kv-py-client:latest=github.com/EarthBuild/earthly-example-proto-python-client:main+kvclient-docker \
         --load kv-rb-client:latest=github.com/EarthBuild/earthly-example-proto-ruby-client:main+kv-ruby-client-docker \
         --platform linux/amd64 # Ruby and Python(evidence suggests?) seem to have a hard time building in Docker on M1. https://github.com/grpc/grpc/issues/26664
-        RUN --mount=type=cache,target=/go/pkg \
+        RUN \
             docker run --name server --network=host -d kvserver:latest && \
             docker run --name client1 --network=host kv-py-client:latest python3 client.py fish=salmon && \
             docker run --name client2 --network=host kv-py-client:latest python3 client.py fish | grep salmon && \

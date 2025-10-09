@@ -73,8 +73,8 @@ jobs:
           sudo rm -f /mnt/swapfile || true
 
           # Deleting dotnet frees up 3.4G
-          # du -hd1 /usr/share/dotnet
-          # sudo rm -rf /usr/share/dotnet
+          du -hd1 /usr/share/dotnet
+          sudo rm -rf /usr/share/dotnet
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail

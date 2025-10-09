@@ -95,3 +95,6 @@ jobs:
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+      - name: du
+        if: ${{ failure() }}
+        run: df -h || true

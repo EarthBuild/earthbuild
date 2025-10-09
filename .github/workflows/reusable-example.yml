@@ -64,8 +64,8 @@ jobs:
         if: ${{inputs.MORE_SPACE}}
         run: |
           # Deleting android frees up 9.8G
-          du -hd1 /usr/local/lib/android
-          sudo rm -rf /usr/local/lib/android
+          # du -hd1 /usr/local/lib/android
+          # sudo rm -rf /usr/local/lib/android
 
           # Swap off frees up 4G
           free -h
@@ -73,8 +73,8 @@ jobs:
           sudo rm -f /mnt/swapfile || true
 
           # Deleting dotnet frees up 3.4G
-          du -hd1 /usr/share/dotnet
-          sudo rm -rf /usr/share/dotnet
+          # du -hd1 /usr/share/dotnet
+          # sudo rm -rf /usr/share/dotnet
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail

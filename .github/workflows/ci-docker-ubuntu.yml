@@ -346,6 +346,7 @@ jobs:
       SUDO: ""
       EXAMPLE_NAME: "+examples-4"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      MORE_SPACE: true
     secrets: inherit
 
   docker-examples-5:

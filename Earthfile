@@ -862,9 +862,9 @@ examples-3:
 
 examples-4:
     BUILD ./examples/grpc+test
-    BUILD ./examples/java+docker
 
 examples-5:
+    BUILD ./examples/java+docker
     BUILD ./examples/js+docker
     BUILD ./examples/monorepo+all
     BUILD ./examples/react+docker

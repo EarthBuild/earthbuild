@@ -28,6 +28,12 @@ on:
         required: false
         type: boolean
         default: false
+      # +examples-4 fails with "failed to register layer: no space left on device".
+      # Ideally, we don't free up more space: it slows down a job by up to 5 minutes.
+      # TODO(jhorsts): simplify +examples-4 so we can get rid of freeing up space.
+      MORE_SPACE:
+        type: boolean
+        default: false
 
 
 jobs:
@@ -55,21 +61,12 @@ jobs:
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           SUDO: "${{ inputs.SUDO }}"
-      # In ubuntu-latest, +examples-1 fails with "failed to register layer: no space left on device"
       - name: Free up more space
+        if: ${{inputs.MORE_SPACE}}
         run: |
           # Deleting android frees up 9.8G
           du -hd1 /usr/local/lib/android
           sudo rm -rf /usr/local/lib/android
-
-          # Swap off frees up 4G
-          free -h
-          sudo swapoff -a || true
-          sudo rm -f /mnt/swapfile || true
-
-          # Deleting dotnet frees up 3.4G
-          du -hd1 /usr/share/dotnet
-          sudo rm -rf /usr/share/dotnet
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -90,3 +87,4 @@ jobs:
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+

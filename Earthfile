@@ -831,11 +831,11 @@ examples-1:
     END
     BUILD ./examples/elixir+docker
     BUILD ./examples/go+docker
+    BUILD ./examples/multirepo+docker
 
 examples-2:
     BUILD ./examples/readme/go1+all
     BUILD ./examples/readme/go2+build
-    BUILD ./examples/readme/proto+docker
     # TODO: This example is flaky for some reason.
     #BUILD ./examples/terraform+localstack
     BUILD ./examples/ruby+docker
@@ -854,7 +854,7 @@ examples-2:
     BUILD ./examples/cache-command/mvn+docker
 
 examples-3:
-    BUILD ./examples/typescript-node+docker
+    BUILD ./examples/python+docker
     BUILD ./examples/bazel+run
     BUILD ./examples/bazel+image
     BUILD ./examples/mkdocs+build
@@ -862,21 +862,21 @@ examples-3:
 
 examples-4:
     BUILD ./examples/grpc+test
+
+examples-5:
+    BUILD ./examples/java+docker
+    BUILD ./examples/js+docker
+    BUILD ./examples/monorepo+all
+    BUILD ./examples/react+docker
+    BUILD ./examples/typescript-node+docker
+    BUILD ./examples/cutoff-optimization+run
+    BUILD ./examples/import+build
+    BUILD ./examples/secrets+base
+    BUILD ./examples/readme/proto+docker
     IF [ "$TARGETARCH" = "amd64" ]
         # This only works on amd64 for now.
         BUILD ./examples/integration-test+integration-test
     END
-    BUILD ./examples/java+docker
-    BUILD ./examples/js+docker
-    BUILD ./examples/monorepo+all
-    BUILD ./examples/multirepo+docker
-
-examples-5:
-    BUILD ./examples/python+docker
-    BUILD ./examples/react+docker
-    BUILD ./examples/cutoff-optimization+run
-    BUILD ./examples/import+build
-    BUILD ./examples/secrets+base
 
 
 # license copies the license file and saves it as an artifact

@@ -862,7 +862,6 @@ examples-3:
 
 examples-4:
     BUILD ./examples/grpc+test
-    BUILD ./examples/readme/proto+docker
     BUILD ./examples/java+docker
 
 examples-5:
@@ -873,6 +872,7 @@ examples-5:
     BUILD ./examples/cutoff-optimization+run
     BUILD ./examples/import+build
     BUILD ./examples/secrets+base
+    BUILD ./examples/readme/proto+docker
     IF [ "$TARGETARCH" = "amd64" ]
         # This only works on amd64 for now.
         BUILD ./examples/integration-test+integration-test

@@ -68,13 +68,16 @@ jobs:
           # sudo rm -rf /usr/local/lib/android
 
           # Swap off frees up 4G
-          free -h
-          sudo swapoff -a || true
-          sudo rm -f /mnt/swapfile || true
+          # free -h
+          # sudo swapoff -a || true
+          # sudo rm -f /mnt/swapfile || true
 
           # Deleting dotnet frees up 3.4G
-          du -hd1 /usr/share/dotnet
-          sudo rm -rf /usr/share/dotnet
+          # du -hd1 /usr/share/dotnet
+          # sudo rm -rf /usr/share/dotnet
+
+          #
+          sudo tune2fs -m 1 /dev/sdb1
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail

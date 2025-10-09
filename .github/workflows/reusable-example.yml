@@ -64,8 +64,8 @@ jobs:
         if: ${{inputs.MORE_SPACE}}
         run: |
           # Deleting android frees up 9.8G
-          # du -hd1 /usr/local/lib/android
-          # sudo rm -rf /usr/local/lib/android
+          du -hd1 /usr/local/lib/android
+          sudo rm -rf /usr/local/lib/android
 
           # Swap off frees up 4G
           # free -h
@@ -75,9 +75,6 @@ jobs:
           # Deleting dotnet frees up 3.4G
           # du -hd1 /usr/share/dotnet
           # sudo rm -rf /usr/share/dotnet
-
-          #
-          sudo tune2fs -m 1 /dev/sdb1
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -98,6 +95,6 @@ jobs:
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
-      - name: du
-        if: ${{ failure() }}
+      - name: df
+        if: ${{ always() }}
         run: df -h || true

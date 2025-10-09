@@ -862,10 +862,6 @@ examples-3:
 
 examples-4:
     BUILD ./examples/grpc+test
-    IF [ "$TARGETARCH" = "amd64" ]
-        # This only works on amd64 for now.
-        BUILD ./examples/integration-test+integration-test
-    END
     BUILD ./examples/java+docker
     BUILD ./examples/multirepo+docker
 
@@ -877,6 +873,10 @@ examples-5:
     BUILD ./examples/cutoff-optimization+run
     BUILD ./examples/import+build
     BUILD ./examples/secrets+base
+    IF [ "$TARGETARCH" = "amd64" ]
+        # This only works on amd64 for now.
+        BUILD ./examples/integration-test+integration-test
+    END
 
 
 # license copies the license file and saves it as an artifact

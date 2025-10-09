@@ -831,11 +831,11 @@ examples-1:
     END
     BUILD ./examples/elixir+docker
     BUILD ./examples/go+docker
+    BUILD ./examples/multirepo+docker
 
 examples-2:
     BUILD ./examples/readme/go1+all
     BUILD ./examples/readme/go2+build
-    BUILD ./examples/readme/proto+docker
     # TODO: This example is flaky for some reason.
     #BUILD ./examples/terraform+localstack
     BUILD ./examples/ruby+docker
@@ -862,8 +862,8 @@ examples-3:
 
 examples-4:
     BUILD ./examples/grpc+test
+    BUILD ./examples/readme/proto+docker
     BUILD ./examples/java+docker
-    BUILD ./examples/multirepo+docker
 
 examples-5:
     BUILD ./examples/js+docker

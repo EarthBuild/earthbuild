@@ -11,6 +11,6 @@ MY_COMMAND_WITH_DOCKER:
     END
 
 test:
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r2
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r3
     DO +MY_COMMAND_WITH_DOCKER --MY_ARG="myvalue"
     DO +MY_COMMAND_WITH_DOCKER

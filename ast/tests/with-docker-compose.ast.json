@@ -5,7 +5,7 @@
         "args": [
           "DIND_IMAGE",
           "=",
-          "earthbuild/dind:alpine-3.22-docker-28.3.3-r2"
+          "earthbuild/dind:alpine-3.22-docker-28.3.3-r3"
         ],
         "name": "ARG"
       }

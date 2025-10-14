@@ -1,7 +1,5 @@
 VERSION --try 0.7
 
-PROJECT earthly-technologies/core
-
 FROM alpine
 
 basic:

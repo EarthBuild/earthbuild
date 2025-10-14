@@ -1,7 +1,5 @@
 VERSION --pass-args 0.7
 
-PROJECT earthly-technologies/core
-
 FROM alpine
 
 foo:

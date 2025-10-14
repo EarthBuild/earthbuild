@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r2
+FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r3
 
 all:
     BUILD +test-single

@@ -12,6 +12,11 @@ import (
 )
 
 func TestParseProjectCommand(t *testing.T) {
+	// TODO(jhorsts): Do we have any plans for this command?
+	// The PROJECT command is redundant, and I removed it from the file.
+	// It was useful with the Earthly Cloud.
+	t.Skip()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",

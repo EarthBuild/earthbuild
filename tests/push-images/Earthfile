@@ -9,10 +9,10 @@ test:
     ENTRYPOINT ls -la /test
     SAVE IMAGE earthly/sap:before-push # should exist
 
-    SAVE IMAGE --push earthly/sap:first-push # should exist
+    SAVE IMAGE --push earthbuild/sap:first-push # should exist
 
     RUN --push echo "2" > 2
-    SAVE IMAGE --push earthly/sap:after-push # should not exist
+    SAVE IMAGE --push earthbuild/sap:after-push # should not exist
 
 only-push:
     FROM alpine:3.18
@@ -21,4 +21,4 @@ only-push:
     RUN echo "1" > 1
     ENTRYPOINT ls -la /test
 
-    SAVE IMAGE --push earthly/sap:only-push # should exist
+    SAVE IMAGE --push earthbuild/sap:only-push # should exist

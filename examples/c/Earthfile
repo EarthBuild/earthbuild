@@ -15,7 +15,7 @@ build:
 docker:
     COPY +build/c-example .
     ENTRYPOINT ["/c-example/c-example"]
-    SAVE IMAGE --push earthly/examples:c
+    SAVE IMAGE --push earthbuild/examples:c
 
 unit-test:
     FROM +deps

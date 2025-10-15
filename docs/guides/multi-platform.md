@@ -120,9 +120,9 @@ A more complete version of this example is available in [examples/multiplatform]
 
 ```bash
 earthly github.com/earthly/earthly/examples/multiplatform:main+all
-docker run --rm earthly/examples:multiplatform
-docker run --rm earthly/examples:multiplatform_linux_amd64
-docker run --rm earthly/examples:multiplatform_linux_arm_v7
+docker run --rm earthbuild/examples:multiplatform
+docker run --rm earthbuild/examples:multiplatform_linux_amd64
+docker run --rm earthbuild/examples:multiplatform_linux_arm_v7
 ```
 
 {% hint style='info' %}

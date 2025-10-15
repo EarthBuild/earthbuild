@@ -19,4 +19,4 @@ docker:
     COPY +build/example-rust example-rust
     EXPOSE 9091
     ENTRYPOINT ["./example-rust"]
-    SAVE IMAGE --push earthly/examples:rust
+    SAVE IMAGE --push earthbuild/examples:rust

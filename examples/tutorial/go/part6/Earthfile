@@ -18,7 +18,7 @@ docker:
     ARG tag='latest'
     COPY +build/example .
     ENTRYPOINT ["/go-workdir/example"]
-    SAVE IMAGE --push earthly/examples:go
+    SAVE IMAGE --push earthbuild/examples:go
 
 test-setup:
     FROM +deps

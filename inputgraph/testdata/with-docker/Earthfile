@@ -1,7 +1,5 @@
 VERSION 0.8
 
-PROJECT earthly-technologies/core
-
 load-target:
     ARG foo=1
     FROM alpine

@@ -6,17 +6,17 @@ This guide is intended to help you use the Earthly image for your containerized 
 
 ## Prerequisites
 
-The `earthly/earthly` image requires that it is run as `--privileged`, or alternatively, it is run without the embedded BuildKit daemon (`NO_BUILDKIT=1`).
+The `earthbuild/earthbuild` image requires that it is run as `--privileged`, or alternatively, it is run without the embedded BuildKit daemon (`NO_BUILDKIT=1`).
 
 ## Getting Started
 
-Please see the reference documentation of the [`earthly/earthly` image on DockerHub](https://hub.docker.com/r/earthly/earthly).
+Please see the reference documentation of the [`earthbuild/earthbuild` image on DockerHub](https://hub.docker.com/r/earthbuild/earthbuild).
 
-It is recommended that the `earthly/earthly` image is used with a pinned version when used in the context of a CI, in order to avoid accidental future breakage as `earthly` evolves.
+It is recommended that the `earthbuild/earthbuild` image is used with a pinned version when used in the context of a CI, in order to avoid accidental future breakage as `earthly` evolves.
 
 #### Using `/usr/bin/earthly-entrypoint.sh` as the entrypoint
 
-The `earthly/earthly` image comes with an entrypoint that first starts up BuildKit and then issues an `earthly` command that makes use of it. You may use the image just as you would use `earthly` itself otherwise. Any arguments are passed into the `earthly` command directly.
+The `earthbuild/earthbuild` image comes with an entrypoint that first starts up BuildKit and then issues an `earthly` command that makes use of it. You may use the image just as you would use `earthly` itself otherwise. Any arguments are passed into the `earthly` command directly.
 
 {% hint style='danger' %}
 ##### Important
@@ -25,7 +25,7 @@ Note that using the `earthly` binary as the entrypoint will not start up BuildKi
 
 #### Remote Daemon
 
-An alternative option is to use the `earthly/earthly` image in conjunction with a remote BuildKit Daemon. You may use the environment variable `BUILDKIT_HOST` to specify the hostname of the remote BuildKit Daemon. When this environment variable is set, the `earthly/earthly` image will not attempt to start BuildKit and will instead use the remote BuildKit Daemon.
+An alternative option is to use the `earthbuild/earthbuild` image in conjunction with a remote BuildKit Daemon. You may use the environment variable `BUILDKIT_HOST` to specify the hostname of the remote BuildKit Daemon. When this environment variable is set, the `earthbuild/earthbuild` image will not attempt to start BuildKit and will instead use the remote BuildKit Daemon.
 
 For more details on using remote execution, [see our guide on remote BuildKit](./remote-buildkit.md).
 
@@ -34,19 +34,19 @@ For more details on using remote execution, [see our guide on remote BuildKit](.
 The image expects the source code of the application you are building in the current working directory (by default `/workspace`). You will need to copy or mount the necessary files to that directory prior to invoking the entrypoint.
 
 ```bash
-docker run --privileged --rm -v "$PWD":/workspace earthly/earthly:v0.8.13 +my-target
+docker run --privileged --rm -v "$PWD":/workspace earthbuild/earthbuild:v0.8.13 +my-target
 ```
 
 Or, if you would like to use an alternative directory:
 
 ```bash
-docker run --privileged --rm -v "$PWD":/my-dir -w /my-dir earthly/earthly:v0.8.13 +my-target
+docker run --privileged --rm -v "$PWD":/my-dir -w /my-dir earthbuild/earthbuild:v0.8.13 +my-target
 ```
 
 Alternatively, you may rely on Earthly to perform a git clone, by using the remote target reference format. For example:
 
 ```bash
-docker run --privileged --rm earthly/earthly:v0.8.13 github.com/foo/bar:my-branch+target
+docker run --privileged --rm earthbuild/earthbuild:v0.8.13 github.com/foo/bar:my-branch+target
 ```
 
 #### `NO_BUILDKIT` Environment Variable
@@ -70,4 +70,4 @@ In some environments, not mounting `/tmp/earthly` as a Docker volume results in 
 rm: can't remove '/var/earthbuild/dind/...': Resource busy
 ```
 
-For more information, see the [documentation for `earthly/earthly` on DockerHub](https://hub.docker.com/r/earthly/earthly).
+For more information, see the [documentation for `earthbuild/earthbuild` on DockerHub](https://hub.docker.com/r/earthbuild/earthbuild).

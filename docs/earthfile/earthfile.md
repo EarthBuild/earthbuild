@@ -629,7 +629,7 @@ example:
     RUN cat encoded-data | base32 -d
 ```
 
-For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/earthly/earthly/blob/main/tests/copy.earth).
+For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/earthbuild/earthbuild/blob/main/tests/copy.earth).
 
 ## ARG
 
@@ -802,7 +802,7 @@ SAVE ARTIFACT . AS LOCAL out-dot/
 SAVE ARTIFACT ./* AS LOCAL out-glob/
 ```
 
-For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/earthly/earthly/blob/main/tests/file-copying.earth).
+For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/earthbuild/earthbuild/blob/main/tests/file-copying.earth).
 
 ## SAVE IMAGE
 

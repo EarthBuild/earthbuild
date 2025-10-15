@@ -96,7 +96,7 @@ Here are some examples:
 
 * `+build`
 * `./js+deps`
-* `github.com/earthly/earthly:v0.8.13+earthly`
+* `github.com/earthbuild/earthbuild:v0.8.13+earthly`
 * `my-import+build`
 
 ## Artifact reference
@@ -110,7 +110,7 @@ Here are some examples:
 * `+build/my-artifact`
 * `+build/some/artifact/deep/in/a/dir`
 * `./js+build/dist`
-* `github.com/earthly/earthly:v0.8.13+earthly/earthly`
+* `github.com/earthbuild/earthbuild:v0.8.13+earthbuild/earthbuild`
 * `my-import+build/my-artifact`
 
 ## Image reference
@@ -131,7 +131,7 @@ Here are some examples:
 
 * `+COMPILE`
 * `./js+NPM_INSTALL`
-* `github.com/earthly/earthly:v0.8.13+DOWNLOAD_DIND`
+* `github.com/earthbuild/earthbuild:v0.8.13+DOWNLOAD_DIND`
 * `my-import+COMPILE`
 
 For more information on functions, see the [Functions Guide](./functions.md).
@@ -175,8 +175,8 @@ Another form of a Earthfile reference is the remote form. In this form, the reci
 | Earthfile ref | Target ref | Artifact ref | Function ref |
 |----|----|----|----|
 | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>/<artifact-path>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<function-name>` |
-| `github.com/earthly/earthly/buildkitd` | `github.com/earthly/earthly/buildkitd+build` | `github.com/earthly/earthly/buildkitd+build/out.bin` | `github.com/earthly/earthly/buildkitd+COMPILE` |
-| `github.com/earthly/earthly:v0.8.13` | `github.com/earthly/earthly:v0.8.13+build` | `github.com/earthly/earthly:v0.8.13+build/out.bin` | `github.com/earthly/earthly:v0.8.13+COMPILE` |
+| `github.com/earthbuild/earthbuild/buildkitd` | `github.com/earthbuild/earthbuild/buildkitd+build` | `github.com/earthbuild/earthbuild/buildkitd+build/out.bin` | `github.com/earthbuild/earthbuild/buildkitd+COMPILE` |
+| `github.com/earthbuild/earthbuild:v0.8.13` | `github.com/earthbuild/earthbuild:v0.8.13+build` | `github.com/earthbuild/earthbuild:v0.8.13+build/out.bin` | `github.com/earthbuild/earthbuild:v0.8.13+COMPILE` |
 
 ### Import reference
 
@@ -185,13 +185,13 @@ Finally, the last form of Earthfile referencing is an import reference. Import r
 | Import command | Earthfile ref | Target ref | Artifact ref | Function ref |
 |----|----|----|----|----|
 | `IMPORT <full-earthfile-ref> AS <import-alias>` | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
-| `IMPORT github.com/earthly/earthly/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
-| `IMPORT github.com/earthly/earthly:v0.8.13` | `earthly` | `earthly+build` | `earthly+build/out.bin` | `earthly+COMPILE` |
+| `IMPORT github.com/earthbuild/earthbuild/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
+| `IMPORT github.com/earthbuild/earthbuild:v0.8.13` | `earthly` | `earthly+build` | `earthly+build/out.bin` | `earthly+COMPILE` |
 
 Here is an example in an Earthfile:
 
 ```Dockerfile
-IMPORT github.com/earthly/earthly/buildkitd
+IMPORT github.com/earthbuild/earthbuild/buildkitd
 
 ...
 

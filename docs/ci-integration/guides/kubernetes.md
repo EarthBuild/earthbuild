@@ -12,9 +12,9 @@ Kubernetes isn't a CI per-se, but it _can_ serve as the underpinning for many mo
 
 ### Compatibility
 
-`earthly` has been tested with the all-in-one `earthly/earthly` mode, and works as long as the pod runs in a `privileged` mode.
+`earthly` has been tested with the all-in-one `earthbuild/earthbuild` mode, and works as long as the pod runs in a `privileged` mode.
 
-It has also been tested with a _single_ remote `earthly/buildkitd` running in `privileged` mode, and an `earthly/earthly` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
+It has also been tested with a _single_ remote `earthly/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
 
 Multi-node `earthly/buildkitd` configurations are currently unsupported.
 
@@ -23,7 +23,7 @@ Multi-node `earthly/buildkitd` configurations are currently unsupported.
  * [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
  * [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
 
-## Setup (`earthly/earthly` Only)
+## Setup (`earthbuild/earthbuild` Only)
 
 This is the recommended approach when using Earthly within Kubernetes. Assuming you are following the steps outlined in the [overview](../overview.md), here are the additional things you need to configure:
 
@@ -33,20 +33,20 @@ Your Kubernetes cluster needs to allow `privileged` mode pods. It's possible to 
 
 ### Installation
 
-The default image from `earthly/earthly` should be sufficient. If you need additional tools or configuration, you can [create your own runner image](../build-an-earthly-ci-image.md).
+The default image from `earthbuild/earthbuild` should be sufficient. If you need additional tools or configuration, you can [create your own runner image](../build-an-earthly-ci-image.md).
 
 ### Configuration
 
 In some instances, notably when using [Calico](https://www.tigera.io/project-calico/) within your cluster, the MTU of the clusters network may end up mismatched with the internal CNI network, preventing external communication. You can set this through the `CNI_MTU` environment variable to force a match.
 
-`earthly/earthly` currently requires the use of privileged mode. Use this in your container spec to enable it:
+`earthbuild/earthbuild` currently requires the use of privileged mode. Use this in your container spec to enable it:
 
 ```yaml
 securityContext:
   privileged: true
 ```
 
-The `earthly/earthly` container will operate best when provided with decent storage for intermediate operations. Mount a volume like this:
+The `earthbuild/earthbuild` container will operate best when provided with decent storage for intermediate operations. Mount a volume like this:
 
 ```yaml
 volumeMounts:
@@ -60,7 +60,7 @@ volumes:
 
 The location within the container for this temporary folder is configurable with the `EARTHLY_TMP_DIR` environment variable.
 
-The `earthly/earthly` image will expect to find the source code (with `Earthfile`) rooted in the default working directory, which is set to `/workspace`.
+The `earthbuild/earthbuild` image will expect to find the source code (with `Earthfile`) rooted in the default working directory, which is set to `/workspace`.
 
 ## Setup (Remote `earthly/buildkitd`)
 
@@ -71,7 +71,7 @@ This an _experimental_ configuration.
 
 {% endhint %}
 
-It is possible to run multiple `earthly/buildkitd` instances in Kubernetes, for larger deployments. Follow the configuration instructions for using the `earthly/earthly` image above.
+It is possible to run multiple `earthly/buildkitd` instances in Kubernetes, for larger deployments. Follow the configuration instructions for using the `earthbuild/earthbuild` image above.
 
 There are some caveats that come with this kind of a setup, though:
 
@@ -96,7 +96,7 @@ sessionAffinityConfig:
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 

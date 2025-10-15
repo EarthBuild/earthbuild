@@ -171,7 +171,7 @@ project-files:
     RUN touch a.scala && sbt compile && rm a.scala
 ```
 
-<!-- due to gitbook bug, https://github.com/earthly/earthly/blob/main/examples/integration-test/Earthfile changed to https://tinyurl.com/4m6hbd6a -->
+<!-- due to gitbook bug, https://github.com/earthbuild/earthbuild/blob/main/examples/integration-test/Earthfile changed to https://tinyurl.com/4m6hbd6a -->
 
 [Full file](https://tinyurl.com/4m6hbd6a)
 

@@ -31,7 +31,7 @@ Ensure that the Docker Cloud provider is installed and has a Docker daemon avail
 
 ### Installation
 
-You'll need to [create your own runner image](../build-an-earthly-ci-image.md). Heres an example of what this might look like, when basing your runner off our `earthly/earthly` image:
+You'll need to [create your own runner image](../build-an-earthly-ci-image.md). Heres an example of what this might look like, when basing your runner off our `earthbuild/earthbuild` image:
 
 ```docker
 ARG VERSION=4.9
@@ -58,7 +58,7 @@ Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 

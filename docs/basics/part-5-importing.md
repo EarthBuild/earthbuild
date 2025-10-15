@@ -1,7 +1,7 @@
 To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part5/part5 ./part5
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part5/part5 ./part5
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
@@ -109,7 +109,7 @@ Then, in our `+build` target we can inherit from any target in the imported Eart
 To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part5/part5 ./part5
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part5/part5 ./part5
 ```
 
 `./Earthfile`
@@ -143,7 +143,7 @@ docker:
 To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part5/part5 ./part5
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part5/part5 ./part5
 ```
 
 
@@ -179,7 +179,7 @@ docker:
 To copy the files for [this example ( Part 5 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part5) run
 
 ```bash
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part5/part5 ./part5
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part5/part5 ./part5
 ```
 
 `./Earthfile`

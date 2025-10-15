@@ -6,7 +6,7 @@ This example uses [Woodpecker CI](https://woodpecker-ci.org/) to build the Earth
 
 ## Configuration
 
-The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-settings#trusted) to grant the capabilities like mounting volumes (required for the docker socket). We also need to include the `earthly/earthly` image in the list of images that are allowed to run in [privileged mode](https://woodpecker-ci.org/docs/administration/server-config#woodpecker_escalate)
+The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-settings#trusted) to grant the capabilities like mounting volumes (required for the docker socket). We also need to include the `earthbuild/earthbuild` image in the list of images that are allowed to run in [privileged mode](https://woodpecker-ci.org/docs/administration/server-config#woodpecker_escalate)
 
 
 
@@ -14,7 +14,7 @@ The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-s
 #.woodpecker.yml
 pipeline:
   earthly:
-    image: earthly/earthly:v0.8.13
+    image: earthbuild/earthbuild:v0.8.13
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:

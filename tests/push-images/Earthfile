@@ -3,11 +3,11 @@ test:
     FROM alpine:3.18
     WORKDIR test
 
-    SAVE IMAGE earthly/sap:empty # should exist
+    SAVE IMAGE earthbuild/sap:empty # should exist
 
     RUN echo "1" > 1
     ENTRYPOINT ls -la /test
-    SAVE IMAGE earthly/sap:before-push # should exist
+    SAVE IMAGE earthbuild/sap:before-push # should exist
 
     SAVE IMAGE --push earthbuild/sap:first-push # should exist
 

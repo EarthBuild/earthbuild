@@ -86,7 +86,7 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |-
           set -euo pipefail
-          ./build/linux/amd64/earthly --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="true" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG"
+          ./build/linux/amd64/earthly --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG ./release+release-dockerhub --PUSH_PRERELEASE_TAG="true" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG"
 
   release-dockerhub-ticktock:
     name: release dockerhub (ticktock)
@@ -112,7 +112,7 @@ jobs:
           EARTHLY_NEXT: ${{ needs.prepare-release.outputs.earthly_next }}
         run: |-
           set -euo pipefail
-          ./build/linux/amd64/earthly --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG +release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="${RELEASE_TAG}-ticktock" --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${EARTHLY_NEXT}
+          ./build/linux/amd64/earthly --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG ./release+release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="${RELEASE_TAG}-ticktock" --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${EARTHLY_NEXT}
 
   release-github:
     name: release github
@@ -152,7 +152,7 @@ jobs:
           ./build/linux/amd64/earthly --push \
             --secret GITHUB_TOKEN="$GITHUB_TOKEN" \
             --secret GPG_PRIVATE="$GPG_PRIVATE" \
-            +release-github \
+            ./release+release-github \
             --GITHUB_USER="${{ env.GITHUB_USER }}" \
             --EARTHLY_REPO="${{ env.EARTHLY_REPO }}" \
             --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \

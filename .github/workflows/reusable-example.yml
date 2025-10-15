@@ -83,7 +83,7 @@ jobs:
       - name: Build and test multi-platform example
         run: |
           ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ./examples/multiplatform+all
-          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthly/examples:multiplatform_linux_arm64 | grep aarch64
+          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true

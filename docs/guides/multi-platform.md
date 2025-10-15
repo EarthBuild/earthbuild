@@ -119,7 +119,7 @@ build:
 A more complete version of this example is available in [examples/multiplatform](https://github.com/earthly/earthly/tree/main/examples/multiplatform) in GitHub. You may try out this example without cloning by running
 
 ```bash
-earthly github.com/earthly/earthly/examples/multiplatform:main+all
+earthly github.com/earthbuild/earthbuild/examples/multiplatform:main+all
 docker run --rm earthbuild/examples:multiplatform
 docker run --rm earthbuild/examples:multiplatform_linux_amd64
 docker run --rm earthbuild/examples:multiplatform_linux_arm_v7
@@ -220,7 +220,7 @@ build-image:
 The code of this example is available in [examples/multiplatform-cross-compile](https://github.com/earthly/earthly/tree/main/examples/multiplatform-cross-compile) in GitHub. You may try out this example without cloning by running
 
 ```bash
-earthly github.com/earthly/earthly/examples/multiplatform-cross-compile:main+build-all-platforms
+earthly github.com/earthbuild/earthbuild/examples/multiplatform-cross-compile:main+build-all-platforms
 ```
 
 ### USER platform args
@@ -243,8 +243,8 @@ In other words, the following will **NOT** work on amd64:
 # Does not work!
 build:
     FROM --platform=linux/arm64 earthbuild/dind
-    WITH DOCKER --pull=earthly/examples:multiplatform
-        RUN docker run earthly/examples:multiplatform
+    WITH DOCKER --pull=earthbuild/examples:multiplatform
+        RUN docker run earthbuild/examples:multiplatform
     END
 ```
 
@@ -253,8 +253,8 @@ However, the following will:
 ```
 build:
     FROM earthbuild/dind
-    WITH DOCKER --pull=earthly/examples:multiplatform
-        RUN docker run --platform=linux/arm64 earthly/examples:multiplatform
+    WITH DOCKER --pull=earthbuild/examples:multiplatform
+        RUN docker run --platform=linux/arm64 earthbuild/examples:multiplatform
     END
 ```
 

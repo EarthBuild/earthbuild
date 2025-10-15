@@ -21,13 +21,13 @@ earthly +docker
 in this directory, or, without cloning the Earthly repo, run this anywhere
 
 ```
-earthly github.com/earthly/earthly/examples/multirepo:main+docker
+earthly github.com/earthbuild/earthbuild/examples/multirepo:main+docker
 ```
 
 Then, run the resulting container:
 
 ```
-docker run --rm -p 127.0.0.1:8080:8080 earthly/examples:multirepo
+docker run --rm -p 127.0.0.1:8080:8080 earthbuild/examples:multirepo
 ```
 
 and load `http://127.0.0.1:8080` in your browser.

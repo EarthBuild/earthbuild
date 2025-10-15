@@ -25,7 +25,7 @@ test-setup:
     COPY main.go .
     COPY main_integration_test.go .
     ENV CGO_ENABLED=0
-    ENTRYPOINT [ "go", "test", "github.com/earthly/earthly/examples/go"]
+    ENTRYPOINT [ "go", "test", "github.com/earthbuild/earthbuild/examples/go"]
     SAVE IMAGE test:latest
 
 integration-tests:

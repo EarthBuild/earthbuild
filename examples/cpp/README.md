@@ -116,7 +116,7 @@ this will also rebuild the entire base docker images.
 And finally, the fibonacci program can be run via docker:
 
 ```
-~/workspace/earthly/examples/cpp ❯ docker run --rm earthbuild/examples:cpp
+~/workspace/earthbuild/examples/cpp ❯ docker run --rm earthbuild/examples:cpp
 fib(0) = 0
 fib(1) = 1
 fib(2) = 1

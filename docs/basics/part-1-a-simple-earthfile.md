@@ -25,7 +25,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthly/earth
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/go:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
 ```
 
 ## Creating Your First Earthfile
@@ -49,7 +49,7 @@ func main() {
 	fmt.Println("hello world")
 }
 ```
-Earthfiles are always named Earthfile, regardless of their location in the codebase. 
+Earthfiles are always named Earthfile, regardless of their location in the codebase.
 The Earthfile starts off with a version definition. This will tell Earthly which features to enable and which ones not to so that the build script maintains compatibility over time, even if Earthly itself is updated.
 
 The first commands in the file are part of the `base` target and are implicitly inherited by all other targets. Targets are just sets of instructions we can call on from within the Earthfile, or when we run Earthly at the command line. Targets need an environment to run in. These environments come in the form of Docker images. In this case we are saying that all the instructions in our Earthfile will use `golang:1.15-alpine3.13`, [unless we specify otherwise](#target-environments). (More on this in a bit.)
@@ -114,7 +114,7 @@ npm:
     RUN npm test
 ```
 
-In this example, the `+build` target does not have a `FROM`, so it inherits from the base target, `golang:1.15-alpine3.13`. 
+In this example, the `+build` target does not have a `FROM`, so it inherits from the base target, `golang:1.15-alpine3.13`.
 
 The target `+npm`, on the other hand, specifies its own environment with the `FROM`command and so will run inside of a `node:12-alpine3.12` container.
 
@@ -155,7 +155,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthly/earth
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/js:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -196,7 +196,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthly/earth
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/java:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -264,7 +264,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthly/earth
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthly/earthly/examples/tutorial/python:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
 ```
 
 `./Earthfile`

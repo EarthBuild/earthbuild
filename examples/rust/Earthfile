@@ -13,7 +13,7 @@ build:
     DO rust+CARGO --args="build --release --bin example-rust" --output="release/[^/\.]+"
     SAVE ARTIFACT target/release/example-rust example-rust
 
-# docker creates docker image earthly/examples:rust
+# docker creates docker image earthbuild/examples:rust
 docker:
     FROM debian:bookworm-slim
     COPY +build/example-rust example-rust

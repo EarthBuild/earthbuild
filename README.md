@@ -354,7 +354,7 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 
 <h2 align="center">Contributing</h2>
 
-* Please report bugs as [GitHub issues](https://github.com/EarthBuild/earthbuild/issues).
+* Please report bugs as [GitHub issues](https://github.com/earthly/earthly/issues).
 * Join us on [Slack](https://earthbuild.dev/slack)!
 * Questions via GitHub issues are welcome!
 * PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.

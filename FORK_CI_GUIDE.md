@@ -1,6 +1,6 @@
 # Guide for setting up CI on an Earthly Fork
 
-This document outlines the steps and considerations for setting up a functional GitHub Actions CI on a fork of the `earthly/earthly` repository, under the new organization `earthbuild`.
+This document outlines the steps and considerations for setting up a functional GitHub Actions CI on a fork of the `earthbuild/earthbuild` repository, under the new organization `earthbuild`.
 
 ## 1. Repository Dependencies
 
@@ -10,11 +10,11 @@ The CI workflows depend on several external GitHub repositories and actions. The
   - **Action Required**: Fork `github.com/earthly/actions-setup` to `github.com/earthbuild/actions-setup`. Review the forked action for any hardcoded references to the `earthly` organization and update them.
   - **Update Workflows**: Change all occurrences of `uses: earthly/actions-setup@main` to `uses: earthbuild/actions-setup@main` in all workflow files.
 
-- **`earthly/earthly-staging`**: The `ci-staging-deploy.yml` workflow pushes to `git@github.com:earthly/earthly-staging.git`.
-  - **Action Required**: Create a new repository `github.com/earthbuild/earthly-staging`.
+- **`earthbuild/earthbuild-staging`**: The `ci-staging-deploy.yml` workflow pushes to `git@github.com:earthbuild/earthbuild-staging.git`.
+  - **Action Required**: Create a new repository `github.com/earthbuild/earthbuild-staging`.
   - **Update Workflows**: The `release/release.sh` script, called by the staging workflow, needs to be updated to push to this new repository.
 
-- **`earthly/homebrew-earthly`**: The release script interacts with a Homebrew tap repository.
+- **`earthbuild/homebrew-earthbuild`**: The release script interacts with a Homebrew tap repository.
   - **Action Required**: Create a new repository `github.com/earthbuild/homebrew-earthly`.
   - **Update Workflows**: The `release/release.sh` script needs to be updated to use this new tap.
 
@@ -72,4 +72,4 @@ The CI relies on several external services.
 2.  **Create Forked Repos**: Create `earthly-staging` and `homebrew-earthly` under `earthbuild`.
 3.  **Create Secrets**: Set up all necessary secrets in the forked repository's settings.
 4.  **Update Release Scripts**: Modify `release/release.sh` and other scripts to use the new `earthbuild` resources and secrets.
-5.  **Review and Parameterize**: Go through workflows and scripts to replace hardcoded `earthly` references with configurable variables. 
+5.  **Review and Parameterize**: Go through workflows and scripts to replace hardcoded `earthly` references with configurable variables.

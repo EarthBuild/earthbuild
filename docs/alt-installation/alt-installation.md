@@ -235,7 +235,7 @@ When using a precompiled binary, you may need to add an exception to Gatekeeper.
 
 ### Installing from source
 
-To install from source, see the [contributing page](https://github.com/earthly/earthly/blob/main/CONTRIBUTING.md).
+To install from source, see the [contributing page](https://github.com/earthbuild/earthbuild/blob/main/CONTRIBUTING.md).
 
 ## Configuration
 

@@ -909,7 +909,7 @@ do-something:
 
 Note, however, that `LOCALLY` is not allowed in `--strict` mode (or in `--ci` mode), as it introduces a dependency from the host machine, which may interfere with the repeatability property of the build.
 
-Although performing a `COPY ../` is not possible in Earthly today, there are some rare, but valid use-cases for this functionality. This is being discussed in GitHub issue [#1221](https://github.com/earthly/earthly/issues/1221).
+Although performing a `COPY ../` is not possible in Earthly today, there are some rare, but valid use-cases for this functionality. This is being discussed in GitHub issue [#1221](https://github.com/earthbuild/earthbuild/issues/1221).
 
 ### Repository structure: Place build logic as close to the relevant code as possible
 
@@ -922,7 +922,7 @@ As one example, you might find the [monorepo example](https://github.com/earthly
 For a real-world example, you can also take a look at Earthly's own build, where several Earthfiles are scattered across the repository to help organize build logic across modules, very much like regular code. Here are some examples:
 
 <!-- GitBook currently has a bug where any references to an "Earthfile" gets confused with "docs/Earthfile" and somehow appends a /README.md
-https://github.com/earthly/earthly/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
+https://github.com/earthbuild/earthbuild/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
 
 * [`ast/parser`](https://github.com/earthly/earthly/tree/main/ast/parser) - Earthfile contains the logic for generating Go source code based on an ANTLR grammar.
 * [`ast/parser/tests`](https://github.com/earthly/earthly/tree/main/ast/tests) - Earthfile contains logic for running AST-specific tests.
@@ -1231,6 +1231,6 @@ By doing this, we ensure that the build process is consistently swift, as the ba
 
 ### Future: Saving an artifact even if the build fails
 
-We are aware of the lack of capability here. Please follow GitHub issues [#988](https://github.com/earthly/earthly/issues/988) and [#587](https://github.com/earthly/earthly/issues/587) for updates.
+We are aware of the lack of capability here. Please follow GitHub issues [#988](https://github.com/earthbuild/earthbuild/issues/988) and [#587](https://github.com/earthbuild/earthbuild/issues/587) for updates.
 
-There are currently workarounds for this (see [this comment](https://github.com/earthly/earthly/issues/988#issuecomment-870504677) and [this comment](https://github.com/earthly/earthly/issues/988#issuecomment-981088796)), however they have significant limitations.
+There are currently workarounds for this (see [this comment](https://github.com/earthbuild/earthbuild/issues/988#issuecomment-870504677) and [this comment](https://github.com/earthbuild/earthbuild/issues/988#issuecomment-981088796)), however they have significant limitations.

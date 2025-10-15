@@ -72,7 +72,7 @@ It is also possible to perform these steps via the CLI; the steps are [also deta
 {% hint style='danger' %}
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/EarthBuild/earthbuild/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
 
 {% endhint %}
 
@@ -100,11 +100,11 @@ Click "Done" and you will be navigated back to the Triggers list view. To test t
 
 Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml) file in our sample repository. This file is also a key part of the build, so lets break this down as well.
 
-[The first step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one Earthly image](https://hub.docker.com/r/earthly/earthly) to do a simple build.
+[The first step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one Earthly image](https://hub.docker.com/r/earthbuild/earthbuild) to do a simple build.
 
 ```yaml
   - id: 'build'
-    name: 'earthly/earthly:v0.8.13'
+    name: 'earthbuild/earthbuild:v0.8.13'
     args:
       - --ci
       - --push

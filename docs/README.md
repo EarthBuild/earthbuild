@@ -38,11 +38,11 @@ For a full list of installation options see the [alternative installation page](
 
 If you are new to Earthly, check out the [Basics page](./basics/basics.md), to get started.
 
-A high-level overview is available on [the Earthly GitHub page](https://github.com/earthly/earthly).
+A high-level overview is available on [the Earthly GitHub page](https://github.com/earthbuild/earthbuild).
 
 ## Quick Links
 
-* [Earthly GitHub page](https://github.com/earthly/earthly)
+* [Earthly GitHub page](https://github.com/earthbuild/earthbuild)
 * [Earthly basics](./basics/basics.md)
 * [Earthfile reference](./earthfile/earthfile.md)
 * [Earthly command reference](./earthly-command/earthly-command.md)

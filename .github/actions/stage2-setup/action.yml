@@ -73,7 +73,10 @@ runs:
         echo "Setting up podman"
         ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -f /usr/bin/docker
         ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
-        podman version && podman info && podman info --debug
+        podman version
+        podman info
+        podman info --debug
+        echo "${{inputs.DOCKERHUB_TOKEN}}" | ${{inputs.SUDO}} podman login -u "${{inputs.DOCKERHUB_USERNAME}}" --password-stdin docker.io
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets

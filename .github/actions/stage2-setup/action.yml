@@ -47,6 +47,13 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Set up Docker Hub mirrors
+      if: inputs.BINARY == 'docker'
+      shell: bash
+      run: |
+        sudo mkdir -p /etc/docker
+        echo '{"registry-mirrors": ["https://mirror.gcr.io", "https://public.ecr.aws"]}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
     - name: Login to GHCR
       if: inputs.BINARY == 'docker'
       uses: docker/login-action@v3

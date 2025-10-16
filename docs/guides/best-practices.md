@@ -6,45 +6,45 @@ Below we list some of the best practices that we have found to be useful in desi
 
 ## Table of contents
 
-* [Earthfile-specific](#earthfile-specific)
-    * [`COPY` only the minimal amount of files. Avoid copying `.git`](#copy-only-the-minimal-amount-of-files.-avoid-copying-.git)
-    * [`ENV` for image env vars, `ARG` for build configurability](#env-for-image-env-vars-arg-for-build-configurability)
-    * [Use cross-repo references, and avoid `GIT CLONE` if possible](#use-cross-repo-references-and-avoid-git-clone-if-possible)
-    * [`GIT CLONE` vs `RUN git clone`](#git-clone-vs-run-git-clone)
-    * [`IF [...]` vs `RUN if [...]`](#if-...-vs-run-if-...)
-    * [`FOR ... IN ...` vs `RUN for ... in ...`](#for-...-in-...-vs-run-for-...-in-...)
-    * [Pattern: Optionally `LOCALLY`](#pattern-optionally-locally)
-    * [Pattern: Deciding on a base image based on a condition](#pattern-deciding-on-a-base-image-based-on-a-condition)
-    * [Use `RUN --push` for deployment commands](#use-run-push-for-deployment-commands)
-    * [Use `--secret`, not `ARG`s to pass secrets to the build](#use-secret-not-args-to-pass-secrets-to-the-build)
-    * [Avoid copying secrets to the build environment](#avoid-copying-secrets-to-the-build-environment)
-    * [Do not pass Earthly dependencies from one target to another via the local file system or via an external registry](#do-not-pass-earthly-dependencies-from-one-target-to-another-via-the-local-file-system-or-via-an-external-registry)
-    * [Use `WITH DOCKER --pull`](#use-with-docker-pull)
-    * [Style: Define the high-level targets at the top of the Earthfile](#style-define-the-high-level-targets-at-the-top-of-the-earthfile)
-    * [Use `COPY +my-target/...` to pass files to and from `LOCALLY` targets](#use-copy-+my-target-...-to-pass-files-to-and-from-locally-targets)
-    * [Use `WITH DOCKER --load=+my-target` to pass images to `LOCALLY` targets](#use-with-docker-load-+my-target-to-pass-images-to-locally-targets)
-    * [Avoid non-deterministic behavior](#avoid-non-deterministic-behavior)
-    * [Use `COPY --dir` to copy multiple directories](#use-copy-dir-to-copy-multiple-directories)
-    * [Use separate images for build and production](#use-separate-images-for-build-and-production)
-    * [Use `SAVE ARTIFACT ... AS LOCAL ...` for generated code, not `LOCALLY`](#use-save-artifact-...-as-local-...-for-generated-code-not-locally)
-    * [Multi-line strings](#multi-line-strings)
-    * [Multi-line commands](#multi-line-commands)
-    * [Copying files from outside the build context](#copying-files-from-outside-the-build-context)
-    * [Repository structure: Place build logic as close to the relevant code as possible](#repository-structure-place-build-logic-as-close-to-the-relevant-code-as-possible)
-    * [Repository structure: Do not place all Earthfiles in a dedicated directory](#repository-structure-do-not-place-all-earthfiles-in-a-dedicated-directory)
-    * [Pattern: Pass-through artifacts or images](#pattern-pass-through-artifacts-or-images)
-    * [Use `earthbuild/dind`](#use-earthly-dind)
-    * [Pattern: Saving artifacts resulting from a `WITH DOCKER`](#pattern-saving-artifacts-resulting-from-a-with-docker)
-* [Usage-specific](#usage-specific)
-    * [Use `--ci` when running in CI](#use-ci-when-running-in-ci)
-    * [Avoid `LOCALLY` and other non-strict commands](#avoid-locally-and-other-non-strict-commands)
-    * [Pattern: Push on the `main` branch only](#pattern-push-on-the-main-branch-only)
-    * [Do not expose cache image tags publicly if the cache contains private code or dependencies](#do-not-expose-cache-image-tags-publicly-if-the-cache-contains-private-code-or-dependencies)
-    * [Technique: Use `earthly -i` to debug failures](#technique-use-earthly-i-to-debug-failures)
-    * [Run everything in a single Earthly invocation, do not wrap Earthly](#run-everything-in-a-single-earthly-invocation-do-not-wrap-earthly)
-    * [Use `RUN --ssh` for passing host SSH keys to builds](#use-run-ssh-for-passing-host-ssh-keys-to-builds)
-    * [Use SAVE IMAGE to always cache](#use-save-image-to-always-cache)
-    * [Future: Saving an artifact even if the build fails](#future-saving-an-artifact-even-if-the-build-fails)
+- [Earthfile-specific](#earthfile-specific)
+  - [`COPY` only the minimal amount of files. Avoid copying `.git`](#copy-only-the-minimal-amount-of-files.-avoid-copying-.git)
+  - [`ENV` for image env vars, `ARG` for build configurability](#env-for-image-env-vars-arg-for-build-configurability)
+  - [Use cross-repo references, and avoid `GIT CLONE` if possible](#use-cross-repo-references-and-avoid-git-clone-if-possible)
+  - [`GIT CLONE` vs `RUN git clone`](#git-clone-vs-run-git-clone)
+  - [`IF [...]` vs `RUN if [...]`](#if-...-vs-run-if-...)
+  - [`FOR ... IN ...` vs `RUN for ... in ...`](#for-...-in-...-vs-run-for-...-in-...)
+  - [Pattern: Optionally `LOCALLY`](#pattern-optionally-locally)
+  - [Pattern: Deciding on a base image based on a condition](#pattern-deciding-on-a-base-image-based-on-a-condition)
+  - [Use `RUN --push` for deployment commands](#use-run-push-for-deployment-commands)
+  - [Use `--secret`, not `ARG`s to pass secrets to the build](#use-secret-not-args-to-pass-secrets-to-the-build)
+  - [Avoid copying secrets to the build environment](#avoid-copying-secrets-to-the-build-environment)
+  - [Do not pass Earthly dependencies from one target to another via the local file system or via an external registry](#do-not-pass-earthly-dependencies-from-one-target-to-another-via-the-local-file-system-or-via-an-external-registry)
+  - [Use `WITH DOCKER --pull`](#use-with-docker-pull)
+  - [Style: Define the high-level targets at the top of the Earthfile](#style-define-the-high-level-targets-at-the-top-of-the-earthfile)
+  - [Use `COPY +my-target/...` to pass files to and from `LOCALLY` targets](#use-copy-+my-target-...-to-pass-files-to-and-from-locally-targets)
+  - [Use `WITH DOCKER --load=+my-target` to pass images to `LOCALLY` targets](#use-with-docker-load-+my-target-to-pass-images-to-locally-targets)
+  - [Avoid non-deterministic behavior](#avoid-non-deterministic-behavior)
+  - [Use `COPY --dir` to copy multiple directories](#use-copy-dir-to-copy-multiple-directories)
+  - [Use separate images for build and production](#use-separate-images-for-build-and-production)
+  - [Use `SAVE ARTIFACT ... AS LOCAL ...` for generated code, not `LOCALLY`](#use-save-artifact-...-as-local-...-for-generated-code-not-locally)
+  - [Multi-line strings](#multi-line-strings)
+  - [Multi-line commands](#multi-line-commands)
+  - [Copying files from outside the build context](#copying-files-from-outside-the-build-context)
+  - [Repository structure: Place build logic as close to the relevant code as possible](#repository-structure-place-build-logic-as-close-to-the-relevant-code-as-possible)
+  - [Repository structure: Do not place all Earthfiles in a dedicated directory](#repository-structure-do-not-place-all-earthfiles-in-a-dedicated-directory)
+  - [Pattern: Pass-through artifacts or images](#pattern-pass-through-artifacts-or-images)
+  - [Use `earthbuild/dind`](#use-earthly-dind)
+  - [Pattern: Saving artifacts resulting from a `WITH DOCKER`](#pattern-saving-artifacts-resulting-from-a-with-docker)
+- [Usage-specific](#usage-specific)
+  - [Use `--ci` when running in CI](#use-ci-when-running-in-ci)
+  - [Avoid `LOCALLY` and other non-strict commands](#avoid-locally-and-other-non-strict-commands)
+  - [Pattern: Push on the `main` branch only](#pattern-push-on-the-main-branch-only)
+  - [Do not expose cache image tags publicly if the cache contains private code or dependencies](#do-not-expose-cache-image-tags-publicly-if-the-cache-contains-private-code-or-dependencies)
+  - [Technique: Use `earthly -i` to debug failures](#technique-use-earthly-i-to-debug-failures)
+  - [Run everything in a single Earthly invocation, do not wrap Earthly](#run-everything-in-a-single-earthly-invocation-do-not-wrap-earthly)
+  - [Use `RUN --ssh` for passing host SSH keys to builds](#use-run-ssh-for-passing-host-ssh-keys-to-builds)
+  - [Use SAVE IMAGE to always cache](#use-save-image-to-always-cache)
+  - [Future: Saving an artifact even if the build fails](#future-saving-an-artifact-even-if-the-build-fails)
 
 ## Earthfile-specific
 
@@ -90,20 +90,20 @@ COPY ./*.go ./
 RUN go build ...
 ```
 
-An additional way in which you can improve the precision of the `COPY` command is to use the [`.earthlyignore`](../earthfile/earthlyignore.md) file. Note, however, that this is best left as a last resort, as new files added to the project (that may be irrelevant to builds) would need to be manually added to `.earthlyignore`, which may be error-prone. It is much better to have to include every new file manually into the build (by adding it to a `COPY` command), than to exclude every new file manually (by adding it to the `.earthlyignore`), as whenever any such new file *must* be included, then the build would typically fail, making it harder to make a mistake compared to the opposite.
+An additional way in which you can improve the precision of the `COPY` command is to use the [`.earthlyignore`](../earthfile/earthlyignore.md) file. Note, however, that this is best left as a last resort, as new files added to the project (that may be irrelevant to builds) would need to be manually added to `.earthlyignore`, which may be error-prone. It is much better to have to include every new file manually into the build (by adding it to a `COPY` command), than to exclude every new file manually (by adding it to the `.earthlyignore`), as whenever any such new file _must_ be included, then the build would typically fail, making it harder to make a mistake compared to the opposite.
 
 ### `ENV` for image env vars, `ARG` for build configurability
 
 `ENV` variables and `ARG` variables seem similar, however they are meant for different use-cases. Here is a breakdown of the differences, as well as how they differ from the Dockerfile-specific `ARG` command:
 
-| | `ENV` | `ARG` | Dockerfile `ARG` |
-| --- | --- | --- | --- |
-| Available as an env-var in the same target | ✅ | ✅ | ❌ |
-| Available for expanding within non-RUN commands | ❌ | ✅ | ✅ |
-| Stored in the final image as an env-var | ✅ | ❌ | ❌ |
-| Inherited via `FROM` | ✅ | ❌ | ❌ |
-| Can be overridden when calling a build | ❌ | ✅ | ✅ |
-| Can be propagated to other targets (via `BUILD +target --<key>=<value>` or similar) | ❌ | ✅ | N/A |
+|                                                                                     | `ENV` | `ARG` | Dockerfile `ARG` |
+| ----------------------------------------------------------------------------------- | ----- | ----- | ---------------- |
+| Available as an env-var in the same target                                          | ✅    | ✅    | ❌               |
+| Available for expanding within non-RUN commands                                     | ❌    | ✅    | ✅               |
+| Stored in the final image as an env-var                                             | ✅    | ❌    | ❌               |
+| Inherited via `FROM`                                                                | ✅    | ❌    | ❌               |
+| Can be overridden when calling a build                                              | ❌    | ✅    | ✅               |
+| Can be propagated to other targets (via `BUILD +target --<key>=<value>` or similar) | ❌    | ✅    | N/A              |
 
 As you can see, the key situation where `ENV` is needed is when you want the value to be stored as part of the final image's configuration. This causes any `FROM` or `docker run` using that image to inherit the value.
 
@@ -169,11 +169,10 @@ print-file:
     RUN echo my-file.txt
 ```
 
-
 There are multiple benefits to using cross-repository references in this manner:
 
-* The build of repo 1 can evolve to more than just passing a file to another repository. It may be possible to also export generated code, artifacts, base images or full microservice images in the future, if they are needed.
-* It is clearer about which files are actually needed externally, as they are declared via `SAVE ARTIFACT`. This makes the code more readable and maintainable. The fact that an artifact is saved during a build constitutes an explicit API of the repository.
+- The build of repo 1 can evolve to more than just passing a file to another repository. It may be possible to also export generated code, artifacts, base images or full microservice images in the future, if they are needed.
+- It is clearer about which files are actually needed externally, as they are declared via `SAVE ARTIFACT`. This makes the code more readable and maintainable. The fact that an artifact is saved during a build constitutes an explicit API of the repository.
 
 Of course, the down-side is that repo 1 requires an Earthfile to be added, and that might not always be feasible. It's possible that repo 1 is controlled by another team, or that it is entirely external to the company. In such cases, `GIT CLONE` might help to provide a faster, yet imperfect solution.
 
@@ -181,25 +180,25 @@ Another use-case where `GIT CLONE` is better suited is when the operation needs 
 
 Finally, here is a comparison between cross-repo references and `GIT CLONE`:
 
-| | Cross-repo reference | `GIT CLONE` |
-| --- | --- | --- |
-| Example | `FROM github.com/my-co/my-proj:my-branch+my-target` | `GIT CLONE --branch=my-branch git@github.com:my-co/my-proj` |
-| Earthly can pass-through SSH agent access from the host | ✅ | ✅ |
-| Access to HTTPS repositories can be configured in Earthly | ✅ | ✅ |
-| Can specify branch or tag | ✅ - via `:<branch>` | ✅ - via `--branch` |
-| Source configurable via `ARG`s | ✅ | ✅ |
-| Protocol-agnostic referencing | ✅ | ❌ - can be `ssh://`, `https://`, `git@github.com` etc |
-| Clear declaration of the dependency | ✅ - source repo needs to expose it in the Earthfile | ❌ |
-| Can be used without modifications to the source repository | ❌ - requires Earthfile | ✅ |
-| Can operate on the repository itself | ❌ - possible, but not designed for this | ✅ |
+|                                                            | Cross-repo reference                                 | `GIT CLONE`                                                 |
+| ---------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| Example                                                    | `FROM github.com/my-co/my-proj:my-branch+my-target`  | `GIT CLONE --branch=my-branch git@github.com:my-co/my-proj` |
+| Earthly can pass-through SSH agent access from the host    | ✅                                                   | ✅                                                          |
+| Access to HTTPS repositories can be configured in Earthly  | ✅                                                   | ✅                                                          |
+| Can specify branch or tag                                  | ✅ - via `:<branch>`                                 | ✅ - via `--branch`                                         |
+| Source configurable via `ARG`s                             | ✅                                                   | ✅                                                          |
+| Protocol-agnostic referencing                              | ✅                                                   | ❌ - can be `ssh://`, `https://`, `git@github.com` etc      |
+| Clear declaration of the dependency                        | ✅ - source repo needs to expose it in the Earthfile | ❌                                                          |
+| Can be used without modifications to the source repository | ❌ - requires Earthfile                              | ✅                                                          |
+| Can operate on the repository itself                       | ❌ - possible, but not designed for this             | ✅                                                          |
 
 ### `GIT CLONE` vs `RUN git clone`
 
 Earthly has a built-in `GIT CLONE` instruction that can be used to clone a Git repository. It is recommended that `GIT CLONE` is used rather than `RUN git clone`, for a few reasons:
 
-* Earthly treats `GIT CLONE` as a first-class input (BuildKit source). As such, Earthly caches the repository internally and downloading only incremental differences on changes.
-* Earthly is commit hash-aware, so it'll be able to detect when the build needs to take place versus when there are no changes to be made and the cache can be reused. If a change takes place in the source repository, `RUN git clone` would not be able to detect that, as it is not recognized as an input. So it would naively reuse the cache when it shouldn't.
-* `GIT CLONE` will pass-through Earthly settings for [authentication](../guides/auth.md), such as SSH agent access and/or HTTPS credentials.
+- Earthly treats `GIT CLONE` as a first-class input (BuildKit source). As such, Earthly caches the repository internally and downloading only incremental differences on changes.
+- Earthly is commit hash-aware, so it'll be able to detect when the build needs to take place versus when there are no changes to be made and the cache can be reused. If a change takes place in the source repository, `RUN git clone` would not be able to detect that, as it is not recognized as an input. So it would naively reuse the cache when it shouldn't.
+- `GIT CLONE` will pass-through Earthly settings for [authentication](../guides/auth.md), such as SSH agent access and/or HTTPS credentials.
 
 `GIT CLONE` does have some limitations, however. It only performs a shallow clone, it does not have the branch information, it does not have origin information, and it does not have the tags downloaded. Even in such cases, it might be better to attempt to reintroduce the information after a `GIT CLONE`, whenever possible, in order to gain the caching benefits.
 
@@ -233,6 +232,7 @@ RUN ls
 ```
 
 Alternatively, an optimal deep clone can be achieved by calling the `FUNCTION` [DEEP_CLONE](https://github.com/earthly/lib/blob/3.0.1/utils/git/Earthfile#L4):
+
 ```Dockerfile
 ARG git_url="git@github.com/my-co/my-proj"
 DO github.com/earthly/lib/utils/git:3.0.1+DEEP_CLONE --GIT_URL=$git_url
@@ -240,7 +240,9 @@ RUN ls
 ```
 
 {% hint style='info' %}
+
 ##### Note
+
 The final "if you have no choice" example contains an `ARG` shell-out, which will be set to the latest git sha; this is done so that if the git repository doesn't
 contain any new commits between multiple runs, the `ARG git_hash` value will stay constant, and will allow earthly to skip over the `RUN` command; whereas a `RUN --no-cache`
 command will be run each time even if the `ARG git_hash` value has never changed.
@@ -248,27 +250,27 @@ command will be run each time even if the `ARG git_hash` value has never changed
 
 Finally, here is a comparison between `GIT CLONE` and `RUN git clone`:
 
-| | `GIT CLONE` | `RUN git clone` |
-| --- | --- | --- |
-| Earthfiles can be protocol-agnostic | ❌ - can be `ssh://`, `https://`, `git@github.com` etc | ❌ - can be `ssh://`, `https://`, `git@github.com` etc |
-| Can configure access in Earthly, to keep Earthfiles agnostic | ✅ | ❌ |
-| Earthly can pass-through SSH agent access from the host | ✅ | ✅ - but it requires `RUN --ssh` |
-| Access to HTTPS repositories can be configured in Earthly | ✅ | ❌ - but possible to pass credentials via secrets |
-| Cache-aware - incremental pulls | ✅ | ❌ |
-| Commit hash-aware - rebuild when there are changes in remote repository | ✅ | ❌ |
+|                                                                         | `GIT CLONE`                                            | `RUN git clone`                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| Earthfiles can be protocol-agnostic                                     | ❌ - can be `ssh://`, `https://`, `git@github.com` etc | ❌ - can be `ssh://`, `https://`, `git@github.com` etc |
+| Can configure access in Earthly, to keep Earthfiles agnostic            | ✅                                                     | ❌                                                     |
+| Earthly can pass-through SSH agent access from the host                 | ✅                                                     | ✅ - but it requires `RUN --ssh`                       |
+| Access to HTTPS repositories can be configured in Earthly               | ✅                                                     | ❌ - but possible to pass credentials via secrets      |
+| Cache-aware - incremental pulls                                         | ✅                                                     | ❌                                                     |
+| Commit hash-aware - rebuild when there are changes in remote repository | ✅                                                     | ❌                                                     |
 
 ### `IF [...]` vs `RUN if [...]`
 
 Earthly 0.6 introduces the conditional `IF` command, which allows for complex control flow within Earthly recipes. However, there is also the possibility of using the shell `if` command to accomplish similar behavior. Which one should you use? Here is a quick comparison:
 
-| | `IF` | `RUN if` |
-| --- | --- | --- |
-| Can execute any command as the expression | ✅ | ✅ |
-| Can use mounts and secrets | ✅ | ✅ |
-| Can use ARGs | ✅ | ✅ |
-| Expression can be cached | ✅ | ✅ |
-| Body runs in the same layer as the condition expression | ❌ | ✅ |
-| Body can include any Earthly command  | ✅ | ❌ |
+|                                                         | `IF` | `RUN if` |
+| ------------------------------------------------------- | ---- | -------- |
+| Can execute any command as the expression               | ✅   | ✅       |
+| Can use mounts and secrets                              | ✅   | ✅       |
+| Can use ARGs                                            | ✅   | ✅       |
+| Expression can be cached                                | ✅   | ✅       |
+| Body runs in the same layer as the condition expression | ❌   | ✅       |
+| Body can include any Earthly command                    | ✅   | ❌       |
 
 As you can see, `IF` is more powerful in that it can include other Earthly commands within it, allowing for rich conditional behavior. Examples might include optionally saving images, using different base images depending on a set of conditions, initializing `ARG`s with varying values.
 
@@ -280,16 +282,16 @@ As a best practice, it is recommended to use `RUN if` whenever possible (e.g. on
 
 As is the case with `IF` vs `RUN if`, there is a similar debate for the Earthly builtin command `FOR` vs `RUN for`. Here is a quick comparison of the two 'for' flavors:
 
-| | `FOR` | `RUN for` |
-| --- | --- | --- |
-| Can execute any command as the expression | ✅ | ✅ |
-| Can use mounts and secrets | ✅ | ✅ |
-| Can use ARGs | ✅ | ✅ |
-| Expression can be cached | ✅ | ✅ |
-| Can iterate over a constant list | ✅ | ✅ |
-| Can iterate over a list resulting from an expression | ✅ | ✅ |
-| Body runs in the same layer as the for expression | ❌ | ✅ |
-| Body can include any Earthly command  | ✅ | ❌ |
+|                                                      | `FOR` | `RUN for` |
+| ---------------------------------------------------- | ----- | --------- |
+| Can execute any command as the expression            | ✅    | ✅        |
+| Can use mounts and secrets                           | ✅    | ✅        |
+| Can use ARGs                                         | ✅    | ✅        |
+| Expression can be cached                             | ✅    | ✅        |
+| Can iterate over a constant list                     | ✅    | ✅        |
+| Can iterate over a list resulting from an expression | ✅    | ✅        |
+| Body runs in the same layer as the for expression    | ❌    | ✅        |
+| Body can include any Earthly command                 | ✅    | ❌        |
 
 Similar to the `IF` vs `RUN if` comparison, `FOR` is more powerful in that it can include other Earthly commands within it, allowing for rich iteration behavior. Examples might include iterating over a list of directories in a monorepo and calling Earthly targets within them, performing `SAVE IMAGE` over a list of container image tags.
 
@@ -370,9 +372,9 @@ If the result of a build needs to be pushed to an external service (or storage p
 
 To execute a custom push command, you can simply use a regular `RUN` command together with the `--push` flag. The `--push` will ensure that:
 
-* The command is only executed when Earthly is in push mode (`earthly --push`)
-* No cache is reused for that specific command, causing it to execute every time
-* The command is executed during the push phase of the build, ensuring that everything else (e.g. testing) has completed successfully first
+- The command is only executed when Earthly is in push mode (`earthly --push`)
+- No cache is reused for that specific command, causing it to execute every time
+- The command is executed during the push phase of the build, ensuring that everything else (e.g. testing) has completed successfully first
 
 Let's look at an example of using the [github-release utility](https://github.com/github-release/github-release) to perform a push to GitHub Releases.
 
@@ -383,8 +385,8 @@ RUN --no-cache --secret GITHUB_TOKEN github-release upload ...
 
 `RUN --no-cache` should be avoided for this use-case, as it has some potentially dangerous downsides:
 
-* The upload command may be executed in parallel with any testing (meaning that tests might not pass yet the upload may still complete)
-* The upload will execute even when earthly is not invoked in `--push` mode.
+- The upload command may be executed in parallel with any testing (meaning that tests might not pass yet the upload may still complete)
+- The upload will execute even when earthly is not invoked in `--push` mode.
 
 To address this issue, it is advisable to use `RUN --push` instead.
 
@@ -553,8 +555,8 @@ The `--load` instruction will inform Earthly that the two targets depend on each
 
 When referencing an external image in the body of a `WITH DOCKER` block, it is important to declare it via `WITH DOCKER --pull`, for a few reasons:
 
-* The image will be cached as part of BuildKit, allowing for faster builds. This is especially important as `WITH DOCKER` wipes the state of the Docker daemon (including its cache) after every run.
-* The Daemon within `WITH DOCKER` is not logged into registries. Your local Docker login config is not propagated to the daemon. This means that you may run into issues when trying to pull images from private registries, but also, DockerHub rate limiting may prevent you from pulling images consistently from public repositories.
+- The image will be cached as part of BuildKit, allowing for faster builds. This is especially important as `WITH DOCKER` wipes the state of the Docker daemon (including its cache) after every run.
+- The Daemon within `WITH DOCKER` is not logged into registries. Your local Docker login config is not propagated to the daemon. This means that you may run into issues when trying to pull images from private registries, but also, DockerHub rate limiting may prevent you from pulling images consistently from public repositories.
 
 ```Dockerfile
 # Bad: Image hello-world needs to be pulled every time and is not part of the Earthly-managed cache.
@@ -702,7 +704,7 @@ run-locally:
 
 ### Use `WITH DOCKER --load=+my-target` to pass images to `LOCALLY` targets
 
-Earthly is able to output Docker images to the local Docker daemon at the end of each build. However, when requiring an image for a `LOCALLY` target, the image needs to be output in the *middle* of the build.
+Earthly is able to output Docker images to the local Docker daemon at the end of each build. However, when requiring an image for a `LOCALLY` target, the image needs to be output in the _middle_ of the build.
 
 ```Dockerfile
 # Bad
@@ -739,9 +741,9 @@ The `--load` instruction will inform Earthly of the dependency and will therefor
 
 It is generally recommended to avoid any non-deterministic behavior when designing Earthly builds. This may include:
 
-* Introducing time-stamps in builds or in tags
-* Generating unique IDs
-* Initializing `ARG` with values that include randomness
+- Introducing time-stamps in builds or in tags
+- Generating unique IDs
+- Initializing `ARG` with values that include randomness
 
 The main reason to avoid non-deterministic behavior is to ensure that builds are repeatable, and to maximize the use of cache. If an intermediate step leads to the same result as a previous run, Earthly may be able to reuse further computation performed previously.
 
@@ -749,7 +751,7 @@ Many compilers, code generators and other tools might not be deterministic and t
 
 ### Use `COPY --dir` to copy multiple directories
 
-The classical Dockerfile `COPY` command differs from the unix `cp` in that it will copy directory *contents*, not the directories themselves. This requires that copying multiple directories to be split across multiple lines:
+The classical Dockerfile `COPY` command differs from the unix `cp` in that it will copy directory _contents_, not the directories themselves. This requires that copying multiple directories to be split across multiple lines:
 
 ```Dockerfile
 # Avoid: too verbose
@@ -812,9 +814,9 @@ Many programming tools require the generation of code. The generated code is oft
 
 It is recommended that any generated code is saved via `SAVE ARTIFACT ... AS LOCAL ...` via regular Earthly targets, rather than via running the generation command in `LOCALLY`. There are multiple reasons for this:
 
-* Executing commands via `LOCALLY` loses the repeatability benefits. This means that the same command could end up generating different code, depending on the system it is being run on. Differences in the environment, such as the version of code generator installed (e.g. `protoc`), or certain environment variables (e.g. `GOPATH`) could cause the generated code to be different.
-* The logic to generate code via `LOCALLY` will not be usable in the CI, as the CI script would typically enable `--strict` mode.
-* If the code generation workflow requires that the generated code is committed to the repository and then used in a subsequent earthly build, it is possible that due to human error, changes will be made to the input files, without the generated code to be updated correctly. If a problem or an incompatibility is introduced in this manner, it will only show up later, for other people when they try to generate the code themselves. In worse cases, it may even go unnoticed and end up in production.
+- Executing commands via `LOCALLY` loses the repeatability benefits. This means that the same command could end up generating different code, depending on the system it is being run on. Differences in the environment, such as the version of code generator installed (e.g. `protoc`), or certain environment variables (e.g. `GOPATH`) could cause the generated code to be different.
+- The logic to generate code via `LOCALLY` will not be usable in the CI, as the CI script would typically enable `--strict` mode.
+- If the code generation workflow requires that the generated code is committed to the repository and then used in a subsequent earthly build, it is possible that due to human error, changes will be made to the input files, without the generated code to be updated correctly. If a problem or an incompatibility is introduced in this manner, it will only show up later, for other people when they try to generate the code themselves. In worse cases, it may even go unnoticed and end up in production.
 
 ### Multi-line strings
 
@@ -909,7 +911,7 @@ do-something:
 
 Note, however, that `LOCALLY` is not allowed in `--strict` mode (or in `--ci` mode), as it introduces a dependency from the host machine, which may interfere with the repeatability property of the build.
 
-Although performing a `COPY ../` is not possible in Earthly today, there are some rare, but valid use-cases for this functionality. This is being discussed in GitHub issue [#1221](https://github.com/earthbuild/earthbuild/issues/1221).
+Although performing a `COPY ../` is not possible in Earthly today, there are some rare, but valid use-cases for this functionality. This is being discussed in GitHub issue [#1221](https://github.com/earthly/earthly/issues/1221).
 
 ### Repository structure: Place build logic as close to the relevant code as possible
 
@@ -924,12 +926,12 @@ For a real-world example, you can also take a look at Earthly's own build, where
 <!-- GitBook currently has a bug where any references to an "Earthfile" gets confused with "docs/Earthfile" and somehow appends a /README.md
 https://github.com/earthbuild/earthbuild/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
 
-* [`ast/parser`](https://github.com/earthly/earthly/tree/main/ast/parser) - Earthfile contains the logic for generating Go source code based on an ANTLR grammar.
-* [`ast/parser/tests`](https://github.com/earthly/earthly/tree/main/ast/tests) - Earthfile contains logic for running AST-specific tests.
-* [`buildkitd`](https://github.com/earthly/earthly/tree/main/buildkitd) - Earthfile contains the logic for building the Earthly BuildKit image.
-* [`tests`](https://github.com/earthly/earthly/tree/main/tests) - Earthfile contains logic for executing e2e tests.
-* [`release/**/`](https://github.com/earthly/earthly/tree/main/release) - Multiple Earthfiles contain logic used for the release of Earthly.
-* [The main Earthfile](https://tinyurl.com/yt3d3cx6) - ties everything together, referencing the various targets across the sub-directories.
+- [`ast/parser`](https://github.com/earthly/earthly/tree/main/ast/parser) - Earthfile contains the logic for generating Go source code based on an ANTLR grammar.
+- [`ast/parser/tests`](https://github.com/earthly/earthly/tree/main/ast/tests) - Earthfile contains logic for running AST-specific tests.
+- [`buildkitd`](https://github.com/earthly/earthly/tree/main/buildkitd) - Earthfile contains the logic for building the Earthly BuildKit image.
+- [`tests`](https://github.com/earthly/earthly/tree/main/tests) - Earthfile contains logic for executing e2e tests.
+- [`release/**/`](https://github.com/earthly/earthly/tree/main/release) - Multiple Earthfiles contain logic used for the release of Earthly.
+- [The main Earthfile](https://tinyurl.com/yt3d3cx6) - ties everything together, referencing the various targets across the sub-directories.
 
 ### Repository structure: Do not place all Earthfiles in a dedicated directory
 
@@ -1110,9 +1112,9 @@ An example of a command that is not allowed in strict mode is `LOCALLY`. The `LO
 
 Examples of valid cases where `LOCALLY` may be used are:
 
-* installing dependencies on the host machine (e.g. to help IDEs provide better suggestions)
-* executing tests on the host docker daemon, to help with inspection and debugging
-* executing development commands which would otherwise require copying very large amounts of files to the sandboxed build environment
+- installing dependencies on the host machine (e.g. to help IDEs provide better suggestions)
+- executing tests on the host docker daemon, to help with inspection and debugging
+- executing development commands which would otherwise require copying very large amounts of files to the sandboxed build environment
 
 Note, however, that none of these cases are needed in a CI environment, and ultimately these commands are not regularly tested by a CI, which means they may break more frequently.
 
@@ -1147,19 +1149,19 @@ Historically, build scripts have been constructed by cobbling up multiple techno
 
 Earthly has been designed with a few key goals in mind:
 
-* Repeatability - the builds should just work on another system
-* Readability - the builds should be understandable by any team member on the team, without much effort
-* A universal CI script - a script that contains all the information needed for the CI to perform a complete build
+- Repeatability - the builds should just work on another system
+- Readability - the builds should be understandable by any team member on the team, without much effort
+- A universal CI script - a script that contains all the information needed for the CI to perform a complete build
 
 In this spirit, Earthly has been designed to not require any wrapping around it. Here are some examples of antipatterns:
 
-* **Antipattern**: Earthly is called repeatedly in a single script in order to process intermediate results and then pass those results to later invocations.
-* **Antipattern**: Downloading dependencies outside of Earthly and then copying them in.
-* **Antipattern**: Performing a build without `--push` and then repeating the same build, but with `--push` enabled.
-* **Antipattern**: Computing the value of an `ARG` outside of Earthly and then calling Earthly with that value.
-* **Antipattern**: Running `earthly` in a bash `for` loop, to process multiple targets as separate builds.
-* **Antipattern**: Running `earthly` repeatedly, rather than using an `all` target encapsulating all the targets needed to be built.
-* **Antipattern**: Running `earthly` repeatedly with `--no-cache`, to control the order of a deployment, instead of using `RUN --push` adequately.
+- **Antipattern**: Earthly is called repeatedly in a single script in order to process intermediate results and then pass those results to later invocations.
+- **Antipattern**: Downloading dependencies outside of Earthly and then copying them in.
+- **Antipattern**: Performing a build without `--push` and then repeating the same build, but with `--push` enabled.
+- **Antipattern**: Computing the value of an `ARG` outside of Earthly and then calling Earthly with that value.
+- **Antipattern**: Running `earthly` in a bash `for` loop, to process multiple targets as separate builds.
+- **Antipattern**: Running `earthly` repeatedly, rather than using an `all` target encapsulating all the targets needed to be built.
+- **Antipattern**: Running `earthly` repeatedly with `--no-cache`, to control the order of a deployment, instead of using `RUN --push` adequately.
 
 All of the above should be avoided as they hinder repeatability and/or they are abusing Earthly features in ways Earthly was not designed for. If a wrapping script is used outside of Earthly, it means that the script is not containerized, which means that the script is susceptible to host environment nuances.
 
@@ -1231,6 +1233,6 @@ By doing this, we ensure that the build process is consistently swift, as the ba
 
 ### Future: Saving an artifact even if the build fails
 
-We are aware of the lack of capability here. Please follow GitHub issues [#988](https://github.com/earthbuild/earthbuild/issues/988) and [#587](https://github.com/earthbuild/earthbuild/issues/587) for updates.
+We are aware of the lack of capability here. Please follow GitHub issues [#988](https://github.com/earthly/earthly/issues/988) and [#587](https://github.com/earthly/earthly/issues/587) for updates.
 
-There are currently workarounds for this (see [this comment](https://github.com/earthbuild/earthbuild/issues/988#issuecomment-870504677) and [this comment](https://github.com/earthbuild/earthbuild/issues/988#issuecomment-981088796)), however they have significant limitations.
+There are currently workarounds for this (see [this comment](https://github.com/earthly/earthly/issues/988#issuecomment-870504677) and [this comment](https://github.com/earthly/earthly/issues/988#issuecomment-981088796)), however they have significant limitations.

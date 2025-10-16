@@ -1,10 +1,11 @@
 # Kubernetes
 
 {% hint style='info' %}
+
 ##### Note
+
 This guide is related to self-hosting a remote BuildKit, however, Self-Hosted Satellites **beta** are now available. Self-Hosted Satellites provide more features, have better security, and are easier to deploy than remote BuildKit.
 {% endhint %}
-
 
 ## Overview
 
@@ -20,8 +21,8 @@ Multi-node `earthly/buildkitd` configurations are currently unsupported.
 
 ### Resources
 
- * [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
- * [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
+- [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
 
 ## Setup (`earthbuild/earthbuild` Only)
 
@@ -52,7 +53,7 @@ The `earthbuild/earthbuild` container will operate best when provided with decen
 volumeMounts:
   - mountPath: /tmp/earthly
     name: buildkitd-temp
-...
+---
 volumes:
   - name: buildkitd-temp
     emptyDir: {} # Or other volume type
@@ -65,6 +66,7 @@ The `earthbuild/earthbuild` image will expect to find the source code (with `Ear
 ## Setup (Remote `earthly/buildkitd`)
 
 {% hint style='danger' %}
+
 ##### Note
 
 This an _experimental_ configuration.
@@ -94,9 +96,10 @@ sessionAffinityConfig:
 ## Example
 
 {% hint style='danger' %}
+
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
 
 {% endhint %}
 

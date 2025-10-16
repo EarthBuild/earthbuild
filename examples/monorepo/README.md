@@ -17,7 +17,7 @@ earthly +all
 in this directory, or, without cloning the Earthly repo, run this anywhere
 
 ```
-earthly github.com/earthbuild/earthbuild/examples/monorepo:main+all
+earthly github.com/earthly/earthly/examples/monorepo:main+all
 ```
 
 Then, run the resulting container:

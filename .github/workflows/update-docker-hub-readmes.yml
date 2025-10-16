@@ -20,7 +20,7 @@ jobs:
       - name: Update DockerHub description for earthly/earthly
         uses: peter-evans/dockerhub-description@v5.0.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: earthly/earthly
           readme-filepath: ./docs/docker-images/all-in-one.md
@@ -28,7 +28,7 @@ jobs:
       - name: Update DockerHub description for earthly/buildkitd
         uses: peter-evans/dockerhub-description@v5.0.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: earthly/buildkitd
           readme-filepath: ./docs/docker-images/buildkit-standalone.md

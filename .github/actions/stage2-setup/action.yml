@@ -76,7 +76,7 @@ runs:
         podman version
         podman info
         podman info --debug
-        echo "${{inputs.DOCKERHUB_TOKEN}}" | ${{inputs.SUDO}} podman login -u "${{inputs.DOCKERHUB_USERNAME}}" --password-stdin docker.io
+        echo "${{inputs.DOCKERHUB_PASSWORD}}" | ${{inputs.SUDO}} podman login -u "${{inputs.DOCKERHUB_USERNAME}}" --password-stdin docker.io
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets

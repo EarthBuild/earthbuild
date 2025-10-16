@@ -7,51 +7,63 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 ## v0.8.16 - 2025-07-16
 
 ### Changed
-- Removed CLI based account creation [#4283](https://github.com/earthbuild/earthbuild/pull/4283)
-- `dockerd` wrapper cleans up after itself [#4267](https://github.com/earthbuild/earthbuild/pull/4267)/[#4268](https://github.com/earthbuild/earthbuild/pull/4268)
-- Removed all Cloud dependencies, commands, and flags as part of the [Earthly Cloud shutdown](https://earthly.dev/blog/shutting-down-earthfiles-cloud/) [#4235](https://github.com/earthbuild/earthbuild/pull/4325)
+
+- Removed CLI based account creation [#4283](https://github.com/earthly/earthly/pull/4283)
+- `dockerd` wrapper cleans up after itself [#4267](https://github.com/earthly/earthly/pull/4267)/[#4268](https://github.com/earthly/earthly/pull/4268)
+- Removed all Cloud dependencies, commands, and flags as part of the [Earthly Cloud shutdown](https://earthly.dev/blog/shutting-down-earthfiles-cloud/) [#4235](https://github.com/earthly/earthly/pull/4325)
 
 ### Changed
+
 - `v0.8.15` will continue working after the shutdown, but with some error messages interspersed in the output.
 - `v0.8.16` does not emit log messages after the cloud shutdown. However, it removes many cloud-based commands and flags. If you are using these in your scripts or CI, please remove them.
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.15 - 2024-07-12
 
 ### Added
+
 - Ability to automatically install BYOC from a Terraform deployment, or manually.
 
 ### Fixed
-- Link-scoped devices will now properly autodetect MTU settings. 
+
+- Link-scoped devices will now properly autodetect MTU settings.
 - Better error reporting when cross-target copy references a file that does not exist. [#4221](https://github.com/earthly/earthly/issues/4221)
 - AWS credentials are propagated into `WITH DOCKER`. [#4241](https://github.com/earthly/earthly/issues/4241)
 
 ### Changed
+
 - Allow using `localhost` as a remote address when using satellites.
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.14 - 2024-06-10
 
 ### Fixed
+
 - Autocompletion failed to expand ARG names when referencing a target containing a `~`.
 - Improved `--ticktock` performance of cache key computation and GC; the improvement is most noticeable with many small RUN commands.
 
 ### Changed
+
 - Renamed experimental `github` command to `gha`, and introduced new `ls` and `remove` subcommands.
 
 ### Removed
+
 - Removed `PIPELINE` & `TRIGGER` keywords and associated code relating to formerly deprecated Earthly CI.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.13 - 2024-05-28
 
 ### Fixed
+
 - `RUN --no-cache` doesn't always work. [#2593](https://github.com/earthly/earthly/issues/2593)
 - ANSI escape codes are now removed from GitHub Action specific output. [#4131](https://github.com/earthly/earthly/issues/4131)
 - Specifying the `--ticktock` option will no longer show a buildkit version mismatch warning.
@@ -59,55 +71,68 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - Caching issue when the experimental `--ticktock` buildkit scheduler is enabled.
 
 ### Changed
+
 - Removed deprecated non-streaming log uploading mechanism; log sharing is now only supported by the streaming-upload mechanism. The hidden `--logstream` and `--logstream-upload` flags have been removed.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.12 - 2024-05-23
 
 ### Added
+
 - An experimental modification of the buildkit scheduler, which attempts to solve the `inconsistent graph state` error, which can be enabled locally with `earthly --ticktock ...`.
 
 ### Changed
+
 - The BYOC (bring your own cloud) commands have been updated to reflect server-side API changes.
 
 ### Fixed
+
 - The `--buildkit-container-name` flag was incorrectly being ignored when `--no-buildkit-update` was set.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.11 - 2024-05-16
 
 ### Added
+
 - Support for using HTTP(S) proxies when connecting to satellites.
 
 ### Fixed
+
 - Backwards compatibility issue where `WITH DOCKER` would fail with `EARTHLY_DOCKERD_CACHE_DATA: parameter not set` when using an older version of the earthly in combination with a satellite running v0.8.10.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.10 - 2024-05-14
 
 ### Added
+
 - New Github Actions Workflow commands integration `--github-annotations` flag or GITHUB_ACTIONS=true env. [#2189](https://github.com/earthly/earthly/issues/2189)
 - Added a new `--oidc` flag to `RUN` command which allows authentication to AWS via OIDC. Enable with the `VERSION --run-with-aws-oidc` feature flag. [#3804](https://github.com/earthly/earthly/issues/3804)
 - Experimental `WITH DOCKER --cache-id=<key>` feature, which will cache the contents of the docker data root, resulting in faster `--load` and `--pull` execution. Enabled with the `VERSION --docker-cache` feature flag. [#3399](https://github.com/earthly/earthly/issues/3399)
 - New `SAVE IMAGE --without-earthly-labels` feature, which will prevent any `dev.earthly.*` labels from being saved to the image. Enable with the `VERSION --allow-without-earthly-labels` feature flag. Thanks to [@3manuek](https://github.com/3manuek) for the contribution!
 
 ### Fixed
+
 - `WITH DOCKER` load time calculation. [#3485](https://github.com/earthly/earthly/issues/3485)
 - The earthly cli was not correctly setting the exit status on failures when executing a `RUN` on a satellite which reached the max execution time limit.
 - Self-hosted satellite connection issue.
 
 ### Changed
+
 - Earthly will now use source link format when displaying errors, e.g. `<path>:<line>:<col>` rather than `<path> line <line>:<col>`.
 - Improved error messages for cases where a shell is required to run a command such as `IF`, `FOR`, etc.
 - Earthly will now show a warning when earthly anonymously connects to a registry (which increases the chance of being rate-limited).
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.9 - 2024-04-24
@@ -117,6 +142,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - `BUILD --auto-skip` was recording failed steps as complete, which would lead to them being skipped on subsequent runs. [#4054](https://github.com/earthly/earthly/issues/4054)
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.8 - 2024-04-17
@@ -137,6 +163,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - `LET`/`SET` commands were not properly handled with the use of Auto-skip. [#3996](https://github.com/earthly/earthly/issues/3996)
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.7 - 2024-04-03
@@ -155,6 +182,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - runc has been updated to 1.1.12 in the buildkit fork
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.6 - 2024-03-18
@@ -168,6 +196,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - Fixed an issue in Auto-skip where a `+base` target's ARGs were not accounted for when calculating the cache. [#3895](https://github.com/earthly/earthly/issues/3895)
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.5 - 2024-03-11
@@ -188,6 +217,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - Rename `UDC` to `FUNCTION` in hint when a secret is not found.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.4 - 2024-02-21
@@ -208,6 +238,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - Fixes a problem with cache IDs not being expanded. For example: `CACHE --id $MY_ARG` was not using the assigned value of `$MY_ARG`.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.3 - 2024-01-31
@@ -218,6 +249,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - Fixes an issue where `earthly account login --token` was leading to partially created auth config files. [#3761](https://github.com/earthly/earthly/issues/3761)
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.2 - 2024-01-25
@@ -240,6 +272,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - Disabled the registry proxy server when Earthly is run from within a container. [#3736](https://github.com/earthly/earthly/issues/3736)
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.1 - 2024-01-23
@@ -251,6 +284,7 @@ All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will 
 - A new warning if Earthly is configured with a cache size less than 10GB; running with a small cache size may lead to unexpected cache misses.
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.8.0 - 2024-01-22
@@ -302,7 +336,7 @@ It should be noted that some of these features break backwards compatibility. Se
 - `LET` - Allows declaring a local variable. This command works similarly to `ARG` except that it cannot be overridden from the CLI. `LET` variables are allowed to shadow `ARG` variables, which allows you to promote an `ARG` to a local variable so that it may be used with `SET`.
 - `SET` - a new command that allows changing the value of variables declared with `LET`.
 - Outputting images from a remote runner has improved performance as it no longer transfers layers that are already present locally.
-- [Auto-skip](https://docs.earthly.dev/v/earthly-0.8/docs/caching/caching-in-earthfiles#3.-auto-skip) has been promoted to *beta* status.
+- [Auto-skip](https://docs.earthly.dev/v/earthly-0.8/docs/caching/caching-in-earthfiles#3.-auto-skip) has been promoted to _beta_ status.
 - `RUN --network=none` allows running a command without network access.
 - `.dockerignore` files are now used in `FROM DOCKERFILE` targets.
 - `DO --pass-args`, `BUILD --pass-args` etc allow passing all build arguments to external Earthfiles.
@@ -327,6 +361,7 @@ It should be noted that some of these features break backwards compatibility. Se
 - `BUILD` was not expanding `--platform` argument values.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.0-rc2 - 2024-01-09
@@ -379,7 +414,7 @@ It should be noted that some of these features break backwards compatibility. Se
 - `LET` - Allows declaring a local variable. This command works similarly to `ARG` except that it cannot be overridden from the CLI. `LET` variables are allowed to shadow `ARG` variables, which allows you to promote an `ARG` to a local variable so that it may be used with `SET`.
 - `SET` - a new command that allows changing the value of variables declared with `LET`.
 - Outputting images from a remote runner has improved performance as it no longer transfers layers that are already present locally.
-- [Auto-skip](https://docs.earthly.dev/v/earthly-0.8/docs/caching/caching-in-earthfiles#3.-auto-skip) has been promoted to *beta* status.
+- [Auto-skip](https://docs.earthly.dev/v/earthly-0.8/docs/caching/caching-in-earthfiles#3.-auto-skip) has been promoted to _beta_ status.
 - `RUN --network=none` allows running a command without network access.
 - `.dockerignore` files are now used in `FROM DOCKERFILE` targets.
 - `DO --pass-args`, `BUILD --pass-args` etc allow passing all build arguments to external Earthfiles.
@@ -397,6 +432,7 @@ It should be noted that some of these features break backwards compatibility. Se
 - Fixed a log sharing upload-resumption bug
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.8.0-rc1 - 2024-01-03
@@ -449,7 +485,7 @@ It should be noted that some of these features break backwards compatibility. Se
 - `LET` - Allows declaring a local variable. This command works similarly to `ARG` except that it cannot be overridden from the CLI. `LET` variables are allowed to shadow `ARG` variables, which allows you to promote an `ARG` to a local variable so that it may be used with `SET`.
 - `SET` - a new command that allows changing the value of variables declared with `LET`.
 - Outputting images from a remote runner has improved performance as it no longer transfers layers that are already present locally.
-- [Auto-skip](https://docs.earthly.dev/v/earthly-0.8/docs/caching/caching-in-earthfiles#3.-auto-skip) has been promoted to *beta* status.
+- [Auto-skip](https://docs.earthly.dev/v/earthly-0.8/docs/caching/caching-in-earthfiles#3.-auto-skip) has been promoted to _beta_ status.
 - `RUN --network=none` allows running a command without network access.
 - `.dockerignore` files are now used in `FROM DOCKERFILE` targets.
 - `DO --pass-args`, `BUILD --pass-args` etc allow passing all build arguments to external Earthfiles.
@@ -464,12 +500,14 @@ It should be noted that some of these features break backwards compatibility. Se
 - Parallelism is improved when running the same target with different arguments in certain cases (e.g. the target uses `WITH DOCKER`).
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.7.23 - 2023-12-18
 
 ### Added
-- Auto-skip (*experimental*) - a feature that allows you to skip large parts of a build in certain situations, especially suited for monorepos. For more information see [the auto-skip section from Caching in Earthfiles](https://docs.earthly.dev/docs/caching/caching-in-earthfiles#auto-skip).
+
+- Auto-skip (_experimental_) - a feature that allows you to skip large parts of a build in certain situations, especially suited for monorepos. For more information see [the auto-skip section from Caching in Earthfiles](https://docs.earthly.dev/docs/caching/caching-in-earthfiles#auto-skip).
 - A warning when a `COPY` destination includes a tilde (~). Related to [#1789](https://github.com/earthly/earthly/issues/1789).
 - A hint message to suggest the usage of `-i` flag to debug the build when a RUN command fails.
 - `start-interval` flag to `HEALTHCHECK` command for dockerfile parity [#3409](https://github.com/earthly/earthly/issues/3409).
@@ -477,30 +515,36 @@ It should be noted that some of these features break backwards compatibility. Se
 - `ssh_command` config option which can be used to override the ssh command that is used by `git` when connecting to an ssh-based repository. Thanks to [@weaversam8](https://github.com/weaversam8) for the contribution!
 
 ### Fixed
+
 - Limit the number of deprecation warnings when using `COMMAND` instead of `FUNCTION` keyword.
 - Fixed an error which stated `VERSION 0.0` is a valid Earthfile version.
 
 ### Changed
+
 - Changed the color used to print metadata values (such as ARGs values) in the build log to Faint Blue.
 - Updated default alpine/git image to v2.40.1.
 - When creating an auth token, an existing token will no longer be overwritten by default. To overwrite, the `--overwrite` flag should be used.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.7.22 - 2023-11-27
 
 ### Added
+
 - A new experimental `earthly --exec-stats` flag, which displays per-target execution stats such as total CPU and memory usage.
 - A new experimental `earthly billing view` command to get information about the organization billing plan.
 - Messages informing used build minutes during a build.
 - Help message when a build fails due to a missing referenced cloud secret.
 
 ### Fixed
+
 - Remove redundant verbose error messages that were not different from messages that were already being printed.
 - Fixed `failed to sign challenge` errors when attempting to login using an ed25519 key with the 1Password ssh-agent. [#3366](https://github.com/earthly/earthly/issues/3366)
 
 ### Changed
+
 - Final error messages for executions without a known target will be displayed without `_unknown *failed* |` prefix. and instead use `Error: ` as prefix more consistently.
 - Failing `RUN` commands under `LOCALLY` will display the same format of error message for `RUN` without `LOCALLY` [#3356](https://github.com/earthly/earthly/issues/3356).
 - Log sharing link will be printed last, even in case of a build error.
@@ -519,235 +563,287 @@ It should be noted that some of these features break backwards compatibility. Se
 - Improved speed of `SAVE IMAGE` exports when using a remote buildkit instance (e.g. satellite) from a MacOS host; this can be enabled with the `--use-remote-registry` option.
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.7.21 - 2023-10-24
 
 ### Added
+
 - The new ARG `EARTHLY_GIT_REFS` will contain the references to the current git commit, this ARG must be enabled with the `VERSION --git-refs` feature flag. [#2735](https://github.com/earthly/earthly/issues/2735)
 - A new `--force-certificate-generation` flag for bootstrapping, which will force the generation of self signed TLS certificates even when the `--no-buildkit` flag is set.
 
 ### Fixed
+
 - Fixed reduced parallelism regression which occurred when the target is the same but has different args -- can be enabled with `VERSION --use-visited-upfront-hash-collection` [#2377](https://github.com/earthly/earthly/issues/2377)
 - `prune --age` did not support `d` (for days) suffix, even thought `earthly --help` said it did [#3401](https://github.com/earthly/earthly/issues/3401)
 - `buildkit scheduler error: return leaving incoming open` which occurred during deduplication of operations within buildkit; cherry-picked 100d3cb6b6903be50f7a3e5dba193515aa9530fa from upstream buildkit repo. [#2957](https://github.com/earthly/earthly/issues/2957)
 - Changed `WITH DOCKER` to pull images in parallel [#2351](https://github.com/earthly/earthly/issues/2351)
 
 ### Changed
-- Registry proxy: Use lower-level TCP streaming [#2351](https://github.com/earthbuild/earthbuild/pull/3317)
+
+- Registry proxy: Use lower-level TCP streaming [#2351](https://github.com/earthly/earthly/pull/3317)
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.7.20 - 2023-10-03
 
 ### Added
+
 - Support for `mode` in mount cache [#3278](https://github.com/earthly/earthly/issues/3278).
-- Support for `mode` in CACHE commands [#3290](https://github.com/earthbuild/earthbuild/pull/3290).
+- Support for `mode` in CACHE commands [#3290](https://github.com/earthly/earthly/pull/3290).
 - Experimental support for shared/global caches (cache `id` is no longer scoped per Earthfile) [#1129](https://github.com/earthly/earthly/issues/1129). Note that this is feature-flagged, and only changed when `VERSION --global-cache 0.7` is defined.
 
 ### Fixed
+
 - A regression where URLs will not always get shorter when used as a prefix. Partially addresses [#3200](https://github.com/earthly/earthly/issues/3200).
 - If a build fails because of `qemu` missing, earthly will display a proper hint to install it [#3200](https://github.com/earthly/earthly/issues/3200).
-- Removed erroneous error-message which said error: 0 errors occurred [#3306](https://github.com/earthbuild/earthbuild/pull/3306).
+- Removed erroneous error-message which said error: 0 errors occurred [#3306](https://github.com/earthly/earthly/pull/3306).
 - A race condition when exiting interactive debugger mode resulting in confusing errors [#3200](https://github.com/earthly/earthly/issues/3200).
-- Docker auto-install script failures related to attempts to read from tty, while verifying docker's pgp key [#3324](https://github.com/earthbuild/earthbuild/pull/3324).
+- Docker auto-install script failures related to attempts to read from tty, while verifying docker's pgp key [#3324](https://github.com/earthly/earthly/pull/3324).
 - Issue affecting pulling images in Podman [#2471](https://github.com/earthly/earthly/issues/2471).
-- A `panic: send on closed channel` error would sometimes occur during shutdown of the logstream [#3325](https://github.com/earthbuild/earthbuild/pull/3325).
+- A `panic: send on closed channel` error would sometimes occur during shutdown of the logstream [#3325](https://github.com/earthly/earthly/pull/3325).
 
 ### Changed
+
 - Some error messages at the end of an execution will only be displayed in verbose mode (`earthly -V ...`), e.g. `Error: build target: build main: failed to solve:`... [#3200](https://github.com/earthly/earthly/issues/3200)
 - `GIT CLONE` URLs will only be printed once as part of a prefix, e.g. `+my-clone-target(https://g/e/earthly) | --> GIT CLONE (--branch ) https://github.com/earthbuild/earthbuild`
 - Clarify errors in interactive debugger so that they won't be confused with the build errors [#3200](https://github.com/earthly/earthly/issues/3200).
 - The `WITH DOCKER` auto-install script will now pass the `--no-tty` option to `gpg` [#3288](https://github.com/earthly/earthly/issues/3288).
 
 ### Additional Info
+
 - This release includes changes to buildkit
 
 ## v0.7.19 - 2023-09-20
 
 ### Added
-- Added "dev.earthly.*" LABELS to saved images, for example `dev.earthly.version` will be set to `v0.7.19` (or whatever version of earthly is used) [#3247](https://github.com/earthly/earthly/issues/3247).
+
+- Added "dev.earthly.\*" LABELS to saved images, for example `dev.earthly.version` will be set to `v0.7.19` (or whatever version of earthly is used) [#3247](https://github.com/earthly/earthly/issues/3247).
 - Added option to verbose print known_hosts to make it easier to debug git related commands [#3234](https://github.com/earthly/earthly/issues/3234).
 
 ### Fixed
+
 - When a project based secret is not found, the name of the secret will now be displayed along with the "not found" error.
 
 ### Changed
+
 - Log sharing will now stream logs as your build is running (rather than uploading logs when build execution completes).
 - Satellite reserve calls will now retry on error [#3255](https://github.com/earthly/earthly/issues/3255).
 - Display warning when TLS is disabled.
 
 ### Additional Info
+
 - This release has no changes to buildkit
 
 ## v0.7.18 - 2023-09-18 (aborted release/not recommended)
+
 <!--changelog-parser-ignore-start-->
+
 Note: This release was aborted due to a regression in the log sharing functionality
+
 <!--changelog-parser-ignore-end-->
 
 ### Added
-- Added "dev.earthly.*" LABELS to saved images, for example `dev.earthly.version` will be set to `v0.7.18` (or whatever version of earthly is used) [#3247](https://github.com/earthly/earthly/issues/3247).
+
+- Added "dev.earthly.\*" LABELS to saved images, for example `dev.earthly.version` will be set to `v0.7.18` (or whatever version of earthly is used) [#3247](https://github.com/earthly/earthly/issues/3247).
 - Added option to verbose print known_hosts to make it easier to debug git related commands [#3234](https://github.com/earthly/earthly/issues/3234).
 
 ### Fixed
+
 - When a project based secret is not found, the name of the secret will now be displayed along with the "not found" error.
 
 ### Changed
+
 - Refactor console output code (e.g. removed redundant output, prepared code for a future streaming log uploads... coming soon).
 - Display warning when TLS is disabled.
 
 ## v0.7.17 - 2023-08-30
 
 ### Added
+
 - Added a `--pass-arg` flag that can be used with `BUILD`, `FROM`, `COPY`, `WITH DOCKER --load`, or `DO`, which will pass all build arguments to external Earthfiles. [#1891](https://github.com/earthly/earthly/issues/1891)
 
 ## v0.7.16 - 2023-08-28
 
 ### Fixed
+
 - Fixed a cgroup v2 related bug that affected systemd-based images (such as kind) from being run via `WITH DOCKER`. [#3159](https://github.com/earthly/earthly/issues/3159)
 
 ### Changed
+
 - Removed redundant output when parts of builds are re-used; the `--verbose` flag will still display the output.
 - Calling `earthly secret set <path>` (when run interactively) will now prompt for a single-line secret if no other flags are given.
 - fixed bug in `earthly registry setup` which was waiting for an end of file (eof) rather than newline, when prompting for a password.
 
 ### Added
+
 - Added additional error message output when buildkit scheduller errors occur (in order to help debug the ongoing [2957](https://github.com/earthly/earthly/issues/2957) issue).
 
 ## v0.7.15 - 2023-08-04
 
 ### Fixed
+
 - Fixed a bug in `WITH DOCKER` which prevented the use of newer versions of docker. [#3164](https://github.com/earthly/earthly/issues/3164)
 
 ## v0.7.14 - 2023-07-31
 
 ### Changed
+
 - Update buildkit (contains upstream changes up to 687091bb6c8aaa0185cdc570c4db3db533f329d0).
 - Use `HTTPS_PROXY` env when connecting to earhly cloud API.
 
 ## v0.7.13 - 2023-07-26
 
 ### Added
+
 - `earthly account list-tokens` now shows the last time a token was used
 - Experimental command `earthly init` to initialize an Earthfile in a project (currently supporting only golang projects)
 
 ### Fixed
+
 - Fixed a bug, where the command to create tokens with a set expiration failed.
 - Long pauses at the end of builds, which were characterized by apparent freezes or delays with the message `Waiting on Buildkit...`.
 - `earthly account create-token` no longer panics when parsing expiration date
 - `earthly account login` could change the active user when the JWT expired and an SSH key existed for a different user; now earthly will either refresh the JWT or error
 
 ### Changed
-- Setting env vars like  `FORCE_COLOR`, or `EARTHLY_FULL_TARGET` to `0`, `false`, `FALSE`, or `` (an empty-string) will no longer force the color, use any other value like `1`, `true`, or `yesplease`.
+
+- Setting env vars like `FORCE_COLOR`, or `EARTHLY_FULL_TARGET` to `0`, `false`, `FALSE`, or ``(an empty-string) will no longer force the color, use any other value like`1`, `true`, or `yesplease`.
 - `earthly org list` now shows the currently selected org
 
 ## v0.7.12 - 2023-07-17
 
 ### Added
+
 - warning if acquiring file-lock takes longer than 3 seconds.
 
 ### Changed
+
 - improved error message when a 429 too many requests rate limit error occurs.
 - `earthly sat ls -a` shows last accessed time
 - improved output for listing auth tokens
 
 ### Fixed
+
 - make use of org from earthly config when using satellite commands.
 
 ## v0.7.12-rc1 - 2023-07-13
 
 ### Added
+
 - warning if acquiring file-lock takes longer than 3 seconds.
 
 ### Changed
+
 - improved error message when a 429 too many requests rate limit error occurs.
 - `earthly sat ls -a` shows last accessed time
 
 ### Fixed
+
 - make use of org from earthly config when using satellite commands.
 
 ## v0.7.11 - 2023-07-06
 
 ### Added
+
 - `global.org` configuration value to set a default org for all `earthly` commands that require it.
 - `earthly org select` and `earthly org unselect` commands, as shortcuts to set a default organization in the `earthly` config file.
 
 ### Changed
+
 - Removed the default size in satellite launch (the default size is now determined by the backend when not provided) [#3057](https://github.com/earthly/earthly/issues/3057)
 - Deprecated the satellite org configuration value. It uses the new global configuration value.
 
 ## v0.7.10 - 2023-07-05
 
 ### Changed
+
 - Removed the default size in satellite launch (the default size is now determined by the backend when not provided) [#3057](https://github.com/earthly/earthly/issues/3057)
 - Earthly cloud organization auto-detection has been deprecated and should now be explicitly set with the `--org` flag or with the `EARTHLY_ORG` environment variable.
 - Buildkit has been updated to include upstream changes up to cdf28d6fff9583a0b173c62ac9a28d1626599d3b.
 
 ### Fixed
+
 - Updated the podman auth provider to better understand podman `auth.json` locations. [#3038](https://github.com/earthly/earthly/issues/3038)
 - Fixed our aggregated authprovider ignoring the cloud authprovider when a project is set after the first creds lookup [#3058](https://github.com/earthly/earthly/issues/3058)
 
 ## v0.7.9 - 2023-06-22
 
 ### Changed
+
 - The command `docker-build` now also supports passing multiple platforms using a comma (e.g `--platform linux/amd64,linux/arm64`)
 - Increased temporary lease duration of buildkit's history queue to prevent unknown history in blob errors under high cpu load. [#3000](https://github.com/earthly/earthly/issues/3000)
 - Performing an `earthly account logout` will keep you logged out -- earthly will no longer attempt an auto-login via ssh-agent (use `earthly account login` to log back in).
 
 ### Fixed
+
 - Fixed a bug in satellite update command which was incorrectly changing satellites to medium size.
 - Fixed support for being authenticated with multiple registries when using the cloud-based `earthly registry` feature. [#3010](https://github.com/earthly/earthly/issues/3010)
 - Fixed `WITH DOCKER` auto install script when using latest (bookworm) version.
 
 ### Added
+
 - Buildkit logs now include version and revision.
 - Satellite name autocompletion
 
 ## v0.7.8 - 2023-06-07
 
 ### Added
+
 - Add a new command `docker-build` to build a docker image using a Dockerfile without using an Earthfile, locally or on a satellite.
 
 ### Changed
+
 - `FROM DOCKERFILE` will use a `.dockerignore` file when using a build context from the host system and both `.earthlyignore` and `.earthignore` do not exist. Enable with `VERSION --use-docker-ignore 0.7`.
 
 ### Fixed
+
 - Fixed upstream race condition bug in buildkit, which resulted in `failed to solve: unknown blob sha256:<...> in history` errors. [#3000](https://github.com/earthly/earthly/issues/3000)
 
 ## v0.7.7 - 2023-06-01
 
 ### Added
+
 - The new ARG `EARTHLY_CI_RUNNER` indicates whether the current build is executed in Earthly CI. Enable with `VERSION --earthly-ci-runner-arg 0.7`.
 
 ### Changed
+
 - Updated buildkit up to 60d134bf7 and fsutil up to 9e7a6df48576; this includes a buildkit fix for 401 Unauthorized errors. [#2973](https://github.com/earthly/earthly/issues/2973)
 - Enabled `GIT_LFS_SKIP_SMUDGE=1` when pulling git repos (to avoid pulling in large files initially).
 
 ### Fixed
+
 - The earthly docker image incorrectly showed `dev-main` under the embedded buildkit version.
 
 ## v0.7.6 - 2023-05-23
 
 ### Added
+
 - Better error messages when git operations fail.
 - Added a `runc-ps` script under the earthly-buildkitd container to make it easier to see what processes are running.
 
 ### Fixed
+
 - The builtin 'docker compose' (rather than `docker-compose` script) is now used when using the `WITH DOCKER` command under alpine 3.18 or greater.
 - Fixed context timeout value overflow when connecting to a remote buildkit instance.
 
 ## v0.7.5 - 2023-05-10
 
 ### Changed
+
 - Remote BuildKit will use TLS by default.
 - Deprecation warning: Secret IDs naming scheme should follow the ARG naming scheme; i.e. a letter followed by alphanumeric characters or underscores. [#2883](https://github.com/earthly/earthly/issues/2883)
 - Secrets take precedence over ARGs of the same name. [#2931](https://github.com/earthly/earthly/issues/2931)
 
 ### Added
-- Experimental support for performing a `git lfs pull --include=<path>` when referencing a remote target on the cli, when used with the new `--git-lfs-pull-include` flag. [#2992](https://github.com/earthbuild/earthbuild/pull/2922)
+
+- Experimental support for performing a `git lfs pull --include=<path>` when referencing a remote target on the cli, when used with the new `--git-lfs-pull-include` flag. [#2992](https://github.com/earthly/earthly/pull/2922)
 
 ### Fixed
+
 - `SAVE IMAGE <img>` was incorrectly pushed when earthly was run with the `--push` cli flag (this restores the requirement that images that are pushed must be defined with `SAVE IMAGE --push <img>`). [#2923](https://github.com/earthly/earthly/issues/2923)
 - Incorrect global ARG values when chaining multiple DO commands together. [#2920](https://github.com/earthly/earthly/issues/2920)
 - Build args autocompletion under artifact mode.
@@ -755,11 +851,13 @@ Note: This release was aborted due to a regression in the log sharing functional
 ## v0.7.4 - 2023-04-12
 
 ### Changed
+
 - Updated the github ssh-rsa public key in the pre-populated buildkitd known_hosts entries.
 
 ## v0.7.3 - 2023-04-12
 
 ### Added
+
 - A host of changes to variables under the `--arg-scope-and-set` feature flag:
   - Redeclaring an `ARG` in the same scope as a previous declaration is now an error.
   - `ARG`s inside of targets will no longer have their default value overridden by global `ARG`s.
@@ -779,7 +877,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 
 - Fixed `Could not detect digest for image` warnings for when using `WITH DOCKER --load` which referenced an earthly target that
   included a `FROM` referencing an image following the `docker.io/<user>/<img>` naming scheme (rather than the `docker.io/library/<user>/<img>` scheme).
-- Fixed `COPY --if-exists` to work with earthly targets.  [#2541](https://github.com/earthly/earthly/issues/2541)
+- Fixed `COPY --if-exists` to work with earthly targets. [#2541](https://github.com/earthly/earthly/issues/2541)
 - Intentional-indentation of comments is no longer removed by the doc command. [#2747](https://github.com/earthly/earthly/issues/2747)
 - `SAVE ARTIFACT ... AS LOCAL ...` could not write to non-current directories upon failure of a TRY/FINALLY block. [#2800](https://github.com/earthly/earthly/issues/2800)
 
@@ -788,7 +886,7 @@ Note: This release was aborted due to a regression in the log sharing functional
 ### Added
 
 - Support for [Rosetta](https://developer.apple.com/documentation/apple-silicon/about-the-rosetta-translation-environment) translation environment (emulator) in buildkit as an alternative to QEMU. To enable, go to Docker Desktop -> Settings -> Features in development -> Check `Use Rosetta for x86/amd64 emulation on Apple Silicon`.
-- New ARG `EARTHLY_GIT_BRANCH` will contain the branch of the current git commit, this ARG must be enabled with the `VERSION --git-branch` feature flag. [#2735](https://github.com/earthbuild/earthbuild/pull/2735)
+- New ARG `EARTHLY_GIT_BRANCH` will contain the branch of the current git commit, this ARG must be enabled with the `VERSION --git-branch` feature flag. [#2735](https://github.com/earthly/earthly/pull/2735)
 - Verbose logging when git configurations perform a regex substitution.
 
 ### Fixed
@@ -838,7 +936,7 @@ For more information on how to use `PIPELINE` and `TRIGGER`, please see the [ref
 
 **Podman support**
 
-Podman support has now been promoted out of *beta* status and is generally available in 0.7. Earthly will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
+Podman support has now been promoted out of _beta_ status and is generally available in 0.7. Earthly will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
 
 Please note that rootful podman is required. Rootless podman is not supported.
 
@@ -930,7 +1028,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - Earthly will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthly/earthly/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthly/earthly/issues/2478)
 - The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthly will print a warning.
-- `earthly ls` has been promoted from *experimental* to *beta* status.
+- `earthly ls` has been promoted from _experimental_ to _beta_ status.
 - Setting a `VERSION` feature flag boolean to false (or any other value) will now raise an error; previously it was syntactically valid but had no effect.
 - `SAVE ARTIFACT <path> AS LOCAL ...` when used under a `TRY` / `FINALLY` can fail to be fully transferred to the host when the `TRY` command fails (resulting in an partially transferred file); an underflow can still occur, and is now detected and will not export the partial file. [2452](https://github.com/earthly/earthly/issues/2452)
 - The `--keep-own` flag for `SAVE ARTIFACT` is now applied by default; note that `COPY --keep-own` must still be used in order to keep ownership
@@ -945,7 +1043,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - The clause `WAIT` is now generally available. The `WAIT` clause allows controlling of build order for operations that require it. This allows use-cases such as pushing images to a registry, followed by infrastructure changes that use the newly pushed images. Previously under `VERSION --wait-block 0.6`.
 - The command `CACHE` is now generally available. The `CACHE` command allows declaring a cache mount that can be used by any `RUN` command in the target, and also persists in the final image of the target (contents available when used via `FROM`). Previously under `VERSION --use-cache-command 0.6`.
 - The command `HOST` is now generally available. The `HOST` command allows declaring an `/etc/hosts` entry. Previously under `VERSION --use-host-command 0.6`.
-- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit. [#2462](https://github.com/earthbuild/earthbuild/pull/2462)
+- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit. [#2462](https://github.com/earthly/earthly/pull/2462)
 - New ARGs `EARTHLY_VERSION` and `EARTHLY_BUILD_SHA` contain the version of Earthly and the git sha of Earthly itself, respectively.
 - It is now possible to execute shell commands as part of any command that allows using variables. For example `VOLUME $(cat /volume-name.txt)`. Previously under `VERSION --shell-out-anywhere 0.6`.
 - Allow custom image to be used for git operations. [#2027](https://github.com/earthly/earthly/issues/2027)
@@ -954,7 +1052,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - `COPY --chmod <mode>` allows setting the permissions of the copied files. Previously under `VERSION --use-chmod 0.6`.
 - The new ARG `EARTHLY_LOCALLY` indicates whether the current target is executed in a `LOCALLY` context. Previously under `VERSION --earthly-locally-arg 0.6`.
 - The new ARGs `EARTHLY_GIT_AUTHOR` and `EARTHLY_GIT_CO_AUTHORS` contain the author and co-authors of the current git commit, respectively. Previously under `VERSION --earthly-git-author-args 0.6`.
-- `earthly doc [projectRef[+targetRef]]` is a new subcommand in *beta* status.  It will parse and output documentation comments on targets.
+- `earthly doc [projectRef[+targetRef]]` is a new subcommand in _beta_ status. It will parse and output documentation comments on targets.
 - Ability to store docker registry credentials in cloud secrets and corresponding `earthly registry setup|list|remove` commands; credentials can be associated with either your user or project.
 - New satellite commands for enabling auto-upgrades and forcing a manual upgrade.
 
@@ -991,7 +1089,7 @@ For more information on how to use `PIPELINE` and `TRIGGER`, please see the [ref
 
 **Podman support**
 
-Podman support has now been promoted out of *beta* status and is generally available in 0.7. Earthly will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
+Podman support has now been promoted out of _beta_ status and is generally available in 0.7. Earthly will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
 
 Please note that rootful podman is required. Rootless podman is not supported.
 
@@ -1083,13 +1181,12 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - Earthly will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthly/earthly/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthly/earthly/issues/2478)
 - The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthly will print a warning.
-- `earthly ls` has been promoted from *experimental* to *beta* status.
+- `earthly ls` has been promoted from _experimental_ to _beta_ status.
 - Setting a `VERSION` feature flag boolean to false (or any other value) will now raise an error; previously it was syntactically valid but had no effect.
 - `SAVE ARTIFACT <path> AS LOCAL ...` when used under a `TRY` / `FINALLY` can fail to be fully transferred to the host when the `TRY` command fails (resulting in an partially transferred file); an underflow can still occur, and is now detected and will not export the partial file. [2452](https://github.com/earthly/earthly/issues/2452)
 - The `--keep-own` flag for `SAVE ARTIFACT` is now applied by default; note that `COPY --keep-own` must still be used in order to keep ownership
 - Values from the `.env` file will no longer be propagated to Earthfile `ARG`s or `RUN --secret=...` commands; instead values must be placed in `.arg` or `.secret` files respectively. Note that this is a backwards incompatible change and will apply to all Earthfiles (regardless of the defined `VERSION` value). [#1736](https://github.com/earthly/earthly/issues/1736)
 - Some particularly obtuse syntax errors now have hints added to help clarify what the expected syntax might be. [#2656](https://github.com/earthly/earthly/issues/2656)
-
 
 ### Added
 
@@ -1097,7 +1194,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - The clause `WAIT` is now generally available. The `WAIT` clause allows controlling of build order for operations that require it. This allows use-cases such as pushing images to a registry, followed by infrastructure changes that use the newly pushed images. Previously under `VERSION --wait-block 0.6`.
 - The command `CACHE` is now generally available. The `CACHE` command allows declaring a cache mount that can be used by any `RUN` command in the target, and also persists in the final image of the target (contents available when used via `FROM`). Previously under `VERSION --use-cache-command 0.6`.
 - The command `HOST` is now generally available. The `HOST` command allows declaring an `/etc/hosts` entry. Previously under `VERSION --use-host-command 0.6`.
-- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit. [#2462](https://github.com/earthbuild/earthbuild/pull/2462)
+- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit. [#2462](https://github.com/earthly/earthly/pull/2462)
 - New ARGs `EARTHLY_VERSION` and `EARTHLY_BUILD_SHA` contain the version of Earthly and the git sha of Earthly itself, respectively.
 - It is now possible to execute shell commands as part of any command that allows using variables. For example `VOLUME $(cat /volume-name.txt)`. Previously under `VERSION --shell-out-anywhere 0.6`.
 - Allow custom image to be used for git operations. [#2027](https://github.com/earthly/earthly/issues/2027)
@@ -1106,7 +1203,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - `COPY --chmod <mode>` allows setting the permissions of the copied files. Previously under `VERSION --use-chmod 0.6`.
 - The new ARG `EARTHLY_LOCALLY` indicates whether the current target is executed in a `LOCALLY` context. Previously under `VERSION --earthly-locally-arg 0.6`.
 - The new ARGs `EARTHLY_GIT_AUTHOR` and `EARTHLY_GIT_CO_AUTHORS` contain the author and co-authors of the current git commit, respectively. Previously under `VERSION --earthly-git-author-args 0.6`.
-- `earthly doc [projectRef[+targetRef]]` is a new subcommand in *beta* status.  It will parse and output documentation comments on targets.
+- `earthly doc [projectRef[+targetRef]]` is a new subcommand in _beta_ status. It will parse and output documentation comments on targets.
 - Ability to store docker registry credentials in cloud secrets and corresponding `earthly registry setup|list|remove` commands; credentials can be associated with either your user or project.
 - New satellite commands for enabling auto-upgrades and forcing a manual upgrade.
 
@@ -1142,7 +1239,7 @@ For more information on how to use `PIPELINE` and `TRIGGER`, please see the [ref
 
 **Podman support**
 
-Podman support has now been promoted out of *beta* status and is generally available in 0.7. Earthly will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
+Podman support has now been promoted out of _beta_ status and is generally available in 0.7. Earthly will automatically detect the container frontend, whether that's `docker` or `podman` and use it automatically for running Buildkit locally, or for outputting images locally resulting from the build.
 
 Please note that rootful podman is required. Rootless podman is not supported.
 
@@ -1225,7 +1322,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - Earthly will automatically shellout to determine the `$HOME` value when referenced [#2469](https://github.com/earthly/earthly/issues/2469)
 - Improved error message when invalid shell variable name is configured for a secret. [#2478](https://github.com/earthly/earthly/issues/2478)
 - The `--ci` flag no longer implies `--save-inline-cache` and `--use-inline-cache` since they were 100% CPU usage in some edge cases. These flags may still be explicitly enabled with `--ci`, but earthly will print a warning.
-- `earthly ls` has been promoted from *experimental* to *beta* status.
+- `earthly ls` has been promoted from _experimental_ to _beta_ status.
 - Setting a `VERSION` feature flag boolean to false (or any other value) will now raise an error; previously it was syntactically valid but had no effect.
 - `SAVE ARTIFACT <path> AS LOCAL ...` when used under a `TRY` / `FINALLY` can fail to be fully transferred to the host when the `TRY` command fails (resulting in an partially transferred file); an underflow can still occur, and is now detected and will not export the partial file. [2452](https://github.com/earthly/earthly/issues/2452)
 - The `--keep-own` flag for `SAVE ARTIFACT` is now applied by default; note that `COPY --keep-own` must still be used in order to keep ownership
@@ -1236,7 +1333,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - The clause `WAIT` is now generally available. The `WAIT` clause allows controlling of build order for operations that require it. This allows use-cases such as pushing images to a registry, followed by infrastructure changes that use the newly pushed images. Previously under `VERSION --wait-block 0.6`.
 - The command `CACHE` is now generally available. The `CACHE` command allows declaring a cache mount that can be used by any `RUN` command in the target, and also persists in the final image of the target (contents available when used via `FROM`). Previously under `VERSION --use-cache-command 0.6`.
 - The command `HOST` is now generally available. The `HOST` command allows declaring an `/etc/hosts` entry. Previously under `VERSION --use-host-command 0.6`.
-- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit. [#2462](https://github.com/earthbuild/earthbuild/pull/2462)
+- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit. [#2462](https://github.com/earthly/earthly/pull/2462)
 - New ARGs `EARTHLY_VERSION` and `EARTHLY_BUILD_SHA` contain the version of Earthly and the git sha of Earthly itself, respectively.
 - It is now possible to execute shell commands as part of any command that allows using variables. For example `VOLUME $(cat /volume-name.txt)`. Previously under `VERSION --shell-out-anywhere 0.6`.
 - Allow custom image to be used for git operations. [#2027](https://github.com/earthly/earthly/issues/2027)
@@ -1245,7 +1342,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - `COPY --chmod <mode>` allows setting the permissions of the copied files. Previously under `VERSION --use-chmod 0.6`.
 - The new ARG `EARTHLY_LOCALLY` indicates whether the current target is executed in a `LOCALLY` context. Previously under `VERSION --earthly-locally-arg 0.6`.
 - The new ARGs `EARTHLY_GIT_AUTHOR` and `EARTHLY_GIT_CO_AUTHORS` contain the author and co-authors of the current git commit, respectively. Previously under `VERSION --earthly-git-author-args 0.6`.
-- `earthly doc [projectRef[+targetRef]]` is a new subcommand in *beta* status.  It will parse and output documentation comments on targets.
+- `earthly doc [projectRef[+targetRef]]` is a new subcommand in _beta_ status. It will parse and output documentation comments on targets.
 - Ability to store docker registry credentials in cloud secrets and corresponding `earthly registry login|list|logout` commands; credentials can be associated with either your user or project.
 - New satellite commands for enabling auto-upgrades and forcing a manual upgrade.
 
@@ -1258,7 +1355,6 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - The `--platform` argument is no longer passed to docker or podman, which caused podman to always pull the buildkit image even when it already existed locally. [#2511](https://github.com/earthly/earthly/issues/2511), [#2566](https://github.com/earthly/earthly/issues/2566)
 - Fixed missing inline cache export; note that inline cache exports **do not** work when used within a `WAIT` / `END` block, this is a known current limitation. [#2178](https://github.com/earthly/earthly/issues/2178)
 - Indentation in the base Earthfile target would cause a panic (when no other targets existed); now a syntax error is returned. [#2603](https://github.com/earthly/earthly/issues/2603)
-
 
 ## v0.7.0-rc1 - 2023-01-18
 
@@ -1301,7 +1397,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ### Added
 
-- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit, this ARG must be enabled with the `VERSION --git-commit-author-timestamp` feature flag. [#2462](https://github.com/earthbuild/earthbuild/pull/2462)
+- New ARG `EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP` will contain the author timestamp of the current git commit, this ARG must be enabled with the `VERSION --git-commit-author-timestamp` feature flag. [#2462](https://github.com/earthly/earthly/pull/2462)
 - Allow custom image to be used for git operations. [#2027](https://github.com/earthly/earthly/issues/2027)
 
 ### Fixed
@@ -1316,9 +1412,9 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ### Added
 
-- Added support for a custom `.netrc` file path using the standard `NETRC` environmental variable. [#2426](https://github.com/earthbuild/earthbuild/pull/2426)
+- Added support for a custom `.netrc` file path using the standard `NETRC` environmental variable. [#2426](https://github.com/earthly/earthly/pull/2426)
 - Ability to run multiple Earthly installations at a time via `EARTHLY_INSTALLATION_NAME` environment variable, or the `--installation-name` CLI flag. The installation name defaults to `earthly` if not specified. Different installations use different configurations, different buildkit Daemons, different cache volumes, and different ports.
-- New `EARTHLY_CI` builtin arg, which is set to `true` when earthly is run with the `--ci` flag, this ARG must be enabled with the `VERSION --ci-arg` feature flag. [#2398](https://github.com/earthbuild/earthbuild/pull/2398)
+- New `EARTHLY_CI` builtin arg, which is set to `true` when earthly is run with the `--ci` flag, this ARG must be enabled with the `VERSION --ci-arg` feature flag. [#2398](https://github.com/earthly/earthly/pull/2398)
 
 ### Changed
 
@@ -1353,22 +1449,27 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 ## v0.6.28 - 2022-10-26
 
 ### Added
+
 - A summary of context file transfers is now displayed every 15 seconds.
 - Satellite wake command, which can force a satellite to wake up (useful for calling inspect or other non-build related commands).
 
 ### Changed
+
 - `WITH DOCKER` merging of user specific `/etc/docker/daemon.json` settings data now applies to arrays (previously only dictionaries were supported).
 - A final warning will be displayed if earthly is terminated due to a interrupt signal (ctrl-c).
 
 ### Changed
+
 - Updated buildkit to include changes up to [c717d6aa7543d4b83395e0552ef2eb311f563aab](https://github.com/moby/buildkit/commit/c717d6aa7543d4b83395e0552ef2eb311f563aab)
 
 ## v0.6.27 - 2022-10-17
 
 ### Changed
+
 - Support for all ssh-based key types (e.g. ssh-ed25519), and not only ssh-rsa. [#1783](https://github.com/earthly/earthly/issues/1783)
 
 ### Fixed
+
 - Unable to specify public key to add via the command-line, e.g. running `earthly account add-key <key>` ignored the key and fell back to an interactive prompt.
 - `GIT CLONE` command was ignoring the `WORK DIR` command when `--use-copy-link` feature was set.
 
@@ -1406,7 +1507,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - The `earthly org invite` command now has the ability to invite multiple email addresses at once.
 - Experimental support for `TRY/FINALLY`, which allows saving artifacts upon failure. [#988](https://github.com/earthly/earthly/issues/988), [#587](https://github.com/earthly/earthly/issues/587).
-  Not that this is only a partial implementation, and only accepts a *single* RUN command in the `TRY`, and only `SAVE ARTIFACT` commands in the `FINALLY` block.
+  Not that this is only a partial implementation, and only accepts a _single_ RUN command in the `TRY`, and only `SAVE ARTIFACT` commands in the `FINALLY` block.
 - Ability to enable specific satellite features via cli flags, e.g. the new experimental sleep feature can be enabled with
   `earthly satellite launch --feature-flags satellite-sleep my-satellite`.
 
@@ -1548,8 +1649,8 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ### Added
 
-- Experimental support for `SAVE IMAGE --no-manifest-list`. This option disables creating a multi-platform manifest list for the image, even if the image is created with a non-default platform. This allows the user to create non-native images (e.g. amd64 image on an M1 laptop) that are still compatible with AWS lambda. To enable this feature, please use `VERSION --use-no-manifest-list 0.6`. [#1802](https://github.com/earthbuild/earthbuild/pull/1802)
-- Introduced Experimental support for `--chmod` flag in `COPY`. To enable this feature, please use `VERSION --use-chmod 0.6`. [#1817](https://github.com/earthbuild/earthbuild/pull/1817)
+- Experimental support for `SAVE IMAGE --no-manifest-list`. This option disables creating a multi-platform manifest list for the image, even if the image is created with a non-default platform. This allows the user to create non-native images (e.g. amd64 image on an M1 laptop) that are still compatible with AWS lambda. To enable this feature, please use `VERSION --use-no-manifest-list 0.6`. [#1802](https://github.com/earthly/earthly/pull/1802)
+- Introduced Experimental support for `--chmod` flag in `COPY`. To enable this feature, please use `VERSION --use-chmod 0.6`. [#1817](https://github.com/earthly/earthly/pull/1817)
 - Experimental `secret_provider` config option allows users to provide a script which returns secrets. [#1808](https://github.com/earthly/earthly/issues/1808)
 - `/etc/ssh/ssh_known_hosts` are now passed to buildkit. [#1769](https://github.com/earthly/earthly/issues/1769)
 
@@ -1557,13 +1658,13 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - Targets with the same `CACHE` commands incorrectly shared cached contents. [#1805](https://github.com/earthly/earthly/issues/1805)
 - Sometimes local outputs and pushes are skipped mistakenly when a target is referenced both via `FROM` and via `BUILD` [#1823](https://github.com/earthly/earthly/issues/1823)
-- `GIT CLONE` failure (`makeCloneURL does not support gitMatcher substitution`) when used with a self-hosted git repo that was configured under `~/.earthly/config.yml`  [#1757](https://github.com/earthly/earthly/issues/1757)
+- `GIT CLONE` failure (`makeCloneURL does not support gitMatcher substitution`) when used with a self-hosted git repo that was configured under `~/.earthly/config.yml` [#1757](https://github.com/earthly/earthly/issues/1757)
 
 ## v0.6.13 - 2022-03-30
 
 ### Added
 
-- Earthly now warns when encountering Earthfiles with no `VERSION` specified. In the future, the `VERSION` command will be mandatory. [#1775](https://github.com/earthbuild/earthbuild/pull/1775)
+- Earthly now warns when encountering Earthfiles with no `VERSION` specified. In the future, the `VERSION` command will be mandatory. [#1775](https://github.com/earthly/earthly/pull/1775)
 
 ### Changed
 
@@ -1607,7 +1708,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - An experimental feature whereby `WITH DOCKER` parallelizes building of the
   images to be loaded has been added. To enable this feature use
-  `VERSION --parallel-load 0.6`. [#1725](https://github.com/earthbuild/earthbuild/pull/1725)
+  `VERSION --parallel-load 0.6`. [#1725](https://github.com/earthly/earthly/pull/1725)
 - Added `cache_size_pct` config option to allow specifying cache size as a percentage of disk space.
 
 ### Fixed
@@ -1638,11 +1739,11 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - Errors when using inline caching indicating `invalid layer index` [#1635](https://github.com/earthly/earthly/issues/1635)
 - Podman can now use credentials from the default location [#1644](https://github.com/earthly/earthly/issues/1644)
-- Podman can now use the local registry cache without modifying `registries.conf` [#1675](https://github.com/earthbuild/earthbuild/pull/1675)
-- Podman can now use `WITH DOCKER --load` inside a target marked as `LOCALLY` [#1675](https://github.com/earthbuild/earthbuild/pull/1675)
-- Interactive sessions should now work with rootless configurations that have no apparent external IP address [#1573](https://github.com/earthly/earthly/issues/1573), [#1689](https://github.com/earthbuild/earthbuild/pull/1689)
+- Podman can now use the local registry cache without modifying `registries.conf` [#1675](https://github.com/earthly/earthly/pull/1675)
+- Podman can now use `WITH DOCKER --load` inside a target marked as `LOCALLY` [#1675](https://github.com/earthly/earthly/pull/1675)
+- Interactive sessions should now work with rootless configurations that have no apparent external IP address [#1573](https://github.com/earthly/earthly/issues/1573), [#1689](https://github.com/earthly/earthly/pull/1689)
 - On native Windows installations, Earthly properly detects the local git path when it's available [#1663](https://github.com/earthly/earthly/issues/1663)
-- On native Windows installations, Earthly will properly identify targets in Earthfiles outside of the current directory using the `\` file separator  [#1663](https://github.com/earthly/earthly/issues/1663)
+- On native Windows installations, Earthly will properly identify targets in Earthfiles outside of the current directory using the `\` file separator [#1663](https://github.com/earthly/earthly/issues/1663)
 - On native Windows installations, Earthly will save local artifacts to directories using the `\` file separator [#1663](https://github.com/earthly/earthly/issues/1663)
 - A parsing error, when using `WITH DOCKER --load` in conjunction with new-style
   build args. [#1696](https://github.com/earthly/earthly/issues/1696)
@@ -1774,7 +1875,7 @@ as the last line of `earthly` output.
 ### Fixed
 
 - `BUILD` arguments containing a subshell (`$(...)`) were executed twice, and when `+base` target was empty would result errors such as `the first command has to be FROM, FROM DOCKERFILE, LOCALLY, ARG, BUILD or IMPORT` [#1448](https://github.com/earthly/earthly/issues/1448)
-- TLS error (`transport: authentication handshake failed: remote error: tls: no application protocol`) when enabling buildkit mTLS  [#1439](https://github.com/earthly/earthly/issues/1439)
+- TLS error (`transport: authentication handshake failed: remote error: tls: no application protocol`) when enabling buildkit mTLS [#1439](https://github.com/earthly/earthly/issues/1439)
 - Unable to save artifacts to local directory (`.`) [#1422](https://github.com/earthly/earthly/issues/1422)
 
 ## v0.6.0 - 2021-11-24
@@ -1802,6 +1903,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 ### Changed
 
 <!--changelog-parser-ignore-start-->
+
 - What Earthly outputs locally has changed in a way that is not backwards compatible. For an artifact or an image to be produced locally it needs to be part of a `BUILD` chain (or be part of the target being directly built). Artifacts and images introduced through `FROM` or `COPY` are no longer output locally.
 
   To update existing scripts, you may issue a duplicate `BUILD` in addition to a `FROM` (or a `COPY`), should you wish for the referenced target to perform output.
@@ -1825,6 +1927,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   in order to produce the same outputs.
 
   For more details see [#896](https://github.com/earthly/earthly/issues/896).
+
 - The syntax for passing build args has been changed.
 
   Earthly v0.5 (old way)
@@ -1862,7 +1965,8 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   ```
 
   This change is part of the [UDC proposal #581](https://github.com/earthly/earthly/issues/581). The old way of passing args is deprecated and will be removed in a future version (however, it still works in 0.6).
-<!--changelog-parser-ignore-end-->
+  <!--changelog-parser-ignore-end-->
+
 - If a `SAVE ARTIFACT` is unsafe (writing to a directory outside of the Earthfile directory), it'll require the `--force` flag.
 - `.earthlyignore` no longer includes any implicit entries like `Earthfile` or `.earthlyignore`. These will need to be specified explicitly. [#1294](https://github.com/earthly/earthly/issues/1294)
 - Buildkit was updated to `d429b0b32606b5ea52e6be4a99b69d67b7c722b2`. This includes a number of bug fixes, including eliminating crashes due to `panic failed to get edge`.
@@ -1885,19 +1989,19 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - Allow running `SAVE ARTIFACT` after `RUN --push` is now GA [#586](https://github.com/earthly/earthly/issues/586).
 - `SAVE ARTIFACT --if-exists` and `COPY --if-exists` have been promoted to GA [#588](https://github.com/earthly/earthly/issues/588).
 - [Shared cache](https://docs.earthly.dev/docs/guides/shared-cache) and `--ci` mode are now GA [#11](https://github.com/earthly/earthly/issues/11).
-- New builtin args `USERPLATFORM`, `USEROS`, `USERARCH`, and `USERVARIANT` which represent the platform, OS, architecture, and processor variant of the system Earthly is being called from [#1251](https://github.com/earthbuild/earthbuild/pull/1251). Thanks to @akrantz01 for the contribution!
+- New builtin args `USERPLATFORM`, `USEROS`, `USERARCH`, and `USERVARIANT` which represent the platform, OS, architecture, and processor variant of the system Earthly is being called from [#1251](https://github.com/earthly/earthly/pull/1251). Thanks to @akrantz01 for the contribution!
 - Config option for buildkit's `max_parallelism` configuration. Use this to increase parallelism for faster builds or decrease parallelism when resources are constraint. The default is 20. [#1308](https://github.com/earthly/earthly/issues/1308)
 - Support for required ARGs (`ARG --required foo`) [#904](https://github.com/earthly/earthly/issues/904). Thanks to @camerondurham for the contribution!
-- Extended auto-completion to be build-arg aware. Typing `earthly +my-target --<tab><tab>` now prints possible build-args specific to `+my-target`. [#1330](https://github.com/earthbuild/earthbuild/pull/1330).
-- The console output now has an improved structure [#1226](https://github.com/earthbuild/earthbuild/pull/1226).
+- Extended auto-completion to be build-arg aware. Typing `earthly +my-target --<tab><tab>` now prints possible build-args specific to `+my-target`. [#1330](https://github.com/earthly/earthly/pull/1330).
+- The console output now has an improved structure [#1226](https://github.com/earthly/earthly/pull/1226).
 
 ### Fixed
 
-- Eliminated some spurious warnings (`ReadDataPacket failed`, `Failed to connect to terminal`, `failed to read from stdin` and others) [#1241](https://github.com/earthbuild/earthbuild/pull/1241).
-- Minor fixes related to the experimental Podman support [#1239](https://github.com/earthbuild/earthbuild/pull/1239).
-- Improved some error messages related to frontend detection [#1250](https://github.com/earthbuild/earthbuild/pull/1250).
-- Fixed Podman's ability to load OCI images [#1287](https://github.com/earthbuild/earthbuild/pull/1287).
-- Fixed homebrew installation on macOS 12. [#1370](https://github.com/earthbuild/earthbuild/pull/1370), [homebrew/earthly#13](https://github.com/earthly/homebrew-earthly/pull/13)
+- Eliminated some spurious warnings (`ReadDataPacket failed`, `Failed to connect to terminal`, `failed to read from stdin` and others) [#1241](https://github.com/earthly/earthly/pull/1241).
+- Minor fixes related to the experimental Podman support [#1239](https://github.com/earthly/earthly/pull/1239).
+- Improved some error messages related to frontend detection [#1250](https://github.com/earthly/earthly/pull/1250).
+- Fixed Podman's ability to load OCI images [#1287](https://github.com/earthly/earthly/pull/1287).
+- Fixed homebrew installation on macOS 12. [#1370](https://github.com/earthly/earthly/pull/1370), [homebrew/earthly#13](https://github.com/earthly/homebrew-earthly/pull/13)
 - `failed due to failed to autodetect a supported frontend` errors will now include underlying reason for failure
 - Cache export was not honoring `EARTHLY_MAX_REMOTE_CACHE` setting.
 - Buildkit logs were not being sent to `earthly-buildkitd` container's output.
@@ -1967,11 +2071,13 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - [`IF`](https://docs.earthly.dev/docs/earthfile#if) and [`FOR`](https://docs.earthly.dev/docs/earthfile#for) have been promoted to GA [#779](https://github.com/earthly/earthly/issues/779).
 - If a `SAVE ARTIFACT` is unsafe (writing to a directory outside of the Earthfile directory), it'll require the `--force` flag.
 - `.earthlyignore` no longer includes any implicit entries like `Earthfile` or `.earthlyignore`. These will need to be specified explicitly. [#1294](https://github.com/earthly/earthly/issues/1294)
-- The console output now has an improved structure [#1226](https://github.com/earthbuild/earthbuild/pull/1226).
-- Fixed homebrew installation on macOS 12. [#1370](https://github.com/earthbuild/earthbuild/pull/1370), [homebrew/earthly#13](https://github.com/earthly/homebrew-earthly/pull/13)
+- The console output now has an improved structure [#1226](https://github.com/earthly/earthly/pull/1226).
+- Fixed homebrew installation on macOS 12. [#1370](https://github.com/earthly/earthly/pull/1370), [homebrew/earthly#13](https://github.com/earthly/homebrew-earthly/pull/13)
+
 ### Changed
 
 <!--changelog-parser-ignore-start-->
+
 - What Earthly outputs locally has changed in a way that is not backwards compatible. For an artifact or an image to be produced locally it needs to be part of a `BUILD` chain (or be part of the target being directly built). Artifacts and images introduced through `FROM` or `COPY` are no longer output locally.
 
   To update existing scripts, you may issue a duplicate `BUILD` in addition to a `FROM` (or a `COPY`), should you wish for the referenced target to perform output.
@@ -1995,6 +2101,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   in order to produce the same outputs.
 
   For more details see [#896](https://github.com/earthly/earthly/issues/896).
+
 - The syntax for passing build args has been changed.
 
   Earthly v0.5 (old way)
@@ -2032,19 +2139,20 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   ```
 
   This change is part of the [UDC proposal #581](https://github.com/earthly/earthly/issues/581). The old way of passing args is deprecated and will be removed in a future version (however, it still works in 0.6).
-<!--changelog-parser-ignore-end-->
-- Add builtin args `USERPLATFORM`, `USEROS`, `USERARCH`, and `USERVARIANT` which represent the platform, OS, architecture, and processor variant of the system Earthly is being called from [#1251](https://github.com/earthbuild/earthbuild/pull/1251). Thanks to @akrantz01 for the contribution!
+  <!--changelog-parser-ignore-end-->
+
+- Add builtin args `USERPLATFORM`, `USEROS`, `USERARCH`, and `USERVARIANT` which represent the platform, OS, architecture, and processor variant of the system Earthly is being called from [#1251](https://github.com/earthly/earthly/pull/1251). Thanks to @akrantz01 for the contribution!
 - Support for required ARGs (`ARG --required foo`) [#904](https://github.com/earthly/earthly/issues/904). Thanks to @camerondurham for the contribution!
 - Add a config item for buildkit's `max_parallelism` configuration. Use this to increase parallelism for faster builds or decrease parallelism when resources are constraint. The default is 20. [#1308](https://github.com/earthly/earthly/issues/1308)
-- Extend auto-completion to be build-arg aware. Typing `earthly +my-target --<tab><tab>` now prints possible build-args specific to `+my-target`. [#1330](https://github.com/earthbuild/earthbuild/pull/1330).
+- Extend auto-completion to be build-arg aware. Typing `earthly +my-target --<tab><tab>` now prints possible build-args specific to `+my-target`. [#1330](https://github.com/earthly/earthly/pull/1330).
 - Buildkit was updated to `d429b0b32606b5ea52e6be4a99b69d67b7c722b2`. This includes a number of bug fixes, including eliminating crashes due to `panic failed to get edge`.
 
 ### Fixed
 
-- Eliminated some spurious warnings (`ReadDataPacket failed`, `Failed to connect to terminal`, `failed to read from stdin` and others) [#1241](https://github.com/earthbuild/earthbuild/pull/1241).
-- Minor fixes related to the experimental Podman support [#1239](https://github.com/earthbuild/earthbuild/pull/1239).
-- Improved some error messages related to frontend detection [#1250](https://github.com/earthbuild/earthbuild/pull/1250).
-- Fixed Podman's ability to load OCI images [#1287](https://github.com/earthbuild/earthbuild/pull/1287).
+- Eliminated some spurious warnings (`ReadDataPacket failed`, `Failed to connect to terminal`, `failed to read from stdin` and others) [#1241](https://github.com/earthly/earthly/pull/1241).
+- Minor fixes related to the experimental Podman support [#1239](https://github.com/earthly/earthly/pull/1239).
+- Improved some error messages related to frontend detection [#1250](https://github.com/earthly/earthly/pull/1250).
+- Fixed Podman's ability to load OCI images [#1287](https://github.com/earthly/earthly/pull/1287).
 
 ## v0.5.24 - 2021-09-30
 
@@ -2072,7 +2180,6 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - suppressed erroneous internal-term error messages which occurred when running under non-interactive ( e.g. `--ci` ) modes; fixes #1108
 - changed help text for `--artifact` mode
 - deb and yum packages no longer clear the earthly cache on upgrades
-
 
 ## v0.5.22 - 2021-08-11
 
@@ -2110,9 +2217,9 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ## v0.5.17 - 2021-06-15
 
-- Begin experimental official support for `earthbuild/earthbuild` and `earthly/buildkitd` images; including a new `entrypoint` for `earthbuild/earthbuild` (https://github.com/earthbuild/earthbuild/pull/1050)
-- When running in `verbose` mode, log all files sent to BuildKit (https://github.com/earthbuild/earthbuild/pull/1051, https://github.com/earthbuild/earthbuild/pull/1056)
-- Adjust `deb` and `rpm` packages to auto-install the shell completions though post-installation mechanisms (https://github.com/earthbuild/earthbuild/pull/1019, https://github.com/earthbuild/earthbuild/pull/1057)
+- Begin experimental official support for `earthbuild/earthbuild` and `earthly/buildkitd` images; including a new `entrypoint` for `earthbuild/earthbuild` (https://github.com/earthly/earthly/pull/1050)
+- When running in `verbose` mode, log all files sent to BuildKit (https://github.com/earthly/earthly/pull/1051, https://github.com/earthly/earthly/pull/1056)
+- Adjust `deb` and `rpm` packages to auto-install the shell completions though post-installation mechanisms (https://github.com/earthly/earthly/pull/1019, https://github.com/earthly/earthly/pull/1057)
 
 ## v0.5.16 - 2021-06-03
 
@@ -2121,24 +2228,22 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ## v0.5.15 - 2021-05-27
 
-- `earthly config` is no longer experimental. (https://github.com/earthbuild/earthbuild/pull/979)
-- Running a target, will now `bootstrap` automatically, if it looks like `earthly bootstrap` has not been run yet. (https://github.com/earthbuild/earthbuild/pull/989)
-- `earthly bootstrap` ensures the permissions on the `.earthly` folder are correct (belonging to the user) ( https://github.com/earthbuild/earthbuild/pull/993)
-- Cache mount ID now depends on a target input hash which does not include inactive variables (https://github.com/earthbuild/earthbuild/pull/1000)
-- Added `EARTHLY_TARGET_PROJECT_NO_TAG` built-in argument (https://github.com/earthbuild/earthbuild/pull/1011)
-- When `~` is used as the path to a secret file, it now expands as expected. (https://github.com/earthbuild/earthbuild/pull/977)
-- Use the environment-specified `$HOME`, unless `$SUDO_USER` is set. If it is, use the users home directory. (https://github.com/earthbuild/earthbuild/pull/1015)
-
+- `earthly config` is no longer experimental. (https://github.com/earthly/earthly/pull/979)
+- Running a target, will now `bootstrap` automatically, if it looks like `earthly bootstrap` has not been run yet. (https://github.com/earthly/earthly/pull/989)
+- `earthly bootstrap` ensures the permissions on the `.earthly` folder are correct (belonging to the user) ( https://github.com/earthly/earthly/pull/993)
+- Cache mount ID now depends on a target input hash which does not include inactive variables (https://github.com/earthly/earthly/pull/1000)
+- Added `EARTHLY_TARGET_PROJECT_NO_TAG` built-in argument (https://github.com/earthly/earthly/pull/1011)
+- When `~` is used as the path to a secret file, it now expands as expected. (https://github.com/earthly/earthly/pull/977)
+- Use the environment-specified `$HOME`, unless `$SUDO_USER` is set. If it is, use the users home directory. (https://github.com/earthly/earthly/pull/1015)
 
 ## v0.5.14 - 2021-05-27
 
-- `earthly config` is no longer experimental. (https://github.com/earthbuild/earthbuild/pull/979)
-- Running a target, will now `bootstrap` automatically, if it looks like `earthly bootstrap` has not been run yet. (https://github.com/earthbuild/earthbuild/pull/989)
-- `earthly bootstrap` ensures the permissions on the `.earthly` folder are correct (belonging to the user) ( https://github.com/earthbuild/earthbuild/pull/993)
-- Cache mount ID now depends on a target input hash which does not include inactive variables (https://github.com/earthbuild/earthbuild/pull/1000)
-- Added `EARTHLY_TARGET_PROJECT_NO_TAG` built-in argument (https://github.com/earthbuild/earthbuild/pull/1011)
-- When `~` is used as the path to a secret file, it now expands as expected. (https://github.com/earthbuild/earthbuild/pull/977)
-
+- `earthly config` is no longer experimental. (https://github.com/earthly/earthly/pull/979)
+- Running a target, will now `bootstrap` automatically, if it looks like `earthly bootstrap` has not been run yet. (https://github.com/earthly/earthly/pull/989)
+- `earthly bootstrap` ensures the permissions on the `.earthly` folder are correct (belonging to the user) ( https://github.com/earthly/earthly/pull/993)
+- Cache mount ID now depends on a target input hash which does not include inactive variables (https://github.com/earthly/earthly/pull/1000)
+- Added `EARTHLY_TARGET_PROJECT_NO_TAG` built-in argument (https://github.com/earthly/earthly/pull/1011)
+- When `~` is used as the path to a secret file, it now expands as expected. (https://github.com/earthly/earthly/pull/977)
 
 ## v0.5.13 - 2021-05-13
 
@@ -2155,35 +2260,33 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 ## v0.5.11 - 2021-04-27
 
-- Support for `FROM DOCKERFILE -f` (https://github.com/earthbuild/earthbuild/pull/950)
-- Fixes missing access to global arguments in user defined commands (https://github.com/earthbuild/earthbuild/pull/947)
+- Support for `FROM DOCKERFILE -f` (https://github.com/earthly/earthly/pull/950)
+- Fixes missing access to global arguments in user defined commands (https://github.com/earthly/earthly/pull/947)
 - Users's `~/.earthly` directory is now referenced when earthly is invoked with sudo
-
 
 ## v0.5.10 - 2021-04-19
 
-- Added ability to run `WITH DOCKER` under `LOCALLY` (https://github.com/earthbuild/earthbuild/pull/840)
+- Added ability to run `WITH DOCKER` under `LOCALLY` (https://github.com/earthly/earthly/pull/840)
 - Fix `FROM DOCKERFILE` `--build-arg`s not being passed correctly (https://github.com/earthly/earthly/issues/932)
 - Docs: Add uninstall instructions
 - Docs: Improve onboarding tutorial based on user feedback
-
 
 ## v0.5.9 - 2021-04-05
 
 - [**experimental**] Improved parallelization when using commands such as `IF`, `WITH DOCKER`, `FROM DOCKERFILE`, `ARG X=$(...)` and others. To enable this feature, pass `--conversion-parallelism=5` or set `EARTHLY_CONVERSION_PARALLELISM=5`. (https://github.com/earthly/earthly/issues/888)
 - Auto-detect MTU (https://github.com/earthly/earthly/issues/847)
-- MTU may set via config `earthly config global.cni_mtu 12345` (https://github.com/earthbuild/earthbuild/pull/906)
+- MTU may set via config `earthly config global.cni_mtu 12345` (https://github.com/earthly/earthly/pull/906)
 - Hide `--debug` flag since it is only used for development on Earthly itself
 - Download and start buildkitd as part of the earthly bootstrap command
-- Improved buildkitd startup logic (https://github.com/earthbuild/earthbuild/pull/892)
-- Check for reserved target names and disallow them (e.g. `+base`) (https://github.com/earthbuild/earthbuild/pull/898)
-- Fix use of self-hosted repositories when a subdirectory is used (https://github.com/earthbuild/earthbuild/pull/897)
-
+- Improved buildkitd startup logic (https://github.com/earthly/earthly/pull/892)
+- Check for reserved target names and disallow them (e.g. `+base`) (https://github.com/earthly/earthly/pull/898)
+- Fix use of self-hosted repositories when a subdirectory is used (https://github.com/earthly/earthly/pull/897)
 
 ## v0.5.8 - 2021-03-23
 
 - [**experimental**] Support for ARGs in user-defined commands (UDCs). UDCs are templates (much like functions in regular programming languages), which can be used to define a series of steps to be executed in sequence. In other words, it is a way to reuse common build steps in multiple contexts. This completes the implementation of UDCs and the feature is now in **experimental** phase (https://github.com/earthly/earthly/issues/581). For more information see the [UDC guide](https://docs.earthly.dev/guides/udc).
-- [**experimental**] New command: `IMPORT` (https://github.com/earthbuild/earthbuild/pull/868)
+- [**experimental**] New command: `IMPORT` (https://github.com/earthly/earthly/pull/868)
+
   ```
   IMPORT github.com/foo/bar:v1.2.3
   IMPORT github.com/foo/buz:main AS zulu
@@ -2193,9 +2296,10 @@ For more information on the individual Earthfile feature flags see the [Earthfil
   FROM bar+target
   BUILD zulu+something
   ```
+
 - Fix handling of some escaped quotes (https://github.com/earthly/earthly/issues/859)
-- Fix: empty targets are now valid (https://github.com/earthbuild/earthbuild/pull/872)
-- Fix some line continuation issues (https://github.com/earthbuild/earthbuild/pull/873 & https://github.com/earthbuild/earthbuild/pull/874)
+- Fix: empty targets are now valid (https://github.com/earthly/earthly/pull/872)
+- Fix some line continuation issues (https://github.com/earthly/earthly/pull/873 & https://github.com/earthly/earthly/pull/874)
 - Earthly now limits parallelism to `20`. This fixes some very large builds attempting to use resources all at the same time
 - Automatically retry TLS handshake timeout errors
 
@@ -2206,7 +2310,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - cleans up console output for saving artifacts (#848)
 - implement support for WORKDIR under LOCALLY targets
 - fix zsh autocompletion issue for mac users
-  If the autocompletion bug persists for anyone (e.g. seeing an error like `command not found: __earthly__`), and the issues persists after upgrading to v0.5.7; it might be necessary to delete the _earthly autocompletion file before re-running earthly bootstrap (or alternatively manually replace `__earthly__` with the full path to the earthly binary).
+  If the autocompletion bug persists for anyone (e.g. seeing an error like `command not found: __earthly__`), and the issues persists after upgrading to v0.5.7; it might be necessary to delete the \_earthly autocompletion file before re-running earthly bootstrap (or alternatively manually replace `__earthly__` with the full path to the earthly binary).
 
 ## v0.5.6 - 2021-03-09
 
@@ -2215,22 +2319,21 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 ## v0.5.5 - 2021-03-08
 
 - Keep `.git` directory in build context. (#815 )
-- Wait extra time for buildkitd to start if the cache is larger than 30 GB  (#827)
-- *Experimental:* Allow RUN commands to open an interactive session (`RUN --interactive`), with the option to save the manual changes into the final image (`RUN --interactive-keep`) (#833)
+- Wait extra time for buildkitd to start if the cache is larger than 30 GB (#827)
+- _Experimental:_ Allow RUN commands to open an interactive session (`RUN --interactive`), with the option to save the manual changes into the final image (`RUN --interactive-keep`) (#833)
 - Provide intermittent updates on long-running targets (#844)
 - Fix ZSH autocompletion in some instances (#838)
 
 ## v0.5.4 - 2021-02-26
 
-- New experimental `--strict` flag, which doesn't allow the use of `LOCALLY`. `--strict` is now implied when using `--ci`. (https://github.com/earthbuild/earthbuild/pull/801)
-- Add help text when issuing `earthly config <item> --help`. Improved user experience. (https://github.com/earthbuild/earthbuild/pull/814)
+- New experimental `--strict` flag, which doesn't allow the use of `LOCALLY`. `--strict` is now implied when using `--ci`. (https://github.com/earthly/earthly/pull/801)
+- Add help text when issuing `earthly config <item> --help`. Improved user experience. (https://github.com/earthly/earthly/pull/814)
 - Detect if the build doesn't start with a FROM-like command and return a meaningful error. Previously `FROM scratch` was assumed automatically. (https://github.com/earthly/earthly/issues/807)
-- Fix an issue where `.tmpXXXXX` directories were created in the current directory (https://github.com/earthbuild/earthbuild/pull/821)
-- Fix auto-complete in zsh (https://github.com/earthbuild/earthbuild/pull/811)
-- Improved startup logic for BuildKit daemon, which speeds up some rare edge cases (https://github.com/earthbuild/earthbuild/pull/808)
-- Print BuildKit logs if it crashes or times out on startup (https://github.com/earthbuild/earthbuild/pull/819)
-- Create config path if it's missing (https://github.com/earthbuild/earthbuild/pull/812)
-
+- Fix an issue where `.tmpXXXXX` directories were created in the current directory (https://github.com/earthly/earthly/pull/821)
+- Fix auto-complete in zsh (https://github.com/earthly/earthly/pull/811)
+- Improved startup logic for BuildKit daemon, which speeds up some rare edge cases (https://github.com/earthly/earthly/pull/808)
+- Print BuildKit logs if it crashes or times out on startup (https://github.com/earthly/earthly/pull/819)
+- Create config path if it's missing (https://github.com/earthly/earthly/pull/812)
 
 ## v0.5.3 - 2021-02-24
 
@@ -2238,21 +2341,20 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - Support for copying artifacts to `LOCALLY` targets (required for #580)
 
 ### Fixed
+
 - segfault when no output or error is displayed (fixes #798)
 - unable to run earthly in docker container with mounted host-docker socket (fixes #791)
 - `./.tmp-earthly-outXXXXXX` temp files are now stored under `./.tmp-earthly-out/tmpXXXXXX` and are correctly excluded from the build context
 
-
 ## v0.5.2 - 2021-02-18
 
 - New experimental command for editing the Earthly config (https://github.com/earthly/earthly/issues/675)
-- `SAVE IMAGE --push` after a `RUN --push` now includes the effects of the `RUN --push` too (https://github.com/earthbuild/earthbuild/pull/754)
+- `SAVE IMAGE --push` after a `RUN --push` now includes the effects of the `RUN --push` too (https://github.com/earthly/earthly/pull/754)
 - Improved syntax errors when parsing Earthfiles
 - Improved error message when QEMU is missing
 - Fix `earthly-linux-arm64` binary - was a Mac binary by mistake (https://github.com/earthly/earthly/issues/789)
-- Fix override of build arg not being detected properly (https://github.com/earthbuild/earthbuild/pull/790)
+- Fix override of build arg not being detected properly (https://github.com/earthly/earthly/pull/790)
 - Fix image export error when it doesn't contain any `RUN` commands (https://github.com/earthly/earthly/issues/782)
-
 
 ## v0.5.1 - 2021-02-08
 
@@ -2267,7 +2369,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 - `--platform` setting is now automatically propagated between Earthfiles. In addition, you can now specify the empty string `--platform=` to automatically detect your system's architecture.
 - `earthbuild/dind` images now available for `linux/arm/v7` and `linux/arm64`
 - Improved visibility of platform used for each build step, as well as for any build args that have been overridden.
-- Allow saving an artifact after a `RUN --push` (https://github.com/earthbuild/earthbuild/pull/735)
+- Allow saving an artifact after a `RUN --push` (https://github.com/earthly/earthly/pull/735)
 - Allow specifying `--no-cache` for a single `RUN` command (https://github.com/earthly/earthly/issues/585)
 - There are now separate `SUCCESS` lines for each of the two possible phases of an earthly run: `main` and `push`.
 - [Support of popular cloud registries for the experimental shared cache feature is now properly documented](https://docs.earthly.dev/guides/shared-cache#compatibility-with-major-registry-providers)

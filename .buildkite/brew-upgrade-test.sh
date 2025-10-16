@@ -15,4 +15,4 @@ brew upgrade earthly
 
 "$earthly" --version
 
-"$earthly" github.com/earthly/earthly/examples/go:main+docker
+"$earthly" github.com/earthbuild/earthbuild/examples/go:main+docker

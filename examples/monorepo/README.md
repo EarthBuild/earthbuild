@@ -17,13 +17,13 @@ earthly +all
 in this directory, or, without cloning the Earthly repo, run this anywhere
 
 ```
-earthly github.com/earthly/earthly/examples/monorepo:main+all
+earthly github.com/earthbuild/earthbuild/examples/monorepo:main+all
 ```
 
 Then, run the resulting container:
 
 ```
-docker run --rm -p 127.0.0.1:8080:8080 earthly/examples:monorepo
+docker run --rm -p 127.0.0.1:8080:8080 earthbuild/examples:monorepo
 ```
 
 and load `http://127.0.0.1:8080` in your browser.

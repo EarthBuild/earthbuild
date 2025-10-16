@@ -26,4 +26,4 @@ build-image:
         --platform=linux/amd64 \
         (+build/main --GOARCH=$TARGETARCH --VARIANT=$TARGETVARIANT) ./example/main
     ENTRYPOINT ["/example/main"]
-    SAVE IMAGE --push earthly/examples:multiplatform-cross-compile
+    SAVE IMAGE --push earthbuild/examples:multiplatform-cross-compile

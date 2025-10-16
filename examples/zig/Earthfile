@@ -2,7 +2,7 @@ VERSION 0.8
 
 deps:
     FROM alpine:3.18
-    
+
     ARG ZIG_VERSION=0.12.0
 
     ARG TARGETARCH
@@ -39,4 +39,4 @@ docker:
 
     ENTRYPOINT ["/app/fizzbuzz"]
     CMD ["10"]
-    SAVE IMAGE --push earthly/examples:zig
+    SAVE IMAGE --push earthbuild/examples:zig

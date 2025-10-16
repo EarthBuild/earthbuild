@@ -27,7 +27,7 @@ jobs:
           # Count by file type
           go_count=$(git grep -i "earthly" -- "*.go" 2>/dev/null | wc -l || echo "0")
           md_count=$(git grep -i "earthly" -- "*.md" 2>/dev/null | wc -l || echo "0")
-          earthfile_count=$(($(git grep -i "earthly" -- "Earthfile" 2>/dev/null | wc -l || echo "0") + $(git grep -i "earthly" -- "*.earth" 2>/dev/null | wc -l || echo "0")))
+          earthfile_count=$(find . -type f \( -name "Earthfile" -o -name "*.earth" \) -exec grep -i "earthly" {} + 2>/dev/null | wc -l)
 
           echo "go_count=$go_count" >> $GITHUB_OUTPUT
           echo "md_count=$md_count" >> $GITHUB_OUTPUT
@@ -49,7 +49,7 @@ jobs:
           # Count by file type
           go_count=$(git grep -i "earthly" -- "*.go" 2>/dev/null | wc -l || echo "0")
           md_count=$(git grep -i "earthly" -- "*.md" 2>/dev/null | wc -l || echo "0")
-          earthfile_count=$(($(git grep -i "earthly" -- "Earthfile" 2>/dev/null | wc -l || echo "0") + $(git grep -i "earthly" -- "*.earth" 2>/dev/null | wc -l || echo "0")))
+          earthfile_count=$(find . -type f \( -name "Earthfile" -o -name "*.earth" \) -exec grep -i "earthly" {} + 2>/dev/null | wc -l)
 
           echo "main_go_count=$go_count" >> $GITHUB_OUTPUT
           echo "main_md_count=$md_count" >> $GITHUB_OUTPUT

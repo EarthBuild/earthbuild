@@ -132,7 +132,7 @@ signed-release:
         cd release && sha256sum earthly-* > checksum && \
         cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
 
-    SAVE ARTIFACT ./release
+    SAVE ARTIFACT ./release AS LOCAL ./release
 
 gh-cli:
     FROM alpine:3.20
@@ -159,7 +159,8 @@ release-github:
 
     ARG --required RELEASE_TAG
 
-    COPY (+release-notes/notes.txt --RELEASE_TAG="${RELEASE_TAG}") release-notes.txt
+    # TODO: remove release-notes entirely?
+    # COPY (+release-notes/notes.txt --RELEASE_TAG="${RELEASE_TAG}") release-notes.txt
 
     ARG GITHUB_USER="earthbuild"
     ARG EARTHLY_REPO="earthbuild"

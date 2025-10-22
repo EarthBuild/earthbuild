@@ -1,6 +1,6 @@
-# Earthly Changelog
+# Earthbuild Changelog
 
-All notable changes to [Earthly](https://github.com/EarthBuild/earthbuild) will be documented in this file.
+All notable changes to [Earthbuild](https://github.com/EarthBuild/earthbuild) will be documented in this file.
 
 ## Unreleased
 

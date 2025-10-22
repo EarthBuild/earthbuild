@@ -3,7 +3,7 @@ FROM alpine:3.18
 RUN apk add jq
 WORKDIR /test
 
-COPY ../..+earthbuild/earthbuild /usr/local/bin/earthly
+COPY ../..+earthly/earthly /usr/local/bin/earthly
 
 # all runs all tests
 all:

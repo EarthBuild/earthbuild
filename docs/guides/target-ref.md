@@ -2,11 +2,11 @@
 
 This page describes the different types of references used in Earthly:
 
-* Target references: `<project-ref>+my-target`
-* Artifact references: `<project-ref>+my-target/my-artifact.bin`
-* Image references (same as target references)
-* Function references: `<project-ref>+MY_FUNCTION`
-* Project references (the prefix of the above references): `github.com/foo/bar`, `./my/local/path`
+- Target references: `<project-ref>+my-target`
+- Artifact references: `<project-ref>+my-target/my-artifact.bin`
+- Image references (same as target references)
+- Function references: `<project-ref>+MY_FUNCTION`
+- Project references (the prefix of the above references): `github.com/foo/bar`, `./my/local/path`
 
 ## Target reference
 
@@ -18,9 +18,9 @@ Target references distinguish themselves from function references (see below) by
 
 Here are some examples:
 
-* `+build`
-* `./js+deps`
-* `github.com/earthbuild/earthbuild:v0.8.13+earthly`
+- `+build`
+- `./js+deps`
+- `github.com/EarthBuild/earthbuild:v0.8.13+earthly`
 
 ## Artifact reference
 
@@ -30,10 +30,10 @@ Artifact references are similar to target references, except that they have an a
 
 Here are some examples:
 
-* `+build/my-artifact`
-* `+build/some/artifact/deep/in/a/dir`
-* `./js+build/dist`
-* `github.com/earthbuild/earthbuild:v0.8.13+earthbuild/earthbuild`
+- `+build/my-artifact`
+- `+build/some/artifact/deep/in/a/dir`
+- `./js+build/dist`
+- `github.com/EarthBuild/earthbuild:v0.8.13+earthbuild/earthbuild`
 
 ## Image reference
 
@@ -51,9 +51,9 @@ Function references distinguish themselves from target references by having a na
 
 Here are some examples:
 
-* `+COMPILE`
-* `./js+NPM_INSTALL`
-* `github.com/earthbuild/earthbuild:v0.8.13+DOWNLOAD_DIND`
+- `+COMPILE`
+- `./js+NPM_INSTALL`
+- `github.com/EarthBuild/earthbuild:v0.8.13+DOWNLOAD_DIND`
 
 For more information on functions, see the [functions guide](./functions.md).
 
@@ -67,10 +67,10 @@ Project references appear in target, artifact and function references. They poin
 
 The simplest form, is where a target, function or artifact is referenced from the same Earthfile. In this case, the project reference is simply **the empty string**. Here are some examples of this type of project reference being used in various other references:
 
-| Project ref | Target ref | Artifact ref | Function ref |
-|----|----|----|----|
+| Project ref        | Target ref       | Artifact ref                     | Function ref       |
+| ------------------ | ---------------- | -------------------------------- | ------------------ |
 | (**empty string**) | `+<target-name>` | `+<target-name>/<artifact-path>` | `+<function-name>` |
-| (**empty string**) | `+build` | `+build/out.bin` | `+COMPILE` |
+| (**empty string**) | `+build`         | `+build/out.bin`                 | `+COMPILE`         |
 
 In this form, Earthly will look for the target within the same Earthfile. We call this type of referencing local, internal. Local, because it comes from the same system, and internal, because it is within the same Earthfile.
 
@@ -78,10 +78,10 @@ In this form, Earthly will look for the target within the same Earthfile. We cal
 
 Another form, is where a target, function or artifact is referenced from a different directory. In this form, the path to that directory is specified before `+`. It must always start with either `./`, `../` or `/`, on any operating system (including Windows). Example:
 
-| Project ref | Target ref | Artifact ref | Function ref |
-|----|----|----|----|
+| Project ref             | Target ref                            | Artifact ref                                          | Function ref                            |
+| ----------------------- | ------------------------------------- | ----------------------------------------------------- | --------------------------------------- |
 | `./path/to/another/dir` | `./path/to/another/dir+<target-name>` | `./path/to/another/dir+<target-name>/<artifact-path>` | `./path/to/another/dir+<function-name>` |
-| `./js` | `./js+build` | `./js+build/out.bin` | `./js+COMPILE` |
+| `./js`                  | `./js+build`                          | `./js+build/out.bin`                                  | `./js+COMPILE`                          |
 
 It is recommended that relative paths are used, for portability reasons: the working directory checked out by different users will be different, making absolute paths infeasible in most cases.
 
@@ -89,26 +89,26 @@ It is recommended that relative paths are used, for portability reasons: the wor
 
 Another form of a project reference is the remote form. In this form, the recipe and the build context are imported from a remote location. It has the following form:
 
-| Project ref | Target ref | Artifact ref | Function ref |
-|----|----|----|----|
+| Project ref                                                 | Target ref                                                                | Artifact ref                                                                              | Function ref                                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<target-name>/<artifact-path>` | `<vendor>/<namespace>/<project>/path/in/project[:some-tag]+<function-name>` |
-| `github.com/earthbuild/earthbuild/buildkitd` | `github.com/earthbuild/earthbuild/buildkitd+build` | `github.com/earthbuild/earthbuild/buildkitd+build/out.bin` | `github.com/earthbuild/earthbuild/buildkitd+COMPILE` |
-| `github.com/earthbuild/earthbuild:v0.8.13` | `github.com/earthbuild/earthbuild:v0.8.13+build` | `github.com/earthbuild/earthbuild:v0.8.13+build/out.bin` | `github.com/earthbuild/earthbuild:v0.8.13+COMPILE` |
+| `github.com/EarthBuild/earthbuild/buildkitd`                | `github.com/EarthBuild/earthbuild/buildkitd+build`                        | `github.com/EarthBuild/earthbuild/buildkitd+build/out.bin`                                | `github.com/EarthBuild/earthbuild/buildkitd+COMPILE`                        |
+| `github.com/EarthBuild/earthbuild:v0.8.13`                  | `github.com/EarthBuild/earthbuild:v0.8.13+build`                          | `github.com/EarthBuild/earthbuild:v0.8.13+build/out.bin`                                  | `github.com/EarthBuild/earthbuild:v0.8.13+COMPILE`                          |
 
 ### Import reference
 
 Finally, the last form of project referencing is an import reference. Import references may only exist after an `IMPORT` command, which helps resolve the reference to a full project reference of the types above.
 
-| Import command | Project ref | Target ref | Artifact ref | Function ref |
-|----|----|----|----|----|
-| `IMPORT <full-project-ref> AS <import-alias>` | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
-| `IMPORT github.com/earthbuild/earthbuild/buildkitd` | `buildkitd` | `buildkitd+build` | `buildkitd+build/out.bin` | `buildkitd+COMPILE` |
-| `IMPORT github.com/earthbuild/earthbuild:v0.8.13` | `earthly` | `earthly+build` | `earthly+build/out.bin` | `earthly+COMPILE` |
+| Import command                                      | Project ref      | Target ref                     | Artifact ref                                   | Function ref                     |
+| --------------------------------------------------- | ---------------- | ------------------------------ | ---------------------------------------------- | -------------------------------- |
+| `IMPORT <full-project-ref> AS <import-alias>`       | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
+| `IMPORT github.com/EarthBuild/earthbuild/buildkitd` | `buildkitd`      | `buildkitd+build`              | `buildkitd+build/out.bin`                      | `buildkitd+COMPILE`              |
+| `IMPORT github.com/EarthBuild/earthbuild:v0.8.13`   | `earthly`        | `earthly+build`                | `earthly+build/out.bin`                        | `earthly+COMPILE`                |
 
 Here is an example in an Earthfile:
 
 ```Dockerfile
-IMPORT github.com/earthbuild/earthbuild/buildkitd
+IMPORT github.com/EarthBuild/earthbuild/buildkitd
 
 ...
 
@@ -135,8 +135,8 @@ Most references have a canonical form. It is essentially the remote form of the 
 
 For example, depending on where the files are stored, the `+build` target could have the canonical form `github.com/some-user/some-project/some/deep/dir:master+build`, where `github.com/some-user/some-project` was inferred as the Git location, based on the Git remote called `origin`, and `/some/deep/dir` was inferred as the sub-directory where `+build` exists within that repository. The Earthly tag is inferred using the following algorithm:
 
-* If the current HEAD has at least one Git tag, then use the first Git tag listed by Git, otherwise
-* If the repository is not in detached HEAD mode, use the current branch, otherwise
-* Use the current Git hash.
+- If the current HEAD has at least one Git tag, then use the first Git tag listed by Git, otherwise
+- If the repository is not in detached HEAD mode, use the current branch, otherwise
+- Use the current Git hash.
 
 If no Git context is detected by Earthly, then the target does not have a canonical form.

@@ -7,5 +7,5 @@ all:
     RUN stat file | grep '^Modify: 2020-04-16 12:00:00'
 
     # However, if this ever changes, whatever date it is set to, it must be 1970 or later in order
-    # to prevent https://github.com/earthbuild/earthbuild/issues/1712 from reoccurring.
+    # to prevent https://github.com/earthly/earthly/issues/1712 from reoccurring.
     RUN test "$(stat file | grep '^Modify: .*$' | awk '{print $2}' | awk -F - '{print $1}')" -ge 1970

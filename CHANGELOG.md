@@ -1,6 +1,6 @@
 # Earthly Changelog
 
-All notable changes to [Earthly](https://github.com/earthbuild/earthbuild) will be documented in this file.
+All notable changes to [Earthly](https://github.com/EarthBuild/earthbuild) will be documented in this file.
 
 ## Unreleased
 
@@ -609,7 +609,7 @@ It should be noted that some of these features break backwards compatibility. Se
 ### Changed
 
 - Some error messages at the end of an execution will only be displayed in verbose mode (`earthly -V ...`), e.g. `Error: build target: build main: failed to solve:`... [#3200](https://github.com/earthly/earthly/issues/3200)
-- `GIT CLONE` URLs will only be printed once as part of a prefix, e.g. `+my-clone-target(https://g/e/earthly) | --> GIT CLONE (--branch ) https://github.com/earthbuild/earthbuild`
+- `GIT CLONE` URLs will only be printed once as part of a prefix, e.g. `+my-clone-target(https://g/e/earthly) | --> GIT CLONE (--branch ) https://github.com/EarthBuild/earthbuild`
 - Clarify errors in interactive debugger so that they won't be confused with the build errors [#3200](https://github.com/earthly/earthly/issues/3200).
 - The `WITH DOCKER` auto-install script will now pass the `--no-tty` option to `gpg` [#3288](https://github.com/earthly/earthly/issues/3288).
 
@@ -2407,7 +2407,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 ## v0.4.3 - 2020-12-23
 
 - Fix regression for `WITH DOCKER --compose=... --load=...` (https://github.com/earthly/earthly/issues/676)
-- Improvements to the multiplatform experimental support. See the [multiplatform example](https://github.com/earthbuild/earthbuild/blob/main/examples/multiplatform/Earthfile).
+- Improvements to the multiplatform experimental support. See the [multiplatform example](https://github.com/EarthBuild/earthbuild/blob/main/examples/multiplatform/Earthfile).
 
 ## v0.4.2 - 2020-12-22
 

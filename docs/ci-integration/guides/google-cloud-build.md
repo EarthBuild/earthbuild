@@ -10,10 +10,10 @@ Earthly itself is able to run as expected within Cloud Build, including privileg
 
 ### Resources
 
- * [Getting Started With Cloud Build](https://cloud.google.com/build/docs/quickstart-build)
- * [Authenticating As A Service Account](https://cloud.google.com/docs/authentication/production)
- * [`cloudbuild.yaml` Specification](https://cloud.google.com/build/docs/build-config-file-schema)
- * [Creating and Managing build triggers](https://cloud.google.com/build/docs/automating-builds/create-manage-triggers)
+- [Getting Started With Cloud Build](https://cloud.google.com/build/docs/quickstart-build)
+- [Authenticating As A Service Account](https://cloud.google.com/docs/authentication/production)
+- [`cloudbuild.yaml` Specification](https://cloud.google.com/build/docs/build-config-file-schema)
+- [Creating and Managing build triggers](https://cloud.google.com/build/docs/automating-builds/create-manage-triggers)
 
 ## Setup
 
@@ -26,6 +26,7 @@ Ensure that your repositories are connected to Cloud Build. [Google has a fantas
 ### Configuration
 
 {% hint style='danger' %}
+
 ##### Note
 
 If you do not intend to use any Google Cloud utilities or capabilities within your build, this service account configuration is optional.
@@ -57,6 +58,7 @@ Click "Add Key", and then "Create New Key". Choose "JSON" as the key format, and
 Stash the key in your secret management utility of choice. You'll need to make this key available to your build at runtime.
 
 {% hint style='danger' %}
+
 ##### Note
 
 It is also possible to perform these steps via the CLI; the steps are [also detailed in Googles instructions](https://cloud.google.com/docs/authentication/production#command-line). It can also be automated using much of the same steps.
@@ -70,9 +72,10 @@ It is also possible to perform these steps via the CLI; the steps are [also deta
 ## Example
 
 {% hint style='danger' %}
+
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/EarthBuild/earthbuild/issues/new)!
 
 {% endhint %}
 
@@ -103,10 +106,10 @@ Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/c
 [The first step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one Earthly image](https://hub.docker.com/r/earthbuild/earthbuild) to do a simple build.
 
 ```yaml
-  - id: 'build'
-    name: 'earthbuild/earthbuild:v0.8.13'
-    args:
-      - --ci
-      - --push
-      - +build
+- id: "build"
+  name: "earthbuild/earthbuild:v0.8.13"
+  args:
+    - --ci
+    - --push
+    - +build
 ```

@@ -1,7 +1,7 @@
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part6/part6 ./part6
+earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/go:main+part6/part6 ./part6
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
@@ -15,6 +15,7 @@ Whenever you need to use `WITH DOCKER` we recommend (though it is not required) 
 Notice `WITH DOCKER` creates a block of code that has an `END` keyword. Everything that happens within this block is going to take place within our `earthbuild/dind:alpine-3.22-docker-28.3.3-r1` container.
 
 ### Pulling an Image
+
 ```Dockerfile
 hello:
     FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
@@ -23,9 +24,11 @@ hello:
     END
 
 ```
+
 You can see in the command above that we can pass a flag to `WITH DOCKER` telling it to pull an image from Docker Hub. We can pass other flags to [load in artifacts built by other targets](#loading-an-image) `--load` or even images defined by [docker-compose](#a-real-world-example) `--compose`. These images will be available within the context of `WITH DOCKER`'s docker daemon.
 
 ### Loading an Image
+
 We can load in an image created by another target with the `--load` flag.
 
 ```Dockerfile
@@ -46,6 +49,7 @@ hello:
 One common use case for `WITH DOCKER` is running integration tests that require other services. In this case we need to set up a redis service for our tests. For this we can user a `docker-compose.yml`.
 
 `docker-compose.yml`
+
 ```yml
 version: "3"
 
@@ -83,6 +87,7 @@ func main() {
 	logrus.Info("hello world")
 }
 ```
+
 `main_integration_test.go`
 
 ```go
@@ -133,7 +138,7 @@ test-setup:
     COPY main.go .
     COPY main_integration_test.go .
     ENV CGO_ENABLED=0
-    ENTRYPOINT ["go", "test", "github.com/earthbuild/earthbuild/examples/go"]
+    ENTRYPOINT ["go", "test", "github.com/EarthBuild/earthbuild/examples/go"]
     SAVE IMAGE test:latest
 
 integration-tests:
@@ -143,6 +148,7 @@ integration-tests:
         RUN docker run --network=default_go/part6_default tests:latest
     END
 ```
+
 When we use the `--compose` flag, Earthly will start up the services defined in the `docker-compose` file for us. In this case, we built a separate image that copies in our test files and uses the command to run the tests as its `ENTRYPOINT`. We can then load this image into our `WITH DOCKER` command. Note that loading an image will not run it by default, we need to explicitly run the image after we load it.
 
 You'll need to use `--allow-privileged` (or `-P` for short) to run this example.
@@ -151,17 +157,17 @@ You'll need to use `--allow-privileged` (or `-P` for short) to run this example.
 earthly --allow-privileged +integration-tests
 ```
 
-
 ## More Examples
 
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
+earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
 ```
+
 In this example, we use `WITH DOCKER` to run a frontend app and backend api together using Earthly.
 
 The App
@@ -192,6 +198,7 @@ The App
 `./app/package-lock.json` (empty)
 
 ```json
+
 ```
 
 The code of the app might look like this
@@ -200,20 +207,17 @@ The code of the app might look like this
 
 ```js
 async function getUsers() {
-
-  const response = await fetch('http://0.0.0.0:3080/api/users');
+  const response = await fetch("http://0.0.0.0:3080/api/users");
   return await response.json();
-
 }
 
 function component() {
-  const element = document.createElement('div');
-  getUsers()
-    .then( users => {
-      element.innerHTML = `hello world <b>${users[0].first_name} ${users[0].last_name}</b>`
-    })
+  const element = document.createElement("div");
+  getUsers().then((users) => {
+    element.innerHTML = `hello world <b>${users[0].first_name} ${users[0].last_name}</b>`;
+  });
 
-	return element;
+  return element;
 }
 
 document.body.appendChild(component());
@@ -224,17 +228,16 @@ document.body.appendChild(component());
 ```html
 <!doctype html>
 <html>
-
-<head>
+  <head>
     <title>Getting Started</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <script src="./main.js"></script>
-</body>
-
+  </body>
 </html>
 ```
+
 And our api.
 
 `./api/package.json`
@@ -258,38 +261,41 @@ And our api.
   }
 }
 ```
+
 `./api/package-lock.json` (empty)
 
 ```json
+
 ```
+
 `./api/server.js`
 
 ```js
-const express = require('express');
-const path = require('path');
+const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const app = express(),
-bodyParser = require("body-parser");
+  bodyParser = require("body-parser");
 port = 3080;
 
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../my-app/build')));
+app.use(express.static(path.join(__dirname, "../my-app/build")));
 
 app.use(cors());
 
 const users = [
   {
-    'first_name': 'Lee',
-    'last_name' : 'Earth'
-  }
-]
+    first_name: "Lee",
+    last_name: "Earth",
+  },
+];
 
-app.get('/api/users', (req, res) => {
-  console.log('api/users called!')
+app.get("/api/users", (req, res) => {
+  console.log("api/users called!");
   res.json(users);
 });
 
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, "0.0.0.0", () => {
   console.log(`Server listening on the port::${port}`);
 });
 ```
@@ -359,18 +365,20 @@ app-with-api:
     END
 
 ```
+
 Now you can run `earthly -P +app-with-api` to run the app and api side-by-side.
+
 </details>
 
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part6) run
 
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part6/part6 ./part6
+earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/java:main+part6/part6 ./part6
 ```
 
 `./Earthfile`
@@ -433,9 +441,8 @@ services:
 
 networks:
   java/part6_default:
-
-
 ```
+
 The code of the app might look like this
 
 `./src/main/java/hello/HelloWorld.java`
@@ -494,16 +501,18 @@ dependencies {
 }
 
 ```
+
 </details>
 
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 6 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part6) run
+To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part6/part6 ./part6
+earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/python:main+part6/part6 ./part6
 ```
+
 `./tests/test_db_connection.py`
 
 ```python
@@ -569,4 +578,5 @@ run-tests:
           docker run --network=default_python/part6_default app python3 ./tests/test_db_connection.py
     END
 ```
+
 </details>

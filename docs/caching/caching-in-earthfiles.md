@@ -60,18 +60,18 @@ Sometimes layer caching is not enough to properly express the best way to cache 
 
 Cache mounts can be used either via [`RUN --mount type=cache`](../earthfile/earthfile.md#run), or via the [`CACHE`](../earthfile/earthfile.md#cache) command. Although both allow you to define a path in your build environment where the cache directory would be mounted, there are a few important differences:
 
-* Scope
-  * `RUN --mount type=cache` only mounts the cache for that single `RUN` command.
-  * `CACHE` mounts it for any `RUN` command that follows in the same target
-* Final image
-  * With `RUN --mount type=cache`, the contents of the cache are NOT persisted in the final image.
-  * With `CACHE`, the contents of the cache are copied into in the final image, and also, as a result will be available to be read in targets inheriting from the original target
-* Performance
-  * `RUN --mount type=cache` is very performant as it does not require transferring contents at the end
-  * `CACHE` can be slow in certain cases, if the contents are large, due to the need to copy the contents into the final image
-* Consistency
-  * `RUN --mount type=cache` is isolated to a single command, making it more difficult (but not impossible) to pass along files between steps via the cache
-  * `CACHE` is available to all commands in the target, making it easier to pass along files between steps via the cache, and thus also easier to run into race conditions, if a parallel build changes the contents of the cache in unexpected ways
+- Scope
+  - `RUN --mount type=cache` only mounts the cache for that single `RUN` command.
+  - `CACHE` mounts it for any `RUN` command that follows in the same target
+- Final image
+  - With `RUN --mount type=cache`, the contents of the cache are NOT persisted in the final image.
+  - With `CACHE`, the contents of the cache are copied into in the final image, and also, as a result will be available to be read in targets inheriting from the original target
+- Performance
+  - `RUN --mount type=cache` is very performant as it does not require transferring contents at the end
+  - `CACHE` can be slow in certain cases, if the contents are large, due to the need to copy the contents into the final image
+- Consistency
+  - `RUN --mount type=cache` is isolated to a single command, making it more difficult (but not impossible) to pass along files between steps via the cache
+  - `CACHE` is available to all commands in the target, making it easier to pass along files between steps via the cache, and thus also easier to run into race conditions, if a parallel build changes the contents of the cache in unexpected ways
 
 Cache mounts, by default, are only available within the same target. So if both `target1` and `target2` define `RUN --mount type=cache,target=/my-cache`, the contents would not be shared. If you would like to share the contents, you can use the `id` option. Setting the `id` makes the cache mount global, allowing any target to access the same contents, as long as they both use the same `id`: `RUN --mount type=cache,id=my-cache-id,target=/my-cache`.
 
@@ -93,7 +93,7 @@ Auto-skip is a feature that allows Earthly to skip large parts of a build in cer
 
 Unlike layer caching and cache mounts (which store cache local to the runner), auto-skip is a global cache stored in a cloud database. In order to use auto-skip, you will need an [Earthly Cloud](../cloud/overview.md) account.
 
-Auto-skip can be enabled for either an entire run, via `earthly --auto-skip` (*experimental*), or for a specific target, via `BUILD --auto-skip` (*coming soon*).
+Auto-skip can be enabled for either an entire run, via `earthly --auto-skip` (_experimental_), or for a specific target, via `BUILD --auto-skip` (_coming soon_).
 
 Unlike layer caching, auto-skip is an all-or-nothing type of cache. Either the entire target is skipped, or none of it is. This is because Earthly does not know which parts of the target are affected by the change. If auto-skip does not deem the run to be skipped, then Earthly will fallback to the other forms of caching to run the build as efficiently as possible.
 
@@ -153,7 +153,7 @@ ELSE
 END
 
 # Supported but inefficient (both +target1 and +target2 are analyzed)
-IF grep ./file -e "foo" 
+IF grep ./file -e "foo"
   BUILD +target1
 ELSE
   BUILD +target2
@@ -164,12 +164,12 @@ END
 
 Here is a list of unsupported features when `--auto-skip` is enabled:
 
-* Dynamic target names, such as `BUILD $MY_TARGET`, `FROM $MY_TARGET`, or `BUILD $(...)`, unless the target name can be inferred statically.
-* Dynamic `COPY` commands, such as `COPY $MY_FILE .`, or `COPY $(...) .`, unless the source can be inferred statically.
-* Remote references (such as `BUILD github.com/foo/bar+my-target`), unless the remote reference is pinned to a specific SHA, or to an explicit tag expressed as a `tags/...` git reference. For example, `BUILD github.com/foo/bar:tags/v1.0.0+my-target` is supported, but `BUILD github.com/foo/bar:v1.0.0+my-target` is not.
-* Remote imports, unless the remote reference is pinned to a specific SHA, or to an explicit tag expressed as a `tags/...` git reference. For example, `IMPORT github.com/foo/bar:tags/v1.0.0` is supported, but `IMPORT github.com/foo/bar:v1.0.0` is not.
-* `GIT CLONE`, unless the remote reference is pinned to a specific SHA, or to an explicit tag expressed as a `tags/...` git reference.
-* `FOR` loops, unless the list being iterated can be inferred statically.
+- Dynamic target names, such as `BUILD $MY_TARGET`, `FROM $MY_TARGET`, or `BUILD $(...)`, unless the target name can be inferred statically.
+- Dynamic `COPY` commands, such as `COPY $MY_FILE .`, or `COPY $(...) .`, unless the source can be inferred statically.
+- Remote references (such as `BUILD github.com/foo/bar+my-target`), unless the remote reference is pinned to a specific SHA, or to an explicit tag expressed as a `tags/...` git reference. For example, `BUILD github.com/foo/bar:tags/v1.0.0+my-target` is supported, but `BUILD github.com/foo/bar:v1.0.0+my-target` is not.
+- Remote imports, unless the remote reference is pinned to a specific SHA, or to an explicit tag expressed as a `tags/...` git reference. For example, `IMPORT github.com/foo/bar:tags/v1.0.0` is supported, but `IMPORT github.com/foo/bar:v1.0.0` is not.
+- `GIT CLONE`, unless the remote reference is pinned to a specific SHA, or to an explicit tag expressed as a `tags/...` git reference.
+- `FOR` loops, unless the list being iterated can be inferred statically.
 
 ### Auto-skipping `RUN --no-cache` and `RUN --push`
 
@@ -213,4 +213,4 @@ If you have already optimized your cache by maximizing its size, declaring argum
 
 ### Debugging tips
 
-If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [Earthly GitHub repository](https://github.com/earthbuild/earthbuild).
+If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [Earthly GitHub repository](https://github.com/EarthBuild/earthbuild).

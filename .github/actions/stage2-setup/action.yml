@@ -1,10 +1,10 @@
-name: 'Stage 2 Setup'
-description: 'Setup for self-hosted earthly runners'
+name: "Stage 2 Setup"
+description: "Setup for self-hosted earthly runners"
 inputs:
   earthly_version:
-    description: 'The earthly version to use'
+    description: "The earthly version to use"
     required: false
-    default: 'latest'
+    default: "latest"
   BUILT_EARTHLY_PATH:
     description: "Path to the built earthly binary"
     required: true
@@ -20,7 +20,7 @@ inputs:
   USE_NEXT:
     description: "Whether to use earthly-next"
     required: false
-    default: 'false'
+    default: "false"
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
     required: false
@@ -59,9 +59,9 @@ runs:
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
-    - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00  #v6.0.0
+    - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 #v6.0.0
       with:
-        go-version: 1.21
+        go-version: "1.21"
     - if: ${{ inputs.BINARY == 'podman' }}
       run: |-
         echo "Setting up podman"
@@ -81,8 +81,8 @@ runs:
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
         mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
-        ${{inputs.SUDO}} ls "${HOME}/.earthly/"
-        ${{inputs.SUDO}} mv "${HOME}/.earthly/earthly-$TAG" "${{inputs.BUILT_EARTHLY_PATH}}"
+        ${{inputs.SUDO}} ls "${HOME}/.earthbuild/"
+        ${{inputs.SUDO}} mv "${HOME}/.EarthBuild/earthbuild-$TAG" "${{inputs.BUILT_EARTHLY_PATH}}"
         echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
       shell: bash
     - run: |-

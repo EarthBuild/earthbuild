@@ -4,9 +4,9 @@ This page outlines alternative installation instructions for the `earthly` build
 
 ## Prerequisites
 
-* [Docker](https://docs.docker.com/install/) or [Podman](https://docs.podman.io/en/latest/)
-* [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* (*Windows only*) [Docker WSL 2 backend](https://docs.docker.com/docker-for-windows/wsl/) or [Podman WSL2 backend](https://github.com/containers/podman/blob/main/docs/tutorials/podman-for-windows.md)
+- [Docker](https://docs.docker.com/install/) or [Podman](https://docs.podman.io/en/latest/)
+- [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+- (_Windows only_) [Docker WSL 2 backend](https://docs.docker.com/docker-for-windows/wsl/) or [Podman WSL2 backend](https://github.com/containers/podman/blob/main/docs/tutorials/podman-for-windows.md)
 
 ## Install earthly
 
@@ -30,51 +30,52 @@ You may optionally verify the checksum of the downloaded binaries, by performing
 
 1. Download our public key:
 
-    ```bash
-    wget https://pkg.earthly.dev/earthly.pgp
-    ```
+   ```bash
+   wget https://pkg.earthly.dev/earthly.pgp
+   ```
 
 2. Verify the public key was correctly downloaded:
 
-    ```bash
-    md5sum earthly.pgp
-    ```
+   ```bash
+   md5sum earthly.pgp
+   ```
 
-    which should produce:
+   which should produce:
 
-    ```
-    8f455671610b15ee21be31e9f16b7bb6  earthly.pgp
-    ```
+   ```
+   8f455671610b15ee21be31e9f16b7bb6  earthly.pgp
+   ```
 
 3. Import our key:
 
-    ```bash
-    gpg --import earthly.pgp
-    ```
+   ```bash
+   gpg --import earthly.pgp
+   ```
 
 4. Trust our key:
 
-    ```bash
-    echo -e "5\ny\n" |  gpg --command-fd 0 --expert --edit-key 5816B2213DD1CEB61FC952BAB1185ECA33F8EB64 trust
-    ```
+   ```bash
+   echo -e "5\ny\n" |  gpg --command-fd 0 --expert --edit-key 5816B2213DD1CEB61FC952BAB1185ECA33F8EB64 trust
+   ```
 
 5. Download the released `checksum.asc` file:
 
-    You can manually download it from the [the releases page](https://github.com/earthly/earthly/releases).
+   You can manually download it from the [the releases page](https://github.com/earthly/earthly/releases).
 
-    The latest version can be fetched from the command line with:
+   The latest version can be fetched from the command line with:
 
-    ```bash
-    wget https://github.com/earthly/earthly/releases/latest/download/checksum.asc
-    ```
+   ```bash
+   wget https://github.com/earthly/earthly/releases/latest/download/checksum.asc
+   ```
 
 6. Verify the `checksum.asc` file was released correctly:
 
-    ```bash
-    gpg --verify checksum.asc && gpg --verify --output checksum checksum.asc
-    ```
+   ```bash
+   gpg --verify checksum.asc && gpg --verify --output checksum checksum.asc
+   ```
 
 {% hint style='danger' %}
+
 #### gpg is dangerous
 
 Don't be tempted to remove the initial `gpg --verify checksum.asc` command; gpg will still output the `checksum` file even
@@ -83,26 +84,27 @@ if the signature verification fails.
 
 7. Verify the earthly binary checksum matches
 
-    ```bash
-    sha256sum --check checksum --ignore-missing
-    ```
+   ```bash
+   sha256sum --check checksum --ignore-missing
+   ```
 
-    This should display an entry similar to:
+   This should display an entry similar to:
 
-    ```
-    earthly-linux-amd64: OK
-    ```
+   ```
+   earthly-linux-amd64: OK
+   ```
 
 ### Installing from Earthly repositories (**beta**)
 
 {% hint style='danger' %}
+
 ##### Important
 
 Our rpm and deb repositories are currently in **Beta** stage.
 
-* Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/986) for any known problems.
-* Give us feedback on [Slack](https://earthly.dev/slack).
-{% endhint %}
+- Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/986) for any known problems.
+- Give us feedback on [Slack](https://earthly.dev/slack).
+  {% endhint %}
 
 Earthly can be installed for Debian and RedHat based Linux distributions via the Earthly deb and rpm repositories.
 
@@ -148,7 +150,6 @@ Before installing Earthly, you must first set up the Earthly apt repo.
    sudo apt-get update
    sudo apt-get install earthly
    ```
-
 
 #### Fedora repositories
 
@@ -201,13 +202,14 @@ CentOS users can use our rpm repo to install Earthly.
 ### Native Windows
 
 {% hint style='danger' %}
+
 ##### Important
 
 Our native Windows release is currently in the **Experimental** stage.
 
-* The release ships with known issues. Many things work, but some don't.
-* Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/1031) for any known problems.
-* Give us feedback on [Slack](https://earthly.dev/slack).
+- The release ships with known issues. Many things work, but some don't.
+- Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/1031) for any known problems.
+- Give us feedback on [Slack](https://earthly.dev/slack).
 
 {% endhint %}
 
@@ -218,7 +220,7 @@ To add `earthly.exe` to your `PATH` environment variable:
 1. Search and select: System (Control Panel)
 2. Click the Advanced system settings link.
 3. Click Environment Variables. In the "System Variables" section, select the PATH environment variable and click Edit.
-   * If the PATH environment variable does not exist, click New.
+   - If the PATH environment variable does not exist, click New.
 4. In the Edit window, specify the value of the PATH environment variable, and Click OK.
 5. Close and reopen any existing terminal windows, so they will pick up the new `PATH`.
 
@@ -228,14 +230,14 @@ If you are going to mostly be working from a WSL2 prompt in Windows, you might w
 
 While installing `earthly` via Homebrew is the recommended approach, you can also download a binary directly. This may be useful when using `earthly` on a Mac in CI scenarios.
 
-* [M1 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-arm64)
-* [x64 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-amd64)
+- [M1 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-arm64)
+- [x64 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-amd64)
 
 When using a precompiled binary, you may need to add an exception to Gatekeeper. [Follow Apple's instructions to add this exception](https://support.apple.com/guide/mac-help/apple-cant-check-app-for-malicious-software-mchleab3a043/mac).
 
 ### Installing from source
 
-To install from source, see the [contributing page](https://github.com/earthbuild/earthbuild/blob/main/CONTRIBUTING.md).
+To install from source, see the [contributing page](https://github.com/EarthBuild/earthbuild/blob/main/CONTRIBUTING.md).
 
 ## Configuration
 

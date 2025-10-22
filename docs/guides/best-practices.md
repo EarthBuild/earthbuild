@@ -919,12 +919,12 @@ When designing builds, it is advisable to place lower-level build logic closer t
 
 This allows for low coupling between modules within your code and creates a "build API" for your directories, whereby all externally accessible artifacts are exposed explicitly.
 
-As one example, you might find the [monorepo example](https://github.com/earthly/earthly/tree/main/examples/monorepo) to be a useful case-study. However, even when a repository contains a single project, you might still find it useful to split logic across multiple Earthfiles. An example might be including Protocol Buffers generation logic inside the subdirectory containing the `.proto` files, in its own Earthfile.
+As one example, you might find the [monorepo example](https://github.com/earthbuild/earthbuild/tree/main/examples/monorepo) to be a useful case-study. However, even when a repository contains a single project, you might still find it useful to split logic across multiple Earthfiles. An example might be including Protocol Buffers generation logic inside the subdirectory containing the `.proto` files, in its own Earthfile.
 
 For a real-world example, you can also take a look at Earthly's own build, where several Earthfiles are scattered across the repository to help organize build logic across modules, very much like regular code. Here are some examples:
 
 <!-- GitBook currently has a bug where any references to an "Earthfile" gets confused with "docs/Earthfile" and somehow appends a /README.md
-https://github.com/earthbuild/earthbuild/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
+https://github.com/EarthBuild/earthbuild/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
 
 - [`ast/parser`](https://github.com/earthly/earthly/tree/main/ast/parser) - Earthfile contains the logic for generating Go source code based on an ANTLR grammar.
 - [`ast/parser/tests`](https://github.com/earthly/earthly/tree/main/ast/tests) - Earthfile contains logic for running AST-specific tests.

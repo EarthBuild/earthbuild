@@ -43,7 +43,7 @@ ssh-add /tmp/self-hosted-sshkey
 sudo /bin/sh -c "echo 127.0.0.1 ip4-localhost >> /etc/hosts"
 sshhost="ip4-localhost"
 
-# add test ssh server to known hosts
+echo "add test ssh server to known hosts"
 mkdir -p ~/.ssh
 {
 	ssh-keyscan -p "$SSH_PORT" -H "$sshhost"
@@ -53,26 +53,26 @@ mkdir -p ~/.ssh
 
 cat ~/.ssh/known_hosts
 
-# setup passwordless login
+echo "setup passwordless login"
 sshpass -p "root" ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"echo $pubkey > /root/.ssh/authorized_keys\""
 
-# setup a non-standard self-hosted git repo under the root user
+echo "setup a non-standard self-hosted git repo under the root user"
 ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"apt-get update && apt-get install -y git\""
 ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"mkdir -p /root/my/really/weird/path/project.git\""
 ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"cd /root/my/really/weird/path/project.git; git init --bare \""
 
-# setup git
+echo "setup git"
 git config --global user.email "inigo@montoya.com"
 git config --global user.name "my name is Inigo Montoya"
 
-# create an Earthfile for our new private git repo
+echo "create an Earthfile for our new private git repo"
 # docker / podman
 mkdir -p ~/odd-project
 cd ~/odd-project
 git init
 cat <<EOF >> Earthfile
-VERSION 0.7
-FROM alpine:latest
+VERSION 0.8
+FROM alpine:3.22
 
 build:
   RUN echo -e "#!/bin/sh\necho hello weird world" > say-hi
@@ -92,28 +92,28 @@ git branch -M trunk
 git remote add origin "ssh://root@$sshhost:$SSH_PORT/root/my/really/weird/path/project.git"
 git push -u origin trunk
 
-# Create a second Earthfile in a subdirectory which will contain a Command:
+echo "Create a second Earthfile in a subdirectory which will contain a Command"
 mkdir -p weirdcommands
 cat <<EOF >> weirdcommands/Earthfile
-VERSION 0.7
+VERSION 0.8
 TOUCH:
   COMMAND
   ARG file=touched
   RUN touch weird-\$file
 
 target:
-  FROM alpine:latest
+  FROM alpine:3.22
   RUN echo hello
 EOF
 git add weirdcommands/Earthfile
 git commit -m 'here are my weird commands'
 git push -u origin trunk
 
-# delete the repo now that we've pushed it
+echo "delete the repo now that we've pushed it"
 cd ~
 rm -rf odd-project
 
-# test that earthly has access to it
+echo "test that earthly has access to it"
 "$earthly" config git "{myserver: {pattern: 'myserver/([^/]+)', substitute: 'ssh://root@$ip:$SSH_PORT/root/my/really/weird/path/\$1.git', auth: ssh}}"
 
 echo "=== Test remote build under repo root ==="
@@ -122,13 +122,13 @@ $earthly -V myserver/project:trunk+docker
 echo "=== Test remote build under repo subdir ==="
 $earthly -V myserver/project/weirdcommands:trunk+target
 
-# test that the container was built and runs
+echo "test that the container was built and runs"
 "$frontend" run --rm weirdrepo:latest | grep "hello weird world"
 
-# next test that we can reference commands in the weird repo;
+echo "next test that we can reference commands in the weird repo"
 # create a local Earthfile (that wont be saved to git)
 cat <<EOF > Earthfile
-VERSION 0.7
+VERSION 0.8
 IMPORT myserver/project/weirdcommands:trunk
 
 FROM alpine:latest

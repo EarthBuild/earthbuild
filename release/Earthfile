@@ -153,31 +153,31 @@ promote-to-dockerhub:
     ARG EARTHLY_GIT_SHORT_HASH
 
     # Default to earthly-inferred commit SHA short but accept an override
-    ARG COMMIT_SHA_SHORT="$EARTHLY_GIT_HASH"
+    ARG COMMIT_SHA_SHORT="$EARTHLY_GIT_SHORT_HASH"
 
     # The release tag (vX.X.X) that we're running for
     ARG --required RELEASE_TAG
 
 
-    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7 -> docker.io/earthbuild/buildkitd:v0.8.17-rc0
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
-    # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:v0.8.17-rc0
-    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7 -> docker.io/earthbuild/buildkitd:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
     
-    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:v0.8.17-rc0
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
-    # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:v0.8.17-rc0
-    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
 
 copy-img-to-dockerhub:
     ARG --required IMG_NAME
     ARG --required RELEASE_TAG
-    ARG --required COMMIT_SHA
+    ARG --required SRC_TAG
     
     LET SRC_DOCKER_REGISTRY="ghcr.io"
     LET DEST_DOCKER_REGISTRY="docker.io"
     
-    LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:${COMMIT_SHA}"
+    LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:${SRC_TAG}"
     LET DEST_IMG="${DEST_DOCKER_REGISTRY}/earthbuild/${IMG_NAME}:${RELEASE_TAG}"
 
     BUILD +copy-img --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \

@@ -101,7 +101,14 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |-
           set -euo pipefail
-          ./build/linux/amd64/earthly --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG ./release+release-dockerhub --PUSH_PRERELEASE_TAG="true" --PUSH_LATEST_TAG="false" --RELEASE_TAG="$RELEASE_TAG"
+          ./build/linux/amd64/earthly --push \
+            ./release+release-dockerhub \
+            --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
+            --DOCKERHUB_IMG="${{ env.DOCKERHUB_IMG }}" \
+            --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
+            --PUSH_PRERELEASE_TAG="true" \
+            --PUSH_LATEST_TAG="false" \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}"
 
   release-ticktock-image:
     name: release dockerhub (ticktock)
@@ -144,7 +151,15 @@ jobs:
           EARTHLY_NEXT: ${{ needs.prepare-release.outputs.earthly_next }}
         run: |-
           set -euo pipefail
-          ./build/linux/amd64/earthly --push --build-arg DOCKERHUB_USER --build-arg DOCKERHUB_IMG --build-arg DOCKERHUB_BUILDKIT_IMG ./release+release-dockerhub --PUSH_PRERELEASE_TAG="false" --PUSH_LATEST_TAG="false" --RELEASE_TAG="${RELEASE_TAG}-ticktock" --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${EARTHLY_NEXT}
+          ./build/linux/amd64/earthly --push \
+            ./release+release-dockerhub \
+            --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
+            --DOCKERHUB_IMG="${{ env.DOCKERHUB_IMG }}" \
+            --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
+            --PUSH_PRERELEASE_TAG="false" \
+            --PUSH_LATEST_TAG="false" \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}-ticktock" \
+            --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${{ env.EARTHLY_NEXT }}
 
   release-binaries:
     name: release github
@@ -195,6 +210,6 @@ jobs:
             --EARTHLY_REPO="${{ env.EARTHLY_REPO }}" \
             --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
-            --RELEASE_TAG="$RELEASE_TAG" \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
             --PRERELEASE=false
 

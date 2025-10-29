@@ -216,3 +216,9 @@ jobs:
             --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
             --PRERELEASE=false
 
+      - name: Upload Release Binaries Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.prepare-release.outputs.release_tag }}
+          path: release/release/**
+

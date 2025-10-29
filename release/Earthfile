@@ -100,7 +100,6 @@ signed-release:
     RUN file ./release/earthly-windows-amd64.exe | grep "PE32"
 
     # GPG Sign
-    # TODO generate and share an earthbuild org GPG key. Determine how to provide secret
     RUN --secret GPG_PRIVATE echo "${GPG_PRIVATE}" | gpg --import && \
         cd release && sha256sum earthly-* > checksum && \
         cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum

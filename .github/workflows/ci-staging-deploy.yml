@@ -54,8 +54,7 @@ jobs:
         id: compute-tag
         run: |-
           set -euo pipefail
-          SHA_DEC="$(echo "ibase=16; $(git rev-parse --short HEAD | tr '[:lower:]' '[:upper:]')" | bc)"
-          RELEASE_TAG="v0.$(date +%s).$SHA_DEC"
+          RELEASE_TAG="$(git rev-parse --short=8 HEAD)"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
       - name: Read earthly-next sha
         id: read-next

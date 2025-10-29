@@ -309,6 +309,7 @@ changelog:
     FROM scratch
     SAVE ARTIFACT CHANGELOG.md
 
+# TODO is this used?
 changelog-parser:
     FROM python:3
     RUN pip install packaging

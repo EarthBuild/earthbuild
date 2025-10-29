@@ -78,16 +78,6 @@ perform-release-buildkitd-dockerhub:
         --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
 
-release-notes:
-    FROM ..+changelog-parser
-    ARG --required RELEASE_TAG
-    RUN changelogparser --changelog CHANGELOG.md --version "$RELEASE_TAG" > notes.txt
-    ARG SKIP_CHANGELOG_DATE_TEST="false"
-    IF [ "$SKIP_CHANGELOG_DATE_TEST" != "true" ]
-        RUN --no-cache test "$(changelogparser --changelog CHANGELOG.md --version "$RELEASE_TAG" --date)" = "$(date "+%Y-%m-%d")"
-    END
-    SAVE ARTIFACT notes.txt
-
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
@@ -140,20 +130,7 @@ gh-cli:
     
     RUN apk add --no-cache github-cli
 
-gh-auth-debug:
-    FROM +gh-cli
-    ARG GITHUB_USER="earthbuild"
-    ARG EARTHLY_REPO="earthbuild-staging"
-    RUN \
-        --secret GITHUB_TOKEN \
-        set -euo pipefail; \
-        test -n "$GITHUB_TOKEN"; \
-        export GH_TOKEN="$GITHUB_TOKEN"; \
-        gh --version; \
-        gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
-
-# TODO: this is unused for now. Shortly it will be refactored to no longer build artifacts itself. Rather just
-# upload existing artifacts stored in GitHub actions to a specified release using `gh release upload`.
+# release-artifacts-to-gh uploads existing artifacts stored in GitHub actions to a specified release
 release-artifacts-to-gh:
     FROM +gh-cli
 

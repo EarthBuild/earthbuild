@@ -163,28 +163,39 @@ release-artifacts-to-gh:
     RUN --push --secret GH_TOKEN find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "${RELEASE_TAG}" "{}" --clobber
 
 release-dockerhub:
-    # Built-ins: Full commit SHA, First 8 of commit SHA
-    ARG EARTHLY_GIT_HASH
+    # Built-ins: First 8 of commit SHA
+    ARG EARTHLY_GIT_SHORT_HASH
 
-    # Default to earthly-inferred commit SHA but accept an override
-    ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
+    # Default to earthly-inferred commit SHA short but accept an override
+    ARG COMMIT_SHA_SHORT="$EARTHLY_GIT_HASH"
 
     # The release tag (vX.X.X) that we're running for
     ARG --required RELEASE_TAG
 
+
+    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7 -> docker.io/earthbuild/buildkitd:v0.8.17-rc0
     BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:v0.8.17-rc0
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
+    
+    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:v0.8.17-rc0
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:v0.8.17-rc0
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --COMMIT_SHA="${COMMIT_SHA}" --RELEASE_TAG="${RELEASE_TAG}"
 
 copy-img-to-dockerhub:
     ARG --required IMG_NAME
     ARG --required RELEASE_TAG
     ARG --required COMMIT_SHA
     
-    LET SRC_IMG="ghcr.io/EarthBuild/earthbuild:${COMMIT_SHA}"
-    LET DEST_IMG="docker.io/earthbuild/${IMG_NAME}:${RELEASE_TAG}"
+    LET SRC_DOCKER_REGISTRY="ghcr.io"
+    LET DEST_DOCKER_REGISTRY="docker.io"
+    
+    LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:${COMMIT_SHA}"
+    LET DEST_IMG="${DEST_DOCKER_REGISTRY}/earthbuild/${IMG_NAME}:${RELEASE_TAG}"
 
-    BUILD +copy-img --SRC_DOCKER_REGISTRY="${ECR_REGISTRY_DEV}" \
-        --DEST_DOCKER_REGISTRY="${ECR_REGISTRY_SHARED}" \
+    BUILD +copy-img --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \
+        --DEST_DOCKER_REGISTRY="${DEST_DOCKER_REGISTRY}" \
         --SRC_REF="${SRC_IMG}" --DEST_REF="${DEST_IMG}"
 
 copy-img:

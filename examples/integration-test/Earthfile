@@ -6,6 +6,8 @@ RUN apk add openjdk11 bash wget postgresql-client
 sbt:
     #Scala
     # Defaults if not specified
+
+    # renovate: datasource=github-releases packageName=sbt/sbt
     ARG sbt_version=1.3.2
     ARG sbt_home=/usr/local/sbt
 

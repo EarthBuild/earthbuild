@@ -133,68 +133,6 @@ signed-release:
 
     SAVE ARTIFACT ./release AS LOCAL ./release
 
-gh-cli:
-    FROM alpine:3.20
-
-    RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
-    
-    RUN apk add --no-cache github-cli
-
-gh-auth-debug:
-    FROM +gh-cli
-    ARG GITHUB_USER="earthbuild"
-    ARG EARTHLY_REPO="earthbuild-staging"
-    RUN \
-        --secret GITHUB_TOKEN \
-        set -euo pipefail; \
-        test -n "$GITHUB_TOKEN"; \
-        export GH_TOKEN="$GITHUB_TOKEN"; \
-        gh --version; \
-        gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
-
-# TODO: this is unused for now. Shortly it will be refactored to no longer build artifacts itself. Rather just
-# upload existing artifacts stored in GitHub actions to a specified release using `gh release upload`.
-release-github:
-    FROM +gh-cli
-
-    ARG --required RELEASE_TAG
-
-    # TODO: remove release-notes entirely?
-    # COPY (+release-notes/notes.txt --RELEASE_TAG="${RELEASE_TAG}") release-notes.txt
-
-    ARG GITHUB_USER="earthbuild"
-    ARG EARTHLY_REPO="earthbuild"
-    ARG DOCKERHUB_HOST="ghcr.io"
-    ARG DOCKERHUB_USER="earthbuild"
-    ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
-    ARG PRERELEASE="false"
-    ARG EARTHLY_GIT_HASH
-
-    COPY (+signed-release/release --GITHUB_USER="${GITHUB_USER}" --EARTHLY_REPO="${EARTHLY_REPO}" --DOCKERHUB_HOST="${DOCKERHUB_HOST}" --DOCKERHUB_USER="${DOCKERHUB_USER}" --DOCKERHUB_BUILDKIT_IMG="${DOCKERHUB_BUILDKIT_IMG}" --PRERELEASE="${PRERELEASE}") ./release
-
-    RUN \
-        --secret GITHUB_TOKEN \
-        set -euo pipefail; \
-        test -n "$GITHUB_TOKEN"; \
-        export GH_TOKEN="$GITHUB_TOKEN"; \
-        gh --version
-
-    RUN --push \
-        --secret GITHUB_TOKEN \
-        set -euo pipefail; \
-        export GH_TOKEN="$GITHUB_TOKEN"; \
-        # delete any previous release/tag if present (ignore errors)
-        gh release delete "$RELEASE_TAG" --repo "$GITHUB_USER/$EARTHLY_REPO" --cleanup-tag -y || true; \
-        # create release and upload binaries
-        if [ "$PRERELEASE" = "true" ]; then PRERELEASE_FLAG="--prerelease"; else PRERELEASE_FLAG=""; fi; \
-        gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_USER/$EARTHLY_REPO" \
-            --title "$RELEASE_TAG" \
-            --notes-file release-notes.txt \
-            --target "$EARTHLY_GIT_HASH" \
-            $PRERELEASE_FLAG \
-            ./release/*
-
 release-homebrew:
     RUN apk add --update --no-cache \
         bash \

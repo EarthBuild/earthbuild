@@ -91,8 +91,7 @@ release-notes:
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
-    # TODO lock down version
-    FROM alpine:latest
+    FROM alpine:3.20
 
     RUN apk add file gpg gpg-agent
 

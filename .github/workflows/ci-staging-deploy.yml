@@ -22,65 +22,194 @@ jobs:
       BINARY: "docker"
       SUDO: ""
     secrets: inherit
-
-  tests:
-    name: staging release
+  prepare-release:
+    name: prepare release
     needs: build-earthly
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      release_tag: ${{ steps.compute-tag.outputs.release_tag }}
+      earthly_next: ${{ steps.read-next.outputs.earthly_next }}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
-      GITHUB_USER: "earthly"
-      EARTHLY_REPO: "earthly-staging"
-      BREW_REPO: "homebrew-earthly-staging"
-      DOCKERHUB_USER: "earthly"
-      DOCKERHUB_IMG: "earthly-staging"
+      GITHUB_USER: "earthbuild"
+      EARTHLY_REPO: "earthbuild-staging"
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
+      DOCKERHUB_IMG: "earthbuild-staging"
       DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
-      # Used in our github action as the token - TODO: look to change it into an input
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: Retrieve earthbuild from build-earthly job
+        run: |
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
+          mkdir -p $(dirname "./build/linux/amd64/earthly")
+          mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
+      - name: Compute release tag
+        id: compute-tag
+        run: |-
+          set -euo pipefail
+          RELEASE_TAG="$(git rev-parse --short=8 HEAD)"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Read earthly-next sha
+        id: read-next
+        run: |-
+          set -euo pipefail
+          echo "earthly_next=$(cat earthly-next)" >> "$GITHUB_OUTPUT"
+
+  release-image:
+    name: release dockerhub (main)
+    needs: [build-earthly, prepare-release]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    env:
+      FORCE_COLOR: 1
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
+      DOCKERHUB_IMG: "earthbuild-staging"
+      DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Set up QEMU
         id: qemu
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: all
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ env.GITHUB_TOKEN }}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Retrieve earthbuild from build-earthly job
+        run: |-
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
+          mkdir -p $(dirname "./build/linux/amd64/earthly")
+          mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
+      - name: Release to DockerHub (main)
+        env:
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+        run: |-
+          set -euo pipefail
+          ./build/linux/amd64/earthly --push \
+            ./release+release-dockerhub \
+            --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
+            --DOCKERHUB_IMG="${{ env.DOCKERHUB_IMG }}" \
+            --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
+            --PUSH_PRERELEASE_TAG="true" \
+            --PUSH_LATEST_TAG="false" \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}"
+
+  release-ticktock-image:
+    name: release dockerhub (ticktock)
+    needs: [build-earthly, prepare-release]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    env:
+      FORCE_COLOR: 1
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
+      DOCKERHUB_IMG: "earthbuild-staging"
+      DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: all
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ env.GITHUB_TOKEN }}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Retrieve earthbuild from build-earthly job
+        run: |-
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
+          mkdir -p $(dirname "./build/linux/amd64/earthly")
+          mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
+      - name: Release to DockerHub (ticktock)
+        env:
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          EARTHLY_NEXT: ${{ needs.prepare-release.outputs.earthly_next }}
+        run: |-
+          set -euo pipefail
+          ./build/linux/amd64/earthly --push \
+            ./release+release-dockerhub \
+            --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
+            --DOCKERHUB_IMG="${{ env.DOCKERHUB_IMG }}" \
+            --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
+            --PUSH_PRERELEASE_TAG="false" \
+            --PUSH_LATEST_TAG="false" \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}-ticktock" \
+            --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${{ env.EARTHLY_NEXT }}
+
+  release-binaries:
+    name: release github
+    needs: [build-earthly, prepare-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FORCE_COLOR: 1
+      GITHUB_USER: "earthbuild"
+      EARTHLY_REPO: "earthbuild-staging"
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
+      DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
+    steps:
+      - name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
         with:
           image: tonistiigi/binfmt:latest
           platforms: all
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-      - name: Configure earthly accounts (Earthly Only)
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Retrieve earthly from build-earthly job
+      - name: Retrieve earthbuild from build-earthly job
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthly/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
           mkdir -p $(dirname "./build/linux/amd64/earthly")
           mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
-      - name: Configure Earthly to use GCR mirror
+      # This step creates earthly binaries for all platforms plus signature files for them under
+      # the ./release/release/ dir
+      - name: Create Release Binaries
+        env:
+          GPG_PRIVATE: ${{ secrets.GPG_PRIVATE }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |-
-          ./build/linux/amd64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"mirror.gcr.io\"]'"
-      - name: staging releases
-        run: |-
-            set -euo pipefail
-            export SHA_DEC="$(echo "ibase=16; $(git rev-parse --short HEAD | tr '[:lower:]' '[:upper:]')" | bc)"
-            export RELEASE_TAG="v0.$(date +%s).$SHA_DEC"
-            export SKIP_CHANGELOG_DATE_TEST=true
-            export EARTHLY_STAGING=true
-            export S3_BUCKET="staging-pkg"
-            export earthly="./build/linux/amd64/earthly"
-            echo "attempting staging-release version: $RELEASE_TAG"
-            eval "$(ssh-agent -s)"
-            "$earthly" secrets --org earthly-technologies --project core get -n littleredcorvette-id_rsa | ssh-add -
-            git remote add staging git@github.com:earthly/earthly-staging.git
-            git push staging HEAD:pre-release-$RELEASE_TAG
-            echo -e "# Earthly Changelog\n\nAll notable changes to [Earthly](https://github.com/earthly/earthly) will be documented in this file.\n\n## Unreleased\n\n## $RELEASE_TAG - $(date +%Y-%m-%d)\n\nThis pre-release was built from $(git rev-parse HEAD)" > CHANGELOG.md
-            echo -e "\n### Additional Info\n- This release includes changes to buildkit" >> CHANGELOG.md
-            ./release/release.sh
-      - name: Buildkit logs (runs on failure)
-        if: ${{ failure() }}
-        run: docker logs earthly-buildkitd
+          set -euo pipefail
+          ./build/linux/amd64/earthly --push \
+            --secret GPG_PRIVATE="${{ env.GPG_PRIVATE }}" \
+            ./release+signed-release \
+            --DOCKERHUB_HOST="ghcr.io" \
+            --GITHUB_USER="${{ env.GITHUB_USER }}" \
+            --EARTHLY_REPO="${{ env.EARTHLY_REPO }}" \
+            --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
+            --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
+            --PRERELEASE=false
+
+      - name: Upload Release Binaries Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ needs.prepare-release.outputs.release_tag }}
+          path: release/release/**
+

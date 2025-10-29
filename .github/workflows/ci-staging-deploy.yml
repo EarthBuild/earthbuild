@@ -195,7 +195,9 @@ jobs:
           app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
           private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
           owner: earthbuild
-      - name: Create GitHub release
+      # This step creates earthly binaries for all platforms plus signature files for them under
+      # the ./release/release/ dir
+      - name: Create Release Binaries
         env:
           GITHUB_TOKEN: ${{ steps.app-token-release.outputs.token }}
           GPG_PRIVATE: ${{ secrets.GPG_PRIVATE }}
@@ -205,7 +207,8 @@ jobs:
           ./build/linux/amd64/earthly --push \
             --secret GITHUB_TOKEN="$GITHUB_TOKEN" \
             --secret GPG_PRIVATE="$GPG_PRIVATE" \
-            ./release+release-github \
+            ./release+signed-release \
+            --DOCKERHUB_HOST="ghcr.io" \
             --GITHUB_USER="${{ env.GITHUB_USER }}" \
             --EARTHLY_REPO="${{ env.EARTHLY_REPO }}" \
             --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \

@@ -153,7 +153,8 @@ gh-auth-debug:
         gh --version; \
         gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
 
-# release-github produces tg
+# TODO: this is unused for now. Shortly it will be refactored to no longer build artifacts itself. Rather just
+# upload existing artifacts stored in GitHub actions to a specified release using `gh release upload`.
 release-github:
     FROM +gh-cli
 

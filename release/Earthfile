@@ -133,6 +133,54 @@ signed-release:
 
     SAVE ARTIFACT ./release AS LOCAL ./release
 
+gh-cli:
+    FROM alpine:3.20
+
+    RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
+    
+    RUN apk add --no-cache github-cli
+
+gh-auth-debug:
+    FROM +gh-cli
+    ARG GITHUB_USER="earthbuild"
+    ARG EARTHLY_REPO="earthbuild-staging"
+    RUN \
+        --secret GITHUB_TOKEN \
+        set -euo pipefail; \
+        test -n "$GITHUB_TOKEN"; \
+        export GH_TOKEN="$GITHUB_TOKEN"; \
+        gh --version; \
+        gh api "repos/$GITHUB_USER/$EARTHLY_REPO" -q .full_name >/dev/null
+
+# TODO: this is unused for now. Shortly it will be refactored to no longer build artifacts itself. Rather just
+# upload existing artifacts stored in GitHub actions to a specified release using `gh release upload`.
+release-artifacts-to-gh:
+    FROM +gh-cli
+
+    # Built-ins: Full commit SHA, First 8 of commit SHA
+    ARG EARTHLY_GIT_HASH
+
+    # Default to earthly-inferred commit SHA but accept an override
+    ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
+    
+    # Trim COMMIT_SHA to first 8 chars (alpine)
+    LET ARTIFACT_NAME="$(echo $COMMIT_SHA | cut -c1-8)"
+
+    RUN mkdir -p _download
+
+    # Download artifact previously built by ci-staging-deploy.yml "Create Release Binaries"
+    RUN --secret GH_TOKEN gh run download \
+        --commit "${COMMIT_SHA}" \
+        --name "${ARTIFACT_NAME}" \
+        --dir _download
+
+    # The release tag (vX.X.X) that we're running for
+    ARG --required RELEASE_TAG
+
+    # Upload all binary artifacts to the existing release. This target is meant to be triggered by creating a
+    # release in GitHub
+    RUN --push --secret GH_TOKEN find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "${RELEASE_TAG}" "{}" --clobber
+
 release-homebrew:
     RUN apk add --update --no-cache \
         bash \

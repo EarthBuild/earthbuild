@@ -6,37 +6,23 @@ on:
 
 jobs:
     add-artifacts-to-release:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04-arm
         permissions:
             contents: write
             actions: read
+        env:
+            FORCE_COLOR: 1
         steps:
+            - uses: earthbuild/actions-setup@main
             - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
               with:
-                  ref: ${{ github.event.release.tag_name }}
-                  fetch-depth: 0
-            - name: Compute commit and artifact name
-              id: meta
-              run: |-
-                  set -euo pipefail
-                  COMMIT_SHA="$(git rev-parse HEAD)"
-                  ARTIFACT_NAME="$(git rev-parse --short=8 HEAD)"
-                  echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-                  echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
-            - name: Download artifacts from commit
+                token: ${{ secrets.GITHUB_TOKEN }}
+                ref: ${{ github.event.release.tag_name }}
+                fetch-depth: 0
+            - name: Copy pre-built artifacts to release
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |-
-                  set -euo pipefail
-                  mkdir -p _download
-                  gh run download \
-                    --commit "${{ steps.meta.outputs.commit_sha }}" \
-                    --name "${{ steps.meta.outputs.artifact_name }}" \
-                    --dir _download
-            - name: Upload artifacts to GitHub Release
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |-
-                  set -euo pipefail
-                  TAG="${{ github.event.release.tag_name }}"
-                  find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "$TAG" "{}" --clobber
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                RELEASE_TAG: ${{ github.event.release.tag_name }}
+              run: |
+                earthly --ci --push --secret GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} ./release+release-artifacts-to-gh \
+                    --RELEASE_TAG=${{ env.RELEASE_TAG }}

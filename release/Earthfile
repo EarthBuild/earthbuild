@@ -1,21 +1,5 @@
 VERSION 0.8
-FROM alpine:3.18
-
-RUN apk add --update --no-cache \
-    curl python3 py3-requests
-
-release:
-    COPY ensure_gha_passing.py /bin/ensure_gha_passing
-    ARG EARTHLY_GIT_HASH
-    ARG --required RELEASE_TAG
-    ARG SKIP_GHA_CHECK
-    ARG PRERELEASE="false"
-    IF --no-cache test -n "$SKIP_GHA_CHECK" || ensure_gha_passing --sha $EARTHLY_GIT_HASH
-        BUILD +release-dockerhub --RELEASE_TAG="$RELEASE_TAG"
-        BUILD +release-github --RELEASE_TAG="$RELEASE_TAG" --PRERELEASE="$PRERELEASE"
-    ELSE
-        RUN echo "github status check failed; to force the release without performing this check, set --build-arg SKIP_GHA_CHECK=1"
-    END
+FROM alpine:3.20
 
 release-dockerhub:
     ARG --required RELEASE_TAG
@@ -123,9 +107,11 @@ signed-release:
 
     SAVE ARTIFACT ./release AS LOCAL ./release
 
+# promote-release is a single target that should be called after creating a GH release that copies all
+# releasables (images, artifacts) to their target destinations.
 promote-release:
-    BUILD +release-artifacts-to-gh
-    BUILD +release-dockerhub
+    BUILD +promote-artifacts-to-gh
+    BUILD +promote-to-dockerhub
 
 gh-cli:
     FROM alpine:3.20
@@ -135,7 +121,7 @@ gh-cli:
     RUN apk add --no-cache github-cli
 
 # release-artifacts-to-gh uploads existing artifacts stored in GitHub actions to a specified release
-release-artifacts-to-gh:
+promote-artifacts-to-gh:
     FROM +gh-cli
 
     # Built-ins: Full commit SHA, First 8 of commit SHA
@@ -162,7 +148,7 @@ release-artifacts-to-gh:
     # release in GitHub
     RUN --push --secret GH_TOKEN find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "${RELEASE_TAG}" "{}" --clobber
 
-release-dockerhub:
+promote-to-dockerhub:
     # Built-ins: First 8 of commit SHA
     ARG EARTHLY_GIT_SHORT_HASH
 

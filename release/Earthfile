@@ -117,7 +117,7 @@ gh-cli:
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
     
-    RUN apk add --no-cache github-cli
+    RUN apk add --no-cache github-cli=2.47.0-r4
 
 # release-artifacts-to-gh uploads existing artifacts stored in GitHub actions to a specified release
 promote-artifacts-to-gh:

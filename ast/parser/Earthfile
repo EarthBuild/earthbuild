@@ -36,14 +36,4 @@ test-not-committed:
     COPY +parser/* ./generated/
     RUN diff -qr ./locally ./generated
 
-rrd-antlr4:
-    FROM maven:3.8.6-jdk-11
-    WORKDIR /rrd-antlr4
-    ENV RRD_SHA af15d7d9151ce30a9b26bc8782a16643c93e3d6d
-    RUN curl -L https://github.com/bkiers/rrd-antlr4/archive/$RRD_SHA.zip > rrdantlr4.zip
-    RUN unzip rrdantlr4.zip
-    WORKDIR rrd-antlr4-$RRD_SHA
-    RUN mvn package
-    SAVE ARTIFACT target/rrd-antlr4-0.1.2.jar rrd-antlr4.jar
-
 # To visualize use VSCode extension: https://github.com/mike-lischke/vscode-antlr4

@@ -11,10 +11,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/earthfile2llb"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/earthfile2llb"
+	"github.com/earthbuild/earthbuild/util/fileutil"
 
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v2"

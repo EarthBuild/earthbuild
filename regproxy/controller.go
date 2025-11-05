@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	conslog "github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/stringutil"
+	conslog "github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/stringutil"
 	registry "github.com/moby/buildkit/api/services/registry"
 	"github.com/pkg/errors"
 )

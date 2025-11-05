@@ -3,10 +3,10 @@ package inputgraph
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
-	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/util/buildkitskipper/hasher"
+	"github.com/earthbuild/earthbuild/variables"
 )
 
 // HashOpt contains all of the options available to the hasher.

@@ -63,7 +63,7 @@ Lastly, we change our working directory to `/go-workdir`.
 
 Earthly aims to replace Dockerfile, makefile, bash scripts and more. We can take all the setup, configuration and build steps we'd normally define in those files and put them in our Earthfile in the form of `targets`.
 
-Let's start by defining a target to build our simple Go app. **When we run Earthly, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earthly +build`. More on this in the [Running the Build](#running-the-build) section.
+Let's start by defining a target to build our simple Go app. **When we run Earthbuild, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earthly +build`. More on this in the [Running the Build](#running-the-build) section.
 
 Let's start by breaking down our first target.
 

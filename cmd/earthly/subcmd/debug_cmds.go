@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/earthbuild/earthbuild/ast"
 )
 
 type Debug struct {

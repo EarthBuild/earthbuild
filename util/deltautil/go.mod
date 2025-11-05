@@ -1,4 +1,4 @@
-module github.com/EarthBuild/earthbuild/util/deltautil
+module github.com/earthbuild/earthbuild/util/deltautil
 
 go 1.21
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/earthbuild/earthbuild/cmd/earthly/base"
+	"github.com/earthbuild/earthbuild/cmd/earthly/common"
+	"github.com/earthbuild/earthbuild/cmd/earthly/subcmd"
 )
 
 type EarthlyApp struct {

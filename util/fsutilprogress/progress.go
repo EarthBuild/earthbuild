@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/conslogging"
 	"github.com/tonistiigi/fsutil"
 )
 

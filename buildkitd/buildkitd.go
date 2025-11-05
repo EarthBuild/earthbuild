@@ -23,12 +23,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/EarthBuild/earthbuild/ast/hint"
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/buildkitutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/EarthBuild/earthbuild/util/semverutil"
+	"github.com/earthbuild/earthbuild/ast/hint"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/util/buildkitutil"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/earthbuild/earthbuild/util/semverutil"
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB

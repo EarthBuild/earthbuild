@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/conslogging"
 
 	"github.com/pkg/errors"
 )

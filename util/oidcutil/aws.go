@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
-	"github.com/EarthBuild/earthbuild/util/parseutil"
+	"github.com/earthbuild/earthbuild/util/parseutil"
 	"github.com/mitchellh/mapstructure"
 )
 

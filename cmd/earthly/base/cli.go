@@ -1,14 +1,14 @@
 package base
 
 import (
-	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
-	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/earthbuild/earthbuild/buildkitd"
+	"github.com/earthbuild/earthbuild/cmd/earthly/flag"
+	"github.com/earthbuild/earthbuild/logbus"
 	"github.com/urfave/cli/v2"
 
-	"github.com/EarthBuild/earthbuild/config"
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/logbus/setup"
+	"github.com/earthbuild/earthbuild/config"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/logbus/setup"
 )
 
 type CLI struct {

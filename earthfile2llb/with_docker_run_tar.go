@@ -10,12 +10,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/dockertar"
-	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/dockertar"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )

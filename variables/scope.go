@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/variables/reserved"
+	"github.com/earthbuild/earthbuild/variables/reserved"
 )
 
 // Scope represents a variable scope.

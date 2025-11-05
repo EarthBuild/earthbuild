@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/earthbuild/earthbuild/ast"
 	"github.com/stretchr/testify/require"
 )
 

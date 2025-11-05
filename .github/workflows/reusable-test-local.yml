@@ -9,7 +9,7 @@ on:
       RUN_EARTHLY_TEST_ARGS:
         required: false
         type: string
-        default: '--use-inline-cache --save-inline-cache --no-output'
+        default: "--use-inline-cache --save-inline-cache --no-output"
       BINARY:
         required: true
         type: string

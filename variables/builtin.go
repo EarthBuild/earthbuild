@@ -7,13 +7,13 @@ import (
 
 	"github.com/containerd/containerd/platforms"
 
-	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/features"
-	"github.com/EarthBuild/earthbuild/util/gitutil"
-	"github.com/EarthBuild/earthbuild/util/llbutil"
-	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/stringutil"
-	arg "github.com/EarthBuild/earthbuild/variables/reserved"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/util/gitutil"
+	"github.com/earthbuild/earthbuild/util/llbutil"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/stringutil"
+	arg "github.com/earthbuild/earthbuild/variables/reserved"
 )
 
 // DefaultArgs contains additional builtin ARG values which need

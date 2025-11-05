@@ -9,20 +9,20 @@ This guide is related to self-hosting a remote BuildKit, however, Self-Hosted Sa
 
 ## Overview
 
-Kubernetes isn't a CI per-se, but it _can_ serve as the underpinning for many modern CI systems. As such, this example serves as a bare-bones example to base your implementations on.
+Kubernetes isn't a CI per-se, but it *can* serve as the underpinning for many modern CI systems. As such, this example serves as a bare-bones example to base your implementations on.
 
 ### Compatibility
 
 `earthly` has been tested with the all-in-one `earthbuild/earthbuild` mode, and works as long as the pod runs in a `privileged` mode.
 
-It has also been tested with a _single_ remote `earthly/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
+It has also been tested with a *single* remote `earthly/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
 
 Multi-node `earthly/buildkitd` configurations are currently unsupported.
 
 ### Resources
 
-- [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
-- [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+* [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
+* [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
 
 ## Setup (`earthbuild/earthbuild` Only)
 
@@ -51,11 +51,11 @@ The `earthbuild/earthbuild` container will operate best when provided with decen
 
 ```yaml
 volumeMounts:
-  - mountPath: /tmp/earthly
+* mountPath: /tmp/earthly
     name: buildkitd-temp
----
+----------------------------------
 volumes:
-  - name: buildkitd-temp
+* name: buildkitd-temp
     emptyDir: {} # Or other volume type
 ```
 
@@ -69,7 +69,7 @@ The `earthbuild/earthbuild` image will expect to find the source code (with `Ear
 
 ##### Note
 
-This an _experimental_ configuration.
+This an *experimental* configuration.
 
 {% endhint %}
 
@@ -99,7 +99,7 @@ sessionAffinityConfig:
 
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/EarthBuild/earthbuild/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
@@ -107,8 +107,8 @@ See our [Kubernetes examples](https://github.com/earthly/ci-examples/tree/main/k
 
 To run it yourself, first you will need to install some prerequisites on your machine. This example requires `kind` and `kubectl` to be installed on your system. Here are some links to installation instructions:
 
-- [`kind` Quick Start](https://kind.sigs.k8s.io/docs/user/quick-start/)
-- [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl)
+* [`kind` Quick Start](https://kind.sigs.k8s.io/docs/user/quick-start/)
+* [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl)
 
 When you are ready, clone the [`ci-examples` repository](https://github.com/earthly/ci-examples), and then run (from the root of the repository):
 
@@ -118,8 +118,8 @@ earthly ./kubernetes+start
 
 Running this target will:
 
-- Create a `kind` cluster named `earthlydemo-aio`
-- Create & watch a `job` that runs an `earthly` build
+* Create a `kind` cluster named `earthlydemo-aio`
+* Create & watch a `job` that runs an `earthly` build
 
 When the example is complete, the cluster is left up and intact for exploration and experimentation. If you would like to clean up the cluster when complete, run (again from the root of the repository):
 

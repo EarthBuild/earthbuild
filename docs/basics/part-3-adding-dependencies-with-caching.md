@@ -13,7 +13,7 @@ Now let's imagine that we want to add some dependencies to our app. In Go, that 
 `./go.mod`
 
 ```go.mod
-module github.com/EarthBuild/earthbuild/examples/go
+module github.com/earthbuild/earthbuild/examples/go
 
 go 1.13
 

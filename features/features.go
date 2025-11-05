@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/ast/spec"
 	goflags "github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
 
-	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/earthbuild/earthbuild/util/flagutil"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining

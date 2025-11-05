@@ -11,12 +11,12 @@ func Test_gitSSHToURL(t *testing.T) {
 		in, want string
 	}{
 		{
-			in:   "git@github.com:EarthBuild/earthbuild.git",
-			want: "https://github.com/EarthBuild/earthbuild",
+			in:   "git@github.com:earthbuild/earthbuild.git",
+			want: "https://github.com/earthbuild/earthbuild",
 		},
 		{
-			in:   "bob@github.com:EarthBuild/earthbuild.git",
-			want: "https://github.com/EarthBuild/earthbuild",
+			in:   "bob@github.com:earthbuild/earthbuild.git",
+			want: "https://github.com/earthbuild/earthbuild",
 		},
 		{
 			in:   "bob@random.com:repo.git",

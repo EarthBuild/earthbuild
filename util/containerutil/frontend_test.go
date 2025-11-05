@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/util/containerutil"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"

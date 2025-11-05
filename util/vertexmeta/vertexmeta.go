@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/ast/spec"
 )
 
 // VertexMeta is metadata associated with the vertex. This is passed from the

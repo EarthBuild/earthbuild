@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/logbus/solvermon"
-	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/logbus/solvermon"
+	"github.com/earthbuild/earthbuild/states"
+	"github.com/earthbuild/earthbuild/util/containerutil"
+	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
 	"github.com/pkg/errors"
 )
 

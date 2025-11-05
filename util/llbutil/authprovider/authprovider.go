@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/conslogging"
 	"github.com/moby/buildkit/session/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

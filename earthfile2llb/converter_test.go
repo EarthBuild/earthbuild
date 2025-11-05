@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/features"
+	"github.com/earthbuild/earthbuild/features"
 )
 
 func Test_parseSecretFlag(t *testing.T) {

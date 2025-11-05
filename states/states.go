@@ -6,13 +6,13 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 
-	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/states/dedup"
-	"github.com/EarthBuild/earthbuild/states/image"
-	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
-	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/earthbuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/states/dedup"
+	"github.com/earthbuild/earthbuild/states/image"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/waitutil"
+	"github.com/earthbuild/earthbuild/variables"
 	"github.com/google/uuid"
 )
 

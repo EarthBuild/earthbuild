@@ -6,13 +6,13 @@ Note to person editing!!
 
 The general order of the commands is as follows:
 
-- Core classical Dockerfile commands (order is the same as in the Dockerfile official docs)
-- Core, GA'd Earthly commands
-- Other Dockerfile commands which have the exact same behavior in Earthly as in Dockerfiles
-- Beta Earthly commands
-- Experimental Earthly commands
-- Classical Dockerfile commands that are not supported
-- Deprecated Earthly commands
+* Core classical Dockerfile commands (order is the same as in the Dockerfile official docs)
+* Core, GA'd Earthly commands
+* Other Dockerfile commands which have the exact same behavior in Earthly as in Dockerfiles
+* Beta Earthly commands
+* Experimental Earthly commands
+* Classical Dockerfile commands that are not supported
+* Deprecated Earthly commands
 
 -->
 
@@ -43,8 +43,8 @@ Each recipe contains a series of commands, which are defined below. For an intro
 
 #### Synopsis
 
-- `FROM <image-name>`
-- `FROM [--platform <platform>] [--allow-privileged] <target-ref> [--<build-arg-key>=<build-arg-value>...]`
+* `FROM <image-name>`
+* `FROM [--platform <platform>] [--allow-privileged] <target-ref> [--<build-arg-key>=<build-arg-value>...]`
 
 #### Description
 
@@ -52,11 +52,11 @@ The `FROM` command initializes a new build environment and sets the base image f
 
 Examples:
 
-- Classical reference: `FROM alpine:latest`
-- Local reference: `FROM +another-target`
-- Relative reference: `FROM ./subdirectory+some-target` or `FROM ../otherdirectory+some-target`
-- Absolute reference: `FROM /absolute/path+some-target`
-- Remote reference from a public or [private](https://docs.earthly.dev/docs/guides/auth) git repository: `FROM github.com/example/project+remote-target`
+* Classical reference: `FROM alpine:latest`
+* Local reference: `FROM +another-target`
+* Relative reference: `FROM ./subdirectory+some-target` or `FROM ../otherdirectory+some-target`
+* Absolute reference: `FROM /absolute/path+some-target`
+* Remote reference from a public or [private](https://docs.earthly.dev/docs/guides/auth) git repository: `FROM github.com/example/project+remote-target`
 
 The `FROM` command does not mark any saved images or artifacts of the referenced target for output, nor does it mark any push commands of the referenced target for pushing. For that, please use [`BUILD`](#build).
 
@@ -144,7 +144,7 @@ earthly --allow-privileged +my-target
 
 ##### `--pass-args`
 
-Earthly automatically passes all current arguments to referenced targets in the _same_ Earthfile.
+Earthly automatically passes all current arguments to referenced targets in the *same* Earthfile.
 However, when the `--pass-args` flag is set, Earthly will also propagate all arguments to an externally referenced target.
 
 ##### `--build-arg <key>=<value>` (**deprecated**)
@@ -155,14 +155,14 @@ This option is deprecated. Use `--<build-arg-key>=<build-arg-value>` instead.
 
 #### Synopsis
 
-- `RUN [options...] [--] <command>` (shell form)
-- `RUN [[options...], "<executable>", "<arg1>", "<arg2>", ...]` (exec form)
+* `RUN [options...] [--] <command>` (shell form)
+* `RUN [[options...], "<executable>", "<arg1>", "<arg2>", ...]` (exec form)
 
 #### Description
 
 The `RUN` command executes commands in the build environment of the current target, in a new layer. It works similarly to the [Dockerfile `RUN` command](https://docs.docker.com/engine/reference/builder/#run), with some added options.
 
-The command allows for two possible forms. The _exec form_ runs the command executable without the use of a shell. The _shell form_ uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
+The command allows for two possible forms. The *exec form* runs the command executable without the use of a shell. The *shell form* uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
 
 When the `--entrypoint` flag is used, the current image entrypoint is used to prepend the current command.
 
@@ -298,9 +298,9 @@ The `<mount-spec>` is defined as a series of comma-separated list of key-values.
 
 For cache mounts, the sharing mode can be one of the following:
 
-- `locked` (default) - the cache mount is locked for the duration of the execution, other concurrent builds will wait for the lock to be released.
-- `shared` - the cache mount is shared between all concurrent builds.
-- `private` - if another concurrent build attempts to use the cache, a new (empty) cache will be created for the concurrent build.
+* `locked` (default) - the cache mount is locked for the duration of the execution, other concurrent builds will wait for the lock to be released.
+* `shared` - the cache mount is shared between all concurrent builds.
+* `private` - if another concurrent build attempts to use the cache, a new (empty) cache will be created for the concurrent build.
 
 ###### Examples
 
@@ -431,15 +431,15 @@ The following is output:
 
 #### Synopsis
 
-- `COPY [options...] <src>... <dest>` (classical form)
-- `COPY [options...] <src-artifact>... <dest>` (artifact form)
-- `COPY [options...] (<src-artifact> --<build-arg-key>=<build-arg-value>...) <dest>` (artifact form with build args)
+* `COPY [options...] <src>... <dest>` (classical form)
+* `COPY [options...] <src-artifact>... <dest>` (artifact form)
+* `COPY [options...] (<src-artifact> --<build-arg-key>=<build-arg-value>...) <dest>` (artifact form with build args)
 
 #### Description
 
 The command `COPY` allows copying of files and directories between different contexts.
 
-The command may take a couple of possible forms. In the _classical form_, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the _artifact form_, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
+The command may take a couple of possible forms. In the *classical form*, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the *artifact form*, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
 
 The parameter `<src-artifact>` is an [artifact reference](../guides/importing.md#artifact-reference) and is generally of the form `<target-ref>/<artifact-path>`, where `<target-ref>` is the reference to the target which needs to be built in order to yield the artifact and `<artifact-path>` is the path within the artifact environment of the target, where the file or directory is located. The `<artifact-path>` may also be a wildcard.
 
@@ -485,9 +485,9 @@ Multiple `COPY` commands issued one after the other will build the referenced ta
 
 The classical form of the `COPY` command differs from Dockerfiles in three cases:
 
-- URL sources are not yet supported.
-- Absolute paths are not supported - sources in the current directory cannot be referenced with a leading `/`
-- The Earthly `COPY` is a classical `COPY --link`. It uses layer merging for the copy operations.
+* URL sources are not yet supported.
+* Absolute paths are not supported - sources in the current directory cannot be referenced with a leading `/`
+* The Earthly `COPY` is a classical `COPY --link`. It uses layer merging for the copy operations.
 
 {% hint style='info' %}
 
@@ -530,14 +530,14 @@ Instructs Earthly to not overwrite the file creation timestamps with a constant.
 
 ##### `--keep-own`
 
-Instructs Earthly to keep file ownership information. This applies only to the _artifact form_ and has no effect otherwise.
+Instructs Earthly to keep file ownership information. This applies only to the *artifact form* and has no effect otherwise.
 
 ##### `--chmod <octal-format>`
 
 Instructs Earthly to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.
 
 {% hint style='info' %}
-Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using _artifact form_.
+Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using *artifact form*.
 {% endhint %}
 
 ##### `--if-exists`
@@ -560,7 +560,7 @@ consumer:
 
 ##### `--from`
 
-Although this option is present in classical Dockerfile syntax, it is not supported by Earthfiles. You may instead use a combination of `SAVE ARTIFACT` and `COPY` _artifact form_ commands to achieve similar effects. For example, the following Dockerfile
+Although this option is present in classical Dockerfile syntax, it is not supported by Earthfiles. You may instead use a combination of `SAVE ARTIFACT` and `COPY` *artifact form* commands to achieve similar effects. For example, the following Dockerfile
 
 ```Dockerfile
 # Dockerfile
@@ -581,7 +581,7 @@ final-target:
 
 ##### `--platform <platform>`
 
-In _artifact form_, it specifies the platform to build the artifact on.
+In *artifact form*, it specifies the platform to build the artifact on.
 
 For more information see the [multi-platform guide](../guides/multi-platform.md).
 
@@ -648,14 +648,14 @@ example:
     RUN cat encoded-data | base32 -d
 ```
 
-For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/EarthBuild/earthbuild/blob/main/tests/copy.earth).
+For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/earthbuild/earthbuild/blob/main/tests/copy.earth).
 
 ## ARG
 
 #### Synopsis
 
-- `ARG [--required] <name>[=<default-value>]` (constant form)
-- `ARG [--required] <name>=$(<default-value-expr>)` (dynamic form)
+* `ARG [--required] <name>[=<default-value>]` (constant form)
+* `ARG [--required] <name>=$(<default-value-expr>)` (dynamic form)
 
 #### Description
 
@@ -663,7 +663,7 @@ The command `ARG` declares a build argument (or arg) with the name `<name>` and 
 
 This command works similarly to the [Dockerfile `ARG` command](https://docs.docker.com/engine/reference/builder/#arg), with a few differences regarding the scope and the predefined args (called builtin args in Earthly). The arg's scope is always limited to the recipe of the current target or command and only from the point it is declared onward. For more information regarding builtin args, see the [builtin args page](./builtin-args.md).
 
-In its _constant form_, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its _dynamic form_, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
+In its *constant form*, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its *dynamic form*, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
 
 The value of an arg can be overridden either from the `earthly` command
 
@@ -724,7 +724,7 @@ It's always best to declare args as deep and late as possible within the specifi
 
 #### Synopsis
 
-- `SAVE ARTIFACT [--keep-ts] [--keep-own] [--if-exists] [--force] <src> [<artifact-dest-path>] [AS LOCAL <local-path>]`
+* `SAVE ARTIFACT [--keep-ts] [--keep-own] [--if-exists] [--force] <src> [<artifact-dest-path>] [AS LOCAL <local-path>]`
 
 #### Description
 
@@ -753,7 +753,7 @@ This command dumps the contents of the artifact environment of the target `+<tar
 
 ##### Important
 
-Note that there is a distinction between a _directory artifact_ and _file artifact_ when it comes to local output. When saving an artifact locally, a directory artifact will **replace** the destination entirely, while a file (or set of files) artifact will be copied **into** the destination directory.
+Note that there is a distinction between a *directory artifact* and *file artifact* when it comes to local output. When saving an artifact locally, a directory artifact will **replace** the destination entirely, while a file (or set of files) artifact will be copied **into** the destination directory.
 
 ```Dockerfile
 # This will wipe ./destination and replace it with the contents of the ./my-directory artifact.
@@ -828,13 +828,13 @@ SAVE ARTIFACT . AS LOCAL out-dot/
 SAVE ARTIFACT ./* AS LOCAL out-glob/
 ```
 
-For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/EarthBuild/earthbuild/blob/main/tests/file-copying.earth).
+For detailed examples demonstrating how other scenarios may function, please see our [test suite](https://github.com/earthbuild/earthbuild/blob/main/tests/file-copying.earth).
 
 ## SAVE IMAGE
 
 #### Synopsis
 
-- `SAVE IMAGE [--push] <image-name>...`
+* `SAVE IMAGE [--push] <image-name>...`
 
 #### Description
 
@@ -890,7 +890,7 @@ Instructs Earthly to not create a manifest list for the image. This may be usefu
 
 #### Synopsis
 
-- `BUILD [options...] <target-ref> [--<build-arg-name>=<build-arg-value>...]`
+* `BUILD [options...] <target-ref> [--<build-arg-name>=<build-arg-value>...]`
 
 #### Description
 
@@ -996,7 +996,7 @@ build-all-platforms:
 
 For more information see the [multi-platform guide](../guides/multi-platform.md).
 
-##### `--auto-skip` (_beta_)
+##### `--auto-skip` (*beta*)
 
 Instructs Earthly to skip the build of the target if the target's dependencies have not changed from a previous successful build. For more information on how to use this feature, see the [auto-skip section of the caching in Earthfiles guide](../caching/caching-in-earthfiles.md#auto-skip).
 
@@ -1016,7 +1016,7 @@ This option is deprecated. Please use `--<build-arg-key>=<build-arg-value>` inst
 
 #### Synopsis
 
-- `LET <name>=<value>`
+* `LET <name>=<value>`
 
 #### Description
 
@@ -1043,13 +1043,13 @@ foo:
 
 #### Synopsis
 
-- `SET <name>=<value>`
+* `SET <name>=<value>`
 
 #### Description
 
 The command `SET` may be used to change the value of a previously declared variable, so long as the variable was declared with `LET`.
 
-`ARG` variables may _not_ be changed by `SET`, since `ARG` is intended to accept overrides from the CLI. If you want to change the value of an `ARG` variable, redeclare it with `LET someVar = "$someVar"` first.
+`ARG` variables may *not* be changed by `SET`, since `ARG` is intended to accept overrides from the CLI. If you want to change the value of an `ARG` variable, redeclare it with `LET someVar = "$someVar"` first.
 
 See [the `LET` docs for more info](#let).
 
@@ -1057,7 +1057,7 @@ See [the `LET` docs for more info](#let).
 
 #### Synopsis
 
-- `VERSION [options...] <version-number>`
+* `VERSION [options...] <version-number>`
 
 #### Description
 
@@ -1084,7 +1084,7 @@ All features are described in [the version-specific features reference](./featur
 
 #### Synopsis
 
-- `PROJECT <org-name>/<project-name>`
+* `PROJECT <org-name>/<project-name>`
 
 #### Description
 
@@ -1096,7 +1096,7 @@ The `PROJECT` command can only be used in the `base` recipe and it applies to th
 
 #### Synopsis
 
-- `GIT CLONE [--branch <git-ref>] [--keep-ts] <git-url> <dest-path>`
+* `GIT CLONE [--branch <git-ref>] [--keep-ts] <git-url> <dest-path>`
 
 #### Description
 
@@ -1147,7 +1147,7 @@ Instructs Earthly to not overwrite the file creation timestamps with a constant.
 
 #### Synopsis
 
-- `FROM DOCKERFILE [options...] <context-path>`
+* `FROM DOCKERFILE [options...] <context-path>`
 
 #### Description
 
@@ -1185,7 +1185,7 @@ docker:
     SAVE IMAGE testimg:latest
 ```
 
-Note that `+mybuildcontext/mydata` on its own would copy the directory _and_ its contents; where as `+mybuildcontext/mydata/*` is required to copy all of the contents from within the `mydata` directory (
+Note that `+mybuildcontext/mydata` on its own would copy the directory *and* its contents; where as `+mybuildcontext/mydata/*` is required to copy all of the contents from within the `mydata` directory (
 without copying the wrapping `mydata` directory).
 
 If both the `Dockerfile` and build context are inside the same target, one must reference the same target twice, e.g. `FROM DOCKERFILE -f +target/dir/Dockerfile +target/dir`.
@@ -1333,19 +1333,19 @@ This option is deprecated. Please use `--load <image-name>=(<target-ref> --<buil
 
 #### Synopsis
 
-- ```
+* ```
   IF [<condition-options>...] <condition>
     <if-block>
   END
   ```
-- ```
+* ```
   IF [<condition-options>...] <condition>
     <if-block>
   ELSE
     <else-block>
   END
   ```
-- ```
+* ```
   IF [<condition-options>...] <condition>
     <if-block>
   ELSE IF [<condition-options>...] <condition>
@@ -1472,7 +1472,7 @@ Same as [`RUN --secret <env-var>=<secret-id>`](#secret-less-than-env-var-greater
 
 #### Synopsis
 
-- ```
+* ```
   FOR [<options>...] <variable-name> IN <expression>
     <for-block>
   END
@@ -1539,7 +1539,7 @@ Same as [`RUN --secret <env-var>=<secret-id>`](#secret-less-than-env-var-greater
 
 #### Synopsis
 
-- ```
+* ```
   WAIT
     <wait-block>
   END
@@ -1593,7 +1593,7 @@ The `TRY` command is currently incomplete and has experimental status. To use th
 
 #### Synopsis
 
-- ```
+* ```
   TRY
     <try-block>
   FINALLY
@@ -1627,7 +1627,7 @@ example:
 
 #### Synopsis
 
-- ```
+* ```
   CACHE [--sharing <sharing-mode>] [--chmod <octal-format>] [--id <cache-id>] [--persist] <mountpoint>
   ```
 
@@ -1641,9 +1641,9 @@ The `CACHE` command creates a cache mountpoint at `<mountpoint>` in the build en
 
 The sharing mode for the cache mount, from one of the following:
 
-- `locked` (default) - the cache mount is locked for the duration of the execution, other concurrent builds will wait for the lock to be released.
-- `shared` - the cache mount is shared between all concurrent builds.
-- `private` - if another concurrent build attempts to use the cache, a new (empty) cache will be created for the concurrent build.
+* `locked` (default) - the cache mount is locked for the duration of the execution, other concurrent builds will wait for the lock to be released.
+* `shared` - the cache mount is shared between all concurrent builds.
+* `private` - if another concurrent build attempts to use the cache, a new (empty) cache will be created for the concurrent build.
 
 ##### `--chmod <octal-format>`
 
@@ -1667,7 +1667,7 @@ to prevent copying the contents to children targets unless explicitly enabled by
 
 #### Synopsis
 
-- `LOCALLY`
+* `LOCALLY`
 
 #### Description
 
@@ -1763,7 +1763,7 @@ a-locally-example:
 
 #### Synopsis
 
-- `FUNCTION`
+* `FUNCTION`
 
 #### Description
 
@@ -1788,7 +1788,7 @@ For more information see the [Functions Guide](../guides/functions.md).
 
 #### Synopsis
 
-- `DO [--allow-privileged] <function-ref> [--<build-arg-key>=<build-arg-value>...]`
+* `DO [--allow-privileged] <function-ref> [--<build-arg-key>=<build-arg-value>...]`
 
 #### Description
 
@@ -1814,7 +1814,7 @@ Same as [`FROM --pass-args`](#pass-args).
 
 #### Synopsis
 
-- `IMPORT [--allow-privileged] <earthfile-ref> [AS <alias>]`
+* `IMPORT [--allow-privileged] <earthfile-ref> [AS <alias>]`
 
 #### Description
 
@@ -1838,9 +1838,9 @@ Similar to [`FROM --allow-privileged`](#allow-privileged), extend the ability to
 
 #### Synopsis
 
-- `CMD ["executable", "arg1", "arg2"]` (exec form)
-- `CMD ["arg1, "arg2"]` (as default arguments to the entrypoint)
-- `CMD command arg1 arg2` (shell form)
+* `CMD ["executable", "arg1", "arg2"]` (exec form)
+* `CMD ["arg1, "arg2"]` (as default arguments to the entrypoint)
+* `CMD command arg1 arg2` (shell form)
 
 #### Description
 
@@ -1850,7 +1850,7 @@ The command `CMD` sets default arguments for an image, when executing as a conta
 
 #### Synopsis
 
-- `LABEL <key>=<value> <key>=<value> ...`
+* `LABEL <key>=<value> <key>=<value> ...`
 
 #### Description
 
@@ -1860,8 +1860,8 @@ The `LABEL` command adds label metadata to an image. It works the same way as th
 
 #### Synopsis
 
-- `EXPOSE <port> <port> ...`
-- `EXPOSE <port>/<protocol> <port>/<protocol> ...`
+* `EXPOSE <port> <port> ...`
+* `EXPOSE <port>/<protocol> <port>/<protocol> ...`
 
 #### Description
 
@@ -1871,8 +1871,8 @@ The `EXPOSE` command marks a series of ports as listening ports within the image
 
 #### Synopsis
 
-- `ENV <key> <value>`
-- `ENV <key>=<value>`
+* `ENV <key> <value>`
+* `ENV <key>=<value>`
 
 #### Description
 
@@ -1889,8 +1889,8 @@ Do not use the `ENV` command for secrets used during the build. All `ENV` values
 
 #### Synopsis
 
-- `ENTRYPOINT ["executable", "arg1", "arg2"]` (exec form)
-- `ENTRYPOINT command arg1 arg2` (shell form)
+* `ENTRYPOINT ["executable", "arg1", "arg2"]` (exec form)
+* `ENTRYPOINT command arg1 arg2` (shell form)
 
 #### Description
 
@@ -1900,8 +1900,8 @@ The `ENTRYPOINT` command sets the default command or executable to be run when t
 
 #### Synopsis
 
-- `VOLUME <path-to-target-mount> <path-to-target-mount> ...`
-- `VOLUME ["<path-to-target-mount>", <path-to-target-mount> ...]`
+* `VOLUME <path-to-target-mount> <path-to-target-mount> ...`
+* `VOLUME ["<path-to-target-mount>", <path-to-target-mount> ...]`
 
 #### Description
 
@@ -1911,8 +1911,8 @@ The `VOLUME` command creates a mount point at the specified path and marks it as
 
 #### Synopsis
 
-- `USER <user>[:<group>]`
-- `USER <UID>[:<GID>]`
+* `USER <user>[:<group>]`
+* `USER <UID>[:<GID>]`
 
 #### Description
 
@@ -1922,7 +1922,7 @@ The `USER` command sets the user name (or UID) and optionally the user group (or
 
 #### Synopsis
 
-- `WORKDIR <path-to-dir>`
+* `WORKDIR <path-to-dir>`
 
 #### Description
 
@@ -1932,8 +1932,8 @@ The `WORKDIR` command sets the working directory for following commands in the r
 
 #### Synopsis
 
-- `HEALTHCHECK NONE` (disable health checking)
-- `HEALTHCHECK [--interval=DURATION] [--timeout=DURATION] [--start-period=DURATION] [--retries=N] [--start-interval=DURATION] CMD command arg1 arg2` (check container health by running command inside the container)
+* `HEALTHCHECK NONE` (disable health checking)
+* `HEALTHCHECK [--interval=DURATION] [--timeout=DURATION] [--start-period=DURATION] [--retries=N] [--start-interval=DURATION] CMD command arg1 arg2` (check container health by running command inside the container)
 
 #### Description
 
@@ -1965,7 +1965,7 @@ Sets the time interval between health checks during the start period. Defaults t
 
 #### Synopsis
 
-- `HOST <hostname> <ip>`
+* `HOST <hostname> <ip>`
 
 #### Description
 
@@ -1973,7 +1973,7 @@ The `HOST` command creates a hostname entry (under `/etc/hosts`) that causes `<h
 
 ## SHELL (not supported)
 
-The classical [`SHELL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#shell) is not yet supported. Use the _exec form_ of `RUN`, `ENTRYPOINT` and `CMD` instead and prepend a different shell.
+The classical [`SHELL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#shell) is not yet supported. Use the *exec form* of `RUN`, `ENTRYPOINT` and `CMD` instead and prepend a different shell.
 
 ## ADD (not supported)
 

@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/ast/spec"
 )
 
 type contextKey string

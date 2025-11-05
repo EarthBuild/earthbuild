@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/domain"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 )

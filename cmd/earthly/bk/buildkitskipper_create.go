@@ -3,7 +3,7 @@ package bk
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
+	"github.com/earthbuild/earthbuild/util/buildkitskipper"
 	"github.com/pkg/errors"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/containerd/containerd/platforms"
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
+	"github.com/earthbuild/earthbuild/util/syncutil/synccache"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/opencontainers/go-digest"
 )

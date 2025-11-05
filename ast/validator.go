@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/ast/spec"
 	"github.com/pkg/errors"
 )
 

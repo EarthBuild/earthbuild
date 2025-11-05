@@ -10,15 +10,15 @@ Earthbuild can run locally or on top of popular CI systems – such as [Jenkins]
 
 Earthbuild's key features/benefits are:
 
-- **🔁 Repeatable Builds**
+* **🔁 Repeatable Builds**
   Earthbuild runs all builds in containers, making them self-contained, isolated, repeatable, and portable. When you write a build, you know it will execute correctly no matter where it runs – your laptop, a colleague’s laptop, or any CI. You don’t have to configure language-specific tooling, install additional dependencies, or complicate your build scripts to ensure they are compatible with different OSs. Earthbuild gives you consistent, repeatable builds regardless of where they run.
-- **❤️ Super Simple**
-  Earthbuild’s syntax is easy to write and understand. Most engineers can read an Earthfile instantly, without prior knowledge of Earthbuild. We combined some of the best ideas from Dockerfiles and Makefiles into one specification _– like Dockerfile and Makefile had a baby_.
-- **🛠 Compatible with Every Language, Framework, and Build Tool**
+* **❤️ Super Simple**
+  Earthbuild’s syntax is easy to write and understand. Most engineers can read an Earthfile instantly, without prior knowledge of Earthbuild. We combined some of the best ideas from Dockerfiles and Makefiles into one specification *– like Dockerfile and Makefile had a baby*.
+* **🛠 Compatible with Every Language, Framework, and Build Tool**
   One of the key principles of Earthbuild is that the best build tooling for a specific language is built by the community of that language itself. Earthbuild does not intend to replace any language-specific build tooling, but rather to leverage and augment them. Earthbuild works with the compilers and build tools you use. If it runs on Linux, it runs on Earthbuild. And you don’t have to rewrite your existing builds or replace your `package.json`, `go.mod`, `build.gradle`, or `Cargo.toml` files. You can use Earthbuild as a wrapper around your existing tooling and still get Earthbuild’s repeatable builds, parallel execution, and build caching.
-- **🏘 Great for Monorepos and Polyrepos**
+* **🏘 Great for Monorepos and Polyrepos**
   Earthbuild is great for both [monorepos](https://github.com/earthbuild/earthbuild/tree/main/examples/monorepo) and [polyrepos](https://github.com/earthbuild/earthbuild/tree/main/examples/multirepo). You can split your build logic across multiple Earthfiles, placing some deeper inside the directory structure or even in other repositories. Referencing targets from other Earthfiles is easy regardless of where they are stored. So you can organize your build logic however makes the most sense for your project.
-- **💨 Fast Builds**
+* **💨 Fast Builds**
   Earthbuild automatically executes build targets in parallel and makes maximum use of cache. This makes builds fast. Earthbuild also has powerful shared caching capabilities that speed up builds frequently run across a team or in sandboxed environments, such as Earthbuild Satellites, GitHub Actions, or your CI.
   &nbsp;
   If your build has multiple steps, Earthbuild will:
@@ -26,7 +26,7 @@ Earthbuild's key features/benefits are:
   2. Isolate execution of each step.
   3. Run independent steps in parallel.
   4. Cache results for future use.
-- **♻️ Reuse, Don't Repeat**
+* **♻️ Reuse, Don't Repeat**
   Never have to write the same code in multiple builds again. With Earthbuild, you can reuse targets, artifacts, and images across multiple Earthfiles, even ones in other repositories, in a single line. Earthbuild is cache-aware, based on the individual hashes of each file, and has shared caching capabilities. So you can create a vast and efficient build hierarchy that only executes the minimum required steps.
 
 ## Installation
@@ -43,10 +43,10 @@ A high-level overview is available on [the Earthbuild GitHub page](https://githu
 
 ## Quick Links
 
-- [Earthbuild GitHub page](https://github.com/earthbuild/earthbuild)
-- [Earthbuild basics](./basics/basics.md)
-- [Earthfile reference](./earthfile/earthfile.md)
-- [Earthbuild command reference](./earthbuild-command/earthbuild-command.md)
-- [Configuration reference](./earthbuild-config/earthbuild-config.md)
-- [Earthfile examples](./examples/examples.md)
-- [Best practices](./guides/best-practices.md)
+* [Earthbuild GitHub page](https://github.com/earthbuild/earthbuild)
+* [Earthbuild basics](./basics/basics.md)
+* [Earthfile reference](./earthfile/earthfile.md)
+* [Earthbuild command reference](./earthbuild-command/earthbuild-command.md)
+* [Configuration reference](./earthbuild-config/earthbuild-config.md)
+* [Earthfile examples](./examples/examples.md)
+* [Best practices](./guides/best-practices.md)

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/debugger/common"
-	"github.com/EarthBuild/earthbuild/slog"
+	"github.com/earthbuild/earthbuild/debugger/common"
+	"github.com/earthbuild/earthbuild/slog"
 
 	"github.com/sirupsen/logrus"
 )

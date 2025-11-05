@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/earthbuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )

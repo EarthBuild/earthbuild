@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
-	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/earthbuild/earthbuild/util/stringutil"
 	"github.com/pkg/errors"
 )
 

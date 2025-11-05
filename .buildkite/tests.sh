@@ -36,16 +36,16 @@ arch="$(uname -m)"
 if [ "$os" = "Darwin" ]; then
     if [ "$arch" = "arm64" ]; then
         EARTHLY_OS="darwin-m1"
-        download_url="https://github.com/EarthBuild/earthbuild/releases/latest/download/earthly-darwin-arm64"
+        download_url="https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-darwin-arm64"
         earthly="./build/darwin/arm64/earthly"
     else
         EARTHLY_OS="darwin"
-        download_url="https://github.com/EarthBuild/earthbuild/releases/latest/download/earthly-darwin-amd64"
+        download_url="https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-darwin-amd64"
         earthly="./build/darwin/amd64/earthly"
     fi
 elif [ "$os" = "Linux" ]; then
     EARTHLY_OS="linux"
-    download_url="https://github.com/EarthBuild/earthbuild/releases/latest/download/earthly-linux-amd64"
+    download_url="https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-linux-amd64"
     earthly="./build/linux/amd64/earthly"
 else
     echo "failed to handle $os, $arch"

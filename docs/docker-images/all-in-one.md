@@ -19,11 +19,11 @@ docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock 
 
 Here's a quick breakdown:
 
-- `-t` tells Docker to emulate a TTY. This makes the `earthly` log output colorized.
-- `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. Earthly is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
-- `-v /var/run/docker.sock:/var/run/docker.sock` mounts the Docker socket such that Earthly can start BuildKit as a Docker container in the host's Docker.
-- `-e NO_BUILDKIT=1` tells the Earthly container not to start en embedded BuildKit. A BuildKit daemon will instead be started via the Docker socket provided.
-- `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
+* `-t` tells Docker to emulate a TTY. This makes the `earthly` log output colorized.
+* `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. Earthly is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
+* `-v /var/run/docker.sock:/var/run/docker.sock` mounts the Docker socket such that Earthly can start BuildKit as a Docker container in the host's Docker.
+* `-e NO_BUILDKIT=1` tells the Earthly container not to start en embedded BuildKit. A BuildKit daemon will instead be started via the Docker socket provided.
+* `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
 
 ### Usage with Embedded BuildKit
 
@@ -35,11 +35,11 @@ docker run --privileged -t -v $(pwd):/workspace -v earthly-tmp:/tmp/earthly:rw e
 
 Here's a quick breakdown:
 
-- `--privileged` is required when you are using the internal, embedded `buildkit`. This is because `buildkit` currently requires it for OverlayFS support and for network configuration.
-- `-t` tells Docker to emulate a TTY. This makes the `earthly` log output colorized.
-- `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. Earthly is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
-- `-v earthly-tmp:/tmp/earthly:rw` mounts (and creates, if necessary) the `earthly-tmp` Docker volume into the containers `/tmp/earthly`. This is used as a temporary/working directory for `buildkitd` during builds.
-- `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
+* `--privileged` is required when you are using the internal, embedded `buildkit`. This is because `buildkit` currently requires it for OverlayFS support and for network configuration.
+* `-t` tells Docker to emulate a TTY. This makes the `earthly` log output colorized.
+* `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. Earthly is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
+* `-v earthly-tmp:/tmp/earthly:rw` mounts (and creates, if necessary) the `earthly-tmp` Docker volume into the containers `/tmp/earthly`. This is used as a temporary/working directory for `buildkitd` during builds.
+* `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
 
 ## Using This Image
 
@@ -53,7 +53,7 @@ If you are using the embedded `buildkitd`, then this image needs to be run as a 
 
 #### `/tmp/earthly`
 
-Because this folder sees _a lot_ of traffic, its important that it remains fast. We *strongly* recommend using a Docker volume for mounting `/tmp/earthly`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
+Because this folder sees *a lot* of traffic, its important that it remains fast. We *strongly* recommend using a Docker volume for mounting `/tmp/earthly`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
 
 In some environments, not mounting `/tmp/earthly` as a Docker volume results in the following error:
 

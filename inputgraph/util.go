@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/command"
-	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/earthbuild/earthbuild/ast/command"
+	"github.com/earthbuild/earthbuild/buildcontext"
+	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/earthbuild/earthbuild/domain"
 	"github.com/pkg/errors"
 )
 

@@ -42,14 +42,14 @@ To make use of emulation in GitHub Actions, the following step needs to be inclu
 jobs:
   <job-name>:
     steps:
-      - name: Set up QEMU
+* name: Set up QEMU
         id: qemu
         uses: docker/setup-qemu-action@v1
         with:
           image: tonistiigi/binfmt:latest
           platforms: all
-      - uses: actions/checkout@v3
-      - ...
+* uses: actions/checkout@v3
+* ...
 ```
 
 ## Performing multi-platform builds
@@ -133,9 +133,9 @@ As of the time of writing this article, the `docker` CLI has limited support for
 
 For example, the above build would yield locally:
 
-- `org/myimage:latest`
-- `org/myimage:latest_linux_amd64` (the same as `org/myimage:latest` if running on a `linux/amd64` host)
-- `org/myimage:latest_linux_arm_v7`
+* `org/myimage:latest`
+* `org/myimage:latest_linux_amd64` (the same as `org/myimage:latest` if running on a `linux/amd64` host)
+* `org/myimage:latest_linux_arm_v7`
 
 The additional Docker tags are only available for use on the local system. When pushing an image to a Docker registry, it is pushed as a single multi-manifest image.
 {% endhint %}
@@ -144,7 +144,7 @@ The additional Docker tags are only available for use on the local system. When 
 
 Building multi-platform images does not necessarily require that execution of the build itself takes place on the target platform. Through the use of cross-compilation, it is possible to obtain target-platform binaries compiled on the host-native platform. At the end, these binaries may be placed in a final image which is marked for a specific platform.
 
-Note, however, that not all programming languages have support for cross-compilation. The applicability of this approach may be limited as a result. Examples of languages that _can_ cross-compile for other platforms are Go and Rust.
+Note, however, that not all programming languages have support for cross-compilation. The applicability of this approach may be limited as a result. Examples of languages that *can* cross-compile for other platforms are Go and Rust.
 
 Here is an example where a multi-platform image can be created without actually executing any `RUN` on the target platform (and therefore emulation is not necessary):
 
@@ -184,10 +184,10 @@ The key here is the use of the `COPY` commands. The execution of the target `+bu
 
 A number of [builtin build args](../earthfile/builtin-args.md) are made available to be used in conjunction with multi-platform builds:
 
-- `TARGETPLATFORM` (eg `linux/arm/v7`)
-- `TARGETOS` (eg `linux`)
-- `TARGETARCH` (eg `arm`)
-- `TARGETVARIANT` (eg `v7`)
+* `TARGETPLATFORM` (eg `linux/arm/v7`)
+* `TARGETOS` (eg `linux`)
+* `TARGETARCH` (eg `arm`)
+* `TARGETVARIANT` (eg `v7`)
 
 Here is an example of how the build described above could be simplified through the use of these build args:
 
@@ -228,10 +228,10 @@ earthly github.com/earthbuild/earthbuild/examples/multiplatform-cross-compile:ma
 Additional `USER` [builtin build args](../earthfile/builtin-args.md) can be used to determine the architecture of
 the host that called `earthly`. This can be useful to determine if cross-platform emulation was used.
 
-- `USERPLATFORM` (eg `linux/amd64`)
-- `USEROS` (eg `linux`)
-- `USERARCH` (eg `amd64`)
-- `USERVARIANT` (eg ``; an empty string for non-arm platforms)
+* `USERPLATFORM` (eg `linux/amd64`)
+* `USEROS` (eg `linux`)
+* `USERARCH` (eg `amd64`)
+* `USERVARIANT` (eg ``; an empty string for non-arm platforms)
 
 ## Emulation and WITH DOCKER
 

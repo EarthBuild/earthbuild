@@ -1,43 +1,43 @@
-name: "Stage 2 Setup"
-description: "Setup for self-hosted earthly runners"
+name: 'Stage 2 Setup'
+description: 'Setup for self-hosted earthly runners'
 inputs:
   earthly_version:
-    description: "The earthly version to use"
+    description: 'The earthly version to use'
     required: false
-    default: "latest"
+    default: 'latest'
   BUILT_EARTHLY_PATH:
-    description: "Path to the built earthly binary"
+    description: 'Path to the built earthly binary'
     required: true
   BINARY:
-    description: "The container engine to use (e.g., 'docker' or 'podman')"
+    description: 'The container engine to use (e.g., 'docker' or 'podman')'
     required: true
   SUDO:
-    description: "Sudo command if needed"
+    description: 'Sudo command if needed'
     required: false
   USE_QEMU:
-    description: "Whether to set up QEMU"
+    description: 'Whether to set up QEMU'
     required: false
   USE_NEXT:
-    description: "Whether to use earthly-next"
+    description: 'Whether to use earthly-next'
     required: false
-    default: "false"
+    default: 'false'
   GHCR_USERNAME:
-    description: "GHCR username (legacy - now uses github.actor)"
+    description: 'GHCR username (legacy - now uses github.actor)'
     required: false
   GHCR_PASSWORD:
-    description: "GHCR password (legacy - now uses GITHUB_TOKEN)"
+    description: 'GHCR password (legacy - now uses GITHUB_TOKEN)'
     required: false
   DOCKERHUB_USERNAME:
-    description: "Docker Hub username (legacy - not needed with GCR mirror)"
+    description: 'Docker Hub username (legacy - not needed with GCR mirror)'
     required: false
   DOCKERHUB_PASSWORD:
-    description: "Docker Hub password (legacy - not needed with GCR mirror)"
+    description: 'Docker Hub password (legacy - not needed with GCR mirror)'
     required: false
   DOCKERHUB_MIRROR_USERNAME:
-    description: "Docker Hub mirror username (legacy - GCR mirror is public)"
+    description: 'Docker Hub mirror username (legacy - GCR mirror is public)'
     required: false
   DOCKERHUB_MIRROR_PASSWORD:
-    description: "Docker Hub mirror password (legacy - GCR mirror is public)"
+    description: 'Docker Hub mirror password (legacy - GCR mirror is public)'
     required: false
 
 runs:
@@ -61,7 +61,7 @@ runs:
         platforms: all
     - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 #v6.0.0
       with:
-        go-version: "1.21"
+        go-version: '1.21'
     - if: ${{ inputs.BINARY == 'podman' }}
       run: |-
         echo "Setting up podman"

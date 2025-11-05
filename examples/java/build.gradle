@@ -1,21 +1,31 @@
-apply plugin: 'java'
-apply plugin: 'application'
+plugins {
+    id 'java'
+    id 'application'
+}
 
-mainClassName = 'hello.HelloWorld'
+group = 'hello'
+version = '0.0.1'
 
 repositories {
     mavenCentral()
 }
 
-jar {
-    baseName = 'hello-world'
-    version = '0.0.1'
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+application {
+    mainClass = 'hello.HelloWorld'
+}
 
 dependencies {
-    compile "joda-time:joda-time:2.2"
-    testCompile "junit:junit:4.12"
+    implementation 'joda-time:joda-time:2.2'
+    testImplementation 'junit:junit:5.11'
+}
+
+tasks.named('jar') {
+    archiveBaseName.set('hello-world')
+    archiveVersion.set(project.version.toString())
 }

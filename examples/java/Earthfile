@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM openjdk:8-jdk-alpine
+FROM amazoncorretto:24-alpine3.22
 RUN apk add --update --no-cache gradle
 WORKDIR /java-example
 
@@ -12,8 +12,8 @@ build:
     COPY src src
     RUN gradle build
     RUN gradle install
-    SAVE ARTIFACT build/install/java-example/bin AS LOCAL build/bin
-    SAVE ARTIFACT build/install/java-example/lib AS LOCAL build/lib
+    SAVE ARTIFACT build/install/java-example/bin bin
+    SAVE ARTIFACT build/install/java-example/lib lib
 
 docker:
     COPY +build/bin bin

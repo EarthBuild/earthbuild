@@ -1,9 +1,9 @@
-VERSION 0.8 
+VERSION 0.8
 FROM clojure:temurin-8-lein
 WORKDIR /var/app
 
 build:
-    RUN apt update && apt install zip -y 
+    RUN apt update && apt install zip -y
     COPY earthly-example/ .
     RUN lein uberjar
     RUN ./extractJarVersion target/uberjar/earthly-example-*-standalone.jar > version
@@ -11,7 +11,7 @@ build:
     SAVE ARTIFACT version
 
 docker:
-    FROM openjdk:22-slim-bullseye
+    FROM amazoncorretto:25-alpine3.22
     COPY +build/* .
     EXPOSE 8080
     ENTRYPOINT java -Dserver.port=8080 -jar earthly-example-standalone.jar

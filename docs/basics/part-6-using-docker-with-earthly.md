@@ -377,7 +377,7 @@ earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+
 
 ```Dockerfile
 VERSION 0.8
-FROM openjdk:8-jdk-alpine
+FROM amazoncorretto:24-alpine3.22
 RUN apk add --update --no-cache gradle
 WORKDIR /java-example
 
@@ -469,31 +469,8 @@ public class PostgreSQLJDBC {
 
 `./build.gradle`
 
-```groovy
-apply plugin: 'java'
-apply plugin: 'application'
+[build.gradle](../../examples/tutorial/java/part6/build.gradle)
 
-mainClassName = 'postgresclient.PostgreSQLJDBC'
-
-repositories {
-    mavenCentral()
-}
-
-jar {
-    baseName = 'hello-world'
-    version = '0.0.1'
-}
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
-dependencies {
-    compile "joda-time:joda-time:2.2"
-    compile(group: 'org.postgresql', name: 'postgresql', version: '42.3.3')
-    testCompile "junit:junit:4.12"
-}
-
-```
 </details>
 
 <details open>

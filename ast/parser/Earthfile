@@ -1,11 +1,9 @@
 VERSION 0.8
 
-FROM openjdk:25-slim
+FROM amazoncorretto:25-alpine3.22
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    openssl
+RUN apk add --no-cache ca-certificates curl openssl && \
+    update-ca-certificates
 
 # Install antlr.
 WORKDIR /usr/local/lib
@@ -41,25 +39,11 @@ test-not-committed:
 rrd-antlr4:
     FROM maven:3.8.6-jdk-11
     WORKDIR /rrd-antlr4
-    ENV RRD_SHA c41b36b68fa29d2ba82847395caf87c8c1da4efc
+    ENV RRD_SHA af15d7d9151ce30a9b26bc8782a16643c93e3d6d
     RUN curl -L https://github.com/bkiers/rrd-antlr4/archive/$RRD_SHA.zip > rrdantlr4.zip
     RUN unzip rrdantlr4.zip
     WORKDIR rrd-antlr4-$RRD_SHA
     RUN mvn package
     SAVE ARTIFACT target/rrd-antlr4-0.1.2.jar rrd-antlr4.jar
 
-generate-railroad-diagrams:
-    COPY +rrd-antlr4/rrd-antlr4.jar .
-    COPY ./*.g4 ./ast/parser/
-    RUN java \
-        -Xmx500M \
-        -cp "/usr/local/lib/antlr-${ANTLR_VERSION}-complete.jar:$CLASSPATH" \
-        -jar rrd-antlr4.jar \
-        ast/parser/EarthLexer.g4
-    RUN java \
-        -Xmx500M \
-        -cp "/usr/local/lib/antlr-${ANTLR_VERSION}-complete.jar:$CLASSPATH" \
-        -jar rrd-antlr4.jar \
-        ast/parser/EarthParser.g4
-    SAVE ARTIFACT output/EarthLexer/index.html AS LOCAL lexer-railroad-diagram.html
-    SAVE ARTIFACT output/EarthParser/index.html AS LOCAL parser-railroad-diagram.html
+# To visualize use VSCode extension: https://github.com/mike-lischke/vscode-antlr4

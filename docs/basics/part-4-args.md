@@ -1,7 +1,7 @@
 To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part4) run
 
 ```bash
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/go:main+part4/part4 ./part4
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part4/part4 ./part4
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
@@ -89,7 +89,7 @@ In this case we've declared the `ARG` `USERARCH` which is a builtin that holds t
 To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part4) run
 
 ```bash
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/js:main+part4/part4 ./part4
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part4/part4 ./part4
 ```
 
 `./Earthfile`
@@ -131,7 +131,7 @@ docker:
 To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part4) run
 
 ```bash
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/java:main+part4/part4 ./part4
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part4/part4 ./part4
 ```
 
 `./Earthfile`
@@ -170,7 +170,7 @@ docker:
 To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part4) run
 
 ```bash
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/python:main+part4/part4 ./part4
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part4/part4 ./part4
 ```
 
 `./Earthfile`

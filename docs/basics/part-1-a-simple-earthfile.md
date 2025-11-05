@@ -25,7 +25,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
 ```
 
 ## Creating Your First Earthfile
@@ -162,7 +162,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -202,7 +202,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -270,7 +270,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/EarthBuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
+earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
 ```
 
 `./Earthfile`

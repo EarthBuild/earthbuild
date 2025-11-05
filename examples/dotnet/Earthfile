@@ -20,4 +20,4 @@ docker:
     FROM mcr.microsoft.com/dotnet/core/runtime:3.1.6-alpine3.12
     COPY +build/publish .
     ENTRYPOINT ["dotnet", "HelloEarthly.dll"]
-    SAVE IMAGE --push earthly/examples:dotnet
+    SAVE IMAGE --push earthbuild/examples:dotnet

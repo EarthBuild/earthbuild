@@ -6,6 +6,8 @@ RUN apk add openjdk11 bash wget postgresql-client
 sbt:
     #Scala
     # Defaults if not specified
+
+    # renovate: datasource=github-releases packageName=sbt/sbt
     ARG sbt_version=1.3.2
     ARG sbt_home=/usr/local/sbt
 
@@ -24,7 +26,7 @@ project-files:
     COPY project project
     # Run sbt for caching purposes.
     RUN touch a.scala && sbt compile && rm a.scala
-    SAVE IMAGE --push earthly/examples:integration-project-files
+    SAVE IMAGE --push earthbuild/examples:integration-project-files
 
 build:
     FROM +project-files
@@ -50,7 +52,7 @@ docker:
     COPY src src
     RUN sbt 'set test in assembly := {}' assembly
     ENTRYPOINT ["java","-cp","target/scala-2.12/scala-example-assembly-1.0.jar","Main"]
-    SAVE IMAGE --push earthly/examples:integration
+    SAVE IMAGE --push earthbuild/examples:integration
 
 smoke-test:
     FROM +project-files

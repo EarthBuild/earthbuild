@@ -3,7 +3,7 @@ plugins {
     id 'application'
 }
 
-group = 'hello'        // optional; set your group if you publish
+group = 'hello'
 version = '0.0.1'
 
 repositories {

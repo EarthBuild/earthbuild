@@ -10,10 +10,10 @@ Earthly itself is able to run as expected within Cloud Build, including privileg
 
 ### Resources
 
-* [Getting Started With Cloud Build](https://cloud.google.com/build/docs/quickstart-build)
-* [Authenticating As A Service Account](https://cloud.google.com/docs/authentication/production)
-* [`cloudbuild.yaml` Specification](https://cloud.google.com/build/docs/build-config-file-schema)
-* [Creating and Managing build triggers](https://cloud.google.com/build/docs/automating-builds/create-manage-triggers)
+- [Getting Started With Cloud Build](https://cloud.google.com/build/docs/quickstart-build)
+- [Authenticating As A Service Account](https://cloud.google.com/docs/authentication/production)
+- [`cloudbuild.yaml` Specification](https://cloud.google.com/build/docs/build-config-file-schema)
+- [Creating and Managing build triggers](https://cloud.google.com/build/docs/automating-builds/create-manage-triggers)
 
 ## Setup
 

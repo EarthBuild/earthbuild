@@ -12,24 +12,24 @@ To build Earthly from source, you need the same requirements as Earthly. We reco
 
 To build Earthly from source for your target system, use
 
-* Linux and WSL
+- Linux and WSL
     ```bash
     ./earthly +for-linux
     ```
-* Mac
+- Mac
     ```bash
     ./earthly +for-darwin
     ```
-* Mac with M1 chip
+- Mac with M1 chip
     ```bash
     ./earthly +for-darwin-m1
     ```
 
 This builds the earthly binary in `./build/*/*/earthly`, typically one of:
 
-* `./build/linux/amd64/earthly`
-* `./build/darwin/amd64/earthly`
-* `./build/darwin/arm64/earthly`
+- `./build/linux/amd64/earthly`
+- `./build/darwin/amd64/earthly`
+- `./build/darwin/arm64/earthly`
 
 It also builds the buildkitd image.
 
@@ -38,16 +38,16 @@ The buildkitd image is tagged with your current branch name and also the built b
 For development purposes, you may use the built `earthly` binary to rebuild itself. It's usually faster than switching between the built binary and the prerelease binary because it avoids constant buildkitd restarts. After the first initial build, you'll end up using:
 
 
-* Linux and WSL
+- Linux and WSL
     ```bash
     ./build/linux/amd64/earthly +for-linux
     ```
-* Mac
+- Mac
     ```bash
     ./build/darwin/amd64/earthly +for-darwin
     ```
 
-* Mac with M1 chip
+- Mac with M1 chip
     ```bash
     ./build/darwin/amd64/earthly +for-darwin-m1
     ```

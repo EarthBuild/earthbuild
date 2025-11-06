@@ -58,7 +58,7 @@ services:
     container_name: local-redis
     image: redis:6.0-alpine
     ports:
-* 127.0.0.1:6379:6379
+- 127.0.0.1:6379:6379
     hostname: redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6379"]
@@ -66,7 +66,7 @@ services:
       timeout: 10s
       retries: 5
     networks:
-* go/part6_default
+- go/part6_default
 
 networks:
   go/part6_default:
@@ -431,13 +431,13 @@ services:
     container_name: db
     hostname: postgres
     environment:
-* POSTGRES_DB=test_db
-* POSTGRES_USER=earthly
-* POSTGRES_PASSWORD=password
+- POSTGRES_DB=test_db
+- POSTGRES_USER=earthly
+- POSTGRES_PASSWORD=password
     ports:
-* 127.0.0.1:5432:5432
+- 127.0.0.1:5432:5432
     networks:
-* java/part6_default
+- java/part6_default
 
 networks:
   java/part6_default:
@@ -543,13 +543,13 @@ services:
     container_name: db
     hostname: postgres
     environment:
-* POSTGRES_DB=test_db
-* POSTGRES_USER=earthly
-* POSTGRES_PASSWORD=password
+- POSTGRES_DB=test_db
+- POSTGRES_USER=earthly
+- POSTGRES_PASSWORD=password
     ports:
-* 5432:5432
+- 5432:5432
     networks:
-* python/part6_default
+- python/part6_default
 
 networks:
   python/part6_default:

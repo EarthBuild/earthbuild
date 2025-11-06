@@ -51,15 +51,15 @@ If you're interested in understanding why the community fork is happening, [this
 
 <h2 align="center">Table of Contents</h2>
 
-* [Why use EarthBuild?](#why-use-earthbuild)
-* [Where Does EarthBuild Fit?](#where-does-earthbuild-fit)
-* [How Does It Work?](#how-does-it-work)
-* [Installation](#installation)
-* [Quick Start](#quick-start)
-* [Features](#features)
-* [FAQ](#faq)
-* [Contributing](#contributing)
-* [Licensing](#licensing)
+- [Why use EarthBuild?](#why-use-earthbuild)
+- [Where Does EarthBuild Fit?](#where-does-earthbuild-fit)
+- [How Does It Work?](#how-does-it-work)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [FAQ](#faq)
+- [Contributing](#contributing)
+- [Licensing](#licensing)
 
 <h2 align="center">Why Use EarthBuild?</h2>
 
@@ -121,35 +121,35 @@ To build from source, check the [contributing page](./CONTRIBUTING.md).
 
 Here are some resources to get you started with EarthBuild
 
-* 🏁 [Getting started guide](https://docs.earthbuild.dev/basics)
-* 👀 [Examples](./examples)
-* [Go](./examples/go)
-* [JavaScript](./examples/js)
-* [Python](./examples/python)
-* [Java](./examples/java)
-* [Rust](./examples/rust)
-* [TypeScript (Node)](./examples/typescript-node)
-* [C++](./examples/cpp)
-* [C](./examples/c)
-* [dotnet (C#)](./examples/dotnet)
-* [Ruby](./examples/ruby)
-* [Scala](./examples/scala)
-* [Elixir](./examples/elixir)
-* [COBOL](./examples/cobol)
-* [Monorepo](./examples/monorepo)
-* [Multirepo](./examples/multirepo)
-* [Multiplatform Builds](./examples/multiplatform)
-* [Integration Tests](./examples/integration-test)
-* 🔍 Explore [EarthBuild's own build](https://docs.earthbuild.dev/docs/examples#earthbuilds-own-build)
-* ✔️ [Best practices](https://docs.earthbuild.dev/best-practices)
+- 🏁 [Getting started guide](https://docs.earthbuild.dev/basics)
+- 👀 [Examples](./examples)
+- [Go](./examples/go)
+- [JavaScript](./examples/js)
+- [Python](./examples/python)
+- [Java](./examples/java)
+- [Rust](./examples/rust)
+- [TypeScript (Node)](./examples/typescript-node)
+- [C++](./examples/cpp)
+- [C](./examples/c)
+- [dotnet (C#)](./examples/dotnet)
+- [Ruby](./examples/ruby)
+- [Scala](./examples/scala)
+- [Elixir](./examples/elixir)
+- [COBOL](./examples/cobol)
+- [Monorepo](./examples/monorepo)
+- [Multirepo](./examples/multirepo)
+- [Multiplatform Builds](./examples/multiplatform)
+- [Integration Tests](./examples/integration-test)
+- 🔍 Explore [EarthBuild's own build](https://docs.earthbuild.dev/docs/examples#earthbuilds-own-build)
+- ✔️ [Best practices](https://docs.earthbuild.dev/best-practices)
 
 See also the [full documentation](https://docs.earthbuild.dev).
 
 Reference pages
 
-* 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
-* #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earthbuild-command)
-* ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earthbuild-config)
+- 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
+- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earthbuild-command)
+- ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earthbuild-config)
 
 ### A simple example (for Go)
 
@@ -274,7 +274,7 @@ Use `+` to reference other targets and create complex build inter-dependencies.
 
 Examples
 
-* Same directory (same Earthfile)
+- Same directory (same Earthfile)
 
   ```earthly
   BUILD +some-target
@@ -282,7 +282,7 @@ Examples
   COPY +some-target/my-artifact ./
   ```
 
-* Other directories
+- Other directories
 
   ```earthly
   BUILD ./some/local/path+some-target
@@ -290,7 +290,7 @@ Examples
   COPY ./some/local/path+some-target/my-artifact ./
   ```
 
-* Other repositories
+- Other repositories
 
   ```earthly
   BUILD github.com/someone/someproject:v1.2.3+some-target
@@ -343,11 +343,11 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 
 <h2 align="center">Contributing</h2>
 
-* Please report bugs as [GitHub issues](https://github.com/earthly/earthly/issues).
-* Join us on [Slack](https://earthbuild.dev/slack)!
-* Questions via GitHub issues are welcome!
-* PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.
-* To build from source, check the [contributing page](./CONTRIBUTING.md).
+- Please report bugs as [GitHub issues](https://github.com/earthly/earthly/issues).
+- Join us on [Slack](https://earthbuild.dev/slack)!
+- Questions via GitHub issues are welcome!
+- PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.
+- To build from source, check the [contributing page](./CONTRIBUTING.md).
 
 <h2 align="center">Licensing</h2>
 

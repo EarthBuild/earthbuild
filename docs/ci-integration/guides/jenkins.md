@@ -4,8 +4,8 @@
 
 Jenkins has multiple modes of operation, and each of them require some consideration when installing Earthly. These modes include:
 
-* Standalone, dedicated runners
-* Ephemeral cloud runners
+- Standalone, dedicated runners
+- Ephemeral cloud runners
 
 ### Compatibility
 
@@ -13,9 +13,9 @@ Earthly has been tested with Jenkins in a standalone runner configuration, and u
 
 ### Resources
 
-* [Installing Jenkins](https://www.jenkins.io/doc/book/installing/)
-* [Docker Cloud Plugin](https://plugins.jenkins.io/docker-plugin/)
-* [Jenkins Credentials](https://www.jenkins.io/doc/book/using/using-credentials/)
+- [Installing Jenkins](https://www.jenkins.io/doc/book/installing/)
+- [Docker Cloud Plugin](https://plugins.jenkins.io/docker-plugin/)
+- [Jenkins Credentials](https://www.jenkins.io/doc/book/using/using-credentials/)
 
 ## Setup (Standalone)
 
@@ -75,29 +75,29 @@ This will start a local Jenkins server, minimally configured to spawn `earthly` 
 
 To run a build in this demo, you will need to configure a build pipeline. To do that, we have an [example project with a Jenkinsfile](https://github.com/earthly/ci-example-project). To configure the build pipeline for the example project:
 
-* Open the Jenkins demo by going to [`http://localhost:8000`](http://localhost:8080/)
-* Click "New Item", on the left
+- Open the Jenkins demo by going to [`http://localhost:8000`](http://localhost:8080/)
+- Click "New Item", on the left
 
 ![Jenkins Dashboard with "New Item" highlighted](img/Jenkins1.png)
 
-* Choose "Pipeline", give it a name (we chose "test"), and click "OK".
+- Choose "Pipeline", give it a name (we chose "test"), and click "OK".
 
 ![Setting up a new build named test, configured as a Jenkins pipeline](img/Jenkins2.png)
 
-* Scroll down to the "Pipeline" section.
-* Make the following changes:
-* Choose "Pipeline script from SCM" for the Definition
-* Choose "Git" as the SCM, once the option appears
-* Set the repository URL to [`https://github.com/earthly/ci-example-project`](https://github.com/earthly/ci-example-project)
-* Set the branch specifier to `*/main`
+- Scroll down to the "Pipeline" section.
+- Make the following changes:
+- Choose "Pipeline script from SCM" for the Definition
+- Choose "Git" as the SCM, once the option appears
+- Set the repository URL to [`https://github.com/earthly/ci-example-project`](https://github.com/earthly/ci-example-project)
+- Set the branch specifier to `*/main`
 
 ![Configuring all the SCM options for the build](img/Jenkins3.png)
 
-* Once those changes are made, click "Save". Jenkins will navigate to the Pipelines' main page. Once there, click "Build Now"
+- Once those changes are made, click "Save". Jenkins will navigate to the Pipelines' main page. Once there, click "Build Now"
 
 ![Jenkins Dashboard for the example build, with "Build Now" highlighted](img/Jenkins4.png)
 
-* Find the build in your build history, and watch it go!
+- Find the build in your build history, and watch it go!
 
 ![Console output in Jenkins from the test build](img/Jenkins5.png)
 

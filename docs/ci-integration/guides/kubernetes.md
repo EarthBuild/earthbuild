@@ -21,8 +21,8 @@ Multi-node `earthly/buildkitd` configurations are currently unsupported.
 
 ### Resources
 
-* [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
-* [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/home/supported-doc-versions/)
+- [Kubernetes Taints & Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
 
 ## Setup (`earthbuild/earthbuild` Only)
 
@@ -107,8 +107,8 @@ See our [Kubernetes examples](https://github.com/earthly/ci-examples/tree/main/k
 
 To run it yourself, first you will need to install some prerequisites on your machine. This example requires `kind` and `kubectl` to be installed on your system. Here are some links to installation instructions:
 
-* [`kind` Quick Start](https://kind.sigs.k8s.io/docs/user/quick-start/)
-* [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl)
+- [`kind` Quick Start](https://kind.sigs.k8s.io/docs/user/quick-start/)
+- [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl)
 
 When you are ready, clone the [`ci-examples` repository](https://github.com/earthly/ci-examples), and then run (from the root of the repository):
 
@@ -118,8 +118,8 @@ earthly ./kubernetes+start
 
 Running this target will:
 
-* Create a `kind` cluster named `earthlydemo-aio`
-* Create & watch a `job` that runs an `earthly` build
+- Create a `kind` cluster named `earthlydemo-aio`
+- Create & watch a `job` that runs an `earthly` build
 
 When the example is complete, the cluster is left up and intact for exploration and experimentation. If you would like to clean up the cluster when complete, run (again from the root of the repository):
 

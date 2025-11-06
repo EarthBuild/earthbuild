@@ -8,7 +8,7 @@ This example uses [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) to build the Ea
 # .gitlab-ci.yml
 
 services:
-* docker:dind
+- docker:dind
 
 variables:
   DOCKER_HOST: tcp://docker:2375
@@ -18,12 +18,12 @@ variables:
 image: earthbuild/earthbuild:v0.8.16
 
 before_script:
-* docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+- docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 earthly:
   stage: build
   script:
-* earthly --ci --push -P +build
+- earthly --ci --push -P +build
 ```
 
 Note that in this particular configuration, the `earthbuild/earthbuild` image will first

@@ -78,11 +78,11 @@ COPY ./some/other/dir+my-target/out.txt ./
 
 This subsection goes through the different types of references that Earthly uses:
 
-* Earthfile references `github.com/foo/bar`, `./my/local/path`
-* Target references: `<earthfile-ref>+my-target`
-* Artifact references: `<earthfile-ref>+my-target/my-artifact.bin`
-* Image references (same as target references)
-* Function references: `<earthfile-ref>+MY_FUNCTION`
+- Earthfile references `github.com/foo/bar`, `./my/local/path`
+- Target references: `<earthfile-ref>+my-target`
+- Artifact references: `<earthfile-ref>+my-target/my-artifact.bin`
+- Image references (same as target references)
+- Function references: `<earthfile-ref>+MY_FUNCTION`
 
 ## Target reference
 
@@ -94,10 +94,10 @@ Target references distinguish themselves from function references (see below) by
 
 Here are some examples:
 
-* `+build`
-* `./js+deps`
-* `github.com/earthbuild/earthbuild:v0.8.13+earthly`
-* `my-import+build`
+- `+build`
+- `./js+deps`
+- `github.com/earthbuild/earthbuild:v0.8.13+earthly`
+- `my-import+build`
 
 ## Artifact reference
 
@@ -107,11 +107,11 @@ Artifact references are similar to target references, except that they have an a
 
 Here are some examples:
 
-* `+build/my-artifact`
-* `+build/some/artifact/deep/in/a/dir`
-* `./js+build/dist`
-* `github.com/earthbuild/earthbuild:v0.8.13+earthbuild/earthbuild`
-* `my-import+build/my-artifact`
+- `+build/my-artifact`
+- `+build/some/artifact/deep/in/a/dir`
+- `./js+build/dist`
+- `github.com/earthbuild/earthbuild:v0.8.13+earthbuild/earthbuild`
+- `my-import+build/my-artifact`
 
 ## Image reference
 
@@ -129,10 +129,10 @@ Function references distinguish themselves from target references by having a na
 
 Here are some examples:
 
-* `+COMPILE`
-* `./js+NPM_INSTALL`
-* `github.com/earthbuild/earthbuild:v0.8.13+DOWNLOAD_DIND`
-* `my-import+COMPILE`
+- `+COMPILE`
+- `./js+NPM_INSTALL`
+- `github.com/earthbuild/earthbuild:v0.8.13+DOWNLOAD_DIND`
+- `my-import+COMPILE`
 
 For more information on functions, see the [Functions Guide](./functions.md).
 
@@ -220,8 +220,8 @@ Most references have a canonical form. It is essentially the remote form of the 
 
 For example, depending on where the files are stored, the `+build` target could have the canonical form `github.com/some-user/some-project/some/deep/dir:master+build`, where `github.com/some-user/some-project` was inferred as the Git location, based on the Git remote called `origin`, and `/some/deep/dir` was inferred as the sub-directory where `+build` exists within that repository. The Earthly tag is inferred using the following algorithm:
 
-* If the current HEAD has at least one Git tag, then use the first Git tag listed by Git, otherwise
-* If the repository is not in detached HEAD mode, use the current branch, otherwise
-* Use the current Git hash.
+- If the current HEAD has at least one Git tag, then use the first Git tag listed by Git, otherwise
+- If the repository is not in detached HEAD mode, use the current branch, otherwise
+- Use the current Git hash.
 
 If no Git context is detected by Earthly, then the target does not have a canonical form.

@@ -40,8 +40,8 @@ Don't forget to run `earthly bootstrap` when you are done to finish configuratio
 
 If a local installation isn't possible, Earthly currently offers two official images:
 
-* [`earthbuild/earthbuild`](https://hub.docker.com/r/earthbuild/earthbuild), which is a 1-stop shop. It includes a built-in `earthbuild-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
-* [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd), which is the same `earthbuild-buildkitd` container that `earthbuild` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
+- [`earthbuild/earthbuild`](https://hub.docker.com/r/earthbuild/earthbuild), which is a 1-stop shop. It includes a built-in `earthbuild-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
+- [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd), which is the same `earthbuild-buildkitd` container that `earthbuild` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
 
 If you need to provide additional configuration or tools, [consider building your own image for CI](build-an-earthly-ci-image.md).
 
@@ -97,11 +97,11 @@ If `earthly` is connecting to a remote `earthly-buildkitd`, then you will need t
 
 Below are links to CI systems that we have more specific information for. If you run into anything in your CI that wasn't covered here, we would love to add it to our documentation. Pull requests are welcome!
 
- * [GitHub Actions](guides/gh-actions-integration.md)
- * [Circle CI](guides/circle-integration.md)
- * [GitLab CI/CD](guides/gitlab-integration.md)
- * [Jenkins](guides/jenkins.md)
- * [AWS CodeBuild](guides/codebuild-integration.md)
- * [Google Cloud Build](guides/google-cloud-build.md)
- * [Woodpecker CI](guides/woodpecker-integration.md)
- * [Kubernetes](guides/kubernetes.md)
+ - [GitHub Actions](guides/gh-actions-integration.md)
+ - [Circle CI](guides/circle-integration.md)
+ - [GitLab CI/CD](guides/gitlab-integration.md)
+ - [Jenkins](guides/jenkins.md)
+ - [AWS CodeBuild](guides/codebuild-integration.md)
+ - [Google Cloud Build](guides/google-cloud-build.md)
+ - [Woodpecker CI](guides/woodpecker-integration.md)
+ - [Kubernetes](guides/kubernetes.md)

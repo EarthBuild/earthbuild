@@ -8,8 +8,8 @@ This guide is intended to help you create your own Docker image with Earthly ins
 
 There are two ways to build a containerized CI image with Earthly:
 
-* Extending the `earthbuild/earthbuild` image with an external runner/agent
-* Adding Earthly to an existing image
+- Extending the `earthbuild/earthbuild` image with an external runner/agent
+- Adding Earthly to an existing image
 
 This guide will cover both approaches to constructing your image. 
 
@@ -38,8 +38,8 @@ Also, you should embed any configuration that your Earthly image might need (to 
 
 This section will cover adding Earthly to an existing image when:
 
-* Docker-In-Docker is configured for the base image
-* Earthly will be connecting to a remote `earthly/buildkitd` instance
+- Docker-In-Docker is configured for the base image
+- Earthly will be connecting to a remote `earthly/buildkitd` instance
 
 While it is possible to configure a locally-ran `earthly/buildkitd` instance within an image (it's how `earthbuild/earthbuild` works), the steps and tweaks are beyond the scope of this guide.
 

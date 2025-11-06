@@ -43,12 +43,12 @@ At the moment the only AWS is supported.
 ```
 
 where:
-* `<oidc-provider-name>` is the oidc provider's arn that was configured in step 1.
-* `<earthly-org>` the earthly org the user is a member of and is set in the Earthfile or as part of the earthly build execution (see more details below).
-* `<earthly-project>` the earthly project the user has access to [read secrets](./managing-permissions.md#earthly-project-access-levels) from, and is set in the Earthfile or as part of the earthly build execution (see more details below).
+- `<oidc-provider-name>` is the oidc provider's arn that was configured in step 1.
+- `<earthly-org>` the earthly org the user is a member of and is set in the Earthfile or as part of the earthly build execution (see more details below).
+- `<earthly-project>` the earthly project the user has access to [read secrets](./managing-permissions.md#earthly-project-access-levels) from, and is set in the Earthfile or as part of the earthly build execution (see more details below).
 
 Note, a trust policy allows configuring different rules which you can mix and match to allow/disallow assuming the role by members of your team:
-* To allow access to all members of the org:
+- To allow access to all members of the org:
 ```json
 "Condition": {
     "StringLike": {
@@ -56,7 +56,7 @@ Note, a trust policy allows configuring different rules which you can mix and ma
     }
 }
 ```
-* To allow access only to a specific user:
+- To allow access only to a specific user:
 ```json
 "Condition": {
     "StringEquals": {

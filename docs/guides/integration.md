@@ -117,18 +117,18 @@ services:
     container_name: local-postgres
     image: aa8y/postgres-dataset:iso3166
     ports:
-* 5432:5432
+- 5432:5432
     hostname: postgres
     environment:
-* POSTGRES_USER=postgres
-* POSTGRES_PASSWORD=postgres
+- POSTGRES_USER=postgres
+- POSTGRES_PASSWORD=postgres
   postgres-ui:
     container_name: local-postgres-ui
     image: adminer:latest
     depends_on:
-* postgres
+- postgres
     ports:
-* 8080:8080
+- 8080:8080
     hostname: postgres-ui
 ```
 
@@ -357,6 +357,6 @@ There we have it, a reproducible integration process. If you have questions abou
 
 ## See also
 
-* [Docker In Earthly](./docker-in-earthly.md)
-* [Source code for example](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test)
-* [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)
+- [Docker In Earthly](./docker-in-earthly.md)
+- [Source code for example](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test)
+- [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)

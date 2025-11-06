@@ -13,7 +13,7 @@ jobs:
           command: "docker run --rm --privileged tonistiigi/binfmt:latest --install linux/amd64,linux/arm64,linux/arm/v7"
       - run:
           name: Install released earthly
-          command: "sudo /bin/sh -c 'wget https://github.com/earthbuild/earthbuild/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
+          command: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
       - run:
           name: Build latest earthly
           command: earthly --use-inline-cache +for-linux
@@ -23,8 +23,8 @@ jobs:
       - run:
           name: Run tests
           command: |-
-            ./build/linux/amd64/earthly --ci -P \
-            +smoke-test && echo "circleci tests passed"
+              ./build/linux/amd64/earthly --ci -P \
+              +smoke-test && echo "circleci tests passed"
 workflows:
   version: 2
   circle-ci:

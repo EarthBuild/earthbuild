@@ -1,4 +1,4 @@
-module github.com/earthbuild/earthbuild/examples/go
+module github.com/EarthBuild/earthbuild/examples/go
 
 go 1.21
 

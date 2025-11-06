@@ -260,7 +260,7 @@ jobs:
       RUNS_ON: "ubuntu-24.04"
       BINARY: "docker"
       SUDO: ""
-      # Temporarily disabled due to failures on the ubuntu-24.04 runner. See earthbuild/earthbuild#122.
+      # Temporarily disabled due to failures on the ubuntu-24.04 runner. See EarthBuild/earthbuild#122.
       # SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       SKIP_JOB: true
       # EXTRA_ARGS: "--auto-skip"

@@ -19,7 +19,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.16 has no changes to buildkit
 
 ## v0.8.15 - 2024-07-12
 
@@ -39,7 +39,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.15 has no changes to buildkit
 
 ## v0.8.14 - 2024-06-10
 
@@ -58,7 +58,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.14 includes changes to buildkit
 
 ## v0.8.13 - 2024-05-28
 
@@ -76,7 +76,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.13 includes changes to buildkit
 
 ## v0.8.12 - 2024-05-23
 
@@ -94,7 +94,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.12 includes changes to buildkit
 
 ## v0.8.11 - 2024-05-16
 
@@ -108,7 +108,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.11 includes changes to buildkit
 
 ## v0.8.10 - 2024-05-14
 
@@ -133,7 +133,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.10 includes changes to buildkit
 
 ## v0.8.9 - 2024-04-24
 
@@ -143,7 +143,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.9 has no changes to buildkit
 
 ## v0.8.8 - 2024-04-17
 
@@ -164,7 +164,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.8 has no changes to buildkit
 
 ## v0.8.7 - 2024-04-03
 
@@ -183,7 +183,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.7 includes changes to buildkit
 
 ## v0.8.6 - 2024-03-18
 
@@ -197,7 +197,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.6 has no changes to buildkit
 
 ## v0.8.5 - 2024-03-11
 
@@ -218,7 +218,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.5 includes changes to buildkit
 
 ## v0.8.4 - 2024-02-21
 
@@ -239,7 +239,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.4 includes changes to buildkit
 
 ## v0.8.3 - 2024-01-31
 
@@ -250,7 +250,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.3 includes changes to buildkit
 
 ## v0.8.2 - 2024-01-25
 
@@ -273,7 +273,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.2 has no changes to buildkit
 
 ## v0.8.1 - 2024-01-23
 
@@ -285,7 +285,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.8.1 has no changes to buildkit
 
 ## v0.8.0 - 2024-01-22
 
@@ -362,7 +362,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.0 includes changes to buildkit
 
 ## v0.8.0-rc2 - 2024-01-09
 
@@ -433,7 +433,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.0-rc2 includes changes to buildkit
 
 ## v0.8.0-rc1 - 2024-01-03
 
@@ -501,7 +501,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.8.0-rc1 includes changes to buildkit
 
 ## v0.7.23 - 2023-12-18
 
@@ -527,7 +527,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.7.23 includes changes to buildkit
 
 ## v0.7.22 - 2023-11-27
 
@@ -564,7 +564,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.7.22 includes changes to buildkit
 
 ## v0.7.21 - 2023-10-24
 
@@ -586,7 +586,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.7.21 includes changes to buildkit
 
 ## v0.7.20 - 2023-10-03
 
@@ -615,7 +615,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release includes changes to buildkit
+- v0.7.20 includes changes to buildkit
 
 ## v0.7.19 - 2023-09-20
 
@@ -636,7 +636,7 @@ It should be noted that some of these features break backwards compatibility. Se
 
 ### Additional Info
 
-- This release has no changes to buildkit
+- v0.7.19 has no changes to buildkit
 
 ## v0.7.18 - 2023-09-18 (aborted release/not recommended)
 

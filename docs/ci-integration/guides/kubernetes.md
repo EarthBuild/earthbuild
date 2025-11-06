@@ -51,11 +51,11 @@ The `earthbuild/earthbuild` container will operate best when provided with decen
 
 ```yaml
 volumeMounts:
-* mountPath: /tmp/earthly
+  - mountPath: /tmp/earthly
     name: buildkitd-temp
-----------------------------------
+...
 volumes:
-* name: buildkitd-temp
+  - name: buildkitd-temp
     emptyDir: {} # Or other volume type
 ```
 

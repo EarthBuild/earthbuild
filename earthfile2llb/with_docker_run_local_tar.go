@@ -7,9 +7,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthbuild/earthbuild/domain"
-	"github.com/earthbuild/earthbuild/states"
-	"github.com/earthbuild/earthbuild/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/session/localhost"
 	"github.com/pkg/errors"

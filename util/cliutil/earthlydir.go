@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/pkg/errors"
 )
 

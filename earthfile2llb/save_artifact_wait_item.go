@@ -3,8 +3,8 @@ package earthfile2llb
 import (
 	"sync"
 
-	"github.com/earthbuild/earthbuild/states"
-	"github.com/earthbuild/earthbuild/util/waitutil"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/waitutil"
 )
 
 type saveArtifactLocalWaitItem struct {

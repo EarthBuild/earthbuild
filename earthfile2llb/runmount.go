@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/earthbuild/earthbuild/domain"
-	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )

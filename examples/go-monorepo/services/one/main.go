@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/earthbuild/earthbuild/examples/go-monorepo/libs/hello"
+	"github.com/EarthBuild/earthbuild/examples/go-monorepo/libs/hello"
 	"github.com/labstack/echo/v4"
 )
 

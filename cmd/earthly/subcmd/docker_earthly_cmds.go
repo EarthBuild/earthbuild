@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/earthbuild/earthbuild/docker2earthly"
+	"github.com/EarthBuild/earthbuild/docker2earthly"
 
 	"github.com/urfave/cli/v2"
 )

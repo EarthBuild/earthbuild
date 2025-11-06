@@ -1,7 +1,7 @@
 package earthfile2llb
 
 import (
-	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"

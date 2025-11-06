@@ -1,11 +1,11 @@
-module github.com/earthbuild/earthbuild
+module github.com/EarthBuild/earthbuild
 
 go 1.21.0
 
 require (
 	git.sr.ht/~nelsam/hel v0.6.2
-	github.com/earthbuild/earthbuild/ast v0.0.0-00010101000000-000000000000
-	github.com/earthbuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
+	github.com/EarthBuild/earthbuild/ast v0.0.0-00010101000000-000000000000
+	github.com/EarthBuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
 	github.com/adrg/xdg v0.4.0
 	github.com/alessio/shellescape v1.4.2
 	github.com/alexcb/binarystream v0.0.0-20231130184431-f2f7a7543c6d
@@ -134,8 +134,8 @@ require (
 )
 
 replace (
-	github.com/earthbuild/earthbuild/ast => ./ast
-	github.com/earthbuild/earthbuild/util/deltautil => ./util/deltautil
+	github.com/EarthBuild/earthbuild/ast => ./ast
+	github.com/EarthBuild/earthbuild/util/deltautil => ./util/deltautil
 	github.com/jdxcode/netrc => github.com/mikejholly/netrc v0.0.0-20221121193719-a154cb29ec2a
 	github.com/jessevdk/go-flags => github.com/alexcb/go-flags v0.0.0-20210722203016-f11d7ecb5ee5
 

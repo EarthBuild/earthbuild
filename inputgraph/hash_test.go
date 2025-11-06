@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/earthbuild/earthbuild/conslogging"
-	"github.com/earthbuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/stretchr/testify/require"
 )
 

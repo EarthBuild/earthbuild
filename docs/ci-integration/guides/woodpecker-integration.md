@@ -14,16 +14,16 @@ The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-s
 #.woodpecker.yml
 pipeline:
   earthly:
-    image: earthbuild/earthbuild:v0.8.13
+    image: earthbuild/earthbuild:v0.8.16
     volumes:
-* /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-* FORCE_COLOR=1
-* EARTHLY_EXEC_CMD="/bin/sh" 
+      - FORCE_COLOR=1
+      - EARTHLY_EXEC_CMD="/bin/sh" 
     secrets: [REGISTRY, REGISTRY_USER, REGISTRY_PASSWORD]
     commands:
-* docker login -u $${REGISTRY_USER} -p $${REGISTRY_PASSWORD} $${REGISTRY}
-* earthly --ci --push +build
+     - docker login -u $${REGISTRY_USER} -p $${REGISTRY_PASSWORD} $${REGISTRY}
+     - earthly --ci --push +build
 ```
 
 For a complete guide on CI integration see the [CI integration guide](../overview.md).

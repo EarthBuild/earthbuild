@@ -61,7 +61,7 @@ RUN --secret AZ_USERNAME=earthly-technologies/azure/ci-cd-username \
 Once you are logged in, and have the optional credential helper installed, then you are ready to use Earthly to access images in ACR. To build and push an image, simply execute the build target. Don't forget the `--push` flag!
 
 ```
-❯ ../earthbuild/earthbuild --push --no-cache +build
+❯ ../earthly/earthly --push --no-cache +build
            buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
          alpine:3.18 | --> Load metadata linux/amd64
                +base | --> FROM alpine:3.18

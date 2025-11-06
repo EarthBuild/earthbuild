@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/earthbuild/earthbuild/docker2earthly"
+	"github.com/EarthBuild/earthbuild/docker2earthly"
 )
 
 func TestGenerateEarthfile(t *testing.T) {

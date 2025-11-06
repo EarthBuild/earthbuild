@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthbuild/earthbuild/conslogging"
-	"github.com/earthbuild/earthbuild/util/containerutil"
-	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pkg/errors"

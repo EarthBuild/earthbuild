@@ -3,8 +3,8 @@ package llbutil
 import (
 	"context"
 
-	"github.com/earthbuild/earthbuild/util/llbutil/pllb"
-	"github.com/earthbuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"

@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthbuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
 func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {

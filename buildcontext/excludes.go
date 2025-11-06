@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/pkg/errors"
 )

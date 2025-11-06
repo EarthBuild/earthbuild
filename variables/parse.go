@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/earthbuild/earthbuild/variables/reserved"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 
 	"github.com/pkg/errors"
 )

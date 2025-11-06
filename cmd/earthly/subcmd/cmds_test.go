@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/earthbuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
 	"github.com/poy/onpar/matchers"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthbuild/earthbuild/cmd/earthly/app"
-	"github.com/earthbuild/earthbuild/cmd/earthly/base"
-	"github.com/earthbuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 )
 
 func TestRootCmdsHelp(t *testing.T) {

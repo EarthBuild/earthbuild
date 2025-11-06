@@ -1,7 +1,7 @@
 package inputgraph
 
 import (
-	"github.com/earthbuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/ast/spec"
 )
 
 func (l *loader) hashIfStatement(s spec.IfStatement) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/earthbuild/earthbuild/util/syncutil/metacontext"
+	"github.com/EarthBuild/earthbuild/util/syncutil/metacontext"
 	"github.com/pkg/errors"
 )
 

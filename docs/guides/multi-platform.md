@@ -42,14 +42,14 @@ To make use of emulation in GitHub Actions, the following step needs to be inclu
 jobs:
   <job-name>:
     steps:
-* name: Set up QEMU
+      - name: Set up QEMU
         id: qemu
         uses: docker/setup-qemu-action@v1
         with:
           image: tonistiigi/binfmt:latest
           platforms: all
-* uses: actions/checkout@v3
-* ...
+      - uses: actions/checkout@v3
+      - ...
 ```
 
 ## Performing multi-platform builds

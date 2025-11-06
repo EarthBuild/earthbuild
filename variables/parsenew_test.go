@@ -3,7 +3,7 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/earthbuild/earthbuild/variables"
+	"github.com/EarthBuild/earthbuild/variables"
 )
 
 func TestParseFlagArgs(t *testing.T) {

@@ -106,10 +106,10 @@ Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/c
 [The first step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one Earthly image](https://hub.docker.com/r/earthbuild/earthbuild) to do a simple build.
 
 ```yaml
-* id: "build"
-  name: "earthbuild/earthbuild:v0.8.13"
-  args:
-* --ci
-* --push
-* +build
+  - id: 'build'
+    name: 'earthbuild/earthbuild:v0.8.16'
+    args:
+      - --ci
+      - --push
+      - +build
 ```

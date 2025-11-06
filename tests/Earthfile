@@ -901,7 +901,7 @@ escape-dir-test:
 eine-test-base:
     FROM docker:19.03.12-dind
     RUN apk --update --no-cache add git
-    COPY ../..+earthbuild/earthbuild /usr/local/bin/
+    COPY ../..+earthly/earthly /usr/local/bin/
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
     WORKDIR /test
 
@@ -1388,7 +1388,7 @@ true-false-flag-invalid:
 
 version-flag-test:
     # In addition to testing the --version flag works; this flag is critical for the homebrew deployment test, which
-    # performs an assert in https://github.com/earthbuild/homebrew-earthly/blob/main/Formula/earthly.rb
+    # performs an assert in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
     RUN earthly --version | grep '^earthly version'
     RUN test "$(earthly --version | wc -l)" = "1"
 
@@ -1761,7 +1761,7 @@ eval \$(ssh-agent)
 ssh-add /root/dont-steal-my-key
 
 earthly --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
-earthly --config \$earthly_config github.com/earthbuild/earthbuild+base 2>&1 | tee output.txt;
+earthly --config \$earthly_config github.com/earthly/earthly+base 2>&1 | tee output.txt;
 " >/tmp/run-earthly-with-bad-ssh-cipher && chmod +x /tmp/run-earthly-with-bad-ssh-cipher
     DO +RUN_EARTHLY --exec_cmd=/tmp/run-earthly-with-bad-ssh-cipher
     RUN cat output.txt | acbgrep "Unknown cipher type 'badcipher'"
@@ -1772,7 +1772,7 @@ test-ssh-command-config-via-git-clone-earthfile-command:
     RUN echo "VERSION 0.8
 test:
     FROM alpine
-    GIT CLONE ssh://git@github.com/earthbuild/earthbuild.git ./earthly_repo # the command we are testing
+    GIT CLONE ssh://git@github.com/earthly/earthly.git ./earthly_repo # the command we are testing
 " > Earthfile
 
     RUN echo "#!/bin/sh

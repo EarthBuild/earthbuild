@@ -12,9 +12,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/earthbuild/earthbuild/util/fileutil"
-	"github.com/earthbuild/earthbuild/util/hint"
-	"github.com/earthbuild/earthbuild/variables"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/variables"
 	gsysinfo "github.com/elastic/go-sysinfo"
 	"github.com/pkg/errors"
 )

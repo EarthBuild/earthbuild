@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/earthbuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/debugger/common"
 
 	"github.com/alessio/shellescape"
 	"github.com/moby/buildkit/session/secrets"

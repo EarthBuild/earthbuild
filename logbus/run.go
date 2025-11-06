@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthbuild/earthbuild/ast/spec"
-	"github.com/earthbuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/moby/buildkit/util/sshutil"
 )
 

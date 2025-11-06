@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/earthbuild/earthbuild/ast"
-	"github.com/earthbuild/earthbuild/conslogging"
-	"github.com/earthbuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/features"
 )
 
 type buildFile struct {

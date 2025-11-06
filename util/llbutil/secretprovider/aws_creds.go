@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 
-	"github.com/earthbuild/earthbuild/util/hint"
-	"github.com/earthbuild/earthbuild/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
 )
 
 // Internal reserved credentials names used to acquire the equivalent values

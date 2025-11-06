@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/earthbuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"

@@ -1,5 +1,7 @@
 # EarthBuild
 
+![GitHub branch check runs](https://img.shields.io/github/check-runs/EarthBuild/earthbuild/main?label=main%20branch%20status)
+
 ## [This is a community fork of Earthly!](https://github.com/earthly/earthly/issues/4313#issuecomment-2975691386)
 This community fork is endorsed and supported by [earthly](https://github.com/earthly).
 We're actively working on migrating things like the website and [the CI](https://github.com/EarthBuild/earthbuild/pull/1) to community versions.

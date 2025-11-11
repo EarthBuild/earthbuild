@@ -49,7 +49,7 @@ jobs:
       - name: Configure Earthly to use GCR mirror
         run: |-
           earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"mirror.gcr.io\"]'"
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Bootstrap Earthly using released earthly
         run: earthly bootstrap
       - name: Build latest earthly using released earthly

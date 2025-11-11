@@ -65,7 +65,7 @@ jobs:
       - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} $(which earthly) config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"mirror.gcr.io\"]'"
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Login to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Update Buildkit to earthly-next

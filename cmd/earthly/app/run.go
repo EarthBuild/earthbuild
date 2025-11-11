@@ -233,7 +233,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			app.BaseCLI.Console().HelpPrintf(helpMsg)
 			return 1
 		case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
-			var matches = notFoundRegex.FindStringSubmatch(err.Error())
+			matches := notFoundRegex.FindStringSubmatch(err.Error())
 			msg := ""
 			if len(matches) == 2 {
 				msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
@@ -373,7 +373,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			return 1
 		}
 		//  if this happens there is a missing "return" in the above switch statement.
-		panic("error was not caught by error-handling switch") // nolint:all
+		panic("error was not caught by error-handling switch")
 	}
 	app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS)
 	return 0

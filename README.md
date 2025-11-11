@@ -17,7 +17,7 @@ If you're interested in understanding why the community fork is happening, [this
 </div>
 <br/>
 
-[![GitHub Actions CI](https://github.com/EarthBuild/earthbuild/workflows/staging%20release/badge.svg)](https://github.com/EarthBuild/earthbuild/actions?query=workflow%3A%22staging%20release%22+branch%3Amain)
+![GitHub branch check runs](https://img.shields.io/github/check-runs/EarthBuild/earthbuild/main?label=main%20branch%20status)
 [![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthbuild.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://earthbuild.dev)

@@ -6,11 +6,11 @@ import (
 	"path"
 	"strings"
 
-	"github.com/containerd/containerd/platforms"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/containerd/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
@@ -177,7 +177,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
-		Filename: fmt.Sprintf("/tmp/earthly/%s", composeConfigFile),
+		Filename: fmt.Sprintf("/tmp/earthbuild/%s", composeConfigFile),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "read compose config file")

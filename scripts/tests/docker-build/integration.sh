@@ -13,7 +13,7 @@ tag2="${tag}.4"
 
 PATH="$(realpath "$(dirname "$0")/../../acbtest"):$PATH"
 
-testdir=/tmp/earthly-docker-build-test
+testdir=/tmp/earthbuild-docker-build-test
 mkdir -p $testdir
 
 function reset() {

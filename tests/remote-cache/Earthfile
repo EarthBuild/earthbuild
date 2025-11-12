@@ -63,7 +63,7 @@ test3:
     # Running with tmpfs mount = no local cache.
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output --strict --use-inline-cache --save-inline-cache --push +test3
 
 # Work around the lack of variable overriding, since the base image already includes EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
@@ -73,7 +73,7 @@ DO_REMOTE_CACHE_EARTHLY:
     ARG target
 
     RUN --privileged \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
         ( EARTHLY_ADDITIONAL_BUILDKIT_CONFIG=$EARTHLY_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
         /usr/bin/earthly-entrypoint.sh --use-inline-cache --save-inline-cache --strict --no-output --push \

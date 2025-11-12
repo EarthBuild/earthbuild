@@ -179,7 +179,7 @@ earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+
 
 ```Dockerfile
 VERSION 0.8
-FROM openjdk:8-jdk-alpine
+FROM amazoncorretto:24-alpine3.22
 RUN apk add --update --no-cache gradle
 WORKDIR /java-example
 

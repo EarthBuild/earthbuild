@@ -220,7 +220,7 @@ earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+
 
 ```Dockerfile
 VERSION 0.8
-FROM openjdk:8-jdk-alpine
+FROM amazoncorretto:24-alpine3.22
 RUN apk add --update --no-cache gradle
 WORKDIR /java-example
 
@@ -256,20 +256,9 @@ public class HelloWorld {
 
 `./build.gradle`
 
-```groovy
-apply plugin: 'java'
-apply plugin: 'application'
+[build.gradle](../../examples/tutorial/java/part2/build.gradle)
 
-mainClassName = 'hello.HelloWorld'
-
-jar {
-    baseName = 'hello-world'
-    version = '0.0.1'
-}
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-```
+</details>
 
 </details>
 

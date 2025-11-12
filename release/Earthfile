@@ -138,7 +138,6 @@ promote-artifacts-to-gh:
 
     # Download artifact previously built by ci-staging-deploy.yml "Create Release Binaries"
     RUN --secret GITHUB_TOKEN gh run download \
-        --commit "${COMMIT_SHA}" \
         --name "${ARTIFACT_NAME}" \
         --dir _download
 

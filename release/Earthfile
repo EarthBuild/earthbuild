@@ -134,8 +134,10 @@ promote-artifacts-to-gh:
 
     RUN mkdir -p _download
 
+    LET GH_REPO="earthbuild/earthbuild"
+
     # Download artifact previously built by ci-staging-deploy.yml "Create Release Binaries"
-    RUN --secret GH_TOKEN gh run download \
+    RUN --secret GITHUB_TOKEN gh run download \
         --commit "${COMMIT_SHA}" \
         --name "${ARTIFACT_NAME}" \
         --dir _download
@@ -145,7 +147,7 @@ promote-artifacts-to-gh:
 
     # Upload all binary artifacts to the existing release. This target is meant to be triggered by creating a
     # release in GitHub
-    RUN --push --secret GH_TOKEN find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "${RELEASE_TAG}" "{}" --clobber
+    RUN --push --secret GITHUB_TOKEN find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "${RELEASE_TAG}" "{}" --clobber
 
 promote-to-dockerhub:
     # Built-ins: First 8 of commit SHA

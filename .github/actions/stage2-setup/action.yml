@@ -47,6 +47,13 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Set up Docker Hub mirrors
+      if: inputs.BINARY == 'docker'
+      shell: bash
+      run: |
+        sudo mkdir -p /etc/docker
+        echo '{"registry-mirrors": ["https://mirror.gcr.io", "https://public.ecr.aws"]}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
     - name: Login to GHCR
       if: inputs.BINARY == 'docker'
       uses: docker/login-action@v3
@@ -65,6 +72,10 @@ runs:
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
+    - name: Docker Info
+      if: inputs.BINARY == 'docker'
+      shell: bash
+      run: docker info
     - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00  #v6.0.0
       with:
         go-version: 1.21
@@ -92,9 +103,9 @@ runs:
         echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
       shell: bash
     - run: |-
-        echo "Configuring earthbuild to use GCR mirror"
+        echo "Configuring earthbuild to use Docker Hub mirrors"
         ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
-        mirrors = [\"mirror.gcr.io\"]'"
+        mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-

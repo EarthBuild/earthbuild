@@ -8,7 +8,7 @@ FRONTEND=${FRONTEND:-docker}
 EARTHLY_IMAGE=${EARTHLY_IMAGE:-earthly/earthly:dev-main}
 PATH="$(realpath "$(dirname "$0")/../acbtest"):$PATH"
 
-dockerconfig="$(mktemp /tmp/earthly-image-test-docker-config.XXXXXX)"
+dockerconfig="$(mktemp /tmp/earthbuild-image-test-docker-config.XXXXXX)"
 chmod 600 "$dockerconfig"
 cat > "$dockerconfig" <<EOF
 {}

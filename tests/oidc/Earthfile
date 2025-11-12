@@ -23,7 +23,7 @@ test-aws-success:
     # happy path
     ARG ROLE_ARN="arn:aws:iam::404851345508:role/oidc-ci-test"
     RUN --no-cache --secret OIDC_USER_TOKEN=test-oidc-user/token \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         --privileged \
         --entrypoint
 
@@ -32,7 +32,7 @@ test-aws-failure:
     # expect failure when arn role does not exist/not set
     ARG ROLE_ARN="arn:aws:iam::123456789012:role/does-not-exist"
     RUN --secret OIDC_USER_TOKEN=test-oidc-user/token \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         --privileged \
         --entrypoint \
         2>&1 |grep "Help: make sure the role \"arn:aws:iam::123456789012:role/does-not-exist\" has a valid trust policy configured in AWS"

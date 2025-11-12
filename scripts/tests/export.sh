@@ -25,11 +25,11 @@ echo "$earthly"
 
 # Test 1: export without anything
 echo ==== Running test 1 ====
-rm -rf /tmp/earthly-export-test-1
+rm -rf /tmp/earthbuild-export-test-1
 "$frontend" rmi earthly-export-test-1:test || true
 
-mkdir /tmp/earthly-export-test-1
-cd /tmp/earthly-export-test-1
+mkdir /tmp/earthbuild-export-test-1
+cd /tmp/earthbuild-export-test-1
 cat >> Earthfile <<EOF
 VERSION 0.7
 test1:
@@ -44,11 +44,11 @@ EOF
 
 # Test 2: export with only a CMD set
 echo ==== Running test 2 ====
-rm -rf /tmp/earthly-export-test-2
+rm -rf /tmp/earthbuild-export-test-2
 "$frontend" rmi earthly-export-test-2:test || true
 
-mkdir /tmp/earthly-export-test-2
-cd /tmp/earthly-export-test-2
+mkdir /tmp/earthbuild-export-test-2
+cd /tmp/earthbuild-export-test-2
 cat >> Earthfile <<EOF
 VERSION 0.7
 test2:
@@ -64,11 +64,11 @@ EOF
 
 # Test 3: export with a single RUN
 echo ==== Running test 3 ====
-rm -rf /tmp/earthly-export-test-3
+rm -rf /tmp/earthbuild-export-test-3
 "$frontend" rmi earthly-export-test-3:test || true
 
-mkdir /tmp/earthly-export-test-3
-cd /tmp/earthly-export-test-3
+mkdir /tmp/earthbuild-export-test-3
+cd /tmp/earthbuild-export-test-3
 cat >> Earthfile <<EOF
 VERSION 0.7
 test3:
@@ -85,14 +85,14 @@ EOF
 
 # Test 4: export multiplatform image
 echo ==== Running test 4 ====
-rm -rf /tmp/earthly-export-test-4
+rm -rf /tmp/earthbuild-export-test-4
 "$frontend" rmi earthly-export-test-4:test || true
 "$frontend" rmi earthly-export-test-4:test_linux_amd64 || true
 "$frontend" rmi earthly-export-test-4:test_linux_arm64 || true
 "$frontend" rmi earthly-export-test-4:test_linux_arm_v7 || true
 
-mkdir /tmp/earthly-export-test-4
-cd /tmp/earthly-export-test-4
+mkdir /tmp/earthbuild-export-test-4
+cd /tmp/earthbuild-export-test-4
 cat >> Earthfile <<EOF
 VERSION 0.7
 
@@ -123,12 +123,12 @@ EOF
 
 # Test 5: export multiple images
 echo ==== Running test 5 ====
-rm -rf /tmp/earthly-export-test-5
+rm -rf /tmp/earthbuild-export-test-5
 "$frontend" rmi earthly-export-test-5:test-img1 || true
 "$frontend" rmi earthly-export-test-5:test-img2 || true
 
-mkdir /tmp/earthly-export-test-5
-cd /tmp/earthly-export-test-5
+mkdir /tmp/earthbuild-export-test-5
+cd /tmp/earthbuild-export-test-5
 cat >> Earthfile <<EOF
 VERSION 0.7
 
@@ -155,12 +155,12 @@ EOF
 
 # Test 6: no manifest list
 echo ==== Running test 6 ====
-rm -rf /tmp/earthly-export-test-6
+rm -rf /tmp/earthbuild-export-test-6
 "$frontend" rmi earthly-export-test-6:test || true
 "$frontend" rmi earthly-export-test-6:test_linux_arm64 || true
 
-mkdir /tmp/earthly-export-test-6
-cd /tmp/earthly-export-test-6
+mkdir /tmp/earthbuild-export-test-6
+cd /tmp/earthbuild-export-test-6
 cat >> Earthfile <<EOF
 VERSION 0.7
 
@@ -187,9 +187,9 @@ fi
 # TODO: We should reinstate this test.
 # # Test 7: remote cache on target with only BUILDs
 # echo ==== Running test 7 ====
-# rm -rf /tmp/earthly-export-test-7
-# mkdir /tmp/earthly-export-test-7
-# cd /tmp/earthly-export-test-7
+# rm -rf /tmp/earthbuild-export-test-7
+# mkdir /tmp/earthbuild-export-test-7
+# cd /tmp/earthbuild-export-test-7
 # cat >> Earthfile <<EOF
 # VERSION 0.7
 # test7:
@@ -203,12 +203,12 @@ fi
 
 # Test 8: Earthly LABELS
 echo ==== Running test 8 ====
-rm -rf /tmp/earthly-export-test-8
+rm -rf /tmp/earthbuild-export-test-8
 "$frontend" rmi earthly-export-test-8a:test || true
 "$frontend" rmi earthly-export-test-8b:test || true
 
-mkdir /tmp/earthly-export-test-8
-cd /tmp/earthly-export-test-8
+mkdir /tmp/earthbuild-export-test-8
+cd /tmp/earthbuild-export-test-8
 cat >> Earthfile <<EOF
 VERSION 0.7
 

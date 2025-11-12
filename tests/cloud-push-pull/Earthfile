@@ -30,12 +30,12 @@ google-artifact-registry:
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --ci --push +push
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P +pull
 
 google-container-repository:
@@ -46,12 +46,12 @@ google-container-repository:
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- --ci --push +push
 
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P +pull
 
 azure-container-registry:
@@ -67,12 +67,12 @@ azure-container-registry:
 
 #     RUN --privileged \
 #     --entrypoint \
-#     --mount=type=tmpfs,target=/tmp/earthly \
+#     --mount=type=tmpfs,target=/tmp/earthbuild \
 #     -- --ci --push +push
 
 #     RUN --privileged \
 #     --entrypoint \
-#     --mount=type=tmpfs,target=/tmp/earthly \
+#     --mount=type=tmpfs,target=/tmp/earthbuild \
 #     -- -P +pull
 
 # TODO: Sort out a login for aws: AWS_ACCESS_KEY_ID and friends.
@@ -103,7 +103,7 @@ amazon-elastic-container-registry:
     # --secret ACCT_ID=aws/account-id \
     # --privileged \
     # --entrypoint \
-    # --mount=type=tmpfs,target=/tmp/earthly \
+    # --mount=type=tmpfs,target=/tmp/earthbuild \
     # -- --build-arg ACCT_ID --ci --push +push
 
     # RUN --secret AWS_ACCESS_KEY_ID=aws/ci-cd-access-key \
@@ -111,5 +111,5 @@ amazon-elastic-container-registry:
     # --secret ACCT_ID=aws/account-id \
     # --privileged \
     # --entrypoint \
-    # --mount=type=tmpfs,target=/tmp/earthly \
+    # --mount=type=tmpfs,target=/tmp/earthbuild \
     # -- --build-arg ACCT_ID -P +pull

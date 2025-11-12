@@ -3,7 +3,7 @@ This image contains `earthly`, `buildkit`, and some extra configuration to enabl
 ## Tags
 
 Currently, the `latest` tag is `v0.8.13`.  
-For other available tags, please check out https://hub.docker.com/r/earthly/earthly/tags
+For other available tags, please check out https://hub.docker.com/r/earthbuild/earthbuild/tags
 
 ## Quickstart
 
@@ -14,7 +14,7 @@ Want to get started? Here are a couple sample `docker run` commands that cover t
 This example shows how to use the Earthly container in conjunction with a Docker socket that Earthly can use to start up the BuildKit daemon.
 
 ```bash
-docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock -e NO_BUILDKIT=1 earthly/earthly:v0.8.13 +for-linux
+docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock -e NO_BUILDKIT=1 earthbuild/earthbuild:v0.8.16 +for-linux
 ```
 
 Here's a quick breakdown:
@@ -30,7 +30,7 @@ Here's a quick breakdown:
 This example shows how the Earthly image can start a BuildKit daemon within the same container. A Docker socket is not needed in this case, however the container will need to be run with the `--privileged` flag.
 
 ```bash
-docker run --privileged -t -v $(pwd):/workspace -v earthly-tmp:/tmp/earthly:rw earthly/earthly:v0.8.13 +for-linux
+docker run --privileged -t -v $(pwd):/workspace -v earthly-tmp:/tmp/earthly:rw earthbuild/earthbuild:v0.8.16 +for-linux
 ```
 
 Here's a quick breakdown:
@@ -53,7 +53,7 @@ If you are using the embedded `buildkitd`, then this image needs to be run as a 
 
 #### `/tmp/earthly`
 
-Because this folder sees _a lot_ of traffic, its important that it remains fast. We *strongly* recommend using a Docker volume for mounting `/tmp/earthly`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
+Because this folder sees *a lot* of traffic, its important that it remains fast. We *strongly* recommend using a Docker volume for mounting `/tmp/earthly`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
 
 In some environments, not mounting `/tmp/earthly` as a Docker volume results in the following error:
 

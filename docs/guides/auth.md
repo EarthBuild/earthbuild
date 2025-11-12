@@ -12,13 +12,13 @@ This page is NOT about passing Git or Docker credentials for your own custom com
 
 A number of Earthly features use Git credentials to perform remote Git operations:
 
-* Resolving a build context when referencing remote targets
-* The `GIT CLONE` command
+- Resolving a build context when referencing remote targets
+- The `GIT CLONE` command
 
 There are two possible ways to pass Git authentication to Earthly builds:
 
-* Via SSH agent socket (for SSH-based authentication)
-* Via username-password (usually for HTTPS Git URLs)
+- Via SSH agent socket (for SSH-based authentication)
+- Via username-password (usually for HTTPS Git URLs)
 
 #### Auto authentication
 
@@ -75,8 +75,8 @@ If no `user` or `password` are found, earthly will check for entries under [`~/.
 
 Alternatively, environment variables can be set which will be override all host entries from the config file:
 
-* `GIT_USERNAME`
-* `GIT_PASSWORD`
+- `GIT_USERNAME`
+- `GIT_PASSWORD`
 
 However, environment variable authentication are now deprecated in favor of using the configuration file instead.
 
@@ -185,16 +185,16 @@ before issuing earthly commands, if you have not already done so in the past. If
 Docker can use various credential helpers to automatically generate and use credentials on your behalf. These are usually created by cloud providers to allow Docker to authenticate using the cloud providers own credentials.
 
 You can see examples of configuring Docker to use these, and working with Earthly here:
-* [Pushing and Pulling Images with AWS ECR](./registries/aws-ecr.md)
-* [Pushing and Pulling Images with GCP Artifact Registry](./registries/gcp-artifact-registry.md)
-* [Pushing and Pulling Images with Azure ACR](./registries/azure-acr.md)
+- [Pushing and Pulling Images with AWS ECR](./registries/aws-ecr.md)
+- [Pushing and Pulling Images with GCP Artifact Registry](./registries/gcp-artifact-registry.md)
+- [Pushing and Pulling Images with Azure ACR](./registries/azure-acr.md)
 
 ## Cloud Providers
 
 Currently Earthly provides a built-in way to easily authenticate to AWS during a build.
 
-* [Accessing AWS resources](./cloud-providers/aws.md)
+- [Accessing AWS resources](./cloud-providers/aws.md)
 
 ## See also
 
-* The [earthly command reference](../earthly-command/earthly-command.md)
+- The [earthly command reference](../earthly-command/earthly-command.md)

@@ -1,4 +1,4 @@
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/go/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part4) run
 
 ```bash
 earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part4/part4 ./part4
@@ -19,6 +19,7 @@ docker:
     ENTRYPOINT ["/go-workdir/example"]
     SAVE IMAGE go-example:$tag
 ```
+
 In our `+docker` target we can create an `ARG` called tag. In this case, we give it a default value of `latest`. If we do not provide a default value the default will be an empty string.
 
 Then, down in our `SAVE IMAGE` command, we are able to reference the `ARG` with `$` followed by the `ARG` name.
@@ -28,6 +29,7 @@ Now we can take advantage of this when we run Earthly.
 ```bash
 earthly +docker --tag='my-new-image-tag'
 ```
+
 In this case `my-new-image-tag` will override the default value and become the new tag for our docker image. If we hadn't passed in a value for tag, then the default `latest` would have been used.
 
 ```bash
@@ -36,6 +38,7 @@ earthly +docker
 ```
 
 ### Passing ARGs in FROM, BUILD, and COPY
+
 We can also pass `ARG`s when referencing a target inside an Earthfile. Using the `FROM` and `BUILD` commands, this looks pretty similar to what we did above on the command line.
 
 ```Dockerfile
@@ -51,6 +54,7 @@ with-build:
 with-from:
     FROM +docker --tag='my-new-image-tag'
 ```
+
 We can also pass `ARG`s when using the `COPY` command, though the syntax is a little different.
 
 ```Dockerfile
@@ -65,6 +69,7 @@ with-copy:
 ```
 
 ## Builtin `ARG`s
+
 There are a number of builtin `ARG`s that Earthly offers. You can read about a [complete list of them](https://docs.earthly.dev/docs/earthfile/builtin-args), but for now, let's take a look at how they work.
 
 **In order to use Earthly builtin `ARG`s they need to be pre-declared.** Once you do that, you can use them just like any other `ARG`.
@@ -73,15 +78,15 @@ There are a number of builtin `ARG`s that Earthly offers. You can read about a [
 ARG USERARCH
 RUN echo $USERARCH
 ```
-In this case we've declared the `ARG` `USERARCH` which is a builtin that holds the processor architecture the target is being built from.
 
+In this case we've declared the `ARG` `USERARCH` which is a builtin that holds the processor architecture the target is being built from.
 
 ## More Examples
 
 <details open>
 <summary>JavaScript</summary>
 
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/js/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part4) run
 
 ```bash
 earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part4/part4 ./part4
@@ -120,11 +125,10 @@ docker:
 
 </details>
 
-
 <details open>
 <summary>Java</summary>
 
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/java/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/java/part4) run
 
 ```bash
 earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part4/part4 ./part4
@@ -160,11 +164,10 @@ docker:
 
 </details>
 
-
 <details open>
 <summary>Python</summary>
 
-To copy the files for [this example ( Part 4 )](https://github.com/earthly/earthly/tree/main/examples/tutorial/python/part4) run
+To copy the files for [this example ( Part 4 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part4) run
 
 ```bash
 earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part4/part4 ./part4

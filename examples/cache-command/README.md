@@ -11,13 +11,13 @@ Importantly, the results of the cache are persisted, and can be used in subseque
 Examples of when the `CACHE` command becomes useful include the following.
 
 Java/Maven projects using `SNAPSHOT` builds:
-* In such projects, dependencies may change frequently, but we can avoid downloading *all* of them each time in our Earthly Target
+- In such projects, dependencies may change frequently, but we can avoid downloading *all* of them each time in our Earthly Target
 
 Node.JS/NPM projects with vendored `node_modules` using version ranges:
-  * We can avoid downloading all dependencies to our `node_modules` directory and instead only download those which have changed
+  - We can avoid downloading all dependencies to our `node_modules` directory and instead only download those which have changed
 
 Elixir's Dialyzer: 
-  * Dialyzer is compiled quickly with incremental code changes and we can take advantage of that in our Earthly Target
+  - Dialyzer is compiled quickly with incremental code changes and we can take advantage of that in our Earthly Target
 
 In these examples, adding the `CACHE` command allows an Earthly Target to perform more closely to how you would expect when running the commands natively in your local dev environment. 
 

@@ -147,15 +147,18 @@ earthly-script-no-stdout:
 # lint runs basic go linters against the earthly project.
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    ENV golangci_lint_version=1.64.8
+    LET golangci_lint_version=2.6.1
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
-    RUN \
-        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        --mount type=cache,target=/root/.cache/golangci_lint \
-        golangci-lint run
+    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+        ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            --mount type=cache,target=/root/.cache/golangci_lint \
+            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
+    END
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:

@@ -13,27 +13,27 @@ The word "build" can mean many things across many different contexts. When we sa
 
 Here are contexts in which Earthly does a particularly good job in, thanks to its caching:
 
-* Making CI builds faster, especially in these circumstances
-  * The CI performs many redundant tasks upfront, like installing dependencies and pulling container images.
-  * The CI is a sandboxed CI, where no state is transferred over from one run to the next without explicitly uploading / downloading on each run (e.g. GitHub Actions, Circle CI)
-  * Monorepos and Polyrepos: The CI builds multiple interconnected projects or sub-projects at a time
-* Making local builds faster, especially in these circumstances
-  * The build being executed is the CI build itself (and not just of the component you’re working on)
-  * The build is complex, involving multiple projects or sub-projects at a time, possibly using multiple programming languages, where some of the projects could be rebuilt with a lot of cache shared with the CI or with teammates
-  * Your internet connection is slow, and you need to perform a lot of image pushes and/or pulls
+- Making CI builds faster, especially in these circumstances
+  - The CI performs many redundant tasks upfront, like installing dependencies and pulling container images.
+  - The CI is a sandboxed CI, where no state is transferred over from one run to the next without explicitly uploading / downloading on each run (e.g. GitHub Actions, Circle CI)
+  - Monorepos and Polyrepos: The CI builds multiple interconnected projects or sub-projects at a time
+- Making local builds faster, especially in these circumstances
+  - The build being executed is the CI build itself (and not just of the component you’re working on)
+  - The build is complex, involving multiple projects or sub-projects at a time, possibly using multiple programming languages, where some of the projects could be rebuilt with a lot of cache shared with the CI or with teammates
+  - Your internet connection is slow, and you need to perform a lot of image pushes and/or pulls
 
 Here are examples where Earthly doesn’t improve performance:
 
-* Local builds, when you’re iterating in a tight loop in a single programming language. Usually the tools of that programming language are already highly optimized for this use-case and often work better natively.
-* CI builds, when the environment is shared between runs (unsafe), and you’re building programming languages with good built-in caching.
-* CI builds, when the redundant parts of the build, like installing dependencies, are cached, AND the CI setup preserves the cache well, WITHOUT the need for downloading or uploading.
-* CI builds that involve working with large files (i.e. >1 GB files), due to some internal transferring of files that Earthly relies on.
+- Local builds, when you’re iterating in a tight loop in a single programming language. Usually the tools of that programming language are already highly optimized for this use-case and often work better natively.
+- CI builds, when the environment is shared between runs (unsafe), and you’re building programming languages with good built-in caching.
+- CI builds, when the redundant parts of the build, like installing dependencies, are cached, AND the CI setup preserves the cache well, WITHOUT the need for downloading or uploading.
+- CI builds that involve working with large files (i.e. >1 GB files), due to some internal transferring of files that Earthly relies on.
 
 Now all this might be too complicated to remember, so here’s a simplified version. Earthly is:
 
-* Almost always faster in CI, and especially faster in sandboxed CI environments.
-* Usually not faster for local builds where you’re iterating in a single programming language in a tight loop.
-* Often faster locally, when intending to run the same build as the CI.
+- Almost always faster in CI, and especially faster in sandboxed CI environments.
+- Usually not faster for local builds where you’re iterating in a single programming language in a tight loop.
+- Often faster locally, when intending to run the same build as the CI.
 
 The sections below go into more detail about how you are able to get faster builds with Earthly.
 

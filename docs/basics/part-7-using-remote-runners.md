@@ -6,15 +6,15 @@ Earthly is able to use remote runners for performing builds on remote machines. 
 
 Remote runners are especially useful in a few specific circumstances:
 
-* You want to **reuse cache between CI runs** to dramatically speed up builds (more on this in part 8).
-* You want to **share compute and cache with coworkers** and/or with the CI.
-* You have **a build that requires a lot of resources**, and you want to run it on a machine with more resources than your local machine.
-* You have **a build that requires running on a specific CPU architecture** natively.
-* You have **a slow internet connection**.
+- You want to **reuse cache between CI runs** to dramatically speed up builds (more on this in part 8).
+- You want to **share compute and cache with coworkers** and/or with the CI.
+- You have **a build that requires a lot of resources**, and you want to run it on a machine with more resources than your local machine.
+- You have **a build that requires running on a specific CPU architecture** natively.
+- You have **a slow internet connection**.
 
 There is one type of remote runner:
 
-* Remote BuildKit (free, self-hosted)
+- Remote BuildKit (free, self-hosted)
 
 ### Using a Remote BuildKit
 

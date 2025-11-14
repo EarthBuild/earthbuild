@@ -8,23 +8,23 @@ This guide is intended to help you create your own Docker image with Earthly ins
 
 There are two ways to build a containerized CI image with Earthly:
 
-- Extending the `earthly/earthly` image with an external runner/agent
+- Extending the `earthbuild/earthbuild` image with an external runner/agent
 - Adding Earthly to an existing image
 
 This guide will cover both approaches to constructing your image. 
 
-### Extending The `earthly/earthly` Image
+### Extending The `earthbuild/earthbuild` Image
 
 This is the recommended approach when adopting Earthly into your containerized CI. Start by basing your custom image on ours:
 
 ```docker
-FROM earthly/earthly:v0.8.13
+FROM earthbuild/earthbuild:v0.8.13
 RUN ... # Add your agent, certificates, tools...
 ```
 
 When extending our image, be sure to pin to a specific version to avoid accidental future breakage as `earthly` evolves.
 
-The `earthly/earthly` image is Alpine Linux based. To add tools to the image, you can use `apk`:
+The `earthbuild/earthbuild` image is Alpine Linux based. To add tools to the image, you can use `apk`:
 
 ```docker
 apk add --no-cache my-cool-tool
@@ -41,7 +41,7 @@ This section will cover adding Earthly to an existing image when:
 - Docker-In-Docker is configured for the base image
 - Earthly will be connecting to a remote `earthly/buildkitd` instance
 
-While it is possible to configure a locally-ran `earthly/buildkitd` instance within an image (it's how `earthly/earthly` works), the steps and tweaks are beyond the scope of this guide.
+While it is possible to configure a locally-ran `earthly/buildkitd` instance within an image (it's how `earthbuild/earthbuild` works), the steps and tweaks are beyond the scope of this guide.
 
 #### Docker-In-Docker
 
@@ -69,7 +69,7 @@ For more details on using a remote BuildKit daemon, [see our guide](./remote-bui
 
 ## cgroups v2 Considerations
 
-When cgroups v2 is detected by the `earthly/earthly` image's default entrypoint, it moves it's process under an isolated cgroup. If a different entrypoint is used (i.e. a custom user supplied script),
+When cgroups v2 is detected by the `earthbuild/earthbuild` image's default entrypoint, it moves it's process under an isolated cgroup. If a different entrypoint is used (i.e. a custom user supplied script),
 the root process must be moved into a separate cgroup, for example:
 
 ```bash
@@ -108,4 +108,4 @@ In EKS, users reported that mounting an EBS volume, instead of a Kubernetes `emp
 
 This part of our documentation needs improvement. If you have a Kubernetes-based setup, please [let us know](https://earthly.dev/slack) how you have mounted `/tmp/earthly` and whether `WITH DOCKER` worked well for you.
 
-For more information, see the [documentation for `earthly/earthly` on DockerHub](https://hub.docker.com/r/earthly/earthly).
+For more information, see the [documentation for `earthbuild/earthbuild` on DockerHub](https://hub.docker.com/r/earthbuild/earthbuild).

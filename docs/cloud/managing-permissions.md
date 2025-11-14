@@ -2,10 +2,10 @@
 
 Within an Earthly project, users may be granted one of the following access levels:
 
-* `read`: Can view the project, including the build history and build logs.
-* `read+secrets`: Same as read, but can also view and use secrets.
-* `write`: Everything in `read+secrets`, plus the ability to create and modify secrets.
-* `admin`: Everything in `write`, plus the ability to manage the project's users.
+- `read`: Can view the project, including the build history and build logs.
+- `read+secrets`: Same as read, but can also view and use secrets.
+- `write`: Everything in `read+secrets`, plus the ability to create and modify secrets.
+- `admin`: Everything in `write`, plus the ability to manage the project's users.
 
 ### Managing access to an Earthly project
 

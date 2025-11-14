@@ -41,9 +41,9 @@ build:
 
 A few things to note about this example:
 
-* The definition of `MY_COPY` does not contain a `FROM` so the build environment it operates in is the build environment of the caller.
-* This means that `+MY_COPY` has access to the file `./foo`.
-* Although the copy file operation is performed within `+MY_COPY`, its effects are seen in the environment of the caller - so the resulting `./bar` is available to the caller.
+- The definition of `MY_COPY` does not contain a `FROM` so the build environment it operates in is the build environment of the caller.
+- This means that `+MY_COPY` has access to the file `./foo`.
+- Although the copy file operation is performed within `+MY_COPY`, its effects are seen in the environment of the caller - so the resulting `./bar` is available to the caller.
 
 ## Scope
 

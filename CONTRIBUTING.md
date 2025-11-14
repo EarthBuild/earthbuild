@@ -12,24 +12,24 @@ To build Earthly from source, you need the same requirements as Earthly. We reco
 
 To build Earthly from source for your target system, use
 
-* Linux and WSL
+- Linux and WSL
     ```bash
     ./earthly +for-linux
     ```
-* Mac
+- Mac
     ```bash
     ./earthly +for-darwin
     ```
-* Mac with M1 chip
+- Mac with M1 chip
     ```bash
     ./earthly +for-darwin-m1
     ```
 
 This builds the earthly binary in `./build/*/*/earthly`, typically one of:
 
-* `./build/linux/amd64/earthly`
-* `./build/darwin/amd64/earthly`
-* `./build/darwin/arm64/earthly`
+- `./build/linux/amd64/earthly`
+- `./build/darwin/amd64/earthly`
+- `./build/darwin/arm64/earthly`
 
 It also builds the buildkitd image.
 
@@ -38,16 +38,16 @@ The buildkitd image is tagged with your current branch name and also the built b
 For development purposes, you may use the built `earthly` binary to rebuild itself. It's usually faster than switching between the built binary and the prerelease binary because it avoids constant buildkitd restarts. After the first initial build, you'll end up using:
 
 
-* Linux and WSL
+- Linux and WSL
     ```bash
     ./build/linux/amd64/earthly +for-linux
     ```
-* Mac
+- Mac
     ```bash
     ./build/darwin/amd64/earthly +for-darwin
     ```
 
-* Mac with M1 chip
+- Mac with M1 chip
     ```bash
     ./build/darwin/amd64/earthly +for-darwin-m1
     ```
@@ -67,7 +67,7 @@ dlv exec ./build/own/earthly -- +base
 Type 'help' for list of commands.
 
 (dlv) break /earthly/earthfile2llb/interpreter.go:670
-Breakpoint 1 set at 0x182866a for github.com/earthly/earthly/earthfile2llb.(*Interpreter).handleRun() /earthly/earthfile2llb/interpreter.go:670
+Breakpoint 1 set at 0x182866a for github.com/earthbuild/earthbuild/earthfile2llb.(*Interpreter).handleRun() /earthly/earthfile2llb/interpreter.go:670
 (dlv) continue
  Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
@@ -78,7 +78,7 @@ Breakpoint 1 set at 0x182866a for github.com/earthly/earthly/earthfile2llb.(*Int
 ————————————————————————————————————————————————————————————————————————————————
 
 golang:1.20-alpine3.17 | --> Load metadata golang:1.20-alpine3.17 linux/amd64
-> github.com/earthly/earthly/earthfile2llb.(*Interpreter).handleRun() /earthly/earthfile2llb/interpreter.go:670 (hits goroutine(295):1 total:1) (PC: 0x182866a)
+> github.com/earthbuild/earthbuild/earthfile2llb.(*Interpreter).handleRun() /earthly/earthfile2llb/interpreter.go:670 (hits goroutine(295):1 total:1) (PC: 0x182866a)
 (dlv)
 ```
 
@@ -244,11 +244,11 @@ changed to `~/.earthly-dev/config.yml`. The standard location is not used as a f
 
 ## Prereleases
 
-In addition to the `./earthly` prerelease script, we maintain a repository dedicated to [prereleases versions](https://github.com/earthly/earthly-staging/releases) of earthly.
+In addition to the `./earthly` prerelease script, we maintain a repository dedicated to [prereleases versions](https://github.com/earthbuild/earthbuild-staging/releases) of earthly.
 
-The prerelease versions follow a pseudo-semantic versioning scheme: `0.<epoch>.<decimal-git-sha>`; which is described in greater detail in the repository's [README](https://github.com/earthly/earthly-staging).
+The prerelease versions follow a pseudo-semantic versioning scheme: `0.<epoch>.<decimal-git-sha>`; which is described in greater detail in the repository's [README](https://github.com/earthbuild/earthbuild-staging).
 
-Additionally, prerelease docker images are pushed to [earthly/earthly-staging](https://hub.docker.com/r/earthly/earthly-staging/tags) and [earthly/buildkitd-staging](https://hub.docker.com/r/earthly/buildkitd-staging/tags).
+Additionally, prerelease docker images are pushed to [earthbuild/earthbuild-staging](https://hub.docker.com/r/earthbuild/earthbuild-staging/tags) and [earthly/buildkitd-staging](https://hub.docker.com/r/earthly/buildkitd-staging/tags).
 
 ## CLA
 

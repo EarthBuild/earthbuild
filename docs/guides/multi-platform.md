@@ -116,7 +116,7 @@ build:
     SAVE IMAGE --push org/myimage:latest
 ```
 
-A more complete version of this example is available in [examples/multiplatform](https://github.com/earthly/earthly/tree/main/examples/multiplatform) in GitHub. You may try out this example without cloning by running
+A more complete version of this example is available in [examples/multiplatform](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform) in GitHub. You may try out this example without cloning by running
 
 ```bash
 earthly github.com/earthbuild/earthbuild/examples/multiplatform:main+all
@@ -144,7 +144,7 @@ The additional Docker tags are only available for use on the local system. When 
 
 Building multi-platform images does not necessarily require that execution of the build itself takes place on the target platform. Through the use of cross-compilation, it is possible to obtain target-platform binaries compiled on the host-native platform. At the end, these binaries may be placed in a final image which is marked for a specific platform.
 
-Note, however, that not all programming languages have support for cross-compilation. The applicability of this approach may be limited as a result. Examples of languages that _can_ cross-compile for other platforms are Go and Rust.
+Note, however, that not all programming languages have support for cross-compilation. The applicability of this approach may be limited as a result. Examples of languages that *can* cross-compile for other platforms are Go and Rust.
 
 Here is an example where a multi-platform image can be created without actually executing any `RUN` on the target platform (and therefore emulation is not necessary):
 
@@ -217,7 +217,7 @@ build-image:
     SAVE IMAGE --push org/myimage:latest
 ```
 
-The code of this example is available in [examples/multiplatform-cross-compile](https://github.com/earthly/earthly/tree/main/examples/multiplatform-cross-compile) in GitHub. You may try out this example without cloning by running
+The code of this example is available in [examples/multiplatform-cross-compile](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform-cross-compile) in GitHub. You may try out this example without cloning by running
 
 ```bash
 earthly github.com/earthbuild/earthbuild/examples/multiplatform-cross-compile:main+build-all-platforms

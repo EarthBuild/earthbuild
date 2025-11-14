@@ -4,15 +4,15 @@
 
 #### Synopsis
 
-* Target form
+- Target form
   ```
   earthly [options...] <target-ref> [build-args...]
   ```
-* Artifact form
+- Artifact form
   ```
   earthly [options...] --artifact|-a <target-ref>/<artifact-path> [<dest-path>] [build-args...]
   ```
-* Image form
+- Image form
   ```
   earthly [options...] --image <target-ref> [build-args...]
   ```
@@ -25,10 +25,10 @@ If a BuildKit daemon has not already been started, and the option `--buildkit-ho
 
 The execution has four phases:
 
-* Init
-* Build
-* Push (optional - disabled by default)
-* Local output (optional - enabled by default)
+- Init
+- Build
+- Push (optional - disabled by default)
+- Local output (optional - enabled by default)
 
 During the init phase the configuration is interpreted and the BuildKit daemon is started (if applicable). During the build phase, the referenced target and all its direct or indirect dependencies are executed. During the push phase, when enabled, Earthly performs image pushes and it also runs `RUN --push` commands.  During the local output phase, all applicable artifacts with an `AS LOCAL` specification are written to the specified output location, and all applicable docker images are loaded onto the host's docker daemon.
 
@@ -61,9 +61,9 @@ See the [importing guide](../guides/importing.md) for more details and examples.
 
 Synopsis:
 
-  * Target form `earthly <target-ref> [--<build-arg-key>=<build-arg-value>...]`
-  * Artifact form `earthly --artifact <target-ref>/<artifact-path> <dest-path> [--<build-arg-key>=<build-arg-value>...]`
-  * Image form `earthly --image <target-ref> [--<build-arg-key>=<build-arg-value>...]`
+  - Target form `earthly <target-ref> [--<build-arg-key>=<build-arg-value>...]`
+  - Artifact form `earthly --artifact <target-ref>/<artifact-path> <dest-path> [--<build-arg-key>=<build-arg-value>...]`
+  - Image form `earthly --image <target-ref> [--<build-arg-key>=<build-arg-value>...]`
 
 Also available as an env var setting: `EARTHLY_BUILD_ARGS="<build-arg-key>=<build-arg-value>,<build-arg-key>=<build-arg-value>,..."`.
 
@@ -132,10 +132,10 @@ Prints help information about earthly.
 
 ###### Synopsis
 
-* ```
+- ```
   earthly --help
   ```
-* ```
+- ```
   earthly <command> --help
   ```
 
@@ -317,7 +317,7 @@ These options can only be set via environment variables, and have no command lin
 
 #### Synopsis
 
-* ```
+- ```
   earthly --version
   ```
 
@@ -329,7 +329,7 @@ Prints version information about earthly.
 
 #### Synopsis
 
-* ```
+- ```
   earthly ls [<earthfile-ref>]
   ```
 
@@ -351,7 +351,7 @@ Show full, canonical target references (includes the project part of the referen
 
 #### Synopsis
 
-* ```
+- ```
   earthly doc [<earthfile-ref>[+<target-ref>]]
   ```
 
@@ -418,7 +418,7 @@ $ earthly doc +build
 
 #### Synopsis
 
-* ```
+- ```
   # Standard form
   earthly [options] prune (--all|-a)
 
@@ -494,11 +494,11 @@ earthly config git."example.com".password hunter2
 ```
 
 Set up a whole custom git repository for a server called example.com, using a single-line YAML literal:
-* which stores git repos under /var/git/repos/name-of-repo.git
-* allows access over ssh
-* using port 2222
-* sets the username to git
-* is recognized to earthly as example.com/name-of-repo
+- which stores git repos under /var/git/repos/name-of-repo.git
+- allows access over ssh
+- using port 2222
+- sets the username to git
+- is recognized to earthly as example.com/name-of-repo
 
 ```
 config git "{example: {pattern: 'example.com/([^/]+)', substitute: 'ssh://git@example.com:2222/var/git/repos/\$1.git', auth: ssh, user: git}}"
@@ -519,7 +519,7 @@ git:
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] registry [--org <organization-name>, --project <project>] (setup|list|remove) [<flags>]
   ```
 
@@ -541,7 +541,7 @@ The organization's project to store the credentials under; the user's secret sto
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] registry [--org <org> --project <project>] setup [--cred-helper <none|ecr-login|gcloud>] ...
   ```
 
@@ -562,7 +562,7 @@ The `earthly registry ...` commands exist for convience; however, it is possible
 #### Examples
 ##### username/password based registry (`--cred-helper=none`)
 
-* ```
+- ```
   earthly [options] registry setup --username <username> --password <password> [<host>]
 
   earthly [options] registry --org <org> --project <project> setup --username <username> --password <password> [<host>]
@@ -570,7 +570,7 @@ The `earthly registry ...` commands exist for convience; however, it is possible
 
 ##### AWS elastic container registry (`--cred-helper=ecr-login`)
 
-* ```
+- ```
   earthly registry setup --cred-helper ecr-login --aws-access-key-id <key> --aws-secret-access-key <secret> <host>
 
   earthly registry --org <org> --project <project> setup --cred-helper ecr-login --aws-access-key-id <key> --aws-secret-access-key <secret> <host>
@@ -578,7 +578,7 @@ The `earthly registry ...` commands exist for convience; however, it is possible
 
 ##### GCP artifact or container registry (`--cred-helper=gcloud`)
 
-* ```
+- ```
   earthly registry setup --cred-helper gcloud --gcp-key <key> <host>
 
   earthly registry --org <org> --project setup <project> --cred-helper gcloud --gcp-service-account-key <key> <host>
@@ -644,7 +644,7 @@ Also available as an env var setting: `GCP_SERVICE_ACCOUNT_KEY_PATH_STDIN=true`.
 
 ##### Synopsis
 
-* ```
+- ```
   earthly [options] registry list [--org <org> --project <project>]
   ```
 
@@ -656,7 +656,7 @@ Display the configured registries.
 
 ##### Synopsis
 
-* ```
+- ```
   earthly [options] registry remove [--org <org> --project <project>] <host>
   ```
 
@@ -668,7 +668,7 @@ Remove a configured registry, and delete all stored credentials.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] bootstrap [--no-buildkit, --with-autocomplete, --certs-hostname]
   ```
 
@@ -694,7 +694,7 @@ Takes in a value as the hostname for which to generate a TLS key/certificate pai
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] web [--provider=<provider-ref>]]
   ```
 
@@ -714,7 +714,7 @@ The provider to use when logging into the web ui.
 
 ##### Login to the CI application with GitHub
 
-* ```
+- ```
   earthly web --provider=github
   ```
 
@@ -722,7 +722,7 @@ The provider to use when logging into the web ui.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] docker-build [--dockerfile <dockerfile-path>] [--tag=<image-tag>] [--target=<target-name>] [--platform <platform1[,platform2,...]>] <build-context-dir> [--arg1=arg-value]
   ```
 
@@ -774,7 +774,7 @@ Unlike a regular build command, it is possible to specify multiple platforms thr
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite (launch|ls|inspect|select|unselect|rm)
   ```
 
@@ -798,7 +798,7 @@ The name of the organization the satellite belongs to.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite launch <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] launch <satellite-name>
@@ -840,7 +840,7 @@ Launch and pin an Earthly Satellite at a specific version (disables auto-updates
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite rm <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] rm <satellite-name>
@@ -854,7 +854,7 @@ Destroy an Earthly Satellite.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite ls
 
   earthly [options] satellite [--org <organization-name>] ls
@@ -878,7 +878,7 @@ Include hidden Earthly Satellites in output. These are usually ones generated by
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite inspect <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] inspect <satellite-name>
@@ -892,7 +892,7 @@ Show additional details about an Earthly Satellite instance.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite select <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] select <satellite-name>
@@ -907,7 +907,7 @@ Choose which Earthly Satellite to use to build your app.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite unselect
   ```
 
@@ -919,7 +919,7 @@ Remove any currently selected Earthly Satellite instance from your Earthly confi
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite wake <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] wake <satellite-name>
@@ -933,7 +933,7 @@ Manually force an Earthly Satellite to wake up from a sleep state.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite sleep <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] sleep <satellite-name>
@@ -947,7 +947,7 @@ Manually force a Satellite to sleep from an operational state.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] satellite update <satellite-name>
 
   earthly [options] satellite [--org <organization-name>] update <satellite-name>
@@ -987,7 +987,7 @@ Launch a specific satellite version (disables auto-updates).
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] project (ls|rm|create|member)
   ```
 
@@ -1009,7 +1009,7 @@ The Earthly project to act on.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] ls
   ```
 
@@ -1021,7 +1021,7 @@ List all projects that belong to the specified organization.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] create <project-name>
   ```
 
@@ -1033,7 +1033,7 @@ Create a new project in the specified organization.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] rm
   ```
 
@@ -1051,7 +1051,7 @@ Force removal without asking permission.
 
 #### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] member (ls|rm|add|update)
   ```
 
@@ -1067,7 +1067,7 @@ Add a new member to the specified project.
 
 ###### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] --project <project-name> member add <user-email> <permission>
   ```
 
@@ -1077,7 +1077,7 @@ Remove a member from the specified project.
 
 ###### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] --project <project-name> member rm <user-email>
   ```
 
@@ -1087,7 +1087,7 @@ List all members in the specified project.
 
 ###### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] --project <project-name> member ls
   ```
 
@@ -1097,6 +1097,6 @@ Update the project member's permission.
 
 ###### Synopsis
 
-* ```
+- ```
   earthly [options] project [--org <organization-name>] --project <project-name> member update <user-email> <permission>
   ```

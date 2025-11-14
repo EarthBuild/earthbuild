@@ -4,8 +4,8 @@
 
 Jenkins has multiple modes of operation, and each of them require some consideration when installing Earthly. These modes include:
 
- * Standalone, dedicated runners
- * Ephemeral cloud runners
+- Standalone, dedicated runners
+- Ephemeral cloud runners
 
 ### Compatibility
 
@@ -13,9 +13,9 @@ Earthly has been tested with Jenkins in a standalone runner configuration, and u
 
 ### Resources
 
- * [Installing Jenkins](https://www.jenkins.io/doc/book/installing/)
- * [Docker Cloud Plugin](https://plugins.jenkins.io/docker-plugin/)
- * [Jenkins Credentials](https://www.jenkins.io/doc/book/using/using-credentials/)
+- [Installing Jenkins](https://www.jenkins.io/doc/book/installing/)
+- [Docker Cloud Plugin](https://plugins.jenkins.io/docker-plugin/)
+- [Jenkins Credentials](https://www.jenkins.io/doc/book/using/using-credentials/)
 
 ## Setup (Standalone)
 
@@ -31,7 +31,7 @@ Ensure that the Docker Cloud provider is installed and has a Docker daemon avail
 
 ### Installation
 
-You'll need to [create your own runner image](../build-an-earthly-ci-image.md). Heres an example of what this might look like, when basing your runner off our `earthly/earthly` image:
+You'll need to [create your own runner image](../build-an-earthly-ci-image.md). Heres an example of what this might look like, when basing your runner off our `earthbuild/earthbuild` image:
 
 ```docker
 ARG VERSION=4.9
@@ -47,7 +47,7 @@ RUN apk add --update --no-cache curl bash git git-lfs openssh-client openssl pro
 
 ### Configuration
 
-Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through by checking "Expose Docker Host" in the runner template configuration. 
+Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through by checking "Expose Docker Host" in the runner template configuration.
 
 ## Additional Notes
 
@@ -56,9 +56,10 @@ Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through
 ## Example
 
 {% hint style='danger' %}
+
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthly/earthly/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
@@ -85,10 +86,10 @@ To run a build in this demo, you will need to configure a build pipeline. To do 
 
 - Scroll down to the "Pipeline" section.
 - Make the following changes:
-    - Choose "Pipeline script from SCM" for the Definition
-    - Choose "Git" as the SCM, once the option appears
-    - Set the repository URL to [`https://github.com/earthly/ci-example-project`](https://github.com/earthly/ci-example-project)
-    - Set the branch specifier to `*/main`
+- Choose "Pipeline script from SCM" for the Definition
+- Choose "Git" as the SCM, once the option appears
+- Set the repository URL to [`https://github.com/earthly/ci-example-project`](https://github.com/earthly/ci-example-project)
+- Set the branch specifier to `*/main`
 
 ![Configuring all the SCM options for the build](img/Jenkins3.png)
 

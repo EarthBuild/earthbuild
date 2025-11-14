@@ -42,11 +42,13 @@ jobs:
                   fetch-depth: 0
             - name: Copy images from GHCR.io to DockerHub
               env:
-                  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  RELEASE_TAG: ${{ github.event.release.tag_name }}
-                  GHCR_USERNAME: ${{ github.actor }}
                   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+                  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+                  
+                  GHCR_USERNAME: ${{ github.actor }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  
+                  RELEASE_TAG: ${{ github.event.release.tag_name }}
               # TODO: set usernames for docker
               run: |
                   earthly --ci --push --secret DOCKER_REGISTRY_TOKEN=${{ env.GITHUB_TOKEN }} \

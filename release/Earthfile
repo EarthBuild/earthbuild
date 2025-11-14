@@ -158,7 +158,6 @@ promote-to-dockerhub:
     # The release tag (vX.X.X) that we're running for
     ARG --required RELEASE_TAG
 
-
     # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7 -> docker.io/earthbuild/buildkitd:${RELEASE_TAG}
     BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
@@ -188,10 +187,9 @@ copy-img:
     FROM +skopeo
     ARG --required SRC_REF
     ARG --required DEST_REF
-    ARG DOCKER_REGISTRY="182221462027.dkr.ecr.us-west-2.amazonaws.com"
 
-    ARG SRC_DOCKER_REGISTRY="${DOCKER_REGISTRY}"
-    ARG DEST_DOCKER_REGISTRY="${DOCKER_REGISTRY}"
+    ARG --required SRC_DOCKER_REGISTRY
+    ARG --required DEST_DOCKER_REGISTRY
 
     RUN --push --no-cache echo "Copying image from '${SRC_REF}' to '${DEST_REF}'"
 
@@ -200,7 +198,7 @@ copy-img:
 
     IF [ "$SRC_DOCKER_REGISTRY" != "$DEST_DOCKER_REGISTRY" ]
         ARG --required DEST_DOCKER_REGISTRY_USER
-        RUN --secret DEST_DOCKER_REGISTRY_TOKEN=DOCKER_REGISTRY_TOKEN skopeo login --username "${DEST_DOCKER_REGISTRY_USER}" --password "${DEST_DOCKER_REGISTRY_TOKEN}" "${DEST_DOCKER_REGISTRY}"
+        RUN --secret DEST_DOCKER_REGISTRY_TOKEN skopeo login --username "${DEST_DOCKER_REGISTRY_USER}" --password "${DEST_DOCKER_REGISTRY_TOKEN}" "${DEST_DOCKER_REGISTRY}"
     END
 
     RUN --push --no-cache skopeo copy --all --insecure-policy docker://${SRC_REF} docker://${DEST_REF}

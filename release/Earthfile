@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.20
+FROM alpine:3.22
 
 release-dockerhub:
     ARG --required RELEASE_TAG
@@ -65,7 +65,7 @@ perform-release-buildkitd-dockerhub:
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
-    FROM alpine:3.20
+    FROM alpine:3.22
 
     RUN apk add file gpg gpg-agent
 
@@ -113,7 +113,7 @@ promote-release:
     BUILD +promote-to-dockerhub
 
 gh-cli:
-    FROM alpine:3.20
+    FROM alpine:3.22
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
     
@@ -193,12 +193,12 @@ copy-img:
 
     RUN --push --no-cache echo "Copying image from '${SRC_REF}' to '${DEST_REF}'"
 
-    ARG --required DOCKER_REGISTRY_USER
-    RUN --secret DOCKER_REGISTRY_TOKEN=DOCKER_REGISTRY_TOKEN skopeo login --username "${DOCKER_REGISTRY_USER}" --password "${DOCKER_REGISTRY_TOKEN}" "${SRC_DOCKER_REGISTRY}"
+    ARG --required CONTAINER_REGISTRY_USER
+    RUN --secret CONTAINER_REGISTRY_TOKEN=CONTAINER_REGISTRY_TOKEN skopeo login --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_TOKEN}" "${SRC_DOCKER_REGISTRY}"
 
     IF [ "$SRC_DOCKER_REGISTRY" != "$DEST_DOCKER_REGISTRY" ]
-        ARG --required DEST_DOCKER_REGISTRY_USER
-        RUN --secret DEST_DOCKER_REGISTRY_TOKEN skopeo login --username "${DEST_DOCKER_REGISTRY_USER}" --password "${DEST_DOCKER_REGISTRY_TOKEN}" "${DEST_DOCKER_REGISTRY}"
+        ARG --required DEST_CONTAINER_REGISTRY_USER
+        RUN --secret DEST_CONTAINER_REGISTRY_TOKEN skopeo login --username "${DEST_CONTAINER_REGISTRY_USER}" --password "${DEST_CONTAINER_REGISTRY_TOKEN}" "${DEST_DOCKER_REGISTRY}"
     END
 
     RUN --push --no-cache skopeo copy --all --insecure-policy docker://${SRC_REF} docker://${DEST_REF}
@@ -206,7 +206,7 @@ copy-img:
     RUN --push --no-cache echo "Done copying image from '${SRC_REF}' to '${DEST_REF}'"
 
 skopeo:
-    FROM alpine:3.20
+    FROM alpine:3.22
 
     # https://github.com/containers/skopeo/blob/main/install.md#alpine
     RUN apk add skopeo

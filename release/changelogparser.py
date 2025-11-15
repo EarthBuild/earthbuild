@@ -118,7 +118,7 @@ def parse_changelog(changelog_data):
                     if is_buildkit_change_found:
                         raise DuplicateBuildkitUpdateRequired('buildkit update string already exists', line_num)
                     if line.startswith('- ') == False or line.endswith(' changes to buildkit') == False:
-                        raise MalformedAdditionalInfoLint(f'expected line to start with "- " and and with " changes to buildkit", but got "{line}" instead', line_num)
+                        raise MalformedAdditionalInfoLint(f'expected line to start with "- " and to end with " changes to buildkit", but got "{line}" instead', line_num)
                 is_buildkit_change_found = True
             elif ignore:
                 pass

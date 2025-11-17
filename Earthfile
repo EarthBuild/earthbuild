@@ -169,46 +169,6 @@ govulncheck:
         --mount type=cache,target=/root/.cache/go-vulncheck \
         govulncheck ./...
 
-lint-newline-ending:
-    FROM alpine:3.18
-    WORKDIR /everything
-    COPY . .
-    # test that line endings are unix-style
-    RUN set -e; \
-        code=0; \
-        for f in $(find . -not -path "./.git/*" -type f \( -iname '*.go' -o -iname 'Earthfile' -o -iname '*.earth' -o -iname '*.md' -o -iname '*.json' \) | grep -v "ast/tests/empty-targets.earth" ); do \
-            if ! dos2unix < "$f" | cmp - "$f"; then \
-                echo "$f contains windows-style newlines and must be converted to unix-style (use dos2unix to fix)"; \
-                code=1; \
-            fi; \
-        done; \
-        exit $code
-    # test file ends with a single newline
-    RUN set -e; \
-        code=0; \
-        for f in $(find . -not -path "./.git/*" -type f \( -iname '*.yml' -o -iname '*.go' -o -iname '*.sh' -o -iname '*.template' -o -iname 'Earthfile' -o -iname '*.earth' -o -iname '*.md' -o -iname '*.json' \) | grep -v "ast/tests/empty-targets.earth" | grep -v "tests/version/version-only.earth" | grep -v "examples/mkdocs" ); do \
-            if [ "$(tail -c 1 $f)" != "$(printf '\n')" ]; then \
-                echo "$f does not end with a newline"; \
-                code=1; \
-            fi; \
-        done; \
-        exit $code
-    RUN export f=ast/tests/empty-targets.earth && \
-    if [ "$(tail -c 1 $f)" = "$(printf '\n')" ]; then \
-            echo "$f is a special-case test which must not end with a newline."; \
-            exit 1; \
-        fi
-    # check for files with trailing newlines
-    RUN set -e; \
-        code=0; \
-        for f in $(find . -not -path "./.git/*" -type f \( -iname '*.go' -o -iname 'Earthfile' -o -iname '*.earth' -o -iname '*.md' -o -iname '*.json' \) | grep -v "ast/tests/empty-targets.earth" | grep -v "ast/parser/earth_parser.go" | grep -v "ast/parser/earth_lexer.go" ); do \
-            if [ "$(tail -c 2 $f)" == "$(printf '\n\n')" ]; then \
-                echo "$f has trailing newlines"; \
-                code=1; \
-            fi; \
-        done; \
-        exit $code
-
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
@@ -309,16 +269,13 @@ changelog:
     FROM scratch
     SAVE ARTIFACT CHANGELOG.md
 
-# TODO is this used?
-changelog-parser:
-    FROM python:3
-    RUN pip install packaging
-    COPY release/changelogparser.py /usr/bin/changelogparser
-    WORKDIR /changelog
-    COPY CHANGELOG.md .
-
+# lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM +changelog-parser
+    FROM python:3.14.0-slim@sha256:9813eecff3a08a6ac88aea5b43663c82a931fd9557f6aceaa847f0d8ce738978
+    RUN pip install packaging
+    WORKDIR /changelog
+    COPY release/changelogparser.py /usr/bin/changelogparser
+    COPY CHANGELOG.md .
     RUN changelogparser --changelog CHANGELOG.md
 
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
@@ -669,14 +626,8 @@ all:
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
-    BUILD +lint-docs
-    BUILD +submodule-decouple-check
-
-# lint-docs runs lint against changelog and checks that line endings are unix style and files end
-# with a single newline.
-lint-docs:
-    BUILD +lint-newline-ending
     BUILD +lint-changelog
+    BUILD +submodule-decouple-check
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations

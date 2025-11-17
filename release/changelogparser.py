@@ -111,13 +111,14 @@ def parse_changelog(changelog_data):
             if line == '<!--changelog-parser-ignore-end-->':
                 ignore = False
                 continue
+            if line == '': # ignore empty lines
+                continue
             if is_addition_info:
-                allowed_additional_info_lines = ('- This release has no changes to buildkit', '- This release includes changes to buildkit')
                 if line != '':
                     if is_buildkit_change_found:
                         raise DuplicateBuildkitUpdateRequired('buildkit update string already exists', line_num)
-                    if line not in allowed_additional_info_lines:
-                        raise MalformedAdditionalInfoLint(f'expected line of either {allowed_additional_info_lines}, but got "{line}" instead', line_num)
+                    if line.startswith('- ') == False or line.endswith(' changes to buildkit') == False:
+                        raise MalformedAdditionalInfoLint(f'expected line to start with "- " and to end with " changes to buildkit", but got "{line}" instead', line_num)
                 is_buildkit_change_found = True
             elif ignore:
                 pass

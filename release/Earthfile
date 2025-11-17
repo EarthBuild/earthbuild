@@ -116,7 +116,7 @@ gh-cli:
     FROM alpine:3.22
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
-    
+
     RUN apk add --no-cache github-cli=2.72.0-r4
 
 # release-artifacts-to-gh uploads existing artifacts stored in GitHub actions to a specified release
@@ -128,7 +128,7 @@ promote-artifacts-to-gh:
 
     # Default to earthly-inferred commit SHA but accept an override
     ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
-    
+
     # Trim COMMIT_SHA to first 8 chars (alpine)
     LET ARTIFACT_NAME="$(echo $COMMIT_SHA | cut -c1-8)"
 
@@ -162,7 +162,7 @@ promote-to-dockerhub:
     BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
     BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
-    
+
     # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:${RELEASE_TAG}
     BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
@@ -172,10 +172,10 @@ copy-img-to-dockerhub:
     ARG --required IMG_NAME
     ARG --required RELEASE_TAG
     ARG --required SRC_TAG
-    
+
     LET SRC_DOCKER_REGISTRY="ghcr.io"
     LET DEST_DOCKER_REGISTRY="docker.io"
-    
+
     LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:${SRC_TAG}"
     LET DEST_IMG="${DEST_DOCKER_REGISTRY}/earthbuild/${IMG_NAME}:${RELEASE_TAG}"
 
@@ -210,71 +210,6 @@ skopeo:
 
     # https://github.com/containers/skopeo/blob/main/install.md#alpine
     RUN apk add skopeo
-
-release-homebrew:
-    RUN apk add --update --no-cache \
-        bash \
-        bash-completion \
-        binutils \
-        ca-certificates \
-        coreutils \
-        curl \
-        findutils \
-        g++ \
-        git \
-        grep \
-        less \
-        make \
-        openssl \
-        openssh \
-        util-linux
-    RUN apk add --update --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing hub
-
-    # Deps and preconditions.
-    ARG --required RELEASE_TAG
-    ARG GIT_USERNAME="littleredcorvette"
-    ARG GIT_NAME="littleredcorvette"
-    ARG GIT_EMAIL="littleredcorvette@users.noreply.github.com"
-    ARG --required GITHUB_USER
-    ARG --required BREW_REPO
-    ARG --required EARTHLY_REPO
-    ARG EARTHLY_GIT_HASH
-    WORKDIR /earthly/homebrew-earthly
-
-    RUN git config --global user.name "$GIT_NAME" && \
-        git config --global user.email "$GIT_EMAIL"
-
-    # load in github.com's public key (fetched by running: ssh-keyscan -H github.com)
-    # you can also get them from https://api.github.com/meta
-    RUN mkdir -p /root/.ssh
-    RUN echo "|1|M66Uwae8fx9M5JFDd+WyVi3dERM=|LKfAmECF1kHoZ6epHR5jtPhJgic= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=" > /root/.ssh/known_hosts
-
-    RUN --mount type=secret,id=littleredcorvette-id_rsa,target=/root/id_rsa --no-cache \
-        eval $(ssh-agent) && \
-        cat /root/id_rsa | ssh-add - && \
-        git clone "git@github.com:$GITHUB_USER/$BREW_REPO.git" .
-    # Make the change in a new branch.
-    ARG RELEASE_BRANCH="release-$RELEASE_TAG"
-    RUN git switch -c "$RELEASE_BRANCH"
-
-    RUN sed -i \
-        -e 's^\(tag: \+\)"v[0-9.]\+"\(,\?\)$^\1"'$RELEASE_TAG'"\2^' \
-        -e 's^\(revision: \+\)"[0-9a-f]\+"\(,\?\)$^\1"'$EARTHLY_GIT_HASH'"\2^' \
-        ./Formula/earthly.rb
-    RUN echo "Diff:" && git diff
-    RUN version=${RELEASE_TAG#v} ;\
-        echo version=$version ;\
-        git commit -a --allow-empty -m "earthly $version"
-
-    RUN --mount type=secret,id=littleredcorvette-id_rsa,target=/root/id_rsa \
-        --secret SLACK_WEBHOOK_URL=slack-release-webhook \
-        --push \
-        eval $(ssh-agent) && \
-        cat /root/id_rsa | ssh-add - && \
-        git push --force --set-upstream origin "$RELEASE_BRANCH" && \
-        if [ "$BREW_REPO" = "homebrew-earthly" ] && [ "$GITHUB_USER" = "earthly" ]; then \
-            curl -s -X POST -H 'Content-type: application/json' --data '{"text":"Successfully pushed release branch: https://github.com/earthly/homebrew-earthly/tree/'$RELEASE_BRANCH' (this branch will be automatically deleted via GHA once GHA deploy task finishes)"}' "$SLACK_WEBHOOK_URL"; \
-        fi
 
 release-repo:
     ARG --required RELEASE_TAG

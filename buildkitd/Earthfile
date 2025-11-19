@@ -64,7 +64,7 @@ buildkitd:
     COPY ./runc-ps /bin/runc-ps
 
     ENV EARTHLY_RESET_TMP_DIR=false
-    ENV EARTHLY_TMP_DIR=/tmp/earthly
+    ENV EARTHLY_TMP_DIR=/tmp/earthbuild
     ENV BUILDKIT_DEBUG=false
     ENV BUILDKIT_MAX_PARALLELISM=20
     ENV BUILDKIT_LOCAL_REGISTRY_LISTEN_PORT=8371
@@ -76,7 +76,7 @@ buildkitd:
     ENV EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH
     ENV BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE
     ENV EARTHLY_CACHE_VERSION="2" # whenever this value changes, a forced cache reset is performed
-    VOLUME /tmp/earthly
+    VOLUME /tmp/earthbuild
     ENTRYPOINT ["/usr/bin/entrypoint.sh", "buildkitd", "--config=/etc/buildkitd.toml"]
 
     ARG CR_ORG="earthbuild"

@@ -42,8 +42,8 @@ docker_compose_cmd() {
 }
 
 write_compose_config() {
-    mkdir -p /tmp/earthly
-    docker_compose_cmd config >/tmp/earthly/compose-config.yml
+    mkdir -p /tmp/earthbuild
+    docker_compose_cmd config >/tmp/earthbuild/compose-config.yml
 }
 
 execute() {

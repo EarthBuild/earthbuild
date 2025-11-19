@@ -54,7 +54,7 @@ DO_REMOTE_CACHE_EARTHLY:
     ARG target
 
     RUN --privileged \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
         ( EARTHLY_ADDITIONAL_BUILDKIT_CONFIG=$EARTHLY_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
             /usr/bin/earthly-entrypoint.sh --ci --push \

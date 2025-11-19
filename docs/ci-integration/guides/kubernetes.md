@@ -9,13 +9,13 @@ This guide is related to self-hosting a remote BuildKit, however, Self-Hosted Sa
 
 ## Overview
 
-Kubernetes isn't a CI per-se, but it *can* serve as the underpinning for many modern CI systems. As such, this example serves as a bare-bones example to base your implementations on.
+Kubernetes isn't a CI per-se, but it _can_ serve as the underpinning for many modern CI systems. As such, this example serves as a bare-bones example to base your implementations on.
 
 ### Compatibility
 
 `earthly` has been tested with the all-in-one `earthbuild/earthbuild` mode, and works as long as the pod runs in a `privileged` mode.
 
-It has also been tested with a *single* remote `earthly/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
+It has also been tested with a _single_ remote `earthly/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
 
 Multi-node `earthly/buildkitd` configurations are currently unsupported.
 
@@ -51,7 +51,7 @@ The `earthbuild/earthbuild` container will operate best when provided with decen
 
 ```yaml
 volumeMounts:
-  - mountPath: /tmp/earthly
+  - mountPath: /tmp/earthbuild
     name: buildkitd-temp
 ...
 volumes:
@@ -69,7 +69,7 @@ The `earthbuild/earthbuild` image will expect to find the source code (with `Ear
 
 ##### Note
 
-This an *experimental* configuration.
+This an _experimental_ configuration.
 
 {% endhint %}
 

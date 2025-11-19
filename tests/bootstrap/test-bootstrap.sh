@@ -170,12 +170,12 @@ fi
 
 echo "=== Test 6: works in read-only directory ==="
 
-sudo mkdir /tmp/earthly-read-only-test
-sudo cp Earthfile /tmp/earthly-read-only-test/.
-sudo chmod 0755 /tmp/earthly-read-only-test/.
+sudo mkdir /tmp/earthbuild-read-only-test
+sudo cp Earthfile /tmp/earthbuild-read-only-test/.
+sudo chmod 0755 /tmp/earthbuild-read-only-test/.
 
 prevdir=$(pwd)
-cd /tmp/earthly-read-only-test/.
+cd /tmp/earthbuild-read-only-test/.
 
 if touch this-should-fail 2>/dev/null; then
   echo "this directory should have been read-only; something is wrong with this test"

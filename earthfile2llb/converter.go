@@ -689,7 +689,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return os.RemoveAll(exitCodeDir)
 		})
 	} else {
-		exitCodeFile = "/tmp/earthly_if_statement_exit_code"
+		exitCodeFile = "/tmp/earthbuild_if_statement_exit_code"
 		prefix, _, err := c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return 0, err

@@ -37,8 +37,8 @@ test-local:
 
 create-local-file:
     LOCALLY
-    RUN echo hello > /tmp/earthly-test-a266bf52-f5ea-477c-9416-2931720d1826
-    SAVE ARTIFACT /tmp/earthly-test-a266bf52-f5ea-477c-9416-2931720d1826 data
+    RUN echo hello > /tmp/earthbuild-test-a266bf52-f5ea-477c-9416-2931720d1826
+    SAVE ARTIFACT /tmp/earthbuild-test-a266bf52-f5ea-477c-9416-2931720d1826 data
 
 test-copy-file-from-local:
     COPY +create-local-file/data actual
@@ -47,11 +47,11 @@ test-copy-file-from-local:
 
 create-local-dir:
     LOCALLY
-    RUN rm -rf /tmp/earthly-test-bfbe3177-8683-4f8f-8c42-75053dc0e807
-    RUN mkdir /tmp/earthly-test-bfbe3177-8683-4f8f-8c42-75053dc0e807
-    RUN echo aaa > /tmp/earthly-test-bfbe3177-8683-4f8f-8c42-75053dc0e807/a.txt
-    RUN echo bbb > /tmp/earthly-test-bfbe3177-8683-4f8f-8c42-75053dc0e807/b.txt
-    SAVE ARTIFACT /tmp/earthly-test-bfbe3177-8683-4f8f-8c42-75053dc0e807 datadir
+    RUN rm -rf /tmp/earthbuild-test-bfbe3177-8683-4f8f-8c42-75053dc0e807
+    RUN mkdir /tmp/earthbuild-test-bfbe3177-8683-4f8f-8c42-75053dc0e807
+    RUN echo aaa > /tmp/earthbuild-test-bfbe3177-8683-4f8f-8c42-75053dc0e807/a.txt
+    RUN echo bbb > /tmp/earthbuild-test-bfbe3177-8683-4f8f-8c42-75053dc0e807/b.txt
+    SAVE ARTIFACT /tmp/earthbuild-test-bfbe3177-8683-4f8f-8c42-75053dc0e807 datadir
 
 test-copy-dir-from-local:
     COPY +create-local-dir/datadir the-data
@@ -62,27 +62,27 @@ test-copy-dir-from-local:
 
 save-unnamed-local-artifact:
     LOCALLY
-    RUN rm -rf /tmp/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc
-    RUN mkdir /tmp/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc
-    RUN echo ccc > /tmp/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc/c.txt
-    SAVE ARTIFACT /tmp/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc
+    RUN rm -rf /tmp/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc
+    RUN mkdir /tmp/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc
+    RUN echo ccc > /tmp/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc/c.txt
+    SAVE ARTIFACT /tmp/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc
 
 test-save-unnamed-local-artifact:
-    COPY +save-unnamed-local-artifact/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc .
+    COPY +save-unnamed-local-artifact/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc .
     RUN cat c.txt | grep '^ccc$'
 
 test-save-unnamed-local-artifact-dir:
-    COPY --dir +save-unnamed-local-artifact/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc .
-    RUN cat earthly-test-c5009c71-d573-4562-be15-2c28dae333fc/c.txt | grep '^ccc$'
+    COPY --dir +save-unnamed-local-artifact/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc .
+    RUN cat earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc/c.txt | grep '^ccc$'
 
 test-save-unnamed-local-artifact-dir2:
-    COPY --dir +save-unnamed-local-artifact/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc /var/log/.
-    RUN cat /var/log/earthly-test-c5009c71-d573-4562-be15-2c28dae333fc/c.txt | grep '^ccc$'
+    COPY --dir +save-unnamed-local-artifact/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc /var/log/.
+    RUN cat /var/log/earthbuild-test-c5009c71-d573-4562-be15-2c28dae333fc/c.txt | grep '^ccc$'
 
 save-local-artifact-with-workdir:
     LOCALLY
-    RUN rm -rf /tmp/earthly-b1682dd4-b3e3-41c8-8191-b8eeb0b56499
-    WORKDIR /tmp/earthly-b1682dd4-b3e3-41c8-8191-b8eeb0b56499
+    RUN rm -rf /tmp/earthbuild-b1682dd4-b3e3-41c8-8191-b8eeb0b56499
+    WORKDIR /tmp/earthbuild-b1682dd4-b3e3-41c8-8191-b8eeb0b56499
     RUN echo ddd > 29998a72-a765-4d48-a395-c5252183934b
     SAVE ARTIFACT 29998a72-a765-4d48-a395-c5252183934b data
 
@@ -99,19 +99,19 @@ some-artifact:
 
 test-local-overwrites:
     LOCALLY
-    RUN rm -fr              /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda && \
-        mkdir -p            /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda && \
-        printf "12345678" > /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/eight.txt && \
-        printf "1234"     > /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/four.txt && \
-        printf "12"       > /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/two.txt
+    RUN rm -fr              /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda && \
+        mkdir -p            /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda && \
+        printf "12345678" > /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/eight.txt && \
+        printf "1234"     > /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/four.txt && \
+        printf "12"       > /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/two.txt
     # In previous releases this would result in "43215678"
-    COPY +some-artifact/four-bytes.txt /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/eight.txt
+    COPY +some-artifact/four-bytes.txt /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/eight.txt
     # These always worked fine
-    COPY +some-artifact/four-bytes.txt /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/four.txt
-    COPY +some-artifact/four-bytes.txt /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/two.txt
+    COPY +some-artifact/four-bytes.txt /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/four.txt
+    COPY +some-artifact/four-bytes.txt /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/two.txt
     RUN set -e; \
         for i in eight four two; do \
-            cat /tmp/earthly-test-21f37581-de77-4f81-ac78-4a2a617f7eda/${i}.txt | grep '^4321$'; \
+            cat /tmp/earthbuild-test-21f37581-de77-4f81-ac78-4a2a617f7eda/${i}.txt | grep '^4321$'; \
         done
 
 
@@ -131,10 +131,10 @@ test-copy-from-busybox-to-local:
 
 test-copy-from-busybox-to-local-with-workdir:
     LOCALLY
-    RUN rm -rf /tmp/earthly-test-5816ebd4-6b18-421e-a1b4-5991af91e11e
-    WORKDIR /tmp/earthly-test-5816ebd4-6b18-421e-a1b4-5991af91e11e
+    RUN rm -rf /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e
+    WORKDIR /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e
     COPY +busybox-artifact/the-data 0b59ac77-91d7-4b84-9d1c-12f64fc6f48e
-    RUN cat /tmp/earthly-test-5816ebd4-6b18-421e-a1b4-5991af91e11e/0b59ac77-91d7-4b84-9d1c-12f64fc6f48e | grep "BusyBox v1.32.1"
+    RUN cat /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e/0b59ac77-91d7-4b84-9d1c-12f64fc6f48e | grep "BusyBox v1.32.1"
 
 alpine-artifacts:
     FROM alpine:3.18.3 # if this is changed, the grep in test-multi-copy-from-alpine-to-local must also be updated
@@ -173,12 +173,12 @@ test-locally-can-copy-dir:
 
 test-locally-workdir:
     LOCALLY
-    WORKDIR /tmp/earthly-197ec076-b89d-4861-b8ca-33a34170712c
+    WORKDIR /tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c
     RUN set -e; \
         if [ "$(uname -s)" = "Darwin" ]; then \
-            test "$(pwd)" = "/private/tmp/earthly-197ec076-b89d-4861-b8ca-33a34170712c"; \
+            test "$(pwd)" = "/private/tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c"; \
         else \
-            test "$(pwd)" = "/tmp/earthly-197ec076-b89d-4861-b8ca-33a34170712c"; \
+            test "$(pwd)" = "/tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c"; \
         fi
 
 #################################################################################################################

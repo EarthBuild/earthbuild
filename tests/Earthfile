@@ -462,7 +462,7 @@ build-earthly-test:
     COPY parser-smoke.earth ./build.earth
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- +test
 
 host-bind-test:
@@ -476,16 +476,16 @@ remote-test:
     ENV GIT_URL_INSTEAD_OF="https://github.com/=git@github.com:"
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/hello-world:main+hello
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
         ls /tmp/hostname.3d4b1831-c07e-4b2d-805e-2b8ce578bb50
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/test-remote/builtin-args:main+test
 
 transitive-args-test:
@@ -510,7 +510,7 @@ non-transitive-args-test:
     # Should not override if transitive and crossing project boundaries.
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --build-arg SOMEARG=def +test
     RUN ls ./subdir
     RUN test -f ./subdir/default && test ! -f ./subdir/def && test ! -f ./subdir/abc
@@ -518,13 +518,13 @@ non-transitive-args-test:
     # Should override, if override is direct.
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --build-arg SOMEARG=xyz ./subdir+arg-target
     RUN ls ./subdir
     RUN test -f ./subdir/xyz && test ! -f ./subdir/default
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- +direct
     RUN ls ./subdir
     RUN test -f ./subdir/direct && test ! -f ./subdir/default
@@ -549,7 +549,7 @@ dockerfile-test:
     COPY dockerfile/* ./
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --allow-privileged --no-output +test-all
 
 fail-test:
@@ -1065,7 +1065,7 @@ done
     ENV EARTHLY_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P
     # test that all output files are different
     RUN cat test/*/dep1
@@ -1535,7 +1535,7 @@ earthly --config \$earthly_config -P +test-with-docker --FRONTEND=$FRONTEND
     ENV EARTHLY_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P
 
 server:
@@ -1823,14 +1823,14 @@ RUN_EARTHLY:
         set -ex
         export EARTHLY_VERBOSE=$verbose
         if $use_tmpfs; then
-            export EARTHLY_TMP_DIR=/tmp/earthly-tmpfs
+            export EARTHLY_TMP_DIR=/tmp/earthbuild-tmpfs
         fi
         if [ -n \"$pre_command\" ]; then
             eval \"$pre_command\"
         fi
         if [ -n \"$exec_cmd\" ]; then
-            if [ \"$exec_cmd\" = \"/tmp/earthly-script\" ]; then
-                echo \"exec_cmd cannot be /tmp/earthly-script\"
+            if [ "$exec_cmd" = "/tmp/earthbuild-script" ]; then
+                echo "exec_cmd cannot be /tmp/earthbuild-script"
                 exit 1
             fi
             if [ \"$target\" != \"+all\" ]; then
@@ -1891,7 +1891,7 @@ RUN_EARTHLY:
                 exit 1
             fi
         fi
-    " >/tmp/earthly-script
+    " >/tmp/earthbuild-script
     RUN --privileged \
-        --mount=type=tmpfs,target=/tmp/earthly-tmpfs \
-        /bin/sh /tmp/earthly-script
+        --mount=type=tmpfs,target=/tmp/earthbuild-tmpfs \
+        /bin/sh /tmp/earthbuild-script

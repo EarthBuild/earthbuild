@@ -13,7 +13,7 @@ earthly=${earthly-"../../../build/linux/amd64/earthly"}
 echo "using earthly=$(realpath "$earthly")"
 
 registry_name="wait-block-registry"
-certs_path="/tmp/earthly-test-certs-037c1058-7ad7-4387-bd36-bc2328ef668c"
+certs_path="/tmp/earthbuild-test-certs-037c1058-7ad7-4387-bd36-bc2328ef668c"
 
 # Cleanup previous run.
 docker stop "$registry_name" || true
@@ -47,7 +47,7 @@ echo "running registry on $REGISTRY"
 CRT_PATH="$certs_path/domain.crt"
 
 # A random tmp file which shouldn't conflict with anything else
-config_path="/tmp/earthly-34a5d7b5-903e-40d8-ade3-260ff9794f93.yml"
+config_path="/tmp/earthbuild-34a5d7b5-903e-40d8-ade3-260ff9794f93.yml"
 
 cat > "$config_path" <<EOF
 global:
@@ -82,7 +82,7 @@ exit_code="$?"
 set -e
 
 if [ "$CHECK_TAG_WAS_PUSHED" = "true" ]; then
-    manifest_output=$(mktemp /tmp/earthly-wait-block-test.XXXXX)
+    manifest_output=$(mktemp /tmp/earthbuild-wait-block-test.XXXXX)
     which jq || (echo "jq must be installed" && exit 1)
     which curl || (echo "curl must be installed" && exit 1)
     curl -k "https://$REGISTRY/v2/myuser/myimg/manifests/$tag" > $manifest_output

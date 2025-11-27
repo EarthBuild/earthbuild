@@ -1,6 +1,7 @@
 # Introduction
 
-**Please note that Earthbuild is no longer actively maintained.** [Read more](https://earthbuild.dev/blog/shutting-down-earthfiles-cloud).
+> **EarthBuild** is the community-maintained fork of the product formerly known as earthly from earthly
+> technologies. [Read more](https://earthbuild.dev/blog/shutting-down-earthfiles-cloud).
 
 Earthbuild is a super simple CI/CD framework that gives you repeatable builds that you write once and run anywhere; has a simple, instantly recognizable syntax; and works with every language, framework, and build tool. With Earthbuild, you can create Docker images and build artifacts (e.g. binaries, packages, and arbitrary files).
 

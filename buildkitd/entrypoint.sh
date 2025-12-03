@@ -232,6 +232,11 @@ if [ "$BUILDKIT_TLS_ENABLED" = "true" ]; then
 fi
 export TLS_ENABLED
 
+if [ "$BUILDKIT_GC_ENABLED" != "false" ]; then
+    BUILDKIT_GC_ENABLED=true
+fi
+export BUILDKIT_GC_ENABLED
+
 envsubst </etc/buildkitd.toml.template >/etc/buildkitd.toml
 
 # Session history is 1h by default unless otherwise specified

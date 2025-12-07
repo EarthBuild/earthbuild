@@ -36,7 +36,6 @@ func TestServer(t *testing.T) {
 
 	for attempts < numRetries {
 		termConn, err = net.Dial("tcp", addr)
-
 		if err != nil {
 			// Retry since the connection is rejected sometimes.
 			fmt.Printf("Dial failed. Attempt: %v/%v, Error: %s", attempts, numRetries, err.Error())

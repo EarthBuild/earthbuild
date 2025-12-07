@@ -21,9 +21,7 @@ const (
 	version = "VERSION --arg-scope-and-set 0.7\n\n"
 )
 
-var (
-	update = flag.Bool("update", false, "Update the testdata for golden tests")
-)
+var update = flag.Bool("update", false, "Update the testdata for golden tests")
 
 func goldenFile(t *testing.T, path string) []byte {
 	t.Helper()

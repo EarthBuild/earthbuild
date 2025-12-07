@@ -1,10 +1,9 @@
-name: lint-docs
+name: lint-changelog
 
 on:
   push:
-    branches: [ main, docs-0.8 ]
-  pull_request:
-    branches: [ main, docs-0.8 ]
+    paths:
+      - CHANGELOG.md
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -12,8 +11,8 @@ concurrency:
 
 jobs:
   test:
-    name: +lint-docs
-    runs-on: "ubuntu-latest"
+    name: +lint-changelog
+    runs-on: ubuntu-24.04-arm
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -23,8 +22,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: earthbuild/actions-setup@main
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  #v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Execute lint
-        run: earthly --ci -P +lint-docs
+        run: earthly --ci -P +lint-changelog

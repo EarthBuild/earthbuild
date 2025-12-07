@@ -236,7 +236,6 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 }
 
 func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []string) error {
-
 	target, artifact, destPath, err := a.parseTarget(cliCtx, nonFlagArgs)
 	if err != nil {
 		return err
@@ -671,7 +670,7 @@ func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArti
 	if !localArtifactWhiteList.Exists(string(dst)) {
 		return fmt.Errorf("file %s does not appear in the white list", dst)
 	}
-	err = os.MkdirAll(path.Dir(string(dst)), 0755)
+	err = os.MkdirAll(path.Dir(string(dst)), 0o755)
 	if err != nil {
 		return err
 	}
@@ -761,7 +760,6 @@ func (a *Build) platformResolver(ctx context.Context, bkClient *bkclient.Client,
 }
 
 func (a *Build) initAutoSkip(ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope) (func(), bool, error) {
-
 	if !a.cli.Flags().SkipBuildkit {
 		return nil, false, nil
 	}

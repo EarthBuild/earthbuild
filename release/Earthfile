@@ -1,21 +1,5 @@
 VERSION 0.8
-FROM alpine:3.18
-
-RUN apk add --update --no-cache \
-    curl python3 py3-requests
-
-release:
-    COPY ensure_gha_passing.py /bin/ensure_gha_passing
-    ARG EARTHLY_GIT_HASH
-    ARG --required RELEASE_TAG
-    ARG SKIP_GHA_CHECK
-    ARG PRERELEASE="false"
-    IF --no-cache test -n "$SKIP_GHA_CHECK" || ensure_gha_passing --sha $EARTHLY_GIT_HASH
-        BUILD +release-dockerhub --RELEASE_TAG="$RELEASE_TAG"
-        BUILD +release-github --RELEASE_TAG="$RELEASE_TAG" --PRERELEASE="$PRERELEASE"
-    ELSE
-        RUN echo "github status check failed; to force the release without performing this check, set --build-arg SKIP_GHA_CHECK=1"
-    END
+FROM alpine:3.22
 
 release-dockerhub:
     ARG --required RELEASE_TAG
@@ -78,20 +62,10 @@ perform-release-buildkitd-dockerhub:
         --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
 
-release-notes:
-    FROM ..+changelog-parser
-    ARG --required RELEASE_TAG
-    RUN changelogparser --changelog CHANGELOG.md --version "$RELEASE_TAG" > notes.txt
-    ARG SKIP_CHANGELOG_DATE_TEST="false"
-    IF [ "$SKIP_CHANGELOG_DATE_TEST" != "true" ]
-        RUN --no-cache test "$(changelogparser --changelog CHANGELOG.md --version "$RELEASE_TAG" --date)" = "$(date "+%Y-%m-%d")"
-    END
-    SAVE ARTIFACT notes.txt
-
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
-    FROM alpine:3.20
+    FROM alpine:3.22
 
     RUN apk add file gpg gpg-agent
 
@@ -126,77 +100,116 @@ signed-release:
     RUN file ./release/earthly-windows-amd64.exe | grep "PE32"
 
     # GPG Sign
-    # TODO generate and share an earthbuild org GPG key. Determine how to provide secret
     RUN --secret GPG_PRIVATE echo "${GPG_PRIVATE}" | gpg --import && \
         cd release && sha256sum earthly-* > checksum && \
         cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
 
     SAVE ARTIFACT ./release AS LOCAL ./release
 
-release-homebrew:
-    RUN apk add --update --no-cache \
-        bash \
-        bash-completion \
-        binutils \
-        ca-certificates \
-        coreutils \
-        curl \
-        findutils \
-        g++ \
-        git \
-        grep \
-        less \
-        make \
-        openssl \
-        openssh \
-        util-linux
-    RUN apk add --update --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing hub
+# promote-release is a single target that should be called after creating a GH release that copies all
+# releasables (images, artifacts) to their target destinations.
+promote-release:
+    BUILD +promote-artifacts-to-gh
+    BUILD +promote-to-dockerhub
 
-    # Deps and preconditions.
-    ARG --required RELEASE_TAG
-    ARG GIT_USERNAME="littleredcorvette"
-    ARG GIT_NAME="littleredcorvette"
-    ARG GIT_EMAIL="littleredcorvette@users.noreply.github.com"
-    ARG --required GITHUB_USER
-    ARG --required BREW_REPO
-    ARG --required EARTHLY_REPO
+gh-cli:
+    FROM alpine:3.22
+
+    RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
+
+    RUN apk add --no-cache github-cli=2.72.0-r4
+
+# release-artifacts-to-gh uploads existing artifacts stored in GitHub actions to a specified release
+promote-artifacts-to-gh:
+    FROM +gh-cli
+
+    # Built-ins: Full commit SHA, First 8 of commit SHA
     ARG EARTHLY_GIT_HASH
-    WORKDIR /earthly/homebrew-earthly
 
-    RUN git config --global user.name "$GIT_NAME" && \
-        git config --global user.email "$GIT_EMAIL"
+    # Default to earthly-inferred commit SHA but accept an override
+    ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
 
-    # load in github.com's public key (fetched by running: ssh-keyscan -H github.com)
-    # you can also get them from https://api.github.com/meta
-    RUN mkdir -p /root/.ssh
-    RUN echo "|1|M66Uwae8fx9M5JFDd+WyVi3dERM=|LKfAmECF1kHoZ6epHR5jtPhJgic= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=" > /root/.ssh/known_hosts
+    # Trim COMMIT_SHA to first 8 chars (alpine)
+    LET ARTIFACT_NAME="$(echo $COMMIT_SHA | cut -c1-8)"
 
-    RUN --mount type=secret,id=littleredcorvette-id_rsa,target=/root/id_rsa --no-cache \
-        eval $(ssh-agent) && \
-        cat /root/id_rsa | ssh-add - && \
-        git clone "git@github.com:$GITHUB_USER/$BREW_REPO.git" .
-    # Make the change in a new branch.
-    ARG RELEASE_BRANCH="release-$RELEASE_TAG"
-    RUN git switch -c "$RELEASE_BRANCH"
+    RUN mkdir -p _download
 
-    RUN sed -i \
-        -e 's^\(tag: \+\)"v[0-9.]\+"\(,\?\)$^\1"'$RELEASE_TAG'"\2^' \
-        -e 's^\(revision: \+\)"[0-9a-f]\+"\(,\?\)$^\1"'$EARTHLY_GIT_HASH'"\2^' \
-        ./Formula/earthly.rb
-    RUN echo "Diff:" && git diff
-    RUN version=${RELEASE_TAG#v} ;\
-        echo version=$version ;\
-        git commit -a --allow-empty -m "earthly $version"
+    LET GH_REPO="earthbuild/earthbuild"
 
-    RUN --mount type=secret,id=littleredcorvette-id_rsa,target=/root/id_rsa \
-        --secret SLACK_WEBHOOK_URL=slack-release-webhook \
-        --push \
-        eval $(ssh-agent) && \
-        cat /root/id_rsa | ssh-add - && \
-        git push --force --set-upstream origin "$RELEASE_BRANCH" && \
-        if [ "$BREW_REPO" = "homebrew-earthly" ] && [ "$GITHUB_USER" = "earthly" ]; then \
-            curl -s -X POST -H 'Content-type: application/json' --data '{"text":"Successfully pushed release branch: https://github.com/earthly/homebrew-earthly/tree/'$RELEASE_BRANCH' (this branch will be automatically deleted via GHA once GHA deploy task finishes)"}' "$SLACK_WEBHOOK_URL"; \
-        fi
+    # Download artifact previously built by ci-staging-deploy.yml "Create Release Binaries"
+    RUN --secret GITHUB_TOKEN gh run download \
+        --name "${ARTIFACT_NAME}" \
+        --dir _download
+
+    # The release tag (vX.X.X) that we're running for
+    ARG --required RELEASE_TAG
+
+    # Upload all binary artifacts to the existing release. This target is meant to be triggered by creating a
+    # release in GitHub
+    RUN --push --secret GITHUB_TOKEN find _download -type f -print0 | xargs -0 -n1 -I{} gh release upload "${RELEASE_TAG}" "{}" --clobber
+
+promote-to-dockerhub:
+    # Built-ins: First 8 of commit SHA
+    ARG EARTHLY_GIT_SHORT_HASH
+
+    # Default to earthly-inferred commit SHA short but accept an override
+    ARG COMMIT_SHA_SHORT="$EARTHLY_GIT_SHORT_HASH"
+
+    # The release tag (vX.X.X) that we're running for
+    ARG --required RELEASE_TAG
+
+    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7 -> docker.io/earthbuild/buildkitd:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
+
+    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
+    # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
+
+copy-img-to-dockerhub:
+    ARG --required IMG_NAME
+    ARG --required RELEASE_TAG
+    ARG --required SRC_TAG
+
+    LET SRC_DOCKER_REGISTRY="ghcr.io"
+    LET DEST_DOCKER_REGISTRY="docker.io"
+
+    LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:${SRC_TAG}"
+    LET DEST_IMG="${DEST_DOCKER_REGISTRY}/earthbuild/${IMG_NAME}:${RELEASE_TAG}"
+
+    BUILD +copy-img --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \
+        --DEST_DOCKER_REGISTRY="${DEST_DOCKER_REGISTRY}" \
+        --SRC_REF="${SRC_IMG}" --DEST_REF="${DEST_IMG}"
+
+copy-img:
+    FROM +skopeo
+    ARG --required SRC_REF
+    ARG --required DEST_REF
+
+    ARG --required SRC_DOCKER_REGISTRY
+    ARG --required DEST_DOCKER_REGISTRY
+
+    RUN --push --no-cache echo "Copying image from '${SRC_REF}' to '${DEST_REF}'"
+
+    ARG --required CONTAINER_REGISTRY_USER
+    RUN --secret CONTAINER_REGISTRY_TOKEN=CONTAINER_REGISTRY_TOKEN skopeo login --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_TOKEN}" "${SRC_DOCKER_REGISTRY}"
+
+    IF [ "$SRC_DOCKER_REGISTRY" != "$DEST_DOCKER_REGISTRY" ]
+        ARG --required DEST_CONTAINER_REGISTRY_USER
+        RUN --secret DEST_CONTAINER_REGISTRY_TOKEN skopeo login --username "${DEST_CONTAINER_REGISTRY_USER}" --password "${DEST_CONTAINER_REGISTRY_TOKEN}" "${DEST_DOCKER_REGISTRY}"
+    END
+
+    RUN --push --no-cache skopeo copy --all --insecure-policy docker://${SRC_REF} docker://${DEST_REF}
+
+    RUN --push --no-cache echo "Done copying image from '${SRC_REF}' to '${DEST_REF}'"
+
+skopeo:
+    FROM alpine:3.22
+
+    # https://github.com/containers/skopeo/blob/main/install.md#alpine
+    RUN apk add skopeo
 
 release-repo:
     ARG --required RELEASE_TAG

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 	"github.com/EarthBuild/earthbuild/ast/parser"
+	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 )
 
 const (
@@ -243,8 +243,7 @@ func (l *lexer) processIndentation(peek antlr.Token) {
 		if l.afterNewLine {
 			l.indentLevel++
 		}
-		l.wsChannel, l.wsStart, l.wsStop, l.wsLine, l.wsColumn =
-			peek.GetChannel(), peek.GetStart(), peek.GetStop(), peek.GetLine(), peek.GetColumn()
+		l.wsChannel, l.wsStart, l.wsStop, l.wsLine, l.wsColumn = peek.GetChannel(), peek.GetStart(), peek.GetStop(), peek.GetLine(), peek.GetColumn()
 	case parser.EarthLexerNL:
 		l.indentLevel = 0
 		l.afterNewLine = true

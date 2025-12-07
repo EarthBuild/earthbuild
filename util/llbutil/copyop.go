@@ -85,7 +85,8 @@ func CopyWithRunOptions(srcState pllb.State, src, dest string, platr *platutil.R
 	// with the Earthly user's state mounted at /dest on that image.
 	opts = append(opts, []llb.RunOption{
 		llb.ReadonlyRootFS(),
-		llb.Shlexf("copy %s /dest/%s", src, dest)}...)
+		llb.Shlexf("copy %s /dest/%s", src, dest),
+	}...)
 	copyState := pllb.Image(copyImg, imgOpts...)
 	run := copyState.Run(opts...)
 	destState := run.AddMount("/dest", srcState)
@@ -106,8 +107,10 @@ func Abs(ctx context.Context, s pllb.State, p string) (string, error) {
 	return path.Join(dir, p), nil
 }
 
-var defaultTsValue time.Time
-var defaultTsParse sync.Once
+var (
+	defaultTsValue time.Time
+	defaultTsParse sync.Once
+)
 
 func defaultTs() *time.Time {
 	defaultTsParse.Do(func() {

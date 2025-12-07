@@ -9,9 +9,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-const earthIgnoreFile = ".earthignore"
-const earthlyIgnoreFile = ".earthlyignore"
-const dockerIgnoreFile = ".dockerignore"
+const (
+	earthIgnoreFile   = ".earthignore"
+	earthlyIgnoreFile = ".earthlyignore"
+	dockerIgnoreFile  = ".dockerignore"
+)
 
 var errDuplicateIgnoreFile = errors.New("both .earthignore and .earthlyignore exist - please remove one")
 
@@ -25,24 +27,24 @@ var ImplicitExcludes = []string{
 }
 
 func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]string, error) {
-	var ignoreFile = earthIgnoreFile
+	ignoreFile := earthIgnoreFile
 
-	//earthIgnoreFile
-	var earthIgnoreFilePath = filepath.Join(dir, earthIgnoreFile)
+	// earthIgnoreFile
+	earthIgnoreFilePath := filepath.Join(dir, earthIgnoreFile)
 	earthExists, err := fileutil.FileExists(earthIgnoreFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to check if %s exists", earthIgnoreFilePath)
 	}
 
-	//earthlyIgnoreFile
-	var earthlyIgnoreFilePath = filepath.Join(dir, earthlyIgnoreFile)
+	// earthlyIgnoreFile
+	earthlyIgnoreFilePath := filepath.Join(dir, earthlyIgnoreFile)
 	earthlyExists, err := fileutil.FileExists(earthlyIgnoreFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to check if %s exists", earthlyIgnoreFilePath)
 	}
 
-	//dockerIgnoreFile
-	var dockerIgnoreFilePath = filepath.Join(dir, dockerIgnoreFile)
+	// dockerIgnoreFile
+	dockerIgnoreFilePath := filepath.Join(dir, dockerIgnoreFile)
 	dockerExists := false
 	if useDockerIgnore {
 		dockerExists, err = fileutil.FileExists(dockerIgnoreFilePath)

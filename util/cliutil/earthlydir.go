@@ -11,12 +11,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-var earthlyDir string
-var earthlyDirOnce sync.Once
-var earthlyDirSudoUser *user.User
+var (
+	earthlyDir         string
+	earthlyDirOnce     sync.Once
+	earthlyDirSudoUser *user.User
+)
 
-var earthlyDirCreateOnce sync.Once
-var earthlyDirCreateErr error
+var (
+	earthlyDirCreateOnce sync.Once
+	earthlyDirCreateErr  error
+)
 
 // GetEarthlyDir returns the .earthly dir. (Usually ~/.earthly).
 // This function will not attempt to create the directory if missing, for that functionality use to the GetOrCreateEarthlyDir function.
@@ -49,7 +53,7 @@ func GetOrCreateEarthlyDir(installName string) (string, error) {
 			return
 		}
 		if !earthlyDirExists {
-			err := os.MkdirAll(earthlyDir, 0755)
+			err := os.MkdirAll(earthlyDir, 0o755)
 			if err != nil {
 				earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 				return

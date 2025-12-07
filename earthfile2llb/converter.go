@@ -689,14 +689,14 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return os.RemoveAll(exitCodeDir)
 		})
 	} else {
-		exitCodeFile = "/tmp/earthly_if_statement_exit_code"
+		exitCodeFile = "/tmp/earthbuild_if_statement_exit_code"
 		prefix, _, err := c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return 0, err
 		}
 		opts.statePrep = func(ctx context.Context, state pllb.State) (pllb.State, error) {
 			return state.File(
-				pllb.Mkdir("/run", 0755, llb.WithParents(true)),
+				pllb.Mkdir("/run", 0o755, llb.WithParents(true)),
 				llb.WithCustomNamef(
 					"%smkdir %s",
 					prefix, "/run"),
@@ -793,7 +793,7 @@ func (c *Converter) runCommand(ctx context.Context, outputFileName string, isExp
 		outputFile = path.Join(srcBuildArgDir, outputFileName)
 		opts.statePrep = func(ctx context.Context, state pllb.State) (pllb.State, error) {
 			return state.File(
-				pllb.Mkdir(srcBuildArgDir, 0777, llb.WithParents(true)), // Mkdir is performed as root even when USER is set; we must use 0777
+				pllb.Mkdir(srcBuildArgDir, 0o777, llb.WithParents(true)), // Mkdir is performed as root even when USER is set; we must use 0777
 				llb.WithCustomNamef(
 					"%smkdir %s",
 					prefix, srcBuildArgDir),
@@ -1303,7 +1303,7 @@ func (c *Converter) Workdir(ctx context.Context, workdirPath string) error {
 			llb.WithCustomNamef("%sWORKDIR %s", prefix, workdirPath),
 		}
 		c.mts.Final.MainState = c.mts.Final.MainState.File(
-			pllb.Mkdir(workdirAbs, 0755, mkdirOpts...), opts...)
+			pllb.Mkdir(workdirAbs, 0o755, mkdirOpts...), opts...)
 	}
 	return nil
 }
@@ -1647,7 +1647,7 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		var mountOpts []llb.MountOption
 		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, shareMode))
 		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
-		mountMode := os.FileMode(0644)
+		mountMode := os.FileMode(0o644)
 		if opts.Mode != "" {
 			mountMode, err = ParseMode(opts.Mode)
 			if err != nil {
@@ -2093,7 +2093,6 @@ func getDebuggerSecretKey(saveFilesSettings []debuggercommon.SaveFilesSettings) 
 		addToHash(saveFile.Dst)
 	}
 	return hex.EncodeToString(h.Sum(nil))
-
 }
 
 func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.State, error) {
@@ -2192,7 +2191,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 				llb.SecretID(c.secretID(secretName)),
 				// TODO: Perhaps this should just default to the current user automatically from
 				//       buildkit side. Then we wouldn't need to open this up to everyone.
-				llb.SecretFileOpt(0, 0, 0444),
+				llb.SecretFileOpt(0, 0, 0o444),
 			}
 			runOpts = append(runOpts, llb.AddSecret(secretPath, secretOpts...))
 			// TODO: The use of cat here might not be portable.
@@ -2221,8 +2220,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
 			}
 		} else {
-			runOpts = append(runOpts, llb.SocketTarget("earthly_interactive", debuggercommon.DebuggerDefaultSocketPath, 0666, 0, 0))
-			runOpts = append(runOpts, llb.SocketTarget("earthly_save_file", debuggercommon.DefaultSaveFileSocketPath, 0666, 0, 0))
+			runOpts = append(runOpts, llb.SocketTarget("earthly_interactive", debuggercommon.DebuggerDefaultSocketPath, 0o666, 0, 0))
+			runOpts = append(runOpts, llb.SocketTarget("earthly_save_file", debuggercommon.DefaultSaveFileSocketPath, 0o666, 0, 0))
 		}
 
 		localPathAbs, err := filepath.Abs(c.target.LocalPath)
@@ -2273,7 +2272,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(debuggerSettingsSecretsKey)),
-			llb.SecretFileOpt(0, 0, 0444),
+			llb.SecretFileOpt(0, 0, 0o444),
 		}
 		debuggerSecretMount := llb.AddSecret(
 			fmt.Sprintf("/run/secrets/%s", debuggercommon.DebuggerSettingsSecretsKey), secretOpts...)
@@ -2393,13 +2392,12 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 }
 
 func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
-
 	var (
 		runOpts   = []llb.RunOption{}
 		extraEnvs = []string{}
 	)
 
-	//set additional params in case oidc is in play
+	// set additional params in case oidc is in play
 	var setOIDCInfo func(values url.Values) // no-op by default
 	if oidcInfo != nil {
 		setOIDCInfo = secretprovider.SetURLValuesFunc(oidcInfo)
@@ -2410,7 +2408,7 @@ func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCIn
 		secretPath := path.Join("/run/secrets", secretName)
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(secretName, setOIDCInfo)),
-			llb.SecretFileOpt(0, 0, 0444),
+			llb.SecretFileOpt(0, 0, 0o444),
 		}
 		runOpts = append(runOpts, llb.AddSecret(secretPath, secretOpts...))
 		if envName, ok := secretprovider.AWSEnvName(secretName); ok {
@@ -2652,7 +2650,6 @@ func (c *Converter) processNonConstantBuildArgFunc(ctx context.Context) variable
 }
 
 func (c *Converter) newLogbusCommand(ctx context.Context, name string) (string, *logbus.Command, error) {
-
 	cmdID := fmt.Sprintf("%s/%d", c.mts.Final.ID, c.newCmdID())
 
 	var gitURL, gitHash, fileRelToRepo string

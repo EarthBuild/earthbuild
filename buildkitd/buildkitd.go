@@ -386,7 +386,7 @@ func Start(ctx context.Context, console conslogging.ConsoleLogger, image, contai
 		containerutil.Mount{
 			Type:     containerutil.MountVolume,
 			Source:   settings.VolumeName,
-			Dest:     "/tmp/earthly",
+			Dest:     "/tmp/earthbuild",
 			ReadOnly: false,
 		},
 	}

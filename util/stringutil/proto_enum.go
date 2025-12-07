@@ -10,8 +10,10 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-var titleCaser = cases.Title(language.English)
-var lowerCaser = cases.Lower(language.English)
+var (
+	titleCaser = cases.Title(language.English)
+	lowerCaser = cases.Lower(language.English)
+)
 
 type caser interface {
 	String(s string) string

@@ -224,7 +224,7 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 }
 
 func savePEM(path, typ string, bytes []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 
@@ -242,7 +242,7 @@ func savePEM(path, typ string, bytes []byte) error {
 		return err
 	}
 
-	if err := f.Chmod(0444); err != nil {
+	if err := f.Chmod(0o444); err != nil {
 		return err
 	}
 

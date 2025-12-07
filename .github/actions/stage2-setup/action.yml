@@ -76,14 +76,30 @@ runs:
       if: inputs.BINARY == 'docker'
       shell: bash
       run: docker info
-    - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00  #v6.0.0
+    - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
       with:
         go-version: 1.21
     - if: ${{ inputs.BINARY == 'podman' }}
       run: |-
         echo "Setting up podman"
-        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -f /usr/bin/docker
-        ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli
+        ${{inputs.SUDO}} rm -f /usr/bin/docker
+        ${{inputs.SUDO}} apt-get update
+        ${{inputs.SUDO}} apt-get install -y podman
+        ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+        cat <<EOF > ~/.config/containers/registries.conf
+        unqualified-search-registries = ["docker.io"]
+
+        [[registry]]
+        prefix = "docker.io"
+        location = "docker.io"
+
+        [[registry.mirror]]
+        location = "mirror.gcr.io"
+
+        [[registry.mirror]]
+        location = "public.ecr.aws"
+        EOF
         podman version && podman info && podman info --debug
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}

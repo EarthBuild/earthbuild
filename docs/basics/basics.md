@@ -6,16 +6,16 @@ This tutorial will walk you through a basic example of using EarthBuild.
 
 ## Table of Contents
 
-* **Introduction** <-- You are here.
-* [Part 1: A simple Earthfile](./part-1-a-simple-earthfile.md)
-* [Part 2: Outputs](./part-2-outputs.md)
-* [Part 3: Adding dependencies With Caching](./part-3-adding-dependencies-with-caching.md)
-* [Part 4: Args](./part-4-args.md)
-* [Part 5: Importing](./part-5-importing.md)
-* [Part 6: Using Docker In EarthBuild](./part-6-using-docker-with-earthly.md)
-* [Part 7: Using remote runners](./part-7-using-remote-runners.md)
-* [Part 8: Using EarthBuild in CI](./part-8a-using-earthly-in-your-current-ci.md)
-* [Final words](./final-words.md)
+- **Introduction** <-- You are here.
+- [Part 1: A simple Earthfile](./part-1-a-simple-earthfile.md)
+- [Part 2: Outputs](./part-2-outputs.md)
+- [Part 3: Adding dependencies With Caching](./part-3-adding-dependencies-with-caching.md)
+- [Part 4: Args](./part-4-args.md)
+- [Part 5: Importing](./part-5-importing.md)
+- [Part 6: Using Docker In EarthBuild](./part-6-using-docker-with-earthly.md)
+- [Part 7: Using remote runners](./part-7-using-remote-runners.md)
+- [Part 8: Using EarthBuild in CI](./part-8a-using-earthly-in-your-current-ci.md)
+- [Final words](./final-words.md)
 
 ## Installation
 

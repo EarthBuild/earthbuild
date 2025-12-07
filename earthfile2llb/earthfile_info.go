@@ -63,7 +63,6 @@ func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 		}
 	}
 	return args, nil
-
 }
 
 // ArgName returns the parsed name of an ARG command, the default value (if

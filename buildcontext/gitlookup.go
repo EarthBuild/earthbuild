@@ -185,9 +185,11 @@ func hashHost(hostname string, salt []byte) []byte {
 	return mac.Sum(nil)
 }
 
-var errUnsupportedHash = errors.New("unsupported keyscan hash")
-var errInvalidScan = errors.New("invalid keyscan")
-var errKeyScanNoMatch = errors.New("keyscan does not match")
+var (
+	errUnsupportedHash = errors.New("unsupported keyscan hash")
+	errInvalidScan     = errors.New("invalid keyscan")
+	errKeyScanNoMatch  = errors.New("keyscan does not match")
+)
 
 func hasPort(s string) bool {
 	if len(s) == 0 {

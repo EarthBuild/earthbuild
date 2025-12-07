@@ -5,7 +5,7 @@ import (
 )
 
 func TestGetProjectName(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		tag  string
 		safe string
 	}{

@@ -118,7 +118,7 @@
         {
           "command": {
             "args": [
-              "/tmp/earthly",
+              "/tmp/earthbuild",
               "/another/volume"
             ],
             "execMode": true,
@@ -128,7 +128,7 @@
         {
           "command": {
             "args": [
-              "/tmp/earthly2",
+              "/tmp/earthbuild2",
               "/another/volume2"
             ],
             "name": "VOLUME"

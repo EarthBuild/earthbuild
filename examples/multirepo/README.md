@@ -2,9 +2,9 @@
 
 In this example, we will walk through a simple multirepo setup that can be used with Earthly. The entire code of this exercise is available in the
 
-* This directory
-* This referenced [project of HTML static files](https://github.com/EarthBuild/earthly-example-multirepo-static)
-* This referenced [project of JS files](https://github.com/EarthBuild/earthly-example-multirepo-js)
+- This directory
+- This referenced [project of HTML static files](https://github.com/EarthBuild/earthly-example-multirepo-static)
+- This referenced [project of JS files](https://github.com/EarthBuild/earthly-example-multirepo-js)
 
 In this example, let's assume that we have a web application where HTML files are held in one repository and JS file are held in another. The complete application is a combination of both.
 

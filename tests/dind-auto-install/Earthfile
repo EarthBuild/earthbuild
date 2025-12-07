@@ -12,7 +12,6 @@ all:
         --BASE_IMAGE=debian:stable \
         --BASE_IMAGE=debian:stable-slim \
         --BASE_IMAGE=ubuntu:latest \
-        --BASE_IMAGE=amazonlinux:1 \
         --BASE_IMAGE=amazonlinux:2 \
         --BASE_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r1 \
         --BASE_IMAGE=earthbuild/dind:ubuntu-20.04-docker-28.1.1-1 \

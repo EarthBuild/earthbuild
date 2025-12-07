@@ -163,16 +163,7 @@ install_dockerd_debian_like() {
 }
 
 install_dockerd_amazon() {
-    version=$(. /etc/os-release && echo "$VERSION")
-    case "$version" in
-        2)
-            yes | amazon-linux-extras install docker
-        ;;
-
-        *)  # Amazon Linux 1 uses versions like "2018.3" here, so dont bother enumerating
-            yum -y install docker
-        ;;
-    esac
+    yes | amazon-linux-extras install docker
 }
 
 install_jq() {

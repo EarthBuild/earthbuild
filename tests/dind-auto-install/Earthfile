@@ -1,10 +1,10 @@
 VERSION 0.8
 
 all:
-    # renoveate: datasource=docker packageName=amazonlinux
+    # renovate: datasource=docker packageName=amazonlinux
     LET amazonlinux_2_version=2
-    # renoveate: datasource=docker packageName=amazonlinux
-    LET amazonlinux_2023_version=2023.9
+    # renovate: datasource=docker packageName=amazonlinux
+    LET amazonlinux_2023_version=2023.9.20251117.1
     BUILD +test \
         --BASE_IMAGE=docker:20.10.14-dind \
         --BASE_IMAGE=docker:20.10.15-dind \

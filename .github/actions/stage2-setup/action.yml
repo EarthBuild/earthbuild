@@ -47,7 +47,7 @@ runs:
       shell: bash
       run: |
         unset CI
-    - name: Set up Docker Hub mirrors
+    - name: Set up Docker Hub mirrors for docker
       if: inputs.BINARY == 'docker'
       shell: bash
       run: |
@@ -79,14 +79,18 @@ runs:
     - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
       with:
         go-version: 1.21
-    - if: ${{ inputs.BINARY == 'podman' }}
+    - name: Set up Podman
+      if: ${{ inputs.BINARY == 'podman' }}
       run: |-
         echo "Setting up podman"
         ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli
         ${{inputs.SUDO}} rm -f /usr/bin/docker
-        ${{inputs.SUDO}} apt-get update
-        ${{inputs.SUDO}} apt-get install -y podman
+        ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman
         ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+      shell: bash
+    - name: Set up Docker Hub mirrors for Podman
+      if: ${{ inputs.BINARY == 'podman' }}
+      run: |-
         cat <<EOF > ~/.config/containers/registries.conf
         unqualified-search-registries = ["docker.io"]
 

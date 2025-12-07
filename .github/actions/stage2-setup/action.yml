@@ -91,6 +91,7 @@ runs:
     - name: Set up Docker Hub mirrors for Podman
       if: ${{ inputs.BINARY == 'podman' }}
       run: |-
+        mkdir -p ~/.config/containers
         cat <<EOF > ~/.config/containers/registries.conf
         unqualified-search-registries = ["docker.io"]
 

@@ -1,3 +1,3 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.5.0)
 project (fibonacci)
 add_executable(fibonacci main.cpp fib.cpp)

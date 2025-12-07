@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ## for apt to be noninteractive
 ENV DEBIAN_FRONTEND noninteractive
@@ -18,7 +18,7 @@ build:
   # cache cmake temp files to prevent rebuilding .o files
   # when the .cpp files don't change
   RUN --mount=type=cache,target=/code/CMakeFiles make
-  SAVE ARTIFACT fibonacci AS LOCAL "fibonacci"
+  SAVE ARTIFACT fibonacci AS LOCAL fibonacci
 
 docker:
   COPY +build/fibonacci /bin/fibonacci

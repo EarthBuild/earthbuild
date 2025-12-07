@@ -117,7 +117,7 @@ install_dockerd() {
             ;;
 
         *)
-            echo "Warning: Distribution $distro not yet supported for Docker-in-Earthly."
+            echo "Warning: Distribution $distro not yet supported for Docker-in-EarthBuild."
             echo "Will attempt to treat like Debian."
             echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/EarthBuild/earthbuild/issues"
             install_dockerd_debian_like
@@ -173,7 +173,10 @@ install_dockerd_amazon() {
             yes | amazon-linux-extras install docker
         ;;
         *)
-            echo "Warning: Amazon Linux version $version not yet supported for Docker-in-Earthly." && exit 1
+            echo "Warning: Amazon Linux $version not yet supported for Docker-in-EarthBuild."
+            echo "Will attempt to treat like Fedora."
+            dnf update -y
+            dnf install -y docker
         ;;
     esac
 }

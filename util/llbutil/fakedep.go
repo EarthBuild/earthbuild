@@ -17,7 +17,7 @@ func WithDependency(state pllb.State, depState pllb.State, stateStr, depStr stri
 		// TODO: A buildkit bug causes a hang if we try to do this operation
 		// on top of a scratch state, and then try to export this as remote
 		// cache.
-		state = state.File(pllb.Mkdir("/tmp", 0755),
+		state = state.File(pllb.Mkdir("/tmp", 0o755),
 			llb.WithCustomNamef("%s(fakecopy) init scratch", vm.ToVertexPrefix()))
 	}
 	if depState.Output() == nil {

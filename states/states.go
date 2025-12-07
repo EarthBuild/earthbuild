@@ -145,7 +145,6 @@ OuterLoop:
 			case newID := <-sts.incomingNewSubscriptions:
 				sts.AddDependentIDs(map[string]bool{newID: true})
 			}
-
 		}
 	}()
 	return sts, nil

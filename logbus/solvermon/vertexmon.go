@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
+	"github.com/earthly/cloud-api/logstream"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
 )
@@ -39,8 +39,10 @@ type vertexMonitor struct {
 
 var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`)
 
-var errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
-var errNoExitCode = errors.New("no exit code in error message")
+var (
+	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
+	errNoExitCode    = errors.New("no exit code in error message")
+)
 
 // getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid
 func getExitCode(errString string) (int, error) {
@@ -63,8 +65,10 @@ func getExitCode(errString string) (int, error) {
 	return 0, errNoExitCode
 }
 
-var reErrNotFound = regexp.MustCompile(`^\s*(internal)?failed to calculate checksum of ref ([^ ]::[^ ]*|[^ ]*): (.*)\s*$`)
-var reHint = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
+var (
+	reErrNotFound = regexp.MustCompile(`^\s*(internal)?failed to calculate checksum of ref ([^ ]::[^ ]*|[^ ]*): (.*)\s*$`)
+	reHint        = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
+)
 
 // determineFatalErrorType returns logstream.FailureType
 // and whether or not its a Fatal Error

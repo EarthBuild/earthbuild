@@ -27,9 +27,11 @@ import (
 // causing back-pressure that forces BK to cancel.
 const statusChanSize = 500
 
-type onImageFunc func(context.Context, *errgroup.Group, string, string, string) (io.WriteCloser, error)
-type onArtifactFunc func(context.Context, string, domain.Artifact, string, string) (string, error)
-type onFinalArtifactFunc func(context.Context) (string, error)
+type (
+	onImageFunc         func(context.Context, *errgroup.Group, string, string, string) (io.WriteCloser, error)
+	onArtifactFunc      func(context.Context, string, domain.Artifact, string, string) (string, error)
+	onFinalArtifactFunc func(context.Context) (string, error)
+)
 
 type solver struct {
 	logbusSM        *solvermon.SolverMonitor

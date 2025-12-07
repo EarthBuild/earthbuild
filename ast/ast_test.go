@@ -21,7 +21,6 @@ func (n *namedStringReader) Name() string {
 var _ ast.NamedReader = &namedStringReader{}
 
 func TestParse(t *testing.T) {
-
 	tests := []struct {
 		note      string
 		earthfile string

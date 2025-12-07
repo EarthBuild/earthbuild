@@ -573,7 +573,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			return "", err
 		}
 		artifactDir := filepath.Join(outDir, fmt.Sprintf("index-%s", index))
-		err = os.MkdirAll(artifactDir, 0755)
+		err = os.MkdirAll(artifactDir, 0o755)
 		if err != nil {
 			return "", errors.Wrapf(err, "create dir %s", artifactDir)
 		}
@@ -863,7 +863,7 @@ func (b *Builder) tempEarthlyOutDir() (string, error) {
 	var err error
 	b.outDirOnce.Do(func() {
 		tmpParentDir := ".tmp-earthly-out"
-		err = os.MkdirAll(tmpParentDir, 0755)
+		err = os.MkdirAll(tmpParentDir, 0o755)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to create dir %s", tmpParentDir)
 			return

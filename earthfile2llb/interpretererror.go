@@ -45,6 +45,7 @@ func WrapError(cause error, sl *spec.SourceLocation, targetID, stack string, for
 		text:           fmt.Sprintf(format, args...),
 	}
 }
+
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {

@@ -271,7 +271,7 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 		fmt.Print(w, message)
 		return
 	}
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}

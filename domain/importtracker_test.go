@@ -9,7 +9,7 @@ import (
 )
 
 func TestImports(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		importStr string
 		as        string
 		ref       string

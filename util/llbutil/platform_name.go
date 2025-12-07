@@ -3,8 +3,8 @@ package llbutil
 import (
 	"fmt"
 
-	"github.com/docker/distribution/reference"
 	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/docker/distribution/reference"
 	"github.com/pkg/errors"
 )
 

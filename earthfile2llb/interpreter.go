@@ -1344,7 +1344,6 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd spec.Command, async b
 }
 
 func (i *Interpreter) handleWildcardBuilds(ctx context.Context, fullTargetName string, cmd spec.Command, async bool) error {
-
 	children, err := i.converter.ExpandWildcardCmds(ctx, fullTargetName, cmd)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand wildcard BUILD %q", fullTargetName)

@@ -20,7 +20,6 @@ type HashOpt struct {
 
 // HashTarget produces a hash from an Earthly target.
 func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
-
 	// Bypass further analysis for remote targets as there's nothing to do
 	// beyond hashing the full target name.
 	if t := opt.Target; t.IsRemote() {

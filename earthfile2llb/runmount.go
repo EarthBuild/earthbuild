@@ -138,7 +138,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			return nil, errors.Errorf("mount target not specified")
 		}
 		if mountMode == 0 {
-			mountMode = 0644
+			mountMode = 0o644
 		}
 		key := cacheKey(c.target)
 		cacheID := path.Join("/run/cache", key, path.Clean(mountTarget))
@@ -180,7 +180,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		if mountMode == 0 {
 			// TODO: Perhaps this should just default to the current user automatically from
 			//       buildkit side. Then we wouldn't need to open this up to everyone.
-			mountMode = 0444
+			mountMode = 0o444
 		}
 
 		// check the upper bound to convert from uint32 to int

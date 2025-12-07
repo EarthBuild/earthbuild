@@ -436,7 +436,6 @@ func setYamlValue(node *yaml.Node, path []string, value *yaml.Node) []string {
 }
 
 func deleteYamlValue(node *yaml.Node, path []string) []string {
-
 	switch node.Kind {
 	case yaml.DocumentNode:
 		for _, c := range node.Content {
@@ -487,12 +486,12 @@ func ReadConfigFile(configPath string) ([]byte, error) {
 
 // WriteConfigFile writes the config file to disk with preset permission 0644
 func WriteConfigFile(configPath string, data []byte) error {
-	err := os.MkdirAll(filepath.Dir(configPath), 0755)
+	err := os.MkdirAll(filepath.Dir(configPath), 0o755)
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath, data, 0o644)
 }
 
 func parseRelPaths(instName string, cfg *Config) error {

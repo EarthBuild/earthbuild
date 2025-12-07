@@ -8,7 +8,7 @@ import (
 )
 
 func TestProcessParamsAndQuotes(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		in   []string
 		args []string
 	}{

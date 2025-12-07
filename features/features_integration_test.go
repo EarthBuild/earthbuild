@@ -137,7 +137,6 @@ func TestAvailableFlags(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-
 	fts := &features.Features{}
 
 	t.Run("features can be set and retrieved from context", func(t *testing.T) {

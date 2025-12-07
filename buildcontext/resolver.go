@@ -86,7 +86,6 @@ func NewResolver(cleanCollection *cleanup.Collection, gitLookup *GitLookup, cons
 // path. This is then used when globbing for matches. The paths are then made
 // relative to the parent target for resolution by the caller.
 func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, parentTarget, target domain.Target) ([]string, error) {
-
 	if parentTarget.IsRemote() {
 		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.GetLocalPath())
 		if err != nil {

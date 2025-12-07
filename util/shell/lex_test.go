@@ -209,7 +209,6 @@ func TestShellParser4Words(t *testing.T) {
 
 			// test for ProcessWords
 			result, err := shlex.ProcessWords(test, envs, nil)
-
 			if err != nil {
 				result = []string{"error"}
 			}
@@ -225,7 +224,6 @@ func TestShellParser4Words(t *testing.T) {
 
 			// test for ProcessWordsWithMap
 			result, err = shlex.ProcessWordsWithMap(test, BuildEnvs(envs), nil)
-
 			if err != nil {
 				result = []string{"error"}
 			}

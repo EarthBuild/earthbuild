@@ -63,7 +63,6 @@ func NewAWSCredentialProvider() *AWSCredentialProvider {
 
 // GetSecret attempts to find an AWS secret from either the environment or a local config file.
 func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]byte, error) {
-
 	q, err := url.ParseQuery(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse secret info")

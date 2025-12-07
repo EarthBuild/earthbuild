@@ -118,5 +118,5 @@ linters:
   exclusions:
     generated: lax
 formatters:
-  exclusions:
-    generated: lax
+  enable:
+    - gofumpt

@@ -2,8 +2,10 @@ package llbutil
 
 import "regexp"
 
-var invalidDockerTagCharsBeginningRe = regexp.MustCompile(`^[^\w]`)
-var invalidDockerTagCharsMiddleRe = regexp.MustCompile(`[^\w.-]`)
+var (
+	invalidDockerTagCharsBeginningRe = regexp.MustCompile(`^[^\w]`)
+	invalidDockerTagCharsMiddleRe    = regexp.MustCompile(`[^\w.-]`)
+)
 
 // DockerTagSafe turns a string into a safe Docker tag.
 func DockerTagSafe(tag string) string {

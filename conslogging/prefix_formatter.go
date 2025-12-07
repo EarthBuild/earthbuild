@@ -46,7 +46,7 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 	matches := make([]string, 0, len(namedMatches))
 	for _, name := range namedGroups {
 		if len(namedMatches[name]) == 0 {
-			//something was wrong with the regex, return original string
+			// something was wrong with the regex, return original string
 			return str
 		}
 		if curLen <= padding || namedMatches[name][0] == "" {

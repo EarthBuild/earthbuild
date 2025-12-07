@@ -77,7 +77,6 @@ func newLoader(ctx context.Context, opt HashOpt) *loader {
 }
 
 func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
-
 	opts := commandflag.FromOpts{}
 	args, err := flagutil.ParseArgsCleaned(command.From, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -193,7 +192,6 @@ func containsShellExpr(s string) bool {
 }
 
 func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string, mustExist bool) error {
-
 	var (
 		classical   bool
 		artifactSrc domain.Artifact
@@ -390,7 +388,6 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 }
 
 func (l *loader) handleImport(ctx context.Context, cmd spec.Command, isBase bool) error {
-
 	var alias string
 	if len(cmd.Args) == 3 {
 		alias = cmd.Args[2]
@@ -607,7 +604,6 @@ func evalConditions(c []string) (bool, bool) {
 // evalCondition will compute the result of a single expression (e.g., '[ true
 // ]'). It currently only handles POSIX shell expressions.
 func evalCondition(c []string) (bool, bool) {
-
 	// Strip quotes
 	for i, v := range c {
 		c[i] = strings.Trim(v, ` "`)
@@ -674,7 +670,6 @@ func evalCondition(c []string) (bool, bool) {
 }
 
 func (l *loader) handleIf(ctx context.Context, ifStmt spec.IfStatement) error {
-
 	l.hashIfStatement(ifStmt)
 
 	err := l.handleIfEval(ctx, ifStmt)
@@ -897,7 +892,6 @@ func (l *loader) forTarget(ctx context.Context, target domain.Target, args []str
 }
 
 func (l *loader) loadTargetFromString(ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation) error {
-
 	targetName, err := l.expandArgs(ctx, targetName)
 	if err != nil {
 		return wrapError(err, srcLoc, "failed to expand args")
@@ -965,7 +959,6 @@ func (l *loader) targetCacheKey() string {
 }
 
 func (l *loader) load(ctx context.Context) ([]byte, error) {
-
 	if l.target.IsRemote() {
 		return nil, errCannotLoadRemoteTarget
 	}

@@ -10,15 +10,15 @@ import (
 	"sync"
 	"time"
 
-	runc "github.com/containerd/go-runc"
-	humanize "github.com/dustin/go-humanize"
-	"github.com/earthly/cloud-api/logstream"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/util/deltautil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/progressbar"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
+	runc "github.com/containerd/go-runc"
+	humanize "github.com/dustin/go-humanize"
+	"github.com/earthly/cloud-api/logstream"
 	"github.com/hashicorp/go-multierror"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
@@ -266,11 +266,11 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	commandID := dl.GetCommandId()
 	targetID := dl.GetTargetId()
 
-	//lookup --raw-output from the command manifest
+	// lookup --raw-output from the command manifest
 	cm := f.manifest.GetCommands()[dl.GetCommandId()]
 	rawOutput := false
 	if cm != nil {
-		//commandStr building order in converter.internalRun means
+		// commandStr building order in converter.internalRun means
 		// --raw-output is always first after run
 		rawOutput = strings.Contains(cm.Name, "RUN --raw-output")
 	}
@@ -501,7 +501,7 @@ func (f *Formatter) printGHAFailure() {
 	}
 	fullErrorMessage := stringutil.ScrubANSICodes(failure.GetErrorMessage())
 	output := stringutil.ScrubANSICodes(string(failure.GetOutput()))
-	//GHA Summary markdown
+	// GHA Summary markdown
 	markdown := fmt.Sprintf(`
 # ❌ Build Failure ❌
 

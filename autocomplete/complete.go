@@ -20,9 +20,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	errCompPointOutOfBounds = fmt.Errorf("COMP_POINT out of bounds")
-)
+var errCompPointOutOfBounds = fmt.Errorf("COMP_POINT out of bounds")
 
 func isLocalPath(path string) bool {
 	for _, prefix := range []string{".", "..", "/", "~"} {

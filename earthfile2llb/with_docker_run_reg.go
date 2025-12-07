@@ -305,7 +305,6 @@ func (w *withDockerRunRegistry) load(ctx context.Context, cmdID string, opt Dock
 	}
 
 	afterFn := func(ctx context.Context, mts *states.MultiTarget) error {
-
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {

@@ -163,7 +163,19 @@ install_dockerd_debian_like() {
 }
 
 install_dockerd_amazon() {
-    yes | amazon-linux-extras install docker
+    version=$(. /etc/os-release && echo "$VERSION")
+    case "$version" in
+        2023)
+            dnf update -y
+            dnf install -y docker
+        ;;
+        2)
+            yes | amazon-linux-extras install docker
+        ;;
+        *)
+            echo "Warning: Amazon Linux version $version not yet supported for Docker-in-Earthly." && exit 1
+        ;;
+    esac
 }
 
 install_jq() {

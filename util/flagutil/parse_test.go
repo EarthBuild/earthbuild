@@ -49,7 +49,7 @@ func TestSplitFlagString(t *testing.T) {
 }
 
 func TestParseParams(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		in    string
 		first string
 		args  []string
@@ -71,12 +71,11 @@ func TestParseParams(t *testing.T) {
 			assert.Equal(t, tt.first, actualFirst)
 			assert.Equal(t, tt.args, actualArgs)
 		})
-
 	}
 }
 
 func TestNegativeParseParams(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		in string
 	}{
 		{"+target/art --flag=something)"},

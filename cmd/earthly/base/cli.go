@@ -88,24 +88,31 @@ func (c *CLI) App() *cli.App {
 func (c *CLI) SetAppUsage(usage string) {
 	c.app.Usage = usage
 }
+
 func (c *CLI) SetAppUsageText(usageText string) {
 	c.app.UsageText = usageText
 }
+
 func (c *CLI) SetAppUseShortOptionHandling(use bool) {
 	c.app.UseShortOptionHandling = use
 }
+
 func (c *CLI) SetAction(action cli.ActionFunc) {
 	c.app.Action = action
 }
+
 func (c *CLI) SetVersion(version string) {
 	c.app.Version = version
 }
+
 func (c *CLI) SetFlags(flags []cli.Flag) {
 	c.app.Flags = flags
 }
+
 func (c *CLI) SetCommands(commands []*cli.Command) {
 	c.app.Commands = commands
 }
+
 func (c *CLI) SetBefore(before cli.BeforeFunc) {
 	c.app.Before = before
 }
@@ -113,6 +120,7 @@ func (c *CLI) SetBefore(before cli.BeforeFunc) {
 func (c *CLI) Console() conslogging.ConsoleLogger {
 	return c.console
 }
+
 func (c *CLI) SetConsole(cons conslogging.ConsoleLogger) {
 	c.console = cons
 }
@@ -120,6 +128,7 @@ func (c *CLI) SetConsole(cons conslogging.ConsoleLogger) {
 func (c *CLI) Cfg() *config.Config {
 	return c.cfg
 }
+
 func (c *CLI) SetCfg(cfg *config.Config) {
 	c.cfg = cfg
 }
@@ -127,6 +136,7 @@ func (c *CLI) SetCfg(cfg *config.Config) {
 func (c *CLI) CommandName() string {
 	return c.commandName
 }
+
 func (c *CLI) SetCommandName(commandName string) {
 	c.commandName = commandName
 }
@@ -134,15 +144,19 @@ func (c *CLI) SetCommandName(commandName string) {
 func (c *CLI) Version() string {
 	return c.version
 }
+
 func (c *CLI) GitSHA() string {
 	return c.gitSHA
 }
+
 func (c *CLI) BuiltBy() string {
 	return c.builtBy
 }
+
 func (c *CLI) DefaultBuildkitdImage() string {
 	return c.defaultBuildkitdImage
 }
+
 func (c *CLI) DefaultInstallationName() string {
 	return c.defaultInstallationName
 }
@@ -150,6 +164,7 @@ func (c *CLI) DefaultInstallationName() string {
 func (c *CLI) LogbusSetup() *setup.BusSetup {
 	return c.logbusSetup
 }
+
 func (c *CLI) SetLogbusSetup(setup *setup.BusSetup) {
 	c.logbusSetup = setup
 }
@@ -157,6 +172,7 @@ func (c *CLI) SetLogbusSetup(setup *setup.BusSetup) {
 func (c *CLI) Logbus() *logbus.Bus {
 	return c.logbus
 }
+
 func (c *CLI) SetLogbus(logbus *logbus.Bus) {
 	c.logbus = logbus
 }

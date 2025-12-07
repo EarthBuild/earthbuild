@@ -253,7 +253,6 @@ func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExports
 }
 
 func (wb *waitBlock) waitStates(ctx context.Context) error {
-
 	stateItems := []*stateWaitItem{}
 
 	for _, item := range wb.items {

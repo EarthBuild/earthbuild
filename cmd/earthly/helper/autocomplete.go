@@ -40,7 +40,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) {
 			os.Exit(1)
 		}
 		logFile := filepath.Join(logDir, "autocomplete.log")
-		err = os.MkdirAll(logDir, 0755)
+		err = os.MkdirAll(logDir, 0o755)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MkdirAll %s failed: %v\n", logDir, err)
 			os.Exit(1)

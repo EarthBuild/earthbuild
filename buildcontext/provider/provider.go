@@ -33,8 +33,10 @@ const (
 	keyExporterMetaPrefix = "exporter-md-"
 )
 
-var _ session.Attachable = (*BuildContextProvider)(nil)
-var _ filesync.FileSyncServer = (*BuildContextProvider)(nil)
+var (
+	_ session.Attachable      = (*BuildContextProvider)(nil)
+	_ filesync.FileSyncServer = (*BuildContextProvider)(nil)
+)
 
 // BuildContextProvider is a BuildKit attachable which provides local files as part
 // of the build context.

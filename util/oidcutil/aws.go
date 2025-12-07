@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/EarthBuild/earthbuild/util/parseutil"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -20,27 +20,29 @@ type AWSOIDCInfo struct {
 	SessionDuration *time.Duration `mapstructure:"session-duration"`
 }
 
-var requiredFields = []string{"role-arn", "session-name"}
-var decodeCFGTemplate = mapstructure.DecoderConfig{
-	DecodeHook: mapstructure.ComposeDecodeHookFunc(
-		timeDurationValidationsHookFunc(func(input time.Duration) error {
-			if input.Seconds() < 900 || input.Seconds() > 43200 {
-				return errors.New("duration must be between 900s and 43200s")
-			}
-			return nil
-		}),
-		stringToARN(func(input *arn.ARN) error {
-			if input.Service != "iam" {
-				return fmt.Errorf(`aws service ("%s") must be "iam"`, input.Service)
-			}
-			if !strings.HasPrefix(input.Resource, "role/") {
-				return fmt.Errorf(`resource ("%s") must be an aws role"`, input.Resource)
-			}
-			return nil
-		}),
-	),
-	WeaklyTypedInput: true,
-}
+var (
+	requiredFields    = []string{"role-arn", "session-name"}
+	decodeCFGTemplate = mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			timeDurationValidationsHookFunc(func(input time.Duration) error {
+				if input.Seconds() < 900 || input.Seconds() > 43200 {
+					return errors.New("duration must be between 900s and 43200s")
+				}
+				return nil
+			}),
+			stringToARN(func(input *arn.ARN) error {
+				if input.Service != "iam" {
+					return fmt.Errorf(`aws service ("%s") must be "iam"`, input.Service)
+				}
+				if !strings.HasPrefix(input.Resource, "role/") {
+					return fmt.Errorf(`resource ("%s") must be an aws role"`, input.Resource)
+				}
+				return nil
+			}),
+		),
+		WeaklyTypedInput: true,
+	}
+)
 
 func newDecodeCFG(result interface{}, metadata *mapstructure.Metadata, template mapstructure.DecoderConfig) *mapstructure.DecoderConfig {
 	res := template
@@ -48,6 +50,7 @@ func newDecodeCFG(result interface{}, metadata *mapstructure.Metadata, template 
 	res.Metadata = metadata
 	return &res
 }
+
 func (oi *AWSOIDCInfo) String() string {
 	if oi == nil {
 		return ""
@@ -104,7 +107,8 @@ func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHo
 	return func(
 		f reflect.Type,
 		t reflect.Type,
-		data interface{}) (interface{}, error) {
+		data interface{},
+	) (interface{}, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
@@ -129,7 +133,8 @@ func timeDurationValidationsHookFunc(validators ...func(input time.Duration) err
 	return func(
 		f reflect.Type,
 		t reflect.Type,
-		data interface{}) (interface{}, error) {
+		data interface{},
+	) (interface{}, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}

@@ -31,5 +31,4 @@ func (a *Root) Cmds() []*cli.Command {
 	})
 
 	return cmds
-
 }

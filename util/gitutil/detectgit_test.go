@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseGitRemoteURL(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		gitURL         string
 		expectedGitURL string
 		valid          bool

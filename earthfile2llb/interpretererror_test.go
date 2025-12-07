@@ -1,10 +1,11 @@
 package earthfile2llb
 
 import (
+	"testing"
+
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestFromError(t *testing.T) {

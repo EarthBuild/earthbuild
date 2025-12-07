@@ -13,7 +13,7 @@ var errInvalidHash = fmt.Errorf("invalid sha1 hash")
 
 // NewLocal creates and returns a BoltDB implementation of the auto-skip client.
 func NewLocal(path string) (*LocalBuildkitSkipper, error) {
-	db, err := bolt.Open(path, 0600, nil)
+	db, err := bolt.Open(path, 0o600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not open db, %w", err)
 	}

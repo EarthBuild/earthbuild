@@ -1,8 +1,9 @@
 package flagutil
 
 import (
-	"github.com/pkg/errors"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func ParseImageNameAndAttrs(s string) (string, map[string]string, error) {

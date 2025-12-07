@@ -7,7 +7,6 @@ import (
 )
 
 func Test_parseSecretFlag(t *testing.T) {
-
 	tests := []struct {
 		name              string
 		val               string

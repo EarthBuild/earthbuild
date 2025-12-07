@@ -87,9 +87,11 @@ func SplitFlagString(value cli.StringSlice) []string {
 	})
 }
 
-var ErrInvalidSyntax = errors.New("invalid syntax")
-var ErrRequiredArgHasDefault = errors.New("required ARG cannot have a default value")
-var ErrGlobalArgNotInBase = errors.New("global ARG can only be set in the base target")
+var (
+	ErrInvalidSyntax         = errors.New("invalid syntax")
+	ErrRequiredArgHasDefault = errors.New("required ARG cannot have a default value")
+	ErrGlobalArgNotInBase    = errors.New("global ARG can only be set in the base target")
+)
 
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error

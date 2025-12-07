@@ -8,9 +8,7 @@ import (
 
 type contextKey string
 
-var (
-	contextKeySourceLocation contextKey = "sourceLocation"
-)
+var contextKeySourceLocation contextKey = "sourceLocation"
 
 // ContextWithSourceLocation returns a new context with the given source location.
 func ContextWithSourceLocation(ctx context.Context, sl *spec.SourceLocation) context.Context {

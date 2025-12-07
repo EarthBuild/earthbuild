@@ -159,7 +159,7 @@ func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
 	var result bytes.Buffer
 	var words wordsStruct
 
-	var charFuncMapping = map[rune]func() (string, error){
+	charFuncMapping := map[rune]func() (string, error){
 		'$': sw.processDollar,
 	}
 	if !sw.skipProcessQuotes {

@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseEscapedKeyValue(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		kv string
 		k  string
 		v  string

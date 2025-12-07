@@ -80,7 +80,7 @@ func (t *Tracker) Close(ctx context.Context) error {
 		fmt.Print(summary)
 		return nil
 	}
-	return os.WriteFile(t.path, []byte(summary), 0644)
+	return os.WriteFile(t.path, []byte(summary), 0o644)
 }
 
 type stats struct {

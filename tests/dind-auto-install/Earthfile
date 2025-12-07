@@ -1,6 +1,20 @@
 VERSION 0.8
 
 all:
+    # Alternatively, "amazonlinux" in the Docker Hub registry
+    # renovate: datasource=docker packageName=public.ecr.aws/amazonlinux/amazonlinux
+    LET amazonlinux_2_version=2
+    # renovate: datasource=docker packageName=public.ecr.aws/amazonlinux/amazonlinux
+    LET amazonlinux_2023_version=2023.9.20251117.1
+
+    # Alternatively, "earthbuild/dind" in the Docker Hub registry
+    # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
+    LET earthbuild_dind_alpine_version=alpine-3.22-docker-28.3.3-r1
+    # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
+    LET earthbuild_dind_ubuntu_2004_version=ubuntu-20.04-docker-28.1.1-1
+    # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
+    LET earthbuild_dind_ubuntu_2404_version=ubuntu-24.04-docker-28.3.3-1
+
     BUILD +test \
         --BASE_IMAGE=docker:20.10.14-dind \
         --BASE_IMAGE=docker:20.10.15-dind \
@@ -12,11 +26,11 @@ all:
         --BASE_IMAGE=debian:stable \
         --BASE_IMAGE=debian:stable-slim \
         --BASE_IMAGE=ubuntu:latest \
-        --BASE_IMAGE=amazonlinux:1 \
-        --BASE_IMAGE=amazonlinux:2 \
-        --BASE_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r1 \
-        --BASE_IMAGE=earthbuild/dind:ubuntu-20.04-docker-28.1.1-1 \
-        --BASE_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.3.3-1
+        --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2_version \
+        --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2023_version \
+        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_alpine_version \
+        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_2004_version \
+        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_2404_version
 
 test:
     ARG --required BASE_IMAGE

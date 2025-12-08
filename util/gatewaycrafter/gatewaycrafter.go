@@ -2,7 +2,7 @@ package gatewaycrafter
 
 import (
 	"encoding/json"
-	"fmt"
+	"strconv"
 
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
@@ -35,8 +35,8 @@ func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, i
 		return "", errors.Wrapf(err, "marshal save image config")
 	}
 
-	refKey := fmt.Sprintf("image-%d", refID)
-	refPrefix := fmt.Sprintf("ref/%s", refKey)
+	refKey := "image-" + strconv.Itoa(refID)
+	refPrefix := "ref/" + refKey
 
 	gc.AddRef(refKey, ref)
 
@@ -57,17 +57,16 @@ func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, i
 
 // AddSaveArtifactLocal adds ref and metadata required to trigger an artifact export to the local host
 func (gc *GatewayCrafter) AddSaveArtifactLocal(ref gwclient.Reference, refID int, artifact, srcPath, destPath string) (string, error) {
-	refKey := fmt.Sprintf("dir-%d", refID)
-	refPrefix := fmt.Sprintf("ref/%s", refKey)
+	refKey := "dir-" + strconv.Itoa(refID)
+	refPrefix := "ref/" + refKey
 	gc.AddRef(refKey, ref)
 
 	dirID := stringutil.RandomAlphanumeric(32)
-	gc.AddMeta(fmt.Sprintf("%s/artifact", refPrefix), []byte(artifact))
-	gc.AddMeta(fmt.Sprintf("%s/src-path", refPrefix), []byte(srcPath))
-	gc.AddMeta(fmt.Sprintf("%s/dest-path", refPrefix), []byte(destPath))
-	gc.AddMeta(fmt.Sprintf("%s/export-dir", refPrefix), []byte("true"))
-	gc.AddMeta(fmt.Sprintf("%s/dir-id", refPrefix), []byte(dirID))
-
+	gc.AddMeta(refPrefix+"/artifact", []byte(artifact))
+	gc.AddMeta(refPrefix+"/src-path", []byte(srcPath))
+	gc.AddMeta(refPrefix+"/dest-path", []byte(destPath))
+	gc.AddMeta(refPrefix+"/export-dir", []byte("true"))
+	gc.AddMeta(refPrefix+"/dir-id", []byte(dirID))
 	return dirID, nil
 }
 

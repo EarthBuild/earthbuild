@@ -1,7 +1,6 @@
 package cliutil
 
 import (
-	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -37,7 +36,7 @@ func GetEarthlyDir(installName string) string {
 
 func getEarthlyDirAndUser(installName string) (string, *user.User) {
 	homeDir, u := fileutil.HomeDir()
-	earthlyDir := filepath.Join(homeDir, fmt.Sprintf(".%s", installName))
+	earthlyDir := filepath.Join(homeDir, "."+installName)
 	return earthlyDir, u
 }
 

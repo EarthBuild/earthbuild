@@ -209,10 +209,10 @@ func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExports
 				})
 
 				if item.c.opt.UseLocalRegistry {
-					gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-local-registry", refPrefix), []byte(exportCoordinatorImageID))
+					gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(exportCoordinatorImageID))
 				} else {
-					gwCrafter.AddMeta(fmt.Sprintf("%s/export-image", refPrefix), []byte("true"))
-					gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-manifest-key", refPrefix), []byte(exportCoordinatorImageID))
+					gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
+					gwCrafter.AddMeta(refPrefix+"/export-image-manifest-key", []byte(exportCoordinatorImageID))
 					tarImagesInWaitBlockRefPrefixes = append(tarImagesInWaitBlockRefPrefixes, refPrefix)
 					tarImagesInWaitBlock = append(tarImagesInWaitBlock, exportCoordinatorImageID)
 				}
@@ -220,9 +220,9 @@ func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExports
 			} else {
 				if item.c.opt.UseLocalRegistry {
 					exportCoordinatorImageID := exportCoordinator.AddImage(sessionID, item.si.DockerTag, nil)
-					gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-local-registry", refPrefix), []byte(exportCoordinatorImageID))
+					gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(exportCoordinatorImageID))
 				} else {
-					gwCrafter.AddMeta(fmt.Sprintf("%s/export-image", refPrefix), []byte("true"))
+					gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
 				}
 			}
 			exportCoordinator.AddLocalOutputSummary(item.c.target.String(), item.si.DockerTag, item.c.mts.Final.ID)
@@ -232,7 +232,7 @@ func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExports
 		waitFor := strings.Join(tarImagesInWaitBlock, " ")
 		// the wait-for entry is used to know when all multiplatform images have been exported, thus making it safe to load manifests
 		for _, refPrefix := range tarImagesInWaitBlockRefPrefixes {
-			gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-wait-for", refPrefix), []byte(waitFor))
+			gwCrafter.AddMeta(refPrefix+"/export-image-wait-for", []byte(waitFor))
 		}
 	}
 
@@ -341,7 +341,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		}
 		artifacts = append(artifacts, saveArtifactLocalEntry{
 			artifact:    artifact,
-			artifactDir: filepath.Join(outDir, fmt.Sprintf("index-%s", dirID)),
+			artifactDir: filepath.Join(outDir, "index-"+dirID),
 			destPath:    saveLocalItem.saveLocal.DestPath,
 			ifExists:    saveLocalItem.saveLocal.IfExists,
 			salt:        c.mts.Final.ID,

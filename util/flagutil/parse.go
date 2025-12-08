@@ -2,7 +2,6 @@ package flagutil
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 
@@ -60,7 +59,7 @@ func ParseArgsWithValueModifierAndOptions(command string, data interface{}, args
 		return p
 	}
 	p.ArgumentMod = modFunc
-	_, err := p.AddGroup(fmt.Sprintf("%s [options] args", command), "", data)
+	_, err := p.AddGroup(command+" [options] args", "", data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to initiate parser.AddGroup for %s", command)
 	}

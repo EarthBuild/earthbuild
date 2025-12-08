@@ -206,10 +206,10 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 	c := cl.color(phaseColor)
 	if disabled {
 		c = cl.color(disabledPhaseColor)
-		msg = fmt.Sprintf("%s (disabled)", msg)
+		msg += " (disabled)"
 	} else if special != "" {
 		c = cl.color(specialPhaseColor)
-		msg = fmt.Sprintf("%s (%s)", msg, special)
+		msg += " (" + special + ")"
 	}
 	underlineLength := utf8.RuneCountInString(msg) + 2
 	if underlineLength < barWidth {
@@ -290,7 +290,7 @@ func (e *GHAError) FormattedMessage() string {
 	if e.file != "" {
 		return fmt.Sprintf("file=%s,line=%d,col=%d,title=Error::%s", e.file, e.line, e.col, e.message)
 	} else {
-		return fmt.Sprintf("title=Error::%s", e.message)
+		return "title=Error::" + e.message
 	}
 }
 

@@ -2,7 +2,6 @@ package solvermon
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -92,7 +91,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *clien
 		} else {
 			category := meta.TargetName
 			if meta.Internal {
-				category = fmt.Sprintf("internal %s", category)
+				category = "internal " + category
 			}
 			var cp *logbus.Command
 			// Operations initiated from Earthly have created Logbus commands

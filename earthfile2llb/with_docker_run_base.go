@@ -177,7 +177,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
-		Filename: fmt.Sprintf("/tmp/earthbuild/%s", composeConfigFile),
+		Filename: "/tmp/earthbuild/" + composeConfigFile,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "read compose config file")

@@ -50,6 +50,6 @@ func pretty(caser caser, e ProtoEnum) string {
 	val := string(e.Type().Descriptor().Name())
 	idx := strings.Index(val, "_")
 	val = val[idx+1:]
-	prefix := fmt.Sprintf("%s_", strcase.ToScreamingSnake(val))
+	prefix := "%s_" + strcase.ToScreamingSnake(val)
 	return caser.String(strings.ReplaceAll(strings.TrimPrefix(e.String(), prefix), "_", " "))
 }

@@ -437,7 +437,7 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 		Timeout:           time.Second * 3,
 	}
 
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", host), config)
+	client, err := ssh.Dial("tcp", net.JoinHostPort(host, "22"), config)
 	if err != nil {
 		gl.console.VerbosePrintf("failed to connect to %s over ssh due to %s; falling back to https", host, err.Error())
 		protocol = httpsProtocol
@@ -452,7 +452,7 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 	return
 }
 
-var errNoRCHostEntry = fmt.Errorf("no netrc host entry")
+var errNoRCHostEntry = errors.New("no netrc host entry")
 
 func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string, err error) {
 	var n *netrc.Netrc
@@ -483,7 +483,7 @@ func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string,
 	return login, password, nil
 }
 
-var errMakeCloneURLSubNotSupported = fmt.Errorf("makeCloneURL does not support gitMatcher substitution")
+var errMakeCloneURLSubNotSupported = errors.New("makeCloneURL does not support gitMatcher substitution")
 
 func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL string, keyScans []string, sshCommand string, err error) {
 	if m.sub != "" {
@@ -697,7 +697,7 @@ func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []st
 				return "", nil, "", errors.Wrapf(err, "failed to parse %s", inURL)
 			}
 			if u.Scheme != "ssh" {
-				panic(fmt.Sprintf("expected scheme of ssh; got %s", u.Scheme)) // shouldn't happen
+				panic("expected scheme of ssh; got " + u.Scheme) // shouldn't happen
 			}
 			host = strings.TrimSuffix(u.Host, ":22")
 			gitPath = u.Path

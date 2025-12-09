@@ -47,6 +47,13 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Set up Docker Hub mirrors for docker
+      if: inputs.BINARY == 'docker'
+      shell: bash
+      run: |
+        sudo mkdir -p /etc/docker
+        echo '{"registry-mirrors": ["https://mirror.gcr.io", "https://public.ecr.aws"]}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
     - name: Login to GHCR
       if: inputs.BINARY == 'docker'
       uses: docker/login-action@v3
@@ -65,14 +72,39 @@ runs:
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
+    - name: Docker Info
+      if: inputs.BINARY == 'docker'
+      shell: bash
+      run: docker info
     - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
       with:
         go-version: 1.21
-    - if: ${{ inputs.BINARY == 'podman' }}
+    - name: Set up Podman
+      if: ${{ inputs.BINARY == 'podman' }}
       run: |-
-        echo "Setting up podman"
-        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -f /usr/bin/docker
-        ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli
+        ${{inputs.SUDO}} rm -f /usr/bin/docker
+        ${{inputs.SUDO}} apt-get update
+        ${{inputs.SUDO}} apt-get install -y podman
+        ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
+      shell: bash
+    - name: Set up Docker Hub mirrors for Podman
+      if: ${{ inputs.BINARY == 'podman' }}
+      run: |-
+        mkdir -p ~/.config/containers
+        cat <<EOF > ~/.config/containers/registries.conf
+        unqualified-search-registries = ["docker.io"]
+
+        [[registry]]
+        prefix = "docker.io"
+        location = "docker.io"
+
+        [[registry.mirror]]
+        location = "mirror.gcr.io"
+
+        [[registry.mirror]]
+        location = "public.ecr.aws"
+        EOF
         podman version && podman info && podman info --debug
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
@@ -92,9 +124,9 @@ runs:
         echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
       shell: bash
     - run: |-
-        echo "Configuring earthbuild to use GCR mirror"
+        echo "Configuring earthbuild to use Docker Hub mirrors"
         ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
-        mirrors = [\"mirror.gcr.io\"]'"
+        mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-

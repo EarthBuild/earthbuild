@@ -248,7 +248,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 		return false, errors.Wrapf(err, "failed to add entry")
 	}
 
-	_, err = f.Write([]byte(bashEntry))
+	_, err = f.WriteString(bashEntry)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed writing to %s", path)
 	}
@@ -299,7 +299,7 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 		return nil // zsh-completion isn't available, silently fail.
 	}
 
-	_, err = f.Write([]byte(compEntry))
+	_, err = f.WriteString(compEntry)
 	if err != nil {
 		return errors.Wrapf(err, "failed writing to %s", path)
 	}

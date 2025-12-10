@@ -7,9 +7,8 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
-
 	"slices"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/pkg/errors"

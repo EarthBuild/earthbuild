@@ -160,7 +160,11 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	// Wait for the proxy chain to resolve to the BK registry. The /v2/ path
 	// will return a 200 when ready.
 	for {
-		res, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort))
+		req, err := http.NewRequestWithContext(childCtx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort), nil)
+		if err != nil {
+			return 0, err
+		}
+		res, err := http.DefaultClient.Do(req)
 		if res != nil && res.Body != nil {
 			res.Body.Close()
 		}

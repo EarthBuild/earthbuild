@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// PlatformSpecificImageName returns the PlatformSpecificImageName
+// PlatformSpecificImageName returns the PlatformSpecificImageName.
 func PlatformSpecificImageName(imgName string, platform platutil.Platform) (string, error) {
 	platformStr := platform.String()
 	if platformStr == "" {

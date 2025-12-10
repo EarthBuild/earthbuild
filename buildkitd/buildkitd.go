@@ -332,7 +332,7 @@ func maybeRestart(ctx context.Context, console conslogging.ConsoleLogger, image,
 	return info, workerInfo, nil
 }
 
-// RemoveExited removes any stopped or exited buildkitd containers
+// RemoveExited removes any stopped or exited buildkitd containers.
 func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, containerName string) error {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
@@ -764,7 +764,7 @@ func MaybePull(ctx context.Context, console conslogging.ConsoleLogger, image str
 	return nil
 }
 
-// GetDockerVersion returns the docker version command output
+// GetDockerVersion returns the docker version command output.
 func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (string, error) {
 	info, err := fe.Information(ctx)
 	if err != nil {
@@ -774,7 +774,7 @@ func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (
 	return fmt.Sprintf("%#v", info), nil
 }
 
-// GetLogs returns earthly-buildkitd logs
+// GetLogs returns earthly-buildkitd logs.
 func GetLogs(ctx context.Context, containerName string, fe containerutil.ContainerFrontend, settings Settings) (string, error) {
 	if !containerutil.IsLocal(settings.BuildkitAddress) {
 		return "", nil
@@ -846,7 +846,7 @@ func GetSettingsHash(ctx context.Context, containerName string, fe containerutil
 	return "", fmt.Errorf("settings hash for container %s was not found", containerName)
 }
 
-// GetContainerInfo inspects the running container (running under containerName)
+// GetContainerInfo inspects the running container (running under containerName).
 func GetContainerInfo(ctx context.Context, containerName string, fe containerutil.ContainerFrontend) (*containerutil.ContainerInfo, error) {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
@@ -860,7 +860,7 @@ func GetContainerInfo(ctx context.Context, containerName string, fe containeruti
 	return nil, fmt.Errorf("info for container %s was not found", containerName)
 }
 
-// GetImageInfo inspects an image
+// GetImageInfo inspects an image.
 func GetImageInfo(ctx context.Context, image string, fe containerutil.ContainerFrontend) (*containerutil.ImageInfo, error) {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {

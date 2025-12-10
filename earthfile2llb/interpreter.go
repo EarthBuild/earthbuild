@@ -36,7 +36,7 @@ const maxCommandRenameWarnings = 3
 
 var errCannotAsync = errors.New("cannot run async operation")
 
-// use as default to differentiate between an un specified string flag and a specified flag with empty value
+// use as default to differentiate between an un specified string flag and a specified flag with empty value.
 var defaultZeroStringFlag = uuid.NewString()
 
 // Interpreter interprets Earthly AST's into calls to the converter.
@@ -803,7 +803,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 }
 
 // handleOIDC parse the oidc string value into a struct
-// Returns error if the value cannot be parsed of if the feature flag is not set
+// Returns error if the value cannot be parsed of if the feature flag is not set.
 func (i *Interpreter) handleOIDC(ctx context.Context, cmd *spec.Command, opts *commandflag.RunOpts) (*oidcutil.AWSOIDCInfo, error) {
 	if opts.OIDC == defaultZeroStringFlag {
 		// oidc is not in use, set it to empty string just in case
@@ -2142,7 +2142,7 @@ func (i *Interpreter) expandArgs(ctx context.Context, word string, keepPlusEscap
 	return unescapeSlashPlus(ret), nil
 }
 
-// isArgLike returns true if the command is ARG/LET/SET
+// isArgLike returns true if the command is ARG/LET/SET.
 func (i *Interpreter) isArgLike(cmd *spec.Command) bool {
 	if cmd == nil {
 		return false
@@ -2181,7 +2181,7 @@ func requiresShellOutOrCmdInvalid(s string) bool {
 	return required || err != nil
 }
 
-// isSafeAsyncBuildArgsKVStyle is used for "key=value" style buildargs
+// isSafeAsyncBuildArgsKVStyle is used for "key=value" style buildargs.
 func isSafeAsyncBuildArgsKVStyle(args []string) bool {
 	for _, arg := range args {
 		_, v, _ := variables.ParseKeyValue(arg)
@@ -2192,7 +2192,7 @@ func isSafeAsyncBuildArgsKVStyle(args []string) bool {
 	return true
 }
 
-// isSafeAsyncBuildArgs is used for "BUILD +target --key=value" style buildargs
+// isSafeAsyncBuildArgs is used for "BUILD +target --key=value" style buildargs.
 func isSafeAsyncBuildArgs(args []string) bool {
 	for _, arg := range args {
 		if !strings.HasPrefix(arg, "--") {

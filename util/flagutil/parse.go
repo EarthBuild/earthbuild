@@ -24,7 +24,7 @@ import (
 // to completely fork go-flags with a version where we can include control over expansion struct tags.
 type ArgumentModFunc func(flagName string, opt *flags.Option, flagVal *string) (*string, error)
 
-// ParseArgs parses flags and args from a command string
+// ParseArgs parses flags and args from a command string.
 func ParseArgs(command string, data interface{}, args []string) ([]string, error) {
 	return ParseArgsWithValueModifier(command, data, args,
 		func(_ string, _ *flags.Option, s *string) (*string, error) { return s, nil },
@@ -43,7 +43,7 @@ func ParseArgsWithValueModifierCleaned(cmdName string, opts interface{}, args []
 
 // ParseArgsWithValueModifier parses flags and args from a command string; it accepts an optional argumentModFunc
 // which is called before each flag value is parsed, and allows one to change the value.
-// if the flag value
+// if the flag value.
 func ParseArgsWithValueModifier(command string, data interface{}, args []string, argumentModFunc ArgumentModFunc) ([]string, error) {
 	return ParseArgsWithValueModifierAndOptions(command, data, args, argumentModFunc, flags.PrintErrors|flags.PassDoubleDash|flags.PassAfterNonOption|flags.AllowBoolValues)
 }
@@ -79,7 +79,7 @@ func ParseArgsWithValueModifierAndOptions(command string, data interface{}, args
 
 // SplitFlagString would return an array of values from the StringSlice, whether it's passed using multiple occuranced of the flag
 // or with the values passed with a command.
-// For example: --platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64"
+// For example: --platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64".
 func SplitFlagString(value cli.StringSlice) []string {
 	valueStr := strings.TrimLeft(strings.TrimRight(value.String(), "]"), "[")
 	return strings.FieldsFunc(valueStr, func(r rune) bool {
@@ -94,7 +94,7 @@ var (
 )
 
 // ParseArgArgs parses the ARG command's arguments
-// and returns the argOpts, key, value (or nil if missing), or error
+// and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(ctx context.Context, cmd spec.Command, isBaseTarget bool, explicitGlobalFeature bool) (commandflag.ArgOpts, string, *string, error) {
 	var opts commandflag.ArgOpts
 	args, err := ParseArgsCleaned("ARG", &opts, GetArgsCopy(cmd))
@@ -142,7 +142,7 @@ func IsInParamsForm(str string) bool {
 }
 
 // parseParams turns "(+target --flag=something)" into "+target" and []string{"--flag=something"},
-// or "\"(+target --flag=something)\"" into "+target" and []string{"--flag=something"}
+// or "\"(+target --flag=something)\"" into "+target" and []string{"--flag=something"}.
 func ParseParams(str string) (string, []string, error) {
 	if !IsInParamsForm(str) {
 		return "", nil, errors.New("params atom not in ( ... )")
@@ -200,7 +200,7 @@ func ParseParams(str string) (string, []string, error) {
 }
 
 // ParseLoad splits a --load value into the image, target, & extra args.
-// Example: --load my-image=(+target --arg1 foo --arg2=bar)
+// Example: --load my-image=(+target --arg1 foo --arg2=bar).
 func ParseLoad(loadStr string) (image string, target string, extraArgs []string, err error) {
 	words := strings.SplitN(loadStr, " ", 2)
 	if len(words) == 0 {

@@ -255,7 +255,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	return true, nil
 }
 
-// If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache
+// If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache.
 func (a *Bootstrap) insertZSHCompleteEntry() error {
 	potentialPaths := []string{
 		"/usr/local/share/zsh/site-functions",

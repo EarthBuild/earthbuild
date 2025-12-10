@@ -10,11 +10,11 @@ type stateWaitItem struct {
 	state *pllb.State
 }
 
-// SetDoPush has no effect, but exists to satisfy interface
+// SetDoPush has no effect, but exists to satisfy interface.
 func (swi *stateWaitItem) SetDoPush() {
 }
 
-// SetDoSave has no effect, but exists to satisfy interface
+// SetDoSave has no effect, but exists to satisfy interface.
 func (swi *stateWaitItem) SetDoSave() {
 }
 

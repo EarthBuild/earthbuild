@@ -26,13 +26,13 @@ import (
 )
 
 var (
-	// Version is the version of the debugger
+	// Version is the version of the debugger.
 	Version string
 
-	// GitSha is the git sha used to build the debugger
+	// GitSha is the git sha used to build the debugger.
 	GitSha string
 
-	// ErrNoShellFound occurs when the container has no shell
+	// ErrNoShellFound occurs when the container has no shell.
 	ErrNoShellFound = errors.New("no shell found")
 
 	errInteractiveModeWaitFailed = errors.New("interactive mode wait failed")

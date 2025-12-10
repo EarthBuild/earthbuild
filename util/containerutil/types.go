@@ -90,10 +90,10 @@ type ImageTag struct {
 type MountType string
 
 const (
-	// MountBind is the bind MountType
+	// MountBind is the bind MountType.
 	MountBind = MountType("bind")
 
-	// MountVolume is the volume MountType
+	// MountVolume is the volume MountType.
 	MountVolume = MountType("volume")
 )
 
@@ -105,17 +105,17 @@ type Mount struct {
 	ReadOnly bool
 }
 
-// MountOpt is a list of Mounts to perform
+// MountOpt is a list of Mounts to perform.
 type MountOpt []Mount
 
 // ProtocolType constrains the kinds of protocols the frontend API needs to support. Current valid values are tcp and udp.
 type ProtocolType string
 
 const (
-	// ProtocolTCP is the TCP protocol type
+	// ProtocolTCP is the TCP protocol type.
 	ProtocolTCP = ProtocolType("tcp")
 
-	// ProtocolUDP is the UDP protocol type
+	// ProtocolUDP is the UDP protocol type.
 	ProtocolUDP = ProtocolType("udp")
 )
 
@@ -127,7 +127,7 @@ type Port struct {
 	Protocol      ProtocolType
 }
 
-// PortOpt is a list of Ports to publish
+// PortOpt is a list of Ports to publish.
 type PortOpt []Port
 
 // EnvMap is a map of environment variable names (key) to values. Values must be strings.
@@ -194,7 +194,7 @@ const (
 	// TCPAddressFmt is the address at which the daemon is available when using TCP.
 	TCPAddressFmt = "tcp://127.0.0.1:%d"
 
-	// DockerSchemePrefix is used to construct the buildkit address for local docker-based connections
+	// DockerSchemePrefix is used to construct the buildkit address for local docker-based connections.
 	DockerSchemePrefix = "docker-container://"
 )
 

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	// BuildkitStatsStream is the stream number associated with runc stats
+	// BuildkitStatsStream is the stream number associated with runc stats.
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
@@ -44,7 +44,7 @@ var (
 	errNoExitCode    = errors.New("no exit code in error message")
 )
 
-// getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid
+// getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid.
 func getExitCode(errString string) (int, error) {
 	if matches, _ := stringutil.NamedGroupMatches(errString, reErrExitCode); len(matches["exit_code"]) == 1 {
 		exitCodeMatch := matches["exit_code"][0]
@@ -71,7 +71,7 @@ var (
 )
 
 // determineFatalErrorType returns logstream.FailureType
-// and whether or not its a Fatal Error
+// and whether or not its a Fatal Error.
 func determineFatalErrorType(errString string, exitCode int, exitParseErr error) (logstream.FailureType, bool) {
 	if strings.Contains(errString, "context canceled") || errString == "no active sessions" {
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false

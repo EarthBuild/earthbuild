@@ -15,13 +15,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Manifest contains docker manifest data
+// Manifest contains docker manifest data.
 type Manifest struct {
 	ImageName string
 	Platform  platutil.Platform
 }
 
-// LoadDockerManifest loads docker manifests
+// LoadDockerManifest loads docker manifests.
 func LoadDockerManifest(ctx context.Context, console conslogging.ConsoleLogger, fe containerutil.ContainerFrontend, parentImageName string, children []Manifest, platr *platutil.Resolver) error {
 	if len(children) == 0 {
 		return errors.Errorf("no images in manifest list for %s", parentImageName)
@@ -68,7 +68,7 @@ func LoadDockerManifest(ctx context.Context, console conslogging.ConsoleLogger, 
 	return nil
 }
 
-// LoadDockerTar loads a docker image via a tar
+// LoadDockerTar loads a docker image via a tar.
 func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io.ReadCloser) error {
 	err := fe.ImageLoad(ctx, r)
 	if err != nil {
@@ -77,7 +77,7 @@ func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io
 	return nil
 }
 
-// DockerPullLocalImages pulls a docker image from a local registry
+// DockerPullLocalImages pulls a docker image from a local registry.
 func DockerPullLocalImages(ctx context.Context, fe containerutil.ContainerFrontend, localRegistryAddr string, pullMap map[string]string) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	for pullName, finalName := range pullMap {

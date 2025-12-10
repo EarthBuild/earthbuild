@@ -15,7 +15,7 @@ type secretProvider struct {
 	stores []secrets.SecretStore
 }
 
-// Register registers the secret provider
+// Register registers the secret provider.
 func (sp *secretProvider) Register(server *grpc.Server) {
 	secrets.RegisterSecretsServer(server, sp)
 }
@@ -49,7 +49,7 @@ func (sp *secretProvider) GetSecret(ctx context.Context, req *secrets.GetSecretR
 }
 
 // New returns a new secrets provider which looks up secrets
-// in each supplied secret store (ordered by argument ordering) and returns the first found secret
+// in each supplied secret store (ordered by argument ordering) and returns the first found secret.
 func New(stores ...secrets.SecretStore) session.Attachable {
 	return &secretProvider{
 		stores: stores,

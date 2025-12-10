@@ -14,7 +14,7 @@ type Artifact struct {
 	Artifact string
 }
 
-// Clone returns a copy of the Artifact
+// Clone returns a copy of the Artifact.
 func (a Artifact) Clone() Artifact {
 	return a
 }

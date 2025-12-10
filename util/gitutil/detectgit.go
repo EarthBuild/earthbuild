@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"slices"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
 var (

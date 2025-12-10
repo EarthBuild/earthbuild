@@ -135,7 +135,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	return w.c.forceExecution(ctx, w.c.mts.Final.MainState, w.c.platr)
 }
 
-func (w *withDockerRunLocalReg) load(ctx context.Context, cmdID string, opt DockerLoadOpt) (chan *states.ImageDef, error) {
+func (w *withDockerRunLocalReg) load(ctx context.Context, _ string, opt DockerLoadOpt) (chan *states.ImageDef, error) {
 	imageDefChan := make(chan *states.ImageDef, 1)
 
 	depTarget, err := domain.ParseTarget(opt.Target)

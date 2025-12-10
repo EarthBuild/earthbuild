@@ -124,7 +124,7 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, cfg *config.Config) error {
+func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, _ *config.Config) error {
 	console := app.BaseCLI.Console().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -163,7 +163,7 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, cfg *config.Config) er
 	return nil
 }
 
-func (app *EarthlyApp) processDeprecatedCommandOptions(cliCtx *cli.Context, cfg *config.Config) error {
+func (app *EarthlyApp) processDeprecatedCommandOptions(_ *cli.Context, cfg *config.Config) error {
 	app.warnIfEarth()
 
 	if cfg.Global.CachePath != "" {

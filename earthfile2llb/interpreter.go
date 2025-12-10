@@ -1575,7 +1575,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func parseSetArgs(ctx context.Context, cmd spec.Command) (name, value string, _ error) {
+func parseSetArgs(_ context.Context, cmd spec.Command) (name, value string, _ error) {
 	var opts commandflag.SetOpts
 	argsCpy := flagutil.GetArgsCopy(cmd)
 	args, err := flagutil.ParseArgsCleaned("SET", &opts, argsCpy)
@@ -1845,19 +1845,19 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) er
 	return nil
 }
 
-func (i *Interpreter) handleAdd(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleAdd(_ context.Context, cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command ADD not yet supported")
 }
 
-func (i *Interpreter) handleStopsignal(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleStopsignal(_ context.Context, cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command STOPSIGNAL not yet supported")
 }
 
-func (i *Interpreter) handleOnbuild(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleOnbuild(_ context.Context, cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command ONBUILD not supported")
 }
 
-func (i *Interpreter) handleShell(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleShell(_ context.Context, cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command SHELL not yet supported")
 }
 
@@ -2090,10 +2090,10 @@ To start using the FUNCTION keyword now (experimental) please use VERSION --use-
 
 // ----------------------------------------------------------------------------
 
-func (i *Interpreter) expandArgsSlice(ctx context.Context, words []string, keepPlusEscape, async bool) ([]string, error) {
+func (i *Interpreter) expandArgsSlice(ctx context.Context, words []string, _ bool, async bool) ([]string, error) {
 	ret := make([]string, 0, len(words))
 	for _, word := range words {
-		expanded, err := i.expandArgs(ctx, word, keepPlusEscape, async)
+		expanded, err := i.expandArgs(ctx, word, true, async)
 		if err != nil {
 			return nil, err
 		}

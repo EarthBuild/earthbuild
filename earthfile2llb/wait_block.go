@@ -98,7 +98,7 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	return errGroup.Wait()
 }
 
-func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExportsAllowed bool) error {
+func (wb *waitBlock) saveImages(ctx context.Context, _ bool, _ bool) error {
 	isMultiPlatform := make(map[string]bool)        // DockerTag -> bool
 	noManifestListImgs := make(map[string]struct{}) // set based on DockerTag
 	platformImgNames := make(map[string]bool)

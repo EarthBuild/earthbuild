@@ -44,7 +44,7 @@ type solver struct {
 	saveInlineCache bool
 }
 
-func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, phaseText string, console conslogging.ConsoleLogger) error {
+func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, _ string, console conslogging.ConsoleLogger) error {
 	ch := make(chan *client.SolveStatus, statusChanSize)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

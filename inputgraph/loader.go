@@ -57,7 +57,7 @@ type loader struct {
 	globalImports  map[string]domain.ImportTrackerVal
 }
 
-func newLoader(ctx context.Context, opt HashOpt) *loader {
+func newLoader(_ context.Context, opt HashOpt) *loader {
 	h := hasher.New()
 	h.HashJSONMarshalled(opt.BuiltinArgs)
 	// Other important values are set by load().
@@ -335,7 +335,7 @@ func (l *loader) expandDirs(dirs ...string) ([]string, error) {
 	return uniqStrs(ret), nil
 }
 
-func (l *loader) expandArgs(ctx context.Context, args string) (string, error) {
+func (l *loader) expandArgs(_ context.Context, args string) (string, error) {
 	expanded, err := l.varCollection.Expand(args, func(cmd string) (string, error) {
 		return args, nil // Return the original expression so it can be referenced later.
 	})
@@ -387,7 +387,7 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	}
 }
 
-func (l *loader) handleImport(ctx context.Context, cmd spec.Command, isBase bool) error {
+func (l *loader) handleImport(_ context.Context, cmd spec.Command, isBase bool) error {
 	var alias string
 	if len(cmd.Args) == 3 {
 		alias = cmd.Args[2]
@@ -850,7 +850,7 @@ func (l *loader) loadBlock(ctx context.Context, b spec.Block) error {
 	return l.handleStatements(ctx, b)
 }
 
-func (l *loader) forTarget(ctx context.Context, target domain.Target, args []string, passArgs bool) (*loader, error) {
+func (l *loader) forTarget(_ context.Context, target domain.Target, args []string, passArgs bool) (*loader, error) {
 	fullTargetName := target.String()
 
 	visited := copyVisited(l.visited)

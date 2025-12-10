@@ -303,6 +303,7 @@ var supportedHostKeyAlgos = []string{
 	ssh.KeyAlgoED25519,
 }
 
+//nolint:unparam // error return kept for future use
 func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, error) {
 	foundAlgs := map[string]bool{}
 

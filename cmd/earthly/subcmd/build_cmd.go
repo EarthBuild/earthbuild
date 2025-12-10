@@ -622,7 +622,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 	return nil
 }
 
-func receiveFileVersion1(ctx context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
+func receiveFileVersion1(_ context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
 	// dst path
 	_, dst, err := debuggercommon.ReadDataPacket(conn)
 	if err != nil {
@@ -660,7 +660,7 @@ func receiveFileVersion1(ctx context.Context, conn io.ReadWriteCloser, localArti
 	return f.Close()
 }
 
-func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
+func receiveFileVersion2(_ context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
 	// dst path
 	dst, err := debuggercommon.ReadUint16PrefixedData(conn)
 	if err != nil {

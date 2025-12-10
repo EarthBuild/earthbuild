@@ -341,7 +341,8 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	return nil
 }
 
-func (f *Formatter) processOngoingTick(ctx context.Context) error {
+//nolint:unparam // error return kept for future use
+func (f *Formatter) processOngoingTick(_ context.Context) error {
 	c := f.console.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
@@ -402,7 +403,7 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	f.lastCommandOutput = nil
 }
 
-func (f *Formatter) shouldPrintProgress(targetID string, commandID string, cm *logstream.CommandManifest) bool {
+func (f *Formatter) shouldPrintProgress(_ string, commandID string, cm *logstream.CommandManifest) bool {
 	if !cm.GetHasProgress() {
 		return false
 	}

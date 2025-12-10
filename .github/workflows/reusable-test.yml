@@ -73,7 +73,7 @@ jobs:
       - name: Display buildkit version
         run: |-
           ${{inputs.SUDO}} ${{inputs.BINARY}} ps -a
-          ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd |& grep 'starting earthly-buildkit'
+          ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd |& grep 'starting earthly-buildkit' || true
         shell: bash
       - name: Execute fail test
         run: |

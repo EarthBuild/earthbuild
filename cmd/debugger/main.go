@@ -95,7 +95,7 @@ func populateShellHistory(cmd string) error {
 			result = multierror.Append(result, err)
 		}
 		defer f.Close()
-		_, err = f.Write([]byte(cmd + "\n"))
+		_, err = f.WriteString(cmd + "\n")
 		if err != nil {
 			result = multierror.Append(result, err)
 		}

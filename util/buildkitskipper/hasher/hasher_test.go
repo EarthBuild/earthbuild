@@ -47,7 +47,7 @@ func TestHashFile(t *testing.T) {
 	if err != nil {
 		NoError(t, err)
 	}
-	_, err = f.Write([]byte("hello"))
+	_, err = f.WriteString("hello")
 	if err != nil {
 		NoError(t, err)
 	}

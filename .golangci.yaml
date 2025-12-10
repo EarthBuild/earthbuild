@@ -65,7 +65,6 @@ linters:
     - loggercheck
     - maintidx
     - makezero
-    - mirror
     - misspell
     - mnd
     - modernize

@@ -83,7 +83,7 @@ func StdExecer() Execer {
 var ErrSkip = errors.New("proj: this project is not a supported type")
 
 // Target is a type that can write a formatted target with a given indent string
-// and indentation level
+// and indentation level.
 type Target interface {
 	// SetPrefix sets a prefix to prepend to this target's name.
 	SetPrefix(context.Context, string)

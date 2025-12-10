@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// ExpandPath expands the tilde in the path
+// ExpandPath expands the tilde in the path.
 func ExpandPath(s string) string {
 	if !strings.HasPrefix(s, "~") {
 		return s

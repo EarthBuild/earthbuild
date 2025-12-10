@@ -24,7 +24,7 @@ func NewScope() *Scope {
 	}
 }
 
-// DebugString returns a string that can be printed while debugging
+// DebugString returns a string that can be printed while debugging.
 func (s *Scope) DebugString() string {
 	var sb strings.Builder
 	for _, k := range s.Sorted() {
@@ -125,7 +125,7 @@ func (s *Scope) BuildArgs(opts ...ScopeOpt) []string {
 	return args
 }
 
-// RemoveReservedArgsFromScope returns a new scope omits any builtin arguments
+// RemoveReservedArgsFromScope returns a new scope omits any builtin arguments.
 func RemoveReservedArgsFromScope(scope *Scope) *Scope {
 	s := NewScope()
 	for k, v := range scope.variables {
@@ -145,7 +145,7 @@ func RemoveReservedArgsFromScope(scope *Scope) *Scope {
 //
 // 1. Active variables
 // 2. Inactive variables
-// 3. All other things equal, left-most scopes have precedence
+// 3. All other things equal, left-most scopes have precedence.
 func CombineScopes(scopes ...*Scope) *Scope {
 	s := NewScope()
 	precedence := [][]ScopeOpt{
@@ -163,7 +163,7 @@ func CombineScopes(scopes ...*Scope) *Scope {
 	return s
 }
 
-// CombineScopesInactive combines all scopes (leaving all variables inactive), with left-most scope having precedence,
+// CombineScopesInactive combines all scopes (leaving all variables inactive), with left-most scope having precedence.
 func CombineScopesInactive(scopes ...*Scope) *Scope {
 	s := NewScope()
 	for _, scope := range scopes {

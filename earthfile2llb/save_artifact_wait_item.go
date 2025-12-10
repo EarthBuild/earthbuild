@@ -14,7 +14,7 @@ type saveArtifactLocalWaitItem struct {
 	mu          sync.Mutex
 }
 
-// SetDoPush has no effect, but exists to satisfy interface
+// SetDoPush has no effect, but exists to satisfy interface.
 func (salwi *saveArtifactLocalWaitItem) SetDoPush() {
 }
 

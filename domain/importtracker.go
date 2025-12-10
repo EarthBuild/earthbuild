@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ImportTrackerVal is used to resolve imports
+// ImportTrackerVal is used to resolve imports.
 type ImportTrackerVal struct {
 	fullPath        string
 	allowPrivileged bool

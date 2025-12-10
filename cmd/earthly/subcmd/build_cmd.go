@@ -708,7 +708,7 @@ func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArti
 
 // runnerName returns the name of the local or remote BK "runner"; which is a
 // representation of what BuildKit instance is being used,
-// e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>
+// e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>.
 func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 	isLocal := containerutil.IsLocal(a.cli.Flags().BuildkitdSettings.BuildkitAddress)

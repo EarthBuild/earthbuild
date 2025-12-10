@@ -23,7 +23,7 @@ type SolveCache struct {
 // help with some refactoring later.
 type StateKey string
 
-// NewSolveCache gives a new SolveCachemap instance
+// NewSolveCache gives a new SolveCache instance.
 func NewSolveCache() *SolveCache {
 	return &SolveCache{
 		store: synccache.New(),

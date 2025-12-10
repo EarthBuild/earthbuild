@@ -143,7 +143,7 @@ func NewGolang(fs FS, execer Execer) *Golang {
 	}
 }
 
-// Type returns 'go'
+// Type returns 'go'.
 func (g *Golang) Type(context.Context) string {
 	return "go"
 }

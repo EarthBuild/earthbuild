@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// WaitContext waits for the wait group to complete up until the context expires and returns false on timeout
+// WaitContext waits for the wait group to complete up until the context expires and returns false on timeout.
 func WaitContext(ctx context.Context, wg *sync.WaitGroup) bool {
 	c := make(chan struct{})
 	go func() {

@@ -88,7 +88,7 @@ func init() {
 	}
 }
 
-// IsBuiltIn returns true if s is the name of a builtin arg
+// IsBuiltIn returns true if s is the name of a builtin arg.
 func IsBuiltIn(s string) bool {
 	_, exists := args[s]
 	return exists

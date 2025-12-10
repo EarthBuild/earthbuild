@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Server provides a debugger server
+// Server provides a debugger server.
 type Server struct {
 	shellConn    net.Conn
 	terminalConn net.Conn
@@ -126,7 +126,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	}
 }
 
-// Start starts the debug server listener
+// Start starts the debug server listener.
 func (s *Server) Start() error {
 	s.log.With("addr", s.addr).Debug("starting debugger server")
 	l, err := net.Listen("tcp", s.addr)
@@ -146,7 +146,7 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// NewServer returns a new server
+// NewServer returns a new server.
 func NewServer(addr string, log slog.Logger) *Server {
 	return &Server{
 		addr:            addr,

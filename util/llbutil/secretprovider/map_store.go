@@ -10,12 +10,12 @@ import (
 
 type mapStore map[string][]byte
 
-// NewMapStore returns a new map-based secret store
+// NewMapStore returns a new map-based secret store.
 func NewMapStore(m map[string][]byte) secrets.SecretStore {
 	return mapStore(m)
 }
 
-// GetSecret gets a secret from the map store
+// GetSecret gets a secret from the map store.
 func (m mapStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 	q, err := url.ParseQuery(id)
 	if err != nil {

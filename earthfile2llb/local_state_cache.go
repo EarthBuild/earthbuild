@@ -12,13 +12,13 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 )
 
-// LocalStateCache provides caching of local States
+// LocalStateCache provides caching of local States.
 type LocalStateCache struct {
 	mu    sync.Mutex
 	cache map[string]pllb.State
 }
 
-// NewSharedLocalStateCache creates a new local state cache
+// NewSharedLocalStateCache creates a new local state cache.
 func NewSharedLocalStateCache() *LocalStateCache {
 	return &LocalStateCache{
 		cache: map[string]pllb.State{},

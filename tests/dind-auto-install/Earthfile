@@ -29,10 +29,10 @@ all:
         # --BASE_IMAGE=debian:stable \
         # --BASE_IMAGE=debian:stable-slim \
         # --BASE_IMAGE=ubuntu:latest \
-        --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2_version \
-        --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2023_version \
-        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_alpine_version \
-        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_20_04_version \
+        # --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2_version \
+        # --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2023_version \
+        # --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_alpine_version \
+        # --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_20_04_version \
         --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_24_04_version
 
 test:

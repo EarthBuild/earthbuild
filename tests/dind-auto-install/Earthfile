@@ -22,7 +22,7 @@ all:
         # --BASE_IMAGE=docker:20.10.14-dind \
         # --BASE_IMAGE=docker:20.10.15-dind \
         # --BASE_IMAGE=docker:dind \
-        # --BASE_IMAGE=alpine:$alpine_3_22_version \
+        --BASE_IMAGE=alpine:$alpine_3_22_version \
         # Debian changed some base packages in trixie/13, so test
         # with bookwork/12 to ensure older versions are still supported
         # --BASE_IMAGE=debian:bookworm \

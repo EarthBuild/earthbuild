@@ -34,7 +34,7 @@ func (e *Error) Hint() string {
 	}
 	res := strings.Join(e.hints, "\n")
 	if !strings.HasSuffix(res, "\n") {
-		res = fmt.Sprintf("%s\n", res)
+		res += "\n"
 	}
 	return res
 }

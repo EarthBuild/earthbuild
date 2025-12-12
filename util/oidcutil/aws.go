@@ -57,16 +57,16 @@ func (oi *AWSOIDCInfo) String() string {
 	}
 	sb := strings.Builder{}
 	if oi.SessionName != "" {
-		sb.WriteString(fmt.Sprintf("session-name=%s", oi.SessionName))
+		sb.WriteString("session-name=" + oi.SessionName)
 	}
 	if oi.RoleARN != nil {
-		sb.WriteString(fmt.Sprintf(",role-arn=%s", oi.RoleARN.String()))
+		sb.WriteString(",role-arn=" + oi.RoleARN.String())
 	}
 	if oi.Region != "" {
-		sb.WriteString(fmt.Sprintf(",region=%s", oi.Region))
+		sb.WriteString(",region=" + oi.Region)
 	}
 	if oi.SessionDuration != nil {
-		sb.WriteString(fmt.Sprintf(",session-duration=%s", oi.SessionDuration.String()))
+		sb.WriteString(",session-duration=" + oi.SessionDuration.String())
 	}
 	return strings.TrimPrefix(sb.String(), ",")
 }
@@ -97,7 +97,7 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 	}
 	for _, f := range requiredFields {
 		if slices.Contains(metadata.Unset, f) {
-			return nil, &mapstructure.Error{Errors: []string{fmt.Sprintf("%s must be specified", f)}}
+			return nil, &mapstructure.Error{Errors: []string{f + " must be specified"}}
 		}
 	}
 	return info, nil

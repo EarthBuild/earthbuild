@@ -174,7 +174,7 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 	return nil
 }
 
-var errUnexpectedArgs = fmt.Errorf("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
+var errUnexpectedArgs = errors.New("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
 
 func instrumentVersion(_ string, opt *goflags.Option, s *string) (*string, error) {
 	return s, nil // don't modify the flag, just pass it back.
@@ -269,7 +269,7 @@ func (f *Features) ProcessFlags() ([]string, error) {
 		if versionAtLeast(*f, majorVersion, minorVersion) && value.Kind() == reflect.Bool {
 			if value.Bool() {
 				tagName := field.Tag.Get("long")
-				warningStrs = append(warningStrs, fmt.Sprintf("--%s", strings.ToLower(tagName)))
+				warningStrs = append(warningStrs, "--"+strings.ToLower(tagName))
 			}
 			value.SetBool(true)
 		}
@@ -290,17 +290,17 @@ func (f *Features) ProcessFlags() ([]string, error) {
 func mustParseVersion(version string) (int, int) {
 	parts := strings.Split(version, ".")
 	if len(parts) != 2 {
-		panic(fmt.Sprintf("invalid version format: %s", version))
+		panic("invalid version format: " + version)
 	}
 
 	major, err := strconv.Atoi(parts[0])
 	if err != nil {
-		panic(fmt.Sprintf("invalid major version: %s", parts[0]))
+		panic("invalid major version: " + parts[0])
 	}
 
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		panic(fmt.Sprintf("invalid minor version: %s", parts[1]))
+		panic("invalid minor version: " + parts[1])
 	}
 
 	return major, minor

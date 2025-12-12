@@ -680,7 +680,7 @@ func (sw *shellWord) getEnv(name string) (string, error) {
 
 	_, isShellOutEnv := sw.shellOutEnvs[name]
 	if isShellOutEnv && sw.shellOut != nil {
-		return sw.shellOut(fmt.Sprintf("echo $%s", name))
+		return sw.shellOut("echo $" + name)
 	}
 
 	return "", errEnvNotFound

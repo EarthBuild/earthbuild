@@ -403,7 +403,7 @@ func (app *EarthlyApp) printCrashLogs(ctx context.Context) {
 }
 
 func errorWithPrefix(err string) string {
-	return fmt.Sprintf("Error: %s", err)
+	return "Error: " + err
 }
 
 func getHintErr(err error, grpcError *status.Status) (*hint.Error, bool) {
@@ -424,7 +424,7 @@ func redactSecretsFromArgs(args []string) []string {
 			isSecret = false
 			parts := strings.SplitN(arg, "=", 2)
 			if len(parts) > 1 {
-				redacted = append(redacted, fmt.Sprintf("%s=XXXXX", parts[0]))
+				redacted = append(redacted, parts[0]+"=XXXXX")
 				continue
 			}
 		}

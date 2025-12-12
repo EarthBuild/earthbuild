@@ -3,7 +3,6 @@ package authprovider
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -13,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var ErrAuthProviderNoResponse = fmt.Errorf("AuthServerNoResponse")
+var ErrAuthProviderNoResponse = errors.New("AuthServerNoResponse")
 
 // ProjectAdder is an optional interface that auth servers may implement. If
 // they do, the MultiAuthProvider will call their AddProject method when its

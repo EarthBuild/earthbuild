@@ -225,7 +225,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 		return false, errors.Wrapf(err, "failed checking if %s exists", dirPath)
 	}
 	if !dirPathExists {
-		return false, errors.New(fmt.Sprintf("%s does not exist", dirPath))
+		return false, fmt.Errorf("%s does not exist", dirPath)
 	}
 
 	pathExists, err := fileutil.FileExists(path)

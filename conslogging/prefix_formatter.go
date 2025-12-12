@@ -125,7 +125,7 @@ func normalize(s string) string {
 	isLocalDirPrefix := strings.HasPrefix(s, "./")
 	s = filepath.Clean(s)
 	if isLocalDirPrefix {
-		return fmt.Sprintf("./%s", s)
+		return "./" + s
 	}
 	return s
 }

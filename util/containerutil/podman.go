@@ -3,7 +3,6 @@ package containerutil
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -155,7 +154,7 @@ func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 }
 
 func (psf *podmanShellFrontend) ImageLoadFromFileCommand(filename string) string {
-	binary, args := psf.commandContextStrings("pull", fmt.Sprintf("docker-archive:%s", filename))
+	binary, args := psf.commandContextStrings("pull", "docker-archive:"+filename)
 
 	all := []string{binary}
 	all = append(all, args...)
@@ -185,7 +184,7 @@ func (psf *podmanShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 		defer file.Close()
 		defer os.Remove(file.Name())
 
-		output, cmdErr := psf.commandContextOutput(ctx, "pull", fmt.Sprintf("docker-archive:%s", file.Name()))
+		output, cmdErr := psf.commandContextOutput(ctx, "pull", "docker-archive:"+file.Name())
 		if cmdErr != nil {
 			err = multierror.Append(err, errors.Wrapf(cmdErr, "image load failed: %s", output.string()))
 		}

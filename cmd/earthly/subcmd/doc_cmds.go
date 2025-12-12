@@ -129,17 +129,21 @@ func docSectionsOutput(currIndent, scopeIndent, title string, sections ...docSec
 	if len(sections) == 0 {
 		return ""
 	}
-	out := indent(currIndent, title+":") + "\n"
+
+	var out strings.Builder
+
+	out.WriteString(indent(currIndent, title+":") + "\n")
+
 	currIndent += scopeIndent
 	for _, section := range sections {
-		out += indent(currIndent, section.identifier) + "\n"
+		out.WriteString(indent(currIndent, section.identifier) + "\n")
 		if section.body == "" {
 			continue
 		}
 		indented := indent(currIndent+scopeIndent, section.body)
-		out += strings.Trim(indented, "\n") + "\n"
+		out.WriteString(strings.Trim(indented, "\n") + "\n")
 	}
-	return out
+	return out.String()
 }
 
 type blockIO struct {

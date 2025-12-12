@@ -34,10 +34,10 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 			flags.ConfigPath = defaultConfigPath(flags.InstallationName)
 		}
 		if !cliCtx.IsSet("buildkit-container-name") {
-			flags.ContainerName = fmt.Sprintf("%s-buildkitd", flags.InstallationName)
+			flags.ContainerName = flags.InstallationName + "-buildkitd"
 		}
 		if !cliCtx.IsSet("buildkit-volume-name") {
-			flags.BuildkitdSettings.VolumeName = fmt.Sprintf("%s-cache", flags.InstallationName)
+			flags.BuildkitdSettings.VolumeName = flags.InstallationName + "-cache"
 		}
 	}
 	if flags.Debug {

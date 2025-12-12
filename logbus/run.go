@@ -2,7 +2,6 @@ package logbus
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -202,7 +201,7 @@ func gitSSHToURL(repoURL string) string {
 	repoURL = sshUserRE.ReplaceAllString(repoURL, "")
 	repoURL = strings.TrimSuffix(repoURL, ".git")
 	parts := strings.Split(repoURL, ":")
-	return fmt.Sprintf("https://%s", strings.Join(parts, "/"))
+	return "https://" + strings.Join(parts, "/")
 }
 
 func sourceLocationToProto(repoURL, repoHash, fileRelToRepo string, sl *spec.SourceLocation) *logstream.SourceLocation {

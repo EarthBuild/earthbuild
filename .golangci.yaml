@@ -80,7 +80,6 @@ linters:
     - nonamedreturns
     - nosprintfhostport
     - paralleltest
-    - perfsprint
     - prealloc
     - predeclared
     - promlinter

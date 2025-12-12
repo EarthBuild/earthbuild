@@ -369,7 +369,7 @@ func (m *multiImageSolver) addRefToResult(ctx context.Context, gwClient gwclient
 	} else {
 		localRegPullID = fmt.Sprintf("sess-%s/%s", gwClient.BuildOpts().SessionID, imageDef.ImageName)
 	}
-	gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-local-registry", refPrefix), []byte(localRegPullID))
+	gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
 	onPullMap[localRegPullID] = imageDef.ImageName
 	return nil
 }

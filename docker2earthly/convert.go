@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -69,7 +70,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 	names := map[string]int{}
 
 	for i, stage := range stages {
-		fromCmd := []string{fmt.Sprintf("FROM %s", stage.BaseName)}
+		fromCmd := []string{"FROM " + stage.BaseName}
 		// These args are in scope *only* for the very first FROM
 		if i == 0 && len(initialArgs) > 0 {
 			var fromArgs []string
@@ -81,7 +82,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		targets = append(targets, fromCmd)
 
 		if stage.Name == "" {
-			names[fmt.Sprintf("%d", i)] = i
+			names[strconv.Itoa(i)] = i
 		} else {
 			names[stage.Name] = i
 		}
@@ -110,7 +111,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		}
 	}
 	i := len(targets) - 1
-	targets[i] = append(targets[i], fmt.Sprintf("SAVE IMAGE %s", imageTag))
+	targets[i] = append(targets[i], "SAVE IMAGE "+imageTag)
 
 	var out io.Writer
 	if earthfilePath == "-" {

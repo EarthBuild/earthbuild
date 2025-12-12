@@ -282,7 +282,7 @@ func TestFrontendContainerRun(t *testing.T) {
 					Mounts: containerutil.MountOpt{
 						containerutil.Mount{
 							Type:     containerutil.MountVolume,
-							Source:   fmt.Sprintf("vol-%s", name),
+							Source:   "vol-" + name,
 							Dest:     "/test",
 							ReadOnly: true,
 						},
@@ -305,7 +305,7 @@ func TestFrontendContainerRun(t *testing.T) {
 					cmd := exec.CommandContext(ctx, tC.binary, "rm", "-f", name)
 					_ = cmd.Run() // Just best effort
 
-					cmd = exec.CommandContext(ctx, tC.binary, "volume", "rm", "-f", fmt.Sprintf("vol-%s", name))
+					cmd = exec.CommandContext(ctx, tC.binary, "volume", "rm", "-f", "vol-"+name)
 					_ = cmd.Run()
 				}
 			}()

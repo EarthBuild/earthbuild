@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -19,7 +18,7 @@ var validEarthfileVersions = []string{
 	"0.8",
 }
 
-var errUnexpectedVersionArgs = fmt.Errorf("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
+var errUnexpectedVersionArgs = errors.New("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
 
 type astValidator func(spec.Earthfile) []error
 

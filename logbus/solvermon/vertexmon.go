@@ -118,7 +118,7 @@ func formatErrorMessage(errString, operation string, internal bool, fatalErrorTy
 				"      did not complete successfully. Exit code %d", internalStr, operation, exitCode)
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
-		reason := fmt.Sprintf("unable to parse file_not_found error:%s", errString)
+		reason := "unable to parse file_not_found error:" + errString
 		if len(m) > 2 {
 			reason = m[3]
 		}

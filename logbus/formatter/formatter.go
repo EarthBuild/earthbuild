@@ -505,7 +505,7 @@ func (f *Formatter) printGHAFailure() {
 	markdown := fmt.Sprintf(`
 # ❌ Build Failure ❌
 
-### Error Message 
+### Error Message
 
 ~~~
 %s
@@ -572,7 +572,7 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 			verboseOnly = true
 		case targetName == "":
 			verboseOnly = true
-			targetName = fmt.Sprintf("_internal:%s", commandID)
+			targetName = "_internal:" + commandID
 		default:
 		}
 		writerTargetID = commandID

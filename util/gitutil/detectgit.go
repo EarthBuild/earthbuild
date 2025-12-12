@@ -2,7 +2,6 @@ package gitutil
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -355,7 +354,7 @@ func detectGitTimestamp(ctx context.Context, dir string, tsType gitTimestampType
 }
 
 func detectGitAuthor(ctx context.Context, dir string, format string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "log", "-1", fmt.Sprintf("--format=%s", format))
+	cmd := exec.CommandContext(ctx, "git", "log", "-1", "--format="+format)
 	cmd.Dir = dir
 	cmd.Stderr = nil // force capture of stderr on errors
 	out, err := cmd.Output()

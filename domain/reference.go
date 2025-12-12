@@ -87,7 +87,7 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 			} else {
 				localPath = path.Join(r1.GetLocalPath(), localPath)
 				if !(strings.HasPrefix(localPath, ".") || strings.HasPrefix(localPath, "/")) {
-					localPath = fmt.Sprintf("./%s", localPath)
+					localPath = "./" + localPath
 				}
 			}
 		} else if r2.IsLocalInternal() {
@@ -132,7 +132,7 @@ func referenceString(r Reference) string {
 		return s
 	}
 	// Local internal.
-	return fmt.Sprintf("+%s", r.GetName())
+	return "+" + r.GetName()
 }
 
 func referenceStringCanonical(r Reference) string {
@@ -145,13 +145,13 @@ func referenceStringCanonical(r Reference) string {
 		return s
 	}
 	if r.GetLocalPath() == "." {
-		return fmt.Sprintf("+%s", r.GetName())
+		return "+" + r.GetName()
 	}
 	if r.GetLocalPath() == "" && r.GetImportRef() != "" {
-		return fmt.Sprintf("%s+%s", escapePlus(r.GetImportRef()), r.GetName())
+		return escapePlus(r.GetImportRef()) + "+" + r.GetName()
 	}
 	// Local external.
-	return fmt.Sprintf("%s+%s", escapePlus(r.GetLocalPath()), r.GetName())
+	return escapePlus(r.GetLocalPath()) + "+" + r.GetName()
 }
 
 func referenceProjectCanonical(r Reference) string {
@@ -193,7 +193,7 @@ func parseCommon(fullName string) (gitURL string, tag string, localPath string, 
 		} else {
 			localPath = path.Clean(localPath)
 			if !strings.HasPrefix(localPath, ".") {
-				localPath = fmt.Sprintf("./%s", localPath)
+				localPath = "./" + localPath
 			}
 		}
 		return "", "", localPath, "", partsPlus[1], nil

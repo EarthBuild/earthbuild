@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ParseVersion reads the VERSION command for an Earthfile and returns spec.Version
+// ParseVersion reads the VERSION command for an Earthfile and returns spec.Version.
 func ParseVersion(filePath string, enableSourceMap bool) (*spec.Version, error) {
 	var opts []Opt
 	if enableSourceMap {

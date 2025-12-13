@@ -755,7 +755,7 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 			cmd := exec.CommandContext(ctx, feBinary, "volume", "rm", "-f", name)
 			_ = cmd.Run() // Just best effort
 		}
-	}, nil
+	}, err
 }
 
 func testLogger() conslogging.ConsoleLogger {

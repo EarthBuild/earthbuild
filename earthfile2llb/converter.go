@@ -995,7 +995,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	return nil
 }
 
-func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, error) {
+func (c *Converter) canSave(_ context.Context, saveAsLocalTo string) (bool, error) {
 	basepath, err := filepath.Abs(c.target.LocalPath)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get absolute path of %s", basepath)
@@ -2391,7 +2391,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 }
 
-func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
+//nolint:unparam // error return kept for future use
+func (c *Converter) awsSecrets(_ context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
 	var (
 		runOpts   = []llb.RunOption{}
 		extraEnvs = []string{}

@@ -67,7 +67,7 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 	}
 }
 
-func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *client.SolveStatus) error {
+func (sm *SolverMonitor) handleBuildkitStatus(_ context.Context, status *client.SolveStatus) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	bp := sm.b.Run()

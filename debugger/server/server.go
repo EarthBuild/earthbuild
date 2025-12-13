@@ -129,7 +129,8 @@ func (s *Server) handleRequest(conn net.Conn) {
 // Start starts the debug server listener.
 func (s *Server) Start() error {
 	s.log.With("addr", s.addr).Debug("starting debugger server")
-	l, err := net.Listen("tcp", s.addr)
+	var lc net.ListenConfig
+	l, err := lc.Listen(context.Background(), "tcp", s.addr)
 	if err != nil {
 		return err
 	}

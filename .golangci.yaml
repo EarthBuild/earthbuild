@@ -28,7 +28,6 @@ linters:
     - errorlint
     - exhaustive
     - exhaustruct
-    - exptostd
     - fatcontext
     - forbidigo
     - forcetypeassert
@@ -65,7 +64,6 @@ linters:
     - loggercheck
     - maintidx
     - makezero
-    - misspell
     - mnd
     - modernize
     - musttag
@@ -75,7 +73,6 @@ linters:
     - nilnesserr
     - nilnil
     - nlreturn
-    - noctx
     - noinlineerr
     - nonamedreturns
     - nosprintfhostport
@@ -101,7 +98,6 @@ linters:
     - thelper
     - tparallel
     - unconvert
-    - unparam
     - unqueryvet
     - unused
     - usestdlibvars

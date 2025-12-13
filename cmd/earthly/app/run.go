@@ -80,13 +80,13 @@ func (app *EarthlyApp) unhideFlags(ctx context.Context) error {
 	return nil
 }
 
-func unhideFlagsCommands(ctx context.Context, cmds []*cli.Command) {
+func unhideFlagsCommands(_ context.Context, cmds []*cli.Command) {
 	for _, cmd := range cmds {
 		reflectutil.SetBool(cmd, "Hidden", false)
 		for _, flg := range cmd.Flags {
 			reflectutil.SetBool(flg, "Hidden", false)
 		}
-		unhideFlagsCommands(ctx, cmd.Subcommands)
+		unhideFlagsCommands(nil, cmd.Subcommands)
 	}
 }
 

@@ -35,7 +35,8 @@ func TestServer(t *testing.T) {
 	var err error
 
 	for attempts < numRetries {
-		termConn, err = net.Dial("tcp", addr)
+		var d net.Dialer
+		termConn, err = d.DialContext(ctx, "tcp", addr)
 		if err != nil {
 			// Retry since the connection is rejected sometimes.
 			fmt.Printf("Dial failed. Attempt: %v/%v, Error: %s", attempts, numRetries, err.Error())
@@ -57,7 +58,8 @@ func TestServer(t *testing.T) {
 	}
 
 	// then the shell terminal
-	shellConn, err := net.Dial("tcp", addr)
+	var d2 net.Dialer
+	shellConn, err := d2.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		t.Fatal(err)
 	}

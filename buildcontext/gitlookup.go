@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -302,6 +303,7 @@ var supportedHostKeyAlgos = []string{
 	ssh.KeyAlgoED25519,
 }
 
+//nolint:unparam // error return kept for future use
 func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, error) {
 	foundAlgs := map[string]bool{}
 
@@ -405,7 +407,8 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 		}
 	}()
 
-	sshAgent, err := net.Dial("unix", gl.sshAuthSock)
+	var d net.Dialer
+	sshAgent, err := d.DialContext(context.Background(), "unix", gl.sshAuthSock)
 	if err != nil {
 		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https", gl.sshAuthSock, err.Error())
 		protocol = httpsProtocol

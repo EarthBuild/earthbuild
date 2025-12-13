@@ -159,7 +159,7 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 	return optPromise, nil
 }
 
-func (w *withDockerRunLocalTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string, opts ...llb.RunOption) error {
+func (w *withDockerRunLocalTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string, _ ...llb.RunOption) error {
 	outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
 	if err != nil {
 		return errors.Wrap(err, "mk temp dir for docker load")

@@ -77,7 +77,7 @@ func NewClient(ctx context.Context, console conslogging.ConsoleLogger, image, co
 		}
 	}()
 
-	opts, err := addRequiredOpts(settings, installationName, fe.Config().Setting == containerutil.FrontendPodmanShell, opts...)
+	opts, err := addRequiredOpts(settings, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "add required client opts")
 	}
@@ -125,7 +125,7 @@ func ResetCache(ctx context.Context, console conslogging.ConsoleLogger, image, c
 		return errors.New("cannot reset cache of a provided buildkit-host setting")
 	}
 
-	opts, err := addRequiredOpts(settings, installationName, fe.Config().Setting == containerutil.FrontendPodmanShell, opts...)
+	opts, err := addRequiredOpts(settings, opts...)
 	if err != nil {
 		return errors.Wrap(err, "add required client opts")
 	}
@@ -1014,7 +1014,7 @@ func getCacheSize(ctx context.Context, volumeName string, fe containerutil.Conta
 	return int(infos[volumeName].SizeBytes), nil
 }
 
-func addRequiredOpts(settings Settings, _ string, _ bool, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
+func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
 	server, err := url.Parse(settings.BuildkitAddress)
 	if err != nil {
 		return []client.ClientOpt{}, errors.Wrapf(err, "failed to parse buildkit url %s", settings.BuildkitAddress)

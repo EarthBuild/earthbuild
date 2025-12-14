@@ -39,7 +39,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	}
 	w.c.nonSaveCommand()
 
-	cmdID, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
+	_, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -56,7 +56,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	// Build and solve images to be loaded.
 	imageDefChans := make([]chan *states.ImageDef, 0, len(opt.Loads))
 	for _, loadOpt := range opt.Loads {
-		imageDefChan, err := w.load(ctx, cmdID, loadOpt)
+		imageDefChan, err := w.load(ctx, loadOpt)
 		if err != nil {
 			return errors.Wrap(err, "load")
 		}
@@ -135,7 +135,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	return w.c.forceExecution(ctx, w.c.mts.Final.MainState, w.c.platr)
 }
 
-func (w *withDockerRunLocalReg) load(ctx context.Context, _ string, opt DockerLoadOpt) (chan *states.ImageDef, error) {
+func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (chan *states.ImageDef, error) {
 	imageDefChan := make(chan *states.ImageDef, 1)
 
 	depTarget, err := domain.ParseTarget(opt.Target)

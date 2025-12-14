@@ -590,11 +590,11 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "parse platform %s", expandedPlatform)
 	}
-	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, true, false)
+	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, false)
 	if err != nil {
 		return i.errorf(cmd.SourceLocation, "unable to expand build args for FROM: %v", opts.BuildArgs)
 	}
-	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], true, false)
+	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], false)
 	if err != nil {
 		return i.errorf(cmd.SourceLocation, "unable to expand flag args for FROM: %v", args[1:])
 	}
@@ -860,11 +860,11 @@ func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd spec.Command
 			return i.errorf(cmd.SourceLocation, "failed to expand FROM DOCKERFILE path arg %s", args[0])
 		}
 	}
-	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, true, false)
+	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, false)
 	if err != nil {
 		return i.errorf(cmd.SourceLocation, "failed to expand FROM DOCKERFILE build args %s", opts.BuildArgs)
 	}
-	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], true, false)
+	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], false)
 	if err != nil {
 		return i.errorf(cmd.SourceLocation, "failed to expand FROM DOCKERFILE flag args %s", args[1:])
 	}
@@ -936,7 +936,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY args %v", args[len(args)-1])
 	}
-	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, true, false)
+	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, false)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY buildargs %v", opts.BuildArgs)
 	}
@@ -1030,7 +1030,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 				return err
 			}
 
-			expandedFlagArgs, err := i.expandArgsSlice(ctx, srcFlagArgs[index], true, false)
+			expandedFlagArgs, err := i.expandArgsSlice(ctx, srcFlagArgs[index], false)
 			if err != nil {
 				return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY flag %s", srcFlagArgs[index])
 			}
@@ -1276,11 +1276,11 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd spec.Command, async b
 	if i.local && !asyncSafeArgs {
 		return i.errorf(cmd.SourceLocation, "BUILD args do not currently support shelling-out in combination with LOCALLY")
 	}
-	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, true, async)
+	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, async)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand BUILD args %v", opts.BuildArgs)
 	}
-	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], true, async)
+	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], async)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand BUILD flags %v", args[1:])
 	}
@@ -1780,7 +1780,7 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) er
 		}
 		opts.Loads[index] = expandedLoad
 	}
-	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, true, false)
+	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, false)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand WITH DOCKER build args %v", opts.BuildArgs)
 	}
@@ -1808,7 +1808,7 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) er
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "parse load")
 		}
-		expandedFlagArgs, err := i.expandArgsSlice(ctx, flagArgs, true, false)
+		expandedFlagArgs, err := i.expandArgsSlice(ctx, flagArgs, false)
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "failed to expand WITH DOCKER load flag: %s", flagArgs)
 		}
@@ -1879,7 +1879,7 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd spec.Command) error {
 		return i.errorf(cmd.SourceLocation, "invalid number of arguments for DO: %s", args)
 	}
 
-	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], true, false)
+	expandedFlagArgs, err := i.expandArgsSlice(ctx, args[1:], false)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand DO flags %v", args[1:])
 	}
@@ -2090,7 +2090,7 @@ To start using the FUNCTION keyword now (experimental) please use VERSION --use-
 
 // ----------------------------------------------------------------------------
 
-func (i *Interpreter) expandArgsSlice(ctx context.Context, words []string, _ bool, async bool) ([]string, error) {
+func (i *Interpreter) expandArgsSlice(ctx context.Context, words []string, async bool) ([]string, error) {
 	ret := make([]string, 0, len(words))
 	for _, word := range words {
 		expanded, err := i.expandArgs(ctx, word, true, async)

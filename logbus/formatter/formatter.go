@@ -237,7 +237,7 @@ func (f *Formatter) handleDeltaManifest(dm *logstream.DeltaManifest) error {
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_IN_PROGRESS {
 			f.printHeader(cm.GetTargetId(), commandID, tm, cm, false)
 		}
-		if cmd.GetHasHasProgress() && f.shouldPrintProgress(cm.GetTargetId(), commandID, cm) {
+		if cmd.GetHasHasProgress() && f.shouldPrintProgress(commandID, cm) {
 			f.printProgress(cm.GetTargetId(), commandID, cm)
 		}
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_FAILURE && cm.GetTargetId() != "" {
@@ -401,7 +401,7 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	f.lastCommandOutput = nil
 }
 
-func (f *Formatter) shouldPrintProgress(_ string, commandID string, cm *logstream.CommandManifest) bool {
+func (f *Formatter) shouldPrintProgress(commandID string, cm *logstream.CommandManifest) bool {
 	if !cm.GetHasProgress() {
 		return false
 	}

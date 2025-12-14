@@ -795,7 +795,7 @@ func (l *loader) handleWait(ctx context.Context, waitStmt spec.WaitStatement) er
 }
 
 func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
-	l.hashTryStatement(tryStmt)
+	l.hashTryStatement()
 	if err := l.handleStatements(ctx, tryStmt.TryBody); err != nil {
 		return err
 	}

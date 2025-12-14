@@ -26,8 +26,6 @@ import (
 )
 
 const (
-	durationBetweenSha256ProgressUpdate = 5 * time.Second
-	durationBetweenProgressUpdate       = 3 * time.Second
 	durationBetweenProgressUpdateIfSame = 5 * time.Millisecond
 	durationBetweenOngoingUpdates       = 5 * time.Second
 	durationBetweenOngoingUpdatesNoAnsi = 60 * time.Second
@@ -200,7 +198,7 @@ func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 			return
 		case <-f.ongoingTicker.C:
 			f.mu.Lock()
-			err := f.processOngoingTick(ctx)
+			err := f.processOngoingTick()
 			if err != nil {
 				f.errors = append(f.errors, err)
 			}
@@ -342,7 +340,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 }
 
 //nolint:unparam // error return kept for future use
-func (f *Formatter) processOngoingTick(_ context.Context) error {
+func (f *Formatter) processOngoingTick() error {
 	c := f.console.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
@@ -506,7 +504,7 @@ func (f *Formatter) printGHAFailure() {
 	markdown := fmt.Sprintf(`
 # ❌ Build Failure ❌
 
-### Error Message 
+### Error Message
 
 ~~~
 %s

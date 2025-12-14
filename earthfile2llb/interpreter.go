@@ -263,17 +263,17 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd spec.Command) (err 
 	case command.HealthCheck:
 		return i.handleHealthcheck(ctx, cmd)
 	case command.Add:
-		return i.handleAdd(ctx, cmd)
+		return i.handleAdd(cmd)
 	case command.StopSignal:
-		return i.handleStopsignal(ctx, cmd)
+		return i.handleStopsignal(cmd)
 	case command.OnBuild:
-		return i.handleOnbuild(ctx, cmd)
+		return i.handleOnbuild(cmd)
 	case command.Shell:
-		return i.handleShell(ctx, cmd)
+		return i.handleShell(cmd)
 	case command.Command:
-		return i.handleUserCommand(ctx, cmd)
+		return i.handleUserCommand(cmd)
 	case command.Function:
-		return i.handleFunction(ctx, cmd)
+		return i.handleFunction(cmd)
 	case command.Do:
 		return i.handleDo(ctx, cmd)
 	case command.Import:
@@ -1575,7 +1575,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func parseSetArgs(_ context.Context, cmd spec.Command) (name, value string, _ error) {
+func parseSetArgs(cmd spec.Command) (name, value string, _ error) {
 	var opts commandflag.SetOpts
 	argsCpy := flagutil.GetArgsCopy(cmd)
 	args, err := flagutil.ParseArgsCleaned("SET", &opts, argsCpy)
@@ -1595,7 +1595,7 @@ func (i *Interpreter) handleSet(ctx context.Context, cmd spec.Command) error {
 	if !i.converter.ftrs.ArgScopeSet {
 		return errors.New("unknown command SET")
 	}
-	key, value, err := parseSetArgs(ctx, cmd)
+	key, value, err := parseSetArgs(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse SET arguments")
 	}
@@ -1845,27 +1845,27 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) er
 	return nil
 }
 
-func (i *Interpreter) handleAdd(_ context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleAdd(cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command ADD not yet supported")
 }
 
-func (i *Interpreter) handleStopsignal(_ context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleStopsignal(cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command STOPSIGNAL not yet supported")
 }
 
-func (i *Interpreter) handleOnbuild(_ context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleOnbuild(cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command ONBUILD not supported")
 }
 
-func (i *Interpreter) handleShell(_ context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleShell(cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command SHELL not yet supported")
 }
 
-func (i *Interpreter) handleUserCommand(_ context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleUserCommand(cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command COMMAND not allowed in a target definition")
 }
 
-func (i *Interpreter) handleFunction(_ context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleFunction(cmd spec.Command) error {
 	return i.errorf(cmd.SourceLocation, "command FUNCTION not allowed in a target definition")
 }
 

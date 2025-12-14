@@ -958,7 +958,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 		}
 
 		if !force {
-			canSave, err := c.canSave(ctx, saveAsLocalToAdj)
+			canSave, err := c.canSave(saveAsLocalToAdj)
 			if err != nil {
 				return err
 			}
@@ -995,7 +995,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	return nil
 }
 
-func (c *Converter) canSave(_ context.Context, saveAsLocalTo string) (bool, error) {
+func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 	basepath, err := filepath.Abs(c.target.LocalPath)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get absolute path of %s", basepath)
@@ -2200,7 +2200,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	// AWS credential import.
 	if opts.WithAWSCredentials {
-		awsRunOpts, awsEnvs, err := c.awsSecrets(ctx, opts.OIDCInfo)
+		awsRunOpts, awsEnvs, err := c.awsSecrets(opts.OIDCInfo)
 		if err != nil {
 			return pllb.State{}, err
 		}
@@ -2231,7 +2231,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		saveFiles := []debuggercommon.SaveFilesSettings{}
 		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
 
-			canSave, err := c.canSave(ctx, interactiveSaveFile.Dst)
+			canSave, err := c.canSave(interactiveSaveFile.Dst)
 			if err != nil {
 				return pllb.State{}, err
 			}
@@ -2392,7 +2392,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 }
 
 //nolint:unparam // error return kept for future use
-func (c *Converter) awsSecrets(_ context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
+func (c *Converter) awsSecrets(oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
 	var (
 		runOpts   = []llb.RunOption{}
 		extraEnvs = []string{}

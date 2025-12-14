@@ -577,7 +577,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 }
 
 func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) func(ctx context.Context, conn io.ReadWriteCloser) error {
-	return func(ctx context.Context, conn io.ReadWriteCloser) error {
+	return func(_ context.Context, conn io.ReadWriteCloser) error {
 		// version
 		protocolVersion, _, err := debuggercommon.ReadDataPacket(conn)
 		if err != nil {
@@ -586,9 +586,9 @@ func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArti
 
 		switch protocolVersion {
 		case 1:
-			return receiveFileVersion1(ctx, conn, localArtifactWhiteList)
+			return receiveFileVersion1(conn, localArtifactWhiteList)
 		case 2:
-			return receiveFileVersion2(ctx, conn, localArtifactWhiteList)
+			return receiveFileVersion2(conn, localArtifactWhiteList)
 		default:
 			return fmt.Errorf("unexpected version %d", protocolVersion)
 		}
@@ -622,7 +622,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 	return nil
 }
 
-func receiveFileVersion1(_ context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
+func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
 	// dst path
 	_, dst, err := debuggercommon.ReadDataPacket(conn)
 	if err != nil {
@@ -660,7 +660,7 @@ func receiveFileVersion1(_ context.Context, conn io.ReadWriteCloser, localArtifa
 	return f.Close()
 }
 
-func receiveFileVersion2(_ context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
+func receiveFileVersion2(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
 	// dst path
 	dst, err := debuggercommon.ReadUint16PrefixedData(conn)
 	if err != nil {

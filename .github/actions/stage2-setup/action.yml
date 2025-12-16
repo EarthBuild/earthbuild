@@ -60,7 +60,7 @@ runs:
         fi
     - name: Download artifacts (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
       with:
         name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts

@@ -199,7 +199,7 @@ jobs:
           ./build/linux/amd64/earthly --push \
             --secret GPG_PRIVATE="${{ env.GPG_PRIVATE }}" \
             ./release+signed-release \
-            --DOCKERHUB_HOST="ghcr.io" \
+            --DOCKERHUB_HOST="docker.io" \
             --GITHUB_USER="${{ env.GITHUB_USER }}" \
             --EARTHLY_REPO="${{ env.EARTHLY_REPO }}" \
             --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \

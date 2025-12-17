@@ -69,6 +69,7 @@ signed-release:
 
     RUN apk add file gpg gpg-agent
 
+    ARG --required RELEASE_TAG
     ARG --required GITHUB_USER
     ARG --required EARTHLY_REPO
     ARG --required DOCKERHUB_HOST

@@ -233,9 +233,7 @@ func (w *withDockerRunTar) pull(ctx context.Context, opt DockerPullOpt) (chan st
 		},
 	}
 	solveFun := func() error {
-		err := w.solveImage(
-			ctx, mts, opt.ImageName, opt.ImageName,
-			llb.WithCustomNamef("%sDOCKER LOAD (PULL %s)", w.c.imageVertexPrefix(opt.ImageName, opt.Platform), opt.ImageName))
+		err := w.solveImage(ctx, mts, opt.ImageName, opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -280,10 +278,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 			}
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
-		err := w.solveImage(
-			ctx, mts, depTarget.String(), opt.ImageName,
-			llb.WithCustomNamef(
-				"%sDOCKER LOAD %s %s", w.c.imageVertexPrefix(opt.ImageName, mts.Final.PlatformResolver.Current()), depTarget.String(), opt.ImageName))
+		err := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -308,7 +303,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 	return optPromise, nil
 }
 
-func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string, opts ...llb.RunOption) error {
+func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string) error {
 	solveID, err := states.KeyFromHashAndTag(mts.Final, dockerTag)
 	if err != nil {
 		return errors.Wrap(err, "state key func")

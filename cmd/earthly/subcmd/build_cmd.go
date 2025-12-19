@@ -576,6 +576,8 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	return nil
 }
 
+// getTryCatchSaveFileHandler implements [socketprovider.SocketAcceptCb] -
+// returns a handler function for the earthly_save_file socket.
 func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) func(ctx context.Context, conn io.ReadWriteCloser) error {
 	return func(_ context.Context, conn io.ReadWriteCloser) error {
 		// version

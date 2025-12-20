@@ -14,7 +14,6 @@ import (
 
 const (
 	goMod      = "go.mod"
-	goSum      = "go.sum"
 	goCache    = "/.go-cache"
 	goModCache = "/.go-mod-cache"
 
@@ -185,7 +184,7 @@ func (g *Golang) Root(context.Context) string {
 }
 
 // Targets returns the targets that should be used for this Golang project.
-func (g *Golang) Targets(_ context.Context) ([]Target, error) {
+func (g *Golang) Targets() ([]Target, error) {
 	return []Target{
 		&targetFormatter{template: goBase},
 		&targetFormatter{template: goDeps},
@@ -204,7 +203,7 @@ type targetFormatter struct {
 	template string
 }
 
-func (f *targetFormatter) SetPrefix(_ context.Context, pfx string) {
+func (f *targetFormatter) SetPrefix(pfx string) {
 	if pfx == "" {
 		f.prefix = ""
 		return
@@ -215,7 +214,7 @@ func (f *targetFormatter) SetPrefix(_ context.Context, pfx string) {
 	f.prefix = pfx
 }
 
-func (f *targetFormatter) Format(_ context.Context, w io.Writer, indent string, level int) error {
+func (f *targetFormatter) Format(w io.Writer, indent string, level int) error {
 	t := strings.TrimSpace(f.template) + "\n"
 	tmpl, err := template.New("").Parse(t)
 	if err != nil {

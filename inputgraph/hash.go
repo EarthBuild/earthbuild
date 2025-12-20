@@ -32,7 +32,7 @@ func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
 	}
 
 	// Continue processing local targets (which may include remote transitive targets).
-	l := newLoader(ctx, opt)
+	l := newLoader(opt)
 
 	b, err := l.load(ctx)
 	if err != nil {

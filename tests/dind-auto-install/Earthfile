@@ -1,9 +1,6 @@
 VERSION 0.8
 
 all:
-    # renovate: datasource=docker packageName=alpine
-    LET alpine_3_22_version=3.22.2
-
     # Alternatively, "amazonlinux" in the Docker Hub registry
     # renovate: datasource=docker packageName=public.ecr.aws/amazonlinux/amazonlinux
     LET amazonlinux_2_version=2
@@ -14,26 +11,26 @@ all:
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
     LET earthbuild_dind_alpine_version=alpine-3.22-docker-28.3.3-r1
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
-    LET earthbuild_dind_ubuntu_20_04_version=ubuntu-20.04-docker-28.1.1-1
+    LET earthbuild_dind_ubuntu_2004_version=ubuntu-20.04-docker-28.1.1-1
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
-    LET earthbuild_dind_ubuntu_24_04_version=ubuntu-24.04-docker-28.3.3-1
+    LET earthbuild_dind_ubuntu_2404_version=ubuntu-24.04-docker-28.3.3-1
 
     BUILD +test \
         --BASE_IMAGE=docker:20.10.14-dind \
         --BASE_IMAGE=docker:20.10.15-dind \
-        # --BASE_IMAGE=docker:dind \
-        --BASE_IMAGE=alpine:$alpine_3_22_version \
+        --BASE_IMAGE=docker:dind \
+        --BASE_IMAGE=alpine:latest \
         # Debian changed some base packages in trixie/13, so test
         # with bookwork/12 to ensure older versions are still supported
-        # --BASE_IMAGE=debian:bookworm \
-        # --BASE_IMAGE=debian:stable \
-        # --BASE_IMAGE=debian:stable-slim \
-        # --BASE_IMAGE=ubuntu:latest \
+        --BASE_IMAGE=debian:bookworm \
+        --BASE_IMAGE=debian:stable \
+        --BASE_IMAGE=debian:stable-slim \
+        --BASE_IMAGE=ubuntu:latest \
         --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2_version \
         --BASE_IMAGE=public.ecr.aws/amazonlinux/amazonlinux:$amazonlinux_2023_version \
         --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_alpine_version \
-        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_20_04_version \
-        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_24_04_version
+        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_2004_version \
+        --BASE_IMAGE=ghcr.io/earthbuild/dind:$earthbuild_dind_ubuntu_2404_version
 
 test:
     ARG --required BASE_IMAGE

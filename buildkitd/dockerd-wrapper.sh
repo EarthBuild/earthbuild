@@ -187,6 +187,13 @@ def meld(a; b):
 meld($user; .)
 EOF
 
+    # TODO(jhorsts): enable containerd snapshotter once we have proper support for it.
+    # More https://docs.docker.com/engine/storage/drivers/select-storage-driver/
+    #
+    # Disabling containerd snappshotter is a temporary workaround for ensuring Docker-in-Docker works in EarthBuild.
+    #
+    # https://github.com/EarthBuild/earthbuild/issues/195
+
     daemon_data="$(cat /etc/docker/daemon.json)"
     cat <<EOF | jq --argjson user "$daemon_data" -f /tmp/meld.jq > /etc/docker/daemon.json
 {
@@ -202,7 +209,10 @@ EOF
     ],
     "bip": "172.20.0.1/16",
     "data-root": "$data_root",
-    "insecure-registries" : ["$buildkit_docker_registry"]
+    "insecure-registries" : ["$buildkit_docker_registry"],
+    "features": {
+        "containerd-snapshotter": false
+    }
 }
 EOF
 

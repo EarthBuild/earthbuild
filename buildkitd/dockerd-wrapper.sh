@@ -210,6 +210,7 @@ EOF
     "bip": "172.20.0.1/16",
     "data-root": "$data_root",
     "insecure-registries" : ["$buildkit_docker_registry"],
+    "registry-mirrors" : ["https://mirror.gcr.io", "https://public.ecr.aws"],
     "features": {
         "containerd-snapshotter": false
     }

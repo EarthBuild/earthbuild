@@ -58,8 +58,8 @@ buildkitd:
 
     # Scripts and binaries used for the builds.
     COPY ../+debugger/earth_debugger /usr/bin/earth_debugger
-    COPY ./dockerd-wrapper.sh /var/earthly/dockerd-wrapper.sh
-    COPY ./docker-auto-install.sh /var/earthly/docker-auto-install.sh
+    COPY ./dockerd-wrapper.sh /var/earthbuild/dockerd-wrapper.sh
+    COPY ./docker-auto-install.sh /var/earthbuild/docker-auto-install.sh
     COPY ./oom-adjust.sh.template /bin/oom-adjust.sh.template
     COPY ./runc-ps /bin/runc-ps
 

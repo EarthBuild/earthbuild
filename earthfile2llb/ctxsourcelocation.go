@@ -3,14 +3,12 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/earthly/earthly/ast/spec"
+	"github.com/EarthBuild/earthbuild/ast/spec"
 )
 
 type contextKey string
 
-var (
-	contextKeySourceLocation contextKey = "sourceLocation"
-)
+var contextKeySourceLocation contextKey = "sourceLocation"
 
 // ContextWithSourceLocation returns a new context with the given source location.
 func ContextWithSourceLocation(ctx context.Context, sl *spec.SourceLocation) context.Context {

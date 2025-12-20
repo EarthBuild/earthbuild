@@ -5,13 +5,13 @@ import (
 	"io"
 	"maps"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/fsutilprogress"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/fsutilprogress"
 
 	"github.com/moby/buildkit/client"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -27,9 +27,11 @@ import (
 // causing back-pressure that forces BK to cancel.
 const statusChanSize = 500
 
-type onImageFunc func(context.Context, *errgroup.Group, string, string, string) (io.WriteCloser, error)
-type onArtifactFunc func(context.Context, string, domain.Artifact, string, string) (string, error)
-type onFinalArtifactFunc func(context.Context) (string, error)
+type (
+	onImageFunc         func(context.Context, *errgroup.Group, string, string, string) (io.WriteCloser, error)
+	onArtifactFunc      func(context.Context, string, domain.Artifact, string, string) (string, error)
+	onFinalArtifactFunc func(context.Context) (string, error)
+)
 
 type solver struct {
 	logbusSM        *solvermon.SolverMonitor
@@ -42,7 +44,7 @@ type solver struct {
 	saveInlineCache bool
 }
 
-func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, phaseText string, console conslogging.ConsoleLogger) error {
+func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, console conslogging.ConsoleLogger) error {
 	ch := make(chan *client.SolveStatus, statusChanSize)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/containerd/containerd/platforms"
@@ -26,33 +27,33 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/ast"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/buildcontext/provider"
-	"github.com/earthly/earthly/builder"
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/cmd/earthly/bk"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	"github.com/earthly/earthly/cmd/earthly/flag"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/debugger/terminal"
-	"github.com/earthly/earthly/docker2earthly"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/inputgraph"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/cliutil"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/llbutil/authprovider"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/params"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/termutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/buildcontext/provider"
+	"github.com/EarthBuild/earthbuild/builder"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cleanup"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/debugger/terminal"
+	"github.com/EarthBuild/earthbuild/docker2earthly"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
+	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
+	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/EarthBuild/earthbuild/util/params"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/util/termutil"
+	"github.com/EarthBuild/earthbuild/variables"
 )
 
 const autoSkipPrefix = "auto-skip"
@@ -235,7 +236,6 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 }
 
 func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []string) error {
-
 	target, artifact, destPath, err := a.parseTarget(cliCtx, nonFlagArgs)
 	if err != nil {
 		return err
@@ -576,8 +576,10 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	return nil
 }
 
+// getTryCatchSaveFileHandler implements [socketprovider.SocketAcceptCb] -
+// returns a handler function for the earthly_save_file socket.
 func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) func(ctx context.Context, conn io.ReadWriteCloser) error {
-	return func(ctx context.Context, conn io.ReadWriteCloser) error {
+	return func(_ context.Context, conn io.ReadWriteCloser) error {
 		// version
 		protocolVersion, _, err := debuggercommon.ReadDataPacket(conn)
 		if err != nil {
@@ -586,9 +588,9 @@ func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArti
 
 		switch protocolVersion {
 		case 1:
-			return receiveFileVersion1(ctx, conn, localArtifactWhiteList)
+			return receiveFileVersion1(conn, localArtifactWhiteList)
 		case 2:
-			return receiveFileVersion2(ctx, conn, localArtifactWhiteList)
+			return receiveFileVersion2(conn, localArtifactWhiteList)
 		default:
 			return fmt.Errorf("unexpected version %d", protocolVersion)
 		}
@@ -607,7 +609,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 			if !strings.Contains(host, ".") {
 				host += ".com"
 			}
-			pattern = host + "/[^/]+/[^/]+"
+			pattern = regexp.QuoteMeta(host) + "/[^/]+/[^/]+"
 		}
 		auth := v.Auth
 		suffix := v.Suffix
@@ -622,7 +624,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 	return nil
 }
 
-func receiveFileVersion1(ctx context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
+func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
 	// dst path
 	_, dst, err := debuggercommon.ReadDataPacket(conn)
 	if err != nil {
@@ -660,7 +662,7 @@ func receiveFileVersion1(ctx context.Context, conn io.ReadWriteCloser, localArti
 	return f.Close()
 }
 
-func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
+func receiveFileVersion2(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
 	// dst path
 	dst, err := debuggercommon.ReadUint16PrefixedData(conn)
 	if err != nil {
@@ -670,7 +672,7 @@ func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArti
 	if !localArtifactWhiteList.Exists(string(dst)) {
 		return fmt.Errorf("file %s does not appear in the white list", dst)
 	}
-	err = os.MkdirAll(path.Dir(string(dst)), 0755)
+	err = os.MkdirAll(path.Dir(string(dst)), 0o755)
 	if err != nil {
 		return err
 	}
@@ -708,7 +710,7 @@ func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArti
 
 // runnerName returns the name of the local or remote BK "runner"; which is a
 // representation of what BuildKit instance is being used,
-// e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>
+// e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>.
 func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 	isLocal := containerutil.IsLocal(a.cli.Flags().BuildkitdSettings.BuildkitAddress)
@@ -760,7 +762,6 @@ func (a *Build) platformResolver(ctx context.Context, bkClient *bkclient.Client,
 }
 
 func (a *Build) initAutoSkip(ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope) (func(), bool, error) {
-
 	if !a.cli.Flags().SkipBuildkit {
 		return nil, false, nil
 	}

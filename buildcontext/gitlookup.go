@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -21,9 +22,9 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/exp/maps"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 
 	"github.com/jdxcode/netrc"
 	"github.com/moby/buildkit/util/sshutil"
@@ -52,7 +53,7 @@ const (
 	httpsProtocol gitProtocol = "https"
 )
 
-// GitLookup looksup gits
+// GitLookup looksup gits.
 type GitLookup struct {
 	mu            sync.Mutex
 	matchers      []*gitMatcher
@@ -78,7 +79,7 @@ var defaultKeyScans = []string{
 	"|1|5myLBXBnkK609Pb0DTrYhK9hn3k=|7wQiytbsZpu1pDE7AOs7pfBw/4M= ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==",
 }
 
-// NewGitLookup creates new lookuper
+// NewGitLookup creates new lookuper.
 func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLookup {
 	gl := &GitLookup{
 		catchAll: &gitMatcher{
@@ -95,10 +96,10 @@ func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLoo
 	return gl
 }
 
-// ErrNoMatch occurs when no git matcher is found
+// ErrNoMatch occurs when no git matcher is found.
 var ErrNoMatch = errors.Errorf("no git match found")
 
-// DisableSSH changes all git matchers from ssh to https
+// DisableSSH changes all git matchers from ssh to https.
 func (gl *GitLookup) DisableSSH() {
 	gl.mu.Lock()
 	defer gl.mu.Unlock()
@@ -124,7 +125,7 @@ func knownHostsToKeyScans(knownHosts string) []string {
 	return maps.Keys(foundKeyScans)
 }
 
-// AddMatcher adds a new matcher for looking up git repos
+// AddMatcher adds a new matcher for looking up git repos.
 func (gl *GitLookup) AddMatcher(name, pattern, sub, user, password, prefix, suffix, protocol, knownHosts string, strictHostKeyChecking bool, port int, sshCommand string) error {
 	gl.mu.Lock()
 	defer gl.mu.Unlock()
@@ -185,9 +186,11 @@ func hashHost(hostname string, salt []byte) []byte {
 	return mac.Sum(nil)
 }
 
-var errUnsupportedHash = errors.New("unsupported keyscan hash")
-var errInvalidScan = errors.New("invalid keyscan")
-var errKeyScanNoMatch = errors.New("keyscan does not match")
+var (
+	errUnsupportedHash = errors.New("unsupported keyscan hash")
+	errInvalidScan     = errors.New("invalid keyscan")
+	errKeyScanNoMatch  = errors.New("keyscan does not match")
+)
 
 func hasPort(s string) bool {
 	if len(s) == 0 {
@@ -300,6 +303,7 @@ var supportedHostKeyAlgos = []string{
 	ssh.KeyAlgoED25519,
 }
 
+//nolint:unparam // error return kept for future use
 func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, error) {
 	foundAlgs := map[string]bool{}
 
@@ -389,7 +393,7 @@ func (gl *GitLookup) getGitMatcherByName(name string) *gitMatcher {
 	return gl.catchAll
 }
 
-// detectProtocol will update the gitMatcher protocol if it is set to auto
+// detectProtocol will update the gitMatcher protocol if it is set to auto.
 func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err error) {
 	var ok bool
 	protocol, ok = gl.autoProtocols[host]
@@ -403,7 +407,8 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 		}
 	}()
 
-	sshAgent, err := net.Dial("unix", gl.sshAuthSock)
+	var d net.Dialer
+	sshAgent, err := d.DialContext(context.Background(), "unix", gl.sshAuthSock)
 	if err != nil {
 		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https", gl.sshAuthSock, err.Error())
 		protocol = httpsProtocol
@@ -567,7 +572,7 @@ func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL s
 	return gitURL, keyScans, m.sshCommand, nil
 }
 
-// TODO eventually we should use gitutil.parseURL directly; but for now we want to avoid this change to keep this commit smaller
+// TODO eventually we should use gitutil.parseURL directly; but for now we want to avoid this change to keep this commit smaller.
 const (
 	HTTPProtocol = iota + 1
 	HTTPSProtocol
@@ -576,7 +581,7 @@ const (
 	UnknownProtocol
 )
 
-// parseGitProtocol comes from buildkit (which was named ParseProtocol); it was since deleted and replaced with ParseURL)
+// parseGitProtocol comes from buildkit (which was named ParseProtocol); it was since deleted and replaced with ParseURL).
 func parseGitProtocol(remote string) (string, int) {
 	prefixes := map[string]int{
 		"http://":  HTTPProtocol,
@@ -610,8 +615,8 @@ func parseGitProtocol(remote string) (string, int) {
 // GetCloneURL returns the repo to clone, and a path relative to the repo
 //
 //	"github.com/earthly/earthly"             ---> ("git@github.com/earthly/earthly.git", "")
-//	"github.com/earthly/earthly/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
-//	"github.com/earthly/earthly/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
+//	"github.com/EarthBuild/earthbuild/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
+//	"github.com/EarthBuild/earthbuild/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
 //
 // Additionally a ssh keyscan might be returned (or an empty string indicating none was configured)
 // Also, a custom "git ssh command" may be returned. This is part of this function since the user may
@@ -667,7 +672,7 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 // ConvertCloneURL takes a url such as https://github.com/user/repo.git or git@github.com:user/repo.git
 // and makes use of configured git credentials and protocol preferences to convert it into the appropriate
 // https or ssh protocol.
-// it also returns a keyScan and sshCommand
+// it also returns a keyScan and sshCommand.
 func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []string, sshCommand string, err error) {
 	var host string
 	var gitPath string

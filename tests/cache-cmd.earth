@@ -29,7 +29,7 @@ test:
     # The persistent cache from the +base target should be accessible.
     RUN test "$(cat /base/persistent/hello)" = "hello, hello"
     # The temporary backup directory should have been removed.
-    RUN test -d /earthly-tmp-a8cb9b0e-f285-4851-b00e-cd5b1ac6a499; test $? = 1
+    RUN test -d /earthbuild-tmp-a8cb9b0e-f285-4851-b00e-cd5b1ac6a499; test $? = 1
 
 test-save-artifact:
     CACHE --persist ./my/artifacts

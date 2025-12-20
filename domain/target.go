@@ -16,7 +16,7 @@ var targetNameRegex = regexp.MustCompile(targetNamePattern)
 // Target is an earthly target identifier.
 type Target struct {
 	// Remote representation.
-	GitURL string `json:"gitUrl"` // e.g. "github.com/earthly/earthly/examples/go"
+	GitURL string `json:"gitUrl"` // e.g. "github.com/EarthBuild/earthbuild/examples/go"
 	Tag    string `json:"tag"`    // e.g. "main"
 	// Local representation. E.g. in "./some/path+something" this is "./some/path".
 	LocalPath string `json:"localPath"`
@@ -83,7 +83,7 @@ func (et Target) IsUnresolvedImportReference() bool {
 	return et.IsImportReference() && !et.IsRemote() && !et.IsLocalExternal() && !et.IsLocalInternal()
 }
 
-// DebugString returns a string that can be printed out for debugging purposes
+// DebugString returns a string that can be printed out for debugging purposes.
 func (et Target) DebugString() string {
 	return fmt.Sprintf("GitURL: %q; Tag: %q; LocalPath: %q; ImportRef: %q; Target: %q", et.GitURL, et.Tag, et.LocalPath, et.ImportRef, et.Target)
 }

@@ -1,12 +1,12 @@
 package llbfactory
 
 import (
-	"github.com/earthly/earthly/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 
 	"github.com/moby/buildkit/client/llb"
 )
 
-// Factory is used for constructing llb states
+// Factory is used for constructing llb states.
 type Factory interface {
 	// Construct creates a pllb.State
 	Construct() pllb.State
@@ -18,7 +18,7 @@ type PreconstructedFactory struct {
 	preconstructedState pllb.State
 }
 
-// LocalFactory holds data which can be used to create a pllb.Local state
+// LocalFactory holds data which can be used to create a pllb.Local state.
 type LocalFactory struct {
 	name          string
 	sharedKeyHint string
@@ -34,12 +34,12 @@ func PreconstructedState(state pllb.State) Factory {
 	}
 }
 
-// Construct returns the preconstructed state that was passed to PreconstructedState()
+// Construct returns the preconstructed state that was passed to PreconstructedState().
 func (f *PreconstructedFactory) Construct() pllb.State {
 	return f.preconstructedState
 }
 
-// Local eventually creates a llb.Local
+// Local eventually creates a llb.Local.
 func Local(name string, opts ...llb.LocalOption) Factory {
 	return &LocalFactory{
 		name: name,
@@ -47,7 +47,7 @@ func Local(name string, opts ...llb.LocalOption) Factory {
 	}
 }
 
-// Copy makes a new copy of the localFactory
+// Copy makes a new copy of the localFactory.
 func (f *LocalFactory) Copy() *LocalFactory {
 	newOpts := append([]llb.LocalOption{}, f.opts...)
 	return &LocalFactory{
@@ -57,25 +57,25 @@ func (f *LocalFactory) Copy() *LocalFactory {
 }
 
 // GetName returns the name of the pllb.Local state that will
-// eventually be created
+// eventually be created.
 func (f *LocalFactory) GetName() string {
 	return f.name
 }
 
 // GetSharedKey returns the set shared cache key of the pllb.Local state that will
-// eventually be created
+// eventually be created.
 func (f *LocalFactory) GetSharedKey() string {
 	return f.sharedKeyHint
 }
 
-// WithInclude adds include patterns to the factory's llb options
+// WithInclude adds include patterns to the factory's llb options.
 func (f *LocalFactory) WithInclude(patterns []string) *LocalFactory {
 	f = f.Copy()
 	f.opts = append(f.opts, llb.IncludePatterns(patterns))
 	return f
 }
 
-// WithSharedKeyHint adds a shared key hint to the factory's llb options
+// WithSharedKeyHint adds a shared key hint to the factory's llb options.
 func (f *LocalFactory) WithSharedKeyHint(key string) *LocalFactory {
 	f = f.Copy()
 	f.opts = append(f.opts, llb.SharedKeyHint(key))
@@ -83,7 +83,7 @@ func (f *LocalFactory) WithSharedKeyHint(key string) *LocalFactory {
 	return f
 }
 
-// Construct constructs the pllb.Local state
+// Construct constructs the pllb.Local state.
 func (f *LocalFactory) Construct() pllb.State {
 	return pllb.Local(f.name, f.opts...)
 }

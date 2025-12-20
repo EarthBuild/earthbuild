@@ -21,4 +21,4 @@ docker:
     RUN apk add --no-cache --update bash openssl
     COPY +build/prod/rel/earthly .
     CMD ["/app/bin/earthly", "start"]
-    SAVE IMAGE --push earthly/examples:elixir
+    SAVE IMAGE --push earthbuild/examples:elixir

@@ -69,7 +69,7 @@ test:
     RUN adduser -S -G testgroup testuser
 
     # required to allow testuser to call +RUN_EARTHLY_ARGS
-    RUN chmod 0777 /tmp/earthly-script
+    RUN chmod 0777 /tmp/earthbuild-script
 
     # required to allow testuser to call +RUN_EARTHLY_ARGS
 

@@ -10,15 +10,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/util/deltautil"
+	"github.com/EarthBuild/earthbuild/util/execstatssummary"
+	"github.com/EarthBuild/earthbuild/util/progressbar"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 	runc "github.com/containerd/go-runc"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/util/deltautil"
-	"github.com/earthly/earthly/util/execstatssummary"
-	"github.com/earthly/earthly/util/progressbar"
-	"github.com/earthly/earthly/util/stringutil"
 	"github.com/hashicorp/go-multierror"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
@@ -26,13 +26,11 @@ import (
 )
 
 const (
-	durationBetweenSha256ProgressUpdate = 5 * time.Second
-	durationBetweenProgressUpdate       = 3 * time.Second
 	durationBetweenProgressUpdateIfSame = 5 * time.Millisecond
 	durationBetweenOngoingUpdates       = 5 * time.Second
 	durationBetweenOngoingUpdatesNoAnsi = 60 * time.Second
 
-	// BuildkitStatsStream is the stream number associated with runc stats
+	// BuildkitStatsStream is the stream number associated with runc stats.
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
@@ -200,7 +198,7 @@ func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 			return
 		case <-f.ongoingTicker.C:
 			f.mu.Lock()
-			err := f.processOngoingTick(ctx)
+			err := f.processOngoingTick()
 			if err != nil {
 				f.errors = append(f.errors, err)
 			}
@@ -239,7 +237,7 @@ func (f *Formatter) handleDeltaManifest(dm *logstream.DeltaManifest) error {
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_IN_PROGRESS {
 			f.printHeader(cm.GetTargetId(), commandID, tm, cm, false)
 		}
-		if cmd.GetHasHasProgress() && f.shouldPrintProgress(cm.GetTargetId(), commandID, cm) {
+		if cmd.GetHasHasProgress() && f.shouldPrintProgress(commandID, cm) {
 			f.printProgress(cm.GetTargetId(), commandID, cm)
 		}
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_FAILURE && cm.GetTargetId() != "" {
@@ -266,11 +264,11 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	commandID := dl.GetCommandId()
 	targetID := dl.GetTargetId()
 
-	//lookup --raw-output from the command manifest
+	// lookup --raw-output from the command manifest
 	cm := f.manifest.GetCommands()[dl.GetCommandId()]
 	rawOutput := false
 	if cm != nil {
-		//commandStr building order in converter.internalRun means
+		// commandStr building order in converter.internalRun means
 		// --raw-output is always first after run
 		rawOutput = strings.Contains(cm.Name, "RUN --raw-output")
 	}
@@ -341,7 +339,8 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	return nil
 }
 
-func (f *Formatter) processOngoingTick(ctx context.Context) error {
+//nolint:unparam // error return kept for future use
+func (f *Formatter) processOngoingTick() error {
 	c := f.console.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
@@ -402,7 +401,7 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	f.lastCommandOutput = nil
 }
 
-func (f *Formatter) shouldPrintProgress(targetID string, commandID string, cm *logstream.CommandManifest) bool {
+func (f *Formatter) shouldPrintProgress(commandID string, cm *logstream.CommandManifest) bool {
 	if !cm.GetHasProgress() {
 		return false
 	}
@@ -501,11 +500,11 @@ func (f *Formatter) printGHAFailure() {
 	}
 	fullErrorMessage := stringutil.ScrubANSICodes(failure.GetErrorMessage())
 	output := stringutil.ScrubANSICodes(string(failure.GetOutput()))
-	//GHA Summary markdown
+	// GHA Summary markdown
 	markdown := fmt.Sprintf(`
 # ❌ Build Failure ❌
 
-### Error Message 
+### Error Message
 
 ~~~
 %s

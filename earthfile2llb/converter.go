@@ -18,38 +18,38 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/ast/commandflag"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/states/dedup"
+	"github.com/EarthBuild/earthbuild/states/image"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/inodeutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/util/vertexmeta"
+	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/alessio/shellescape"
 	"github.com/containerd/containerd/platforms"
 	"github.com/docker/distribution/reference"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/inputgraph"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/states/dedup"
-	"github.com/earthly/earthly/states/image"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/inodeutil"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/shell"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/vertexmeta"
-	"github.com/earthly/earthly/variables"
-	"github.com/earthly/earthly/variables/reserved"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
@@ -689,14 +689,14 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return os.RemoveAll(exitCodeDir)
 		})
 	} else {
-		exitCodeFile = "/tmp/earthly_if_statement_exit_code"
+		exitCodeFile = "/tmp/earthbuild_if_statement_exit_code"
 		prefix, _, err := c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return 0, err
 		}
 		opts.statePrep = func(ctx context.Context, state pllb.State) (pllb.State, error) {
 			return state.File(
-				pllb.Mkdir("/run", 0755, llb.WithParents(true)),
+				pllb.Mkdir("/run", 0o755, llb.WithParents(true)),
 				llb.WithCustomNamef(
 					"%smkdir %s",
 					prefix, "/run"),
@@ -732,7 +732,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return 0, errors.Wrap(err, "read exit code")
 		}
 	}
-	exitCode, err := strconv.ParseInt(string(bytes.TrimSpace(codeDt)), 10, 64)
+	exitCode, err := strconv.Atoi(string(bytes.TrimSpace(codeDt)))
 	if err != nil {
 		return 0, errors.Wrap(err, "parse exit code as int")
 	}
@@ -793,7 +793,7 @@ func (c *Converter) runCommand(ctx context.Context, outputFileName string, isExp
 		outputFile = path.Join(srcBuildArgDir, outputFileName)
 		opts.statePrep = func(ctx context.Context, state pllb.State) (pllb.State, error) {
 			return state.File(
-				pllb.Mkdir(srcBuildArgDir, 0777, llb.WithParents(true)), // Mkdir is performed as root even when USER is set; we must use 0777
+				pllb.Mkdir(srcBuildArgDir, 0o777, llb.WithParents(true)), // Mkdir is performed as root even when USER is set; we must use 0777
 				llb.WithCustomNamef(
 					"%smkdir %s",
 					prefix, srcBuildArgDir),
@@ -958,7 +958,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 		}
 
 		if !force {
-			canSave, err := c.canSave(ctx, saveAsLocalToAdj)
+			canSave, err := c.canSave(saveAsLocalToAdj)
 			if err != nil {
 				return err
 			}
@@ -995,7 +995,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	return nil
 }
 
-func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, error) {
+func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 	basepath, err := filepath.Abs(c.target.LocalPath)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get absolute path of %s", basepath)
@@ -1024,7 +1024,7 @@ func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, er
 	return strings.HasPrefix(saveAsLocalToAdj, basepath), nil
 }
 
-// SaveArtifactFromLocal saves a local file into the ArtifactsState
+// SaveArtifactFromLocal saves a local file into the ArtifactsState.
 func (c *Converter) SaveArtifactFromLocal(ctx context.Context, saveFrom, saveTo string, keepTs, keepOwn bool, chown string) error {
 	err := c.checkAllowed(saveArtifactCmd)
 	if err != nil {
@@ -1087,7 +1087,7 @@ func (c *Converter) waitBlock() *waitBlock {
 	return c.waitBlockStack[n-1]
 }
 
-// PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block
+// PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block.
 func (c *Converter) PushWaitBlock(ctx context.Context) error {
 	waitBlock := newWaitBlock()
 	c.waitBlockStack = append(c.waitBlockStack, waitBlock)
@@ -1095,7 +1095,7 @@ func (c *Converter) PushWaitBlock(ctx context.Context) error {
 	return nil
 }
 
-// PopWaitBlock should be called when an END is encountered, it will block until all commands within the block complete
+// PopWaitBlock should be called when an END is encountered, it will block until all commands within the block complete.
 func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	n := len(c.waitBlockStack)
 	if n == 0 {
@@ -1303,7 +1303,7 @@ func (c *Converter) Workdir(ctx context.Context, workdirPath string) error {
 			llb.WithCustomNamef("%sWORKDIR %s", prefix, workdirPath),
 		}
 		c.mts.Final.MainState = c.mts.Final.MainState.File(
-			pllb.Mkdir(workdirAbs, 0755, mkdirOpts...), opts...)
+			pllb.Mkdir(workdirAbs, 0o755, mkdirOpts...), opts...)
 	}
 	return nil
 }
@@ -1647,13 +1647,12 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		var mountOpts []llb.MountOption
 		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, shareMode))
 		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
-		var mountMode int
-		if opts.Mode == "" {
-			opts.Mode = "0644"
-		}
-		mountMode, err = ParseMode(opts.Mode)
-		if err != nil {
-			return errors.Errorf("failed to parse mount mode %s", opts.Mode)
+		mountMode := os.FileMode(0o644)
+		if opts.Mode != "" {
+			mountMode, err = ParseMode(opts.Mode)
+			if err != nil {
+				return errors.Errorf("failed to parse mount mode %s", opts.Mode)
+			}
 		}
 		persisted := true // Without new --cache-persist-option we use old behaviour which is persisted
 		if c.ftrs.CachePersistOption {
@@ -1663,7 +1662,7 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		}
 		c.persistentCacheDirs[mountTarget] = states.CacheMount{
 			Persisted: persisted,
-			RunOption: pllb.AddMount(mountTarget, pllb.Scratch().File(pllb.Mkdir("/cache", os.FileMode(mountMode))), mountOpts...),
+			RunOption: pllb.AddMount(mountTarget, pllb.Scratch().File(pllb.Mkdir("/cache", mountMode)), mountOpts...),
 		}
 	}
 	return nil
@@ -1693,7 +1692,7 @@ func (c *Converter) Project(ctx context.Context, org, project string) error {
 	return nil
 }
 
-// ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of the specified cmd for each match of the expression
+// ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of the specified cmd for each match of the expression.
 func (c *Converter) ExpandWildcardCmds(ctx context.Context, fullTargetName string, cmd spec.Command) ([]spec.Command, error) {
 	targets, err := c.expandWildcardTargets(ctx, fullTargetName)
 	if err != nil {
@@ -1708,7 +1707,7 @@ func (c *Converter) ExpandWildcardCmds(ctx context.Context, fullTargetName strin
 	})
 }
 
-// ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of the artifact for each match of the expression
+// ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of the artifact for each match of the expression.
 func (c *Converter) ExpandWildcardArtifacts(ctx context.Context, artifact domain.Artifact) ([]domain.Artifact, error) {
 	targets, err := c.expandWildcardTargets(ctx, artifact.Target.String())
 	if err != nil {
@@ -2094,7 +2093,6 @@ func getDebuggerSecretKey(saveFilesSettings []debuggercommon.SaveFilesSettings) 
 		addToHash(saveFile.Dst)
 	}
 	return hex.EncodeToString(h.Sum(nil))
-
 }
 
 func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.State, error) {
@@ -2193,7 +2191,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 				llb.SecretID(c.secretID(secretName)),
 				// TODO: Perhaps this should just default to the current user automatically from
 				//       buildkit side. Then we wouldn't need to open this up to everyone.
-				llb.SecretFileOpt(0, 0, 0444),
+				llb.SecretFileOpt(0, 0, 0o444),
 			}
 			runOpts = append(runOpts, llb.AddSecret(secretPath, secretOpts...))
 			// TODO: The use of cat here might not be portable.
@@ -2202,7 +2200,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	// AWS credential import.
 	if opts.WithAWSCredentials {
-		awsRunOpts, awsEnvs, err := c.awsSecrets(ctx, opts.OIDCInfo)
+		awsRunOpts, awsEnvs, err := c.awsSecrets(opts.OIDCInfo)
 		if err != nil {
 			return pllb.State{}, err
 		}
@@ -2222,8 +2220,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
 			}
 		} else {
-			runOpts = append(runOpts, llb.SocketTarget("earthly_interactive", debuggercommon.DebuggerDefaultSocketPath, 0666, 0, 0))
-			runOpts = append(runOpts, llb.SocketTarget("earthly_save_file", debuggercommon.DefaultSaveFileSocketPath, 0666, 0, 0))
+			runOpts = append(runOpts, llb.SocketTarget("earthly_interactive", debuggercommon.DebuggerDefaultSocketPath, 0o666, 0, 0))
+			runOpts = append(runOpts, llb.SocketTarget("earthly_save_file", debuggercommon.DefaultSaveFileSocketPath, 0o666, 0, 0))
 		}
 
 		localPathAbs, err := filepath.Abs(c.target.LocalPath)
@@ -2233,7 +2231,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		saveFiles := []debuggercommon.SaveFilesSettings{}
 		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
 
-			canSave, err := c.canSave(ctx, interactiveSaveFile.Dst)
+			canSave, err := c.canSave(interactiveSaveFile.Dst)
 			if err != nil {
 				return pllb.State{}, err
 			}
@@ -2274,7 +2272,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(debuggerSettingsSecretsKey)),
-			llb.SecretFileOpt(0, 0, 0444),
+			llb.SecretFileOpt(0, 0, 0o444),
 		}
 		debuggerSecretMount := llb.AddSecret(
 			fmt.Sprintf("/run/secrets/%s", debuggercommon.DebuggerSettingsSecretsKey), secretOpts...)
@@ -2393,14 +2391,14 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 }
 
-func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
-
+//nolint:unparam // error return kept for future use
+func (c *Converter) awsSecrets(oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
 	var (
 		runOpts   = []llb.RunOption{}
 		extraEnvs = []string{}
 	)
 
-	//set additional params in case oidc is in play
+	// set additional params in case oidc is in play
 	var setOIDCInfo func(values url.Values) // no-op by default
 	if oidcInfo != nil {
 		setOIDCInfo = secretprovider.SetURLValuesFunc(oidcInfo)
@@ -2411,7 +2409,7 @@ func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCIn
 		secretPath := path.Join("/run/secrets", secretName)
 		secretOpts := []llb.SecretOption{
 			llb.SecretID(c.secretID(secretName, setOIDCInfo)),
-			llb.SecretFileOpt(0, 0, 0444),
+			llb.SecretFileOpt(0, 0, 0o444),
 		}
 		runOpts = append(runOpts, llb.AddSecret(secretPath, secretOpts...))
 		if envName, ok := secretprovider.AWSEnvName(secretName); ok {
@@ -2653,7 +2651,6 @@ func (c *Converter) processNonConstantBuildArgFunc(ctx context.Context) variable
 }
 
 func (c *Converter) newLogbusCommand(ctx context.Context, name string) (string, *logbus.Command, error) {
-
 	cmdID := fmt.Sprintf("%s/%d", c.mts.Final.ID, c.newCmdID())
 
 	var gitURL, gitHash, fileRelToRepo string

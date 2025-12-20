@@ -35,10 +35,10 @@ In order to upgrade to `VERSION 0.8` safely, follow these steps:
 
 When upgrading between `VERSION`s, keep in mind that you will encounter backwards-incompatible changes. Check out the change log of each version for more information.
 
-* [0.8](https://github.com/earthly/earthly/releases/tag/v0.8.0-rc1)
-* [0.7](https://github.com/earthly/earthly/releases/tag/v0.7.0)
-* [0.6](https://github.com/earthly/earthly/releases/tag/v0.6.0)
-* [0.5](https://github.com/earthly/earthly/releases/tag/v0.5.0)
+- [0.8](https://github.com/earthly/earthly/releases/tag/v0.8.0-rc1)
+- [0.7](https://github.com/earthly/earthly/releases/tag/v0.7.0)
+- [0.6](https://github.com/earthly/earthly/releases/tag/v0.6.0)
+- [0.5](https://github.com/earthly/earthly/releases/tag/v0.5.0)
 
 ## Specifying Version and features
 
@@ -85,11 +85,11 @@ VERSION [<flags>...] <version-number>
 | `--no-use-registry-for-with-docker`     | Experimental                                                                    | Disable `use-registry-for-with-docker`                                                                            |
 | `--try`                                 | Experimental                                                                    | Enable the `TRY` / `FINALLY` / `END` block commands                                                               |
 | `--earthly-ci-runner-arg`               | Experimental                                                                    | Enable the `EARTHLY_CI_RUNNER` builtin ARG                                                                        |
-| `--wildcard-builds`                     | Experimental                                                                    | Alow for the expansion of wildcard (glob) paths for BUILD commands                                                |
+| `--wildcard-builds`                     | Experimental                                                                    | Allow for the expansion of wildcard (glob) paths for BUILD commands                                               |
 | `--build-auto-skip`                     | Experimental                                                                    | Allow for `--auto-skip` to be used on individual BUILD commands                                                   |
 | `--allow-privileged-from-dockerfile`    | Experimental                                                                    | Allow the use of the `--allow-privileged` flag in the `FROM DOCKERFILE` command                                   |
 | `--run-with-aws`                        | Experimental                                                                    | Make AWS credentials in the environment or ~/.aws available to `RUN` commands                                     |
-| `--wildcard-copy`                       | Experimental                                                                    | Alow for the expansion of wildcard (glob) paths for COPY commands                                                 |
+| `--wildcard-copy`                       | Experimental                                                                    | Allow for the expansion of wildcard (glob) paths for COPY commands                                                |
 | `--raw-output`                          | Experimental                                                                    | Enable `--raw-output` for `RUN` output.                                                  |
 | `--run-with-aws-oidc`                   | Experimental                                                                    | Make AWS credentials via OIDC provider available to `RUN` commands                                      |
 
@@ -110,27 +110,27 @@ When enabled, Earthly will output artifacts resulting from `SAVE ARTIFACT ... AS
 
 For example, chains like these will produce outputs (and possibly push, if enabled):
 
-* main target -> `SAVE`
-* main target -> `BUILD -> SAVE`
-* main target -> `BUILD -> BUILD -> SAVE`
-* main target -> `BUILD -> BUILD -> BUILD -> SAVE`
+- main target -> `SAVE`
+- main target -> `BUILD -> SAVE`
+- main target -> `BUILD -> BUILD -> SAVE`
+- main target -> `BUILD -> BUILD -> BUILD -> SAVE`
 
 While chains like these will NOT produce outputs nor would they push:
 
-* main target -> `FROM -> SAVE`
-* main target -> `COPY -> SAVE`
-* main target -> `FROM -> BUILD -> SAVE`
-* main target -> `BUILD -> FROM -> SAVE`
-* main target -> `BUILD -> BUILD -> COPY -> SAVE`
+- main target -> `FROM -> SAVE`
+- main target -> `COPY -> SAVE`
+- main target -> `FROM -> BUILD -> SAVE`
+- main target -> `BUILD -> FROM -> SAVE`
+- main target -> `BUILD -> BUILD -> COPY -> SAVE`
 
 This works the same regardless of whether the targets in the chain are remote or local.
 
 When this feature is **disabled**, Earthly will output artifacts and images regardless of whether they are connected to the main target through a chain of `BUILD` commands, however the outputs will be subject to the following rules:
 
-* All `SAVE ARTIFACT ... AS LOCAL ...`, with local Earthfiles will be output
-* `SAVE ARTIFACT ... AS LOCAL ...` produced in remote targets will not be output
-* All images with tag names (both local and remote Earthfiles) will be output
-* No image will be pushed or `RUN --push` command will be executed if the target is remote
+- All `SAVE ARTIFACT ... AS LOCAL ...`, with local Earthfiles will be output
+- `SAVE ARTIFACT ... AS LOCAL ...` produced in remote targets will not be output
+- All images with tag names (both local and remote Earthfiles) will be output
+- No image will be pushed or `RUN --push` command will be executed if the target is remote
 
 ##### `--for-in`
 

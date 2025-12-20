@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/shell"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/pkg/errors"
 
 	dfShell "github.com/moby/buildkit/frontend/dockerfile/shell"
@@ -209,7 +209,7 @@ func (c *Collection) SortedOverridingVariables() []string {
 }
 
 // ExpandOld expands variables within the given word, it does not perform shelling-out.
-// it will eventually be removed when the ShellOutAnywhere feature is fully-adopted
+// It will eventually be removed when the ShellOutAnywhere feature is fully-adopted.
 func (c *Collection) ExpandOld(word string) string {
 	shlex := dfShell.NewLex('\\')
 	varMap := c.effective().Map(WithActive())

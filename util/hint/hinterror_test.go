@@ -61,7 +61,6 @@ func TestReceivers(t *testing.T) {
 }
 
 func TestFromError(t *testing.T) {
-
 	tests := map[string]struct {
 		err                 error
 		expectedErr         *Error

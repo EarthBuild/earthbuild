@@ -8,7 +8,6 @@ import (
 )
 
 func Test_EnumToString(t *testing.T) {
-
 	tests := map[string]struct {
 		input    ProtoEnum
 		f        EnumToStringFunc

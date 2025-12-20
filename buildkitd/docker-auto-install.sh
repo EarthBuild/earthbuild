@@ -117,9 +117,9 @@ install_dockerd() {
             ;;
 
         *)
-            echo "Warning: Distribution $distro not yet supported for Docker-in-Earthly."
+            echo "Warning: Distribution $distro not yet supported for Docker-in-EarthBuild."
             echo "Will attempt to treat like Debian."
-            echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/earthly/earthly/issues"
+            echo "If you would like this distribution to be supported, please open a GitHub issue: https://github.com/EarthBuild/earthbuild/issues"
             install_dockerd_debian_like
             ;;
     esac
@@ -165,12 +165,18 @@ install_dockerd_debian_like() {
 install_dockerd_amazon() {
     version=$(. /etc/os-release && echo "$VERSION")
     case "$version" in
+        2023)
+            dnf update -y
+            dnf install -y docker
+        ;;
         2)
             yes | amazon-linux-extras install docker
         ;;
-
-        *)  # Amazon Linux 1 uses versions like "2018.3" here, so dont bother enumerating
-            yum -y install docker
+        *)
+            echo "Warning: Amazon Linux $version not yet supported for Docker-in-EarthBuild."
+            echo "Will attempt to treat like Fedora."
+            dnf update -y
+            dnf install -y docker
         ;;
     esac
 }
@@ -207,7 +213,7 @@ if ! detect_dockerd; then
     install_dockerd
     echo "Docker Engine was missing. It has been installed automatically by Earthly."
     dockerd --version
-    echo "For better use of cache, try using the official earthly/dind image for WITH DOCKER."
+    echo "For better use of cache, try using the official earthbuild/dind image for WITH DOCKER."
 else
     print_debug "dockerd already installed"
 fi
@@ -226,7 +232,7 @@ if [ "$EARTHLY_START_COMPOSE" = "true" ] || [ "$EARTHLY_START_COMPOSE" = "" ]; t
         echo "Docker Compose was missing. It has been installed automatically by Earthly."
 
         $docker_compose --version
-        echo "For better use of cache, try using the official earthly/dind image for WITH DOCKER."
+        echo "For better use of cache, try using the official earthbuild/dind image for WITH DOCKER."
     else
         print_debug "docker-compose already installed"
     fi

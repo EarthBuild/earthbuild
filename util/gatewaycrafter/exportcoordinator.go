@@ -5,11 +5,11 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthly/earthly/util/dockerutil"
+	"github.com/EarthBuild/earthbuild/util/dockerutil"
 )
 
 // ExportCoordinator is a thread-safe data-store used for coordinating the export
-// of images, and artifacts (e.g. OnPull, OnImage, and Artifact summaries)
+// of images, and artifacts (e.g. OnPull, OnImage, and Artifact summaries).
 type ExportCoordinator struct {
 	m                     sync.Mutex
 	imageEntries          map[string]imageEntry
@@ -24,14 +24,14 @@ type imageEntry struct {
 	localImage string
 }
 
-// LocalOutputSummaryEntry contains a summary of output images
+// LocalOutputSummaryEntry contains a summary of output images.
 type LocalOutputSummaryEntry struct {
 	Target    string
 	DockerTag string
 	Salt      string
 }
 
-// PushedImageSummaryEntry contains a summary of images which were pushed
+// PushedImageSummaryEntry contains a summary of images which were pushed.
 type PushedImageSummaryEntry struct {
 	Target    string
 	DockerTag string
@@ -39,21 +39,21 @@ type PushedImageSummaryEntry struct {
 	Pushed    bool
 }
 
-// ArtifactOutputSummaryEntry contains a summary of output artifacts
+// ArtifactOutputSummaryEntry contains a summary of output artifacts.
 type ArtifactOutputSummaryEntry struct {
 	Target string
 	Path   string
 	Salt   string
 }
 
-// NewExportCoordinator returns a new ExportCoordinator
+// NewExportCoordinator returns a new ExportCoordinator.
 func NewExportCoordinator() *ExportCoordinator {
 	return &ExportCoordinator{
 		imageEntries: map[string]imageEntry{},
 	}
 }
 
-// GetImage fetches an existing entry from the data-store or returns false if none exists
+// GetImage fetches an existing entry from the data-store or returns false if none exists.
 func (ec *ExportCoordinator) GetImage(k string) (*dockerutil.Manifest, string, bool) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -62,7 +62,7 @@ func (ec *ExportCoordinator) GetImage(k string) (*dockerutil.Manifest, string, b
 }
 
 // AddImage creates a new entry for the value under sessionID/<v'>-<uuid>
-// Where v' is v without special chars
+// Where v' is v without special chars.
 func (ec *ExportCoordinator) AddImage(sessionID, localImage string, manifest *dockerutil.Manifest) string {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -75,7 +75,7 @@ func (ec *ExportCoordinator) AddImage(sessionID, localImage string, manifest *do
 	return k
 }
 
-// AddArtifactSummary adds an entry of a local target and docker tag, which is used to output a summary text at the end of earthly execution
+// AddArtifactSummary adds an entry of a local target and docker tag, which is used to output a summary text at the end of earthly execution.
 func (ec *ExportCoordinator) AddArtifactSummary(target, path, salt string) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -86,7 +86,7 @@ func (ec *ExportCoordinator) AddArtifactSummary(target, path, salt string) {
 	})
 }
 
-// GetArtifactSummary returns a list of artifact summary entries, sorted by target name
+// GetArtifactSummary returns a list of artifact summary entries, sorted by target name.
 func (ec *ExportCoordinator) GetArtifactSummary() []ArtifactOutputSummaryEntry {
 	ec.m.Lock()
 	entries := append([]ArtifactOutputSummaryEntry{}, ec.artifactOutputSummary...)
@@ -98,7 +98,7 @@ func (ec *ExportCoordinator) GetArtifactSummary() []ArtifactOutputSummaryEntry {
 	return entries
 }
 
-// AddLocalOutputSummary adds an entry of a local target and docker tag, which is used to output a summary text at the end of earthly execution
+// AddLocalOutputSummary adds an entry of a local target and docker tag, which is used to output a summary text at the end of earthly execution.
 func (ec *ExportCoordinator) AddLocalOutputSummary(target, dockerTag, salt string) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -109,7 +109,7 @@ func (ec *ExportCoordinator) AddLocalOutputSummary(target, dockerTag, salt strin
 	})
 }
 
-// GetLocalOutputSummary returns a list of output summary entries, sorted by target name
+// GetLocalOutputSummary returns a list of output summary entries, sorted by target name.
 func (ec *ExportCoordinator) GetLocalOutputSummary() []LocalOutputSummaryEntry {
 	ec.m.Lock()
 	entries := append([]LocalOutputSummaryEntry{}, ec.localOutputSummary...)
@@ -121,7 +121,7 @@ func (ec *ExportCoordinator) GetLocalOutputSummary() []LocalOutputSummaryEntry {
 	return entries
 }
 
-// AddPushedImageSummary adds an entry of a pushed images, which is used to output a summary text at the end of earthly execution
+// AddPushedImageSummary adds an entry of a pushed images, which is used to output a summary text at the end of earthly execution.
 func (ec *ExportCoordinator) AddPushedImageSummary(target, dockerTag, salt string, pushed bool) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -133,7 +133,7 @@ func (ec *ExportCoordinator) AddPushedImageSummary(target, dockerTag, salt strin
 	})
 }
 
-// GetPushedImageSummary returns a list of pushed image summary entries, sorted by target name
+// GetPushedImageSummary returns a list of pushed image summary entries, sorted by target name.
 func (ec *ExportCoordinator) GetPushedImageSummary() []PushedImageSummaryEntry {
 	ec.m.Lock()
 	entries := append([]PushedImageSummaryEntry{}, ec.pushedImageSummary...)

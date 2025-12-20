@@ -3,8 +3,10 @@
   extends: [
     'config:recommended',
     'default:pinDigestsDisabled',
+    'security:openssf-scorecard',
+    ':semanticCommits',
   ],
-  baseBranches: [
+  baseBranchPatterns: [
     'main',
     'docs-0.8',
   ],
@@ -33,22 +35,17 @@
     '**/vendor/**',
     '**/__fixtures__/**',
   ],
-  enabledManagers: [
-    'custom.regex',
-    'github-actions',
-    'dockerfile',
-  ],
   dockerfile: {
-    fileMatch: [
-      'Earthfile',
-      '.*\\.earth$',
+    managerFilePatterns: [
+      '/Earthfile/',
+      '/.*\\.earth$/',
     ],
   },
   customManagers: [
     {
       customType: 'regex',
-      fileMatch: [
-        '.+.md',
+      managerFilePatterns: [
+        '/.+.md/',
       ],
       matchStrings: [
         'earthly/releases/download/(?<currentValue>.+?)/',
@@ -65,9 +62,9 @@
     },
     {
       customType: 'regex',
-      fileMatch: [
-        'buildcontext/git.go',
-        'ast/tests/git-clone.ast.json',
+      managerFilePatterns: [
+        '/buildcontext/git.go/',
+        '/ast/tests/git-clone.ast.json/',
       ],
       matchStrings: [
         '"alpine/git:(?<currentValue>.+?)"',
@@ -77,29 +74,30 @@
     },
     {
       customType: 'regex',
-      fileMatch: [
-        '^Earthfile$',
+      description: "Update _version LETs, ARGs and ENVs in Earthfile",
+      managerFilePatterns: [
+        '/^Earthfile$/',
       ],
       matchStrings: [
-        '\\s*#\\s*renovate:\\s*datasource=(?<datasource>.*?)\\s+depName=(?<depName>.*?)[\\s\\n]+(versioning=(?<versioning>.*?)\\s+)?ARG\\s+.*?(_VERSION|_VER|version)=(?<currentValue>.*?)($|\\s|\\n)',
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG|LET)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
       ],
     },
     {
       customType: 'regex',
-      fileMatch: [
-        'Earthfile$',
-        'earthfile2llb/with_docker_run_base\\.go',
-        'ast/tests/.*?\\.ast\\.json',
-        '.+.md',
+      managerFilePatterns: [
+        '/Earthfile$/',
+        '/earthfile2llb/with_docker_run_base\\.go/',
+        '/ast/tests/.*?\\.ast\\.json/',
+        '/.+.md/',
       ],
       matchStrings: [
-        'ARG(\\s+|\\s+.*?\\s+)DIND_IMAGE=earthly/dind:(?<currentValue>.*?)($|\\s|\\n)',
-        '--DIND_IMG=earthly/dind:(?<currentValue>.*?)($|\\s|\\n|")',
-        '("|\\`|\\s+)earthly/dind:(?<currentValue>.+?)("|\\`|\\s+\\|)',
-        'FROM(\\s+|\\s+.*?\\s+)earthly/dind:(?<currentValue>.*?)($|\\s|\\n|\\`)',
-        'docker.io/earthly/dind:(?<currentValue>.*?)@',
+        'ARG(\\s+|\\s+.*?\\s+)DIND_IMAGE=earthbuild/dind:(?<currentValue>.*?)($|\\s|\\n)',
+        '--DIND_IMG=earthbuild/dind:(?<currentValue>.*?)($|\\s|\\n|")',
+        '("|\\`|\\s+)earthbuild/dind:(?<currentValue>.+?)("|\\`|\\s+\\|)',
+        'FROM(\\s+|\\s+.*?\\s+)earthbuild/dind:(?<currentValue>.*?)($|\\s|\\n|\\`)',
+        'docker.io/earthbuild/dind:(?<currentValue>.*?)@',
       ],
-      depNameTemplate: 'earthly/dind',
+      depNameTemplate: 'earthbuild/dind',
       datasourceTemplate: 'docker',
     },
   ],
@@ -117,7 +115,9 @@
       addLabels: [
         'earthly-version-in-docs',
       ],
-      schedule: ["at any time"], // update as soon as possible
+      schedule: [ // update as soon as possible
+        'at any time',
+      ],
       automerge: true,
     },
     {
@@ -126,11 +126,11 @@
       matchBaseBranches: [
         'docs-0.8',
       ],
-      excludePackageNames: [
-        'earthly/earthly',
-        'earthly/dind',
-      ],
       enabled: false,
+      matchPackageNames: [
+        '!earthly/earthly',
+        '!earthbuild/dind',
+      ],
     },
     {
       // 2. disable PRs targeting main for earthly/earthly
@@ -156,7 +156,7 @@
         'ast/tests/**',
       ],
       matchPackageNames: [
-        'earthly/dind',
+        'earthbuild/dind',
       ],
       enabled: false,
     },
@@ -166,7 +166,7 @@
         'main',
       ],
       matchPackageNames: [
-        'earthly/dind',
+        'earthbuild/dind',
       ],
       matchFileNames: [
         'examples/**',
@@ -184,52 +184,58 @@
         'every month',
       ],
     },
-    // disable any docker dependencies that are not alpine/git or earthly/dind (temporary until we add other dependencies)
+    // disable any docker dependencies that are not alpine/git or earthbuild/dind (temporary until we add other dependencies)
     {
       matchManagers: [
         'dockerfile',
       ],
-      excludePackageNames: [
-        'alpine/git',
-        'earthly/dind',
-      ],
       enabled: false,
+      matchPackageNames: [
+        '!alpine/git',
+        '!earthbuild/dind',
+      ],
     },
     {
-      // rule to update earthly/dind:alpine-* images
+      // rule to update earthbuild/dind:alpine-* images
       groupName: 'dind-images',
-      matchPackageNames: ['earthly/dind'],
-      matchCurrentVersion: "/^alpine-.*/",
-      allowedVersions: "/^alpine-.*/",
-      versioning: "regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-r(?<revision>\\d+)$",
+      matchPackageNames: [
+        'earthbuild/dind',
+      ],
+      matchCurrentVersion: '/^alpine-.*/',
+      allowedVersions: '/^alpine-.*/',
+      versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-r(?<revision>\\d+)$',
     },
     {
-      // rule to update earthly/dind:ubuntu:20.04-* images
+      // rule to update earthbuild/dind:ubuntu:20.04-* images
       groupName: 'dind-images',
-      matchPackageNames: ['earthly/dind'],
-      matchCurrentVersion: "/^ubuntu-20\\.04-.*/",
-      allowedVersions: "/^ubuntu-20\\.04-.*/",
-      versioning: "regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$",
+      matchPackageNames: [
+        'earthbuild/dind',
+      ],
+      matchCurrentVersion: '/^ubuntu-20\\.04-.*/',
+      allowedVersions: '/^ubuntu-20\\.04-.*/',
+      versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     {
-      // rule to update earthly/dind:ubuntu:23.04-* images
+      // rule to update earthbuild/dind:ubuntu:23.04-* images
       groupName: 'dind-images',
-      matchPackageNames: ['earthly/dind'],
-      matchCurrentVersion: "/^ubuntu-23\\.04-.*/",
-      allowedVersions: "/^ubuntu-23\\.04-.*/",
-      versioning: "regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$",
+      matchPackageNames: [
+        'earthbuild/dind',
+      ],
+      matchCurrentVersion: '/^ubuntu-23\\.04-.*/',
+      allowedVersions: '/^ubuntu-23\\.04-.*/',
+      versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
-    // disable any dependencies in docs/ & examples/ except for earthly/earthly and earthly/dind (temporary until we add other dependencies)
+    // disable any dependencies in docs/ & examples/ except for earthly/earthly and earthbuild/dind (temporary until we add other dependencies)
     {
       matchFileNames: [
         'examples/**',
         'docs/**',
       ],
-      excludePackageNames: [
-        'earthly/dind',
-        'earthly/earthly',
-      ],
       enabled: false,
+      matchPackageNames: [
+        '!earthbuild/dind',
+        '!earthly/earthly',
+      ],
     },
     {
       // group all examples and docs updates in one PR (except for earthly/earthly which is in a different PR)
@@ -237,11 +243,11 @@
         'examples/**',
         'docs/**',
       ],
-      excludePackageNames: [
-        'earthly/earthly',
-      ],
       separateMajorMinor: false,
       groupName: 'docs-dependencies',
+      matchPackageNames: [
+        '!earthly/earthly',
+      ],
     },
   ],
 }

@@ -14,11 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	"github.com/earthly/earthly/util/cliutil"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/termutil"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/termutil"
 )
 
 type BootstrapInterface interface {
@@ -248,14 +248,14 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 		return false, errors.Wrapf(err, "failed to add entry")
 	}
 
-	_, err = f.Write([]byte(bashEntry))
+	_, err = f.WriteString(bashEntry)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed writing to %s", path)
 	}
 	return true, nil
 }
 
-// If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache
+// If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache.
 func (a *Bootstrap) insertZSHCompleteEntry() error {
 	potentialPaths := []string{
 		"/usr/local/share/zsh/site-functions",
@@ -299,7 +299,7 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 		return nil // zsh-completion isn't available, silently fail.
 	}
 
-	_, err = f.Write([]byte(compEntry))
+	_, err = f.WriteString(compEntry)
 	if err != nil {
 		return errors.Wrapf(err, "failed writing to %s", path)
 	}

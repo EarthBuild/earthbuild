@@ -6,11 +6,11 @@ import (
 	"path"
 	"strings"
 
+	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/containerd/containerd/platforms"
-	debuggercommon "github.com/earthly/earthly/debugger/common"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/oidcutil"
-	"github.com/earthly/earthly/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
@@ -21,7 +21,7 @@ const (
 	dockerdWrapperPath          = "/var/earthly/dockerd-wrapper.sh"
 	dockerAutoInstallScriptPath = "/var/earthly/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthly/dind:alpine-3.19-docker-25.0.5-r0"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.22-docker-28.3.3-r4"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -177,7 +177,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
-		Filename: fmt.Sprintf("/tmp/earthly/%s", composeConfigFile),
+		Filename: fmt.Sprintf("/tmp/earthbuild/%s", composeConfigFile),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "read compose config file")
@@ -187,7 +187,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
-	dockerRoot := path.Join("/var/earthly/dind", dindID)
+	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
 	params := []string{
 		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
 		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),

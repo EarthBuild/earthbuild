@@ -1,4 +1,4 @@
-module github.com/earthly/earthly/examples/readme/proto
+module github.com/EarthBuild/earthbuild/examples/readme/proto
 
 go 1.21
 

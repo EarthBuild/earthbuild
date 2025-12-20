@@ -1,8 +1,8 @@
 package earthfile2llb
 
 import (
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/waitutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/waitutil"
 )
 
 type stateWaitItem struct {
@@ -10,11 +10,11 @@ type stateWaitItem struct {
 	state *pllb.State
 }
 
-// SetDoPush has no effect, but exists to satisfy interface
+// SetDoPush has no effect, but exists to satisfy interface.
 func (swi *stateWaitItem) SetDoPush() {
 }
 
-// SetDoSave has no effect, but exists to satisfy interface
+// SetDoSave has no effect, but exists to satisfy interface.
 func (swi *stateWaitItem) SetDoSave() {
 }
 

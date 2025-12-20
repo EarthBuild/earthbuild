@@ -12,30 +12,30 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/earthly/earthly/internal/version"
+	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/earthly/earthly/cmd/earthly/app"
-	"github.com/earthly/earthly/cmd/earthly/base"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	eFlag "github.com/earthly/earthly/cmd/earthly/flag"
-	"github.com/earthly/earthly/cmd/earthly/subcmd"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/envutil"
-	"github.com/earthly/earthly/util/syncutil"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/envutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil"
 )
 
-// These vars are set by ldflags
+// These vars are set by ldflags.
 var (
 	// Version is the version of this CLI app.
 	Version string
-	// GitSha contains the git sha used to build this app
+	// GitSha contains the git sha used to build this app.
 	GitSha string
-	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc)
+	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc).
 	BuiltBy string
 
 	// DefaultBuildkitdImage is the default buildkitd image to use.

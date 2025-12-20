@@ -5,14 +5,14 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/pkg/errors"
 )
 
 var _ error = &InterpreterError{}
 
-// note this regex should be updated in case the error format changes in Errorf
+// note this regex should be updated in case the error format changes in Errorf.
 var regex = regexp.MustCompile(`(?P<file_path>.*?):(?P<line>\d+):(?P<column>\d+) (?P<error>.+?)($|\nin\t\t(?P<stack>.+?)$)`)
 
 // InterpreterError is an error of the interpreter, which contains optional references to the original
@@ -45,6 +45,7 @@ func WrapError(cause error, sl *spec.SourceLocation, targetID, stack string, for
 		text:           fmt.Sprintf(format, args...),
 	}
 }
+
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {
@@ -96,7 +97,7 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 	return nil, false
 }
 
-// FromError attempts to parse the given error's string to an *InterpreterError
+// FromError attempts to parse the given error's string to an *InterpreterError.
 func FromError(err error) (*InterpreterError, bool) {
 	if err == nil {
 		return nil, false

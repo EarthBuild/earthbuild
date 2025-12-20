@@ -1,0 +1,59 @@
+name: Tagged Release
+
+on:
+    release:
+        types: [published]
+
+jobs:
+    add-artifacts-to-release:
+        runs-on: ubuntu-24.04-arm
+        permissions:
+            contents: write
+            actions: read
+        env:
+            FORCE_COLOR: 1
+        steps:
+            - uses: earthbuild/actions-setup@main
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  ref: ${{ github.event.release.tag_name }}
+                  fetch-depth: 0
+            - name: Copy pre-built artifacts to release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_TAG: ${{ github.event.release.tag_name }}
+              run: |
+                  earthly --ci --push --secret GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} ./release+promote-artifacts-to-gh \
+                      --RELEASE_TAG=${{ env.RELEASE_TAG }}
+    release-images-to-dockerhub:
+        runs-on: ubuntu-24.04-arm
+        permissions:
+            contents: read
+            packages: read
+        env:
+            FORCE_COLOR: 1
+        steps:
+            - uses: earthbuild/actions-setup@main
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  ref: ${{ github.event.release.tag_name }}
+                  fetch-depth: 0
+            - name: Copy images from GHCR.io to DockerHub
+              env:
+                  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+                  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+                  
+                  GHCR_USERNAME: ${{ github.actor }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  
+                  RELEASE_TAG: ${{ github.event.release.tag_name }}
+              # TODO: set usernames for docker
+              run: |
+                  earthly --ci --push --secret CONTAINER_REGISTRY_TOKEN=${{ env.GITHUB_TOKEN }} \
+                      --secret DEST_CONTAINER_REGISTRY_TOKEN=${{ env.DOCKERHUB_TOKEN }} \
+                      ./release+promote-to-dockerhub \
+                      --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
+                      --CONTAINER_REGISTRY_USER="${{ env.GHCR_USERNAME }}" \
+                      --DEST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"

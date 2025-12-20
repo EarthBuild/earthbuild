@@ -12,20 +12,21 @@ import (
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/cmd/earthly/base"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 
-	"github.com/earthly/earthly/autocomplete"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/cliutil"
+	"github.com/EarthBuild/earthbuild/autocomplete"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
 // to enable autocomplete, enter
 // complete -o nospace -C "/path/to/earthly" earthly
 //
-// alternatively, you can run earthly with COMP_LINE and COMP_POINT set; for example:
-// COMP_LINE="earthly ./buildkitd+buildkitd --" COMP_POINT="32" ./build/linux/amd64/earthly
-// COMP_LINE="earthly ~/test/simple+test -" COMP_POINT="28" ./build/linux/amd64/earthly
+// Alternatively, you can run earthly with COMP_LINE and COMP_POINT set; for example:
+//
+//	COMP_LINE="earthly ./buildkitd+buildkitd --" COMP_POINT="32" ./build/linux/amd64/earthly
+//	COMP_LINE="earthly ~/test/simple+test -" COMP_POINT="28" ./build/linux/amd64/earthly
 func AutoComplete(ctx context.Context, cli *base.CLI) {
 	_, found := os.LookupEnv("COMP_LINE")
 	if !found {
@@ -40,7 +41,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) {
 			os.Exit(1)
 		}
 		logFile := filepath.Join(logDir, "autocomplete.log")
-		err = os.MkdirAll(logDir, 0755)
+		err = os.MkdirAll(logDir, 0o755)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MkdirAll %s failed: %v\n", logDir, err)
 			os.Exit(1)

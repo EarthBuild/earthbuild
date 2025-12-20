@@ -4,13 +4,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/earthly/earthly/variables/reserved"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 
 	"github.com/pkg/errors"
 )
 
 // ProcessNonConstantVariableFunc is a function which takes in an expression and
-// turns it into a state, target intput and arg index.
+// turns it into a state, target input and arg index.
 type ProcessNonConstantVariableFunc func(name string, expression string) (value string, argIndex int, err error)
 
 // ParseCommandLineArgs parses a slice of old build args

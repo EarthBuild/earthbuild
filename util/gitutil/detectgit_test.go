@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseGitRemoteURL(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		gitURL         string
 		expectedGitURL string
 		valid          bool
@@ -26,13 +26,13 @@ func TestParseGitRemoteURL(t *testing.T) {
 			true,
 		},
 		{
-			"ssh://git@github.com/earthly/earthly.git",
-			"github.com/earthly/earthly",
+			"ssh://git@github.com/EarthBuild/earthbuild.git",
+			"github.com/EarthBuild/earthbuild",
 			true,
 		},
 		{
-			"https://git@github.com/earthly/earthly.git",
-			"github.com/earthly/earthly",
+			"https://git@github.com/EarthBuild/earthbuild.git",
+			"github.com/EarthBuild/earthbuild",
 			true,
 		},
 	}

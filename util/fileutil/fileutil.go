@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// FileExists returns true if the file exists
+// FileExists returns true if the file exists.
 func FileExists(filename string) (bool, error) {
 	info, err := os.Stat(filename)
 	if err != nil {
@@ -22,13 +22,13 @@ func FileExists(filename string) (bool, error) {
 	return !info.IsDir(), nil
 }
 
-// FileExistsBestEffort returns true if the directory exists and ignores errors
+// FileExistsBestEffort returns true if the directory exists and ignores errors.
 func FileExistsBestEffort(filename string) bool {
 	ok, _ := FileExists(filename)
 	return ok
 }
 
-// DirExists returns true if the directory exists
+// DirExists returns true if the directory exists.
 func DirExists(filename string) (bool, error) {
 	info, err := os.Stat(filename)
 	if err != nil {
@@ -40,7 +40,7 @@ func DirExists(filename string) (bool, error) {
 	return info.IsDir(), nil
 }
 
-// DirExistsBestEffort returns true if the directory exists and ignores errors
+// DirExistsBestEffort returns true if the directory exists and ignores errors.
 func DirExistsBestEffort(filename string) bool {
 	ok, _ := DirExists(filename)
 	return ok

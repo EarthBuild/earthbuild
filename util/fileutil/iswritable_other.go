@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// IsDirWritable returns if the path is a directory that the user can write to
+// IsDirWritable returns if the path is a directory that the user can write to.
 func IsDirWritable(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {

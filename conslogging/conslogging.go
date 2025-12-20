@@ -33,19 +33,19 @@ const (
 	DefaultPadding int = 20
 )
 
-// LogLevel defines which types of log messages are displayed (e.g. warning, info, verbose)
+// LogLevel defines which types of log messages are displayed (e.g. warning, info, verbose).
 type LogLevel int
 
 const (
-	// Silent silences logging
+	// Silent silences logging.
 	Silent LogLevel = iota
-	// Warn only display warning log messages
+	// Warn only display warning log messages.
 	Warn
-	// Info displays info and higher priority log messages
+	// Info displays info and higher priority log messages.
 	Info
-	// Verbose displays verbose and higher priority log messages
+	// Verbose displays verbose and higher priority log messages.
 	Verbose
-	// Debug displays all log messages
+	// Debug displays all log messages.
 	Debug
 )
 
@@ -256,7 +256,7 @@ func (cl ConsoleLogger) PrefixColor() *color.Color {
 	return cl.color(c)
 }
 
-// Prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY
+// Prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY.
 func (cl *ConsoleLogger) PrintGHASummary(message string) {
 	if !cl.githubAnnotations {
 		return
@@ -271,7 +271,7 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 		fmt.Print(w, message)
 		return
 	}
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}
@@ -286,7 +286,7 @@ type GHAError struct {
 	col     int32
 }
 
-func (e *GHAError) FormatedMessage() string {
+func (e *GHAError) FormattedMessage() string {
 	if e.file != "" {
 		return fmt.Sprintf("file=%s,line=%d,col=%d,title=Error::%s", e.file, e.line, e.col, e.message)
 	} else {
@@ -315,7 +315,7 @@ func (cl *ConsoleLogger) PrintGHAError(message string, fns ...GHAErrorOpt) {
 		fn(&ge)
 	}
 
-	cl.printGithubActionsControl(errorCommand, ge.FormatedMessage())
+	cl.printGithubActionsControl(errorCommand, ge.FormattedMessage())
 }
 
 type ghHeader string
@@ -326,7 +326,7 @@ const (
 	endGroupCommand ghHeader = "::endgroup::"
 )
 
-// Print GHA control messages like ::group and ::error
+// Print GHA control messages like ::group and ::error.
 func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string, a ...any) {
 	if !cl.githubAnnotations {
 		return
@@ -391,7 +391,7 @@ func (cl ConsoleLogger) VerboseWarnf(format string, args ...interface{}) {
 	cl.Warnf(format, args...)
 }
 
-// HelpPrintf prints formatted text to the console with `Help:` prefix in a specific color
+// HelpPrintf prints formatted text to the console with `Help:` prefix in a specific color.
 func (cl ConsoleLogger) HelpPrintf(format string, args ...interface{}) {
 	cl.ColorPrintf(cl.color(helpColor), fmt.Sprintf("\nHelp: %s\n", format), args...)
 }
@@ -555,7 +555,7 @@ func prettyPrefix(prefixPadding int, prefix string) string {
 	return formatter.Format(prefix, prefixPadding)
 }
 
-// WithLogLevel changes the log level
+// WithLogLevel changes the log level.
 func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 	ret := cl.clone()
 	ret.logLevel = logLevel

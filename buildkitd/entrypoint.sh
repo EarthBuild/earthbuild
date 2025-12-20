@@ -114,7 +114,7 @@ fi
 ln -sf "/sbin/$IP_TABLES" /sbin/iptables
 
 # clear any leftovers (that aren't explicitly cached) in the dind dir
-find /tmp/earthly/dind/ -maxdepth 1 -mindepth 1 | grep -v cache_ | xargs -r rm -rf
+find /tmp/earthbuild/dind/ -maxdepth 1 -mindepth 1 | grep -v cache_ | xargs -r rm -rf
 
 mkdir -p "$EARTHLY_TMP_DIR/dind"
 
@@ -189,7 +189,7 @@ CACHE_SIZE_MB="${EFFECTIVE_CACHE_SIZE_MB:-0}"
 if [ "$CACHE_SIZE_MB" -eq "0" ]; then
     # no config value was set by the user; buildkit would set this to 10% by default:
     #   https://github.com/moby/buildkit/blob/54b8ff2fc8648c86b1b8c35e5cd07517b56ac2d5/cmd/buildkitd/config/gcpolicy_unix.go#L16
-    # however, we will be aggresive and set it to min(55%, max(10%, 20GB))
+    # however, we will be aggressive and set it to min(55%, max(10%, 20GB))
     CACHE_MB_10PCT="$(stat -c "10 * %b * %S / 100 / 1024 / 1024" -f "$EARTHLY_TMP_DIR" | bc)"
     CACHE_MB_55PCT="$(stat -c "55 * %b * %S / 100 / 1024 / 1024" -f "$EARTHLY_TMP_DIR" | bc)"
     CACHE_SIZE_MB="20480" # first start with 20GB
@@ -319,7 +319,7 @@ do
     do
         # Sometimes, child processes can be reparented to the init (this script). One
         # common instance is when something is OOM killed, for instance. This enumerates
-        # all those PIDs, and kills them to prevent accidential "ghost" loads.
+        # all those PIDs, and kills them to prevent accidental "ghost" loads.
         if [ "$PID" != "$execpid" ] && [ "$(ignored_by_oom "$PID")" = "false" ]; then
             if [ "$OOM_SCORE_ADJ" -ne "0" ]; then
                 ! "$BUILDKIT_DEBUG" || echo "$(date) | $PID($(cat /proc/"$PID"/cmdline)) killed with OOM_SCORE_ADJ=$OOM_SCORE_ADJ" >> /var/log/oom_adj

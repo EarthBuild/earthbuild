@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/earthly/earthly/util/buildkitskipper/hasher"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 )
 
 var emptyHash = []byte{0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0xd, 0x32, 0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x7, 0x9}
@@ -47,7 +47,7 @@ func TestHashFile(t *testing.T) {
 	if err != nil {
 		NoError(t, err)
 	}
-	_, err = f.Write([]byte("hello"))
+	_, err = f.WriteString("hello")
 	if err != nil {
 		NoError(t, err)
 	}

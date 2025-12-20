@@ -8,15 +8,15 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/ast/spec"
 	goflags "github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
 
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
-// backwards compatibility
+// backwards compatibility.
 type Features struct {
 	// Never enabled by default
 	NoUseRegistryForWithDocker bool `long:"no-use-registry-for-with-docker" description:"disable use-registry-for-with-docker"` // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
@@ -85,7 +85,7 @@ type Features struct {
 
 type ctxKey struct{}
 
-// Version returns the current version
+// Version returns the current version.
 func (f *Features) Version() string {
 	return fmt.Sprintf("%d.%d", f.Major, f.Minor)
 }
@@ -108,7 +108,7 @@ func parseFlagOverrides(env string) map[string]string {
 	return m
 }
 
-// String returns a string representation of the version and set flags
+// String returns a string representation of the version and set flags.
 func (f *Features) String() string {
 	if f == nil {
 		return "<nil>"
@@ -180,7 +180,7 @@ func instrumentVersion(_ string, opt *goflags.Option, s *string) (*string, error
 	return s, nil // don't modify the flag, just pass it back.
 }
 
-// Get returns a features struct for a particular version
+// Get returns a features struct for a particular version.
 func Get(version *spec.Version) (*Features, bool, error) {
 	var ftrs Features
 	hasVersion := (version != nil)

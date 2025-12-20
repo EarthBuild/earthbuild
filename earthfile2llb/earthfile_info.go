@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earthly/earthly/ast/commandflag"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/flagutil"
-	"github.com/earthly/earthly/util/platutil"
+	"github.com/EarthBuild/earthbuild/ast/commandflag"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 )
@@ -18,7 +18,7 @@ import (
 // most notably for `earthly doc` and `earthly ls` output.
 
 // GetTargets returns a list of targets from an Earthfile.
-// Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used)
+// Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used).
 func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
@@ -32,7 +32,7 @@ func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient g
 	return targets, nil
 }
 
-// GetTargetArgs returns a list of build arguments for a specified target
+// GetTargetArgs returns a list of build arguments for a specified target.
 func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
@@ -63,7 +63,6 @@ func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 		}
 	}
 	return args, nil
-
 }
 
 // ArgName returns the parsed name of an ARG command, the default value (if

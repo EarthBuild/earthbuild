@@ -23,14 +23,14 @@ all:
 # Then try this example:
 #
 #     earthly +all
-#     docker run --rm earthly/examples:multiplatform
-#     docker run --rm earthly/examples:multiplatform_linux_amd64
-#     docker run --rm earthly/examples:multiplatform_linux_arm64
-#     docker run --rm earthly/examples:multiplatform_linux_arm_v7
-#     docker run --rm earthly/examples:multiplatform_linux_arm_v6
+#     docker run --rm earthbuild/examples:multiplatform
+#     docker run --rm earthbuild/examples:multiplatform_linux_amd64
+#     docker run --rm earthbuild/examples:multiplatform_linux_arm64
+#     docker run --rm earthbuild/examples:multiplatform_linux_arm_v7
+#     docker run --rm earthbuild/examples:multiplatform_linux_arm_v6
 #
 docker:
     FROM alpine:3.18
     RUN uname -m
     CMD ["uname", "-m"]
-    SAVE IMAGE --push earthly/examples:multiplatform
+    SAVE IMAGE --push earthbuild/examples:multiplatform

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/moby/buildkit/session/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -48,7 +48,7 @@ type MultiAuthProvider struct {
 	authServers []Child
 	mu          sync.Mutex
 
-	// once an authServer has responded succcessfully, only that auth server
+	// once an authServer has responded successfully, only that auth server
 	// will be used for all subsequent calls -- this is to prevent accidentally
 	// mixing credentials and using them inconsistently
 	foundAuthServer map[string]Child
@@ -129,7 +129,7 @@ func (ap *MultiAuthProvider) FetchToken(ctx context.Context, req *auth.FetchToke
 			return nil, err
 		}
 		if a.Anonymous {
-			ap.console.Warnf("Warning: you are not logged into %s, you may experience rate-limitting when pulling images\n", req.Host)
+			ap.console.Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
 		}
 		ap.setAuthServer(req.Host, as)
 		return a, nil

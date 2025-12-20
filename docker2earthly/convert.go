@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/earthly/earthly/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -179,7 +179,7 @@ type earthfileTemplateArgs struct {
 	Platforms    []string
 }
 
-// GenerateEarthfile returns an Earthfile content string which contains a target to build a docker image using FROM DOCKERFILE
+// GenerateEarthfile returns an Earthfile content string which contains a target to build a docker image using FROM DOCKERFILE.
 func GenerateEarthfile(buildContextPath string, dockerfilePath string, imageTags []string, buildArgs []string, platforms []string, target string) (string, error) {
 	t, err := template.New("earthfile").Parse(earthfileTemplate)
 	if err != nil {

@@ -11,28 +11,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/buildcontext/provider"
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/cmd/earthly/bk"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/regproxy"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/dockerutil"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/gwclientlogger"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/llbutil/secretprovider"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/saveartifactlocally"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/variables"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/buildcontext/provider"
+	"github.com/EarthBuild/earthbuild/cleanup"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
+	"github.com/EarthBuild/earthbuild/regproxy"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/dockerutil"
+	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
+	"github.com/EarthBuild/earthbuild/util/gwclientlogger"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -573,7 +573,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			return "", err
 		}
 		artifactDir := filepath.Join(outDir, fmt.Sprintf("index-%s", index))
-		err = os.MkdirAll(artifactDir, 0755)
+		err = os.MkdirAll(artifactDir, 0o755)
 		if err != nil {
 			return "", errors.Wrapf(err, "create dir %s", artifactDir)
 		}
@@ -618,7 +618,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	if opt.PrintPhases {
 		b.opt.Console.PrintPhaseHeader(PhaseBuild, false, "")
 	}
-	err := b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, PhaseBuild, b.opt.Console)
+	err := b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, b.opt.Console)
 	if err != nil {
 		return nil, errors.Wrapf(err, "build main")
 	}
@@ -642,7 +642,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			}
 		}
 		if hasRunPush {
-			err = b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, PhasePush, b.opt.Console)
+			err = b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, b.opt.Console)
 			if err != nil {
 				return nil, errors.Wrapf(err, "build push")
 			}
@@ -863,7 +863,7 @@ func (b *Builder) tempEarthlyOutDir() (string, error) {
 	var err error
 	b.outDirOnce.Do(func() {
 		tmpParentDir := ".tmp-earthly-out"
-		err = os.MkdirAll(tmpParentDir, 0755)
+		err = os.MkdirAll(tmpParentDir, 0o755)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to create dir %s", tmpParentDir)
 			return

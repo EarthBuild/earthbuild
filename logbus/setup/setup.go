@@ -5,13 +5,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logbus/formatter"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
+	"github.com/EarthBuild/earthbuild/logbus/writersub"
+	"github.com/EarthBuild/earthbuild/util/deltautil"
+	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/logbus/formatter"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/logbus/writersub"
-	"github.com/earthly/earthly/util/deltautil"
-	"github.com/earthly/earthly/util/execstatssummary"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -48,7 +48,7 @@ func New(ctx context.Context, bus *logbus.Bus, debug, verbose, displayStats, for
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)
 	if busDebugFile != "" {
-		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open bus debug file %s", busDebugFile)
 		}
@@ -79,7 +79,7 @@ func (bs *BusSetup) SetCI(isCI bool) {
 func (bs *BusSetup) DumpManifestToFile(path string) error {
 	m := bs.Formatter.Manifest()
 	proto.Merge(m, bs.InitialManifest)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open bus manifest debug file %s", path)
 	}

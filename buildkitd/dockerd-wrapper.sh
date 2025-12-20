@@ -42,8 +42,8 @@ docker_compose_cmd() {
 }
 
 write_compose_config() {
-    mkdir -p /tmp/earthly
-    docker_compose_cmd config >/tmp/earthly/compose-config.yml
+    mkdir -p /tmp/earthbuild
+    docker_compose_cmd config >/tmp/earthbuild/compose-config.yml
 }
 
 execute() {
@@ -228,7 +228,7 @@ EOF
         if [ "$fail" = "true" ]; then
             # Print dockerd logs on start failure.
             print_dockerd_logs
-            echo "If you are having trouble running docker, try using the official earthly/dind image instead"
+            echo "If you are having trouble running docker, try using the official earthbuild/dind image instead"
             return 1
         fi
         i=$((i+1))

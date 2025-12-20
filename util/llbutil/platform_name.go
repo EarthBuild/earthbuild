@@ -3,12 +3,12 @@ package llbutil
 import (
 	"fmt"
 
+	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/docker/distribution/reference"
-	"github.com/earthly/earthly/util/platutil"
 	"github.com/pkg/errors"
 )
 
-// PlatformSpecificImageName returns the PlatformSpecificImageName
+// PlatformSpecificImageName returns the PlatformSpecificImageName.
 func PlatformSpecificImageName(imgName string, platform platutil.Platform) (string, error) {
 	platformStr := platform.String()
 	if platformStr == "" {

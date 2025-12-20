@@ -11,18 +11,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/earthly/earthly/buildcontext"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/util/fileutil"
+	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	errCompPointOutOfBounds = fmt.Errorf("COMP_POINT out of bounds")
-)
+var errCompPointOutOfBounds = fmt.Errorf("COMP_POINT out of bounds")
 
 func isLocalPath(path string) bool {
 	for _, prefix := range []string{".", "..", "/", "~"} {
@@ -307,7 +305,7 @@ func isFlagValidAndRequiresValue(flags []cli.Flag, flagName string) bool {
 }
 
 // padStrings takes an array of strings and returns a new array where each
-// string element has been padded with a prefix and suffix
+// string element has been padded with a prefix and suffix.
 func padStrings(flags []string, prefix, suffix string) []string {
 	padded := make([]string, len(flags))
 	for i, s := range flags {

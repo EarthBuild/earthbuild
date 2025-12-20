@@ -3,11 +3,11 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/earthly/earthly/variables"
+	"github.com/EarthBuild/earthbuild/variables"
 )
 
 func TestParseFlagArgs(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		kvFlag []string
 		kv     []string
 	}{
@@ -32,7 +32,7 @@ func TestParseFlagArgs(t *testing.T) {
 }
 
 func TestNegativeParseFlagArgs(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		kvFlag []string
 	}{
 		{[]string{"--foo"}},
@@ -47,7 +47,7 @@ func TestNegativeParseFlagArgs(t *testing.T) {
 }
 
 func TestParseFlagArgsWithNonFlags(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		kvFlag   []string
 		flags    []string
 		nonFlags []string

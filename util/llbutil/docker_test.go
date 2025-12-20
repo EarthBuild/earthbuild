@@ -5,7 +5,7 @@ import (
 )
 
 func TestDockerTagSafe(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		tag  string
 		safe string
 	}{

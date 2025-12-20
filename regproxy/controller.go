@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	conslog "github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/stringutil"
+	conslog "github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 	registry "github.com/moby/buildkit/api/services/registry"
 	"github.com/pkg/errors"
 )
@@ -92,7 +92,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 	if c.darwinProxy {
 		containerName := fmt.Sprintf("%s-%s", darwinContainerPrefix, stringutil.RandomAlphanumeric(6))
 		stopFn := func(ctx context.Context) {
-			err := c.stopDarwinProxy(ctx, containerName, true)
+			err := c.stopDarwinProxy(containerName, true)
 			if err != nil {
 				c.cons.VerbosePrintf("Failed to stop registry proxy support container: %v", err)
 			}
@@ -160,7 +160,11 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	// Wait for the proxy chain to resolve to the BK registry. The /v2/ path
 	// will return a 200 when ready.
 	for {
-		res, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort))
+		req, err := http.NewRequestWithContext(childCtx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort), nil)
+		if err != nil {
+			return 0, err
+		}
+		res, err := http.DefaultClient.Do(req)
 		if res != nil && res.Body != nil {
 			res.Body.Close()
 		}
@@ -186,7 +190,7 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 	for _, container := range containers {
 		if strings.HasPrefix(container.Name, darwinContainerPrefix) &&
 			time.Since(container.Created) > darwinContainerMaxAge {
-			err = c.stopDarwinProxy(ctx, container.Name, false)
+			err = c.stopDarwinProxy(container.Name, false)
 			if err != nil {
 				return err
 			}
@@ -195,7 +199,7 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) stopDarwinProxy(_ context.Context, containerName string, checkExists bool) error {
+func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) error {
 	// Ignore parent context cancellations as to prevent orphaned containers.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

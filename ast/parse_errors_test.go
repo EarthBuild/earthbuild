@@ -5,12 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earthly/earthly/ast"
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/stretchr/testify/require"
 )
 
 func TestParserErrors(t *testing.T) {
-
 	tests := []struct {
 		name         string
 		earthfile    string

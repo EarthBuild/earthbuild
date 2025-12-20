@@ -16,19 +16,19 @@ import (
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc/codes"
 
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	"github.com/earthly/earthly/cmd/earthly/helper"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/earthfile2llb"
-	"github.com/earthly/earthly/inputgraph"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/errutil"
-	"github.com/earthly/earthly/util/hint"
-	"github.com/earthly/earthly/util/params"
-	"github.com/earthly/earthly/util/reflectutil"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/errutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/util/params"
+	"github.com/EarthBuild/earthbuild/util/reflectutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"google.golang.org/grpc/status"
 )
 
@@ -41,7 +41,7 @@ var (
 )
 
 func (app *EarthlyApp) Run(ctx context.Context, console conslogging.ConsoleLogger, startTime time.Time, lastSignal *syncutil.Signal) int {
-	err := app.unhideFlags(ctx)
+	err := app.unhideFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
 		os.Exit(1)
@@ -53,7 +53,7 @@ func (app *EarthlyApp) Run(ctx context.Context, console conslogging.ConsoleLogge
 	return exitCode
 }
 
-func (app *EarthlyApp) unhideFlags(ctx context.Context) error {
+func (app *EarthlyApp) unhideFlags() error {
 	var err error
 	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" { // TODO delete this check after 2022-03-01
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
@@ -75,18 +75,18 @@ func (app *EarthlyApp) unhideFlags(ctx context.Context) error {
 		reflectutil.SetBool(fl, "Hidden", false)
 	}
 
-	unhideFlagsCommands(ctx, app.BaseCLI.App().Commands)
+	unhideFlagsCommands(app.BaseCLI.App().Commands)
 
 	return nil
 }
 
-func unhideFlagsCommands(ctx context.Context, cmds []*cli.Command) {
+func unhideFlagsCommands(cmds []*cli.Command) {
 	for _, cmd := range cmds {
 		reflectutil.SetBool(cmd, "Hidden", false)
 		for _, flg := range cmd.Flags {
 			reflectutil.SetBool(flg, "Hidden", false)
 		}
-		unhideFlagsCommands(ctx, cmd.Subcommands)
+		unhideFlagsCommands(cmd.Subcommands)
 	}
 }
 
@@ -233,7 +233,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			app.BaseCLI.Console().HelpPrintf(helpMsg)
 			return 1
 		case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
-			var matches = notFoundRegex.FindStringSubmatch(err.Error())
+			matches := notFoundRegex.FindStringSubmatch(err.Error())
 			msg := ""
 			if len(matches) == 2 {
 				msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
@@ -300,7 +300,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			)
 			app.BaseCLI.Console().Warnf(
 				"Error: It seems that buildkitd is shutting down or it has crashed. " +
-					"You can report crashes at https://github.com/earthly/earthly/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 				app.printCrashLogs(ctx)
 			}
@@ -314,7 +314,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			)
 			app.BaseCLI.Console().Warnf(
 				"Error: It seems that buildkitd is shutting down or it has crashed. " +
-					"You can report crashes at https://github.com/earthly/earthly/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 				app.printCrashLogs(ctx)
 			}
@@ -329,7 +329,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 				app.BaseCLI.Console().Warnf(
 					"Error: It seems that buildkitd had an issue. " +
-						"You can report crashes at https://github.com/earthly/earthly/issues/new.")
+						"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 				app.printCrashLogs(ctx)
 			}
 			return 6
@@ -373,7 +373,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			return 1
 		}
 		//  if this happens there is a missing "return" in the above switch statement.
-		panic("error was not caught by error-handling switch") // nolint:all
+		panic("error was not caught by error-handling switch")
 	}
 	app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS)
 	return 0

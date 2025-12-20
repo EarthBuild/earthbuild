@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/gatewaycrafter"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 
 	reccopy "github.com/otiai10/copy"
 	"github.com/pkg/errors"
 )
 
-// SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock
+// SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock.
 func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.ExportCoordinator, console conslogging.ConsoleLogger, artifact domain.Artifact, indexOutDir string, destPath string, salt string, ifExists bool) error {
 	fromPattern := filepath.Join(indexOutDir, filepath.FromSlash(artifact.Artifact))
 	// Resolve possible wildcards.
@@ -81,7 +81,7 @@ func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.
 		}
 
 		toDir := path.Dir(to)
-		err = os.MkdirAll(toDir, 0755)
+		err = os.MkdirAll(toDir, 0o755)
 		if err != nil {
 			return errors.Wrapf(err, "mkdir all for artifact %s", toDir)
 		}

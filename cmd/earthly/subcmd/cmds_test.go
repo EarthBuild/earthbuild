@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/poy/onpar"
 	"github.com/poy/onpar/expect"
 	"github.com/poy/onpar/matchers"
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/cmd/earthly/app"
-	"github.com/earthly/earthly/cmd/earthly/base"
-	"github.com/earthly/earthly/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 )
 
 func TestRootCmdsHelp(t *testing.T) {
@@ -56,7 +56,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	}
 }
 
-// Check if command has any subCommands to verify
+// Check if command has any subCommands to verify.
 func checkSubCommands(commands []*cli.Command) []*cli.Command {
 	var allCommands []*cli.Command
 	for _, command := range commands {

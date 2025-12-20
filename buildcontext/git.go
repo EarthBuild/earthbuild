@@ -9,18 +9,18 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/syncutil/synccache"
-	"github.com/earthly/earthly/util/vertexmeta"
+	"github.com/EarthBuild/earthbuild/cleanup"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 
 	"github.com/moby/buildkit/client/llb"
@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultGitImage = "alpine/git:v2.43.0"
+	defaultGitImage = "alpine/git:v2.49.1"
 )
 
 type gitResolver struct {
@@ -164,7 +164,7 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 			return nil, errors.Wrap(err, "read build file")
 		}
 		localBuildFilePath := filepath.Join(earthfileTmpDir, path.Base(bf))
-		err = os.WriteFile(localBuildFilePath, bfBytes, 0700)
+		err = os.WriteFile(localBuildFilePath, bfBytes, 0o700)
 		if err != nil {
 			return nil, errors.Wrapf(err, "write build file to tmp dir at %s", localBuildFilePath)
 		}
@@ -401,7 +401,6 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 			} else {
 				gitBranches2 = []string{strings.SplitN(string(gitDefaultBranchBytes), "\n", 2)[0]}
 			}
-
 		}
 		gitTags := strings.SplitN(string(gitTagsBytes), "\n", 2)
 		var gitTags2 []string
@@ -410,7 +409,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 				gitTags2 = append(gitTags2, gitTag)
 			}
 		}
-		gitCommiterTs := strings.SplitN(string(gitCommitterTsBytes), "\n", 2)[0]
+		gitCommitterTs := strings.SplitN(string(gitCommitterTsBytes), "\n", 2)[0]
 		gitAuthorTs := strings.SplitN(string(gitAuthorTsBytes), "\n", 2)[0]
 		gitRefs := strings.Split(string(gitRefsBytes), "\n")
 		var gitRefs2 []string
@@ -437,7 +436,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 			shortHash:      gitShortHash,
 			branches:       gitBranches2,
 			tags:           gitTags2,
-			committerTs:    gitCommiterTs,
+			committerTs:    gitCommitterTs,
 			authorTs:       gitAuthorTs,
 			authorEmail:    gitAuthorEmail,
 			authorName:     gitAuthorName,

@@ -1,24 +1,36 @@
 VERSION 0.8
 
-ARG --global KIND_VERSION=0.20.0
+# renovate: datasource=github-releases packageName=kubernetes-sigs/kind
+ARG --global KIND_VERSION=0.30.0
 
 all:
-    BUILD +alpine-kind
-    BUILD +ubuntu-kind
+    WAIT
+        BUILD +alpine-kind
+    END
+    WAIT
+        BUILD +ubuntu-kind
+    END
 
 alpine-kind:
-    ARG DIND_IMAGE=earthly/dind:alpine-3.19-docker-25.0.5-r0
+    ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r4
     FROM $DIND_IMAGE
-    RUN apk add curl
-    RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
+    RUN wget -O ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
-        RUN ./kind create cluster --verbosity 99999 --retain
+        RUN (update-alternatives --set iptables /usr/sbin/iptables-legacy || true) && ./kind create cluster --verbosity 99999 --retain || { \
+                ./kind export logs ./logs && \
+                find ./logs -type f -exec cat {} + && \
+                exit 1; \
+            }
     END
 
 ubuntu-kind:
-    ARG DIND_IMAGE=earthly/dind:ubuntu-23.04-docker-25.0.2-1
+    ARG DIND_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.4.0-1
     FROM $DIND_IMAGE
     RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
-        RUN ./kind create cluster --verbosity 99999 --retain
+        RUN ./kind create cluster --verbosity 99999 --retain || { \
+                ./kind export logs ./logs && \
+                find ./logs -type f -exec cat {} + && \
+                exit 1; \
+            }
     END

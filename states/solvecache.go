@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/pkg/errors"
 )
 
@@ -23,7 +23,7 @@ type SolveCache struct {
 // help with some refactoring later.
 type StateKey string
 
-// NewSolveCache gives a new SolveCachemap instance
+// NewSolveCache gives a new SolveCache instance.
 func NewSolveCache() *SolveCache {
 	return &SolveCache{
 		store: synccache.New(),

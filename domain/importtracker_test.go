@@ -3,13 +3,13 @@ package domain
 import (
 	"testing"
 
-	"github.com/earthly/earthly/conslogging"
+	"github.com/EarthBuild/earthbuild/conslogging"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestImports(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		importStr string
 		as        string
 		ref       string

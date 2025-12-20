@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/domain"
 	"github.com/moby/buildkit/util/sshutil"
 )
 

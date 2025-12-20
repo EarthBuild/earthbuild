@@ -22,7 +22,7 @@ type Platform struct {
 	p      *specs.Platform
 }
 
-// IsPlatformDefined returns true when the platform was explicitly set
+// IsPlatformDefined returns true when the platform was explicitly set.
 func IsPlatformDefined(p Platform) bool {
 	return p != DefaultPlatform
 }

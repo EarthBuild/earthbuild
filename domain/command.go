@@ -16,7 +16,7 @@ var commandNameRegex = regexp.MustCompile(commandNamePattern)
 // Command is an earthly command identifier.
 type Command struct {
 	// Remote representation.
-	GitURL string `json:"gitUrl"` // e.g. "github.com/earthly/earthly/examples/go"
+	GitURL string `json:"gitUrl"` // e.g. "github.com/EarthBuild/earthbuild/examples/go"
 	Tag    string `json:"tag"`    // e.g. "main"
 	// Local representation. E.g. in "./some/path+something" this is "./some/path".
 	LocalPath string `json:"localPath"`
@@ -83,7 +83,7 @@ func (ec Command) IsUnresolvedImportReference() bool {
 	return ec.IsImportReference() && !ec.IsRemote() && !ec.IsLocalExternal() && !ec.IsLocalInternal()
 }
 
-// DebugString returns a string that can be printed out for debugging purposes
+// DebugString returns a string that can be printed out for debugging purposes.
 func (ec Command) DebugString() string {
 	return fmt.Sprintf("gitURL: %q; tag: %q; LocalPath: %q; ImportRef: %q; Command: %q", ec.GitURL, ec.Tag, ec.LocalPath, ec.ImportRef, ec.Command)
 }

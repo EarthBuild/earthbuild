@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/earthly/earthly/debugger/common"
+	"github.com/EarthBuild/earthbuild/debugger/common"
 
 	"github.com/alessio/shellescape"
 	"github.com/moby/buildkit/session/secrets"
@@ -18,14 +18,14 @@ type cmdStore struct {
 	cmd string
 }
 
-// NewSecretProviderCmd returns a SecretStore that shells out to a user-supplied command
+// NewSecretProviderCmd returns a SecretStore that shells out to a user-supplied command.
 func NewSecretProviderCmd(cmd string) (secrets.SecretStore, error) {
 	return &cmdStore{
 		cmd: cmd,
 	}, nil
 }
 
-// GetSecret gets a secret from the map store
+// GetSecret gets a secret from the map store.
 func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 	if len(c.cmd) == 0 {
 		return nil, secrets.ErrNotFound

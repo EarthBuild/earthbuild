@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/conslogging"
 )
 
 // Generic is a generic writer for build output unrelated to a specific target.

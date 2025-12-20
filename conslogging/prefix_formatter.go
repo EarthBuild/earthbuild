@@ -7,12 +7,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 )
 
 var (
 	// urlPathPartRegex is used to find all parts of a url
-	// for example github.com/earthly/my-repo => p1="github.com/", p2="earthly/" (note: "my-repo" is intentionally not captured as p3)
+	// for example github.com/earthly/my-repo => p1="github.com/", p2="earthly/" (note: "my-repo" is intentionally not captured as p3).
 	urlPathPartRegex = regexp.MustCompile(`(.*?/)`)
 	// githubRegex Matches :2dd88e53f2e59e96ec1f9215f24a3981e5565edf+ in a prefix.
 	// 	Prefix containing hash may resemble: g/e/hello-world:2dd88e53f2e59e96ec1f9215f24a3981e5565edf+base
@@ -21,10 +21,10 @@ var (
 	// gitURLRegex matches the url appearing in parentheses for example:
 	// +my-target(https://github/earthly/earthly)
 	gitURLRegex = regexp.MustCompile(`\(.+?\)`)
-	// urlPrefixRegex is used to captured url protocol, for example "https://" in "https://github.com/earthly/earthly"
+	// urlPrefixRegex is used to captured url protocol, for example "https://" in "https://github.com/EarthBuild/earthbuild"
 	urlPrefixRegex = regexp.MustCompile("^.+?//")
 	// targetURLRegex is used to capture any target path - relative (./my-dir+my-target), absolute (/abs/my-dir+my-target) or remote (github.com/my-org-my-repo+my-target)
-	// the url my include an optional branch name or commit sha, e.g. github.com/my-org/my-repo:my-branch+my-target
+	// the url my include an optional branch name or commit sha, e.g. github.com/my-org/my-repo:my-branch+my-target.
 	targetURLRegex       = regexp.MustCompile(`^.+?(:|\+)`)
 	gitURLWithCredsRegex = regexp.MustCompile(`(?P<protocol>.+?)://(?P<user>.+?):(?P<password>.+?)@(?P<repoURL>.+?).git#(?P<ref>.+?)$`)
 	formatter            = NewPrefixFormatter(truncateURLWithCreds, truncateSha, truncateGITURL, truncateTargetURL)
@@ -46,7 +46,7 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 	matches := make([]string, 0, len(namedMatches))
 	for _, name := range namedGroups {
 		if len(namedMatches[name]) == 0 {
-			//something was wrong with the regex, return original string
+			// something was wrong with the regex, return original string
 			return str
 		}
 		if curLen <= padding || namedMatches[name][0] == "" {

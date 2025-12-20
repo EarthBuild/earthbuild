@@ -10,12 +10,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthly/earthly/dockertar"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/dockertar"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )
@@ -174,10 +174,10 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 		OIDCInfo:             opt.OIDCInfo,
 	}
 
-	// TODO: /tmp/earthly should not be hard-coded here. It should match whatever
+	// TODO: /tmp/earthbuild should not be hard-coded here. It should match whatever
 	//       buildkit's image EARTHLY_TMP_DIR is set to.
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthly/dind")))
+		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
 		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
@@ -233,9 +233,7 @@ func (w *withDockerRunTar) pull(ctx context.Context, opt DockerPullOpt) (chan st
 		},
 	}
 	solveFun := func() error {
-		err := w.solveImage(
-			ctx, mts, opt.ImageName, opt.ImageName,
-			llb.WithCustomNamef("%sDOCKER LOAD (PULL %s)", w.c.imageVertexPrefix(opt.ImageName, opt.Platform), opt.ImageName))
+		err := w.solveImage(ctx, mts, opt.ImageName, opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -280,10 +278,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 			}
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
-		err := w.solveImage(
-			ctx, mts, depTarget.String(), opt.ImageName,
-			llb.WithCustomNamef(
-				"%sDOCKER LOAD %s %s", w.c.imageVertexPrefix(opt.ImageName, mts.Final.PlatformResolver.Current()), depTarget.String(), opt.ImageName))
+		err := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -308,7 +303,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 	return optPromise, nil
 }
 
-func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string, opts ...llb.RunOption) error {
+func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string) error {
 	solveID, err := states.KeyFromHashAndTag(mts.Final, dockerTag)
 	if err != nil {
 		return errors.Wrap(err, "state key func")
@@ -336,7 +331,7 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		// buildkit to use cache when these are the same as before (eg a docker image
 		// that is identical as before).
 		// Note that this is achieved by causing CacheKey() to return a consistent result under https://github.com/moby/buildkit/blob/b3e8c63a48ad8c015f5631fc1947945b229b3919/source/local/local.go#L78
-		// However, this introduces a bug during the Snapshot() call where `ls.sm.Get(timeoutCtx, sessionID, false)` is called on a non-existant sessionID, which then causes
+		// However, this introduces a bug during the Snapshot() call where `ls.sm.Get(timeoutCtx, sessionID, false)` is called on a non-existent sessionID, which then causes
 		// buildkit to wait until a context-cancelled error occurs, and then ultimately fallsback to using any available session from the group.
 		sessionIDKey := fmt.Sprintf("%s-%s", dockerTag, dockerImageID)
 		sha256SessionIDKey := sha256.Sum256([]byte(sessionIDKey))

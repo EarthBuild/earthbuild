@@ -7,16 +7,16 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/earthly/earthly/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 
-	"github.com/earthly/earthly/config"
-	"github.com/earthly/earthly/conslogging"
-	logbussetup "github.com/earthly/earthly/logbus/setup"
-	"github.com/earthly/earthly/util/cliutil"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/envutil"
-	"github.com/earthly/earthly/util/execstatssummary"
-	"github.com/earthly/earthly/util/fileutil"
+	"github.com/EarthBuild/earthbuild/config"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/envutil"
+	"github.com/EarthBuild/earthbuild/util/execstatssummary"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -92,12 +92,12 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 	app.BaseCLI.SetCfg(&cfg)
 
-	err = app.processDeprecatedCommandOptions(cliCtx, app.BaseCLI.Cfg())
+	err = app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 	if err != nil {
 		return err
 	}
 
-	err = app.parseFrontend(cliCtx, app.BaseCLI.Cfg())
+	err = app.parseFrontend(cliCtx)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, cfg *config.Config) error {
+func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
 	console := app.BaseCLI.Console().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -163,7 +163,7 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, cfg *config.Config) er
 	return nil
 }
 
-func (app *EarthlyApp) processDeprecatedCommandOptions(cliCtx *cli.Context, cfg *config.Config) error {
+func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error {
 	app.warnIfEarth()
 
 	if cfg.Global.CachePath != "" {

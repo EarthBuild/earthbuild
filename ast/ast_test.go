@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earthly/earthly/ast"
-	"github.com/earthly/earthly/ast/spec"
+	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +21,6 @@ func (n *namedStringReader) Name() string {
 var _ ast.NamedReader = &namedStringReader{}
 
 func TestParse(t *testing.T) {
-
 	tests := []struct {
 		note      string
 		earthfile string

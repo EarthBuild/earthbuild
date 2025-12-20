@@ -46,13 +46,15 @@ jobs:
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

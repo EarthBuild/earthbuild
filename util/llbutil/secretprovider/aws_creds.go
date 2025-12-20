@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 
-	"github.com/earthly/earthly/util/hint"
-	"github.com/earthly/earthly/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
 )
 
 // Internal reserved credentials names used to acquire the equivalent values
@@ -53,7 +53,7 @@ func AWSEnvName(name string) (string, bool) {
 	return envName, ok
 }
 
-// AWSCredentialProvider can load AWS settings from the environment or oidc provider
+// AWSCredentialProvider can load AWS settings from the environment or oidc provider.
 type AWSCredentialProvider struct{}
 
 // NewAWSCredentialProvider creates and returns a credential provider for AWS.
@@ -63,7 +63,6 @@ func NewAWSCredentialProvider() *AWSCredentialProvider {
 
 // GetSecret attempts to find an AWS secret from either the environment or a local config file.
 func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]byte, error) {
-
 	q, err := url.ParseQuery(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse secret info")
@@ -122,8 +121,8 @@ func getCFG(ctx context.Context) (aws.Config, error) {
 	return cfg, nil
 }
 
-// SetURLValuesFunc returs a function that takes url.Values and sets oidc values.
-// This is used by SecretID() to be able to identify secrets from this provider
+// SetURLValuesFunc returns a function that takes url.Values and sets oidc values.
+// This is used by SecretID() to be able to identify secrets from this provider.
 func SetURLValuesFunc(awsInfo *oidcutil.AWSOIDCInfo) func(values url.Values) {
 	return func(values url.Values) {
 		values.Set(sessionNameURLParam, awsInfo.SessionName)

@@ -6,9 +6,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/earthly/earthly/buildkitd"
-	"github.com/earthly/earthly/cmd/earthly/common"
-	"github.com/earthly/earthly/util/containerutil"
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 
 // Put flags on Flags instead as there are other things in the CLI that are being called + set
 // by the subcommands so I thought it made since to declare them just once there and then
-// pass them in
+// pass them in.
 type Global struct {
 	DockerfilePath             string
 	EnableProfiler             bool

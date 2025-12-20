@@ -23,12 +23,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/buildkitutil"
-	"github.com/earthly/earthly/util/containerutil"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/semverutil"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/buildkitutil"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/semverutil"
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB
@@ -77,7 +77,7 @@ func NewClient(ctx context.Context, console conslogging.ConsoleLogger, image, co
 		}
 	}()
 
-	opts, err := addRequiredOpts(settings, installationName, fe.Config().Setting == containerutil.FrontendPodmanShell, opts...)
+	opts, err := addRequiredOpts(settings, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "add required client opts")
 	}
@@ -125,7 +125,7 @@ func ResetCache(ctx context.Context, console conslogging.ConsoleLogger, image, c
 		return errors.New("cannot reset cache of a provided buildkit-host setting")
 	}
 
-	opts, err := addRequiredOpts(settings, installationName, fe.Config().Setting == containerutil.FrontendPodmanShell, opts...)
+	opts, err := addRequiredOpts(settings, opts...)
 	if err != nil {
 		return errors.Wrap(err, "add required client opts")
 	}
@@ -332,7 +332,7 @@ func maybeRestart(ctx context.Context, console conslogging.ConsoleLogger, image,
 	return info, workerInfo, nil
 }
 
-// RemoveExited removes any stopped or exited buildkitd containers
+// RemoveExited removes any stopped or exited buildkitd containers.
 func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, containerName string) error {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
@@ -386,7 +386,7 @@ func Start(ctx context.Context, console conslogging.ConsoleLogger, image, contai
 		containerutil.Mount{
 			Type:     containerutil.MountVolume,
 			Source:   settings.VolumeName,
-			Dest:     "/tmp/earthly",
+			Dest:     "/tmp/earthbuild",
 			ReadOnly: false,
 		},
 	}
@@ -764,7 +764,7 @@ func MaybePull(ctx context.Context, console conslogging.ConsoleLogger, image str
 	return nil
 }
 
-// GetDockerVersion returns the docker version command output
+// GetDockerVersion returns the docker version command output.
 func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (string, error) {
 	info, err := fe.Information(ctx)
 	if err != nil {
@@ -774,7 +774,7 @@ func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (
 	return fmt.Sprintf("%#v", info), nil
 }
 
-// GetLogs returns earthly-buildkitd logs
+// GetLogs returns earthly-buildkitd logs.
 func GetLogs(ctx context.Context, containerName string, fe containerutil.ContainerFrontend, settings Settings) (string, error) {
 	if !containerutil.IsLocal(settings.BuildkitAddress) {
 		return "", nil
@@ -846,7 +846,7 @@ func GetSettingsHash(ctx context.Context, containerName string, fe containerutil
 	return "", fmt.Errorf("settings hash for container %s was not found", containerName)
 }
 
-// GetContainerInfo inspects the running container (running under containerName)
+// GetContainerInfo inspects the running container (running under containerName).
 func GetContainerInfo(ctx context.Context, containerName string, fe containerutil.ContainerFrontend) (*containerutil.ContainerInfo, error) {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
@@ -860,7 +860,7 @@ func GetContainerInfo(ctx context.Context, containerName string, fe containeruti
 	return nil, fmt.Errorf("info for container %s was not found", containerName)
 }
 
-// GetImageInfo inspects an image
+// GetImageInfo inspects an image.
 func GetImageInfo(ctx context.Context, image string, fe containerutil.ContainerFrontend) (*containerutil.ImageInfo, error) {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {
@@ -1014,7 +1014,7 @@ func getCacheSize(ctx context.Context, volumeName string, fe containerutil.Conta
 	return int(infos[volumeName].SizeBytes), nil
 }
 
-func addRequiredOpts(settings Settings, installationName string, isUsingPodman bool, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
+func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
 	server, err := url.Parse(settings.BuildkitAddress)
 	if err != nil {
 		return []client.ClientOpt{}, errors.Wrapf(err, "failed to parse buildkit url %s", settings.BuildkitAddress)

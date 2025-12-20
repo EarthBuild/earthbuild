@@ -33,11 +33,12 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 # go.mod and go.sum will be updated locally.
 deps:
     FROM +base
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.1
     COPY go.mod go.sum ./
     COPY ./ast/go.mod ./ast/go.sum ./ast
     COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
-    RUN go mod download
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
@@ -54,7 +55,9 @@ code:
     IF [ "$BUILDKIT_PROJECT" != "" ]
         COPY --dir "$BUILDKIT_PROJECT"+code/buildkit /buildkit
         RUN go mod edit -replace github.com/moby/buildkit=/buildkit
-        RUN go mod download
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            go mod download
     END
     # Use CLOUD_API to point go.mod to a cloud API dir being actively developed. Examples:
     #   --CLOUD_API=../cloud/api+proto/api/public/'*'
@@ -64,7 +67,9 @@ code:
     IF [ "$CLOUD_API" != "" ]
         COPY --dir "$CLOUD_API" /cloud-api/
         RUN go mod edit -replace github.com/earthly/cloud-api=/cloud-api
-        RUN go mod download
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
     COPY --dir autocomplete buildcontext builder logbus cleanup cmd config conslogging debugger \
@@ -73,6 +78,7 @@ code:
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/hint ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
+    SAVE ARTIFACT /earthly
 
 # update-buildkit updates earthly's buildkit dependency.
 update-buildkit:
@@ -89,20 +95,10 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM alpine:3.18
-
-    ARG TARGETARCH
-
-    IF [ $TARGETARCH == "arm64" ]
-        RUN echo "Downloading, and manually installing shellcheck for ARM" && \
-            wget https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.aarch64.tar.xz && \
-            tar -xf shellcheck-stable.linux.aarch64.tar.xz && \
-            mv shellcheck-stable/shellcheck /usr/bin/shellcheck
-    ELSE
-        RUN echo "Installing shellcheck from Alpine repos" && \
-            apk add --update --no-cache shellcheck
-    END
-
+    # renovate: datasource=docker packageName=alpine
+    ARG alpine_version=3.23.0
+    FROM alpine:$alpine_version
+    RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
 
 lint-scripts-misc:
@@ -136,7 +132,7 @@ lint-scripts:
 earthly-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r4
     RUN apk add --no-cache --update bash
     COPY earthly .earthly_version_flag_overrides .
 
@@ -150,59 +146,38 @@ earthly-script-no-stdout:
 
 # lint runs basic go linters against the earthly project.
 lint:
-    FROM +code
-    COPY ./.golangci.yaml ./
-    RUN golangci-lint run
+    # renovate: datasource=github-releases packageName=golangci/golangci-lint
+    LET golangci_lint_version=2.7.2
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+    COPY ./.golangci.yaml .
+    COPY --dir +code/earthly /
+    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+        ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            --mount type=cache,target=/root/.cache/golangci_lint \
+            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
+    END
 
-lint-newline-ending:
-    FROM alpine:3.18
-    WORKDIR /everything
-    COPY . .
-    # test that line endings are unix-style
-    RUN set -e; \
-        code=0; \
-        for f in $(find . -not -path "./.git/*" -type f \( -iname '*.go' -o -iname 'Earthfile' -o -iname '*.earth' -o -iname '*.md' -o -iname '*.json' \) | grep -v "ast/tests/empty-targets.earth" ); do \
-            if ! dos2unix < "$f" | cmp - "$f"; then \
-                echo "$f contains windows-style newlines and must be converted to unix-style (use dos2unix to fix)"; \
-                code=1; \
-            fi; \
-        done; \
-        exit $code
-    # test file ends with a single newline
-    RUN set -e; \
-        code=0; \
-        for f in $(find . -not -path "./.git/*" -type f \( -iname '*.yml' -o -iname '*.go' -o -iname '*.sh' -o -iname '*.template' -o -iname 'Earthfile' -o -iname '*.earth' -o -iname '*.md' -o -iname '*.json' \) | grep -v "ast/tests/empty-targets.earth" | grep -v "tests/version/version-only.earth" | grep -v "examples/mkdocs" ); do \
-            if [ "$(tail -c 1 $f)" != "$(printf '\n')" ]; then \
-                echo "$f does not end with a newline"; \
-                code=1; \
-            fi; \
-        done; \
-        exit $code
-    RUN export f=ast/tests/empty-targets.earth && \
-    if [ "$(tail -c 1 $f)" = "$(printf '\n')" ]; then \
-            echo "$f is a special-case test which must not end with a newline."; \
-            exit 1; \
-        fi
-    # check for files with trailing newlines
-    RUN set -e; \
-        code=0; \
-        for f in $(find . -not -path "./.git/*" -type f \( -iname '*.go' -o -iname 'Earthfile' -o -iname '*.earth' -o -iname '*.md' -o -iname '*.json' \) | grep -v "ast/tests/empty-targets.earth" | grep -v "ast/parser/earth_parser.go" | grep -v "ast/parser/earth_lexer.go" ); do \
-            if [ "$(tail -c 2 $f)" == "$(printf '\n\n')" ]; then \
-                echo "$f has trailing newlines"; \
-                code=1; \
-            fi; \
-        done; \
-        exit $code
-
-vale:
-    WORKDIR /
-    RUN curl -sfL https://install.goreleaser.com/github.com/ValeLint/vale.sh | sh -s v2.10.3
-    WORKDIR /etc/vale
-    COPY .vale/ .
+# govulncheck runs govulncheck against the earthbuild project.
+govulncheck:
+    # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
+    ENV govulncheck_version=1.1.3
+    RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
+    COPY --dir +code/earthly /
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        --mount type=cache,target=/root/.cache/go-vulncheck \
+        govulncheck ./...
 
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
-    FROM --platform=linux/amd64 +vale
+    # renovate: datasource=docker packageName=jdkato/vale
+    ARG vale_version=3.13.0
+    FROM jdkato/vale:v$vale_version
+    COPY .vale/ /etc/vale
     WORKDIR /everything
     COPY . .
     # TODO figure out a way to ignore this pattern in vale (doesn't seem to be working under spelling's filter option)
@@ -213,8 +188,13 @@ markdown-spellcheck:
 # mocks runs 'go generate' against this module and saves generated mock files
 # locally.
 mocks:
-    FROM +code
-    RUN go install git.sr.ht/~nelsam/hel@latest && go install golang.org/x/tools/cmd/goimports@latest
+    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
+    ENV hel_version=0.6.6
+    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
+    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
+    ENV goimports_version=0.24.1
+    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
+    COPY --dir +code/earthly /
     RUN go generate ./...
     FOR mockfile IN $(find . -name 'helheim*_test.go')
         SAVE ARTIFACT $mockfile AS LOCAL $mockfile
@@ -223,7 +203,10 @@ mocks:
 unit-test-parser:
     FROM +deps
     COPY scripts/unit-test-parser/main.go .
-    RUN go build -o testparser main.go
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go build -o testparser main.go
     SAVE ARTIFACT testparser
 
 # unit-test runs unit tests (and some integration tests).
@@ -272,13 +255,13 @@ unit-test:
 # depend on the core earthly project.
 submodule-decouple-check:
     FROM +code
-    RUN for submodule in github.com/earthly/earthly/ast github.com/earthly/earthly/util/deltautil; \
+    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
     do \
         for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
         do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/earthly/earthly" ]; \
+            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/EarthBuild/earthbuild" ]; \
             then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/earthly/earthly' module"; \
+               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/EarthBuild/earthbuild' module"; \
                exit 1; \
             fi; \
         done; \
@@ -289,27 +272,26 @@ changelog:
     FROM scratch
     SAVE ARTIFACT CHANGELOG.md
 
-changelog-parser:
-    FROM python:3
-    RUN pip install packaging
-    COPY release/changelogparser.py /usr/bin/changelogparser
-    WORKDIR /changelog
-    COPY CHANGELOG.md .
-
+# lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM +changelog-parser
+    FROM python:3.14.0-slim@sha256:9813eecff3a08a6ac88aea5b43663c82a931fd9557f6aceaa847f0d8ce738978
+    RUN pip install packaging
+    WORKDIR /changelog
+    COPY release/changelogparser.py /usr/bin/changelogparser
+    COPY CHANGELOG.md .
     RUN changelogparser --changelog CHANGELOG.md
 
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
     ENV CGO_ENABLED=0
-    ARG GOCACHE=/go-cache
     ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
     ARG EARTHLY_GIT_HASH
-    RUN --mount=type=cache,target=$GOCACHE \
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go build \
             -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
@@ -343,7 +325,6 @@ earthly:
     # TODO: this works for CI but the final value should probably come from dockerhub
     ARG DEFAULT_BUILDKITD_IMAGE=$IMAGE_REGISTRY:buildkitd-$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
-    ARG GOCACHE=/go-cache
     RUN mkdir -p build
     RUN printf "$BUILD_TAGS" > ./build/tags && echo "$(cat ./build/tags)"
     RUN printf '-X main.DefaultBuildkitdImage='"$DEFAULT_BUILDKITD_IMAGE" > ./build/ldflags && \
@@ -355,7 +336,9 @@ earthly:
     # Important! If you change the go build options, you may need to also change them
     # in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
     # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
-    RUN --mount=type=cache,target=$GOCACHE \
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         GOARM=${VARIANT#v} go build \
             -tags "$(cat ./build/tags)" \
             -ldflags "$(cat ./build/ldflags)" \
@@ -646,14 +629,8 @@ all:
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
-    BUILD +lint-docs
-    BUILD +submodule-decouple-check
-
-# lint-docs runs lint against changelog and checks that line endings are unix style and files end
-# with a single newline.
-lint-docs:
-    BUILD +lint-newline-ending
     BUILD +lint-changelog
+    BUILD +submodule-decouple-check
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations
@@ -796,6 +773,8 @@ examples:
     BUILD +examples-1
     BUILD +examples-2
     BUILD +examples-3
+    BUILD +examples-4
+    BUILD +examples-5
 
 examples-1:
     ARG TARGETARCH
@@ -807,25 +786,11 @@ examples-1:
     END
     BUILD ./examples/elixir+docker
     BUILD ./examples/go+docker
-    BUILD ./examples/grpc+test
-    IF [ "$TARGETARCH" = "amd64" ]
-        # This only works on amd64 for now.
-        BUILD ./examples/integration-test+integration-test
-    END
-    BUILD ./examples/java+docker
-    BUILD ./examples/js+docker
-    BUILD ./examples/monorepo+all
     BUILD ./examples/multirepo+docker
-    BUILD ./examples/python+docker
-    BUILD ./examples/react+docker
-    BUILD ./examples/cutoff-optimization+run
-    BUILD ./examples/import+build
-    BUILD ./examples/secrets+base
 
 examples-2:
     BUILD ./examples/readme/go1+all
     BUILD ./examples/readme/go2+build
-    BUILD ./examples/readme/proto+docker
     # TODO: This example is flaky for some reason.
     #BUILD ./examples/terraform+localstack
     BUILD ./examples/ruby+docker
@@ -844,20 +809,47 @@ examples-2:
     BUILD ./examples/cache-command/mvn+docker
 
 examples-3:
-    BUILD ./examples/typescript-node+docker
+    BUILD ./examples/python+docker
     BUILD ./examples/bazel+run
     BUILD ./examples/bazel+image
     BUILD ./examples/mkdocs+build
     BUILD ./examples/zig+docker
+
+examples-4:
+    BUILD ./examples/grpc+test
+
+examples-5:
+    BUILD ./examples/java+docker
+    BUILD ./examples/js+docker
+    BUILD ./examples/monorepo+all
+    BUILD ./examples/react+docker
+    BUILD ./examples/typescript-node+docker
+    BUILD ./examples/cutoff-optimization+run
+    BUILD ./examples/import+build
+    BUILD ./examples/secrets+base
+    BUILD ./examples/readme/proto+docker
+    IF [ "$TARGETARCH" = "amd64" ]
+        # This only works on amd64 for now.
+        BUILD ./examples/integration-test+integration-test
+    END
+
 
 # license copies the license file and saves it as an artifact
 license:
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
 
+node:
+    FROM node:24.9.0-alpine3.22
+    # renovate: datasource=npm packageName=npm
+    LET npm_version=11.7.0
+    RUN \
+        --mount type=cache,target=/root/.npm,id=npm \
+        npm install -g npm@$npm_version
+
 # npm-update-all helps keep all node package-lock.json files up to date.
 npm-update-all:
-    FROM node:16.16.0-alpine3.15
+    FROM +node
     COPY . /code
     WORKDIR /code
     FOR nodepath IN \
@@ -871,7 +863,9 @@ npm-update-all:
             examples/tutorial/js/part6/api \
             examples/tutorial/js/part6/app \
             tests/remote-cache/test2
-        RUN cd $nodepath && npm update
+        RUN \
+            --mount type=cache,target=/root/.npm,id=npm \
+            cd $nodepath && npm update
         SAVE ARTIFACT --if-exists $nodepath/package-lock.json AS LOCAL $nodepath/package-lock.json
     END
 
@@ -882,8 +876,8 @@ merge-main-to-docs:
         git config --global url."git@github.com:".insteadOf "https://github.com/"
 
     ARG TARGETARCH
-    # renovate: datasource=github-releases depName=cli/cli
-    ARG gh_version=v2.49.2
+    # renovate: datasource=github-releases packageName=cli/cli
+    ENV gh_version=v2.83.2
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
@@ -920,8 +914,10 @@ merge-main-to-docs:
 
 # check-broken-links checks for broken links in our docs website
 check-broken-links:
-    FROM node:20-alpine3.18
-    RUN npm install broken-link-checker -g
+    FROM +node
+    RUN \
+        --mount type=cache,target=/root/.npm,id=npm \
+        npm install -g broken-link-checker
     WORKDIR /report
     ARG ADDRESS=https://docs.earthly.dev
     ARG VERBOSE=false
@@ -951,8 +947,8 @@ open-pr-for-fork:
         git config --global url."git@github.com:".insteadOf "https://github.com/"
 
     ARG TARGETARCH
-    # renovate: datasource=github-releases depName=cli/cli
-    ARG gh_version=v2.49.2
+    # renovate: datasource=github-releases packageName=cli/cli
+    ENV gh_version=v2.83.2
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \

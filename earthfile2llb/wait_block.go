@@ -7,15 +7,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/util/dockerutil"
-	"github.com/earthly/earthly/util/gatewaycrafter"
-	"github.com/earthly/earthly/util/llbutil"
-	"github.com/earthly/earthly/util/saveartifactlocally"
-	"github.com/earthly/earthly/util/syncutil/semutil"
-	"github.com/earthly/earthly/util/syncutil/serrgroup"
-	"github.com/earthly/earthly/util/waitutil"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/util/dockerutil"
+	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
+	"github.com/EarthBuild/earthbuild/util/waitutil"
 
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
@@ -85,7 +85,7 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
 	errGroup.Go(func() error {
-		return wb.saveImages(ctx, push, localExport)
+		return wb.saveImages(ctx)
 	})
 	if localExport {
 		errGroup.Go(func() error {
@@ -98,7 +98,7 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	return errGroup.Wait()
 }
 
-func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExportsAllowed bool) error {
+func (wb *waitBlock) saveImages(ctx context.Context) error {
 	isMultiPlatform := make(map[string]bool)        // DockerTag -> bool
 	noManifestListImgs := make(map[string]struct{}) // set based on DockerTag
 	platformImgNames := make(map[string]bool)
@@ -253,7 +253,6 @@ func (wb *waitBlock) saveImages(ctx context.Context, pushesAllowed, localExports
 }
 
 func (wb *waitBlock) waitStates(ctx context.Context) error {
-
 	stateItems := []*stateWaitItem{}
 
 	for _, item := range wb.items {

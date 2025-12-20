@@ -6,11 +6,11 @@ import (
 	"io"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/ast/antlrhandler"
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/parser"
+	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
-	"github.com/earthly/earthly/ast/antlrhandler"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/parser"
-	"github.com/earthly/earthly/ast/spec"
 	"github.com/pkg/errors"
 )
 

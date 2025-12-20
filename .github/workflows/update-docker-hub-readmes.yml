@@ -14,23 +14,22 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Update DockerHub description for earthly/earthly
-        uses: peter-evans/dockerhub-description@v4.0.0
+        uses: peter-evans/dockerhub-description@v5.0.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: earthly/earthly
           readme-filepath: ./docs/docker-images/all-in-one.md
           short-description: ${{ github.event.repository.description }}
       - name: Update DockerHub description for earthly/buildkitd
-        uses: peter-evans/dockerhub-description@v4.0.0
+        uses: peter-evans/dockerhub-description@v5.0.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: earthly/buildkitd
           readme-filepath: ./docs/docker-images/buildkit-standalone.md
           short-description: Standalone Earthly buildkitd image
-

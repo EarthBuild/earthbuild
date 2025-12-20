@@ -1,4 +1,4 @@
-# Remote BuildKit 
+# Remote BuildKit
 
 ## Introduction
 
@@ -18,21 +18,23 @@ A remote daemon should be reachable by all clients intending to use it. EarthBui
 
 #### Mounts
 
-**`/tmp/earthly`**
+**`/tmp/earthbuild`**
 
 This path within the container is the location that BuildKit uses for storing the cache. Because this folder sees _a lot_ of traffic, its important that it remains fast.
 
 {% hint style='danger' %}
+
 ##### Important
-We *strongly* recommend using a Docker volume for mounting `/tmp/earthly`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
+
+We _strongly_ recommend using a Docker volume for mounting `/tmp/earthbuild`. If you do not, `buildkitd` can consume excessive disk space, operate very slowly, or it might not function correctly.
 {% endhint %}
 
-In some environments, not mounting `/tmp/earthly` as a Docker volume results in the following error:
+In some environments, not mounting `/tmp/earthbuild` as a Docker volume results in the following error:
 
 ```
 --> WITH DOCKER RUN --privileged ...
 ...
-rm: can't remove '/var/earthly/dind/...': Resource busy
+rm: can't remove '/var/earthbuild/dind/...': Resource busy
 ```
 
 In EKS, users reported that mounting an EBS volume, instead of a Kubernetes `emptyDir` worked.
@@ -49,7 +51,7 @@ This will configure `buildkitd` to listen on port `8372`. If you would like it t
 
 **`BUILDKIT_TLS_ENABLED`**
 
-Set this to `true` for all daemons that will handle production workloads. This daemon *by design* is an arbitrary code execution machine, and running it without any kind of mTLS configuration is not recommended.
+Set this to `true` for all daemons that will handle production workloads. This daemon _by design_ is an arbitrary code execution machine, and running it without any kind of mTLS configuration is not recommended.
 
 Make sure you mount your certificates and keys in the correct location (`/etc/*.pem`).
 
@@ -69,7 +71,7 @@ These are the paths to the certificates and keys used by the client when communi
 
 **`tls_enabled`**
 
-TLS will be enabled by default (unless using a local buildkit container).  
+TLS will be enabled by default (unless using a local buildkit container).
 Set this to `false` when using TLS is not desired.
 
 ### Local-Remote

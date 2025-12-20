@@ -5,17 +5,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/earthly/earthly/ast"
-	"github.com/earthly/earthly/ast/spec"
-	"github.com/earthly/earthly/cleanup"
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/features"
-	"github.com/earthly/earthly/util/fileutil"
-	"github.com/earthly/earthly/util/gitutil"
-	"github.com/earthly/earthly/util/llbutil/llbfactory"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/cleanup"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
@@ -86,7 +86,6 @@ func NewResolver(cleanCollection *cleanup.Collection, gitLookup *GitLookup, cons
 // path. This is then used when globbing for matches. The paths are then made
 // relative to the parent target for resolution by the caller.
 func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, parentTarget, target domain.Target) ([]string, error) {
-
 	if parentTarget.IsRemote() {
 		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.GetLocalPath())
 		if err != nil {

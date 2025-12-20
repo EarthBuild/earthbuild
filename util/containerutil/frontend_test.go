@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/util/containerutil"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -597,7 +597,7 @@ func isBinaryInstalled(ctx context.Context, binary string) bool {
 // Next, we start the containers
 // After that, we attempt to wait for the containers for up to 20 seconds
 // Then we return
-// Caller is always expected to call cleanup
+// Caller is always expected to call cleanup.
 func spawnTestContainers(ctx context.Context, feBinary string, names ...string) (func(), error) {
 	_ = removeContainers(ctx, feBinary, names...) // best effort
 	err := startTestContainers(ctx, feBinary, names...)
@@ -639,7 +639,7 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 }
 
 // pullImageIfNecessary will only pull the image if it does not exist locally
-// This helps us avoid unauthenticated rate limits in tests
+// This helps us avoid unauthenticated rate limits in tests.
 func pullImageIfNecessary(ctx context.Context, feBinary string, image string) error {
 	cmd := exec.CommandContext(ctx, feBinary, "inspect", "--type=image", image)
 	_, inspectErr := cmd.CombinedOutput()
@@ -755,7 +755,7 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 			cmd := exec.CommandContext(ctx, feBinary, "volume", "rm", "-f", name)
 			_ = cmd.Run() // Just best effort
 		}
-	}, nil
+	}, err
 }
 
 func testLogger() conslogging.ConsoleLogger {

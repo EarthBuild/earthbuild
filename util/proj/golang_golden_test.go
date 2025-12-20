@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earthly/earthly/util/proj"
+	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 )
@@ -21,9 +21,7 @@ const (
 	version = "VERSION --arg-scope-and-set 0.7\n\n"
 )
 
-var (
-	update = flag.Bool("update", false, "Update the testdata for golden tests")
-)
+var update = flag.Bool("update", false, "Update the testdata for golden tests")
 
 func goldenFile(t *testing.T, path string) []byte {
 	t.Helper()
@@ -82,19 +80,16 @@ func TestGolang_Targets_Base(t *testing.T) {
 	buf := bytes.NewBufferString(version)
 	g := proj.NewGolang(proj.StdFS(), proj.StdExecer())
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	tgts, err := g.Targets(ctx)
+	tgts, err := g.Targets()
 	if err != nil {
 		t.Fatalf("failed to load golang targets: %v", err)
 	}
 	for i, tgt := range tgts {
-		tgt.SetPrefix(ctx, "")
+		tgt.SetPrefix("")
 		if i > 0 {
 			buf.WriteString("\n")
 		}
-		err := tgt.Format(ctx, buf, "    ", 0)
+		err := tgt.Format(buf, "    ", 0)
 		if err != nil {
 			t.Fatalf("failed to format code: %v", err)
 		}
@@ -114,16 +109,16 @@ func TestGolang_Targets_Named(t *testing.T) {
 
 	pfx := g.Type(ctx)
 
-	tgts, err := g.Targets(ctx)
+	tgts, err := g.Targets()
 	if err != nil {
 		t.Fatalf("failed to load golang targets: %v", err)
 	}
 	for i, tgt := range tgts {
-		tgt.SetPrefix(ctx, pfx)
+		tgt.SetPrefix(pfx)
 		if i > 0 {
 			buf.WriteString("\n")
 		}
-		err := tgt.Format(ctx, buf, "    ", 0)
+		err := tgt.Format(buf, "    ", 0)
 		if err != nil {
 			t.Fatalf("failed to format code: %v", err)
 		}

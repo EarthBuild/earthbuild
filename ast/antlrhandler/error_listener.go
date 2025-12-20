@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/parser"
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
-	"github.com/earthly/earthly/ast/hint"
-	"github.com/earthly/earthly/ast/parser"
 	"github.com/pkg/errors"
 )
 

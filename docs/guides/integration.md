@@ -1,19 +1,21 @@
 # Integration Testing With Earthly
 
-Running unit tests in a build pipeline is relatively simple. By definition, unit tests have no external dependencies. Things get more interesting when we want to test how our service integrates with other services and external systems. A service may have dependencies on external file systems, on databases, on external message queues, or other services. An ergonomic and effective development environment should have simple ways to construct and run integration tests. It should be easy to run these tests locally on the developer machine and in the build pipeline. 
+Running unit tests in a build pipeline is relatively simple. By definition, unit tests have no external dependencies. Things get more interesting when we want to test how our service integrates with other services and external systems. A service may have dependencies on external file systems, on databases, on external message queues, or other services. An ergonomic and effective development environment should have simple ways to construct and run integration tests. It should be easy to run these tests locally on the developer machine and in the build pipeline.
 
 ** This guide will take an existing application with integration tests and show how they can be easily run inside earthly, both in the local development environment as well as in the build pipeline. **
-## Prerequisites 
 
-*This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthly/earthly/tree/main/examples) for guidance on using earthly in other languages.*
+## Prerequisites
+
+*This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthbuild/earthbuild/tree/main/examples) for guidance on using earthly in other languages.*
 
 ### Our Application
 
-The application we start with is simple. It returns the first 5 countries alphabetically via standard out. It has unit tests and integration tests. The integration tests require a datastore with the correct data in place.  
+The application we start with is simple. It returns the first 5 countries alphabetically via standard out. It has unit tests and integration tests. The integration tests require a datastore with the correct data in place.
 
 {% method %}
 {% sample lang="App" %}
 Application code:
+
 ```scala
 Object Main extends App {
   val dal = new DataAccessLayer()
@@ -23,8 +25,8 @@ Object Main extends App {
   {
     implicit val cs = IO.contextShift(ExecutionContext.global)
     val xa = Transactor.fromDriverManager[IO](
-      "org.postgresql.Driver", 
-      "jdbc:postgresql://localhost:5432/iso3166", 
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/iso3166",
       "postgres",
       "postgres"
     )
@@ -37,15 +39,17 @@ Object Main extends App {
   }
 }
 ```
+
 The output of running the application:
 
-``` bash
+```bash
 > sbt run
 The first 5 countries are Afghanistan, Albania, Algeria, American Samoa, Andorra
 ```
 
 {% sample lang="Unit Test" %}
-``` scala
+
+```scala
 class DataVersionSpec extends FlatSpec {
 
   val dv = new DataVersion()
@@ -54,8 +58,10 @@ class DataVersionSpec extends FlatSpec {
   }
 }
 ```
+
 Output of running unit tests:
-``` bash
+
+```bash
 > sbt test
 [info] DataVersionSpec:
 [info] Data Version
@@ -67,13 +73,14 @@ Output of running unit tests:
 
 {% sample lang="Integration Test" %}
 Integration test:
-``` scala
+
+```scala
 class DatabaseIntegrationTest extends FlatSpec {
   implicit val cs = IO.contextShift(ExecutionContext.global)
 
   val xa = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver", 
-    "jdbc:postgresql://localhost:5432/iso3166", 
+    "org.postgresql.Driver",
+    "jdbc:postgresql://localhost:5432/iso3166",
     "postgres",
     "postgres"
   )
@@ -84,8 +91,10 @@ class DatabaseIntegrationTest extends FlatSpec {
   }
 }
 ```
+
 Output:
-``` bash
+
+```bash
 >sbt it:test
 [info] DatabaseIntegrationTest:
 [info] A table
@@ -93,31 +102,33 @@ Output:
 [info] Run completed in 2 seconds, 954 milliseconds.
 [info] Total number of tests run: 1
 ```
+
 {% sample lang="Service Dependencies" %}
 
 The Docker compose configuration specifies the application's dependencies. It is useful for local development and can be started and stopped using `docker-compose up -d` and `docker-compose down`.
 This will also be essential for our Earthly integration tests.
 
 Docker Compose:
-``` yaml
+
+```yaml
 version: "3"
 services:
   postgres:
     container_name: local-postgres
     image: aa8y/postgres-dataset:iso3166
     ports:
-      - 5432:5432
+- 5432:5432
     hostname: postgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+- POSTGRES_USER=postgres
+- POSTGRES_PASSWORD=postgres
   postgres-ui:
     container_name: local-postgres-ui
     image: adminer:latest
     depends_on:
-      - postgres
+- postgres
     ports:
-      - 8080:8080
+- 8080:8080
     hostname: postgres-ui
 ```
 
@@ -130,10 +141,11 @@ We start with a simple Earthfile that can build and create a docker image for ou
 {% method %}
 {% sample lang="Base Earthly Target" %}
 
-We start from an appropriate docker image and set up a working directory. 
-``` Dockerfile
+We start from an appropriate docker image and set up a working directory.
+
+```Dockerfile
 VERSION 0.8
-FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 WORKDIR /scala-example
 RUN apk add openjdk11 bash wget postgresql-client
 ```
@@ -143,8 +155,8 @@ RUN apk add openjdk11 bash wget postgresql-client
 {% sample lang="Project Files" %}
 We then install SBT
 
-``` Dockerfile
-sbt: 
+```Dockerfile
+sbt:
     #Scala
     # Defaults if not specified
     ARG sbt_version=1.3.2
@@ -162,7 +174,7 @@ sbt:
 
 We then copy in our build files and run Scala Build Tool, so that we can cache our dependencies
 
-``` Dockerfile
+```Dockerfile
 project-files:
     FROM +sbt
     COPY build.sbt ./
@@ -171,26 +183,28 @@ project-files:
     RUN touch a.scala && sbt compile && rm a.scala
 ```
 
-<!-- due to gitbook bug, https://github.com/earthly/earthly/blob/main/examples/integration-test/Earthfile changed to https://tinyurl.com/4m6hbd6a -->
+<!-- due to gitbook bug, https://github.com/earthbuild/earthbuild/blob/main/examples/integration-test/Earthfile changed to https://tinyurl.com/4m6hbd6a -->
 
 [Full file](https://tinyurl.com/4m6hbd6a)
 
 {% sample lang="Compile" %}
 
 We also set up our build target.
-``` Dockerfile
+
+```Dockerfile
 build:
     FROM +project-files
     COPY src src
     RUN sbt compile
 ```
+
 [Full file](https://tinyurl.com/4m6hbd6a)
 
 {% sample lang="Unit Test" %}
 
 For unit tests, we copy in the source and run the tests.
 
-``` Dockerfile
+```Dockerfile
 
 unit-test:
     FROM +project-files
@@ -198,46 +212,50 @@ unit-test:
     RUN sbt test
 
 ```
+
 [Full file](https://tinyurl.com/4m6hbd6a)
 
 {% sample lang="Docker" %}
 
 We then build a Dockerfile.
 
-``` Dockerfile
+```Dockerfile
 docker:
     FROM +project-files
     COPY src src
     RUN sbt assembly
     ENTRYPOINT ["java","-cp","target/scala-2.12/scala-example-assembly-1.0.jar","Main"]
-    SAVE IMAGE scala-example:latest 
+    SAVE IMAGE scala-example:latest
 ```
+
 [Full file](https://github.com/EarthBuild/earthly-example-scala/blob/main/integration/Earthfile)
 
 {% endmethod %}
 
 See the [Basics Guide](../basics/basics.md) for more details on these steps, including how they might differ in Go, JavaScript, Java, and Python.
 
-## In-App Integration Testing 
+## In-App Integration Testing
 
 Since our service has a docker-compose file of dependencies, running integration tests is easy.
 
 Our integration target needs to copy in our source code and our Dockerfile and then inside a `WITH DOCKER` start the tests:
-``` Dockerfile
+
+```Dockerfile
 integration-test:
     FROM +project-files
     COPY src src
-    COPY docker-compose.yml ./ 
+    COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
             sbt it:test
     END
 ```
+
 The `WITH DOCKER` has a `--compose` flag that we use to start up our docker-compose and run our integration tests in that context.
 
 We can now run our tests both locally and in the CI pipeline, in a reproducible way:
 
-``` bash
+```bash
 > earthly -P +integration-test
 +integration-test | Creating local-postgres ... done
 +integration-test | Creating local-postgres-ui ... done
@@ -255,48 +273,52 @@ We can now run our tests both locally and in the CI pipeline, in a reproducible 
 +integration-test | Target github.com/EarthBuild/earthly-example-scala/integration:main+integration-test built successfully
 ...
 ```
-This means that if an integration test fails in the build pipeline, you can easily reproduce it locally.  
+
+This means that if an integration test fails in the build pipeline, you can easily reproduce it locally.
 
 ## End to End Integration Tests
 
-Our first integration test used was part of the service we were testing. This is one way to exercise integration code paths. Another useful form of integration testing is end-to-end testing. In this form of integration testing, we start up the application and test it from the outside. 
+Our first integration test used was part of the service we were testing. This is one way to exercise integration code paths. Another useful form of integration testing is end-to-end testing. In this form of integration testing, we start up the application and test it from the outside.
 
-In our simplified case example, with a single code path, a test that verifies the application starts and produces the desired output is sufficient. 
+In our simplified case example, with a single code path, a test that verifies the application starts and produces the desired output is sufficient.
 
 {% method %}
 {% sample lang="Test Script" %}
-``` bash
+
+```bash
 source "./assert.sh"
 set -v
-results=$(docker run --network=host earthly/examples:integration)
+results=$(docker run --network=host earthbuild/examples:integration)
 expected="The first 5 countries alphabetically are: Afghanistan, Albania, Algeria, American Samoa, Andorra"
 
 assert_eq "$expected" "$results"n
 ```
 
 {% sample lang="Earth File" %}
-``` dockerfile
+
+```dockerfile
 smoke-test:
     FROM +project-files
-    COPY docker-compose.yml ./ 
-    COPY src/smoketest ./ 
+    COPY docker-compose.yml ./
+    COPY src/smoketest ./
     WITH DOCKER --compose docker-compose.yml --load=+docker
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
             ./smoketest.sh
     END
 ```
+
 {% endmethod %}
 
 Output:
 We can then run this and check that our application with its dependencies, produces the correct output.
 
-``` Dockerfile
+```Dockerfile
 > earthly -P +smoke-test
-+smoke-test | --> WITH DOCKER RUN for i in {1..30}; do nc -z localhost 5432 && break; sleep 1; done; docker run --network=host earthly/examples:integration
++smoke-test | --> WITH DOCKER RUN for i in {1..30}; do nc -z localhost 5432 && break; sleep 1; done; docker run --network=host earthbuild/examples:integration
 +smoke-test | Loading images...
 +smoke-test | Loaded image: aa8y/postgres-dataset:iso3166
 +smoke-test | Loaded image: adminer:latest
-+smoke-test | Loaded image: earthly/examples:integration
++smoke-test | Loaded image: earthbuild/examples:integration
 +smoke-test | ...done
 +smoke-test | Creating network "scala-example_default" with the default driver
 +smoke-test | Creating local-postgres ... done
@@ -316,7 +338,7 @@ We can then run this and check that our application with its dependencies, produ
 
 Adding these testing targets to an all target, we now can unit test, integration test, and dockerize and push our software in a single command. Using this approach, integration tests that fail sporadically for environmental reasons and can't be reproduced consistently should be a thing of the past.
 
-``` Dockerfile
+```Dockerfile
 all:
   BUILD +build
   BUILD +unit-test
@@ -324,7 +346,7 @@ all:
   BUILD +smoke-test
 ```
 
-``` bash
+```bash
 > earthly -P +all
 ...
 +all | Target github.com/EarthBuild/earthly-example-scala/integration:main+all built successfully
@@ -334,6 +356,7 @@ all:
 There we have it, a reproducible integration process. If you have questions about the example, [ask](https://earthly.dev/slack).
 
 ## See also
-* [Docker In Earthly](./docker-in-earthly.md)
-* [Source code for example](https://github.com/earthly/earthly/tree/main/examples/integration-test)
-* [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)
+
+- [Docker In Earthly](./docker-in-earthly.md)
+- [Source code for example](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test)
+- [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)

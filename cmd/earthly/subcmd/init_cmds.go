@@ -1,15 +1,14 @@
 package subcmd
 
 import (
-	"context"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
-	"github.com/earthly/earthly/ast/hint"
+	"github.com/EarthBuild/earthbuild/ast/hint"
 
-	"github.com/earthly/earthly/util/proj"
+	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
@@ -90,23 +89,23 @@ func (a *Init) action(cliCtx *cli.Context) error {
 		return errors.Errorf("project type %T wants to generate an Earthfile in an unsupported directory: %q", p, p.Root(ctx))
 	}
 
-	return initSingleProject(ctx, f, p)
+	return initSingleProject(f, p)
 }
 
-func initSingleProject(ctx context.Context, w io.Writer, p proj.Project) error {
-	tgts, err := p.Targets(ctx)
+func initSingleProject(w io.Writer, p proj.Project) error {
+	tgts, err := p.Targets()
 	if err != nil {
 		return errors.Wrapf(err, "could not generate targets for project type %T", p)
 	}
 	for i, tgt := range tgts {
-		tgt.SetPrefix(ctx, "")
+		tgt.SetPrefix("")
 		if i > 0 {
 			_, err = w.Write([]byte("\n"))
 			if err != nil {
 				return errors.Wrapf(err, "could not write newline separator between targets")
 			}
 		}
-		err := tgt.Format(ctx, w, efIndent, 0)
+		err := tgt.Format(w, efIndent, 0)
 		if err != nil {
 			return errors.Wrapf(err, "could not format target for project type %T", p)
 		}

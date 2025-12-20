@@ -6,12 +6,17 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/earthly/earthly/conslogging"
-	"github.com/earthly/earthly/domain"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/stretchr/testify/require"
 )
 
 func TestParseProjectCommand(t *testing.T) {
+	// TODO(jhorsts): Do we have any plans for this command?
+	// The PROJECT command is redundant, and I removed it from the file.
+	// It was useful with the Earthly Cloud.
+	t.Skip()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",

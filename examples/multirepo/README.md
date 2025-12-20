@@ -2,9 +2,9 @@
 
 In this example, we will walk through a simple multirepo setup that can be used with Earthly. The entire code of this exercise is available in the
 
-* This directory
-* This referenced [project of HTML static files](https://github.com/EarthBuild/earthly-example-multirepo-static)
-* This referenced [project of JS files](https://github.com/EarthBuild/earthly-example-multirepo-js)
+- This directory
+- This referenced [project of HTML static files](https://github.com/EarthBuild/earthly-example-multirepo-static)
+- This referenced [project of JS files](https://github.com/EarthBuild/earthly-example-multirepo-js)
 
 In this example, let's assume that we have a web application where HTML files are held in one repository and JS file are held in another. The complete application is a combination of both.
 
@@ -21,13 +21,13 @@ earthly +docker
 in this directory, or, without cloning the Earthly repo, run this anywhere
 
 ```
-earthly github.com/earthly/earthly/examples/multirepo:main+docker
+earthly github.com/earthbuild/earthbuild/examples/multirepo:main+docker
 ```
 
 Then, run the resulting container:
 
 ```
-docker run --rm -p 127.0.0.1:8080:8080 earthly/examples:multirepo
+docker run --rm -p 127.0.0.1:8080:8080 earthbuild/examples:multirepo
 ```
 
 and load `http://127.0.0.1:8080` in your browser.

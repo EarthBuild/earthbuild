@@ -3,7 +3,7 @@ package bk
 import (
 	"context"
 
-	"github.com/earthly/earthly/util/buildkitskipper"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/pkg/errors"
 )
 
@@ -14,7 +14,7 @@ type BuildkitSkipper interface {
 	Exists(ctx context.Context, key []byte) (bool, error)
 }
 
-// NewBuildkitSkipper returns a local buildkitskipper when localSkipDB is specified
+// NewBuildkitSkipper returns a local buildkitskipper when localSkipDB is specified.
 func NewBuildkitSkipper(localSkipDB string) (BuildkitSkipper, error) {
 	if localSkipDB == "" {
 		return nil, nil // will disable autoskipper.

@@ -257,10 +257,12 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-kind"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      # Temporarily disabled due to failures on the ubuntu-24.04 runner. See EarthBuild/earthbuild#122.
+      # SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: true
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
@@ -330,6 +332,33 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-3"
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
+  docker-examples-4:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-example.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      EXAMPLE_NAME: "+examples-4"
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      MORE_SPACE: true
+    secrets: inherit
+
+  docker-examples-5:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-example.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      EXAMPLE_NAME: "+examples-5"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 

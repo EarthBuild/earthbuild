@@ -7,9 +7,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/syncutil/semutil"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/session/localhost"
 	"github.com/pkg/errors"
@@ -131,10 +131,7 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 			}
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
-		err := w.solveImage(
-			ctx, mts, depTarget.String(), opt.ImageName,
-			llb.WithCustomNamef(
-				"%sDOCKER LOAD %s %s", w.c.imageVertexPrefix(opt.ImageName, opt.Platform), depTarget.String(), opt.ImageName))
+		err := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -159,7 +156,7 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 	return optPromise, nil
 }
 
-func (w *withDockerRunLocalTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string, opts ...llb.RunOption) error {
+func (w *withDockerRunLocalTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string) error {
 	outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
 	if err != nil {
 		return errors.Wrap(err, "mk temp dir for docker load")

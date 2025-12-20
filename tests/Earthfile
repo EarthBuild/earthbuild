@@ -3,8 +3,6 @@ FROM --pass-args ./integration-base+test-base
 
 WORKDIR /test
 
-PROJECT earthly-technologies/core
-
 all:
     BUILD +ga
     BUILD +experimental
@@ -164,15 +162,6 @@ ga-no-qemu-group6:
     BUILD +cache-test
     BUILD --pass-args ./scrub-https-credentials+all
     BUILD --pass-args ./autocompletion/install+test-all
-    BUILD +cache-cmd
-    BUILD --pass-args ./config+test
-    BUILD +arg-redeclare-error
-    BUILD +ssh
-    BUILD +builtin-args-test
-    BUILD +remote-test
-    BUILD +save-artifact-dont-overwrite
-    BUILD --pass-args ./with-docker-expose+all
-    BUILD --pass-args ./logbus+test-all
 
 ga-no-qemu-group7:
     BUILD +cache-mount-arg
@@ -202,13 +191,25 @@ ga-no-qemu-group8:
     BUILD --pass-args ./raw-output+test-all
 
 ga-no-qemu-group9:
-    BUILD --pass-args ./autoskip+test-group1
+    BUILD +cache-cmd
+    BUILD --pass-args ./config+test
+    BUILD +arg-redeclare-error
+    # Autoskip not currently available so don't test it
+    # BUILD --pass-args ./autoskip+test-group1
 
 ga-no-qemu-group10:
-    BUILD --pass-args ./autoskip+test-group2
+    BUILD +ssh
+    BUILD +builtin-args-test
+    BUILD +remote-test
+    # Autoskip not currently available so don't test it
+    # BUILD --pass-args ./autoskip+test-group2
 
 ga-no-qemu-group11:
-    BUILD --pass-args ./autoskip+test-group3
+    BUILD +save-artifact-dont-overwrite
+    BUILD --pass-args ./with-docker-expose+all
+    BUILD --pass-args ./logbus+test-all
+    # Autoskip not currently available so don't test it
+    # BUILD --pass-args ./autoskip+test-group3
 
 ga-no-qemu-group12:
     # TODO: fixme
@@ -220,7 +221,7 @@ ga-no-qemu-slow:
     BUILD +server
     BUILD --pass-args ./with-docker+all
     BUILD --pass-args ./with-docker-cache+test
-    # this has been moved to a seperate target until we get the flakey "tell me who you are" bug
+    # this has been moved to a separate target until we get the flakey "tell me who you are" bug
     # fixed; see https://github.com/earthly/earthly/issues/2567
     #BUILD --pass-args ./git-metadata+test
     BUILD --pass-args ./git-ssh-server+all
@@ -461,7 +462,7 @@ build-earthly-test:
     COPY parser-smoke.earth ./build.earth
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- +test
 
 host-bind-test:
@@ -475,16 +476,16 @@ remote-test:
     ENV GIT_URL_INSTEAD_OF="https://github.com/=git@github.com:"
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/hello-world:main+hello
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
         ls /tmp/hostname.3d4b1831-c07e-4b2d-805e-2b8ce578bb50
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/test-remote/builtin-args:main+test
 
 transitive-args-test:
@@ -509,7 +510,7 @@ non-transitive-args-test:
     # Should not override if transitive and crossing project boundaries.
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --build-arg SOMEARG=def +test
     RUN ls ./subdir
     RUN test -f ./subdir/default && test ! -f ./subdir/def && test ! -f ./subdir/abc
@@ -517,13 +518,13 @@ non-transitive-args-test:
     # Should override, if override is direct.
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --build-arg SOMEARG=xyz ./subdir+arg-target
     RUN ls ./subdir
     RUN test -f ./subdir/xyz && test ! -f ./subdir/default
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- +direct
     RUN ls ./subdir
     RUN test -f ./subdir/direct && test ! -f ./subdir/default
@@ -548,7 +549,7 @@ dockerfile-test:
     COPY dockerfile/* ./
     RUN --privileged \
         --entrypoint \
-        --mount=type=tmpfs,target=/tmp/earthly \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --allow-privileged --no-output +test-all
 
 fail-test:
@@ -1064,7 +1065,7 @@ done
     ENV EARTHLY_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P
     # test that all output files are different
     RUN cat test/*/dep1
@@ -1255,7 +1256,7 @@ platform-output:
     RUN test -f ./out-arm64
     RUN ! test -f ./out-amd64
 
-# command tests the 0.7 functionality of the COMMAND keyword, it is here for backward compatability
+# command tests the 0.7 functionality of the COMMAND keyword, it is here for backward compatibility
 command:
     RUN echo "hello command" >./message.txt
     DO +RUN_EARTHLY --earthfile=command.earth --target=+all-positive
@@ -1534,7 +1535,7 @@ earthly --config \$earthly_config -P +test-with-docker --FRONTEND=$FRONTEND
     ENV EARTHLY_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
     --entrypoint \
-    --mount=type=tmpfs,target=/tmp/earthly \
+    --mount=type=tmpfs,target=/tmp/earthbuild \
     -- -P
 
 server:
@@ -1822,14 +1823,14 @@ RUN_EARTHLY:
         set -ex
         export EARTHLY_VERBOSE=$verbose
         if $use_tmpfs; then
-            export EARTHLY_TMP_DIR=/tmp/earthly-tmpfs
+            export EARTHLY_TMP_DIR=/tmp/earthbuild-tmpfs
         fi
         if [ -n \"$pre_command\" ]; then
             eval \"$pre_command\"
         fi
         if [ -n \"$exec_cmd\" ]; then
-            if [ \"$exec_cmd\" = \"/tmp/earthly-script\" ]; then
-                echo \"exec_cmd cannot be /tmp/earthly-script\"
+            if [ "$exec_cmd" = "/tmp/earthbuild-script" ]; then
+                echo "exec_cmd cannot be /tmp/earthbuild-script"
                 exit 1
             fi
             if [ \"$target\" != \"+all\" ]; then
@@ -1890,7 +1891,7 @@ RUN_EARTHLY:
                 exit 1
             fi
         fi
-    " >/tmp/earthly-script
+    " >/tmp/earthbuild-script
     RUN --privileged \
-        --mount=type=tmpfs,target=/tmp/earthly-tmpfs \
-        /bin/sh /tmp/earthly-script
+        --mount=type=tmpfs,target=/tmp/earthbuild-tmpfs \
+        /bin/sh /tmp/earthbuild-script

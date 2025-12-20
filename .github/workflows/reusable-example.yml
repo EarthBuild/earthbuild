@@ -28,6 +28,12 @@ on:
         required: false
         type: boolean
         default: false
+      # +examples-4 fails with "failed to register layer: no space left on device".
+      # Ideally, we don't free up more space: it slows down a job by up to 5 minutes.
+      # TODO(jhorsts): simplify +examples-4 so we can get rid of freeing up space.
+      MORE_SPACE:
+        type: boolean
+        default: false
 
 
 jobs:
@@ -44,17 +50,25 @@ jobs:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           SUDO: "${{ inputs.SUDO }}"
+      - name: Free up more space
+        if: ${{inputs.MORE_SPACE}}
+        run: |
+          # We don't use android, ghc or dotnet locally, only via containers.
+          # Deleting android frees up 9.8G
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -71,7 +85,7 @@ jobs:
       - name: Build and test multi-platform example
         run: |
           ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ./examples/multiplatform+all
-          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthly/examples:multiplatform_linux_arm64 | grep aarch64
+          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true

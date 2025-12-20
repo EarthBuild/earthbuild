@@ -8,9 +8,9 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/EarthBuild/earthbuild/ast/parser"
+	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
-	"github.com/earthly/earthly/ast/parser"
-	"github.com/earthly/earthly/ast/spec"
 	"github.com/pkg/errors"
 )
 
@@ -403,7 +403,6 @@ func (l *listener) ExitWithStmt(c *parser.WithStmtContext) {
 
 func (l *listener) EnterWithBlock(c *parser.WithBlockContext) {
 	l.pushNewBlock()
-
 }
 
 func (l *listener) ExitWithBlock(c *parser.WithBlockContext) {
@@ -613,7 +612,6 @@ func (l *listener) ExitForBlock(c *parser.ForBlockContext) {
 // Wait -----------------------------------------------------------------------
 
 func (l *listener) EnterWaitStmt(c *parser.WaitStmtContext) {
-
 	l.block().waitStatement = new(spec.WaitStatement)
 	if l.enableSourceMap {
 		l.block().waitStatement.SourceLocation = &spec.SourceLocation{

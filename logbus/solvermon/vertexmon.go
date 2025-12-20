@@ -9,18 +9,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/util/errutil"
+	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/logbus"
-	"github.com/earthly/earthly/util/errutil"
-	"github.com/earthly/earthly/util/statsstreamparser"
-	"github.com/earthly/earthly/util/stringutil"
-	"github.com/earthly/earthly/util/vertexmeta"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
 )
 
 const (
-	// BuildkitStatsStream is the stream number associated with runc stats
+	// BuildkitStatsStream is the stream number associated with runc stats.
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
@@ -39,10 +39,12 @@ type vertexMonitor struct {
 
 var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`)
 
-var errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
-var errNoExitCode = errors.New("no exit code in error message")
+var (
+	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
+	errNoExitCode    = errors.New("no exit code in error message")
+)
 
-// getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid
+// getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid.
 func getExitCode(errString string) (int, error) {
 	if matches, _ := stringutil.NamedGroupMatches(errString, reErrExitCode); len(matches["exit_code"]) == 1 {
 		exitCodeMatch := matches["exit_code"][0]
@@ -63,11 +65,13 @@ func getExitCode(errString string) (int, error) {
 	return 0, errNoExitCode
 }
 
-var reErrNotFound = regexp.MustCompile(`^\s*(internal)?failed to calculate checksum of ref ([^ ]::[^ ]*|[^ ]*): (.*)\s*$`)
-var reHint = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
+var (
+	reErrNotFound = regexp.MustCompile(`^\s*(internal)?failed to calculate checksum of ref ([^ ]::[^ ]*|[^ ]*): (.*)\s*$`)
+	reHint        = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
+)
 
 // determineFatalErrorType returns logstream.FailureType
-// and whether or not its a Fatal Error
+// and whether or not its a Fatal Error.
 func determineFatalErrorType(errString string, exitCode int, exitParseErr error) (logstream.FailureType, bool) {
 	if strings.Contains(errString, "context canceled") || errString == "no active sessions" {
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false

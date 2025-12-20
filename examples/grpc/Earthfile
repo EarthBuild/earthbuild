@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM node:13.10.1-alpine3.11
+FROM node:24.9.0-alpine3.22
 
 WORKDIR /example-grpc
 
@@ -35,13 +35,13 @@ WORKDIR /example-grpc
 #      the returned value is "salmon".
 
 test:
-    FROM earthly/dind:alpine-3.19-docker-25.0.5-r0
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     WITH DOCKER \
         --load kvserver:latest=github.com/EarthBuild/earthly-example-proto-server:main+kvserver-docker \
         --load kv-py-client:latest=github.com/EarthBuild/earthly-example-proto-python-client:main+kvclient-docker \
         --load kv-rb-client:latest=github.com/EarthBuild/earthly-example-proto-ruby-client:main+kv-ruby-client-docker \
         --platform linux/amd64 # Ruby and Python(evidence suggests?) seem to have a hard time building in Docker on M1. https://github.com/grpc/grpc/issues/26664
-        RUN --mount=type=cache,target=/go/pkg \
+        RUN \
             docker run --name server --network=host -d kvserver:latest && \
             docker run --name client1 --network=host kv-py-client:latest python3 client.py fish=salmon && \
             docker run --name client2 --network=host kv-py-client:latest python3 client.py fish | grep salmon && \

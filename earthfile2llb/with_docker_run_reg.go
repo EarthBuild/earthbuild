@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/earthly/cloud-api/logstream"
-	"github.com/earthly/earthly/domain"
-	"github.com/earthly/earthly/logbus/solvermon"
-	"github.com/earthly/earthly/states"
-	"github.com/earthly/earthly/util/llbutil/pllb"
-	"github.com/earthly/earthly/util/platutil"
-	"github.com/earthly/earthly/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/pkg/errors"
 )
@@ -208,7 +208,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	}
 
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthly/dind")))
+		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
 		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
@@ -305,7 +305,6 @@ func (w *withDockerRunRegistry) load(ctx context.Context, cmdID string, opt Dock
 	}
 
 	afterFn := func(ctx context.Context, mts *states.MultiTarget) error {
-
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {

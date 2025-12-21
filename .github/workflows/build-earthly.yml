@@ -110,7 +110,7 @@ jobs:
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
-            --VERSION="${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.17" \
             --DEFAULT_INSTALLATION_NAME=earthly \
             ./artifacts/earthly
 

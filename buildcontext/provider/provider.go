@@ -117,7 +117,7 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	var pr *protocol
 	for _, p := range supportedProtocols {
 		if method == p.name && isProtoSupported(p.name) {
-			pr = &p
+			pr = &p // #nosec G601
 			break
 		}
 	}

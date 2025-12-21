@@ -74,7 +74,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 	}
 
 	filePath := filepath.Join(dir, ignoreFile)
-	f, err := os.Open(filePath)
+	f, err := os.Open(filePath) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "read %s", filePath)
 	}

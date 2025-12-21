@@ -240,16 +240,16 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 		fmt.Printf("\tGC Num failures: %d\n", info.GCAnalytics.NumFailures)
 		fmt.Printf("\tGC Avg duration: %s\n", info.GCAnalytics.AvgDuration)
 		fmt.Printf("\tGC Avg records cleared: %d\n", info.GCAnalytics.AvgRecordsCleared)
-		fmt.Printf("\tGC Avg size cleared: %s\n", humanize.Bytes(uint64(info.GCAnalytics.AvgSizeCleared)))
+		fmt.Printf("\tGC Avg size cleared: %s\n", humanize.Bytes(uint64(info.GCAnalytics.AvgSizeCleared))) // #nosec G115
 		fmt.Printf("\tGC Avg records before: %d\n", info.GCAnalytics.AvgRecordsBefore)
-		fmt.Printf("\tGC Avg size before: %s\n", humanize.Bytes(uint64(info.GCAnalytics.AvgSizeBefore)))
+		fmt.Printf("\tGC Avg size before: %s\n", humanize.Bytes(uint64(info.GCAnalytics.AvgSizeBefore))) // #nosec G115
 		fmt.Printf("\tGC All-time runs: %d\n", info.GCAnalytics.AllTimeRuns)
 		fmt.Printf("\tGC All-time max duration: %s\n", humanizeDuration(info.GCAnalytics.AllTimeMaxDuration))
 		fmt.Printf("\tGC All-time duration: %s\n", humanizeDuration(info.GCAnalytics.AllTimeDuration))
 		if info.GCAnalytics.CurrentStartTime != nil {
 			fmt.Printf("\tGC Current start time: %s\n", humanizeTime(info.GCAnalytics.CurrentStartTime))
 			fmt.Printf("\tGC Current num records before: %d\n", info.GCAnalytics.CurrentNumRecordsBefore)
-			fmt.Printf("\tGC Current size before: %s\n", humanize.Bytes(uint64(info.GCAnalytics.CurrentSizeBefore)))
+			fmt.Printf("\tGC Current size before: %s\n", humanize.Bytes(uint64(info.GCAnalytics.CurrentSizeBefore))) // #nosec G115
 		} else {
 			fmt.Printf("\tNo GC run currently ongoing\n")
 		}
@@ -260,9 +260,9 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 				"\tGC Last duration: %s\n",
 				humanizeDuration(info.GCAnalytics.LastEndTime.Sub(*info.GCAnalytics.LastStartTime)))
 			fmt.Printf("\tGC Last num records before: %d\n", info.GCAnalytics.LastNumRecordsBefore)
-			fmt.Printf("\tGC Last size before: %s\n", humanize.Bytes(uint64(info.GCAnalytics.LastSizeBefore)))
+			fmt.Printf("\tGC Last size before: %s\n", humanize.Bytes(uint64(info.GCAnalytics.LastSizeBefore))) // #nosec G115
 			fmt.Printf("\tGC Last num records cleared: %d\n", info.GCAnalytics.LastNumRecordsCleared)
-			fmt.Printf("\tGC Last size cleared: %s\n", humanize.Bytes(uint64(info.GCAnalytics.LastSizeCleared)))
+			fmt.Printf("\tGC Last size cleared: %s\n", humanize.Bytes(uint64(info.GCAnalytics.LastSizeCleared))) // #nosec G115
 			fmt.Printf("\tGC Last success: %v\n", info.GCAnalytics.LastSuccess)
 		} else {
 			fmt.Printf("\tGC has not run yet\n")

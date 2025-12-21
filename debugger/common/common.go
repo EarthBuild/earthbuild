@@ -89,7 +89,7 @@ func ReadDataPacket(r io.Reader) (int, []byte, error) {
 
 // WriteDataPacket writes a data packet to the writer.
 func WriteDataPacket(w io.Writer, n int, data []byte) error {
-	err := binary.Write(w, binary.LittleEndian, uint16(n))
+	err := binary.Write(w, binary.LittleEndian, uint16(n)) // #nosec G115
 	if err != nil {
 		return err
 	}

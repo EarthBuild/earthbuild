@@ -81,7 +81,7 @@ func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.
 		}
 
 		toDir := path.Dir(to)
-		err = os.MkdirAll(toDir, 0o755)
+		err = os.MkdirAll(toDir, 0o750)
 		if err != nil {
 			return errors.Wrapf(err, "mkdir all for artifact %s", toDir)
 		}

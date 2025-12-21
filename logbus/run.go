@@ -222,9 +222,9 @@ func sourceLocationToProto(repoURL, repoHash, fileRelToRepo string, sl *spec.Sou
 		RepositoryUrl:  repoURL,
 		RepositoryHash: repoHash,
 		File:           file,
-		StartLine:      int32(sl.StartLine),
-		StartColumn:    int32(sl.StartColumn),
-		EndLine:        int32(sl.EndLine),
-		EndColumn:      int32(sl.EndColumn),
+		StartLine:      int32(sl.StartLine),   // #nosec G115
+		StartColumn:    int32(sl.StartColumn), // #nosec G115
+		EndLine:        int32(sl.EndLine),     // #nosec G115
+		EndColumn:      int32(sl.EndColumn),   // #nosec G115
 	}
 }

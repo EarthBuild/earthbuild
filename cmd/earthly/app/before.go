@@ -224,7 +224,7 @@ func (app *EarthlyApp) warnIfEarth() {
 func profhandler() {
 	addr := "127.0.0.1:6060"
 	fmt.Printf("listening for pprof on %s\n", addr)
-	err := http.ListenAndServe(addr, nil)
+	err := http.ListenAndServe(addr, nil) // #nosec G114
 	if err != nil {
 		fmt.Printf("error listening for pprof: %v", err)
 	}

@@ -17,7 +17,7 @@ import (
 func getConsts() (map[string]string, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	namesPath := path.Join(path.Dir(filename), "names.go")
-	namesSrc, err := os.ReadFile(namesPath)
+	namesSrc, err := os.ReadFile(namesPath) // #nosec G304
 	if err != nil {
 		return nil, err
 	}

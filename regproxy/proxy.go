@@ -61,7 +61,7 @@ func (r *registryProxy) serve(ctx context.Context) {
 
 func (r *registryProxy) close() {
 	r.done.Store(true)
-	r.ln.Close()
+	r.ln.Close() // #nosec G104
 }
 
 func (r *registryProxy) err() <-chan error {

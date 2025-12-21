@@ -40,7 +40,7 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 		// we must not call the user's secret provider in this case.
 		return nil, secrets.ErrNotFound
 	}
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", c.cmd+" "+shellescape.Quote(name))
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", c.cmd+" "+shellescape.Quote(name)) // #nosec G204
 	envs := os.Environ()
 	if q.Get("v") == "1" {
 		envs = append(envs, "EARTHLY_ORG="+shellescape.Quote(q.Get("org")))

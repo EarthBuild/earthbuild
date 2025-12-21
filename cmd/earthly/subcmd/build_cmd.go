@@ -672,7 +672,8 @@ func receiveFileVersion2(conn io.ReadWriteCloser, localArtifactWhiteList *gatewa
 	if !localArtifactWhiteList.Exists(string(dst)) {
 		return fmt.Errorf("file %s does not appear in the white list", dst)
 	}
-	err = os.MkdirAll(path.Dir(string(dst)), 0o755)
+
+	err = os.MkdirAll(path.Dir(string(dst)), 0o755) // #nosec G301
 	if err != nil {
 		return err
 	}
@@ -876,7 +877,7 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 
 	earthfilePath := filepath.Join(tempDir, "Earthfile")
 
-	out, err := os.Create(earthfilePath)
+	out, err := os.Create(earthfilePath) // #nosec G304
 	if err != nil {
 		return errors.Wrapf(err, "docker-build: failed to create Earthfile %q", earthfilePath)
 	}

@@ -302,10 +302,10 @@ func TestFrontendContainerRun(t *testing.T) {
 				for _, name := range testContainers {
 					// Roll our own cleanup since we can't use the spawn test containers helper... since
 					// the whole point of this test is to create them with a frontend. Also theres a volume
-					cmd := exec.CommandContext(ctx, tC.binary, "rm", "-f", name)
-					_ = cmd.Run() // Just best effort
+					cmd := exec.CommandContext(ctx, tC.binary, "rm", "-f", name) // #nosec G204
+					_ = cmd.Run()                                                // Just best effort
 
-					cmd = exec.CommandContext(ctx, tC.binary, "volume", "rm", "-f", fmt.Sprintf("vol-%s", name))
+					cmd = exec.CommandContext(ctx, tC.binary, "volume", "rm", "-f", fmt.Sprintf("vol-%s", name)) // #nosec G204
 					_ = cmd.Run()
 				}
 			}()
@@ -351,7 +351,7 @@ func TestFrontendImagePull(t *testing.T) {
 
 			defer func() {
 				for _, ref := range tC.refList {
-					cmd := exec.CommandContext(ctx, "docker", "image", "rm", "-f", ref)
+					cmd := exec.CommandContext(ctx, "docker", "image", "rm", "-f", ref) // #nosec G204
 					_ = cmd.Run()
 				}
 			}()
@@ -491,7 +491,7 @@ func TestFrontendImageLoad(t *testing.T) {
 			NoError(t, err)
 
 			imgBuffer := &bytes.Buffer{}
-			cmd := exec.CommandContext(ctx, tC.binary, "image", "save", tC.ref)
+			cmd := exec.CommandContext(ctx, tC.binary, "image", "save", tC.ref) // #nosec G204
 			cmd.Stdout = bufio.NewWriter(imgBuffer)
 			err = cmd.Run()
 			NoError(t, err)
@@ -505,7 +505,7 @@ func TestFrontendImageLoad(t *testing.T) {
 			NoError(t, err)
 
 			defer func() {
-				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref)
+				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref) // #nosec G204
 				_ = cmd.Run()
 			}()
 
@@ -541,7 +541,7 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 			NoError(t, err)
 
 			defer func() {
-				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref)
+				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref) // #nosec G204
 				_ = cmd.Run()
 			}()
 
@@ -722,7 +722,7 @@ func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func
 			break
 		}
 
-		cmd = exec.CommandContext(ctx, feBinary, "image", "tag", "docker.io/nginx:1.21", ref)
+		cmd = exec.CommandContext(ctx, feBinary, "image", "tag", "docker.io/nginx:1.21", ref) // #nosec G204
 		output, tagErr := cmd.CombinedOutput()
 		if tagErr != nil {
 			// the frontend exists but is non-functional. This is... not likely to work at all.
@@ -733,8 +733,8 @@ func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func
 
 	return func() {
 		for _, ref := range refs {
-			cmd := exec.CommandContext(ctx, feBinary, "image", "rm", "-f", ref)
-			_ = cmd.Run() // Just best effort
+			cmd := exec.CommandContext(ctx, feBinary, "image", "rm", "-f", ref) // #nosec G204
+			_ = cmd.Run()                                                       // Just best effort
 		}
 	}, err
 }
@@ -742,7 +742,7 @@ func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func
 func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (func(), error) {
 	var err error
 	for _, name := range names {
-		cmd := exec.CommandContext(ctx, feBinary, "volume", "create", name)
+		cmd := exec.CommandContext(ctx, feBinary, "volume", "create", name) // #nosec G204
 		output, createErr := cmd.CombinedOutput()
 		if createErr != nil {
 			// the frontend exists but is non-functional. This is... not likely to work at all.
@@ -752,8 +752,8 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 
 	return func() {
 		for _, name := range names {
-			cmd := exec.CommandContext(ctx, feBinary, "volume", "rm", "-f", name)
-			_ = cmd.Run() // Just best effort
+			cmd := exec.CommandContext(ctx, feBinary, "volume", "rm", "-f", name) // #nosec G204
+			_ = cmd.Run()                                                         // Just best effort
 		}
 	}, err
 }

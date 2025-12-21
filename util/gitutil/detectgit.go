@@ -7,11 +7,11 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
 var (

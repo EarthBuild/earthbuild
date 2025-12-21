@@ -57,7 +57,7 @@ type loader struct {
 	globalImports  map[string]domain.ImportTrackerVal
 }
 
-func newLoader(ctx context.Context, opt HashOpt) *loader {
+func newLoader(opt HashOpt) *loader {
 	h := hasher.New()
 	h.HashJSONMarshalled(opt.BuiltinArgs)
 	// Other important values are set by load().
@@ -208,7 +208,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to parse COPY params")
 		}
-		expandedArtifact, err := l.expandArgs(ctx, artifactName)
+		expandedArtifact, err := l.expandArgs(artifactName)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
@@ -217,7 +217,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 			return wrapError(err, cmd.SourceLocation, "failed to parse artifact")
 		}
 	} else { // Simpler form: '+target/artifact' or 'file/path'
-		expandedSrc, err := l.expandArgs(ctx, src)
+		expandedSrc, err := l.expandArgs(src)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
@@ -230,7 +230,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 	// COPY classical (not from another target). The args are expanded here as
 	// files and directories will by read from.
 	if classical {
-		src, err := l.expandArgs(ctx, src)
+		src, err := l.expandArgs(src)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")
 		}
@@ -254,7 +254,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		return nil
 	}
 
-	extraArgs, err = l.expandArgsSlice(ctx, extraArgs)
+	extraArgs, err = l.expandArgsSlice(extraArgs)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand args")
 	}
@@ -335,7 +335,7 @@ func (l *loader) expandDirs(dirs ...string) ([]string, error) {
 	return uniqStrs(ret), nil
 }
 
-func (l *loader) expandArgs(ctx context.Context, args string) (string, error) {
+func (l *loader) expandArgs(args string) (string, error) {
 	expanded, err := l.varCollection.Expand(args, func(cmd string) (string, error) {
 		return args, nil // Return the original expression so it can be referenced later.
 	})
@@ -345,10 +345,10 @@ func (l *loader) expandArgs(ctx context.Context, args string) (string, error) {
 	return expanded, nil
 }
 
-func (l *loader) expandArgsSlice(ctx context.Context, args []string) ([]string, error) {
+func (l *loader) expandArgsSlice(args []string) ([]string, error) {
 	ret := []string{}
 	for _, arg := range args {
-		expanded, err := l.expandArgs(ctx, arg)
+		expanded, err := l.expandArgs(arg)
 		if err != nil {
 			return nil, err
 		}
@@ -373,13 +373,13 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	case command.Arg:
 		return l.handleArg(ctx, cmd, false)
 	case command.Let:
-		return l.handleLet(ctx, cmd)
+		return l.handleLet(cmd)
 	case command.Set:
-		return l.handleSet(ctx, cmd)
+		return l.handleSet(cmd)
 	case command.FromDockerfile:
 		return l.handleFromDockerfile(ctx, cmd)
 	case command.Import:
-		return l.handleImport(ctx, cmd, false)
+		return l.handleImport(cmd, false)
 	default:
 		// By default, no special handling is required. The raw command has been
 		// hashed above and all argument values have been hashed independently.
@@ -387,7 +387,7 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	}
 }
 
-func (l *loader) handleImport(ctx context.Context, cmd spec.Command, isBase bool) error {
+func (l *loader) handleImport(cmd spec.Command, isBase bool) error {
 	var alias string
 	if len(cmd.Args) == 3 {
 		alias = cmd.Args[2]
@@ -434,7 +434,7 @@ func (l *loader) handleArg(ctx context.Context, cmd spec.Command, isBase bool) e
 
 	if valueOrNil != nil {
 		var err error
-		expanded, err = l.expandArgs(ctx, *valueOrNil)
+		expanded, err = l.expandArgs(*valueOrNil)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")
 		}
@@ -455,7 +455,7 @@ func (l *loader) handleArg(ctx context.Context, cmd spec.Command, isBase bool) e
 	return nil
 }
 
-func (l *loader) handleLet(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleLet(cmd spec.Command) error {
 	var opts commandflag.LetOpts
 	argsCpy := flagutil.GetArgsCopy(cmd)
 	args, err := flagutil.ParseArgsCleaned("LET", &opts, argsCpy)
@@ -468,7 +468,7 @@ func (l *loader) handleLet(ctx context.Context, cmd spec.Command) error {
 	}
 	key := args[0]
 	baseVal := args[2]
-	val, err := l.expandArgs(ctx, baseVal)
+	val, err := l.expandArgs(baseVal)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand LET value %q", baseVal)
 	}
@@ -482,7 +482,7 @@ func (l *loader) handleLet(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (l *loader) handleSet(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleSet(cmd spec.Command) error {
 	var opts commandflag.SetOpts
 	argsCpy := flagutil.GetArgsCopy(cmd)
 	args, err := flagutil.ParseArgsCleaned("SET", &opts, argsCpy)
@@ -496,7 +496,7 @@ func (l *loader) handleSet(ctx context.Context, cmd spec.Command) error {
 
 	key := args[0]
 	baseVal := args[2]
-	val, err := l.expandArgs(ctx, baseVal)
+	val, err := l.expandArgs(baseVal)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand SET value %q", baseVal)
 	}
@@ -505,9 +505,7 @@ func (l *loader) handleSet(ctx context.Context, cmd spec.Command) error {
 
 	err = l.varCollection.UpdateVar(key, val, nil)
 	if err != nil {
-		if err != nil {
-			return wrapError(err, cmd.SourceLocation, "failed to declare variable")
-		}
+		return wrapError(err, cmd.SourceLocation, "failed to declare variable")
 	}
 	return nil
 }
@@ -526,7 +524,7 @@ func (l *loader) handleWith(ctx context.Context, with spec.WithStatement) error 
 func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
 	// Special case since handleWithDocker doesn't get called from handleCommand.
 	var err error
-	cmd.Args, err = l.expandArgsSlice(ctx, cmd.Args)
+	cmd.Args, err = l.expandArgsSlice(cmd.Args)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand args")
 	}
@@ -683,8 +681,8 @@ func (l *loader) handleIf(ctx context.Context, ifStmt spec.IfStatement) error {
 	return nil
 }
 
-func (l *loader) expandAndEval(ctx context.Context, expr []string) (bool, error) {
-	expr, err := l.expandArgsSlice(ctx, expr)
+func (l *loader) expandAndEval(expr []string) (bool, error) {
+	expr, err := l.expandArgsSlice(expr)
 	if err != nil {
 		return false, err
 	}
@@ -697,7 +695,7 @@ func (l *loader) expandAndEval(ctx context.Context, expr []string) (bool, error)
 }
 
 func (l *loader) handleIfEval(ctx context.Context, ifStmt spec.IfStatement) error {
-	result, err := l.expandAndEval(ctx, ifStmt.Expression)
+	result, err := l.expandAndEval(ifStmt.Expression)
 	if err != nil {
 		return err
 	}
@@ -705,7 +703,7 @@ func (l *loader) handleIfEval(ctx context.Context, ifStmt spec.IfStatement) erro
 		return l.loadBlock(ctx, ifStmt.IfBody)
 	}
 	for _, elseIf := range ifStmt.ElseIf {
-		result, err := l.expandAndEval(ctx, elseIf.Expression)
+		result, err := l.expandAndEval(elseIf.Expression)
 		if err != nil {
 			return err
 		}
@@ -748,7 +746,7 @@ func (l *loader) handleFor(ctx context.Context, forStmt spec.ForStatement) error
 		return errors.Wrap(err, "failed to parse FOR args")
 	}
 
-	expandedArgs, err := l.expandArgsSlice(ctx, args)
+	expandedArgs, err := l.expandArgsSlice(args)
 	if err != nil {
 		return err
 	}
@@ -797,7 +795,7 @@ func (l *loader) handleWait(ctx context.Context, waitStmt spec.WaitStatement) er
 }
 
 func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
-	l.hashTryStatement(tryStmt)
+	l.hashTryStatement()
 	if err := l.handleStatements(ctx, tryStmt.TryBody); err != nil {
 		return err
 	}
@@ -850,7 +848,7 @@ func (l *loader) loadBlock(ctx context.Context, b spec.Block) error {
 	return l.handleStatements(ctx, b)
 }
 
-func (l *loader) forTarget(ctx context.Context, target domain.Target, args []string, passArgs bool) (*loader, error) {
+func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (*loader, error) {
 	fullTargetName := target.String()
 
 	visited := copyVisited(l.visited)
@@ -892,12 +890,12 @@ func (l *loader) forTarget(ctx context.Context, target domain.Target, args []str
 }
 
 func (l *loader) loadTargetFromString(ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation) error {
-	targetName, err := l.expandArgs(ctx, targetName)
+	targetName, err := l.expandArgs(targetName)
 	if err != nil {
 		return wrapError(err, srcLoc, "failed to expand args")
 	}
 
-	args, err = l.expandArgsSlice(ctx, args)
+	args, err = l.expandArgsSlice(args)
 	if err != nil {
 		return wrapError(err, srcLoc, "failed to expand args")
 	}
@@ -932,7 +930,7 @@ func (l *loader) loadTargetFromString(ctx context.Context, targetName string, ar
 		return newError(srcLoc, "circular dependency detected; %s already called", fullTargetName)
 	}
 
-	newLoader, err := l.forTarget(ctx, target, args, passArgs)
+	newLoader, err := l.forTarget(target, args, passArgs)
 	if err != nil {
 		return wrapError(err, srcLoc, "failed to create loader for target %q", targetName)
 	}
@@ -1013,10 +1011,9 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		for _, stmt := range ef.BaseRecipe {
 			var err error
 			switch {
-			case stmt.Command == nil:
-				break
+			case stmt.Command == nil: // noop
 			case stmt.Command.Name == command.Import:
-				err = l.handleImport(ctx, *stmt.Command, true)
+				err = l.handleImport(*stmt.Command, true)
 			case stmt.Command.Name == command.Arg:
 				err = l.handleArg(ctx, *stmt.Command, true)
 			case stmt.Command.Name == command.From:

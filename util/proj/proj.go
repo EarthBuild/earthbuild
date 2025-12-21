@@ -86,10 +86,10 @@ var ErrSkip = errors.New("proj: this project is not a supported type")
 // and indentation level.
 type Target interface {
 	// SetPrefix sets a prefix to prepend to this target's name.
-	SetPrefix(context.Context, string)
+	SetPrefix(string)
 
 	// Format writes out the target with the given indentation string and level.
-	Format(ctx context.Context, w io.Writer, indent string, level int) error
+	Format(w io.Writer, indent string, level int) error
 }
 
 // ProjectType represents a type of project (typically a language).
@@ -111,7 +111,7 @@ type Project interface {
 	Type(context.Context) string
 
 	// Targets returns a list of targets for this Project.
-	Targets(ctx context.Context) ([]Target, error)
+	Targets() ([]Target, error)
 }
 
 // All returns all available project types for the given dir.

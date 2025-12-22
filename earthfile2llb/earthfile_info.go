@@ -41,8 +41,9 @@ func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 	}
 	var t *spec.Target
 	for _, tt := range bc.Earthfile.Targets {
+		tt := tt
 		if tt.Name == target.Target {
-			t = &tt // #nosec G601
+			t = &tt
 			break
 		}
 	}

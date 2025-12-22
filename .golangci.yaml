@@ -1,25 +1,22 @@
 version: "2"
 run:
   timeout: 10m
+  tests: true
+  # build-tags:
+  #   - windows
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 linters:
   default: all
   disable:
-    - arangolint
-    - asasalint
-    - asciicheck
-    - bidichk
-    - bodyclose
-    - canonicalheader
     - containedctx
     - contextcheck
-    - copyloopvar
     - cyclop
-    - decorder
     - depguard
     - dogsled
     - dupl
     - dupword
-    - durationcheck
     - embeddedstructfieldcheck
     - err113
     - errcheck
@@ -28,44 +25,28 @@ linters:
     - errorlint
     - exhaustive
     - exhaustruct
-    - exptostd
     - fatcontext
     - forbidigo
     - forcetypeassert
     - funcorder
     - funlen
-    - ginkgolinter
-    - gocheckcompilerdirectives
     - gochecknoglobals
     - gochecknoinits
-    - gochecksumtype
     - gocognit
     - goconst
     - gocritic
     - gocyclo
     - godoclint
-    - godot
     - godox
-    - goheader
     - gomoddirectives
-    - gomodguard
     - goprintffuncname
     - gosec
-    - gosmopolitan
     - govet
-    - grouper
-    - iface
-    - importas
     - inamedparam
-    - ineffassign
     - interfacebloat
-    - intrange
-    - iotamixing
     - ireturn
     - lll
-    - loggercheck
     - maintidx
-    - makezero
     - mirror
     - misspell
     - mnd
@@ -77,35 +58,23 @@ linters:
     - nilnesserr
     - nilnil
     - nlreturn
-    - noctx
     - noinlineerr
     - nonamedreturns
-    - nosprintfhostport
     - paralleltest
     - prealloc
     - predeclared
-    - promlinter
     - protogetter
-    - reassign
     - recvcheck
     - revive
-    - rowserrcheck
-    - sloglint
-    - spancheck
-    - sqlclosecheck
     - staticcheck
     - tagalign
     - tagliatelle
-    - testableexamples
     - testifylint
     - testpackage
     - thelper
     - tparallel
     - unconvert
     - unparam
-    - unqueryvet
-    - unused
-    - usestdlibvars
     - usetesting
     - varnamelen
     - wastedassign
@@ -113,7 +82,6 @@ linters:
     - wrapcheck
     - wsl
     - wsl_v5
-    - zerologlint
   exclusions:
     generated: lax
 formatters:

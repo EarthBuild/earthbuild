@@ -13,7 +13,7 @@ type argGroup struct {
 }
 
 // BuildArgMatrix builds a 2-dimensional slice of arguments that contains all
-// combinations
+// combinations.
 func BuildArgMatrix(args []string) ([][]string, error) {
 	groupedArgs := make([]argGroup, 0, len(args))
 	for _, arg := range args {

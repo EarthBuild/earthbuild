@@ -18,7 +18,7 @@ import (
 // most notably for `earthly doc` and `earthly ls` output.
 
 // GetTargets returns a list of targets from an Earthfile.
-// Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used)
+// Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used).
 func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
@@ -32,7 +32,7 @@ func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient g
 	return targets, nil
 }
 
-// GetTargetArgs returns a list of build arguments for a specified target
+// GetTargetArgs returns a list of build arguments for a specified target.
 func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)

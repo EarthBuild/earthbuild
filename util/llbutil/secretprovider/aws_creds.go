@@ -53,7 +53,7 @@ func AWSEnvName(name string) (string, bool) {
 	return envName, ok
 }
 
-// AWSCredentialProvider can load AWS settings from the environment or oidc provider
+// AWSCredentialProvider can load AWS settings from the environment or oidc provider.
 type AWSCredentialProvider struct{}
 
 // NewAWSCredentialProvider creates and returns a credential provider for AWS.
@@ -122,7 +122,7 @@ func getCFG(ctx context.Context) (aws.Config, error) {
 }
 
 // SetURLValuesFunc returns a function that takes url.Values and sets oidc values.
-// This is used by SecretID() to be able to identify secrets from this provider
+// This is used by SecretID() to be able to identify secrets from this provider.
 func SetURLValuesFunc(awsInfo *oidcutil.AWSOIDCInfo) func(values url.Values) {
 	return func(values url.Values) {
 		values.Set(sessionNameURLParam, awsInfo.SessionName)

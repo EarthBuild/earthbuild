@@ -47,15 +47,54 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Check if running on fork
+      id: fork-check
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+          echo "is_fork=true" >> $GITHUB_OUTPUT
+          echo "Running on fork - will use artifacts"
+        else
+          echo "is_fork=false" >> $GITHUB_OUTPUT
+          echo "Running on main repo - will use GHCR"
+        fi
+    - name: Download artifacts (fork)
+      if: steps.fork-check.outputs.is_fork == 'true'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+      with:
+        name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        path: ./fork-artifacts
+    - name: Load buildkitd image from artifact (fork)
+      if: steps.fork-check.outputs.is_fork == 'true'
+      shell: bash
+      run: |
+        echo "Loading buildkitd image from artifact..."
+        ${{inputs.SUDO}} ${{inputs.BINARY}} load -i ./fork-artifacts/buildkitd-image.tar
+        echo "Buildkitd image loaded successfully"
+    - name: Setup earthly binary from artifact (fork)
+      if: steps.fork-check.outputs.is_fork == 'true'
+      shell: bash
+      run: |
+        test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
+        mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
+        cp ./fork-artifacts/earthly "${{inputs.BUILT_EARTHLY_PATH}}"
+        chmod +x "${{inputs.BUILT_EARTHLY_PATH}}"
+        echo "Earthly binary installed from artifact to ${{inputs.BUILT_EARTHLY_PATH}}"
+
+        # Read the tag suffix and set EARTHLY_BUILDKIT_IMAGE env var for subsequent steps
+        TAG_SUFFIX=$(cat ./fork-artifacts/tag-suffix.txt)
+        BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
+        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
+        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Login to GHCR
-      if: inputs.BINARY == 'docker'
+      if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ env.GITHUB_TOKEN }}
     - name: Login to Docker Hub
-      if: inputs.BINARY == 'docker'
+      if: inputs.BINARY == 'docker' && inputs.DOCKERHUB_PASSWORD != '' && steps.fork-check.outputs.is_fork != 'true'
       uses: docker/login-action@v3
       with:
         username: ${{ inputs.DOCKERHUB_USERNAME }}
@@ -79,7 +118,9 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - run: |-
+    - name: Get binary from GHCR (non-fork)
+      if: steps.fork-check.outputs.is_fork != 'true'
+      run: |-
         echo "Extracting earthly binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi

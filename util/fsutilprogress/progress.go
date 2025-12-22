@@ -11,7 +11,7 @@ import (
 	"github.com/tonistiigi/fsutil"
 )
 
-// ProgressCallback exposes two different levels of callbacks for displaying status on files being sent or received
+// ProgressCallback exposes two different levels of callbacks for displaying status on files being sent or received.
 type ProgressCallback interface {
 	Info(numBytes int, last bool)
 	Verbose(relPath string, status fsutil.VerboseProgressStatus, numBytes int)
@@ -32,7 +32,7 @@ type progressCallback struct {
 	lastBytesReceived int
 }
 
-// New returns a new verbose progress callback for use with fsutil
+// New returns a new verbose progress callback for use with fsutil.
 func New(pathPrefix string, console conslogging.ConsoleLogger) ProgressCallback {
 	return &progressCallback{
 		console:    console,

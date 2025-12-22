@@ -6,11 +6,11 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
 var (
@@ -187,7 +187,7 @@ func detectIsGitDir(ctx context.Context, dir string) error {
 	return nil
 }
 
-// ParseGitRemoteURL converts a gitURL like user@host.com:path/to.git or https://host.com/path/to.git to host.com/path/to
+// ParseGitRemoteURL converts a gitURL like user@host.com:path/to.git or https://host.com/path/to.git to host.com/path/to.
 func ParseGitRemoteURL(gitURL string) (string, error) {
 	s := gitURL
 
@@ -372,7 +372,7 @@ func detectGitAuthor(ctx context.Context, dir string, format string) (string, er
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
-// ConfigEmail returns the user's currently configured (global) email address
+// ConfigEmail returns the user's currently configured (global) email address.
 func ConfigEmail(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "config", "--get", "user.email")
 	cmd.Stderr = nil // force capture of stderr on errors
@@ -401,7 +401,7 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 	return ParseCoAuthorsFromBody(string(out)), nil
 }
 
-// ParseCoAuthorsFromBody returns a list of coauthor emails from a git body
+// ParseCoAuthorsFromBody returns a list of coauthor emails from a git body.
 func ParseCoAuthorsFromBody(body string) []string {
 	coAuthors := []string{}
 	coAuthorsSeen := map[string]struct{}{}

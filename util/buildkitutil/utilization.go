@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// FormatUtilization returns a string representing utilization
+// FormatUtilization returns a string representing utilization.
 func FormatUtilization(numOtherSessions, load, maxParallelism int) string {
 	otherSessions := "unknown"
 	if numOtherSessions >= 0 {

@@ -209,7 +209,7 @@ func (c *Collection) SortedOverridingVariables() []string {
 }
 
 // ExpandOld expands variables within the given word, it does not perform shelling-out.
-// it will eventually be removed when the ShellOutAnywhere feature is fully-adopted
+// It will eventually be removed when the ShellOutAnywhere feature is fully-adopted.
 func (c *Collection) ExpandOld(word string) string {
 	shlex := dfShell.NewLex('\\')
 	varMap := c.effective().Map(WithActive())

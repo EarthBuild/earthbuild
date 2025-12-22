@@ -2,7 +2,7 @@ package termutil
 
 import "os"
 
-// IsTTY returns true if a terminal is detected
+// IsTTY returns true if a terminal is detected.
 func IsTTY() bool {
 	return isFileDescriptorTTY(os.Stdin) && isFileDescriptorTTY(os.Stdout)
 }

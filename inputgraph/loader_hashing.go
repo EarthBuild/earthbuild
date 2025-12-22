@@ -44,6 +44,6 @@ func (l *loader) hashForStatement(f spec.ForStatement) {
 	l.hasher.HashJSONMarshalled(f.Args)
 }
 
-func (l *loader) hashTryStatement(t spec.TryStatement) {
+func (l *loader) hashTryStatement() {
 	l.hasher.HashString("TRY")
 }

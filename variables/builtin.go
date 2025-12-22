@@ -138,12 +138,12 @@ func setNativePlatformArgs(s *Scope, platr *platutil.Resolver) {
 	s.Add(arg.NativeVariant, platform.Variant)
 }
 
-// SetLocally sets the locally built-in arg value
+// SetLocally sets the locally built-in arg value.
 func SetLocally(s *Scope, locally bool) {
 	s.Add(arg.EarthlyLocally, strconv.FormatBool(locally))
 }
 
-// getProjectName returns the deprecated PROJECT_NAME value
+// getProjectName returns the deprecated PROJECT_NAME value.
 func getProjectName(s string) string {
 	protocol := "unknown"
 	parts := strings.SplitN(s, "://", 2)

@@ -148,7 +148,7 @@ func (s State) Platform(p specs.Platform) State {
 	return State{st: s.st.Platform(p)}
 }
 
-// AddExtraHost is a wrapper around llb.AddExtraHost
+// AddExtraHost is a wrapper around llb.AddExtraHost.
 func (s State) AddExtraHost(hostname string, ip net.IP) State {
 	gmu.Lock()
 	defer gmu.Unlock()

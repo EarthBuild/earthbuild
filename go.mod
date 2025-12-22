@@ -1,6 +1,6 @@
 module github.com/EarthBuild/earthbuild
 
-go 1.21.0
+go 1.25
 
 require (
 	git.sr.ht/~nelsam/hel v0.6.2

@@ -167,7 +167,7 @@ install_dockerd_amazon() {
     case "$version" in
         2023)
             dnf update -y
-            dnf install -y docker
+            dnf install -y docker libxcrypt-compat
         ;;
         2)
             yes | amazon-linux-extras install docker

@@ -355,10 +355,10 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 				return nil, err
 			}
 			refKey := "final-artifact"
-			refPrefix := fmt.Sprintf("ref/%s", refKey)
+			refPrefix := "ref/" + refKey
 			gwCrafter.AddRef(refKey, ref)
-			gwCrafter.AddMeta(fmt.Sprintf("%s/export-dir", refPrefix), []byte("true"))
-			gwCrafter.AddMeta(fmt.Sprintf("%s/final-artifact", refPrefix), []byte("true"))
+			gwCrafter.AddMeta(refPrefix+"/export-dir", []byte("true"))
+			gwCrafter.AddMeta(refPrefix+"/final-artifact", []byte("true"))
 		}
 
 		isMultiPlatform := make(map[string]bool)    // DockerTag -> bool
@@ -426,9 +426,9 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 
 					if shouldExport {
 						if b.opt.LocalRegistryAddr != "" {
-							gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-local-registry", refPrefix), []byte(localRegPullID))
+							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
 						} else {
-							gwCrafter.AddMeta(fmt.Sprintf("%s/export-image", refPrefix), []byte("true"))
+							gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
 						}
 					}
 				} else {
@@ -470,9 +470,9 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 
 						localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, platformImgName, nil)
 						if b.opt.LocalRegistryAddr != "" {
-							gwCrafter.AddMeta(fmt.Sprintf("%s/export-image-local-registry", refPrefix), []byte(localRegPullID))
+							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
 						} else {
-							gwCrafter.AddMeta(fmt.Sprintf("%s/export-image", refPrefix), []byte("true"))
+							gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
 						}
 
 						manifestLists[saveImage.DockerTag] = append(
@@ -572,8 +572,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		if err != nil {
 			return "", err
 		}
-		artifactDir := filepath.Join(outDir, fmt.Sprintf("index-%s", index))
-
+		artifactDir := filepath.Join(outDir, "index-"+index)
 		err = os.MkdirAll(artifactDir, 0o755) // #nosec G301
 		if err != nil {
 			return "", errors.Wrapf(err, "create dir %s", artifactDir)
@@ -717,7 +716,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 					if !ok {
 						return nil, fmt.Errorf("failed to map dir index %d", dirIndex)
 					}
-					artifactDir := filepath.Join(outDir, fmt.Sprintf("index-%s", dirID))
+					artifactDir := filepath.Join(outDir, "index-"+dirID)
 					artifact := domain.Artifact{
 						Target:   sts.Target,
 						Artifact: saveLocal.ArtifactPath,
@@ -742,7 +741,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 						if !ok {
 							return nil, fmt.Errorf("failed to map dir index %d", dirIndex)
 						}
-						artifactDir := filepath.Join(outDir, fmt.Sprintf("index-%s", dirID))
+						artifactDir := filepath.Join(outDir, "index-"+dirID)
 						artifact := domain.Artifact{
 							Target:   sts.Target,
 							Artifact: saveLocal.ArtifactPath,

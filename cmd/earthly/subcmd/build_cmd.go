@@ -421,7 +421,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		"earthly_save_file": getTryCatchSaveFileHandler(localArtifactWhiteList),
 		"earthly_interactive": func(ctx context.Context, conn io.ReadWriteCloser) error {
 			if !termutil.IsTTY() {
-				return fmt.Errorf("interactive mode unavailable due to terminal not being tty")
+				return errors.New("interactive mode unavailable due to terminal not being tty")
 			}
 			debugTermConsole := a.cli.Console().WithPrefix("internal-term")
 			err := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole)
@@ -469,7 +469,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		}
 	}
 	if a.cli.Cfg().Global.ConversionParallelism <= 0 {
-		return fmt.Errorf("configuration error: \"conversion_parallelism\" must be larger than zero")
+		return errors.New("configuration error: \"conversion_parallelism\" must be larger than zero")
 	}
 	parallelism := semutil.NewWeighted(int64(a.cli.Cfg().Global.ConversionParallelism))
 
@@ -647,7 +647,7 @@ func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewa
 		return err
 	}
 	if n != 0 {
-		return fmt.Errorf("expected EOF, but got more data")
+		return errors.New("expected EOF, but got more data")
 	}
 
 	f, err := os.Create(string(dst))
@@ -721,9 +721,9 @@ func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 			a.cli.Console().Warnf("failed to get hostname: %v", err)
 			hostname = "unknown"
 		}
-		runnerName = fmt.Sprintf("local:%s", hostname)
+		runnerName = "local:" + hostname
 	} else {
-		runnerName = fmt.Sprintf("bk:%s", a.cli.Flags().BuildkitdSettings.BuildkitAddress)
+		runnerName = "bk:" + a.cli.Flags().BuildkitdSettings.BuildkitAddress
 	}
 	if !isLocal && (a.cli.Flags().UseInlineCache || a.cli.Flags().SaveInlineCache) {
 		a.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause builds to get stuck at 100%% CPU on remote Buildkit.")

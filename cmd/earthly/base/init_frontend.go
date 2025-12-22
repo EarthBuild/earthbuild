@@ -1,7 +1,6 @@
 package base
 
 import (
-	"fmt"
 	"net/url"
 	"path/filepath"
 	"time"
@@ -20,10 +19,10 @@ func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
 
 	if cli.Flags().UseTickTockBuildkitImage {
 		if cliCtx.IsSet("buildkit-image") {
-			return fmt.Errorf("the --buildkit-image and --ticktock flags are mutually exclusive")
+			return errors.New("the --buildkit-image and --ticktock flags are mutually exclusive")
 		}
 		if cli.Cfg().Global.BuildkitImage != "" {
-			return fmt.Errorf("the --ticktock flags can not be used in combination with the buildkit_image config option")
+			return errors.New("the --ticktock flags can not be used in combination with the buildkit_image config option")
 		}
 		cli.Flags().BuildkitdImage += "-ticktock"
 	}

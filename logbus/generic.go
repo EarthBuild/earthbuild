@@ -1,7 +1,6 @@
 package logbus
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -38,7 +37,7 @@ func (g *Generic) Write(dt []byte) (int, error) {
 // WriteWithTimestamp writes the given bytes to the generic printer.
 func (g *Generic) WriteWithTimestamp(dt []byte, ts time.Time) (int, error) {
 	g.run.b.WriteRawLog(&logstream.DeltaLog{
-		CommandId:          fmt.Sprintf("_generic:%s", g.category),
+		CommandId:          "_generic:" + g.category,
 		TimestampUnixNanos: g.run.b.TsUnixNanos(ts),
 		Data:               dt,
 	})

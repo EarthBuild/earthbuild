@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math"
 	"net"
@@ -276,12 +275,12 @@ func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder f
 func getSettings(path string) (*common.DebuggerSettings, error) {
 	s, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to read %s", path))
+		return nil, errors.Wrapf(err, "failed to read %s", path)
 	}
 	var data common.DebuggerSettings
 	err = json.Unmarshal(s, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal %s", path))
+		return nil, errors.Wrapf(err, "failed to unmarshal %s", path)
 	}
 	return &data, nil
 }
@@ -304,7 +303,7 @@ func main() {
 
 	color.NoColor = false
 
-	debuggerSettings, err := getSettings(fmt.Sprintf("/run/secrets/%s", common.DebuggerSettingsSecretsKey))
+	debuggerSettings, err := getSettings("/run/secrets/" + common.DebuggerSettingsSecretsKey)
 	if err != nil {
 		conslogger.Warnf("failed to read settings: %v\n", debuggerSettings)
 		os.Exit(1)

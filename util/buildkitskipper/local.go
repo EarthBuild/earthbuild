@@ -3,13 +3,14 @@ package buildkitskipper
 import (
 	"context"
 	"crypto/sha1" // #nosec G505
+	"errors"
 	"fmt"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-var errInvalidHash = fmt.Errorf("invalid sha1 hash")
+var errInvalidHash = errors.New("invalid sha1 hash")
 
 // NewLocal creates and returns a BoltDB implementation of the auto-skip client.
 func NewLocal(path string) (*LocalBuildkitSkipper, error) {

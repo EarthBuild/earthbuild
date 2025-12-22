@@ -9,6 +9,7 @@ import (
 	"hash"
 	"io"
 	"os"
+	"strconv"
 )
 
 type Hasher struct {
@@ -41,15 +42,15 @@ func (h *Hasher) HashJSONMarshalled(v any) {
 }
 
 func (h *Hasher) HashBool(v bool) {
-	h.HashBytes([]byte(fmt.Sprintf("bool:%t", v)))
+	h.HashBytes([]byte("bool:" + strconv.FormatBool(v)))
 }
 
 func (h *Hasher) HashString(s string) {
-	h.HashBytes([]byte(fmt.Sprintf("str:%s", s)))
+	h.HashBytes([]byte("str:" + s))
 }
 
 func (h *Hasher) HashBytes(b []byte) {
-	h.h.Write([]byte(fmt.Sprintf("%d", len(b))))
+	h.h.Write([]byte(strconv.Itoa(len(b))))
 	h.h.Write(b)
 }
 

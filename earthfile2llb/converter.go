@@ -239,7 +239,7 @@ func (c *Converter) fromClassical(ctx context.Context, imageName string, platfor
 }
 
 func (c *Converter) fromTarget(ctx context.Context, targetName string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string) (retErr error) {
-	cmdID, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("FROM %s", targetName))
+	cmdID, cmd, err := c.newLogbusCommand(ctx, "FROM "+targetName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -299,7 +299,7 @@ func (c *Converter) FromDockerfile(ctx context.Context, contextPath string, dfPa
 	platform = c.setPlatform(platform)
 	plat := c.platr.ToLLBPlatform(platform)
 	c.nonSaveCommand()
-	cmdID, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("FROM DOCKERFILE %s", dfPath))
+	cmdID, cmd, err := c.newLogbusCommand(ctx, "FROM DOCKERFILE "+dfPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -382,7 +382,7 @@ func (c *Converter) FromDockerfile(ctx context.Context, contextPath string, dfPa
 			!strings.HasPrefix(contextPath, "./") &&
 			!strings.HasPrefix(contextPath, "../") &&
 			!strings.HasPrefix(contextPath, "/") {
-			contextPath = fmt.Sprintf("./%s", contextPath)
+			contextPath = "./" + contextPath
 		}
 		dockerfileMetaTarget := domain.Target{
 			Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, stringutil.StrOrDefault(dfPath, "Dockerfile")),
@@ -541,7 +541,7 @@ func (c *Converter) CopyArtifact(ctx context.Context, artifactName string, dest 
 		return err
 	}
 	if chmod != nil && !c.ftrs.UseChmod {
-		return fmt.Errorf("COPY --chmod is not supported in this version")
+		return errors.New("COPY --chmod is not supported in this version")
 	}
 	c.nonSaveCommand()
 	artifact, err := domain.ParseArtifact(artifactName)
@@ -589,7 +589,7 @@ func (c *Converter) CopyClassical(ctx context.Context, srcs []string, dest strin
 	}
 
 	if chmod != nil && !c.ftrs.UseChmod {
-		return fmt.Errorf("COPY --chmod is not supported in this version")
+		return errors.New("COPY --chmod is not supported in this version")
 	}
 
 	var srcState pllb.State
@@ -858,7 +858,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	if saveToF == "" {
 		artifactPath = saveToAdjusted
 	} else {
-		saveToAdjusted = fmt.Sprintf("%s/", saveToD)
+		saveToAdjusted = saveToD + "/"
 		artifactPath = path.Join(saveToAdjusted, saveToF)
 	}
 	artifact := domain.Artifact{
@@ -886,7 +886,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 		return errors.New("command not found")
 	}
 
-	cmd.SetName(fmt.Sprintf("SAVE ARTIFACT %s", saveFrom))
+	cmd.SetName("SAVE ARTIFACT " + saveFrom)
 
 	defer func() {
 		cmd.SetEndError(retErr)
@@ -1054,7 +1054,7 @@ func (c *Converter) SaveArtifactFromLocal(ctx context.Context, saveFrom, saveTo 
 	c.mts.Final.MainState = c.mts.Final.MainState.Run(opts...).Root()
 
 	// then save it via the regular SaveArtifact code since it's now in a snapshot
-	absSaveTo := fmt.Sprintf("/%s", saveTo)
+	absSaveTo := "/" + saveTo
 	own := "root:root"
 	if keepOwn {
 		own = ""
@@ -1099,7 +1099,7 @@ func (c *Converter) PushWaitBlock(ctx context.Context) error {
 func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	n := len(c.waitBlockStack)
 	if n == 0 {
-		return fmt.Errorf("waitBlockStack is empty") // shouldn't happen
+		return errors.New("waitBlockStack is empty") // shouldn't happen
 	}
 
 	if c.ftrs.WaitBlock {
@@ -1123,9 +1123,9 @@ func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushF
 		return err
 	}
 	if noManifestList && !c.ftrs.UseNoManifestList {
-		return fmt.Errorf("SAVE IMAGE --no-manifest-list is not supported in this version")
+		return errors.New("SAVE IMAGE --no-manifest-list is not supported in this version")
 	}
-	_, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("SAVE IMAGE %s", strings.Join(imageNames, " ")))
+	_, cmd, err := c.newLogbusCommand(ctx, "SAVE IMAGE "+strings.Join(imageNames, " "))
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -1221,7 +1221,7 @@ func (c *Converter) Build(ctx context.Context, fullTargetName string, platform p
 
 	c.nonSaveCommand()
 
-	cmdID, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("BUILD %s", fullTargetName))
+	cmdID, cmd, err := c.newLogbusCommand(ctx, "BUILD "+fullTargetName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -2274,8 +2274,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 			llb.SecretID(c.secretID(debuggerSettingsSecretsKey)),
 			llb.SecretFileOpt(0, 0, 0o444),
 		}
-		debuggerSecretMount := llb.AddSecret(
-			fmt.Sprintf("/run/secrets/%s", debuggercommon.DebuggerSettingsSecretsKey), secretOpts...)
+		debuggerSecretMount := llb.AddSecret("/run/secrets/"+debuggercommon.DebuggerSettingsSecretsKey, secretOpts...)
 		debuggerMount := pllb.AddMount(debuggerPath, pllb.Scratch(),
 			llb.HostBind(), llb.SourcePath("/usr/bin/earth_debugger"))
 		runOpts = append(runOpts, debuggerSecretMount, debuggerMount)

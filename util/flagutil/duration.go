@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Duration implements cli.GenericFlag methods to support time.Duration with days, e.g. 1d
+// Duration implements cli.GenericFlag methods to support time.Duration with days, e.g. 1d.
 type Duration time.Duration
 
 func (d *Duration) String() string {

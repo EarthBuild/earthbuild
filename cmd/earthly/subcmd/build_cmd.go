@@ -576,8 +576,10 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	return nil
 }
 
+// getTryCatchSaveFileHandler implements [socketprovider.SocketAcceptCb] -
+// returns a handler function for the earthly_save_file socket.
 func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) func(ctx context.Context, conn io.ReadWriteCloser) error {
-	return func(ctx context.Context, conn io.ReadWriteCloser) error {
+	return func(_ context.Context, conn io.ReadWriteCloser) error {
 		// version
 		protocolVersion, _, err := debuggercommon.ReadDataPacket(conn)
 		if err != nil {
@@ -586,9 +588,9 @@ func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArti
 
 		switch protocolVersion {
 		case 1:
-			return receiveFileVersion1(ctx, conn, localArtifactWhiteList)
+			return receiveFileVersion1(conn, localArtifactWhiteList)
 		case 2:
-			return receiveFileVersion2(ctx, conn, localArtifactWhiteList)
+			return receiveFileVersion2(conn, localArtifactWhiteList)
 		default:
 			return fmt.Errorf("unexpected version %d", protocolVersion)
 		}
@@ -622,7 +624,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 	return nil
 }
 
-func receiveFileVersion1(ctx context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
+func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) error {
 	// dst path
 	_, dst, err := debuggercommon.ReadDataPacket(conn)
 	if err != nil {
@@ -660,7 +662,7 @@ func receiveFileVersion1(ctx context.Context, conn io.ReadWriteCloser, localArti
 	return f.Close()
 }
 
-func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
+func receiveFileVersion2(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
 	// dst path
 	dst, err := debuggercommon.ReadUint16PrefixedData(conn)
 	if err != nil {
@@ -708,7 +710,7 @@ func receiveFileVersion2(ctx context.Context, conn io.ReadWriteCloser, localArti
 
 // runnerName returns the name of the local or remote BK "runner"; which is a
 // representation of what BuildKit instance is being used,
-// e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>
+// e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>.
 func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 	isLocal := containerutil.IsLocal(a.cli.Flags().BuildkitdSettings.BuildkitAddress)

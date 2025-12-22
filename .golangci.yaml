@@ -25,7 +25,6 @@ linters:
     - errorlint
     - exhaustive
     - exhaustruct
-    - exptostd
     - fatcontext
     - forbidigo
     - forcetypeassert
@@ -38,7 +37,6 @@ linters:
     - gocritic
     - gocyclo
     - godoclint
-    - godot
     - godox
     - gomoddirectives
     - goprintffuncname
@@ -60,7 +58,6 @@ linters:
     - nilnesserr
     - nilnil
     - nlreturn
-    - noctx
     - noinlineerr
     - nonamedreturns
     - paralleltest

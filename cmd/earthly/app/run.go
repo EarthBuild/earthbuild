@@ -41,7 +41,7 @@ var (
 )
 
 func (app *EarthlyApp) Run(ctx context.Context, console conslogging.ConsoleLogger, startTime time.Time, lastSignal *syncutil.Signal) int {
-	err := app.unhideFlags(ctx)
+	err := app.unhideFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
 		os.Exit(1)
@@ -53,7 +53,7 @@ func (app *EarthlyApp) Run(ctx context.Context, console conslogging.ConsoleLogge
 	return exitCode
 }
 
-func (app *EarthlyApp) unhideFlags(ctx context.Context) error {
+func (app *EarthlyApp) unhideFlags() error {
 	var err error
 	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" { // TODO delete this check after 2022-03-01
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
@@ -75,18 +75,18 @@ func (app *EarthlyApp) unhideFlags(ctx context.Context) error {
 		reflectutil.SetBool(fl, "Hidden", false)
 	}
 
-	unhideFlagsCommands(ctx, app.BaseCLI.App().Commands)
+	unhideFlagsCommands(app.BaseCLI.App().Commands)
 
 	return nil
 }
 
-func unhideFlagsCommands(ctx context.Context, cmds []*cli.Command) {
+func unhideFlagsCommands(cmds []*cli.Command) {
 	for _, cmd := range cmds {
 		reflectutil.SetBool(cmd, "Hidden", false)
 		for _, flg := range cmd.Flags {
 			reflectutil.SetBool(flg, "Hidden", false)
 		}
-		unhideFlagsCommands(ctx, cmd.Subcommands)
+		unhideFlagsCommands(cmd.Subcommands)
 	}
 }
 

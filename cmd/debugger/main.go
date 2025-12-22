@@ -26,13 +26,13 @@ import (
 )
 
 var (
-	// Version is the version of the debugger
+	// Version is the version of the debugger.
 	Version string
 
-	// GitSha is the git sha used to build the debugger
+	// GitSha is the git sha used to build the debugger.
 	GitSha string
 
-	// ErrNoShellFound occurs when the container has no shell
+	// ErrNoShellFound occurs when the container has no shell.
 	ErrNoShellFound = errors.New("no shell found")
 
 	errInteractiveModeWaitFailed = errors.New("interactive mode wait failed")
@@ -95,7 +95,7 @@ func populateShellHistory(cmd string) error {
 			result = multierror.Append(result, err)
 		}
 		defer f.Close()
-		_, err = f.Write([]byte(cmd + "\n"))
+		_, err = f.WriteString(cmd + "\n")
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
@@ -106,7 +106,8 @@ func populateShellHistory(cmd string) error {
 func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	log := slog.GetLogger(ctx)
 
-	conn, err := net.Dial("unix", sockAddr)
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "unix", sockAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to remote debugger")
 	}
@@ -156,7 +157,8 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder func() (*exec.Cmd, error), conslogger conslogging.ConsoleLogger) error {
 	log := slog.GetLogger(ctx)
 
-	conn, err := net.Dial("unix", remoteConsoleAddr)
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "unix", remoteConsoleAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to remote debugger")
 	}
@@ -330,7 +332,7 @@ func main() {
 		}
 
 		cmdBuilder := func() (*exec.Cmd, error) {
-			return exec.Command(args[0], args[1:]...), nil
+			return exec.CommandContext(ctx, args[0], args[1:]...), nil
 		}
 
 		exitCode := 0
@@ -351,7 +353,7 @@ func main() {
 
 	conslogger.VerbosePrintf("running command: (%s); version: %s\n", args, Version)
 
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -389,7 +391,7 @@ func main() {
 					return nil, ErrNoShellFound
 				}
 				conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
-				return exec.Command(shellPath), nil
+				return exec.CommandContext(ctx, shellPath), nil
 			}
 
 			err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)

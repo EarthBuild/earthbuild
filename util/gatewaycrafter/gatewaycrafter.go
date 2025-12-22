@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref and metadata entries for the buildkit Export function
+// NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref and metadata entries for the buildkit Export function.
 func NewGatewayCrafter() *GatewayCrafter {
 	return &GatewayCrafter{
 		res: gwclient.NewResult(),
@@ -22,13 +22,13 @@ func NewGatewayCrafter() *GatewayCrafter {
 // GatewayCrafter wraps the gwclient.Result object with a helper function
 // which is used to deduplicate code between builder.go and wait_block.go
 // eventually all SAVE IMAGE (and other earthly exporter) logic will be triggered via the WAIT/END PopWaitBlock() function
-// and code that direct accesses to the underlying result instance will be removed
+// and code that direct accesses to the underlying result instance will be removed.
 type GatewayCrafter struct {
 	done bool
 	res  *gwclient.Result
 }
 
-// AddPushImageEntry adds ref and metadata required to cause an image to be pushed
+// AddPushImageEntry adds ref and metadata required to cause an image to be pushed.
 func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, imageName string, shouldPush, insecurePush bool, imageConfig *image.Image, platformStr []byte) (string, error) {
 	config, err := json.Marshal(imageConfig)
 	if err != nil {
@@ -55,7 +55,7 @@ func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, i
 	return refPrefix, nil // TODO once all earthlyoutput-metadata-related code is moved into saveimageutil, change to "return err" only
 }
 
-// AddSaveArtifactLocal adds ref and metadata required to trigger an artifact export to the local host
+// AddSaveArtifactLocal adds ref and metadata required to trigger an artifact export to the local host.
 func (gc *GatewayCrafter) AddSaveArtifactLocal(ref gwclient.Reference, refID int, artifact, srcPath, destPath string) (string, error) {
 	refKey := fmt.Sprintf("dir-%d", refID)
 	refPrefix := fmt.Sprintf("ref/%s", refKey)
@@ -89,14 +89,14 @@ func (gc *GatewayCrafter) AddMeta(k string, v []byte) {
 	gc.res.AddMeta(k, v)
 }
 
-// GetRefsAndMetadata fetches the result Refs and Metadata; it is not reentrant
+// GetRefsAndMetadata fetches the result Refs and Metadata; it is not reentrant.
 func (gc *GatewayCrafter) GetRefsAndMetadata() (map[string]gwclient.Reference, map[string][]byte) {
 	gc.assertNotDone()
 	gc.done = true
 	return gc.res.Refs, gc.res.Metadata
 }
 
-// GetResult fetches the gwclient result object; it is not reentrant
+// GetResult fetches the gwclient result object; it is not reentrant.
 func (gc *GatewayCrafter) GetResult() *gwclient.Result {
 	gc.assertNotDone()
 	gc.done = true

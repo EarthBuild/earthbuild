@@ -23,9 +23,10 @@ import (
 // to enable autocomplete, enter
 // complete -o nospace -C "/path/to/earthly" earthly
 //
-// alternatively, you can run earthly with COMP_LINE and COMP_POINT set; for example:
-// COMP_LINE="earthly ./buildkitd+buildkitd --" COMP_POINT="32" ./build/linux/amd64/earthly
-// COMP_LINE="earthly ~/test/simple+test -" COMP_POINT="28" ./build/linux/amd64/earthly
+// Alternatively, you can run earthly with COMP_LINE and COMP_POINT set; for example:
+//
+//	COMP_LINE="earthly ./buildkitd+buildkitd --" COMP_POINT="32" ./build/linux/amd64/earthly
+//	COMP_LINE="earthly ~/test/simple+test -" COMP_POINT="28" ./build/linux/amd64/earthly
 func AutoComplete(ctx context.Context, cli *base.CLI) {
 	_, found := os.LookupEnv("COMP_LINE")
 	if !found {

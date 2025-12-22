@@ -1,8 +1,8 @@
 package stringutil
 
-import "golang.org/x/exp/slices"
+import "slices"
 
-// FilterElementsFromList filters out elements from a given list
+// FilterElementsFromList filters out elements from a given list.
 func FilterElementsFromList(l []string, without ...string) []string {
 	filtered := []string{}
 	for _, s := range l {

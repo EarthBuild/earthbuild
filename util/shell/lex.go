@@ -19,7 +19,7 @@ import (
 // process all quotes (" and ') as well as $xxx and ${xxx} env variable
 // tokens.  Tries to mimic bash shell process.
 // It doesn't support all flavors of ${xx:...} formats but new ones can
-// be added by adding code to the "special ${} format processing" section
+// be added by adding code to the "special ${} format processing" section.
 type Lex struct {
 	escapeToken       rune
 	RawQuotes         bool
@@ -82,10 +82,10 @@ func (s *Lex) process(word string, env map[string]string, shelloutEnvs map[strin
 	return sw.process(word)
 }
 
-// EvalShellOutFn is a supplied callback function which is called whenever a shell-out command needs to be evaluated
+// EvalShellOutFn is a supplied callback function which is called whenever a shell-out command needs to be evaluated.
 type EvalShellOutFn func(cmd string) (string, error)
 
-// ErrNoShellOut occurs when the EvalShellOutFn was not set
+// ErrNoShellOut occurs when the EvalShellOutFn was not set.
 var ErrNoShellOut = errors.New("shelling out is not available")
 
 type shellWord struct {
@@ -154,7 +154,7 @@ func (w *wordsStruct) getWords() []string {
 }
 
 // Process the word, starting at 'pos', and stop when we get to the
-// end of the word or the 'stopChar' character
+// end of the word or the 'stopChar' character.
 func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
 	var result bytes.Buffer
 	var words wordsStruct
@@ -686,7 +686,7 @@ func (sw *shellWord) getEnv(name string) (string, error) {
 	return "", errEnvNotFound
 }
 
-// BuildEnvs takes a list of envs and converts it to a map
+// BuildEnvs takes a list of envs and converts it to a map.
 func BuildEnvs(env []string) map[string]string {
 	envs := map[string]string{}
 
@@ -707,7 +707,7 @@ func BuildEnvs(env []string) map[string]string {
 	return envs
 }
 
-// BuildShellOutEnvs takes a list of shellOutEnvs and converts it to a map
+// BuildShellOutEnvs takes a list of shellOutEnvs and converts it to a map.
 func BuildShellOutEnvs(shellOutEnvs []string) map[string]struct{} {
 	m := map[string]struct{}{}
 	for _, s := range shellOutEnvs {

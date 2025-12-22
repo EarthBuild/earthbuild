@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// GetUserHomeDirs returns a map of all users and their homedirs
+// GetUserHomeDirs returns a map of all users and their homedirs.
 func GetUserHomeDirs() (map[string]string, error) {
 	users := map[string]string{}
 	if runtime.GOOS == "darwin" {

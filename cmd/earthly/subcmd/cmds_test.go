@@ -56,7 +56,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	}
 }
 
-// Check if command has any subCommands to verify
+// Check if command has any subCommands to verify.
 func checkSubCommands(commands []*cli.Command) []*cli.Command {
 	var allCommands []*cli.Command
 	for _, command := range commands {

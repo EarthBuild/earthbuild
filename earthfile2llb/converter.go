@@ -958,7 +958,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 		}
 
 		if !force {
-			canSave, err := c.canSave(ctx, saveAsLocalToAdj)
+			canSave, err := c.canSave(saveAsLocalToAdj)
 			if err != nil {
 				return err
 			}
@@ -995,7 +995,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	return nil
 }
 
-func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, error) {
+func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 	basepath, err := filepath.Abs(c.target.LocalPath)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get absolute path of %s", basepath)
@@ -1024,7 +1024,7 @@ func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, er
 	return strings.HasPrefix(saveAsLocalToAdj, basepath), nil
 }
 
-// SaveArtifactFromLocal saves a local file into the ArtifactsState
+// SaveArtifactFromLocal saves a local file into the ArtifactsState.
 func (c *Converter) SaveArtifactFromLocal(ctx context.Context, saveFrom, saveTo string, keepTs, keepOwn bool, chown string) error {
 	err := c.checkAllowed(saveArtifactCmd)
 	if err != nil {
@@ -1087,7 +1087,7 @@ func (c *Converter) waitBlock() *waitBlock {
 	return c.waitBlockStack[n-1]
 }
 
-// PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block
+// PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block.
 func (c *Converter) PushWaitBlock(ctx context.Context) error {
 	waitBlock := newWaitBlock()
 	c.waitBlockStack = append(c.waitBlockStack, waitBlock)
@@ -1095,7 +1095,7 @@ func (c *Converter) PushWaitBlock(ctx context.Context) error {
 	return nil
 }
 
-// PopWaitBlock should be called when an END is encountered, it will block until all commands within the block complete
+// PopWaitBlock should be called when an END is encountered, it will block until all commands within the block complete.
 func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	n := len(c.waitBlockStack)
 	if n == 0 {
@@ -1692,7 +1692,7 @@ func (c *Converter) Project(ctx context.Context, org, project string) error {
 	return nil
 }
 
-// ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of the specified cmd for each match of the expression
+// ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of the specified cmd for each match of the expression.
 func (c *Converter) ExpandWildcardCmds(ctx context.Context, fullTargetName string, cmd spec.Command) ([]spec.Command, error) {
 	targets, err := c.expandWildcardTargets(ctx, fullTargetName)
 	if err != nil {
@@ -1707,7 +1707,7 @@ func (c *Converter) ExpandWildcardCmds(ctx context.Context, fullTargetName strin
 	})
 }
 
-// ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of the artifact for each match of the expression
+// ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of the artifact for each match of the expression.
 func (c *Converter) ExpandWildcardArtifacts(ctx context.Context, artifact domain.Artifact) ([]domain.Artifact, error) {
 	targets, err := c.expandWildcardTargets(ctx, artifact.Target.String())
 	if err != nil {
@@ -2200,7 +2200,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	// AWS credential import.
 	if opts.WithAWSCredentials {
-		awsRunOpts, awsEnvs, err := c.awsSecrets(ctx, opts.OIDCInfo)
+		awsRunOpts, awsEnvs, err := c.awsSecrets(opts.OIDCInfo)
 		if err != nil {
 			return pllb.State{}, err
 		}
@@ -2231,7 +2231,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		saveFiles := []debuggercommon.SaveFilesSettings{}
 		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
 
-			canSave, err := c.canSave(ctx, interactiveSaveFile.Dst)
+			canSave, err := c.canSave(interactiveSaveFile.Dst)
 			if err != nil {
 				return pllb.State{}, err
 			}
@@ -2391,7 +2391,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 }
 
-func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
+//nolint:unparam // error return kept for future use
+func (c *Converter) awsSecrets(oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
 	var (
 		runOpts   = []llb.RunOption{}
 		extraEnvs = []string{}

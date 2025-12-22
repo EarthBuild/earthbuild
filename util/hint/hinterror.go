@@ -9,7 +9,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 )
 
-// note that this regex should be updated in case the error format changes in Error()
+// note that this regex should be updated in case the error format changes in Error().
 var errWithHintRegex = regexp.MustCompile(`(?P<error>.+?):Hint: (?P<hint>(?s).+)`)
 
 // Error is an error that includes hints to be displayed after the error.
@@ -18,7 +18,7 @@ type Error struct {
 	hints []string
 }
 
-// Error returns the error string
+// Error returns the error string.
 func (e *Error) Error() string {
 	return fmt.Sprintf(`%v:Hint: %v`, e.err, e.Hint())
 }
@@ -27,7 +27,7 @@ func (e *Error) Message() string {
 	return e.err.Error()
 }
 
-// Hint returns all hints in a single string separated by a new line
+// Hint returns all hints in a single string separated by a new line.
 func (e *Error) Hint() string {
 	if len(e.hints) == 0 {
 		return ""
@@ -50,7 +50,7 @@ func Wrapf(err error, hintf string, args ...any) error {
 	return Wrap(err, fmt.Sprintf(hintf, args...))
 }
 
-// FromError attempts to parse the given error's string to an *hint.Error
+// FromError attempts to parse the given error's string to an *hint.Error.
 func FromError(err error) (*Error, bool) {
 	if err == nil {
 		return nil, false

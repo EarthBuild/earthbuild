@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -714,7 +714,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 	}
 	var codeDt []byte
 	if opts.Locally {
-		codeDt, err = os.ReadFile(exitCodeFile)
+		codeDt, err = os.ReadFile(exitCodeFile) // #nosec G304
 		if err != nil {
 			return 0, errors.Wrap(err, "read exit code file")
 		}
@@ -814,7 +814,7 @@ func (c *Converter) runCommand(ctx context.Context, outputFileName string, isExp
 
 	var outputDt []byte
 	if opts.Locally {
-		outputDt, err = os.ReadFile(outputFile)
+		outputDt, err = os.ReadFile(outputFile) // #nosec G304
 		if err != nil {
 			return "", errors.Wrap(err, "read output file")
 		}
@@ -2078,7 +2078,7 @@ func (c *Converter) buildTarget(ctx context.Context, fullTargetName string, plat
 }
 
 func getDebuggerSecretKey(saveFilesSettings []debuggercommon.SaveFilesSettings) string {
-	h := sha1.New()
+	h := sha1.New() // #nosec G401
 	b := make([]byte, 8)
 
 	addToHash := func(path string) {

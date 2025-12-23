@@ -64,12 +64,12 @@ func TestHashTargetWithDocker(t *testing.T) {
 }
 
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	out, err := os.Create(dst) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func copyFile(src, dst string) error {
 }
 
 func replaceInFile(path, find, replace string) error {
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	f, err := os.OpenFile(path, os.O_RDWR, 0) // #nosec G304
 	if err != nil {
 		return err
 	}

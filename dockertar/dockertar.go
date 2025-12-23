@@ -13,7 +13,7 @@ import (
 
 // GetID returns the docker sha256 ID of the image stored within the given .tar file.
 func GetID(tarFilePath string) (string, error) {
-	tarFile, err := os.Open(tarFilePath)
+	tarFile, err := os.Open(tarFilePath) // #nosec G304
 	if err != nil {
 		return "", errors.Wrapf(err, "open file %s for reading", tarFilePath)
 	}

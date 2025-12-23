@@ -237,7 +237,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	}
 
 	// create the completion file
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return false, err
 	}
@@ -287,7 +287,7 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 	}
 
 	// create the completion file
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return err
 	}

@@ -69,7 +69,7 @@ func (t *Tracker) String() string {
 		v := t.stats[k]
 		fmt.Fprintf(w, "%s\t%s\t%v\t%v\n", v.target, v.command, humanize.Bytes(v.memory), v.cpu)
 	}
-	w.Flush()
+	w.Flush() // #nosec G104
 	return buf.String()
 }
 
@@ -80,7 +80,8 @@ func (t *Tracker) Close(ctx context.Context) error {
 		fmt.Print(summary)
 		return nil
 	}
-	return os.WriteFile(t.path, []byte(summary), 0o644)
+
+	return os.WriteFile(t.path, []byte(summary), 0o644) // #nosec G306
 }
 
 type stats struct {

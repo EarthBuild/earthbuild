@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -743,7 +743,8 @@ func loadKnownHostsFromPath(path string) ([]string, error) {
 	if !knownHostsExists {
 		return nil, nil
 	}
-	b, err := os.ReadFile(path)
+
+	b, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read %s", path)
 	}

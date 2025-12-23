@@ -89,7 +89,7 @@ func populateShellHistory(cmd string) error {
 		"/root/.bash_history",
 	} {
 
-		f, err := os.Create(f)
+		f, err := os.Create(f) // #nosec G304
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
@@ -128,7 +128,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 		return err
 	}
 
-	f, err := os.Open(src)
+	f, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder f
 }
 
 func getSettings(path string) (*common.DebuggerSettings, error) {
-	s, err := os.ReadFile(path)
+	s, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read %s", path)
 	}
@@ -331,7 +331,7 @@ func main() {
 		}
 
 		cmdBuilder := func() (*exec.Cmd, error) {
-			return exec.CommandContext(ctx, args[0], args[1:]...), nil
+			return exec.CommandContext(ctx, args[0], args[1:]...), nil // #nosec G204
 		}
 
 		exitCode := 0
@@ -352,7 +352,7 @@ func main() {
 
 	conslogger.VerbosePrintf("running command: (%s); version: %s\n", args, Version)
 
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...) // #nosec G204
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -372,7 +372,7 @@ func main() {
 
 		if debuggerSettings.Enabled {
 			c := color.New(color.FgYellow)
-			c.Println("Entering interactive debugger")
+			c.Println("Entering interactive debugger") // #nosec G104
 			// Sometimes the interactive shell doesn't correctly get a newline
 			// Take a brief pause and issue a new line as a work around.
 			time.Sleep(time.Millisecond * 5)
@@ -390,7 +390,7 @@ func main() {
 					return nil, ErrNoShellFound
 				}
 				conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
-				return exec.CommandContext(ctx, shellPath), nil
+				return exec.CommandContext(ctx, shellPath), nil // #nosec G204
 			}
 
 			err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)

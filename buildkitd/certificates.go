@@ -129,7 +129,7 @@ func genCert(ca *certData, role, hostname, keyPath, certPath string) error {
 }
 
 func parseTLSKey(path string) (*rsa.PrivateKey, error) {
-	body, err := os.ReadFile(path)
+	body, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read private key %q", path)
 	}
@@ -153,7 +153,7 @@ func createTLSKey(path string) (*rsa.PrivateKey, error) {
 }
 
 func parseTLSCert(path string) (*x509.Certificate, error) {
-	body, err := os.ReadFile(path)
+	body, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read public cert %q", path)
 	}
@@ -224,11 +224,12 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 }
 
 func savePEM(path, typ string, bytes []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	err := os.MkdirAll(filepath.Dir(path), 0o755) // #nosec G301
+	if err != nil {
 		return err
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return err
 	}

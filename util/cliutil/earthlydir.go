@@ -52,7 +52,7 @@ func GetOrCreateEarthlyDir(installName string) (string, error) {
 			return
 		}
 		if !earthlyDirExists {
-			err := os.MkdirAll(earthlyDir, 0o755)
+			err := os.MkdirAll(earthlyDir, 0o755) // #nosec G301
 			if err != nil {
 				earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 				return

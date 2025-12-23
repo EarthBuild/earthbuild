@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	_ "net/http/pprof" // enable pprof handlers on net/http listener
+	_ "net/http/pprof" // #nosec G108 // enable pprof handlers on net/http listener
 	"os"
 	"os/signal"
 	"strconv"

@@ -223,7 +223,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 
 				// The mountpoint is not included in the df output. Get that from inspect.
 				mountpoint, mountpointErr := psf.commandContextOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
-				if err != nil {
+				if mountpointErr != nil {
 					err = multierror.Append(err, mountpointErr)
 					break
 				}

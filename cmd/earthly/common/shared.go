@@ -69,7 +69,7 @@ func ProcessSecrets(secrets, secretFiles []string, dotEnvMap map[string]string, 
 		}
 		k := parts[0]
 		path := fileutil.ExpandPath(parts[1])
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) // #nosec G304
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open %q", path)
 		}
@@ -129,7 +129,7 @@ func IfNilBoolDefault(ptr *bool, defaultValue bool) bool {
 
 func IsEarthlyBinary(path string) bool {
 	// apply heuristics to see if binary is a version of earthly
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return false
 	}

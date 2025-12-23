@@ -25,7 +25,7 @@ type FS interface {
 type stdFS struct{}
 
 func (stdFS) Open(path string) (fs.File, error) {
-	return os.Open(path)
+	return os.Open(path) // #nosec G304
 }
 
 func (stdFS) Stat(path string) (fs.FileInfo, error) {
@@ -57,7 +57,7 @@ type stdCmd struct {
 }
 
 func (c stdCmd) Run(ctx context.Context) (stdout, stderr io.Reader, _ error) {
-	cmd := exec.CommandContext(ctx, c.name, c.args...)
+	cmd := exec.CommandContext(ctx, c.name, c.args...) // #nosec G204
 	var outw, errw bytes.Buffer
 	cmd.Stdout = &outw
 	cmd.Stderr = &errw

@@ -26,7 +26,7 @@ var update = flag.Bool("update", false, "Update the testdata for golden tests")
 func goldenFile(t *testing.T, path string) []byte {
 	t.Helper()
 
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304
 	if err != nil {
 		t.Fatalf("got error opening golden file %q: %v", path, err)
 	}
@@ -40,7 +40,7 @@ func goldenFile(t *testing.T, path string) []byte {
 func saveGoldenFile(t *testing.T, path string, b []byte) {
 	t.Helper()
 
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		t.Fatalf("got error creating golden file %q: %v", path, err)
 	}

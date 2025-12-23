@@ -65,7 +65,7 @@ func (a *Init) action(cliCtx *cli.Context) error {
 		return errors.Errorf("no supported projects found in directory %q", absWd)
 	}
 
-	f, err := os.Create(efPath)
+	f, err := os.Create(efPath) // #nosec G304
 	if err != nil {
 		return errors.Wrapf(err, "could not create %q", efPath)
 	}

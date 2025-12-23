@@ -30,12 +30,12 @@ type FromOpt func(prefs) (prefs, error)
 // FromPath tells ParseVersion to open and read from a file at path.
 func FromPath(path string) FromOpt {
 	return func(p prefs) (prefs, error) {
-		f, err := os.Open(path)
+		f, err := os.Open(path) // #nosec G304
 		if err != nil {
 			return p, errors.Wrapf(err, "ast: unable to open file '%v'", path)
 		}
 		p.reader = f
-		p.done = func() { f.Close() }
+		p.done = func() { f.Close() } // #nosec G104
 		return p, nil
 	}
 }

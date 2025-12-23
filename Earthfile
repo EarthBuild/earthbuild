@@ -284,18 +284,17 @@ lint-changelog:
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
-    ENV CGO_ENABLED=0
+    ENV CGO_ENABLED=1
     ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
     ARG EARTHLY_GIT_HASH
-    ENV CGO_ENABLED=1
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go build \
             -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
-            \
+            -tags netgo -installsuffix netgo \
             -o build/earth_debugger \
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
@@ -303,7 +302,7 @@ debugger:
 # earthly builds the earthly CLI and docker image.
 earthly:
     FROM +code
-    ENV CGO_ENABLED=0
+    ENV CGO_ENABLED=1
     ARG GOOS=linux
     ARG TARGETARCH
     ARG TARGETVARIANT

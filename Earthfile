@@ -163,7 +163,7 @@ lint:
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.1.3
+    ENV govulncheck_version=1.1.4
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     RUN \

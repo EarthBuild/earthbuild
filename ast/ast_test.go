@@ -642,7 +642,6 @@ test:
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.note, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()

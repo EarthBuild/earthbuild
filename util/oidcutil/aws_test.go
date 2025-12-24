@@ -78,7 +78,6 @@ func TestAWSOIDCInfoString(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		name, tc := name, tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			res := tc.subject.String()
@@ -109,7 +108,6 @@ func TestAWSOIDCInfoRoleARNString(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		name, tc := name, tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			res := tc.subject.RoleARNString()
@@ -204,7 +202,6 @@ func TestParseAWSOIDCInfo(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		name, tc := name, tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			res, err := ParseAWSOIDCInfo(tc.input)

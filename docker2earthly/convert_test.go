@@ -196,7 +196,6 @@ build:
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := docker2earthly.GenerateEarthfile(tt.args.buildContextPath, tt.args.dockerfilePath, tt.args.imageTags, tt.args.buildArgs, tt.args.platforms, tt.args.target)

@@ -7,27 +7,26 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/base64"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/jdxcode/netrc"
+	"github.com/moby/buildkit/util/sshutil"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"golang.org/x/exp/maps"
-
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/EarthBuild/earthbuild/util/stringutil"
-
-	"github.com/jdxcode/netrc"
-	"github.com/moby/buildkit/util/sshutil"
 )
 
 type gitMatcher struct {
@@ -122,7 +121,7 @@ func knownHostsToKeyScans(knownHosts string) []string {
 			foundKeyScans[s] = true
 		}
 	}
-	return maps.Keys(foundKeyScans)
+	return slices.Collect(maps.Keys(foundKeyScans))
 }
 
 // AddMatcher adds a new matcher for looking up git repos.
@@ -338,7 +337,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 		}
 	}
 
-	keys := maps.Keys(foundKeys)
+	keys := slices.Collect(maps.Keys(foundKeys))
 
 	algs := []string{}
 	for _, alg := range supportedHostKeyAlgos {

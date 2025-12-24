@@ -166,11 +166,23 @@ govulncheck:
     ENV govulncheck_version=1.1.4
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
+    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+        ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            --mount type=cache,target=/root/.cache/golangci_lint \
+
+            echo "🛡️ vulnerability check in go module \"$mod_name\"" && \
+            cd $mod_path && \
+            govulncheck ./... >> /tmp/govulncheck_output || touch /tmp/govulncheck_failed
+    END
+    # print output for all modules and fail if any vulnerabilities were found
     RUN \
-        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        --mount type=cache,target=/root/.cache/go-vulncheck \
-        govulncheck ./...
+        if [ -f /tmp/govulncheck_failed ]; then \
+            cat /tmp/govulncheck_output; \
+            exit 1; \
+        fi
 
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:

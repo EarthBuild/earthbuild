@@ -71,7 +71,7 @@ func ParseOpts(ctx context.Context, from FromOpt, opts ...Opt) (spec.Earthfile, 
 		for _, err := range errorListener.Errs {
 			errString = append(errString, err.Error())
 		}
-		return spec.Earthfile{}, errors.Errorf(strings.Join(errString, "\n"))
+		return spec.Earthfile{}, errors.Errorf("%s", strings.Join(errString, "\n"))
 	}
 	if errorStrategy.Err != nil {
 		err := errors.Wrapf(

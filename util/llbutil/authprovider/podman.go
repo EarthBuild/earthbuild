@@ -33,7 +33,7 @@ type OS interface {
 type defaultOS struct{}
 
 func (o defaultOS) Open(path string) (io.ReadCloser, error) {
-	return os.Open(path)
+	return os.Open(path) // #nosec G304
 }
 
 func (o defaultOS) Getenv(name string) string {

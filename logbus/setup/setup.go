@@ -39,7 +39,7 @@ func New(ctx context.Context, bus *logbus.Bus, debug, verbose, displayStats, for
 		InitialManifest: &logstream.RunManifest{
 			BuildId:            buildID,
 			Version:            deltautil.Version,
-			CreatedAtUnixNanos: uint64(bus.CreatedAt().UnixNano()),
+			CreatedAtUnixNanos: uint64(bus.CreatedAt().UnixNano()), // #nosec G115
 		},
 		execStatsTracker: execStatsTracker,
 	}
@@ -48,7 +48,7 @@ func New(ctx context.Context, bus *logbus.Bus, debug, verbose, displayStats, for
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)
 	if busDebugFile != "" {
-		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open bus debug file %s", busDebugFile)
 		}
@@ -79,7 +79,7 @@ func (bs *BusSetup) SetCI(isCI bool) {
 func (bs *BusSetup) DumpManifestToFile(path string) error {
 	m := bs.Formatter.Manifest()
 	proto.Merge(m, bs.InitialManifest)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304
 	if err != nil {
 		return errors.Wrapf(err, "failed to open bus manifest debug file %s", path)
 	}

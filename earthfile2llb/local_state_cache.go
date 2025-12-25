@@ -1,7 +1,7 @@
 package earthfile2llb
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
 	"strings"
@@ -48,7 +48,7 @@ func (lsc *LocalStateCache) getOrConstruct(factory llbfactory.Factory) pllb.Stat
 }
 
 func getSharedKeyHintFromInclude(name string, incl []string) string {
-	h := sha1.New()
+	h := sha1.New() // #nosec G401
 	b := make([]byte, 8)
 
 	addToHash := func(path string) {

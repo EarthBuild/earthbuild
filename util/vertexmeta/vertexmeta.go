@@ -128,7 +128,16 @@ func (vm *VertexMeta) Salt() string {
 	}
 
 	h := fnv.New32a()
-	h.Write([]byte(vm.Platform))
-	h.Write([]byte(overridingArgsString))
+
+	_, err := h.Write([]byte(vm.Platform))
+	if err != nil {
+		panic(fmt.Errorf("write platform: %w", err))
+	}
+
+	_, err = h.Write([]byte(overridingArgsString))
+	if err != nil {
+		panic(fmt.Errorf("write overriding args: %w", err))
+	}
+
 	return fmt.Sprintf("%s-%d", name, h.Sum32())
 }

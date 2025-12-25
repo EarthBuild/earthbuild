@@ -3,7 +3,7 @@ package hasher
 import (
 	"bufio"
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/json"
 	"fmt"
 	"hash"
@@ -18,7 +18,7 @@ type Hasher struct {
 
 func New() *Hasher {
 	return &Hasher{
-		h: sha1.New(),
+		h: sha1.New(), // #nosec G401
 	}
 }
 
@@ -63,7 +63,7 @@ func (h *Hasher) HashFile(ctx context.Context, src string) error {
 	h.HashString(fmt.Sprintf("name: %s;", stat.Name()))
 	h.HashString(fmt.Sprintf("size: %d;", stat.Size()))
 
-	f, err := os.Open(src)
+	f, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return err
 	}

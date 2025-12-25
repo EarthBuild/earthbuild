@@ -117,7 +117,7 @@ func (s *tarImageSolver) SolveImage(ctx context.Context, mts *states.MultiTarget
 		}
 	})
 	eg.Go(func() error {
-		file, err := os.Create(outFile)
+		file, err := os.Create(outFile) // #nosec G304
 		if err != nil {
 			return errors.Wrapf(err, "open file %s for writing", outFile)
 		}
@@ -143,7 +143,7 @@ func (s *tarImageSolver) SolveImage(ctx context.Context, mts *states.MultiTarget
 	go func() {
 		<-ctx.Done()
 		// Close read pipe on cancels, otherwise the whole thing hangs.
-		pipeR.Close()
+		pipeR.Close() // #nosec G104
 	}()
 	return eg.Wait()
 }

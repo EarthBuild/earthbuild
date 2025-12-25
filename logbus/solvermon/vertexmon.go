@@ -60,7 +60,7 @@ func getExitCode(errString string) (int, error) {
 			return 0, fmt.Errorf("exit code %d out of expected range (0-255)", exitCode)
 		}
 		exitCodeByte := exitCode & 0xFF
-		return int(exitCodeByte), nil
+		return int(exitCodeByte), nil // #nosec G115
 	}
 	return 0, errNoExitCode
 }
@@ -191,14 +191,14 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 			if err != nil {
 				return 0, errors.Wrap(err, "stats json encode failed")
 			}
-			_, err = vm.cp.Write(statsJSON, ts, int32(stream))
+			_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
 			if err != nil {
 				return 0, errors.Wrap(err, "write stats")
 			}
 		}
 		return len(dt), nil
 	}
-	_, err := vm.cp.Write(dt, ts, int32(stream))
+	_, err := vm.cp.Write(dt, ts, int32(stream)) // #nosec G115
 	if err != nil {
 		return 0, errors.Wrap(err, "write log line")
 	}

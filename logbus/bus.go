@@ -58,7 +58,7 @@ func (b *Bus) TsUnixNanos(t2 time.Time) uint64 {
 	// t2.UnixNano() sometimes strips the monotonic clock reading (e.g. time.Now().UnixNano()).
 	// Sub maintains the monotonic clock reading https://pkg.go.dev/time#hdr-Monotonic_Clocks.
 	deltaT := t2.Sub(b.createdAt).Nanoseconds()
-	return uint64(b.CreatedAt().UnixNano()) + uint64(deltaT)
+	return uint64(b.CreatedAt().UnixNano()) + uint64(deltaT) // #nosec G115
 }
 
 // AddSubscriber adds a subscriber to the bus. A subscriber receives both the

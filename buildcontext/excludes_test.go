@@ -76,7 +76,7 @@ func Test_readExcludes(t *testing.T) {
 			dir := t.TempDir()
 
 			if testcase.earthIgnoreContents != "" {
-				earthIgnoreFile, err := os.Create(filepath.Join(dir, earthIgnoreFile))
+				earthIgnoreFile, err := os.Create(filepath.Join(dir, earthIgnoreFile)) // #nosec G304
 				if err != nil {
 					t.Fatalf("failed to create .earthignore file")
 				}
@@ -88,7 +88,7 @@ func Test_readExcludes(t *testing.T) {
 			}
 
 			if testcase.earthlyIgnoreContents != "" {
-				earthlyIgnoreFile, err := os.Create(filepath.Join(dir, earthlyIgnoreFile))
+				earthlyIgnoreFile, err := os.Create(filepath.Join(dir, earthlyIgnoreFile)) // #nosec G304
 				if err != nil {
 					t.Fatalf("failed to create .earthlyignore file")
 				}
@@ -100,7 +100,7 @@ func Test_readExcludes(t *testing.T) {
 			}
 
 			if testcase.dockerIgnoreContents != "" {
-				dockerIgnoreFile, err := os.Create(filepath.Join(dir, dockerIgnoreFile))
+				dockerIgnoreFile, err := os.Create(filepath.Join(dir, dockerIgnoreFile)) // #nosec G304
 				if err != nil {
 					t.Fatalf("failed to create .dockerignore file")
 				}

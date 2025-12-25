@@ -2,7 +2,7 @@ package buildkitskipper
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"errors"
 	"fmt"
 	"time"

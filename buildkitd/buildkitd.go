@@ -970,11 +970,11 @@ func printBuildkitInfo(bkCons conslogging.ConsoleLogger, info *client.Info, work
 	}
 	printFun(
 		"GC stats: %s cache, avg GC duration %v, all-time GC duration %v, last GC duration %v, last cleared %v",
-		humanize.Bytes(uint64(workerInfo.GCAnalytics.LastSizeBefore)),
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeBefore),
 		workerInfo.GCAnalytics.AvgDuration,
 		workerInfo.GCAnalytics.AllTimeDuration,
 		ld,
-		humanize.Bytes(uint64(workerInfo.GCAnalytics.LastSizeCleared)))
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared))
 	if workerInfo.GCAnalytics.CurrentStartTime != nil {
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)
 		switch {
@@ -1011,7 +1011,7 @@ func getCacheSize(ctx context.Context, volumeName string, fe containerutil.Conta
 		return 0, errors.Wrapf(err, "failed to get volume info for cache size %s", volumeName)
 	}
 
-	return int(infos[volumeName].SizeBytes), nil
+	return int(infos[volumeName].SizeBytes), nil // #nosec G115
 }
 
 func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
@@ -1047,4 +1047,14 @@ func containsAny(hs string, needles ...string) bool {
 
 func isLocalBuildkit(settings Settings) bool {
 	return containerutil.IsLocal(settings.BuildkitAddress)
+}
+
+func humanizeBytes(v int64) string {
+	var bytes uint64
+
+	if v > 0 {
+		bytes = uint64(v)
+	}
+
+	return humanize.Bytes(bytes)
 }

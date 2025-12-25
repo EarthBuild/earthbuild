@@ -93,7 +93,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	case 0x02:
 		isShellConn = false
 	default:
-		fmt.Fprintf(os.Stderr, "unexpected data: %v", buf[0])
+		fmt.Fprintf(os.Stderr, "unexpected data: %v", buf[0]) // #nosec G602
 		return
 	}
 
@@ -104,7 +104,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 			connLog.Debug("received shell connection")
 			if s.shellConn != nil {
 				connLog.Debug("closing existing shell connection")
-				s.shellConn.Close()
+				s.shellConn.Close() // #nosec G104
 				s.shellConn = nil
 			}
 			s.shellConn = conn
@@ -112,7 +112,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 			connLog.Debug("received term connection")
 			if s.terminalConn != nil {
 				connLog.Debug("closing existing term connection")
-				s.terminalConn.Close()
+				s.terminalConn.Close() // #nosec G104
 				s.terminalConn = nil
 			}
 			s.terminalConn = conn

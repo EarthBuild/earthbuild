@@ -116,6 +116,8 @@ func (bcp *BuildContextProvider) TarStream(stream filesync.FileSync_TarStreamSer
 func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) (retErr error) {
 	var pr *protocol
 	for _, p := range supportedProtocols {
+		p := p
+
 		if method == p.name && isProtoSupported(p.name) {
 			pr = &p
 			break

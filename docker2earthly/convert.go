@@ -39,7 +39,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 	if dockerfilePath == "-" {
 		in = bufio.NewReader(os.Stdin)
 	} else {
-		in2, err := os.Open(dockerfilePath)
+		in2, err := os.Open(dockerfilePath) // #nosec G304
 		if err != nil {
 			return errors.Wrapf(err, "failed to open %q", dockerfilePath)
 		}
@@ -119,7 +119,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		defer out2.Flush()
 		out = out2
 	} else {
-		out2, err := os.Create(earthfilePath)
+		out2, err := os.Create(earthfilePath) // #nosec G304
 		if err != nil {
 			return errors.Wrapf(err, "failed to create Earthfile under %q", earthfilePath)
 		}

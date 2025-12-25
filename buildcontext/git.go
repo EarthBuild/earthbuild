@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultGitImage = "alpine/git:v2.49.1"
+	defaultGitImage = "alpine/git:v2.52.0"
 )
 
 type gitResolver struct {

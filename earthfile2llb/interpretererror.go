@@ -135,6 +135,7 @@ func FromError(err error) (*InterpreterError, bool) {
 		},
 		"",
 		stack,
+		"%s",
 		errMsg,
 	), true
 }

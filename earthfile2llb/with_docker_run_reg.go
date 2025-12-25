@@ -249,7 +249,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	platformIncompatible := !w.c.platr.PlatformEquals(w.c.platr.Current(), platutil.NativePlatform)
 	if platformIncompatible {
-		w.c.opt.Console.Warnf("Error: " + platformIncompatMsg(w.c.platr))
+		w.c.opt.Console.Warnf("Error: %s", platformIncompatMsg(w.c.platr))
 		return errors.New("platform incompatible")
 	}
 

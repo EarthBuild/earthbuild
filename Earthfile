@@ -2,7 +2,7 @@ VERSION 0.8
 
 # TODO update to 3.18; however currently "podman login" (used under not-a-unit-test.sh) will error with
 # "Error: default OCI runtime "crun" not found: invalid argument".
-FROM alpine:3.17
+FROM alpine:3.18
 RUN apk add --update --no-cache \
     bash \
     bash-completion \
@@ -26,9 +26,10 @@ RUN apk add --update --no-cache \
 LET GO_VERSION=1.25.5
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-RUN wget https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
-    rm go${GO_VERSION}.linux-amd64.tar.gz
+ARG USERARCH
+RUN wget https://golang.org/dl/go${GO_VERSION}.linux-$USERARCH.tar.gz && \
+    tar -C /usr/local -xzf go${GO_VERSION}.linux-$USERARCH.tar.gz && \
+    rm go${GO_VERSION}.linux-$USERARCH.tar.gz
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
 WORKDIR /earthly

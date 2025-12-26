@@ -40,7 +40,7 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		// and falling back to cgroupfs. These errors land on stderr. https://github.com/containers/podman/pull/12834
 
 		cfg.Console.VerbosePrintf("Podman logged additional information to stderr:")
-		cfg.Console.VerbosePrintf(output.stderr.String())
+		cfg.Console.VerbosePrintf("%s", output.stderr.String())
 		cfg.Console.VerbosePrintf("Adding log level compatibility flag for all additional operations.")
 
 		fe.globalCompatibilityArgs = append(fe.globalCompatibilityArgs, "--log-level", "error")

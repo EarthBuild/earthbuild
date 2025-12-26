@@ -1,6 +1,6 @@
 module github.com/EarthBuild/earthbuild/ast
 
-go 1.21
+go 1.25
 
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230219212500-1f9a474cc2dc

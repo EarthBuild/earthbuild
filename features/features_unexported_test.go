@@ -45,7 +45,7 @@ func TestVersionAtLeast(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
+
 		title := fmt.Sprintf("earthly version %d.%d is at least %d.%d",
 			test.earthlyVer.Major, test.earthlyVer.Minor, test.major, test.minor)
 		t.Run(title, func(t *testing.T) {

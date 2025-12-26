@@ -46,7 +46,6 @@ func TestNamedGroupMatches(t *testing.T) {
 		},
 	}
 	for name, tc := range tests {
-		name, tc := name, tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			mapRes, sliceRes := NamedGroupMatches(tc.s, tc.re)

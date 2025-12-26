@@ -25,7 +25,7 @@ func init() {
 func quoteMeta(s string) string {
 	// A byte loop is correct because all metacharacters are ASCII.
 	var i int
-	for i = 0; i < len(s); i++ {
+	for i = range len(s) {
 		if special(s[i]) {
 			break
 		}

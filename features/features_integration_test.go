@@ -120,7 +120,6 @@ func TestAvailableFlags(t *testing.T) {
 		{"earthly-ci-runner-arg", "EarthlyCIRunnerArg"},
 		{"use-docker-ignore", "UseDockerIgnore"},
 	} {
-		tt := tt
 		t.Run(tt.flag, func(t *testing.T) {
 			t.Parallel()
 

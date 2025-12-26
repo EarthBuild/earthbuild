@@ -746,7 +746,7 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 		output, createErr := cmd.CombinedOutput()
 		if createErr != nil {
 			// the frontend exists but is non-functional. This is... not likely to work at all.
-			err = multierror.Append(err, errors.Wrap(createErr, string(output)))
+			err = multierror.Append(err, errors.Wrapf(createErr, "%s: %s", string(output), name))
 		}
 	}
 

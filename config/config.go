@@ -304,7 +304,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 		return validatePath(t.Elem(), path[1:])
 	}
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		yamlTag := field.Tag.Get("yaml")
 		helpTag := field.Tag.Get("help")

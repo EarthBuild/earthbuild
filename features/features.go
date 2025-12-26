@@ -118,7 +118,7 @@ func (f *Features) String() string {
 	typeOf := v.Type()
 
 	flags := []string{}
-	for i := 0; i < typeOf.NumField(); i++ {
+	for i := range typeOf.NumField() {
 		tag := typeOf.Field(i).Tag
 		if flagName, ok := tag.Lookup("long"); ok {
 			ifaceVal := v.Field(i).Interface()
@@ -143,7 +143,7 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 
 	fieldIndices := map[string]int{}
 	typeOf := reflect.ValueOf(*ftrs).Type()
-	for i := 0; i < typeOf.NumField(); i++ {
+	for i := range typeOf.NumField() {
 		f := typeOf.Field(i)
 		tag := f.Tag
 		if flagName, ok := tag.Lookup("long"); ok {
@@ -258,7 +258,7 @@ func (f *Features) ProcessFlags() ([]string, error) {
 	v := reflect.ValueOf(f).Elem()
 	t := v.Type()
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		value := v.Field(i)
 		version := field.Tag.Get("enabled_in_version")

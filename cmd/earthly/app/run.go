@@ -170,7 +170,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 				paramsErr.ParentError(),
 			)
 			if paramsErr.Error() != paramsErr.ParentError() {
-				app.BaseCLI.Console().VerboseWarnf(errorWithPrefix(paramsErr.Error()))
+				app.BaseCLI.Console().VerboseWarnf("%s", errorWithPrefix(paramsErr.Error()))
 			}
 			return 1
 		case qemuExitCodeRegex.MatchString(err.Error()):
@@ -272,17 +272,17 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			if len(matches["msg"]) > 0 {
 				errorMsg = matches["msg"][0]
 			}
-			app.BaseCLI.Console().VerboseWarnf(err.Error())
+			app.BaseCLI.Console().VerboseWarnf("%s", err.Error())
 			app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
 			return 1
 		case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
-			app.BaseCLI.Console().VerboseWarnf(errorWithPrefix(err.Error()))
+			app.BaseCLI.Console().VerboseWarnf("%s", errorWithPrefix(err.Error()))
 			helpMsg := "Unverified accounts have a limit on the duration of RUN commands. Verify your account to lift this restriction."
 			app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
 			app.BaseCLI.Console().HelpPrintf(helpMsg)
 			return 1
 		case grpcErrOK && grpcErr.Code() != codes.Canceled:
-			app.BaseCLI.Console().VerboseWarnf(errorWithPrefix(err.Error()))
+			app.BaseCLI.Console().VerboseWarnf("%s", errorWithPrefix(err.Error()))
 			if !strings.Contains(grpcErr.Message(), "transport is closing") {
 				app.BaseCLI.Logbus().Run().SetGenericFatalError(
 					time.Now(),

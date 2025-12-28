@@ -43,12 +43,6 @@ ssh-add /tmp/self-hosted-sshkey
 sudo /bin/sh -c "echo 127.0.0.1 ip4-localhost >> /etc/hosts"
 sshhost="ip4-localhost"
 
-# Wait for SSH service to be ready
-while ! nc -z 127.0.0.1 "$SSH_PORT"; do
-    echo "Waiting for SSH server on port $SSH_PORT..."
-    sleep 1
-done
-
 echo "add test ssh server to known hosts"
 mkdir -p ~/.ssh
 {

@@ -12,12 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/internal/observe"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
@@ -54,10 +56,13 @@ func setExportableVars() {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() (exitCode int) {
 	setExportableVars()
 	startTime := time.Now()
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
@@ -85,6 +90,18 @@ func main() {
 	}()
 	// Occasional spurious warnings show up - these are coming from imported libraries. Discard them.
 	logrus.StandardLogger().Out = io.Discard
+
+	shutdown, err := observe.Setup(ctx)
+	if err != nil {
+		fmt.Printf("Error setting up OpenTelemetry: %s\n", err.Error())
+	} else {
+		defer shutdown(ctx)
+	}
+
+	tracer := otel.Tracer("earth")
+
+	_, span := tracer.Start(ctx, "main")
+	defer span.End()
 
 	// Load .env into current global env's. This is mainly for applying Earthly settings.
 	// Separate call is made for build args and secrets.
@@ -123,7 +140,7 @@ func main() {
 			}
 		}
 	}
-	err := godotenv.Load(envFile)
+	err = godotenv.Load(envFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
 		if envFileOverride || !errors.Is(err, os.ErrNotExist) {
@@ -157,6 +174,6 @@ func main() {
 
 	cli.SetConsole(logging)
 	earthly := app.NewEarthlyApp(cli, rootApp, buildApp, ctx)
-	exitCode := earthly.Run(ctx, logging, startTime, lastSignal)
-	os.Exit(exitCode)
+
+	return earthly.Run(ctx, logging, startTime, lastSignal)
 }

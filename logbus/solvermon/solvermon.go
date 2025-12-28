@@ -2,7 +2,6 @@ package solvermon
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -59,7 +58,7 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 			if !ok {
 				return nil
 			}
-			err := sm.handleBuildkitStatus(delayedCtx, status)
+			err := sm.handleBuildkitStatus(status)
 			if err != nil {
 				return err
 			}
@@ -67,7 +66,7 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 	}
 }
 
-func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *client.SolveStatus) error {
+func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	bp := sm.b.Run()
@@ -92,7 +91,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(ctx context.Context, status *clien
 		} else {
 			category := meta.TargetName
 			if meta.Internal {
-				category = fmt.Sprintf("internal %s", category)
+				category = "internal " + category
 			}
 			var cp *logbus.Command
 			// Operations initiated from Earthly have created Logbus commands

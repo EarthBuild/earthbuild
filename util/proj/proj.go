@@ -25,7 +25,7 @@ type FS interface {
 type stdFS struct{}
 
 func (stdFS) Open(path string) (fs.File, error) {
-	return os.Open(path)
+	return os.Open(path) // #nosec G304
 }
 
 func (stdFS) Stat(path string) (fs.FileInfo, error) {
@@ -57,7 +57,7 @@ type stdCmd struct {
 }
 
 func (c stdCmd) Run(ctx context.Context) (stdout, stderr io.Reader, _ error) {
-	cmd := exec.CommandContext(ctx, c.name, c.args...)
+	cmd := exec.CommandContext(ctx, c.name, c.args...) // #nosec G204
 	var outw, errw bytes.Buffer
 	cmd.Stdout = &outw
 	cmd.Stderr = &errw
@@ -83,13 +83,13 @@ func StdExecer() Execer {
 var ErrSkip = errors.New("proj: this project is not a supported type")
 
 // Target is a type that can write a formatted target with a given indent string
-// and indentation level
+// and indentation level.
 type Target interface {
 	// SetPrefix sets a prefix to prepend to this target's name.
-	SetPrefix(context.Context, string)
+	SetPrefix(string)
 
 	// Format writes out the target with the given indentation string and level.
-	Format(ctx context.Context, w io.Writer, indent string, level int) error
+	Format(w io.Writer, indent string, level int) error
 }
 
 // ProjectType represents a type of project (typically a language).
@@ -111,7 +111,7 @@ type Project interface {
 	Type(context.Context) string
 
 	// Targets returns a list of targets for this Project.
-	Targets(ctx context.Context) ([]Target, error)
+	Targets() ([]Target, error)
 }
 
 // All returns all available project types for the given dir.

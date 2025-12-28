@@ -225,7 +225,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 		return false, errors.Wrapf(err, "failed checking if %s exists", dirPath)
 	}
 	if !dirPathExists {
-		return false, errors.New(fmt.Sprintf("%s does not exist", dirPath))
+		return false, fmt.Errorf("%s does not exist", dirPath)
 	}
 
 	pathExists, err := fileutil.FileExists(path)
@@ -237,7 +237,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	}
 
 	// create the completion file
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return false, err
 	}
@@ -248,14 +248,14 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 		return false, errors.Wrapf(err, "failed to add entry")
 	}
 
-	_, err = f.Write([]byte(bashEntry))
+	_, err = f.WriteString(bashEntry)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed writing to %s", path)
 	}
 	return true, nil
 }
 
-// If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache
+// If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache.
 func (a *Bootstrap) insertZSHCompleteEntry() error {
 	potentialPaths := []string{
 		"/usr/local/share/zsh/site-functions",
@@ -287,7 +287,7 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 	}
 
 	// create the completion file
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 		return nil // zsh-completion isn't available, silently fail.
 	}
 
-	_, err = f.Write([]byte(compEntry))
+	_, err = f.WriteString(compEntry)
 	if err != nil {
 		return errors.Wrapf(err, "failed writing to %s", path)
 	}

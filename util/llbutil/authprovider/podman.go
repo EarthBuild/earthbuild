@@ -1,6 +1,7 @@
 package authprovider
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -32,7 +33,7 @@ type OS interface {
 type defaultOS struct{}
 
 func (o defaultOS) Open(path string) (io.ReadCloser, error) {
-	return os.Open(path)
+	return os.Open(path) // #nosec G304
 }
 
 func (o defaultOS) Getenv(name string) string {
@@ -75,7 +76,7 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 
 	xdgRuntime := conf.os.Getenv("XDG_RUNTIME_DIR")
 	if xdgRuntime == "" {
-		idCmd := exec.Command("id", "-u")
+		idCmd := exec.CommandContext(context.Background(), "id", "-u")
 		out, err := idCmd.CombinedOutput()
 		if err != nil {
 			return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)

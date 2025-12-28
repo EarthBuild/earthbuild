@@ -79,23 +79,6 @@ func (l *lexer) popRecipeMode() {
 	}
 }
 
-func (l *lexer) stackString() string {
-	m := l.getMode()
-	stack := []int{m}
-	for m != 0 {
-		m = l.PopMode()
-		stack = append(stack, m)
-	}
-	var str []string
-	for i := len(stack) - 1; i >= 0; i-- {
-		if i != len(stack)-1 {
-			l.PushMode(stack[i])
-		}
-		str = append(str, parser.GetLexerModeNames()[stack[i]])
-	}
-	return strings.Join(str, "/")
-}
-
 func (l *lexer) NextToken() antlr.Token {
 	modeBefore := l.getMode()
 	peek := l.EarthLexer.NextToken()

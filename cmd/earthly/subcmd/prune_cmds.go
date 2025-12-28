@@ -99,7 +99,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 	}
 
 	if a.keepDuration > 0 || a.targetSize > 0 {
-		opts = append(opts, client.WithKeepOpt(time.Duration(a.keepDuration), int64(a.targetSize)))
+		opts = append(opts, client.WithKeepOpt(time.Duration(a.keepDuration), int64(a.targetSize))) // #nosec G115
 	}
 
 	ch := make(chan client.UsageInfo, 1)
@@ -122,7 +122,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 					return nil
 				}
 				a.cli.Console().Printf("%s\t%s\n", usageInfo.ID, humanize.Bytes(uint64(usageInfo.Size)))
-				total += uint64(usageInfo.Size)
+				total += uint64(usageInfo.Size) // #nosec G115
 			case <-ctx.Done():
 				return nil
 			}

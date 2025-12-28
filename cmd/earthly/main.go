@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	_ "net/http/pprof" // enable pprof handlers on net/http listener
+	_ "net/http/pprof" // #nosec G108 // enable pprof handlers on net/http listener
 	"os"
 	"os/signal"
 	"strconv"
@@ -29,13 +29,13 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 )
 
-// These vars are set by ldflags
+// These vars are set by ldflags.
 var (
 	// Version is the version of this CLI app.
 	Version string
-	// GitSha contains the git sha used to build this app
+	// GitSha contains the git sha used to build this app.
 	GitSha string
-	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc)
+	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc).
 	BuiltBy string
 
 	// DefaultBuildkitdImage is the default buildkitd image to use.

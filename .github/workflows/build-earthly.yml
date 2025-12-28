@@ -39,7 +39,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: earthbuild/actions-setup@main
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Put back the git branch into git (Earthly uses it for tagging)"
@@ -67,6 +67,7 @@ jobs:
           ${{inputs.SUDO}} $(which earthly) config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
@@ -81,10 +82,52 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build and push +ci-release using latest earthly build
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+      - name: Build +ci-release using latest earthly build (fork - no push)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
+          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+          # Build ci-release (builds binary and buildkitd but doesn't push)
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          # Explicitly output the buildkitd image to local docker daemon
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+      - name: Save artifacts for fork CI
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
+          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+
+          mkdir -p ./artifacts
+
+          # Build earthly CLI binary with correct installation name (earthly, not earthly-dev)
+          # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --artifact \
+            +earthly/earthly \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.17" \
+            --DEFAULT_INSTALLATION_NAME=earthly \
+            ./artifacts/earthly
+
+          # Save the buildkitd image as tarball
+          ${{inputs.SUDO}} ${{inputs.BINARY}} save \
+            "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            -o ./artifacts/buildkitd-image.tar
+
+          # Save the tag suffix for downstream jobs
+          echo "${TAG_SUFFIX}" > ./artifacts/tag-suffix.txt
+      - name: Upload artifacts for fork CI
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6
+        with:
+          name: earthly-build-${{inputs.RUNS_ON}}-${{inputs.BINARY}}${{ inputs.USE_NEXT && '-ticktock' || '' }}
+          path: ./artifacts/
+          retention-days: 1
       - name: Buildkit logs (runs on failure)
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd
         if: ${{ failure() }}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -38,7 +39,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 	if dockerfilePath == "-" {
 		in = bufio.NewReader(os.Stdin)
 	} else {
-		in2, err := os.Open(dockerfilePath)
+		in2, err := os.Open(dockerfilePath) // #nosec G304
 		if err != nil {
 			return errors.Wrapf(err, "failed to open %q", dockerfilePath)
 		}
@@ -69,7 +70,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 	names := map[string]int{}
 
 	for i, stage := range stages {
-		fromCmd := []string{fmt.Sprintf("FROM %s", stage.BaseName)}
+		fromCmd := []string{"FROM " + stage.BaseName}
 		// These args are in scope *only* for the very first FROM
 		if i == 0 && len(initialArgs) > 0 {
 			var fromArgs []string
@@ -81,7 +82,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		targets = append(targets, fromCmd)
 
 		if stage.Name == "" {
-			names[fmt.Sprintf("%d", i)] = i
+			names[strconv.Itoa(i)] = i
 		} else {
 			names[stage.Name] = i
 		}
@@ -110,7 +111,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		}
 	}
 	i := len(targets) - 1
-	targets[i] = append(targets[i], fmt.Sprintf("SAVE IMAGE %s", imageTag))
+	targets[i] = append(targets[i], "SAVE IMAGE "+imageTag)
 
 	var out io.Writer
 	if earthfilePath == "-" {
@@ -118,7 +119,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		defer out2.Flush()
 		out = out2
 	} else {
-		out2, err := os.Create(earthfilePath)
+		out2, err := os.Create(earthfilePath) // #nosec G304
 		if err != nil {
 			return errors.Wrapf(err, "failed to create Earthfile under %q", earthfilePath)
 		}
@@ -179,7 +180,7 @@ type earthfileTemplateArgs struct {
 	Platforms    []string
 }
 
-// GenerateEarthfile returns an Earthfile content string which contains a target to build a docker image using FROM DOCKERFILE
+// GenerateEarthfile returns an Earthfile content string which contains a target to build a docker image using FROM DOCKERFILE.
 func GenerateEarthfile(buildContextPath string, dockerfilePath string, imageTags []string, buildArgs []string, platforms []string, target string) (string, error) {
 	t, err := template.New("earthfile").Parse(earthfileTemplate)
 	if err != nil {

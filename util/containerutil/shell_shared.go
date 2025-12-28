@@ -54,7 +54,7 @@ type shellFrontend struct {
 
 func (sf *shellFrontend) IsAvailable(ctx context.Context) bool {
 	args := append(sf.globalCompatibilityArgs, "ps")
-	cmd := exec.CommandContext(ctx, sf.binaryName, args...)
+	cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
 	err := cmd.Run()
 	return err == nil
 }
@@ -177,7 +177,7 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 	for _, nameOrID := range namesOrIDs {
 		// Don't use the wrapper so we can capture stderr and stdout individually
 		args := append(baseArgs, nameOrID)
-		cmd := exec.CommandContext(ctx, sf.binaryName, args...)
+		cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
 
 		var stdout, stderr strings.Builder
 		cmd.Stdout = &stdout
@@ -340,8 +340,9 @@ func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...strin
 	output := &commandContextOutput{}
 	binary, args := sf.commandContextStrings(args...)
 	sf.Console.VerbosePrintf("Running command: %s %s\n", binary, strings.Join(args, " "))
-	cmd := exec.CommandContext(ctx, binary, args...)
-	cmd.Env = os.Environ() // Ensure all shellouts are using the current environment, picks up DOCKER_/PODMAN_ env vars when they matter
+
+	cmd := exec.CommandContext(ctx, binary, args...) // #nosec G204
+	cmd.Env = os.Environ()                           // Ensure all shellouts are using the current environment, picks up DOCKER_/PODMAN_ env vars when they matter
 	cmd.Stdout = &output.stdout
 	cmd.Stderr = &output.stderr
 	err := cmd.Run()

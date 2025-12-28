@@ -18,14 +18,14 @@ type cmdStore struct {
 	cmd string
 }
 
-// NewSecretProviderCmd returns a SecretStore that shells out to a user-supplied command
+// NewSecretProviderCmd returns a SecretStore that shells out to a user-supplied command.
 func NewSecretProviderCmd(cmd string) (secrets.SecretStore, error) {
 	return &cmdStore{
 		cmd: cmd,
 	}, nil
 }
 
-// GetSecret gets a secret from the map store
+// GetSecret gets a secret from the map store.
 func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 	if len(c.cmd) == 0 {
 		return nil, secrets.ErrNotFound
@@ -40,7 +40,7 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 		// we must not call the user's secret provider in this case.
 		return nil, secrets.ErrNotFound
 	}
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", c.cmd+" "+shellescape.Quote(name))
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", c.cmd+" "+shellescape.Quote(name)) // #nosec G204
 	envs := os.Environ()
 	if q.Get("v") == "1" {
 		envs = append(envs, "EARTHLY_ORG="+shellescape.Quote(q.Get("org")))

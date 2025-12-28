@@ -1,6 +1,6 @@
 VERSION 0.8
 
-ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r3
+ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r4
 FROM $DIND_IMAGE
 WORKDIR /test
 

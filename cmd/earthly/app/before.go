@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 
@@ -34,10 +35,10 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 			flags.ConfigPath = defaultConfigPath(flags.InstallationName)
 		}
 		if !cliCtx.IsSet("buildkit-container-name") {
-			flags.ContainerName = fmt.Sprintf("%s-buildkitd", flags.InstallationName)
+			flags.ContainerName = flags.InstallationName + "-buildkitd"
 		}
 		if !cliCtx.IsSet("buildkit-volume-name") {
-			flags.BuildkitdSettings.VolumeName = fmt.Sprintf("%s-cache", flags.InstallationName)
+			flags.BuildkitdSettings.VolumeName = flags.InstallationName + "-cache"
 		}
 	}
 	if flags.Debug {
@@ -92,12 +93,12 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 	app.BaseCLI.SetCfg(&cfg)
 
-	err = app.processDeprecatedCommandOptions(cliCtx, app.BaseCLI.Cfg())
+	err = app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 	if err != nil {
 		return err
 	}
 
-	err = app.parseFrontend(cliCtx, app.BaseCLI.Cfg())
+	err = app.parseFrontend(cliCtx)
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,7 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, cfg *config.Config) error {
+func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
 	console := app.BaseCLI.Console().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -163,7 +164,7 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context, cfg *config.Config) er
 	return nil
 }
 
-func (app *EarthlyApp) processDeprecatedCommandOptions(cliCtx *cli.Context, cfg *config.Config) error {
+func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error {
 	app.warnIfEarth()
 
 	if cfg.Global.CachePath != "" {
@@ -222,9 +223,11 @@ func (app *EarthlyApp) warnIfEarth() {
 }
 
 func profhandler() {
-	addr := "127.0.0.1:6060"
+	const addr = "127.0.0.1:6060"
+	const readHeaderTimeout = 5 * time.Second // arbitrary timeout
 	fmt.Printf("listening for pprof on %s\n", addr)
-	err := http.ListenAndServe(addr, nil)
+	srv := &http.Server{Addr: addr, ReadHeaderTimeout: readHeaderTimeout}
+	err := srv.ListenAndServe()
 	if err != nil {
 		fmt.Printf("error listening for pprof: %v", err)
 	}

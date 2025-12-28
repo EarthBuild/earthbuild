@@ -31,7 +31,7 @@ func getValidEnvNamesFromCommands(cmds []*cli.Command) []string {
 	return envs
 }
 
-// it's not obvious if urfave supports converting a "flag interface" to a "genericFlag"
+// it's not obvious if urfave supports converting a "flag interface" to a "genericFlag".
 func getEnvs(fl cli.Flag) []string {
 	fv := reflect.ValueOf(fl)
 	for fv.Kind() == reflect.Ptr {

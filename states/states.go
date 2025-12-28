@@ -172,7 +172,7 @@ func (sts *SingleTarget) SetDoSaves() {
 }
 
 // GetDoPushes returns whether the SAVE IMAGE --push or RUN --push commands
-// should be executed
+// should be executed.
 func (sts *SingleTarget) GetDoPushes() bool {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
@@ -192,14 +192,14 @@ func (sts *SingleTarget) SetDoPushes() {
 	}
 }
 
-// AddWaitBlock adds a wait block to the state
+// AddWaitBlock adds a wait block to the state.
 func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 	sts.WaitBlocks = append(sts.WaitBlocks, waitBlock)
 }
 
-// Wait performs a Wait on all wait blocks
+// Wait performs a Wait on all wait blocks.
 func (sts *SingleTarget) Wait(ctx context.Context) error {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
@@ -212,7 +212,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 	return nil
 }
 
-// AttachTopLevelWaitItems adds pre-created wait items to a new waitblock
+// AttachTopLevelWaitItems adds pre-created wait items to a new waitblock.
 func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
@@ -350,7 +350,7 @@ type SaveImage struct {
 }
 
 // RunPush is a series of RUN --push commands to be run after the build has been deemed as
-// successful, along with artifacts to save and images to push
+// successful, along with artifacts to save and images to push.
 type RunPush struct {
 	CommandStrs        []string
 	State              pllb.State

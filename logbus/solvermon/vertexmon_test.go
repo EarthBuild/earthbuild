@@ -1,10 +1,10 @@
 package solvermon
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/earthly/cloud-api/logstream"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -128,7 +128,7 @@ func TestDetermineFatalErrorType(t *testing.T) {
 		{
 			name:          "invalid exit code",
 			errString:     "exit code: 9999",
-			parseErr:      fmt.Errorf("exit code 9999 out of expected range (0-255)"),
+			parseErr:      errors.New("exit code 9999 out of expected range (0-255)"),
 			expectedType:  logstream.FailureType_FAILURE_TYPE_UNKNOWN,
 			expectedFatal: true,
 		},

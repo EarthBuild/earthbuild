@@ -41,31 +41,31 @@ const (
 	// DefaultCAKey is the default path to use when looking for a CA key to use for TLS cert generation.
 	DefaultCAKey = "./certs/ca_key.pem"
 
-	// DefaultClientTLSCert is the default path to use when looking for the Earthly TLS cert
+	// DefaultClientTLSCert is the default path to use when looking for the Earthly TLS cert.
 	DefaultClientTLSCert = "./certs/earthly_cert.pem"
 
-	// DefaultClientTLSKey is the default path to use when looking for the Earthly TLS key
+	// DefaultClientTLSKey is the default path to use when looking for the Earthly TLS key.
 	DefaultClientTLSKey = "./certs/earthly_key.pem"
 
-	// DefaultServerTLSCert is the default path to use when looking for the Buildkit TLS cert
+	// DefaultServerTLSCert is the default path to use when looking for the Buildkit TLS cert.
 	DefaultServerTLSCert = "./certs/buildkit_cert.pem"
 
-	// DefaultServerTLSKey is the default path to use when looking for the Buildkit TLS key
+	// DefaultServerTLSKey is the default path to use when looking for the Buildkit TLS key.
 	DefaultServerTLSKey = "./certs/buildkit_key.pem"
 
-	// DefaultContainerFrontend is the default frontend program or interfacing with the running containers and saved images
+	// DefaultContainerFrontend is the default frontend program or interfacing with the running containers and saved images.
 	DefaultContainerFrontend = "auto"
 )
 
 var (
-	// ErrInvalidTransport occurs when a URL transport type is invalid
+	// ErrInvalidTransport occurs when a URL transport type is invalid.
 	ErrInvalidTransport = errors.Errorf("invalid transport")
 
-	// ErrInvalidAuth occurs when the auth type is invalid
+	// ErrInvalidAuth occurs when the auth type is invalid.
 	ErrInvalidAuth = errors.Errorf("invalid auth")
 )
 
-// GlobalConfig contains global config values
+// GlobalConfig contains global config values.
 type GlobalConfig struct {
 	BuildkitCacheSizeMb        int           `yaml:"cache_size_mb"                  help:"Size of the buildkit cache in Megabytes."`
 	BuildkitCacheSizePct       int           `yaml:"cache_size_pct"                 help:"Size of the buildkit cache, as percentage (0-100)."`
@@ -98,7 +98,7 @@ type GlobalConfig struct {
 	BuildkitScheme string `yaml:"buildkit_transport" help:" *Deprecated* Change how Earthly communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental."`
 }
 
-// GitConfig contains git-specific config values
+// GitConfig contains git-specific config values.
 type GitConfig struct {
 	// these are used for git vendors (e.g. github, gitlab)
 	Pattern               string `yaml:"pattern"                      help:"A regular expression defined to match git URLs, defaults to the regex: <site>/([^/]+)/([^/]+). For example if the site is github.com, then the default pattern will match github.com/<user>/<repo>."`
@@ -114,7 +114,7 @@ type GitConfig struct {
 	SSHCommand            string `yaml:"ssh_command"                  help:"Set a value for the core.sshCommand git config option, which allows you to provide custom SSH configuration."`
 }
 
-// Config contains user's configuration values from ~/earthly/config.yml
+// Config contains user's configuration values from ~/earthly/config.yml.
 type Config struct {
 	Global GlobalConfig         `yaml:"global"    help:"Global configuration object. Requires YAML literal to set directly."`
 	Git    map[string]GitConfig `yaml:"git"       help:"Git configuration object. Requires YAML literal to set directly."`
@@ -304,7 +304,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 		return validatePath(t.Elem(), path[1:])
 	}
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		yamlTag := field.Tag.Get("yaml")
 		helpTag := field.Tag.Get("help")
@@ -477,21 +477,21 @@ func deleteYamlValue(node *yaml.Node, path []string) []string {
 
 // ReadConfigFile reads in the config file from the disk, into a byte slice.
 func ReadConfigFile(configPath string) ([]byte, error) {
-	yamlData, err := os.ReadFile(configPath)
+	yamlData, err := os.ReadFile(configPath) // #nosec G304
 	if err != nil {
 		return []byte{}, errors.Wrapf(err, "failed to read from %s", configPath)
 	}
 	return yamlData, nil
 }
 
-// WriteConfigFile writes the config file to disk with preset permission 0644
+// WriteConfigFile writes the config file to disk with preset permission 0644.
 func WriteConfigFile(configPath string, data []byte) error {
-	err := os.MkdirAll(filepath.Dir(configPath), 0o755)
+	err := os.MkdirAll(filepath.Dir(configPath), 0o755) // #nosec G301
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0o644)
+	return os.WriteFile(configPath, data, 0o644) // #nosec G306
 }
 
 func parseRelPaths(instName string, cfg *Config) error {

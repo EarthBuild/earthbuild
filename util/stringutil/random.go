@@ -1,25 +1,22 @@
 package stringutil
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
-	mrand "math/rand"
+	"crypto/rand"
+	"math/big"
 )
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-// RandomAlphanumeric returns a random alphanumeric string of length n
+// RandomAlphanumeric returns a random alphanumeric string of length n.
 func RandomAlphanumeric(n int) string {
-	var seed int64
-	err := binary.Read(crand.Reader, binary.BigEndian, &seed)
-	if err != nil {
-		panic(err) // unlikely (if this did happen, the system would be very sick)
-	}
-	rand := mrand.New(mrand.NewSource(seed))
-
-	b := make([]rune, n)
+	b := make([]byte, n)
+	max := big.NewInt(int64(len(letters)))
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
+		num, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(err)
+		}
+		b[i] = letters[num.Int64()]
 	}
 	return string(b)
 }

@@ -1,7 +1,6 @@
 package cliutil
 
 import (
-	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -37,7 +36,7 @@ func GetEarthlyDir(installName string) string {
 
 func getEarthlyDirAndUser(installName string) (string, *user.User) {
 	homeDir, u := fileutil.HomeDir()
-	earthlyDir := filepath.Join(homeDir, fmt.Sprintf(".%s", installName))
+	earthlyDir := filepath.Join(homeDir, "."+installName)
 	return earthlyDir, u
 }
 
@@ -53,7 +52,7 @@ func GetOrCreateEarthlyDir(installName string) (string, error) {
 			return
 		}
 		if !earthlyDirExists {
-			err := os.MkdirAll(earthlyDir, 0o755)
+			err := os.MkdirAll(earthlyDir, 0o755) // #nosec G301
 			if err != nil {
 				earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 				return

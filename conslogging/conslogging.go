@@ -33,19 +33,19 @@ const (
 	DefaultPadding int = 20
 )
 
-// LogLevel defines which types of log messages are displayed (e.g. warning, info, verbose)
+// LogLevel defines which types of log messages are displayed (e.g. warning, info, verbose).
 type LogLevel int
 
 const (
-	// Silent silences logging
+	// Silent silences logging.
 	Silent LogLevel = iota
-	// Warn only display warning log messages
+	// Warn only display warning log messages.
 	Warn
-	// Info displays info and higher priority log messages
+	// Info displays info and higher priority log messages.
 	Info
-	// Verbose displays verbose and higher priority log messages
+	// Verbose displays verbose and higher priority log messages.
 	Verbose
-	// Debug displays all log messages
+	// Debug displays all log messages.
 	Debug
 )
 
@@ -206,19 +206,19 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 	c := cl.color(phaseColor)
 	if disabled {
 		c = cl.color(disabledPhaseColor)
-		msg = fmt.Sprintf("%s (disabled)", msg)
+		msg += " (disabled)"
 	} else if special != "" {
 		c = cl.color(specialPhaseColor)
-		msg = fmt.Sprintf("%s (%s)", msg, special)
+		msg += " (" + special + ")"
 	}
 	underlineLength := utf8.RuneCountInString(msg) + 2
 	if underlineLength < barWidth {
 		underlineLength = barWidth
 	}
 	cl.printGithubActionsControl(groupCommand, msg)
-	c.Fprintf(w, " %s", msg)
+	c.Fprintf(w, " %s", msg) // #nosec G104
 	fmt.Fprintf(w, "\n")
-	c.Fprintf(w, "%s", strings.Repeat("—", underlineLength))
+	c.Fprintf(w, "%s", strings.Repeat("—", underlineLength)) // #nosec G104
 	fmt.Fprintf(w, "\n\n")
 }
 
@@ -232,7 +232,7 @@ func (cl ConsoleLogger) PrintPhaseFooter(phase string, disabled bool, special st
 	}()
 	c := cl.color(noColor)
 	cl.printGithubActionsControl(endGroupCommand, phase)
-	c.Fprintf(w, "\n")
+	c.Fprintf(w, "\n") // #nosec G104
 }
 
 // PrintSuccess prints the success message.
@@ -256,7 +256,7 @@ func (cl ConsoleLogger) PrefixColor() *color.Color {
 	return cl.color(c)
 }
 
-// Prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY
+// Prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY.
 func (cl *ConsoleLogger) PrintGHASummary(message string) {
 	if !cl.githubAnnotations {
 		return
@@ -271,7 +271,7 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 		fmt.Print(w, message)
 		return
 	}
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // #nosec G302, G304
 	if err != nil {
 		return
 	}
@@ -290,7 +290,7 @@ func (e *GHAError) FormattedMessage() string {
 	if e.file != "" {
 		return fmt.Sprintf("file=%s,line=%d,col=%d,title=Error::%s", e.file, e.line, e.col, e.message)
 	} else {
-		return fmt.Sprintf("title=Error::%s", e.message)
+		return "title=Error::" + e.message
 	}
 }
 
@@ -326,7 +326,7 @@ const (
 	endGroupCommand ghHeader = "::endgroup::"
 )
 
-// Print GHA control messages like ::group and ::error
+// Print GHA control messages like ::group and ::error.
 func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string, a ...any) {
 	if !cl.githubAnnotations {
 		return
@@ -373,7 +373,7 @@ func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	}
 
 	fmt.Fprintf(w, "\n")
-	c.Fprintf(w, "%s%s%s", leftBar, center, rightBar)
+	c.Fprintf(w, "%s%s%s", leftBar, center, rightBar) // #nosec G104
 	fmt.Fprintf(w, "\n\n")
 }
 
@@ -391,7 +391,7 @@ func (cl ConsoleLogger) VerboseWarnf(format string, args ...interface{}) {
 	cl.Warnf(format, args...)
 }
 
-// HelpPrintf prints formatted text to the console with `Help:` prefix in a specific color
+// HelpPrintf prints formatted text to the console with `Help:` prefix in a specific color.
 func (cl ConsoleLogger) HelpPrintf(format string, args ...interface{}) {
 	cl.ColorPrintf(cl.color(helpColor), fmt.Sprintf("\nHelp: %s\n", format), args...)
 }
@@ -420,10 +420,10 @@ func (cl ConsoleLogger) colorPrintf(level LogLevel, c *color.Color, format strin
 	text = strings.TrimSuffix(text, "\n")
 	for _, line := range strings.Split(text, "\n") {
 		cl.printPrefix(w)
-		c.Fprintf(w, "%s", line)
+		c.Fprintf(w, "%s", line) // #nosec G104
 
 		// Don't use a background color for \n.
-		noColor.Fprintf(w, "\n")
+		noColor.Fprintf(w, "\n") // #nosec G104
 	}
 }
 
@@ -460,7 +460,7 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 		default:
 			if !cl.trailingLine {
 				if len(output) > 0 {
-					c.Fprintf(w, "%s", string(output))
+					c.Fprintf(w, "%s", string(output)) // #nosec G104
 					output = output[:0]
 				}
 				cl.printPrefix(w)
@@ -470,7 +470,7 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 		}
 	}
 	if len(output) > 0 {
-		c.Fprintf(w, "%s", string(output))
+		c.Fprintf(w, "%s", string(output)) // #nosec G104
 		// output = output[:0] // needed if output is used further in the future
 	}
 }
@@ -517,21 +517,21 @@ func (cl ConsoleLogger) printPrefix(w io.Writer) {
 		return
 	}
 	c := cl.PrefixColor()
-	c.Fprintf(w, "%s", prettyPrefix(cl.prefixPadding, cl.prefix))
+	c.Fprintf(w, "%s", prettyPrefix(cl.prefixPadding, cl.prefix)) // #nosec G104
 	if cl.isLocal {
 		fmt.Fprintf(w, " *")
-		cl.color(localColor).Fprintf(w, "local")
+		cl.color(localColor).Fprintf(w, "local") // #nosec G104
 		fmt.Fprintf(w, "*")
 	}
 	if cl.isFailed {
 		fmt.Fprintf(w, " *")
-		cl.color(warnColor).Fprintf(w, "failed")
+		cl.color(warnColor).Fprintf(w, "failed") // #nosec G104
 		fmt.Fprintf(w, "*")
 	}
 	fmt.Fprintf(w, " | ")
 	if cl.isCached {
 		fmt.Fprintf(w, "*")
-		cl.color(cachedColor).Fprintf(w, "cached")
+		cl.color(cachedColor).Fprintf(w, "cached") // #nosec G104
 		fmt.Fprintf(w, "* ")
 	}
 }
@@ -555,7 +555,7 @@ func prettyPrefix(prefixPadding int, prefix string) string {
 	return formatter.Format(prefix, prefixPadding)
 }
 
-// WithLogLevel changes the log level
+// WithLogLevel changes the log level.
 func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 	ret := cl.clone()
 	ret.logLevel = logLevel

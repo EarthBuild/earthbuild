@@ -1,7 +1,7 @@
 package earthfile2llb
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
 	"strings"
@@ -12,13 +12,13 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 )
 
-// LocalStateCache provides caching of local States
+// LocalStateCache provides caching of local States.
 type LocalStateCache struct {
 	mu    sync.Mutex
 	cache map[string]pllb.State
 }
 
-// NewSharedLocalStateCache creates a new local state cache
+// NewSharedLocalStateCache creates a new local state cache.
 func NewSharedLocalStateCache() *LocalStateCache {
 	return &LocalStateCache{
 		cache: map[string]pllb.State{},
@@ -48,7 +48,7 @@ func (lsc *LocalStateCache) getOrConstruct(factory llbfactory.Factory) pllb.Stat
 }
 
 func getSharedKeyHintFromInclude(name string, incl []string) string {
-	h := sha1.New()
+	h := sha1.New() // #nosec G401
 	b := make([]byte, 8)
 
 	addToHash := func(path string) {

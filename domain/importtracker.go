@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ImportTrackerVal is used to resolve imports
+// ImportTrackerVal is used to resolve imports.
 type ImportTrackerVal struct {
 	fullPath        string
 	allowPrivileged bool
@@ -53,7 +53,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	if importStr == "" {
 		return errors.New("IMPORTing empty string not supported")
 	}
-	aTarget := fmt.Sprintf("%s+none", importStr) // form a fictional target for parasing purposes
+	aTarget := importStr + "+none" // form a fictional target for parasing purposes
 	parsedImport, err := ParseTarget(aTarget)
 	if err != nil {
 		return errors.Wrapf(err, "could not parse IMPORT %s", importStr)

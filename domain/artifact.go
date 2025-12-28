@@ -14,7 +14,7 @@ type Artifact struct {
 	Artifact string
 }
 
-// Clone returns a copy of the Artifact
+// Clone returns a copy of the Artifact.
 func (a Artifact) Clone() Artifact {
 	return a
 }
@@ -42,12 +42,12 @@ func ParseArtifact(artifactName string) (Artifact, error) {
 	if len(partsSlash) != 2 {
 		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
 	}
-	earthTargetName := fmt.Sprintf("%s+%s", escapePlus(parts[0]), partsSlash[0])
+	earthTargetName := escapePlus(parts[0]) + "+" + partsSlash[0]
 	target, err := ParseTarget(earthTargetName)
 	if err != nil {
 		return Artifact{}, errors.Wrapf(err, "invalid artifact name %s", artifactName)
 	}
-	artifactPath := fmt.Sprintf("/%s", partsSlash[1])
+	artifactPath := "/" + partsSlash[1]
 	return Artifact{
 		Target:   target,
 		Artifact: artifactPath,

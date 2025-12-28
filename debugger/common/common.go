@@ -21,10 +21,10 @@ import (
 
 const (
 
-	// TermID is a magic byte to identify the connection is from the terminal
+	// TermID is a magic byte to identify the connection is from the terminal.
 	TermID = 0x01
 
-	// ShellID is a magic byte to identify the connection is from the shell
+	// ShellID is a magic byte to identify the connection is from the shell.
 	ShellID = 0x02
 )
 
@@ -32,16 +32,16 @@ const (
 // data packet identifiers
 
 const (
-	// StartShellSession identifies the start of a shell session data packet
+	// StartShellSession identifies the start of a shell session data packet.
 	StartShellSession = 0x01
 
-	// EndShellSession identifies the end of a shell session data packet
+	// EndShellSession identifies the end of a shell session data packet.
 	EndShellSession = 0x02
 
-	// PtyData identifies the pseudo terminal (pty) data payload packet
+	// PtyData identifies the pseudo terminal (pty) data payload packet.
 	PtyData = 0x03
 
-	// WinSizeData identifies the terminal window data payload packet
+	// WinSizeData identifies the terminal window data payload packet.
 	WinSizeData = 0x04
 )
 
@@ -49,14 +49,14 @@ const (
 //******************************************************************************************
 
 var (
-	// ErrDataOverflow occurs when too much data is sent
+	// ErrDataOverflow occurs when too much data is sent.
 	ErrDataOverflow = errors.New("Data overflow")
 
-	// ErrDataUnderflow occurs when too little data is received
+	// ErrDataUnderflow occurs when too little data is received.
 	ErrDataUnderflow = errors.New("Data underflow")
 )
 
-// ReadUint16PrefixedData first reads a uint16 then reads that many bytes of data
+// ReadUint16PrefixedData first reads a uint16 then reads that many bytes of data.
 func ReadUint16PrefixedData(r io.Reader) ([]byte, error) {
 	var l uint16
 	err := binary.Read(r, binary.LittleEndian, &l)
@@ -73,7 +73,7 @@ func ReadUint16PrefixedData(r io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-// ReadDataPacket decodes a data packet from the reader
+// ReadDataPacket decodes a data packet from the reader.
 func ReadDataPacket(r io.Reader) (int, []byte, error) {
 	var connDataType uint16
 	err := binary.Read(r, binary.LittleEndian, &connDataType)
@@ -87,16 +87,16 @@ func ReadDataPacket(r io.Reader) (int, []byte, error) {
 	return int(connDataType), data, nil
 }
 
-// WriteDataPacket writes a data packet to the writer
+// WriteDataPacket writes a data packet to the writer.
 func WriteDataPacket(w io.Writer, n int, data []byte) error {
-	err := binary.Write(w, binary.LittleEndian, uint16(n))
+	err := binary.Write(w, binary.LittleEndian, uint16(n)) // #nosec G115
 	if err != nil {
 		return err
 	}
 	return WriteUint16PrefixedData(w, data)
 }
 
-// WriteUint16PrefixedData writes a uint16 representing the size of the data, followed by the data
+// WriteUint16PrefixedData writes a uint16 representing the size of the data, followed by the data.
 func WriteUint16PrefixedData(w io.Writer, data []byte) error {
 	n := len(data)
 	if n > math.MaxUint16 {
@@ -110,7 +110,7 @@ func WriteUint16PrefixedData(w io.Writer, data []byte) error {
 	return err
 }
 
-// SerializeDataPacket returns a serialized a data packet
+// SerializeDataPacket returns a serialized a data packet.
 func SerializeDataPacket(payloadID int, data []byte) ([]byte, error) {
 	var b bytes.Buffer
 	err := WriteDataPacket(&b, payloadID, data)

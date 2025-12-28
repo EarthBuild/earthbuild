@@ -26,13 +26,11 @@ import (
 )
 
 const (
-	durationBetweenSha256ProgressUpdate = 5 * time.Second
-	durationBetweenProgressUpdate       = 3 * time.Second
 	durationBetweenProgressUpdateIfSame = 5 * time.Millisecond
 	durationBetweenOngoingUpdates       = 5 * time.Second
 	durationBetweenOngoingUpdatesNoAnsi = 60 * time.Second
 
-	// BuildkitStatsStream is the stream number associated with runc stats
+	// BuildkitStatsStream is the stream number associated with runc stats.
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
@@ -200,7 +198,7 @@ func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 			return
 		case <-f.ongoingTicker.C:
 			f.mu.Lock()
-			err := f.processOngoingTick(ctx)
+			err := f.processOngoingTick()
 			if err != nil {
 				f.errors = append(f.errors, err)
 			}
@@ -239,7 +237,7 @@ func (f *Formatter) handleDeltaManifest(dm *logstream.DeltaManifest) error {
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_IN_PROGRESS {
 			f.printHeader(cm.GetTargetId(), commandID, tm, cm, false)
 		}
-		if cmd.GetHasHasProgress() && f.shouldPrintProgress(cm.GetTargetId(), commandID, cm) {
+		if cmd.GetHasHasProgress() && f.shouldPrintProgress(commandID, cm) {
 			f.printProgress(cm.GetTargetId(), commandID, cm)
 		}
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_FAILURE && cm.GetTargetId() != "" {
@@ -292,7 +290,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to parse stats")
 		}
-		totalCPU := time.Duration(stats.Cpu.Usage.Total) // Total is reported in nanoseconds
+		totalCPU := time.Duration(stats.Cpu.Usage.Total) // #nosec G115 // Total is reported in nanoseconds
 		totalMem := stats.Memory.Usage.Usage             // in bytes
 		output = []byte(fmt.Sprintf("[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem)))
 		if f.execStatsTracker != nil {
@@ -341,7 +339,8 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	return nil
 }
 
-func (f *Formatter) processOngoingTick(ctx context.Context) error {
+//nolint:unparam // error return kept for future use
+func (f *Formatter) processOngoingTick() error {
 	c := f.console.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
@@ -402,7 +401,7 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	f.lastCommandOutput = nil
 }
 
-func (f *Formatter) shouldPrintProgress(targetID string, commandID string, cm *logstream.CommandManifest) bool {
+func (f *Formatter) shouldPrintProgress(commandID string, cm *logstream.CommandManifest) bool {
 	if !cm.GetHasProgress() {
 		return false
 	}
@@ -505,7 +504,7 @@ func (f *Formatter) printGHAFailure() {
 	markdown := fmt.Sprintf(`
 # ❌ Build Failure ❌
 
-### Error Message 
+### Error Message
 
 ~~~
 %s
@@ -572,7 +571,7 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 			verboseOnly = true
 		case targetName == "":
 			verboseOnly = true
-			targetName = fmt.Sprintf("_internal:%s", commandID)
+			targetName = "_internal:" + commandID
 		default:
 		}
 		writerTargetID = commandID

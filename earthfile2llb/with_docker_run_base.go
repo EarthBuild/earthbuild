@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	dockerdWrapperPath          = "/var/earthly/dockerd-wrapper.sh"
-	dockerAutoInstallScriptPath = "/var/earthly/docker-auto-install.sh"
+	dockerdWrapperPath          = "/var/earthbuild/dockerd-wrapper.sh"
+	dockerAutoInstallScriptPath = "/var/earthbuild/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthbuild/dind:alpine-3.22-docker-28.3.3-r3"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.22-docker-28.3.3-r4"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -177,7 +177,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
-		Filename: fmt.Sprintf("/tmp/earthbuild/%s", composeConfigFile),
+		Filename: "/tmp/earthbuild/" + composeConfigFile,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "read compose config file")

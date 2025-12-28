@@ -47,22 +47,54 @@ runs:
       shell: bash
       run: |
         unset CI
-    - name: Set up Docker Hub mirrors for docker
-      if: inputs.BINARY == 'docker'
+    - name: Check if running on fork
+      id: fork-check
       shell: bash
       run: |
-        sudo mkdir -p /etc/docker
-        echo '{"registry-mirrors": ["https://mirror.gcr.io", "https://public.ecr.aws"]}' | sudo tee /etc/docker/daemon.json
-        sudo systemctl restart docker
+        if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+          echo "is_fork=true" >> $GITHUB_OUTPUT
+          echo "Running on fork - will use artifacts"
+        else
+          echo "is_fork=false" >> $GITHUB_OUTPUT
+          echo "Running on main repo - will use GHCR"
+        fi
+    - name: Download artifacts (fork)
+      if: steps.fork-check.outputs.is_fork == 'true'
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+      with:
+        name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        path: ./fork-artifacts
+    - name: Load buildkitd image from artifact (fork)
+      if: steps.fork-check.outputs.is_fork == 'true'
+      shell: bash
+      run: |
+        echo "Loading buildkitd image from artifact..."
+        ${{inputs.SUDO}} ${{inputs.BINARY}} load -i ./fork-artifacts/buildkitd-image.tar
+        echo "Buildkitd image loaded successfully"
+    - name: Setup earthly binary from artifact (fork)
+      if: steps.fork-check.outputs.is_fork == 'true'
+      shell: bash
+      run: |
+        test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
+        mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
+        cp ./fork-artifacts/earthly "${{inputs.BUILT_EARTHLY_PATH}}"
+        chmod +x "${{inputs.BUILT_EARTHLY_PATH}}"
+        echo "Earthly binary installed from artifact to ${{inputs.BUILT_EARTHLY_PATH}}"
+
+        # Read the tag suffix and set EARTHLY_BUILDKIT_IMAGE env var for subsequent steps
+        TAG_SUFFIX=$(cat ./fork-artifacts/tag-suffix.txt)
+        BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
+        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
+        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Login to GHCR
-      if: inputs.BINARY == 'docker'
+      if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ env.GITHUB_TOKEN }}
     - name: Login to Docker Hub
-      if: inputs.BINARY == 'docker'
+      if: inputs.BINARY == 'docker' && inputs.DOCKERHUB_PASSWORD != '' && steps.fork-check.outputs.is_fork != 'true'
       uses: docker/login-action@v3
       with:
         username: ${{ inputs.DOCKERHUB_USERNAME }}
@@ -72,46 +104,23 @@ runs:
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
-    - name: Docker Info
-      if: inputs.BINARY == 'docker'
-      shell: bash
-      run: docker info
     - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
       with:
-        go-version: 1.21
-    - name: Set up Podman
-      if: ${{ inputs.BINARY == 'podman' }}
+        go-version: '1.25.5'
+    - if: ${{ inputs.BINARY == 'podman' }}
       run: |-
-        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli
-        ${{inputs.SUDO}} rm -f /usr/bin/docker
-        ${{inputs.SUDO}} apt-get update
-        ${{inputs.SUDO}} apt-get install -y podman
-        ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
-      shell: bash
-    - name: Set up Docker Hub mirrors for Podman
-      if: ${{ inputs.BINARY == 'podman' }}
-      run: |-
-        mkdir -p ~/.config/containers
-        cat <<EOF > ~/.config/containers/registries.conf
-        unqualified-search-registries = ["docker.io"]
-
-        [[registry]]
-        prefix = "docker.io"
-        location = "docker.io"
-
-        [[registry.mirror]]
-        location = "mirror.gcr.io"
-
-        [[registry.mirror]]
-        location = "public.ecr.aws"
-        EOF
+        echo "Setting up podman"
+        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -f /usr/bin/docker
+        ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
         podman version && podman info && podman info --debug
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - run: |-
+    - name: Get binary from GHCR (non-fork)
+      if: steps.fork-check.outputs.is_fork != 'true'
+      run: |-
         echo "Extracting earthly binary from stage1 of build"
         export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
@@ -124,9 +133,9 @@ runs:
         echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
       shell: bash
     - run: |-
-        echo "Configuring earthbuild to use Docker Hub mirrors"
+        echo "Configuring earthbuild to use GCR mirror"
         ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
-        mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+        mirrors = [\"mirror.gcr.io\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-

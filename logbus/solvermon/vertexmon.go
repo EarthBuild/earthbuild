@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	// BuildkitStatsStream is the stream number associated with runc stats
+	// BuildkitStatsStream is the stream number associated with runc stats.
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
@@ -44,7 +44,7 @@ var (
 	errNoExitCode    = errors.New("no exit code in error message")
 )
 
-// getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid
+// getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid.
 func getExitCode(errString string) (int, error) {
 	if matches, _ := stringutil.NamedGroupMatches(errString, reErrExitCode); len(matches["exit_code"]) == 1 {
 		exitCodeMatch := matches["exit_code"][0]
@@ -60,7 +60,7 @@ func getExitCode(errString string) (int, error) {
 			return 0, fmt.Errorf("exit code %d out of expected range (0-255)", exitCode)
 		}
 		exitCodeByte := exitCode & 0xFF
-		return int(exitCodeByte), nil
+		return int(exitCodeByte), nil // #nosec G115
 	}
 	return 0, errNoExitCode
 }
@@ -71,7 +71,7 @@ var (
 )
 
 // determineFatalErrorType returns logstream.FailureType
-// and whether or not its a Fatal Error
+// and whether or not its a Fatal Error.
 func determineFatalErrorType(errString string, exitCode int, exitParseErr error) (logstream.FailureType, bool) {
 	if strings.Contains(errString, "context canceled") || errString == "no active sessions" {
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
@@ -118,7 +118,7 @@ func formatErrorMessage(errString, operation string, internal bool, fatalErrorTy
 				"      did not complete successfully. Exit code %d", internalStr, operation, exitCode)
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
-		reason := fmt.Sprintf("unable to parse file_not_found error:%s", errString)
+		reason := "unable to parse file_not_found error:" + errString
 		if len(m) > 2 {
 			reason = m[3]
 		}
@@ -191,14 +191,14 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 			if err != nil {
 				return 0, errors.Wrap(err, "stats json encode failed")
 			}
-			_, err = vm.cp.Write(statsJSON, ts, int32(stream))
+			_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
 			if err != nil {
 				return 0, errors.Wrap(err, "write stats")
 			}
 		}
 		return len(dt), nil
 	}
-	_, err := vm.cp.Write(dt, ts, int32(stream))
+	_, err := vm.cp.Write(dt, ts, int32(stream)) // #nosec G115
 	if err != nil {
 		return 0, errors.Wrap(err, "write log line")
 	}

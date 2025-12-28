@@ -40,7 +40,7 @@ func getWindowSizePayload() ([]byte, error) {
 	return common.SerializeDataPacket(common.WinSizeData, b)
 }
 
-// ConnectTerm presents a terminal to the shell repeater
+// ConnectTerm presents a terminal to the shell repeater.
 func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console conslogging.ConsoleLogger) error {
 	sigs := make(chan os.Signal, 10)
 	signal.Notify(sigs, syscall.SIGWINCH)

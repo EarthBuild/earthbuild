@@ -2,7 +2,7 @@ package autocomplete
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"os/user"
 	"path"
@@ -20,7 +20,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var errCompPointOutOfBounds = fmt.Errorf("COMP_POINT out of bounds")
+var errCompPointOutOfBounds = errors.New("COMP_POINT out of bounds")
 
 func isLocalPath(path string) bool {
 	for _, prefix := range []string{".", "..", "/", "~"} {
@@ -305,7 +305,7 @@ func isFlagValidAndRequiresValue(flags []cli.Flag, flagName string) bool {
 }
 
 // padStrings takes an array of strings and returns a new array where each
-// string element has been padded with a prefix and suffix
+// string element has been padded with a prefix and suffix.
 func padStrings(flags []string, prefix, suffix string) []string {
 	padded := make([]string, len(flags))
 	for i, s := range flags {

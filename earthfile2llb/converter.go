@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -239,7 +239,7 @@ func (c *Converter) fromClassical(ctx context.Context, imageName string, platfor
 }
 
 func (c *Converter) fromTarget(ctx context.Context, targetName string, platform platutil.Platform, allowPrivileged, passArgs bool, buildArgs []string) (retErr error) {
-	cmdID, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("FROM %s", targetName))
+	cmdID, cmd, err := c.newLogbusCommand(ctx, "FROM "+targetName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -299,7 +299,7 @@ func (c *Converter) FromDockerfile(ctx context.Context, contextPath string, dfPa
 	platform = c.setPlatform(platform)
 	plat := c.platr.ToLLBPlatform(platform)
 	c.nonSaveCommand()
-	cmdID, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("FROM DOCKERFILE %s", dfPath))
+	cmdID, cmd, err := c.newLogbusCommand(ctx, "FROM DOCKERFILE "+dfPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -382,7 +382,7 @@ func (c *Converter) FromDockerfile(ctx context.Context, contextPath string, dfPa
 			!strings.HasPrefix(contextPath, "./") &&
 			!strings.HasPrefix(contextPath, "../") &&
 			!strings.HasPrefix(contextPath, "/") {
-			contextPath = fmt.Sprintf("./%s", contextPath)
+			contextPath = "./" + contextPath
 		}
 		dockerfileMetaTarget := domain.Target{
 			Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, stringutil.StrOrDefault(dfPath, "Dockerfile")),
@@ -541,7 +541,7 @@ func (c *Converter) CopyArtifact(ctx context.Context, artifactName string, dest 
 		return err
 	}
 	if chmod != nil && !c.ftrs.UseChmod {
-		return fmt.Errorf("COPY --chmod is not supported in this version")
+		return errors.New("COPY --chmod is not supported in this version")
 	}
 	c.nonSaveCommand()
 	artifact, err := domain.ParseArtifact(artifactName)
@@ -589,7 +589,7 @@ func (c *Converter) CopyClassical(ctx context.Context, srcs []string, dest strin
 	}
 
 	if chmod != nil && !c.ftrs.UseChmod {
-		return fmt.Errorf("COPY --chmod is not supported in this version")
+		return errors.New("COPY --chmod is not supported in this version")
 	}
 
 	var srcState pllb.State
@@ -714,7 +714,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 	}
 	var codeDt []byte
 	if opts.Locally {
-		codeDt, err = os.ReadFile(exitCodeFile)
+		codeDt, err = os.ReadFile(exitCodeFile) // #nosec G304
 		if err != nil {
 			return 0, errors.Wrap(err, "read exit code file")
 		}
@@ -814,7 +814,7 @@ func (c *Converter) runCommand(ctx context.Context, outputFileName string, isExp
 
 	var outputDt []byte
 	if opts.Locally {
-		outputDt, err = os.ReadFile(outputFile)
+		outputDt, err = os.ReadFile(outputFile) // #nosec G304
 		if err != nil {
 			return "", errors.Wrap(err, "read output file")
 		}
@@ -858,7 +858,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	if saveToF == "" {
 		artifactPath = saveToAdjusted
 	} else {
-		saveToAdjusted = fmt.Sprintf("%s/", saveToD)
+		saveToAdjusted = saveToD + "/"
 		artifactPath = path.Join(saveToAdjusted, saveToF)
 	}
 	artifact := domain.Artifact{
@@ -886,7 +886,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 		return errors.New("command not found")
 	}
 
-	cmd.SetName(fmt.Sprintf("SAVE ARTIFACT %s", saveFrom))
+	cmd.SetName("SAVE ARTIFACT " + saveFrom)
 
 	defer func() {
 		cmd.SetEndError(retErr)
@@ -958,7 +958,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 		}
 
 		if !force {
-			canSave, err := c.canSave(ctx, saveAsLocalToAdj)
+			canSave, err := c.canSave(saveAsLocalToAdj)
 			if err != nil {
 				return err
 			}
@@ -995,7 +995,7 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 	return nil
 }
 
-func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, error) {
+func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 	basepath, err := filepath.Abs(c.target.LocalPath)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get absolute path of %s", basepath)
@@ -1024,7 +1024,7 @@ func (c *Converter) canSave(ctx context.Context, saveAsLocalTo string) (bool, er
 	return strings.HasPrefix(saveAsLocalToAdj, basepath), nil
 }
 
-// SaveArtifactFromLocal saves a local file into the ArtifactsState
+// SaveArtifactFromLocal saves a local file into the ArtifactsState.
 func (c *Converter) SaveArtifactFromLocal(ctx context.Context, saveFrom, saveTo string, keepTs, keepOwn bool, chown string) error {
 	err := c.checkAllowed(saveArtifactCmd)
 	if err != nil {
@@ -1054,7 +1054,7 @@ func (c *Converter) SaveArtifactFromLocal(ctx context.Context, saveFrom, saveTo 
 	c.mts.Final.MainState = c.mts.Final.MainState.Run(opts...).Root()
 
 	// then save it via the regular SaveArtifact code since it's now in a snapshot
-	absSaveTo := fmt.Sprintf("/%s", saveTo)
+	absSaveTo := "/" + saveTo
 	own := "root:root"
 	if keepOwn {
 		own = ""
@@ -1087,7 +1087,7 @@ func (c *Converter) waitBlock() *waitBlock {
 	return c.waitBlockStack[n-1]
 }
 
-// PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block
+// PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block.
 func (c *Converter) PushWaitBlock(ctx context.Context) error {
 	waitBlock := newWaitBlock()
 	c.waitBlockStack = append(c.waitBlockStack, waitBlock)
@@ -1095,11 +1095,11 @@ func (c *Converter) PushWaitBlock(ctx context.Context) error {
 	return nil
 }
 
-// PopWaitBlock should be called when an END is encountered, it will block until all commands within the block complete
+// PopWaitBlock should be called when an END is encountered, it will block until all commands within the block complete.
 func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	n := len(c.waitBlockStack)
 	if n == 0 {
-		return fmt.Errorf("waitBlockStack is empty") // shouldn't happen
+		return errors.New("waitBlockStack is empty") // shouldn't happen
 	}
 
 	if c.ftrs.WaitBlock {
@@ -1123,9 +1123,9 @@ func (c *Converter) SaveImage(ctx context.Context, imageNames []string, hasPushF
 		return err
 	}
 	if noManifestList && !c.ftrs.UseNoManifestList {
-		return fmt.Errorf("SAVE IMAGE --no-manifest-list is not supported in this version")
+		return errors.New("SAVE IMAGE --no-manifest-list is not supported in this version")
 	}
-	_, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("SAVE IMAGE %s", strings.Join(imageNames, " ")))
+	_, cmd, err := c.newLogbusCommand(ctx, "SAVE IMAGE "+strings.Join(imageNames, " "))
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -1221,7 +1221,7 @@ func (c *Converter) Build(ctx context.Context, fullTargetName string, platform p
 
 	c.nonSaveCommand()
 
-	cmdID, cmd, err := c.newLogbusCommand(ctx, fmt.Sprintf("BUILD %s", fullTargetName))
+	cmdID, cmd, err := c.newLogbusCommand(ctx, "BUILD "+fullTargetName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -1692,7 +1692,7 @@ func (c *Converter) Project(ctx context.Context, org, project string) error {
 	return nil
 }
 
-// ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of the specified cmd for each match of the expression
+// ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of the specified cmd for each match of the expression.
 func (c *Converter) ExpandWildcardCmds(ctx context.Context, fullTargetName string, cmd spec.Command) ([]spec.Command, error) {
 	targets, err := c.expandWildcardTargets(ctx, fullTargetName)
 	if err != nil {
@@ -1707,7 +1707,7 @@ func (c *Converter) ExpandWildcardCmds(ctx context.Context, fullTargetName strin
 	})
 }
 
-// ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of the artifact for each match of the expression
+// ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of the artifact for each match of the expression.
 func (c *Converter) ExpandWildcardArtifacts(ctx context.Context, artifact domain.Artifact) ([]domain.Artifact, error) {
 	targets, err := c.expandWildcardTargets(ctx, artifact.Target.String())
 	if err != nil {
@@ -2078,7 +2078,7 @@ func (c *Converter) buildTarget(ctx context.Context, fullTargetName string, plat
 }
 
 func getDebuggerSecretKey(saveFilesSettings []debuggercommon.SaveFilesSettings) string {
-	h := sha1.New()
+	h := sha1.New() // #nosec G401
 	b := make([]byte, 8)
 
 	addToHash := func(path string) {
@@ -2200,7 +2200,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	// AWS credential import.
 	if opts.WithAWSCredentials {
-		awsRunOpts, awsEnvs, err := c.awsSecrets(ctx, opts.OIDCInfo)
+		awsRunOpts, awsEnvs, err := c.awsSecrets(opts.OIDCInfo)
 		if err != nil {
 			return pllb.State{}, err
 		}
@@ -2231,7 +2231,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		saveFiles := []debuggercommon.SaveFilesSettings{}
 		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
 
-			canSave, err := c.canSave(ctx, interactiveSaveFile.Dst)
+			canSave, err := c.canSave(interactiveSaveFile.Dst)
 			if err != nil {
 				return pllb.State{}, err
 			}
@@ -2274,8 +2274,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 			llb.SecretID(c.secretID(debuggerSettingsSecretsKey)),
 			llb.SecretFileOpt(0, 0, 0o444),
 		}
-		debuggerSecretMount := llb.AddSecret(
-			fmt.Sprintf("/run/secrets/%s", debuggercommon.DebuggerSettingsSecretsKey), secretOpts...)
+		debuggerSecretMount := llb.AddSecret("/run/secrets/"+debuggercommon.DebuggerSettingsSecretsKey, secretOpts...)
 		debuggerMount := pllb.AddMount(debuggerPath, pllb.Scratch(),
 			llb.HostBind(), llb.SourcePath("/usr/bin/earth_debugger"))
 		runOpts = append(runOpts, debuggerSecretMount, debuggerMount)
@@ -2391,7 +2390,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 }
 
-func (c *Converter) awsSecrets(ctx context.Context, oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
+//nolint:unparam // error return kept for future use
+func (c *Converter) awsSecrets(oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
 	var (
 		runOpts   = []llb.RunOption{}
 		extraEnvs = []string{}

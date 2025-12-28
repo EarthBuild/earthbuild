@@ -60,7 +60,7 @@ func main() {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%v\n", event.Package, event.Test, event.Action, event.Elapsed)
 		}
 	}
-	w.Flush()
+	w.Flush() // #nosec G104
 	fmt.Printf("%s", buf.String())
 
 	if !passed {

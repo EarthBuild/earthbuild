@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultGitImage = "alpine/git:v2.49.1"
+	defaultGitImage = "alpine/git:v2.52.0"
 )
 
 type gitResolver struct {
@@ -164,7 +164,8 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 			return nil, errors.Wrap(err, "read build file")
 		}
 		localBuildFilePath := filepath.Join(earthfileTmpDir, path.Base(bf))
-		err = os.WriteFile(localBuildFilePath, bfBytes, 0o700)
+
+		err = os.WriteFile(localBuildFilePath, bfBytes, 0o700) // #nosec G306
 		if err != nil {
 			return nil, errors.Wrapf(err, "write build file to tmp dir at %s", localBuildFilePath)
 		}

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math"
 	"net"
@@ -26,13 +25,13 @@ import (
 )
 
 var (
-	// Version is the version of the debugger
+	// Version is the version of the debugger.
 	Version string
 
-	// GitSha is the git sha used to build the debugger
+	// GitSha is the git sha used to build the debugger.
 	GitSha string
 
-	// ErrNoShellFound occurs when the container has no shell
+	// ErrNoShellFound occurs when the container has no shell.
 	ErrNoShellFound = errors.New("no shell found")
 
 	errInteractiveModeWaitFailed = errors.New("interactive mode wait failed")
@@ -90,12 +89,12 @@ func populateShellHistory(cmd string) error {
 		"/root/.bash_history",
 	} {
 
-		f, err := os.Create(f)
+		f, err := os.Create(f) // #nosec G304
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
 		defer f.Close()
-		_, err = f.Write([]byte(cmd + "\n"))
+		_, err = f.WriteString(cmd + "\n")
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
@@ -106,7 +105,8 @@ func populateShellHistory(cmd string) error {
 func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	log := slog.GetLogger(ctx)
 
-	conn, err := net.Dial("unix", sockAddr)
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "unix", sockAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to remote debugger")
 	}
@@ -128,7 +128,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 		return err
 	}
 
-	f, err := os.Open(src)
+	f, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,8 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder func() (*exec.Cmd, error), conslogger conslogging.ConsoleLogger) error {
 	log := slog.GetLogger(ctx)
 
-	conn, err := net.Dial("unix", remoteConsoleAddr)
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "unix", remoteConsoleAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to remote debugger")
 	}
@@ -272,14 +273,14 @@ func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder f
 }
 
 func getSettings(path string) (*common.DebuggerSettings, error) {
-	s, err := os.ReadFile(path)
+	s, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to read %s", path))
+		return nil, errors.Wrapf(err, "failed to read %s", path)
 	}
 	var data common.DebuggerSettings
 	err = json.Unmarshal(s, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal %s", path))
+		return nil, errors.Wrapf(err, "failed to unmarshal %s", path)
 	}
 	return &data, nil
 }
@@ -302,7 +303,7 @@ func main() {
 
 	color.NoColor = false
 
-	debuggerSettings, err := getSettings(fmt.Sprintf("/run/secrets/%s", common.DebuggerSettingsSecretsKey))
+	debuggerSettings, err := getSettings("/run/secrets/" + common.DebuggerSettingsSecretsKey)
 	if err != nil {
 		conslogger.Warnf("failed to read settings: %v\n", debuggerSettings)
 		os.Exit(1)
@@ -330,7 +331,7 @@ func main() {
 		}
 
 		cmdBuilder := func() (*exec.Cmd, error) {
-			return exec.Command(args[0], args[1:]...), nil
+			return exec.CommandContext(ctx, args[0], args[1:]...), nil // #nosec G204
 		}
 
 		exitCode := 0
@@ -351,7 +352,7 @@ func main() {
 
 	conslogger.VerbosePrintf("running command: (%s); version: %s\n", args, Version)
 
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...) // #nosec G204
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -371,7 +372,7 @@ func main() {
 
 		if debuggerSettings.Enabled {
 			c := color.New(color.FgYellow)
-			c.Println("Entering interactive debugger")
+			c.Println("Entering interactive debugger") // #nosec G104
 			// Sometimes the interactive shell doesn't correctly get a newline
 			// Take a brief pause and issue a new line as a work around.
 			time.Sleep(time.Millisecond * 5)
@@ -389,7 +390,7 @@ func main() {
 					return nil, ErrNoShellFound
 				}
 				conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
-				return exec.Command(shellPath), nil
+				return exec.CommandContext(ctx, shellPath), nil // #nosec G204
 			}
 
 			err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)

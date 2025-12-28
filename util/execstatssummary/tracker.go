@@ -13,14 +13,14 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-// Tracker is used for tracking exec stats summary for each RUN command
+// Tracker is used for tracking exec stats summary for each RUN command.
 type Tracker struct {
 	mu    sync.Mutex
 	stats map[string]*stats
 	path  string
 }
 
-// NewTracker creates a new exec stats summary tracker
+// NewTracker creates a new exec stats summary tracker.
 func NewTracker(path string) *Tracker {
 	return &Tracker{
 		stats: map[string]*stats{},
@@ -28,7 +28,7 @@ func NewTracker(path string) *Tracker {
 	}
 }
 
-// Observe records an exec stats payload for a particular (target, command) pair
+// Observe records an exec stats payload for a particular (target, command) pair.
 func (t *Tracker) Observe(target, command string, memory uint64, cpu time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -49,7 +49,7 @@ func (t *Tracker) Observe(target, command string, memory uint64, cpu time.Durati
 	}
 }
 
-// String returns a summarized table
+// String returns a summarized table.
 func (t *Tracker) String() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -69,18 +69,19 @@ func (t *Tracker) String() string {
 		v := t.stats[k]
 		fmt.Fprintf(w, "%s\t%s\t%v\t%v\n", v.target, v.command, humanize.Bytes(v.memory), v.cpu)
 	}
-	w.Flush()
+	w.Flush() // #nosec G104
 	return buf.String()
 }
 
-// Close closes the tracker, and writes the summary to disk (or stdout)
+// Close closes the tracker, and writes the summary to disk (or stdout).
 func (t *Tracker) Close(ctx context.Context) error {
 	summary := t.String()
 	if t.path == "-" {
 		fmt.Print(summary)
 		return nil
 	}
-	return os.WriteFile(t.path, []byte(summary), 0o644)
+
+	return os.WriteFile(t.path, []byte(summary), 0o644) // #nosec G306
 }
 
 type stats struct {

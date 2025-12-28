@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Server provides a debugger server
+// Server provides a debugger server.
 type Server struct {
 	shellConn    net.Conn
 	terminalConn net.Conn
@@ -93,7 +93,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	case 0x02:
 		isShellConn = false
 	default:
-		fmt.Fprintf(os.Stderr, "unexpected data: %v", buf[0])
+		fmt.Fprintf(os.Stderr, "unexpected data: %v", buf[0]) // #nosec G602
 		return
 	}
 
@@ -104,7 +104,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 			connLog.Debug("received shell connection")
 			if s.shellConn != nil {
 				connLog.Debug("closing existing shell connection")
-				s.shellConn.Close()
+				s.shellConn.Close() // #nosec G104
 				s.shellConn = nil
 			}
 			s.shellConn = conn
@@ -112,7 +112,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 			connLog.Debug("received term connection")
 			if s.terminalConn != nil {
 				connLog.Debug("closing existing term connection")
-				s.terminalConn.Close()
+				s.terminalConn.Close() // #nosec G104
 				s.terminalConn = nil
 			}
 			s.terminalConn = conn
@@ -126,10 +126,11 @@ func (s *Server) handleRequest(conn net.Conn) {
 	}
 }
 
-// Start starts the debug server listener
+// Start starts the debug server listener.
 func (s *Server) Start() error {
 	s.log.With("addr", s.addr).Debug("starting debugger server")
-	l, err := net.Listen("tcp", s.addr)
+	var lc net.ListenConfig
+	l, err := lc.Listen(context.Background(), "tcp", s.addr)
 	if err != nil {
 		return err
 	}
@@ -146,7 +147,7 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// NewServer returns a new server
+// NewServer returns a new server.
 func NewServer(addr string, log slog.Logger) *Server {
 	return &Server{
 		addr:            addr,

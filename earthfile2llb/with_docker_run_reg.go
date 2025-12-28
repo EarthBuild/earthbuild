@@ -26,7 +26,7 @@ type withDockerRunRegistry struct {
 	sem            semutil.Semaphore
 }
 
-const internalWithDockerSecretPrefix = "52804da5-2787-46ad-8478-80c50f305e76"
+const internalWithDockerSecretPrefix = "52804da5-2787-46ad-8478-80c50f305e76" // #nosec G101
 
 func newWithDockerRunRegistry(c *Converter, enableParallel bool) *withDockerRunRegistry {
 	// This semaphore ensures that there is at least one thread allowed to progress,
@@ -208,7 +208,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	}
 
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		"/var/earthly/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
+		"/var/earthbuild/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
 		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
@@ -249,7 +249,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	platformIncompatible := !w.c.platr.PlatformEquals(w.c.platr.Current(), platutil.NativePlatform)
 	if platformIncompatible {
-		w.c.opt.Console.Warnf("Error: " + platformIncompatMsg(w.c.platr))
+		w.c.opt.Console.Warnf("Error: %s", platformIncompatMsg(w.c.platr))
 		return errors.New("platform incompatible")
 	}
 

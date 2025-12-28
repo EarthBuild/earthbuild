@@ -3,12 +3,13 @@ package hasher
 import (
 	"bufio"
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/json"
 	"fmt"
 	"hash"
 	"io"
 	"os"
+	"strconv"
 )
 
 type Hasher struct {
@@ -17,7 +18,7 @@ type Hasher struct {
 
 func New() *Hasher {
 	return &Hasher{
-		h: sha1.New(),
+		h: sha1.New(), // #nosec G401
 	}
 }
 
@@ -41,15 +42,15 @@ func (h *Hasher) HashJSONMarshalled(v any) {
 }
 
 func (h *Hasher) HashBool(v bool) {
-	h.HashBytes([]byte(fmt.Sprintf("bool:%t", v)))
+	h.HashBytes([]byte("bool:" + strconv.FormatBool(v)))
 }
 
 func (h *Hasher) HashString(s string) {
-	h.HashBytes([]byte(fmt.Sprintf("str:%s", s)))
+	h.HashBytes([]byte("str:" + s))
 }
 
 func (h *Hasher) HashBytes(b []byte) {
-	h.h.Write([]byte(fmt.Sprintf("%d", len(b))))
+	h.h.Write([]byte(strconv.Itoa(len(b))))
 	h.h.Write(b)
 }
 
@@ -62,7 +63,7 @@ func (h *Hasher) HashFile(ctx context.Context, src string) error {
 	h.HashString(fmt.Sprintf("name: %s;", stat.Name()))
 	h.HashString(fmt.Sprintf("size: %d;", stat.Size()))
 
-	f, err := os.Open(src)
+	f, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return err
 	}

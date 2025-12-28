@@ -16,7 +16,7 @@ import (
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
-// backwards compatibility
+// backwards compatibility.
 type Features struct {
 	// Never enabled by default
 	NoUseRegistryForWithDocker bool `long:"no-use-registry-for-with-docker" description:"disable use-registry-for-with-docker"` // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
@@ -85,7 +85,7 @@ type Features struct {
 
 type ctxKey struct{}
 
-// Version returns the current version
+// Version returns the current version.
 func (f *Features) Version() string {
 	return fmt.Sprintf("%d.%d", f.Major, f.Minor)
 }
@@ -108,7 +108,7 @@ func parseFlagOverrides(env string) map[string]string {
 	return m
 }
 
-// String returns a string representation of the version and set flags
+// String returns a string representation of the version and set flags.
 func (f *Features) String() string {
 	if f == nil {
 		return "<nil>"
@@ -118,7 +118,7 @@ func (f *Features) String() string {
 	typeOf := v.Type()
 
 	flags := []string{}
-	for i := 0; i < typeOf.NumField(); i++ {
+	for i := range typeOf.NumField() {
 		tag := typeOf.Field(i).Tag
 		if flagName, ok := tag.Lookup("long"); ok {
 			ifaceVal := v.Field(i).Interface()
@@ -143,7 +143,7 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 
 	fieldIndices := map[string]int{}
 	typeOf := reflect.ValueOf(*ftrs).Type()
-	for i := 0; i < typeOf.NumField(); i++ {
+	for i := range typeOf.NumField() {
 		f := typeOf.Field(i)
 		tag := f.Tag
 		if flagName, ok := tag.Lookup("long"); ok {
@@ -174,13 +174,13 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 	return nil
 }
 
-var errUnexpectedArgs = fmt.Errorf("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
+var errUnexpectedArgs = errors.New("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
 
 func instrumentVersion(_ string, opt *goflags.Option, s *string) (*string, error) {
 	return s, nil // don't modify the flag, just pass it back.
 }
 
-// Get returns a features struct for a particular version
+// Get returns a features struct for a particular version.
 func Get(version *spec.Version) (*Features, bool, error) {
 	var ftrs Features
 	hasVersion := (version != nil)
@@ -258,7 +258,7 @@ func (f *Features) ProcessFlags() ([]string, error) {
 	v := reflect.ValueOf(f).Elem()
 	t := v.Type()
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		value := v.Field(i)
 		version := field.Tag.Get("enabled_in_version")
@@ -269,7 +269,7 @@ func (f *Features) ProcessFlags() ([]string, error) {
 		if versionAtLeast(*f, majorVersion, minorVersion) && value.Kind() == reflect.Bool {
 			if value.Bool() {
 				tagName := field.Tag.Get("long")
-				warningStrs = append(warningStrs, fmt.Sprintf("--%s", strings.ToLower(tagName)))
+				warningStrs = append(warningStrs, "--"+strings.ToLower(tagName))
 			}
 			value.SetBool(true)
 		}
@@ -290,17 +290,17 @@ func (f *Features) ProcessFlags() ([]string, error) {
 func mustParseVersion(version string) (int, int) {
 	parts := strings.Split(version, ".")
 	if len(parts) != 2 {
-		panic(fmt.Sprintf("invalid version format: %s", version))
+		panic("invalid version format: " + version)
 	}
 
 	major, err := strconv.Atoi(parts[0])
 	if err != nil {
-		panic(fmt.Sprintf("invalid major version: %s", parts[0]))
+		panic("invalid major version: " + parts[0])
 	}
 
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		panic(fmt.Sprintf("invalid minor version: %s", parts[1]))
+		panic("invalid minor version: " + parts[1])
 	}
 
 	return major, minor

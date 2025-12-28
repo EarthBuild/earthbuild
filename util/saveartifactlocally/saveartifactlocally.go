@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock
+// SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock.
 func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.ExportCoordinator, console conslogging.ConsoleLogger, artifact domain.Artifact, indexOutDir string, destPath string, salt string, ifExists bool) error {
 	fromPattern := filepath.Join(indexOutDir, filepath.FromSlash(artifact.Artifact))
 	// Resolve possible wildcards.
@@ -81,7 +81,7 @@ func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.
 		}
 
 		toDir := path.Dir(to)
-		err = os.MkdirAll(toDir, 0o755)
+		err = os.MkdirAll(toDir, 0o755) // #nosec G301
 		if err != nil {
 			return errors.Wrapf(err, "mkdir all for artifact %s", toDir)
 		}

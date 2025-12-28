@@ -261,12 +261,18 @@ unit-test:
     END
     IF [ "$DOCKERHUB_MIRROR_AUTH" = "true" ]
         WITH DOCKER
-            RUN --secret DOCKERHUB_MIRROR_USER \
+            RUN \
+                --secret DOCKERHUB_MIRROR_USER \
                 --secret DOCKERHUB_MIRROR_PASS \
+                --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+                --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
                 ./not-a-unit-test.sh
         END
     ELSE
-        RUN ./not-a-unit-test.sh
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            ./not-a-unit-test.sh
     END
 
     # The following are separate go modules and need to be tested separately.

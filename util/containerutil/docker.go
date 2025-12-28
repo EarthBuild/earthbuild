@@ -174,7 +174,7 @@ func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 	args := append(dsf.globalCompatibilityArgs, "load")
 	for _, image := range images {
 		// Do not use the wrapper to allow the image to come in on stdin
-		cmd := exec.CommandContext(ctx, dsf.binaryName, args...)
+		cmd := exec.CommandContext(ctx, dsf.binaryName, args...) // #nosec G204
 		cmd.Stdin = image
 		output, cmdErr := cmd.CombinedOutput()
 		if cmdErr != nil {

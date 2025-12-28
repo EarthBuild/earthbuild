@@ -3,6 +3,7 @@ package inputgraph
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -950,10 +951,10 @@ func (l *loader) targetCacheKey() string {
 	h.HashString(l.target.StringCanonical())
 	if l.overridingVars != nil {
 		for _, val := range l.overridingVars.BuildArgs() {
-			h.HashString(fmt.Sprintf("VAR %s", val))
+			h.HashString("VAR " + val)
 		}
 	}
-	return fmt.Sprintf("%x", h.GetHash())
+	return hex.EncodeToString(h.GetHash())
 }
 
 func (l *loader) load(ctx context.Context) ([]byte, error) {
@@ -997,7 +998,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 	// built-ins, and ARG values are hashed elsewhere.
 	if l.overridingVars != nil {
 		for _, val := range l.overridingVars.BuildArgs() {
-			l.hasher.HashString(fmt.Sprintf("VAR %s", val))
+			l.hasher.HashString("VAR " + val)
 		}
 	}
 

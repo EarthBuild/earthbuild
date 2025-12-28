@@ -118,7 +118,7 @@ func (f *Features) String() string {
 	typeOf := v.Type()
 
 	flags := []string{}
-	for i := 0; i < typeOf.NumField(); i++ {
+	for i := range typeOf.NumField() {
 		tag := typeOf.Field(i).Tag
 		if flagName, ok := tag.Lookup("long"); ok {
 			ifaceVal := v.Field(i).Interface()
@@ -143,7 +143,7 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 
 	fieldIndices := map[string]int{}
 	typeOf := reflect.ValueOf(*ftrs).Type()
-	for i := 0; i < typeOf.NumField(); i++ {
+	for i := range typeOf.NumField() {
 		f := typeOf.Field(i)
 		tag := f.Tag
 		if flagName, ok := tag.Lookup("long"); ok {
@@ -174,7 +174,7 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 	return nil
 }
 
-var errUnexpectedArgs = fmt.Errorf("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
+var errUnexpectedArgs = errors.New("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
 
 func instrumentVersion(_ string, opt *goflags.Option, s *string) (*string, error) {
 	return s, nil // don't modify the flag, just pass it back.
@@ -258,7 +258,7 @@ func (f *Features) ProcessFlags() ([]string, error) {
 	v := reflect.ValueOf(f).Elem()
 	t := v.Type()
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		value := v.Field(i)
 		version := field.Tag.Get("enabled_in_version")
@@ -269,7 +269,7 @@ func (f *Features) ProcessFlags() ([]string, error) {
 		if versionAtLeast(*f, majorVersion, minorVersion) && value.Kind() == reflect.Bool {
 			if value.Bool() {
 				tagName := field.Tag.Get("long")
-				warningStrs = append(warningStrs, fmt.Sprintf("--%s", strings.ToLower(tagName)))
+				warningStrs = append(warningStrs, "--"+strings.ToLower(tagName))
 			}
 			value.SetBool(true)
 		}
@@ -290,17 +290,17 @@ func (f *Features) ProcessFlags() ([]string, error) {
 func mustParseVersion(version string) (int, int) {
 	parts := strings.Split(version, ".")
 	if len(parts) != 2 {
-		panic(fmt.Sprintf("invalid version format: %s", version))
+		panic("invalid version format: " + version)
 	}
 
 	major, err := strconv.Atoi(parts[0])
 	if err != nil {
-		panic(fmt.Sprintf("invalid major version: %s", parts[0]))
+		panic("invalid major version: " + parts[0])
 	}
 
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		panic(fmt.Sprintf("invalid minor version: %s", parts[1]))
+		panic("invalid minor version: " + parts[1])
 	}
 
 	return major, minor

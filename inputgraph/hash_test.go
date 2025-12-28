@@ -2,7 +2,7 @@ package inputgraph
 
 import (
 	"context"
-	"fmt"
+	"encoding/hex"
 	"io"
 	"os"
 	"path/filepath"
@@ -29,8 +29,8 @@ func TestHashTargetWithDocker(t *testing.T) {
 	hash, _, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
-	hex := fmt.Sprintf("%x", hash)
-	r.NotEmpty(hex)
+	first := hex.EncodeToString(hash)
+	r.NotEmpty(first)
 
 	path := "./testdata/with-docker/Earthfile"
 
@@ -58,18 +58,18 @@ func TestHashTargetWithDocker(t *testing.T) {
 	hash, _, err = HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
-	second := fmt.Sprintf("%x", hash)
+	second := hex.EncodeToString(hash)
 	r.NotEmpty(second)
-	r.NotEqual(hex, second)
+	r.NotEqual(first, second)
 }
 
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	out, err := os.Create(dst) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func copyFile(src, dst string) error {
 }
 
 func replaceInFile(path, find, replace string) error {
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	f, err := os.OpenFile(path, os.O_RDWR, 0) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func TestHashTargetWithDockerNoAlias(t *testing.T) {
 	hash, _, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
-	hex := fmt.Sprintf("%x", hash)
+	hex := hex.EncodeToString(hash)
 	r.NotEmpty(hex)
 }
 
@@ -140,8 +140,7 @@ func TestHashTargetWithDockerRemote(t *testing.T) {
 	hash, _, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
-	hex := fmt.Sprintf("%x", hash)
-	r.NotEmpty(hex)
+	r.NotEmpty(hex.EncodeToString(hash))
 }
 
 func TestHashTargetNoCache(t *testing.T) {
@@ -161,8 +160,8 @@ func TestHashTargetNoCache(t *testing.T) {
 	r.Equal(3, stats.TargetsHashed)
 	r.Equal(0, stats.TargetCacheHits)
 
-	hex := fmt.Sprintf("%x", hash)
-	r.NotEmpty(hex)
+	enc := hex.EncodeToString(hash)
+	r.NotEmpty(enc)
 }
 
 func TestHashTargetCache(t *testing.T) {
@@ -182,6 +181,6 @@ func TestHashTargetCache(t *testing.T) {
 	r.Equal(3, stats.TargetsHashed)
 	r.Equal(4, stats.TargetCacheHits)
 
-	hex := fmt.Sprintf("%x", hash)
+	hex := hex.EncodeToString(hash)
 	r.NotEmpty(hex)
 }

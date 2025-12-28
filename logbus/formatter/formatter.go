@@ -290,7 +290,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to parse stats")
 		}
-		totalCPU := time.Duration(stats.Cpu.Usage.Total) // Total is reported in nanoseconds
+		totalCPU := time.Duration(stats.Cpu.Usage.Total) // #nosec G115 // Total is reported in nanoseconds
 		totalMem := stats.Memory.Usage.Usage             // in bytes
 		output = []byte(fmt.Sprintf("[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem)))
 		if f.execStatsTracker != nil {
@@ -571,7 +571,7 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 			verboseOnly = true
 		case targetName == "":
 			verboseOnly = true
-			targetName = fmt.Sprintf("_internal:%s", commandID)
+			targetName = "_internal:" + commandID
 		default:
 		}
 		writerTargetID = commandID

@@ -304,7 +304,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 		return validatePath(t.Elem(), path[1:])
 	}
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		yamlTag := field.Tag.Get("yaml")
 		helpTag := field.Tag.Get("help")
@@ -477,7 +477,7 @@ func deleteYamlValue(node *yaml.Node, path []string) []string {
 
 // ReadConfigFile reads in the config file from the disk, into a byte slice.
 func ReadConfigFile(configPath string) ([]byte, error) {
-	yamlData, err := os.ReadFile(configPath)
+	yamlData, err := os.ReadFile(configPath) // #nosec G304
 	if err != nil {
 		return []byte{}, errors.Wrapf(err, "failed to read from %s", configPath)
 	}
@@ -486,12 +486,12 @@ func ReadConfigFile(configPath string) ([]byte, error) {
 
 // WriteConfigFile writes the config file to disk with preset permission 0644.
 func WriteConfigFile(configPath string, data []byte) error {
-	err := os.MkdirAll(filepath.Dir(configPath), 0o755)
+	err := os.MkdirAll(filepath.Dir(configPath), 0o755) // #nosec G301
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0o644)
+	return os.WriteFile(configPath, data, 0o644) // #nosec G306
 }
 
 func parseRelPaths(instName string, cfg *Config) error {

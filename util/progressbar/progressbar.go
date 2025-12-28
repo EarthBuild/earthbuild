@@ -18,13 +18,13 @@ func ProgressBar(progress, width int) string {
 	fullChars := progress * width / 100
 	blankChars := width - fullChars - 1
 	deltaProgress := ((progress * width) % 100) * len(progressChars) / 100
-	for i := 0; i < fullChars; i++ {
+	for range fullChars {
 		builder = append(builder, progressChars[len(progressChars)-1])
 	}
 	if progress != 100 {
 		builder = append(builder, progressChars[deltaProgress])
 	}
-	for i := 0; i < blankChars; i++ {
+	for range blankChars {
 		builder = append(builder, progressChars[0])
 	}
 	return strings.Join(builder, "")

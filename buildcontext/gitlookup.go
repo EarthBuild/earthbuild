@@ -4,30 +4,29 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/base64"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/jdxcode/netrc"
+	"github.com/moby/buildkit/util/sshutil"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"golang.org/x/exp/maps"
-
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/EarthBuild/earthbuild/util/stringutil"
-
-	"github.com/jdxcode/netrc"
-	"github.com/moby/buildkit/util/sshutil"
 )
 
 type gitMatcher struct {
@@ -122,7 +121,7 @@ func knownHostsToKeyScans(knownHosts string) []string {
 			foundKeyScans[s] = true
 		}
 	}
-	return maps.Keys(foundKeyScans)
+	return slices.Collect(maps.Keys(foundKeyScans))
 }
 
 // AddMatcher adds a new matcher for looking up git repos.
@@ -338,7 +337,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 		}
 	}
 
-	keys := maps.Keys(foundKeys)
+	keys := slices.Collect(maps.Keys(foundKeys))
 
 	algs := []string{}
 	for _, alg := range supportedHostKeyAlgos {
@@ -440,7 +439,7 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 		Timeout:           time.Second * 3,
 	}
 
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", host), config)
+	client, err := ssh.Dial("tcp", net.JoinHostPort(host, "22"), config)
 	if err != nil {
 		gl.console.VerbosePrintf("failed to connect to %s over ssh due to %s; falling back to https", host, err.Error())
 		protocol = httpsProtocol
@@ -455,7 +454,7 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 	return
 }
 
-var errNoRCHostEntry = fmt.Errorf("no netrc host entry")
+var errNoRCHostEntry = errors.New("no netrc host entry")
 
 func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string, err error) {
 	var n *netrc.Netrc
@@ -486,7 +485,7 @@ func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string,
 	return login, password, nil
 }
 
-var errMakeCloneURLSubNotSupported = fmt.Errorf("makeCloneURL does not support gitMatcher substitution")
+var errMakeCloneURLSubNotSupported = errors.New("makeCloneURL does not support gitMatcher substitution")
 
 func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL string, keyScans []string, sshCommand string, err error) {
 	if m.sub != "" {
@@ -700,7 +699,7 @@ func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []st
 				return "", nil, "", errors.Wrapf(err, "failed to parse %s", inURL)
 			}
 			if u.Scheme != "ssh" {
-				panic(fmt.Sprintf("expected scheme of ssh; got %s", u.Scheme)) // shouldn't happen
+				panic("expected scheme of ssh; got " + u.Scheme) // shouldn't happen
 			}
 			host = strings.TrimSuffix(u.Host, ":22")
 			gitPath = u.Path
@@ -743,7 +742,8 @@ func loadKnownHostsFromPath(path string) ([]string, error) {
 	if !knownHostsExists {
 		return nil, nil
 	}
-	b, err := os.ReadFile(path)
+
+	b, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read %s", path)
 	}

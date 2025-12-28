@@ -90,7 +90,7 @@ func (l *listener) popBlock() spec.Block {
 
 func (l *listener) docs(c antlr.ParserRuleContext) string {
 	comments := l.tokStream.GetHiddenTokensToLeft(c.GetStart().GetTokenIndex(), parser.EarthLexerCOMMENTS_CHANNEL)
-	var docs string
+	var docs strings.Builder
 	var leadingTrim string
 	var once sync.Once
 	for _, c := range comments {
@@ -109,9 +109,9 @@ func (l *listener) docs(c antlr.ParserRuleContext) string {
 			leadingTrim = string(trimRunes)
 		})
 		line = strings.TrimPrefix(line, leadingTrim)
-		docs += line + "\n"
+		docs.WriteString(line + "\n")
 	}
-	return docs
+	return docs.String()
 }
 
 // Base -----------------------------------------------------------------------

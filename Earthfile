@@ -2,12 +2,12 @@ VERSION 0.8
 
 # TODO update to 3.18; however currently "podman login" (used under not-a-unit-test.sh) will error with
 # "Error: default OCI runtime "crun" not found: invalid argument".
-FROM golang:1.21-alpine3.17
-
+FROM alpine:3.18
 RUN apk add --update --no-cache \
     bash \
     bash-completion \
     binutils \
+    build-base \
     ca-certificates \
     coreutils \
     curl \
@@ -16,10 +16,21 @@ RUN apk add --update --no-cache \
     git \
     grep \
     less \
+    libc6-compat \
     make \
     openssl \
     openssh \
     util-linux
+# install Golang
+# renovate: datasource=golang-version packageName=go
+LET GO_VERSION=1.25.5
+ENV GOPATH=/go
+ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+ARG USERARCH
+RUN wget https://golang.org/dl/go${GO_VERSION}.linux-$USERARCH.tar.gz && \
+    tar -C /usr/local -xzf go${GO_VERSION}.linux-$USERARCH.tar.gz && \
+    rm go${GO_VERSION}.linux-$USERARCH.tar.gz
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
 WORKDIR /earthly
 
@@ -96,7 +107,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.23.0
+    ARG alpine_version=3.23.2
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
@@ -163,14 +174,26 @@ lint:
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.1.3
+    ENV govulncheck_version=1.1.4
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
+    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+        ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            --mount type=cache,target=/root/.cache/golangci_lint \
+
+            echo "🛡️ vulnerability check in go module \"$mod_name\"" && \
+            cd $mod_path && \
+            govulncheck ./... >> /tmp/govulncheck_output || touch /tmp/govulncheck_failed
+    END
+    # print output for all modules and fail if any vulnerabilities were found
     RUN \
-        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        --mount type=cache,target=/root/.cache/go-vulncheck \
-        govulncheck ./...
+        if [ -f /tmp/govulncheck_failed ]; then \
+            cat /tmp/govulncheck_output; \
+            exit 1; \
+        fi
 
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
@@ -284,7 +307,7 @@ lint-changelog:
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
-    ENV CGO_ENABLED=0
+    ENV CGO_ENABLED=1
     ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
@@ -302,7 +325,7 @@ debugger:
 # earthly builds the earthly CLI and docker image.
 earthly:
     FROM +code
-    ENV CGO_ENABLED=0
+    ENV CGO_ENABLED=1
     ARG GOOS=linux
     ARG TARGETARCH
     ARG TARGETVARIANT

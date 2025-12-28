@@ -1,8 +1,8 @@
 VERSION --arg-scope-and-set 0.7
 
 go-base:
-    LET go_version = 1.20
-    LET distro = alpine3.18
+    LET go_version = 1.25
+    LET distro = alpine3.23
 
     FROM golang:${go_version}-${distro}
     WORKDIR /go-workdir

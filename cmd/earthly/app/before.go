@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 
@@ -34,10 +35,10 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 			flags.ConfigPath = defaultConfigPath(flags.InstallationName)
 		}
 		if !cliCtx.IsSet("buildkit-container-name") {
-			flags.ContainerName = fmt.Sprintf("%s-buildkitd", flags.InstallationName)
+			flags.ContainerName = flags.InstallationName + "-buildkitd"
 		}
 		if !cliCtx.IsSet("buildkit-volume-name") {
-			flags.BuildkitdSettings.VolumeName = fmt.Sprintf("%s-cache", flags.InstallationName)
+			flags.BuildkitdSettings.VolumeName = flags.InstallationName + "-cache"
 		}
 	}
 	if flags.Debug {
@@ -222,9 +223,11 @@ func (app *EarthlyApp) warnIfEarth() {
 }
 
 func profhandler() {
-	addr := "127.0.0.1:6060"
+	const addr = "127.0.0.1:6060"
+	const readHeaderTimeout = 5 * time.Second // arbitrary timeout
 	fmt.Printf("listening for pprof on %s\n", addr)
-	err := http.ListenAndServe(addr, nil)
+	srv := &http.Server{Addr: addr, ReadHeaderTimeout: readHeaderTimeout}
+	err := srv.ListenAndServe()
 	if err != nil {
 		fmt.Printf("error listening for pprof: %v", err)
 	}

@@ -5,6 +5,8 @@ import (
 )
 
 func TestParseGitRemoteURL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		gitURL         string
 		expectedGitURL string

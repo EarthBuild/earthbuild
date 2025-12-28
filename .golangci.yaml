@@ -47,7 +47,6 @@ linters:
     - lll
     - maintidx
     - mirror
-    - misspell
     - mnd
     - modernize
     - musttag
@@ -59,7 +58,6 @@ linters:
     - nlreturn
     - noinlineerr
     - nonamedreturns
-    - paralleltest
     - prealloc
     - predeclared
     - protogetter
@@ -70,8 +68,6 @@ linters:
     - tagliatelle
     - testifylint
     - testpackage
-    - thelper
-    - tparallel
     - unconvert
     - unparam
     - usetesting

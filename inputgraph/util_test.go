@@ -12,6 +12,8 @@ import (
 )
 
 func TestParseProjectCommand(t *testing.T) {
+	t.Parallel()
+
 	// TODO(jhorsts): Do we have any plans for this command?
 	// The PROJECT command is redundant, and I removed it from the file.
 	// It was useful with the Earthly Cloud.
@@ -33,6 +35,8 @@ func TestParseProjectCommand(t *testing.T) {
 }
 
 func TestParseProjectCommandNoProject(t *testing.T) {
+	t.Parallel()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/no-project",

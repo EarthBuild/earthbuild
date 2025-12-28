@@ -19,7 +19,11 @@ func getCacheSize(m *sync.Map) int {
 }
 
 func Test_prefixFormatter_Format(t *testing.T) {
+	t.Parallel()
+
 	t.Run("uses cache correctly", func(t *testing.T) {
+		t.Parallel()
+
 		random := uuid.NewString()
 		otherRandom := uuid.NewString()
 		f := NewPrefixFormatter(truncateSha)
@@ -38,6 +42,8 @@ func Test_prefixFormatter_Format(t *testing.T) {
 		require.Equal(t, 3, size, "cache size should have incremented since prefix is different")
 	})
 	t.Run("executes all options", func(t *testing.T) {
+		t.Parallel()
+
 		optsCallNum := 0
 		prefix := "123"
 		expectedLen := len(prefix)
@@ -56,6 +62,8 @@ func Test_prefixFormatter_Format(t *testing.T) {
 		assert.Equal(t, 2, optsCallNum)
 	})
 	t.Run("does not execute options when no padding", func(t *testing.T) {
+		t.Parallel()
+
 		optsCallNum := 0
 		prefix := "123"
 		expectedLen := len(prefix)

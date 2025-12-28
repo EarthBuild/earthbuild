@@ -8,6 +8,8 @@ import (
 )
 
 func TestProcessParamsAndQuotes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in   []string
 		args []string

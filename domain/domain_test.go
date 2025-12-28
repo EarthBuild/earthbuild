@@ -35,8 +35,12 @@ var targetNegativeTests = []string{
 }
 
 func TestTargetParser(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range targetTests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			out, err := ParseTarget(tt.in)
 			NoError(t, err, "parse target failed")
 			Equal(t, tt.out, out)
@@ -45,8 +49,12 @@ func TestTargetParser(t *testing.T) {
 }
 
 func TestTargetParserNegative(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range targetNegativeTests {
 		t.Run(tt, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := ParseTarget(tt)
 			Error(t, err, "parse target should have failed")
 		})
@@ -54,8 +62,12 @@ func TestTargetParserNegative(t *testing.T) {
 }
 
 func TestTargetToString(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range targetTests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			str := tt.out.String()
 			Equal(t, tt.in, str)
 		})
@@ -100,8 +112,12 @@ var artifactNegativeTests = []string{
 }
 
 func TestArtifactParser(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range artifactTests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			out, err := ParseArtifact(tt.in)
 			NoError(t, err, "parse artifact failed")
 			Equal(t, tt.out, out)
@@ -110,8 +126,12 @@ func TestArtifactParser(t *testing.T) {
 }
 
 func TestArtifactParserNegative(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range artifactNegativeTests {
 		t.Run(tt, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := ParseArtifact(tt)
 			Error(t, err, "parse artifact should have failed")
 		})
@@ -119,8 +139,12 @@ func TestArtifactParserNegative(t *testing.T) {
 }
 
 func TestArtifactToString(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range artifactTests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			str := tt.out.String()
 			Equal(t, tt.in, str)
 		})
@@ -155,8 +179,12 @@ var commandNegativeTests = []string{
 }
 
 func TestCommandParser(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range commandTests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			out, err := ParseCommand(tt.in)
 			NoError(t, err, "parse target failed")
 			Equal(t, tt.out, out)
@@ -165,8 +193,12 @@ func TestCommandParser(t *testing.T) {
 }
 
 func TestCommandParserNegative(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range commandNegativeTests {
 		t.Run(tt, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := ParseCommand(tt)
 			Error(t, err, "parse command should have failed")
 		})
@@ -174,8 +206,12 @@ func TestCommandParserNegative(t *testing.T) {
 }
 
 func TestCommandToString(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range commandTests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			str := tt.out.String()
 			Equal(t, tt.in, str)
 		})

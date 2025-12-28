@@ -13,6 +13,8 @@ import (
 var Equal = require.Equal
 
 func TestVersionAtLeast(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		earthlyVer Features
 		major      int

@@ -83,7 +83,6 @@ func TestScope(topT *testing.T) {
 			value: "eggs",
 		},
 	} {
-		tt := tt
 		o.Spec(tt.testName, func(tc testCtx) {
 			ok := tc.scope.Add(tt.name, tt.value)
 			tc.expect(ok).To(beTrue())

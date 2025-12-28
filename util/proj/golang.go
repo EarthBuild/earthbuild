@@ -21,8 +21,8 @@ const (
 {{- $indent := and .Prefix .Indent}}{{/* if .Prefix is empty string, empty string; otherwise .Indent */}}
 {{- if .Prefix }}{{.Prefix}}base:
 {{ end -}}
-{{$indent}}LET go_version = 1.20
-{{$indent}}LET distro = alpine3.18
+{{$indent}}LET go_version = 1.25
+{{$indent}}LET distro = alpine3.23
 
 {{$indent}}FROM golang:${go_version}-${distro}
 {{$indent}}WORKDIR /go-workdir`

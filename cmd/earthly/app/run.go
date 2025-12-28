@@ -57,7 +57,7 @@ func (app *EarthlyApp) unhideFlags() error {
 	var err error
 	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" { // TODO delete this check after 2022-03-01
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
-		app.BaseCLI.Console().Warnf("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
+		app.BaseCLI.Console().Warnf("%s", "Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
 	}
 	showHidden := false
 	showHiddenStr := os.Getenv("EARTHLY_SHOW_HIDDEN")
@@ -315,8 +315,8 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			grpcErr.Message(),
 		)
-		app.BaseCLI.Console().Warnf(
-			"Error: It seems that buildkitd is shutting down or it has crashed. " +
+		app.BaseCLI.Console().Warnf("%s",
+			"Error: It seems that buildkitd is shutting down or it has crashed. "+
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -329,8 +329,8 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			err.Error(),
 		)
-		app.BaseCLI.Console().Warnf(
-			"Error: It seems that buildkitd is shutting down or it has crashed. " +
+		app.BaseCLI.Console().Warnf("%s",
+			"Error: It seems that buildkitd is shutting down or it has crashed. "+
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -344,8 +344,8 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
-			app.BaseCLI.Console().Warnf(
-				"Error: It seems that buildkitd had an issue. " +
+			app.BaseCLI.Console().Warnf("%s",
+				"Error: It seems that buildkitd had an issue. "+
 					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			app.printCrashLogs(ctx)
 		}
@@ -355,7 +355,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		if app.BaseCLI.Flags().Verbose {
 			app.BaseCLI.Console().Warnf("Canceled: %v\n", err)
 		} else {
-			app.BaseCLI.Console().Warnf("Canceled\n")
+			app.BaseCLI.Console().Warnf("%s", "Canceled\n")
 		}
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)

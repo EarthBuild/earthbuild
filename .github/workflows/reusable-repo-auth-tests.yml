@@ -35,6 +35,9 @@ jobs:
     services:
       sshd:
         image: rastasheep/ubuntu-sshd:18.04
+        credentials:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
         ports:
           - 2222:22
     env:

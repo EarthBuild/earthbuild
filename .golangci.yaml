@@ -40,7 +40,6 @@ linters:
     - godox
     - gomoddirectives
     - goprintffuncname
-    - gosec
     - inamedparam
     - interfacebloat
     - ireturn

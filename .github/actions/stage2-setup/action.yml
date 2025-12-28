@@ -135,7 +135,7 @@ runs:
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
         ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
-        mirrors = [\"mirror.gcr.io\"]'"
+        mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-

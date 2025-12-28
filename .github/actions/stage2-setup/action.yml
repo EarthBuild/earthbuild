@@ -89,8 +89,8 @@ runs:
     - name: Set up Docker Hub Mirrors
       if: inputs.BINARY == 'docker'
       run: |
-        sudo mkdir -p /etc/docker
-        cat <<EOF | sudo tee /etc/docker/daemon.json
+        ${{inputs.SUDO}} mkdir -p /etc/docker
+        cat <<EOF | ${{inputs.SUDO}} tee /etc/docker/daemon.json
         {
           "registry-mirrors": [
             "https://mirror.gcr.io",
@@ -98,7 +98,7 @@ runs:
           ]
         }
         EOF
-        sudo systemctl restart docker
+        ${{inputs.SUDO}} systemctl restart docker
       shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'

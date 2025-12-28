@@ -69,7 +69,6 @@ linters:
     - testifylint
     - testpackage
     - unconvert
-    - unparam
     - usetesting
     - varnamelen
     - wastedassign

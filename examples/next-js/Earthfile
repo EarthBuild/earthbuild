@@ -36,7 +36,8 @@ upgrade-deps:
     # Use npm-check-updates to update package.json to latest compatible versions
     RUN npm install -g npm-check-updates \
      && npx npm-check-updates -u \
-     && npm install --legacy-peer-deps
+     && npm install --legacy-peer-deps \
+     && npm audit fix
 
     # Save the updated manifests back to the local workspace
     SAVE ARTIFACT ./package.json package.json AS LOCAL ./

@@ -1,4 +1,5 @@
 {
+  "name": "next-js",
   "private": true,
   "scripts": {
     "dev": "next",

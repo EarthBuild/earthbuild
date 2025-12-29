@@ -8,6 +8,8 @@ import (
 )
 
 func Test_prettyPrefix(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name          string
 		prefixPadding int

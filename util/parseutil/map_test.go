@@ -8,6 +8,8 @@ import (
 )
 
 func TestStringToMap(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		input       string
 		expected    map[string]string

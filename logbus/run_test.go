@@ -7,6 +7,8 @@ import (
 )
 
 func Test_gitSSHToURL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in, want string
 	}{

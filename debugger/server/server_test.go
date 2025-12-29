@@ -14,6 +14,8 @@ import (
 )
 
 func TestServer(t *testing.T) {
+	t.Parallel()
+
 	logrus.SetLevel(logrus.DebugLevel)
 	ctx := context.TODO()
 	log := slog.GetLogger(ctx).With("test.name", t.Name())

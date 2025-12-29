@@ -8,6 +8,8 @@ import (
 )
 
 func TestGenerateEarthfile(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		buildContextPath string
 		dockerfilePath   string

@@ -22,6 +22,8 @@ func newConsLogger() conslogging.ConsoleLogger {
 }
 
 func TestMultiAuth(t *testing.T) {
+	t.Parallel()
+
 	type testCtx struct {
 		*testing.T
 		expect   expect.Expectation
@@ -30,6 +32,8 @@ func TestMultiAuth(t *testing.T) {
 	}
 
 	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
+		t.Helper()
+
 		children := []*mockChild{
 			newMockChild(t, mockTimeout),
 			newMockChild(t, mockTimeout),

@@ -25,7 +25,7 @@ func (bl *BufferedLogger) Printf(format string, v ...interface{}) {
 // Flush prints the queued up messages to the underlying console.
 func (bl *BufferedLogger) Flush() {
 	for _, s := range bl.queue {
-		bl.cl.Printf("%s", s)
+		bl.cl.Print(s)
 	}
 	bl.queue = nil
 }

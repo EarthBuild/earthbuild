@@ -79,60 +79,80 @@ func getPotentials(cmd string) ([]string, error) {
 }
 
 func TestFlagCompletion(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly --fl")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag ", "--fleet "}, matches)
 }
 
 func TestFlagCompletionWithPreviousFlags(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly --fig desertking --fla")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag "}, matches)
 }
 
 func TestFlagCompletionWithPreviousFlags2(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly --fig ")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{}, matches)
 }
 
 func TestFlagCompletionWithPreviousFlagsContainingEqual(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly --fig=desertking --fla")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag "}, matches)
 }
 
 func TestCommandCompletion(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly pru")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"prune "}, matches)
 }
 
 func TestCommandCompletionHidden(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly hid")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{}, matches)
 }
 
 func TestCommandSubCompletion(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly sub -")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subflag "}, matches)
 }
 
 func TestCommandSubCompletion2(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly sub --subflag abba --s")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subsubflag ", "--surf-the-internet "}, matches)
 }
 
 func TestCommandSubSubCompletion(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly sub --subflag abba --sub")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subsubflag "}, matches)
 }
 
 func TestCommandSubSubCompletion2(t *testing.T) {
+	t.Parallel()
+
 	matches, err := getPotentials("earthly sub --subflag abba ")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"dancing-queen "}, matches)

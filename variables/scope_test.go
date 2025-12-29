@@ -9,6 +9,8 @@ import (
 )
 
 func TestScope(topT *testing.T) {
+	topT.Parallel()
+
 	type testCtx struct {
 		t      *testing.T
 		expect expect.Expectation
@@ -16,6 +18,8 @@ func TestScope(topT *testing.T) {
 	}
 
 	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
+		t.Helper()
+
 		return testCtx{
 			t:      t,
 			expect: expect.New(t),

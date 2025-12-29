@@ -10,6 +10,8 @@ import (
 )
 
 func TestParserErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		earthfile    string

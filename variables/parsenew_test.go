@@ -7,6 +7,8 @@ import (
 )
 
 func TestParseFlagArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		kvFlag []string
 		kv     []string
@@ -32,6 +34,8 @@ func TestParseFlagArgs(t *testing.T) {
 }
 
 func TestNegativeParseFlagArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		kvFlag []string
 	}{
@@ -47,6 +51,8 @@ func TestNegativeParseFlagArgs(t *testing.T) {
 }
 
 func TestParseFlagArgsWithNonFlags(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		kvFlag   []string
 		flags    []string

@@ -13,12 +13,16 @@ import (
 )
 
 func TestCollection(topT *testing.T) {
+	topT.Parallel()
+
 	type testCtx struct {
 		expect   expect.Expectation
 		coll     *variables.Collection
 		features *features.Features
 	}
 	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
+		t.Helper()
+
 		expect := expect.New(t)
 		f, _, err := features.Get(&spec.Version{Args: []string{"0.7"}})
 		expect(err).To(not(haveOccurred()))

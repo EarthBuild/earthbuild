@@ -9,6 +9,8 @@ import (
 )
 
 func TestSplitFlagString(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		value cli.StringSlice
 	}
@@ -41,6 +43,8 @@ func TestSplitFlagString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := SplitFlagString(tt.args.value); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("SplitFlagString() = %v, want %v", got, tt.want)
 			}
@@ -49,6 +53,8 @@ func TestSplitFlagString(t *testing.T) {
 }
 
 func TestParseParams(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in    string
 		first string
@@ -66,6 +72,8 @@ func TestParseParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			actualFirst, actualArgs, err := ParseParams(tt.in)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.first, actualFirst)
@@ -75,6 +83,8 @@ func TestParseParams(t *testing.T) {
 }
 
 func TestNegativeParseParams(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in string
 	}{

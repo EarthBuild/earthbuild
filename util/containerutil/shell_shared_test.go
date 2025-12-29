@@ -11,6 +11,8 @@ d8183461827c,earthly-dev-buildkitd,Up 5 hours,earthly/buildkitd:dev-main,2024-01
 3084cac7996e,earthly-buildkitd,Up 6 hours,earthly/buildkitd:prerelease,2024-01-23 12:31:06 -0800 PST`
 
 func Test_parseContainerList(t *testing.T) {
+	t.Parallel()
+
 	ret, err := parseContainerList(containerListText)
 	r := require.New(t)
 	r.NoError(err)
@@ -23,6 +25,8 @@ func Test_parseContainerList(t *testing.T) {
 }
 
 func Test_parseContainerList_whitespace(t *testing.T) {
+	t.Parallel()
+
 	ret, err := parseContainerList(containerListText + "\n\n")
 	r := require.New(t)
 	r.NoError(err)
@@ -30,6 +34,8 @@ func Test_parseContainerList_whitespace(t *testing.T) {
 }
 
 func Test_parseContainerList_empty(t *testing.T) {
+	t.Parallel()
+
 	ret, err := parseContainerList("\n\n")
 	r := require.New(t)
 	r.NoError(err)

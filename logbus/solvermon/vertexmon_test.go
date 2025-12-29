@@ -9,6 +9,8 @@ import (
 )
 
 func TestGetExitCode(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		errString     string
@@ -43,6 +45,8 @@ func TestGetExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			code, err := getExitCode(tt.errString)
 			if code != tt.expectedCode {
 				t.Errorf("getExitCode(%q) = %d, want %d", tt.errString, code, tt.expectedCode)
@@ -55,6 +59,8 @@ func TestGetExitCode(t *testing.T) {
 }
 
 func TestDetermineFatalErrorType(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		errString     string
@@ -136,6 +142,8 @@ func TestDetermineFatalErrorType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			fatalType, fatal := determineFatalErrorType(tt.errString, tt.exitCode, tt.parseErr)
 			if fatalType != tt.expectedType {
 				t.Errorf("determineFatalErrorType(%q, %d) = %v, want %v", tt.errString, tt.exitCode, fatalType, tt.expectedType)
@@ -148,6 +156,8 @@ func TestDetermineFatalErrorType(t *testing.T) {
 }
 
 func TestReErrNotFound(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		errString string
@@ -182,6 +192,8 @@ func TestReErrNotFound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			match := reErrNotFound.FindStringSubmatch(tt.errString)
 
 			if len(match) == 0 || !assert.ElementsMatch(t, match[1:], tt.expected) {

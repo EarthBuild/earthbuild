@@ -11,17 +11,23 @@ import (
 var emptyHash = []byte{0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0xd, 0x32, 0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x7, 0x9}
 
 func TestEmptyHasherIsNil(t *testing.T) {
+	t.Parallel()
+
 	h := hasher.New()
 	// empty string hash. e.g. running `true | sha1sum` in bash will output: "da39a3ee5e6b4b0d3255bfef95601890afd80709  -"
 	Equal(t, h.GetHash(), emptyHash)
 }
 
 func TestNilHasherIsNil(t *testing.T) {
+	t.Parallel()
+
 	var h *hasher.Hasher
 	Nil(t, h.GetHash())
 }
 
 func TestHashEmptyFile(t *testing.T) {
+	t.Parallel()
+
 	file, err := os.CreateTemp("", "file-to-hash")
 	if err != nil {
 		NoError(t, err)
@@ -37,6 +43,8 @@ func TestHashEmptyFile(t *testing.T) {
 }
 
 func TestHashFile(t *testing.T) {
+	t.Parallel()
+
 	file, err := os.CreateTemp("", "file-to-hash")
 	if err != nil {
 		NoError(t, err)

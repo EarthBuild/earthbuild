@@ -22,6 +22,8 @@ type parsedCLIVals struct {
 }
 
 func TestBuildArgMatrix(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		testName string
 		config   config.GlobalConfig
@@ -146,6 +148,8 @@ func TestBuildArgMatrix(t *testing.T) {
 }
 
 func TestBuildArgMatrixValidationFailures(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		testName string
 		config   config.GlobalConfig
@@ -209,6 +213,8 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 }
 
 func TestParseAndValidateURLFailures(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		testName string
 		url      string
@@ -238,6 +244,8 @@ func TestParseAndValidateURLFailures(t *testing.T) {
 }
 
 func TestParseAndValidateURL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		testName string
 		url      string
@@ -259,6 +267,8 @@ func TestParseAndValidateURL(t *testing.T) {
 }
 
 func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		testName string
 		config   config.GlobalConfig

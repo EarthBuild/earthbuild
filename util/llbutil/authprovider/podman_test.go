@@ -31,6 +31,8 @@ const (
 )
 
 func TestPodmanProvider(topT *testing.T) {
+	topT.Parallel()
+
 	type testCtx struct {
 		t      *testing.T
 		expect expect.Expectation
@@ -44,6 +46,8 @@ func TestPodmanProvider(topT *testing.T) {
 	}
 
 	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
+		t.Helper()
+
 		tt := testCtx{
 			t:      t,
 			expect: expect.New(t),

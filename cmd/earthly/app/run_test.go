@@ -7,6 +7,8 @@ import (
 )
 
 func TestRedactSecretsFromArgs(t *testing.T) {
+	t.Parallel()
+
 	for _, testCase := range []struct {
 		args     []string
 		expected []string

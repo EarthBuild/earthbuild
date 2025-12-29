@@ -9,6 +9,8 @@ import (
 )
 
 func TestFromError(t *testing.T) {
+	t.Parallel()
+
 	ieWithStack := Errorf(&spec.SourceLocation{
 		File:        "path/To/Earthfile",
 		StartLine:   90,

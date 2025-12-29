@@ -16,6 +16,8 @@ import (
 )
 
 func TestHashTargetWithDocker(t *testing.T) {
+	t.Parallel()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",
@@ -109,6 +111,8 @@ func replaceInFile(path, find, replace string) error {
 }
 
 func TestHashTargetWithDockerNoAlias(t *testing.T) {
+	t.Parallel()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",
@@ -127,6 +131,8 @@ func TestHashTargetWithDockerNoAlias(t *testing.T) {
 }
 
 func TestHashTargetWithDockerRemote(t *testing.T) {
+	t.Parallel()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",
@@ -144,6 +150,8 @@ func TestHashTargetWithDockerRemote(t *testing.T) {
 }
 
 func TestHashTargetNoCache(t *testing.T) {
+	t.Parallel()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/target-cache",
@@ -165,6 +173,8 @@ func TestHashTargetNoCache(t *testing.T) {
 }
 
 func TestHashTargetCache(t *testing.T) {
+	t.Parallel()
+
 	r := require.New(t)
 	target := domain.Target{
 		LocalPath: "./testdata/target-cache",

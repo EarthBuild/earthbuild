@@ -17,12 +17,16 @@ import (
 )
 
 func TestRootCmdsHelp(t *testing.T) {
+	t.Parallel()
+
 	type testCtx struct {
 		t      *testing.T
 		expect expect.Expectation
 	}
 
 	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
+		t.Helper()
+
 		return testCtx{
 			t:      t,
 			expect: expect.New(t),

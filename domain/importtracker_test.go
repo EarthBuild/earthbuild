@@ -9,6 +9,8 @@ import (
 )
 
 func TestImports(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		importStr string
 		as        string

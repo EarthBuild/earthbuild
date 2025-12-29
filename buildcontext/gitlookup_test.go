@@ -6,6 +6,8 @@ import (
 )
 
 func Test_parseKeyScanIfHostMatches(t *testing.T) {
+	t.Parallel()
+
 	testcases := []struct {
 		key      string
 		hostname string
@@ -104,6 +106,8 @@ func Test_parseKeyScanIfHostMatches(t *testing.T) {
 
 	for i, testcase := range testcases {
 		t.Run(fmt.Sprintf("key test %d", i), func(t *testing.T) {
+			t.Parallel()
+
 			keyAlg, keyData, err := parseKeyScanIfHostMatches(testcase.key, testcase.hostname)
 			ok := err == nil
 			Equal(t, ok, testcase.ok)

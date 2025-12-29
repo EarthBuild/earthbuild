@@ -9,6 +9,8 @@ import (
 )
 
 func TestDurationSet(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		value    string
 		err      error

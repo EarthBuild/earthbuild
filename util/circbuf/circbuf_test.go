@@ -8,11 +8,15 @@ import (
 )
 
 func TestNewError(t *testing.T) {
+	t.Parallel()
+
 	_, err := NewBuffer(-1)
 	require.Error(t, err)
 }
 
 func TestWriteGrow(t *testing.T) {
+	t.Parallel()
+
 	b := &Buffer{maxSize: 5}
 	n, err := io.WriteString(b, "foo")
 	r := require.New(t)
@@ -23,6 +27,8 @@ func TestWriteGrow(t *testing.T) {
 }
 
 func TestWriteOverflow(t *testing.T) {
+	t.Parallel()
+
 	b := &Buffer{maxSize: 5}
 	n, err := io.WriteString(b, "foobarbaz")
 
@@ -34,6 +40,8 @@ func TestWriteOverflow(t *testing.T) {
 }
 
 func TestWriteMulti(t *testing.T) {
+	t.Parallel()
+
 	b := &Buffer{maxSize: 5}
 	r := require.New(t)
 

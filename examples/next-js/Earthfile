@@ -13,24 +13,35 @@ deps:
 build:
     FROM +deps
     # Copy files and directories required for building
-    COPY next-env.d.ts styles.module.css tsconfig.json ./
+    COPY next.config.js next-env.d.ts styles.module.css tsconfig.json ./
     COPY --dir pages ./
     # Build using Next.js
     RUN npm run build
-    SAVE ARTIFACT ./.next .next/ AS LOCAL ./
+    # Save the standalone server output and static assets so other stages can COPY them
+    SAVE ARTIFACT ./.next/standalone .next/standalone
+    SAVE ARTIFACT ./.next/static .next/static
 
 # image Create a Docker image for the Next.js application
 image:
-    FROM +deps
-    COPY +build/.next ./
-    CMD ["npm", "run", "start"]
+    # Copy the standalone server output and static assets
+    COPY +build/.next/standalone ./
+    COPY +build/.next/static ./static/
+    # Also copy package.json so the standalone server can read metadata
+    COPY package.json ./
+    # Expose the default Next.js port and run the standalone server
+    EXPOSE 3000
+    CMD ["node", "server.js"]
     RUN echo "To run the image: docker run -p 3000:3000 nextjs-app:latest"
     SAVE IMAGE nextjs-app:latest
 
+    LOCALLY
+    # Check image size is not surprisingly large
+    RUN LIMIT=$((300 * 1024 * 1024)) \
+      SIZE=$(docker images -f reference=nextjs-app:latest --format "{{.Size}}" | sed 's/B$//' | numfmt --from=iec) && [ "$SIZE" -lt "$LIMIT" ] || { echo "Image surprisingly large $SIZE > $LIMIT"; exit 1; }
+
+
 # upgrade-deps Update dependencies to latest compatible versions and persist lockfile
 upgrade-deps:
-    FROM node:24.9.0-alpine3.22
-    WORKDIR /app
 
     COPY package.json package-lock.json ./
     # Use npm-check-updates to update package.json to latest compatible versions

@@ -7,13 +7,13 @@
   },
   "dependencies": {
     "next": "latest",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
-    "@types/react": "^18.0.14",
-    "@types/react-dom": "^18.0.5",
-    "typescript": "^4.7.4"
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
   }
 }

@@ -1,0 +1,45 @@
+VERSION 0.8
+FROM node:24.9.0-alpine3.22
+WORKDIR /app
+
+# deps Install dependencies for next.js application
+deps:
+    # Install project dependencies
+    COPY package.json package-lock.json ./
+    RUN npm install --legacy-peer-deps
+    RUN npx next telemetry disable
+    SAVE ARTIFACT ./node_modules node_modules/ AS LOCAL ./
+
+# build Build next.js application
+build:
+    FROM +deps
+    # Copy files and directories required for building
+    COPY next-env.d.ts styles.module.css tsconfig.json ./
+    COPY --dir pages ./
+    # Build using Next.js
+    RUN npm run build
+    SAVE ARTIFACT ./.next .next/ AS LOCAL ./
+
+# image Create a Docker image for the Next.js application
+image:
+    FROM +deps
+    COPY +build/.next/ ./
+    COPY +deps/node_modules/ ./
+    CMD ["npm", "run", "start"]
+    RUN echo "To run the image: docker run -p 3000:3000 nextjs-app:latest"
+    SAVE IMAGE nextjs-app:latest
+
+# upgrade-deps Update dependencies to latest compatible versions and persist lockfile
+upgrade-deps:
+    FROM node:24.9.0-alpine3.22
+    WORKDIR /app
+    # Copy the current manifests
+    COPY package.json package-lock.json ./
+    # Use npm-check-updates to update package.json to latest compatible versions
+    RUN npm install -g npm-check-updates
+    RUN npx npm-check-updates -u
+    # Install updated deps which produces an updated package-lock.json
+    RUN npm install --legacy-peer-deps
+    # Save the updated manifests back to the local workspace
+    SAVE ARTIFACT ./package.json package.json AS LOCAL ./
+    SAVE ARTIFACT ./package-lock.json package-lock.json AS LOCAL ./

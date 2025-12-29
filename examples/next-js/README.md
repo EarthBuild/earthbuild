@@ -28,7 +28,7 @@ earthly +build
 
 Run development server:
 
-```bash
+Run production server:
 earthly +image
 docker run -p 3000:3000 nextjs-app:latest
 ```

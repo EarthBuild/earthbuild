@@ -7,6 +7,7 @@ For this example, we are using the [basic-css](https://github.com/vercel/next.js
 This is a minimal Next.js example using Earthly to build the project.
 
 Files of interest:
+
 - `pages/index.tsx` — simple Hello World page
 - `styles.module.css` — basic styling
 - `package.json` — includes `dev`, `build`, and `start` scripts
@@ -26,9 +27,9 @@ Or build using Earthly (the `build` target runs `npm run build` and caches artif
 earthly +build
 ```
 
-Run development server:
-
 Run production server:
+
+```bash
 earthly +image
 docker run -p 3000:3000 nextjs-app:latest
 ```

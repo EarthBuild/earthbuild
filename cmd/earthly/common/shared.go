@@ -100,7 +100,7 @@ func GetBinaryName() string {
 }
 
 func PromptInput(ctx context.Context, question string) (string, error) {
-	fmt.Printf("%s", question)
+	fmt.Print(question)
 	var line string
 	var readErr error
 	ch := make(chan struct{})

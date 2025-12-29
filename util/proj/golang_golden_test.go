@@ -68,6 +68,8 @@ func colorDiff(s string) string {
 }
 
 func matchGolden(t *testing.T, actualBytes []byte, path string) {
+	t.Helper()
+
 	goldenBytes := goldenFile(t, path)
 	golden := string(goldenBytes)
 	actual := string(actualBytes)
@@ -77,6 +79,8 @@ func matchGolden(t *testing.T, actualBytes []byte, path string) {
 }
 
 func TestGolang_Targets_Base(t *testing.T) {
+	t.Parallel()
+
 	buf := bytes.NewBufferString(version)
 	g := proj.NewGolang(proj.StdFS(), proj.StdExecer())
 
@@ -101,6 +105,8 @@ func TestGolang_Targets_Base(t *testing.T) {
 }
 
 func TestGolang_Targets_Named(t *testing.T) {
+	t.Parallel()
+
 	buf := bytes.NewBufferString(version)
 	g := proj.NewGolang(proj.StdFS(), proj.StdExecer())
 

@@ -11,6 +11,8 @@ import (
 
 // TestTempEarthlyOutDir tests that tempEarthlyOutDir always returns the same directory.
 func TestTempEarthlyOutDir(t *testing.T) {
+	t.Parallel()
+
 	b, _ := NewBuilder(context.Background(), Opt{
 		CleanCollection: cleanup.NewCollection(),
 	})

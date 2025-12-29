@@ -7,6 +7,8 @@ import (
 )
 
 func TestBuildArgMatrix(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in  []string
 		out [][]string

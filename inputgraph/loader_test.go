@@ -8,6 +8,8 @@ import (
 )
 
 func Test_containsShellExpr(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		desc string
 		val  string
@@ -37,6 +39,8 @@ func Test_containsShellExpr(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
+			t.Parallel()
+
 			got := containsShellExpr(c.val)
 			require.Equal(t, c.want, got)
 		})
@@ -44,6 +48,8 @@ func Test_containsShellExpr(t *testing.T) {
 }
 
 func Test_evalConditions(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		val  string
 		want [2]bool
@@ -168,6 +174,8 @@ func Test_evalConditions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.val, func(t *testing.T) {
+			t.Parallel()
+
 			v := strings.Fields(c.val)
 			got, ok := evalConditions(v)
 			require.Equal(t, c.want, [2]bool{got, ok})

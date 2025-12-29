@@ -20,6 +20,8 @@ const (
 )
 
 func TestGolang(t *testing.T) {
+	t.Parallel()
+
 	type testCtx struct {
 		*testing.T
 		ctx    context.Context
@@ -33,6 +35,8 @@ func TestGolang(t *testing.T) {
 	}
 
 	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
+		t.Helper()
+
 		fs := newMockFS(t, mockTimeout)
 		exec := newMockExecer(t, mockTimeout)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)

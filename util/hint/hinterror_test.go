@@ -10,7 +10,11 @@ import (
 var internal = errors.New("internal")
 
 func TestWrapf(t *testing.T) {
+	t.Parallel()
+
 	t.Run("without args", func(t *testing.T) {
+		t.Parallel()
+
 		res := Wrapf(internal, "some hint")
 		assert.Equal(t, &Error{
 			err:   internal,
@@ -18,6 +22,8 @@ func TestWrapf(t *testing.T) {
 		}, res)
 	})
 	t.Run("with args", func(t *testing.T) {
+		t.Parallel()
+
 		res := Wrapf(internal, "some hint with arg %s", "my-arg")
 		assert.Equal(t, &Error{
 			err:   internal,
@@ -27,7 +33,11 @@ func TestWrapf(t *testing.T) {
 }
 
 func TestWrap(t *testing.T) {
+	t.Parallel()
+
 	t.Run("with one hint", func(t *testing.T) {
+		t.Parallel()
+
 		res := Wrap(internal, "some hint")
 		assert.Equal(t, &Error{
 			err:   internal,
@@ -35,6 +45,8 @@ func TestWrap(t *testing.T) {
 		}, res)
 	})
 	t.Run("with multiple hints", func(t *testing.T) {
+		t.Parallel()
+
 		res := Wrap(internal, "some hint", "another hint")
 		assert.Equal(t, &Error{
 			err:   internal,
@@ -44,23 +56,33 @@ func TestWrap(t *testing.T) {
 }
 
 func TestReceivers(t *testing.T) {
+	t.Parallel()
+
 	err := Wrap(internal, "some hint", "another hint")
 
 	t.Run("test Error", func(t *testing.T) {
+		t.Parallel()
+
 		assert.Equal(t, "internal:Hint: some hint\nanother hint\n", err.Error())
 	})
 
 	t.Run("test Message", func(t *testing.T) {
+		t.Parallel()
+
 		assert.Equal(t, "internal", err.(*Error).Message())
 	})
 
 	t.Run("test Hint", func(t *testing.T) {
+		t.Parallel()
+
 		assert.Equal(t, "internal", err.(*Error).Message())
 		assert.Equal(t, "some hint\nanother hint\n", err.(*Error).Hint())
 	})
 }
 
 func TestFromError(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		err                 error
 		expectedErr         *Error

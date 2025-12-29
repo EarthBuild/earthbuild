@@ -9,6 +9,8 @@ import (
 )
 
 func TestRemoveFromFromArgs(t *testing.T) {
+	t.Parallel()
+
 	for _, testCase := range []struct {
 		args     []string
 		remove   []string

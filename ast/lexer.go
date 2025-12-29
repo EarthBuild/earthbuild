@@ -126,7 +126,7 @@ func (l *lexer) NextToken() antlr.Token {
 
 	if l.debug {
 		if modeBefore >= 0 {
-			fmt.Printf("%s", parser.GetLexerModeNames()[modeBefore])
+			fmt.Print(parser.GetLexerModeNames()[modeBefore])
 		}
 		mode := l.getMode()
 		if mode >= 0 && peek.GetTokenType() > 0 {

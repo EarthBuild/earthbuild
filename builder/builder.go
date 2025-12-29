@@ -170,7 +170,7 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 	}
 
 	if err := caps.Supports(pb.CapEarthlyRegistryProxy); err != nil {
-		cons.Printf("%s", err.Error())
+		cons.Print(err.Error())
 		return nil, false
 	}
 
@@ -779,17 +779,17 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 
 	for _, artifactEntry := range exportCoordinator.GetArtifactSummary() {
 		console := b.opt.Console.WithPrefixAndSalt(artifactEntry.Target, artifactEntry.Salt)
-		targetStr := console.PrefixColor().Sprintf("%s", artifactEntry.Target)
+		targetStr := console.PrefixColor().Sprint(artifactEntry.Target)
 		outputConsole.Printf("Artifact %s output as %s\n", targetStr, artifactEntry.Path)
 	}
 	for _, outputEntry := range exportCoordinator.GetLocalOutputSummary() {
 		console := b.opt.Console.WithPrefixAndSalt(outputEntry.Target, outputEntry.Salt)
-		targetStr := console.PrefixColor().Sprintf("%s", outputEntry.Target)
+		targetStr := console.PrefixColor().Sprint(outputEntry.Target)
 		outputConsole.Printf("Image %s output as %s\n", targetStr, outputEntry.DockerTag)
 	}
 	for _, pushEntry := range exportCoordinator.GetPushedImageSummary() {
 		console := b.opt.Console.WithPrefixAndSalt(pushEntry.Target, pushEntry.Salt)
-		targetStr := console.PrefixColor().Sprintf("%s", pushEntry.Target)
+		targetStr := console.PrefixColor().Sprint(pushEntry.Target)
 		if pushEntry.Pushed {
 			pushConsole.Printf("Pushed image %s as %s\n", targetStr, pushEntry.DockerTag)
 		} else {

@@ -57,7 +57,7 @@ func (app *EarthlyApp) unhideFlags() error {
 	var err error
 	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" { // TODO delete this check after 2022-03-01
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
-		app.BaseCLI.Console().Warnf("%s", "Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
+		app.BaseCLI.Console().Warn("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
 	}
 	showHidden := false
 	showHiddenStr := os.Getenv("EARTHLY_SHOW_HIDDEN")
@@ -169,7 +169,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			hintErr.Hint(),
 			hintErr.Message(),
 		)
-		app.BaseCLI.Console().HelpPrintf("%s", hintErr.Hint())
+		app.BaseCLI.Console().HelpPrint(hintErr.Hint())
 		return 1
 	case errors.As(err, &autoSkipErr):
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -187,14 +187,14 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			paramsErr.ParentError(),
 		)
 		if paramsErr.Error() != paramsErr.ParentError() {
-			app.BaseCLI.Console().VerboseWarnf("%s", errorWithPrefix(paramsErr.Error()))
+			app.BaseCLI.Console().VerboseWarn(errorWithPrefix(paramsErr.Error()))
 		}
 		return 1
 	case qemuExitCodeRegex.MatchString(err.Error()):
 		var helpMsg string
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
 			"For more information see https://docs.earthly.dev/guides/multi-platform\n"
-		app.BaseCLI.Console().HelpPrintf("%s", helpMsg)
+		app.BaseCLI.Console().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_OTHER,
@@ -210,7 +210,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			args = stringutil.FilterElementsFromList(args, "--ci")
 			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
 			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
-			app.BaseCLI.Console().HelpPrintf("%s", helpMsg)
+			app.BaseCLI.Console().HelpPrint(helpMsg)
 		}
 		// This error would have been displayed earlier from the SolverMonitor.
 		// This SetGenericFatalError is a catch-all just in case that hasn't happened.
@@ -229,7 +229,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			helpMsg,
 			err.Error(),
 		)
-		app.BaseCLI.Console().HelpPrintf("%s", helpMsg)
+		app.BaseCLI.Console().HelpPrint(helpMsg)
 		return 9
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
 		helpMsg := "Check your git auth settings.\n" +
@@ -247,7 +247,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		} else {
 			app.BaseCLI.Console().VerboseWarnf("Error: %v\n", err.Error())
 		}
-		app.BaseCLI.Console().HelpPrintf("%s", helpMsg)
+		app.BaseCLI.Console().HelpPrint(helpMsg)
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
 		matches := notFoundRegex.FindStringSubmatch(err.Error())
@@ -275,7 +275,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		helpMsg := fmt.Sprintf("%s responded with a rate limit error. This is usually because you are not logged in.\n"+
 			"You can login using the command:\n"+
 			"  docker login%s", registryName, registryHost)
-		app.BaseCLI.Console().HelpPrintf("%s", helpMsg)
+		app.BaseCLI.Console().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_RATE_LIMITED,
@@ -289,17 +289,17 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		if len(matches["msg"]) > 0 {
 			errorMsg = matches["msg"][0]
 		}
-		app.BaseCLI.Console().VerboseWarnf("%s", err.Error())
+		app.BaseCLI.Console().VerboseWarn(err.Error())
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
 		return 1
 	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
-		app.BaseCLI.Console().VerboseWarnf("%s", errorWithPrefix(err.Error()))
+		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
 		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. Verify your account to lift this restriction."
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
-		app.BaseCLI.Console().HelpPrintf("%s", helpMsg)
+		app.BaseCLI.Console().HelpPrint(helpMsg)
 		return 1
 	case grpcErrOK && grpcErr.Code() != codes.Canceled:
-		app.BaseCLI.Console().VerboseWarnf("%s", errorWithPrefix(err.Error()))
+		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
 		if !strings.Contains(grpcErr.Message(), "transport is closing") {
 			app.BaseCLI.Logbus().Run().SetGenericFatalError(
 				time.Now(),
@@ -315,8 +315,8 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			grpcErr.Message(),
 		)
-		app.BaseCLI.Console().Warnf("%s",
-			"Error: It seems that buildkitd is shutting down or it has crashed. "+
+		app.BaseCLI.Console().Warn(
+			"Error: It seems that buildkitd is shutting down or it has crashed. " +
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -329,8 +329,8 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			err.Error(),
 		)
-		app.BaseCLI.Console().Warnf("%s",
-			"Error: It seems that buildkitd is shutting down or it has crashed. "+
+		app.BaseCLI.Console().Warn(
+			"Error: It seems that buildkitd is shutting down or it has crashed. " +
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -344,8 +344,8 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
-			app.BaseCLI.Console().Warnf("%s",
-				"Error: It seems that buildkitd had an issue. "+
+			app.BaseCLI.Console().Warn(
+				"Error: It seems that buildkitd had an issue. " +
 					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			app.printCrashLogs(ctx)
 		}
@@ -355,7 +355,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		if app.BaseCLI.Flags().Verbose {
 			app.BaseCLI.Console().Warnf("Canceled: %v\n", err)
 		} else {
-			app.BaseCLI.Console().Warnf("%s", "Canceled\n")
+			app.BaseCLI.Console().Warn("Canceled\n")
 		}
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)

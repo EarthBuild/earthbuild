@@ -377,35 +377,55 @@ func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	fmt.Fprintf(w, "\n\n")
 }
 
-// Warnf prints a warning message in red to errWriter.
-func (cl ConsoleLogger) Warnf(format string, args ...interface{}) {
+// Warn prints a warning message in red to errWriter.
+func (cl ConsoleLogger) Warn(message string) {
 	c := cl.color(warnColor)
-	cl.colorPrintf(Warn, c, format, args...)
+	cl.colorPrint(Warn, c, message)
 }
 
-// VerboseWarnf prints a warning message in red to errWriter when verbose flag is set.
-func (cl ConsoleLogger) VerboseWarnf(format string, args ...interface{}) {
+// Warnf prints a formatted warning message in red to errWriter.
+func (cl ConsoleLogger) Warnf(format string, args ...interface{}) {
+	cl.Warn(fmt.Sprintf(format, args...))
+}
+
+// VerboseWarn prints a message in red to errWriter when verbose flag is set.
+func (cl ConsoleLogger) VerboseWarn(msg string) {
 	if cl.logLevel < Verbose {
 		return
 	}
-	cl.Warnf(format, args...)
+	cl.Warn(msg)
 }
 
-// HelpPrintf prints formatted text to the console with `Help:` prefix in a specific color.
+// VerboseWarnf prints a formatted message in red to errWriter when verbose flag is set.
+func (cl ConsoleLogger) VerboseWarnf(format string, args ...interface{}) {
+	cl.VerboseWarn(fmt.Sprintf(format, args...))
+}
+
+// HelpPrint prints message to the console with `Help:` prefix in a specific color.
+func (cl ConsoleLogger) HelpPrint(msg string) {
+	cl.ColorPrint(cl.color(helpColor), "\nHelp: "+msg+"\n")
+}
+
+// HelpPrintf prints formatted message to the console with `Help:` prefix in a specific color.
 func (cl ConsoleLogger) HelpPrintf(format string, args ...interface{}) {
-	cl.ColorPrintf(cl.color(helpColor), fmt.Sprintf("\nHelp: %s\n", format), args...)
+	cl.ColorPrintf(cl.color(helpColor), "\nHelp: "+format+"\n", args...)
 }
 
-// Printf prints formatted text to the console.
-func (cl ConsoleLogger) Printf(format string, args ...interface{}) {
+// Print prints message to the console.
+func (cl ConsoleLogger) Print(msg string) {
 	c := cl.color(noColor)
 	if cl.metadataMode {
 		c = cl.color(metadataModeColor)
 	}
-	cl.ColorPrintf(c, format, args...)
+	cl.ColorPrint(c, msg)
 }
 
-func (cl ConsoleLogger) colorPrintf(level LogLevel, c *color.Color, format string, args ...interface{}) {
+// Printf prints formatted message to the console.
+func (cl ConsoleLogger) Printf(format string, args ...interface{}) {
+	cl.Print(fmt.Sprintf(format, args...))
+}
+
+func (cl ConsoleLogger) colorPrint(level LogLevel, c *color.Color, msg string) {
 	if cl.logLevel < level {
 		return
 	}
@@ -416,9 +436,8 @@ func (cl ConsoleLogger) colorPrintf(level LogLevel, c *color.Color, format strin
 		cl.mu.Unlock()
 	}()
 
-	text := fmt.Sprintf(format, args...)
-	text = strings.TrimSuffix(text, "\n")
-	for _, line := range strings.Split(text, "\n") {
+	msg = strings.TrimSuffix(msg, "\n")
+	for line := range strings.SplitSeq(msg, "\n") {
 		cl.printPrefix(w)
 		c.Fprintf(w, "%s", line) // #nosec G104
 
@@ -427,8 +446,14 @@ func (cl ConsoleLogger) colorPrintf(level LogLevel, c *color.Color, format strin
 	}
 }
 
+// ColorPrint prints message to the console in a specific color.
+func (cl ConsoleLogger) ColorPrint(c *color.Color, msg string) {
+	cl.colorPrint(Info, c, msg)
+}
+
+// ColorPrintf prints formatted message to the console in a specific color.
 func (cl ConsoleLogger) ColorPrintf(c *color.Color, format string, args ...interface{}) {
-	cl.colorPrintf(Info, c, format, args...)
+	cl.colorPrint(Info, c, fmt.Sprintf(format, args...))
 }
 
 // PrintBytes prints bytes directly to the console.
@@ -475,12 +500,17 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 	}
 }
 
-// VerbosePrintf prints formatted text to the console when verbose flag is set.
-func (cl ConsoleLogger) VerbosePrintf(format string, args ...interface{}) {
+// VerbosePrint prints a message to the console when verbose flag is set.
+func (cl ConsoleLogger) VerbosePrint(msg string) {
 	if cl.logLevel < Verbose {
 		return
 	}
-	cl.WithMetadataMode(true).Printf(format, args...)
+	cl.WithMetadataMode(true).Print(msg)
+}
+
+// VerbosePrintf prints formatted message to the console when verbose flag is set.
+func (cl ConsoleLogger) VerbosePrintf(format string, args ...interface{}) {
+	cl.VerbosePrint(fmt.Sprintf(format, args...))
 }
 
 // VerboseBytes prints bytes directly to the console when verbose flag is set.
@@ -491,7 +521,7 @@ func (cl ConsoleLogger) VerboseBytes(data []byte) {
 	cl.WithMetadataMode(true).PrintBytes(data)
 }
 
-// DebugPrintf prints formatted text to the console when debug flag is set.
+// DebugPrintf prints formatted message to the console when debug flag is set.
 func (cl ConsoleLogger) DebugPrintf(format string, args ...interface{}) {
 	if cl.logLevel < Debug {
 		return

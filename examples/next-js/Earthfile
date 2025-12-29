@@ -7,7 +7,6 @@ deps:
     COPY package.json package-lock.json ./
     RUN npm install --legacy-peer-deps \
       && npx next telemetry disable
-    SAVE ARTIFACT ./node_modules node_modules/ AS LOCAL ./
 
 # build Build next.js application
 build:

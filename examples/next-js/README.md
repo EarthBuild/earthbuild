@@ -4,8 +4,6 @@ This page will walk you through an example of how to build a Next.js hello world
 
 For this example, we are using the [basic-css](https://github.com/vercel/next.js/tree/canary/examples/basic-css) Next.js example that is included in [Vercel's Next.js repository](https://github.com/vercel/next.js).
 
-This example has two files that contain all of the code and CSS for this site.
-
 This is a minimal Next.js example using Earthly to build the project.
 
 Files of interest:

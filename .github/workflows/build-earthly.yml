@@ -65,7 +65,7 @@ jobs:
       - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} $(which earthly) config global.buildkit_additional_config "'[registry.\"docker.io\"]
-          mirrors = [\"mirror.gcr.io\"]'"
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin

@@ -103,7 +103,7 @@ done
 # Yes, there is a bug in the upstream YAML parser. Sorry about the jank here.
 # https://github.com/go-yaml/yaml/issues/423
 "$earthly" config global.buildkit_additional_config "'[registry.\"docker.io\"]
- mirrors = [\"mirror.gcr.io\"]'"
+ mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
 
 # setup secrets
 set +x # dont echo secrets

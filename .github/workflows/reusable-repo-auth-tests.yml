@@ -32,11 +32,6 @@ jobs:
     name: repo auth tests
     if: ${{ !inputs.SKIP_JOB && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ${{inputs.RUNS_ON}}
-    services:
-      sshd:
-        image: rastasheep/ubuntu-sshd:18.04
-        ports:
-          - 2222:22
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -56,6 +51,8 @@ jobs:
           BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
+      - name: Start SSHD container
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} run -d -p 2222:22 --name sshd rastasheep/ubuntu-sshd:18.04
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -71,6 +68,7 @@ jobs:
         run: env earthly=${{inputs.BUILT_EARTHLY_PATH}} scripts/tests/auth/test-hello-world-with-non-authorized-key.sh
       - name: run test-self-hosted.sh
         run: env earthly=${{inputs.BUILT_EARTHLY_PATH}} frontend=${{inputs.BINARY}} scripts/tests/auth/test-self-hosted.sh
+        timeout-minutes: 10
 # auto-generated-entries end
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}

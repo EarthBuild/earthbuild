@@ -86,6 +86,20 @@ runs:
         BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
         echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
         echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
+    - name: Set up Docker Hub Mirrors
+      if: inputs.BINARY == 'docker'
+      run: |
+        sudo mkdir -p /etc/docker
+        cat <<EOF | sudo tee /etc/docker/daemon.json
+        {
+          "registry-mirrors": [
+            "https://mirror.gcr.io",
+            "https://public.ecr.aws"
+          ]
+        }
+        EOF
+        sudo systemctl restart docker
+      shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
       uses: docker/login-action@v3
@@ -108,11 +122,32 @@ runs:
       with:
         go-version: '1.25.5'
     - if: ${{ inputs.BINARY == 'podman' }}
-      run: |-
-        echo "Setting up podman"
-        ${{inputs.SUDO}} apt-get purge docker-engine docker docker.io docker-ce docker-ce-cli ; ${{inputs.SUDO}} rm -f /usr/bin/docker
-        ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
-        podman version && podman info && podman info --debug
+      name: Set up Podman
+      run: |
+        # Remove pre-installed Docker to avoid conflicts
+        ${{inputs.SUDO}} apt-get purge -y docker-engine docker docker.io docker-ce docker-ce-cli
+        ${{inputs.SUDO}} rm -f /usr/bin/docker
+
+        ${{inputs.SUDO}} apt-get update
+        ${{inputs.SUDO}} apt-get install -y podman
+
+        # Create the config directory (system-wide)
+        ${{inputs.SUDO}} mkdir -p /etc/containers/
+
+        # Write the config using 'tee' to handle sudo permissions
+        cat <<EOF | ${{inputs.SUDO}} tee /etc/containers/registries.conf
+        unqualified-search-registries = ["docker.io"]
+
+        [[registry]]
+        prefix = "docker.io"
+        location = "docker.io"
+
+        [[registry.mirror]]
+        location = "mirror.gcr.io"
+
+        [[registry.mirror]]
+        location = "public.ecr.aws"
+        EOF
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets
@@ -135,7 +170,7 @@ runs:
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
         ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
-        mirrors = [\"mirror.gcr.io\"]'"
+        mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-

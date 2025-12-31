@@ -65,7 +65,7 @@ func ParseOpts(ctx context.Context, from FromOpt, opts ...Opt) (spec.Earthfile, 
 	if err != nil {
 		return spec.Earthfile{}, err
 	}
-	ef, walkErr := walkTree(newListener(ctx, stream, prefs.reader.Name(), prefs.enableSourceMap), tree)
+	ef, walkErr := walkTree(newListener(stream, prefs.reader.Name(), prefs.enableSourceMap), tree)
 	if len(errorListener.Errs) > 0 {
 		errString := []string{"lexer error: " + prefs.reader.Name()}
 		for _, err := range errorListener.Errs {

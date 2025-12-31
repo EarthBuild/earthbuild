@@ -63,7 +63,6 @@ linters:
     - recvcheck
     - revive
     - staticcheck
-    - tagalign
     - tagliatelle
     - testifylint
     - testpackage

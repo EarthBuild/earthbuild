@@ -1,6 +1,6 @@
 # Next.js Example
 
-This page will walk you through an example of how to build a Next.js hello world website using Earthly.
+This page will walk you through an example of how to build a Next.js hello world website using EarthBuild.
 
 For this example, we are using the [basic-css](https://github.com/vercel/next.js/tree/canary/examples/basic-css) Next.js example that is included in [Vercel's Next.js repository](https://github.com/vercel/next.js).
 

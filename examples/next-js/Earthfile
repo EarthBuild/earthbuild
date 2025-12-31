@@ -1,0 +1,52 @@
+VERSION 0.8
+FROM node:24.9.0-alpine3.22
+WORKDIR /app
+
+# deps Install project dependencies for next.js application
+deps:
+    COPY package.json package-lock.json ./
+    RUN npm install --legacy-peer-deps \
+      && npx next telemetry disable
+
+# build Build next.js application
+build:
+    FROM +deps
+    # Copy files and directories required for building
+    COPY next.config.js next-env.d.ts styles.module.css tsconfig.json ./
+    COPY --dir pages ./
+    # Build using Next.js
+    RUN npm run build
+    # Save the standalone server output and static assets so other stages can COPY them
+    SAVE ARTIFACT ./.next/standalone .next/standalone
+    SAVE ARTIFACT ./.next/static .next/static
+
+# image Create a Docker image for the Next.js application
+image:
+    # Copy the standalone server output and static assets
+    COPY +build/.next/standalone ./
+    COPY +build/.next/static ./static/
+    # Also copy package.json so the standalone server can read metadata
+    COPY package.json ./
+    # Expose the default Next.js port and run the standalone server
+    EXPOSE 3000
+    CMD ["node", "server.js"]
+    # Check app dir size is not surprisingly large
+    RUN LIMIT=$((100 * 1024 * 1024)) && \
+      SIZE=$(du -sb /app 2>/dev/null | awk '{print $1}') && \
+      [ "$SIZE" -lt "$LIMIT" ] || { echo "/app dir unexpectedly large: $SIZE bytes > $LIMIT"; exit 1; }
+    RUN echo "To run the image: docker run -p 3000:3000 nextjs-app:latest"
+    SAVE IMAGE nextjs-app:latest
+
+# upgrade-deps Update dependencies to latest compatible versions and persist lockfile
+upgrade-deps:
+
+    COPY package.json package-lock.json ./
+    # Use npm-check-updates to update package.json to latest compatible versions
+    RUN npm install -g npm-check-updates \
+     && npx npm-check-updates -u \
+     && npm install --legacy-peer-deps \
+     && npm audit fix
+
+    # Save the updated manifests back to the local workspace
+    SAVE ARTIFACT ./package.json package.json AS LOCAL ./
+    SAVE ARTIFACT ./package-lock.json package-lock.json AS LOCAL ./

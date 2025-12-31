@@ -119,7 +119,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		if err != nil {
 			return nil, err
 		}
-		host = string(output.string())
+		host = output.string()
 	}
 
 	return &FrontendInfo{
@@ -202,7 +202,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 
 	idx := strings.Index(output.string(), "Local Volumes space usage:")
 	val := output.string()[idx:]
-	lines := strings.Split(string(val), "\n")[3:]
+	lines := strings.Split(val, "\n")[3:]
 	results := map[string]*VolumeInfo{}
 
 	for _, line := range lines {
@@ -231,7 +231,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 				results[volumeName] = &VolumeInfo{
 					Name:       volumeName,
 					SizeBytes:  bytes,
-					Mountpoint: string(mountpoint.string()),
+					Mountpoint: mountpoint.string(),
 				}
 				break
 			}

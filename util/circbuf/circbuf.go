@@ -18,7 +18,7 @@ func NewBuffer(maxSize int) (*Buffer, error) {
 		return nil, errors.New("size must be a positive int")
 	}
 	return &Buffer{
-		maxSize: int(maxSize),
+		maxSize: maxSize,
 	}, nil
 }
 

@@ -67,7 +67,6 @@ linters:
     - tagliatelle
     - testifylint
     - testpackage
-    - unconvert
     - usetesting
     - varnamelen
     - wastedassign

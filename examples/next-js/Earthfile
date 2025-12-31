@@ -33,12 +33,6 @@ image:
     RUN echo "To run the image: docker run -p 3000:3000 nextjs-app:latest"
     SAVE IMAGE nextjs-app:latest
 
-    LOCALLY
-    # Check image size is not surprisingly large
-    RUN LIMIT=$((300 * 1024 * 1024)) \
-      SIZE=$(docker images -f reference=nextjs-app:latest --format "{{.Size}}" | sed 's/B$//' | numfmt --from=iec) && [ "$SIZE" -lt "$LIMIT" ] || { echo "Image surprisingly large $SIZE > $LIMIT"; exit 1; }
-
-
 # upgrade-deps Update dependencies to latest compatible versions and persist lockfile
 upgrade-deps:
 

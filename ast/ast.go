@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"context"
 	"io"
 	"strings"
 
@@ -14,17 +13,17 @@ import (
 )
 
 // Parse parses an earthfile into an AST.
-func Parse(ctx context.Context, filePath string, enableSourceMap bool) (ef spec.Earthfile, err error) {
+func Parse(filePath string, enableSourceMap bool) (ef spec.Earthfile, err error) {
 	var opts []Opt
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
 	}
-	return ParseOpts(ctx, FromPath(filePath), opts...)
+	return ParseOpts(FromPath(filePath), opts...)
 }
 
 // ParseOpts parses an earthfile into an AST. This is the functional option
 // version, which uses option functions to change how a file is parsed.
-func ParseOpts(ctx context.Context, from FromOpt, opts ...Opt) (spec.Earthfile, error) {
+func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}

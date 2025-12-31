@@ -5,7 +5,10 @@
       "Bash(go run:*)",
       "Bash(golangci-lint run:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gh pr view:*)",
+      "Bash(grep:*)",
+      "Bash(earthly +earthly-linux-amd64:*)"
     ]
   }
 }

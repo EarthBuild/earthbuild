@@ -65,7 +65,6 @@ linters:
     - staticcheck
     - tagalign
     - tagliatelle
-    - testifylint
     - testpackage
     - unconvert
     - usetesting

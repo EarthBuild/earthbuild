@@ -53,7 +53,7 @@ func TestNamedGroupMatches(t *testing.T) {
 			mapRes, sliceRes := NamedGroupMatches(tc.s, tc.re)
 			assert.Equal(t, tc.expectedMap, mapRes)
 			assert.Equal(t, tc.expectedSlice, sliceRes)
-			assert.Equal(t, len(mapRes), len(sliceRes))
+			assert.Len(t, sliceRes, len(mapRes))
 		})
 	}
 }

@@ -24,7 +24,7 @@ npm run start
 Or build using Earthly (the `build` target runs `npm run build` and caches artifacts):
 
 ```bash
-earthly +build
+earth +build
 ```
 
 Run production server:

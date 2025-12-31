@@ -182,7 +182,7 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
 
-	var tarPaths []string
+	tarPaths := make([]string, 0, len(w.tarLoads))
 	for index, tl := range w.tarLoads {
 		loadDir := fmt.Sprintf("/var/earthbuild/load-%d", index)
 		crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(loadDir, tl.state, llb.Readonly))

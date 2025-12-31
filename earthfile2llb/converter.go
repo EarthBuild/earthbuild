@@ -2172,10 +2172,11 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	runOpts = append(runOpts, llb.WithCustomNamef("%s%s", prefix, commandStr))
 
-	var extraEnvVars []string
+	sorted := c.varCollection.SortedVariables(variables.WithActive())
+	extraEnvVars := make([]string, 0, len(sorted))
 
 	// Build args.
-	for _, buildArgName := range c.varCollection.SortedVariables(variables.WithActive()) {
+	for _, buildArgName := range sorted {
 		ba, _ := c.varCollection.Get(buildArgName, variables.WithActive())
 		extraEnvVars = append(extraEnvVars, fmt.Sprintf("%s=%s", buildArgName, shellescape.Quote(ba)))
 	}

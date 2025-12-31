@@ -73,7 +73,7 @@ func GlobDirs(pattern string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to expand glob path %q", pattern)
 	}
-	var ret []string
+	ret := make([]string, 0, len(matches))
 	for _, match := range matches {
 		st, err := os.Stat(match)
 		if err != nil {

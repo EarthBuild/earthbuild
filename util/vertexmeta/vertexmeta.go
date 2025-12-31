@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -90,11 +90,11 @@ func (vm *VertexMeta) OverridingArgsString() string {
 	if vm.OverridingArgs == nil {
 		return ""
 	}
-	var args []string
+	args := make([]string, 0, len(vm.OverridingArgs))
 	for k, v := range vm.OverridingArgs {
-		args = append(args, fmt.Sprintf("%s=%s", k, v))
+		args = append(args, k+"="+v)
 	}
-	sort.Strings(args)
+	slices.Sort(args)
 	return strings.Join(args, " ")
 }
 

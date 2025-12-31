@@ -12,7 +12,7 @@ func ProcessParamsAndQuotes(args []string) []string {
 		'(':  ')',
 	}
 	ret := make([]string, 0, len(args))
-	var newArg []rune
+	newArg := make([]rune, 0, len(args))
 	for _, arg := range args {
 		for _, char := range arg {
 			newArg = append(newArg, char)

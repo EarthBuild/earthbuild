@@ -119,7 +119,7 @@ func All(ctx context.Context, dir string) ([]Project, error) {
 	known := []ProjectType{
 		NewGolang(StdFS(), StdExecer()),
 	}
-	var active []Project
+	active := make([]Project, 0, len(known))
 	for _, proj := range known {
 		forDir, err := proj.ForDir(ctx, dir)
 		if errors.Is(err, ErrSkip) {

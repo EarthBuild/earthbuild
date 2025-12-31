@@ -30,6 +30,10 @@ image:
     # Expose the default Next.js port and run the standalone server
     EXPOSE 3000
     CMD ["node", "server.js"]
+    # Check app dir size is not surprisingly large
+    RUN LIMIT=$((100 * 1024 * 1024)) && \
+      SIZE=$(du -sb /app 2>/dev/null | awk '{print $1}') && \
+      [ "$SIZE" -lt "$LIMIT" ] || { echo "/app dir unexpectedly large: $SIZE bytes > $LIMIT"; exit 1; }
     RUN echo "To run the image: docker run -p 3000:3000 nextjs-app:latest"
     SAVE IMAGE nextjs-app:latest
 

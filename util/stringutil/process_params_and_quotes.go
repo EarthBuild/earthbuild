@@ -23,7 +23,6 @@ func ProcessParamsAndQuotes(args []string) []string {
 				}
 			} else if openQuote == '"' && ch == '"' || openQuote == '\'' && ch == '\'' || openQuote == '(' && ch == ')' {
 				openQuote = 0
-
 			}
 		}
 

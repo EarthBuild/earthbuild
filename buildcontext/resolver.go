@@ -165,7 +165,7 @@ func (r *Resolver) Resolve(ctx context.Context, gwClient gwclient.Client, platr 
 func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
 	path = filepath.Clean(path)
 	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k interface{}) (interface{}, error) {
-		return ast.Parse(ctx, k.(string), true)
+		return ast.Parse(k.(string), true)
 	})
 	if err != nil {
 		return spec.Earthfile{}, err

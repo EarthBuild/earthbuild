@@ -8,23 +8,26 @@ import "strings"
 // For example "hello ", "wor(", "ld)" becomes "hello ", "wor( ld)".
 func ProcessParamsAndQuotes(args []string) []string {
 	var (
-		open   bool
-		sb     strings.Builder
-		merged = make([]string, 0, len(args))
+		openQuote rune
+		sb        strings.Builder
+		merged    = make([]string, 0, len(args))
 	)
 
 	for i, arg := range args {
 		sb.WriteString(arg)
 
 		for _, ch := range arg {
-			if open {
-				open = ch != '"' && ch != '\'' && ch != ')'
-			} else {
-				open = ch == '"' || ch == '\'' || ch == '('
+			if openQuote == 0 {
+				if ch == '"' || ch == '\'' || ch == '(' {
+					openQuote = ch
+				}
+			} else if openQuote == '"' && ch == '"' || openQuote == '\'' && ch == '\'' || openQuote == '(' && ch == ')' {
+				openQuote = 0
+
 			}
 		}
 
-		if !open {
+		if openQuote == 0 {
 			merged = append(merged, sb.String())
 			sb.Reset()
 			continue
@@ -38,7 +41,7 @@ func ProcessParamsAndQuotes(args []string) []string {
 		}
 	}
 
-	if open {
+	if openQuote != 0 {
 		// Unterminated quote case.
 		merged = append(merged, sb.String())
 	}

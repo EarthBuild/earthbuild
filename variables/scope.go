@@ -102,7 +102,7 @@ func (s *Scope) Map(opts ...ScopeOpt) map[string]string {
 // Keys returns a sorted list of variable names in this Scope.
 func (s *Scope) Sorted(opts ...ScopeOpt) []string {
 	opt := applyOpts(opts...)
-	sorted := make([]string, 0, len(opts))
+	sorted := make([]string, 0, len(s.variables))
 	for k := range s.variables {
 		if opt.active && !s.activeVariables[k] {
 			continue
@@ -117,7 +117,7 @@ func (s *Scope) Sorted(opts ...ScopeOpt) []string {
 // in originally at the CLI or in a BUILD command.
 func (s *Scope) BuildArgs(opts ...ScopeOpt) []string {
 	vars := s.Sorted(opts...)
-	args := make([]string, 0, len(opts))
+	args := make([]string, 0, len(vars))
 	for _, v := range vars {
 		val, _ := s.Get(v)
 		args = append(args, v+"="+val)

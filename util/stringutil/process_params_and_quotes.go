@@ -1,46 +1,45 @@
 package stringutil
 
+import "strings"
+
 // ProcessParamsAndQuotes takes in a slice of strings, and rearranges the slices
 // depending on quotes and parenthesis.
 //
 // For example "hello ", "wor(", "ld)" becomes "hello ", "wor( ld)".
 func ProcessParamsAndQuotes(args []string) []string {
-	curQuote := rune(0)
-	allowedQuotes := map[rune]rune{
-		'"':  '"',
-		'\'': '\'',
-		'(':  ')',
-	}
-	ret := make([]string, 0, len(args))
-	newArg := make([]rune, 0, len(args))
+	var (
+		open       bool
+		sb         strings.Builder
+		mergedArgs = make([]string, 0, len(args))
+	)
+
 	for _, arg := range args {
-		for _, char := range arg {
-			newArg = append(newArg, char)
-			if curQuote == 0 {
-				_, isQuote := allowedQuotes[char]
-				if isQuote {
-					curQuote = char
-				}
-				continue
-			}
-			if char == allowedQuotes[curQuote] {
-				curQuote = rune(0)
+		sb.WriteString(arg)
+
+		for _, ch := range arg {
+			if open {
+				open = ch != '"' && ch != '\'' && ch != ')'
+			} else {
+				open = ch == '"' || ch == '\'' || ch == '('
 			}
 		}
-		if curQuote == 0 {
-			ret = append(ret, string(newArg))
-			newArg = []rune{}
+
+		if !open {
+			mergedArgs = append(mergedArgs, sb.String())
+			sb.Reset()
 			continue
 		}
+
 		// Unterminated quote - join up two args into one.
 		// Add a space between joined-up args.
-		newArg = append(newArg, ' ')
-	}
-	if curQuote != 0 {
-		// Unterminated quote case.
-		newArg = newArg[:len(newArg)-1] // remove last space
-		ret = append(ret, string(newArg))
+		sb.WriteByte(' ')
 	}
 
-	return ret
+	if open {
+		// Unterminated quote case.
+		last := sb.String()
+		mergedArgs = append(mergedArgs, last[:len(last)-1]) // remove last space
+	}
+
+	return mergedArgs
 }

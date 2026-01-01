@@ -13,7 +13,7 @@ func ProcessParamsAndQuotes(args []string) []string {
 		merged = make([]string, 0, len(args))
 	)
 
-	for _, arg := range args {
+	for i, arg := range args {
 		sb.WriteString(arg)
 
 		for _, ch := range arg {
@@ -32,13 +32,15 @@ func ProcessParamsAndQuotes(args []string) []string {
 
 		// Unterminated quote - join up two args into one.
 		// Add a space between joined-up args.
-		sb.WriteByte(' ')
+
+		if i < len(args)-1 {
+			sb.WriteByte(' ')
+		}
 	}
 
 	if open {
 		// Unterminated quote case.
-		last := sb.String()
-		merged = append(merged, last[:len(last)-1]) // remove last space
+		merged = append(merged, sb.String())
 	}
 
 	return merged

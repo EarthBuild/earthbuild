@@ -8,9 +8,9 @@ import "strings"
 // For example "hello ", "wor(", "ld)" becomes "hello ", "wor( ld)".
 func ProcessParamsAndQuotes(args []string) []string {
 	var (
-		open       bool
-		sb         strings.Builder
-		mergedArgs = make([]string, 0, len(args))
+		open   bool
+		sb     strings.Builder
+		merged = make([]string, 0, len(args))
 	)
 
 	for _, arg := range args {
@@ -25,7 +25,7 @@ func ProcessParamsAndQuotes(args []string) []string {
 		}
 
 		if !open {
-			mergedArgs = append(mergedArgs, sb.String())
+			merged = append(merged, sb.String())
 			sb.Reset()
 			continue
 		}
@@ -38,8 +38,8 @@ func ProcessParamsAndQuotes(args []string) []string {
 	if open {
 		// Unterminated quote case.
 		last := sb.String()
-		mergedArgs = append(mergedArgs, last[:len(last)-1]) // remove last space
+		merged = append(merged, last[:len(last)-1]) // remove last space
 	}
 
-	return mergedArgs
+	return merged
 }

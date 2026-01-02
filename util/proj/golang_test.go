@@ -22,6 +22,7 @@ const (
 func TestGolang(t *testing.T) {
 	t.Parallel()
 
+	//nolint:containedctx // TODO(jhorsts): replace onpar with std testing
 	type testCtx struct {
 		*testing.T
 		ctx    context.Context

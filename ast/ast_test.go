@@ -1,7 +1,6 @@
 package ast_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -646,9 +645,8 @@ test:
 	for _, test := range tests {
 		t.Run(test.note, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
 			r := namedStringReader{strings.NewReader(test.earthfile)}
-			s, err := ast.ParseOpts(ctx, ast.FromReader(&r))
+			s, err := ast.ParseOpts(ast.FromReader(&r))
 			test.check(require.New(t), s, err)
 		})
 	}

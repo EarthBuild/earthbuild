@@ -64,7 +64,6 @@ linters:
     - staticcheck
     - tagliatelle
     - testpackage
-    - unconvert
     - usetesting
     - varnamelen
     - wastedassign

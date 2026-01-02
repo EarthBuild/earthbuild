@@ -50,7 +50,7 @@ func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, i
 	gc.AddMeta(refPrefix+"/"+exptypes.ExporterImageConfigKey, config)
 
 	if platformStr != nil {
-		gc.AddMeta(refPrefix+"/platform", []byte(platformStr))
+		gc.AddMeta(refPrefix+"/platform", platformStr)
 	}
 	return refPrefix, nil // TODO once all earthlyoutput-metadata-related code is moved into saveimageutil, change to "return err" only
 }

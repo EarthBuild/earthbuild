@@ -736,7 +736,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 	if err != nil {
 		return 0, errors.Wrap(err, "parse exit code as int")
 	}
-	return int(exitCode), err
+	return exitCode, err
 }
 
 // RunExpression runs an expression and returns its output. The run is transient - any state created

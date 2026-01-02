@@ -141,7 +141,7 @@ func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onIma
 					}
 					return onArtifact(ctx, indexStr, artifact, srcPath, destPath)
 				},
-				OutputPullCallback: pullping.PullCallback(onPullCallback),
+				OutputPullCallback: onPullCallback,
 				VerboseProgressCB:  progressCB.Verbose,
 			},
 		},

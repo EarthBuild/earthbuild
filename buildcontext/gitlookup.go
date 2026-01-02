@@ -393,7 +393,7 @@ func (gl *GitLookup) getGitMatcherByName(name string) *gitMatcher {
 }
 
 // detectProtocol will update the gitMatcher protocol if it is set to auto.
-func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err error) {
+func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol gitProtocol, err error) {
 	var ok bool
 	protocol, ok = gl.autoProtocols[host]
 	if ok {
@@ -407,7 +407,7 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 	}()
 
 	var d net.Dialer
-	sshAgent, err := d.DialContext(context.Background(), "unix", gl.sshAuthSock)
+	sshAgent, err := d.DialContext(ctx, "unix", gl.sshAuthSock)
 	if err != nil {
 		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https", gl.sshAuthSock, err.Error())
 		protocol = httpsProtocol
@@ -487,7 +487,7 @@ func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string,
 
 var errMakeCloneURLSubNotSupported = errors.New("makeCloneURL does not support gitMatcher substitution")
 
-func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL string, keyScans []string, sshCommand string, err error) {
+func (gl *GitLookup) makeCloneURL(ctx context.Context, m *gitMatcher, host, gitPath string) (gitURL string, keyScans []string, sshCommand string, err error) {
 	if m.sub != "" {
 		return "", nil, "", errMakeCloneURLSubNotSupported
 	}
@@ -496,7 +496,7 @@ func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL s
 	user := m.user
 	password := m.password
 	if configuredProtocol == autoProtocol {
-		configuredProtocol, err = gl.detectProtocol(host)
+		configuredProtocol, err = gl.detectProtocol(ctx, host)
 		if err != nil {
 			return "", nil, "", err
 		}
@@ -620,7 +620,7 @@ func parseGitProtocol(remote string) (string, int) {
 // Additionally a ssh keyscan might be returned (or an empty string indicating none was configured)
 // Also, a custom "git ssh command" may be returned. This is part of this function since the user may
 // specify a command necessary to clone their repository successfully.
-func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, keyScans []string, sshCommand string, err error) {
+func (gl *GitLookup) GetCloneURL(ctx context.Context, path string) (gitURL string, subPath string, keyScans []string, sshCommand string, err error) {
 	gl.mu.Lock()
 	defer gl.mu.Unlock()
 	match, m, err := gl.getGitMatcherByPath(path)
@@ -660,7 +660,7 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 		return gitURL, subPath, keyScans, sshCommand, nil
 	}
 
-	gitURL, keyScans, sshCommand, err = gl.makeCloneURL(m, host, gitPath)
+	gitURL, keyScans, sshCommand, err = gl.makeCloneURL(ctx, m, host, gitPath)
 	if err != nil {
 		return "", "", nil, "", err
 	}
@@ -672,7 +672,7 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 // and makes use of configured git credentials and protocol preferences to convert it into the appropriate
 // https or ssh protocol.
 // it also returns a keyScan and sshCommand.
-func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []string, sshCommand string, err error) {
+func (gl *GitLookup) ConvertCloneURL(ctx context.Context, inURL string) (gitURL string, keyScans []string, sshCommand string, err error) {
 	var host string
 	var gitPath string
 
@@ -729,7 +729,7 @@ func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []st
 		return gitURL, keyScans, m.sshCommand, nil
 	}
 
-	return gl.makeCloneURL(m, host,
+	return gl.makeCloneURL(ctx, m, host,
 		m.prefix+gitPath, // Note that inURL already contains the suffix
 	)
 }

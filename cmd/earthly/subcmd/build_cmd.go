@@ -424,7 +424,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 				return errors.New("interactive mode unavailable due to terminal not being tty")
 			}
 			debugTermConsole := a.cli.Console().WithPrefix("internal-term")
-			err := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole)
+			err := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole) //nolint:contextcheck
 			if err != nil {
 				return errors.Wrap(err, "interactive terminal")
 			}

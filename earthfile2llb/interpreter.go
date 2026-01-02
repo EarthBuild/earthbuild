@@ -1679,7 +1679,7 @@ func (i *Interpreter) handleGitClone(ctx context.Context, cmd spec.Command) erro
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand GIT CLONE dest: %s", opts.Branch)
 	}
 
-	convertedGitURL, _, sshCommand, err := i.gitLookup.ConvertCloneURL(gitURL)
+	convertedGitURL, _, sshCommand, err := i.gitLookup.ConvertCloneURL(ctx, gitURL)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "unable to use %v with configured earthly credentials from ~/.earthly/config.yml", cmd.Args)
 	}

@@ -54,7 +54,7 @@ func (app *EarthlyApp) Run(
 	}
 
 	code = helper.AutoComplete(ctx, app.BaseCLI)
-	if code > 0 {
+	if code >= 0 {
 		return code
 	}
 

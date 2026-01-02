@@ -20,7 +20,13 @@ import (
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
-// to enable autocomplete, enter
+// AutoComplete handles shell autocomplete requests.
+// If the COMP_LINE environment variable is not set, it returns -1 to indicate
+// that autocomplete is not being requested.
+// If COMP_LINE is set, it processes the autocomplete request and returns 0
+// on success or 1 on failure.
+//
+// To enable autocomplete, enter
 // complete -o nospace -C "/path/to/earthly" earthly
 //
 // Alternatively, you can run earthly with COMP_LINE and COMP_POINT set; for example:
@@ -30,7 +36,7 @@ import (
 func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 	_, found := os.LookupEnv("COMP_LINE")
 	if !found {
-		return
+		return -1
 	}
 
 	_, debugEnabled := os.LookupEnv("EARTHLY_AUTOCOMPLETE_DEBUG")

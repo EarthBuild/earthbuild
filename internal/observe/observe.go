@@ -3,26 +3,38 @@ package observe
 import (
 	"context"
 	"errors"
-	"time"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
 
+	"github.com/go-logr/stdr"
+	"go.opentelemetry.io/contrib/exporters/autoexport"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/log"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (shutdown func(context.Context) error, err error) {
+	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
+	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
+
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
 	// The errors from the calls are joined.
 	// Each registered cleanup will be invoked once.
 	shutdown = func(ctx context.Context) error {
+		fmt.Println("Shutdown OTel providers")
 		var err error
 		for _, fn := range shutdownFuncs {
 			err = errors.Join(err, fn(ctx))
@@ -37,11 +49,21 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	}
 
 	// Set up propagator.
-	prop := newPropagator()
-	otel.SetTextMapPropagator(prop)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	tracerProvider, err := newTracerProvider(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider()
+	meterProvider, err := newMeterProvider(ctx)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -61,35 +83,66 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	return shutdown, err
 }
 
-func newPropagator() propagation.TextMapPropagator {
-	return propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	)
-}
-
-func newMeterProvider() (*metric.MeterProvider, error) {
-	metricExporter, err := stdoutmetric.New()
+func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	meterProvider := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExporter,
-			// Default is 1m. Set to 3s for demonstrative purposes.
-			metric.WithInterval(3*time.Second))),
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String("EarthBuild"),
+		),
+		resource.WithFromEnv(),
+		resource.WithTelemetrySDK(),
 	)
-	return meterProvider, nil
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
+
+	return tp, nil
 }
 
-func newLoggerProvider() (*log.LoggerProvider, error) {
+func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
+	// 1. Automatically create a MetricReader based on OTEL_METRICS_EXPORTER
+	// This handles OTLP, Prometheus, or Console automatically.
+	reader, err := autoexport.NewMetricReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Define the Resource (Service Name, etc.)
+	res, err := resource.New(ctx,
+		resource.WithFromEnv(),
+		resource.WithTelemetrySDK(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Create the MeterProvider
+	mp := metric.NewMeterProvider(
+		metric.WithReader(reader),
+		metric.WithResource(res),
+	)
+	otel.SetMeterProvider(mp)
+
+	return mp, nil
+}
+
+func newLoggerProvider() (*sdklog.LoggerProvider, error) {
 	logExporter, err := stdoutlog.New()
 	if err != nil {
 		return nil, err
 	}
 
-	loggerProvider := log.NewLoggerProvider(
-		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+	loggerProvider := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 	)
 	return loggerProvider, nil
 }

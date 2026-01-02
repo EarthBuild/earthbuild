@@ -42,6 +42,7 @@ import (
 	"github.com/moby/buildkit/util/entitlements"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -232,6 +233,9 @@ func useSecondaryProxy() (bool, error) {
 }
 
 func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt BuildOpt) (*states.MultiTarget, error) {
+	_, span := otel.GetTracerProvider().Tracer("").Start(ctx, PhaseBuild)
+	defer span.End()
+
 	var (
 		sharedLocalStateCache = earthfile2llb.NewSharedLocalStateCache()
 		featureFlagOverrides  = b.opt.FeatureFlagOverrides
@@ -800,6 +804,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	pushConsole.Flush()
 	if opt.PrintPhases {
 		b.opt.Console.PrintPhaseFooter(PhasePush, !opt.Push, "")
+		ctx, span = otel.GetTracerProvider().Tracer("").Start(ctx, PhaseOutput)
+		defer span.End()
 		b.opt.Console.PrintPhaseHeader(PhaseOutput, opt.NoOutput, outputPhaseSpecial)
 	}
 	outputConsole.Flush()

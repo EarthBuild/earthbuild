@@ -26,6 +26,7 @@ import (
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel"
 
 	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -236,6 +237,9 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 }
 
 func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []string) error {
+	_, span := otel.GetTracerProvider().Tracer("").Start(cliCtx.Context, builder.PhaseInit)
+	defer span.End()
+
 	target, artifact, destPath, err := a.parseTarget(cliCtx, nonFlagArgs)
 	if err != nil {
 		return err
@@ -563,6 +567,8 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		buildOpts.OnlyArtifact = &artifact
 		buildOpts.OnlyArtifactDestPath = destPath
 	}
+
+	span.End()
 
 	_, err = b.BuildTarget(cliCtx.Context, target, buildOpts)
 	if err != nil {

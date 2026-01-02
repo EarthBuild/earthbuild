@@ -39,5 +39,5 @@ func Test_parseContainerList_empty(t *testing.T) {
 	ret, err := parseContainerList("\n\n")
 	r := require.New(t)
 	r.NoError(err)
-	r.Len(ret, 0)
+	r.Empty(ret)
 }

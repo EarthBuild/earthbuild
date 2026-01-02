@@ -111,7 +111,7 @@ foo: # inline  comments do not consume newlines
 				r.Len(s.Targets, 3)
 				foo := s.Targets[2]
 				r.Equal("foo", foo.Name)
-				r.Equal("", foo.Docs)
+				r.Empty(foo.Docs)
 			},
 		},
 		{
@@ -361,7 +361,7 @@ foo:
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
 				r.Equal("foo", target.Name)
-				r.Equal("", target.Docs)
+				r.Empty(target.Docs)
 			},
 		},
 		{
@@ -418,7 +418,7 @@ bar:
 				r.Len(s.Targets, 2)
 				target := s.Targets[1]
 				r.Equal("bar", target.Name)
-				r.Equal("", target.Docs)
+				r.Empty(target.Docs)
 			},
 		},
 		{

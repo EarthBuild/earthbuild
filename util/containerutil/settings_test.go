@@ -8,6 +8,7 @@ import (
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var noopArgs = parsedCLIVals{}
@@ -23,6 +24,8 @@ type parsedCLIVals struct {
 
 func TestBuildArgMatrix(t *testing.T) {
 	t.Parallel()
+
+	r := require.New(t)
 
 	tests := []struct {
 		testName string
@@ -126,7 +129,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		frontend, err := NewStubFrontend(ctx, &FrontendConfig{
 			LocalContainerName: "test-stub",
 		})
-		assert.NoError(t, err)
+		r.NoError(err)
 
 		stub, ok := frontend.(*stubFrontend)
 		assert.True(t, ok)
@@ -139,7 +142,7 @@ func TestBuildArgMatrix(t *testing.T) {
 			DefaultPort:                8372,
 			Console:                    logger,
 		})
-		assert.NoError(t, err)
+		r.NoError(err)
 		assert.Equal(t, tt.expected, results{
 			buildkit:      urls.BuildkitHost.String(),
 			localRegistry: urls.LocalRegistryHost.String(),
@@ -149,6 +152,8 @@ func TestBuildArgMatrix(t *testing.T) {
 
 func TestBuildArgMatrixValidationFailures(t *testing.T) {
 	t.Parallel()
+
+	r := require.New(t)
 
 	tests := []struct {
 		testName string
@@ -195,7 +200,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		frontend, err := NewStubFrontend(ctx, &FrontendConfig{
 			LocalContainerName: "test-stub",
 		})
-		assert.NoError(t, err)
+		r.NoError(err)
 
 		stub, ok := frontend.(*stubFrontend)
 		assert.True(t, ok)
@@ -207,7 +212,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 			LocalContainerName:         "test",
 			DefaultPort:                8372,
 		})
-		assert.ErrorIs(t, err, tt.expected)
+		r.ErrorIs(err, tt.expected)
 		assert.Contains(t, logs.String(), tt.log)
 	}
 }
@@ -269,6 +274,8 @@ func TestParseAndValidateURL(t *testing.T) {
 func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 	t.Parallel()
 
+	r := require.New(t)
+
 	tests := []struct {
 		testName string
 		config   config.GlobalConfig
@@ -302,7 +309,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		frontend, err := NewStubFrontend(ctx, &FrontendConfig{
 			LocalContainerName: "test-stub",
 		})
-		assert.NoError(t, err)
+		r.NoError(err)
 
 		stub, ok := frontend.(*stubFrontend)
 		assert.True(t, ok)
@@ -314,7 +321,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 			LocalContainerName:         "test",
 			DefaultPort:                8372,
 		})
-		assert.NoError(t, err)
+		r.NoError(err)
 		assert.NotContains(t, logs.String(), tt.log)
 	}
 }

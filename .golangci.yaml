@@ -63,7 +63,6 @@ linters:
     - revive
     - staticcheck
     - tagliatelle
-    - testifylint
     - testpackage
     - unconvert
     - usetesting

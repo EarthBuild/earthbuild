@@ -201,7 +201,7 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 
 func (c *Controller) stopDarwinProxy(ctx context.Context, containerName string, checkExists bool) error {
 	// Ignore parent context cancellations as to prevent orphaned containers.
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second) //nolint:contextcheck
 	defer cancel()
 	if checkExists {
 		infos, err := c.containerFrontend.ContainerInfo(ctx, containerName)

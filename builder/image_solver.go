@@ -50,10 +50,14 @@ func (s *tarImageSolver) newSolveOpt(img *image.Image, dockerTag string, w io.Wr
 	if err != nil {
 		return nil, errors.Wrap(err, "image json marshal")
 	}
-	var cacheImports []client.CacheOptionsEntry
-	for _, ci := range s.cacheImports.AsSlice() {
+
+	imports := s.cacheImports.AsSlice()
+	cacheImports := make([]client.CacheOptionsEntry, 0, len(imports))
+
+	for _, ci := range imports {
 		cacheImports = append(cacheImports, newCacheImportOpt(ci))
 	}
+
 	return &client.SolveOpt{
 		Exports: []client.ExportEntry{
 			{
@@ -294,13 +298,12 @@ func (m *multiImageSolver) SolveImages(ctx context.Context, imageDefs []*states.
 		return gwCrafter.GetResult(), nil
 	}
 
-	var (
-		statusChan = make(chan *client.SolveStatus)
-		doneChan   = make(chan struct{})
-	)
+	statusChan := make(chan *client.SolveStatus)
+	doneChan := make(chan struct{})
+	imports := m.cacheImports.AsSlice()
+	cacheImports := make([]client.CacheOptionsEntry, 0, len(imports))
 
-	var cacheImports []client.CacheOptionsEntry
-	for _, ci := range m.cacheImports.AsSlice() {
+	for _, ci := range imports {
 		cacheImports = append(cacheImports, newCacheImportOpt(ci))
 	}
 

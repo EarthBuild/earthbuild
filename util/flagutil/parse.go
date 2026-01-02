@@ -151,8 +151,8 @@ func ParseParams(str string) (string, []string, error) {
 	} else {
 		str = str[1 : len(str)-1] // remove ( and )
 	}
-	var parts []string
-	var part []rune
+	parts := make([]string, 0, 1)
+	part := make([]rune, 0, len(str))
 	nextEscaped := false
 	inQuotes := false
 	for _, char := range str {

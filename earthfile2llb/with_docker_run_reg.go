@@ -48,8 +48,6 @@ func (w *withDockerRunRegistry) prepareImages(ctx context.Context, cmdID string,
 		return nil, err
 	}
 
-	var imagesToBuild []*states.ImageDef
-
 	type setKey struct {
 		imageName string
 		platform  string
@@ -74,6 +72,9 @@ func (w *withDockerRunRegistry) prepareImages(ctx context.Context, cmdID string,
 		}
 		imageDefChans = append(imageDefChans, imageDefChan)
 	}
+
+	imagesToBuild := make([]*states.ImageDef, 0, len(imageDefChans))
+
 	for _, imageDefChan := range imageDefChans {
 		select {
 		case imageDef := <-imageDefChan:
@@ -176,8 +177,8 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].FinalImageNameWithDigest < results[j].FinalImageNameWithDigest
 	})
-	var pullImages []string
-	var imgsWithDigests []string
+	pullImages := make([]string, 0, len(results))
+	imgsWithDigests := make([]string, 0, len(results))
 	for _, result := range results {
 		// This will be decoded in the wrapper.
 		if result.NewInterImgFormat {

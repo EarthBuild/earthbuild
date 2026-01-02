@@ -113,7 +113,7 @@ func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client,
 	// Here, the relative path is reconstructed from the glob results and the
 	// parent target's path. This is done because the Earthfile resolution
 	// requires a relative target path.
-	var ret []string
+	ret := make([]string, 0, len(matches))
 	for _, match := range matches {
 		rel, err := filepath.Rel(parentTarget.GetLocalPath(), match)
 		if err != nil {

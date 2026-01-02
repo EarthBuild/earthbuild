@@ -56,7 +56,6 @@ linters:
     - nlreturn
     - noinlineerr
     - nonamedreturns
-    - prealloc
     - predeclared
     - protogetter
     - recvcheck

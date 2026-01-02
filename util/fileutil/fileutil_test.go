@@ -24,7 +24,7 @@ func TestGlobDirs(t *testing.T) {
 		},
 		{
 			pattern: "testdata/globdirs/file.txt",
-			results: nil,
+			results: []string{},
 		},
 	}
 

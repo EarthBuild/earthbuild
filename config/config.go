@@ -67,57 +67,57 @@ var (
 
 // GlobalConfig contains global config values.
 type GlobalConfig struct {
-	BuildkitCacheSizeMb        int           `yaml:"cache_size_mb"                  help:"Size of the buildkit cache in Megabytes."`
-	BuildkitCacheSizePct       int           `yaml:"cache_size_pct"                 help:"Size of the buildkit cache, as percentage (0-100)."`
-	BuildkitCacheKeepDurationS int           `yaml:"buildkit_cache_keep_duration_s" help:"Max age of cache, in seconds. 0 disables age-based cache expiry."`
-	BuildkitImage              string        `yaml:"buildkit_image"                 help:"Choose a specific image for your buildkitd."`
-	BuildkitRestartTimeoutS    int           `yaml:"buildkit_restart_timeout_s"     help:"How long to wait for buildkit to (re)start, in seconds."`
-	BuildkitAdditionalArgs     []string      `yaml:"buildkit_additional_args"       help:"Additional args to pass to buildkit when it starts. Useful for custom/self-signed certs, or user namespace complications."`
-	BuildkitAdditionalConfig   string        `yaml:"buildkit_additional_config"     help:"Additional config to use when starting the buildkit container; like using custom/self-signed certificates."`
-	BuildkitMaxParallelism     int           `yaml:"buildkit_max_parallelism"       help:"Max parallelism for buildkit workers"`
-	ConversionParallelism      int           `yaml:"conversion_parallelism"         help:"Set the conversion parallelism for speeding up the use of IF, WITH, DOCKER --load, FROMDOCKERFILE and others. A value of 0 disables the feature"`
-	CniMtu                     uint16        `yaml:"cni_mtu"                        help:"Override auto-detection of the default interface MTU, for all containers within buildkit"`
-	BuildkitHost               string        `yaml:"buildkit_host"                  help:"The URL of your buildkit, remote or local."`
-	LocalRegistryHost          string        `yaml:"local_registry_host"            help:"The URL of the local registry used for image exports to Docker."`
-	DarwinProxyImage           string        `yaml:"darwin_proxy_image"             help:"The container image & tag used for the Docker Desktop registry proxy."`
-	DarwinProxyWait            time.Duration `yaml:"darwin_proxy_wait"              help:"The maximum time to wait for the Darwin registry proxy support container to become available."`
-	TLSCACert                  string        `yaml:"tlsca"                          help:"The path to the CA cert for verification. Relative paths are interpreted as relative to the config path."`
-	TLSCAKey                   string        `yaml:"tlsca_key"                      help:"The path to the CA key for generating any missing certificates. Relative paths are interpreted as relative to the config path."`
-	ClientTLSCert              string        `yaml:"tlscert"                        help:"The path to the client cert for verification. Relative paths are interpreted as relative to the config path."`
-	ClientTLSKey               string        `yaml:"tlskey"                         help:"The path to the client key for verification. Relative paths are interpreted as relative to the config path."`
-	ServerTLSCert              string        `yaml:"buildkitd_tlscert"              help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."`
-	ServerTLSKey               string        `yaml:"buildkitd_tlskey"               help:"The path to the server key for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."`
-	TLSEnabled                 bool          `yaml:"tls_enabled"                    help:"If TLS should be used to communicate with Buildkit. Only honored when BuildkitScheme is 'tcp'."`
-	ContainerFrontend          string        `yaml:"container_frontend"             help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker' and 'podman' (experimental)."`
-	IPTables                   string        `yaml:"ip_tables"                      help:"Which iptables binary to use. Valid values are iptables-legacy or iptables-nft. Bypasses any autodetection."`
-	SecretProvider             string        `yaml:"secret_provider"                help:"Command to execute to retrieve secret."`
-	GitImage                   string        `yaml:"git_image"                      help:"Image used to resolve git repositories"`
+	BuildkitCacheSizeMb        int           `help:"Size of the buildkit cache in Megabytes."                                                                                                              yaml:"cache_size_mb"`
+	BuildkitCacheSizePct       int           `help:"Size of the buildkit cache, as percentage (0-100)."                                                                                                    yaml:"cache_size_pct"`
+	BuildkitCacheKeepDurationS int           `help:"Max age of cache, in seconds. 0 disables age-based cache expiry."                                                                                      yaml:"buildkit_cache_keep_duration_s"`
+	BuildkitImage              string        `help:"Choose a specific image for your buildkitd."                                                                                                           yaml:"buildkit_image"`
+	BuildkitRestartTimeoutS    int           `help:"How long to wait for buildkit to (re)start, in seconds."                                                                                               yaml:"buildkit_restart_timeout_s"`
+	BuildkitAdditionalArgs     []string      `help:"Additional args to pass to buildkit when it starts. Useful for custom/self-signed certs, or user namespace complications."                             yaml:"buildkit_additional_args"`
+	BuildkitAdditionalConfig   string        `help:"Additional config to use when starting the buildkit container; like using custom/self-signed certificates."                                            yaml:"buildkit_additional_config"`
+	BuildkitMaxParallelism     int           `help:"Max parallelism for buildkit workers"                                                                                                                  yaml:"buildkit_max_parallelism"`
+	ConversionParallelism      int           `help:"Set the conversion parallelism for speeding up the use of IF, WITH, DOCKER --load, FROMDOCKERFILE and others. A value of 0 disables the feature"       yaml:"conversion_parallelism"`
+	CniMtu                     uint16        `help:"Override auto-detection of the default interface MTU, for all containers within buildkit"                                                              yaml:"cni_mtu"`
+	BuildkitHost               string        `help:"The URL of your buildkit, remote or local."                                                                                                            yaml:"buildkit_host"`
+	LocalRegistryHost          string        `help:"The URL of the local registry used for image exports to Docker."                                                                                       yaml:"local_registry_host"`
+	DarwinProxyImage           string        `help:"The container image & tag used for the Docker Desktop registry proxy."                                                                                 yaml:"darwin_proxy_image"`
+	DarwinProxyWait            time.Duration `help:"The maximum time to wait for the Darwin registry proxy support container to become available."                                                         yaml:"darwin_proxy_wait"`
+	TLSCACert                  string        `help:"The path to the CA cert for verification. Relative paths are interpreted as relative to the config path."                                              yaml:"tlsca"`
+	TLSCAKey                   string        `help:"The path to the CA key for generating any missing certificates. Relative paths are interpreted as relative to the config path."                        yaml:"tlsca_key"`
+	ClientTLSCert              string        `help:"The path to the client cert for verification. Relative paths are interpreted as relative to the config path."                                          yaml:"tlscert"`
+	ClientTLSKey               string        `help:"The path to the client key for verification. Relative paths are interpreted as relative to the config path."                                           yaml:"tlskey"`
+	ServerTLSCert              string        `help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit." yaml:"buildkitd_tlscert"`
+	ServerTLSKey               string        `help:"The path to the server key for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."  yaml:"buildkitd_tlskey"`
+	TLSEnabled                 bool          `help:"If TLS should be used to communicate with Buildkit. Only honored when BuildkitScheme is 'tcp'."                                                        yaml:"tls_enabled"`
+	ContainerFrontend          string        `help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker' and 'podman' (experimental)."    yaml:"container_frontend"`
+	IPTables                   string        `help:"Which iptables binary to use. Valid values are iptables-legacy or iptables-nft. Bypasses any autodetection."                                           yaml:"ip_tables"`
+	SecretProvider             string        `help:"Command to execute to retrieve secret."                                                                                                                yaml:"secret_provider"`
+	GitImage                   string        `help:"Image used to resolve git repositories"                                                                                                                yaml:"git_image"`
 
 	// Obsolete.
-	CachePath      string `yaml:"cache_path"         help:" *Deprecated* The path to keep Earthly's cache."`
-	BuildkitScheme string `yaml:"buildkit_transport" help:" *Deprecated* Change how Earthly communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental."`
+	CachePath      string `help:" *Deprecated* The path to keep Earthly's cache."                                                                                        yaml:"cache_path"`
+	BuildkitScheme string `help:" *Deprecated* Change how Earthly communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental." yaml:"buildkit_transport"`
 }
 
 // GitConfig contains git-specific config values.
 type GitConfig struct {
 	// these are used for git vendors (e.g. github, gitlab)
-	Pattern               string `yaml:"pattern"                      help:"A regular expression defined to match git URLs, defaults to the regex: <site>/([^/]+)/([^/]+). For example if the site is github.com, then the default pattern will match github.com/<user>/<repo>."`
-	Substitute            string `yaml:"substitute"                   help:"If specified, a regular expression substitution will be preformed to determine which URL is cloned by git. Values like $1, $2, ... will be replaced with matched subgroup data. If no substitute is given, a URL will be created based on the requested SSH authentication mode."`
-	Suffix                string `yaml:"suffix"                       help:"The git repository suffix, like .git."`                                       // .git
-	Auth                  string `yaml:"auth"                         help:"What authentication method do you use? Valid options are: http, https, ssh."` // http, https, ssh
-	User                  string `yaml:"user"                         help:"The username to use when auth is set to git or https."`
-	Port                  int    `yaml:"port"                         help:"The port to connect to when using git; has no effect for http(s)."`
-	Prefix                string `yaml:"prefix"                       help:"This path is prefixed to the git clone url, e.g. ssh://user@host:port/prefix/project/repo.git"`
-	Password              string `yaml:"password"                     help:"The https password to use when auth is set to https. This setting is ignored when auth is ssh."`
-	ServerKey             string `yaml:"serverkey"                    help:"SSH fingerprints, like you would add in your known hosts file, or get from ssh-keyscan."`
-	StrictHostKeyChecking *bool  `yaml:"strict_host_key_checking"     help:"Allow ssh access to hosts with unknown server keys (e.g. no entries in known_hosts), defaults to true."`
-	SSHCommand            string `yaml:"ssh_command"                  help:"Set a value for the core.sshCommand git config option, which allows you to provide custom SSH configuration."`
+	Pattern               string `help:"A regular expression defined to match git URLs, defaults to the regex: <site>/([^/]+)/([^/]+). For example if the site is github.com, then the default pattern will match github.com/<user>/<repo>."                                                                              yaml:"pattern"`
+	Substitute            string `help:"If specified, a regular expression substitution will be preformed to determine which URL is cloned by git. Values like $1, $2, ... will be replaced with matched subgroup data. If no substitute is given, a URL will be created based on the requested SSH authentication mode." yaml:"substitute"`
+	Suffix                string `help:"The git repository suffix, like .git."                                                                                                                                                                                                                                            yaml:"suffix"` // .git
+	Auth                  string `help:"What authentication method do you use? Valid options are: http, https, ssh."                                                                                                                                                                                                      yaml:"auth"`   // http, https, ssh
+	User                  string `help:"The username to use when auth is set to git or https."                                                                                                                                                                                                                            yaml:"user"`
+	Port                  int    `help:"The port to connect to when using git; has no effect for http(s)."                                                                                                                                                                                                                yaml:"port"`
+	Prefix                string `help:"This path is prefixed to the git clone url, e.g. ssh://user@host:port/prefix/project/repo.git"                                                                                                                                                                                    yaml:"prefix"`
+	Password              string `help:"The https password to use when auth is set to https. This setting is ignored when auth is ssh."                                                                                                                                                                                   yaml:"password"`
+	ServerKey             string `help:"SSH fingerprints, like you would add in your known hosts file, or get from ssh-keyscan."                                                                                                                                                                                          yaml:"serverkey"`
+	StrictHostKeyChecking *bool  `help:"Allow ssh access to hosts with unknown server keys (e.g. no entries in known_hosts), defaults to true."                                                                                                                                                                           yaml:"strict_host_key_checking"`
+	SSHCommand            string `help:"Set a value for the core.sshCommand git config option, which allows you to provide custom SSH configuration."                                                                                                                                                                     yaml:"ssh_command"`
 }
 
 // Config contains user's configuration values from ~/earthly/config.yml.
 type Config struct {
-	Global GlobalConfig         `yaml:"global"    help:"Global configuration object. Requires YAML literal to set directly."`
-	Git    map[string]GitConfig `yaml:"git"       help:"Git configuration object. Requires YAML literal to set directly."`
+	Global GlobalConfig         `help:"Global configuration object. Requires YAML literal to set directly." yaml:"global"`
+	Git    map[string]GitConfig `help:"Git configuration object. Requires YAML literal to set directly."    yaml:"git"`
 }
 
 // PortOffset is the offset to use for dev ports.

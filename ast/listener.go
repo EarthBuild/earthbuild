@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"context"
 	"encoding/json"
 	"regexp"
 	"strings"
@@ -40,14 +39,13 @@ type listener struct {
 	stmtWords []string
 	execMode  bool
 
-	ctx             context.Context
 	filePath        string
 	enableSourceMap bool
 
 	err error
 }
 
-func newListener(ctx context.Context, stream *antlr.CommonTokenStream, filePath string, enableSourceMap bool) *listener {
+func newListener(stream *antlr.CommonTokenStream, filePath string, enableSourceMap bool) *listener {
 	ef := &spec.Earthfile{}
 	if enableSourceMap {
 		ef.SourceLocation = &spec.SourceLocation{
@@ -56,7 +54,6 @@ func newListener(ctx context.Context, stream *antlr.CommonTokenStream, filePath 
 	}
 	return &listener{
 		tokStream:       stream,
-		ctx:             ctx,
 		filePath:        filePath,
 		enableSourceMap: enableSourceMap,
 		ef:              ef,

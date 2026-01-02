@@ -10,7 +10,6 @@ issues:
 linters:
   default: all
   disable:
-    - containedctx
     - contextcheck
     - cyclop
     - depguard

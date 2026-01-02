@@ -24,7 +24,7 @@ func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.
 	fromGlobMatches, err := filepath.Glob(fromPattern)
 	if err != nil {
 		return errors.Wrapf(err, "glob")
-	} else if !artifact.Target.IsRemote() && len(fromGlobMatches) <= 0 {
+	} else if !artifact.Target.IsRemote() && len(fromGlobMatches) == 0 {
 		if ifExists {
 			return nil
 		}

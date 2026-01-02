@@ -2130,7 +2130,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		opts.shellWrap = withShellAndEnvVars
 	}
 
-	finalArgs := opts.Args[:]
+	finalArgs := opts.Args
 	if opts.WithEntrypoint {
 		if len(finalArgs) == 0 {
 			// No args provided. Use the image's CMD.
@@ -2141,7 +2141,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		opts.WithShell = false // Don't use shell when --entrypoint is passed.
 	}
 
-	runOpts := opts.extraRunOpts[:]
+	runOpts := opts.extraRunOpts
 	if opts.Privileged {
 		runOpts = append(runOpts, llb.Security(llb.SecurityModeInsecure))
 	}
@@ -2368,16 +2368,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 	}
 
-	if opts.Push {
-		// Don't run on MainState. We want push-flagged commands to be executed only
-		// *after* the build. Save this for later.
-		c.mts.Final.RunPush.State = state.Run(runOpts...).Root()
-		c.mts.Final.RunPush.CommandStrs = append(c.mts.Final.RunPush.CommandStrs, commandStr)
-		return c.mts.Final.RunPush.State, nil
-	} else if opts.Transient {
-		transientState := state.Run(runOpts...).Root()
-		return transientState, nil
-	} else {
+	switch {
+	default:
 		c.mts.Final.MainState = state.Run(runOpts...).Root()
 
 		if opts.Locally {
@@ -2388,6 +2380,16 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 
 		return c.mts.Final.MainState, nil
+	case opts.Push:
+		// Don't run on MainState. We want push-flagged commands to be executed only
+		// *after* the build. Save this for later.
+		c.mts.Final.RunPush.State = state.Run(runOpts...).Root()
+		c.mts.Final.RunPush.CommandStrs = append(c.mts.Final.RunPush.CommandStrs, commandStr)
+		return c.mts.Final.RunPush.State, nil
+	case opts.Transient:
+		transientState := state.Run(runOpts...).Root()
+		return transientState, nil
+
 	}
 }
 
@@ -2578,7 +2580,7 @@ func (c *Converter) internalFromClassical(ctx context.Context, imageName string,
 			return pllb.State{}, nil, nil, errors.Wrapf(err, "reference add digest %v for %s", dgst, imageName)
 		}
 	}
-	allOpts := append(opts, llb.Platform(c.platr.ToLLBPlatform(platform)), c.opt.ImageResolveMode)
+	allOpts := append(opts, llb.Platform(c.platr.ToLLBPlatform(platform)), c.opt.ImageResolveMode) //nolint:gocritic
 	state := pllb.Image(sourceRef.String(), allOpts...)
 	state, img2, envVars := c.applyFromImage(state, &img)
 	return state, img2, envVars, nil

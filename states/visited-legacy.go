@@ -151,10 +151,8 @@ func compareTargetInputs(target domain.Target, platr *platutil.Resolver, allowPr
 			if !baiVariable.Equals(bai) {
 				return false, nil
 			}
-		} else {
-			if !bai.IsDefaultValue() {
-				return false, nil
-			}
+		} else if !bai.IsDefaultValue() {
+			return false, nil
 		}
 	}
 	return true, nil

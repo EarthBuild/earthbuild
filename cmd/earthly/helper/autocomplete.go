@@ -27,7 +27,7 @@ import (
 //
 //	COMP_LINE="earthly ./buildkitd+buildkitd --" COMP_POINT="32" ./build/linux/amd64/earthly
 //	COMP_LINE="earthly ~/test/simple+test -" COMP_POINT="28" ./build/linux/amd64/earthly
-func AutoComplete(ctx context.Context, cli *base.CLI) {
+func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 	_, found := os.LookupEnv("COMP_LINE")
 	if !found {
 		return
@@ -38,14 +38,14 @@ func AutoComplete(ctx context.Context, cli *base.CLI) {
 		logDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "GetOrCreateEarthlyDir failed: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		logFile := filepath.Join(logDir, "autocomplete.log")
 
 		err = os.MkdirAll(logDir, 0o755) // #nosec G301
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MkdirAll %s failed: %v\n", logDir, err)
-			os.Exit(1)
+			return 1
 		}
 		autocomplete.SetupLog(logFile)
 		autocomplete.Logf("COMP_LINE=%q COMP_POINT=%q", os.Getenv("COMP_LINE"), os.Getenv("COMP_POINT"))
@@ -56,9 +56,10 @@ func AutoComplete(ctx context.Context, cli *base.CLI) {
 	err := autoCompleteImp(ctx, cli)
 	if err != nil {
 		autocomplete.Logf("error during autocomplete: %s", err)
-		os.Exit(1)
+		return 1
 	}
-	os.Exit(0)
+
+	return 0
 }
 
 func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {

@@ -1,9 +1,10 @@
 package main_test
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
-func TestMain(t *testing.T) {
-	if 0 != 0 {
-		t.Fatal("this is fine...")
-	}
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
 }

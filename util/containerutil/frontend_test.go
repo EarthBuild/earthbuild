@@ -148,7 +148,7 @@ func TestFrontendContainerInfo(t *testing.T) {
 			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
 			NoError(t, err)
 
-			getInfos := append(testContainers, "missing")
+			getInfos := append(testContainers, "missing") //nolint:gocritic
 			info, err := fe.ContainerInfo(ctx, getInfos...)
 			NoError(t, err)
 			NotNil(t, info)

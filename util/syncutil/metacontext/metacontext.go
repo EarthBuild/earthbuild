@@ -33,7 +33,7 @@ func New(ctx context.Context) *MetaContext {
 		subDoneCh: make(chan int),
 	}
 	_ = mc.Add(ctx)
-	go mc.monitor()
+	go mc.monitor() //nolint:contextcheck
 	return mc
 }
 

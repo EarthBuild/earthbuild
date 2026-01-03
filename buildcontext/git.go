@@ -218,7 +218,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 	var err error
 	var keyScans []string
 	var sshCommand string
-	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ref.GetGitURL())
+	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ctx, ref.GetGitURL())
 	if err != nil {
 		return nil, "", "", errors.Wrap(err, "failed to get url for cloning")
 	}

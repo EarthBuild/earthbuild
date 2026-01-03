@@ -37,7 +37,7 @@ func (sc *SyncCache) Do(ctx context.Context, key interface{}, c Constructor) (in
 	e, found := sc.getEntry(ctx, key)
 	if !found {
 		// We need to construct this.
-		go func() {
+		go func() { //nolint:contextcheck
 			// The metaCtx will ensure that this stays alive even if the original Do has
 			// been canceled, thanks to the metaCtx. This is canceled only when ALL of
 			// the Do's are canceled.

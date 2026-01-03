@@ -59,7 +59,8 @@ func main() {
 	os.Exit(run())
 }
 
-func run() (exitCode int) {
+// run executes the CLI and returns an exit code to pass to [os.Exit].
+func run() (code int) {
 	setExportableVars()
 	startTime := time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -75,7 +76,8 @@ func run() (exitCode int) {
 			if lastSignal.Get() != nil {
 				// This is the second time we have received a signal. Quit immediately.
 				fmt.Printf("Received second signal %s. Forcing exit.\n", sig.String())
-				os.Exit(9)
+				code = 9
+				return
 			}
 			lastSignal.Set(sig)
 			cancel()
@@ -84,7 +86,7 @@ func run() (exitCode int) {
 				// Wait for 30 seconds before forcing an exit.
 				time.Sleep(30 * time.Second)
 				fmt.Printf("Timed out cleaning up. Forcing exit.\n")
-				os.Exit(9)
+				code = 9
 			}()
 		}
 	}()
@@ -145,7 +147,7 @@ func run() (exitCode int) {
 		// ignore ErrNotExist when using default .env file
 		if envFileOverride || !errors.Is(err, os.ErrNotExist) {
 			fmt.Printf("Error loading dot-env file %s: %s\n", envFile, err.Error())
-			os.Exit(1)
+			return 1
 		}
 	}
 	colorMode := conslogging.AutoColor

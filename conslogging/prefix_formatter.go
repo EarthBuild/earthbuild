@@ -49,18 +49,21 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 			// something was wrong with the regex, return original string
 			return str
 		}
-		if curLen <= padding || namedMatches[name][0] == "" {
+
+		switch {
+		default:
+			matches = append(matches, string(namedMatches[name][0][0]))
+			curLen -= len(namedMatches[name][0]) - 1
+		case curLen <= padding || namedMatches[name][0] == "":
 			// no need to keep truncating the url parts
 			matches = append(matches, namedMatches[name][0])
-		} else if name == "repoURL" {
+		case name == "repoURL":
 			truncatedURL := truncateURL(namedMatches[name][0], padding, curLen)
 			matches = append(matches, truncatedURL)
 			curLen -= len(namedMatches[name][0]) - len(truncatedURL)
-		} else {
-			matches = append(matches, string(namedMatches[name][0][0]))
-			curLen -= len(namedMatches[name][0]) - 1
 		}
 	}
+
 	seps := []string{"://", ":", "@", "#", ""}
 	var sb strings.Builder
 	for i := range matches {

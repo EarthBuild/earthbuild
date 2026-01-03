@@ -262,20 +262,16 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	argMap, err := godotenv.Read(a.cli.Flags().ArgFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
-	} else {
+	} else if cliCtx.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
-		if cliCtx.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist) {
-			return errors.Wrapf(err, "read %s", a.cli.Flags().ArgFile)
-		}
+		return errors.Wrapf(err, "read %s", a.cli.Flags().ArgFile)
 	}
 	secretsFileMap, err := godotenv.Read(a.cli.Flags().SecretFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
-	} else {
+	} else if cliCtx.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
-		if cliCtx.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist) {
-			return errors.Wrapf(err, "read %s", a.cli.Flags().SecretFile)
-		}
+		return errors.Wrapf(err, "read %s", a.cli.Flags().SecretFile)
 	}
 
 	if showUnexpectedEnvWarnings {

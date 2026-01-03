@@ -8,6 +8,8 @@ import (
 )
 
 func TestProcessParamsAndQuotes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in   []string
 		args []string
@@ -17,7 +19,7 @@ func TestProcessParamsAndQuotes(t *testing.T) {
 		{[]string{"abc", "def", "ghi"}, []string{"abc", "def", "ghi"}},
 		{[]string{"hello ", "wor(", "ld)"}, []string{"hello ", "wor( ld)"}},
 		{[]string{"hello ", "(wor(", "ld)"}, []string{"hello ", "(wor( ld)"}},
-		{[]string{"hello ", "\"(wor(\"", "ld)"}, []string{"hello ", "\"(wor(\"", "ld)"}},
+		{[]string{"hello ", `"(wor("`, "ld)"}, []string{"hello ", `"(wor("`, "ld)"}},
 		{[]string{"let's", "go"}, []string{"let's go"}},
 		{[]string{"(hello)"}, []string{"(hello)"}},
 		{[]string{"  (hello)"}, []string{"  (hello)"}},

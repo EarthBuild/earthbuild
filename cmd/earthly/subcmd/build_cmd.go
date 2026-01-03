@@ -813,7 +813,7 @@ func (a *Build) initAutoSkip(ctx context.Context, skipDB bk.BuildkitSkipper, tar
 	}
 
 	targetConsole := a.cli.Console().WithPrefix(target.String())
-	targetStr := targetConsole.PrefixColor().Sprintf("%s", target.StringCanonical())
+	targetStr := targetConsole.PrefixColor().Sprint(target.StringCanonical())
 
 	exists, err := skipDB.Exists(ctx, targetHash)
 	if err != nil {

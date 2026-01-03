@@ -40,7 +40,7 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		// and falling back to cgroupfs. These errors land on stderr. https://github.com/containers/podman/pull/12834
 
 		cfg.Console.VerbosePrintf("Podman logged additional information to stderr:")
-		cfg.Console.VerbosePrintf("%s", output.stderr.String())
+		cfg.Console.VerbosePrint(output.stderr.String())
 		cfg.Console.VerbosePrintf("Adding log level compatibility flag for all additional operations.")
 
 		fe.globalCompatibilityArgs = append(fe.globalCompatibilityArgs, "--log-level", "error")
@@ -119,7 +119,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		if err != nil {
 			return nil, err
 		}
-		host = string(output.string())
+		host = output.string()
 	}
 
 	return &FrontendInfo{
@@ -202,7 +202,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 
 	idx := strings.Index(output.string(), "Local Volumes space usage:")
 	val := output.string()[idx:]
-	lines := strings.Split(string(val), "\n")[3:]
+	lines := strings.Split(val, "\n")[3:]
 	results := map[string]*VolumeInfo{}
 
 	for _, line := range lines {
@@ -231,7 +231,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 				results[volumeName] = &VolumeInfo{
 					Name:       volumeName,
 					SizeBytes:  bytes,
-					Mountpoint: string(mountpoint.string()),
+					Mountpoint: mountpoint.string(),
 				}
 				break
 			}

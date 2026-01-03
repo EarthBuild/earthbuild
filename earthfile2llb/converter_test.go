@@ -7,6 +7,8 @@ import (
 )
 
 func Test_parseSecretFlag(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		val               string
@@ -71,6 +73,8 @@ func Test_parseSecretFlag(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			c := &Converter{ftrs: &features.Features{UseProjectSecrets: test.useProjectSecrets}}
 
 			secretID, envVar, err := c.parseSecretFlag(test.val)

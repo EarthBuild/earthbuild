@@ -16,7 +16,7 @@ func StateToRef(ctx context.Context, gwClient gwclient.Client, state pllb.State,
 	if noCache {
 		state = state.SetMarshalDefaults(llb.IgnoreCache)
 	}
-	var coes []gwclient.CacheOptionsEntry
+	coes := make([]gwclient.CacheOptionsEntry, 0, len(cacheImports))
 	for _, ci := range cacheImports {
 		coe := gwclient.CacheOptionsEntry{
 			Type:  "registry",

@@ -9,6 +9,8 @@ import (
 )
 
 func TestParseVersion(t *testing.T) {
+	t.Parallel()
+
 	namedReader := namedStringReader{strings.NewReader("VERSION 0.6")}
 	ver, err := ast.ParseVersionOpts(ast.FromReader(&namedReader))
 	r := require.New(t)

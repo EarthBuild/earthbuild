@@ -8,6 +8,8 @@ import (
 )
 
 func TestGlobDirs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		pattern string
 		results []string
@@ -22,12 +24,14 @@ func TestGlobDirs(t *testing.T) {
 		},
 		{
 			pattern: "testdata/globdirs/file.txt",
-			results: nil,
+			results: []string{},
 		},
 	}
 
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Parallel()
+
 			results, err := GlobDirs(test.pattern)
 			r := require.New(t)
 			r.Equal(test.results, results)

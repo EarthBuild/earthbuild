@@ -8,6 +8,8 @@ import (
 )
 
 func Test_readExcludes(t *testing.T) {
+	t.Parallel()
+
 	testcases := []struct {
 		name                  string
 		earthIgnoreContents   string
@@ -73,6 +75,8 @@ func Test_readExcludes(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := t.TempDir()
 
 			if testcase.earthIgnoreContents != "" {

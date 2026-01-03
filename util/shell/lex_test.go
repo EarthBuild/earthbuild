@@ -11,6 +11,8 @@ import (
 )
 
 func TestShellParserMandatoryEnvVars(t *testing.T) {
+	t.Parallel()
+
 	var newWord string
 	var err error
 	shlex := NewLex('\\')
@@ -41,7 +43,7 @@ func TestShellParserMandatoryEnvVars(t *testing.T) {
 
 	newWord, err = shlex.ProcessWord(noUnset, emptyEnvs, nil)
 	require.NoError(t, err)
-	require.Equal(t, "", newWord)
+	require.Empty(t, newWord)
 
 	_, err = shlex.ProcessWord(noUnset, unsetEnvs, nil)
 	require.Error(t, err)
@@ -49,6 +51,8 @@ func TestShellParserMandatoryEnvVars(t *testing.T) {
 }
 
 func TestProcessWordEscapedDoubleQuote(t *testing.T) {
+	t.Parallel()
+
 	shlex := NewLex('\\')
 	shlex.ShellOut = func(cmd string) (string, error) {
 		return cmd, nil
@@ -59,6 +63,8 @@ func TestProcessWordEscapedDoubleQuote(t *testing.T) {
 }
 
 func TestShellParserReplace(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		envs map[string]string
 		word string
@@ -98,6 +104,8 @@ func TestShellParserReplace(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.word, func(t *testing.T) {
+			t.Parallel()
+
 			shlex := NewLex('\\')
 			got, err := shlex.ProcessWordWithMap(c.word, c.envs, nil)
 			require.NoError(t, err)
@@ -107,6 +115,8 @@ func TestShellParserReplace(t *testing.T) {
 }
 
 func TestShellParser4EnvVars(t *testing.T) {
+	t.Parallel()
+
 	fn := "envVarTest"
 	lineCount := 0
 
@@ -132,7 +142,7 @@ func TestShellParser4EnvVars(t *testing.T) {
 		}
 
 		words := strings.Split(line, "|")
-		require.Equal(t, 3, len(words))
+		require.Len(t, words, 3)
 
 		platform := strings.TrimSpace(words[0])
 		source := strings.TrimSpace(words[1])
@@ -165,6 +175,8 @@ func TestShellParser4EnvVars(t *testing.T) {
 }
 
 func TestShellParser4Words(t *testing.T) {
+	t.Parallel()
+
 	fn := "wordsTest"
 
 	file, err := os.Open(fn)
@@ -241,6 +253,8 @@ func TestShellParser4Words(t *testing.T) {
 }
 
 func TestGetEnv(t *testing.T) {
+	t.Parallel()
+
 	sw := &shellWord{envs: nil}
 
 	getEnv := func(name string) string {

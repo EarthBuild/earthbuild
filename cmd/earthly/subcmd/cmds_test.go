@@ -17,12 +17,16 @@ import (
 )
 
 func TestRootCmdsHelp(t *testing.T) {
+	t.Parallel()
+
 	type testCtx struct {
 		t      *testing.T
 		expect expect.Expectation
 	}
 
 	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
+		t.Helper()
+
 		return testCtx{
 			t:      t,
 			expect: expect.New(t),
@@ -58,12 +62,14 @@ func TestRootCmdsHelp(t *testing.T) {
 
 // Check if command has any subCommands to verify.
 func checkSubCommands(commands []*cli.Command) []*cli.Command {
-	var allCommands []*cli.Command
+	allCommands := make([]*cli.Command, 0, len(commands))
+
 	for _, command := range commands {
 		allCommands = append(allCommands, command)
 		if len(command.Subcommands) != 0 {
 			allCommands = append(allCommands, checkSubCommands(command.Subcommands)...)
 		}
 	}
+
 	return allCommands
 }

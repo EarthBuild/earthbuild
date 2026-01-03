@@ -5,6 +5,8 @@ import (
 )
 
 func TestGetProjectName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		tag  string
 		safe string

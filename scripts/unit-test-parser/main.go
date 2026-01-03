@@ -32,7 +32,7 @@ func main() {
 			log.Println(err)
 			os.Exit(1)
 		}
-		fmt.Printf("%s", event.Output)
+		fmt.Print(event.Output)
 		if event.Elapsed > 0 {
 			eventsWithElapsedTimes = append(eventsWithElapsedTimes, event)
 		}
@@ -61,7 +61,7 @@ func main() {
 		}
 	}
 	w.Flush() // #nosec G104
-	fmt.Printf("%s", buf.String())
+	fmt.Print(buf.String())
 
 	if !passed {
 		fmt.Printf("test(s) failed\n")

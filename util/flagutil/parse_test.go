@@ -5,10 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 )
 
 func TestSplitFlagString(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		value cli.StringSlice
 	}
@@ -41,6 +44,8 @@ func TestSplitFlagString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := SplitFlagString(tt.args.value); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("SplitFlagString() = %v, want %v", got, tt.want)
 			}
@@ -49,6 +54,10 @@ func TestSplitFlagString(t *testing.T) {
 }
 
 func TestParseParams(t *testing.T) {
+	t.Parallel()
+
+	r := require.New(t)
+
 	tests := []struct {
 		in    string
 		first string
@@ -66,15 +75,19 @@ func TestParseParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+
 			actualFirst, actualArgs, err := ParseParams(tt.in)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.first, actualFirst)
-			assert.Equal(t, tt.args, actualArgs)
+			r.NoError(err)
+			r.Equal(tt.first, actualFirst)
+			r.Equal(tt.args, actualArgs)
 		})
 	}
 }
 
 func TestNegativeParseParams(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		in string
 	}{

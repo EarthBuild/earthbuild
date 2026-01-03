@@ -10,7 +10,6 @@ issues:
 linters:
   default: all
   disable:
-    - containedctx
     - contextcheck
     - cyclop
     - depguard
@@ -40,14 +39,12 @@ linters:
     - godox
     - gomoddirectives
     - goprintffuncname
-    - govet
     - inamedparam
     - interfacebloat
     - ireturn
     - lll
     - maintidx
     - mirror
-    - misspell
     - mnd
     - modernize
     - musttag
@@ -59,21 +56,13 @@ linters:
     - nlreturn
     - noinlineerr
     - nonamedreturns
-    - paralleltest
-    - prealloc
     - predeclared
     - protogetter
     - recvcheck
     - revive
     - staticcheck
-    - tagalign
     - tagliatelle
-    - testifylint
     - testpackage
-    - thelper
-    - tparallel
-    - unconvert
-    - unparam
     - usetesting
     - varnamelen
     - wastedassign

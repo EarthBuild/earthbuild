@@ -9,6 +9,8 @@ import (
 )
 
 func TestFeaturesStringEnabled(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{
 		Major:              0,
 		Minor:              5,
@@ -19,6 +21,8 @@ func TestFeaturesStringEnabled(t *testing.T) {
 }
 
 func TestFeaturesStringDisabled(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{
 		Major:              1,
 		Minor:              1,
@@ -29,6 +33,8 @@ func TestFeaturesStringDisabled(t *testing.T) {
 }
 
 func TestApplyFlagOverrides(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "referenced-save-only")
 	Nil(t, err)
@@ -40,6 +46,8 @@ func TestApplyFlagOverrides(t *testing.T) {
 }
 
 func TestApplyFlagOverridesWithDashDashPrefix(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "--referenced-save-only")
 	Nil(t, err)
@@ -51,6 +59,8 @@ func TestApplyFlagOverridesWithDashDashPrefix(t *testing.T) {
 }
 
 func TestApplyFlagOverridesMultipleFlags(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "referenced-save-only,use-copy-include-patterns,no-implicit-ignore")
 	Nil(t, err)
@@ -62,6 +72,8 @@ func TestApplyFlagOverridesMultipleFlags(t *testing.T) {
 }
 
 func TestApplyFlagOverridesEmptyString(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "")
 	Nil(t, err)
@@ -73,6 +85,8 @@ func TestApplyFlagOverridesEmptyString(t *testing.T) {
 }
 
 func TestAvailableFlags(t *testing.T) {
+	t.Parallel()
+
 	// This test feels like it may be overkill, but it's nice to know that if we
 	// introduce a typo we have to introduce it twice for our tests to still
 	// pass.
@@ -136,9 +150,13 @@ func TestAvailableFlags(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
+	t.Parallel()
+
 	fts := &features.Features{}
 
 	t.Run("features can be set and retrieved from context", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := context.Background()
 		newCtx, err := fts.WithContext(ctx)
 		Equal(t, fts, features.FromContext(newCtx))
@@ -146,6 +164,8 @@ func TestContext(t *testing.T) {
 	})
 
 	t.Run("context cannot be set more than once", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := context.Background()
 		ctx2, err := fts.WithContext(ctx)
 		NoError(t, err)
@@ -155,12 +175,16 @@ func TestContext(t *testing.T) {
 	})
 
 	t.Run("returns nil when not set in context", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := context.Background()
 		Nil(t, features.FromContext(ctx))
 	})
 }
 
 func TestProcessFlags(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name             string
 		f                *features.Features

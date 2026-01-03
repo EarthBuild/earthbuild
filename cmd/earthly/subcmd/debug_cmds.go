@@ -103,7 +103,7 @@ func (a *Debug) actionAst(cliCtx *cli.Context) error {
 		path = cliCtx.Args().First()
 	}
 
-	ef, err := ast.Parse(cliCtx.Context, path, a.enableSourceMap)
+	ef, err := ast.Parse(path, a.enableSourceMap)
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
 package ast_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -21,6 +20,8 @@ func (n *namedStringReader) Name() string {
 var _ ast.NamedReader = &namedStringReader{}
 
 func TestParse(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		note      string
 		earthfile string
@@ -110,7 +111,7 @@ foo: # inline  comments do not consume newlines
 				r.Len(s.Targets, 3)
 				foo := s.Targets[2]
 				r.Equal("foo", foo.Name)
-				r.Equal("", foo.Docs)
+				r.Empty(foo.Docs)
 			},
 		},
 		{
@@ -360,7 +361,7 @@ foo:
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
 				r.Equal("foo", target.Name)
-				r.Equal("", target.Docs)
+				r.Empty(target.Docs)
 			},
 		},
 		{
@@ -417,7 +418,7 @@ bar:
 				r.Len(s.Targets, 2)
 				target := s.Targets[1]
 				r.Equal("bar", target.Name)
-				r.Equal("", target.Docs)
+				r.Empty(target.Docs)
 			},
 		},
 		{
@@ -644,9 +645,8 @@ test:
 	for _, test := range tests {
 		t.Run(test.note, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
 			r := namedStringReader{strings.NewReader(test.earthfile)}
-			s, err := ast.ParseOpts(ctx, ast.FromReader(&r))
+			s, err := ast.ParseOpts(ast.FromReader(&r))
 			test.check(require.New(t), s, err)
 		})
 	}

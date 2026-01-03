@@ -20,6 +20,8 @@ import (
 )
 
 func TestFrontendNew(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -29,6 +31,8 @@ func TestFrontendNew(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -40,6 +44,8 @@ func TestFrontendNew(t *testing.T) {
 }
 
 func TestFrontendScheme(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -50,6 +56,8 @@ func TestFrontendScheme(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -63,6 +71,8 @@ func TestFrontendScheme(t *testing.T) {
 }
 
 func TestFrontendIsAvailable(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -72,6 +82,8 @@ func TestFrontendIsAvailable(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -85,6 +97,8 @@ func TestFrontendIsAvailable(t *testing.T) {
 }
 
 func TestFrontendInformation(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -94,6 +108,8 @@ func TestFrontendInformation(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -108,6 +124,8 @@ func TestFrontendInformation(t *testing.T) {
 }
 
 func TestFrontendContainerInfo(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -117,6 +135,8 @@ func TestFrontendContainerInfo(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -148,6 +168,8 @@ func TestFrontendContainerInfo(t *testing.T) {
 }
 
 func TestFrontendContainerRemove(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -157,6 +179,8 @@ func TestFrontendContainerRemove(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -184,6 +208,8 @@ func TestFrontendContainerRemove(t *testing.T) {
 }
 
 func TestFrontendContainerStop(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -193,6 +219,8 @@ func TestFrontendContainerStop(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -219,6 +247,8 @@ func TestFrontendContainerStop(t *testing.T) {
 }
 
 func TestFrontendContainerLogs(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -228,6 +258,8 @@ func TestFrontendContainerLogs(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -253,6 +285,8 @@ func TestFrontendContainerLogs(t *testing.T) {
 }
 
 func TestFrontendContainerRun(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -262,6 +296,8 @@ func TestFrontendContainerRun(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -327,6 +363,8 @@ func TestFrontendContainerRun(t *testing.T) {
 }
 
 func TestFrontendImagePull(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -337,6 +375,8 @@ func TestFrontendImagePull(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -360,6 +400,8 @@ func TestFrontendImagePull(t *testing.T) {
 }
 
 func TestFrontendImageInfo(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -370,6 +412,8 @@ func TestFrontendImageInfo(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -392,6 +436,8 @@ func TestFrontendImageInfo(t *testing.T) {
 }
 
 func TestFrontendImageRemove(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -401,6 +447,8 @@ func TestFrontendImageRemove(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -428,6 +476,8 @@ func TestFrontendImageRemove(t *testing.T) {
 }
 
 func TestFrontendImageTag(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -438,6 +488,8 @@ func TestFrontendImageTag(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -474,6 +526,8 @@ func TestFrontendImageTag(t *testing.T) {
 }
 
 func TestFrontendImageLoad(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -484,6 +538,8 @@ func TestFrontendImageLoad(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -517,6 +573,8 @@ func TestFrontendImageLoad(t *testing.T) {
 }
 
 func TestFrontendImageLoadHybrid(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -527,6 +585,8 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -553,6 +613,8 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 }
 
 func TestFrontendVolumeInfo(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		binary  string
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
@@ -562,6 +624,8 @@ func TestFrontendVolumeInfo(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
@@ -581,6 +645,8 @@ func TestFrontendVolumeInfo(t *testing.T) {
 }
 
 func onlyIfBinaryIsInstalled(ctx context.Context, t *testing.T, binary string) {
+	t.Helper()
+
 	if !isBinaryInstalled(ctx, binary) {
 		t.Skipf("%s is not available for tests, skipping", binary)
 	}

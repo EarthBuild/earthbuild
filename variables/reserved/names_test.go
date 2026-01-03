@@ -68,6 +68,8 @@ func isUpper(s string) bool {
 // that represent reserved ARG names, and that they exist in the map that IsBuiltIn
 // relies on.
 func TestAllConstsInMap(t *testing.T) {
+	t.Parallel()
+
 	consts, err := getConsts()
 	Nil(t, err)
 
@@ -85,6 +87,8 @@ func TestAllConstsInMap(t *testing.T) {
 	// tests all values in args are defined as consts
 	for k := range args {
 		t.Run(k, func(t *testing.T) {
+			t.Parallel()
+
 			_, exists := constsValues[k]
 			True(t, exists)
 		})

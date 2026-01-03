@@ -5,6 +5,8 @@ import (
 )
 
 func TestMustParseVersion(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		version  string
 		expected []int
@@ -21,6 +23,8 @@ func TestMustParseVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.version, func(t *testing.T) {
+			t.Parallel()
+
 			major, minor := mustParseVersion(tc.version)
 			Equal(t, tc.expected[0], major)
 			Equal(t, tc.expected[1], minor)

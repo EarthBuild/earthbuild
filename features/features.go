@@ -19,64 +19,64 @@ import (
 // backwards compatibility.
 type Features struct {
 	// Never enabled by default
-	NoUseRegistryForWithDocker bool `long:"no-use-registry-for-with-docker" description:"disable use-registry-for-with-docker"` // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
-	EarthlyCIRunnerArg         bool `long:"earthly-ci-runner-arg" description:"includes EARTHLY_CI_RUNNER ARG"`                 // earthly CI was discontinued, no reason to enable this by default
+	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker" long:"no-use-registry-for-with-docker"` // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
+	EarthlyCIRunnerArg         bool `description:"includes EARTHLY_CI_RUNNER ARG"       long:"earthly-ci-runner-arg"`           // earthly CI was discontinued, no reason to enable this by default
 
 	// VERSION 0.5
-	ExecAfterParallel        bool `long:"exec-after-parallel" enabled_in_version:"0.5" description:"force execution after parallel conversion"`
-	ParallelLoad             bool `long:"parallel-load" enabled_in_version:"0.5" description:"perform parallel loading of images into WITH DOCKER"`
-	UseRegistryForWithDocker bool `long:"use-registry-for-with-docker" enabled_in_version:"0.5" description:"use embedded Docker registry for WITH DOCKER load operations"`
+	ExecAfterParallel        bool `description:"force execution after parallel conversion"                    enabled_in_version:"0.5" long:"exec-after-parallel"`
+	ParallelLoad             bool `description:"perform parallel loading of images into WITH DOCKER"          enabled_in_version:"0.5" long:"parallel-load"`
+	UseRegistryForWithDocker bool `description:"use embedded Docker registry for WITH DOCKER load operations" enabled_in_version:"0.5" long:"use-registry-for-with-docker"`
 
 	// VERSION 0.6
-	ForIn                      bool `long:"for-in" enabled_in_version:"0.6" description:"allow the use of the FOR command"`
-	NoImplicitIgnore           bool `long:"no-implicit-ignore" enabled_in_version:"0.6" description:"disable implicit ignore rules to exclude .tmp-earthly-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context"`
-	ReferencedSaveOnly         bool `long:"referenced-save-only" enabled_in_version:"0.6" description:"only save artifacts that are directly referenced"`
-	RequireForceForUnsafeSaves bool `long:"require-force-for-unsafe-saves" enabled_in_version:"0.6" description:"require the --force flag when saving to path outside of current path"`
-	UseCopyIncludePatterns     bool `long:"use-copy-include-patterns" enabled_in_version:"0.6" description:"specify an include pattern to buildkit when performing copies"`
+	ForIn                      bool `description:"allow the use of the FOR command"                                                                                                                 enabled_in_version:"0.6" long:"for-in"`
+	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earthly-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`
+	ReferencedSaveOnly         bool `description:"only save artifacts that are directly referenced"                                                                                                 enabled_in_version:"0.6" long:"referenced-save-only"`
+	RequireForceForUnsafeSaves bool `description:"require the --force flag when saving to path outside of current path"                                                                             enabled_in_version:"0.6" long:"require-force-for-unsafe-saves"`
+	UseCopyIncludePatterns     bool `description:"specify an include pattern to buildkit when performing copies"                                                                                    enabled_in_version:"0.6" long:"use-copy-include-patterns"`
 
 	// VERSION 0.7
-	CheckDuplicateImages     bool `long:"check-duplicate-images" enabled_in_version:"0.7" description:"check for duplicate images during output"`
-	EarthlyCIArg             bool `long:"ci-arg" enabled_in_version:"0.7" description:"include EARTHLY_CI arg"`
-	EarthlyGitAuthorArgs     bool `long:"earthly-git-author-args" enabled_in_version:"0.7" description:"includes EARTHLY_GIT_AUTHOR and EARTHLY_GIT_CO_AUTHORS ARGs"`
-	EarthlyLocallyArg        bool `long:"earthly-locally-arg" enabled_in_version:"0.7" description:"includes EARTHLY_LOCALLY ARG"`
-	EarthlyVersionArg        bool `long:"earthly-version-arg" enabled_in_version:"0.7" description:"includes EARTHLY_VERSION and EARTHLY_BUILD_SHA ARGs"`
-	ExplicitGlobal           bool `long:"explicit-global" enabled_in_version:"0.7" description:"require base target args to have explicit settings to be considered global args"`
-	GitCommitAuthorTimestamp bool `long:"git-commit-author-timestamp" enabled_in_version:"0.7" description:"include EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP arg"`
-	NewPlatform              bool `long:"new-platform" enabled_in_version:"0.7" description:"enable new platform behavior"`
-	NoTarBuildOutput         bool `long:"no-tar-build-output" enabled_in_version:"0.7" description:"do not print output when creating a tarball to load into WITH DOCKER"`
-	SaveArtifactKeepOwn      bool `long:"save-artifact-keep-own" enabled_in_version:"0.7" description:"always apply the --keep-own flag with SAVE ARTIFACT"`
-	ShellOutAnywhere         bool `long:"shell-out-anywhere" enabled_in_version:"0.7" description:"allow shelling-out in the middle of ARGs, or any other command"`
-	UseCacheCommand          bool `long:"use-cache-command" enabled_in_version:"0.7" description:"allow use of CACHE command in Earthfiles"`
-	UseChmod                 bool `long:"use-chmod" enabled_in_version:"0.7" description:"enable the COPY --chmod option"`
-	UseCopyLink              bool `long:"use-copy-link" enabled_in_version:"0.7" description:"use the equivalent of COPY --link for all copy-like operations"`
-	UseHostCommand           bool `long:"use-host-command" enabled_in_version:"0.7" description:"allow use of HOST command in Earthfiles"`
-	UseNoManifestList        bool `long:"use-no-manifest-list" enabled_in_version:"0.7" description:"enable the SAVE IMAGE --no-manifest-list option"`
-	UseProjectSecrets        bool `long:"use-project-secrets" enabled_in_version:"0.7" description:"enable project-based secret resolution"`
-	WaitBlock                bool `long:"wait-block" enabled_in_version:"0.7" description:"enable WITH/END feature, also allows RUN --push mixed with non-push commands"`
+	CheckDuplicateImages     bool `description:"check for duplicate images during output"                                        enabled_in_version:"0.7" long:"check-duplicate-images"`
+	EarthlyCIArg             bool `description:"include EARTHLY_CI arg"                                                          enabled_in_version:"0.7" long:"ci-arg"`
+	EarthlyGitAuthorArgs     bool `description:"includes EARTHLY_GIT_AUTHOR and EARTHLY_GIT_CO_AUTHORS ARGs"                     enabled_in_version:"0.7" long:"earthly-git-author-args"`
+	EarthlyLocallyArg        bool `description:"includes EARTHLY_LOCALLY ARG"                                                    enabled_in_version:"0.7" long:"earthly-locally-arg"`
+	EarthlyVersionArg        bool `description:"includes EARTHLY_VERSION and EARTHLY_BUILD_SHA ARGs"                             enabled_in_version:"0.7" long:"earthly-version-arg"`
+	ExplicitGlobal           bool `description:"require base target args to have explicit settings to be considered global args" enabled_in_version:"0.7" long:"explicit-global"`
+	GitCommitAuthorTimestamp bool `description:"include EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP arg"                                 enabled_in_version:"0.7" long:"git-commit-author-timestamp"`
+	NewPlatform              bool `description:"enable new platform behavior"                                                    enabled_in_version:"0.7" long:"new-platform"`
+	NoTarBuildOutput         bool `description:"do not print output when creating a tarball to load into WITH DOCKER"            enabled_in_version:"0.7" long:"no-tar-build-output"`
+	SaveArtifactKeepOwn      bool `description:"always apply the --keep-own flag with SAVE ARTIFACT"                             enabled_in_version:"0.7" long:"save-artifact-keep-own"`
+	ShellOutAnywhere         bool `description:"allow shelling-out in the middle of ARGs, or any other command"                  enabled_in_version:"0.7" long:"shell-out-anywhere"`
+	UseCacheCommand          bool `description:"allow use of CACHE command in Earthfiles"                                        enabled_in_version:"0.7" long:"use-cache-command"`
+	UseChmod                 bool `description:"enable the COPY --chmod option"                                                  enabled_in_version:"0.7" long:"use-chmod"`
+	UseCopyLink              bool `description:"use the equivalent of COPY --link for all copy-like operations"                  enabled_in_version:"0.7" long:"use-copy-link"`
+	UseHostCommand           bool `description:"allow use of HOST command in Earthfiles"                                         enabled_in_version:"0.7" long:"use-host-command"`
+	UseNoManifestList        bool `description:"enable the SAVE IMAGE --no-manifest-list option"                                 enabled_in_version:"0.7" long:"use-no-manifest-list"`
+	UseProjectSecrets        bool `description:"enable project-based secret resolution"                                          enabled_in_version:"0.7" long:"use-project-secrets"`
+	WaitBlock                bool `description:"enable WITH/END feature, also allows RUN --push mixed with non-push commands"    enabled_in_version:"0.7" long:"wait-block"`
 
 	// VERSION 0.8
-	NoNetwork                       bool `long:"no-network" enabled_in_version:"0.8" description:"allow the use of RUN --network=none commands"`
-	ArgScopeSet                     bool `long:"arg-scope-and-set" enabled_in_version:"0.8" description:"enable SET to reassign ARGs and prevent ARGs from being redeclared in the same scope"`
-	UseDockerIgnore                 bool `long:"use-docker-ignore" enabled_in_version:"0.8" description:"fallback to .dockerignore incase .earthlyignore or .earthlyignore do not exist in a local \"FROM DOCKERFILE\" target"`
-	PassArgs                        bool `long:"pass-args" enabled_in_version:"0.8" description:"Allow the use of the --pass-arg flag in FROM, BUILD, COPY, WITH DOCKER, and DO commands"`
-	GlobalCache                     bool `long:"global-cache" enabled_in_version:"0.8" description:"enable global caches (shared across different Earthfiles), for cache mounts and CACHEs having an ID"`
-	CachePersistOption              bool `long:"cache-persist-option" enabled_in_version:"0.8" description:"Adds option to persist caches, Changes default CACHE behaviour to not persist"`
-	GitRefs                         bool `long:"git-refs" enabled_in_version:"0.8" description:"includes EARTHLY_GIT_REFS ARG"`
-	UseVisitedUpfrontHashCollection bool `long:"use-visited-upfront-hash-collection" enabled_in_version:"0.8" description:"Uses a new target visitor implementation that computes upfront the hash of the visited targets and adds support for running all targets with the same name but different args in parallel"`
-	UseFunctionKeyword              bool `long:"use-function-keyword" enabled_in_version:"0.8" description:"Use the FUNCTION key word instead of COMMAND"`
+	NoNetwork                       bool `description:"allow the use of RUN --network=none commands"                                                                                                                                              enabled_in_version:"0.8" long:"no-network"`
+	ArgScopeSet                     bool `description:"enable SET to reassign ARGs and prevent ARGs from being redeclared in the same scope"                                                                                                      enabled_in_version:"0.8" long:"arg-scope-and-set"`
+	UseDockerIgnore                 bool `description:"fallback to .dockerignore incase .earthlyignore or .earthlyignore do not exist in a local \"FROM DOCKERFILE\" target"                                                                      enabled_in_version:"0.8" long:"use-docker-ignore"`
+	PassArgs                        bool `description:"Allow the use of the --pass-arg flag in FROM, BUILD, COPY, WITH DOCKER, and DO commands"                                                                                                   enabled_in_version:"0.8" long:"pass-args"`
+	GlobalCache                     bool `description:"enable global caches (shared across different Earthfiles), for cache mounts and CACHEs having an ID"                                                                                       enabled_in_version:"0.8" long:"global-cache"`
+	CachePersistOption              bool `description:"Adds option to persist caches, Changes default CACHE behaviour to not persist"                                                                                                             enabled_in_version:"0.8" long:"cache-persist-option"`
+	GitRefs                         bool `description:"includes EARTHLY_GIT_REFS ARG"                                                                                                                                                             enabled_in_version:"0.8" long:"git-refs"`
+	UseVisitedUpfrontHashCollection bool `description:"Uses a new target visitor implementation that computes upfront the hash of the visited targets and adds support for running all targets with the same name but different args in parallel" enabled_in_version:"0.8" long:"use-visited-upfront-hash-collection"`
+	UseFunctionKeyword              bool `description:"Use the FUNCTION key word instead of COMMAND"                                                                                                                                              enabled_in_version:"0.8" long:"use-function-keyword"`
 
 	// unreleased
-	TryFinally                    bool `long:"try" description:"allow the use of the TRY/FINALLY commands"`
-	WildcardBuilds                bool `long:"wildcard-builds" description:"allow for the expansion of wildcard (glob) paths for BUILD commands"`
-	BuildAutoSkip                 bool `long:"build-auto-skip" description:"allow for --auto-skip to be used on individual BUILD commands"`
-	AllowPrivilegedFromDockerfile bool `long:"allow-privileged-from-dockerfile" description:"Allow the use of the --allow-privileged flag in the FROM DOCKERFILE command"`
-	RunWithAWS                    bool `long:"run-with-aws" description:"make AWS credentials in the environment or ~/.aws available to RUN commands"`
-	WildcardCopy                  bool `long:"wildcard-copy" description:"allow for the expansion of wildcard (glob) paths for COPY commands"`
-	RawOutput                     bool `long:"raw-output" description:"allow for --raw-output on RUN commands"`
-	GitAuthorEmailNameArgs        bool `long:"git-author-email-name-args" description:"includes EARTHLY_GIT_AUTHOR_EMAIL and EARTHLY_GIT_AUTHOR_NAME builtin ARGs"`
-	AllowWithoutEarthlyLabels     bool `long:"allow-without-earthly-labels" description:"Allow the usage of --without-earthly-labels in SAVE IMAGE"`
-	DockerCache                   bool `long:"docker-cache" description:"enable the WITH DOCKER --cache-id option"`
-	RunWithAWSOIDC                bool `long:"run-with-aws-oidc" description:"make AWS credentials via OIDC provider available to RUN commands"`
+	TryFinally                    bool `description:"allow the use of the TRY/FINALLY commands"                                   long:"try"`
+	WildcardBuilds                bool `description:"allow for the expansion of wildcard (glob) paths for BUILD commands"         long:"wildcard-builds"`
+	BuildAutoSkip                 bool `description:"allow for --auto-skip to be used on individual BUILD commands"               long:"build-auto-skip"`
+	AllowPrivilegedFromDockerfile bool `description:"Allow the use of the --allow-privileged flag in the FROM DOCKERFILE command" long:"allow-privileged-from-dockerfile"`
+	RunWithAWS                    bool `description:"make AWS credentials in the environment or ~/.aws available to RUN commands" long:"run-with-aws"`
+	WildcardCopy                  bool `description:"allow for the expansion of wildcard (glob) paths for COPY commands"          long:"wildcard-copy"`
+	RawOutput                     bool `description:"allow for --raw-output on RUN commands"                                      long:"raw-output"`
+	GitAuthorEmailNameArgs        bool `description:"includes EARTHLY_GIT_AUTHOR_EMAIL and EARTHLY_GIT_AUTHOR_NAME builtin ARGs"  long:"git-author-email-name-args"`
+	AllowWithoutEarthlyLabels     bool `description:"Allow the usage of --without-earthly-labels in SAVE IMAGE"                   long:"allow-without-earthly-labels"`
+	DockerCache                   bool `description:"enable the WITH DOCKER --cache-id option"                                    long:"docker-cache"`
+	RunWithAWSOIDC                bool `description:"make AWS credentials via OIDC provider available to RUN commands"            long:"run-with-aws-oidc"`
 
 	// version numbers
 	Major int

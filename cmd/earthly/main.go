@@ -100,7 +100,7 @@ func run() (exitCode int) {
 
 	tracer := otel.Tracer("earth")
 
-	_, span := tracer.Start(ctx, "main")
+	ctx, span := tracer.Start(ctx, "main")
 	defer span.End()
 
 	// Load .env into current global env's. This is mainly for applying Earthly settings.

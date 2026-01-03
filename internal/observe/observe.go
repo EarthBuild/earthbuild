@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
@@ -89,9 +90,20 @@ func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 		return nil, err
 	}
 
+	executable, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+
+	executablePath := filepath.Dir(executable)
+
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String("EarthBuild"),
+			semconv.ServiceName("EarthBuild"),
+			semconv.ProcessCommand(os.Args[0]),
+			semconv.ProcessPID(os.Getpid()),
+			semconv.ProcessCommandArgs(os.Args[1:]...),
+			semconv.ProcessExecutablePath(executablePath),
 		),
 		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),

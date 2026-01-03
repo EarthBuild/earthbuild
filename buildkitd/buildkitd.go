@@ -912,33 +912,31 @@ func printBuildkitInfo(bkCons conslogging.ConsoleLogger, info *client.Info, work
 			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
 		if info.BuildkitVersion.Package != "github.com/earthly/buildkit" {
 			bkCons.Warnf("Using a non-Earthly version of Buildkit. This is not supported.")
-		} else {
-			if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthlyVersion {
-				if isLocal {
-					// For local buildkits we expect perfect version match.
-					bkCons.Warnf(
-						"Warning: Buildkit version (%s) is different from Earthly version (%s)",
+		} else if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthlyVersion {
+			if isLocal {
+				// For local buildkits we expect perfect version match.
+				bkCons.Warnf(
+					"Warning: Buildkit version (%s) is different from Earthly version (%s)",
+					info.BuildkitVersion.Version, earthlyVersion)
+			} else {
+				compatible := true
+				bkVersion, err := semverutil.Parse(info.BuildkitVersion.Version)
+				if err != nil {
+					bkCons.VerbosePrintf("Warning: could not parse buildkit version: %v", err)
+					compatible = false
+				}
+				earthlyVersion, err := semverutil.Parse(earthlyVersion)
+				if err != nil {
+					bkCons.VerbosePrintf("Warning: could not parse earthly version: %v", err)
+					compatible = false
+				}
+				compatible = compatible && semverutil.IsCompatible(bkVersion, earthlyVersion)
+				if !compatible {
+					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with Earthly version (%s)",
 						info.BuildkitVersion.Version, earthlyVersion)
 				} else {
-					compatible := true
-					bkVersion, err := semverutil.Parse(info.BuildkitVersion.Version)
-					if err != nil {
-						bkCons.VerbosePrintf("Warning: could not parse buildkit version: %v", err)
-						compatible = false
-					}
-					earthlyVersion, err := semverutil.Parse(earthlyVersion)
-					if err != nil {
-						bkCons.VerbosePrintf("Warning: could not parse earthly version: %v", err)
-						compatible = false
-					}
-					compatible = compatible && semverutil.IsCompatible(bkVersion, earthlyVersion)
-					if !compatible {
-						bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with Earthly version (%s)",
-							info.BuildkitVersion.Version, earthlyVersion)
-					} else {
-						bkCons.VerbosePrintf("Buildkit version (%s) is compatible with Earthly version (%s)",
-							info.BuildkitVersion.Version, earthlyVersion)
-					}
+					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with Earthly version (%s)",
+						info.BuildkitVersion.Version, earthlyVersion)
 				}
 			}
 		}

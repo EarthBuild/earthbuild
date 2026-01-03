@@ -53,7 +53,7 @@ type shellFrontend struct {
 }
 
 func (sf *shellFrontend) IsAvailable(ctx context.Context) bool {
-	args := append(sf.globalCompatibilityArgs, "ps")
+	args := append(sf.globalCompatibilityArgs, "ps")        //nolint:gocritic
 	cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
 	err := cmd.Run()
 	return err == nil
@@ -173,10 +173,10 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 	logs := map[string]*ContainerLogs{}
 	var err error
 
-	baseArgs := append(sf.globalCompatibilityArgs, "logs")
+	baseArgs := append(sf.globalCompatibilityArgs, "logs") //nolint:gocritic
 	for _, nameOrID := range namesOrIDs {
 		// Don't use the wrapper so we can capture stderr and stdout individually
-		args := append(baseArgs, nameOrID)
+		args := append(baseArgs, nameOrID)                      //nolint:gocritic
 		cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
 
 		var stdout, stderr strings.Builder
@@ -332,7 +332,7 @@ func (cco *commandContextOutput) string() string {
 }
 
 func (sf *shellFrontend) commandContextStrings(args ...string) (string, []string) {
-	allArgs := append(sf.globalCompatibilityArgs, args...)
+	allArgs := append(sf.globalCompatibilityArgs, args...) //nolint:gocritic
 	return sf.binaryName, allArgs
 }
 
@@ -382,10 +382,8 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
 			cfg.Console.Warnf("Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)", bkURL.Hostname(), lrURL.Hostname())
 		}
-	} else {
-		if cfg.LocalRegistryHostFileValue != "" {
-			cfg.Console.VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
-		}
+	} else if cfg.LocalRegistryHostFileValue != "" {
+		cfg.Console.VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
 	}
 
 	return &FrontendURLs{

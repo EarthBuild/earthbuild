@@ -46,7 +46,7 @@ func crossProduct(ga []argGroup, prefix []string) [][]string {
 	}
 	var ret [][]string
 	for _, v := range ga[0].values {
-		newPrefix := prefix[:]
+		newPrefix := prefix
 		var kv string
 		if v == nil {
 			kv = ga[0].key

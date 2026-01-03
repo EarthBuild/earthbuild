@@ -200,7 +200,7 @@ func TestShellParser4Words(t *testing.T) {
 		lineNum := 0
 		for scanner.Scan() {
 			line := scanner.Text()
-			lineNum = lineNum + 1
+			lineNum++
 
 			if strings.HasPrefix(line, "#") {
 				continue

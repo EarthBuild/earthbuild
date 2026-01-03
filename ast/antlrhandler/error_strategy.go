@@ -38,8 +38,7 @@ func (res *ReturnErrorStrategy) Recover(recognizer antlr.Parser, e antlr.Recogni
 		res.ErrContext = recognizer.GetParserRuleContext()
 		expected := recognizer.GetExpectedTokens().StringVerbose(res.litNames, res.symbNames, false)
 		res.Hint = fmt.Sprintf("I got lost looking for '%v'", humanName(expected))
-		switch expected {
-		case "EQUALS":
+		if expected == "EQUALS" {
 			res.Hint += " - did you define a key/value pair without a value?"
 		}
 	}

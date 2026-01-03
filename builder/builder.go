@@ -653,40 +653,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	outputConsole := conslogging.NewBufferedLogger(&b.opt.Console)
 	outputPhaseSpecial := ""
 
-	if opt.NoOutput {
-		// Nothing.
-	} else if opt.OnlyArtifact != nil {
-		if mts.Final.GetDoSaves() {
-			outputPhaseSpecial = "single artifact"
-			outDir, err := b.tempEarthlyOutDir()
-			if err != nil {
-				return nil, err
-			}
-			err = saveartifactlocally.SaveArtifactLocally(
-				ctx, exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else if opt.OnlyFinalTargetImages {
-		outputPhaseSpecial = "single image"
-		for _, saveImage := range mts.Final.SaveImages {
-			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
-			shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
-			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
-			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
-				continue
-			}
-
-			if shouldPush {
-				exportCoordinator.AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), true)
-			}
-			if saveImage.Push && !opt.Push {
-				exportCoordinator.AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), false)
-			}
-			exportCoordinator.AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt())
-		}
-	} else {
+	switch {
+	default:
 		// This needs to match with the same index used during output.
 		// TODO: This is a little brittle to future code changes.
 		dirIndex := 0
@@ -774,6 +742,39 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 					}
 				}
 			}
+		}
+	case opt.NoOutput:
+		// noop
+	case opt.OnlyArtifact != nil:
+		if mts.Final.GetDoSaves() {
+			outputPhaseSpecial = "single artifact"
+			outDir, err := b.tempEarthlyOutDir()
+			if err != nil {
+				return nil, err
+			}
+			err = saveartifactlocally.SaveArtifactLocally(
+				ctx, exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+	case opt.OnlyFinalTargetImages:
+		outputPhaseSpecial = "single image"
+		for _, saveImage := range mts.Final.SaveImages {
+			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
+			shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
+			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
+			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
+				continue
+			}
+
+			if shouldPush {
+				exportCoordinator.AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), true)
+			}
+			if saveImage.Push && !opt.Push {
+				exportCoordinator.AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), false)
+			}
+			exportCoordinator.AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt())
 		}
 	}
 

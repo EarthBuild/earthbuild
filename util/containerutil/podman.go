@@ -201,7 +201,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 	}
 
 	idx := strings.Index(output.string(), "Local Volumes space usage:")
-	val := output.string()[idx:]
+	val := output.string()[idx:] //nolint:gocritic
 	lines := strings.Split(val, "\n")[3:]
 	results := map[string]*VolumeInfo{}
 

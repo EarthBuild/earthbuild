@@ -402,10 +402,11 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 			state = flagState
 		}
 
-		if state == flagState && isFlagValidAndRequiresValue(getFlags(), prevWord) {
+		switch {
+		case state == flagState && isFlagValidAndRequiresValue(getFlags(), prevWord):
 			state = flagValueState
 			flag = prevWord
-		} else if state == rootState || state == commandState || state == flagState {
+		case state == rootState || state == commandState || state == flagState:
 			if strings.HasPrefix(w, "-") {
 				if w == "-a" || w == "--artifact" {
 					artifactMode = true
@@ -426,7 +427,7 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 					state = commandState
 				}
 			}
-		} else if state == targetState || state == targetFlagState {
+		case state == targetState || state == targetFlagState:
 			if !strings.HasPrefix(w, "-") {
 				state = endOfSuggestionsState
 			} else {

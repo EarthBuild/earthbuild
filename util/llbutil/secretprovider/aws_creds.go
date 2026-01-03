@@ -138,11 +138,12 @@ func handleError(err error, region string) error {
 	if err == nil {
 		return nil
 	}
+
 	if grpcErr, ok := grpcerrors.AsGRPCStatus(err); ok {
-		switch grpcErr.Code() {
-		case codes.InvalidArgument:
+		if grpcErr.Code() == codes.InvalidArgument {
 			return hint.Wrapf(err, `is %q a valid AWS region?`, region)
 		}
 	}
+
 	return errors.Wrap(err, "failed to load AWS credentials")
 }

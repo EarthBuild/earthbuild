@@ -198,7 +198,7 @@ func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []
 	}
 	params = append(params, composeParams(opt)...)
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
-		envVars2 := append(params, envVars...)
+		envVars2 := append(params, envVars...) //nolint:gocritic
 		return []string{
 			"/bin/sh", "-c",
 			strWithEnvVarsAndDocker(args, envVars2, isWithShell, withDebugger, forceDebugger, true, false, "", ""),

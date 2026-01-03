@@ -34,11 +34,15 @@ func ParseFlagArgsWithNonFlags(args []string) ([]string, []string, error) {
 			keyFromPrev = ""
 			v = arg
 		} else {
-			var trimmedArg string
-			if strings.HasPrefix(arg, "--") {
-				trimmedArg = strings.TrimPrefix(arg, "--")
-			} else if strings.HasPrefix(arg, "-") {
-				trimmedArg = strings.TrimPrefix(arg, "-")
+			var (
+				trimmedArg string
+				ok         bool
+			)
+
+			if trimmedArg, ok = strings.CutPrefix(arg, "--"); ok {
+				// noop
+			} else if trimmedArg, ok = strings.CutPrefix(arg, "-"); ok {
+				// noop
 			} else {
 				nonFlags = append(nonFlags, arg)
 				continue

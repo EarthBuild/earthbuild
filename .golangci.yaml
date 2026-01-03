@@ -65,7 +65,6 @@ linters:
     - testpackage
     - usetesting
     - varnamelen
-    - wastedassign
     - whitespace
     - wrapcheck
     - wsl

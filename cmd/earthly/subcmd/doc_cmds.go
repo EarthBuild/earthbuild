@@ -155,14 +155,25 @@ type blockIO struct {
 }
 
 func (io blockIO) options() string {
-	var options []string
+	var sb strings.Builder
+
 	for _, arg := range io.requiredArgs {
-		options = append(options, arg.identifier)
+		if sb.Len() > 0 {
+			sb.WriteByte(' ')
+		}
+
+		sb.WriteString(arg.identifier)
 	}
+
 	for _, arg := range io.optionalArgs {
-		options = append(options, fmt.Sprintf("[%s]", arg.identifier))
+		if sb.Len() > 0 {
+			sb.WriteByte(' ')
+		}
+
+		sb.WriteString("[" + arg.identifier + "]")
 	}
-	return strings.Join(options, " ")
+
+	return sb.String()
 }
 
 func (io blockIO) help(indent, scopeIndent string) string {

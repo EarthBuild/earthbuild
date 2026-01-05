@@ -1,7 +1,6 @@
 package ast_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -51,7 +50,7 @@ test:
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			namedReader := namedStringReader{strings.NewReader(test.earthfile)}
-			_, err := ast.ParseOpts(context.Background(), ast.FromReader(&namedReader))
+			_, err := ast.ParseOpts(ast.FromReader(&namedReader))
 			r := require.New(t)
 			r.Error(err)
 			r.ErrorContains(err, test.expectedHint)

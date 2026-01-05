@@ -43,7 +43,7 @@ func TestShellParserMandatoryEnvVars(t *testing.T) {
 
 	newWord, err = shlex.ProcessWord(noUnset, emptyEnvs, nil)
 	require.NoError(t, err)
-	require.Equal(t, "", newWord)
+	require.Empty(t, newWord)
 
 	_, err = shlex.ProcessWord(noUnset, unsetEnvs, nil)
 	require.Error(t, err)
@@ -142,7 +142,7 @@ func TestShellParser4EnvVars(t *testing.T) {
 		}
 
 		words := strings.Split(line, "|")
-		require.Equal(t, 3, len(words))
+		require.Len(t, words, 3)
 
 		platform := strings.TrimSpace(words[0])
 		source := strings.TrimSpace(words[1])

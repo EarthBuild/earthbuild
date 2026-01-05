@@ -10,7 +10,6 @@ issues:
 linters:
   default: all
   disable:
-    - containedctx
     - contextcheck
     - cyclop
     - depguard
@@ -57,17 +56,13 @@ linters:
     - nlreturn
     - noinlineerr
     - nonamedreturns
-    - prealloc
     - predeclared
     - protogetter
     - recvcheck
     - revive
     - staticcheck
-    - tagalign
     - tagliatelle
-    - testifylint
     - testpackage
-    - unconvert
     - usetesting
     - varnamelen
     - wastedassign

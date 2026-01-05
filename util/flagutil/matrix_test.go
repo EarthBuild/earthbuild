@@ -3,11 +3,13 @@ package flagutil
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildArgMatrix(t *testing.T) {
 	t.Parallel()
+
+	r := require.New(t)
 
 	tests := []struct {
 		in  []string
@@ -26,7 +28,7 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	for _, tt := range tests {
 		ans, err := BuildArgMatrix(tt.in)
-		assert.NoError(t, err)
-		assert.Equal(t, tt.out, ans)
+		r.NoError(err)
+		r.Equal(tt.out, ans)
 	}
 }

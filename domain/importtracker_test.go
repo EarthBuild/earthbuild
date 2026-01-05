@@ -6,10 +6,13 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImports(t *testing.T) {
 	t.Parallel()
+
+	r := require.New(t)
 
 	tests := []struct {
 		importStr string
@@ -40,15 +43,15 @@ func TestImports(t *testing.T) {
 	for _, tt := range tests {
 		ir := NewImportTracker(console, nil)
 		err := ir.Add(tt.importStr, tt.as, false, false, false)
-		assert.NoError(t, err, "add import error")
+		r.NoError(err, "add import error")
 
 		ref, err := ParseTarget(tt.ref)
-		assert.NoError(t, err, "parse test case ref") // check that the test data is good
-		assert.Equal(t, tt.ref, ref.String())         // sanity check
+		r.NoError(err, "parse test case ref") // check that the test data is good
+		assert.Equal(t, tt.ref, ref.String()) // sanity check
 
 		ref2, _, _, err := ir.Deref(ref)
 		if tt.ok {
-			assert.NoError(t, err, "deref import")
+			r.NoError(err, "deref import")
 			assert.Equal(t, tt.expected, ref2.StringCanonical()) // StringCanonical shows its resolved form
 			assert.Equal(t, tt.ref, ref2.String())               // String shows its import form
 		} else {

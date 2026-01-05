@@ -84,8 +84,9 @@ func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onIm
 }
 
 func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, console conslogging.ConsoleLogger) (*client.SolveOpt, error) {
-	var cacheImports []client.CacheOptionsEntry
-	for _, ci := range s.cacheImports.AsSlice() {
+	imports := s.cacheImports.AsSlice()
+	cacheImports := make([]client.CacheOptionsEntry, 0, len(imports))
+	for _, ci := range imports {
 		cacheImports = append(cacheImports, newCacheImportOpt(ci))
 	}
 	var cacheExports []client.CacheOptionsEntry
@@ -141,7 +142,7 @@ func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onIma
 					}
 					return onArtifact(ctx, indexStr, artifact, srcPath, destPath)
 				},
-				OutputPullCallback: pullping.PullCallback(onPullCallback),
+				OutputPullCallback: onPullCallback,
 				VerboseProgressCB:  progressCB.Verbose,
 			},
 		},

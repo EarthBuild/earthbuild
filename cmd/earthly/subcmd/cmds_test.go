@@ -62,12 +62,14 @@ func TestRootCmdsHelp(t *testing.T) {
 
 // Check if command has any subCommands to verify.
 func checkSubCommands(commands []*cli.Command) []*cli.Command {
-	var allCommands []*cli.Command
+	allCommands := make([]*cli.Command, 0, len(commands))
+
 	for _, command := range commands {
 		allCommands = append(allCommands, command)
 		if len(command.Subcommands) != 0 {
 			allCommands = append(allCommands, checkSubCommands(command.Subcommands)...)
 		}
 	}
+
 	return allCommands
 }

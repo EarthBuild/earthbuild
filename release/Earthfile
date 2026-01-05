@@ -118,7 +118,7 @@ gh-cli:
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
 
-    RUN apk add --no-cache github-cli=2.72.0-r4
+    RUN apk add --no-cache github-cli
 
 # release-artifacts-to-gh uploads existing artifacts stored in GitHub actions to a specified release
 promote-artifacts-to-gh:
@@ -130,7 +130,7 @@ promote-artifacts-to-gh:
     # Default to earthly-inferred commit SHA but accept an override
     ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
 
-    # Trim COMMIT_SHA to first 8 chars (alpine)
+    # Trim COMMIT_SHA to first 8 chars
     LET ARTIFACT_NAME="$(echo $COMMIT_SHA | cut -c1-8)"
 
     RUN mkdir -p _download

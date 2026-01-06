@@ -148,7 +148,6 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 	err = symlinkEarthlyToEarth()
 	if err != nil {
 		console.Warnf("Warning: %s\n", err.Error())
-		err = nil
 	}
 
 	if !a.noBuildkit || a.genCerts {

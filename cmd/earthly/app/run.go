@@ -251,7 +251,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
 		matches := notFoundRegex.FindStringSubmatch(err.Error())
-		msg := ""
+		var msg string
 		if len(matches) == 2 {
 			msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
 		} else {

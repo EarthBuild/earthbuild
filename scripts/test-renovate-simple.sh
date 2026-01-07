@@ -31,12 +31,10 @@ echo "1️⃣  Validating JSON5 syntax..."
 # Set config file path
 CONFIG_PATH="$(pwd)/.github/renovate.json5"
 
-docker run --rm \
+if docker run --rm \
     -v "$CONFIG_PATH":/tmp/renovate.json5:ro \
     renovate/renovate:latest \
-    renovate-config-validator /tmp/renovate.json5
-
-if [ $? -eq 0 ]; then
+    renovate-config-validator /tmp/renovate.json5; then
     echo "   ✅ JSON5 syntax is valid"
 else
     echo "   ❌ JSON5 syntax error found"

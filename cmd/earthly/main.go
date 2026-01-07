@@ -57,6 +57,11 @@ func setExportableVars() {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+// run executes the CLI and returns an exit code to pass to [os.Exit].
+func run() (code int) {
 	ctx := context.Background()
 
 	shutdown, err := observe.Setup(ctx)
@@ -69,15 +74,10 @@ func main() {
 	ctx, span := otel.Tracer("earth").Start(ctx, "main")
 	defer span.End()
 
-	code := run(ctx)
+	defer func() {
+		span.SetAttributes(semconv.ProcessExitCode(code))
+	}()
 
-	span.SetAttributes(semconv.ProcessExitCode(code))
-
-	os.Exit(code)
-}
-
-// run executes the CLI and returns an exit code to pass to [os.Exit].
-func run(ctx context.Context) (code int) {
 	setExportableVars()
 	startTime := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
@@ -147,7 +147,7 @@ func run(ctx context.Context) (code int) {
 			}
 		}
 	}
-	err := godotenv.Load(envFile)
+	err = godotenv.Load(envFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
 		if envFileOverride || !errors.Is(err, os.ErrNotExist) {

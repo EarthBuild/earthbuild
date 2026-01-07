@@ -10,7 +10,6 @@ issues:
 linters:
   default: all
   disable:
-    - contextcheck
     - cyclop
     - depguard
     - dogsled

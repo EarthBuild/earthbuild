@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
@@ -56,14 +57,30 @@ func setExportableVars() {
 }
 
 func main() {
-	os.Exit(run())
+	ctx := context.Background()
+
+	shutdown, err := observe.Setup(ctx)
+	if err != nil {
+		fmt.Printf("Error setting up OpenTelemetry: %s\n", err.Error())
+	} else {
+		defer shutdown(ctx)
+	}
+
+	ctx, span := otel.Tracer("earth").Start(ctx, "main")
+	defer span.End()
+
+	code := run(ctx)
+
+	span.SetAttributes(semconv.ProcessExitCode(code))
+
+	os.Exit(code)
 }
 
 // run executes the CLI and returns an exit code to pass to [os.Exit].
-func run() (code int) {
+func run(ctx context.Context) (code int) {
 	setExportableVars()
 	startTime := time.Now()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
@@ -92,18 +109,6 @@ func run() (code int) {
 	}()
 	// Occasional spurious warnings show up - these are coming from imported libraries. Discard them.
 	logrus.StandardLogger().Out = io.Discard
-
-	shutdown, err := observe.Setup(ctx)
-	if err != nil {
-		fmt.Printf("Error setting up OpenTelemetry: %s\n", err.Error())
-	} else {
-		defer shutdown(ctx)
-	}
-
-	tracer := otel.Tracer("earth")
-
-	ctx, span := tracer.Start(ctx, "main")
-	defer span.End()
 
 	// Load .env into current global env's. This is mainly for applying Earthly settings.
 	// Separate call is made for build args and secrets.
@@ -142,7 +147,7 @@ func run() (code int) {
 			}
 		}
 	}
-	err = godotenv.Load(envFile)
+	err := godotenv.Load(envFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
 		if envFileOverride || !errors.Is(err, os.ErrNotExist) {

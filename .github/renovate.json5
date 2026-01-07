@@ -56,7 +56,6 @@
       '/Earthfile/',
       '/.*\\.earth$/',
       '/Dockerfile*/',
-      '/docker-compose*.yml/',
     ],
   },
   customManagers: [

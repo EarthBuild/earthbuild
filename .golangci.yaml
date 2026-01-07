@@ -10,7 +10,6 @@ issues:
 linters:
   default: all
   disable:
-    - contextcheck
     - cyclop
     - depguard
     - dogsled
@@ -65,7 +64,6 @@ linters:
     - testpackage
     - usetesting
     - varnamelen
-    - wastedassign
     - whitespace
     - wrapcheck
     - wsl

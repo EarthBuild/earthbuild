@@ -45,7 +45,6 @@ func TestServer(t *testing.T) {
 			time.Sleep(time.Second)
 
 			attempts++
-			err = nil
 			continue
 		}
 		break

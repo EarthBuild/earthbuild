@@ -259,27 +259,25 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 			err = errKeyScanNoMatch
 			return
 		}
-	} else {
+	} else if scannedHostname != hostname {
 		// entry isn't hashed
 		// either the entry is of the form `[hostname]:port` or simply `hostname`
-		if scannedHostname != hostname {
-			// check for entry without a port
-			// TODO: ACB is not sure if this part is needed ( https://github.com/openssh/openssh-portable/commit/e9c71498a083a8b502aa831ea931ce294228eda0 is a bugfix
-			// that only affects hashed entries, however, it's not clear if old versions of ssh dropped the port in the non-hashed version).
-			if !hasPort(hostname) {
-				err = errKeyScanNoMatch
-				return
-			}
-			var host string
-			host, _, err = net.SplitHostPort(hostname)
-			if err != nil {
-				err = errors.Wrapf(err, "SplitHostPort on %q failed", hostname)
-				return
-			}
-			if scannedHostname != host {
-				err = errKeyScanNoMatch
-				return
-			}
+		// check for entry without a port
+		// TODO: ACB is not sure if this part is needed ( https://github.com/openssh/openssh-portable/commit/e9c71498a083a8b502aa831ea931ce294228eda0 is a bugfix
+		// that only affects hashed entries, however, it's not clear if old versions of ssh dropped the port in the non-hashed version).
+		if !hasPort(hostname) {
+			err = errKeyScanNoMatch
+			return
+		}
+		var host string
+		host, _, err = net.SplitHostPort(hostname)
+		if err != nil {
+			err = errors.Wrapf(err, "SplitHostPort on %q failed", hostname)
+			return
+		}
+		if scannedHostname != host {
+			err = errKeyScanNoMatch
+			return
 		}
 	}
 

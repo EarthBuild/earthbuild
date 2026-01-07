@@ -340,20 +340,21 @@ func valueToYaml(value string) (*yaml.Node, error) {
 	}
 	fixStyling(valueNode)
 
-	contentNode := &yaml.Node{}
-	if len(valueNode.Content) > 0 {
+	switch {
+	case len(valueNode.Content) > 0:
 		// ContentNode contains the user-provided value with its type etc
-		contentNode = valueNode.Content[0]
-	} else if value == "" {
+		return valueNode.Content[0], nil
+	case value == "":
 		// Edge case where the yaml.Unmarshal above results in no nodes in valueNode.Content.
 		// The code below ensures we can write an actual empty string to our yaml as requested.
+		contentNode := new(yaml.Node)
 		contentNode.SetString("")
-	} else {
+
+		return contentNode, nil
+	default:
 		// Very unlikely
 		return nil, errors.New("failed setting value in yaml")
 	}
-
-	return contentNode, nil
 }
 
 func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
@@ -371,7 +372,8 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 			Kind: yaml.MappingNode,
 		}
 
-		if i == len(path)-1 {
+		switch {
+		case i == len(path)-1:
 			// Last node should assign path as the value, not another mapping node
 			// Otherwise we would need to dig it up again.
 
@@ -382,11 +384,11 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 			}
 
 			last.Content = append(last.Content, key, value)
-		} else if last == nil {
+		case last == nil:
 			// First, top level mapping node
 			yamlNodes = append(yamlNodes, key, mapping)
 			last = mapping
-		} else {
+		default:
 			// Middle of the road regular case
 			last.Content = append(last.Content, key, mapping)
 			last = mapping

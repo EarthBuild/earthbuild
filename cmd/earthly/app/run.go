@@ -40,17 +40,25 @@ var (
 	requestIDRegex    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
 )
 
-func (app *EarthlyApp) Run(ctx context.Context, console conslogging.ConsoleLogger, startTime time.Time, lastSignal *syncutil.Signal) int {
+// Run runs the CLI and returns an exit code to pass to [os.Exit].
+func (app *EarthlyApp) Run(
+	ctx context.Context,
+	console conslogging.ConsoleLogger,
+	startTime time.Time,
+	lastSignal *syncutil.Signal,
+) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
-		os.Exit(1)
+		return 1
 	}
-	helper.AutoComplete(ctx, app.BaseCLI)
 
-	exitCode := app.run(ctx, os.Args, lastSignal)
+	code = helper.AutoComplete(ctx, app.BaseCLI)
+	if code >= 0 {
+		return code
+	}
 
-	return exitCode
+	return app.run(ctx, os.Args, lastSignal)
 }
 
 func (app *EarthlyApp) unhideFlags() error {
@@ -154,14 +162,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	var paramsErr *params.Error
 	var autoSkipErr *inputgraph.Error
 	switch {
-	default:
-		app.BaseCLI.Logbus().Run().SetGenericFatalError(
-			time.Now(),
-			logstream.FailureType_FAILURE_TYPE_OTHER,
-			"",
-			err.Error(),
-		)
-		return 1
 	case hintErrOK:
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
@@ -378,6 +378,14 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			logstream.FailureType_FAILURE_TYPE_SYNTAX,
 			"",
 			ie.Error(),
+		)
+		return 1
+	default:
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			"",
+			err.Error(),
 		)
 		return 1
 	}

@@ -653,9 +653,10 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	outputConsole := conslogging.NewBufferedLogger(&b.opt.Console)
 	outputPhaseSpecial := ""
 
-	if opt.NoOutput {
-		// Nothing.
-	} else if opt.OnlyArtifact != nil {
+	switch {
+	case opt.NoOutput:
+		// noop
+	case opt.OnlyArtifact != nil:
 		if mts.Final.GetDoSaves() {
 			outputPhaseSpecial = "single artifact"
 			outDir, err := b.tempEarthlyOutDir()
@@ -668,7 +669,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 				return nil, err
 			}
 		}
-	} else if opt.OnlyFinalTargetImages {
+	case opt.OnlyFinalTargetImages:
 		outputPhaseSpecial = "single image"
 		for _, saveImage := range mts.Final.SaveImages {
 			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
@@ -686,7 +687,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			}
 			exportCoordinator.AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt())
 		}
-	} else {
+	default:
 		// This needs to match with the same index used during output.
 		// TODO: This is a little brittle to future code changes.
 		dirIndex := 0

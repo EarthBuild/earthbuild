@@ -20,17 +20,23 @@ import (
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
-// to enable autocomplete, enter
+// AutoComplete handles shell autocomplete requests.
+// If the COMP_LINE environment variable is not set, it returns -1 to indicate
+// that autocomplete is not being requested.
+// If COMP_LINE is set, it processes the autocomplete request and returns 0
+// on success or 1 on failure.
+//
+// To enable autocomplete, enter
 // complete -o nospace -C "/path/to/earthly" earthly
 //
 // Alternatively, you can run earthly with COMP_LINE and COMP_POINT set; for example:
 //
 //	COMP_LINE="earthly ./buildkitd+buildkitd --" COMP_POINT="32" ./build/linux/amd64/earthly
 //	COMP_LINE="earthly ~/test/simple+test -" COMP_POINT="28" ./build/linux/amd64/earthly
-func AutoComplete(ctx context.Context, cli *base.CLI) {
+func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 	_, found := os.LookupEnv("COMP_LINE")
 	if !found {
-		return
+		return -1
 	}
 
 	_, debugEnabled := os.LookupEnv("EARTHLY_AUTOCOMPLETE_DEBUG")
@@ -38,14 +44,14 @@ func AutoComplete(ctx context.Context, cli *base.CLI) {
 		logDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "GetOrCreateEarthlyDir failed: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		logFile := filepath.Join(logDir, "autocomplete.log")
 
 		err = os.MkdirAll(logDir, 0o755) // #nosec G301
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "MkdirAll %s failed: %v\n", logDir, err)
-			os.Exit(1)
+			return 1
 		}
 		autocomplete.SetupLog(logFile)
 		autocomplete.Logf("COMP_LINE=%q COMP_POINT=%q", os.Getenv("COMP_LINE"), os.Getenv("COMP_POINT"))
@@ -56,9 +62,10 @@ func AutoComplete(ctx context.Context, cli *base.CLI) {
 	err := autoCompleteImp(ctx, cli)
 	if err != nil {
 		autocomplete.Logf("error during autocomplete: %s", err)
-		os.Exit(1)
+		return 1
 	}
-	os.Exit(0)
+
+	return 0
 }
 
 func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {

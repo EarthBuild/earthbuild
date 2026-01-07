@@ -178,15 +178,13 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 				}
 				platformImgNames[platformImgName] = true
 			}
-		} else {
-			if item.si.CheckDuplicate && item.si.DockerTag != "" {
-				if _, found := singPlatImgNames[item.si.DockerTag]; found {
-					return errors.Errorf(
-						"image %s is defined multiple times for the same default platform",
-						item.si.DockerTag)
-				}
-				singPlatImgNames[item.si.DockerTag] = true
+		} else if item.si.CheckDuplicate && item.si.DockerTag != "" {
+			if _, found := singPlatImgNames[item.si.DockerTag]; found {
+				return errors.Errorf(
+					"image %s is defined multiple times for the same default platform",
+					item.si.DockerTag)
 			}
+			singPlatImgNames[item.si.DockerTag] = true
 		}
 
 		refPrefix, err := gwCrafter.AddPushImageEntry(ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes)

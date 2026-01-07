@@ -61,19 +61,22 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	importStr = parsedImport.ProjectCanonical() // normalize
 	var path string
 	allowPrivileged := currentlyPrivileged
-	if parsedImport.IsImportReference() {
+
+	switch {
+	case parsedImport.IsImportReference():
 		return errors.Errorf("IMPORT %s not supported", importStr)
-	} else if parsedImport.IsRemote() {
+	case parsedImport.IsRemote():
 		path = parsedImport.GetGitURL()
 		allowPrivileged = allowPrivileged && allowPrivilegedFlag
-	} else if parsedImport.IsLocalExternal() {
+	case parsedImport.IsLocalExternal():
 		path = parsedImport.GetLocalPath()
 		if allowPrivilegedFlag {
 			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
-	} else {
+	default:
 		return errors.Errorf("IMPORT %s not supported", importStr)
 	}
+
 	pathParts := strings.Split(path, "/")
 	if len(pathParts) < 1 {
 		return errors.Errorf("IMPORT %s not supported", importStr)

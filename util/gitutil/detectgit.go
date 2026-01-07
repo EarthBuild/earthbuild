@@ -467,7 +467,7 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 	} else {
 		// In Window's style absolute paths, we need append the file-separator after the first element.
 		// e.g. We want: `C:\some\dir`, not `\C:some\dir`
-		pathParts[0] = pathParts[0] + string(filepath.Separator)
+		pathParts[0] += string(filepath.Separator)
 	}
 	b, err := os.Stat(filepath.Join(pathParts[:len(basePathParts)]...))
 	if err != nil {
@@ -503,11 +503,12 @@ func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Ref
 	importRef := ref.GetImportRef()
 
 	if tag == "" {
-		if len(gitMeta.Tags) > 0 {
+		switch {
+		case len(gitMeta.Tags) > 0:
 			tag = gitMeta.Tags[0]
-		} else if len(gitMeta.Branch) > 0 {
+		case len(gitMeta.Branch) > 0:
 			tag = gitMeta.Branch[0]
-		} else {
+		default:
 			tag = gitMeta.Hash
 		}
 	}

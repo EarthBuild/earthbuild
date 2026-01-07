@@ -77,10 +77,14 @@ signed-release:
     ARG --required DOCKERHUB_BUILDKIT_IMG
     ARG --required PRERELEASE
 
+    # VERSION can be provided explicitly (e.g., for staging builds with semver-style versions)
+    # If not provided, defaults to RELEASE_TAG for backwards compatibility
+    ARG VERSION="$RELEASE_TAG"
+
     ARG EARTHLY_GIT_HASH
 
     COPY (../+earthly-all/* \
-         --VERSION=$RELEASE_TAG \
+         --VERSION=$VERSION \
          --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" \
          --DEFAULT_INSTALLATION_NAME="earthly" \
          ) ./release/
@@ -168,6 +172,27 @@ promote-to-dockerhub:
     BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
     BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
+
+# Copy staging buildkitd from GHCR to DockerHub for staging releases
+# This is called during CI staging builds to make the buildkitd image available on DockerHub
+# where the staging binaries expect to find it.
+copy-staging-buildkitd-to-dockerhub:
+    ARG --required RELEASE_TAG
+    ARG --required DEST_CONTAINER_REGISTRY_USER
+
+    LET SRC_DOCKER_REGISTRY="ghcr.io"
+    LET DEST_DOCKER_REGISTRY="docker.io"
+
+    # Source: ghcr.io/earthbuild/earthbuild:buildkitd-staging-<commit-sha>
+    # Dest: docker.io/<DEST_USER>/buildkitd-staging:<commit-sha>
+    LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:buildkitd-staging-${RELEASE_TAG}"
+    LET DEST_IMG="${DEST_DOCKER_REGISTRY}/${DEST_CONTAINER_REGISTRY_USER}/buildkitd-staging:${RELEASE_TAG}"
+
+    BUILD +copy-img \
+        --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \
+        --DEST_DOCKER_REGISTRY="${DEST_DOCKER_REGISTRY}" \
+        --SRC_REF="${SRC_IMG}" \
+        --DEST_REF="${DEST_IMG}"
 
 copy-img-to-dockerhub:
     ARG --required IMG_NAME

@@ -1,13 +1,16 @@
+# renovate: datasource=docker packageName=golang
 FROM golang:1.25
 WORKDIR /go/src/github.com/alexellis/href-counter/
 COPY app.go .
 RUN go mod init
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
+# renovate: datasource=docker packageName=alpine
 FROM alpine:latest AS greet
 WORKDIR /root/
 RUN echo greetings > /root/hello.txt
 
+# renovate: datasource=docker packageName=alpine
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/

@@ -131,7 +131,9 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 	// as long as they don't have variable args $(...).
 	for index := startIndex; index < len(b); index++ {
 		stmt := b[index]
-		if stmt.Command != nil {
+
+		switch {
+		case stmt.Command != nil:
 			switch stmt.Command.Name {
 			case command.Arg, command.Locally, command.From, command.FromDockerfile, command.Let, command.Set:
 				// Cannot do any further parallel builds - these commands need to be
@@ -149,17 +151,14 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 			case command.Copy:
 				// TODO
 			}
-		} else if stmt.With != nil {
-			switch stmt.With.Command.Name {
-			case command.Docker:
-				// TODO
-			}
-		} else if stmt.If != nil || stmt.For != nil || stmt.Wait != nil || stmt.Try != nil {
+		case stmt.With != nil:
+			// TODO
+		case stmt.If != nil, stmt.For != nil, stmt.Wait != nil, stmt.Try != nil:
 			// Cannot do any further parallel builds - these commands need to be
 			// executed to ensure that they don't impact the outcome. As such,
 			// commands following these cannot be executed preemptively.
 			return nil
-		} else {
+		default:
 			return i.errorf(stmt.SourceLocation, "unexpected statement type")
 		}
 	}
@@ -1038,7 +1037,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 			if err != nil {
 				return i.wrapError(err, cmd.SourceLocation, "parse flag args")
 			}
-			srcBuildArgs := append(parsedFlagArgs, expandedBuildArgs...)
+			srcBuildArgs := append(parsedFlagArgs, expandedBuildArgs...) //nolint:gocritic
 
 			if !i.converter.ftrs.PassArgs && opts.PassArgs {
 				return i.errorf(cmd.SourceLocation, "the COPY --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
@@ -1090,20 +1089,24 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 func parseSaveArtifactArgs(args []string) (from, to, asLocal string, _ bool) {
 	saveAsLocalTo := ""
 	saveTo := "./"
-	if len(args) >= 4 {
-		if strings.Join(args[len(args)-3:len(args)-1], " ") == "AS LOCAL" {
-			saveAsLocalTo = args[len(args)-1]
-			if len(args) == 5 {
+	n := len(args)
+
+	switch {
+	case n >= 4:
+		if strings.Join(args[n-3:n-1], " ") == "AS LOCAL" {
+			saveAsLocalTo = args[n-1]
+			if n == 5 {
 				saveTo = args[1]
 			}
 		} else {
 			return "", "", "", false
 		}
-	} else if len(args) == 2 {
+	case n == 2:
 		saveTo = args[1]
-	} else if len(args) == 0 || len(args) == 3 {
+	case n == 0, n == 3:
 		return "", "", "", false
 	}
+
 	saveFrom := args[0]
 	return saveFrom, saveTo, saveAsLocalTo, true
 }
@@ -1616,7 +1619,8 @@ func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
 	nextEqual := false
 	nextKey := true
 	for _, arg := range cmd.Args {
-		if nextKey {
+		switch {
+		case nextKey:
 			key, err = i.expandArgs(ctx, arg, false, false)
 			if err != nil {
 				return i.wrapError(err, cmd.SourceLocation, "failed to expand LABEL key %s", arg)
@@ -1626,12 +1630,12 @@ func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
 			}
 			nextEqual = true
 			nextKey = false
-		} else if nextEqual {
+		case nextEqual:
 			if arg != "=" {
 				return i.errorf(cmd.SourceLocation, "syntax error")
 			}
 			nextEqual = false
-		} else {
+		default:
 			value, err := i.expandArgs(ctx, arg, false, false)
 			if err != nil {
 				return i.wrapError(err, cmd.SourceLocation, "failed to expand LABEL value %s", arg)
@@ -1816,7 +1820,7 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) er
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "parse flag args")
 		}
-		loadBuildArgs := append(parsedFlagArgs, expandedBuildArgs...)
+		loadBuildArgs := append(parsedFlagArgs, expandedBuildArgs...) //nolint:gocritic
 
 		allowPrivileged, err := i.getAllowPrivilegedTarget(loadTarget, opts.AllowPrivileged)
 		if err != nil {

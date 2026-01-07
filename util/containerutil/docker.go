@@ -171,7 +171,7 @@ func (dsf *dockerShellFrontend) ImageLoadFromFileCommand(filename string) string
 
 func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
-	args := append(dsf.globalCompatibilityArgs, "load")
+	args := append(dsf.globalCompatibilityArgs, "load") //nolint:gocritic
 	for _, image := range images {
 		// Do not use the wrapper to allow the image to come in on stdin
 		cmd := exec.CommandContext(ctx, dsf.binaryName, args...) // #nosec G204

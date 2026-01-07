@@ -149,14 +149,13 @@ func RemoveReservedArgsFromScope(scope *Scope) *Scope {
 func CombineScopes(scopes ...*Scope) *Scope {
 	s := NewScope()
 	precedence := [][]ScopeOpt{
-		{WithActive()},
-		nil,
+		{WithActive(), NoOverride()},
+		{NoOverride()},
 	}
 	for _, opts := range precedence {
-		addOpts := append(opts, NoOverride())
 		for _, scope := range scopes {
 			for k, v := range scope.Map(opts...) {
-				s.Add(k, v, addOpts...)
+				s.Add(k, v, opts...)
 			}
 		}
 	}

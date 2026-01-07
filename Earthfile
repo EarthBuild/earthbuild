@@ -313,8 +313,8 @@ lint-changelog:
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
-    ENV CGO_ENABLED=1
-    ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
+    ENV CGO_ENABLED=0
+    ARG GO_EXTRA_LDFLAGS=""
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
     ARG EARTHLY_GIT_HASH
@@ -331,13 +331,13 @@ debugger:
 # earthly builds the earthly CLI and docker image.
 earthly:
     FROM +code
-    ENV CGO_ENABLED=1
+    ENV CGO_ENABLED=0
     ARG GOOS=linux
     ARG TARGETARCH
     ARG TARGETVARIANT
     ARG GOARCH=$TARGETARCH
     ARG VARIANT=$TARGETVARIANT
-    ARG GO_EXTRA_LDFLAGS="-linkmode external -extldflags -static"
+    ARG GO_EXTRA_LDFLAGS=""
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. This
     # is particularly useful for disabling optimizations to make the binary work
     # with delve. To disable optimizations:

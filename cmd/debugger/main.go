@@ -88,7 +88,6 @@ func populateShellHistory(cmd string) error {
 		"/root/.ash_history",
 		"/root/.bash_history",
 	} {
-
 		f, err := os.Create(f) // #nosec G304
 		if err != nil {
 			result = multierror.Append(result, err)
@@ -357,7 +356,6 @@ func main() {
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
-
 		quotedCmd := shellescape.QuoteCommand(args)
 
 		exitCode := 1

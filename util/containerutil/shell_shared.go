@@ -363,7 +363,6 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 			if err != nil {
 				return nil, errors.Wrap(err, "could not validate default address")
 			}
-
 		}
 	}
 

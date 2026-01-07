@@ -2369,6 +2369,15 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 
 	switch {
+	case opts.Push:
+		// Don't run on MainState. We want push-flagged commands to be executed only
+		// *after* the build. Save this for later.
+		c.mts.Final.RunPush.State = state.Run(runOpts...).Root()
+		c.mts.Final.RunPush.CommandStrs = append(c.mts.Final.RunPush.CommandStrs, commandStr)
+		return c.mts.Final.RunPush.State, nil
+	case opts.Transient:
+		transientState := state.Run(runOpts...).Root()
+		return transientState, nil
 	default:
 		c.mts.Final.MainState = state.Run(runOpts...).Root()
 
@@ -2380,16 +2389,6 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 
 		return c.mts.Final.MainState, nil
-	case opts.Push:
-		// Don't run on MainState. We want push-flagged commands to be executed only
-		// *after* the build. Save this for later.
-		c.mts.Final.RunPush.State = state.Run(runOpts...).Root()
-		c.mts.Final.RunPush.CommandStrs = append(c.mts.Final.RunPush.CommandStrs, commandStr)
-		return c.mts.Final.RunPush.State, nil
-	case opts.Transient:
-		transientState := state.Run(runOpts...).Root()
-		return transientState, nil
-
 	}
 }
 

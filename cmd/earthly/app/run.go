@@ -162,14 +162,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	var paramsErr *params.Error
 	var autoSkipErr *inputgraph.Error
 	switch {
-	default:
-		app.BaseCLI.Logbus().Run().SetGenericFatalError(
-			time.Now(),
-			logstream.FailureType_FAILURE_TYPE_OTHER,
-			"",
-			err.Error(),
-		)
-		return 1
 	case hintErrOK:
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
@@ -386,6 +378,14 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			logstream.FailureType_FAILURE_TYPE_SYNTAX,
 			"",
 			ie.Error(),
+		)
+		return 1
+	default:
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			"",
+			err.Error(),
 		)
 		return 1
 	}

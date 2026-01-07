@@ -341,9 +341,6 @@ func valueToYaml(value string) (*yaml.Node, error) {
 	fixStyling(valueNode)
 
 	switch {
-	default:
-		// Very unlikely
-		return nil, errors.New("failed setting value in yaml")
 	case len(valueNode.Content) > 0:
 		// ContentNode contains the user-provided value with its type etc
 		return valueNode.Content[0], nil
@@ -354,6 +351,9 @@ func valueToYaml(value string) (*yaml.Node, error) {
 		contentNode.SetString("")
 
 		return contentNode, nil
+	default:
+		// Very unlikely
+		return nil, errors.New("failed setting value in yaml")
 	}
 }
 
@@ -373,10 +373,6 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 		}
 
 		switch {
-		default:
-			// Middle of the road regular case
-			last.Content = append(last.Content, key, mapping)
-			last = mapping
 		case i == len(path)-1:
 			// Last node should assign path as the value, not another mapping node
 			// Otherwise we would need to dig it up again.
@@ -391,6 +387,10 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 		case last == nil:
 			// First, top level mapping node
 			yamlNodes = append(yamlNodes, key, mapping)
+			last = mapping
+		default:
+			// Middle of the road regular case
+			last.Content = append(last.Content, key, mapping)
 			last = mapping
 		}
 	}

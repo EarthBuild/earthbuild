@@ -133,8 +133,6 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 		stmt := b[index]
 
 		switch {
-		default:
-			return i.errorf(stmt.SourceLocation, "unexpected statement type")
 		case stmt.Command != nil:
 			switch stmt.Command.Name {
 			case command.Arg, command.Locally, command.From, command.FromDockerfile, command.Let, command.Set:
@@ -160,6 +158,8 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 			// executed to ensure that they don't impact the outcome. As such,
 			// commands following these cannot be executed preemptively.
 			return nil
+		default:
+			return i.errorf(stmt.SourceLocation, "unexpected statement type")
 		}
 	}
 	return nil
@@ -1620,13 +1620,6 @@ func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
 	nextKey := true
 	for _, arg := range cmd.Args {
 		switch {
-		default:
-			value, err := i.expandArgs(ctx, arg, false, false)
-			if err != nil {
-				return i.wrapError(err, cmd.SourceLocation, "failed to expand LABEL value %s", arg)
-			}
-			labels[key] = value
-			nextKey = true
 		case nextKey:
 			key, err = i.expandArgs(ctx, arg, false, false)
 			if err != nil {
@@ -1642,6 +1635,13 @@ func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
 				return i.errorf(cmd.SourceLocation, "syntax error")
 			}
 			nextEqual = false
+		default:
+			value, err := i.expandArgs(ctx, arg, false, false)
+			if err != nil {
+				return i.wrapError(err, cmd.SourceLocation, "failed to expand LABEL value %s", arg)
+			}
+			labels[key] = value
+			nextKey = true
 		}
 	}
 	if !nextKey {

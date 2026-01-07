@@ -63,8 +63,6 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	allowPrivileged := currentlyPrivileged
 
 	switch {
-	default:
-		return errors.Errorf("IMPORT %s not supported", importStr)
 	case parsedImport.IsImportReference():
 		return errors.Errorf("IMPORT %s not supported", importStr)
 	case parsedImport.IsRemote():
@@ -75,6 +73,8 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		if allowPrivilegedFlag {
 			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
+	default:
+		return errors.Errorf("IMPORT %s not supported", importStr)
 	}
 
 	pathParts := strings.Split(path, "/")

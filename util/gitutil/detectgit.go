@@ -504,12 +504,12 @@ func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Ref
 
 	if tag == "" {
 		switch {
-		default:
-			tag = gitMeta.Hash
 		case len(gitMeta.Tags) > 0:
 			tag = gitMeta.Tags[0]
 		case len(gitMeta.Branch) > 0:
 			tag = gitMeta.Branch[0]
+		default:
+			tag = gitMeta.Hash
 		}
 	}
 

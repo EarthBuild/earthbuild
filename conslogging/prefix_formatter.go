@@ -51,9 +51,6 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 		}
 
 		switch {
-		default:
-			matches = append(matches, string(namedMatches[name][0][0]))
-			curLen -= len(namedMatches[name][0]) - 1
 		case curLen <= padding || namedMatches[name][0] == "":
 			// no need to keep truncating the url parts
 			matches = append(matches, namedMatches[name][0])
@@ -61,6 +58,9 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 			truncatedURL := truncateURL(namedMatches[name][0], padding, curLen)
 			matches = append(matches, truncatedURL)
 			curLen -= len(namedMatches[name][0]) - len(truncatedURL)
+		default:
+			matches = append(matches, string(namedMatches[name][0][0]))
+			curLen -= len(namedMatches[name][0]) - 1
 		}
 	}
 

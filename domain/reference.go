@@ -187,16 +187,16 @@ func parseCommon(fullName string) (gitURL string, tag string, localPath string, 
 		localPath := partsPlus[0]
 
 		switch {
-		default:
-			localPath = path.Clean(localPath)
-			if !strings.HasPrefix(localPath, ".") {
-				localPath = "./" + localPath
-			}
 		case strings.HasPrefix(localPath, "~/"):
 			homeDir := os.Getenv("HOME")
 			localPath = homeDir + "/" + localPath[2:]
 		case filepath.IsAbs(localPath):
 			localPath = path.Clean(localPath)
+		default:
+			localPath = path.Clean(localPath)
+			if !strings.HasPrefix(localPath, ".") {
+				localPath = "./" + localPath
+			}
 		}
 
 		return "", "", localPath, "", partsPlus[1], nil

@@ -28,12 +28,8 @@ echo "📋 Testing configuration parsing and validation..."
 
 # Test 1: Validate JSON5 syntax
 echo "1️⃣  Validating JSON5 syntax..."
-# Determine correct path to config file
-if [ -f ".github/renovate.json5" ]; then
-    CONFIG_PATH="$(pwd)/.github/renovate.json5"
-else
-    CONFIG_PATH="$(pwd)/../.github/renovate.json5"
-fi
+# Set config file path
+CONFIG_PATH="$(pwd)/.github/renovate.json5"
 
 docker run --rm \
     -v "$CONFIG_PATH":/tmp/renovate.json5:ro \
@@ -48,11 +44,11 @@ else
 fi
 
 # Test 2: Test regex patterns with sample data
-echo "2️⃣  Testing custom regex patterns..."
+echo "2️⃣  Creating sample dependency files..."
 
-# Create test files for regex pattern validation
+# Create test files for demonstration purposes
 mkdir -p /tmp/renovate-test
-echo "Testing regex patterns..."
+echo "Creating sample files..."
 
 # Test Earthfile pattern
 cat > /tmp/renovate-test/TestEarthfile << 'EOF'
@@ -105,10 +101,10 @@ FROM alpine:3.18
 RUN echo "test"
 EOF
 
-echo "   ✅ Test files created"
+echo "   ✅ Sample files created"
 
 # Test 3: Run Renovate in config-only mode to test parsing
-echo "3️⃣  Testing configuration loading..."
+echo "3️⃣  Creating test configuration..."
 
 # Create a minimal config for testing
 cat > /tmp/renovate-test/test-config.json5 << 'EOF'
@@ -122,7 +118,7 @@ EOF
 echo "   ✅ Test configuration created"
 
 echo ""
-echo "✅ All configuration tests passed!"
+echo "✅ Configuration validation completed!"
 echo ""
 echo "📊 Configuration Analysis:"
 echo "   🔧 Managers enabled:"
@@ -134,11 +130,9 @@ echo "      - bundler (Ruby)"
 echo "      - dockerfile (Docker images)"
 echo "      - docker-compose (Docker Compose)"
 echo ""
-echo "   📝 Custom managers: 8 total"
+echo "   📝 Custom managers: 6 total"
 echo "      - Earthfile version variables"
-echo "      - Documentation earthly references"
 echo "      - Shell script docker-compose versions"
-echo "      - Python requirements.txt"
 echo "      - Go version in .mise.toml"
 echo ""
 echo "   📅 Update scheduling:"
@@ -146,12 +140,13 @@ echo "      - earthly/earthly: immediate (auto-merge)"
 echo "      - GitHub Actions: monthly"
 echo "      - Dependencies: monthly (grouped)"
 echo ""
-echo "🎯 Key Features Validated:"
-echo "   ✅ JSON5 syntax correct"
-echo "   ✅ All manager configurations valid"
-echo "   ✅ Custom regex patterns properly formatted"
-echo "   ✅ Package rules and grouping configured"
-echo "   ✅ Scheduling and branch patterns set"
+echo "🎯 What was validated:"
+echo "   ✅ JSON5 syntax is valid"
+echo "   ✅ Configuration parses without errors"
+echo "   ✅ Sample dependency files created for reference"
+echo ""
+echo "⚠️  Note: This script validates syntax only."
+echo "   For full pattern testing, use './test-renovate-full.sh'"
 echo ""
 echo "🚀 Next Steps:"
 echo "   1. Run './test-renovate-full.sh' for complete API testing (needs GITHUB_TOKEN)"

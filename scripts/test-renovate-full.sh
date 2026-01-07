@@ -44,12 +44,8 @@ export RENOVATE_PLATFORM=github
 export RENOVATE_TOKEN="$GITHUB_TOKEN"
 export RENOVATE_DRY_RUN=${DRY_RUN:-true}
 export RENOVATE_LOG_LEVEL=${LOG_LEVEL:-info}
-# Determine correct path to config file
-if [ -f ".github/renovate.json5" ]; then
-    export RENOVATE_CONFIG_FILE="/usr/src/app/.github/renovate.json5"
-else
-    export RENOVATE_CONFIG_FILE="/usr/src/app/.github/renovate.json5"
-fi
+# Set config file path
+export RENOVATE_CONFIG_FILE="/usr/src/app/.github/renovate.json5"
 
 # Repository configuration
 GITHUB_USER=${GITHUB_USER:-earthbuild}

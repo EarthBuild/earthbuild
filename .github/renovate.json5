@@ -127,17 +127,7 @@
         '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+packageName=(?<packageName>.+?)\\s+curl.*?releases/download/(?<currentValue>[0-9.]+[^/]*)/docker-compose',
       ],
     },
-    {
-      customType: 'regex',
-      description: 'Update Python package versions in requirements.txt',
-      managerFilePatterns: [
-        '**/requirements.txt',
-      ],
-      matchStrings: [
-        '^(?<depName>[a-zA-Z0-9_-]+)==(?<currentValue>.+?)$',
-      ],
-      datasourceTemplate: 'pypi',
-    },
+
     {
       customType: 'regex',
       description: 'Update Go version in .mise.toml',

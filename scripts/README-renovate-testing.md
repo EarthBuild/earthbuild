@@ -6,12 +6,12 @@ This directory contains scripts for testing the Renovate configuration locally b
 
 ### `test-renovate-simple.sh` ⚡ (Recommended)
 
-**Quick comprehensive testing without GitHub API access**
+**Quick configuration validation without GitHub API access**
 
 - ✅ **No GitHub token required**
-- ✅ **Tests all configuration aspects**
-- ✅ **Validates JSON5 syntax**
-- ✅ **Verifies all managers and custom patterns**
+- ✅ **Validates JSON5 syntax and parsing**
+- ✅ **Creates sample dependency files for reference**
+- ⚠️ **Does not test actual pattern matching**
 - ⏱️ **~30 seconds runtime**
 
 ```bash
@@ -28,6 +28,8 @@ cd scripts && ./test-renovate-simple.sh
 
 - 🔑 **Requires GitHub token**
 - ✅ **Tests actual GitHub API connectivity**
+- ✅ **Actually tests pattern matching against real files**
+- ✅ **Validates all managers and custom patterns**
 - ✅ **Validates repository access**
 - ✅ **Performs complete dependency scanning**
 - ⏱️ **2-5 minutes runtime**
@@ -48,6 +50,7 @@ export GITHUB_TOKEN=ghp_your_token_here
 Both scripts validate the comprehensive Renovate configuration for:
 
 ### **Core Managers**
+
 - **Earthfiles**: Version variables with renovate comments
 - **GitHub Actions**: Workflow action versions
 - **Node.js**: package.json dependencies
@@ -57,11 +60,13 @@ Both scripts validate the comprehensive Renovate configuration for:
 - **Docker Compose**: Service image versions
 
 ### **Custom Patterns**
+
 - Shell script dependency downloads
 - Documentation version references
 - Tool version management (.mise.toml)
 
 ### **Configuration Features**
+
 - JSON5 syntax validation
 - Manager enablement
 - Custom regex patterns
@@ -72,12 +77,14 @@ Both scripts validate the comprehensive Renovate configuration for:
 ## 📊 Expected Test Results
 
 ### ✅ Success Indicators
+
 - `CONFIG_VALIDATION_PASSED`
 - `JSON5_SYNTAX_VALID`
 - `ALL_MANAGERS_ENABLED`
 - `CUSTOM_PATTERNS_WORKING`
 
 ### ⚠️ Common Issues
+
 - **JSON5 syntax errors**: Check `.github/renovate.json5` formatting
 - **GitHub token invalid**: Verify token has 'repo' scope
 - **Docker not found**: Install Docker for testing

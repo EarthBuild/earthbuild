@@ -184,7 +184,7 @@ copy-staging-buildkitd-to-dockerhub:
     LET DEST_DOCKER_REGISTRY="docker.io"
 
     # Source: ghcr.io/earthbuild/earthbuild:buildkitd-staging-<commit-sha>
-    # Dest: docker.io/<DEST_USER>/buildkitd-staging:<commit-sha>
+    # Dest: docker.io/earthbuild/buildkitd-staging:<commit-sha>
     LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:buildkitd-staging-${RELEASE_TAG}"
     LET DEST_IMG="${DEST_DOCKER_REGISTRY}/${DEST_CONTAINER_REGISTRY_USER}/buildkitd-staging:${RELEASE_TAG}"
 

@@ -81,20 +81,20 @@ type SaveArtifactOpts struct {
 }
 
 type SaveImageOpts struct {
-	Push                 bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthly is invoked in push mode" long:"push"`
-	CacheHint            bool     `description:"Instruct Earthly that the current target should be saved entirely as part of the remote cache"                        long:"cache-hint"`
-	Insecure             bool     `description:"Use unencrypted connection for the push"                                                                              long:"insecure"`
-	NoManifestList       bool     `description:"Do not include a manifest list (specifying the platform) in the creation of the image"                                long:"no-manifest-list"`
-	CacheFrom            []string `description:"Declare additional cache import as a Docker tag"                                                                      long:"cache-from"`
-	WithoutEarthlyLabels bool     `description:"Disable build information dev.earthly labels to reduce the chance of changing images digests."                        long:"without-earthly-labels"`
+	Push                 bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthly is invoked in push mode" long:"push"`                   //nolint:lll
+	CacheHint            bool     `description:"Instruct Earthly that the current target should be saved entirely as part of the remote cache"                        long:"cache-hint"`             //nolint:lll
+	Insecure             bool     `description:"Use unencrypted connection for the push"                                                                              long:"insecure"`               //nolint:lll
+	NoManifestList       bool     `description:"Do not include a manifest list (specifying the platform) in the creation of the image"                                long:"no-manifest-list"`       //nolint:lll
+	CacheFrom            []string `description:"Declare additional cache import as a Docker tag"                                                                      long:"cache-from"`             //nolint:lll
+	WithoutEarthlyLabels bool     `description:"Disable build information dev.earthly labels to reduce the chance of changing images digests."                        long:"without-earthly-labels"` //nolint:lll
 }
 
 type BuildOpts struct {
-	Platforms       []string `description:"The platform to use"                                           long:"platform"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target" long:"build-arg"`
-	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                       long:"allow-privileged"`
-	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`
-	AutoSkip        bool     `description:"Use auto-skip to bypass the target if nothing has changed"     long:"auto-skip"`
+	Platforms       []string `description:"The platform to use"                                           long:"platform"`         //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target" long:"build-arg"`        //nolint:lll
+	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                       long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`        //nolint:lll
+	AutoSkip        bool     `description:"Use auto-skip to bypass the target if nothing has changed"     long:"auto-skip"`        //nolint:lll
 }
 
 type GitCloneOpts struct {
@@ -103,23 +103,23 @@ type GitCloneOpts struct {
 }
 
 type HealthCheckOpts struct {
-	Interval      time.Duration `default:"30s"                                                                                                       description:"The interval between healthchecks"                                long:"interval"`
-	Timeout       time.Duration `default:"30s"                                                                                                       description:"The timeout before the command is considered failed"              long:"timeout"`
-	StartPeriod   time.Duration `description:"An initialization time period in which failures are not counted towards the maximum number of retries" long:"start-period"`
-	Retries       int           `default:"3"                                                                                                         description:"The number of retries before a container is considered unhealthy" long:"retries"`
-	StartInterval time.Duration `default:"5s"                                                                                                        description:"The time interval between health checks during the start period"  long:"start-interval"`
+	Interval      time.Duration `default:"30s"                                                                                                       description:"The interval between healthchecks"                                long:"interval"`       //nolint:lll
+	Timeout       time.Duration `default:"30s"                                                                                                       description:"The timeout before the command is considered failed"              long:"timeout"`        //nolint:lll
+	StartPeriod   time.Duration `description:"An initialization time period in which failures are not counted towards the maximum number of retries" long:"start-period"`                                                                                  //nolint:lll
+	Retries       int           `default:"3"                                                                                                         description:"The number of retries before a container is considered unhealthy" long:"retries"`        //nolint:lll
+	StartInterval time.Duration `default:"5s"                                                                                                        description:"The time interval between health checks during the start period"  long:"start-interval"` //nolint:lll
 }
 
 type WithDockerOpts struct {
-	ComposeFiles    []string `description:"A compose file used to bring up services from"                   long:"compose"`
-	ComposeServices []string `description:"A compose service to bring up"                                   long:"service"`
+	ComposeFiles    []string `description:"A compose file used to bring up services from"                   long:"compose"` //nolint:lll
+	ComposeServices []string `description:"A compose service to bring up"                                   long:"service"` //nolint:lll
 	Loads           []string `description:"An image produced by Earthly which is loaded as a Docker image"  long:"load"`
-	Platform        string   `description:"The platform to use"                                             long:"platform"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target"   long:"build-arg"`
+	Platform        string   `description:"The platform to use"                                             long:"platform"`  //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target"   long:"build-arg"` //nolint:lll
 	Pulls           []string `description:"An image which is pulled and made available in the docker cache" long:"pull"`
-	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"      long:"allow-privileged"`
-	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`
-	CacheID         string   `description:"When specified, layer data will be persisted to specified cache" long:"cache-id"`
+	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"      long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`        //nolint:lll
+	CacheID         string   `description:"When specified, layer data will be persisted to specified cache" long:"cache-id"`         //nolint:lll
 }
 
 type DoOpts struct {
@@ -145,7 +145,7 @@ type LetOpts struct{}
 
 type CacheOpts struct {
 	Sharing string `description:"The cache sharing mode: locked (default), shared, private"                 long:"sharing"`
-	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"`
+	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"` //nolint:lll
 	ID      string `description:"Cache ID, to reuse the same cache across different targets and Earthfiles" long:"id"`
 	Persist bool   `description:"If should persist cache state in image"                                    long:"persist"`
 }

@@ -1,4 +1,3 @@
 services:
   hello:
-    # renovate: datasource=docker packageName=hello-world
     image: hello-world:latest

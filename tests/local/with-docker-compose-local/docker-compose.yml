@@ -11,7 +11,6 @@ services:
       - WEBPORT=80
 
   webserver:
-    # renovate: datasource=docker packageName=nginxdemos/hello
     image: nginxdemos/hello
     healthcheck:
       test: ["CMD", "curl", "-f", "http://webserver:80"]

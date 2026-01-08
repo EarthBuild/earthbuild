@@ -88,13 +88,11 @@ cat > /tmp/renovate-test/docker-compose.yml << 'EOF'
 version: "3"
 services:
   web:
-    # renovate: datasource=docker packageName=nginx
     image: nginx:1.21.0
 EOF
 
 # Test Dockerfile
 cat > /tmp/renovate-test/Dockerfile << 'EOF'
-# renovate: datasource=docker packageName=alpine
 FROM alpine:3.18
 RUN echo "test"
 EOF

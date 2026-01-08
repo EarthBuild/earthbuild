@@ -1,4 +1,3 @@
-# renovate: datasource=docker packageName=mcr.microsoft.com/devcontainers/base
 FROM mcr.microsoft.com/devcontainers/base:jammy
 
 # Install Earthly

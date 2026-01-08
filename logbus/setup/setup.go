@@ -30,7 +30,14 @@ type BusSetup struct {
 }
 
 // New creates a new BusSetup.
-func New(ctx context.Context, bus *logbus.Bus, debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool, busDebugFile, buildID string, execStatsTracker *execstatssummary.Tracker, isGitHubActions bool) (*BusSetup, error) {
+func New(
+	ctx context.Context,
+	bus *logbus.Bus,
+	debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool,
+	busDebugFile, buildID string,
+	execStatsTracker *execstatssummary.Tracker,
+	isGitHubActions bool,
+) (*BusSetup, error) {
 	bs := &BusSetup{
 		Bus:           bus,
 		ConsoleWriter: writersub.New(os.Stderr, "_full"),
@@ -43,7 +50,9 @@ func New(ctx context.Context, bus *logbus.Bus, debug, verbose, displayStats, for
 		},
 		execStatsTracker: execStatsTracker,
 	}
-	bs.Formatter = formatter.New(ctx, bs.Bus, debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
+	bs.Formatter = formatter.New(
+		ctx, bs.Bus, debug, verbose, displayStats,
+		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)

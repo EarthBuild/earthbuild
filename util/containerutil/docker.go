@@ -131,7 +131,9 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 	}, nil
 }
 
-func (dsf *dockerShellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerInfo, error) {
+func (dsf *dockerShellFrontend) ContainerInfo(
+	ctx context.Context, namesOrIDs ...string,
+) (map[string]*ContainerInfo, error) {
 	results, err := dsf.shellFrontend.ContainerInfo(ctx, namesOrIDs...)
 	if err != nil {
 		return nil, err

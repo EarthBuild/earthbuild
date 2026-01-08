@@ -59,6 +59,7 @@ func (a *Doc2Earth) action(cliCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "An Earthfile has been generated; to run it use: earthly +build; then run with docker run -ti %s\n", a.earthfileFinalImage)
+	format := "An Earthfile has been generated; to run it use: earthly +build; then run with docker run -ti %s\n"
+	fmt.Fprintf(os.Stderr, format, a.earthfileFinalImage)
 	return nil
 }

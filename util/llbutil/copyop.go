@@ -16,10 +16,22 @@ import (
 )
 
 // CopyOp is a simplified llb copy operation.
-func CopyOp(ctx context.Context, srcState pllb.State, srcs []string, destState pllb.State, dest string, allowWildcard, isDir, keepTs bool, chown string, chmod *fs.FileMode, ifExists, symlinkNoFollow, merge bool, opts ...llb.ConstraintsOpt) (pllb.State, error) {
+func CopyOp(
+	ctx context.Context,
+	srcState pllb.State,
+	srcs []string,
+	destState pllb.State,
+	dest string,
+	allowWildcard, isDir, keepTs bool,
+	chown string,
+	chmod *fs.FileMode,
+	ifExists, symlinkNoFollow, merge bool,
+	opts ...llb.ConstraintsOpt,
+) (pllb.State, error) {
 	destAdjusted := dest
 	if dest == "." || dest == "" || len(srcs) > 1 {
-		destAdjusted += string("/") // TODO: needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		// TODO: needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		destAdjusted += string("/")
 	}
 	var baseCopyOpts []llb.CopyOption
 	if chown != "" {
@@ -72,7 +84,9 @@ func CopyOp(ctx context.Context, srcState pllb.State, srcs []string, destState p
 // CopyWithRunOptions copies from `src` to `dest` and returns the result in a separate LLB State.
 // This operation is similar llb.Copy, however, it can apply llb.RunOptions (such as a mount)
 // Internally, the operation runs on the internal COPY image used by Dockerfile.
-func CopyWithRunOptions(srcState pllb.State, src, dest string, platr *platutil.Resolver, opts ...llb.RunOption) pllb.State {
+func CopyWithRunOptions(
+	srcState pllb.State, src, dest string, platr *platutil.Resolver, opts ...llb.RunOption,
+) pllb.State {
 	// Docker's internal image for running COPY.
 	// Ref: https://github.com/moby/buildkit/blob/v0.9.3/frontend/dockerfile/dockerfile2llb/convert.go#L40
 	const copyImg = "docker/dockerfile-copy:v0.1.9@sha256:e8f159d3f00786604b93c675ee2783f8dc194bb565e61ca5788f6a6e9d304061"

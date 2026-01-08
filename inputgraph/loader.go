@@ -28,8 +28,9 @@ import (
 
 var (
 	errCannotLoadRemoteTarget = errors.New("cannot load remote target")
-	errInvalidRemoteTarget    = errors.New("only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported")
-	errComplexCondition       = errors.New("condition cannot be evaluated")
+	errInvalidRemoteTarget    = errors.New(
+		"only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported")
+	errComplexCondition = errors.New("condition cannot be evaluated")
 )
 
 // Stats contains some statistics about the hashing process.
@@ -890,7 +891,9 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 	return ret, nil
 }
 
-func (l *loader) loadTargetFromString(ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation) error {
+func (l *loader) loadTargetFromString(
+	ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation,
+) error {
 	targetName, err := l.expandArgs(targetName)
 	if err != nil {
 		return wrapError(err, srcLoc, "failed to expand args")

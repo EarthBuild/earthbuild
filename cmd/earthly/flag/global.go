@@ -92,10 +92,11 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 	}
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "installation-name",
-			Value:       defaultInstallationName,
-			EnvVars:     []string{"EARTHLY_INSTALLATION_NAME"},
-			Usage:       "The earthly installation name to use when naming the buildkit container, the docker volume and the ~/.earthly directory",
+			Name:    "installation-name",
+			Value:   defaultInstallationName,
+			EnvVars: []string{"EARTHLY_INSTALLATION_NAME"},
+			Usage: "The earth installation name to use when naming the buildkit container, " +
+				"the docker volume and the ~/.earthly directory",
 			Destination: &global.InstallationName,
 			Hidden:      true, // Internal.
 		},
@@ -140,10 +141,11 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Destination: &global.Verbose,
 		},
 		&cli.BoolFlag{
-			Name:        "debug",
-			Aliases:     []string{"D"},
-			EnvVars:     []string{"EARTHLY_DEBUG"},
-			Usage:       "Enable debug mode. This flag also turns on the debug mode of buildkitd, which may cause it to restart",
+			Name:    "debug",
+			Aliases: []string{"D"},
+			EnvVars: []string{"EARTHLY_DEBUG"},
+			Usage: "Enable debug mode. This flag also turns on the debug mode of buildkitd, " +
+				"which may cause it to restart",
 			Destination: &global.Debug,
 			Hidden:      true, // For development purposes only.
 		},
@@ -184,16 +186,18 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Hidden:      true, // Internal.
 		},
 		&cli.StringFlag{
-			Name:        "version-flag-overrides",
-			EnvVars:     []string{"EARTHLY_VERSION_FLAG_OVERRIDES"},
-			Usage:       "Apply additional flags after each VERSION command across all Earthfiles, multiple flags can be separated by commas",
+			Name:    "version-flag-overrides",
+			EnvVars: []string{"EARTHLY_VERSION_FLAG_OVERRIDES"},
+			Usage: "Apply additional flags after each VERSION command across all Earthfiles, " +
+				"multiple flags can be separated by commas",
 			Destination: &global.FeatureFlagOverrides,
 			Hidden:      true, // used for feature-flipping from ./earthly dev script
 		},
 		&cli.StringFlag{
-			Name:        EnvFileFlag,
-			EnvVars:     []string{"EARTHLY_ENV_FILE_PATH"},
-			Usage:       "Use values from this file as earthly environment variables; values are no longer used as --build-arg's or --secret's",
+			Name:    EnvFileFlag,
+			EnvVars: []string{"EARTHLY_ENV_FILE_PATH"},
+			Usage: "Use values from this file as earthly environment variables; " +
+				"values are no longer used as --build-arg's or --secret's",
 			Value:       DefaultEnvFile,
 			Destination: &global.EnvFile,
 		},
@@ -314,9 +318,10 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Destination: &global.SaveInlineCache,
 		},
 		&cli.BoolFlag{
-			Name:        "use-inline-cache",
-			EnvVars:     []string{"EARTHLY_USE_INLINE_CACHE"},
-			Usage:       common.Wrap("Attempt to use any inline cache that may have been previously pushed ", "uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from"),
+			Name:    "use-inline-cache",
+			EnvVars: []string{"EARTHLY_USE_INLINE_CACHE"},
+			Usage: common.Wrap("Attempt to use any inline cache that may have been previously pushed ",
+				"uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from"),
 			Destination: &global.UseInlineCache,
 		},
 		&cli.BoolFlag{
@@ -347,9 +352,11 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Hidden:      true, // used to force code-coverage of future builder.go refactor (once we remove support for 0.6)
 		},
 		&cli.StringFlag{
-			Name:        "git-lfs-pull-include",
-			EnvVars:     []string{"EARTHLY_GIT_LFS_PULL_INCLUDE"},
-			Usage:       "When referencing a remote target, perform a git lfs pull include prior to running the target. Note that this flag is (hopefully) temporary, see https://github.com/earthly/earthly/issues/2921 for details.",
+			Name:    "git-lfs-pull-include",
+			EnvVars: []string{"EARTHLY_GIT_LFS_PULL_INCLUDE"},
+			Usage: "When referencing a remote target, perform a git lfs pull include prior to running the target. " +
+				"Note that this flag is (hopefully) temporary, " +
+				"see https://github.com/earthly/earthly/issues/2921 for details.",
 			Destination: &global.GitLFSPullInclude,
 			Hidden:      true, // Experimental
 		},
@@ -383,9 +390,10 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Hidden:      true,
 		},
 		&cli.StringFlag{
-			Name:        "remote-cache",
-			EnvVars:     []string{"EARTHLY_REMOTE_CACHE"},
-			Usage:       "A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: \"<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]\")",
+			Name:    "remote-cache",
+			EnvVars: []string{"EARTHLY_REMOTE_CACHE"},
+			Usage: "A remote docker image tag use as explicit cache and optionally additional attributes " +
+				"to set in the image (Format: \"<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]\")",
 			Destination: &global.RemoteCache,
 		},
 		&cli.BoolFlag{

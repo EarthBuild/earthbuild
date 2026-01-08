@@ -46,7 +46,8 @@ func DirExistsBestEffort(filename string) bool {
 	return ok
 }
 
-// EnsureUserOwned changes the files in the directory to be owned by the use and their group, as specified by the provided user.
+// EnsureUserOwned changes the files in the directory to be owned by the use and their group,
+// as specified by the provided user.
 func EnsureUserOwned(dir string, owner *user.User) error {
 	exists, err := DirExists(dir)
 	if err != nil || !exists {

@@ -187,7 +187,8 @@ func detectIsGitDir(ctx context.Context, dir string) error {
 	return nil
 }
 
-// ParseGitRemoteURL converts a gitURL like user@host.com:path/to.git or https://host.com/path/to.git to host.com/path/to.
+// ParseGitRemoteURL converts a gitURL like user@host.com:path/to.git or https://host.com/path/to.git
+// to host.com/path/to.
 func ParseGitRemoteURL(gitURL string) (string, error) {
 	s := gitURL
 

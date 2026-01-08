@@ -44,7 +44,9 @@ func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
 	return earthfilePath, nil
 }
 
-func detectBuildFileInRef(ctx context.Context, earthlyRef domain.Reference, ref gwclient.Reference, subDir string) (string, error) {
+func detectBuildFileInRef(
+	ctx context.Context, earthlyRef domain.Reference, ref gwclient.Reference, subDir string,
+) (string, error) {
 	if strings.HasPrefix(earthlyRef.GetName(), DockerfileMetaTarget) {
 		return filepath.Join(subDir, strings.TrimPrefix(earthlyRef.GetName(), DockerfileMetaTarget)), nil
 	}

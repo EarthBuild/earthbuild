@@ -35,7 +35,14 @@ func (vc *legacyVisitedCollection) All() []*SingleTarget {
 
 // Add adds a target to the collection, if it hasn't yet been visited. The returned sts is
 // either the previously visited one or a brand new one.
-func (vc *legacyVisitedCollection) Add(ctx context.Context, target domain.Target, platr *platutil.Resolver, allowPrivileged bool, overridingVars *variables.Scope, parentDepSub chan string) (*SingleTarget, bool, error) {
+func (vc *legacyVisitedCollection) Add(
+	ctx context.Context,
+	target domain.Target,
+	platr *platutil.Resolver,
+	allowPrivileged bool,
+	overridingVars *variables.Scope,
+	parentDepSub chan string,
+) (*SingleTarget, bool, error) {
 	dependents, err := vc.waitAllDoneAndLock(ctx, target, parentDepSub)
 	if err != nil {
 		return nil, false, err
@@ -82,7 +89,11 @@ func (vc *legacyVisitedCollection) Add(ctx context.Context, target domain.Target
 
 // waitAllDoneAndLock acquires mu at a point when all sts are done for a particular
 // target, allowing for comparisons across the board while the lock is held.
-func (vc *legacyVisitedCollection) waitAllDoneAndLock(ctx context.Context, target domain.Target, parentDepSub chan string) (map[string]bool, error) {
+func (vc *legacyVisitedCollection) waitAllDoneAndLock(
+	ctx context.Context,
+	target domain.Target,
+	parentDepSub chan string,
+) (map[string]bool, error) {
 	// Build up dependents from parentDepSub. The list needs to be complete when returning
 	// from this function for proper infinite loop detection.
 	dependents := make(map[string]bool)
@@ -126,7 +137,13 @@ func (vc *legacyVisitedCollection) waitAllDoneAndLock(ctx context.Context, targe
 }
 
 // compareTargetInputs compares two targets and their inputs to check if they are the same.
-func compareTargetInputs(target domain.Target, platr *platutil.Resolver, allowPrivileged bool, overridingVars *variables.Scope, other dedup.TargetInput) (bool, error) {
+func compareTargetInputs(
+	target domain.Target,
+	platr *platutil.Resolver,
+	allowPrivileged bool,
+	overridingVars *variables.Scope,
+	other dedup.TargetInput,
+) (bool, error) {
 	if target.StringCanonical() != other.TargetCanonical {
 		return false, nil
 	}

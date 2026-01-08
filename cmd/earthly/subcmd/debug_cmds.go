@@ -170,7 +170,8 @@ func (a *Debug) actionBuildkitDiskUsage(cliCtx *cli.Context) error {
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
-	fmt.Fprintf(w, "ID\tDescription\tSize\tUsageCount\tRecordType\tMutable\tShared\tInUse\tParents\tCreatedAt\tLastUsedAt\n")
+	fmt.Fprintf(w,
+		"ID\tDescription\tSize\tUsageCount\tRecordType\tMutable\tShared\tInUse\tParents\tCreatedAt\tLastUsedAt\n")
 	for _, info := range infos {
 		var rt string
 		switch info.RecordType {

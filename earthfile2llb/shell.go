@@ -37,7 +37,11 @@ func withShell(args []string, withShell bool) []string {
 	return args
 }
 
-func strWithEnvVarsAndDocker(args []string, envVars []string, withShell, withDebugger, forceDebugger, withDocker, isExpression bool, exitCodeFile, outputFile string) string {
+func strWithEnvVarsAndDocker(
+	args, envVars []string,
+	withShell, withDebugger, forceDebugger, withDocker, isExpression bool,
+	exitCodeFile, outputFile string,
+) string {
 	var cmdParts []string
 	cmdParts = append(cmdParts, strings.Join(envVars, " "))
 	if withDocker {

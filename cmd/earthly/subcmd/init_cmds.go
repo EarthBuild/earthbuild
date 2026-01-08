@@ -51,7 +51,8 @@ func (a *Init) action(cliCtx *cli.Context) error {
 	efPath := filepath.Join(absWd, "Earthfile")
 	_, err = os.Stat(efPath)
 	if err == nil {
-		return hint.Wrap(fs.ErrExist, "an Earthfile already exists; if you want to re-init the project, remove the Earthfile first.")
+		return hint.Wrap(fs.ErrExist,
+			"an Earthfile already exists; if you want to re-init the project, remove the Earthfile first.")
 	}
 	if !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "could not check for existing Earthfile")

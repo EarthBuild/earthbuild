@@ -371,7 +371,8 @@ func TestFrontendImagePull(t *testing.T) {
 		refList []string
 	}{
 		{"docker", containerutil.NewDockerShellFrontend, []string{"nginx:1.21", "alpine:3.18"}},
-		{"podman", containerutil.NewPodmanShellFrontend, []string{"docker.io/nginx:1.21", "docker.io/alpine:3.18"}}, // Podman prefers... and exports fully-qualified image tags
+		// Podman prefers... and exports fully-qualified image tags
+		{"podman", containerutil.NewPodmanShellFrontend, []string{"docker.io/nginx:1.21", "docker.io/alpine:3.18"}},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -380,8 +381,9 @@ func TestFrontendImagePull(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
+			// podman pull needs some potentially valid address to check against, otherwise panic
 			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{
-				LocalRegistryHostFileValue: "tcp://some-host:5309", // podman pull needs some potentially valid address to check against, otherwise panic
+				LocalRegistryHostFileValue: "tcp://some-host:5309",
 				Console:                    testLogger(),
 			})
 			NoError(t, err)
@@ -690,7 +692,8 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			cmd := exec.CommandContext(ctx, feBinary, "run", "-d", "--rm", "--name", name, image, "sh", "-c", `echo output stream&&>&2 echo error stream&&sleep 100`)
+			cmd := exec.CommandContext(ctx, feBinary, "run", "-d", "--rm", "--name", name, image,
+				"sh", "-c", `echo output stream&&>&2 echo error stream&&sleep 100`)
 			output, createErr := cmd.CombinedOutput()
 			m.Lock()
 			defer m.Unlock()

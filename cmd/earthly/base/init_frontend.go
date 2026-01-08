@@ -61,7 +61,9 @@ func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
 	}
 	cli.Flags().BuildkitdSettings.CniMtu = cli.Cfg().Global.CniMtu
 
-	if cli.Cfg().Global.IPTables != "" && cli.Cfg().Global.IPTables != "iptables-legacy" && cli.Cfg().Global.IPTables != "iptables-nft" {
+	if cli.Cfg().Global.IPTables != "" &&
+		cli.Cfg().Global.IPTables != "iptables-legacy" &&
+		cli.Cfg().Global.IPTables != "iptables-nft" {
 		return errors.New(`invalid overridden iptables name. Valid values are "iptables-legacy" or "iptables-nft"`)
 	}
 	cli.Flags().BuildkitdSettings.IPTables = cli.Cfg().Global.IPTables

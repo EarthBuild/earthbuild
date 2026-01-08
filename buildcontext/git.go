@@ -67,7 +67,9 @@ type resolvedGitProject struct {
 	earthfilePaths []string
 }
 
-func (gr *gitResolver) expandWildcard(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target domain.Target, pattern string) ([]string, error) {
+func (gr *gitResolver) expandWildcard(
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target domain.Target, pattern string,
+) ([]string, error) {
 	if !target.IsRemote() {
 		return nil, errors.Errorf("unexpected local reference %s", target.String())
 	}
@@ -101,7 +103,13 @@ func (gr *gitResolver) expandWildcard(ctx context.Context, gwClient gwclient.Cli
 	return matches, nil
 }
 
-func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference, featureFlagOverrides string) (*Data, error) {
+func (gr *gitResolver) resolveEarthProject(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	platr *platutil.Resolver,
+	ref domain.Reference,
+	featureFlagOverrides string,
+) (*Data, error) {
 	if !ref.IsRemote() {
 		return nil, errors.Errorf("unexpected local reference %s", ref.String())
 	}
@@ -139,7 +147,7 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.StringCanonical()
 	}
-	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ interface{}) (interface{}, error) {
+	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		earthfileTmpDir, err := os.MkdirTemp(os.TempDir(), "earthly-git")
 		if err != nil {
 			return nil, errors.Wrap(err, "create temp dir for Earthfile")
@@ -212,7 +220,9 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 	}, nil
 }
 
-func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference) (rgp *resolvedGitProject, gitURL string, subDir string, finalErr error) {
+func (gr *gitResolver) resolveGitProject(
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
+) (rgp *resolvedGitProject, gitURL string, subDir string, finalErr error) {
 	gitRef := ref.GetTag()
 
 	var err error
@@ -241,8 +251,9 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 			gitOpts = append(gitOpts, llb.KnownSSHHosts(strings.Join(keyScans, "\n")))
 		}
 		if gr.lfsInclude != "" {
-			// TODO this should eventually be inferred by the contents of a COPY command, which means the call to resolveGitProject will need to be lazy-evaluated
-			// However this makes it really difficult for an Earthfile which first has an ARG EARTHLY_GIT_HASH, then a RUN, then a COPY
+			// TODO this should eventually be inferred by the contents of a COPY command, which means the call
+			// to resolveGitProject will need to be lazy-evaluated. However this makes it really difficult for
+			// an Earthfile which first has an ARG EARTHLY_GIT_HASH, then a RUN, then a COPY
 			gitOpts = append(gitOpts, llb.LFSInclude(gr.lfsInclude))
 		}
 		if sshCommand != "" {

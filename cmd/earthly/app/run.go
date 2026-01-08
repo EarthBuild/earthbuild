@@ -33,11 +33,12 @@ import (
 )
 
 var (
-	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
-	notFoundRegex     = regexp.MustCompile(`("[^"]*"): not found`)
-	qemuExitCodeRegex = regexp.MustCompile(`process "/dev/.buildkit_qemu_emulator.*?did not complete successfully: exit code: 255$`)
-	maxExecTimeRegex  = regexp.MustCompile(`max execution time of .+ exceeded`)
-	requestIDRegex    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
+	runExitCodeRe  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
+	notFoundRe     = regexp.MustCompile(`("[^"]*"): not found`)
+	maxExecTimeRe  = regexp.MustCompile(`max execution time of .+ exceeded`)
+	requestIDRe    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
+	qemuExitCodeRe = regexp.
+			MustCompile(`process "/dev/.buildkit_qemu_emulator.*?did not complete successfully: exit code: 255$`)
 )
 
 // Run runs the CLI and returns an exit code to pass to [os.Exit].
@@ -63,7 +64,9 @@ func (app *EarthlyApp) Run(
 
 func (app *EarthlyApp) unhideFlags() error {
 	var err error
-	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" { // TODO delete this check after 2022-03-01
+
+	// TODO delete this check after 2022-03-01
+	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" {
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
 		app.BaseCLI.Console().Warn("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
 	}
@@ -190,7 +193,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			app.BaseCLI.Console().VerboseWarn(errorWithPrefix(paramsErr.Error()))
 		}
 		return 1
-	case qemuExitCodeRegex.MatchString(err.Error()):
+	case qemuExitCodeRe.MatchString(err.Error()):
 		var helpMsg string
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
 			"For more information see https://docs.earthly.dev/guides/multi-platform\n"
@@ -202,7 +205,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		return 255
-	case runExitCodeRegex.MatchString(err.Error()):
+	case runExitCodeRe.MatchString(err.Error()):
 		var helpMsg string
 		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
 			args = append([]string{args[0], "-i"}, args[1:]...)
@@ -250,7 +253,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		app.BaseCLI.Console().HelpPrint(helpMsg)
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
-		matches := notFoundRegex.FindStringSubmatch(err.Error())
+		matches := notFoundRe.FindStringSubmatch(err.Error())
 		var msg string
 		if len(matches) == 2 {
 			msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
@@ -283,19 +286,21 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		return 1
-	case grpcErrOK && grpcErr.Code() == codes.PermissionDenied && requestIDRegex.MatchString(grpcErr.Message()):
+	case grpcErrOK && grpcErr.Code() == codes.PermissionDenied && requestIDRe.MatchString(grpcErr.Message()):
 		errorMsg := grpcErr.Message()
-		matches, _ := stringutil.NamedGroupMatches(errorMsg, requestIDRegex)
+		matches, _ := stringutil.NamedGroupMatches(errorMsg, requestIDRe)
 		if len(matches["msg"]) > 0 {
 			errorMsg = matches["msg"][0]
 		}
 		app.BaseCLI.Console().VerboseWarn(err.Error())
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
 		return 1
-	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
+	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRe.MatchString(grpcErr.Message()):
 		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
-		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. Verify your account to lift this restriction."
-		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
+		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. " +
+			"Verify your account to lift this restriction."
+		app.BaseCLI.Logbus().Run().
+			SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
 		app.BaseCLI.Console().HelpPrint(helpMsg)
 		return 1
 	case grpcErrOK && grpcErr.Code() != codes.Canceled:
@@ -405,7 +410,8 @@ func (app *EarthlyApp) printCrashLogs(ctx context.Context) {
 		fmt.Fprintln(os.Stderr, dockerVersion)
 	}
 
-	logs, err := buildkitd.GetLogs(ctx, app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().ContainerFrontend, app.BaseCLI.Flags().BuildkitdSettings)
+	logs, err := buildkitd.GetLogs(ctx,
+		app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().ContainerFrontend, app.BaseCLI.Flags().BuildkitdSettings)
 	if err != nil {
 		app.BaseCLI.Console().Warnf("failed fetching earthly-buildkit logs: %s\n", err.Error())
 	} else {

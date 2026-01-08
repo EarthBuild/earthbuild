@@ -40,7 +40,6 @@ linters:
     - inamedparam
     - interfacebloat
     - ireturn
-    - lll
     - maintidx
     - mirror
     - mnd

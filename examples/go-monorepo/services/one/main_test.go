@@ -8,12 +8,23 @@ import (
 )
 
 func TestService(t *testing.T) {
+	t.Parallel()
+
 	go main()
 	time.Sleep(time.Second) // Leave time for service to start
-	resp, err := http.Get("http://localhost:8080/one/hello")
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://localhost:8080/one/hello", nil)
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
+
+	defer resp.Body.Close()
+
 	expected := "Hello, World!"
 	actual, _ := io.ReadAll(resp.Body)
 	if expected != string(actual) {

@@ -286,12 +286,14 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 		return nil
 	}
 	if w.enableParallel {
-		err = w.c.BuildAsync(ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+		err = w.c.BuildAsync(
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		mts, err := w.c.buildTarget(ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil)
+		mts, err := w.c.buildTarget(
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -303,12 +305,14 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 	return optPromise, nil
 }
 
-func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string) error {
+func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName, dockerTag string) error {
 	solveID, err := states.KeyFromHashAndTag(mts.Final, dockerTag)
 	if err != nil {
 		return errors.Wrap(err, "state key func")
 	}
-	tarContext, err := w.c.opt.SolveCache.Do(ctx, solveID, func(ctx context.Context, _ states.StateKey) (pllb.State, error) {
+	tarContext, err := w.c.opt.SolveCache.Do(ctx, solveID, func(
+		ctx context.Context, _ states.StateKey,
+	) (pllb.State, error) {
 		// Use a builder to create docker .tar file, mount it via a local build
 		// context, then docker load it within the current side effects state.
 		outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
@@ -330,9 +334,11 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		// Use the docker image ID + dockerTag as sessionID. This will cause
 		// buildkit to use cache when these are the same as before (eg a docker image
 		// that is identical as before).
-		// Note that this is achieved by causing CacheKey() to return a consistent result under https://github.com/moby/buildkit/blob/b3e8c63a48ad8c015f5631fc1947945b229b3919/source/local/local.go#L78
-		// However, this introduces a bug during the Snapshot() call where `ls.sm.Get(timeoutCtx, sessionID, false)` is called on a non-existent sessionID, which then causes
-		// buildkit to wait until a context-cancelled error occurs, and then ultimately fallsback to using any available session from the group.
+		// Note that this is achieved by causing CacheKey() to return a consistent result under
+		// https://github.com/moby/buildkit/blob/b3e8c63a48ad8c015f5631fc1947945b229b3919/source/local/local.go#L78
+		// However, this introduces a bug during the Snapshot() call where `ls.sm.Get(timeoutCtx, sessionID, false)`
+		// is called on a non-existent sessionID, which then causes buildkit to wait until a context-cancelled error
+		// occurs, and then ultimately fallsback to using any available session from the group.
 		sessionIDKey := fmt.Sprintf("%s-%s", dockerTag, dockerImageID)
 		sha256SessionIDKey := sha256.Sum256([]byte(sessionIDKey))
 		sessionID := hex.EncodeToString(sha256SessionIDKey[:])

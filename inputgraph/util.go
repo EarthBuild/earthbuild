@@ -11,7 +11,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ParseProjectCommand(ctx context.Context, target domain.Target, console conslogging.ConsoleLogger) (string, string, error) {
+func ParseProjectCommand(
+	ctx context.Context, target domain.Target, console conslogging.ConsoleLogger,
+) (string, string, error) {
 	if target.IsRemote() {
 		return "", "", errCannotLoadRemoteTarget
 	}

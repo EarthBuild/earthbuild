@@ -16,7 +16,14 @@ import (
 )
 
 // SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock.
-func SaveArtifactLocally(ctx context.Context, exportCoordinator *gatewaycrafter.ExportCoordinator, console conslogging.ConsoleLogger, artifact domain.Artifact, indexOutDir string, destPath string, salt string, ifExists bool) error {
+func SaveArtifactLocally(
+	ctx context.Context,
+	exportCoordinator *gatewaycrafter.ExportCoordinator,
+	console conslogging.ConsoleLogger,
+	artifact domain.Artifact,
+	indexOutDir, destPath, salt string,
+	ifExists bool,
+) error {
 	fromPattern := filepath.Join(indexOutDir, filepath.FromSlash(artifact.Artifact))
 	// Resolve possible wildcards.
 	// TODO: Note that this is not very portable, as the glob is host-platform dependent,

@@ -115,7 +115,9 @@ func (ap *MultiAuthProvider) AddProject(org, proj string) {
 
 // FetchToken calls child FetchToken methods until one of ap's children
 // succeeds.
-func (ap *MultiAuthProvider) FetchToken(ctx context.Context, req *auth.FetchTokenRequest) (rr *auth.FetchTokenResponse, err error) {
+func (ap *MultiAuthProvider) FetchToken(
+	ctx context.Context, req *auth.FetchTokenRequest,
+) (rr *auth.FetchTokenResponse, err error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 	for _, as := range ap.getAuthServers(req.Host) {
@@ -128,17 +130,21 @@ func (ap *MultiAuthProvider) FetchToken(ctx context.Context, req *auth.FetchToke
 			return nil, err
 		}
 		if a.Anonymous {
-			ap.console.Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
+			ap.console.
+				Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
 		}
 		ap.setAuthServer(req.Host, as)
 		return a, nil
 	}
-	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
+	return nil, status.Errorf(codes.Unavailable,
+		"no configured auth servers in the list of client-side configs responded")
 }
 
 // Credentials calls child Credentials methods until one of ap's children
 // succeeds.
-func (ap *MultiAuthProvider) Credentials(ctx context.Context, req *auth.CredentialsRequest) (*auth.CredentialsResponse, error) {
+func (ap *MultiAuthProvider) Credentials(
+	ctx context.Context, req *auth.CredentialsRequest,
+) (*auth.CredentialsResponse, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 	for _, as := range ap.getAuthServers(req.Host) {
@@ -158,7 +164,9 @@ func (ap *MultiAuthProvider) Credentials(ctx context.Context, req *auth.Credenti
 
 // GetTokenAuthority calls child GetTokenAuthority methods until one of ap's
 // children succeeds.
-func (ap *MultiAuthProvider) GetTokenAuthority(ctx context.Context, req *auth.GetTokenAuthorityRequest) (*auth.GetTokenAuthorityResponse, error) {
+func (ap *MultiAuthProvider) GetTokenAuthority(
+	ctx context.Context, req *auth.GetTokenAuthorityRequest,
+) (*auth.GetTokenAuthorityResponse, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 	for _, as := range ap.getAuthServers(req.Host) {
@@ -178,7 +186,9 @@ func (ap *MultiAuthProvider) GetTokenAuthority(ctx context.Context, req *auth.Ge
 
 // VerifyTokenAuthority calls child VerifyTokenAuthority methods until one of
 // ap's children succeeds.
-func (ap *MultiAuthProvider) VerifyTokenAuthority(ctx context.Context, req *auth.VerifyTokenAuthorityRequest) (*auth.VerifyTokenAuthorityResponse, error) {
+func (ap *MultiAuthProvider) VerifyTokenAuthority(
+	ctx context.Context, req *auth.VerifyTokenAuthorityRequest,
+) (*auth.VerifyTokenAuthorityResponse, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 	for _, as := range ap.getAuthServers(req.Host) {

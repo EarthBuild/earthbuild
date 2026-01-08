@@ -17,67 +17,67 @@ type IfOpts struct {
 }
 
 type ForOpts struct {
-	Privileged bool     `description:"Enable privileged mode"                                                                    long:"privileged"`
-	WithSSH    bool     `description:"Make available the SSH agent of the host"                                                  long:"ssh"`
-	NoCache    bool     `description:"Always run this specific item, ignoring cache"                                             long:"no-cache"`
-	Secrets    []string `description:"Make available a secret"                                                                   long:"secret"`
-	Mounts     []string `description:"Mount a file or directory"                                                                 long:"mount"`
-	Separators string   `description:"The separators to use for tokenizing the output of the IN expression. Defaults to '\n\t '" long:"sep"`
+	Privileged bool     `description:"Enable privileged mode"                                                                    long:"privileged"` //nolint:lll
+	WithSSH    bool     `description:"Make available the SSH agent of the host"                                                  long:"ssh"`        //nolint:lll
+	NoCache    bool     `description:"Always run this specific item, ignoring cache"                                             long:"no-cache"`   //nolint:lll
+	Secrets    []string `description:"Make available a secret"                                                                   long:"secret"`     //nolint:lll
+	Mounts     []string `description:"Mount a file or directory"                                                                 long:"mount"`      //nolint:lll
+	Separators string   `description:"The separators to use for tokenizing the output of the IN expression. Defaults to '\n\t '" long:"sep"`        //nolint:lll
 }
 
 type RunOpts struct {
-	Push            bool     `description:"Execute this command only if the build succeeds and also if earthly is invoked in push mode"   long:"push"`
-	Privileged      bool     `description:"Enable privileged mode"                                                                        long:"privileged"`
-	WithEntrypoint  bool     `description:"Include the entrypoint of the image when running the command"                                  long:"entrypoint"`
-	WithDocker      bool     `description:"Deprecated"                                                                                    long:"with-docker"`
-	WithSSH         bool     `description:"Make available the SSH agent of the host"                                                      long:"ssh"`
-	WithAWS         bool     `description:"Make any AWS credentials set in the environment available to RUN commands"                     long:"aws"`
-	OIDC            string   `description:"make credentials from oidc provider (currently only works with AWS) available to RUN commands" long:"oidc"`
-	NoCache         bool     `description:"Always run this specific item, ignoring cache"                                                 long:"no-cache"`
-	Interactive     bool     `description:"Run this command with an interactive session, without saving changes"                          long:"interactive"`
-	InteractiveKeep bool     `description:"Run this command with an interactive session, saving changes"                                  long:"interactive-keep"`
-	Secrets         []string `description:"Make available a secret"                                                                       long:"secret"`
-	Mounts          []string `description:"Mount a file or directory"                                                                     long:"mount"`
-	Network         string   `description:"Network to use; currently network=none is only supported"                                      long:"network"`
-	RawOutput       bool     `description:"Do not prefix output with target. Print Raw"                                                   long:"raw-output"`
+	Push            bool     `description:"Execute this command only if the build succeeds and also if earthly is invoked in push mode"   long:"push"`             //nolint:lll
+	Privileged      bool     `description:"Enable privileged mode"                                                                        long:"privileged"`       //nolint:lll
+	WithEntrypoint  bool     `description:"Include the entrypoint of the image when running the command"                                  long:"entrypoint"`       //nolint:lll
+	WithDocker      bool     `description:"Deprecated"                                                                                    long:"with-docker"`      //nolint:lll
+	WithSSH         bool     `description:"Make available the SSH agent of the host"                                                      long:"ssh"`              //nolint:lll
+	WithAWS         bool     `description:"Make any AWS credentials set in the environment available to RUN commands"                     long:"aws"`              //nolint:lll
+	OIDC            string   `description:"make credentials from oidc provider (currently only works with AWS) available to RUN commands" long:"oidc"`             //nolint:lll
+	NoCache         bool     `description:"Always run this specific item, ignoring cache"                                                 long:"no-cache"`         //nolint:lll
+	Interactive     bool     `description:"Run this command with an interactive session, without saving changes"                          long:"interactive"`      //nolint:lll
+	InteractiveKeep bool     `description:"Run this command with an interactive session, saving changes"                                  long:"interactive-keep"` //nolint:lll
+	Secrets         []string `description:"Make available a secret"                                                                       long:"secret"`           //nolint:lll
+	Mounts          []string `description:"Mount a file or directory"                                                                     long:"mount"`            //nolint:lll
+	Network         string   `description:"Network to use; currently network=none is only supported"                                      long:"network"`          //nolint:lll
+	RawOutput       bool     `description:"Do not prefix output with target. Print Raw"                                                   long:"raw-output"`       //nolint:lll
 }
 
 type FromOpts struct {
-	AllowPrivileged bool     `description:"Allow commands under remote targets to enable privileged mode" long:"allow-privileged"`
-	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target" long:"build-arg"`
-	Platform        string   `description:"The platform to use"                                           long:"platform"`
+	AllowPrivileged bool     `description:"Allow commands under remote targets to enable privileged mode" long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`        //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target" long:"build-arg"`        //nolint:lll
+	Platform        string   `description:"The platform to use"                                           long:"platform"`         //nolint:lll
 }
 
 type FromDockerfileOpts struct {
-	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target and also to the Dockerfile build"      long:"build-arg"`
-	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`
-	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`
-	Path            string   `description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference" short:"f"`
+	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"` //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target and also to the Dockerfile build"      long:"build-arg"`        //nolint:lll
+	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`         //nolint:lll
+	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`           //nolint:lll
+	Path            string   `description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference" short:"f"`               //nolint:lll
 }
 
 type CopyOpts struct {
-	From            string   `description:"Not supported"                                                           long:"from"`
-	IsDirCopy       bool     `description:"Copy entire directories, not just the contents"                          long:"dir"`
-	Chown           string   `description:"Apply a specific group and/or owner to the copied files and directories" long:"chown"`
-	Chmod           string   `description:"Apply a mode to the copied files and directories"                        long:"chmod"`
-	KeepTs          bool     `description:"Keep created time file timestamps"                                       long:"keep-ts"`
-	KeepOwn         bool     `description:"Keep owner info"                                                         long:"keep-own"`
-	IfExists        bool     `description:"Do not fail if the artifact does not exist"                              long:"if-exists"`
-	SymlinkNoFollow bool     `description:"Do not follow symlinks"                                                  long:"symlink-no-follow"`
-	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                                 long:"allow-privileged"`
-	PassArgs        bool     `description:"Pass arguments to external targets"                                      long:"pass-args"`
-	Platform        string   `description:"The platform to use"                                                     long:"platform"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target"           long:"build-arg"`
+	From            string   `description:"Not supported"                                                           long:"from"`              //nolint:lll
+	IsDirCopy       bool     `description:"Copy entire directories, not just the contents"                          long:"dir"`               //nolint:lll
+	Chown           string   `description:"Apply a specific group and/or owner to the copied files and directories" long:"chown"`             //nolint:lll
+	Chmod           string   `description:"Apply a mode to the copied files and directories"                        long:"chmod"`             //nolint:lll
+	KeepTs          bool     `description:"Keep created time file timestamps"                                       long:"keep-ts"`           //nolint:lll
+	KeepOwn         bool     `description:"Keep owner info"                                                         long:"keep-own"`          //nolint:lll
+	IfExists        bool     `description:"Do not fail if the artifact does not exist"                              long:"if-exists"`         //nolint:lll
+	SymlinkNoFollow bool     `description:"Do not follow symlinks"                                                  long:"symlink-no-follow"` //nolint:lll
+	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                                 long:"allow-privileged"`  //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                                      long:"pass-args"`         //nolint:lll
+	Platform        string   `description:"The platform to use"                                                     long:"platform"`          //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target"           long:"build-arg"`         //nolint:lll
 }
 
 type SaveArtifactOpts struct {
-	KeepTs          bool `description:"Keep created time file timestamps"                                                                               long:"keep-ts"`
-	KeepOwn         bool `description:"Keep owner info"                                                                                                 long:"keep-own"`
-	IfExists        bool `description:"Do not fail if the artifact does not exist"                                                                      long:"if-exists"`
-	SymlinkNoFollow bool `description:"Do not follow symlinks"                                                                                          long:"symlink-no-follow"`
-	Force           bool `description:"Force artifact to be saved, even if it means overwriting files or directories outside of the relative directory" long:"force"`
+	KeepTs          bool `description:"Keep created time file timestamps"                                                                               long:"keep-ts"`           //nolint:lll
+	KeepOwn         bool `description:"Keep owner info"                                                                                                 long:"keep-own"`          //nolint:lll
+	IfExists        bool `description:"Do not fail if the artifact does not exist"                                                                      long:"if-exists"`         //nolint:lll
+	SymlinkNoFollow bool `description:"Do not follow symlinks"                                                                                          long:"symlink-no-follow"` //nolint:lll
+	Force           bool `description:"Force artifact to be saved, even if it means overwriting files or directories outside of the relative directory" long:"force"`             //nolint:lll
 }
 
 type SaveImageOpts struct {

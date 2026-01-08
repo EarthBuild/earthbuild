@@ -343,7 +343,6 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			ifExists:    saveLocalItem.saveLocal.IfExists,
 			salt:        c.mts.Final.ID,
 		})
-
 	}
 
 	refs, metadata := gwCrafter.GetRefsAndMetadata()
@@ -368,7 +367,6 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
 	}
 	return nil
 }

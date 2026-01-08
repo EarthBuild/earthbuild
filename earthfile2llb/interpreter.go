@@ -117,7 +117,6 @@ func (i *Interpreter) handleBlock(ctx context.Context, b spec.Block) error {
 			return err
 		}
 		prevWasArgLike = i.isArgLike(stmt.Command)
-
 	}
 	return nil
 }

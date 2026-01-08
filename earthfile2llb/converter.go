@@ -988,7 +988,6 @@ func (c *Converter) SaveArtifact(ctx context.Context, saveFrom, saveTo, saveAsLo
 				c.mts.Final.SaveLocals = append(c.mts.Final.SaveLocals, saveLocal)
 			}
 		}
-
 	}
 	c.ranSave = true
 	c.markFakeDeps()
@@ -2231,7 +2230,6 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 		saveFiles := []debuggercommon.SaveFilesSettings{}
 		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
-
 			canSave, err := c.canSave(interactiveSaveFile.Dst)
 			if err != nil {
 				return pllb.State{}, err
@@ -2353,7 +2351,6 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 				is.State = state.Run(runOpts...).Root()
 				c.mts.Final.RunPush.InteractiveSession = is
 				return c.mts.Final.RunPush.State, nil
-
 			}
 			is.State = state.Run(runOpts...).Root()
 			c.mts.Final.InteractiveSession = is

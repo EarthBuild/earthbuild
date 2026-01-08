@@ -33,12 +33,12 @@ import (
 )
 
 var (
-	runExitCodeRe  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
-	notFoundRe     = regexp.MustCompile(`("[^"]*"): not found`)
-	maxExecTimeRe  = regexp.MustCompile(`max execution time of .+ exceeded`)
-	requestIDRe    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
-	qemuExitCodeRe = regexp.
-			MustCompile(`process "/dev/.buildkit_qemu_emulator.*?did not complete successfully: exit code: 255$`)
+	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
+	notFoundRegex     = regexp.MustCompile(`("[^"]*"): not found`)
+	maxExecTimeRegex  = regexp.MustCompile(`max execution time of .+ exceeded`)
+	requestIDRegex    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
+	qemuExitCodeRegex = regexp.
+				MustCompile(`process "/dev/.buildkit_qemu_emulator.*?did not complete successfully: exit code: 255$`)
 )
 
 // Run runs the CLI and returns an exit code to pass to [os.Exit].
@@ -193,7 +193,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			app.BaseCLI.Console().VerboseWarn(errorWithPrefix(paramsErr.Error()))
 		}
 		return 1
-	case qemuExitCodeRe.MatchString(err.Error()):
+	case qemuExitCodeRegex.MatchString(err.Error()):
 		var helpMsg string
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
 			"For more information see https://docs.earthly.dev/guides/multi-platform\n"
@@ -205,7 +205,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		return 255
-	case runExitCodeRe.MatchString(err.Error()):
+	case runExitCodeRegex.MatchString(err.Error()):
 		var helpMsg string
 		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
 			args = append([]string{args[0], "-i"}, args[1:]...)
@@ -253,7 +253,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		app.BaseCLI.Console().HelpPrint(helpMsg)
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
-		matches := notFoundRe.FindStringSubmatch(err.Error())
+		matches := notFoundRegex.FindStringSubmatch(err.Error())
 		var msg string
 		if len(matches) == 2 {
 			msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
@@ -286,16 +286,16 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		return 1
-	case grpcErrOK && grpcErr.Code() == codes.PermissionDenied && requestIDRe.MatchString(grpcErr.Message()):
+	case grpcErrOK && grpcErr.Code() == codes.PermissionDenied && requestIDRegex.MatchString(grpcErr.Message()):
 		errorMsg := grpcErr.Message()
-		matches, _ := stringutil.NamedGroupMatches(errorMsg, requestIDRe)
+		matches, _ := stringutil.NamedGroupMatches(errorMsg, requestIDRegex)
 		if len(matches["msg"]) > 0 {
 			errorMsg = matches["msg"][0]
 		}
 		app.BaseCLI.Console().VerboseWarn(err.Error())
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
 		return 1
-	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRe.MatchString(grpcErr.Message()):
+	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
 		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
 		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. " +
 			"Verify your account to lift this restriction."

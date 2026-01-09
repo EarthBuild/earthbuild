@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/hint"
@@ -25,7 +26,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/variables"
-
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
@@ -85,7 +85,7 @@ func (i *Interpreter) Run(ctx context.Context, ef spec.Earthfile) (retErr error)
 			i.converter.RecordTargetFailure(ctx, retErr)
 		}
 	}()
-	if i.target.Target == "base" {
+	if i.target.Target == ast.TargetBase {
 		i.isBase = true
 		err := i.handleBlock(ctx, ef.BaseRecipe)
 		i.isBase = false
@@ -2008,7 +2008,7 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd spec.Command) error 
 			return i.wrapError(err, cmd.SourceLocation, "failed to expand IMPORT as: %s", as)
 		}
 	}
-	isGlobal := (i.target.Target == "base")
+	isGlobal := (i.target.Target == ast.TargetBase)
 	err = i.converter.Import(ctx, importStr, as, isGlobal, i.allowPrivileged, opts.AllowPrivileged)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply IMPORT")
@@ -2304,6 +2304,6 @@ func baseTarget(ref domain.Reference) domain.Target {
 		Tag:       ref.GetTag(),
 		ImportRef: ref.GetImportRef(),
 		LocalPath: ref.GetLocalPath(),
-		Target:    "base",
+		Target:    ast.TargetBase,
 	}
 }

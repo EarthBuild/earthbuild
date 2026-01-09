@@ -64,6 +64,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const rootChown = "root:root"
+
 type cmdType int
 
 const (
@@ -929,7 +931,7 @@ func (c *Converter) SaveArtifact(
 		Target:   c.mts.Final.Target,
 		Artifact: artifactPath,
 	}
-	own := "root:root"
+	own := rootChown
 	if keepOwn {
 		own = ""
 	}
@@ -980,7 +982,7 @@ func (c *Converter) SaveArtifact(
 			}
 			separateArtifactsState, err = llbutil.CopyOp(ctx,
 				pushState, []string{saveFrom}, separateArtifactsState,
-				saveToAdjusted, true, true, keepTs, "root:root", nil, ifExists, symlinkNoFollow,
+				saveToAdjusted, true, true, keepTs, rootChown, nil, ifExists, symlinkNoFollow,
 				c.ftrs.UseCopyLink,
 				llb.WithCustomNamef(
 					"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
@@ -1000,7 +1002,7 @@ func (c *Converter) SaveArtifact(
 			}
 			separateArtifactsState, err = llbutil.CopyOp(ctx,
 				pcState, []string{saveFrom}, separateArtifactsState,
-				saveToAdjusted, true, true, keepTs, "root:root", nil, ifExists, symlinkNoFollow,
+				saveToAdjusted, true, true, keepTs, rootChown, nil, ifExists, symlinkNoFollow,
 				c.ftrs.UseCopyLink,
 				llb.WithCustomNamef(
 					"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
@@ -1122,7 +1124,7 @@ func (c *Converter) SaveArtifactFromLocal(
 
 	// then save it via the regular SaveArtifact code since it's now in a snapshot
 	absSaveTo := "/" + saveTo
-	own := "root:root"
+	own := rootChown
 	if keepOwn {
 		own = ""
 	} else if chown != "" {
@@ -2947,7 +2949,7 @@ func (c *Converter) markFakeDeps() {
 func (c *Converter) copyOwner(keepOwn bool, chown string) string {
 	own := c.mts.Final.MainImage.Config.User
 	if own == "" {
-		own = "root:root"
+		own = rootChown
 	}
 	if keepOwn {
 		own = ""

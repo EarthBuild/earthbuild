@@ -21,10 +21,9 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
 )
 
@@ -391,6 +390,8 @@ func (gr *gitResolver) resolveGitProject(
 			return nil, errors.Wrap(err, "read Earthfile-paths")
 		}
 
+		const head = "HEAD"
+
 		gitHash := strings.SplitN(string(gitHashBytes), "\n", 2)[0]
 		gitShortHash := strings.SplitN(string(gitShortHashBytes), "\n", 2)[0]
 		gitBranches := strings.SplitN(gitBranch, "\n", 2)
@@ -399,7 +400,7 @@ func (gr *gitResolver) resolveGitProject(
 		gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(gitBodyBytes))
 		var gitBranches2 []string
 		for _, gitBranch := range gitBranches {
-			if gitBranch != "" && gitBranch != "HEAD" {
+			if gitBranch != "" && gitBranch != head {
 				gitBranches2 = append(gitBranches2, gitBranch)
 			}
 		}
@@ -417,7 +418,7 @@ func (gr *gitResolver) resolveGitProject(
 		gitTags := strings.SplitN(string(gitTagsBytes), "\n", 2)
 		var gitTags2 []string
 		for _, gitTag := range gitTags {
-			if gitTag != "" && gitTag != "HEAD" {
+			if gitTag != "" && gitTag != head {
 				gitTags2 = append(gitTags2, gitTag)
 			}
 		}
@@ -427,7 +428,7 @@ func (gr *gitResolver) resolveGitProject(
 		var gitRefs2 []string
 		for _, gitRef := range gitRefs {
 			gitRef = strings.Trim(gitRef, "'\"")
-			if gitRef != "" && gitRef != "HEAD" && !slices.Contains(gitRefs2, gitRef) {
+			if gitRef != "" && gitRef != head && !slices.Contains(gitRefs2, gitRef) {
 				gitRefs2 = append(gitRefs2, gitRef)
 			}
 		}

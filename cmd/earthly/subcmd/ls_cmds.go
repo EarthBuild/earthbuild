@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
@@ -102,11 +103,11 @@ func (a *List) action(cliCtx *cli.Context) error {
 		}
 	}
 
-	targets = append(targets, "base")
+	targets = append(targets, ast.TargetBase)
 	sort.Strings(targets)
 	for _, t := range targets {
 		var args []string
-		if t != "base" {
+		if t != ast.TargetBase {
 			target.Target = t
 			args, err = earthfile2llb.GetTargetArgs(cliCtx.Context, resolver, gwClient, target)
 			if err != nil {

@@ -126,13 +126,15 @@ func (s *solver) newSolveOptMulti(
 
 	progressCB := fsutilprogress.New("", console.WithPrefix("output"))
 
+	const trueText = "true"
+
 	return &client.SolveOpt{
 		Exports: []client.ExportEntry{
 			{
 				Type:  client.ExporterEarthly,
 				Attrs: map[string]string{},
 				Output: func(md map[string]string) (io.WriteCloser, error) {
-					if md["export-image"] != "true" {
+					if md["export-image"] != trueText {
 						return nil, nil
 					}
 					imageName := md["image.name"]
@@ -141,11 +143,11 @@ func (s *solver) newSolveOptMulti(
 					return onImage(ctx, eg, imageName, waitFor, manifestKey)
 				},
 				OutputDirFunc: func(md map[string]string) (string, error) {
-					if md["export-dir"] != "true" {
+					if md["export-dir"] != trueText {
 						// Use the other fun for images.
 						return "", nil
 					}
-					if md["final-artifact"] == "true" {
+					if md["final-artifact"] == trueText {
 						return onFinalArtifact(ctx)
 					}
 					indexStr := md["dir-id"]

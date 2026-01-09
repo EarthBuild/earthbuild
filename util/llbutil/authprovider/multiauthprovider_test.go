@@ -38,7 +38,7 @@ func TestMultiAuth(t *testing.T) {
 			newMockChild(t, mockTimeout),
 			newMockChild(t, mockTimeout),
 		}
-		var srv []authprovider.Child
+		srv := make([]authprovider.Child, 0, len(children))
 		for _, c := range children {
 			srv = append(srv, c)
 		}

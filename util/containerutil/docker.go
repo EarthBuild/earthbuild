@@ -165,8 +165,7 @@ func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 func (dsf *dockerShellFrontend) ImageLoadFromFileCommand(filename string) string {
 	binary, args := dsf.commandContextStrings("load")
 
-	all := []string{binary}
-	all = append(all, args...)
+	all := append([]string{binary}, args...)
 
 	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(all, " "))
 }

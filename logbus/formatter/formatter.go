@@ -377,13 +377,10 @@ func (f *Formatter) printHeader(
 	if len(metaParts) > 0 {
 		c.WithMetadataMode(true).Printf("%s\n", strings.Join(metaParts, " | "))
 	}
-	out := []string{}
-	out = append(out, "-->")
-	out = append(out, cm.GetName())
 	if cm.GetIsCached() {
 		c = c.WithCached(true)
 	}
-	c.Printf("%s\n", strings.Join(out, " "))
+	c.Print("--> " + cm.GetName() + "\n")
 
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false

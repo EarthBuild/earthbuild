@@ -156,8 +156,7 @@ func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 func (psf *podmanShellFrontend) ImageLoadFromFileCommand(filename string) string {
 	binary, args := psf.commandContextStrings("pull", "docker-archive:"+filename)
 
-	all := []string{binary}
-	all = append(all, args...)
+	all := append([]string{binary}, args...)
 
 	return strings.Join(all, " ")
 }

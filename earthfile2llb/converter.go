@@ -1749,9 +1749,10 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 	}
 
 	if _, exists := c.persistentCacheDirs[mountTarget]; !exists {
-		var mountOpts []llb.MountOption
-		mountOpts = append(mountOpts, llb.AsPersistentCacheDir(cacheID, shareMode))
-		mountOpts = append(mountOpts, llb.SourcePath("/cache"))
+		mountOpts := []llb.MountOption{
+			llb.AsPersistentCacheDir(cacheID, shareMode),
+			llb.SourcePath("/cache"),
+		}
 		mountMode := os.FileMode(0o644)
 		if opts.Mode != "" {
 			mountMode, err = ParseMode(opts.Mode)
@@ -2541,7 +2542,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 //nolint:unparam // error return kept for future use
 func (c *Converter) awsSecrets(oidcInfo *oidcutil.AWSOIDCInfo) ([]llb.RunOption, []string, error) {
 	var (
-		runOpts   = []llb.RunOption{}
+		runOpts   = make([]llb.RunOption, 0, len(secretprovider.AWSCredentials))
 		extraEnvs = []string{}
 	)
 

@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:lll
 const containerListText = `7a3c4741b86e,earthly-darwin-proxy-T58UvV,Up 5 hours,alpine/socat:1.7.4.4,2024-01-23 12:53:32 -0800 PST
 d8183461827c,earthly-dev-buildkitd,Up 5 hours,earthly/buildkitd:dev-main,2024-01-23 12:50:02 -0800 PST
 3084cac7996e,earthly-buildkitd,Up 6 hours,earthly/buildkitd:prerelease,2024-01-23 12:31:06 -0800 PST`

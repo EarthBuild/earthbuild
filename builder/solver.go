@@ -44,7 +44,15 @@ type solver struct {
 	saveInlineCache bool
 }
 
-func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, console conslogging.ConsoleLogger) error {
+func (s *solver) buildMainMulti(
+	ctx context.Context,
+	bf gwclient.BuildFunc,
+	onImage onImageFunc,
+	onArtifact onArtifactFunc,
+	onFinalArtifact onFinalArtifactFunc,
+	onPullCallback pullping.PullCallback,
+	console conslogging.ConsoleLogger,
+) error {
 	ch := make(chan *client.SolveStatus, statusChanSize)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -83,7 +91,15 @@ func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onIm
 	return nil
 }
 
-func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, console conslogging.ConsoleLogger) (*client.SolveOpt, error) {
+func (s *solver) newSolveOptMulti(
+	ctx context.Context,
+	eg *errgroup.Group,
+	onImage onImageFunc,
+	onArtifact onArtifactFunc,
+	onFinalArtifact onFinalArtifactFunc,
+	onPullCallback pullping.PullCallback,
+	console conslogging.ConsoleLogger,
+) (*client.SolveOpt, error) {
 	imports := s.cacheImports.AsSlice()
 	cacheImports := make([]client.CacheOptionsEntry, 0, len(imports))
 	for _, ci := range imports {

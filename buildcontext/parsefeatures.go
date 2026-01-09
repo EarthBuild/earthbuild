@@ -14,7 +14,9 @@ type buildFile struct {
 	ftrs *features.Features
 }
 
-func parseFeatures(buildFilePath string, featureFlagOverrides string, projectRef string, console conslogging.ConsoleLogger) (*features.Features, error) {
+func parseFeatures(
+	buildFilePath string, featureFlagOverrides string, projectRef string, console conslogging.ConsoleLogger,
+) (*features.Features, error) {
 	version, err := ast.ParseVersion(buildFilePath, false)
 	if err != nil {
 		return nil, err
@@ -34,7 +36,10 @@ func parseFeatures(buildFilePath string, featureFlagOverrides string, projectRef
 	}
 
 	if len(warningStrs) > 0 {
-		console.Printf("NOTE: The %s feature is enabled by default under VERSION %s, and can be safely removed from the VERSION command", strings.Join(warningStrs, ", "), ftrs.Version())
+		console.Printf(
+			"NOTE: The %s feature is enabled by default under VERSION %s, "+
+				"and can be safely removed from the VERSION command",
+			strings.Join(warningStrs, ", "), ftrs.Version())
 	}
 
 	err = features.ApplyFlagOverrides(ftrs, featureFlagOverrides)

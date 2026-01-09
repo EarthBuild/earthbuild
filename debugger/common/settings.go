@@ -7,7 +7,8 @@ const (
 	// DebuggerDefaultSocketPath is the default socket to connect to (path is inside the container).
 	DebuggerDefaultSocketPath = "/var/run/earthly_interactive"
 
-	// DefaultSaveFileSocketPath is the default socket to connect to when sending back files (path is inside the container).
+	// DefaultSaveFileSocketPath is the default socket to connect to when sending back files
+	// (path is inside the container).
 	DefaultSaveFileSocketPath = "/var/run/earthly_save"
 )
 

@@ -44,11 +44,13 @@ func NewBootstrap(cli CLI) *Bootstrap {
 func (b *Bootstrap) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
-			Name:        "bootstrap",
-			Usage:       "Bootstraps earthly installation including buildkit image download and optionally shell autocompletion",
-			UsageText:   "earthly [options] bootstrap [--no-buildkit, --with-autocomplete, --certs-hostname]",
-			Description: "Bootstraps earthly installation including buildkit image download and optionally shell autocompletion.",
-			Action:      b.Action,
+			Name: "bootstrap",
+			Usage: "Bootstraps earth installation including buildkit image download and " +
+				"optionally shell autocompletion",
+			UsageText: "earth [options] bootstrap [--no-buildkit, --with-autocomplete, --certs-hostname]",
+			Description: "Bootstraps earthly installation including buildkit image download and " +
+				"optionally shell autocompletion.",
+			Action: b.Action,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:        "source",
@@ -67,8 +69,9 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 					Destination: &b.withAutocomplete,
 				},
 				&cli.BoolFlag{
-					Name:        "force-certificate-generation",
-					Usage:       "Force the generation of self-signed TLS certificates, even when no BuildKit container is started",
+					Name: "force-certificate-generation",
+					Usage: "Force the generation of self-signed TLS certificates, " +
+						"even when no BuildKit container is started",
 					Destination: &b.genCerts,
 				},
 				&cli.StringFlag{
@@ -270,7 +273,8 @@ func (a *Bootstrap) insertZSHCompleteEntry() error {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "Warning: unable to enable zsh-completion: none of %s does not exist\n", strings.Join(potentialPaths, ", "))
+	fmt.Fprint(os.Stderr,
+		"Warning: unable to enable zsh-completion: none of "+strings.Join(potentialPaths, ", ")+" does not exist\n")
 	return nil // zsh-completion isn't available, silently fail.
 }
 

@@ -57,7 +57,7 @@ func (a *Prune) Cmds() []*cli.Command {
 				&cli.GenericFlag{
 					Name: "age",
 					Usage: `Prune cache older than the specified duration passed in as a string;
-						duration is specified with an integer value followed by a m, h, or d suffix which represents minutes, hours, or days respectively, e.g. 24h, or 1d`,
+						duration is specified with an integer value followed by a m, h, or d suffix which represents minutes, hours, or days respectively, e.g. 24h, or 1d`, //nolint:lll
 					Value: &a.keepDuration,
 				},
 				&cli.GenericFlag{
@@ -80,7 +80,9 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		err = buildkitd.ResetCache(cliCtx.Context, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName, a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings)
+		err = buildkitd.ResetCache(
+			cliCtx.Context, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
+			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings)
 		if err != nil {
 			return errors.Wrap(err, "reset cache")
 		}

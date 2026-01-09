@@ -18,7 +18,7 @@ func TestDockerTagSafe(t *testing.T) {
 		{"0123", "0123"},
 		{"/a/b/c/d", "_a_b_c_d"},
 		{"asdf:aa", "asdf_aa"},
-		{"verylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongSHOULDTRUNCATE", "verylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylong"},
+		{"verylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongSHOULDTRUNCATE", "verylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylongverylong"}, //nolint:lll
 		{"a", "a"},
 		{".", "_"},
 		{"v1.2.3", "v1.2.3"},

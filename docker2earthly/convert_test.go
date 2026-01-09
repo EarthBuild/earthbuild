@@ -200,7 +200,9 @@ build:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := docker2earthly.GenerateEarthfile(tt.args.buildContextPath, tt.args.dockerfilePath, tt.args.imageTags, tt.args.buildArgs, tt.args.platforms, tt.args.target)
+			got, err := docker2earthly.GenerateEarthfile(
+				tt.args.buildContextPath, tt.args.dockerfilePath, tt.args.imageTags,
+				tt.args.buildArgs, tt.args.platforms, tt.args.target)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("GenerateEarthfile() error = %v, wantErr %v", err, tt.wantErr)
 				return

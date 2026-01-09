@@ -9,6 +9,8 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "redis:6379",

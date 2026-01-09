@@ -100,7 +100,14 @@ type SingleTarget struct {
 	incomingNewSubscriptions chan string
 }
 
-func newSingleTarget(ctx context.Context, target domain.Target, platr *platutil.Resolver, allowPrivileged bool, overridingVars *variables.Scope, parentDepSub chan string) (*SingleTarget, error) {
+func newSingleTarget(
+	ctx context.Context,
+	target domain.Target,
+	platr *platutil.Resolver,
+	allowPrivileged bool,
+	overridingVars *variables.Scope,
+	parentDepSub chan string,
+) (*SingleTarget, error) {
 	targetStr := target.StringCanonical()
 	sts := &SingleTarget{
 		ID:               uuid.New().String(),
@@ -343,8 +350,9 @@ type SaveImage struct {
 	// can only be a single-platform image.
 	NoManifestList bool
 
-	Platform    platutil.Platform
-	HasPlatform bool // true when the --platform value was set (either on cli, or via FROM --platform=..., or BUILD --platform=...)
+	Platform platutil.Platform
+	// true when the --platform value was set (either on cli, or via FROM --platform=..., or BUILD --platform=...)
+	HasPlatform bool
 
 	SkipBuilder bool // for use with WAIT/END
 }

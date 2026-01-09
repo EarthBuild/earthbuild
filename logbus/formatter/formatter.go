@@ -82,7 +82,13 @@ type Formatter struct {
 }
 
 // New creates a new Formatter.
-func New(ctx context.Context, b *logbus.Bus, debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool, execStatsTracker *execstatssummary.Tracker, isGitHubActions bool) *Formatter {
+func New(
+	ctx context.Context,
+	b *logbus.Bus,
+	debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool,
+	execStatsTracker *execstatssummary.Tracker,
+	isGitHubActions bool,
+) *Formatter {
 	ongoingTick := durationBetweenOngoingUpdatesNoAnsi
 	if ansiSupported {
 		ongoingTick = durationBetweenOngoingUpdates
@@ -351,7 +357,9 @@ func (f *Formatter) processOngoingTick() error {
 	return nil
 }
 
-func (f *Formatter) printHeader(targetID string, commandID string, tm *logstream.TargetManifest, cm *logstream.CommandManifest, failure bool) {
+func (f *Formatter) printHeader(
+	targetID, commandID string, tm *logstream.TargetManifest, cm *logstream.CommandManifest, failure bool,
+) {
 	c, verboseOnly := f.targetConsole(targetID, commandID, false)
 	if verboseOnly && !f.verbose {
 		return
@@ -369,13 +377,10 @@ func (f *Formatter) printHeader(targetID string, commandID string, tm *logstream
 	if len(metaParts) > 0 {
 		c.WithMetadataMode(true).Printf("%s\n", strings.Join(metaParts, " | "))
 	}
-	out := []string{}
-	out = append(out, "-->")
-	out = append(out, cm.GetName())
 	if cm.GetIsCached() {
 		c = c.WithCached(true)
 	}
-	c.Printf("%s\n", strings.Join(out, " "))
+	c.Print("--> " + cm.GetName() + "\n")
 
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
@@ -427,7 +432,9 @@ func (f *Formatter) shouldPrintProgress(commandID string, cm *logstream.CommandM
 	return true
 }
 
-func (f *Formatter) printError(targetID string, commandID string, tm *logstream.TargetManifest, cm *logstream.CommandManifest) {
+func (f *Formatter) printError(
+	targetID, commandID string, tm *logstream.TargetManifest, cm *logstream.CommandManifest,
+) {
 	c, _ := f.targetConsole(targetID, commandID, false)
 	c.Printf("%s\n", cm.GetErrorMessage())
 	c.VerbosePrintf("Overriding args used: %s\n", strings.Join(tm.GetOverrideArgs(), " "))
@@ -494,7 +501,9 @@ func (f *Formatter) printGHAFailure() {
 	// Print GHA Error with line info if available
 	if cm != nil && cm.SourceLocation != nil &&
 		cm.SourceLocation.File != "" && cm.SourceLocation.StartLine > 0 {
-		c.PrintGHAError(singleLineMessage, conslogging.WithGHASourceLocation(cm.SourceLocation.File, cm.SourceLocation.StartLine, cm.SourceLocation.StartColumn))
+		c.PrintGHAError(singleLineMessage, conslogging.WithGHASourceLocation(
+			cm.SourceLocation.File, cm.SourceLocation.StartLine, cm.SourceLocation.StartColumn,
+		))
 	} else {
 		c.PrintGHAError(singleLineMessage)
 	}

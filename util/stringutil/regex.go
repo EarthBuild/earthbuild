@@ -2,8 +2,9 @@ package stringutil
 
 import "regexp"
 
-// NamedGroupMatches returns a map with all found named regex groups as keys and an array of all matches as the value
-// and an array of all the keys in the order they were set in the regex (this is since the map keys order won't be predictable).
+// NamedGroupMatches returns a map with all found named regex groups as keys and
+// an array of all matches as the value and an array of all the keys in the order
+// they were set in the regex (this is since the map keys order won't be predictable).
 func NamedGroupMatches(s string, re *regexp.Regexp) (map[string][]string, []string) {
 	all := make(map[string][]string)
 	res := re.FindAllStringSubmatch(s, -1)

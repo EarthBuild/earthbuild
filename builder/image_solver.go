@@ -79,7 +79,9 @@ func (s *tarImageSolver) newSolveOpt(img *image.Image, dockerTag string, w io.Wr
 
 // SolveImage invokes a BK solve operation to create a Docker image. It is then
 // saved to a local tar file.
-func (s *tarImageSolver) SolveImage(ctx context.Context, mts *states.MultiTarget, dockerTag string, outFile string, printOutput bool) error {
+func (s *tarImageSolver) SolveImage(
+	ctx context.Context, mts *states.MultiTarget, dockerTag string, outFile string, printOutput bool,
+) error {
 	platform := mts.Final.PlatformResolver.ToLLBPlatform(mts.Final.PlatformResolver.Current())
 	saveImage := mts.Final.LastSaveImage()
 	dt, err := saveImage.State.Marshal(ctx, llb.Platform(platform))
@@ -175,7 +177,9 @@ func newMultiImageSolver(opt Opt, sm *solvermon.SolverMonitor) *multiImageSolver
 // BuildKit. The method returns a string channel to which Docker image names
 // written, a release function that must be called after the images have been
 // used, and an error channel to which any errors will be sent.
-func (m *multiImageSolver) SolveImages(ctx context.Context, imageDefs []*states.ImageDef) (*states.ImageSolverResults, error) {
+func (m *multiImageSolver) SolveImages(
+	ctx context.Context, imageDefs []*states.ImageDef,
+) (*states.ImageSolverResults, error) {
 	var (
 		resultChan  = make(chan *states.ImageResult, len(imageDefs))
 		errChan     = make(chan error)
@@ -264,7 +268,8 @@ func (m *multiImageSolver) SolveImages(ctx context.Context, imageDefs []*states.
 			}
 			if result.ImageDigest == "" {
 				// TODO: This should use console.
-				fmt.Fprintf(os.Stderr, "Warning: Could not detect digest for image %s. Please update your buildkit installation.\n", result.FinalImageName)
+				fmt.Fprintf(os.Stderr, "Warning: Could not detect digest for image %s. "+
+					"Please update your buildkit installation.\n", result.FinalImageName)
 			}
 			results[i] = result
 		}
@@ -349,14 +354,23 @@ func (m *multiImageSolver) SolveImages(ctx context.Context, imageDefs []*states.
 	return ret, nil
 }
 
-func (m *multiImageSolver) addRefToResult(ctx context.Context, gwClient gwclient.Client, gwCrafter *gatewaycrafter.GatewayCrafter, imageDef *states.ImageDef, imageIndex int, onPullMap map[string]string, newInterImgFormat bool) error {
+func (m *multiImageSolver) addRefToResult(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	gwCrafter *gatewaycrafter.GatewayCrafter,
+	imageDef *states.ImageDef,
+	imageIndex int,
+	onPullMap map[string]string,
+	newInterImgFormat bool,
+) error {
 	saveImage := imageDef.MTS.Final.LastSaveImage()
 
 	if !strings.Contains(imageDef.ImageName, ":") {
 		imageDef.ImageName += ":latest"
 	}
 
-	ref, err := llbutil.StateToRef(ctx, gwClient, saveImage.State, false, imageDef.MTS.Final.PlatformResolver, m.cacheImports.AsSlice())
+	ref, err := llbutil.
+		StateToRef(ctx, gwClient, saveImage.State, false, imageDef.MTS.Final.PlatformResolver, m.cacheImports.AsSlice())
 	if err != nil {
 		return errors.Wrap(err, "initial state to ref conversion")
 	}

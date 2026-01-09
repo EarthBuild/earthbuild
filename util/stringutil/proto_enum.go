@@ -37,7 +37,8 @@ func Lower(e ProtoEnum) string {
 	return pretty(lowerCaser, e)
 }
 
-// EnumToStringArray takes an array of enum values and returns an array of their string values after applying EnumToStringFunc on each item.
+// EnumToStringArray takes an array of enum values and returns an array of their
+// string values after applying EnumToStringFunc on each item.
 func EnumToStringArray[T ProtoEnum](items []T, f EnumToStringFunc) []string {
 	strs := make([]string, 0, len(items))
 	for _, item := range items {

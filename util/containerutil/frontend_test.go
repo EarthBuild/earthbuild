@@ -305,7 +305,7 @@ func TestFrontendContainerRun(t *testing.T) {
 			NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
-			runs := []containerutil.ContainerRun{}
+			runs := make([]containerutil.ContainerRun, 0, len(testContainers))
 			for _, name := range testContainers {
 				runs = append(runs, containerutil.ContainerRun{
 					NameOrID:       name,
@@ -507,7 +507,7 @@ func TestFrontendImageTag(t *testing.T) {
 			NoError(t, err)
 
 			imageID := info[ref].ID
-			tags := []containerutil.ImageTag{}
+			tags := make([]containerutil.ImageTag, 0, len(tC.tagList))
 			for _, tagName := range tC.tagList {
 				tags = append(tags, containerutil.ImageTag{
 					SourceRef: imageID,

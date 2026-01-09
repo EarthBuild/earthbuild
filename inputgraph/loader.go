@@ -573,7 +573,7 @@ func evalConditions(c []string) (bool, bool) {
 				return false, false
 			case "[":
 				inExpr = true
-				cur = []string{}
+				cur = make([]string, 0, len(parts))
 			case "]":
 				if !inExpr {
 					return false, false

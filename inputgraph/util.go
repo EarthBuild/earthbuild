@@ -57,7 +57,7 @@ func uniqStrs(all []string) []string {
 	for _, v := range all {
 		m[v] = struct{}{}
 	}
-	ret := []string{}
+	ret := make([]string, 0, len(m))
 	for k := range m {
 		ret = append(ret, k)
 	}

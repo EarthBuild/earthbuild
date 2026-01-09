@@ -140,7 +140,7 @@ func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string
 }
 
 func formatPorts(info containerInfo) []string {
-	ret := []string{}
+	ret := make([]string, 0, len(info.NetworkSettings.Ports))
 	for key, ports := range info.NetworkSettings.Ports {
 		for _, port := range ports {
 			ret = append(ret, fmt.Sprintf("%s:%s:%s", port.HostIP, port.HostPort, key))

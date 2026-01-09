@@ -226,7 +226,11 @@ func (l *lexer) processIndentation(peek antlr.Token) {
 		if l.afterNewLine {
 			l.indentLevel++
 		}
-		l.wsChannel, l.wsStart, l.wsStop, l.wsLine, l.wsColumn = peek.GetChannel(), peek.GetStart(), peek.GetStop(), peek.GetLine(), peek.GetColumn()
+		l.wsChannel = peek.GetChannel()
+		l.wsStart = peek.GetStart()
+		l.wsStop = peek.GetStop()
+		l.wsLine = peek.GetLine()
+		l.wsColumn = peek.GetColumn()
 	case parser.EarthLexerNL:
 		l.indentLevel = 0
 		l.afterNewLine = true

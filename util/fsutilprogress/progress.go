@@ -45,7 +45,8 @@ func (s *progressCallback) Info(numBytes int, last bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if last {
-		s.console.Printf("transferred %d file(s) for context %s (%s, %d file/dir stats)", s.numSent, s.pathPrefix, humanizeBytes(numBytes), s.numStats)
+		format := "transferred %d file(s) for context %s (%s, %d file/dir stats)"
+		s.console.Printf(format, s.numSent, s.pathPrefix, humanizeBytes(numBytes), s.numStats)
 	}
 }
 
@@ -85,7 +86,8 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 		if s.numSent > 0 {
 			var transferRate string
 			if !s.lastUpdate.IsZero() {
-				transferRate = fmt.Sprintf("; transfer rate: %s/s", humanize.Bytes(uint64(float64(s.bytesSent-s.lastBytesSent)/d.Seconds())))
+				bytes := humanize.Bytes(uint64(float64(s.bytesSent-s.lastBytesSent) / d.Seconds()))
+				transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 			}
 			s.console.Printf("sent %s (%s)%s\n", humanizeBytes(s.bytesSent), puralize(s.numSent, "file"), transferRate)
 		} else {
@@ -94,9 +96,11 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 		if s.numReceived > 0 {
 			var transferRate string
 			if !s.lastUpdate.IsZero() {
-				transferRate = fmt.Sprintf("; transfer rate: %s/s", humanizeBytes(int(float64(s.bytesReceived-s.lastBytesReceived)/d.Seconds())))
+				bytes := humanizeBytes(int(float64(s.bytesReceived-s.lastBytesReceived) / d.Seconds()))
+				transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 			}
-			s.console.Printf("received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate)
+			s.console.Printf(
+				"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate)
 		}
 		s.lastUpdate = now
 		s.lastBytesSent = s.bytesSent

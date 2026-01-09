@@ -80,9 +80,10 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	})
 	// Issue docker load.
 	for _, tl := range w.tarLoads {
+		load := w.c.containerFrontend.ImageLoadFromFileCommand(tl.imgFile)
 		runOpts := []llb.RunOption{
 			llb.IgnoreCache,
-			llb.Args([]string{localhost.RunOnLocalHostMagicStr, "/bin/sh", "-c", w.c.containerFrontend.ImageLoadFromFileCommand(tl.imgFile)}),
+			llb.Args([]string{localhost.RunOnLocalHostMagicStr, "/bin/sh", "-c", load}),
 		}
 		w.c.mts.Final.MainState = w.c.mts.Final.MainState.Run(runOpts...).Root()
 	}
@@ -139,12 +140,14 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 		return nil
 	}
 	if w.enableParallel {
-		err = w.c.BuildAsync(ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+		err = w.c.BuildAsync(
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		mts, err := w.c.buildTarget(ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
+		mts, err := w.c.buildTarget(
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +159,9 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 	return optPromise, nil
 }
 
-func (w *withDockerRunLocalTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName string, dockerTag string) error {
+func (w *withDockerRunLocalTar) solveImage(
+	ctx context.Context, mts *states.MultiTarget, opName, dockerTag string,
+) error {
 	outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
 	if err != nil {
 		return errors.Wrap(err, "mk temp dir for docker load")

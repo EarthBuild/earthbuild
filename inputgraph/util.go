@@ -11,7 +11,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ParseProjectCommand(ctx context.Context, target domain.Target, console conslogging.ConsoleLogger) (string, string, error) {
+func ParseProjectCommand(
+	ctx context.Context, target domain.Target, console conslogging.ConsoleLogger,
+) (string, string, error) {
 	if target.IsRemote() {
 		return "", "", errCannotLoadRemoteTarget
 	}
@@ -55,7 +57,7 @@ func uniqStrs(all []string) []string {
 	for _, v := range all {
 		m[v] = struct{}{}
 	}
-	ret := []string{}
+	ret := make([]string, 0, len(m))
 	for k := range m {
 		ret = append(ret, k)
 	}

@@ -185,17 +185,18 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 	return composeConfigDt, nil
 }
 
-func makeWithDockerdWrapFun(dindID string, tarPaths []string, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
+func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
 	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
-	params := []string{
+	params := make([]string, 0, 7)
+	params = append(params,
 		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
 		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),
 		fmt.Sprintf("EARTHLY_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
 		// This is not actually used, but it is needed in order to bust the cache
 		// in case an image is updated.
 		fmt.Sprintf("EARTHLY_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
-	}
+	)
 	params = append(params, composeParams(opt)...)
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
 		envVars2 := append(params, envVars...) //nolint:gocritic

@@ -12,24 +12,32 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref and metadata entries for the buildkit Export function.
+// NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref
+// and metadata entries for the buildkit Export function.
 func NewGatewayCrafter() *GatewayCrafter {
 	return &GatewayCrafter{
 		res: gwclient.NewResult(),
 	}
 }
 
-// GatewayCrafter wraps the gwclient.Result object with a helper function
-// which is used to deduplicate code between builder.go and wait_block.go
-// eventually all SAVE IMAGE (and other earthly exporter) logic will be triggered via the WAIT/END PopWaitBlock() function
-// and code that direct accesses to the underlying result instance will be removed.
+// GatewayCrafter wraps the gwclient.Result object with a helper function which is used
+// to deduplicate code between builder.go and wait_block.go eventually all SAVE IMAGE
+// (and other EarthBuild exporter) logic will be triggered via the WAIT/END PopWaitBlock()
+// function and code that direct accesses to the underlying result instance will be removed.
 type GatewayCrafter struct {
 	done bool
 	res  *gwclient.Result
 }
 
 // AddPushImageEntry adds ref and metadata required to cause an image to be pushed.
-func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, imageName string, shouldPush, insecurePush bool, imageConfig *image.Image, platformStr []byte) (string, error) {
+func (gc *GatewayCrafter) AddPushImageEntry(
+	ref gwclient.Reference,
+	refID int,
+	imageName string,
+	shouldPush, insecurePush bool,
+	imageConfig *image.Image,
+	platformStr []byte,
+) (string, error) {
 	config, err := json.Marshal(imageConfig)
 	if err != nil {
 		return "", errors.Wrapf(err, "marshal save image config")
@@ -52,11 +60,15 @@ func (gc *GatewayCrafter) AddPushImageEntry(ref gwclient.Reference, refID int, i
 	if platformStr != nil {
 		gc.AddMeta(refPrefix+"/platform", platformStr)
 	}
-	return refPrefix, nil // TODO once all earthlyoutput-metadata-related code is moved into saveimageutil, change to "return err" only
+
+	// TODO once all earthlyoutput-metadata-related code is moved into saveimageutil, change to "return err" only
+	return refPrefix, nil
 }
 
 // AddSaveArtifactLocal adds ref and metadata required to trigger an artifact export to the local host.
-func (gc *GatewayCrafter) AddSaveArtifactLocal(ref gwclient.Reference, refID int, artifact, srcPath, destPath string) (string, error) {
+func (gc *GatewayCrafter) AddSaveArtifactLocal(
+	ref gwclient.Reference, refID int, artifact, srcPath, destPath string,
+) (string, error) {
 	refKey := "dir-" + strconv.Itoa(refID)
 	refPrefix := "ref/" + refKey
 	gc.AddRef(refKey, ref)

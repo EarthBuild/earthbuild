@@ -86,7 +86,9 @@ func Current(colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAn
 }
 
 // New returns a new ConsoleLogger with a predefined target writer.
-func New(w io.Writer, mu *sync.Mutex, colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
+func New(
+	w io.Writer, mu *sync.Mutex, colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
+) ConsoleLogger {
 	if mu == nil {
 		mu = &sync.Mutex{}
 	}

@@ -140,7 +140,7 @@ func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string
 }
 
 func formatPorts(info containerInfo) []string {
-	ret := []string{}
+	ret := make([]string, 0, len(info.NetworkSettings.Ports))
 	for key, ports := range info.NetworkSettings.Ports {
 		for _, port := range ports {
 			ret = append(ret, fmt.Sprintf("%s:%s:%s", port.HostIP, port.HostPort, key))
@@ -342,12 +342,15 @@ func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...strin
 	sf.Console.VerbosePrintf("Running command: %s %s\n", binary, strings.Join(args, " "))
 
 	cmd := exec.CommandContext(ctx, binary, args...) // #nosec G204
-	cmd.Env = os.Environ()                           // Ensure all shellouts are using the current environment, picks up DOCKER_/PODMAN_ env vars when they matter
+	// Ensure all shellouts are using the current environment, picks up DOCKER_/PODMAN_ env vars
+	// when they matter
+	cmd.Env = os.Environ()
 	cmd.Stdout = &output.stdout
 	cmd.Stderr = &output.stderr
 	err := cmd.Run()
 	if err != nil {
-		return output, errors.Wrapf(err, "command failed: %s %s: %s: %s", sf.binaryName, strings.Join(args, " "), err.Error(), output.string())
+		format := "command failed: %s %s: %s: %s"
+		return output, errors.Wrapf(err, format, sf.binaryName, strings.Join(args, " "), err.Error(), output.string())
 	}
 	return output, nil
 }
@@ -363,7 +366,6 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 			if err != nil {
 				return nil, errors.Wrap(err, "could not validate default address")
 			}
-
 		}
 	}
 
@@ -380,10 +382,12 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 			return nil, err
 		}
 		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
-			cfg.Console.Warnf("Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)", bkURL.Hostname(), lrURL.Hostname())
+			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
+			cfg.Console.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
 		}
 	} else if cfg.LocalRegistryHostFileValue != "" {
-		cfg.Console.VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
+		cfg.Console.
+			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
 	}
 
 	return &FrontendURLs{
@@ -392,14 +396,16 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 	}, nil
 }
 
-// DefaultAddressForSetting returns an address (signifying the desired/default transport) for a given frontend specified by setting.
+// DefaultAddressForSetting returns an address (signifying the desired/default transport)
+// for a given frontend specified by setting.
 func DefaultAddressForSetting(setting string, localContainerName string, defaultPort int) (string, error) {
 	switch setting {
 	case FrontendDockerShell:
 		return DockerSchemePrefix + localContainerName, nil
 
 	case FrontendPodmanShell:
-		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil // Right now, podman only works over TCP. There are weird errors when trying to use the provided helper from buildkit.
+		// Podman only works over TCP. There are weird errors when trying to use the provided helper from buildkit.
+		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
 
 	case FrontendStub:
 		return DockerSchemePrefix + localContainerName, nil // Maintain old behavior
@@ -415,7 +421,8 @@ func parseAndValidateURL(addr string) (*url.URL, error) {
 	}
 
 	if parsed.Scheme != "tcp" && parsed.Scheme != "docker-container" && parsed.Scheme != "podman-container" {
-		return nil, fmt.Errorf("%s is not a valid scheme. Only tcp or docker-container is allowed at this time: %w", parsed.Scheme, errURLValidationFailure)
+		format := "%s is not a valid scheme. Only tcp or docker-container is allowed at this time: %w"
+		return nil, fmt.Errorf(format, parsed.Scheme, errURLValidationFailure)
 	}
 
 	if parsed.Port() == "" && parsed.Scheme == "tcp" {
@@ -435,9 +442,9 @@ func IsLocal(addr string) bool {
 
 	hostname := parsed.Hostname()
 	// These need to match what we put in our certificates.
-	return hostname == "127.0.0.1" || // The only IP v4 Loopback we honor. Because we need to include it in the TLS certificates.
+	return hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
 		hostname == net.IPv6loopback.String() ||
 		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
-		parsed.Scheme == "docker-container" || // Accommodate feature flagging during transition. This will have omitted TLS?
+		parsed.Scheme == "docker-container" || // Accommodate feature flagging during transition. Will have omitted TLS?
 		parsed.Scheme == "podman-container"
 }

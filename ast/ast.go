@@ -105,7 +105,11 @@ func walkTree(l *listener, tree parser.IEarthFileContext) (spec.Earthfile, error
 	return l.Earthfile(), nil
 }
 
-func newEarthfileTree(body string, errorListener *antlrhandler.ReturnErrorListener, errorStrategy antlr.ErrorStrategy) (*antlr.CommonTokenStream, parser.IEarthFileContext, error) {
+func newEarthfileTree(
+	body string,
+	errorListener *antlrhandler.ReturnErrorListener,
+	errorStrategy antlr.ErrorStrategy,
+) (*antlr.CommonTokenStream, parser.IEarthFileContext, error) {
 	input := antlr.NewInputStream(body)
 	lexer := newLexer(input)
 	lexer.RemoveErrorListeners()

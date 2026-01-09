@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -56,7 +57,7 @@ func GetTargetArgs(
 	var args []string
 	for _, stmt := range t.Recipe {
 		if stmt.Command != nil && stmt.Command.Name == "ARG" {
-			isBase := t.Name == "base"
+			isBase := t.Name == ast.TargetBase
 			// since Arg opts are ignored (and feature flags are not available) we set explicitGlobalArgFlag as false
 			explicitGlobal := false
 			_, argName, _, err := flagutil.ParseArgArgs(ctx, *stmt.Command, isBase, explicitGlobal)

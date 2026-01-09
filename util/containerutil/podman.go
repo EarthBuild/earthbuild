@@ -63,7 +63,7 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 }
 
 func (psf *podmanShellFrontend) Scheme() string {
-	return "podman-container"
+	return SchemePodmanContainer
 }
 
 func (psf *podmanShellFrontend) Config() *CurrentFrontend {

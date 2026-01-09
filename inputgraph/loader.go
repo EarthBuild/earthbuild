@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -1029,7 +1030,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		}
 	}
 
-	isBase := l.target.Target == "base"
+	isBase := l.target.Target == ast.TargetBase
 
 	// Since "base" is always processed above, there's not need to revisit it here.
 	if !isBase {

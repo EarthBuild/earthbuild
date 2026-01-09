@@ -79,7 +79,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 }
 
 func (dsf *dockerShellFrontend) Scheme() string {
-	return "docker-container"
+	return SchemeDockerContainer
 }
 
 func (dsf *dockerShellFrontend) Config() *CurrentFrontend {

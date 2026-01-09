@@ -914,6 +914,7 @@ merge-main-to-docs:
 
     ARG git_repo="earthly/earthly"
     ARG git_url="git@github.com:$git_repo"
+    # renovate: datasource=github-releases packageName=earthly/lib
     ARG earthly_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
     DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
@@ -983,6 +984,7 @@ open-pr-for-fork:
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh
 
+    # renovate: datasource=github-releases packageName=earthly/lib
     ARG earthly_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
     ARG git_repo="earthly/earthly"

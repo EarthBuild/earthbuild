@@ -3,6 +3,7 @@ VERSION 0.8
 deps:
     FROM alpine:3.18
 
+    # renovate: datasource=github-releases packageName=ziglang/zig
     ARG ZIG_VERSION=0.12.0
 
     ARG TARGETARCH

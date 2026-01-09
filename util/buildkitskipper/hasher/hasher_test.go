@@ -35,7 +35,6 @@ func TestHashEmptyFile(t *testing.T) {
 	if err != nil {
 		NoError(t, err)
 	}
-	defer os.Remove(file.Name())
 
 	h := hasher.New()
 	err = h.HashFile(context.Background(), file.Name())
@@ -52,7 +51,6 @@ func TestHashFile(t *testing.T) {
 	if err != nil {
 		NoError(t, err)
 	}
-	defer os.Remove(file.Name())
 
 	f, err := os.OpenFile(file.Name(), os.O_RDWR|os.O_TRUNC, 0)
 	if err != nil {

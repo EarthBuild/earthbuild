@@ -35,15 +35,8 @@ func TestHashTargetWithDocker(t *testing.T) {
 	r.NotEmpty(first)
 
 	path := "./testdata/with-docker/Earthfile"
-
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "with-docker")
-	r.NoError(err)
-
+	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "Earthfile")
-	defer func() {
-		err = os.RemoveAll(tmpDir)
-		r.NoError(err)
-	}()
 
 	err = copyFile(path, tmpFile)
 	r.NoError(err)

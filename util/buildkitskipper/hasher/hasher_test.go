@@ -31,7 +31,7 @@ func TestNilHasherIsNil(t *testing.T) {
 func TestHashEmptyFile(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.CreateTemp("", "file-to-hash")
+	file, err := os.CreateTemp(t.TempDir(), "file-to-hash")
 	if err != nil {
 		NoError(t, err)
 	}
@@ -48,7 +48,7 @@ func TestHashEmptyFile(t *testing.T) {
 func TestHashFile(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.CreateTemp("", "file-to-hash")
+	file, err := os.CreateTemp(t.TempDir(), "file-to-hash")
 	if err != nil {
 		NoError(t, err)
 	}

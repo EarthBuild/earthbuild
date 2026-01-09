@@ -60,7 +60,6 @@ linters:
     - staticcheck
     - tagliatelle
     - testpackage
-    - usetesting
     - varnamelen
     - wrapcheck
     - wsl

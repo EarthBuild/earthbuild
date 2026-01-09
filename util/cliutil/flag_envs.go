@@ -22,7 +22,7 @@ func GetValidEnvNames(app *cli.App) map[string]struct{} {
 }
 
 func getValidEnvNamesFromCommands(cmds []*cli.Command) []string {
-	envs := []string{}
+	envs := make([]string, 0, len(cmds))
 	for _, cmd := range cmds {
 		for _, flg := range cmd.Flags {
 			envs = append(envs, getEnvs(flg)...)

@@ -41,7 +41,9 @@ func newWithDockerRunRegistry(c *Converter, enableParallel bool) *withDockerRunR
 	}
 }
 
-func (w *withDockerRunRegistry) prepareImages(ctx context.Context, cmdID string, opt *WithDockerOpt) ([]*states.ImageDef, error) {
+func (w *withDockerRunRegistry) prepareImages(
+	ctx context.Context, cmdID string, opt *WithDockerOpt,
+) ([]*states.ImageDef, error) {
 	// Grab relevant images from compose file(s).
 	composePulls, err := w.getComposePulls(ctx, *opt)
 	if err != nil {
@@ -294,9 +296,12 @@ func (w *withDockerRunRegistry) pull(ctx context.Context, opt DockerPullOpt) (*s
 	}, nil
 }
 
-var errNoImageTag = errors.New("no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement")
+var errNoImageTag = errors.
+	New("no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement")
 
-func (w *withDockerRunRegistry) load(ctx context.Context, cmdID string, opt DockerLoadOpt) (chan *states.ImageDef, error) {
+func (w *withDockerRunRegistry) load(
+	ctx context.Context, cmdID string, opt DockerLoadOpt,
+) (chan *states.ImageDef, error) {
 	imageDefChan := make(chan *states.ImageDef, 1)
 
 	depTarget, err := domain.ParseTarget(opt.Target)
@@ -326,12 +331,14 @@ func (w *withDockerRunRegistry) load(ctx context.Context, cmdID string, opt Dock
 	}
 
 	if w.enableParallel {
-		err = w.c.BuildAsync(ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem)
+		err = w.c.BuildAsync(
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		mts, err := w.c.buildTarget(ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
+		mts, err := w.c.buildTarget(
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
 		if err != nil {
 			return nil, err
 		}

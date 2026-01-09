@@ -22,7 +22,8 @@ var (
 )
 
 // GetEarthlyDir returns the .earthly dir. (Usually ~/.earthly).
-// This function will not attempt to create the directory if missing, for that functionality use to the GetOrCreateEarthlyDir function.
+// This function will not attempt to create the directory if missing,
+// for that functionality use to the GetOrCreateEarthlyDir function.
 func GetEarthlyDir(installName string) string {
 	if installName == "" {
 		// if GetEarthlyDir is called by the autocomplete code, this may not be set

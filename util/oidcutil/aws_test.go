@@ -133,16 +133,22 @@ func TestParseAWSOIDCInfo(t *testing.T) {
 			expectedErr: fmt.Errorf("oidc info is invalid: %w", errors.New("key/value must be set with =")),
 		},
 		"error when duration is invalid": {
-			input:       "session-duration=invalid",
-			expectedErr: &mapstructure.Error{Errors: []string{`error decoding 'session-duration': time: invalid duration "invalid"`}},
+			input: "session-duration=invalid",
+			expectedErr: &mapstructure.Error{
+				Errors: []string{`error decoding 'session-duration': time: invalid duration "invalid"`},
+			},
 		},
 		"error when duration is less than 900s": {
-			input:       "role-arn=arn::iam::123:role/456,session-duration=899s",
-			expectedErr: &mapstructure.Error{Errors: []string{`error decoding 'session-duration': duration must be between 900s and 43200s`}},
+			input: "role-arn=arn::iam::123:role/456,session-duration=899s",
+			expectedErr: &mapstructure.Error{
+				Errors: []string{`error decoding 'session-duration': duration must be between 900s and 43200s`},
+			},
 		},
 		"error when duration is more than 43200s": {
-			input:       "role-arn=arn::iam::123:role/456,session-duration=43201s",
-			expectedErr: &mapstructure.Error{Errors: []string{`error decoding 'session-duration': duration must be between 900s and 43200s`}},
+			input: "role-arn=arn::iam::123:role/456,session-duration=43201s",
+			expectedErr: &mapstructure.Error{
+				Errors: []string{`error decoding 'session-duration': duration must be between 900s and 43200s`},
+			},
 		},
 		"error when session name is missing": {
 			input:       "role-arn=arn::iam::123:role/456,region=us-west-2,session-duration=900s",
@@ -157,12 +163,16 @@ func TestParseAWSOIDCInfo(t *testing.T) {
 			expectedErr: &mapstructure.Error{Errors: []string{`error decoding 'role-arn': arn: invalid prefix`}},
 		},
 		"error when role arn is not iam service": {
-			input:       "role-arn=arn::kinesis:us-east-1::role/123",
-			expectedErr: &mapstructure.Error{Errors: []string{`error decoding 'role-arn': aws service ("kinesis") must be "iam"`}},
+			input: "role-arn=arn::kinesis:us-east-1::role/123",
+			expectedErr: &mapstructure.Error{
+				Errors: []string{`error decoding 'role-arn': aws service ("kinesis") must be "iam"`},
+			},
 		},
 		"error when role arn resource is not a role": {
-			input:       "role-arn=arn::iam:us-east-1::user/123",
-			expectedErr: &mapstructure.Error{Errors: []string{`error decoding 'role-arn': resource ("user/123") must be an aws role"`}},
+			input: "role-arn=arn::iam:us-east-1::user/123",
+			expectedErr: &mapstructure.Error{
+				Errors: []string{`error decoding 'role-arn': resource ("user/123") must be an aws role"`},
+			},
 		},
 		"error when using unrecognized keys": {
 			input:       "role-arn=arn::iam:us-east-1::role/123,session-name=my-session,foo=bar",

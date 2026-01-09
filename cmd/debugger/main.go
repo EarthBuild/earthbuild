@@ -88,7 +88,6 @@ func populateShellHistory(cmd string) error {
 		"/root/.ash_history",
 		"/root/.bash_history",
 	} {
-
 		f, err := os.Create(f) // #nosec G304
 		if err != nil {
 			result = multierror.Append(result, err)
@@ -153,7 +152,12 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	return common.WriteUint16PrefixedData(conn, nil)
 }
 
-func interactiveMode(ctx context.Context, remoteConsoleAddr string, cmdBuilder func() (*exec.Cmd, error), conslogger conslogging.ConsoleLogger) error {
+func interactiveMode(
+	ctx context.Context,
+	remoteConsoleAddr string,
+	cmdBuilder func() (*exec.Cmd, error),
+	conslogger conslogging.ConsoleLogger,
+) error {
 	log := slog.GetLogger(ctx)
 
 	var d net.Dialer
@@ -357,7 +361,6 @@ func main() {
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
-
 		quotedCmd := shellescape.QuoteCommand(args)
 
 		exitCode := 1

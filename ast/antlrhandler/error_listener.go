@@ -35,7 +35,13 @@ func NewReturnErrorListener() *ReturnErrorListener {
 }
 
 // SyntaxError implements ErrorListener SyntaxError.
-func (rel *ReturnErrorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+func (rel *ReturnErrorListener) SyntaxError(
+	recognizer antlr.Recognizer,
+	offendingSymbol interface{},
+	line, column int,
+	msg string,
+	e antlr.RecognitionException,
+) {
 	p, ok := recognizer.(*antlr.BaseParser)
 	if !ok {
 		rel.Errs = append(rel.Errs, errors.Errorf("syntax error: line %d:%d: %v", line, column, msg))
@@ -73,7 +79,8 @@ func (rel *ReturnErrorListener) SyntaxError(recognizer antlr.Recognizer, offendi
 
 		// Until we can figure that out, the "I got lost looking for..." message
 		// is pretty likely to be misleading.
-		hints[0] = "I couldn't find a pattern that completes the current statement - check your quote pairs, paren pairs, and newlines"
+		hints[0] = "I couldn't find a pattern that completes the current statement - " +
+			"check your quote pairs, paren pairs, and newlines"
 	default:
 	}
 
@@ -101,7 +108,8 @@ func (rel *ReturnErrorListener) SyntaxError(recognizer antlr.Recognizer, offendi
 				continue
 			}
 			if tokLit == lit {
-				msg := fmt.Sprintf("I parsed '%v' as a word, but it looks like it should be a keyword - is it on the wrong line?", lit)
+				msg := fmt.Sprintf(
+					"I parsed '%v' as a word, but it looks like it should be a keyword - is it on the wrong line?", lit)
 				if _, ok := hintSet[msg]; ok {
 					break
 				}

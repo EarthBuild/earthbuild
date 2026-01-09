@@ -24,7 +24,14 @@ type DefaultArgs struct {
 }
 
 // BuiltinArgs returns a scope containing the builtin args.
-func BuiltinArgs(target domain.Target, platr *platutil.Resolver, gitMeta *gitutil.GitMetadata, defaultArgs DefaultArgs, ftrs *features.Features, push bool, ci bool) *Scope {
+func BuiltinArgs(
+	target domain.Target,
+	platr *platutil.Resolver,
+	gitMeta *gitutil.GitMetadata,
+	defaultArgs DefaultArgs,
+	ftrs *features.Features,
+	push, ci bool,
+) *Scope {
 	ret := NewScope()
 	ret.Add(arg.EarthlyTarget, target.StringCanonical())
 	ret.Add(arg.EarthlyTargetProject, target.ProjectCanonical())

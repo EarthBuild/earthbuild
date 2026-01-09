@@ -22,7 +22,14 @@ type Manifest struct {
 }
 
 // LoadDockerManifest loads docker manifests.
-func LoadDockerManifest(ctx context.Context, console conslogging.ConsoleLogger, fe containerutil.ContainerFrontend, parentImageName string, children []Manifest, platr *platutil.Resolver) error {
+func LoadDockerManifest(
+	ctx context.Context,
+	console conslogging.ConsoleLogger,
+	fe containerutil.ContainerFrontend,
+	parentImageName string,
+	children []Manifest,
+	platr *platutil.Resolver,
+) error {
 	if len(children) == 0 {
 		return errors.Errorf("no images in manifest list for %s", parentImageName)
 	}
@@ -78,7 +85,12 @@ func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io
 }
 
 // DockerPullLocalImages pulls a docker image from a local registry.
-func DockerPullLocalImages(ctx context.Context, fe containerutil.ContainerFrontend, localRegistryAddr string, pullMap map[string]string) error {
+func DockerPullLocalImages(
+	ctx context.Context,
+	fe containerutil.ContainerFrontend,
+	localRegistryAddr string,
+	pullMap map[string]string,
+) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	for pullName, finalName := range pullMap {
 		pn := pullName
@@ -90,7 +102,9 @@ func DockerPullLocalImages(ctx context.Context, fe containerutil.ContainerFronte
 	return eg.Wait()
 }
 
-func dockerPullLocalImage(ctx context.Context, fe containerutil.ContainerFrontend, localRegistryAddr string, pullName string, finalName string) error {
+func dockerPullLocalImage(
+	ctx context.Context, fe containerutil.ContainerFrontend, localRegistryAddr, pullName, finalName string,
+) error {
 	fullPullName := fmt.Sprintf("%s/%s", localRegistryAddr, pullName)
 
 	err := fe.ImagePull(ctx, fullPullName)

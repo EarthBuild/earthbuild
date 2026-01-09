@@ -52,7 +52,9 @@ func containsDirectories(path string) bool {
 	return false
 }
 
-func getPotentialPaths(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, prefix string) ([]string, error) {
+func getPotentialPaths(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, prefix string,
+) ([]string, error) {
 	if prefix == "." {
 		potentials := []string{}
 		if containsDirectories(".") {
@@ -217,7 +219,9 @@ func getPotentialPaths(ctx context.Context, resolver *buildcontext.Resolver, gwC
 	return paths, nil
 }
 
-func getPotentialTargetBuildArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, targetStr string) ([]string, error) {
+func getPotentialTargetBuildArgs(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, targetStr string,
+) ([]string, error) {
 	target, err := domain.ParseTarget(targetStr)
 	if err != nil {
 		return nil, err
@@ -229,7 +233,9 @@ func getPotentialTargetBuildArgs(ctx context.Context, resolver *buildcontext.Res
 	return envArgs, nil
 }
 
-func getPotentialArtifactBuildArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, artifactStr string) ([]string, error) {
+func getPotentialArtifactBuildArgs(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, artifactStr string,
+) ([]string, error) {
 	artifact, err := domain.ParseArtifact(artifactStr)
 	if err != nil {
 		return nil, err
@@ -344,7 +350,14 @@ type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 // NOTE: you can cause earthly to run this command with:
 //
 //	COMP_LINE="earthly -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
-func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, compLine string, compPoint int, app *cli.App) ([]string, error) {
+func GetPotentials(
+	ctx context.Context,
+	resolver *buildcontext.Resolver,
+	gwClient gwclient.Client,
+	compLine string,
+	compPoint int,
+	app *cli.App,
+) ([]string, error) {
 	if compPoint > len(compLine) {
 		return nil, errCompPointOutOfBounds
 	}
@@ -414,7 +427,8 @@ func GetPotentials(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 				state = flagState
 			} else {
 				// targets only work under the root command
-				if cmd == nil && (isLocalPath(w) || strings.HasPrefix(w, "+")) { // TODO switch to strings.Contains when remote resolving works
+				// TODO switch to strings.Contains when remote resolving works
+				if cmd == nil && (isLocalPath(w) || strings.HasPrefix(w, "+")) {
 					state = targetState
 					target = w
 				} else {

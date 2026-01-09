@@ -39,7 +39,9 @@ func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest)
 }
 
 // ResolveImageConfig wraps gwclient.ResolveImageConfig.
-func (vc *verboseClient) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt) (string, digest.Digest, []byte, error) {
+func (vc *verboseClient) ResolveImageConfig(
+	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
+) (string, digest.Digest, []byte, error) {
 	s, _ := json.MarshalIndent(opt, "", "\t")
 	fmt.Printf("ResolveImageConfig %s %s\n", ref, s)
 	return vc.c.ResolveImageConfig(ctx, ref, opt)
@@ -60,7 +62,9 @@ func (vc *verboseClient) Inputs(ctx context.Context) (map[string]llb.State, erro
 }
 
 // NewContainer wraps gwclient.NewContainer.
-func (vc *verboseClient) NewContainer(ctx context.Context, req gwclient.NewContainerRequest) (gwclient.Container, error) {
+func (vc *verboseClient) NewContainer(
+	ctx context.Context, req gwclient.NewContainerRequest,
+) (gwclient.Container, error) {
 	s, _ := json.MarshalIndent(req, "", "\t")
 	container, err := vc.c.NewContainer(ctx, req)
 	fmt.Printf("NewContainer req=%s container=%v err=%v\n", s, container, err)

@@ -14,17 +14,40 @@ func TestProcessParamsAndQuotes(t *testing.T) {
 		in   []string
 		args []string
 	}{
-		{[]string{}, []string{}},
-		{[]string{""}, []string{""}},
-		{[]string{"abc", "def", "ghi"}, []string{"abc", "def", "ghi"}},
-		{[]string{"hello ", "wor(", "ld)"}, []string{"hello ", "wor( ld)"}},
-		{[]string{"hello ", "(wor(", "ld)"}, []string{"hello ", "(wor( ld)"}},
-		{[]string{"hello ", `"(wor("`, "ld)"}, []string{"hello ", `"(wor("`, "ld)"}},
-		{[]string{"let's", "go"}, []string{"let's go"}},
-		{[]string{"(hello)"}, []string{"(hello)"}},
-		{[]string{"  (hello)"}, []string{"  (hello)"}},
-		{[]string{"(hello", "    ooo)"}, []string{"(hello     ooo)"}},
-		{[]string{"--load=(+a-test-image", "--name=foo", "--var", "bar)"}, []string{"--load=(+a-test-image --name=foo --var bar)"}},
+		{
+			[]string{},
+			[]string{},
+		}, {
+			[]string{""},
+			[]string{""},
+		}, {
+			[]string{"abc", "def", "ghi"},
+			[]string{"abc", "def", "ghi"},
+		}, {
+			[]string{"hello ", "wor(", "ld)"},
+			[]string{"hello ", "wor( ld)"},
+		}, {
+			[]string{"hello ", "(wor(", "ld)"},
+			[]string{"hello ", "(wor( ld)"},
+		}, {
+			[]string{"hello ", `"(wor("`, "ld)"},
+			[]string{"hello ", `"(wor("`, "ld)"},
+		}, {
+			[]string{"let's", "go"},
+			[]string{"let's go"},
+		}, {
+			[]string{"(hello)"},
+			[]string{"(hello)"},
+		}, {
+			[]string{"  (hello)"},
+			[]string{"  (hello)"},
+		}, {
+			[]string{"(hello", "    ooo)"},
+			[]string{"(hello     ooo)"},
+		}, {
+			[]string{"--load=(+a-test-image", "--name=foo", "--var", "bar)"},
+			[]string{"--load=(+a-test-image --name=foo --var bar)"},
+		},
 	}
 
 	for _, tt := range tests {

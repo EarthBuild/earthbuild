@@ -35,7 +35,9 @@ func ParseArgsCleaned(cmdName string, opts interface{}, args []string) ([]string
 	return ParseArgs(cmdName, opts, processed)
 }
 
-func ParseArgsWithValueModifierCleaned(cmdName string, opts interface{}, args []string, argumentModFunc ArgumentModFunc) ([]string, error) {
+func ParseArgsWithValueModifierCleaned(
+	cmdName string, opts any, args []string, argumentModFunc ArgumentModFunc,
+) ([]string, error) {
 	processed := stringutil.ProcessParamsAndQuotes(args)
 	return ParseArgsWithValueModifier(cmdName, opts, processed, argumentModFunc)
 }
@@ -43,12 +45,23 @@ func ParseArgsWithValueModifierCleaned(cmdName string, opts interface{}, args []
 // ParseArgsWithValueModifier parses flags and args from a command string; it accepts an optional argumentModFunc
 // which is called before each flag value is parsed, and allows one to change the value.
 // if the flag value.
-func ParseArgsWithValueModifier(command string, data interface{}, args []string, argumentModFunc ArgumentModFunc) ([]string, error) {
-	return ParseArgsWithValueModifierAndOptions(command, data, args, argumentModFunc, flags.PrintErrors|flags.PassDoubleDash|flags.PassAfterNonOption|flags.AllowBoolValues)
+func ParseArgsWithValueModifier(
+	command string, data any, args []string, argumentModFunc ArgumentModFunc,
+) ([]string, error) {
+	return ParseArgsWithValueModifierAndOptions(
+		command,
+		data,
+		args,
+		argumentModFunc,
+		flags.PrintErrors|flags.PassDoubleDash|flags.PassAfterNonOption|flags.AllowBoolValues,
+	)
 }
 
-// ParseArgsWithValueModifierAndOptions is similar to ParseArgsWithValueModifier, but allows changing the parser options.
-func ParseArgsWithValueModifierAndOptions(command string, data interface{}, args []string, argumentModFunc ArgumentModFunc, parserOptions flags.Options) ([]string, error) {
+// ParseArgsWithValueModifierAndOptions is similar to ParseArgsWithValueModifier,
+// but allows changing the parser options.
+func ParseArgsWithValueModifierAndOptions(
+	command string, data any, args []string, argumentModFunc ArgumentModFunc, parserOptions flags.Options,
+) ([]string, error) {
 	p := flags.NewNamedParser("", parserOptions)
 	var modFuncErr error
 	modFunc := func(flagName string, opt *flags.Option, flagVal *string) *string {
@@ -76,9 +89,10 @@ func ParseArgsWithValueModifierAndOptions(command string, data interface{}, args
 	return res, nil
 }
 
-// SplitFlagString would return an array of values from the StringSlice, whether it's passed using multiple occuranced of the flag
-// or with the values passed with a command.
-// For example: --platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64".
+// SplitFlagString would return an array of values from the StringSlice, whether it's passed using
+// multiple occuranced of the flag or with the values passed with a command. For example:
+//
+//	--platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64"
 func SplitFlagString(value cli.StringSlice) []string {
 	valueStr := strings.TrimLeft(strings.TrimRight(value.String(), "]"), "[")
 	return strings.FieldsFunc(valueStr, func(r rune) bool {
@@ -94,14 +108,17 @@ var (
 
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error.
-func ParseArgArgs(ctx context.Context, cmd spec.Command, isBaseTarget bool, explicitGlobalFeature bool) (commandflag.ArgOpts, string, *string, error) {
+func ParseArgArgs(
+	ctx context.Context, cmd spec.Command, isBaseTarget bool, explicitGlobalFeature bool,
+) (commandflag.ArgOpts, string, *string, error) {
 	var opts commandflag.ArgOpts
 	args, err := ParseArgsCleaned("ARG", &opts, GetArgsCopy(cmd))
 	if err != nil {
 		return commandflag.ArgOpts{}, "", nil, err
 	}
 	if opts.Global {
-		// since the global flag is part of the struct, we need to manually return parsing error if it's used while the feature flag is off
+		// since the global flag is part of the struct, we need to manually return parsing error
+		// if it's used while the feature flag is off
 		if !explicitGlobalFeature {
 			return commandflag.ArgOpts{}, "", nil, errors.New("unknown flag --global")
 		}

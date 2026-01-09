@@ -76,7 +76,8 @@ func GenCerts(cfg config.Config, hostname string) error {
 			return hint.Wrap(errors.New("cannot generate missing certificates"),
 				fmt.Sprintf("missing certificates: %v", missing),
 				fmt.Sprintf("found certificates: %v", found),
-				"you may want to stop earthly-buildkitd, delete your certificates, and run 'earthly bootstrap' to regenerate certificates",
+				"you may want to stop earthly-buildkitd, delete your certificates, "+
+					"and run 'earthly bootstrap' to regenerate certificates",
 			)
 		}
 	}

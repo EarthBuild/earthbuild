@@ -34,7 +34,14 @@ func (vc *visitedUpfrontHashCollection) All() []*SingleTarget {
 
 // Add adds a target to the collection, if it hasn't yet been visited. The returned sts is
 // either the previously visited one or a brand new one.
-func (vc *visitedUpfrontHashCollection) Add(ctx context.Context, target domain.Target, platr *platutil.Resolver, allowPrivileged bool, overridingVars *variables.Scope, parentDepSub chan string) (*SingleTarget, bool, error) {
+func (vc *visitedUpfrontHashCollection) Add(
+	ctx context.Context,
+	target domain.Target,
+	platr *platutil.Resolver,
+	allowPrivileged bool,
+	overridingVars *variables.Scope,
+	parentDepSub chan string,
+) (*SingleTarget, bool, error) {
 	// Constructing a new sts early to be able to compute its target input hash.
 	newSts, err := newSingleTarget(ctx, target, platr, allowPrivileged, overridingVars, nil)
 	if err != nil {

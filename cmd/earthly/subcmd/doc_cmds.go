@@ -62,7 +62,8 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 		switch tgtPath[0] {
 		case '.', '/', '+':
 		default:
-			return errors.New("remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
+			return errors.
+				New("remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
 		}
 	}
 
@@ -117,7 +118,8 @@ func docString(body string, names ...string) (string, error) {
 			return body, nil
 		}
 	}
-	return "", hint.Wrapf(errors.New("no doc comment found"), "a comment was found but the first word was not one of (%s)", strings.Join(names, ", "))
+	return "", hint.Wrapf(errors.New("no doc comment found"),
+		"a comment was found but the first word was not one of (%s)", strings.Join(names, ", "))
 }
 
 type docSection struct {
@@ -184,7 +186,9 @@ func (io blockIO) help(indent, scopeIndent string) string {
 		docSectionsOutput(indent, scopeIndent, "IMAGES", io.images...)
 }
 
-func addArg(cliCtx *cli.Context, io *blockIO, ft *features.Features, stmt spec.Statement, isBase bool, onlyGlobal bool) error {
+func addArg(
+	cliCtx *cli.Context, io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool,
+) error {
 	if stmt.Command == nil {
 		return nil
 	}
@@ -272,9 +276,17 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 	return &io, nil
 }
 
-func (a *Doc) documentSingleTarget(cliCtx *cli.Context, currIndent, scopeIndent string, ft *features.Features, baseRcp spec.Block, tgt spec.Target, includeBlockDocs bool) error {
+func (a *Doc) documentSingleTarget(
+	cliCtx *cli.Context,
+	currIndent, scopeIndent string,
+	ft *features.Features,
+	baseRcp spec.Block,
+	tgt spec.Target,
+	includeBlockDocs bool,
+) error {
 	if tgt.Docs == "" {
-		return hint.Wrapf(errors.New("no doc comment found"), "add a comment starting with the word '%s' on the line immediately above this target", tgt.Name)
+		return hint.Wrapf(errors.New("no doc comment found"),
+			"add a comment starting with the word '%s' on the line immediately above this target", tgt.Name)
 	}
 
 	docs, err := docString(tgt.Docs, tgt.Name)

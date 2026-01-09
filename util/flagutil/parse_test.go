@@ -62,16 +62,39 @@ func TestParseParams(t *testing.T) {
 		in    string
 		first string
 		args  []string
-	}{
-		{"(+target/art --flag=something)", "+target/art", []string{"--flag=something"}},
-		{"(+target/art --flag=something\"\")", "+target/art", []string{"--flag=something\"\""}},
-		{"( \n  +target/art \t \n --flag=something\t   )", "+target/art", []string{"--flag=something"}},
-		{"(+target/art --flag=something\\ --another=something)", "+target/art", []string{"--flag=something\\ --another=something"}},
-		{"(+target/art --flag=something --another=something)", "+target/art", []string{"--flag=something", "--another=something"}},
-		{"(+target/art --flag=\"something in quotes\")", "+target/art", []string{"--flag=\"something in quotes\""}},
-		{"(+target/art --flag=\\\"something --not=in-quotes\\\")", "+target/art", []string{"--flag=\\\"something", "--not=in-quotes\\\""}},
-		{"(+target/art --flag=look-ma-a-\\))", "+target/art", []string{"--flag=look-ma-a-\\)"}},
-	}
+	}{{
+		"(+target/art --flag=something)",
+		"+target/art",
+		[]string{"--flag=something"},
+	}, {
+		"(+target/art --flag=something\"\")",
+		"+target/art",
+		[]string{"--flag=something\"\""},
+	}, {
+		"( \n  +target/art \t \n --flag=something\t   )",
+		"+target/art",
+		[]string{"--flag=something"},
+	}, {
+		"(+target/art --flag=something\\ --another=something)",
+		"+target/art",
+		[]string{"--flag=something\\ --another=something"},
+	}, {
+		"(+target/art --flag=something --another=something)",
+		"+target/art",
+		[]string{"--flag=something", "--another=something"},
+	}, {
+		"(+target/art --flag=\"something in quotes\")",
+		"+target/art",
+		[]string{"--flag=\"something in quotes\""},
+	}, {
+		"(+target/art --flag=\\\"something --not=in-quotes\\\")",
+		"+target/art",
+		[]string{"--flag=\\\"something", "--not=in-quotes\\\""},
+	}, {
+		"(+target/art --flag=look-ma-a-\\))",
+		"+target/art",
+		[]string{"--flag=look-ma-a-\\)"},
+	}}
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {

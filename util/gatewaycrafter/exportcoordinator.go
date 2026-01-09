@@ -75,7 +75,8 @@ func (ec *ExportCoordinator) AddImage(sessionID, localImage string, manifest *do
 	return k
 }
 
-// AddArtifactSummary adds an entry of a local target and docker tag, which is used to output a summary text at the end of earthly execution.
+// AddArtifactSummary adds an entry of a local target and docker tag, which is used
+// to output a summary text at the end of EarthBuild execution.
 func (ec *ExportCoordinator) AddArtifactSummary(target, path, salt string) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -98,7 +99,8 @@ func (ec *ExportCoordinator) GetArtifactSummary() []ArtifactOutputSummaryEntry {
 	return entries
 }
 
-// AddLocalOutputSummary adds an entry of a local target and docker tag, which is used to output a summary text at the end of earthly execution.
+// AddLocalOutputSummary adds an entry of a local target and docker tag, which is used
+// to output a summary text at the end of earthly execution.
 func (ec *ExportCoordinator) AddLocalOutputSummary(target, dockerTag, salt string) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
@@ -121,7 +123,8 @@ func (ec *ExportCoordinator) GetLocalOutputSummary() []LocalOutputSummaryEntry {
 	return entries
 }
 
-// AddPushedImageSummary adds an entry of a pushed images, which is used to output a summary text at the end of earthly execution.
+// AddPushedImageSummary adds an entry of a pushed images, which is used to output a summary text
+// at the end of earthly execution.
 func (ec *ExportCoordinator) AddPushedImageSummary(target, dockerTag, salt string, pushed bool) {
 	ec.m.Lock()
 	defer ec.m.Unlock()

@@ -39,7 +39,10 @@ func Test_EnumToString(t *testing.T) {
 func Test_EnumToStringArray(t *testing.T) {
 	t.Parallel()
 
-	input := []ProtoEnum{logstream.FailureType_FAILURE_TYPE_BUILDKIT_CRASHED, logstream.FailureType_FAILURE_TYPE_CONNECTION_FAILURE}
+	input := []ProtoEnum{
+		logstream.FailureType_FAILURE_TYPE_BUILDKIT_CRASHED,
+		logstream.FailureType_FAILURE_TYPE_CONNECTION_FAILURE,
+	}
 	res := EnumToStringArray(input, Title)
 	assert.Equal(t, []string{"Buildkit Crashed", "Connection Failure"}, res)
 }

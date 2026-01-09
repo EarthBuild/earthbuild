@@ -19,7 +19,9 @@ import (
 
 // GetTargets returns a list of targets from an Earthfile.
 // Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used).
-func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
+func GetTargets(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target,
+) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
@@ -33,7 +35,9 @@ func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient g
 }
 
 // GetTargetArgs returns a list of build arguments for a specified target.
-func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
+func GetTargetArgs(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target,
+) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
@@ -67,7 +71,9 @@ func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 
 // ArgName returns the parsed name of an ARG command, the default value (if
 // any), and the state of the --required and --global flags.
-func ArgName(ctx context.Context, cmd spec.Command, isBase bool, explicitGlobal bool) (_ string, _ *string, isRequired bool, isGlobal bool, _ error) {
+func ArgName(
+	ctx context.Context, cmd spec.Command, isBase bool, explicitGlobal bool,
+) (_ string, _ *string, isRequired bool, isGlobal bool, _ error) {
 	if cmd.Name != "ARG" {
 		return "", nil, false, false, errors.Errorf("ArgName was called with non-arg command type '%v'", cmd.Name)
 	}

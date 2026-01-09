@@ -114,7 +114,8 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 
 	if !isBootstrapCmd && !cliutil.IsBootstrapped(flags.InstallationName) {
-		app.BaseCLI.Flags().BootstrapNoBuildkit = true // Docker may not be available, for instance... like our integration tests.
+		// Docker may not be available, for instance... like our integration tests.
+		app.BaseCLI.Flags().BootstrapNoBuildkit = true
 		newBootstrap := subcmd.NewBootstrap(app.BaseCLI)
 		err = newBootstrap.Action(cliCtx)
 		if err != nil {
@@ -147,7 +148,8 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
 		if !app.BaseCLI.Flags().Verbose {
 			console.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
 		}
-		console.VerbosePrintf("%s frontend initialization failed due to %s", app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
+		console.VerbosePrintf("%s frontend initialization failed due to %s",
+			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
 		return nil
 	}
 
@@ -172,12 +174,15 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error
 	}
 
 	if app.BaseCLI.Flags().ConversionParallelism != 0 {
-		app.BaseCLI.Console().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, please use 'earthly config global.conversion_parallelism <parallelism>' instead")
+		app.BaseCLI.Console().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, " +
+			"please use 'earthly config global.conversion_parallelism <parallelism>' instead")
 	}
 
 	// command line overrides the config file
 	if app.BaseCLI.Flags().GitUsernameOverride != "" || app.BaseCLI.Flags().GitPasswordOverride != "" {
-		app.BaseCLI.Console().Warnf("Warning: the --git-username and --git-password command flags are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; see https://docs.earthly.dev/earthly-config for reference.\n")
+		app.BaseCLI.Console().Warnf("Warning: the --git-username and --git-password command flags " +
+			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
+			"see https://docs.earthly.dev/earthly-config for reference.\n")
 		if _, ok := cfg.Git["github.com"]; !ok {
 			cfg.Git["github.com"] = config.GitConfig{}
 		}
@@ -204,11 +209,14 @@ func (app *EarthlyApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
 	}
-	binPath := os.Args[0] // can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+
+	// can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+	binPath := os.Args[0]
 
 	baseName := path.Base(binPath)
 	if baseName == "earth" {
-		app.BaseCLI.Console().Warnf("Warning: the earth binary has been renamed to earthly; the earth command is currently symlinked, but is deprecated and will one day be removed.")
+		app.BaseCLI.Console().Warnf("Warning: the earth binary has been renamed to earthly; " +
+			"the earth command is currently symlinked, but is deprecated and will one day be removed.")
 
 		absPath, err := filepath.Abs(binPath)
 		if err != nil {

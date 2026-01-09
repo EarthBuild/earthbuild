@@ -28,8 +28,8 @@ func getArtifactName(s string) string {
 	return split[n-1]
 }
 
-// Docker2Earthly converts an existing Dockerfile in the current directory and writes out an Earthfile in the current directory
-// and error is returned if an Earthfile already exists.
+// Docker2Earthly converts an existing Dockerfile in the current directory and writes out
+// an Earthfile in the current directory and error is returned if an Earthfile already exists.
 func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 	if exists, _ := fileutil.FileExists(earthfilePath); exists {
 		return errors.Errorf("earthfile already exists; please delete it if you wish to continue")
@@ -180,8 +180,13 @@ type earthfileTemplateArgs struct {
 	Platforms    []string
 }
 
-// GenerateEarthfile returns an Earthfile content string which contains a target to build a docker image using FROM DOCKERFILE.
-func GenerateEarthfile(buildContextPath string, dockerfilePath string, imageTags []string, buildArgs []string, platforms []string, target string) (string, error) {
+// GenerateEarthfile returns an Earthfile content string which contains a target
+// to build a docker image using FROM DOCKERFILE.
+func GenerateEarthfile(
+	buildContextPath, dockerfilePath string,
+	imageTags, buildArgs, platforms []string,
+	target string,
+) (string, error) {
 	t, err := template.New("earthfile").Parse(earthfileTemplate)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse Earthfile template")

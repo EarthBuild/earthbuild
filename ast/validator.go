@@ -18,7 +18,8 @@ var validEarthfileVersions = []string{
 	"0.8",
 }
 
-var errUnexpectedVersionArgs = errors.New("unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
+var errUnexpectedVersionArgs = errors.New(
+	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
 
 type astValidator func(spec.Earthfile) []error
 
@@ -89,7 +90,8 @@ func validVersion(ef spec.Earthfile) []error {
 	}
 
 	if !isVersionValid {
-		errs = append(errs, errors.Errorf("Earthfile version is invalid, supported versions are %v", getValidVersionsFormatted()))
+		err := errors.Errorf("Earthfile version is invalid, supported versions are %v", getValidVersionsFormatted())
+		errs = append(errs, err)
 	}
 
 	return errs
@@ -101,17 +103,15 @@ func noTargetsWithSameName(ef spec.Earthfile) []error {
 
 	for _, t := range ef.Targets {
 		if _, seen := seenTargets[t.Name]; seen {
-			errs = append(errs, errors.Errorf("%s line %v:%v duplicate target \"%s\"", t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name))
+			err := errors.Errorf("%s line %v:%v duplicate target \"%s\"",
+				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name)
+			errs = append(errs, err)
 		}
 
 		seenTargets[t.Name] = struct{}{}
 	}
 
-	if len(errs) > 0 {
-		return errs
-	}
-
-	return nil
+	return errs
 }
 
 func noTargetsWithKeywords(ef spec.Earthfile) []error {
@@ -119,13 +119,11 @@ func noTargetsWithKeywords(ef spec.Earthfile) []error {
 
 	for _, t := range ef.Targets {
 		if t.Name == "base" {
-			errs = append(errs, errors.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name", t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name, t.Name))
+			err := errors.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
+				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name, t.Name)
+			errs = append(errs, err)
 		}
 	}
 
-	if len(errs) > 0 {
-		return errs
-	}
-
-	return nil
+	return errs
 }

@@ -117,13 +117,16 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 		if hasPlatform, ok := isMultiPlatform[saveImage.si.DockerTag]; ok {
 			if saveImage.si.HasPlatform != hasPlatform {
-				return fmt.Errorf("SAVE IMAGE %s is defined multiple times, but not all commands defined a --platform value", saveImage.si.DockerTag)
+				format := "SAVE IMAGE %s is defined multiple times, but not all commands defined a --platform value"
+				return fmt.Errorf(format, saveImage.si.DockerTag)
 			}
 			if !hasPlatform {
-				return fmt.Errorf("SAVE IMAGE %s was already declared (none had --platform values)", saveImage.si.DockerTag)
+				format := "SAVE IMAGE %s was already declared (none had --platform values)"
+				return fmt.Errorf(format, saveImage.si.DockerTag)
 			}
 			if _, found := noManifestListImgs[saveImage.si.DockerTag]; found {
-				return fmt.Errorf("cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list", saveImage.si.DockerTag)
+				format := "cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list"
+				return fmt.Errorf(format, saveImage.si.DockerTag)
 			}
 		}
 
@@ -146,7 +149,8 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 	gwCrafter := gatewaycrafter.NewGatewayCrafter()
 
-	// these are used to pass manifest data to the onImage function in builder.go; this only applies to non-local-registry exports
+	// these are used to pass manifest data to the onImage function in builder.go;
+	// this only applies to non-local-registry exports
 	var tarImagesInWaitBlockRefPrefixes []string
 	var tarImagesInWaitBlock []string
 
@@ -187,7 +191,8 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			singPlatImgNames[item.si.DockerTag] = true
 		}
 
-		refPrefix, err := gwCrafter.AddPushImageEntry(ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes)
+		refPrefix, err := gwCrafter.AddPushImageEntry(
+			ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes)
 		if err != nil {
 			return err
 		}
@@ -195,7 +200,8 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 		if item.localExport {
 			if isMultiPlatform[item.si.DockerTag] {
-				// local docker instance does not support multi-platform images, so we must create a new entry and set it to the platformImgName
+				// local docker instance does not support multi-platform images, so we must create a new entry
+				// and set it to the platformImgName
 				refPrefix, err := gwCrafter.AddPushImageEntry(ref, refID, platformImgName, false, false, item.si.Image, nil)
 				if err != nil {
 					return err
@@ -228,7 +234,8 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 	}
 	if len(tarImagesInWaitBlockRefPrefixes) != 0 {
 		waitFor := strings.Join(tarImagesInWaitBlock, " ")
-		// the wait-for entry is used to know when all multiplatform images have been exported, thus making it safe to load manifests
+		// the wait-for entry is used to know when all multiplatform images have been exported,
+		// thus making it safe to load manifests
 		for _, refPrefix := range tarImagesInWaitBlockRefPrefixes {
 			gwCrafter.AddMeta(refPrefix+"/export-image-wait-for", []byte(waitFor))
 		}
@@ -326,7 +333,8 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			Artifact: saveLocalItem.saveLocal.ArtifactPath,
 		}
 
-		dirID, err := gwCrafter.AddSaveArtifactLocal(ref, refID, artifact.String(), saveLocalItem.saveLocal.ArtifactPath, saveLocalItem.saveLocal.DestPath)
+		dirID, err := gwCrafter.AddSaveArtifactLocal(
+			ref, refID, artifact.String(), saveLocalItem.saveLocal.ArtifactPath, saveLocalItem.saveLocal.DestPath)
 		if err != nil {
 			return err
 		}
@@ -343,7 +351,6 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			ifExists:    saveLocalItem.saveLocal.IfExists,
 			salt:        c.mts.Final.ID,
 		})
-
 	}
 
 	refs, metadata := gwCrafter.GetRefsAndMetadata()
@@ -368,7 +375,6 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
 	}
 	return nil
 }

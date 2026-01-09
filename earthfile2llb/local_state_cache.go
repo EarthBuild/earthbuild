@@ -66,7 +66,7 @@ func getSharedKeyHintFromInclude(name string, incl []string) string {
 }
 
 func createIncludePatterns(incl []string) []string {
-	incl2 := []string{}
+	incl2 := make([]string, 0, len(incl))
 	for _, inc := range incl {
 		if inc == "." {
 			inc = "./*"

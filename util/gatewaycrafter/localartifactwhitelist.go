@@ -36,7 +36,7 @@ func (l *LocalArtifactWhiteList) Add(path string) {
 func (l *LocalArtifactWhiteList) AsList() []string {
 	l.m.Lock()
 	defer l.m.Unlock()
-	paths := []string{}
+	paths := make([]string, 0, len(l.paths))
 	for path := range l.paths {
 		paths = append(paths, path)
 	}

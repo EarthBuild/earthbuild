@@ -23,7 +23,9 @@ func Wrap(s ...string) string {
 	return strings.Join(s, "\n\t")
 }
 
-func CombineVariables(dotEnvMap map[string]string, flagArgs []string, buildFlagArgs []string) (*variables.Scope, error) {
+func CombineVariables(
+	dotEnvMap map[string]string, flagArgs []string, buildFlagArgs []string,
+) (*variables.Scope, error) {
 	dotEnvVars := variables.NewScope()
 	for k, v := range dotEnvMap {
 		dotEnvVars.Add(k, v)
@@ -37,7 +39,9 @@ func CombineVariables(dotEnvMap map[string]string, flagArgs []string, buildFlagA
 	return variables.CombineScopes(overridingVars, dotEnvVars), nil
 }
 
-func ProcessSecrets(secrets, secretFiles []string, dotEnvMap map[string]string, secretsFilePath string) (map[string][]byte, error) {
+func ProcessSecrets(
+	secrets, secretFiles []string, dotEnvMap map[string]string, secretsFilePath string,
+) (map[string][]byte, error) {
 	finalSecrets := make(map[string][]byte)
 	for k, v := range dotEnvMap {
 		finalSecrets[k] = []byte(v)
@@ -53,12 +57,17 @@ func ProcessSecrets(secrets, secretFiles []string, dotEnvMap map[string]string, 
 			// Not set. Use environment to fetch it.
 			value, found := os.LookupEnv(secret)
 			if !found {
-				return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret flag without a value", secret), "Try to set an env var by the name %q with the secret value or pass the value as part of the --secret flag", secret)
+				err := errors.Errorf("failed to set secret %q via --secret flag without a value", secret)
+				return nil, hint.Wrapf(err,
+					"Try to set an env var by the name %q with the secret value or pass the value as part of the --secret flag",
+					secret)
 			}
 			data = []byte(value)
 		}
 		if _, ok := finalSecrets[key]; ok {
-			return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret flag", key), "Check the secret %q has not already been set in the file %q or passed more than once to the command", key, secretsFilePath)
+			return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret flag", key),
+				"Check the secret %q has not already been set in the file %q or passed more than once to the command",
+				key, secretsFilePath)
 		}
 		finalSecrets[key] = data
 	}
@@ -74,7 +83,8 @@ func ProcessSecrets(secrets, secretFiles []string, dotEnvMap map[string]string, 
 			return nil, errors.Wrapf(err, "failed to open %q", path)
 		}
 		if _, ok := finalSecrets[k]; ok {
-			return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret-file flag", k), "Check the secret %q has not already been set in the file %q, or passed via --secret flag", k, secretsFilePath)
+			return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret-file flag", k),
+				"Check the secret %q has not already been set in the file %q, or passed via --secret flag", k, secretsFilePath)
 		}
 		finalSecrets[k] = data
 	}
@@ -94,7 +104,9 @@ func GetBinaryName() string {
 	if len(os.Args) == 0 {
 		return "earthly"
 	}
-	binPath := os.Args[0] // can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+
+	// can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+	binPath := os.Args[0]
 	baseName := path.Base(binPath)
 	return baseName
 }

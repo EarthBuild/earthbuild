@@ -198,8 +198,16 @@ type progressCb func(int, bool)
 
 type protocol struct {
 	name   string
-	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB) error
-	recvFn func(stream grpc.ClientStream, destDir string, cu filesync.CacheUpdater, progress progressCb, mapFunc func(string, *fstypes.Stat) bool) error
+	sendFn func(
+		stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB,
+	) error
+	recvFn func(
+		stream grpc.ClientStream,
+		destDir string,
+		cu filesync.CacheUpdater,
+		progress progressCb,
+		mapFunc func(string, *fstypes.Stat) bool,
+	) error
 }
 
 func isProtoSupported(p string) bool {
@@ -218,11 +226,17 @@ var supportedProtocols = []protocol{
 	},
 }
 
-func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB) error {
-	return errors.WithStack(fsutil.Send(stream.Context(), stream, fs, progress, verboseProgress))
+func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb, verbose fsutil.VerboseProgressCB) error {
+	return errors.WithStack(fsutil.Send(stream.Context(), stream, fs, progress, verbose))
 }
 
-func recvDiffCopy(ds grpc.ClientStream, dest string, cu filesync.CacheUpdater, progress progressCb, filter func(string, *fstypes.Stat) bool) error {
+func recvDiffCopy(
+	ds grpc.ClientStream,
+	dest string,
+	cu filesync.CacheUpdater,
+	progress progressCb,
+	filter func(string, *fstypes.Stat) bool,
+) error {
 	st := time.Now()
 	defer func() {
 		logrus.Debugf("diffcopy took: %v", time.Since(st))

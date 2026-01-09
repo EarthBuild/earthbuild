@@ -11,7 +11,14 @@ import (
 )
 
 // StateToRef takes an LLB state, solves it using gateway and returns the ref.
-func StateToRef(ctx context.Context, gwClient gwclient.Client, state pllb.State, noCache bool, platr *platutil.Resolver, cacheImports []string) (gwclient.Reference, error) {
+func StateToRef(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	state pllb.State,
+	noCache bool,
+	platr *platutil.Resolver,
+	cacheImports []string,
+) (gwclient.Reference, error) {
 	platform := platr.SubPlatform(platr.Current())
 	if noCache {
 		state = state.SetMarshalDefaults(llb.IgnoreCache)

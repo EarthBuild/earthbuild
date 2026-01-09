@@ -46,7 +46,13 @@ func (run *Run) Generic() *Generic {
 }
 
 // NewTarget creates a new target printer.
-func (run *Run) NewTarget(targetID string, target domain.Target, overrideArgs []string, initialPlatform string, runner string) (*Target, error) {
+func (run *Run) NewTarget(
+	targetID string,
+	target domain.Target,
+	overrideArgs []string,
+	initialPlatform string,
+	runner string,
+) (*Target, error) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
 	mainTargetID := ""
@@ -89,7 +95,12 @@ func (run *Run) Target(targetID string) (*Target, bool) {
 }
 
 // NewCommand creates a new command printer.
-func (run *Run) NewCommand(commandID, command string, targetID, category, platform string, cached, local, interactive bool, sourceLocation *spec.SourceLocation, repoURL, repoHash, fileRelToRepo string) (*Command, error) {
+func (run *Run) NewCommand(
+	commandID, command, targetID, category, platform string,
+	cached, local, interactive bool,
+	sourceLocation *spec.SourceLocation,
+	repoURL, repoHash, fileRelToRepo string,
+) (*Command, error) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
 	_, ok := run.commands[commandID]
@@ -139,7 +150,9 @@ func (run *Run) SetStart(start time.Time) {
 }
 
 // SetFatalError sets a fatal error for the build.
-func (run *Run) SetFatalError(end time.Time, targetID string, commandID string, failureType logstream.FailureType, helpMsg, errorMsg string) {
+func (run *Run) SetFatalError(
+	end time.Time, targetID string, commandID string, failureType logstream.FailureType, helpMsg, errorMsg string,
+) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
 	if run.ended {
@@ -168,7 +181,8 @@ func (run *Run) SetFatalError(end time.Time, targetID string, commandID string, 
 	})
 }
 
-// SetGenericFatalError sets a fatal error for the build with an empty target id and a command id indicating not to prefix the error with target info.
+// SetGenericFatalError sets a fatal error for the build with an empty target id and a command id indicating
+// not to prefix the error with target info.
 func (run *Run) SetGenericFatalError(end time.Time, failureType logstream.FailureType, helpMsg, errorMsg string) {
 	run.SetFatalError(end, "", GenericDefault, failureType, helpMsg, errorMsg)
 }

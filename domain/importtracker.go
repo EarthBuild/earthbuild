@@ -118,7 +118,9 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 }
 
 // Deref resolves the import (if any) and returns a reference with the full path.
-func (ir *ImportTracker) Deref(ref Reference) (resolvedRef Reference, allowPrivileged bool, allowPrivilegedSet bool, err error) {
+func (ir *ImportTracker) Deref(
+	ref Reference,
+) (resolvedRef Reference, allowPrivileged, allowPrivilegedSet bool, err error) {
 	if ref.IsImportReference() {
 		resolvedImport, ok := ir.local[ref.GetImportRef()]
 		if !ok {

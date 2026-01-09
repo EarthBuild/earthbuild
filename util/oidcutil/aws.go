@@ -44,7 +44,9 @@ var (
 	}
 )
 
-func newDecodeCFG(result interface{}, metadata *mapstructure.Metadata, template mapstructure.DecoderConfig) *mapstructure.DecoderConfig {
+func newDecodeCFG(
+	result any, metadata *mapstructure.Metadata, template mapstructure.DecoderConfig,
+) *mapstructure.DecoderConfig {
 	res := template
 	res.Result = result
 	res.Metadata = metadata
@@ -93,7 +95,9 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 		return nil, err
 	}
 	if len(metadata.Unused) > 0 {
-		return nil, &mapstructure.Error{Errors: []string{fmt.Sprintf("key(s) [%s] are invalid", strings.Join(metadata.Unused, ","))}}
+		return nil, &mapstructure.Error{
+			Errors: []string{fmt.Sprintf("key(s) [%s] are invalid", strings.Join(metadata.Unused, ","))},
+		}
 	}
 	for _, f := range requiredFields {
 		if slices.Contains(metadata.Unset, f) {

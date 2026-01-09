@@ -44,7 +44,8 @@ func (l *LocalBuildkitSkipper) Add(ctx context.Context, target string, data []by
 		return errInvalidHash
 	}
 	return l.db.Update(func(tx *bolt.Tx) error {
-		payload := []byte(time.Now().String()) // could be serialized into a structure; however LocalBuildkitSkipper is only meant for dev/testing
+		// could be serialized into a structure; however LocalBuildkitSkipper is only meant for dev/testing
+		payload := []byte(time.Now().String())
 		err := tx.Bucket([]byte("builds")).Put(data, payload)
 		if err != nil {
 			return fmt.Errorf("could not set config: %w", err)

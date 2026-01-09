@@ -13,7 +13,9 @@ type EarthlyApp struct {
 	BaseCLI *base.CLI
 }
 
-func NewEarthlyApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.Build, ctx context.Context) *EarthlyApp {
+func NewEarthlyApp(
+	cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.Build, ctx context.Context,
+) *EarthlyApp {
 	earthly := common.GetBinaryName()
 	earthlyApp := &EarthlyApp{BaseCLI: cliInstance}
 
@@ -31,9 +33,11 @@ func NewEarthlyApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd
 		"\t" + earthly + " build --help")
 	earthlyApp.BaseCLI.SetAppUseShortOptionHandling(true)
 	earthlyApp.BaseCLI.SetAction(buildApp.Action)
-	earthlyApp.BaseCLI.SetVersion(getVersionPlatform(earthlyApp.BaseCLI.Version(), earthlyApp.BaseCLI.GitSHA(), earthlyApp.BaseCLI.BuiltBy()))
+	earthlyApp.BaseCLI.SetVersion(
+		getVersionPlatform(earthlyApp.BaseCLI.Version(), earthlyApp.BaseCLI.GitSHA(), earthlyApp.BaseCLI.BuiltBy()))
 
-	earthlyApp.BaseCLI.SetFlags(cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()))
+	earthlyApp.BaseCLI.SetFlags(
+		cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()))
 	earthlyApp.BaseCLI.SetFlags(append(earthlyApp.BaseCLI.App().Flags, buildApp.HiddenFlags()...))
 
 	earthlyApp.BaseCLI.SetCommands(rootApp.Cmds())

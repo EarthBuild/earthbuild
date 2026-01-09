@@ -85,7 +85,8 @@ func (et Target) IsUnresolvedImportReference() bool {
 
 // DebugString returns a string that can be printed out for debugging purposes.
 func (et Target) DebugString() string {
-	return fmt.Sprintf("GitURL: %q; Tag: %q; LocalPath: %q; ImportRef: %q; Target: %q", et.GitURL, et.Tag, et.LocalPath, et.ImportRef, et.Target)
+	return fmt.Sprintf("GitURL: %q; Tag: %q; LocalPath: %q; ImportRef: %q; Target: %q",
+		et.GitURL, et.Tag, et.LocalPath, et.ImportRef, et.Target)
 }
 
 // String returns a string representation of the Target.

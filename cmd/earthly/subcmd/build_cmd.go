@@ -80,16 +80,22 @@ func (a *Build) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:        "build",
-			Usage:       "Build an Earthly target",
-			Description: "Build an Earthly target.",
+			Usage:       "Build an EarthBuild target",
+			Description: "Build an EarthBuild target.",
 			Action:      a.Action,
 			Flags:       a.buildFlags(),
 			Hidden:      true, // Meant to be used mainly for help output.
 		},
 		{
-			Name:        "docker-build",
-			Usage:       "*beta* Build a Dockerfile without an Earthfile",
-			UsageText:   "earthly [options] docker-build [--dockerfile <dockerfile-path>] [--tag=<image-tag>] [--target=<target-name>] [--platform <platform1[,platform2,...]>] <build-context-dir> [--arg1=arg-value]",
+			Name:  "docker-build",
+			Usage: "*beta* Build a Dockerfile without an Earthfile",
+			UsageText: "earth [options] docker-build " +
+				"[--dockerfile <dockerfile-path>] " +
+				"[--tag=<image-tag>] " +
+				"[--target=<target-name>] " +
+				"[--platform <platform1[,platform2,...]>] " +
+				"<build-context-dir> " +
+				"[--arg1=arg-value]",
 			Description: "*beta* Builds a Dockerfile without an Earthfile.",
 			Action:      a.actionDockerBuild,
 			Flags: append(a.buildFlags(),
@@ -274,19 +280,25 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		validEnvNames := cliutil.GetValidEnvNames(a.cli.App())
 		for k := range dotEnvMap {
 			if _, found := validEnvNames[k]; !found {
-				a.cli.Console().Warnf("unexpected env \"%s\": as of v0.7.0, --build-arg values must be defined in .arg (and --secret values in .secret)", k)
+				a.cli.Console().Warnf("unexpected env \"%s\": as of v0.7.0, "+
+					"--build-arg values must be defined in .arg (and --secret values in .secret)", k)
 			}
 		}
 	}
 
-	secretsMap, err := common.ProcessSecrets(a.secrets.Value(), a.secretFiles.Value(), secretsFileMap, a.cli.Flags().SecretFile)
+	secretsMap, err := common.
+		ProcessSecrets(a.secrets.Value(), a.secretFiles.Value(), secretsFileMap, a.cli.Flags().SecretFile)
 	if err != nil {
 		return err
 	}
 	for secretKey := range secretsMap {
 		if !ast.IsValidEnvVarName(secretKey) {
-			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error; see https://github.com/earthly/earthly/issues/2883
-			a.cli.Console().Warnf("Deprecation: secret key %q does not follow the recommended naming convention (a letter followed by alphanumeric characters or underscores); this will become an error in a future version of earthly.", secretKey)
+			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
+			// see https://github.com/earthly/earthly/issues/2883
+			a.cli.Console().Warnf(
+				"Deprecation: secret key %q does not follow the recommended naming convention "+
+					"(a letter followed by alphanumeric characters or underscores); "+
+					"this will become an error in a future version of earthly.", secretKey)
 		}
 	}
 
@@ -549,8 +561,9 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		// we can remove this flag along with code from builder.go.
 		GlobalWaitBlockFtr: a.cli.Flags().GlobalWaitEnd,
 
-		// explicitly set this to true at the top level (without granting the entitlements.EntitlementSecurityInsecure buildkit option),
-		// to differentiate between a user forgetting to run earthly -P, versus a remotely referencing an earthfile that requires privileged.
+		// explicitly set this to true at the top level (without granting the entitlements.EntitlementSecurityInsecure
+		// buildkit option), to differentiate between a user forgetting to run "earth -P", versus a remotely referencing
+		// an earthfile that requires privileged.
 		AllowPrivileged: true,
 
 		ProjectAdder: authProvider,
@@ -574,7 +587,9 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 
 // getTryCatchSaveFileHandler implements [socketprovider.SocketAcceptCb] -
 // returns a handler function for the earthly_save_file socket.
-func getTryCatchSaveFileHandler(localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) func(ctx context.Context, conn io.ReadWriteCloser) error {
+func getTryCatchSaveFileHandler(
+	localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList,
+) func(ctx context.Context, conn io.ReadWriteCloser) error {
 	return func(_ context.Context, conn io.ReadWriteCloser) error {
 		// version
 		protocolVersion, _, err := debuggercommon.ReadDataPacket(conn)
@@ -612,7 +627,9 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 		if suffix == "" {
 			suffix = ".git"
 		}
-		err := gitLookup.AddMatcher(k, pattern, v.Substitute, v.User, v.Password, v.Prefix, suffix, auth, v.ServerKey, common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand)
+		err := gitLookup.AddMatcher(
+			k, pattern, v.Substitute, v.User, v.Password, v.Prefix, suffix, auth, v.ServerKey,
+			common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand)
 		if err != nil {
 			return errors.Wrap(err, "gitlookup")
 		}
@@ -658,7 +675,9 @@ func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewa
 	return f.Close()
 }
 
-func receiveFileVersion2(conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList) (retErr error) {
+func receiveFileVersion2(
+	conn io.ReadWriteCloser, localArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList,
+) (retErr error) {
 	// dst path
 	dst, err := debuggercommon.ReadUint16PrefixedData(conn)
 	if err != nil {
@@ -722,8 +741,9 @@ func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 		runnerName = "bk:" + a.cli.Flags().BuildkitdSettings.BuildkitAddress
 	}
 	if !isLocal && (a.cli.Flags().UseInlineCache || a.cli.Flags().SaveInlineCache) {
-		a.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause builds to get stuck at 100%% CPU on remote Buildkit.")
-		a.cli.Console().Warnf("") // newline
+		a.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause " +
+			"builds to get stuck at 100%% CPU on remote Buildkit.")
+		a.cli.Console().Warnf("")
 	}
 	if isLocal && !a.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
 		return "", false, errors.New("Frontend is not available to perform the build. Is Docker installed and running?")
@@ -731,7 +751,9 @@ func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 	return runnerName, isLocal, nil
 }
 
-func (a *Build) platformResolver(ctx context.Context, bkClient *bkclient.Client, target domain.Target) (*platutil.Resolver, error) {
+func (a *Build) platformResolver(
+	ctx context.Context, bkClient *bkclient.Client, target domain.Target,
+) (*platutil.Resolver, error) {
 	nativePlatform, err := platutil.GetNativePlatformViaBkClient(ctx, bkClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "get native platform via buildkit client")
@@ -752,13 +774,16 @@ func (a *Build) platformResolver(ctx context.Context, bkClient *bkclient.Client,
 	case 1:
 		platr.UpdatePlatform(platformsSlice[0])
 	default:
-		return nil, errors.Errorf("multi-platform builds are not yet supported on the command line. You may, however, create a target with the instruction BUILD --platform ... --platform ... %s", target)
+		return nil, errors.Errorf("multi-platform builds are not yet supported on the command line. "+
+			"You may, however, create a target with the instruction BUILD --platform ... --platform ... %s", target)
 	}
 
 	return platr, nil
 }
 
-func (a *Build) initAutoSkip(ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope) (func(), bool, error) {
+func (a *Build) initAutoSkip(
+	ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope,
+) (func(), bool, error) {
 	if !a.cli.Flags().SkipBuildkit {
 		return nil, false, nil
 	}
@@ -790,7 +815,8 @@ func (a *Build) initAutoSkip(ctx context.Context, skipDB bk.BuildkitSkipper, tar
 		return nil, false, errors.Wrapf(err, "auto-skip is unable to calculate hash for %s", target)
 	}
 
-	console.VerbosePrintf("targets visited: %d; targets hashed: %d; target cache hits: %d", stats.TargetsVisited, stats.TargetsHashed, stats.TargetCacheHits)
+	console.VerbosePrintf("targets visited: %d; targets hashed: %d; target cache hits: %d",
+		stats.TargetsVisited, stats.TargetsHashed, stats.TargetCacheHits)
 	console.VerbosePrintf("hash calculation took %s", stats.Duration)
 
 	if !target.IsRemote() {
@@ -820,7 +846,8 @@ func (a *Build) initAutoSkip(ctx context.Context, skipDB bk.BuildkitSkipper, tar
 	addHashFn := func() {
 		err := skipDB.Add(ctx, target.StringCanonical(), targetHash)
 		if err != nil {
-			a.cli.Console().WithPrefix(autoSkipPrefix).Warnf("failed to record %s (hash %x) as completed: %s", target.String(), target, err)
+			a.cli.Console().WithPrefix(autoSkipPrefix).
+				Warnf("failed to record %s (hash %x) as completed: %s", target.String(), target, err)
 		}
 	}
 
@@ -866,7 +893,9 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	}
 
 	platforms := flagutil.SplitFlagString(a.platformsStr)
-	content, err := docker2earthly.GenerateEarthfile(buildContextPath, a.cli.Flags().DockerfilePath, a.dockerTags.Value(), buildArgs.Sorted(), platforms, a.dockerTarget)
+	content, err := docker2earthly.GenerateEarthfile(
+		buildContextPath, a.cli.Flags().DockerfilePath, a.dockerTags.Value(),
+		buildArgs.Sorted(), platforms, a.dockerTarget)
 	if err != nil {
 		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
 	}

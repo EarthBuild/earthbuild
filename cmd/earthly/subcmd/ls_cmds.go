@@ -77,11 +77,15 @@ func (a *List) action(cliCtx *cli.Context) error {
 	}
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
-	resolver := buildcontext.NewResolver(nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "")
-	var gwClient gwclient.Client // TODO this is a nil pointer which causes a panic if we try to expand a remotely referenced earthfile
-	// it's expensive to create this gwclient, so we need to implement a lazy eval which returns it when required.
+	resolver := buildcontext.NewResolver(
+		nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "")
 
-	target, err := domain.ParseTarget(targetToParse + "+base") // the +base is required to make ParseTarget work; however is ignored by GetTargets
+	// TODO this is a nil pointer which causes a panic if we try to expand a remotelyreferenced earthfile
+	// it's expensive to create this gwclient, so we need to implement a lazy eval which returns it when required.
+	var gwClient gwclient.Client
+
+	// the +base is required to make ParseTarget work; however is ignored by GetTargets
+	target, err := domain.ParseTarget(targetToParse + "+base")
 	if errors.Is(err, buildcontext.ErrEarthfileNotExist{}) {
 		return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	} else if err != nil {

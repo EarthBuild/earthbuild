@@ -38,7 +38,9 @@ func NewCachedMetaResolver(metaResolver llb.ImageMetaResolver) *CachedMetaResolv
 }
 
 // ResolveImageConfig implements llb.ImageMetaResolver.ResolveImageConfig.
-func (cmr *CachedMetaResolver) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt) (string, digest.Digest, []byte, error) {
+func (cmr *CachedMetaResolver) ResolveImageConfig(
+	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
+) (string, digest.Digest, []byte, error) {
 	platformStr := ""
 	if opt.Platform != nil {
 		platformStr = platforms.Format(*opt.Platform)

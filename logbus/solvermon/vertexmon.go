@@ -37,7 +37,7 @@ type vertexMonitor struct {
 	isCanceled     bool
 }
 
-var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`)
+var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll
 
 var (
 	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
@@ -94,7 +94,9 @@ func determineFatalErrorType(errString string, exitCode int, exitParseErr error)
 	return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 }
 
-func formatErrorMessage(errString, operation string, internal bool, fatalErrorType logstream.FailureType, exitCode int) string {
+func formatErrorMessage(
+	errString, operation string, internal bool, fatalErrorType logstream.FailureType, exitCode int,
+) string {
 	if matches, _ := stringutil.NamedGroupMatches(errString, reHint); len(matches["msg"]) == 1 {
 		errString = matches["msg"][0]
 	}
@@ -110,7 +112,8 @@ func formatErrorMessage(errString, operation string, internal bool, fatalErrorTy
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
-				"      was terminated because the build system ran out of memory. If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation)
+				"      was terminated because the build system ran out of memory. "+
+				"If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation)
 	case logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT:
 		return fmt.Sprintf(
 			"      The%s command\n"+

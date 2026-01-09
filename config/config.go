@@ -175,7 +175,7 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 }
 
 func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
-	var val interface{}
+	var val any
 	switch key.Kind() {
 	// add other types as needed as they are introduced in the config struct
 	case reflect.Map:
@@ -211,7 +211,7 @@ func Upsert(config []byte, path, value string) ([]byte, error) {
 
 	pathParts := splitPath(path)
 
-	t, _, err := validatePath(reflect.TypeOf(Config{}), pathParts)
+	t, _, err := validatePath(reflect.TypeFor[Config](), pathParts)
 	if err != nil {
 		return []byte{}, errors.Wrap(err, "path is not valid")
 	}
@@ -249,7 +249,7 @@ func Delete(config []byte, path string) ([]byte, error) {
 
 	pathParts := splitPath(path)
 
-	_, _, err = validatePath(reflect.TypeOf(Config{}), pathParts)
+	_, _, err = validatePath(reflect.TypeFor[Config](), pathParts)
 	if err != nil {
 		return []byte{}, errors.Wrap(err, "path is not valid")
 	}
@@ -267,7 +267,7 @@ func Delete(config []byte, path string) ([]byte, error) {
 // PrintHelp describes the provided config option by
 // printing its type and help tags to the console.
 func PrintHelp(path string) error {
-	t, help, err := validatePath(reflect.TypeOf(Config{}), splitPath(path))
+	t, help, err := validatePath(reflect.TypeFor[Config](), splitPath(path))
 	if err != nil {
 		return errors.Wrapf(err, "'%s' is not a valid config value", path)
 	}
@@ -281,7 +281,7 @@ func splitPath(path string) []string {
 	re := regexp.MustCompile(`[^\."']+|"([^"]*)"|'([^']*)`)
 	pathParts := re.FindAllString(path, -1)
 
-	for i := 0; i < len(pathParts); i++ {
+	for i := range pathParts {
 		// If we did have a quoted string we need to prune it
 		pathParts[i] = strings.Trim(pathParts[i], `"`)
 	}

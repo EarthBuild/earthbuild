@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -295,11 +296,9 @@ func isBooleanFlag(flags []cli.Flag, flagName string) (isBool bool, flagFound bo
 	_ = isShort // short flags are not suggested; perhaps one day?
 
 	for _, f := range flags {
-		for _, n := range f.Names() {
-			if n == flagName {
-				_, ok := f.(*cli.BoolFlag)
-				return ok, true
-			}
+		if slices.Contains(f.Names(), flagName) {
+			_, ok := f.(*cli.BoolFlag)
+			return ok, true
 		}
 	}
 	return false, false

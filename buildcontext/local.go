@@ -69,7 +69,7 @@ func (lr *localResolver) resolveLocal(
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.String()
 	}
-	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ interface{}) (interface{}, error) {
+	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		buildFilePath, err := detectBuildFile(ref, localPath)
 		if err != nil {
 			return nil, err

@@ -175,7 +175,7 @@ func (r *Resolver) Resolve(
 
 func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
 	path = filepath.Clean(path)
-	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k interface{}) (interface{}, error) {
+	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
 		return ast.Parse(k.(string), true)
 	})
 	if err != nil {

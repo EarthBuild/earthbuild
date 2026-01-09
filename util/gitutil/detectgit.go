@@ -310,7 +310,7 @@ func detectGitRefs(ctx context.Context, dir string) ([]string, error) {
 	outStr := string(out)
 	if outStr != "" {
 		refs := []string{}
-		for _, ref := range strings.Split(outStr, "\n") {
+		for ref := range strings.SplitSeq(outStr, "\n") {
 			ref = strings.Trim(ref, "'\"")
 			if ref != "" && ref != "HEAD" && !slices.Contains(refs, ref) {
 				refs = append(refs, ref)
@@ -407,7 +407,7 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 func ParseCoAuthorsFromBody(body string) []string {
 	coAuthors := []string{}
 	coAuthorsSeen := map[string]struct{}{}
-	for _, s := range strings.Split(body, "\n") {
+	for s := range strings.SplitSeq(body, "\n") {
 		s = strings.TrimSpace(s)
 		splits := strings.Split(s, " ")
 		n := len(splits)

@@ -27,7 +27,7 @@ type InterpreterError struct {
 }
 
 // Errorf creates a new interpreter error.
-func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args ...interface{}) *InterpreterError {
+func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
 	return &InterpreterError{
 		SourceLocation: sl,
 		TargetID:       targetID,

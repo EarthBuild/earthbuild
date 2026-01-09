@@ -14,7 +14,7 @@ func SetupLog(path string) {
 	logPath = path
 }
 
-func Logf(format string, args ...interface{}) {
+func Logf(format string, args ...any) {
 	Log(fmt.Sprintf(format, args...))
 }
 

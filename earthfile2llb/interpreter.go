@@ -2177,7 +2177,7 @@ func (i *Interpreter) stack() string {
 	return i.converter.varCollection.StackString()
 }
 
-func (i *Interpreter) errorf(sl *spec.SourceLocation, format string, args ...interface{}) *InterpreterError {
+func (i *Interpreter) errorf(sl *spec.SourceLocation, format string, args ...any) *InterpreterError {
 	targetID := i.converter.mts.Final.ID
 	return Errorf(sl, targetID, i.stack(), format, args...)
 }

@@ -390,7 +390,9 @@ func (gr *gitResolver) resolveGitProject(
 			return nil, errors.Wrap(err, "read Earthfile-paths")
 		}
 
-		const head = "HEAD"
+		isNotHead := func(s string) bool {
+			return s != "" && s != "HEAD"
+		}
 
 		gitHash := strings.SplitN(string(gitHashBytes), "\n", 2)[0]
 		gitShortHash := strings.SplitN(string(gitShortHashBytes), "\n", 2)[0]
@@ -400,7 +402,7 @@ func (gr *gitResolver) resolveGitProject(
 		gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(gitBodyBytes))
 		var gitBranches2 []string
 		for _, gitBranch := range gitBranches {
-			if gitBranch != "" && gitBranch != head {
+			if isNotHead(gitBranch) {
 				gitBranches2 = append(gitBranches2, gitBranch)
 			}
 		}
@@ -418,7 +420,7 @@ func (gr *gitResolver) resolveGitProject(
 		gitTags := strings.SplitN(string(gitTagsBytes), "\n", 2)
 		var gitTags2 []string
 		for _, gitTag := range gitTags {
-			if gitTag != "" && gitTag != head {
+			if isNotHead(gitTag) {
 				gitTags2 = append(gitTags2, gitTag)
 			}
 		}
@@ -428,7 +430,7 @@ func (gr *gitResolver) resolveGitProject(
 		var gitRefs2 []string
 		for _, gitRef := range gitRefs {
 			gitRef = strings.Trim(gitRef, "'\"")
-			if gitRef != "" && gitRef != head && !slices.Contains(gitRefs2, gitRef) {
+			if isNotHead(gitRef) && !slices.Contains(gitRefs2, gitRef) {
 				gitRefs2 = append(gitRefs2, gitRef)
 			}
 		}

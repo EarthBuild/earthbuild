@@ -31,7 +31,6 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocognit
-    - goconst
     - gocyclo
     - godoclint
     - godox
@@ -60,7 +59,6 @@ linters:
     - staticcheck
     - tagliatelle
     - testpackage
-    - usetesting
     - varnamelen
     - wrapcheck
     - wsl

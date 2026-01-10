@@ -51,8 +51,8 @@ func TestFrontendScheme(t *testing.T) {
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
 		scheme  string
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, "docker-container"},
-		{"podman", containerutil.NewPodmanShellFrontend, "podman-container"},
+		{"docker", containerutil.NewDockerShellFrontend, containerutil.SchemeDockerContainer},
+		{"podman", containerutil.NewPodmanShellFrontend, containerutil.SchemePodmanContainer},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {

@@ -693,13 +693,13 @@ func BuildEnvs(env []string) map[string]string {
 	envs := map[string]string{}
 
 	for _, e := range env {
-		i := strings.Index(e, "=")
+		before, after, ok := strings.Cut(e, "=")
 
-		if i < 0 {
+		if !ok {
 			envs[e] = ""
 		} else {
-			k := e[:i]
-			v := e[i+1:]
+			k := before
+			v := after
 
 			// overwrite value if key already exists
 			envs[k] = v

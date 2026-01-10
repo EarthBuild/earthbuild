@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -63,6 +64,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const rootOwn = "root:root"
 
 type cmdType int
 
@@ -929,7 +932,7 @@ func (c *Converter) SaveArtifact(
 		Target:   c.mts.Final.Target,
 		Artifact: artifactPath,
 	}
-	own := "root:root"
+	own := rootOwn
 	if keepOwn {
 		own = ""
 	}
@@ -980,7 +983,7 @@ func (c *Converter) SaveArtifact(
 			}
 			separateArtifactsState, err = llbutil.CopyOp(ctx,
 				pushState, []string{saveFrom}, separateArtifactsState,
-				saveToAdjusted, true, true, keepTs, "root:root", nil, ifExists, symlinkNoFollow,
+				saveToAdjusted, true, true, keepTs, rootOwn, nil, ifExists, symlinkNoFollow,
 				c.ftrs.UseCopyLink,
 				llb.WithCustomNamef(
 					"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
@@ -1000,7 +1003,7 @@ func (c *Converter) SaveArtifact(
 			}
 			separateArtifactsState, err = llbutil.CopyOp(ctx,
 				pcState, []string{saveFrom}, separateArtifactsState,
-				saveToAdjusted, true, true, keepTs, "root:root", nil, ifExists, symlinkNoFollow,
+				saveToAdjusted, true, true, keepTs, rootOwn, nil, ifExists, symlinkNoFollow,
 				c.ftrs.UseCopyLink,
 				llb.WithCustomNamef(
 					"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
@@ -1122,7 +1125,7 @@ func (c *Converter) SaveArtifactFromLocal(
 
 	// then save it via the regular SaveArtifact code since it's now in a snapshot
 	absSaveTo := "/" + saveTo
-	own := "root:root"
+	own := rootOwn
 	if keepOwn {
 		own = ""
 	} else if chown != "" {
@@ -1596,9 +1599,7 @@ func (c *Converter) Label(ctx context.Context, labels map[string]string) error {
 		return err
 	}
 	c.nonSaveCommand()
-	for key, value := range labels {
-		c.mts.Final.MainImage.Config.Labels[key] = value
-	}
+	maps.Copy(c.mts.Final.MainImage.Config.Labels, labels)
 	return nil
 }
 
@@ -2626,16 +2627,16 @@ func (c *Converter) parseSecretFlag(secretKeyValue string) (secretID string, env
 	}
 
 	if c.ftrs.UseProjectSecrets {
-		if strings.HasPrefix(secretID, "+secrets/") {
-			secretID = strings.TrimPrefix(secretID, "+secrets/")
+		if after, ok := strings.CutPrefix(secretID, "+secrets/"); ok {
+			secretID = after
 			c.opt.Console.Printf(
 				"Deprecation: the '+secrets/' prefix is not required and support for it will be removed in an upcoming release")
 		}
 		return secretID, parts[0], nil
 	}
 
-	if strings.HasPrefix(secretID, "+secrets/") {
-		secretID = strings.TrimPrefix(secretID, "+secrets/")
+	if after, ok := strings.CutPrefix(secretID, "+secrets/"); ok {
+		secretID = after
 		return secretID, parts[0], nil
 	}
 
@@ -2947,7 +2948,7 @@ func (c *Converter) markFakeDeps() {
 func (c *Converter) copyOwner(keepOwn bool, chown string) string {
 	own := c.mts.Final.MainImage.Config.User
 	if own == "" {
-		own = "root:root"
+		own = rootOwn
 	}
 	if keepOwn {
 		own = ""

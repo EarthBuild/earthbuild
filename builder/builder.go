@@ -177,7 +177,7 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 	}
 
 	// Podman does not support the insecure localhost
-	if b.opt.ContainerFrontend.Scheme() == "podman-container" {
+	if b.opt.ContainerFrontend.Scheme() == containerutil.SchemePodmanContainer {
 		cons.Printf("Registry proxy not supported on Podman. Falling back to tar-based outputs.")
 		return nil, false
 	}
@@ -548,7 +548,7 @@ func (b *Builder) convertAndBuild(
 		defer exportedImagesMutex.Unlock()
 		exportedTarImageManifestKeys[manifestKey] = struct{}{}
 		manifests := make(map[string][]dockerutil.Manifest)
-		for _, manifestKey := range strings.Split(waitFor, " ") {
+		for manifestKey := range strings.SplitSeq(waitFor, " ") {
 			_, ok := exportedTarImageManifestKeys[manifestKey]
 			if !ok {
 				return nil

@@ -21,10 +21,9 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
 )
 
@@ -236,7 +235,7 @@ func (gr *gitResolver) resolveGitProject(
 	// Check the cache first.
 	scrubbedGITURL := stringutil.ScrubCredentials(gitURL)
 	cacheKey := fmt.Sprintf("%s#%s", scrubbedGITURL, gitRef)
-	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, k interface{}) (interface{}, error) {
+	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, k any) (any, error) {
 		// Copy all Earthfile, build.earth and Dockerfile files.
 		vm := &vertexmeta.VertexMeta{
 			TargetName: cacheKey,
@@ -391,6 +390,10 @@ func (gr *gitResolver) resolveGitProject(
 			return nil, errors.Wrap(err, "read Earthfile-paths")
 		}
 
+		isNotHead := func(s string) bool {
+			return s != "" && s != "HEAD"
+		}
+
 		gitHash := strings.SplitN(string(gitHashBytes), "\n", 2)[0]
 		gitShortHash := strings.SplitN(string(gitShortHashBytes), "\n", 2)[0]
 		gitBranches := strings.SplitN(gitBranch, "\n", 2)
@@ -399,7 +402,7 @@ func (gr *gitResolver) resolveGitProject(
 		gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(gitBodyBytes))
 		var gitBranches2 []string
 		for _, gitBranch := range gitBranches {
-			if gitBranch != "" && gitBranch != "HEAD" {
+			if isNotHead(gitBranch) {
 				gitBranches2 = append(gitBranches2, gitBranch)
 			}
 		}
@@ -417,7 +420,7 @@ func (gr *gitResolver) resolveGitProject(
 		gitTags := strings.SplitN(string(gitTagsBytes), "\n", 2)
 		var gitTags2 []string
 		for _, gitTag := range gitTags {
-			if gitTag != "" && gitTag != "HEAD" {
+			if isNotHead(gitTag) {
 				gitTags2 = append(gitTags2, gitTag)
 			}
 		}
@@ -427,7 +430,7 @@ func (gr *gitResolver) resolveGitProject(
 		var gitRefs2 []string
 		for _, gitRef := range gitRefs {
 			gitRef = strings.Trim(gitRef, "'\"")
-			if gitRef != "" && gitRef != "HEAD" && !slices.Contains(gitRefs2, gitRef) {
+			if isNotHead(gitRef) && !slices.Contains(gitRefs2, gitRef) {
 				gitRefs2 = append(gitRefs2, gitRef)
 			}
 		}

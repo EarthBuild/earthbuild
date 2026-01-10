@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/hint"
@@ -113,10 +114,8 @@ func docString(body string, names ...string) (string, error) {
 		return "", errors.Errorf("failed to parse first word of documentation comments")
 	}
 	firstWord := body[:firstWordEnd]
-	for _, n := range names {
-		if firstWord == n {
-			return body, nil
-		}
+	if slices.Contains(names, firstWord) {
+		return body, nil
 	}
 	return "", hint.Wrapf(errors.New("no doc comment found"),
 		"a comment was found but the first word was not one of (%s)", strings.Join(names, ", "))

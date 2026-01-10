@@ -41,8 +41,8 @@ const (
 )
 
 var (
-	ansiUp            = []byte(fmt.Sprintf("%c[A", esc))
-	ansiEraseRestLine = []byte(fmt.Sprintf("%c[K", esc))
+	ansiUp            = fmt.Appendf(nil, "%c[A", esc)
+	ansiEraseRestLine = fmt.Appendf(nil, "%c[K", esc)
 	ansiSupported     = os.Getenv("TERM") != "dumb" &&
 		(isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()))
 )
@@ -298,7 +298,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 		}
 		totalCPU := time.Duration(stats.Cpu.Usage.Total) // #nosec G115 // Total is reported in nanoseconds
 		totalMem := stats.Memory.Usage.Usage             // in bytes
-		output = []byte(fmt.Sprintf("[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem)))
+		output = fmt.Appendf(nil, "[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem))
 		if f.execStatsTracker != nil {
 			f.execStatsTracker.Observe(f.targetName(dl.GetTargetId()), f.commandName(dl.GetCommandId()), totalMem, totalCPU)
 		}

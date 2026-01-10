@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -560,9 +561,9 @@ func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
 // a final boolean result for that set of expressions.
 func evalConditions(c []string) (bool, bool) {
 	all := strings.Join(c, " ")
-	orGroups := strings.Split(all, "||")
+	orGroups := strings.SplitSeq(all, "||")
 
-	for _, orGroup := range orGroups {
+	for orGroup := range orGroups {
 		cur := []string{}
 		result, inExpr := false, false
 		parts := strings.Split(orGroup, " ")
@@ -1029,7 +1030,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		}
 	}
 
-	isBase := l.target.Target == "base"
+	isBase := l.target.Target == ast.TargetBase
 
 	// Since "base" is always processed above, there's not need to revisit it here.
 	if !isBase {

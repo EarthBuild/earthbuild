@@ -74,8 +74,8 @@ func (sf *shellFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, e
 func parseContainerList(output string) ([]*ContainerInfo, error) {
 	ret := []*ContainerInfo{}
 	// The Docker & Podman JSON output format differs, so we parse the standard output here.
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(output), "\n")
+	for line := range lines {
 		parts := strings.Split(line, ",")
 		if len(parts) != 5 {
 			continue
@@ -420,7 +420,7 @@ func parseAndValidateURL(addr string) (*url.URL, error) {
 		return nil, fmt.Errorf("%s: %w", addr, errURLParseFailure)
 	}
 
-	if parsed.Scheme != "tcp" && parsed.Scheme != "docker-container" && parsed.Scheme != "podman-container" {
+	if parsed.Scheme != "tcp" && parsed.Scheme != SchemeDockerContainer && parsed.Scheme != SchemePodmanContainer {
 		format := "%s is not a valid scheme. Only tcp or docker-container is allowed at this time: %w"
 		return nil, fmt.Errorf(format, parsed.Scheme, errURLValidationFailure)
 	}
@@ -445,6 +445,6 @@ func IsLocal(addr string) bool {
 	return hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
 		hostname == net.IPv6loopback.String() ||
 		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
-		parsed.Scheme == "docker-container" || // Accommodate feature flagging during transition. Will have omitted TLS?
-		parsed.Scheme == "podman-container"
+		parsed.Scheme == SchemeDockerContainer || // Accommodate feature flagging during transition. Will have omitted TLS?
+		parsed.Scheme == SchemePodmanContainer
 }

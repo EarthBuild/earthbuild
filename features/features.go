@@ -94,7 +94,7 @@ func parseFlagOverrides(env string) map[string]string {
 	env = strings.TrimSpace(env)
 	m := map[string]string{}
 	if env != "" {
-		for _, flag := range strings.Split(env, ",") {
+		for flag := range strings.SplitSeq(env, ",") {
 			flagNameAndValue := strings.SplitN(flag, "=", 2)
 			var flagValue string
 			flagName := strings.TrimSpace(flagNameAndValue[0])

@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -81,13 +82,7 @@ func validVersion(ef spec.Earthfile) []error {
 	// version is always last in VERSION command
 	earthFileVersion := ef.Version.Args[len(ef.Version.Args)-1]
 
-	isVersionValid := false
-	for _, version := range validEarthfileVersions {
-		if version == earthFileVersion {
-			isVersionValid = true
-			break
-		}
-	}
+	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
 		err := errors.Errorf("Earthfile version is invalid, supported versions are %v", getValidVersionsFormatted())

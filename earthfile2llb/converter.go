@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -1598,9 +1599,7 @@ func (c *Converter) Label(ctx context.Context, labels map[string]string) error {
 		return err
 	}
 	c.nonSaveCommand()
-	for key, value := range labels {
-		c.mts.Final.MainImage.Config.Labels[key] = value
-	}
+	maps.Copy(c.mts.Final.MainImage.Config.Labels, labels)
 	return nil
 }
 
@@ -2628,16 +2627,16 @@ func (c *Converter) parseSecretFlag(secretKeyValue string) (secretID string, env
 	}
 
 	if c.ftrs.UseProjectSecrets {
-		if strings.HasPrefix(secretID, "+secrets/") {
-			secretID = strings.TrimPrefix(secretID, "+secrets/")
+		if after, ok := strings.CutPrefix(secretID, "+secrets/"); ok {
+			secretID = after
 			c.opt.Console.Printf(
 				"Deprecation: the '+secrets/' prefix is not required and support for it will be removed in an upcoming release")
 		}
 		return secretID, parts[0], nil
 	}
 
-	if strings.HasPrefix(secretID, "+secrets/") {
-		secretID = strings.TrimPrefix(secretID, "+secrets/")
+	if after, ok := strings.CutPrefix(secretID, "+secrets/"); ok {
+		secretID = after
 		return secretID, parts[0], nil
 	}
 

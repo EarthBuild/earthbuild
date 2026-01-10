@@ -27,6 +27,7 @@ type ImportTracker struct {
 func NewImportTracker(console conslogging.ConsoleLogger, global map[string]ImportTrackerVal) *ImportTracker {
 	gi := make(map[string]ImportTrackerVal)
 	maps.Copy(gi, global)
+
 	return &ImportTracker{
 		local:   make(map[string]ImportTrackerVal),
 		global:  gi,
@@ -50,13 +51,18 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	if importStr == "" {
 		return errors.New("IMPORTing empty string not supported")
 	}
+
 	aTarget := importStr + "+none" // form a fictional target for parasing purposes
+
 	parsedImport, err := ParseTarget(aTarget)
 	if err != nil {
 		return errors.Wrapf(err, "could not parse IMPORT %s", importStr)
 	}
+
 	importStr = parsedImport.ProjectCanonical() // normalize
+
 	var path string
+
 	allowPrivileged := currentlyPrivileged
 
 	switch {
@@ -67,6 +73,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		allowPrivileged = allowPrivileged && allowPrivilegedFlag
 	case parsedImport.IsLocalExternal():
 		path = parsedImport.GetLocalPath()
+
 		if allowPrivilegedFlag {
 			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
@@ -78,16 +85,20 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	if len(pathParts) < 1 {
 		return errors.Errorf("IMPORT %s not supported", importStr)
 	}
+
 	defaultAs := pathParts[len(pathParts)-1]
 	if defaultAs == "" {
 		return errors.Errorf("IMPORT %s not supported", importStr)
 	}
+
 	if (defaultAs == "." || defaultAs == "..") && as == "" {
 		return errors.New("IMPORT requires AS if the import path ends with \".\" or \"..\"")
 	}
+
 	if as == "" {
 		as = defaultAs
 	}
+
 	if strings.ContainsAny(as, "/:") {
 		return errors.Errorf("invalid IMPORT AS %s", as)
 	}
@@ -97,6 +108,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		if exists {
 			return errors.Errorf("import ref %s already exists in this scope", as)
 		}
+
 		ir.global[as] = ImportTrackerVal{
 			fullPath:        importStr,
 			allowPrivileged: allowPrivileged,
@@ -106,11 +118,13 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		if exists {
 			return errors.Errorf("import ref %s already exists in this scope", as)
 		}
+
 		ir.local[as] = ImportTrackerVal{
 			fullPath:        importStr,
 			allowPrivileged: allowPrivileged,
 		}
 	}
+
 	return nil
 }
 
@@ -126,7 +140,9 @@ func (ir *ImportTracker) Deref(
 				return nil, false, false, errors.Errorf("import reference %s could not be resolved", ref.GetImportRef())
 			}
 		}
+
 		var resolvedRef Reference
+
 		resolvedRefStr := fmt.Sprintf("%s+%s", resolvedImport.fullPath, ref.GetName())
 		switch ref.(type) {
 		case Target:
@@ -134,6 +150,7 @@ func (ir *ImportTracker) Deref(
 			if err != nil {
 				return nil, false, false, err
 			}
+
 			resolvedRef = Target{
 				GitURL:    ref2.GitURL,
 				Tag:       ref2.Tag,
@@ -146,6 +163,7 @@ func (ir *ImportTracker) Deref(
 			if err != nil {
 				return nil, false, false, err
 			}
+
 			resolvedRef = Command{
 				GitURL:    ref2.GitURL,
 				Tag:       ref2.Tag,
@@ -156,7 +174,9 @@ func (ir *ImportTracker) Deref(
 		default:
 			return nil, false, false, errors.New("ref resolve not supported for this type")
 		}
+
 		return resolvedRef, resolvedImport.allowPrivileged, true, nil
 	}
+
 	return ref, false, false, nil
 }

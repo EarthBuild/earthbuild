@@ -38,11 +38,14 @@ func (p Platform) String() string {
 	if p.p != nil {
 		return platforms.Format(*p.p)
 	}
+
 	if p.native {
 		return "native"
 	}
+
 	if p.user {
 		return "user"
 	}
+
 	return ""
 }

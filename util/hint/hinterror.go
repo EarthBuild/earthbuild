@@ -32,10 +32,12 @@ func (e *Error) Hint() string {
 	if len(e.hints) == 0 {
 		return ""
 	}
+
 	res := strings.Join(e.hints, "\n")
 	if !strings.HasSuffix(res, "\n") {
 		res += "\n"
 	}
+
 	return res
 }
 
@@ -55,15 +57,18 @@ func FromError(err error) (*Error, bool) {
 	if err == nil {
 		return nil, false
 	}
+
 	matches, _ := stringutil.NamedGroupMatches(err.Error(), errWithHintRegex)
 	if len(matches) != 2 {
 		return nil, false
 	}
+
 	for k := range matches {
 		if len(matches[k]) != 1 {
 			return nil, false
 		}
 	}
+
 	errMsg := matches["error"][0]
 	hint := matches["hint"][0]
 

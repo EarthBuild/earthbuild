@@ -11,5 +11,6 @@ func FormatUtilization(numOtherSessions, load, maxParallelism int) string {
 	if numOtherSessions >= 0 {
 		otherSessions = strconv.Itoa(numOtherSessions)
 	}
+
 	return fmt.Sprintf("Utilization: %s other builds, %d/%d op load", otherSessions, load, maxParallelism)
 }

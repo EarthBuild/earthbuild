@@ -32,7 +32,9 @@ func NewTracker(path string) *Tracker {
 func (t *Tracker) Observe(target, command string, memory uint64, cpu time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	k := target + "|" + command
+
 	stat, ok := t.stats[k]
 	if !ok {
 		stat = &stats{
@@ -41,9 +43,11 @@ func (t *Tracker) Observe(target, command string, memory uint64, cpu time.Durati
 		}
 		t.stats[k] = stat
 	}
+
 	if memory > stat.memory {
 		stat.memory = memory
 	}
+
 	if cpu > stat.cpu {
 		stat.cpu = cpu
 	}
@@ -58,18 +62,23 @@ func (t *Tracker) String() string {
 	for k := range t.stats {
 		keys = append(keys, k)
 	}
+
 	sort.Slice(keys, func(i, j int) bool {
 		return t.stats[keys[i]].memory < t.stats[keys[j]].memory
 	})
 
 	var buf bytes.Buffer
+
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "target\tcommand\tmemory\tcpu\n")
+
 	for _, k := range keys {
 		v := t.stats[k]
 		fmt.Fprintf(w, "%s\t%s\t%v\t%v\n", v.target, v.command, humanize.Bytes(v.memory), v.cpu)
 	}
+
 	w.Flush() // #nosec G104
+
 	return buf.String()
 }
 

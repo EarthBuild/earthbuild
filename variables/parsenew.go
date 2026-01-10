@@ -15,9 +15,11 @@ func ParseFlagArgs(args []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(nonFlags) != 0 {
 		return nil, errors.Errorf("invalid argument %s", nonFlags[0])
 	}
+
 	return flags, nil
 }
 
@@ -27,6 +29,7 @@ func ParseFlagArgsWithNonFlags(args []string) ([]string, []string, error) {
 	flags := make([]string, 0, len(args))
 	nonFlags := []string{}
 	keyFromPrev := ""
+
 	for _, arg := range args {
 		var k, v string
 		if keyFromPrev != "" {
@@ -47,18 +50,23 @@ func ParseFlagArgsWithNonFlags(args []string) ([]string, []string, error) {
 				nonFlags = append(nonFlags, arg)
 				continue
 			}
+
 			var hasValue bool
+
 			k, v, hasValue = ParseKeyValue(trimmedArg)
 			if !hasValue {
 				keyFromPrev = k
 				continue
 			}
 		}
+
 		escK := strings.ReplaceAll(k, "=", "\\=")
 		flags = append(flags, fmt.Sprintf("%s=%s", escK, v))
 	}
+
 	if keyFromPrev != "" {
 		return nil, nil, errors.Errorf("no value provided for --%s", keyFromPrev)
 	}
+
 	return flags, nonFlags, nil
 }

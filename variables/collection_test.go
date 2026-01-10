@@ -20,6 +20,7 @@ func TestCollection(topT *testing.T) {
 		coll     *variables.Collection
 		features *features.Features
 	}
+
 	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
 		t.Helper()
 
@@ -28,6 +29,7 @@ func TestCollection(topT *testing.T) {
 		expect(err).To(not(haveOccurred()))
 		_, err = f.ProcessFlags()
 		expect(err).To(not(haveOccurred()))
+
 		return testCtx{
 			expect:   expect,
 			features: f,
@@ -39,7 +41,6 @@ func TestCollection(topT *testing.T) {
 		// This is a quick and dirty workaround for registering the same specs
 		// with multiple setup/teardown functions. It should be a first class
 		// feature in onpar some day, but for now this will do.
-
 		o.Spec("builtins are used for newly registered variables", func(tc testCtx) {
 			name := "EARTHLY_VERSION"
 			_, ok := tc.coll.Get(name, variables.WithActive())
@@ -68,6 +69,7 @@ func TestCollection(topT *testing.T) {
 				},
 				Features: tc.features,
 			})
+
 			return tc
 		})
 
@@ -90,6 +92,7 @@ func TestCollection(topT *testing.T) {
 				},
 				Features: tc.features,
 			})
+
 			return tc
 		})
 

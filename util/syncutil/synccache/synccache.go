@@ -47,6 +47,7 @@ func (sc *SyncCache) Do(ctx context.Context, key any, c Constructor) (any, error
 			if errors.Is(e.err, context.Canceled) {
 				sc.deleteEntry(key)
 			}
+
 			close(e.constructed)
 		}()
 	} else {
@@ -59,7 +60,9 @@ func (sc *SyncCache) Do(ctx context.Context, key any, c Constructor) (any, error
 			}
 		}()
 	}
+
 	<-e.constructed
+
 	return e.value, e.err
 }
 
@@ -69,15 +72,18 @@ func (sc *SyncCache) Add(ctx context.Context, key any, value any, valueErr error
 	if found {
 		return errors.New("already exists")
 	}
+
 	e.value = value
 	e.err = valueErr
 	close(e.constructed)
+
 	return nil
 }
 
 func (sc *SyncCache) getEntry(ctx context.Context, key any) (*entry, bool) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
+
 	e, ok := sc.store[key]
 	if !ok {
 		e = &entry{
@@ -86,6 +92,7 @@ func (sc *SyncCache) getEntry(ctx context.Context, key any) (*entry, bool) {
 		}
 		sc.store[key] = e
 	}
+
 	return e, ok
 }
 
@@ -93,5 +100,6 @@ func (sc *SyncCache) deleteEntry(key any) {
 	// note; this does not cancel any ongoing construction.
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
+
 	delete(sc.store, key)
 }

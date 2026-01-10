@@ -39,6 +39,7 @@ func newCommand(b *Bus, commandID string, targetID string) *Command {
 	if err != nil {
 		panic(errors.Wrap(err, "failed to create tail buffer"))
 	}
+
 	return &Command{
 		b:          b,
 		commandID:  commandID,
@@ -51,14 +52,19 @@ func newCommand(b *Bus, commandID string, targetID string) *Command {
 // Write prints a byte slice with a timestamp.
 func (c *Command) Write(dt []byte, ts time.Time, stream int32) (int, error) {
 	var err error
+
 	c.mu.Lock()
+
 	if stream == stdout || stream == stderr {
 		_, err = c.tailOutput.Write(dt)
 	}
+
 	c.mu.Unlock()
+
 	if err != nil {
 		return 0, errors.Wrap(err, "write to tail output")
 	}
+
 	c.b.WriteRawLog(&logstream.DeltaLog{
 		TargetId:           c.targetID,
 		CommandId:          c.commandID,
@@ -66,6 +72,7 @@ func (c *Command) Write(dt []byte, ts time.Time, stream int32) (int, error) {
 		TimestampUnixNanos: c.b.TsUnixNanos(ts),
 		Data:               dt,
 	})
+
 	return len(dt), nil
 }
 
@@ -73,6 +80,7 @@ func (c *Command) Write(dt []byte, ts time.Time, stream int32) (int, error) {
 func (c *Command) TailOutput() []byte {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.tailOutput.Bytes()
 }
 
@@ -81,6 +89,7 @@ func (c *Command) SetStart(start time.Time) {
 	if c.started.Load() {
 		return
 	}
+
 	c.started.Store(true)
 	c.commandDelta(&logstream.DeltaCommandManifest{
 		StartedAtUnixNanos: c.b.TsUnixNanos(start),
@@ -93,10 +102,12 @@ func (c *Command) SetStart(start time.Time) {
 func (t *Command) AddDependsOn(targetID, refName string) {
 	// Only add the dependency link once to avoid sending duplicates to Logstream.
 	t.mu.Lock()
+
 	if _, ok := t.dependsOn[targetID]; ok {
 		t.mu.Unlock()
 		return
 	}
+
 	t.dependsOn[targetID] = struct{}{}
 	t.mu.Unlock()
 
@@ -115,6 +126,7 @@ func (c *Command) SetProgress(progress int32) {
 	if c.lastProgress.Load() == progress {
 		return
 	}
+
 	c.commandDelta(&logstream.DeltaCommandManifest{
 		HasHasProgress: true,
 		HasProgress:    true,
@@ -151,11 +163,13 @@ func (c *Command) SetEndError(err error) {
 		if errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
 			st = logstream.RunStatus_RUN_STATUS_CANCELED
 		}
+
 		c.commandDelta(&logstream.DeltaCommandManifest{
 			Status:           st,
 			ErrorMessage:     err.Error(),
 			EndedAtUnixNanos: c.b.TsUnixNanos(now),
 		})
+
 		return
 	}
 

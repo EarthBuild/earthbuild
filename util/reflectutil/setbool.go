@@ -11,10 +11,12 @@ func SetBool(iface any, fieldName string, value bool) bool {
 	for rv.Kind() == reflect.Ptr {
 		rv = reflect.Indirect(rv)
 	}
+
 	field := rv.FieldByName(fieldName)
 	if field.IsValid() && field.Bool() {
 		field.SetBool(value)
 		return true
 	}
+
 	return false
 }

@@ -17,8 +17,10 @@ func FileExists(filename string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
+
 		return false, errors.Wrapf(err, "unable to stat %s", filename)
 	}
+
 	return !info.IsDir(), nil
 }
 
@@ -35,8 +37,10 @@ func DirExists(filename string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
+
 		return false, errors.Wrapf(err, "unable to stat %s", filename)
 	}
+
 	return info.IsDir(), nil
 }
 
@@ -74,16 +78,20 @@ func GlobDirs(pattern string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to expand glob path %q", pattern)
 	}
+
 	ret := make([]string, 0, len(matches))
 	for _, match := range matches {
 		st, err := os.Stat(match)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to stat expanded path %q", match)
 		}
+
 		if !st.IsDir() {
 			continue
 		}
+
 		ret = append(ret, match)
 	}
+
 	return ret, nil
 }

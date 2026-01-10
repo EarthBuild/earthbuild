@@ -25,6 +25,7 @@ type State struct {
 func FromRawState(st llb.State) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: st}
 }
 
@@ -32,6 +33,7 @@ func FromRawState(st llb.State) State {
 func Scratch() State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: llb.Scratch()}
 }
 
@@ -39,6 +41,7 @@ func Scratch() State {
 func Local(name string, opts ...llb.LocalOption) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: llb.Local(name, opts...)}
 }
 
@@ -46,6 +49,7 @@ func Local(name string, opts ...llb.LocalOption) State {
 func Image(ref string, opts ...llb.ImageOption) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: llb.Image(ref, opts...)}
 }
 
@@ -53,6 +57,7 @@ func Image(ref string, opts ...llb.ImageOption) State {
 func Git(remote, ref string, opts ...llb.GitOption) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: llb.Git(remote, ref, opts...)}
 }
 
@@ -62,8 +67,10 @@ func Merge(sts []State, opts ...llb.ConstraintsOpt) State {
 	for i, st := range sts {
 		sts2[i] = st.st
 	}
+
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: llb.Merge(sts2, opts...)}
 }
 
@@ -82,6 +89,7 @@ func (s State) UnsafeUnwrap() llb.CopyInput {
 func (s State) Output() llb.Output {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return s.st.Output()
 }
 
@@ -89,6 +97,7 @@ func (s State) Output() llb.Output {
 func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.SetMarshalDefaults(co...)}
 }
 
@@ -96,6 +105,7 @@ func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return s.st.Marshal(ctx, co...)
 }
 
@@ -103,6 +113,7 @@ func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Defi
 func (s State) Run(ro ...llb.RunOption) ExecState {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return ExecState{est: s.st.Run(ro...)}
 }
 
@@ -110,6 +121,7 @@ func (s State) Run(ro ...llb.RunOption) ExecState {
 func (s State) File(a *FileAction, opts ...llb.ConstraintsOpt) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.File(a.fia, opts...)}
 }
 
@@ -117,6 +129,7 @@ func (s State) File(a *FileAction, opts ...llb.ConstraintsOpt) State {
 func (s State) AddEnv(key, value string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.AddEnv(key, value)}
 }
 
@@ -124,6 +137,7 @@ func (s State) AddEnv(key, value string) State {
 func (s State) Dir(str string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.Dir(str)}
 }
 
@@ -131,6 +145,7 @@ func (s State) Dir(str string) State {
 func (s State) GetDir(ctx context.Context) (string, error) {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return s.st.GetDir(ctx)
 }
 
@@ -138,6 +153,7 @@ func (s State) GetDir(ctx context.Context) (string, error) {
 func (s State) User(v string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.User(v)}
 }
 
@@ -145,6 +161,7 @@ func (s State) User(v string) State {
 func (s State) Platform(p specs.Platform) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.Platform(p)}
 }
 
@@ -152,6 +169,7 @@ func (s State) Platform(p specs.Platform) State {
 func (s State) AddExtraHost(hostname string, ip net.IP) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: s.st.AddExtraHost(hostname, ip)}
 }
 
@@ -164,6 +182,7 @@ type ExecState struct {
 func (e ExecState) AddMount(target string, source State, opt ...llb.MountOption) State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: e.est.AddMount(target, source.st, opt...)}
 }
 
@@ -171,6 +190,7 @@ func (e ExecState) AddMount(target string, source State, opt ...llb.MountOption)
 func (e ExecState) Root() State {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return State{st: e.est.Root()}
 }
 
@@ -178,6 +198,7 @@ func (e ExecState) Root() State {
 func AddMount(dest string, mountState State, opts ...llb.MountOption) llb.RunOption {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return llb.AddMount(dest, mountState.st, opts...)
 }
 
@@ -190,6 +211,7 @@ type FileAction struct {
 func (fa *FileAction) Mkdir(p string, m os.FileMode, opt ...llb.MkdirOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: fa.fia.Mkdir(p, m, opt...)}
 }
 
@@ -197,6 +219,7 @@ func (fa *FileAction) Mkdir(p string, m os.FileMode, opt ...llb.MkdirOption) *Fi
 func (fa *FileAction) Mkfile(p string, m os.FileMode, dt []byte, opt ...llb.MkfileOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: fa.fia.Mkfile(p, m, dt, opt...)}
 }
 
@@ -204,6 +227,7 @@ func (fa *FileAction) Mkfile(p string, m os.FileMode, dt []byte, opt ...llb.Mkfi
 func (fa *FileAction) Rm(p string, opt ...llb.RmOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: fa.fia.Rm(p, opt...)}
 }
 
@@ -211,6 +235,7 @@ func (fa *FileAction) Rm(p string, opt ...llb.RmOption) *FileAction {
 func (fa *FileAction) Copy(input CopyInput, src, dest string, opt ...llb.CopyOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: fa.fia.Copy(input.UnsafeUnwrap(), src, dest, opt...)}
 }
 
@@ -218,6 +243,7 @@ func (fa *FileAction) Copy(input CopyInput, src, dest string, opt ...llb.CopyOpt
 func Mkdir(p string, m os.FileMode, opt ...llb.MkdirOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: llb.Mkdir(p, m, opt...)}
 }
 
@@ -225,6 +251,7 @@ func Mkdir(p string, m os.FileMode, opt ...llb.MkdirOption) *FileAction {
 func Mkfile(p string, m os.FileMode, dt []byte, opts ...llb.MkfileOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: llb.Mkfile(p, m, dt, opts...)}
 }
 
@@ -232,6 +259,7 @@ func Mkfile(p string, m os.FileMode, dt []byte, opts ...llb.MkfileOption) *FileA
 func Copy(input CopyInput, src, dest string, opts ...llb.CopyOption) *FileAction {
 	gmu.Lock()
 	defer gmu.Unlock()
+
 	return &FileAction{fia: llb.Copy(input.UnsafeUnwrap(), src, dest, opts...)}
 }
 

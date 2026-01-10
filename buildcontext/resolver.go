@@ -100,6 +100,7 @@ func (r *Resolver) ExpandWildcard(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to expand remote BUILD target path")
 		}
+
 		return matches, nil
 	}
 
@@ -128,6 +129,7 @@ func (r *Resolver) ExpandWildcard(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to resolve relative path")
 		}
+
 		ret = append(ret, rel)
 	}
 
@@ -142,9 +144,14 @@ func (r *Resolver) Resolve(
 	if ref.IsUnresolvedImportReference() {
 		return nil, errors.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}
-	var d *Data
-	var err error
+
+	var (
+		d   *Data
+		err error
+	)
+
 	localDirs := make(map[string]string)
+
 	if ref.IsRemote() {
 		// Remote.
 		d, err = r.gr.resolveEarthProject(ctx, gwClient, platr, ref, r.featureFlagOverrides)
@@ -162,7 +169,9 @@ func (r *Resolver) Resolve(
 			return nil, err
 		}
 	}
+
 	d.Ref = gitutil.ReferenceWithGitMeta(ref, d.GitMetadata)
+
 	d.LocalDirs = localDirs
 	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
 		d.Earthfile, err = r.parseEarthfile(ctx, d.BuildFilePath)
@@ -170,17 +179,21 @@ func (r *Resolver) Resolve(
 			return nil, err
 		}
 	}
+
 	return d, nil
 }
 
 func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
 	path = filepath.Clean(path)
+
 	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
 		return ast.Parse(k.(string), true)
 	})
 	if err != nil {
 		return spec.Earthfile{}, err
 	}
+
 	ef := efValue.(spec.Earthfile)
+
 	return ef, nil
 }

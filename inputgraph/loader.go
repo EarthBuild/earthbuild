@@ -81,6 +81,7 @@ func newLoader(opt HashOpt) *loader {
 
 func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
 	opts := commandflag.FromOpts{}
+
 	args, err := flagutil.ParseArgsCleaned(command.From, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
@@ -96,6 +97,7 @@ func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
 
 func (l *loader) handleBuild(ctx context.Context, cmd spec.Command) error {
 	opts := commandflag.BuildOpts{}
+
 	args, err := flagutil.ParseArgsCleaned(command.Build, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
@@ -145,6 +147,7 @@ func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 
 func (l *loader) handleCopy(ctx context.Context, cmd spec.Command) error {
 	opts := commandflag.CopyOpts{}
+
 	args, err := flagutil.ParseArgsCleaned(command.Copy, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
@@ -175,8 +178,10 @@ func containsShellExpr(s string) bool {
 		depth   int
 		hasExpr bool
 	)
+
 	scan := bufio.NewScanner(strings.NewReader(s))
 	scan.Split(bufio.ScanRunes)
+
 	for scan.Scan() {
 		c := scan.Text()
 		switch {
@@ -186,11 +191,14 @@ func containsShellExpr(s string) bool {
 		case c == ")":
 			depth--
 		}
+
 		if depth < 0 {
 			return false
 		}
+
 		last = c
 	}
+
 	return depth == 0 && hasExpr
 }
 
@@ -206,15 +214,19 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 	// until the full target is processed below.
 	if flagutil.IsInParamsForm(src) {
 		var artifactName string
+
 		classical = false
+
 		artifactName, extraArgs, err = flagutil.ParseParams(src)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to parse COPY params")
 		}
+
 		expandedArtifact, err := l.expandArgs(artifactName)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
+
 		artifactSrc, err = domain.ParseArtifact(expandedArtifact)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to parse artifact")
@@ -224,6 +236,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
+
 		artifactSrc, err = domain.ParseArtifact(expandedSrc)
 		if err != nil {
 			classical = true
@@ -237,23 +250,30 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")
 		}
+
 		if containsShellExpr(src) {
 			return newError(cmd.SourceLocation, "dynamic COPY source %q cannot be resolved", src)
 		}
+
 		path := filepath.Join(l.target.GetLocalPath(), src)
+
 		files, err := l.expandCopyFiles(path, mustExist)
 		if err != nil {
 			return addErrorSrc(err, cmd.SourceLocation)
 		}
+
 		sort.Strings(files)
+
 		for _, file := range files {
 			if err := l.hasher.HashFile(ctx, file); err != nil {
 				if errors.Is(err, os.ErrNotExist) && !mustExist {
 					continue
 				}
+
 				return wrapError(err, cmd.SourceLocation, "failed to hash file %s", path)
 			}
 		}
+
 		return nil
 	}
 
@@ -288,6 +308,7 @@ func (l *loader) expandCopyFiles(src string, mustExist bool) ([]string, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to expand glob pattern")
 		}
+
 		return l.expandDirs(matches...)
 	}
 
@@ -296,6 +317,7 @@ func (l *loader) expandCopyFiles(src string, mustExist bool) ([]string, error) {
 		if errors.Is(err, os.ErrNotExist) && !mustExist {
 			return []string{src}, nil
 		}
+
 		return nil, errors.Wrap(err, "failed to stat file")
 	}
 
@@ -311,30 +333,37 @@ func (l *loader) expandCopyFiles(src string, mustExist bool) ([]string, error) {
 // contain directories.
 func (l *loader) expandDirs(dirs ...string) ([]string, error) {
 	ret := []string{}
+
 	for _, dir := range dirs {
 		stat, err := os.Stat(dir)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to stat file")
 		}
+
 		if stat.IsDir() {
 			entries, err := os.ReadDir(dir)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to read dir")
 			}
+
 			children := []string{}
+
 			for _, entry := range entries {
 				child := filepath.Join(dir, entry.Name())
 				children = append(children, child)
 			}
+
 			found, err := l.expandDirs(children...)
 			if err != nil {
 				return nil, err
 			}
+
 			ret = append(ret, found...)
 		} else {
 			ret = append(ret, dir)
 		}
 	}
+
 	return uniqStrs(ret), nil
 }
 
@@ -345,16 +374,19 @@ func (l *loader) expandArgs(args string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return expanded, nil
 }
 
 func (l *loader) expandArgsSlice(args []string) ([]string, error) {
 	ret := []string{}
+
 	for _, arg := range args {
 		expanded, err := l.expandArgs(arg)
 		if err != nil {
 			return nil, err
 		}
+
 		ret = append(ret, expanded)
 	}
 
@@ -406,20 +438,24 @@ func (l *loader) handleImport(cmd spec.Command, isBase bool) error {
 
 func (l *loader) handleFromDockerfile(ctx context.Context, cmd spec.Command) error {
 	opts := commandflag.FromDockerfileOpts{}
+
 	args, err := flagutil.ParseArgsCleaned(command.FromDockerfile, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse args")
 	}
+
 	if opts.Path != "" {
 		if err := l.handleCopySrc(ctx, cmd, opts.Path, false); err != nil {
 			return err
 		}
 	}
+
 	if len(args) > 0 {
 		if err := l.handleCopySrc(ctx, cmd, args[0], false); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -437,10 +473,12 @@ func (l *loader) handleArg(ctx context.Context, cmd spec.Command, isBase bool) e
 
 	if valueOrNil != nil {
 		var err error
+
 		expanded, err = l.expandArgs(*valueOrNil)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")
 		}
+
 		declOpts = append(declOpts, variables.WithValue(expanded))
 	}
 
@@ -460,7 +498,9 @@ func (l *loader) handleArg(ctx context.Context, cmd spec.Command, isBase bool) e
 
 func (l *loader) handleLet(cmd spec.Command) error {
 	var opts commandflag.LetOpts
+
 	argsCpy := flagutil.GetArgsCopy(cmd)
+
 	args, err := flagutil.ParseArgsCleaned("LET", &opts, argsCpy)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse LET args")
@@ -469,8 +509,10 @@ func (l *loader) handleLet(cmd spec.Command) error {
 	if len(args) != 3 {
 		return newError(cmd.SourceLocation, "failed to parse LET args")
 	}
+
 	key := args[0]
 	baseVal := args[2]
+
 	val, err := l.expandArgs(baseVal)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand LET value %q", baseVal)
@@ -482,12 +524,15 @@ func (l *loader) handleLet(cmd spec.Command) error {
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to declare variable")
 	}
+
 	return nil
 }
 
 func (l *loader) handleSet(cmd spec.Command) error {
 	var opts commandflag.SetOpts
+
 	argsCpy := flagutil.GetArgsCopy(cmd)
+
 	args, err := flagutil.ParseArgsCleaned("SET", &opts, argsCpy)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse SET args")
@@ -499,6 +544,7 @@ func (l *loader) handleSet(cmd spec.Command) error {
 
 	key := args[0]
 	baseVal := args[2]
+
 	val, err := l.expandArgs(baseVal)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand SET value %q", baseVal)
@@ -510,6 +556,7 @@ func (l *loader) handleSet(cmd spec.Command) error {
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to declare variable")
 	}
+
 	return nil
 }
 
@@ -517,22 +564,26 @@ func (l *loader) handleWith(ctx context.Context, with spec.WithStatement) error 
 	if with.Command.Name != command.Docker {
 		return newError(with.Command.SourceLocation, "expected WITH DOCKER")
 	}
+
 	err := l.handleWithDocker(ctx, with.Command)
 	if err != nil {
 		return err
 	}
+
 	return l.loadBlock(ctx, with.Body)
 }
 
 func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
 	// Special case since handleWithDocker doesn't get called from handleCommand.
 	var err error
+
 	cmd.Args, err = l.expandArgsSlice(cmd.Args)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand args")
 	}
 
 	l.hashCommand(cmd)
+
 	opts := commandflag.WithDockerOpts{}
 
 	_, err = flagutil.ParseArgsCleaned("WITH DOCKER", &opts, flagutil.GetArgsCopy(cmd))
@@ -566,6 +617,7 @@ func evalConditions(c []string) (bool, bool) {
 	for orGroup := range orGroups {
 		cur := []string{}
 		result, inExpr := false, false
+
 		parts := strings.Split(orGroup, " ")
 		for i, v := range parts {
 			switch v {
@@ -579,7 +631,9 @@ func evalConditions(c []string) (bool, bool) {
 				if !inExpr {
 					return false, false
 				}
+
 				var ok bool
+
 				result, ok = evalCondition(cur)
 				if !ok {
 					return false, false
@@ -589,11 +643,13 @@ func evalConditions(c []string) (bool, bool) {
 				if !ok {
 					return false, false
 				}
+
 				result = result && rest
 			default:
 				cur = append(cur, v)
 			}
 		}
+
 		if result {
 			return true, true
 		}
@@ -646,10 +702,12 @@ func evalCondition(c []string) (bool, bool) {
 			}
 		case "-eq", "-ne", "-gt", "-lt", "-le", "-ge":
 			a, errA := strconv.Atoi(c[0])
+
 			b, errB := strconv.Atoi(c[2])
 			if errA != nil || errB != nil {
 				return false, false
 			}
+
 			switch c[1] {
 			case "-eq":
 				return a == b, true
@@ -678,6 +736,7 @@ func (l *loader) handleIf(ctx context.Context, ifStmt spec.IfStatement) error {
 		if errors.Is(err, errComplexCondition) {
 			return l.handleIfDefault(ctx, ifStmt)
 		}
+
 		return err
 	}
 
@@ -694,6 +753,7 @@ func (l *loader) expandAndEval(expr []string) (bool, error) {
 	if !ok {
 		return false, errComplexCondition
 	}
+
 	return result, nil
 }
 
@@ -702,21 +762,26 @@ func (l *loader) handleIfEval(ctx context.Context, ifStmt spec.IfStatement) erro
 	if err != nil {
 		return err
 	}
+
 	if result {
 		return l.loadBlock(ctx, ifStmt.IfBody)
 	}
+
 	for _, elseIf := range ifStmt.ElseIf {
 		result, err := l.expandAndEval(elseIf.Expression)
 		if err != nil {
 			return err
 		}
+
 		if result {
 			return l.loadBlock(ctx, elseIf.Body)
 		}
 	}
+
 	if ifStmt.ElseBody != nil {
 		return l.loadBlock(ctx, *ifStmt.ElseBody)
 	}
+
 	return nil
 }
 
@@ -727,15 +792,18 @@ func (l *loader) handleIfDefault(ctx context.Context, ifStmt spec.IfStatement) e
 
 	for _, elseIf := range ifStmt.ElseIf {
 		l.hashElseIf(elseIf)
+
 		if err := l.loadBlock(ctx, elseIf.Body); err != nil {
 			return err
 		}
 	}
+
 	if ifStmt.ElseBody != nil {
 		if err := l.loadBlock(ctx, *ifStmt.ElseBody); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -762,10 +830,12 @@ func (l *loader) handleFor(ctx context.Context, forStmt spec.ForStatement) error
 	for _, val := range vals {
 		l.hasher.HashString(fmt.Sprintf("FOR %s=%s", name, val))
 		l.varCollection.SetArg(name, val)
+
 		err := l.loadBlock(ctx, forStmt.Body)
 		if err != nil {
 			return err
 		}
+
 		l.varCollection.UnsetArg(name)
 	}
 
@@ -778,7 +848,9 @@ func flattenForArgs(args []string, seps string) []string {
 	if len(args) < 3 {
 		return nil
 	}
+
 	var ret []string
+
 	for _, arg := range args[2:] {
 		if strings.ContainsAny(arg, seps) {
 			found := strings.FieldsFunc(arg, func(r rune) bool {
@@ -789,6 +861,7 @@ func flattenForArgs(args []string, seps string) []string {
 			ret = append(ret, arg)
 		}
 	}
+
 	return ret
 }
 
@@ -799,29 +872,35 @@ func (l *loader) handleWait(ctx context.Context, waitStmt spec.WaitStatement) er
 
 func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
 	l.hashTryStatement()
+
 	if err := l.handleStatements(ctx, tryStmt.TryBody); err != nil {
 		return err
 	}
+
 	if tryStmt.CatchBody != nil {
 		if err := l.handleStatements(ctx, *tryStmt.CatchBody); err != nil {
 			return err
 		}
 	}
+
 	if tryStmt.FinallyBody != nil {
 		if err := l.handleStatements(ctx, *tryStmt.FinallyBody); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (l *loader) handleStatements(ctx context.Context, stmts []spec.Statement) error {
 	l.hasher.HashInt(len(stmts))
+
 	for _, stmt := range stmts {
 		if err := l.handleStatement(ctx, stmt); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -829,21 +908,27 @@ func (l *loader) handleStatement(ctx context.Context, stmt spec.Statement) error
 	if stmt.Command != nil {
 		return l.handleCommand(ctx, *stmt.Command)
 	}
+
 	if stmt.With != nil {
 		return l.handleWith(ctx, *stmt.With)
 	}
+
 	if stmt.If != nil {
 		return l.handleIf(ctx, *stmt.If)
 	}
+
 	if stmt.For != nil {
 		return l.handleFor(ctx, *stmt.For)
 	}
+
 	if stmt.Wait != nil {
 		return l.handleWait(ctx, *stmt.Wait)
 	}
+
 	if stmt.Try != nil {
 		return l.handleTry(ctx, *stmt.Try)
 	}
+
 	return errors.New("unexpected statement type")
 }
 
@@ -921,6 +1006,7 @@ func (l *loader) loadTargetFromString(
 			l.hasher.HashString(target.StringCanonical())
 			return nil
 		}
+
 		return addErrorSrc(errInvalidRemoteTarget, srcLoc)
 	}
 
@@ -953,11 +1039,13 @@ func (l *loader) loadTargetFromString(
 func (l *loader) targetCacheKey() string {
 	h := hasher.New()
 	h.HashString(l.target.StringCanonical())
+
 	if l.overridingVars != nil {
 		for _, val := range l.overridingVars.BuildArgs() {
 			h.HashString("VAR " + val)
 		}
 	}
+
 	return hex.EncodeToString(h.GetHash())
 }
 
@@ -1015,6 +1103,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 	if !l.baseProcessed {
 		for _, stmt := range ef.BaseRecipe {
 			var err error
+
 			switch {
 			case stmt.Command == nil: // noop
 			case stmt.Command.Name == command.Import:
@@ -1024,6 +1113,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 			case stmt.Command.Name == command.From:
 				err = l.handleFrom(ctx, *stmt.Command)
 			}
+
 			if err != nil {
 				return nil, err
 			}
@@ -1054,6 +1144,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 
 	v := l.hasher.GetHash()
 	l.hashCache[cacheKey] = v
+
 	l.stats.TargetsHashed++
 	if l.primaryTarget {
 		l.stats.Duration = time.Since(l.stats.StartTime)

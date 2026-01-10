@@ -8,20 +8,24 @@ import "regexp"
 func NamedGroupMatches(s string, re *regexp.Regexp) (map[string][]string, []string) {
 	all := make(map[string][]string)
 	res := re.FindAllStringSubmatch(s, -1)
+
 	names := make([]string, 0, len(re.SubexpNames()))
 	for groupIdx, groupName := range re.SubexpNames() {
 		if groupName == "" {
 			continue
 		}
+
 		for _, matchRes := range res {
 			if matchRes[groupIdx] != "" {
 				if len(all[groupName]) == 0 {
 					// only add the group name once and only if we have matches for it
 					names = append(names, groupName)
 				}
+
 				all[groupName] = append(all[groupName], matchRes[groupIdx])
 			}
 		}
 	}
+
 	return all, names
 }

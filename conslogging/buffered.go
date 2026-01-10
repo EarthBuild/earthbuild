@@ -27,5 +27,6 @@ func (bl *BufferedLogger) Flush() {
 	for _, s := range bl.queue {
 		bl.cl.Print(s)
 	}
+
 	bl.queue = nil
 }

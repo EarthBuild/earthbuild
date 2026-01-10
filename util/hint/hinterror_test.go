@@ -102,6 +102,7 @@ func TestFromError(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			res, isHintErr := FromError(tc.err)
 			assert.Equal(t, tc.expectedErr, res)
 			assert.Equal(t, tc.expectedIsHintError, isHintErr)

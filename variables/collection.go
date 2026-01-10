@@ -88,10 +88,12 @@ type NewCollectionOpt struct {
 // NewCollection creates a new Collection to be used in the context of a target.
 func NewCollection(opts NewCollectionOpt) *Collection {
 	target := opts.Target
+
 	console := opts.Console
 	if opts.OverridingVars == nil {
 		opts.OverridingVars = NewScope()
 	}
+
 	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push, opts.CI)
 
 	return &Collection{
@@ -117,6 +119,7 @@ func (c *Collection) ResetEnvVars(envs *Scope) {
 	if envs == nil {
 		envs = NewScope()
 	}
+
 	c.envs = envs
 	c.effectiveCache = nil
 }
@@ -169,6 +172,7 @@ func (c *Collection) TopOverriding() *Scope {
 	if len(c.stack) == 0 {
 		return NewScope()
 	}
+
 	return c.stack[0].overriding.Clone()
 }
 
@@ -215,11 +219,13 @@ func (c *Collection) SortedOverridingVariables() []string {
 func (c *Collection) ExpandOld(word string) string {
 	shlex := dfShell.NewLex('\\')
 	varMap := c.effective().Map(WithActive())
+
 	ret, err := shlex.ProcessWordWithMap(word, varMap)
 	if err != nil {
 		// No effect if there is an error.
 		return word
 	}
+
 	return ret
 }
 
@@ -228,6 +234,7 @@ func (c *Collection) Expand(word string, shellOut shell.EvalShellOutFn) (string,
 	shlex := shell.NewLex('\\')
 	shlex.ShellOut = shellOut
 	varMap := c.effective().Map(WithActive())
+
 	return shlex.ProcessWordWithMap(word, varMap, ShellOutEnvs)
 }
 
@@ -237,9 +244,11 @@ func (c *Collection) overridingOrDefault(
 	if v, ok := c.overriding().Get(name); ok {
 		return v, nil
 	}
+
 	if v, ok := c.builtin.Get(name); ok {
 		return v, nil
 	}
+
 	return parseArgValue(name, defaultValue, pncvf)
 }
 
@@ -248,7 +257,9 @@ func (c *Collection) declareOldArg(
 ) (string, string, error) {
 	ef := c.effective()
 	finalDefaultValue := defaultValue
+
 	var finalValue string
+
 	existing, found := ef.Get(name)
 	if found {
 		finalValue = existing
@@ -257,15 +268,20 @@ func (c *Collection) declareOldArg(
 		if err != nil {
 			return "", "", err
 		}
+
 		finalValue = v
 		finalDefaultValue = v
 	}
+
 	opts := []ScopeOpt{WithActive()}
 	c.args().Add(name, finalValue, opts...)
+
 	if global {
 		c.globals().Add(name, finalValue, opts...)
 	}
+
 	c.effectiveCache = nil
+
 	return finalValue, finalDefaultValue, nil
 }
 
@@ -322,12 +338,15 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 	for _, o := range opts {
 		prefs = o(prefs)
 	}
+
 	if !c.errorOnRedeclare {
 		if !prefs.arg {
 			return "", "", errors.New("LET requires the --arg-scope-and-set feature")
 		}
+
 		return c.declareOldArg(name, prefs.val, prefs.global, prefs.pncvf)
 	}
+
 	if !c.shelloutAnywhere {
 		return "", "", errors.New("the --arg-scope-and-set feature flag requires --shell-out-anywhere")
 	}
@@ -341,6 +360,7 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 			return "", "", hint.Wrapf(ErrRedeclared,
 				"if you want to change the value of '%[1]v', use 'SET %[1]v = %[2]q'", name, prefs.val)
 		}
+
 		return prefs.val, prefs.val, nil
 	}
 
@@ -357,21 +377,26 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 	if prefs.global {
 		if _, ok := c.args().Get(name); ok {
 			baseErr := errors.Wrap(ErrRedeclared, "could not override non-global ARG with global ARG")
+
 			return "", "", hint.Wrapf(baseErr, "'%[1]v' was already declared as a non-global ARG in this scope - "+
 				"did you mean to add '--global' to the original declaration?", name)
 		}
+
 		ok := c.globals().Add(name, v, scope...)
 		if !ok {
 			return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', "+
 				"redeclare it as a non-argument variable with 'LET %[1]v = %[2]q'", name, prefs.val)
 		}
+
 		return v, v, nil
 	}
+
 	ok := c.args().Add(name, v, scope...)
 	if !ok {
 		return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', "+
 			"redeclare it as a non-argument variable with 'LET %[1]v = %[2]q'", name, prefs.val)
 	}
+
 	return v, prefs.val, nil
 }
 
@@ -403,19 +428,24 @@ func (c *Collection) UpdateVar(name, value string, pncvf ProcessNonConstantVaria
 			c.effectiveCache = nil
 		}
 	}()
+
 	if _, ok := c.effective().Get(name, WithActive()); !ok {
 		return hint.Wrapf(ErrVarNotFound,
 			"'%[1]v' needs to be declared with 'LET %[1]v = someValue' before it can be used with SET", name)
 	}
+
 	if _, ok := c.vars().Get(name, WithActive()); !ok {
 		return hint.Wrapf(ErrSetArg,
 			"'%[1]v' is an ARG and cannot be used with SET - try declaring 'LET %[1]v = $%[1]v' first", name)
 	}
+
 	v, err := parseArgValue(name, value, pncvf)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse SET value")
 	}
+
 	c.vars().Add(name, v, WithActive())
+
 	return nil
 }
 
@@ -449,6 +479,7 @@ func (c *Collection) ExitFrame() {
 	if len(c.stack) == 0 {
 		panic("trying to pop an empty argsStack")
 	}
+
 	c.stack = c.stack[:(len(c.stack) - 1)]
 	c.effectiveCache = nil
 }
@@ -469,13 +500,16 @@ func (c *Collection) StackString() string {
 	for i := len(c.stack) - 1; i >= 0; i-- {
 		activeNames := c.stack[i].args.Sorted(WithActive())
 		row := make([]string, 0, len(activeNames)+1)
+
 		row = append(row, c.stack[i].frameName)
 		for _, k := range activeNames {
 			v, _ := c.stack[i].overriding.Get(k)
 			row = append(row, fmt.Sprintf("--%s=%s", k, v))
 		}
+
 		builder = append(builder, strings.Join(row, " "))
 	}
+
 	return strings.Join(builder, "\ncalled from\t")
 }
 
@@ -504,5 +538,6 @@ func (c *Collection) effective() *Scope {
 	if c.effectiveCache == nil {
 		c.effectiveCache = CombineScopes(c.vars(), c.overriding(), c.builtin, c.args(), c.envs, c.globals())
 	}
+
 	return c.effectiveCache
 }

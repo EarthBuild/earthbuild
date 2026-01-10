@@ -45,15 +45,18 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 	if opt.Platform != nil {
 		platformStr = platforms.Format(*opt.Platform)
 	}
+
 	key := cachedMetaResolverKey{
 		ref:      ref,
 		platform: platformStr,
 	}
+
 	value, err := cmr.cache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		ref, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, ref, opt)
 		if err != nil {
 			return nil, err
 		}
+
 		return cachedMetaResolverEntry{
 			ref:    ref,
 			dgst:   dgst,
@@ -63,6 +66,8 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 	if err != nil {
 		return "", "", nil, err
 	}
+
 	entry := value.(cachedMetaResolverEntry)
+
 	return entry.ref, entry.dgst, entry.config, nil
 }

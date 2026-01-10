@@ -27,20 +27,25 @@ func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
 	if after, ok := strings.CutPrefix(ref.GetName(), DockerfileMetaTarget); ok {
 		return filepath.Join(localDir, after), nil
 	}
+
 	earthfilePath := filepath.Join(localDir, "Earthfile")
+
 	_, err := os.Stat(earthfilePath)
 	if os.IsNotExist(err) {
 		buildEarthPath := filepath.Join(localDir, "build.earth")
+
 		_, err := os.Stat(buildEarthPath)
 		if os.IsNotExist(err) {
 			return "", ErrEarthfileNotExist{Target: ref.String()}
 		} else if err != nil {
 			return "", errors.Wrapf(err, "stat file %s", buildEarthPath)
 		}
+
 		return buildEarthPath, nil
 	} else if err != nil {
 		return "", errors.Wrapf(err, "stat file %s", earthfilePath)
 	}
+
 	return earthfilePath, nil
 }
 
@@ -50,27 +55,35 @@ func detectBuildFileInRef(
 	if after, ok := strings.CutPrefix(earthlyRef.GetName(), DockerfileMetaTarget); ok {
 		return filepath.Join(subDir, after), nil
 	}
+
 	earthfilePath := path.Join(subDir, "Earthfile")
+
 	exists, err := fileExists(ctx, ref, earthfilePath)
 	if err != nil {
 		return "", err
 	}
+
 	if exists {
 		return earthfilePath, nil
 	}
+
 	buildEarthPath := path.Join(subDir, "build.earth")
+
 	exists, err = fileExists(ctx, ref, buildEarthPath)
 	if err != nil {
 		return "", err
 	}
+
 	if exists {
 		return buildEarthPath, nil
 	}
+
 	return "", ErrEarthfileNotExist{Target: earthlyRef.String()}
 }
 
 func fileExists(ctx context.Context, ref gwclient.Reference, fpath string) (bool, error) {
 	dir, file := path.Split(fpath)
+
 	fstats, err := ref.ReadDir(ctx, gwclient.ReadDirRequest{
 		Path:           dir,
 		IncludePattern: file,
@@ -78,11 +91,13 @@ func fileExists(ctx context.Context, ref gwclient.Reference, fpath string) (bool
 	if err != nil {
 		return false, errors.Wrapf(err, "cannot read dir %s", dir)
 	}
+
 	for _, fstat := range fstats {
 		name := path.Base(fstat.GetPath())
 		if name == file && !fstat.IsDir() {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }

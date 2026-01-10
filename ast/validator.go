@@ -56,12 +56,16 @@ func getValidVersionsFormatted() string {
 	if validEarthfileVersions[0] != "0.0" {
 		panic("validEarthfileVersions should start with 0.0")
 	}
+
 	var sb strings.Builder
+
 	latestIndex := len(validEarthfileVersions) - 1
 	for i := 1; i < latestIndex; i++ {
 		sb.WriteString(validEarthfileVersions[i] + ", ")
 	}
+
 	sb.WriteString("or " + validEarthfileVersions[latestIndex])
+
 	return sb.String()
 }
 
@@ -94,6 +98,7 @@ func validVersion(ef spec.Earthfile) []error {
 
 func noTargetsWithSameName(ef spec.Earthfile) []error {
 	var errs []error
+
 	seenTargets := map[string]struct{}{}
 
 	for _, t := range ef.Targets {

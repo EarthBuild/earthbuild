@@ -61,7 +61,6 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl
-    - wsl_v5
   exclusions:
     generated: lax
 formatters:

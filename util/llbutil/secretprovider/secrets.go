@@ -38,8 +38,10 @@ func (sp *secretProvider) GetSecret(
 			if errors.Is(err, secrets.ErrNotFound) {
 				continue
 			}
+
 			return nil, err
 		}
+
 		return &secrets.GetSecretResponse{
 			Data: data,
 		}, nil

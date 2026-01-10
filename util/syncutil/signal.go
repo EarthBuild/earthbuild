@@ -15,6 +15,7 @@ type Signal struct {
 func (s *Signal) Set(v os.Signal) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.signal = v
 }
 
@@ -22,5 +23,6 @@ func (s *Signal) Set(v os.Signal) {
 func (s *Signal) Get() os.Signal {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.signal
 }

@@ -17,6 +17,7 @@ import (
 func getConsts() (map[string]string, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	namesPath := path.Join(path.Dir(filename), "names.go")
+
 	namesSrc, err := os.ReadFile(namesPath) // #nosec G304
 	if err != nil {
 		return nil, err
@@ -30,16 +31,20 @@ func getConsts() (map[string]string, error) {
 	}
 
 	consts := map[string]string{}
+
 	for name, obj := range f.Scope.Objects {
 		if obj.Kind == ast.Con {
 			val := obj.Decl.(*ast.ValueSpec).Values[0].(*ast.BasicLit).Value
+
 			parsedVal, ok := trimDoubleQuotes(val)
 			if !ok {
 				return nil, fmt.Errorf("failed to parse %s", val)
 			}
+
 			consts[name] = parsedVal
 		}
 	}
+
 	return consts, nil
 }
 
@@ -54,9 +59,11 @@ func trimDoubleQuotes(s string) (string, bool) {
 	if n < 2 {
 		return "", false
 	}
+
 	if s[0] != '"' || s[n-1] != '"' {
 		return "", false
 	}
+
 	return s[1:(n - 1)], true
 }
 

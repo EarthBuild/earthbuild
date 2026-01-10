@@ -56,9 +56,11 @@ func (ie InterpreterError) Error() string {
 	} else {
 		err = errors.New(ie.text)
 	}
+
 	if ie.SourceLocation == nil {
 		return err.Error()
 	}
+
 	ret := fmt.Sprintf(
 		"%s:%d:%d %s",
 		ie.SourceLocation.File, ie.SourceLocation.StartLine, ie.SourceLocation.StartColumn,
@@ -66,6 +68,7 @@ func (ie InterpreterError) Error() string {
 	if ie.stack != "" {
 		ret = fmt.Sprintf("%s\nin\t\t%s", ret, ie.stack)
 	}
+
 	return ret
 }
 
@@ -89,14 +92,17 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 	if err == nil {
 		return nil, false
 	}
+
 	ie, ok := err.(*InterpreterError)
 	if ok {
 		return ie, true
 	}
+
 	unwrapped := errors.Unwrap(err)
 	if unwrapped != nil {
 		return GetInterpreterError(unwrapped)
 	}
+
 	return nil, false
 }
 
@@ -105,24 +111,30 @@ func FromError(err error) (*InterpreterError, bool) {
 	if err == nil {
 		return nil, false
 	}
+
 	matches, _ := stringutil.NamedGroupMatches(err.Error(), regex)
 	if len(matches) != 4 && len(matches) != 5 {
 		return nil, false
 	}
+
 	for k := range matches {
 		if k != "stack" && len(matches[k]) != 1 {
 			return nil, false
 		}
 	}
+
 	filePath := matches["file_path"][0]
+
 	line, err := strconv.Atoi(matches["line"][0])
 	if err != nil {
 		return nil, false
 	}
+
 	column, err := strconv.Atoi(matches["column"][0])
 	if err != nil {
 		return nil, false
 	}
+
 	errMsg := matches["error"][0]
 
 	stack := ""

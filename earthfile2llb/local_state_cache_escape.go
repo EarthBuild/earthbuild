@@ -37,14 +37,17 @@ func quoteMeta(s string) string {
 
 	b := make([]byte, 2*len(s)-i)
 	copy(b, s[:i])
+
 	j := i
 	for ; i < len(s); i++ {
 		if special(s[i]) {
 			b[j] = '\\'
 			j++
 		}
+
 		b[j] = s[i]
 		j++
 	}
+
 	return string(b[:j])
 }

@@ -16,10 +16,12 @@ func GetNativePlatform(gwClient gwclient.Client) (specs.Platform, error) {
 	if len(ws) == 0 {
 		return specs.Platform{}, errors.New("no worker found via gwclient")
 	}
+
 	nps := ws[0].Platforms
 	if len(nps) == 0 {
 		return specs.Platform{}, errors.New("no platform found for worker via gwclient")
 	}
+
 	return platforms.Normalize(nps[0]), nil
 }
 
@@ -29,12 +31,15 @@ func GetNativePlatformViaBkClient(ctx context.Context, bkClient *client.Client) 
 	if err != nil {
 		return specs.Platform{}, errors.Wrap(err, "failed to list workers")
 	}
+
 	if len(ws) == 0 {
 		return specs.Platform{}, errors.New("no worker found via bkClient")
 	}
+
 	nps := ws[0].Platforms
 	if len(nps) == 0 {
 		return specs.Platform{}, errors.New("no platform found for worker via bkClient")
 	}
+
 	return platforms.Normalize(nps[0]), nil
 }

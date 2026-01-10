@@ -26,8 +26,10 @@ func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
 		if supportedRemoteTarget(t) {
 			h := hasher.New()
 			h.HashString(t.StringCanonical())
+
 			return h.GetHash(), Stats{}, nil
 		}
+
 		return nil, Stats{}, errInvalidRemoteTarget
 	}
 

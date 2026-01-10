@@ -44,8 +44,10 @@ func TestParseGitRemoteURL(t *testing.T) {
 			if err == nil {
 				t.Errorf("expected error did not occur")
 			}
+
 			continue
 		}
+
 		NoError(t, err, "ParseGitRemoteURL failed")
 		Equal(t, test.expectedGitURL, gitURL)
 	}

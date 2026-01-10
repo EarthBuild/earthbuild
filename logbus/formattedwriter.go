@@ -37,5 +37,6 @@ func (w *FormattedWriter) Write(dt []byte) (int, error) {
 		TimestampUnixNanos: now,
 		Data:               dt,
 	})
+
 	return len(dt), nil
 }

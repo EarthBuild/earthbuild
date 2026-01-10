@@ -92,6 +92,7 @@ func New(
 	if mu == nil {
 		mu = &sync.Mutex{}
 	}
+
 	return ConsoleLogger{
 		consoleErrW:       w,
 		errW:              w,
@@ -135,11 +136,13 @@ func (cl ConsoleLogger) WithPrefix(prefix string) ConsoleLogger {
 func (cl ConsoleLogger) WithPrefixAndSalt(prefix string, salt string) ConsoleLogger {
 	ret := cl.clone()
 	ret.prefix = prefix
+
 	ret.salt = salt
 	if ret.prefixWriter != nil {
 		ret.prefixWriter = ret.prefixWriter.WithPrefix(prefix)
 		ret.errW = ret.prefixWriter
 	}
+
 	return ret
 }
 
@@ -147,6 +150,7 @@ func (cl ConsoleLogger) WithPrefixAndSalt(prefix string, salt string) ConsoleLog
 func (cl ConsoleLogger) WithMetadataMode(metadataMode bool) ConsoleLogger {
 	ret := cl.clone()
 	ret.metadataMode = metadataMode
+
 	return ret
 }
 
@@ -154,6 +158,7 @@ func (cl ConsoleLogger) WithMetadataMode(metadataMode bool) ConsoleLogger {
 func (cl ConsoleLogger) WithLocal(isLocal bool) ConsoleLogger {
 	ret := cl.clone()
 	ret.isLocal = isLocal
+
 	return ret
 }
 
@@ -171,6 +176,7 @@ func (cl ConsoleLogger) Salt() string {
 func (cl ConsoleLogger) WithCached(isCached bool) ConsoleLogger {
 	ret := cl.clone()
 	ret.isCached = isCached
+
 	return ret
 }
 
@@ -178,6 +184,7 @@ func (cl ConsoleLogger) WithCached(isCached bool) ConsoleLogger {
 func (cl ConsoleLogger) WithFailed(isFailed bool) ConsoleLogger {
 	ret := cl.clone()
 	ret.isFailed = isFailed
+
 	return ret
 }
 
@@ -185,6 +192,7 @@ func (cl ConsoleLogger) WithFailed(isFailed bool) ConsoleLogger {
 func (cl ConsoleLogger) WithWriter(w io.Writer) ConsoleLogger {
 	ret := cl.clone()
 	ret.errW = w
+
 	return ret
 }
 
@@ -193,18 +201,23 @@ func (cl ConsoleLogger) WithPrefixWriter(w PrefixWriter) ConsoleLogger {
 	ret := cl.clone()
 	ret.prefixWriter = w
 	ret.errW = w
+
 	return ret
 }
 
 // PrintPhaseHeader prints the phase header.
 func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special string) {
 	w := new(bytes.Buffer)
+
 	cl.mu.Lock()
+
 	defer func() {
 		_, _ = w.WriteTo(cl.errW)
 		cl.mu.Unlock()
 	}()
+
 	msg := phase
+
 	c := cl.color(phaseColor)
 	if disabled {
 		c = cl.color(disabledPhaseColor)
@@ -213,6 +226,7 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 		c = cl.color(specialPhaseColor)
 		msg += " (" + special + ")"
 	}
+
 	underlineLength := max(utf8.RuneCountInString(msg)+2, barWidth)
 	cl.printGithubActionsControl(groupCommand, msg)
 	c.Fprintf(w, " %s", msg) // #nosec G104
@@ -224,11 +238,14 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 // PrintPhaseFooter prints the phase footer.
 func (cl ConsoleLogger) PrintPhaseFooter(phase string, disabled bool, special string) {
 	w := new(bytes.Buffer)
+
 	cl.mu.Lock()
+
 	defer func() {
 		_, _ = w.WriteTo(cl.errW)
 		cl.mu.Unlock()
 	}()
+
 	c := cl.color(noColor)
 	cl.printGithubActionsControl(endGroupCommand, phase)
 	c.Fprintf(w, "\n") // #nosec G104
@@ -252,6 +269,7 @@ func (cl ConsoleLogger) PrefixColor() *color.Color {
 		cl.saltColors[cl.salt] = c
 		*cl.nextColorIndex = (*cl.nextColorIndex + 1) % len(availablePrefixColors)
 	}
+
 	return cl.color(c)
 }
 
@@ -264,17 +282,22 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 	path := os.Getenv("GITHUB_STEP_SUMMARY")
 	if path == "" {
 		w := new(bytes.Buffer)
+
 		defer func() {
 			_, _ = w.WriteTo(cl.errW)
 		}()
+
 		fmt.Print(w, message)
+
 		return
 	}
+
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // #nosec G302, G304
 	if err != nil {
 		return
 	}
 	defer file.Close()
+
 	_, _ = file.WriteString(message + "\n")
 }
 
@@ -307,6 +330,7 @@ func WithGHASourceLocation(file string, line, col int32) GHAErrorOpt {
 func (cl *ConsoleLogger) PrintGHAError(message string, fns ...GHAErrorOpt) {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
+
 	ge := GHAError{
 		message: message,
 	}
@@ -332,6 +356,7 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string
 	}
 	// Assumes mu locked.
 	w := new(bytes.Buffer)
+
 	defer func() {
 		_, _ = w.WriteTo(cl.errW)
 	}()
@@ -339,6 +364,7 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string
 	if !strings.HasSuffix(format, "\n") {
 		format += "\n"
 	}
+
 	fullFormat := string(header) + " " + format
 
 	fmt.Fprintf(w, fullFormat, a...)
@@ -347,21 +373,27 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string
 // PrintBar prints an earthly message bar.
 func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	w := new(bytes.Buffer)
+
 	cl.mu.Lock()
+
 	defer func() {
 		_, _ = w.WriteTo(cl.errW)
 		cl.mu.Unlock()
 	}()
+
 	c = cl.color(c)
+
 	center := msg
 	if phase != "" {
 		center = fmt.Sprintf("%s [%s]", msg, phase)
 	}
+
 	center = fmt.Sprintf(" %s ", center)
 
 	sideWidth := max((barWidth-utf8.RuneCountInString(center))/2, 0)
 	eqBar := strings.Repeat("=", sideWidth)
 	leftBar := eqBar
+
 	rightBar := eqBar
 	if utf8.RuneCountInString(center)%2 == 1 && sideWidth > 0 {
 		// Ensure the width is always barWidth
@@ -389,6 +421,7 @@ func (cl ConsoleLogger) VerboseWarn(msg string) {
 	if cl.logLevel < Verbose {
 		return
 	}
+
 	cl.Warn(msg)
 }
 
@@ -413,6 +446,7 @@ func (cl ConsoleLogger) Print(msg string) {
 	if cl.metadataMode {
 		c = cl.color(metadataModeColor)
 	}
+
 	cl.ColorPrint(c, msg)
 }
 
@@ -425,8 +459,11 @@ func (cl ConsoleLogger) colorPrint(level LogLevel, c *color.Color, msg string) {
 	if cl.logLevel < level {
 		return
 	}
+
 	w := new(bytes.Buffer)
+
 	cl.mu.Lock()
+
 	defer func() {
 		_, _ = w.WriteTo(cl.errW)
 		cl.mu.Unlock()
@@ -457,10 +494,12 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 	w := new(bytes.Buffer)
 	w.Grow(len(data) + len(data)/4)
 	cl.mu.Lock()
+
 	defer func() {
 		_, _ = w.WriteTo(cl.errW)
 		cl.mu.Unlock()
 	}()
+
 	c := cl.color(noColor)
 	if cl.metadataMode {
 		c = cl.color(metadataModeColor)
@@ -471,6 +510,7 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 		r, size := utf8.DecodeRune(data)
 		ch := data[:size]
 		data = data[size:]
+
 		switch r {
 		case '\r':
 			output = append(output, ch...)
@@ -484,12 +524,15 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 					c.Fprintf(w, "%s", string(output)) // #nosec G104
 					output = output[:0]
 				}
+
 				cl.printPrefix(w)
 				cl.trailingLine = true
 			}
+
 			output = append(output, ch...)
 		}
 	}
+
 	if len(output) > 0 {
 		c.Fprintf(w, "%s", string(output)) // #nosec G104
 		// output = output[:0] // needed if output is used further in the future
@@ -501,6 +544,7 @@ func (cl ConsoleLogger) VerbosePrint(msg string) {
 	if cl.logLevel < Verbose {
 		return
 	}
+
 	cl.WithMetadataMode(true).Print(msg)
 }
 
@@ -514,6 +558,7 @@ func (cl ConsoleLogger) VerboseBytes(data []byte) {
 	if cl.logLevel < Verbose {
 		return
 	}
+
 	cl.WithMetadataMode(true).PrintBytes(data)
 }
 
@@ -522,6 +567,7 @@ func (cl ConsoleLogger) DebugPrintf(format string, args ...any) {
 	if cl.logLevel < Debug {
 		return
 	}
+
 	cl.WithMetadataMode(true).Printf(format, args...)
 }
 
@@ -530,6 +576,7 @@ func (cl ConsoleLogger) DebugBytes(data []byte) {
 	if cl.logLevel < Debug {
 		return
 	}
+
 	cl.WithMetadataMode(true).PrintBytes(data)
 }
 
@@ -539,22 +586,28 @@ func (cl ConsoleLogger) printPrefix(w io.Writer) {
 		// When the prefix writer is in use, we don't need to print the prefix.
 		return
 	}
+
 	if cl.prefix == "" {
 		return
 	}
+
 	c := cl.PrefixColor()
 	c.Fprintf(w, "%s", prettyPrefix(cl.prefixPadding, cl.prefix)) // #nosec G104
+
 	if cl.isLocal {
 		fmt.Fprintf(w, " *")
 		cl.color(localColor).Fprintf(w, "local") // #nosec G104
 		fmt.Fprintf(w, "*")
 	}
+
 	if cl.isFailed {
 		fmt.Fprintf(w, " *")
 		cl.color(warnColor).Fprintf(w, "failed") // #nosec G104
 		fmt.Fprintf(w, "*")
 	}
+
 	fmt.Fprintf(w, " | ")
+
 	if cl.isCached {
 		fmt.Fprintf(w, "*")
 		cl.color(cachedColor).Fprintf(w, "cached") // #nosec G104
@@ -572,8 +625,10 @@ func (cl ConsoleLogger) color(c *color.Color) *color.Color {
 		if color.NoColor {
 			return noColor
 		}
+
 		return c
 	}
+
 	return noColor
 }
 
@@ -585,5 +640,6 @@ func prettyPrefix(prefixPadding int, prefix string) string {
 func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 	ret := cl.clone()
 	ret.logLevel = logLevel
+
 	return ret
 }

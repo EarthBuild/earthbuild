@@ -49,12 +49,15 @@ func (gc *GatewayCrafter) AddPushImageEntry(
 	gc.AddRef(refKey, ref)
 
 	gc.AddMeta(refPrefix+"/image.name", []byte(imageName))
+
 	if shouldPush {
 		gc.AddMeta(refPrefix+"/export-image-push", []byte("true"))
+
 		if insecurePush {
 			gc.AddMeta(refPrefix+"/insecure-push", []byte("true"))
 		}
 	}
+
 	gc.AddMeta(refPrefix+"/"+exptypes.ExporterImageConfigKey, config)
 
 	if platformStr != nil {
@@ -74,11 +77,13 @@ func (gc *GatewayCrafter) AddSaveArtifactLocal(
 	gc.AddRef(refKey, ref)
 
 	dirID := stringutil.RandomAlphanumeric(32)
+
 	gc.AddMeta(refPrefix+"/artifact", []byte(artifact))
 	gc.AddMeta(refPrefix+"/src-path", []byte(srcPath))
 	gc.AddMeta(refPrefix+"/dest-path", []byte(destPath))
 	gc.AddMeta(refPrefix+"/export-dir", []byte("true"))
 	gc.AddMeta(refPrefix+"/dir-id", []byte(dirID))
+
 	return dirID, nil
 }
 
@@ -87,6 +92,7 @@ func (gc *GatewayCrafter) AddSaveArtifactLocal(
 // all SAVE IMAGE logic is triggered via the WAIT/END PopWaitBlock() function.
 func (gc *GatewayCrafter) AddRef(k string, ref gwclient.Reference) {
 	gc.assertNotDone()
+
 	if ref != nil {
 		gc.res.AddRef(k, ref)
 	}
@@ -104,6 +110,7 @@ func (gc *GatewayCrafter) AddMeta(k string, v []byte) {
 func (gc *GatewayCrafter) GetRefsAndMetadata() (map[string]gwclient.Reference, map[string][]byte) {
 	gc.assertNotDone()
 	gc.done = true
+
 	return gc.res.Refs, gc.res.Metadata
 }
 
@@ -111,6 +118,7 @@ func (gc *GatewayCrafter) GetRefsAndMetadata() (map[string]gwclient.Reference, m
 func (gc *GatewayCrafter) GetResult() *gwclient.Result {
 	gc.assertNotDone()
 	gc.done = true
+
 	return gc.res
 }
 

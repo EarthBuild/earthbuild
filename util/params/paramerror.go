@@ -28,6 +28,7 @@ func (e *Error) Error() string {
 	if e.cause != nil {
 		return fmt.Errorf("%s: %w", e.msg, e.cause).Error()
 	}
+
 	return e.msg
 }
 

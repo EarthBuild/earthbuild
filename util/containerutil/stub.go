@@ -24,6 +24,7 @@ func NewStubFrontend(ctx context.Context, cfg *FrontendConfig) (ContainerFronten
 	}
 
 	var err error
+
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendStub, cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to calculate buildkit URLs")

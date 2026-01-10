@@ -49,6 +49,7 @@ test:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			namedReader := namedStringReader{strings.NewReader(test.earthfile)}
 			_, err := ast.ParseOpts(ast.FromReader(&namedReader))
 			r := require.New(t)

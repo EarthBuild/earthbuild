@@ -37,6 +37,7 @@ func newRun(b *Bus) *Run {
 		hasMainTarget: false,
 	}
 	run.generic = newGeneric(run)
+
 	return run
 }
 
@@ -55,16 +56,20 @@ func (run *Run) NewTarget(
 ) (*Target, error) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	mainTargetID := ""
+
 	if !run.hasMainTarget {
 		// The first target is deemed as the main target.
 		run.hasMainTarget = true
 		mainTargetID = targetID
 	}
+
 	_, ok := run.targets[targetID]
 	if ok {
 		return nil, errors.New("target printer already exists")
 	}
+
 	run.buildDelta(&logstream.DeltaManifest_FieldsDelta{
 		MainTargetId: mainTargetID,
 		Targets: map[string]*logstream.DeltaTargetManifest{
@@ -83,6 +88,7 @@ func (run *Run) NewTarget(
 	})
 	t := newTarget(run.b, targetID)
 	run.targets[targetID] = t
+
 	return t, nil
 }
 
@@ -90,7 +96,9 @@ func (run *Run) NewTarget(
 func (run *Run) Target(targetID string) (*Target, bool) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	target, ok := run.targets[targetID]
+
 	return target, ok
 }
 
@@ -103,10 +111,12 @@ func (run *Run) NewCommand(
 ) (*Command, error) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	_, ok := run.commands[commandID]
 	if ok {
 		return nil, errors.New("command printer already exists")
 	}
+
 	sl := sourceLocationToProto(repoURL, repoHash, fileRelToRepo, sourceLocation)
 	run.buildDelta(&logstream.DeltaManifest_FieldsDelta{
 		Commands: map[string]*logstream.DeltaCommandManifest{
@@ -128,6 +138,7 @@ func (run *Run) NewCommand(
 	})
 	cp := newCommand(run.b, commandID, targetID)
 	run.commands[commandID] = cp
+
 	return cp, nil
 }
 
@@ -135,7 +146,9 @@ func (run *Run) NewCommand(
 func (run *Run) Command(commandID string) (*Command, bool) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	cp, ok := run.commands[commandID]
+
 	return cp, ok
 }
 
@@ -143,6 +156,7 @@ func (run *Run) Command(commandID string) (*Command, bool) {
 func (run *Run) SetStart(start time.Time) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	run.buildDelta(&logstream.DeltaManifest_FieldsDelta{
 		Status:             logstream.RunStatus_RUN_STATUS_IN_PROGRESS,
 		StartedAtUnixNanos: run.b.TsUnixNanos(start),
@@ -155,17 +169,22 @@ func (run *Run) SetFatalError(
 ) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	if run.ended {
 		return
 	}
+
 	run.ended = true
+
 	var tailOutput []byte
+
 	if commandID != "" {
 		cp, ok := run.commands[commandID]
 		if ok {
 			tailOutput = cp.TailOutput()
 		}
 	}
+
 	run.buildDelta(&logstream.DeltaManifest_FieldsDelta{
 		Status:           logstream.RunStatus_RUN_STATUS_FAILURE,
 		EndedAtUnixNanos: run.b.TsUnixNanos(end),
@@ -191,9 +210,11 @@ func (run *Run) SetGenericFatalError(end time.Time, failureType logstream.Failur
 func (run *Run) SetEnd(end time.Time, status logstream.RunStatus) {
 	run.mu.Lock()
 	defer run.mu.Unlock()
+
 	if run.ended {
 		return
 	}
+
 	run.ended = true
 	run.buildDelta(&logstream.DeltaManifest_FieldsDelta{
 		Status:           status,
@@ -215,6 +236,7 @@ func gitSSHToURL(repoURL string) string {
 	repoURL = sshUserRE.ReplaceAllString(repoURL, "")
 	repoURL = strings.TrimSuffix(repoURL, ".git")
 	parts := strings.Split(repoURL, ":")
+
 	return "https://" + strings.Join(parts, "/")
 }
 
@@ -222,6 +244,7 @@ func sourceLocationToProto(repoURL, repoHash, fileRelToRepo string, sl *spec.Sou
 	if sl == nil {
 		return nil
 	}
+
 	file := fileRelToRepo
 	if fileRelToRepo == "" && repoURL == "" {
 		file = sl.File
@@ -231,6 +254,7 @@ func sourceLocationToProto(repoURL, repoHash, fileRelToRepo string, sl *spec.Sou
 	if sshutil.IsImplicitSSHTransport(repoURL) {
 		repoURL = gitSSHToURL(repoURL)
 	}
+
 	return &logstream.SourceLocation{
 		RepositoryUrl:  repoURL,
 		RepositoryHash: repoHash,

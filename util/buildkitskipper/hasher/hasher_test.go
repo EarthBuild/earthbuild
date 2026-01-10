@@ -39,6 +39,7 @@ func TestHashEmptyFile(t *testing.T) {
 	h := hasher.New()
 	err = h.HashFile(context.Background(), file.Name())
 	NoError(t, err)
+
 	hash := h.GetHash()
 	NotNil(t, hash)
 	NotEqual(t, hash, emptyHash)
@@ -56,10 +57,12 @@ func TestHashFile(t *testing.T) {
 	if err != nil {
 		NoError(t, err)
 	}
+
 	_, err = f.WriteString("hello")
 	if err != nil {
 		NoError(t, err)
 	}
+
 	err = f.Close()
 	if err != nil {
 		NoError(t, err)
@@ -68,6 +71,7 @@ func TestHashFile(t *testing.T) {
 	h := hasher.New()
 	err = h.HashFile(context.Background(), file.Name())
 	NoError(t, err)
+
 	hash := h.GetHash()
 	NotNil(t, hash)
 	NotEqual(t, hash, emptyHash)

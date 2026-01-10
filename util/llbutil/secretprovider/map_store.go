@@ -25,9 +25,11 @@ func (m mapStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 	if q.Get("name") == "" {
 		return nil, errors.New("name parameter not found")
 	}
+
 	v, ok := m[q.Get("name")]
 	if !ok {
 		return nil, secrets.ErrNotFound
 	}
+
 	return v, nil
 }

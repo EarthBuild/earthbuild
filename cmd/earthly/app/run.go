@@ -70,7 +70,9 @@ func (app *EarthlyApp) unhideFlags() error {
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
 		app.BaseCLI.Console().Warn("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
 	}
+
 	showHidden := false
+
 	showHiddenStr := os.Getenv("EARTHLY_SHOW_HIDDEN")
 	if showHiddenStr != "" {
 		showHidden, err = strconv.ParseBool(showHiddenStr)
@@ -78,6 +80,7 @@ func (app *EarthlyApp) unhideFlags() error {
 			return err
 		}
 	}
+
 	if !showHidden {
 		return nil
 	}
@@ -94,9 +97,11 @@ func (app *EarthlyApp) unhideFlags() error {
 func unhideFlagsCommands(cmds []*cli.Command) {
 	for _, cmd := range cmds {
 		reflectutil.SetBool(cmd, "Hidden", false)
+
 		for _, flg := range cmd.Flags {
 			reflectutil.SetBool(flg, "Hidden", false)
 		}
+
 		unhideFlagsCommands(cmd.Subcommands)
 	}
 }
@@ -108,6 +113,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v", err)
 			}
+
 			if app.BaseCLI.Flags().LogstreamDebugManifestFile != "" {
 				err := app.BaseCLI.LogbusSetup().DumpManifestToFile(app.BaseCLI.Flags().LogstreamDebugManifestFile)
 				if err != nil {
@@ -117,6 +123,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 		}
 	}()
 	defer app.BaseCLI.ExecuteDeferredFuncs()
+
 	app.BaseCLI.Logbus().Run().SetStart(time.Now())
 
 	defer func() {
@@ -135,23 +142,28 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 	}
 
 	app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS)
+
 	return 0
 }
 
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
+
 	if app.BaseCLI.Flags().Debug {
 		// Get the stack trace from the deepest error that has it and print it.
 		type stackTracer interface {
 			StackTrace() errors.StackTrace
 		}
+
 		errChain := []error{}
 		for it := err; it != nil; it = errors.Unwrap(it) {
 			errChain = append(errChain, it)
 		}
+
 		for index := len(errChain) - 1; index > 0; index-- {
 			it := errChain[index]
+
 			errWithStack, ok := it.(stackTracer)
 			if ok {
 				app.BaseCLI.Console().Warnf("Error stack trace:%+v\n", errWithStack.StackTrace())
@@ -162,8 +174,12 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 
 	grpcErr, grpcErrOK := grpcerrors.AsGRPCStatus(err)
 	hintErr, hintErrOK := getHintErr(err, grpcErr)
-	var paramsErr *params.Error
-	var autoSkipErr *inputgraph.Error
+
+	var (
+		paramsErr   *params.Error
+		autoSkipErr *inputgraph.Error
+	)
+
 	switch {
 	case hintErrOK:
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -173,6 +189,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			hintErr.Message(),
 		)
 		app.BaseCLI.Console().HelpPrint(hintErr.Hint())
+
 		return 1
 	case errors.As(err, &autoSkipErr):
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -181,6 +198,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			inputgraph.FormatError(err),
 		)
+
 		return 1
 	case errors.As(err, &paramsErr):
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -189,12 +207,15 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			paramsErr.ParentError(),
 		)
+
 		if paramsErr.Error() != paramsErr.ParentError() {
 			app.BaseCLI.Console().VerboseWarn(errorWithPrefix(paramsErr.Error()))
 		}
+
 		return 1
 	case qemuExitCodeRegex.MatchString(err.Error()):
 		var helpMsg string
+
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
 			"For more information see https://docs.earthly.dev/guides/multi-platform\n"
 		app.BaseCLI.Console().HelpPrint(helpMsg)
@@ -204,9 +225,11 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			helpMsg,
 			err.Error(),
 		)
+
 		return 255
 	case runExitCodeRegex.MatchString(err.Error()):
 		var helpMsg string
+
 		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
 			args = append([]string{args[0], "-i"}, args[1:]...)
 			args = redactSecretsFromArgs(args)
@@ -223,6 +246,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			helpMsg,
 			err.Error(),
 		)
+
 		return 1
 	case strings.Contains(err.Error(), "security.insecure is not allowed"):
 		helpMsg := "earthly --allow-privileged (earthly -P) flag is required\n"
@@ -233,6 +257,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			err.Error(),
 		)
 		app.BaseCLI.Console().HelpPrint(helpMsg)
+
 		return 9
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
 		helpMsg := "Check your git auth settings.\n" +
@@ -244,28 +269,34 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			helpMsg,
 			err.Error(),
 		)
+
 		gitStdErr, shorterErr, ok := errutil.ExtractEarthlyGitStdErr(err.Error())
 		if ok {
 			app.BaseCLI.Console().VerboseWarnf("Error: %v\n\n%s\n", shorterErr, gitStdErr)
 		} else {
 			app.BaseCLI.Console().VerboseWarnf("Error: %v\n", err.Error())
 		}
+
 		app.BaseCLI.Console().HelpPrint(helpMsg)
+
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
 		matches := notFoundRegex.FindStringSubmatch(err.Error())
+
 		var msg string
 		if len(matches) == 2 {
 			msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
 		} else {
 			msg = fmt.Sprintf("File not found: %s\n", err.Error())
 		}
+
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND,
 			"",
 			msg,
 		)
+
 		return 1
 	case strings.Contains(err.Error(), "429 Too Many Requests"):
 		var registryName, registryHost string
@@ -275,6 +306,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			registryName = "The remote registry"
 			registryHost = " <server>" // keep the leading space
 		}
+
 		helpMsg := fmt.Sprintf("%s responded with a rate limit error. This is usually because you are not logged in.\n"+
 			"You can login using the command:\n"+
 			"  docker login%s", registryName, registryHost)
@@ -285,26 +317,33 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			helpMsg,
 			err.Error(),
 		)
+
 		return 1
 	case grpcErrOK && grpcErr.Code() == codes.PermissionDenied && requestIDRegex.MatchString(grpcErr.Message()):
 		errorMsg := grpcErr.Message()
+
 		matches, _ := stringutil.NamedGroupMatches(errorMsg, requestIDRegex)
 		if len(matches["msg"]) > 0 {
 			errorMsg = matches["msg"][0]
 		}
+
 		app.BaseCLI.Console().VerboseWarn(err.Error())
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
+
 		return 1
 	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
 		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
+
 		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. " +
 			"Verify your account to lift this restriction."
 		app.BaseCLI.Logbus().Run().
 			SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
 		app.BaseCLI.Console().HelpPrint(helpMsg)
+
 		return 1
 	case grpcErrOK && grpcErr.Code() != codes.Canceled:
 		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
+
 		if !strings.Contains(grpcErr.Message(), "transport is closing") {
 			app.BaseCLI.Logbus().Run().SetGenericFatalError(
 				time.Now(),
@@ -312,8 +351,10 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 				"",
 				grpcErr.Message(),
 			)
+
 			return 1
 		}
+
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_BUILDKIT_CRASHED,
@@ -323,9 +364,11 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
 		}
+
 		return 7
 	case errors.Is(err, buildkitd.ErrBuildkitCrashed):
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -337,9 +380,11 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
 		}
+
 		return 7
 	case errors.Is(err, buildkitd.ErrBuildkitConnectionFailure):
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -348,23 +393,28 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			err.Error(),
 		)
+
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.BaseCLI.Console().Warn(
 				"Error: It seems that buildkitd had an issue. " +
 					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
 			app.printCrashLogs(ctx)
 		}
+
 		return 6
 	case errors.Is(err, context.Canceled), grpcErrOK && grpcErr.Code() == codes.Canceled:
 		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
+
 		if app.BaseCLI.Flags().Verbose {
 			app.BaseCLI.Console().Warnf("Canceled: %v\n", err)
 		} else {
 			app.BaseCLI.Console().Warn("Canceled\n")
 		}
+
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)
 		}
+
 		return 2
 	case isInterpreterError:
 		if ie.TargetID == "" {
@@ -374,8 +424,10 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 				"",
 				ie.Error(),
 			)
+
 			return 1
 		}
+
 		app.BaseCLI.Logbus().Run().SetFatalError(
 			time.Now(),
 			ie.TargetID,
@@ -384,6 +436,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			ie.Error(),
 		)
+
 		return 1
 	default:
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -392,6 +445,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"",
 			err.Error(),
 		)
+
 		return 1
 	}
 }
@@ -428,28 +482,35 @@ func getHintErr(err error, grpcError *status.Status) (*hint.Error, bool) {
 	if res := new(hint.Error); errors.As(err, &res) {
 		return res, true
 	}
+
 	if grpcError != nil {
 		return hint.FromError(errors.New(grpcError.Message()))
 	}
+
 	return nil, false
 }
 
 func redactSecretsFromArgs(args []string) []string {
 	redacted := []string{}
+
 	isSecret := false
 	for _, arg := range args {
 		if isSecret {
 			isSecret = false
+
 			parts := strings.SplitN(arg, "=", 2)
 			if len(parts) > 1 {
 				redacted = append(redacted, parts[0]+"=XXXXX")
 				continue
 			}
 		}
+
 		if arg == "-s" || arg == "--secret" {
 			isSecret = true
 		}
+
 		redacted = append(redacted, arg)
 	}
+
 	return redacted
 }

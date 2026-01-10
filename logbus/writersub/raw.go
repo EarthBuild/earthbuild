@@ -30,18 +30,24 @@ func NewRaw(w io.Writer, json bool) *RawWriterSub {
 func (rws *RawWriterSub) Write(delta *logstream.Delta) {
 	rws.mu.Lock()
 	defer rws.mu.Unlock()
-	var dt []byte
-	var err error
+
+	var (
+		dt  []byte
+		err error
+	)
+
 	if rws.json {
 		dt, err = protojson.Marshal(delta)
 		dt = append(dt, '\n')
 	} else {
 		dt, err = proto.Marshal(delta)
 	}
+
 	if err != nil {
 		rws.errors = append(rws.errors, err)
 		return
 	}
+
 	_, err = rws.w.Write(dt)
 	if err != nil {
 		rws.errors = append(rws.errors, err)
@@ -53,5 +59,6 @@ func (rws *RawWriterSub) Write(delta *logstream.Delta) {
 func (rws *RawWriterSub) Errors() []error {
 	rws.mu.Lock()
 	defer rws.mu.Unlock()
+
 	return rws.errors
 }

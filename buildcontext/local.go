@@ -55,25 +55,30 @@ func (lr *localResolver) resolveLocal(
 				return nil, err
 			}
 		}
+
 		return metadata, nil
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	metadata := metadataValue.(*gitutil.GitMetadata)
 
 	localPath := filepath.FromSlash(ref.GetLocalPath())
 	key := localPath
+
 	isDockerfile := strings.HasPrefix(ref.GetName(), DockerfileMetaTarget)
 	if isDockerfile {
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.String()
 	}
+
 	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		buildFilePath, err := detectBuildFile(ref, localPath)
 		if err != nil {
 			return nil, err
 		}
+
 		var ftrs *features.Features
 		if isDockerfile {
 			ftrs = new(features.Features)
@@ -83,6 +88,7 @@ func (lr *localResolver) resolveLocal(
 				return nil, err
 			}
 		}
+
 		return &buildFile{
 			path: buildFilePath,
 			ftrs: ftrs,
@@ -91,6 +97,7 @@ func (lr *localResolver) resolveLocal(
 	if err != nil {
 		return nil, err
 	}
+
 	bf := buildFileValue.(*buildFile)
 
 	var buildContextFactory llbfactory.Factory
@@ -101,6 +108,7 @@ func (lr *localResolver) resolveLocal(
 			noImplicitIgnore := bf.ftrs != nil && bf.ftrs.NoImplicitIgnore
 
 			useDockerIgnore := isDockerfile
+
 			ftrs := features.FromContext(ctx)
 			if ftrs != nil {
 				useDockerIgnore = useDockerIgnore && ftrs.UseDockerIgnore
@@ -110,6 +118,7 @@ func (lr *localResolver) resolveLocal(
 			if err != nil {
 				return nil, err
 			}
+
 			buildContextFactory = llbfactory.Local(
 				ref.GetLocalPath(),
 				llb.ExcludePatterns(excludes),

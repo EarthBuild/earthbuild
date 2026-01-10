@@ -74,10 +74,12 @@ func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) 
 			strings.Join(params, " "),
 			dockerAutoInstallScriptPath),
 	}
+
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
 		return err
 	}
+
 	runOpts := []llb.RunOption{
 		llb.AddMount(
 			dockerAutoInstallScriptPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerAutoInstallScriptPath)),
@@ -85,6 +87,7 @@ func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) 
 		llb.WithCustomNamef("%sWITH DOCKER (install deps)", prefix),
 	}
 	w.c.mts.Final.MainState = w.c.mts.Final.MainState.Run(runOpts...).Root()
+
 	return nil
 }
 
@@ -98,14 +101,18 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 	if err != nil {
 		return nil, err
 	}
+
 	type composeService struct {
 		Image    string `yaml:"image"`
 		Platform string `yaml:"platform"`
 	}
+
 	type composeData struct {
 		Services map[string]composeService `yaml:"services"`
 	}
+
 	var config composeData
+
 	err = yaml.Unmarshal(composeConfigDt, &config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse compose config for %v", opt.ComposeFiles)
@@ -116,21 +123,27 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 	for _, composeService := range opt.ComposeServices {
 		composeServicesSet[composeService] = true
 	}
+
 	var pulls []DockerPullOpt
+
 	for serviceName, serviceInfo := range config.Services {
 		if serviceInfo.Image == "" {
 			// Image not specified in yaml.
 			continue
 		}
+
 		platform := w.c.platr.Current()
+
 		if serviceInfo.Platform != "" {
 			p, err := platforms.Parse(serviceInfo.Platform)
 			if err != nil {
 				return nil, errors.Wrapf(
 					err, "parse platform for image %s: %s", serviceInfo.Image, serviceInfo.Platform)
 			}
+
 			platform = platutil.FromLLBPlatform(p)
 		}
+
 		if len(opt.ComposeServices) > 0 {
 			if composeServicesSet[serviceName] {
 				pulls = append(pulls, DockerPullOpt{
@@ -146,6 +159,7 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 			})
 		}
 	}
+
 	return pulls, nil
 }
 
@@ -159,10 +173,12 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 			strings.Join(params, " "),
 			dockerdWrapperPath),
 	}
+
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
 		return nil, err
 	}
+
 	runOpts := []llb.RunOption{
 		llb.AddMount(
 			dockerdWrapperPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)),
@@ -170,18 +186,21 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		llb.WithCustomNamef("%sWITH DOCKER (docker-compose config)", prefix),
 	}
 	state := w.c.mts.Final.MainState.Run(runOpts...).Root()
+
 	ref, err := llbutil.StateToRef(
 		ctx, w.c.opt.GwClient, state, w.c.opt.NoCache,
 		w.c.platr, w.c.opt.CacheImports.AsSlice())
 	if err != nil {
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}
+
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
 		Filename: "/tmp/earthbuild/" + composeConfigFile,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "read compose config file")
 	}
+
 	return composeConfigDt, nil
 }
 
@@ -198,8 +217,10 @@ func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, o
 		fmt.Sprintf("EARTHLY_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
 	)
 	params = append(params, composeParams(opt)...)
+
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
 		envVars2 := append(params, envVars...) //nolint:gocritic
+
 		return []string{
 			"/bin/sh", "-c",
 			strWithEnvVarsAndDocker(args, envVars2, isWithShell, withDebugger, forceDebugger, true, false, "", ""),
@@ -219,6 +240,7 @@ func composeParams(opt WithDockerOpt) []string {
 func platformIncompatMsg(platr *platutil.Resolver) string {
 	currentPlatStr := platr.Materialize(platr.Current()).String()
 	nativePlatStr := platr.Materialize(platutil.NativePlatform).String()
+
 	return "running WITH DOCKER as a non-native CPU architecture. This is not supported.\n" +
 		fmt.Sprintf("Current platform: %s\n", currentPlatStr) +
 		fmt.Sprintf("Native platform of the worker: %s\n", nativePlatStr) +

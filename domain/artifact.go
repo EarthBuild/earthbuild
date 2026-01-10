@@ -35,19 +35,25 @@ func ParseArtifact(artifactName string) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
+
 	if len(parts) != 2 {
 		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
 	}
+
 	partsSlash := strings.SplitN(parts[1], "/", 2)
 	if len(partsSlash) != 2 {
 		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
 	}
+
 	earthTargetName := escapePlus(parts[0]) + "+" + partsSlash[0]
+
 	target, err := ParseTarget(earthTargetName)
 	if err != nil {
 		return Artifact{}, errors.Wrapf(err, "invalid artifact name %s", artifactName)
 	}
+
 	artifactPath := "/" + partsSlash[1]
+
 	return Artifact{
 		Target:   target,
 		Artifact: artifactPath,

@@ -51,7 +51,6 @@ linters:
     - noinlineerr
     - nonamedreturns
     - predeclared
-    - protogetter
     - recvcheck
     - revive
     - staticcheck

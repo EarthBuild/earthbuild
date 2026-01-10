@@ -276,7 +276,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	if cm != nil {
 		// commandStr building order in converter.internalRun means
 		// --raw-output is always first after run
-		rawOutput = strings.Contains(cm.Name, "RUN --raw-output")
+		rawOutput = strings.Contains(cm.GetName(), "RUN --raw-output")
 	}
 	c, verboseOnly := f.targetConsole(targetID, commandID, rawOutput)
 	if verboseOnly && !f.verbose {
@@ -290,7 +290,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 	output := dl.GetData()
 
-	if dl.Stream == BuildkitStatsStream {
+	if dl.GetStream() == BuildkitStatsStream {
 		var stats runc.Stats
 		err := json.Unmarshal(output, &stats)
 		if err != nil {
@@ -499,11 +499,12 @@ func (f *Formatter) printGHAFailure() {
 	singleLineMessage = stringutil.ScrubANSICodes(singleLineMessage)
 
 	// Print GHA Error with line info if available
-	if cm != nil && cm.SourceLocation != nil &&
-		cm.SourceLocation.File != "" && cm.SourceLocation.StartLine > 0 {
-		c.PrintGHAError(singleLineMessage, conslogging.WithGHASourceLocation(
-			cm.SourceLocation.File, cm.SourceLocation.StartLine, cm.SourceLocation.StartColumn,
-		))
+	sourceLocation := cm.GetSourceLocation()
+	file, startLine := sourceLocation.GetFile(), sourceLocation.GetStartLine()
+
+	if file != "" && startLine > 0 {
+		startColumn := sourceLocation.GetStartColumn()
+		c.PrintGHAError(singleLineMessage, conslogging.WithGHASourceLocation(file, startLine, startColumn))
 	} else {
 		c.PrintGHAError(singleLineMessage)
 	}

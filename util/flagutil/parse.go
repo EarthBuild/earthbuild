@@ -18,6 +18,7 @@ import (
 )
 
 // levenshteinDistance calculates the edit distance between two strings.
+// Uses O(min(m,n)) space by only keeping two rows of the DP matrix.
 func levenshteinDistance(s1, s2 string) int {
 	if len(s1) == 0 {
 		return len(s2)
@@ -26,30 +27,36 @@ func levenshteinDistance(s1, s2 string) int {
 		return len(s1)
 	}
 
-	// Create a 2D slice for dynamic programming
-	d := make([][]int, len(s1)+1)
-	for i := range d {
-		d[i] = make([]int, len(s2)+1)
-		d[i][0] = i
+	// Ensure s2 is the shorter string to minimize space usage
+	if len(s1) < len(s2) {
+		s1, s2 = s2, s1
 	}
-	for j := range d[0] {
-		d[0][j] = j
+
+	// Only need two rows: previous and current
+	prev := make([]int, len(s2)+1)
+	curr := make([]int, len(s2)+1)
+
+	// Initialize first row
+	for j := range prev {
+		prev[j] = j
 	}
 
 	for i := 1; i <= len(s1); i++ {
+		curr[0] = i
 		for j := 1; j <= len(s2); j++ {
 			cost := 1
 			if s1[i-1] == s2[j-1] {
 				cost = 0
 			}
-			d[i][j] = min(
-				d[i-1][j]+1,      // deletion
-				d[i][j-1]+1,      // insertion
-				d[i-1][j-1]+cost, // substitution
+			curr[j] = min(
+				prev[j]+1,      // deletion
+				curr[j-1]+1,    // insertion
+				prev[j-1]+cost, // substitution
 			)
 		}
+		prev, curr = curr, prev
 	}
-	return d[len(s1)][len(s2)]
+	return prev[len(s2)]
 }
 
 // extractFlagNames extracts all long flag names from a struct using reflection.

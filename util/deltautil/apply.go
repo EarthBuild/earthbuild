@@ -235,28 +235,38 @@ func setManifestFields(dm *pb.DeltaManifest, ret *pb.RunManifest) {
 }
 
 func ensureTargetExists(r *pb.RunManifest, targetID string) *pb.TargetManifest {
-	if r.Targets == nil {
-		r.Targets = make(map[string]*pb.TargetManifest)
+	targets := r.GetTargets()
+
+	if targets == nil {
+		t := &pb.TargetManifest{}
+		r.Targets = map[string]*pb.TargetManifest{targetID: t}
+
+		return t
 	}
 
-	t, ok := r.Targets[targetID]
+	t, ok := targets[targetID]
 	if !ok {
 		t = &pb.TargetManifest{}
-		r.Targets[targetID] = t
+		targets[targetID] = t
 	}
 
 	return t
 }
 
 func ensureCommandExists(r *pb.RunManifest, commandID string) *pb.CommandManifest {
-	if r.Commands == nil {
-		r.Commands = make(map[string]*pb.CommandManifest)
+	commands := r.GetCommands()
+
+	if commands == nil {
+		c := &pb.CommandManifest{}
+		r.Commands = map[string]*pb.CommandManifest{commandID: c}
+
+		return c
 	}
 
-	c, ok := r.Commands[commandID]
+	c, ok := commands[commandID]
 	if !ok {
 		c = &pb.CommandManifest{}
-		r.Commands[commandID] = c
+		commands[commandID] = c
 	}
 
 	return c

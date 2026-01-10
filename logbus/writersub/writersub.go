@@ -29,13 +29,13 @@ func (ws *WriterSub) Write(delta *logstream.Delta) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 
-	switch d := delta.DeltaTypeOneof.(type) {
+	switch d := delta.GetDeltaTypeOneof().(type) {
 	case *logstream.Delta_DeltaFormattedLog:
-		if ws.targetIDFilter != "" && d.DeltaFormattedLog.TargetId != ws.targetIDFilter {
+		if ws.targetIDFilter != "" && d.DeltaFormattedLog.GetTargetId() != ws.targetIDFilter {
 			return
 		}
 
-		_, err := ws.w.Write(d.DeltaFormattedLog.Data)
+		_, err := ws.w.Write(d.DeltaFormattedLog.GetData())
 		if err != nil {
 			ws.errors = append(ws.errors, err)
 			return

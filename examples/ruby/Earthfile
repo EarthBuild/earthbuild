@@ -17,3 +17,11 @@ docker:
     COPY +build/src src
     ENTRYPOINT ["ruby", "./src/hello.rb"]
     SAVE IMAGE --push earthbuild/examples:ruby
+
+# upgrade-deps Update dependencies to latest compatible versions and persist lockfile
+upgrade-deps:
+    FROM +deps
+    RUN bundle update
+
+    SAVE ARTIFACT ./Gemfile.lock Gemfile.lock AS LOCAL ./Gemfile.lock
+    SAVE ARTIFACT ./Gemfile AS LOCAL ./Gemfile

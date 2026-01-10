@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
@@ -132,21 +133,23 @@ func suggestFlagIfUnknown(err error, data any) error {
 	return hint.Wrapf(err, "Did you mean '--%s'?", suggestion)
 }
 
+// unknownFlagRegexp matches the flag name in go-flags error messages like "unknown flag `flag-name'".
+var unknownFlagRegexp = regexp.MustCompile("`([^']+)'")
+
 // extractUnknownFlagFromError extracts the flag name from an "unknown flag" error.
-// The go-flags library returns errors like "unknown flag `flag-name'".
+// Uses type assertion to check for the specific error type from go-flags library.
 func extractUnknownFlagFromError(err error) (string, bool) {
-	errMsg := err.Error()
-	if !strings.Contains(errMsg, "unknown flag") {
+	var flagErr *flags.Error
+	if !errors.As(err, &flagErr) || flagErr.Type != flags.ErrUnknownFlag {
 		return "", false
 	}
 
-	startIdx := strings.Index(errMsg, "`")
-	endIdx := strings.LastIndex(errMsg, "'")
-	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
+	matches := unknownFlagRegexp.FindStringSubmatch(flagErr.Message)
+	if len(matches) < 2 {
 		return "", false
 	}
 
-	return errMsg[startIdx+1 : endIdx], true
+	return matches[1], true
 }
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
@@ -242,13 +243,13 @@ func TestSuggestFlagIfUnknown(t *testing.T) {
 		description    string
 	}{
 		{
-			errors.New("unknown flag `if-exist'"),
+			&flags.Error{Type: flags.ErrUnknownFlag, Message: "unknown flag `if-exist'"},
 			true,
 			"Did you mean '--if-exists'?",
 			"typo in if-exists flag",
 		},
 		{
-			errors.New("unknown flag `keep-t'"),
+			&flags.Error{Type: flags.ErrUnknownFlag, Message: "unknown flag `keep-t'"},
 			true,
 			"Did you mean '--keep-ts'?",
 			"shortened keep-ts flag",
@@ -260,7 +261,7 @@ func TestSuggestFlagIfUnknown(t *testing.T) {
 			"non-flag error should pass through",
 		},
 		{
-			errors.New("unknown flag `completely-wrong-flag'"),
+			&flags.Error{Type: flags.ErrUnknownFlag, Message: "unknown flag `completely-wrong-flag'"},
 			false,
 			"",
 			"flag too different to suggest",

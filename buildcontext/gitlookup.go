@@ -115,7 +115,7 @@ func (gl *GitLookup) DisableSSH() {
 func knownHostsToKeyScans(knownHosts string) []string {
 	knownHosts = strings.ReplaceAll(knownHosts, "\r\n", "\n")
 	foundKeyScans := make(map[string]bool)
-	for _, s := range strings.Split(knownHosts, "\n") {
+	for s := range strings.SplitSeq(knownHosts, "\n") {
 		s = strings.TrimSpace(s)
 		if s != "" && !strings.HasPrefix(s, "#") && !foundKeyScans[s] {
 			foundKeyScans[s] = true
@@ -604,8 +604,8 @@ func parseGitProtocol(remote string) (string, int) {
 	}
 	protocolType := UnknownProtocol
 	for prefix, potentialType := range prefixes {
-		if strings.HasPrefix(remote, prefix) {
-			remote = strings.TrimPrefix(remote, prefix)
+		if after, ok := strings.CutPrefix(remote, prefix); ok {
+			remote = after
 			protocolType = potentialType
 		}
 	}

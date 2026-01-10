@@ -36,8 +36,8 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 	var mountMode os.FileMode
 	var mountOpts []llb.MountOption
 	sharingMode := llb.CacheMountLocked
-	kvPairs := strings.Split(mount, ",")
-	for _, kvPair := range kvPairs {
+	kvPairs := strings.SplitSeq(mount, ",")
+	for kvPair := range kvPairs {
 		kvSplit := strings.SplitN(kvPair, "=", 2)
 		if len(kvSplit) == 0 {
 			return nil, errors.Errorf("invalid mount arg %s", kvPair)

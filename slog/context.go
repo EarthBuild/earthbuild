@@ -21,6 +21,6 @@ func GetLogger(ctx context.Context) Logger {
 }
 
 // With adds logging metadata to the logger within the context.
-func With(ctx context.Context, key string, value interface{}) context.Context {
+func With(ctx context.Context, key string, value any) context.Context {
 	return WithLogger(ctx, GetLogger(ctx).With(key, value))
 }

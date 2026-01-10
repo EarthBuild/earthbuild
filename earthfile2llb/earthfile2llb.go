@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"maps"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
@@ -212,10 +213,8 @@ func Earthfile2LLB(
 		opt.TargetInputHashStackSet = make(map[string]bool)
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool)
-		for k, v := range opt.TargetInputHashStackSet {
-			newMap[k] = v
-		}
+		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
 	egWait := false

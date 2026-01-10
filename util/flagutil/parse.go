@@ -2,17 +2,114 @@ package flagutil
 
 import (
 	"context"
+	"math"
 	"os"
+	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/agext/levenshtein"
 	"github.com/pkg/errors"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/urfave/cli/v2"
 )
+
+// extractFlagNames extracts all long flag names from a struct using reflection.
+func extractFlagNames(data any) []string {
+	if data == nil {
+		return nil
+	}
+
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+
+	t := v.Type()
+	var flagNames []string
+	for i := range t.NumField() {
+		if longTag := t.Field(i).Tag.Get("long"); longTag != "" {
+			flagNames = append(flagNames, longTag)
+		}
+	}
+	return flagNames
+}
+
+// findClosestFlag finds the most similar flag name to the given unknown flag.
+// Returns the suggested flag and whether a good suggestion was found.
+func findClosestFlag(unknownFlag string, validFlags []string) (string, bool) {
+	if len(validFlags) == 0 {
+		return "", false
+	}
+
+	// Remove leading dashes from the unknown flag for comparison
+	unknownFlag = strings.TrimLeft(unknownFlag, "-")
+
+	bestMatch := ""
+	bestDistance := math.MaxInt
+
+	for _, validFlag := range validFlags {
+		if distance := levenshtein.Distance(unknownFlag, validFlag, nil); distance < bestDistance {
+			bestDistance = distance
+			bestMatch = validFlag
+		}
+	}
+
+	// Only suggest if the distance is reasonable (less than half the length of the unknown flag).
+	// This prevents suggesting completely unrelated flags.
+	// Allow at least 2 character difference for short flags.
+	maxDistance := max(len(unknownFlag)/2, 2)
+	if bestDistance <= maxDistance {
+		return bestMatch, true
+	}
+	return "", false
+}
+
+// suggestFlagIfUnknown checks if the error is about an unknown flag and adds a suggestion if possible.
+func suggestFlagIfUnknown(err error, data any) error {
+	if err == nil {
+		return nil
+	}
+
+	unknownFlag, ok := extractUnknownFlagFromError(err)
+	if !ok {
+		return err
+	}
+
+	suggestion, found := findClosestFlag(unknownFlag, extractFlagNames(data))
+	if !found {
+		return err
+	}
+
+	return hint.Wrapf(err, "Did you mean '--%s'?", suggestion)
+}
+
+// unknownFlagRegexp matches the flag name in go-flags error messages like "unknown flag `flag-name'".
+var unknownFlagRegexp = regexp.MustCompile("`([^']+)'")
+
+// extractUnknownFlagFromError extracts the flag name from an "unknown flag" error.
+// Uses type assertion to check for the specific error type from go-flags library.
+func extractUnknownFlagFromError(err error) (string, bool) {
+	var flagErr *flags.Error
+	if !errors.As(err, &flagErr) || flagErr.Type != flags.ErrUnknownFlag {
+		return "", false
+	}
+
+	matches := unknownFlagRegexp.FindStringSubmatch(flagErr.Message)
+	if len(matches) < 2 {
+		return "", false
+	}
+
+	return matches[1], true
+}
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
 // to a flag value. The pointer is nil if no flag was given.
@@ -81,6 +178,8 @@ func ParseArgsWithValueModifierAndOptions(
 		if parserOptions&flags.PrintErrors != flags.None {
 			p.WriteHelp(os.Stderr)
 		}
+		// Try to provide helpful suggestions for unknown flags
+		err = suggestFlagIfUnknown(err, data)
 		return nil, err
 	}
 	if modFuncErr != nil {

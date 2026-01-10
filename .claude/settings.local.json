@@ -8,7 +8,9 @@
       "Bash(git commit:*)",
       "Bash(gh pr view:*)",
       "Bash(grep:*)",
-      "Bash(earthly +earthly-linux-amd64:*)"
+      "Bash(earthly +earthly-linux-amd64:*)",
+      "Bash(go version:*)",
+      "Bash(go vet:*)"
     ]
   }
 }

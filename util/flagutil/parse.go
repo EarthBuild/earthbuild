@@ -2,6 +2,7 @@ package flagutil
 
 import (
 	"context"
+	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -51,24 +52,10 @@ func levenshteinDistance(s1, s2 string) int {
 	return d[len(s1)][len(s2)]
 }
 
-func min(a, b, c int) int {
-	if a < b {
-		if a < c {
-			return a
-		}
-		return c
-	}
-	if b < c {
-		return b
-	}
-	return c
-}
-
 // extractFlagNames extracts all long flag names from a struct using reflection.
 func extractFlagNames(data any) []string {
-	var flagNames []string
 	if data == nil {
-		return flagNames
+		return nil
 	}
 
 	v := reflect.ValueOf(data)
@@ -76,14 +63,13 @@ func extractFlagNames(data any) []string {
 		v = v.Elem()
 	}
 	if v.Kind() != reflect.Struct {
-		return flagNames
+		return nil
 	}
 
 	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		longTag := field.Tag.Get("long")
-		if longTag != "" {
+	var flagNames []string
+	for i := range t.NumField() {
+		if longTag := t.Field(i).Tag.Get("long"); longTag != "" {
 			flagNames = append(flagNames, longTag)
 		}
 	}
@@ -101,23 +87,19 @@ func findClosestFlag(unknownFlag string, validFlags []string) (string, bool) {
 	unknownFlag = strings.TrimLeft(unknownFlag, "-")
 
 	bestMatch := ""
-	bestDistance := -1
+	bestDistance := math.MaxInt
 
 	for _, validFlag := range validFlags {
-		distance := levenshteinDistance(unknownFlag, validFlag)
-		if bestDistance == -1 || distance < bestDistance {
+		if distance := levenshteinDistance(unknownFlag, validFlag); distance < bestDistance {
 			bestDistance = distance
 			bestMatch = validFlag
 		}
 	}
 
-	// Only suggest if the distance is reasonable (less than half the length of the unknown flag)
-	// This prevents suggesting completely unrelated flags
-	maxDistance := len(unknownFlag) / 2
-	if maxDistance < 2 {
-		maxDistance = 2 // Allow at least 2 character difference for short flags
-	}
-
+	// Only suggest if the distance is reasonable (less than half the length of the unknown flag).
+	// This prevents suggesting completely unrelated flags.
+	// Allow at least 2 character difference for short flags.
+	maxDistance := max(len(unknownFlag)/2, 2)
 	if bestDistance <= maxDistance {
 		return bestMatch, true
 	}
@@ -130,38 +112,34 @@ func suggestFlagIfUnknown(err error, data any) error {
 		return nil
 	}
 
-	errMsg := err.Error()
-
-	// Check if this is an "unknown flag" error
-	// The go-flags library returns errors like "unknown flag `flag-name'"
-	if !strings.Contains(errMsg, "unknown flag") {
+	unknownFlag, ok := extractUnknownFlagFromError(err)
+	if !ok {
 		return err
 	}
 
-	// Extract the unknown flag name from the error message
-	// Pattern: "unknown flag `flag-name'"
-	startIdx := strings.Index(errMsg, "`")
-	endIdx := strings.LastIndex(errMsg, "'")
-	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
-		return err
-	}
-
-	unknownFlag := errMsg[startIdx+1 : endIdx]
-
-	// Get all valid flag names from the struct
-	validFlags := extractFlagNames(data)
-	if len(validFlags) == 0 {
-		return err
-	}
-
-	// Find the closest matching flag
-	suggestion, found := findClosestFlag(unknownFlag, validFlags)
+	suggestion, found := findClosestFlag(unknownFlag, extractFlagNames(data))
 	if !found {
 		return err
 	}
 
-	// Wrap the error with a helpful hint
 	return hint.Wrapf(err, "Did you mean '--%s'?", suggestion)
+}
+
+// extractUnknownFlagFromError extracts the flag name from an "unknown flag" error.
+// The go-flags library returns errors like "unknown flag `flag-name'".
+func extractUnknownFlagFromError(err error) (string, bool) {
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "unknown flag") {
+		return "", false
+	}
+
+	startIdx := strings.Index(errMsg, "`")
+	endIdx := strings.LastIndex(errMsg, "'")
+	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
+		return "", false
+	}
+
+	return errMsg[startIdx+1 : endIdx], true
 }
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer

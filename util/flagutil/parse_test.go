@@ -139,7 +139,7 @@ func TestLevenshteinDistance(t *testing.T) {
 		expected int
 	}{
 		{"if-exist", "if-exists", 1},
-		{"keep-ts", "keep-own", 4},
+		{"keep-ts", "keep-own", 3},
 		{"force", "from", 3},
 		{"", "test", 4},
 		{"test", "", 4},

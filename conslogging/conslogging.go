@@ -330,18 +330,17 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 	if !cl.githubAnnotations {
 		return
 	}
+
 	// Assumes mu locked.
-	w := new(bytes.Buffer)
-	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-	}()
+	var w bytes.Buffer
 
+	w.WriteString(string(header) + " ")
 	if !strings.HasSuffix(msg, "\n") {
-		msg += "\n"
+		w.WriteByte('\n')
 	}
-	fullFormat := string(header) + " " + msg
+	w.WriteString(msg)
 
-	fmt.Fprint(w, fullFormat)
+	_, _ = w.WriteTo(cl.errW)
 }
 
 // PrintBar prints an earthly message bar.

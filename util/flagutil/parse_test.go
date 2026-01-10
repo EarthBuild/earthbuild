@@ -131,34 +131,6 @@ func TestNegativeParseParams(t *testing.T) {
 	}
 }
 
-func TestLevenshteinDistance(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		s1       string
-		s2       string
-		expected int
-	}{
-		{"if-exist", "if-exists", 1},
-		{"keep-ts", "keep-own", 3},
-		{"force", "from", 3},
-		{"", "test", 4},
-		{"test", "", 4},
-		{"same", "same", 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.s1+"_"+tt.s2, func(t *testing.T) {
-			t.Parallel()
-
-			result := levenshteinDistance(tt.s1, tt.s2)
-			if result != tt.expected {
-				t.Errorf("levenshteinDistance(%q, %q) = %d; want %d", tt.s1, tt.s2, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestExtractFlagNames(t *testing.T) {
 	t.Parallel()
 

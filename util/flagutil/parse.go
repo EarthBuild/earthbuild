@@ -12,53 +12,12 @@ import (
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/agext/levenshtein"
 	"github.com/pkg/errors"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/urfave/cli/v2"
 )
-
-// levenshteinDistance calculates the edit distance between two strings.
-// Uses O(min(m,n)) space by only keeping two rows of the DP matrix.
-func levenshteinDistance(s1, s2 string) int {
-	if len(s1) == 0 {
-		return len(s2)
-	}
-	if len(s2) == 0 {
-		return len(s1)
-	}
-
-	// Ensure s2 is the shorter string to minimize space usage
-	if len(s1) < len(s2) {
-		s1, s2 = s2, s1
-	}
-
-	// Only need two rows: previous and current
-	prev := make([]int, len(s2)+1)
-	curr := make([]int, len(s2)+1)
-
-	// Initialize first row
-	for j := range prev {
-		prev[j] = j
-	}
-
-	for i := 1; i <= len(s1); i++ {
-		curr[0] = i
-		for j := 1; j <= len(s2); j++ {
-			cost := 1
-			if s1[i-1] == s2[j-1] {
-				cost = 0
-			}
-			curr[j] = min(
-				prev[j]+1,      // deletion
-				curr[j-1]+1,    // insertion
-				prev[j-1]+cost, // substitution
-			)
-		}
-		prev, curr = curr, prev
-	}
-	return prev[len(s2)]
-}
 
 // extractFlagNames extracts all long flag names from a struct using reflection.
 func extractFlagNames(data any) []string {
@@ -98,7 +57,7 @@ func findClosestFlag(unknownFlag string, validFlags []string) (string, bool) {
 	bestDistance := math.MaxInt
 
 	for _, validFlag := range validFlags {
-		if distance := levenshteinDistance(unknownFlag, validFlag); distance < bestDistance {
+		if distance := levenshtein.Distance(unknownFlag, validFlag, nil); distance < bestDistance {
 			bestDistance = distance
 			bestMatch = validFlag
 		}

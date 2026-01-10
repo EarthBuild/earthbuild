@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test-ubuntu:
-    ARG version=20.10
+    ARG version=24.04
     FROM ubuntu:$version
     RUN apt-get update && apt-get install -y dpkg-dev wget dpkg-sig curl
     RUN --no-cache curl https://pkg.earthly.dev/earthly.pgp | apt-key add -

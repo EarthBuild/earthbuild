@@ -329,7 +329,7 @@ const (
 )
 
 // Print GHA control messages like ::group and ::error.
-func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string, a ...any) {
+func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 	if !cl.githubAnnotations {
 		return
 	}
@@ -339,12 +339,12 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string
 		_, _ = w.WriteTo(cl.errW)
 	}()
 
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
+	if !strings.HasSuffix(msg, "\n") {
+		msg += "\n"
 	}
-	fullFormat := string(header) + " " + format
+	fullFormat := string(header) + " " + msg
 
-	fmt.Fprintf(w, fullFormat, a...)
+	fmt.Fprint(w, fullFormat)
 }
 
 // PrintBar prints an earthly message bar.

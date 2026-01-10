@@ -193,7 +193,7 @@ func ensureTargetExists(r *pb.RunManifest, targetID string) *pb.TargetManifest {
 	if r.Targets == nil {
 		r.Targets = make(map[string]*pb.TargetManifest)
 	}
-	t, ok := r.Targets[targetID]
+	t, ok := r.GetTargets()[targetID]
 	if !ok {
 		t = &pb.TargetManifest{}
 		r.Targets[targetID] = t
@@ -205,7 +205,7 @@ func ensureCommandExists(r *pb.RunManifest, commandID string) *pb.CommandManifes
 	if r.Commands == nil {
 		r.Commands = make(map[string]*pb.CommandManifest)
 	}
-	c, ok := r.Commands[commandID]
+	c, ok := r.GetCommands()[commandID]
 	if !ok {
 		c = &pb.CommandManifest{}
 		r.Commands[commandID] = c

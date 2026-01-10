@@ -190,13 +190,19 @@ func setManifestFields(dm *pb.DeltaManifest, ret *pb.RunManifest) {
 }
 
 func ensureTargetExists(r *pb.RunManifest, targetID string) *pb.TargetManifest {
-	if r.Targets == nil {
-		r.Targets = make(map[string]*pb.TargetManifest)
+	targets := r.GetTargets()
+
+	if targets == nil {
+		manifest := &pb.TargetManifest{}
+		r.Targets = map[string]*pb.TargetManifest{targetID: manifest}
+
+		return manifest
 	}
-	t, ok := r.GetTargets()[targetID]
+
+	t, ok := targets[targetID]
 	if !ok {
 		t = &pb.TargetManifest{}
-		r.Targets[targetID] = t
+		targets[targetID] = t
 	}
 	return t
 }

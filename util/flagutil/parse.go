@@ -3,16 +3,166 @@ package flagutil
 import (
 	"context"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/pkg/errors"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/urfave/cli/v2"
 )
+
+// levenshteinDistance calculates the edit distance between two strings.
+func levenshteinDistance(s1, s2 string) int {
+	if len(s1) == 0 {
+		return len(s2)
+	}
+	if len(s2) == 0 {
+		return len(s1)
+	}
+
+	// Create a 2D slice for dynamic programming
+	d := make([][]int, len(s1)+1)
+	for i := range d {
+		d[i] = make([]int, len(s2)+1)
+		d[i][0] = i
+	}
+	for j := range d[0] {
+		d[0][j] = j
+	}
+
+	for i := 1; i <= len(s1); i++ {
+		for j := 1; j <= len(s2); j++ {
+			cost := 1
+			if s1[i-1] == s2[j-1] {
+				cost = 0
+			}
+			d[i][j] = min(
+				d[i-1][j]+1,      // deletion
+				d[i][j-1]+1,      // insertion
+				d[i-1][j-1]+cost, // substitution
+			)
+		}
+	}
+	return d[len(s1)][len(s2)]
+}
+
+func min(a, b, c int) int {
+	if a < b {
+		if a < c {
+			return a
+		}
+		return c
+	}
+	if b < c {
+		return b
+	}
+	return c
+}
+
+// extractFlagNames extracts all long flag names from a struct using reflection.
+func extractFlagNames(data any) []string {
+	var flagNames []string
+	if data == nil {
+		return flagNames
+	}
+
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return flagNames
+	}
+
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		longTag := field.Tag.Get("long")
+		if longTag != "" {
+			flagNames = append(flagNames, longTag)
+		}
+	}
+	return flagNames
+}
+
+// findClosestFlag finds the most similar flag name to the given unknown flag.
+// Returns the suggested flag and whether a good suggestion was found.
+func findClosestFlag(unknownFlag string, validFlags []string) (string, bool) {
+	if len(validFlags) == 0 {
+		return "", false
+	}
+
+	// Remove leading dashes from the unknown flag for comparison
+	unknownFlag = strings.TrimLeft(unknownFlag, "-")
+
+	bestMatch := ""
+	bestDistance := -1
+
+	for _, validFlag := range validFlags {
+		distance := levenshteinDistance(unknownFlag, validFlag)
+		if bestDistance == -1 || distance < bestDistance {
+			bestDistance = distance
+			bestMatch = validFlag
+		}
+	}
+
+	// Only suggest if the distance is reasonable (less than half the length of the unknown flag)
+	// This prevents suggesting completely unrelated flags
+	maxDistance := len(unknownFlag) / 2
+	if maxDistance < 2 {
+		maxDistance = 2 // Allow at least 2 character difference for short flags
+	}
+
+	if bestDistance <= maxDistance {
+		return bestMatch, true
+	}
+	return "", false
+}
+
+// suggestFlagIfUnknown checks if the error is about an unknown flag and adds a suggestion if possible.
+func suggestFlagIfUnknown(err error, data any) error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+
+	// Check if this is an "unknown flag" error
+	// The go-flags library returns errors like "unknown flag `flag-name'"
+	if !strings.Contains(errMsg, "unknown flag") {
+		return err
+	}
+
+	// Extract the unknown flag name from the error message
+	// Pattern: "unknown flag `flag-name'"
+	startIdx := strings.Index(errMsg, "`")
+	endIdx := strings.LastIndex(errMsg, "'")
+	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
+		return err
+	}
+
+	unknownFlag := errMsg[startIdx+1 : endIdx]
+
+	// Get all valid flag names from the struct
+	validFlags := extractFlagNames(data)
+	if len(validFlags) == 0 {
+		return err
+	}
+
+	// Find the closest matching flag
+	suggestion, found := findClosestFlag(unknownFlag, validFlags)
+	if !found {
+		return err
+	}
+
+	// Wrap the error with a helpful hint
+	return hint.Wrapf(err, "Did you mean '--%s'?", suggestion)
+}
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
 // to a flag value. The pointer is nil if no flag was given.
@@ -81,6 +231,8 @@ func ParseArgsWithValueModifierAndOptions(
 		if parserOptions&flags.PrintErrors != flags.None {
 			p.WriteHelp(os.Stderr)
 		}
+		// Try to provide helpful suggestions for unknown flags
+		err = suggestFlagIfUnknown(err, data)
 		return nil, err
 	}
 	if modFuncErr != nil {

@@ -1,6 +1,8 @@
 package image
 
 import (
+	"maps"
+
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/moby/buildkit/exporter/containerimage/image"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -65,15 +67,9 @@ func (img *Image) Clone() *Image {
 	copy(clone.Config.Env, img.Config.Env)
 	copy(clone.Config.Entrypoint, img.Config.Entrypoint)
 	copy(clone.Config.Cmd, img.Config.Cmd)
-	for k, v := range img.Config.ExposedPorts {
-		clone.Config.ExposedPorts[k] = v
-	}
-	for k, v := range img.Config.Volumes {
-		clone.Config.Volumes[k] = v
-	}
-	for k, v := range img.Config.Labels {
-		clone.Config.Labels[k] = v
-	}
+	maps.Copy(clone.Config.ExposedPorts, img.Config.ExposedPorts)
+	maps.Copy(clone.Config.Volumes, img.Config.Volumes)
+	maps.Copy(clone.Config.Labels, img.Config.Labels)
 	return clone
 }
 

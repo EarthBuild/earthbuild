@@ -49,7 +49,7 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 		ref:      ref,
 		platform: platformStr,
 	}
-	value, err := cmr.cache.Do(ctx, key, func(ctx context.Context, _ interface{}) (interface{}, error) {
+	value, err := cmr.cache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		ref, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, ref, opt)
 		if err != nil {
 			return nil, err

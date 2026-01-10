@@ -65,11 +65,7 @@ func (g *Group) Go(f func() error) {
 	}
 	g.errMu.Unlock()
 
-	g.wg.Add(1)
-
-	go func() {
-		defer g.wg.Done()
-
+	g.wg.Go(func() {
 		if err := f(); err != nil {
 			g.errOnce.Do(func() {
 				g.errMu.Lock()
@@ -80,5 +76,5 @@ func (g *Group) Go(f func() error) {
 				}
 			})
 		}
-	}()
+	})
 }

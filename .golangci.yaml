@@ -42,7 +42,6 @@ linters:
     - maintidx
     - mirror
     - mnd
-    - modernize
     - musttag
     - nakedret
     - nestif

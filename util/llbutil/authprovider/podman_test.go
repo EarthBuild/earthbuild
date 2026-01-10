@@ -104,7 +104,7 @@ func TestPodmanProvider(topT *testing.T) {
 			}
 			return
 		}
-		creds := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", e.auth.user, e.auth.secret)))
+		creds := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", e.auth.user, e.auth.secret))
 		authFile := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
 		tt.expect(tt.os).To(haveMethodExecuted("Open",
 			within(timeout),

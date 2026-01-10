@@ -108,15 +108,11 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 }
 
 func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{},
-	) (interface{}, error) {
+	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
-		if t != reflect.TypeOf(arn.ARN{}) {
+		if t != reflect.TypeFor[arn.ARN]() {
 			return data, nil
 		}
 
@@ -134,15 +130,11 @@ func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHo
 }
 
 func timeDurationValidationsHookFunc(validators ...func(input time.Duration) error) mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{},
-	) (interface{}, error) {
+	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
-		if t != reflect.TypeOf(time.Duration(5)) {
+		if t != reflect.TypeFor[time.Duration]() {
 			return data, nil
 		}
 

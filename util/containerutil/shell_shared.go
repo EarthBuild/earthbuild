@@ -74,8 +74,8 @@ func (sf *shellFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, e
 func parseContainerList(output string) ([]*ContainerInfo, error) {
 	ret := []*ContainerInfo{}
 	// The Docker & Podman JSON output format differs, so we parse the standard output here.
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(output), "\n")
+	for line := range lines {
 		parts := strings.Split(line, ",")
 		if len(parts) != 5 {
 			continue

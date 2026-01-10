@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ## for apt to be noninteractive
 ENV DEBIAN_FRONTEND noninteractive

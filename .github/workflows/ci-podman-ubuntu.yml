@@ -322,7 +322,7 @@ jobs:
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-4"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      MORE_SPACE: true
+      MORE_SPACE: false
     secrets: inherit
 
   podman-examples-5:

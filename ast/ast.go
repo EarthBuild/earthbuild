@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const TargetBase = "base"
+
 // Parse parses an earthfile into an AST.
 func Parse(filePath string, enableSourceMap bool) (ef spec.Earthfile, err error) {
 	var opts []Opt

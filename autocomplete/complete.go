@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
@@ -126,7 +127,7 @@ func getPotentialPaths(
 
 		targetToParse := prefix
 		if strings.HasSuffix(targetToParse, "+") {
-			targetToParse += "base"
+			targetToParse += ast.TargetBase
 		}
 		target, err := domain.ParseTarget(targetToParse)
 		if err != nil {
@@ -139,7 +140,7 @@ func getPotentialPaths(
 		}
 		if len(targets) == 0 {
 			// only suggest when Earthfile has no other targets
-			targets = append(targets, "base")
+			targets = append(targets, ast.TargetBase)
 		}
 
 		potentials := []string{}

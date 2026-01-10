@@ -113,7 +113,7 @@ func noTargetsWithKeywords(ef spec.Earthfile) []error {
 	var errs []error
 
 	for _, t := range ef.Targets {
-		if t.Name == "base" {
+		if t.Name == TargetBase {
 			err := errors.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
 				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name, t.Name)
 			errs = append(errs, err)

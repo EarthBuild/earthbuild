@@ -12,6 +12,8 @@ import (
 	"github.com/EarthBuild/earthbuild/ast/spec"
 )
 
+const targetInternal = "internal"
+
 // VertexMeta is metadata associated with the vertex. This is passed from the
 // converter to the solver monitor via BuildKit.
 type VertexMeta struct {
@@ -46,7 +48,7 @@ func ParseFromVertexPrefix(in string) (*VertexMeta, string) {
 	}
 	match := vertexRegexp.FindStringSubmatch(in)
 	if len(match) < 2 {
-		vm.TargetName = "internal"
+		vm.TargetName = targetInternal
 		vm.Internal = true
 		return vm, tail
 	}
@@ -61,7 +63,7 @@ func ParseFromVertexPrefix(in string) (*VertexMeta, string) {
 		if len(splits) > 0 {
 			vm.TargetName = splits[0]
 		}
-		if vm.TargetName == "internal" {
+		if vm.TargetName == targetInternal {
 			vm.Internal = true
 		}
 		return vm, tail
@@ -117,7 +119,7 @@ func (vm *VertexMeta) Salt() string {
 	case vm.TargetName != "":
 		name = vm.TargetName
 	case vm.Internal:
-		name = "internal"
+		name = targetInternal
 	default:
 		name = "unknown"
 	}

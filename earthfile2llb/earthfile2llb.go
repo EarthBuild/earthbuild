@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"maps"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
@@ -84,20 +85,21 @@ type ConvertOpt struct {
 	HasDangling bool
 	// Console is for logging
 	Console conslogging.ConsoleLogger
-	// AllowPrivileged is used to allow (or prevent) any "RUN --privileged" or RUNs under a LOCALLY target to be executed,
-	// when set to false, it prevents other referenced remote targets from requesting elevated privileges
+	// AllowPrivileged is used to allow (or prevent) any "RUN --privileged" or RUNs under a LOCALLY target
+	// to be executed, when set to false, it prevents other referenced remote targets from requesting
+	// elevated privileges
 	AllowPrivileged bool
-	// DoSaves controls when SAVE ARTIFACT AS LOCAL, and SAVE IMAGE (to the local docker instance) calls are executed
-	// When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry (as long as DoPushes=true),
-	// but is not exported to the local docker instance.
+	// DoSaves controls when SAVE ARTIFACT AS LOCAL, and SAVE IMAGE (to the local docker instance) calls are
+	// executed When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry
+	// (as long as DoPushes=true), but is not exported to the local docker instance.
 	DoSaves bool
 	// DoPushes controls when a SAVE IMAGE --push, and RUN --push commands are executed;
 	// SAVE IMAGE --push ... will still export an image to the local docker instance (as long as DoSaves=true)
 	DoPushes bool
 	// IsCI determines whether it is running from a CI environment.
 	IsCI bool
-	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are
-	// for a local or remote target; this is to support the legacy behaviour that was first introduced in earthly (up to 0.5)
+	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are for a local or
+	// remote target; this is to support the legacy behaviour that was first introduced in earthly (up to 0.5)
 	// When this is set to false, SAVE IMAGE commands are only executed when DoSaves is true.
 	ForceSaveImage bool
 	// OnlyFinalTargetImages is used to ignore SAVE IMAGE commands in indirectly referenced targets
@@ -198,7 +200,9 @@ type ConvertOpt struct {
 }
 
 // Earthfile2LLB parses a earthfile and executes the statements for a given target.
-func Earthfile2LLB(ctx context.Context, target domain.Target, opt ConvertOpt, initialCall bool) (mts *states.MultiTarget, retErr error) {
+func Earthfile2LLB(
+	ctx context.Context, target domain.Target, opt ConvertOpt, initialCall bool,
+) (mts *states.MultiTarget, retErr error) {
 	if opt.SolveCache == nil {
 		opt.SolveCache = states.NewSolveCache()
 	}
@@ -209,10 +213,8 @@ func Earthfile2LLB(ctx context.Context, target domain.Target, opt ConvertOpt, in
 		opt.TargetInputHashStackSet = make(map[string]bool)
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool)
-		for k, v := range opt.TargetInputHashStackSet {
-			newMap[k] = v
-		}
+		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
 	egWait := false
@@ -265,7 +267,8 @@ func Earthfile2LLB(ctx context.Context, target domain.Target, opt ConvertOpt, in
 	}
 
 	targetWithMetadata := bc.Ref.(domain.Target)
-	sts, found, err := opt.Visited.Add(ctx, targetWithMetadata, opt.PlatformResolver, opt.AllowPrivileged, opt.OverridingVars, opt.parentDepSub)
+	sts, found, err := opt.Visited.
+		Add(ctx, targetWithMetadata, opt.PlatformResolver, opt.AllowPrivileged, opt.OverridingVars, opt.parentDepSub)
 	if err != nil {
 		return nil, err
 	}

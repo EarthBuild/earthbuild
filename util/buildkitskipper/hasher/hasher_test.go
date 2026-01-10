@@ -8,7 +8,10 @@ import (
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 )
 
-var emptyHash = []byte{0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0xd, 0x32, 0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x7, 0x9}
+var emptyHash = []byte{
+	0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0xd, 0x32, 0x55,
+	0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x7, 0x9,
+}
 
 func TestEmptyHasherIsNil(t *testing.T) {
 	t.Parallel()
@@ -28,11 +31,10 @@ func TestNilHasherIsNil(t *testing.T) {
 func TestHashEmptyFile(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.CreateTemp("", "file-to-hash")
+	file, err := os.CreateTemp(t.TempDir(), "file-to-hash")
 	if err != nil {
 		NoError(t, err)
 	}
-	defer os.Remove(file.Name())
 
 	h := hasher.New()
 	err = h.HashFile(context.Background(), file.Name())
@@ -45,11 +47,10 @@ func TestHashEmptyFile(t *testing.T) {
 func TestHashFile(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.CreateTemp("", "file-to-hash")
+	file, err := os.CreateTemp(t.TempDir(), "file-to-hash")
 	if err != nil {
 		NoError(t, err)
 	}
-	defer os.Remove(file.Name())
 
 	f, err := os.OpenFile(file.Name(), os.O_RDWR|os.O_TRUNC, 0)
 	if err != nil {

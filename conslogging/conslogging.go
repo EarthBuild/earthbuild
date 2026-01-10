@@ -86,7 +86,9 @@ func Current(colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAn
 }
 
 // New returns a new ConsoleLogger with a predefined target writer.
-func New(w io.Writer, mu *sync.Mutex, colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
+func New(
+	w io.Writer, mu *sync.Mutex, colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
+) ConsoleLogger {
 	if mu == nil {
 		mu = &sync.Mutex{}
 	}
@@ -211,10 +213,7 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 		c = cl.color(specialPhaseColor)
 		msg += " (" + special + ")"
 	}
-	underlineLength := utf8.RuneCountInString(msg) + 2
-	if underlineLength < barWidth {
-		underlineLength = barWidth
-	}
+	underlineLength := max(utf8.RuneCountInString(msg)+2, barWidth)
 	cl.printGithubActionsControl(groupCommand, msg)
 	c.Fprintf(w, " %s", msg) // #nosec G104
 	fmt.Fprintf(w, "\n")
@@ -327,22 +326,21 @@ const (
 )
 
 // Print GHA control messages like ::group and ::error.
-func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, format string, a ...any) {
+func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 	if !cl.githubAnnotations {
 		return
 	}
+
 	// Assumes mu locked.
-	w := new(bytes.Buffer)
-	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-	}()
+	var w bytes.Buffer
 
-	if !strings.HasSuffix(format, "\n") {
-		format += "\n"
+	w.WriteString(string(header) + " ")
+	if !strings.HasSuffix(msg, "\n") {
+		w.WriteByte('\n')
 	}
-	fullFormat := string(header) + " " + format
+	w.WriteString(msg)
 
-	fmt.Fprintf(w, fullFormat, a...)
+	_, _ = w.WriteTo(cl.errW)
 }
 
 // PrintBar prints an earthly message bar.
@@ -360,10 +358,7 @@ func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	}
 	center = fmt.Sprintf(" %s ", center)
 
-	sideWidth := (barWidth - utf8.RuneCountInString(center)) / 2
-	if sideWidth < 0 {
-		sideWidth = 0
-	}
+	sideWidth := max((barWidth-utf8.RuneCountInString(center))/2, 0)
 	eqBar := strings.Repeat("=", sideWidth)
 	leftBar := eqBar
 	rightBar := eqBar
@@ -384,7 +379,7 @@ func (cl ConsoleLogger) Warn(message string) {
 }
 
 // Warnf prints a formatted warning message in red to errWriter.
-func (cl ConsoleLogger) Warnf(format string, args ...interface{}) {
+func (cl ConsoleLogger) Warnf(format string, args ...any) {
 	cl.Warn(fmt.Sprintf(format, args...))
 }
 
@@ -397,7 +392,7 @@ func (cl ConsoleLogger) VerboseWarn(msg string) {
 }
 
 // VerboseWarnf prints a formatted message in red to errWriter when verbose flag is set.
-func (cl ConsoleLogger) VerboseWarnf(format string, args ...interface{}) {
+func (cl ConsoleLogger) VerboseWarnf(format string, args ...any) {
 	cl.VerboseWarn(fmt.Sprintf(format, args...))
 }
 
@@ -407,7 +402,7 @@ func (cl ConsoleLogger) HelpPrint(msg string) {
 }
 
 // HelpPrintf prints formatted message to the console with `Help:` prefix in a specific color.
-func (cl ConsoleLogger) HelpPrintf(format string, args ...interface{}) {
+func (cl ConsoleLogger) HelpPrintf(format string, args ...any) {
 	cl.ColorPrintf(cl.color(helpColor), "\nHelp: "+format+"\n", args...)
 }
 
@@ -421,7 +416,7 @@ func (cl ConsoleLogger) Print(msg string) {
 }
 
 // Printf prints formatted message to the console.
-func (cl ConsoleLogger) Printf(format string, args ...interface{}) {
+func (cl ConsoleLogger) Printf(format string, args ...any) {
 	cl.Print(fmt.Sprintf(format, args...))
 }
 
@@ -452,7 +447,7 @@ func (cl ConsoleLogger) ColorPrint(c *color.Color, msg string) {
 }
 
 // ColorPrintf prints formatted message to the console in a specific color.
-func (cl ConsoleLogger) ColorPrintf(c *color.Color, format string, args ...interface{}) {
+func (cl ConsoleLogger) ColorPrintf(c *color.Color, format string, args ...any) {
 	cl.colorPrint(Info, c, fmt.Sprintf(format, args...))
 }
 
@@ -509,7 +504,7 @@ func (cl ConsoleLogger) VerbosePrint(msg string) {
 }
 
 // VerbosePrintf prints formatted message to the console when verbose flag is set.
-func (cl ConsoleLogger) VerbosePrintf(format string, args ...interface{}) {
+func (cl ConsoleLogger) VerbosePrintf(format string, args ...any) {
 	cl.VerbosePrint(fmt.Sprintf(format, args...))
 }
 
@@ -522,7 +517,7 @@ func (cl ConsoleLogger) VerboseBytes(data []byte) {
 }
 
 // DebugPrintf prints formatted message to the console when debug flag is set.
-func (cl ConsoleLogger) DebugPrintf(format string, args ...interface{}) {
+func (cl ConsoleLogger) DebugPrintf(format string, args ...any) {
 	if cl.logLevel < Debug {
 		return
 	}

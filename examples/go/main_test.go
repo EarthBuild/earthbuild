@@ -7,5 +7,7 @@ import (
 )
 
 func TestIsEarthlyAmazing(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, "IceCool", howCoolIsEarthly)
 }

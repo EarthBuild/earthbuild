@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/pkg/errors"
@@ -92,8 +92,10 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 	if opts.OverridingVars == nil {
 		opts.OverridingVars = NewScope()
 	}
+	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push, opts.CI)
+
 	return &Collection{
-		builtin:          BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push, opts.CI),
+		builtin:          args,
 		envs:             NewScope(),
 		errorOnRedeclare: opts.Features.ArgScopeSet,
 		shelloutAnywhere: opts.Features.ShellOutAnywhere,
@@ -229,7 +231,9 @@ func (c *Collection) Expand(word string, shellOut shell.EvalShellOutFn) (string,
 	return shlex.ProcessWordWithMap(word, varMap, ShellOutEnvs)
 }
 
-func (c *Collection) overridingOrDefault(name string, defaultValue string, pncvf ProcessNonConstantVariableFunc) (string, error) {
+func (c *Collection) overridingOrDefault(
+	name, defaultValue string, pncvf ProcessNonConstantVariableFunc,
+) (string, error) {
 	if v, ok := c.overriding().Get(name); ok {
 		return v, nil
 	}
@@ -239,7 +243,9 @@ func (c *Collection) overridingOrDefault(name string, defaultValue string, pncvf
 	return parseArgValue(name, defaultValue, pncvf)
 }
 
-func (c *Collection) declareOldArg(name string, defaultValue string, global bool, pncvf ProcessNonConstantVariableFunc) (string, string, error) {
+func (c *Collection) declareOldArg(
+	name, defaultValue string, global bool, pncvf ProcessNonConstantVariableFunc,
+) (string, string, error) {
 	ef := c.effective()
 	finalDefaultValue := defaultValue
 	var finalValue string
@@ -332,13 +338,15 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 	if !prefs.arg {
 		ok := c.vars().Add(name, prefs.val, scope...)
 		if !ok {
-			return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', use 'SET %[1]v = %[2]q'", name, prefs.val)
+			return "", "", hint.Wrapf(ErrRedeclared,
+				"if you want to change the value of '%[1]v', use 'SET %[1]v = %[2]q'", name, prefs.val)
 		}
 		return prefs.val, prefs.val, nil
 	}
 
 	if _, ok := c.vars().Get(name, WithActive()); ok {
-		return "", "", hint.Wrapf(ErrRedeclared, "'%v' was already declared with LET and cannot be redeclared as an ARG", name)
+		return "", "", hint.Wrapf(ErrRedeclared,
+			"'%v' was already declared with LET and cannot be redeclared as an ARG", name)
 	}
 
 	v, err := c.overridingOrDefault(name, prefs.val, prefs.pncvf)
@@ -349,17 +357,20 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 	if prefs.global {
 		if _, ok := c.args().Get(name); ok {
 			baseErr := errors.Wrap(ErrRedeclared, "could not override non-global ARG with global ARG")
-			return "", "", hint.Wrapf(baseErr, "'%[1]v' was already declared as a non-global ARG in this scope - did you mean to add '--global' to the original declaration?", name)
+			return "", "", hint.Wrapf(baseErr, "'%[1]v' was already declared as a non-global ARG in this scope - "+
+				"did you mean to add '--global' to the original declaration?", name)
 		}
 		ok := c.globals().Add(name, v, scope...)
 		if !ok {
-			return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', redeclare it as a non-argument variable with 'LET %[1]v = %[2]q'", name, prefs.val)
+			return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', "+
+				"redeclare it as a non-argument variable with 'LET %[1]v = %[2]q'", name, prefs.val)
 		}
 		return v, v, nil
 	}
 	ok := c.args().Add(name, v, scope...)
 	if !ok {
-		return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', redeclare it as a non-argument variable with 'LET %[1]v = %[2]q'", name, prefs.val)
+		return "", "", hint.Wrapf(ErrRedeclared, "if you want to change the value of '%[1]v', "+
+			"redeclare it as a non-argument variable with 'LET %[1]v = %[2]q'", name, prefs.val)
 	}
 	return v, prefs.val, nil
 }
@@ -393,10 +404,12 @@ func (c *Collection) UpdateVar(name, value string, pncvf ProcessNonConstantVaria
 		}
 	}()
 	if _, ok := c.effective().Get(name, WithActive()); !ok {
-		return hint.Wrapf(ErrVarNotFound, "'%[1]v' needs to be declared with 'LET %[1]v = someValue' before it can be used with SET", name)
+		return hint.Wrapf(ErrVarNotFound,
+			"'%[1]v' needs to be declared with 'LET %[1]v = someValue' before it can be used with SET", name)
 	}
 	if _, ok := c.vars().Get(name, WithActive()); !ok {
-		return hint.Wrapf(ErrSetArg, "'%[1]v' is an ARG and cannot be used with SET - try declaring 'LET %[1]v = $%[1]v' first", name)
+		return hint.Wrapf(ErrSetArg,
+			"'%[1]v' is an ARG and cannot be used with SET - try declaring 'LET %[1]v = $%[1]v' first", name)
 	}
 	v, err := parseArgValue(name, value, pncvf)
 	if err != nil {
@@ -412,7 +425,13 @@ func (c *Collection) Imports() *domain.ImportTracker {
 }
 
 // EnterFrame creates a new stack frame.
-func (c *Collection) EnterFrame(frameName string, absRef domain.Reference, overriding *Scope, globals *Scope, globalImports map[string]domain.ImportTrackerVal) {
+func (c *Collection) EnterFrame(
+	frameName string,
+	absRef domain.Reference,
+	overriding *Scope,
+	globals *Scope,
+	globalImports map[string]domain.ImportTrackerVal,
+) {
 	c.stack = append(c.stack, &stackFrame{
 		frameName:  frameName,
 		absRef:     absRef,

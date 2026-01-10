@@ -10,7 +10,6 @@ issues:
 linters:
   default: all
   disable:
-    - contextcheck
     - cyclop
     - depguard
     - dogsled
@@ -32,20 +31,16 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocognit
-    - goconst
     - gocyclo
     - godoclint
     - godox
     - gomoddirectives
-    - goprintffuncname
     - inamedparam
     - interfacebloat
     - ireturn
-    - lll
     - maintidx
     - mirror
     - mnd
-    - modernize
     - musttag
     - nakedret
     - nestif
@@ -62,10 +57,7 @@ linters:
     - staticcheck
     - tagliatelle
     - testpackage
-    - usetesting
     - varnamelen
-    - wastedassign
-    - whitespace
     - wrapcheck
     - wsl
     - wsl_v5

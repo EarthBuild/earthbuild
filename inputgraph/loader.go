@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -28,8 +29,9 @@ import (
 
 var (
 	errCannotLoadRemoteTarget = errors.New("cannot load remote target")
-	errInvalidRemoteTarget    = errors.New("only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported")
-	errComplexCondition       = errors.New("condition cannot be evaluated")
+	errInvalidRemoteTarget    = errors.New(
+		"only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported")
+	errComplexCondition = errors.New("condition cannot be evaluated")
 )
 
 // Stats contains some statistics about the hashing process.
@@ -559,9 +561,9 @@ func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
 // a final boolean result for that set of expressions.
 func evalConditions(c []string) (bool, bool) {
 	all := strings.Join(c, " ")
-	orGroups := strings.Split(all, "||")
+	orGroups := strings.SplitSeq(all, "||")
 
-	for _, orGroup := range orGroups {
+	for orGroup := range orGroups {
 		cur := []string{}
 		result, inExpr := false, false
 		parts := strings.Split(orGroup, " ")
@@ -572,7 +574,7 @@ func evalConditions(c []string) (bool, bool) {
 				return false, false
 			case "[":
 				inExpr = true
-				cur = []string{}
+				cur = make([]string, 0, len(parts))
 			case "]":
 				if !inExpr {
 					return false, false
@@ -890,7 +892,9 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 	return ret, nil
 }
 
-func (l *loader) loadTargetFromString(ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation) error {
+func (l *loader) loadTargetFromString(
+	ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation,
+) error {
 	targetName, err := l.expandArgs(targetName)
 	if err != nil {
 		return wrapError(err, srcLoc, "failed to expand args")
@@ -1026,7 +1030,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		}
 	}
 
-	isBase := l.target.Target == "base"
+	isBase := l.target.Target == ast.TargetBase
 
 	// Since "base" is always processed above, there's not need to revisit it here.
 	if !isBase {

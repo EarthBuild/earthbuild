@@ -2,6 +2,7 @@ package variables
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -43,9 +44,7 @@ func (s *Scope) DebugString() string {
 // Clone returns a copy of the scope.
 func (s *Scope) Clone() *Scope {
 	ret := NewScope()
-	for k, v := range s.variables {
-		ret.variables[k] = v
-	}
+	maps.Copy(ret.variables, s.variables)
 	for k := range s.activeVariables {
 		ret.activeVariables[k] = true
 	}

@@ -23,18 +23,24 @@ func Test_readExcludes(t *testing.T) {
 		{
 			name:                  "only .earthlyignore",
 			earthlyIgnoreContents: `foobar/`,
-			expectedExcludes:      []string{"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore"},
+			expectedExcludes: []string{
+				"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore",
+			},
 		},
 		{
 			name:                "only .earthignore",
 			earthIgnoreContents: `foobar/`,
-			expectedExcludes:    []string{"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore"},
+			expectedExcludes: []string{
+				"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore",
+			},
 		},
 		{
 			name:                 "only .dockerignore",
 			dockerIgnoreContents: `foobar/`,
 			useDockerIgnore:      true,
-			expectedExcludes:     []string{"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore"},
+			expectedExcludes: []string{
+				"foobar", ".tmp-earthly-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore",
+			},
 		},
 		{
 			name:                  "only .earthlyignore with no implicit ignore",

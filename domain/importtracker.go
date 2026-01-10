@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -25,9 +26,7 @@ type ImportTracker struct {
 // NewImportTracker creates a new import resolver.
 func NewImportTracker(console conslogging.ConsoleLogger, global map[string]ImportTrackerVal) *ImportTracker {
 	gi := make(map[string]ImportTrackerVal)
-	for k, v := range global {
-		gi[k] = v
-	}
+	maps.Copy(gi, global)
 	return &ImportTracker{
 		local:   make(map[string]ImportTrackerVal),
 		global:  gi,
@@ -43,9 +42,7 @@ func (ir *ImportTracker) Global() map[string]ImportTrackerVal {
 // SetGlobal sets the global import map.
 func (ir *ImportTracker) SetGlobal(gi map[string]ImportTrackerVal) {
 	ir.global = make(map[string]ImportTrackerVal)
-	for k, v := range gi {
-		ir.global[k] = v
-	}
+	maps.Copy(ir.global, gi)
 }
 
 // Add adds an import to the resolver.
@@ -63,8 +60,6 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	allowPrivileged := currentlyPrivileged
 
 	switch {
-	default:
-		return errors.Errorf("IMPORT %s not supported", importStr)
 	case parsedImport.IsImportReference():
 		return errors.Errorf("IMPORT %s not supported", importStr)
 	case parsedImport.IsRemote():
@@ -75,6 +70,8 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		if allowPrivilegedFlag {
 			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
+	default:
+		return errors.Errorf("IMPORT %s not supported", importStr)
 	}
 
 	pathParts := strings.Split(path, "/")
@@ -118,7 +115,9 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 }
 
 // Deref resolves the import (if any) and returns a reference with the full path.
-func (ir *ImportTracker) Deref(ref Reference) (resolvedRef Reference, allowPrivileged bool, allowPrivilegedSet bool, err error) {
+func (ir *ImportTracker) Deref(
+	ref Reference,
+) (resolvedRef Reference, allowPrivileged, allowPrivilegedSet bool, err error) {
 	if ref.IsImportReference() {
 		resolvedImport, ok := ir.local[ref.GetImportRef()]
 		if !ok {

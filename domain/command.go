@@ -85,7 +85,8 @@ func (ec Command) IsUnresolvedImportReference() bool {
 
 // DebugString returns a string that can be printed out for debugging purposes.
 func (ec Command) DebugString() string {
-	return fmt.Sprintf("gitURL: %q; tag: %q; LocalPath: %q; ImportRef: %q; Command: %q", ec.GitURL, ec.Tag, ec.LocalPath, ec.ImportRef, ec.Command)
+	return fmt.Sprintf("gitURL: %q; tag: %q; LocalPath: %q; ImportRef: %q; Command: %q",
+		ec.GitURL, ec.Tag, ec.LocalPath, ec.ImportRef, ec.Command)
 }
 
 // String returns a string representation of the command.

@@ -187,7 +187,8 @@ func detectIsGitDir(ctx context.Context, dir string) error {
 	return nil
 }
 
-// ParseGitRemoteURL converts a gitURL like user@host.com:path/to.git or https://host.com/path/to.git to host.com/path/to.
+// ParseGitRemoteURL converts a gitURL like user@host.com:path/to.git or https://host.com/path/to.git
+// to host.com/path/to.
 func ParseGitRemoteURL(gitURL string) (string, error) {
 	s := gitURL
 
@@ -309,7 +310,7 @@ func detectGitRefs(ctx context.Context, dir string) ([]string, error) {
 	outStr := string(out)
 	if outStr != "" {
 		refs := []string{}
-		for _, ref := range strings.Split(outStr, "\n") {
+		for ref := range strings.SplitSeq(outStr, "\n") {
 			ref = strings.Trim(ref, "'\"")
 			if ref != "" && ref != "HEAD" && !slices.Contains(refs, ref) {
 				refs = append(refs, ref)
@@ -406,7 +407,7 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 func ParseCoAuthorsFromBody(body string) []string {
 	coAuthors := []string{}
 	coAuthorsSeen := map[string]struct{}{}
-	for _, s := range strings.Split(body, "\n") {
+	for s := range strings.SplitSeq(body, "\n") {
 		s = strings.TrimSpace(s)
 		splits := strings.Split(s, " ")
 		n := len(splits)
@@ -504,12 +505,12 @@ func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Ref
 
 	if tag == "" {
 		switch {
-		default:
-			tag = gitMeta.Hash
 		case len(gitMeta.Tags) > 0:
 			tag = gitMeta.Tags[0]
 		case len(gitMeta.Branch) > 0:
 			tag = gitMeta.Branch[0]
+		default:
+			tag = gitMeta.Hash
 		}
 	}
 

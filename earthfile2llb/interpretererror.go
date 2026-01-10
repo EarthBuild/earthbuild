@@ -13,7 +13,8 @@ import (
 var _ error = &InterpreterError{}
 
 // note this regex should be updated in case the error format changes in Errorf.
-var regex = regexp.MustCompile(`(?P<file_path>.*?):(?P<line>\d+):(?P<column>\d+) (?P<error>.+?)($|\nin\t\t(?P<stack>.+?)$)`)
+var regex = regexp.
+	MustCompile(`(?P<file_path>.*?):(?P<line>\d+):(?P<column>\d+) (?P<error>.+?)($|\nin\t\t(?P<stack>.+?)$)`)
 
 // InterpreterError is an error of the interpreter, which contains optional references to the original
 // source code location.
@@ -26,7 +27,7 @@ type InterpreterError struct {
 }
 
 // Errorf creates a new interpreter error.
-func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args ...interface{}) *InterpreterError {
+func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
 	return &InterpreterError{
 		SourceLocation: sl,
 		TargetID:       targetID,
@@ -36,7 +37,9 @@ func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args
 }
 
 // WrapError wraps another error into a new interpreter error.
-func WrapError(cause error, sl *spec.SourceLocation, targetID, stack string, format string, args ...interface{}) *InterpreterError {
+func WrapError(
+	cause error, sl *spec.SourceLocation, targetID, stack string, format string, args ...any,
+) *InterpreterError {
 	return &InterpreterError{
 		cause:          cause,
 		SourceLocation: sl,

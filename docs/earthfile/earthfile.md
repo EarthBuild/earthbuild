@@ -1416,9 +1416,9 @@ For example, the following is NOT a valid Earthfile.
 # NOT A VALID EARTHFILE.
 ARG base=alpine
 IF [ "$base" = "alpine" ]
-    FROM alpine:3.18
+    FROM alpine:3.23
 ELSE
-    FROM ubuntu:20.04
+    FROM ubuntu:24.04
 END
 ```
 
@@ -1430,9 +1430,9 @@ Here is how this might be fixed.
 ARG base=alpine
 FROM busybox
 IF [ "$base" = "alpine" ]
-    FROM alpine:3.18
+    FROM alpine:3.23
 ELSE
-    FROM ubuntu:20.04
+    FROM ubuntu:24.04
 END
 ```
 

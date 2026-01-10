@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -19,7 +20,9 @@ import (
 
 // GetTargets returns a list of targets from an Earthfile.
 // Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used).
-func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
+func GetTargets(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target,
+) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
@@ -33,7 +36,9 @@ func GetTargets(ctx context.Context, resolver *buildcontext.Resolver, gwClient g
 }
 
 // GetTargetArgs returns a list of build arguments for a specified target.
-func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target) ([]string, error) {
+func GetTargetArgs(
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target,
+) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
@@ -52,7 +57,7 @@ func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 	var args []string
 	for _, stmt := range t.Recipe {
 		if stmt.Command != nil && stmt.Command.Name == "ARG" {
-			isBase := t.Name == "base"
+			isBase := t.Name == ast.TargetBase
 			// since Arg opts are ignored (and feature flags are not available) we set explicitGlobalArgFlag as false
 			explicitGlobal := false
 			_, argName, _, err := flagutil.ParseArgArgs(ctx, *stmt.Command, isBase, explicitGlobal)
@@ -67,7 +72,9 @@ func GetTargetArgs(ctx context.Context, resolver *buildcontext.Resolver, gwClien
 
 // ArgName returns the parsed name of an ARG command, the default value (if
 // any), and the state of the --required and --global flags.
-func ArgName(ctx context.Context, cmd spec.Command, isBase bool, explicitGlobal bool) (_ string, _ *string, isRequired bool, isGlobal bool, _ error) {
+func ArgName(
+	ctx context.Context, cmd spec.Command, isBase bool, explicitGlobal bool,
+) (_ string, _ *string, isRequired bool, isGlobal bool, _ error) {
 	if cmd.Name != "ARG" {
 		return "", nil, false, false, errors.Errorf("ArgName was called with non-arg command type '%v'", cmd.Name)
 	}

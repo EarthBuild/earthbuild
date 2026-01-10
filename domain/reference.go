@@ -16,7 +16,8 @@ type Reference interface {
 	GetGitURL() string
 	// GetTag is the git tag of the reference. E.g. "main"
 	GetTag() string
-	// GetLocalPath is the local path representation of the reference. E.g. in "./some/path+something" this is "./some/path".
+	// GetLocalPath is the local path representation of the reference.
+	// E.g. in "./some/path+something" this is "./some/path".
 	GetLocalPath() string
 	// GetImportRef is the import identifier. E.g. in "foo+bar" this is "foo".
 	GetImportRef() string
@@ -171,7 +172,7 @@ func referenceProjectCanonical(r Reference) string {
 	return escapePlus(r.GetLocalPath())
 }
 
-func parseCommon(fullName string) (gitURL string, tag string, localPath string, importRef string, name string, err error) {
+func parseCommon(fullName string) (gitURL, tag, localPath, importRef, name string, err error) {
 	partsPlus, err := splitUnescapePlus(fullName)
 	if err != nil {
 		return "", "", "", "", "", err
@@ -182,21 +183,23 @@ func parseCommon(fullName string) (gitURL string, tag string, localPath string, 
 	if partsPlus[0] == "" {
 		// Local target.
 		return "", "", ".", "", partsPlus[1], nil
-	} else if strings.HasPrefix(partsPlus[0], ".") || strings.HasPrefix(partsPlus[0], "~/") || filepath.IsAbs(partsPlus[0]) {
+	} else if strings.HasPrefix(partsPlus[0], ".") ||
+		strings.HasPrefix(partsPlus[0], "~/") ||
+		filepath.IsAbs(partsPlus[0]) {
 		// Local external target.
 		localPath := partsPlus[0]
 
 		switch {
-		default:
-			localPath = path.Clean(localPath)
-			if !strings.HasPrefix(localPath, ".") {
-				localPath = "./" + localPath
-			}
 		case strings.HasPrefix(localPath, "~/"):
 			homeDir := os.Getenv("HOME")
 			localPath = homeDir + "/" + localPath[2:]
 		case filepath.IsAbs(localPath):
 			localPath = path.Clean(localPath)
+		default:
+			localPath = path.Clean(localPath)
+			if !strings.HasPrefix(localPath, ".") {
+				localPath = "./" + localPath
+			}
 		}
 
 		return "", "", localPath, "", partsPlus[1], nil

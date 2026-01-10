@@ -24,12 +24,18 @@ type localResolver struct {
 	console           conslogging.ConsoleLogger
 }
 
-func (lr *localResolver) resolveLocal(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference, featureFlagOverrides string) (*Data, error) {
+func (lr *localResolver) resolveLocal(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	platr *platutil.Resolver,
+	ref domain.Reference,
+	featureFlagOverrides string,
+) (*Data, error) {
 	if ref.IsRemote() {
 		return nil, errors.Errorf("unexpected remote target %s", ref.String())
 	}
 
-	metadataValue, err := lr.gitMetaCache.Do(ctx, ref.GetLocalPath(), func(ctx context.Context, _ interface{}) (interface{}, error) {
+	metadataValue, err := lr.gitMetaCache.Do(ctx, ref.GetLocalPath(), func(ctx context.Context, _ any) (any, error) {
 		metadata, err := gitutil.Metadata(ctx, ref.GetLocalPath(), lr.gitBranchOverride)
 		if err != nil {
 			if errors.Is(err, gitutil.ErrNoGitBinary) ||
@@ -63,7 +69,7 @@ func (lr *localResolver) resolveLocal(ctx context.Context, gwClient gwclient.Cli
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.String()
 	}
-	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ interface{}) (interface{}, error) {
+	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		buildFilePath, err := detectBuildFile(ref, localPath)
 		if err != nil {
 			return nil, err
@@ -88,7 +94,8 @@ func (lr *localResolver) resolveLocal(ctx context.Context, gwClient gwclient.Cli
 	bf := buildFileValue.(*buildFile)
 
 	var buildContextFactory llbfactory.Factory
-	// guard against auto-complete code's GetTargetArgs() func which passes in a nil gwClient (but doesn't actually invoke buildkit)
+	// guard against auto-complete code's GetTargetArgs() func which passes in a nil gwClient
+	// (but doesn't actually invoke buildkit)
 	if gwClient != nil {
 		if _, isTarget := ref.(domain.Target); isTarget {
 			noImplicitIgnore := bf.ftrs != nil && bf.ftrs.NoImplicitIgnore

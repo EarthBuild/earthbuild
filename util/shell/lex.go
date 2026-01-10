@@ -62,7 +62,9 @@ func (s *Lex) ProcessWordWithMap(word string, env map[string]string, shelloutEnv
 
 // ProcessWordsWithMap will use the 'env' list of environment variables,
 // and replace any env var references in 'word'.
-func (s *Lex) ProcessWordsWithMap(word string, env map[string]string, shelloutEnvs map[string]struct{}) ([]string, error) {
+func (s *Lex) ProcessWordsWithMap(
+	word string, env map[string]string, shelloutEnvs map[string]struct{},
+) ([]string, error) {
 	_, words, err := s.process(word, env, shelloutEnvs)
 	return words, err
 }
@@ -691,13 +693,13 @@ func BuildEnvs(env []string) map[string]string {
 	envs := map[string]string{}
 
 	for _, e := range env {
-		i := strings.Index(e, "=")
+		before, after, ok := strings.Cut(e, "=")
 
-		if i < 0 {
+		if !ok {
 			envs[e] = ""
 		} else {
-			k := e[:i]
-			v := e[i+1:]
+			k := before
+			v := after
 
 			// overwrite value if key already exists
 			envs[k] = v

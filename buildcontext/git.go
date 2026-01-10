@@ -21,10 +21,9 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
 )
 
@@ -67,7 +66,9 @@ type resolvedGitProject struct {
 	earthfilePaths []string
 }
 
-func (gr *gitResolver) expandWildcard(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target domain.Target, pattern string) ([]string, error) {
+func (gr *gitResolver) expandWildcard(
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target domain.Target, pattern string,
+) ([]string, error) {
 	if !target.IsRemote() {
 		return nil, errors.Errorf("unexpected local reference %s", target.String())
 	}
@@ -101,7 +102,13 @@ func (gr *gitResolver) expandWildcard(ctx context.Context, gwClient gwclient.Cli
 	return matches, nil
 }
 
-func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference, featureFlagOverrides string) (*Data, error) {
+func (gr *gitResolver) resolveEarthProject(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	platr *platutil.Resolver,
+	ref domain.Reference,
+	featureFlagOverrides string,
+) (*Data, error) {
 	if !ref.IsRemote() {
 		return nil, errors.Errorf("unexpected local reference %s", ref.String())
 	}
@@ -139,7 +146,7 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.StringCanonical()
 	}
-	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ interface{}) (interface{}, error) {
+	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
 		earthfileTmpDir, err := os.MkdirTemp(os.TempDir(), "earthly-git")
 		if err != nil {
 			return nil, errors.Wrap(err, "create temp dir for Earthfile")
@@ -212,13 +219,15 @@ func (gr *gitResolver) resolveEarthProject(ctx context.Context, gwClient gwclien
 	}, nil
 }
 
-func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference) (rgp *resolvedGitProject, gitURL string, subDir string, finalErr error) {
+func (gr *gitResolver) resolveGitProject(
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
+) (rgp *resolvedGitProject, gitURL string, subDir string, finalErr error) {
 	gitRef := ref.GetTag()
 
 	var err error
 	var keyScans []string
 	var sshCommand string
-	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ref.GetGitURL())
+	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ctx, ref.GetGitURL())
 	if err != nil {
 		return nil, "", "", errors.Wrap(err, "failed to get url for cloning")
 	}
@@ -226,7 +235,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 	// Check the cache first.
 	scrubbedGITURL := stringutil.ScrubCredentials(gitURL)
 	cacheKey := fmt.Sprintf("%s#%s", scrubbedGITURL, gitRef)
-	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, k interface{}) (interface{}, error) {
+	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, k any) (any, error) {
 		// Copy all Earthfile, build.earth and Dockerfile files.
 		vm := &vertexmeta.VertexMeta{
 			TargetName: cacheKey,
@@ -241,8 +250,9 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 			gitOpts = append(gitOpts, llb.KnownSSHHosts(strings.Join(keyScans, "\n")))
 		}
 		if gr.lfsInclude != "" {
-			// TODO this should eventually be inferred by the contents of a COPY command, which means the call to resolveGitProject will need to be lazy-evaluated
-			// However this makes it really difficult for an Earthfile which first has an ARG EARTHLY_GIT_HASH, then a RUN, then a COPY
+			// TODO this should eventually be inferred by the contents of a COPY command, which means the call
+			// to resolveGitProject will need to be lazy-evaluated. However this makes it really difficult for
+			// an Earthfile which first has an ARG EARTHLY_GIT_HASH, then a RUN, then a COPY
 			gitOpts = append(gitOpts, llb.LFSInclude(gr.lfsInclude))
 		}
 		if sshCommand != "" {
@@ -380,6 +390,10 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 			return nil, errors.Wrap(err, "read Earthfile-paths")
 		}
 
+		isNotHead := func(s string) bool {
+			return s != "" && s != "HEAD"
+		}
+
 		gitHash := strings.SplitN(string(gitHashBytes), "\n", 2)[0]
 		gitShortHash := strings.SplitN(string(gitShortHashBytes), "\n", 2)[0]
 		gitBranches := strings.SplitN(gitBranch, "\n", 2)
@@ -388,7 +402,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 		gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(gitBodyBytes))
 		var gitBranches2 []string
 		for _, gitBranch := range gitBranches {
-			if gitBranch != "" && gitBranch != "HEAD" {
+			if isNotHead(gitBranch) {
 				gitBranches2 = append(gitBranches2, gitBranch)
 			}
 		}
@@ -406,7 +420,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 		gitTags := strings.SplitN(string(gitTagsBytes), "\n", 2)
 		var gitTags2 []string
 		for _, gitTag := range gitTags {
-			if gitTag != "" && gitTag != "HEAD" {
+			if isNotHead(gitTag) {
 				gitTags2 = append(gitTags2, gitTag)
 			}
 		}
@@ -416,7 +430,7 @@ func (gr *gitResolver) resolveGitProject(ctx context.Context, gwClient gwclient.
 		var gitRefs2 []string
 		for _, gitRef := range gitRefs {
 			gitRef = strings.Trim(gitRef, "'\"")
-			if gitRef != "" && gitRef != "HEAD" && !slices.Contains(gitRefs2, gitRef) {
+			if isNotHead(gitRef) && !slices.Contains(gitRefs2, gitRef) {
 				gitRefs2 = append(gitRefs2, gitRef)
 			}
 		}

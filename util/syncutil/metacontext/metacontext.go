@@ -33,7 +33,7 @@ func New(ctx context.Context) *MetaContext {
 		subDoneCh: make(chan int),
 	}
 	_ = mc.Add(ctx)
-	go mc.monitor()
+	go mc.monitor() //nolint:contextcheck
 	return mc
 }
 
@@ -128,7 +128,7 @@ func (mc *MetaContext) Err() error {
 
 // Value calls context.Value on the first not-done context, or on the first one,
 // if all are done.
-func (mc *MetaContext) Value(key interface{}) interface{} {
+func (mc *MetaContext) Value(key any) any {
 	mc.mu.Lock()
 	if len(mc.sub) == 0 {
 		mc.mu.Unlock()

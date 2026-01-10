@@ -44,7 +44,9 @@ var (
 	}
 )
 
-func newDecodeCFG(result interface{}, metadata *mapstructure.Metadata, template mapstructure.DecoderConfig) *mapstructure.DecoderConfig {
+func newDecodeCFG(
+	result any, metadata *mapstructure.Metadata, template mapstructure.DecoderConfig,
+) *mapstructure.DecoderConfig {
 	res := template
 	res.Result = result
 	res.Metadata = metadata
@@ -93,7 +95,9 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 		return nil, err
 	}
 	if len(metadata.Unused) > 0 {
-		return nil, &mapstructure.Error{Errors: []string{fmt.Sprintf("key(s) [%s] are invalid", strings.Join(metadata.Unused, ","))}}
+		return nil, &mapstructure.Error{
+			Errors: []string{fmt.Sprintf("key(s) [%s] are invalid", strings.Join(metadata.Unused, ","))},
+		}
 	}
 	for _, f := range requiredFields {
 		if slices.Contains(metadata.Unset, f) {
@@ -104,15 +108,11 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 }
 
 func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{},
-	) (interface{}, error) {
+	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
-		if t != reflect.TypeOf(arn.ARN{}) {
+		if t != reflect.TypeFor[arn.ARN]() {
 			return data, nil
 		}
 
@@ -130,15 +130,11 @@ func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHo
 }
 
 func timeDurationValidationsHookFunc(validators ...func(input time.Duration) error) mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{},
-	) (interface{}, error) {
+	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
-		if t != reflect.TypeOf(time.Duration(5)) {
+		if t != reflect.TypeFor[time.Duration]() {
 			return data, nil
 		}
 

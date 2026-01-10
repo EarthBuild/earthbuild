@@ -20,8 +20,8 @@ type Logger struct {
 }
 
 // With adds metadata to the logger.
-func (l Logger) With(key string, value interface{}) Logger {
-	valueStr := ""
+func (l Logger) With(key string, value any) Logger {
+	var valueStr string
 	switch v := value.(type) {
 	case string:
 		valueStr = v

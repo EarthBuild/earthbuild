@@ -55,7 +55,14 @@ type Resolver struct {
 }
 
 // NewResolver returns a new NewResolver.
-func NewResolver(cleanCollection *cleanup.Collection, gitLookup *GitLookup, console conslogging.ConsoleLogger, featureFlagOverrides, gitBranchOverride, gitLFSInclude string, gitLogLevel buildkitgitutil.GitLogLevel, gitImage string) *Resolver {
+func NewResolver(
+	cleanCollection *cleanup.Collection,
+	gitLookup *GitLookup,
+	console conslogging.ConsoleLogger,
+	featureFlagOverrides, gitBranchOverride, gitLFSInclude string,
+	gitLogLevel buildkitgitutil.GitLogLevel,
+	gitImage string,
+) *Resolver {
 	return &Resolver{
 		gr: &gitResolver{
 			gitBranchOverride: gitBranchOverride,
@@ -85,7 +92,9 @@ func NewResolver(cleanCollection *cleanup.Collection, gitLookup *GitLookup, cons
 // targets, we need to join the two targets in order to derive the full relative
 // path. This is then used when globbing for matches. The paths are then made
 // relative to the parent target for resolution by the caller.
-func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, parentTarget, target domain.Target) ([]string, error) {
+func (r *Resolver) ExpandWildcard(
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, parentTarget, target domain.Target,
+) ([]string, error) {
 	if parentTarget.IsRemote() {
 		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.GetLocalPath())
 		if err != nil {
@@ -127,7 +136,9 @@ func (r *Resolver) ExpandWildcard(ctx context.Context, gwClient gwclient.Client,
 
 // Resolve returns resolved context data for a given Earthly reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
-func (r *Resolver) Resolve(ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference) (*Data, error) {
+func (r *Resolver) Resolve(
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
+) (*Data, error) {
 	if ref.IsUnresolvedImportReference() {
 		return nil, errors.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}
@@ -164,7 +175,7 @@ func (r *Resolver) Resolve(ctx context.Context, gwClient gwclient.Client, platr 
 
 func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
 	path = filepath.Clean(path)
-	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k interface{}) (interface{}, error) {
+	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
 		return ast.Parse(k.(string), true)
 	})
 	if err != nil {

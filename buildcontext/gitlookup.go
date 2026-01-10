@@ -65,17 +65,17 @@ type GitLookup struct {
 
 var defaultKeyScans = []string{
 	// github.com
-	"|1|+wkzm0y4RAEaLjnuB3lvMyNmqto=|A97DLdg1fwTjawL47CHJqEeE2lw= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=",
-	"|1|tNJE6wQBmC1c4lJm0wtToe8IHxY=|I7K0Cre2i8VXpAKTS2P6Y7bIdqg= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=",
-	"|1|z0g6bpSrCXjh1vZdfzQP634n7SQ=|Xf+7/COPFwsdLXxWptK2/jRP2k0= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+	"|1|+wkzm0y4RAEaLjnuB3lvMyNmqto=|A97DLdg1fwTjawL47CHJqEeE2lw= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=", //nolint:lll
+	"|1|tNJE6wQBmC1c4lJm0wtToe8IHxY=|I7K0Cre2i8VXpAKTS2P6Y7bIdqg= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=", //nolint:lll
+	"|1|z0g6bpSrCXjh1vZdfzQP634n7SQ=|Xf+7/COPFwsdLXxWptK2/jRP2k0= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",                                                                                 //nolint:lll
 
 	// gitlab.com
-	"|1|an1urLLW36WT6FnJoB5BWqVwiEM=|RTcVDky6WhU+S+09yjALNiS4neo= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7FcwzY92WK4Yt0aGROY5qX2UKSeOvuP4D6TPqKF1onrSzH9bx9XUf2lEdWT/ia1NEKjunUqu1xOB/StKDHMoX4/OKyIzuS0q/T1zOATthvasJFoPrAjkohTyaDUz2LN5JoH839hViyEG82yB+MjcFV5MU3N1l1QL3cVUCh93xSaua1N85qivl+siMkPGbO5xR/En4iEY6K2XPASUEMaieWVNTRCtJ4S8H+9",
-	"|1|z2nqpVA8ymA2aLuV3ig57xKYDOw=|2JC7T/Oek2fpc/rw+YOfolDdDCI= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFSMqzJeV9rUzU4kWitGjeR4PWSa29SPqJ1fVkhtj3Hw9xjLVXVYrU9QlYWrOLXBpQ6KWjbjTDTdDkoohFzgbEY=",
-	"|1|JAhjb/FmPaOSwPtfZlOYRmq7nlg=|MysQCX5GQaSfAKTn5R5AHdskAt4= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf",
+	"|1|an1urLLW36WT6FnJoB5BWqVwiEM=|RTcVDky6WhU+S+09yjALNiS4neo= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7FcwzY92WK4Yt0aGROY5qX2UKSeOvuP4D6TPqKF1onrSzH9bx9XUf2lEdWT/ia1NEKjunUqu1xOB/StKDHMoX4/OKyIzuS0q/T1zOATthvasJFoPrAjkohTyaDUz2LN5JoH839hViyEG82yB+MjcFV5MU3N1l1QL3cVUCh93xSaua1N85qivl+siMkPGbO5xR/En4iEY6K2XPASUEMaieWVNTRCtJ4S8H+9", //nolint:lll
+	"|1|z2nqpVA8ymA2aLuV3ig57xKYDOw=|2JC7T/Oek2fpc/rw+YOfolDdDCI= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFSMqzJeV9rUzU4kWitGjeR4PWSa29SPqJ1fVkhtj3Hw9xjLVXVYrU9QlYWrOLXBpQ6KWjbjTDTdDkoohFzgbEY=",                                                                                                                                                                                                                             //nolint:lll
+	"|1|JAhjb/FmPaOSwPtfZlOYRmq7nlg=|MysQCX5GQaSfAKTn5R5AHdskAt4= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf",                                                                                                                                                                                                                                                                                                             //nolint:lll
 
 	// bitbucket.com
-	"|1|5myLBXBnkK609Pb0DTrYhK9hn3k=|7wQiytbsZpu1pDE7AOs7pfBw/4M= ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==",
+	"|1|5myLBXBnkK609Pb0DTrYhK9hn3k=|7wQiytbsZpu1pDE7AOs7pfBw/4M= ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==", //nolint:lll
 }
 
 // NewGitLookup creates new lookuper.
@@ -115,7 +115,7 @@ func (gl *GitLookup) DisableSSH() {
 func knownHostsToKeyScans(knownHosts string) []string {
 	knownHosts = strings.ReplaceAll(knownHosts, "\r\n", "\n")
 	foundKeyScans := make(map[string]bool)
-	for _, s := range strings.Split(knownHosts, "\n") {
+	for s := range strings.SplitSeq(knownHosts, "\n") {
 		s = strings.TrimSpace(s)
 		if s != "" && !strings.HasPrefix(s, "#") && !foundKeyScans[s] {
 			foundKeyScans[s] = true
@@ -125,7 +125,12 @@ func knownHostsToKeyScans(knownHosts string) []string {
 }
 
 // AddMatcher adds a new matcher for looking up git repos.
-func (gl *GitLookup) AddMatcher(name, pattern, sub, user, password, prefix, suffix, protocol, knownHosts string, strictHostKeyChecking bool, port int, sshCommand string) error {
+func (gl *GitLookup) AddMatcher(
+	name, pattern, sub, user, password, prefix, suffix, protocol, knownHosts string,
+	strictHostKeyChecking bool,
+	port int,
+	sshCommand string,
+) error {
 	gl.mu.Lock()
 	defer gl.mu.Unlock()
 	p := gitProtocol(protocol)
@@ -178,7 +183,7 @@ func (gl *GitLookup) AddMatcher(name, pattern, sub, user, password, prefix, suff
 }
 
 // from crypto/ssh
-// See https://android.googlesource.com/platform/external/openssh/+/ab28f5495c85297e7a597c1ba62e996416da7c7e/hostfile.c#120
+// https://android.googlesource.com/platform/external/openssh/+/ab28f5495c85297e7a597c1ba62e996416da7c7e/hostfile.c#120
 func hashHost(hostname string, salt []byte) []byte {
 	mac := hmac.New(sha1.New, salt)
 	mac.Write([]byte(hostname))
@@ -263,8 +268,10 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 		// entry isn't hashed
 		// either the entry is of the form `[hostname]:port` or simply `hostname`
 		// check for entry without a port
-		// TODO: ACB is not sure if this part is needed ( https://github.com/openssh/openssh-portable/commit/e9c71498a083a8b502aa831ea931ce294228eda0 is a bugfix
-		// that only affects hashed entries, however, it's not clear if old versions of ssh dropped the port in the non-hashed version).
+		// TODO: ACB is not sure if this part is needed
+		// (https://github.com/openssh/openssh-portable/commit/e9c71498a083a8b502aa831ea931ce294228eda0 is a bugfix
+		// that only affects hashed entries, however, it's not clear if old versions of ssh dropped the port in
+		// the non-hashed version).
 		if !hasPort(hostname) {
 			err = errKeyScanNoMatch
 			return
@@ -308,7 +315,8 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 	if err != nil {
 		gl.console.Warnf("failed to load ~/.ssh/known_hosts: %s", err)
 	}
-	gl.console.VerbosePrintf("loaded %d key(s) from known_hosts and %d default key(s)", len(knownHostsKeyScans), len(defaultKeyScans))
+	gl.console.VerbosePrintf("loaded %d key(s) from known_hosts and %d default key(s)",
+		len(knownHostsKeyScans), len(defaultKeyScans))
 
 	foundKeys := make(map[string]bool)
 	for _, keyScans := range [][]string{
@@ -372,7 +380,8 @@ func (gl *GitLookup) getGitMatcherByPath(path string) (string, *gitMatcher, erro
 	}
 	match := gl.catchAll.re.FindString(path)
 	if match != "" {
-		gl.console.VerbosePrintf("matched earthly reference %s with pre-configured catch-all (regex %s)", path, gl.catchAll.re)
+		gl.console.VerbosePrintf("matched earthly reference %s with pre-configured catch-all (regex %s)",
+			path, gl.catchAll.re)
 		return match, gl.catchAll, nil
 	}
 	gl.console.VerbosePrintf("failed to match earthly reference %s with any git matchers", path)
@@ -391,7 +400,7 @@ func (gl *GitLookup) getGitMatcherByName(name string) *gitMatcher {
 }
 
 // detectProtocol will update the gitMatcher protocol if it is set to auto.
-func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err error) {
+func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol gitProtocol, err error) {
 	var ok bool
 	protocol, ok = gl.autoProtocols[host]
 	if ok {
@@ -405,9 +414,10 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 	}()
 
 	var d net.Dialer
-	sshAgent, err := d.DialContext(context.Background(), "unix", gl.sshAuthSock)
+	sshAgent, err := d.DialContext(ctx, "unix", gl.sshAuthSock)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https", gl.sshAuthSock, err.Error())
+		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https",
+			gl.sshAuthSock, err.Error())
 		protocol = httpsProtocol
 		err = nil
 		return
@@ -415,7 +425,8 @@ func (gl *GitLookup) detectProtocol(host string) (protocol gitProtocol, err erro
 
 	algs, keys, err := gl.getHostKeyAlgorithms(host)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to get accepted host key algorithms for %s: %s; falling back to https", host, err.Error())
+		gl.console.VerbosePrintf("failed to get accepted host key algorithms for %s: %s; falling back to https",
+			host, err.Error())
 		protocol = httpsProtocol
 		err = nil
 		return
@@ -485,7 +496,9 @@ func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string,
 
 var errMakeCloneURLSubNotSupported = errors.New("makeCloneURL does not support gitMatcher substitution")
 
-func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL string, keyScans []string, sshCommand string, err error) {
+func (gl *GitLookup) makeCloneURL(
+	ctx context.Context, m *gitMatcher, host, gitPath string,
+) (gitURL string, keyScans []string, sshCommand string, err error) {
 	if m.sub != "" {
 		return "", nil, "", errMakeCloneURLSubNotSupported
 	}
@@ -494,7 +507,7 @@ func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL s
 	user := m.user
 	password := m.password
 	if configuredProtocol == autoProtocol {
-		configuredProtocol, err = gl.detectProtocol(host)
+		configuredProtocol, err = gl.detectProtocol(ctx, host)
 		if err != nil {
 			return "", nil, "", err
 		}
@@ -551,7 +564,8 @@ func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL s
 		}
 	case httpProtocol:
 		if user != "" || password != "" {
-			gl.console.Warnf("%s has been configured to use basic access authentication with http; this is insecure and will be ignored; use https or ssh authentication instead", host)
+			gl.console.Warnf("%s has been configured to use basic access authentication with http; "+
+				"this is insecure and will be ignored; use https or ssh authentication instead", host)
 		}
 		gitURL = "http://" + host + "/" + gitPath
 	case httpsProtocol:
@@ -569,7 +583,8 @@ func (gl *GitLookup) makeCloneURL(m *gitMatcher, host, gitPath string) (gitURL s
 	return gitURL, keyScans, m.sshCommand, nil
 }
 
-// TODO eventually we should use gitutil.parseURL directly; but for now we want to avoid this change to keep this commit smaller.
+// TODO eventually we should use gitutil.parseURL directly; but for now we want to avoid
+// this change to keep this commit smaller.
 const (
 	HTTPProtocol = iota + 1
 	HTTPSProtocol
@@ -578,7 +593,8 @@ const (
 	UnknownProtocol
 )
 
-// parseGitProtocol comes from buildkit (which was named ParseProtocol); it was since deleted and replaced with ParseURL).
+// parseGitProtocol comes from buildkit (which was named ParseProtocol);
+// it was since deleted and replaced with ParseURL).
 func parseGitProtocol(remote string) (string, int) {
 	prefixes := map[string]int{
 		"http://":  HTTPProtocol,
@@ -588,8 +604,8 @@ func parseGitProtocol(remote string) (string, int) {
 	}
 	protocolType := UnknownProtocol
 	for prefix, potentialType := range prefixes {
-		if strings.HasPrefix(remote, prefix) {
-			remote = strings.TrimPrefix(remote, prefix)
+		if after, ok := strings.CutPrefix(remote, prefix); ok {
+			remote = after
 			protocolType = potentialType
 		}
 	}
@@ -618,7 +634,9 @@ func parseGitProtocol(remote string) (string, int) {
 // Additionally a ssh keyscan might be returned (or an empty string indicating none was configured)
 // Also, a custom "git ssh command" may be returned. This is part of this function since the user may
 // specify a command necessary to clone their repository successfully.
-func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, keyScans []string, sshCommand string, err error) {
+func (gl *GitLookup) GetCloneURL(
+	ctx context.Context, path string,
+) (gitURL string, subPath string, keyScans []string, sshCommand string, err error) {
 	gl.mu.Lock()
 	defer gl.mu.Unlock()
 	match, m, err := gl.getGitMatcherByPath(path)
@@ -642,7 +660,8 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 			return "", "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
 		}
 		gitURL := m.re.ReplaceAllString(path, m.sub)
-		gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)", path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
+		gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)",
+			path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
 		var keyScans []string
 		remote, protocol := parseGitProtocol(gitURL)
 		if protocol == SSHProtocol {
@@ -658,7 +677,7 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 		return gitURL, subPath, keyScans, sshCommand, nil
 	}
 
-	gitURL, keyScans, sshCommand, err = gl.makeCloneURL(m, host, gitPath)
+	gitURL, keyScans, sshCommand, err = gl.makeCloneURL(ctx, m, host, gitPath)
 	if err != nil {
 		return "", "", nil, "", err
 	}
@@ -670,7 +689,9 @@ func (gl *GitLookup) GetCloneURL(path string) (gitURL string, subPath string, ke
 // and makes use of configured git credentials and protocol preferences to convert it into the appropriate
 // https or ssh protocol.
 // it also returns a keyScan and sshCommand.
-func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []string, sshCommand string, err error) {
+func (gl *GitLookup) ConvertCloneURL(
+	ctx context.Context, inURL string,
+) (gitURL string, keyScans []string, sshCommand string, err error) {
 	var host string
 	var gitPath string
 
@@ -727,7 +748,7 @@ func (gl *GitLookup) ConvertCloneURL(inURL string) (gitURL string, keyScans []st
 		return gitURL, keyScans, m.sshCommand, nil
 	}
 
-	return gl.makeCloneURL(m, host,
+	return gl.makeCloneURL(ctx, m, host,
 		m.prefix+gitPath, // Note that inURL already contains the suffix
 	)
 }

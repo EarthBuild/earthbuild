@@ -79,7 +79,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 }
 
 func (dsf *dockerShellFrontend) Scheme() string {
-	return "docker-container"
+	return SchemeDockerContainer
 }
 
 func (dsf *dockerShellFrontend) Config() *CurrentFrontend {
@@ -131,7 +131,9 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 	}, nil
 }
 
-func (dsf *dockerShellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerInfo, error) {
+func (dsf *dockerShellFrontend) ContainerInfo(
+	ctx context.Context, namesOrIDs ...string,
+) (map[string]*ContainerInfo, error) {
 	results, err := dsf.shellFrontend.ContainerInfo(ctx, namesOrIDs...)
 	if err != nil {
 		return nil, err
@@ -163,8 +165,7 @@ func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 func (dsf *dockerShellFrontend) ImageLoadFromFileCommand(filename string) string {
 	binary, args := dsf.commandContextStrings("load")
 
-	all := []string{binary}
-	all = append(all, args...)
+	all := append([]string{binary}, args...)
 
 	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(all, " "))
 }

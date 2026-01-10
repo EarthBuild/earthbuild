@@ -149,7 +149,9 @@ func NewBuilder(ctx context.Context, opt Opt) (*Builder, error) {
 		opt:      opt,
 		resolver: nil, // initialized below
 	}
-	b.resolver = buildcontext.NewResolver(opt.CleanCollection, opt.GitLookup, opt.Console, opt.FeatureFlagOverrides, opt.GitBranchOverride, opt.GitLFSInclude, opt.GitLogLevel, opt.GitImage)
+	b.resolver = buildcontext.NewResolver(
+		opt.CleanCollection, opt.GitLookup, opt.Console, opt.FeatureFlagOverrides, opt.GitBranchOverride,
+		opt.GitLFSInclude, opt.GitLogLevel, opt.GitImage)
 	return b, nil
 }
 
@@ -176,7 +178,7 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 	}
 
 	// Podman does not support the insecure localhost
-	if b.opt.ContainerFrontend.Scheme() == "podman-container" {
+	if b.opt.ContainerFrontend.Scheme() == containerutil.SchemePodmanContainer {
 		cons.Printf("Registry proxy not supported on Podman. Falling back to tar-based outputs.")
 		return nil, false
 	}
@@ -232,7 +234,9 @@ func useSecondaryProxy() (bool, error) {
 	return strings.Contains(s, "WSL2"), nil
 }
 
-func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt BuildOpt) (*states.MultiTarget, error) {
+func (b *Builder) convertAndBuild(
+	ctx context.Context, target domain.Target, opt BuildOpt,
+) (*states.MultiTarget, error) {
 	_, span := otel.GetTracerProvider().Tracer("").Start(ctx, PhaseBuild)
 	defer span.End()
 
@@ -329,7 +333,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		}
 		if opt.GlobalWaitBlockFtr {
 			if opt.OnlyArtifact != nil || opt.OnlyFinalTargetImages {
-				b.opt.Console.Printf("builder.go bf code is still required for OnlyArtifact or OnlyFinalTargetImages modes (GlobalWaitBlockFtr has no effect)\n")
+				b.opt.Console.Printf("builder.go bf code is still required for OnlyArtifact or " +
+					"OnlyFinalTargetImages modes (GlobalWaitBlockFtr has no effect)\n")
 			} else {
 				b.opt.Console.Printf("skipping builder.go bf code due to GlobalWaitBlockFtr\n")
 				return nil, nil
@@ -380,7 +385,9 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 						isMultiPlatform[saveImage.DockerTag] = true
 					}
 					if isMultiPlatform[saveImage.DockerTag] && noManifestListImgs[saveImage.DockerTag] {
-						return nil, fmt.Errorf("cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list", saveImage.DockerTag)
+						return nil, fmt.Errorf(
+							"cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list",
+							saveImage.DockerTag)
 					}
 				}
 			}
@@ -400,10 +407,19 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 
 			for _, saveImage := range b.targetPhaseImages(sts) {
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldExport := !opt.NoOutput && opt.OnlyArtifact == nil && !(opt.OnlyFinalTargetImages && sts != mts.Final) && saveImage.DockerTag != "" && doSave
-				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
+				shouldExport := !opt.NoOutput &&
+					opt.OnlyArtifact == nil &&
+					!(opt.OnlyFinalTargetImages && sts != mts.Final) &&
+					saveImage.DockerTag != "" &&
+					doSave
+				shouldPush := opt.Push &&
+					saveImage.Push &&
+					!sts.Target.IsRemote() &&
+					saveImage.DockerTag != "" &&
+					sts.GetDoPushes()
 				useCacheHint := saveImage.CacheHint && b.opt.CacheExport != ""
-				if (saveImage.SkipBuilder || !shouldPush && !shouldExport && !useCacheHint) || (!shouldPush && saveImage.HasPushDependencies) {
+				if (saveImage.SkipBuilder || !shouldPush && !shouldExport && !useCacheHint) ||
+					(!shouldPush && saveImage.HasPushDependencies) {
 					// Short-circuit.
 					continue
 				}
@@ -422,7 +438,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 						singPlatImgNames[saveImage.DockerTag] = true
 					}
 					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
-					refPrefix, err := gwCrafter.AddPushImageEntry(ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil)
+					refPrefix, err := gwCrafter.AddPushImageEntry(
+						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil)
 					if err != nil {
 						return nil, err
 					}
@@ -457,7 +474,9 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 
 					// For push.
 					if shouldPush {
-						_, err = gwCrafter.AddPushImageEntry(ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, []byte(platformStr))
+						_, err = gwCrafter.AddPushImageEntry(
+							ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush,
+							saveImage.Image, []byte(platformStr))
 						if err != nil {
 							return nil, err
 						}
@@ -466,7 +485,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 
 					// For local.
 					if shouldExport {
-						refPrefix, err := gwCrafter.AddPushImageEntry(ref, imageIndex, platformImgName, false, false, saveImage.Image, nil)
+						refPrefix, err := gwCrafter.
+							AddPushImageEntry(ref, imageIndex, platformImgName, false, false, saveImage.Image, nil)
 						if err != nil {
 							return nil, err
 						}
@@ -503,7 +523,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 						Target:   sts.Target,
 						Artifact: saveLocal.ArtifactPath,
 					}
-					dirID, err := gwCrafter.AddSaveArtifactLocal(ref, dirIndex, artifact.String(), saveLocal.ArtifactPath, saveLocal.DestPath)
+					dirID, err := gwCrafter.
+						AddSaveArtifactLocal(ref, dirIndex, artifact.String(), saveLocal.ArtifactPath, saveLocal.DestPath)
 					if err != nil {
 						return nil, err
 					}
@@ -531,7 +552,7 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		defer exportedImagesMutex.Unlock()
 		exportedTarImageManifestKeys[manifestKey] = struct{}{}
 		manifests := make(map[string][]dockerutil.Manifest)
-		for _, manifestKey := range strings.Split(waitFor, " ") {
+		for manifestKey := range strings.SplitSeq(waitFor, " ") {
 			_, ok := exportedTarImageManifestKeys[manifestKey]
 			if !ok {
 				return nil
@@ -546,14 +567,17 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			if opt.PlatformResolver == nil {
 				panic("platform resolver is nil")
 			}
-			err := dockerutil.LoadDockerManifest(ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
+			err := dockerutil.LoadDockerManifest(
+				ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	onImage := func(childCtx context.Context, eg *errgroup.Group, imageName, waitFor, manifestKey string) (io.WriteCloser, error) {
+	onImage := func(
+		childCtx context.Context, eg *errgroup.Group, imageName, waitFor, manifestKey string,
+	) (io.WriteCloser, error) {
 		pipeR, pipeW := io.Pipe()
 		eg.Go(func() error {
 			defer pipeR.Close()
@@ -568,9 +592,12 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 		})
 		return pipeW, nil
 	}
-	onArtifact := func(childCtx context.Context, index string, artifact domain.Artifact, artifactPath string, destPath string) (string, error) {
+	onArtifact := func(
+		childCtx context.Context, index string, artifact domain.Artifact, artifactPath string, destPath string,
+	) (string, error) {
 		if !opt.LocalArtifactWhiteList.Exists(destPath) {
-			return "", errors.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
+			err := errors.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
+			return "", err
 		}
 		outDir, err := b.tempEarthlyOutDir()
 		if err != nil {
@@ -612,7 +639,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 			if opt.PlatformResolver == nil {
 				panic("platform resolver is nil")
 			}
-			err = dockerutil.LoadDockerManifest(ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
+			err = dockerutil.LoadDockerManifest(
+				ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
 			if err != nil {
 				return err
 			}
@@ -658,6 +686,42 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	outputPhaseSpecial := ""
 
 	switch {
+	case opt.NoOutput:
+		// noop
+	case opt.OnlyArtifact != nil:
+		if mts.Final.GetDoSaves() {
+			outputPhaseSpecial = "single artifact"
+			outDir, err := b.tempEarthlyOutDir()
+			if err != nil {
+				return nil, err
+			}
+			err = saveartifactlocally.SaveArtifactLocally(
+				ctx, exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+	case opt.OnlyFinalTargetImages:
+		outputPhaseSpecial = "single image"
+		for _, saveImage := range mts.Final.SaveImages {
+			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
+			shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
+			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
+			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
+				continue
+			}
+
+			if shouldPush {
+				exportCoordinator.
+					AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), true)
+			}
+			if saveImage.Push && !opt.Push {
+				exportCoordinator.
+					AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), false)
+			}
+			exportCoordinator.
+				AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt())
+		}
 	default:
 		// This needs to match with the same index used during output.
 		// TODO: This is a little brittle to future code changes.
@@ -812,7 +876,8 @@ func (b *Builder) convertAndBuild(ctx context.Context, target domain.Target, opt
 	outputConsole.Flush()
 
 	for parentImageName, children := range manifestLists {
-		err = dockerutil.LoadDockerManifest(ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
+		err = dockerutil.
+			LoadDockerManifest(ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
 		if err != nil {
 			return nil, err
 		}
@@ -852,14 +917,18 @@ func (b *Builder) targetPhaseInteractiveSession(sts *states.SingleTarget) states
 	return sts.InteractiveSession
 }
 
-func (b *Builder) stateToRef(ctx context.Context, gwClient gwclient.Client, state pllb.State, platr *platutil.Resolver) (gwclient.Reference, error) {
+func (b *Builder) stateToRef(
+	ctx context.Context, gwClient gwclient.Client, state pllb.State, platr *platutil.Resolver,
+) (gwclient.Reference, error) {
 	noCache := b.opt.NoCache && !b.builtMain
 	return llbutil.StateToRef(
 		ctx, gwClient, state, noCache,
 		platr, b.opt.CacheImports.AsSlice())
 }
 
-func (b *Builder) artifactStateToRef(ctx context.Context, gwClient gwclient.Client, state pllb.State, platr *platutil.Resolver) (gwclient.Reference, error) {
+func (b *Builder) artifactStateToRef(
+	ctx context.Context, gwClient gwclient.Client, state pllb.State, platr *platutil.Resolver,
+) (gwclient.Reference, error) {
 	noCache := b.opt.NoCache || b.builtMain
 	return llbutil.StateToRef(
 		ctx, gwClient, state, noCache,

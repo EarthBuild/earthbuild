@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const TargetBase = "base"
+
 // Parse parses an earthfile into an AST.
 func Parse(filePath string, enableSourceMap bool) (ef spec.Earthfile, err error) {
 	var opts []Opt
@@ -105,7 +107,11 @@ func walkTree(l *listener, tree parser.IEarthFileContext) (spec.Earthfile, error
 	return l.Earthfile(), nil
 }
 
-func newEarthfileTree(body string, errorListener *antlrhandler.ReturnErrorListener, errorStrategy antlr.ErrorStrategy) (*antlr.CommonTokenStream, parser.IEarthFileContext, error) {
+func newEarthfileTree(
+	body string,
+	errorListener *antlrhandler.ReturnErrorListener,
+	errorStrategy antlr.ErrorStrategy,
+) (*antlr.CommonTokenStream, parser.IEarthFileContext, error) {
 	input := antlr.NewInputStream(body)
 	lexer := newLexer(input)
 	lexer.RemoveErrorListeners()

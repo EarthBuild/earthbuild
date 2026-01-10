@@ -32,7 +32,7 @@ type registryProxy struct {
 // Serve waits for TCP connections and pipes data received from the connection
 // to BK via the gRPC server.
 func (r *registryProxy) serve(ctx context.Context) {
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	defer func() {
 		wg.Wait()
 		close(r.errCh)
@@ -50,11 +50,9 @@ func (r *registryProxy) serve(ctx context.Context) {
 				}
 				return
 			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				r.errCh <- r.handle(ctx, conn)
-			}()
+			})
 		}
 	}
 }

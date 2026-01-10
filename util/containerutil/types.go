@@ -73,20 +73,23 @@ type ImageInfo struct {
 	Tags         []string
 }
 
-// VolumeInfo contains information about a given volume, including its name, where its mounted from, and the size of the volume.
+// VolumeInfo contains information about a given volume, including its name,
+// where its mounted from, and the size of the volume.
 type VolumeInfo struct {
 	Name       string
 	Mountpoint string
 	SizeBytes  uint64
 }
 
-// ImageTag contains a source and target ref, used for tagging an image. It means that the SourceRef is tagged as the value in TargetRef.
+// ImageTag contains a source and target ref, used for tagging an image.
+// It means that the SourceRef is tagged as the value in TargetRef.
 type ImageTag struct {
 	SourceRef string
 	TargetRef string
 }
 
-// MountType constrains the kinds of mounts the Frontend API needs to support. Current valid values are bind and volume.
+// MountType constrains the kinds of mounts the Frontend API needs to support.
+// Current valid values are bind and volume.
 type MountType string
 
 const (
@@ -108,7 +111,8 @@ type Mount struct {
 // MountOpt is a list of Mounts to perform.
 type MountOpt []Mount
 
-// ProtocolType constrains the kinds of protocols the frontend API needs to support. Current valid values are tcp and udp.
+// ProtocolType constrains the kinds of protocols the frontend API needs to support.
+// Current valid values are tcp and udp.
 type ProtocolType string
 
 const (
@@ -170,11 +174,13 @@ const (
 	// FrontendPodmanShell forces usage of the podman binary for container operations.
 	FrontendPodmanShell = "podman-shell"
 
-	// FrontendStub is for when there is no valid provider but attempting to run anyways is desired; like integration tests, or the earthly/earthly image when NO_DOCKER is set.
+	// FrontendStub is for when there is no valid provider but attempting to run anyways is desired;
+	// like integration tests, or the earthly/earthly image when NO_DOCKER is set.
 	FrontendStub = "stub"
 )
 
-// CurrentFrontend contains information about the current container frontend. Useful when the frontend was configured using FrontendAuto for deciding transport.
+// CurrentFrontend contains information about the current container frontend.
+// Useful when the frontend was configured using FrontendAuto for deciding transport.
 type CurrentFrontend struct {
 	*FrontendURLs
 	Setting string
@@ -212,3 +218,8 @@ type FrontendURLs struct {
 	BuildkitHost      *url.URL
 	LocalRegistryHost *url.URL
 }
+
+const (
+	SchemeDockerContainer = "docker-container"
+	SchemePodmanContainer = "podman-container"
+)

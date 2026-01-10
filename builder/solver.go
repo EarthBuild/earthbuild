@@ -44,7 +44,15 @@ type solver struct {
 	saveInlineCache bool
 }
 
-func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, console conslogging.ConsoleLogger) error {
+func (s *solver) buildMainMulti(
+	ctx context.Context,
+	bf gwclient.BuildFunc,
+	onImage onImageFunc,
+	onArtifact onArtifactFunc,
+	onFinalArtifact onFinalArtifactFunc,
+	onPullCallback pullping.PullCallback,
+	console conslogging.ConsoleLogger,
+) error {
 	ch := make(chan *client.SolveStatus, statusChanSize)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -83,7 +91,15 @@ func (s *solver) buildMainMulti(ctx context.Context, bf gwclient.BuildFunc, onIm
 	return nil
 }
 
-func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onImage onImageFunc, onArtifact onArtifactFunc, onFinalArtifact onFinalArtifactFunc, onPullCallback pullping.PullCallback, console conslogging.ConsoleLogger) (*client.SolveOpt, error) {
+func (s *solver) newSolveOptMulti(
+	ctx context.Context,
+	eg *errgroup.Group,
+	onImage onImageFunc,
+	onArtifact onArtifactFunc,
+	onFinalArtifact onFinalArtifactFunc,
+	onPullCallback pullping.PullCallback,
+	console conslogging.ConsoleLogger,
+) (*client.SolveOpt, error) {
 	imports := s.cacheImports.AsSlice()
 	cacheImports := make([]client.CacheOptionsEntry, 0, len(imports))
 	for _, ci := range imports {
@@ -110,13 +126,17 @@ func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onIma
 
 	progressCB := fsutilprogress.New("", console.WithPrefix("output"))
 
+	isTrue := func(s string) bool {
+		return s == "true"
+	}
+
 	return &client.SolveOpt{
 		Exports: []client.ExportEntry{
 			{
 				Type:  client.ExporterEarthly,
 				Attrs: map[string]string{},
 				Output: func(md map[string]string) (io.WriteCloser, error) {
-					if md["export-image"] != "true" {
+					if !isTrue(md["export-image"]) {
 						return nil, nil
 					}
 					imageName := md["image.name"]
@@ -125,11 +145,11 @@ func (s *solver) newSolveOptMulti(ctx context.Context, eg *errgroup.Group, onIma
 					return onImage(ctx, eg, imageName, waitFor, manifestKey)
 				},
 				OutputDirFunc: func(md map[string]string) (string, error) {
-					if md["export-dir"] != "true" {
+					if !isTrue(md["export-dir"]) {
 						// Use the other fun for images.
 						return "", nil
 					}
-					if md["final-artifact"] == "true" {
+					if isTrue(md["final-artifact"]) {
 						return onFinalArtifact(ctx)
 					}
 					indexStr := md["dir-id"]

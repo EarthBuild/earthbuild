@@ -561,9 +561,9 @@ func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
 // a final boolean result for that set of expressions.
 func evalConditions(c []string) (bool, bool) {
 	all := strings.Join(c, " ")
-	orGroups := strings.Split(all, "||")
+	orGroups := strings.SplitSeq(all, "||")
 
-	for _, orGroup := range orGroups {
+	for orGroup := range orGroups {
 		cur := []string{}
 		result, inExpr := false, false
 		parts := strings.Split(orGroup, " ")

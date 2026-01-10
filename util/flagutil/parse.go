@@ -24,13 +24,13 @@ import (
 type ArgumentModFunc func(flagName string, opt *flags.Option, flagVal *string) (*string, error)
 
 // ParseArgs parses flags and args from a command string.
-func ParseArgs(command string, data interface{}, args []string) ([]string, error) {
+func ParseArgs(command string, data any, args []string) ([]string, error) {
 	return ParseArgsWithValueModifier(command, data, args,
 		func(_ string, _ *flags.Option, s *string) (*string, error) { return s, nil },
 	)
 }
 
-func ParseArgsCleaned(cmdName string, opts interface{}, args []string) ([]string, error) {
+func ParseArgsCleaned(cmdName string, opts any, args []string) ([]string, error) {
 	processed := stringutil.ProcessParamsAndQuotes(args)
 	return ParseArgs(cmdName, opts, processed)
 }

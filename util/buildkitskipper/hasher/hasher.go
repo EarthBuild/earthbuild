@@ -30,7 +30,7 @@ func (h *Hasher) GetHash() []byte {
 }
 
 func (h *Hasher) HashInt(i int) {
-	h.HashBytes([]byte(fmt.Sprintf("int:%d", i)))
+	h.HashBytes(fmt.Appendf(nil, "int:%d", i))
 }
 
 func (h *Hasher) HashJSONMarshalled(v any) {

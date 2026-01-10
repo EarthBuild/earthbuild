@@ -18,7 +18,7 @@ func NewBufferedLogger(cl *ConsoleLogger) *BufferedLogger {
 }
 
 // Printf prints a formatted string to the delayed console.
-func (bl *BufferedLogger) Printf(format string, v ...interface{}) {
+func (bl *BufferedLogger) Printf(format string, v ...any) {
 	bl.queue = append(bl.queue, fmt.Sprintf(format, v...))
 }
 

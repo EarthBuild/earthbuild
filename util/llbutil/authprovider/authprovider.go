@@ -3,6 +3,7 @@ package authprovider
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -89,12 +90,7 @@ func (ap *MultiAuthProvider) setSkipAuthServer(host string, as Child) {
 }
 
 func (ap *MultiAuthProvider) shouldSkip(host string, as Child) bool {
-	for _, x := range ap.skipAuthServer[host] {
-		if x == as {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ap.skipAuthServer[host], as)
 }
 
 // AddProject searches for any children implementing ProjectAdder and calls

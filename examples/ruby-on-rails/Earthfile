@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ruby:3.4.7
+FROM ruby:3.4.8
 WORKDIR /ruby-on-rails-example
 ENV BUNDLER_VERSION=2.5.9
 
@@ -42,5 +42,4 @@ upgrade-deps:
     RUN bundle update
 
     # Save the updated lockfile back to the local workspace
-    SAVE ARTIFACT Gemfile AS LOCAL Gemfile
     SAVE ARTIFACT Gemfile.lock AS LOCAL Gemfile.lock

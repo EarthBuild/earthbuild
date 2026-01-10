@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ruby:3.4.7
+FROM ruby:3.4.8
 WORKDIR /ruby-example
 
 deps:
@@ -23,5 +23,4 @@ upgrade-deps:
     FROM +deps
     RUN bundle update
 
-    SAVE ARTIFACT ./Gemfile.lock Gemfile.lock AS LOCAL ./Gemfile.lock
-    SAVE ARTIFACT ./Gemfile AS LOCAL ./Gemfile
+    SAVE ARTIFACT Gemfile.lock AS LOCAL Gemfile.lock

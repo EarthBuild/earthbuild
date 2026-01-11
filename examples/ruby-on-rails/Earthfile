@@ -1,13 +1,14 @@
 VERSION 0.8
-FROM ruby:3.2.2
+FROM ruby:3.4.8
 WORKDIR /ruby-on-rails-example
-ENV BUNDLER_VERSION=2.4.12
+ENV BUNDLER_VERSION=2.5.9
 
 deps:
-    RUN curl -sL https://deb.nodesource.com/setup_12.x  | bash - && \
+    RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
       apt-get install -y nodejs
     RUN gem install bundler:$BUNDLER_VERSION
-    COPY Gemfile Gemfile.lock ./
+    COPY Gemfile ./
+    COPY --if-exists Gemfile.lock* ./
     RUN bundle config build.nokogiri --use-system-libraries
     RUN bundle check || bundle install
     SAVE ARTIFACT Gemfile.lock AS LOCAL ./Gemfile.lock
@@ -34,3 +35,11 @@ test:
 console:
     FROM +build
     RUN bundle exec rails console
+
+# upgrade-deps Update dependencies to latest compatible versions and persist lockfile
+upgrade-deps:
+    FROM +deps
+    RUN bundle update
+
+    # Save the updated lockfile back to the local workspace
+    SAVE ARTIFACT Gemfile.lock AS LOCAL Gemfile.lock

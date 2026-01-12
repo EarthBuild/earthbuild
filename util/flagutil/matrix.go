@@ -23,13 +23,16 @@ func BuildArgMatrix(args []string) ([][]string, error) {
 		}
 
 		found := false
+
 		for i, g := range groupedArgs {
 			if g.key == k {
 				groupedArgs[i].values = append(groupedArgs[i].values, v)
 				found = true
+
 				break
 			}
 		}
+
 		if !found {
 			groupedArgs = append(groupedArgs, argGroup{
 				key:    k,
@@ -37,6 +40,7 @@ func BuildArgMatrix(args []string) ([][]string, error) {
 			})
 		}
 	}
+
 	return crossProduct(groupedArgs, nil), nil
 }
 
@@ -44,33 +48,42 @@ func crossProduct(ga []argGroup, prefix []string) [][]string {
 	if len(ga) == 0 {
 		return [][]string{prefix}
 	}
+
 	var ret [][]string
+
 	for _, v := range ga[0].values {
 		newPrefix := prefix
+
 		var kv string
 		if v == nil {
 			kv = ga[0].key
 		} else {
 			kv = fmt.Sprintf("%s=%s", ga[0].key, *v)
 		}
+
 		newPrefix = append(newPrefix, kv)
 
 		cp := crossProduct(ga[1:], newPrefix)
 		ret = append(ret, cp...)
 	}
+
 	return ret
 }
 
 func parseKeyValue(arg string) (string, *string, error) {
 	var name string
+
 	splitArg := strings.SplitN(arg, "=", 2)
 	if len(splitArg) < 1 {
 		return "", nil, errors.Errorf("invalid build arg %s", splitArg)
 	}
+
 	name = splitArg[0]
+
 	var value *string
 	if len(splitArg) == 2 {
 		value = &splitArg[1]
 	}
+
 	return name, value, nil
 }

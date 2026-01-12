@@ -15,6 +15,7 @@ func NewMultiSem(sems ...Semaphore) Semaphore {
 	if len(sems) == 0 {
 		panic("no semaphores passed")
 	}
+
 	return &MultiSem{
 		sems: sems,
 	}
@@ -28,17 +29,21 @@ func (ms *MultiSem) Acquire(ctx context.Context, n int64) (ReleaseFun, error) {
 		return nil, ctx.Err()
 	default:
 	}
+
 	for _, sem := range ms.sems {
 		rel, ok := sem.TryAcquire(n)
 		if ok {
 			return rel, nil
 		}
 	}
+
 	lastSem := ms.sems[len(ms.sems)-1]
+
 	rel, err := lastSem.Acquire(ctx, n)
 	if err != nil {
 		return nil, err
 	}
+
 	return rel, nil
 }
 
@@ -50,5 +55,6 @@ func (ms *MultiSem) TryAcquire(n int64) (ReleaseFun, bool) {
 			return rel, true
 		}
 	}
+
 	return nil, false
 }

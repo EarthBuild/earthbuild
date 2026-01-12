@@ -168,6 +168,7 @@ foo:
 				r.NotNil(run.Command)
 				r.Equal("RUN", run.Command.Name)
 				r.Equal([]string{"echo", `"$(echo "foo     bar")"`}, run.Command.Args)
+
 				env := target.Recipe[1]
 				r.Equal("ENV", env.Command.Name)
 				r.Equal([]string{"FOO", "=", `"$(echo "foo     bar")"`}, env.Command.Args)
@@ -192,6 +193,7 @@ foo:
 				r.NotNil(run.Command)
 				r.Equal("RUN", run.Command.Name)
 				r.Equal([]string{"echo", "$(echo $(echo -n foo) $(echo -n bar))"}, run.Command.Args)
+
 				env := target.Recipe[1]
 				r.Equal("ENV", env.Command.Name)
 				r.Equal([]string{"FOO", "=", "$(echo $(echo -n foo) $(echo -n bar))"}, env.Command.Args)
@@ -236,6 +238,7 @@ foo:
 				r.NotNil(arg.Command)
 				r.Equal("ARG", arg.Command.Name)
 				r.Equal([]string{"foo", "=", "$ ( foo )"}, arg.Command.Args)
+
 				env := target.Recipe[1]
 				r.Equal("ENV", env.Command.Name)
 				r.Equal([]string{"foo", "=", "$ ( foo )"}, env.Command.Args)
@@ -645,6 +648,7 @@ test:
 	for _, test := range tests {
 		t.Run(test.note, func(t *testing.T) {
 			t.Parallel()
+
 			r := namedStringReader{strings.NewReader(test.earthfile)}
 			s, err := ast.ParseOpts(ast.FromReader(&r))
 			test.check(require.New(t), s, err)

@@ -34,13 +34,16 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 		if !cliCtx.IsSet("config") {
 			flags.ConfigPath = defaultConfigPath(flags.InstallationName)
 		}
+
 		if !cliCtx.IsSet("buildkit-container-name") {
 			flags.ContainerName = flags.InstallationName + "-buildkitd"
 		}
+
 		if !cliCtx.IsSet("buildkit-volume-name") {
 			flags.BuildkitdSettings.VolumeName = flags.InstallationName + "-cache"
 		}
 	}
+
 	if flags.Debug {
 		app.BaseCLI.SetConsole(app.BaseCLI.Console().WithLogLevel(conslogging.Debug))
 	} else if flags.Verbose {
@@ -48,10 +51,12 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 
 	app.BaseCLI.SetConsole(app.BaseCLI.Console().WithPrefixWriter(app.BaseCLI.Logbus().Run().Generic()))
+
 	var execStatsTracker *execstatssummary.Tracker
 	if flags.ExecStatsSummary != "" {
 		execStatsTracker = execstatssummary.NewTracker(flags.ExecStatsSummary)
 	}
+
 	busSetup, err := logbussetup.New(
 		cliCtx.Context,
 		app.BaseCLI.Logbus(),
@@ -77,8 +82,10 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 
 	var yamlData []byte
+
 	if flags.ConfigPath != "" {
 		var err error
+
 		yamlData, err = config.ReadConfigFile(flags.ConfigPath)
 		if err != nil {
 			if cliCtx.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
@@ -91,6 +98,7 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse %s", flags.ConfigPath)
 	}
+
 	app.BaseCLI.SetCfg(&cfg)
 
 	err = app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
@@ -117,6 +125,7 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 		// Docker may not be available, for instance... like our integration tests.
 		app.BaseCLI.Flags().BootstrapNoBuildkit = true
 		newBootstrap := subcmd.NewBootstrap(app.BaseCLI)
+
 		err = newBootstrap.Action(cliCtx)
 		if err != nil {
 			return errors.Wrap(err, "bootstrap unbootstrclied installation")
@@ -136,20 +145,25 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
 		DefaultPort:                8372 + config.PortOffset(app.BaseCLI.Flags().InstallationName),
 		Console:                    console,
 	}
+
 	fe, err := containerutil.FrontendForSetting(cliCtx.Context, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
 	if err != nil {
 		origErr := err
+
 		stub, err := containerutil.NewStubFrontend(cliCtx.Context, feCfg)
 		if err != nil {
 			return errors.Wrap(err, "failed stub frontend initialization")
 		}
+
 		app.BaseCLI.Flags().ContainerFrontend = stub
 
 		if !app.BaseCLI.Flags().Verbose {
 			console.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
 		}
+
 		console.VerbosePrintf("%s frontend initialization failed due to %s",
 			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
+
 		return nil
 	}
 
@@ -183,9 +197,11 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error
 		app.BaseCLI.Console().Warnf("Warning: the --git-username and --git-password command flags " +
 			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
 			"see https://docs.earthly.dev/earthly-config for reference.\n")
+
 		if _, ok := cfg.Git["github.com"]; !ok {
 			cfg.Git["github.com"] = config.GitConfig{}
 		}
+
 		if _, ok := cfg.Git["gitlab.com"]; !ok {
 			cfg.Git["gitlab.com"] = config.GitConfig{}
 		}
@@ -195,9 +211,11 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error
 			if app.BaseCLI.Flags().GitUsernameOverride != "" {
 				v.User = app.BaseCLI.Flags().GitUsernameOverride
 			}
+
 			if app.BaseCLI.Flags().GitPasswordOverride != "" {
 				v.Password = app.BaseCLI.Flags().GitPasswordOverride
 			}
+
 			cfg.Git[k] = v
 		}
 	}
@@ -222,7 +240,9 @@ func (app *EarthlyApp) warnIfEarth() {
 		if err != nil {
 			return
 		}
+
 		earthlyPath := path.Join(path.Dir(absPath), "earthly")
+
 		earthlyPathExists, _ := fileutil.FileExists(earthlyPath)
 		if earthlyPathExists {
 			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earthly, you can `rm %s`", absPath)
@@ -232,9 +252,12 @@ func (app *EarthlyApp) warnIfEarth() {
 
 func profhandler() {
 	const addr = "127.0.0.1:6060"
+
 	const readHeaderTimeout = 5 * time.Second // arbitrary timeout
+
 	fmt.Printf("listening for pprof on %s\n", addr)
 	srv := &http.Server{Addr: addr, ReadHeaderTimeout: readHeaderTimeout}
+
 	err := srv.ListenAndServe()
 	if err != nil {
 		fmt.Printf("error listening for pprof: %v", err)
@@ -246,9 +269,11 @@ func defaultConfigPath(installName string) string {
 	oldConfig := filepath.Join(earthlyDir, "config.yaml")
 	newConfig := filepath.Join(earthlyDir, "config.yml")
 	oldConfigExists, _ := fileutil.FileExists(oldConfig)
+
 	newConfigExists, _ := fileutil.FileExists(newConfig)
 	if oldConfigExists && !newConfigExists {
 		return oldConfig
 	}
+
 	return newConfig
 }

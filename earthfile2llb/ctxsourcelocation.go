@@ -15,6 +15,7 @@ func ContextWithSourceLocation(ctx context.Context, sl *spec.SourceLocation) con
 	if sl == nil {
 		return ctx
 	}
+
 	return context.WithValue(ctx, contextKeySourceLocation, sl)
 }
 

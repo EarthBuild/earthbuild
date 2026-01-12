@@ -30,6 +30,7 @@ func isLocalPath(path string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -38,6 +39,7 @@ func isCWDRoot() bool {
 	if err != nil {
 		return false
 	}
+
 	return path == "/"
 }
 
@@ -46,11 +48,13 @@ func containsDirectories(path string) bool {
 	if err != nil {
 		return false
 	}
+
 	for _, f := range files {
 		if f.IsDir() {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -62,21 +66,27 @@ func getPotentialPaths(
 		if containsDirectories(".") {
 			potentials = append(potentials, "./")
 		}
+
 		if !isCWDRoot() {
 			potentials = append(potentials, "../")
 		}
+
 		return potentials, nil
 	}
+
 	if prefix == ".." {
 		return []string{"../"}, nil
 	}
+
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
 
 	var user string
+
 	expandedHomeLen := 0
+
 	if strings.HasPrefix(prefix, "~") {
 		users, err := fileutil.GetUserHomeDirs()
 		if err != nil {
@@ -86,11 +96,13 @@ func getPotentialPaths(
 		// handle username completion
 		if !strings.Contains(prefix, "/") {
 			potentials := []string{}
+
 			for user := range users {
 				if strings.HasPrefix(user, prefix[1:]) {
 					potentials = append(potentials, "~"+user+"/")
 				}
 			}
+
 			return potentials, nil
 		}
 
@@ -114,6 +126,7 @@ func getPotentialPaths(
 		if expandedHomeLen == 0 {
 			return s
 		}
+
 		return "~" + user + "/" + s[expandedHomeLen:]
 	}
 
@@ -123,12 +136,14 @@ func getPotentialPaths(
 		if len(splits) < 2 {
 			return []string{}, nil
 		}
+
 		dirPath := splits[0]
 
 		targetToParse := prefix
 		if strings.HasSuffix(targetToParse, "+") {
 			targetToParse += ast.TargetBase
 		}
+
 		target, err := domain.ParseTarget(targetToParse)
 		if err != nil {
 			return nil, err
@@ -138,12 +153,14 @@ func getPotentialPaths(
 		if err != nil {
 			return nil, err
 		}
+
 		if len(targets) == 0 {
 			// only suggest when Earthfile has no other targets
 			targets = append(targets, ast.TargetBase)
 		}
 
 		potentials := []string{}
+
 		for _, target := range targets {
 			s := dirPath + "+" + target + " "
 			if strings.HasPrefix(s, prefix) {
@@ -164,10 +181,12 @@ func getPotentialPaths(
 		if hasEarthfile(f) {
 			usePrefixAsDir = false
 		}
+
 		files, err := os.ReadDir(p)
 		if err != nil {
 			return nil, err
 		}
+
 		for _, file := range files {
 			fileName := file.Name()
 			if strings.HasPrefix(fileName, f) && fileName != f {
@@ -190,6 +209,7 @@ func getPotentialPaths(
 	}
 
 	paths := []string{}
+
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), f) {
 			if file.IsDir() {
@@ -197,9 +217,11 @@ func getPotentialPaths(
 				if strings.HasPrefix(prefix, "./") {
 					s = "./" + s
 				}
+
 				if hasEarthfile(s) {
 					paths = append(paths, replaceHomePrefix(s)+"+")
 				}
+
 				if hasSubDirs(s) {
 					paths = append(paths, replaceHomePrefix(s)+"/")
 				}
@@ -212,6 +234,7 @@ func getPotentialPaths(
 			if strings.HasSuffix(prefix, "/.") {
 				paths = append(paths, prefix+"./")
 			}
+
 			if strings.HasSuffix(prefix, "/") {
 				paths = append(paths, prefix+"../")
 			}
@@ -228,10 +251,12 @@ func getPotentialTargetBuildArgs(
 	if err != nil {
 		return nil, err
 	}
+
 	envArgs, err := earthfile2llb.GetTargetArgs(ctx, resolver, gwClient, target)
 	if err != nil {
 		return nil, err
 	}
+
 	return envArgs, nil
 }
 
@@ -242,6 +267,7 @@ func getPotentialArtifactBuildArgs(
 	if err != nil {
 		return nil, err
 	}
+
 	return getPotentialTargetBuildArgs(ctx, resolver, gwClient, artifact.Target.String())
 }
 
@@ -252,10 +278,12 @@ func isVisibleFlag(fl cli.Flag) bool {
 	for fv.Kind() == reflect.Ptr {
 		fv = reflect.Indirect(fv)
 	}
+
 	field := fv.FieldByName("Hidden")
 	if !field.IsValid() || !field.Bool() {
 		return true
 	}
+
 	return false
 }
 
@@ -265,11 +293,13 @@ func getCmd(name string, cmds []*cli.Command) *cli.Command {
 			return c
 		}
 	}
+
 	return nil
 }
 
 func getVisibleFlags(flags []cli.Flag) []string {
 	visibleFlags := []string{}
+
 	for _, f := range flags {
 		if isVisibleFlag(f) {
 			for _, n := range f.Names() {
@@ -279,6 +309,7 @@ func getVisibleFlags(flags []cli.Flag) []string {
 			}
 		}
 	}
+
 	return visibleFlags
 }
 
@@ -288,12 +319,14 @@ func isBooleanFlag(flags []cli.Flag, flagName string) (isBool bool, flagFound bo
 	}
 
 	isShort := true
+
 	if strings.HasPrefix(flagName, "--") {
 		flagName = flagName[2:]
 		isShort = false
 	} else {
 		flagName = flagName[1:]
 	}
+
 	_ = isShort // short flags are not suggested; perhaps one day?
 
 	for _, f := range flags {
@@ -302,6 +335,7 @@ func isBooleanFlag(flags []cli.Flag, flagName string) (isBool bool, flagFound bo
 			return ok, true
 		}
 	}
+
 	return false, false
 }
 
@@ -317,16 +351,19 @@ func padStrings(flags []string, prefix, suffix string) []string {
 	for i, s := range flags {
 		padded[i] = prefix + s + suffix
 	}
+
 	return padded
 }
 
 func getVisibleCommands(commands []*cli.Command) []string {
 	visibleCommands := []string{}
+
 	for _, cmd := range commands {
 		if !cmd.Hidden {
 			visibleCommands = append(visibleCommands, cmd.Name)
 		}
 	}
+
 	return visibleCommands
 }
 
@@ -361,6 +398,7 @@ func GetPotentials(
 	if compPoint > len(compLine) {
 		return nil, errCompPointOutOfBounds
 	}
+
 	compLine = compLine[:compPoint]
 	subCommands := app.Commands
 
@@ -375,15 +413,19 @@ func GetPotentials(
 		if !hasNextWord {
 			return "", false
 		}
+
 		i := strings.Index(compLine, " ")
 		if i < 0 {
 			word := compLine
 			compLine = ""
 			hasNextWord = false
+
 			return word, true
 		}
+
 		word := compLine[:i]
 		compLine = compLine[(i + 1):]
+
 		return word, true
 	}
 
@@ -391,15 +433,20 @@ func GetPotentials(
 	prevWord, _ := getWord()
 
 	state := rootState
-	var target string
-	var artifactMode bool
-	var flag string
+
+	var (
+		target       string
+		artifactMode bool
+		flag         string
+	)
 
 	var cmd *cli.Command
+
 	getFlags := func() []cli.Flag {
 		if cmd != nil {
 			return cmd.Flags
 		}
+
 		return app.Flags
 	}
 
@@ -424,6 +471,7 @@ func GetPotentials(
 				if w == "-a" || w == "--artifact" {
 					artifactMode = true
 				}
+
 				state = flagState
 			} else {
 				// targets only work under the root command
@@ -438,6 +486,7 @@ func GetPotentials(
 						subCommands = foundCmd.Subcommands
 						cmd = foundCmd
 					}
+
 					state = commandState
 				}
 			}
@@ -471,6 +520,7 @@ func GetPotentials(
 			// append flags that urfav/cli automatically include
 			potentials = append(potentials, "version", "help")
 		}
+
 		potentials = padStrings(potentials, "--", " ")
 
 	case flagValueState:
@@ -484,10 +534,12 @@ func GetPotentials(
 			potentials = padStrings(potentials, "", " ")
 		} else {
 			potentials = getVisibleCommands(app.Commands)
+
 			potentials = padStrings(potentials, "", " ")
 			if containsDirectories(".") {
 				potentials = append(potentials, "./")
 			}
+
 			if fileutil.FileExistsBestEffort("Earthfile") {
 				potentials = append(potentials, "+")
 			}
@@ -495,6 +547,7 @@ func GetPotentials(
 
 	case targetState:
 		var err error
+
 		potentials, err = getPotentialPaths(ctx, resolver, gwClient, prevWord)
 		if err != nil {
 			return nil, err
@@ -502,22 +555,27 @@ func GetPotentials(
 
 	case targetFlagState:
 		var err error
+
 		potentials, err = getPotentialTargetBuildArgs(ctx, resolver, gwClient, target)
 		if err != nil {
 			return nil, err
 		}
+
 		potentials = padStrings(potentials, "--", "=")
 
 	case artifactFlagState:
 		var err error
+
 		potentials, err = getPotentialArtifactBuildArgs(ctx, resolver, gwClient, target)
 		if err != nil {
 			return nil, err
 		}
+
 		potentials = padStrings(potentials, "--", "=")
 	}
 
 	filteredPotentials := []string{}
+
 	for _, s := range potentials {
 		if strings.HasPrefix(s, prevWord) {
 			filteredPotentials = append(filteredPotentials, s)
@@ -525,6 +583,7 @@ func GetPotentials(
 	}
 
 	sort.Strings(filteredPotentials)
+
 	return filteredPotentials, nil
 }
 
@@ -533,6 +592,7 @@ func hasEarthfile(dirPath string) bool {
 	if err != nil {
 		return false
 	}
+
 	return !info.IsDir()
 }
 
@@ -547,5 +607,6 @@ func hasSubDirs(dirPath string) bool {
 			return true
 		}
 	}
+
 	return false
 }

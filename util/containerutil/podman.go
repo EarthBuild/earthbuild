@@ -38,7 +38,6 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 	if output.stderr.Len() > 0 {
 		// Only check stdout; since some podman versions less than 3.4 will report warnings about no systemd session,
 		// and falling back to cgroupfs. These errors land on stderr. https://github.com/containers/podman/pull/12834
-
 		cfg.Console.VerbosePrintf("Podman logged additional information to stderr:")
 		cfg.Console.VerbosePrint(output.stderr.String())
 		cfg.Console.VerbosePrintf("Adding log level compatibility flag for all additional operations.")
@@ -48,10 +47,12 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 
 	// Only check stdout here since it may be contaminated with log output detected above.
 	trimmedStdOut := strings.TrimSpace(output.stdout.String())
+
 	isRootless, err := strconv.ParseBool(trimmedStdOut)
 	if err != nil {
 		return nil, errors.Wrapf(err, "info returned invalid value %s", output.string())
 	}
+
 	fe.rootless = isRootless
 
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendPodmanShell, cfg)
@@ -108,17 +109,20 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 	}
 
 	allInfo := info{}
+
 	err = json.Unmarshal([]byte(output.string()), &allInfo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse version output %s", output.string())
 	}
 
 	host := "daemonless"
+
 	if hasRemote {
 		output, err = psf.commandContextOutput(ctx, "info", "--format={{.Host.RemoteSocket.Path}}")
 		if err != nil {
 			return nil, err
 		}
+
 		host = output.string()
 	}
 
@@ -135,6 +139,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) error {
 	var err error
+
 	for _, ref := range refs {
 		args := []string{"pull"}
 		if strings.HasPrefix(ref, psf.urls.LocalRegistryHost.Host+"/") {
@@ -142,6 +147,7 @@ func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 			// pulling from our own internal registry and manually exempt it from TLS.
 			args = append(args, "--tls-verify=false")
 		}
+
 		args = append(args, ref)
 
 		_, cmdErr := psf.commandContextOutput(ctx, args...)
@@ -163,18 +169,19 @@ func (psf *podmanShellFrontend) ImageLoadFromFileCommand(filename string) string
 
 func (psf *podmanShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
+
 	for _, image := range images {
 		// Write the image to a temp file. This is needed to accommodate some Podman versions between 3.0 and 3.4. Because
 		// buildkit creates weird hybrid docker/OCI images, Podman pulls it in as an OCI image and ends up neglecting the
 		// in-built image tag. We can get around this by "pulling" a tar file and specifying the format at the CLI. This
 		// is more or less what Podman will be doing going forward. For further context, see the linked issues and discussion
 		// here: https://github.com/earthly/earthly/issues/1285
-
 		file, tmpErr := os.CreateTemp("", "earthly-podman-load-*")
 		if tmpErr != nil {
 			err = multierror.Append(err, errors.Wrap(tmpErr, "failed to create temp tarball"))
 			continue
 		}
+
 		_, copyErr := io.Copy(file, image)
 		if copyErr != nil {
 			err = multierror.Append(err, errors.Wrapf(tmpErr, "failed to write to %s", file.Name()))
@@ -214,6 +221,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 			if len(lineParts) == 3 && volumeName == lineParts[0] {
 				// Get size
 				var bytes uint64
+
 				bytes, parseErr := humanize.ParseBytes(lineParts[2])
 				if err != nil {
 					err = multierror.Append(err, parseErr)
@@ -233,6 +241,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 					SizeBytes:  bytes,
 					Mountpoint: mountpoint.string(),
 				}
+
 				break
 			}
 		}

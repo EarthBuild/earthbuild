@@ -37,6 +37,7 @@ func New(b *logbus.Bus) *SolverMonitor {
 func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.SolveStatus) error {
 	delayedCtx, delayedCancel := context.WithCancel(xcontext.Detach(ctx))
 	defer delayedCancel()
+
 	go func() {
 		<-ctx.Done()
 		// Delay closing to allow any pending messages to be processed.
@@ -48,8 +49,10 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 		case <-delayedCtx.Done():
 		case <-time.After(30 * time.Second):
 		}
+
 		delayedCancel()
 	}()
+
 	for {
 		select {
 		case <-delayedCtx.Done():
@@ -58,6 +61,7 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 			if !ok {
 				return nil
 			}
+
 			err := sm.handleBuildkitStatus(status)
 			if err != nil {
 				return err
@@ -69,11 +73,16 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
+
 	bp := sm.b.Run()
+
 	for _, vertex := range status.Vertexes {
 		meta, operation := vertexmeta.ParseFromVertexPrefix(vertex.Name)
+
 		var cmdID string
+
 		createCmd := true
+
 		switch {
 		case meta.TargetName == "context":
 			cmdID = operation
@@ -85,6 +94,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		default:
 			cmdID = vertex.Digest.String()
 		}
+
 		vm, exists := sm.vertices[cmdID]
 		if exists {
 			sm.digests[vertex.Digest] = cmdID
@@ -93,12 +103,14 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			if meta.Internal {
 				category = "internal " + category
 			}
+
 			var cp *logbus.Command
 			// Operations initiated from Earthly have created Logbus commands
 			// ahead-of-time. Others may originate from BuildKit, so we'll have
 			// to create a command at this point.
 			if createCmd {
 				var err error
+
 				cp, err = bp.NewCommand(
 					cmdID, operation, meta.TargetID, category, meta.Platform,
 					vertex.Cached, meta.Local, meta.Interactive, meta.SourceLocation,
@@ -108,6 +120,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				}
 			} else {
 				var ok bool
+
 				cp, ok = bp.Command(cmdID)
 				if !ok {
 					// Note: if we receive a vertex with a full command ID that
@@ -116,8 +129,10 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 					// ignore, in this case.
 					continue
 				}
+
 				cp.SetName(operation) // Command created prior may not have a full name.
 			}
+
 			vm = &vertexMonitor{
 				vertex:    vertex,
 				meta:      meta,
@@ -128,18 +143,23 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			sm.vertices[cmdID] = vm
 			sm.digests[vertex.Digest] = cmdID
 		}
+
 		vm.vertex = vertex
 		if vertex.Cached {
 			vm.cp.SetCached(true)
 		}
+
 		if vertex.Started != nil {
 			vm.cp.SetStart(*vertex.Started)
 		}
+
 		if vertex.Error != "" {
 			vm.parseError()
 		}
+
 		if vertex.Completed != nil {
 			var status logstream.RunStatus
+
 			switch {
 			case vm.isCanceled:
 				status = logstream.RunStatus_RUN_STATUS_CANCELED
@@ -148,7 +168,9 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			default:
 				status = logstream.RunStatus_RUN_STATUS_FAILURE
 			}
+
 			vm.cp.SetEnd(*vertex.Completed, status, vm.errorStr)
+
 			if vm.isFatalError {
 				// Run this at the end so that we capture any additional log lines.
 				defer bp.SetFatalError(
@@ -162,32 +184,41 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			}
 		}
 	}
+
 	for _, vs := range status.Statuses {
 		cmdID, exists := sm.digests[vs.Vertex]
 		if !exists {
 			continue
 		}
+
 		vm := sm.vertices[cmdID]
+
 		progress := int32(0)
 		if vs.Total != 0 {
 			progress = int32(100.0 * float32(vs.Current) / float32(vs.Total))
 		}
+
 		if vs.Completed != nil {
 			progress = 100
 		}
+
 		vm.cp.SetProgress(progress)
 	}
+
 	for _, logLine := range status.Logs {
 		cmdID, exists := sm.digests[logLine.Vertex]
 		if !exists {
 			continue
 		}
+
 		vm := sm.vertices[cmdID]
 		logLine.Data = []byte(stringutil.ScrubCredentialsAll((string(logLine.Data))))
+
 		_, err := vm.Write(logLine.Data, logLine.Timestamp, logLine.Stream)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }

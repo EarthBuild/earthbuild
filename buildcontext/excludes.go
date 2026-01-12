@@ -31,6 +31,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	// earthIgnoreFile
 	earthIgnoreFilePath := filepath.Join(dir, earthIgnoreFile)
+
 	earthExists, err := fileutil.FileExists(earthIgnoreFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to check if %s exists", earthIgnoreFilePath)
@@ -38,6 +39,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	// earthlyIgnoreFile
 	earthlyIgnoreFilePath := filepath.Join(dir, earthlyIgnoreFile)
+
 	earthlyExists, err := fileutil.FileExists(earthlyIgnoreFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to check if %s exists", earthlyIgnoreFilePath)
@@ -45,6 +47,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	// dockerIgnoreFile
 	dockerIgnoreFilePath := filepath.Join(dir, dockerIgnoreFile)
+
 	dockerExists := false
 	if useDockerIgnore {
 		dockerExists, err = fileutil.FileExists(dockerIgnoreFilePath)
@@ -63,25 +66,30 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 		// if both exist then throw an error
 		return defaultExcludes, errDuplicateIgnoreFile
 	}
+
 	if earthExists == earthlyExists {
 		if !dockerExists {
 			// return just ImplicitExcludes if neither of them exist
 			return defaultExcludes, nil
 		}
+
 		ignoreFile = dockerIgnoreFile
 	} else if earthlyExists {
 		ignoreFile = earthlyIgnoreFile
 	}
 
 	filePath := filepath.Join(dir, ignoreFile)
+
 	f, err := os.Open(filePath) // #nosec G304
 	if err != nil {
 		return nil, errors.Wrapf(err, "read %s", filePath)
 	}
 	defer f.Close()
+
 	excludes, err := ignorefile.ReadAll(f)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse %s", filePath)
 	}
+
 	return append(excludes, defaultExcludes...), nil
 }

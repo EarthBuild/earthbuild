@@ -17,6 +17,7 @@ func GetLogger(ctx context.Context) Logger {
 	if v == nil {
 		return Logger{}
 	}
+
 	return v.(Logger) // Note that this panics if not a real Logger.
 }
 

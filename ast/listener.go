@@ -52,6 +52,7 @@ func newListener(stream *antlr.CommonTokenStream, filePath string, enableSourceM
 			File: filePath,
 		}
 	}
+
 	return &listener{
 		tokStream:       stream,
 		filePath:        filePath,
@@ -64,6 +65,7 @@ func (l *listener) Err() error {
 	if len(l.blocks) != 0 && l.err == nil {
 		return errors.New("parsing did not finish")
 	}
+
 	return l.err
 }
 
@@ -82,32 +84,44 @@ func (l *listener) pushNewBlock() {
 func (l *listener) popBlock() spec.Block {
 	ret := l.block().block
 	l.blocks = l.blocks[:len(l.blocks)-1]
+
 	return ret
 }
 
 func (l *listener) docs(c antlr.ParserRuleContext) string {
 	comments := l.tokStream.GetHiddenTokensToLeft(c.GetStart().GetTokenIndex(), parser.EarthLexerCOMMENTS_CHANNEL)
-	var docs strings.Builder
-	var leadingTrim string
-	var once sync.Once
+
+	var (
+		docs        strings.Builder
+		leadingTrim string
+		once        sync.Once
+	)
+
 	for _, c := range comments {
 		line := strings.TrimSpace(c.GetText())
 		line = strings.TrimPrefix(line, "#")
+
 		once.Do(func() {
 			runes := []rune(line)
+
 			var trimRunes []rune
+
 			for _, r := range runes {
 				if unicode.IsSpace(r) {
 					trimRunes = append(trimRunes, r)
 					continue
 				}
+
 				break
 			}
+
 			leadingTrim = string(trimRunes)
 		})
+
 		line = strings.TrimPrefix(line, leadingTrim)
 		docs.WriteString(line + "\n")
 	}
+
 	return docs.String()
 }
 
@@ -134,6 +148,7 @@ func (l *listener) EnterTarget(c *parser.TargetContext) {
 			EndColumn:   c.GetStop().GetColumn(),
 		}
 	}
+
 	l.pushNewBlock()
 }
 
@@ -161,6 +176,7 @@ func (l *listener) EnterUserCommand(c *parser.UserCommandContext) {
 			EndColumn:   c.GetStop().GetColumn(),
 		}
 	}
+
 	l.pushNewBlock()
 }
 
@@ -187,6 +203,7 @@ func (l *listener) EnterFunction(c *parser.FunctionContext) {
 			EndColumn:   c.GetStop().GetColumn(),
 		}
 	}
+
 	l.pushNewBlock()
 }
 
@@ -235,6 +252,7 @@ func (l *listener) EnterCommandStmt(c *parser.CommandStmtContext) {
 			EndColumn:   c.GetStop().GetColumn(),
 		}
 	}
+
 	l.stmtWords = []string{}
 	l.execMode = false
 }
@@ -420,6 +438,7 @@ func (l *listener) EnterWithCommand(c *parser.WithCommandContext) {
 			EndColumn:   c.GetStop().GetColumn(),
 		}
 	}
+
 	l.stmtWords = []string{}
 	l.execMode = false
 }
@@ -651,6 +670,7 @@ func (l *listener) EnterEnvArgKey(c *parser.EnvArgKeyContext) {
 		l.err = err
 		return
 	}
+
 	l.stmtWords = append(l.stmtWords, c.GetText())
 }
 
@@ -671,6 +691,7 @@ func (l *listener) EnterLabelValue(c *parser.LabelValueContext) {
 func (l *listener) ExitStmtWordsMaybeJSON(c *parser.StmtWordsMaybeJSONContext) {
 	// Try to parse as JSON. If parse works, override the already collected stmtWords.
 	var words []string
+
 	err := json.Unmarshal([]byte(c.GetText()), &words)
 	if err == nil {
 		l.stmtWords = words
@@ -688,6 +709,7 @@ func checkEnvVarName(str string) error {
 	if !IsValidEnvVarName(str) {
 		return errors.Errorf("invalid env key definition %s", str)
 	}
+
 	return nil
 }
 

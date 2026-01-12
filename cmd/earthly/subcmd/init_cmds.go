@@ -43,17 +43,20 @@ func (a *Init) action(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "could not load current working directory")
 	}
+
 	absWd, err := filepath.Abs(wd)
 	if err != nil {
 		return errors.Wrapf(err, "could not get absolute path for %q", wd)
 	}
 
 	efPath := filepath.Join(absWd, "Earthfile")
+
 	_, err = os.Stat(efPath)
 	if err == nil {
 		return hint.Wrap(fs.ErrExist,
 			"an Earthfile already exists; if you want to re-init the project, remove the Earthfile first.")
 	}
+
 	if !errors.Is(err, fs.ErrNotExist) {
 		return errors.Wrap(err, "could not check for existing Earthfile")
 	}
@@ -62,6 +65,7 @@ func (a *Init) action(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not get projects for %q", absWd)
 	}
+
 	if len(projs) == 0 {
 		return errors.Errorf("no supported projects found in directory %q", absWd)
 	}
@@ -76,6 +80,7 @@ func (a *Init) action(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not write version string in %q", efPath)
 	}
+
 	if len(projs) > 1 {
 		// This is easy enough to support when we have more than one project
 		// type, but for now there's no point.
@@ -98,18 +103,22 @@ func initSingleProject(w io.Writer, p proj.Project) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not generate targets for project type %T", p)
 	}
+
 	for i, tgt := range tgts {
 		tgt.SetPrefix("")
+
 		if i > 0 {
 			_, err = w.Write([]byte("\n"))
 			if err != nil {
 				return errors.Wrapf(err, "could not write newline separator between targets")
 			}
 		}
+
 		err := tgt.Format(w, efIndent, 0)
 		if err != nil {
 			return errors.Wrapf(err, "could not format target for project type %T", p)
 		}
 	}
+
 	return nil
 }

@@ -10,6 +10,7 @@ func (l *loader) hashIfStatement(s spec.IfStatement) {
 	l.hasher.HashBool(s.ExecMode)
 	l.hasher.HashInt(len(s.IfBody))
 	l.hasher.HashInt(len(s.ElseIf))
+
 	if s.ElseBody != nil {
 		l.hasher.HashInt(len(*s.ElseBody))
 	}

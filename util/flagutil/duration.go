@@ -18,11 +18,14 @@ func (d *Duration) Set(value string) error {
 	if value == "" {
 		return nil
 	}
+
 	daysToHours := false
+
 	if before, ok := strings.CutSuffix(value, "d"); ok {
 		value = fmt.Sprintf("%s%s", before, "h")
 		daysToHours = true
 	}
+
 	dur, err := time.ParseDuration(value)
 	if err != nil {
 		return errors.New("parse error")
@@ -31,6 +34,8 @@ func (d *Duration) Set(value string) error {
 	if daysToHours {
 		dur *= 24
 	}
+
 	*d = Duration(dur)
+
 	return nil
 }

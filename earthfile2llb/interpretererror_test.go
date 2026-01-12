@@ -56,6 +56,7 @@ func TestFromError(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			ie, ok := FromError(tc.providerErr)
 			assert.Equal(t, tc.expectedResult, ie)
 			assert.Equal(t, tc.success, ok)

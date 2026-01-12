@@ -29,6 +29,7 @@ func NewVisitedUpfrontHashCollection() VisitedCollection {
 func (vc *visitedUpfrontHashCollection) All() []*SingleTarget {
 	vc.mu.Lock()
 	defer vc.mu.Unlock()
+
 	return append([]*SingleTarget{}, vc.visitedList...)
 }
 
@@ -47,17 +48,22 @@ func (vc *visitedUpfrontHashCollection) Add(
 	if err != nil {
 		return nil, false, err
 	}
+
 	newKey, err := newSts.targetInput.Hash()
 	if err != nil {
 		return nil, false, err
 	}
+
 	vc.mu.Lock()
 	defer vc.mu.Unlock()
+
 	sts, found := vc.visited[newKey]
 	if found {
 		return sts, true, nil
 	}
+
 	vc.visited[newKey] = newSts
 	vc.visitedList = append(vc.visitedList, newSts)
+
 	return newSts, false, nil
 }

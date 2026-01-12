@@ -110,10 +110,12 @@ func ParseCommand(fullCommandName string) (Command, error) {
 	if err != nil {
 		return Command{}, err
 	}
+
 	ok := commandNameRegex.MatchString(command)
 	if !ok {
 		return Command{}, errors.Errorf("command name %s does not match %s", command, commandNamePattern)
 	}
+
 	return Command{
 		GitURL:    gitURL,
 		Tag:       tag,

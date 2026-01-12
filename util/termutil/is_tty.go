@@ -11,5 +11,6 @@ func isFileDescriptorTTY(fd *os.File) bool {
 	if fileInfo, _ := fd.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
 		return true
 	}
+
 	return false
 }

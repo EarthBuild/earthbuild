@@ -22,6 +22,7 @@ func (w *Weighted) Acquire(ctx context.Context, n int64) (ReleaseFun, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return func() {
 		w.sem.Release(n)
 	}, nil
@@ -33,6 +34,7 @@ func (w *Weighted) TryAcquire(n int64) (ReleaseFun, bool) {
 	if !ok {
 		return nil, false
 	}
+
 	return func() {
 		w.sem.Release(n)
 	}, true

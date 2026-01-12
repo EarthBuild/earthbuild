@@ -58,12 +58,16 @@ type stdCmd struct {
 
 func (c stdCmd) Run(ctx context.Context) (stdout, stderr io.Reader, _ error) {
 	cmd := exec.CommandContext(ctx, c.name, c.args...) // #nosec G204
+
 	var outw, errw bytes.Buffer
+
 	cmd.Stdout = &outw
+
 	cmd.Stderr = &errw
 	if err := cmd.Run(); err != nil {
 		return &outw, &errw, err
 	}
+
 	return &outw, &errw, nil
 }
 
@@ -119,16 +123,20 @@ func All(ctx context.Context, dir string) ([]Project, error) {
 	known := []ProjectType{
 		NewGolang(StdFS(), StdExecer()),
 	}
+
 	active := make([]Project, 0, len(known))
 	for _, proj := range known {
 		forDir, err := proj.ForDir(ctx, dir)
 		if errors.Is(err, ErrSkip) {
 			continue
 		}
+
 		if err != nil {
 			return nil, errors.Wrapf(err, "checking for project type %T failed", proj)
 		}
+
 		active = append(active, forDir)
 	}
+
 	return active, nil
 }

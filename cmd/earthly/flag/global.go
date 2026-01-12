@@ -90,6 +90,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 	if defaultInstallationName == "" {
 		defaultInstallationName = "earthly"
 	}
+
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "installation-name",

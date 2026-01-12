@@ -19,22 +19,28 @@ import (
 //	ParseKeyValue(`foo=bar\=`) -> `foo",  `bar\=`,  true
 func ParseKeyValue(s string) (string, string, bool) {
 	key := []string{}
+
 	var escaped bool
 	for i, c := range s {
 		if escaped {
 			key = append(key, string(c))
 			escaped = false
+
 			continue
 		}
+
 		if c == '\\' {
 			escaped = true
 			continue
 		}
+
 		if c == '=' {
 			return strings.Join(key, ""), s[i+1:], true
 		}
+
 		key = append(key, string(c))
 	}
+
 	return strings.Join(key, ""), "", false
 }
 
@@ -43,16 +49,20 @@ func ParseKeyValue(s string) (string, string, bool) {
 func AddEnv(envVars []string, key, value string) []string {
 	// Note that this mutates the original slice.
 	found := false
+
 	for i, envVar := range envVars {
 		k, _, _ := ParseKeyValue(envVar)
 		if k == key {
 			envVars[i] = fmt.Sprintf("%s=%s", key, value)
 			found = true
+
 			break
 		}
 	}
+
 	if !found {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", key, value))
 	}
+
 	return envVars
 }

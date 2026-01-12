@@ -57,6 +57,7 @@ func getShellPath() (string, bool) {
 			return path, true
 		}
 	}
+
 	return "", false
 }
 
@@ -65,11 +66,13 @@ func handlePtyData(ptmx *os.File, data []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to write to ptmx")
 	}
+
 	return nil
 }
 
 func handleWinChangeData(ptmx *os.File, data []byte) error {
 	var size pty.Winsize
+
 	err := json.Unmarshal(data, &size)
 	if err != nil {
 		return errors.Wrap(err, "failed unmarshal data")
@@ -79,11 +82,13 @@ func handleWinChangeData(ptmx *os.File, data []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to set window size")
 	}
+
 	return nil
 }
 
 func populateShellHistory(cmd string) error {
 	var result error
+
 	for _, f := range []string{
 		"/root/.ash_history",
 		"/root/.bash_history",
@@ -93,11 +98,13 @@ func populateShellHistory(cmd string) error {
 			result = multierror.Append(result, err)
 		}
 		defer f.Close()
+
 		_, err = f.WriteString(cmd + "\n")
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
 	}
+
 	return result
 }
 
@@ -105,10 +112,12 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	log := slog.GetLogger(ctx)
 
 	var d net.Dialer
+
 	conn, err := d.DialContext(ctx, "unix", sockAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to remote debugger")
 	}
+
 	defer func() {
 		err := conn.Close()
 		if err != nil {
@@ -131,7 +140,9 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	if err != nil {
 		return err
 	}
+
 	r := bufio.NewReader(f)
+
 	b := make([]byte, 0, math.MaxUint16)
 	for {
 		n, err := r.Read(b[:cap(b)])
@@ -139,6 +150,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 			if err == io.EOF {
 				break
 			}
+
 			return err
 		}
 
@@ -161,10 +173,12 @@ func interactiveMode(
 	log := slog.GetLogger(ctx)
 
 	var d net.Dialer
+
 	conn, err := d.DialContext(ctx, "unix", remoteConsoleAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to remote debugger")
 	}
+
 	defer func() {
 		err := conn.Close()
 		if err != nil {
@@ -197,6 +211,7 @@ func interactiveMode(
 		if hasCommandFinished() {
 			return
 		}
+
 		conslogger.Warnf("%v\n", errors.Wrap(err, "failed to start pty"))
 	}
 
@@ -205,17 +220,21 @@ func interactiveMode(
 		conslogger.Warnf("%v\n", errors.Wrap(err, "failed to start pty"))
 		return err
 	}
+
 	defer func() { _ = ptmx.Close() }() // Best effort.
 
 	ctx, cancel := context.WithCancel(ctx)
+
 	go func() {
 		defer cancel()
+
 		for {
 			connDataType, data, err := common.ReadDataPacket(conn)
 			if err != nil {
 				logErrorIfNonCleanExit(errors.Wrap(err, "failed to read data from conn"))
 				return
 			}
+
 			switch connDataType {
 			case common.PtyData:
 				err = handlePtyData(ptmx, data)
@@ -236,19 +255,24 @@ func interactiveMode(
 	}()
 	go func() {
 		defer cancel()
+
 		initialData := true
+
 		for {
 			buf := make([]byte, 100)
+
 			n, err := ptmx.Read(buf)
 			if err != nil {
 				logErrorIfNonCleanExit(errors.Wrap(err, "failed to read from ptmx"))
 				return
 			}
+
 			buf = buf[:n]
 			if initialData {
 				buf = append([]byte("\r\n"), buf...)
 				initialData = false
 			}
+
 			err = common.WriteDataPacket(conn, common.PtyData, buf)
 			if err != nil {
 				logErrorIfNonCleanExit(errors.Wrap(err, "failed to write data to conn"))
@@ -273,6 +297,7 @@ func interactiveMode(
 	if !waitErr.Load().set {
 		return errInteractiveModeWaitFailed
 	}
+
 	return waitErr.Load().err
 }
 
@@ -281,11 +306,14 @@ func getSettings(path string) (*common.DebuggerSettings, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read %s", path)
 	}
+
 	var data common.DebuggerSettings
+
 	err = json.Unmarshal(s, &data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal %s", path)
 	}
+
 	return &data, nil
 }
 
@@ -297,6 +325,7 @@ func main() {
 	}
 
 	forceInteractive := false
+
 	if args[0] == "--force" {
 		args = args[1:]
 		forceInteractive = true
@@ -315,6 +344,7 @@ func main() {
 
 	if debuggerSettings.DebugLevelLogging {
 		logrus.SetLevel(logrus.DebugLevel)
+
 		conslogger = conslogger.WithLogLevel(conslogging.Verbose)
 	}
 
@@ -339,9 +369,11 @@ func main() {
 		}
 
 		exitCode := 0
+
 		err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)
 		if err != nil {
 			conslogger.Warnf("%v\n", err)
+
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				exitCode = exitErr.ExitCode()
 			} else {
@@ -359,6 +391,7 @@ func main() {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...) // #nosec G204
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	err = cmd.Run()
 	if err != nil {
 		quotedCmd := shellescape.QuoteCommand(args)
@@ -392,7 +425,9 @@ func main() {
 				if !ok {
 					return nil, ErrNoShellFound
 				}
+
 				conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
+
 				return exec.CommandContext(ctx, shellPath), nil // #nosec G204
 			}
 
@@ -416,6 +451,7 @@ func main() {
 		if exitCode == 0 {
 			exitCode = 1
 		}
+
 		os.Exit(exitCode)
 	}
 }

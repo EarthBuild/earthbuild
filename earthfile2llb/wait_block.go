@@ -41,6 +41,7 @@ func newWaitBlock() *waitBlock {
 func (wb *waitBlock) SetDoSaves() {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+
 	for _, wi := range wb.items {
 		wi.SetDoSave()
 	}
@@ -49,6 +50,7 @@ func (wb *waitBlock) SetDoSaves() {
 func (wb *waitBlock) SetDoPushes() {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+
 	for _, wi := range wb.items {
 		wi.SetDoPush()
 	}
@@ -57,10 +59,12 @@ func (wb *waitBlock) SetDoPushes() {
 func (wb *waitBlock) AddItem(item waitutil.WaitItem) {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+
 	_, exists := wb.seenItems[item]
 	if exists {
 		return
 	}
+
 	wb.seenItems[item] = struct{}{}
 	wb.items = append(wb.items, item)
 }
@@ -70,15 +74,18 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	defer wb.mu.Unlock()
 
 	shortCircuit := wb.called
+
 	wb.called = true
 	if push && !wb.pushCalled {
 		shortCircuit = false
 		wb.pushCalled = true
 	}
+
 	if localExport && !wb.localExportCalled {
 		shortCircuit = false
 		wb.localExportCalled = true
 	}
+
 	if shortCircuit {
 		return nil
 	}
@@ -87,14 +94,17 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	errGroup.Go(func() error {
 		return wb.saveImages(ctx)
 	})
+
 	if localExport {
 		errGroup.Go(func() error {
 			return wb.saveArtifactLocal(ctx)
 		})
 	}
+
 	errGroup.Go(func() error {
 		return wb.waitStates(ctx)
 	})
+
 	return errGroup.Wait()
 }
 
@@ -105,6 +115,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 	singPlatImgNames := make(map[string]bool) // ensure that these are unique
 
 	imageWaitItems := []*saveImageWaitItem{}
+
 	for _, item := range wb.items {
 		saveImage, ok := item.(*saveImageWaitItem)
 		if !ok {
@@ -120,10 +131,12 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 				format := "SAVE IMAGE %s is defined multiple times, but not all commands defined a --platform value"
 				return fmt.Errorf(format, saveImage.si.DockerTag)
 			}
+
 			if !hasPlatform {
 				format := "SAVE IMAGE %s was already declared (none had --platform values)"
 				return fmt.Errorf(format, saveImage.si.DockerTag)
 			}
+
 			if _, found := noManifestListImgs[saveImage.si.DockerTag]; found {
 				format := "cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list"
 				return fmt.Errorf(format, saveImage.si.DockerTag)
@@ -141,8 +154,10 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		} else {
 			isMultiPlatform[saveImage.si.DockerTag] = false
 		}
+
 		imageWaitItems = append(imageWaitItems, saveImage)
 	}
+
 	if len(imageWaitItems) == 0 {
 		return nil
 	}
@@ -151,13 +166,17 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 	// these are used to pass manifest data to the onImage function in builder.go;
 	// this only applies to non-local-registry exports
-	var tarImagesInWaitBlockRefPrefixes []string
-	var tarImagesInWaitBlock []string
+	var (
+		tarImagesInWaitBlockRefPrefixes []string
+		tarImagesInWaitBlock            []string
+	)
 
 	refID := 0
+
 	for _, item := range imageWaitItems {
 		sessionID := item.c.opt.GwClient.BuildOpts().SessionID
 		exportCoordinator := item.c.opt.ExportCoordinator
+
 		ref, err := llbutil.StateToRef(
 			ctx, item.c.opt.GwClient, item.si.State, item.c.opt.NoCache,
 			item.c.platr, item.c.opt.CacheImports.AsSlice())
@@ -165,10 +184,14 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			return errors.Wrapf(err, "failed to solve image required for %s", item.si.DockerTag)
 		}
 
-		var platformBytes []byte
-		var platformImgName string
+		var (
+			platformBytes   []byte
+			platformImgName string
+		)
+
 		if isMultiPlatform[item.si.DockerTag] {
 			platformBytes = []byte(item.si.Platform.String())
+
 			platformImgName, err = llbutil.PlatformSpecificImageName(item.si.DockerTag, item.si.Platform)
 			if err != nil {
 				return err
@@ -180,6 +203,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 						"image %s is defined multiple times for the same platform (%s)",
 						item.si.DockerTag, item.si.Platform.String())
 				}
+
 				platformImgNames[platformImgName] = true
 			}
 		} else if item.si.CheckDuplicate && item.si.DockerTag != "" {
@@ -188,6 +212,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 					"image %s is defined multiple times for the same default platform",
 					item.si.DockerTag)
 			}
+
 			singPlatImgNames[item.si.DockerTag] = true
 		}
 
@@ -196,6 +221,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
 		refID++
 
 		if item.localExport {
@@ -220,6 +246,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 					tarImagesInWaitBlockRefPrefixes = append(tarImagesInWaitBlockRefPrefixes, refPrefix)
 					tarImagesInWaitBlock = append(tarImagesInWaitBlock, exportCoordinatorImageID)
 				}
+
 				refID++
 			} else {
 				if item.c.opt.UseLocalRegistry {
@@ -229,9 +256,11 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 					gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
 				}
 			}
+
 			exportCoordinator.AddLocalOutputSummary(item.c.target.String(), item.si.DockerTag, item.c.mts.Final.ID)
 		}
 	}
+
 	if len(tarImagesInWaitBlockRefPrefixes) != 0 {
 		waitFor := strings.Join(tarImagesInWaitBlock, " ")
 		// the wait-for entry is used to know when all multiplatform images have been exported,
@@ -244,9 +273,11 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 	if len(imageWaitItems) == 0 {
 		panic("saveImagesWaitItem should never have been created with zero converters")
 	}
+
 	gatewayClient := imageWaitItems[0].c.opt.GwClient // could be any converter's gwClient (they should app be the same)
 
 	refs, metadata := gwCrafter.GetRefsAndMetadata()
+
 	err := gatewayClient.Export(ctx, gwclient.ExportRequest{
 		Refs:     refs,
 		Metadata: metadata,
@@ -254,6 +285,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to SAVE IMAGE")
 	}
+
 	return nil
 }
 
@@ -265,6 +297,7 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 		if !ok {
 			continue
 		}
+
 		stateItems = append(stateItems, stateItem)
 	}
 
@@ -287,9 +320,11 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 				return errors.Wrapf(err, "acquiring parallelism semaphore during waitStates for %s", item.c.target.String())
 			}
 			defer rel()
+
 			return item.c.forceExecution(ctx, *item.state, item.c.platr)
 		})
 	}
+
 	return errGroup.Wait()
 }
 
@@ -304,9 +339,12 @@ type saveArtifactLocalEntry struct {
 func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 	gwCrafter := gatewaycrafter.NewGatewayCrafter()
 
-	var gatewayClient gwclient.Client
-	var console conslogging.ConsoleLogger
-	var exportCoordinator *gatewaycrafter.ExportCoordinator
+	var (
+		gatewayClient     gwclient.Client
+		console           conslogging.ConsoleLogger
+		exportCoordinator *gatewaycrafter.ExportCoordinator
+	)
+
 	artifacts := []saveArtifactLocalEntry{}
 
 	for refID, item := range wb.items {
@@ -338,12 +376,14 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
 		c.opt.LocalArtifactWhiteList.Add(saveLocalItem.saveLocal.DestPath)
 
 		outDir, err := c.opt.TempEarthlyOutDir()
 		if err != nil {
 			return err
 		}
+
 		artifacts = append(artifacts, saveArtifactLocalEntry{
 			artifact:    artifact,
 			artifactDir: filepath.Join(outDir, "index-"+dirID),
@@ -358,6 +398,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		if len(metadata) != 0 {
 			panic("metadata should always be empty when refs is empty")
 		}
+
 		return nil
 	}
 
@@ -376,5 +417,6 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return nil
 }

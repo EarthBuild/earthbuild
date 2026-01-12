@@ -54,6 +54,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	descChecks := onpar.TableSpec(o, func(tt testCtx, cmd *cli.Command) {
 		tt.expect(cmd.Description).To(matchers.EndWith("."))
 	})
+
 	for _, subCmd := range checkSubCommands(rootCLI) {
 		usageChecks.Entry(fmt.Sprintf("Help usage for %s should not end with '.'", subCmd.Name), subCmd)
 		descChecks.Entry(fmt.Sprintf("Help description for %s should end with '.'", subCmd.Name), subCmd)

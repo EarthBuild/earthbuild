@@ -47,11 +47,14 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 	if err != nil {
 		return nil, err
 	}
+
 	fe.rootless = strings.Contains(output.string(), "rootless")
+
 	fe.userNamespaced = strings.Contains(output.string(), "name=userns")
 	if fe.userNamespaced {
 		fe.runCompatibilityArgs = []string{"--userns", "host"}
 	}
+
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendDockerShell, cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to calculate buildkit URLs")
@@ -62,11 +65,13 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		// Maybe the user has aliased podman=docker?
 		// (The same information is found at a different path in podman)
 		var err2 error
+
 		output, err2 = fe.commandContextOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to get docker root dir")
 		}
 	}
+
 	outputStr := strings.TrimSpace(output.string())
 	if outputStr == "/var/lib/containers/storage" {
 		// Likely podman making itself available via the docker CLI.
@@ -110,6 +115,7 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 	}
 
 	allInfo := info{}
+
 	err = json.Unmarshal([]byte(output.string()), &allInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse docker version output")
@@ -152,6 +158,7 @@ func (dsf *dockerShellFrontend) ContainerInfo(
 
 func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) error {
 	var err error
+
 	for _, ref := range refs {
 		_, cmdErr := dsf.commandContextOutput(ctx, "pull", ref)
 		if cmdErr != nil {
@@ -172,11 +179,13 @@ func (dsf *dockerShellFrontend) ImageLoadFromFileCommand(filename string) string
 
 func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
+
 	args := append(dsf.globalCompatibilityArgs, "load") //nolint:gocritic
 	for _, image := range images {
 		// Do not use the wrapper to allow the image to come in on stdin
 		cmd := exec.CommandContext(ctx, dsf.binaryName, args...) // #nosec G204
 		cmd.Stdin = image
+
 		output, cmdErr := cmd.CombinedOutput()
 		if cmdErr != nil {
 			err = multierror.Append(err, errors.Wrapf(cmdErr, "image load failed: %s", string(output)))
@@ -205,6 +214,7 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 			Mountpoint string `json:"Mountpoint"`
 		} `json:"Volumes"`
 	}{}
+
 	err := json.Unmarshal([]byte(output.stdout.String()), &volumeInfos)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode docker volume info for %v", volumeNames)
@@ -223,6 +233,7 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 						Mountpoint: volumeInfo.Mountpoint,
 					}
 				}
+
 				break
 			}
 		}

@@ -72,20 +72,24 @@ func (a *Prune) Cmds() []*cli.Command {
 
 func (a *Prune) action(cliCtx *cli.Context) error {
 	a.cli.SetCommandName("prune")
+
 	if cliCtx.NArg() != 0 {
 		return errors.New("invalid arguments")
 	}
+
 	if a.reset {
 		err := a.cli.InitFrontend(cliCtx)
 		if err != nil {
 			return err
 		}
+
 		err = buildkitd.ResetCache(
 			cliCtx.Context, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
 			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings)
 		if err != nil {
 			return errors.Wrap(err, "reset cache")
 		}
+
 		return nil
 	}
 
@@ -94,6 +98,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 		return errors.Wrap(err, "prune new buildkitd client")
 	}
 	defer bkClient.Close()
+
 	var opts []client.PruneOption
 
 	if a.all {
@@ -111,11 +116,14 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "buildkit prune")
 		}
+
 		close(ch)
+
 		return nil
 	})
 
 	total := uint64(0)
+
 	eg.Go(func() error {
 		for {
 			select {
@@ -123,6 +131,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 				if !ok {
 					return nil
 				}
+
 				a.cli.Console().Printf("%s\t%s\n", usageInfo.ID, humanize.Bytes(uint64(usageInfo.Size)))
 				total += uint64(usageInfo.Size) // #nosec G115
 			case <-ctx.Done():
@@ -130,10 +139,13 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 			}
 		}
 	})
+
 	err = eg.Wait()
 	if err != nil {
 		return errors.Wrap(err, "err group")
 	}
+
 	a.cli.Console().Printf("Freed %s\n", humanize.Bytes(total))
+
 	return nil
 }

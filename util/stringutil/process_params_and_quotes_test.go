@@ -53,6 +53,7 @@ func TestProcessParamsAndQuotes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(strings.Join(tt.in, " "), func(t *testing.T) {
 			t.Parallel()
+
 			actualArgs := ProcessParamsAndQuotes(tt.in)
 			assert.Equal(t, tt.args, actualArgs)
 		})

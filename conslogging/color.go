@@ -32,11 +32,13 @@ func makeColor(attrs ...color.Attribute) *color.Color {
 	for _, attr := range attrs {
 		c.Add(attr)
 	}
+
 	return c
 }
 
 func makeNoColor() *color.Color {
 	c := color.New()
 	c.DisableColor()
+
 	return c
 }

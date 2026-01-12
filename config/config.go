@@ -128,6 +128,7 @@ func PortOffset(installationName string) int {
 		// No offset for the official release.
 		return 0
 	}
+
 	return 10 + int(crc32.ChecksumIEEE([]byte(installationName)))%1000
 }
 
@@ -175,6 +176,7 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 
 func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
 	var val any
+
 	switch key.Kind() {
 	// add other types as needed as they are introduced in the config struct
 	case reflect.Map:
@@ -192,19 +194,23 @@ func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
 // This is saved to disk in your earthly config file.
 func Upsert(config []byte, path, value string) ([]byte, error) {
 	base := &yaml.Node{}
+
 	err := yaml.Unmarshal(config, base)
 	if err != nil || base.IsZero() {
 		// Possibly an empty file, or a simple comment results in a null document.
 		// Not handled well, so manufacture somewhat acceptable document
 		fullDoc := string(config) + "\n---"
+
 		otherErr := yaml.Unmarshal([]byte(fullDoc), base)
 		if otherErr != nil {
 			// Give up.
 			if err != nil {
 				return []byte{}, errors.Wrapf(err, "failed to parse config file")
 			}
+
 			return []byte{}, errors.Wrapf(otherErr, "failed to parse config file")
 		}
+
 		base.Content = []*yaml.Node{{Kind: yaml.MappingNode}}
 	}
 
@@ -238,10 +244,12 @@ func Upsert(config []byte, path, value string) ([]byte, error) {
 // If no key/value exists, the function will eventually return cleanly.
 func Delete(config []byte, path string) ([]byte, error) {
 	base := &yaml.Node{}
+
 	err := yaml.Unmarshal(config, base)
 	if err != nil {
 		return []byte{}, errors.Wrapf(err, "failed to parse config file")
 	}
+
 	if base.IsZero() {
 		return nil, errors.New("config is empty or missing")
 	}
@@ -270,7 +278,9 @@ func PrintHelp(path string) error {
 	if err != nil {
 		return errors.Wrapf(err, "'%s' is not a valid config value", path)
 	}
+
 	fmt.Printf("(%s): %s\n", t.Kind(), help)
+
 	return nil
 }
 
@@ -327,6 +337,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 
 func valueToYaml(value string) (*yaml.Node, error) {
 	valueNode := &yaml.Node{}
+
 	err := yaml.Unmarshal([]byte(value), valueNode)
 	if err != nil {
 		return nil, errors.Errorf("%s is not a valid YAML value", value)
@@ -334,6 +345,7 @@ func valueToYaml(value string) (*yaml.Node, error) {
 
 	// Unfold all the yaml so it's not mixed inline and flow styles in the final document
 	var fixStyling func(node *yaml.Node)
+
 	fixStyling = func(node *yaml.Node) {
 		node.Style = 0
 
@@ -379,7 +391,6 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 		case i == len(path)-1:
 			// Last node should assign path as the value, not another mapping node
 			// Otherwise we would need to dig it up again.
-
 			if last == nil {
 				// Single depth special case
 				yamlNodes = append(yamlNodes, key, value)
@@ -460,12 +471,15 @@ func deleteYamlValue(node *yaml.Node, path []string) []string {
 				// Build new Content without those nodes.
 				if len(path) == 0 {
 					var newContent []*yaml.Node
+
 					for j, n := range node.Content {
 						if j != i && j != i+1 {
 							newContent = append(newContent, n)
 						}
 					}
+
 					node.Content = newContent
+
 					return []string{}
 				}
 
@@ -486,6 +500,7 @@ func ReadConfigFile(configPath string) ([]byte, error) {
 	if err != nil {
 		return []byte{}, errors.Wrapf(err, "failed to read from %s", configPath)
 	}
+
 	return yamlData, nil
 }
 
@@ -503,6 +518,7 @@ func parseRelPaths(instName string, cfg *Config) error {
 	if err := parseTLSPaths(instName, cfg); err != nil {
 		return errors.Wrap(err, "could not parse relative TLS paths")
 	}
+
 	return nil
 }
 
@@ -510,6 +526,7 @@ func parseTLSPaths(instName string, cfg *Config) error {
 	if !cfg.Global.TLSEnabled {
 		return nil
 	}
+
 	fields := map[string]*string{
 		"ca key":      &cfg.Global.TLSCAKey,
 		"ca cert":     &cfg.Global.TLSCACert,
@@ -523,6 +540,7 @@ func parseTLSPaths(instName string, cfg *Config) error {
 			return errors.Wrapf(err, "could not parse %v path %q", name, *field)
 		}
 	}
+
 	return nil
 }
 
@@ -530,11 +548,14 @@ func parsePath(instName string, field *string) error {
 	if field == nil {
 		return errors.New("cannot parse nil field")
 	}
+
 	newPath, err := cfgPath(instName, *field)
 	if err != nil {
 		return err
 	}
+
 	*field = newPath
+
 	return nil
 }
 
@@ -542,9 +563,11 @@ func cfgPath(instName, path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return path, nil
 	}
+
 	cfgDir, err := cliutil.GetOrCreateEarthlyDir(instName)
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(cfgDir, path), nil
 }

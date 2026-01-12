@@ -13,8 +13,11 @@ import (
 func TestShellParserMandatoryEnvVars(t *testing.T) {
 	t.Parallel()
 
-	var newWord string
-	var err error
+	var (
+		newWord string
+		err     error
+	)
+
 	shlex := NewLex('\\')
 	setEnvs := []string{"VAR=plain", "ARG=x"}
 	emptyEnvs := []string{"VAR=", "ARG=x"}
@@ -122,12 +125,14 @@ func TestShellParser4EnvVars(t *testing.T) {
 
 	file, err := os.Open(fn)
 	require.NoError(t, err)
+
 	defer file.Close()
 
 	shlex := NewLex('\\')
 	scanner := bufio.NewScanner(file)
 	envs := []string{"PWD=/home", "SHELL=bash", "KOREAN=한국어", "NULL="}
 	envsMap := BuildEnvs(envs)
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		lineCount++
@@ -136,6 +141,7 @@ func TestShellParser4EnvVars(t *testing.T) {
 		if strings.HasPrefix(line, "#") {
 			continue
 		}
+
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -191,13 +197,16 @@ func TestShellParser4Words(t *testing.T) {
 	)
 	for _, mode := range []int{modeNormal, modeOnlySetEnv} {
 		var envs []string
+
 		shlex := NewLex('\\')
 		if mode == modeOnlySetEnv {
 			shlex.RawQuotes = true
 			shlex.SkipUnsetEnv = true
 		}
+
 		scanner := bufio.NewScanner(file)
 		lineNum := 0
+
 		for scanner.Scan() {
 			line := scanner.Text()
 			lineNum++
@@ -209,6 +218,7 @@ func TestShellParser4Words(t *testing.T) {
 			if strings.HasPrefix(line, "ENV ") {
 				line = strings.TrimLeft(line[3:], " ")
 				envs = append(envs, line)
+
 				continue
 			}
 
@@ -216,6 +226,7 @@ func TestShellParser4Words(t *testing.T) {
 			if len(words) != 2 {
 				t.Fatalf("Error in '%s'(line %d) - should be exactly one | in: %q", fn, lineNum, line)
 			}
+
 			test := strings.TrimSpace(words[0])
 			expected := strings.Split(strings.TrimLeft(words[1], " "), ",")
 
@@ -228,6 +239,7 @@ func TestShellParser4Words(t *testing.T) {
 			if len(result) != len(expected) {
 				t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
 			}
+
 			for i, w := range expected {
 				if w != result[i] {
 					t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
@@ -243,6 +255,7 @@ func TestShellParser4Words(t *testing.T) {
 			if len(result) != len(expected) {
 				t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
 			}
+
 			for i, w := range expected {
 				if w != result[i] {
 					t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
@@ -262,35 +275,42 @@ func TestGetEnv(t *testing.T) {
 		return value
 	}
 	sw.envs = BuildEnvs([]string{})
+
 	if getEnv("foo") != "" {
 		t.Fatal("2 - 'foo' should map to ''")
 	}
 
 	sw.envs = BuildEnvs([]string{"foo"})
+
 	if getEnv("foo") != "" {
 		t.Fatal("3 - 'foo' should map to ''")
 	}
 
 	sw.envs = BuildEnvs([]string{"foo="})
+
 	if getEnv("foo") != "" {
 		t.Fatal("4 - 'foo' should map to ''")
 	}
 
 	sw.envs = BuildEnvs([]string{"foo=bar"})
+
 	if getEnv("foo") != "bar" {
 		t.Fatal("5 - 'foo' should map to 'bar'")
 	}
 
 	sw.envs = BuildEnvs([]string{"foo=bar", "car=hat"})
+
 	if getEnv("foo") != "bar" {
 		t.Fatal("6 - 'foo' should map to 'bar'")
 	}
+
 	if getEnv("car") != "hat" {
 		t.Fatal("7 - 'car' should map to 'hat'")
 	}
 
 	// Make sure we grab the last 'car' in the list
 	sw.envs = BuildEnvs([]string{"foo=bar", "car=hat", "car=bike"})
+
 	if getEnv("car") != "bike" {
 		t.Fatal("8 - 'car' should map to 'bike'")
 	}

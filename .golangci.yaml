@@ -61,6 +61,9 @@ linters:
     - wsl
   exclusions:
     generated: lax
+  settings:
+    govet:
+      enable-all: true
 formatters:
   enable:
     - gofumpt

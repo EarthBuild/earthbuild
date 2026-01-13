@@ -25,8 +25,8 @@ func NewGatewayCrafter() *GatewayCrafter {
 // (and other EarthBuild exporter) logic will be triggered via the WAIT/END PopWaitBlock()
 // function and code that direct accesses to the underlying result instance will be removed.
 type GatewayCrafter struct {
-	done bool
 	res  *gwclient.Result
+	done bool
 }
 
 // AddPushImageEntry adds ref and metadata required to cause an image to be pushed.

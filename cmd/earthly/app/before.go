@@ -84,8 +84,6 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	var yamlData []byte
 
 	if flags.ConfigPath != "" {
-		var err error
-
 		yamlData, err = config.ReadConfigFile(flags.ConfigPath)
 		if err != nil {
 			if cliCtx.IsSet("config") || !errors.Is(err, os.ErrNotExist) {

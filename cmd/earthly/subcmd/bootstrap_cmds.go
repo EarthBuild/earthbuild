@@ -26,13 +26,12 @@ type BootstrapInterface interface {
 }
 
 type Bootstrap struct {
-	cli CLI
-
+	cli              CLI
 	homebrewSource   string
+	certsHostName    string
 	noBuildkit       bool
 	genCerts         bool
 	withAutocomplete bool
-	certsHostName    string
 }
 
 func NewBootstrap(cli CLI) *Bootstrap {
@@ -120,29 +119,27 @@ func (a *Bootstrap) Action(cliCtx *cli.Context) error {
 }
 
 func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
-	var err error
-
 	console := a.cli.Console().WithPrefix("bootstrap")
 
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
 		// on the existence of ~/.earthly; therefore we must ensure it's created.
-		_, err := cliutil.GetOrCreateEarthlyDir(a.cli.Flags().InstallationName)
-		if err != nil {
-			console.Warnf("Warning: Failed to create Earthly Dir: %v", err)
+		_, dirErr := cliutil.GetOrCreateEarthlyDir(a.cli.Flags().InstallationName)
+		if dirErr != nil {
+			console.Warnf("Warning: Failed to create Earthly Dir: %v", dirErr)
 			// Keep going.
 		}
 
-		err = cliutil.EnsurePermissions(a.cli.Flags().InstallationName)
-		if err != nil {
-			console.Warnf("Warning: Failed to ensure permissions: %v", err)
+		dirErr = cliutil.EnsurePermissions(a.cli.Flags().InstallationName)
+		if dirErr != nil {
+			console.Warnf("Warning: Failed to ensure permissions: %v", dirErr)
 			// Keep going.
 		}
 	}()
 
 	if a.withAutocomplete {
 		// Because this requires sudo, it should warn and not fail the rest of it.
-		err = a.insertBashCompleteEntry()
+		err := a.insertBashCompleteEntry()
 		if err != nil {
 			console.Warnf("Warning: %s\n", err.Error())
 			// Keep going.
@@ -157,7 +154,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 		console.Printf("You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n")
 	}
 
-	err = symlinkEarthlyToEarth()
+	err := symlinkEarthlyToEarth()
 	if err != nil {
 		console.Warnf("Warning: %s\n", err.Error())
 	}

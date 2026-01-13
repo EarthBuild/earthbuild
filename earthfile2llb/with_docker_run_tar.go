@@ -21,13 +21,12 @@ import (
 )
 
 type withDockerRunTar struct {
+	sem semutil.Semaphore
 	*withDockerRunBase
-	c *Converter
-
-	enableParallel bool
+	c              *Converter
 	tarLoads       []tarLoad
-	sem            semutil.Semaphore
 	mu             sync.Mutex
+	enableParallel bool
 }
 
 func newWithDockerRunTar(c *Converter, enableParallel bool) *withDockerRunTar {
@@ -44,9 +43,9 @@ func newWithDockerRunTar(c *Converter, enableParallel bool) *withDockerRunTar {
 }
 
 type tarLoad struct {
-	imgName  string
-	platform platutil.Platform
 	state    pllb.State
+	platform platutil.Platform
+	imgName  string
 }
 
 func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt) error {
@@ -245,7 +244,7 @@ func (w *withDockerRunTar) pull(ctx context.Context, opt DockerPullOpt) (chan st
 		},
 	}
 	solveFun := func() error {
-		err := w.solveImage(ctx, mts, opt.ImageName, opt.ImageName)
+		err = w.solveImage(ctx, mts, opt.ImageName, opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -257,9 +256,9 @@ func (w *withDockerRunTar) pull(ctx context.Context, opt DockerPullOpt) (chan st
 
 	if w.enableParallel {
 		w.c.opt.ErrorGroup.Go(func() error {
-			release, err := w.sem.Acquire(ctx, 1)
-			if err != nil {
-				return errors.Wrapf(err, "acquiring parallelism semaphore for pull load %s", opt.ImageName)
+			release, acquireErr := w.sem.Acquire(ctx, 1)
+			if acquireErr != nil {
+				return errors.Wrapf(acquireErr, "acquiring parallelism semaphore for pull load %s", opt.ImageName)
 			}
 			defer release()
 
@@ -300,7 +299,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
 
-		err := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
+		err = w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
 		if err != nil {
 			return err
 		}
@@ -342,7 +341,9 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 	) (pllb.State, error) {
 		// Use a builder to create docker .tar file, mount it via a local build
 		// context, then docker load it within the current side effects state.
-		outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
+		var outDir string
+
+		outDir, err = os.MkdirTemp(os.TempDir(), "earthly-docker-load")
 		if err != nil {
 			return pllb.State{}, errors.Wrap(err, "mk temp dir for docker load")
 		}
@@ -358,7 +359,9 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 			return pllb.State{}, errors.Wrapf(err, "build target %s for docker load", opName)
 		}
 
-		dockerImageID, err := dockertar.GetID(outFile)
+		var dockerImageID string
+
+		dockerImageID, err = dockertar.GetID(outFile)
 		if err != nil {
 			return pllb.State{}, errors.Wrap(err, "inspect docker tar after build")
 		}
@@ -370,11 +373,14 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		// However, this introduces a bug during the Snapshot() call where `ls.sm.Get(timeoutCtx, sessionID, false)`
 		// is called on a non-existent sessionID, which then causes buildkit to wait until a context-cancelled error
 		// occurs, and then ultimately fallsback to using any available session from the group.
-		sessionIDKey := fmt.Sprintf("%s-%s", dockerTag, dockerImageID)
-		sha256SessionIDKey := sha256.Sum256([]byte(sessionIDKey))
-		sessionID := hex.EncodeToString(sha256SessionIDKey[:])
+		var (
+			sessionIDKey       = fmt.Sprintf("%s-%s", dockerTag, dockerImageID)
+			sha256SessionIDKey = sha256.Sum256([]byte(sessionIDKey))
+			sessionID          = hex.EncodeToString(sha256SessionIDKey[:])
+			prefix             string
+		)
 
-		prefix, _, err := w.c.newVertexMeta(ctx, false, false, true, nil)
+		prefix, _, err = w.c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return pllb.State{}, err
 		}

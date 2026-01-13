@@ -14,15 +14,13 @@ import (
 
 // Server provides a debugger server.
 type Server struct {
-	shellConn    net.Conn
-	terminalConn net.Conn
-	mux          sync.Mutex
-
+	shellConn       net.Conn
+	terminalConn    net.Conn
 	dataForShell    chan []byte
 	dataForTerminal chan []byte
-
-	addr string
-	log  slog.Logger
+	addr            string
+	log             slog.Logger
+	mux             sync.Mutex
 }
 
 func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {

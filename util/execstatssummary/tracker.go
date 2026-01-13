@@ -15,9 +15,9 @@ import (
 
 // Tracker is used for tracking exec stats summary for each RUN command.
 type Tracker struct {
-	mu    sync.Mutex
 	stats map[string]*stats
 	path  string
+	mu    sync.Mutex
 }
 
 // NewTracker creates a new exec stats summary tracker.
@@ -94,8 +94,8 @@ func (t *Tracker) Close(ctx context.Context) error {
 }
 
 type stats struct {
-	memory  uint64
-	cpu     time.Duration
 	target  string
 	command string
+	memory  uint64
+	cpu     time.Duration
 }

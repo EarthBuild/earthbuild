@@ -29,10 +29,10 @@ type MultiTarget struct {
 
 // CacheMount holds run options needed to cache mounts, and some extra options.
 type CacheMount struct {
-	// Persisted should the cache be persisted to image.
-	Persisted bool
 	// RunOption Run options
 	RunOption llb.RunOption
+	// Persisted should the cache be persisted to image.
+	Persisted bool
 }
 
 // FinalTarget returns the final target of the states.
@@ -47,20 +47,39 @@ func (mts *MultiTarget) All() []*SingleTarget {
 
 // SingleTarget holds LLB states representing an earthly target.
 type SingleTarget struct {
-	// ID is a random unique string.
-	ID                     string
-	Target                 domain.Target
-	PlatformResolver       *platutil.Resolver
-	MainImage              *image.Image
 	MainState              pllb.State
 	ArtifactsState         pllb.State
-	SeparateArtifactsState []pllb.State
+	Target                 domain.Target
+	targetInput            dedup.TargetInput
 	SaveLocals             []SaveLocal
-	SaveImages             []SaveImage
-	VarCollection          *variables.Collection
-	RunPush                RunPush
-	InteractiveSession     InteractiveSession
-	GlobalImports          map[string]domain.ImportTrackerVal
+	SeparateArtifactsState []pllb.State
+	// outgoingNewSubscriptions is a list of channels to update when new dependentIDs are added.
+	outgoingNewSubscriptions []chan string
+	// WaitBlocks contains the caller's waitblock plus any additional waitblocks defined in the target
+	WaitBlocks []waitutil.WaitBlock
+	// WaitItems contains all wait items which are created by the target
+	// it exists for tracking items in the target vs a caller's wait block that is shared between multiple targets
+	WaitItems                []waitutil.WaitItem
+	SaveImages               []SaveImage
+	incomingNewSubscriptions chan string
+	// ID is a random unique string.
+	ID string
+	// doneCh is a channel that is closed when the sts is complete.
+	doneCh chan struct{}
+	// dependentIDs are the sts IDs of the transitive dependants of this target.
+	dependentIDs       map[string]bool
+	GlobalImports      map[string]domain.ImportTrackerVal
+	MainImage          *image.Image
+	PlatformResolver   *platutil.Resolver
+	VarCollection      *variables.Collection
+	InteractiveSession InteractiveSession
+	RunPush            RunPush
+	depMu              sync.Mutex
+	// doSavesMu is a mutex for doSave.
+	doSavesMu sync.Mutex
+	tiMu      sync.Mutex
+	// doPushes indicates whether the SaveImages should actually be pushed
+	doPushes bool
 	// HasDangling represents whether the target has dangling instructions -
 	// ie if there are any non-SAVE commands after the first SAVE command,
 	// or if the target is invoked via BUILD command (not COPY nor FROM).
@@ -70,34 +89,8 @@ type SingleTarget struct {
 	RanFromLike bool
 	// RanInteractive represents whether we have encountered an --interactive command.
 	RanInteractive bool
-
-	// doSavesMu is a mutex for doSave.
-	doSavesMu sync.Mutex
 	// doSaves indicates whether the SaveImages and the SaveLocals should actually be saved
 	doSaves bool
-
-	// doPushes indicates whether the SaveImages should actually be pushed
-	doPushes bool
-
-	// WaitBlocks contains the caller's waitblock plus any additional waitblocks defined in the target
-	WaitBlocks []waitutil.WaitBlock
-
-	// WaitItems contains all wait items which are created by the target
-	// it exists for tracking items in the target vs a caller's wait block that is shared between multiple targets
-	WaitItems []waitutil.WaitItem
-
-	// doneCh is a channel that is closed when the sts is complete.
-	doneCh chan struct{}
-
-	tiMu        sync.Mutex
-	targetInput dedup.TargetInput
-
-	depMu sync.Mutex
-	// dependentIDs are the sts IDs of the transitive dependants of this target.
-	dependentIDs map[string]bool
-	// outgoingNewSubscriptions is a list of channels to update when new dependentIDs are added.
-	outgoingNewSubscriptions []chan string
-	incomingNewSubscriptions chan string
 }
 
 func newSingleTarget(
@@ -354,15 +347,15 @@ type SaveLocal struct {
 
 // SaveImage is a docker image to be saved.
 type SaveImage struct {
-	State        pllb.State
-	Image        *image.Image
-	DockerTag    string
-	Push         bool
-	InsecurePush bool
+	State               pllb.State
+	Platform            platutil.Platform
+	Image               *image.Image
+	DockerTag           string
+	HasPushDependencies bool
 	// CacheHint instructs Earthly to save a separate ref for this image, even if no tag is
 	// provided.
-	CacheHint           bool
-	HasPushDependencies bool
+	CacheHint    bool
+	InsecurePush bool
 	// ForceSave indicates whether the image should be force-saved and (possibly pushed).
 	ForceSave bool
 	// CheckDuplicate indicates whether to check if the image name shows up
@@ -372,22 +365,20 @@ type SaveImage struct {
 	// list (usually used for multi-platform setups). This means that the image
 	// can only be a single-platform image.
 	NoManifestList bool
-
-	Platform platutil.Platform
+	Push           bool
 	// true when the --platform value was set (either on cli, or via FROM --platform=..., or BUILD --platform=...)
 	HasPlatform bool
-
 	SkipBuilder bool // for use with WAIT/END
 }
 
 // RunPush is a series of RUN --push commands to be run after the build has been deemed as
 // successful, along with artifacts to save and images to push.
 type RunPush struct {
-	CommandStrs        []string
 	State              pllb.State
+	InteractiveSession InteractiveSession
+	CommandStrs        []string
 	SaveLocals         []SaveLocal
 	SaveImages         []SaveImage
-	InteractiveSession InteractiveSession
 	HasState           bool
 }
 
@@ -404,8 +395,8 @@ const (
 // InteractiveSession holds the relevant data for running an interactive session when
 // it is not desired to save the resulting changes into an image.
 type InteractiveSession struct {
-	CommandStr  string
 	State       pllb.State
-	Initialized bool
+	CommandStr  string
 	Kind        InteractiveSessionKind
+	Initialized bool
 }

@@ -15,15 +15,13 @@ var _ context.Context = &MetaContext{}
 // Once canceled, it cannot be uncancelled, so it is an error to keep adding contexts
 // once the meta context is considered cancelled.
 type MetaContext struct {
-	subDoneCh chan int // index
-
-	mu      sync.Mutex
-	doneCh  chan struct{}
-	numDone int
-	sub     []context.Context
-
-	firstDoneMu  sync.Mutex
 	firstDoneErr error
+	subDoneCh    chan int // index
+	doneCh       chan struct{}
+	sub          []context.Context
+	numDone      int
+	mu           sync.Mutex
+	firstDoneMu  sync.Mutex
 }
 
 // New returns a new metacontext.

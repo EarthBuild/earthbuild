@@ -11,8 +11,8 @@ var _ secrets.SecretStore = &MutableMapStore{}
 
 // MutableMapStore is a secret store which can be mutated.
 type MutableMapStore struct {
-	mu    sync.RWMutex
 	store map[string][]byte
+	mu    sync.RWMutex
 }
 
 // NewMutableMapStore returns a new map-based mutable secret store.

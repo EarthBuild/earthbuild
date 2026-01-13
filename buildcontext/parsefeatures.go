@@ -10,8 +10,8 @@ import (
 )
 
 type buildFile struct {
-	path string
 	ftrs *features.Features
+	path string
 }
 
 func parseFeatures(

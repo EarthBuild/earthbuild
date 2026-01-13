@@ -52,13 +52,13 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 	}
 
 	value, err := cmr.cache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
-		ref, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, ref, opt)
+		reference, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, ref, opt)
 		if err != nil {
 			return nil, err
 		}
 
 		return cachedMetaResolverEntry{
-			ref:    ref,
+			ref:    reference,
 			dgst:   dgst,
 			config: config,
 		}, nil

@@ -7,8 +7,8 @@ import (
 
 // Signal allows for an os.Signal to be passed and accessed in a thread-safe way.
 type Signal struct {
-	mu     sync.Mutex
 	signal os.Signal
+	mu     sync.Mutex
 }
 
 // Set the underlying signal in a thread-safe way.

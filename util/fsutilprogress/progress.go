@@ -18,18 +18,18 @@ type ProgressCallback interface {
 }
 
 type progressCallback struct {
-	console           conslogging.ConsoleLogger
-	mutex             sync.Mutex
+	lastUpdate        time.Time
+	filesize          map[string]int
 	pathPrefix        string
+	console           conslogging.ConsoleLogger
 	numStats          int
 	numSent           int
 	numReceived       int
 	bytesSent         int
 	bytesReceived     int
-	filesize          map[string]int
-	lastUpdate        time.Time
 	lastBytesSent     int
 	lastBytesReceived int
+	mutex             sync.Mutex
 }
 
 // New returns a new verbose progress callback for use with fsutil.

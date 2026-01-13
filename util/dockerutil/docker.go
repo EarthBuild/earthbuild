@@ -17,8 +17,8 @@ import (
 
 // Manifest contains docker manifest data.
 type Manifest struct {
-	ImageName string
 	Platform  platutil.Platform
+	ImageName string
 }
 
 // LoadDockerManifest loads docker manifests.

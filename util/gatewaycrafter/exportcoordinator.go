@@ -11,12 +11,12 @@ import (
 // ExportCoordinator is a thread-safe data-store used for coordinating the export
 // of images, and artifacts (e.g. OnPull, OnImage, and Artifact summaries).
 type ExportCoordinator struct {
-	m                     sync.Mutex
 	imageEntries          map[string]imageEntry
 	localOutputSummary    []LocalOutputSummaryEntry
 	artifactOutputSummary []ArtifactOutputSummaryEntry
 	pushedImageSummary    []PushedImageSummaryEntry
 	imgIndex              int
+	m                     sync.Mutex
 }
 
 type imageEntry struct {

@@ -126,9 +126,9 @@ func TestParseAWSOIDCInfo(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		input       string
-		expected    *AWSOIDCInfo
 		expectedErr error
+		expected    *AWSOIDCInfo
+		input       string
 	}{
 		"error when string is invalid": {
 			input:       "invalid string",

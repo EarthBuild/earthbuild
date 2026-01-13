@@ -29,29 +29,27 @@ const DockerfileMetaTarget = "@dockerfile:"
 type Data struct {
 	// The parsed Earthfile AST.
 	Earthfile spec.Earthfile
-	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
-	BuildFilePath string
 	// BuildContext is the state to use for the build.
 	BuildContextFactory llbfactory.Factory
-	// GitMetadata contains git metadata information.
-	GitMetadata *gitutil.GitMetadata
 	// Target is the earthly reference.
 	Ref domain.Reference
+	// GitMetadata contains git metadata information.
+	GitMetadata *gitutil.GitMetadata
 	// LocalDirs is the local dirs map to be passed as part of the buildkit solve.
 	LocalDirs map[string]string
 	// Features holds the feature state for the build context
 	Features *features.Features
+	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
+	BuildFilePath string
 }
 
 // Resolver is a build context resolver.
 type Resolver struct {
-	gr *gitResolver
-	lr *localResolver
-
-	parseCache *synccache.SyncCache // local path -> AST
-	console    conslogging.ConsoleLogger
-
+	gr                   *gitResolver
+	lr                   *localResolver
+	parseCache           *synccache.SyncCache // local path -> AST
 	featureFlagOverrides string
+	console              conslogging.ConsoleLogger
 }
 
 // NewResolver returns a new NewResolver.

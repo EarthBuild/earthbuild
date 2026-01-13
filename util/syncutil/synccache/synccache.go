@@ -21,8 +21,8 @@ type entry struct {
 
 // SyncCache is an object which can be used to create singletons stored in a key-value store.
 type SyncCache struct {
-	mu    sync.Mutex
 	store map[any]*entry
+	mu    sync.Mutex
 }
 
 // New creates an empty SyncCache.

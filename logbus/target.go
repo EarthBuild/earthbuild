@@ -10,8 +10,8 @@ import (
 // Target is a delta generator for a target.
 type Target struct {
 	b         *Bus
-	targetID  string
 	dependsOn map[string]struct{}
+	targetID  string
 	mu        sync.Mutex
 }
 

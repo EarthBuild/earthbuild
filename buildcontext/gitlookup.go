@@ -30,17 +30,17 @@ import (
 )
 
 type gitMatcher struct {
-	name                  string
 	re                    *regexp.Regexp
+	name                  string
 	sub                   string
 	user                  string
 	suffix                string
 	protocol              gitProtocol
 	password              string
-	strictHostKeyChecking bool
-	port                  int
 	prefix                string
 	sshCommand            string
+	port                  int
+	strictHostKeyChecking bool
 }
 
 type gitProtocol string
@@ -54,13 +54,13 @@ const (
 
 // GitLookup looksup gits.
 type GitLookup struct {
-	mu            sync.Mutex
+	sshAuthSock   string
 	matchers      []*gitMatcher
+	keyScans      []string
 	catchAll      *gitMatcher
 	autoProtocols map[string]gitProtocol // host -> detected protocol type
-	sshAuthSock   string
-	keyScans      []string
 	console       conslogging.ConsoleLogger
+	mu            sync.Mutex
 }
 
 var defaultKeyScans = []string{
@@ -729,11 +729,9 @@ func (gl *GitLookup) GetCloneURL(
 			return "", "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
 		}
 
-		gitURL := m.re.ReplaceAllString(path, m.sub)
+		gitURL = m.re.ReplaceAllString(path, m.sub)
 		gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)",
 			path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
-
-		var keyScans []string
 
 		remote, protocol := parseGitProtocol(gitURL)
 		if protocol == SSHProtocol {
@@ -794,7 +792,9 @@ func (gl *GitLookup) ConvertCloneURL(
 			host = splits[0]
 			gitPath = splits[1]
 		} else {
-			u, err := url.Parse(inURL)
+			var u *url.URL
+
+			u, err = url.Parse(inURL)
 			if err != nil {
 				return "", nil, "", errors.Wrapf(err, "failed to parse %s", inURL)
 			}

@@ -11,14 +11,14 @@ func Test_readExcludes(t *testing.T) {
 	t.Parallel()
 
 	testcases := []struct {
+		expectedErr           error
 		name                  string
 		earthIgnoreContents   string
 		earthlyIgnoreContents string
 		dockerIgnoreContents  string
+		expectedExcludes      []string
 		useDockerIgnore       bool
 		noImplicitIgnore      bool
-		expectedExcludes      []string
-		expectedErr           error
 	}{
 		{
 			name:                  "only .earthlyignore",

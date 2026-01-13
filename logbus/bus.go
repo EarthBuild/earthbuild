@@ -18,16 +18,14 @@ type Subscriber interface {
 // bus via WriteFormattedLog. The formatted deltas are then passed on to
 // formatted subscribers.
 type Bus struct {
-	run       *Run
-	createdAt time.Time
-
-	rawMu      sync.Mutex
-	rawSubs    []Subscriber
-	rawHistory []*logstream.Delta
-
-	formattedMu      sync.Mutex
+	createdAt        time.Time
+	run              *Run
+	rawSubs          []Subscriber
+	rawHistory       []*logstream.Delta
 	formattedSubs    []Subscriber
 	formattedHistory []*logstream.Delta
+	rawMu            sync.Mutex
+	formattedMu      sync.Mutex
 }
 
 // New creates a new Bus.

@@ -16,12 +16,10 @@ import (
 //
 // A zero Group is valid and does not cancel on error.
 type Group struct {
-	cancel func()
-
-	wg sync.WaitGroup
-
-	errOnce sync.Once
 	err     error
+	cancel  func()
+	wg      sync.WaitGroup
+	errOnce sync.Once
 	errMu   sync.Mutex
 }
 

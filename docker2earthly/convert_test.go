@@ -13,17 +13,17 @@ func TestGenerateEarthfile(t *testing.T) {
 	type args struct {
 		buildContextPath string
 		dockerfilePath   string
+		target           string
 		imageTags        []string
 		buildArgs        []string
 		platforms        []string
-		target           string
 	}
 
 	tests := []struct {
 		name    string
-		args    args
 		want    string
 		wantErr error
+		args    args
 	}{
 		{
 			name: "all fields are populated",

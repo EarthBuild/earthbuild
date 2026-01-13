@@ -6,8 +6,8 @@ import (
 
 // LocalArtifactWhiteList is a set of paths which have been seen in a SAVE ARTIFACT ... AS LOCAL command.
 type LocalArtifactWhiteList struct {
-	m     sync.Mutex
 	paths map[string]struct{}
+	m     sync.Mutex
 }
 
 // NewLocalArtifactWhiteList returns a new LocalArtifactWhiteList.

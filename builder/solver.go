@@ -36,11 +36,11 @@ type (
 type solver struct {
 	logbusSM        *solvermon.SolverMonitor
 	bkClient        *client.Client
-	attachables     []session.Attachable
-	enttlmnts       []entitlements.Entitlement
 	cacheImports    *states.CacheImports
 	cacheExport     string
 	maxCacheExport  string
+	attachables     []session.Attachable
+	enttlmnts       []entitlements.Entitlement
 	saveInlineCache bool
 }
 
@@ -68,20 +68,18 @@ func (s *solver) buildMainMulti(
 	var buildErr error
 
 	eg.Go(func() error {
-		var err error
-
-		_, err = s.bkClient.Build(ctx, *solveOpt, "", bf, ch)
-		if err != nil {
-			if grpcErr, ok := grpcerrors.AsGRPCStatus(err); ok {
+		_, inErr := s.bkClient.Build(ctx, *solveOpt, "", bf, ch)
+		if inErr != nil {
+			if grpcErr, ok := grpcerrors.AsGRPCStatus(inErr); ok {
 				if ie, ok := earthfile2llb.FromError(errors.New(grpcErr.Message())); ok {
-					err = ie
+					inErr = ie
 				}
 			}
 			// The actual error from bkClient.Build sometimes races with
 			// a context cancelled in the solver monitor.
-			buildErr = err
+			buildErr = inErr
 
-			return err
+			return inErr
 		}
 
 		return nil

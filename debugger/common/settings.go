@@ -14,11 +14,11 @@ const (
 
 // DebuggerSettings is used to pass settings to the debugger.
 type DebuggerSettings struct {
-	DebugLevelLogging bool                `json:"debugLevel"`
-	Enabled           bool                `json:"enabled"`
 	SocketPath        string              `json:"socketPath"`
 	Term              string              `json:"term"`
 	SaveFiles         []SaveFilesSettings `json:"saveFiles"`
+	DebugLevelLogging bool                `json:"debugLevel"`
+	Enabled           bool                `json:"enabled"`
 }
 
 // SaveFilesSettings is used to pass SAVE ARTIFACT ... AS LOCAL ... commands to the debugger

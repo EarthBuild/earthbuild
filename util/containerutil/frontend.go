@@ -39,15 +39,12 @@ type ContainerFrontend interface {
 // FrontendConfig is the configuration needed to bring up a given frontend. Includes logging and needed information to
 // calculate URLs to reach the container.
 type FrontendConfig struct {
-	BuildkitHostCLIValue  string
-	BuildkitHostFileValue string
-
+	BuildkitHostCLIValue       string
+	BuildkitHostFileValue      string
 	LocalRegistryHostFileValue string
-
-	LocalContainerName string
-	DefaultPort        int
-
-	Console conslogging.ConsoleLogger
+	LocalContainerName         string
+	Console                    conslogging.ConsoleLogger
+	DefaultPort                int
 }
 
 // FrontendForSetting returns a frontend given a setting. This includes automatic detection.

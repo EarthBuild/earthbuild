@@ -22,10 +22,9 @@ import (
 )
 
 type waitBlock struct {
-	items     []waitutil.WaitItem
 	seenItems map[waitutil.WaitItem]struct{}
+	items     []waitutil.WaitItem
 	mu        sync.Mutex
-
 	// used for short-circuiting
 	called            bool
 	pushCalled        bool
@@ -228,7 +227,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			if isMultiPlatform[item.si.DockerTag] {
 				// local docker instance does not support multi-platform images, so we must create a new entry
 				// and set it to the platformImgName
-				refPrefix, err := gwCrafter.AddPushImageEntry(ref, refID, platformImgName, false, false, item.si.Image, nil)
+				refPrefix, err = gwCrafter.AddPushImageEntry(ref, refID, platformImgName, false, false, item.si.Image, nil)
 				if err != nil {
 					return err
 				}
@@ -332,8 +331,8 @@ type saveArtifactLocalEntry struct {
 	artifact    domain.Artifact
 	artifactDir string
 	destPath    string
-	ifExists    bool
 	salt        string
+	ifExists    bool
 }
 
 func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {

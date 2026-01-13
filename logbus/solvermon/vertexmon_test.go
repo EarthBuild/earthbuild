@@ -12,10 +12,10 @@ func TestGetExitCode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		expectedError error
 		name          string
 		errString     string
 		expectedCode  int
-		expectedError error
 	}{
 		{
 			name:          "no match",
@@ -63,10 +63,10 @@ func TestDetermineFatalErrorType(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		parseErr      error
 		name          string
 		errString     string
 		exitCode      int
-		parseErr      error
 		expectedType  logstream.FailureType
 		expectedFatal bool
 	}{

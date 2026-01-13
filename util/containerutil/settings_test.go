@@ -29,90 +29,90 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	tests := []struct {
 		testName string
-		config   config.GlobalConfig
 		args     parsedCLIVals
 		expected results
+		config   config.GlobalConfig
 	}{
 		{
-			"No Config, no CLI",
-			config.GlobalConfig{
+			testName: "No Config, no CLI",
+			config: config.GlobalConfig{
 				BuildkitHost:      "",
 				LocalRegistryHost: "",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "docker-container://test",
 				localRegistry: "",
 			},
 		},
 		{
-			"Remote Local in config, no CLI",
-			config.GlobalConfig{
+			testName: "Remote Local in config, no CLI",
+			config: config.GlobalConfig{
 				BuildkitHost:      "tcp://127.0.0.1:8372",
 				LocalRegistryHost: "",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "tcp://127.0.0.1:8372",
 				localRegistry: "",
 			},
 		},
 		{
-			"Remote remote in config, no CLI",
-			config.GlobalConfig{
+			testName: "Remote remote in config, no CLI",
+			config: config.GlobalConfig{
 				BuildkitHost:      "tcp://my-cool-host:8372",
 				LocalRegistryHost: "",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "tcp://my-cool-host:8372",
 				localRegistry: "",
 			},
 		},
 		{
-			"Nonstandard local in config, no CLI",
-			config.GlobalConfig{
+			testName: "Nonstandard local in config, no CLI",
+			config: config.GlobalConfig{
 				BuildkitHost:      "docker-container://my-container",
 				LocalRegistryHost: "",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "docker-container://my-container",
 				localRegistry: "",
 			},
 		},
 		{
-			"Remote Local in config, no CLI, validate registry host",
-			config.GlobalConfig{
+			testName: "Remote Local in config, no CLI, validate registry host",
+			config: config.GlobalConfig{
 				BuildkitHost:      "tcp://127.0.0.1:8372",
 				LocalRegistryHost: "tcp://127.0.0.1:8371",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "tcp://127.0.0.1:8372",
 				localRegistry: "tcp://127.0.0.1:8371",
 			},
 		},
 		{
-			"Remote remote in config, no CLI, skip validate registry host",
-			config.GlobalConfig{
+			testName: "Remote remote in config, no CLI, skip validate registry host",
+			config: config.GlobalConfig{
 				BuildkitHost:      "tcp://my-cool-host:8372",
 				LocalRegistryHost: "this-is-not-a-url",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "tcp://my-cool-host:8372",
 				localRegistry: "",
 			},
 		},
 		{
-			"Local in config, no CLI, validate registry host",
-			config.GlobalConfig{
+			testName: "Local in config, no CLI, validate registry host",
+			config: config.GlobalConfig{
 				BuildkitHost:      "docker-container://my-cool-container",
 				LocalRegistryHost: "tcp://127.0.0.1:8371",
 			},
-			noopArgs,
-			results{
+			args: noopArgs,
+			expected: results{
 				buildkit:      "docker-container://my-cool-container",
 				localRegistry: "tcp://127.0.0.1:8371",
 			},
@@ -158,36 +158,36 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 
 	tests := []struct {
 		testName string
-		config   config.GlobalConfig
-		expected error
 		log      string
+		expected error
+		config   config.GlobalConfig
 	}{
 		{
-			"Invalid buildkit URL",
-			config.GlobalConfig{
+			testName: "Invalid buildkit URL",
+			config: config.GlobalConfig{
 				BuildkitHost:      "http\r://foo.com/",
 				LocalRegistryHost: "",
 			},
-			errURLParseFailure,
-			"",
+			expected: errURLParseFailure,
+			log:      "",
 		},
 		{
-			"Invalid registry URL",
-			config.GlobalConfig{
+			testName: "Invalid registry URL",
+			config: config.GlobalConfig{
 				BuildkitHost:      "",
 				LocalRegistryHost: "http\r://foo.com/",
 			},
-			errURLParseFailure,
-			"",
+			expected: errURLParseFailure,
+			log:      "",
 		},
 		{
-			"Homebrew test",
-			config.GlobalConfig{
+			testName: "Homebrew test",
+			config: config.GlobalConfig{
 				BuildkitHost:      "127.0.0.1",
 				LocalRegistryHost: "",
 			},
-			errURLValidationFailure,
-			"",
+			expected: errURLValidationFailure,
+			log:      "",
 		},
 	}
 
@@ -223,24 +223,24 @@ func TestParseAndValidateURLFailures(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		expected error
 		testName string
 		url      string
-		expected error
 	}{
 		{
-			"Invalid URL",
-			"http\r://foo.com/",
-			errURLParseFailure,
+			testName: "Invalid URL",
+			url:      "http\r://foo.com/",
+			expected: errURLParseFailure,
 		},
 		{
-			"Invalid Scheme",
-			"gopher://my-hole",
-			errURLValidationFailure,
+			testName: "Invalid Scheme",
+			url:      "gopher://my-hole",
+			expected: errURLValidationFailure,
 		},
 		{
-			"Missing Port",
-			"tcp://my-server",
-			errURLValidationFailure,
+			testName: "Missing Port",
+			url:      "tcp://my-server",
+			expected: errURLValidationFailure,
 		},
 	}
 
@@ -280,24 +280,24 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 
 	tests := []struct {
 		testName string
-		config   config.GlobalConfig
 		log      string
+		config   config.GlobalConfig
 	}{
 		{
-			"Buildkit/Local Registry host mismatch, schemes differ",
-			config.GlobalConfig{
+			testName: "Buildkit/Local Registry host mismatch, schemes differ",
+			config: config.GlobalConfig{
 				BuildkitHost:      "docker-container://127.0.0.1:8372",
 				LocalRegistryHost: "tcp://localhost:8371",
 			},
-			"Buildkit and Local Registry URLs are pointed at different hosts",
+			log: "Buildkit and Local Registry URLs are pointed at different hosts",
 		},
 		{
-			"Buildkit/Debugger host mismatch, schemes differ",
-			config.GlobalConfig{
+			testName: "Buildkit/Debugger host mismatch, schemes differ",
+			config: config.GlobalConfig{
 				BuildkitHost:      "docker-container://bk:1234",
 				LocalRegistryHost: "",
 			},
-			"Buildkit and Debugger URLs are pointed at different hosts",
+			log: "Buildkit and Debugger URLs are pointed at different hosts",
 		},
 	}
 

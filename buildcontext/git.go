@@ -33,14 +33,14 @@ const (
 
 type gitResolver struct {
 	cleanCollection   *cleanup.Collection
+	projectCache      *synccache.SyncCache
+	buildFileCache    *synccache.SyncCache
+	gitLookup         *GitLookup
 	gitBranchOverride string
 	lfsInclude        string
-	logLevel          buildkitgitutil.GitLogLevel
 	gitImage          string
-	projectCache      *synccache.SyncCache // "gitURL#gitRef" -> *resolvedGitProject
-	buildFileCache    *synccache.SyncCache // project ref -> local path
-	gitLookup         *GitLookup
 	console           conslogging.ConsoleLogger
+	logLevel          buildkitgitutil.GitLogLevel
 }
 
 type resolvedGitProject struct {
@@ -129,12 +129,15 @@ func (gr *gitResolver) resolveEarthProject(
 			// Optimization.
 			buildContextFactory = llbfactory.PreconstructedState(rgp.state)
 		} else {
-			vm := &vertexmeta.VertexMeta{
-				TargetName: ref.String(),
-				Internal:   true,
-			}
+			var (
+				vm = &vertexmeta.VertexMeta{
+					TargetName: ref.String(),
+					Internal:   true,
+				}
+				copyState pllb.State
+			)
 
-			copyState, err := llbutil.CopyOp(ctx,
+			copyState, err = llbutil.CopyOp(ctx,
 				rgp.state, []string{subDir}, platr.Scratch(), "./", false, false, false, "root:root", nil, false, false, false,
 				llb.WithCustomNamef("%sCOPY git context %s", vm.ToVertexPrefix(), ref.String()))
 			if err != nil {
@@ -155,48 +158,48 @@ func (gr *gitResolver) resolveEarthProject(
 	}
 
 	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
-		earthfileTmpDir, err := os.MkdirTemp(os.TempDir(), "earthly-git")
-		if err != nil {
-			return nil, errors.Wrap(err, "create temp dir for Earthfile")
+		earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
+		if inErr != nil {
+			return nil, errors.Wrap(inErr, "create temp dir for Earthfile")
 		}
 
 		gr.cleanCollection.Add(func() error {
 			return os.RemoveAll(earthfileTmpDir)
 		})
 
-		gitState, err := llbutil.StateToRef(
+		gitState, inErr := llbutil.StateToRef(
 			ctx, gwClient, rgp.state, false,
 			platr.SubResolver(platutil.NativePlatform), nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "state to ref git meta")
+		if inErr != nil {
+			return nil, errors.Wrap(inErr, "state to ref git meta")
 		}
 
-		bf, err := detectBuildFileInRef(ctx, ref, gitState, subDir)
-		if err != nil {
-			return nil, err
+		bf, inErr := detectBuildFileInRef(ctx, ref, gitState, subDir)
+		if inErr != nil {
+			return nil, inErr
 		}
 
-		bfBytes, err := gitState.ReadFile(ctx, gwclient.ReadRequest{
+		bfBytes, inErr := gitState.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: bf,
 		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read build file")
+		if inErr != nil {
+			return nil, errors.Wrap(inErr, "read build file")
 		}
 
 		localBuildFilePath := filepath.Join(earthfileTmpDir, path.Base(bf))
 
-		err = os.WriteFile(localBuildFilePath, bfBytes, 0o700) // #nosec G306
-		if err != nil {
-			return nil, errors.Wrapf(err, "write build file to tmp dir at %s", localBuildFilePath)
+		inErr = os.WriteFile(localBuildFilePath, bfBytes, 0o700) // #nosec G306
+		if inErr != nil {
+			return nil, errors.Wrapf(inErr, "write build file to tmp dir at %s", localBuildFilePath)
 		}
 
 		var ftrs *features.Features
 		if isDockerfile {
 			ftrs = new(features.Features)
 		} else {
-			ftrs, err = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.console)
-			if err != nil {
-				return nil, err
+			ftrs, inErr = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.console)
+			if inErr != nil {
+				return nil, inErr
 			}
 		}
 
@@ -317,19 +320,25 @@ func (gr *gitResolver) resolveGitProject(
 			llb.AddMount("/git-src", gitState, llb.Readonly),
 			llb.WithCustomNamef("%sGET GIT META %s", vm.ToVertexPrefix(), ref.ProjectCanonical()),
 		}
-		gitHashOp := opImg.Run(gitHashOpts...)
-		gitMetaState := gitHashOp.AddMount("/dest", platr.Scratch())
 
-		noCache := false // TODO figure out if we want to propagate --no-cache here
+		var (
+			gitHashOp    = opImg.Run(gitHashOpts...)
+			gitMetaState = gitHashOp.AddMount("/dest", platr.Scratch())
 
-		gitMetaRef, err := llbutil.StateToRef(
+			noCache    bool // TODO figure out if we want to propagate --no-cache here
+			gitMetaRef gwclient.Reference
+		)
+
+		gitMetaRef, err = llbutil.StateToRef(
 			ctx, gwClient, gitMetaState, noCache,
 			platr.SubResolver(platutil.NativePlatform), nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "state to ref git meta")
 		}
 
-		unameM, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var unameM []byte
+
+		unameM, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "uname-m",
 		})
 		if err != nil {
@@ -350,82 +359,106 @@ func (gr *gitResolver) resolveGitProject(
 				gitImage, string(unameM), platr.LLBNative().Architecture)
 		}
 
-		gitHashBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitHashBytes []byte
+
+		gitHashBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-hash",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-hash")
 		}
 
-		gitShortHashBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitShortHashBytes []byte
+
+		gitShortHashBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-short-hash",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-short-hash")
 		}
 
-		gitBranch, err := gr.readGitBranch(ctx, gitMetaRef)
+		var gitBranch string
+
+		gitBranch, err = gr.readGitBranch(ctx, gitMetaRef)
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-branch")
 		}
 
-		gitDefaultBranchBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitDefaultBranchBytes []byte
+
+		gitDefaultBranchBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-default-branch",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-default-branch")
 		}
 
-		gitTagsBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitTagsBytes []byte
+
+		gitTagsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-tags",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-tags")
 		}
 
-		gitCommitterTsBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitCommitterTsBytes []byte
+
+		gitCommitterTsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-committer-ts",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-committer-ts")
 		}
 
-		gitAuthorTsBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitAuthorTsBytes []byte
+
+		gitAuthorTsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-author-ts",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-author-ts")
 		}
 
-		gitAuthorEmailBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitAuthorEmailBytes []byte
+
+		gitAuthorEmailBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-author-email",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-author-email")
 		}
 
-		gitAuthorNameBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitAuthorNameBytes []byte
+
+		gitAuthorNameBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-author-name",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-author-name")
 		}
 
-		gitBodyBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitBodyBytes []byte
+
+		gitBodyBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-body",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-body")
 		}
 
-		gitRefsBytes, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var gitRefsBytes []byte
+
+		gitRefsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "git-refs",
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-refs")
 		}
 
-		earthfilePathsRaw, err := gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+		var earthfilePathsRaw []byte
+
+		earthfilePathsRaw, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: "Earthfile-paths",
 		})
 		if err != nil {
@@ -498,7 +531,7 @@ func (gr *gitResolver) resolveGitProject(
 			gitOpts = append(gitOpts, llb.LFSInclude(gr.lfsInclude))
 		}
 
-		rgp := &resolvedGitProject{
+		rgp = &resolvedGitProject{
 			hash:           gitHash,
 			shortHash:      gitShortHash,
 			branches:       gitBranches2,

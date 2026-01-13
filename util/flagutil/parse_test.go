@@ -18,8 +18,8 @@ func TestSplitFlagString(t *testing.T) {
 
 	tests := []struct {
 		name string
-		args args
 		want []string
+		args args
 	}{
 		{
 			name: "passing flag multiple times",

@@ -20,7 +20,7 @@ func NewLocal(path string) (*LocalBuildkitSkipper, error) {
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("builds"))
+		_, err = tx.CreateBucketIfNotExists([]byte("builds"))
 		if err != nil {
 			return fmt.Errorf("could not create builds bucket: %w", err)
 		}

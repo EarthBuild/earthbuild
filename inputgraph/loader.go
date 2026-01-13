@@ -36,28 +36,28 @@ var (
 
 // Stats contains some statistics about the hashing process.
 type Stats struct {
+	StartTime       time.Time
 	TargetsHashed   int
 	TargetCacheHits int
 	TargetsVisited  int
-	StartTime       time.Time
 	Duration        time.Duration
 }
 
 type loader struct {
-	target         domain.Target
 	visited        map[string]struct{}
 	hasher         *hasher.Hasher
-	baseProcessed  bool
 	hashCache      map[string][]byte
 	stats          *Stats
-	primaryTarget  bool
-	conslog        conslogging.ConsoleLogger
+	globalImports  map[string]domain.ImportTrackerVal
 	varCollection  *variables.Collection
 	features       *features.Features
-	ci             bool
-	builtinArgs    variables.DefaultArgs
 	overridingVars *variables.Scope
-	globalImports  map[string]domain.ImportTrackerVal
+	target         domain.Target
+	builtinArgs    variables.DefaultArgs
+	conslog        conslogging.ConsoleLogger
+	baseProcessed  bool
+	ci             bool
+	primaryTarget  bool
 }
 
 func newLoader(opt HashOpt) *loader {
@@ -222,7 +222,9 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 			return wrapError(err, cmd.SourceLocation, "failed to parse COPY params")
 		}
 
-		expandedArtifact, err := l.expandArgs(artifactName)
+		var expandedArtifact string
+
+		expandedArtifact, err = l.expandArgs(artifactName)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
@@ -232,7 +234,9 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 			return wrapError(err, cmd.SourceLocation, "failed to parse artifact")
 		}
 	} else { // Simpler form: '+target/artifact' or 'file/path'
-		expandedSrc, err := l.expandArgs(src)
+		var expandedSrc string
+
+		expandedSrc, err = l.expandArgs(src)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
@@ -246,7 +250,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 	// COPY classical (not from another target). The args are expanded here as
 	// files and directories will by read from.
 	if classical {
-		src, err := l.expandArgs(src)
+		src, err = l.expandArgs(src)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")
 		}
@@ -255,9 +259,12 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 			return newError(cmd.SourceLocation, "dynamic COPY source %q cannot be resolved", src)
 		}
 
-		path := filepath.Join(l.target.GetLocalPath(), src)
+		var (
+			files []string
+			path  = filepath.Join(l.target.GetLocalPath(), src)
+		)
 
-		files, err := l.expandCopyFiles(path, mustExist)
+		files, err = l.expandCopyFiles(path, mustExist)
 		if err != nil {
 			return addErrorSrc(err, cmd.SourceLocation)
 		}
@@ -265,7 +272,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		sort.Strings(files)
 
 		for _, file := range files {
-			if err := l.hasher.HashFile(ctx, file); err != nil {
+			if err = l.hasher.HashFile(ctx, file); err != nil {
 				if errors.Is(err, os.ErrNotExist) && !mustExist {
 					continue
 				}
@@ -472,8 +479,6 @@ func (l *loader) handleArg(ctx context.Context, cmd spec.Command, isBase bool) e
 	var expanded string
 
 	if valueOrNil != nil {
-		var err error
-
 		expanded, err = l.expandArgs(*valueOrNil)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")

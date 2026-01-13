@@ -74,7 +74,9 @@ func (lr *localResolver) resolveLocal(
 	}
 
 	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
-		buildFilePath, err := detectBuildFile(ref, localPath)
+		var buildFilePath string
+
+		buildFilePath, err = detectBuildFile(ref, localPath)
 		if err != nil {
 			return nil, err
 		}

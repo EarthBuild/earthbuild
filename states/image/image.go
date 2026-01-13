@@ -78,7 +78,6 @@ func (img *Image) Clone() *Image {
 
 // Config is a docker compatible config for an image.
 type Config struct {
-	specs.ImageConfig
-
 	Healthcheck *image.HealthConfig `json:",omitempty"`
+	specs.ImageConfig
 }

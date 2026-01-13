@@ -9,16 +9,16 @@ import (
 
 // ContainerInfo contains things we may care about from inspect output for a given container.
 type ContainerInfo struct {
+	Created  time.Time
+	IPs      map[string]string
+	Labels   map[string]string
 	ID       string
 	Name     string
 	Platform string
-	Created  time.Time
 	Status   string
-	IPs      map[string]string
-	Ports    []string
 	Image    string
 	ImageID  string
-	Labels   map[string]string
+	Ports    []string
 }
 
 const (
@@ -126,9 +126,9 @@ const (
 // Port contains the needed data to publish a port for a given container in a given frontend.
 type Port struct {
 	IP            string
+	Protocol      ProtocolType
 	HostPort      int
 	ContainerPort int
-	Protocol      ProtocolType
 }
 
 // PortOpt is a list of Ports to publish.
@@ -142,20 +142,19 @@ type LabelMap map[string]string
 
 // ContainerRun contains the information needed to create and run a container.
 type ContainerRun struct {
-	NameOrID      string
-	ImageRef      string
-	Privileged    bool
 	Envs          EnvMap
 	Labels        LabelMap
+	NameOrID      string
+	ImageRef      string
 	Mounts        MountOpt
 	Ports         PortOpt
 	ContainerArgs []string
-
 	// We would like to shift to the non-shell providers. However, we do provide an option for supplying
 	// additional arguments to the CLI when starting buildkit. While this allowed great flexibility, we
 	// also do not know what or how it is being used. This gives us the option to support those users until
 	// we decide to pull the plug. This argument is ignored by non-shell providers.
 	AdditionalArgs []string
+	Privileged     bool
 }
 
 const (

@@ -13,10 +13,10 @@ import (
 
 // legacyVisitedCollection is a collection of visited targets.
 type legacyVisitedCollection struct {
-	mu      sync.Mutex
 	visited map[string][]*SingleTarget // targetStr -> sts list
 	// Same collection as above, but as a list, to make the ordering consistent.
 	visitedList []*SingleTarget
+	mu          sync.Mutex
 }
 
 // NewLegacyVisitedCollection returns a collection of visited targets.
@@ -56,7 +56,9 @@ func (vc *legacyVisitedCollection) Add(
 	defer vc.mu.Unlock()
 
 	for _, sts := range vc.visited[target.StringCanonical()] {
-		same, err := compareTargetInputs(target, platr, allowPrivileged, overridingVars, sts.TargetInput())
+		var same bool
+
+		same, err = compareTargetInputs(target, platr, allowPrivileged, overridingVars, sts.TargetInput())
 		if err != nil {
 			return nil, false, err
 		}

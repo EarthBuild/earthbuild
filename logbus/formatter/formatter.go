@@ -51,34 +51,33 @@ var (
 //                     process to signal interactive.
 
 type command struct {
-	lastProgress   time.Time
-	lastPercentage int32
+	lastProgress time.Time
 	// openLine is the line of output that has not yet been terminated with a \n.
-	openLine []byte
+	openLine       []byte
+	lastPercentage int32
 }
 
 // Formatter is a delta to console logger.
 type Formatter struct {
-	bus              *logbus.Bus
-	console          conslogging.ConsoleLogger
-	verbose          bool
-	displayStats     bool
-	execStatsTracker *execstatssummary.Tracker
-	ongoingTick      time.Duration
-	ongoingTicker    *time.Ticker
-	startTime        time.Time
-	closedCh         chan struct{}
-	defaultPlatform  string
-
-	mu                         sync.Mutex
-	interactives               map[string]struct{} // set of command IDs
-	lastOutputWasProgress      bool
-	lastOutputWasOngoingUpdate bool
+	defaultPlatform            string
+	startTime                  time.Time
+	bus                        *logbus.Bus
+	execStatsTracker           *execstatssummary.Tracker
+	ongoingTicker              *time.Ticker
 	lastCommandOutput          *command
-	timingTable                map[string]time.Duration // targetID -> duration
 	manifest                   *logstream.RunManifest
+	closedCh                   chan struct{}
+	interactives               map[string]struct{}      // set of command IDs
+	timingTable                map[string]time.Duration // targetID -> duration
 	commands                   map[string]*command
 	errors                     []error
+	console                    conslogging.ConsoleLogger
+	ongoingTick                time.Duration
+	mu                         sync.Mutex
+	displayStats               bool
+	verbose                    bool
+	lastOutputWasProgress      bool
+	lastOutputWasOngoingUpdate bool
 }
 
 // New creates a new Formatter.

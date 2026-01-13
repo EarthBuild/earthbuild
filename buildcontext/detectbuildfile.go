@@ -34,7 +34,7 @@ func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
 	if os.IsNotExist(err) {
 		buildEarthPath := filepath.Join(localDir, "build.earth")
 
-		_, err := os.Stat(buildEarthPath)
+		_, err = os.Stat(buildEarthPath)
 		if os.IsNotExist(err) {
 			return "", ErrEarthfileNotExist{Target: ref.String()}
 		} else if err != nil {

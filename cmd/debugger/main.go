@@ -38,8 +38,8 @@ var (
 )
 
 type waitError struct {
-	set bool
 	err error
+	set bool
 }
 
 func newWaitError(err error, set bool) *waitError {
@@ -119,9 +119,9 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	}
 
 	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Error(errors.Wrap(err, "earthly debugger: error closing"))
+		closeErr := conn.Close()
+		if closeErr != nil {
+			log.Error(errors.Wrap(closeErr, "earthly debugger: error closing"))
 		}
 	}()
 
@@ -180,9 +180,9 @@ func interactiveMode(
 	}
 
 	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Error(errors.Wrap(err, "earthly debugger: error closing"))
+		closeErr := conn.Close()
+		if closeErr != nil {
+			log.Error(errors.Wrap(closeErr, "earthly debugger: error closing"))
 		}
 	}()
 
@@ -229,7 +229,12 @@ func interactiveMode(
 		defer cancel()
 
 		for {
-			connDataType, data, err := common.ReadDataPacket(conn)
+			var (
+				connDataType int
+				data         []byte
+			)
+
+			connDataType, data, err = common.ReadDataPacket(conn)
 			if err != nil {
 				logErrorIfNonCleanExit(errors.Wrap(err, "failed to read data from conn"))
 				return
@@ -259,9 +264,12 @@ func interactiveMode(
 		initialData := true
 
 		for {
-			buf := make([]byte, 100)
+			var (
+				buf = make([]byte, 100)
+				n   int
+			)
 
-			n, err := ptmx.Read(buf)
+			n, err = ptmx.Read(buf)
 			if err != nil {
 				logErrorIfNonCleanExit(errors.Wrap(err, "failed to read from ptmx"))
 				return
@@ -282,8 +290,8 @@ func interactiveMode(
 	}()
 
 	go func() {
-		err := c.Wait()
-		waitErr.Store(newWaitError(err, true))
+		inErr := c.Wait()
+		waitErr.Store(newWaitError(inErr, true))
 		cancel()
 	}()
 
@@ -359,7 +367,7 @@ func main() {
 		// Take a brief pause and issue a new line as a workaround.
 		time.Sleep(time.Millisecond * 5)
 
-		err := os.Setenv("TERM", debuggerSettings.Term)
+		err = os.Setenv("TERM", debuggerSettings.Term)
 		if err != nil {
 			conslogger.Warnf("Failed to set term: %v\n", err)
 		}
@@ -413,7 +421,7 @@ func main() {
 			// Take a brief pause and issue a new line as a work around.
 			time.Sleep(time.Millisecond * 5)
 
-			err := os.Setenv("TERM", debuggerSettings.Term)
+			err = os.Setenv("TERM", debuggerSettings.Term)
 			if err != nil {
 				conslogger.Warnf("Failed to set term: %v\n", err)
 			}

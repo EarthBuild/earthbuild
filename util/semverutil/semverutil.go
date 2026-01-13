@@ -10,10 +10,10 @@ import (
 
 // Version is a semantic version number.
 type Version struct {
+	Tail  string
 	Major int
 	Minor int
 	Patch int
-	Tail  string
 }
 
 // Parse parses a semantic version number.

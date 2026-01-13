@@ -19,13 +19,12 @@ const GenericDefault = "_generic:default"
 // Run is a run logstream delta generator for a run.
 type Run struct {
 	b             *Bus
-	mu            sync.Mutex
 	targets       map[string]*Target
 	commands      map[string]*Command
+	generic       *Generic
+	mu            sync.Mutex
 	ended         bool
 	hasMainTarget bool
-
-	generic *Generic
 }
 
 func newRun(b *Bus) *Run {

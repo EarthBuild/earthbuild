@@ -15,10 +15,10 @@ import (
 type TargetInput struct {
 	// TargetCanonical is the identifier of this target in canonical form.
 	TargetCanonical string `json:"targetCanonical"`
-	// BuildArgs are the build args used to build this target.
-	BuildArgs []BuildArgInput `json:"buildArgs"`
 	// Platform is the target platform of the target.
 	Platform string `json:"platform"`
+	// BuildArgs are the build args used to build this target.
+	BuildArgs []BuildArgInput `json:"buildArgs"`
 	// AllowPrivileged is true if the target will allow privileged access
 	AllowPrivileged bool `json:"allowPrivileged"`
 }

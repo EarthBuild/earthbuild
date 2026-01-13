@@ -59,15 +59,14 @@ import (
 const autoSkipPrefix = "auto-skip"
 
 type Build struct {
-	cli CLI
-
+	cli          CLI
+	dockerTarget string
 	buildArgs    cli.StringSlice
 	platformsStr cli.StringSlice
 	secrets      cli.StringSlice
 	secretFiles  cli.StringSlice
 	cacheFrom    cli.StringSlice
 	dockerTags   cli.StringSlice
-	dockerTarget string
 }
 
 func NewBuild(cli CLI) *Build {
@@ -439,7 +438,9 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	}
 
 	if a.cli.Flags().SSHAuthSock != "" {
-		ssh, err := sshprovider.NewSSHAgentProvider([]sshprovider.AgentConfig{{
+		var ssh session.Attachable
+
+		ssh, err = sshprovider.NewSSHAgentProvider([]sshprovider.AgentConfig{{
 			Paths: []string{a.cli.Flags().SSHAuthSock},
 		}})
 		if err != nil {
@@ -460,9 +461,9 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 
 			debugTermConsole := a.cli.Console().WithPrefix("internal-term")
 
-			err := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole) //nolint:contextcheck
-			if err != nil {
-				return errors.Wrap(err, "interactive terminal")
+			termErr := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole) //nolint:contextcheck
+			if termErr != nil {
+				return errors.Wrap(termErr, "interactive terminal")
 			}
 
 			return nil
@@ -522,7 +523,9 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	localRegistryAddr := ""
 
 	if isLocal && a.cli.Flags().LocalRegistryHost != "" {
-		u, err := url.Parse(a.cli.Flags().LocalRegistryHost)
+		var u *url.URL
+
+		u, err = url.Parse(a.cli.Flags().LocalRegistryHost)
 		if err != nil {
 			return errors.Wrapf(err, "parse local registry host %s", a.cli.Flags().LocalRegistryHost)
 		}
@@ -881,7 +884,9 @@ func (a *Build) initAutoSkip(
 	console.VerbosePrintf("hash calculation took %s", stats.Duration)
 
 	if !target.IsRemote() {
-		meta, err := gitutil.Metadata(ctx, target.GetLocalPath(), a.cli.Flags().GitBranchOverride)
+		var meta *gitutil.GitMetadata
+
+		meta, err = gitutil.Metadata(ctx, target.GetLocalPath(), a.cli.Flags().GitBranchOverride)
 		if err != nil {
 			console.VerboseWarnf("unable to detect all git metadata: %v", err.Error())
 		}

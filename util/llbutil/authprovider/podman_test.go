@@ -79,8 +79,8 @@ func TestPodmanProvider(topT *testing.T) {
 	}
 
 	type entry struct {
-		envs []string
 		auth *authFile
+		envs []string
 	}
 
 	onpar.TableSpec(o, func(tt testCtx, e entry) {

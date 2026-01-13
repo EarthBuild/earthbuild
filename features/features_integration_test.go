@@ -188,10 +188,10 @@ func TestProcessFlags(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name             string
 		f                *features.Features
-		expectedWarnings []string
 		expectedFeatures *features.Features
+		name             string
+		expectedWarnings []string
 	}{
 		{
 			name: "version v0.4",

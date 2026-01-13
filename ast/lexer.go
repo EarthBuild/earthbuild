@@ -17,18 +17,14 @@ const (
 // and dedentation tokens.
 type lexer struct {
 	*parser.EarthLexer
-
-	prevIndentLevel  int
-	indentLevel      int
-	afterNewLine     bool
-	afterLineComment bool
-
+	err                                          error
 	tokenQueue                                   []antlr.Token
+	prevIndentLevel                              int
+	indentLevel                                  int
 	wsChannel, wsStart, wsStop, wsLine, wsColumn int
-
-	err error
-
-	debug bool
+	afterNewLine                                 bool
+	afterLineComment                             bool
+	debug                                        bool
 }
 
 func newLexer(input antlr.CharStream) *lexer {

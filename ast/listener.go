@@ -16,7 +16,6 @@ import (
 var _ parser.EarthParserListener = &listener{}
 
 type block struct {
-	block         spec.Block
 	statement     *spec.Statement
 	withStatement *spec.WithStatement
 	ifStatement   *spec.IfStatement
@@ -24,25 +23,22 @@ type block struct {
 	tryStatement  *spec.TryStatement
 	forStatement  *spec.ForStatement
 	waitStatement *spec.WaitStatement
+	block         spec.Block
 }
 
 type listener struct {
-	*parser.BaseEarthParserListener
-
-	tokStream *antlr.CommonTokenStream
-	ef        *spec.Earthfile
-	target    *spec.Target
-	function  *spec.Function
-	blocks    []*block
-	command   *spec.Command
-
-	stmtWords []string
-	execMode  bool
-
-	filePath        string
-	enableSourceMap bool
-
 	err error
+	*parser.BaseEarthParserListener
+	tokStream       *antlr.CommonTokenStream
+	ef              *spec.Earthfile
+	target          *spec.Target
+	function        *spec.Function
+	command         *spec.Command
+	filePath        string
+	blocks          []*block
+	stmtWords       []string
+	enableSourceMap bool
+	execMode        bool
 }
 
 func newListener(stream *antlr.CommonTokenStream, filePath string, enableSourceMap bool) *listener {

@@ -27,8 +27,6 @@ const DockerfileMetaTarget = "@dockerfile:"
 
 // Data represents a resolved target's build context data.
 type Data struct {
-	// The parsed Earthfile AST.
-	Earthfile spec.Earthfile
 	// BuildContext is the state to use for the build.
 	BuildContextFactory llbfactory.Factory
 	// Target is the earthly reference.
@@ -41,6 +39,8 @@ type Data struct {
 	Features *features.Features
 	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
 	BuildFilePath string
+	// The parsed Earthfile AST.
+	Earthfile spec.Earthfile
 }
 
 // Resolver is a build context resolver.

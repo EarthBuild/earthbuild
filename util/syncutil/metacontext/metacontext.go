@@ -102,10 +102,6 @@ func (mc *MetaContext) Deadline() (deadline time.Time, ok bool) {
 	contexts := slices.Clone(mc.sub)
 	mc.mu.Unlock()
 
-	if len(contexts) == 0 {
-		return deadline, ok
-	}
-
 	for _, ctx := range contexts {
 		dl, deadlineOk := ctx.Deadline() // don't hold lock for this call
 		if deadlineOk {

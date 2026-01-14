@@ -9,31 +9,31 @@ import (
 )
 
 // Constructor is a func that is used to construct a cache value, given a key.
-type Constructor func(ctx context.Context, key interface{}) (value interface{}, err error)
+type Constructor func(ctx context.Context, key any) (value any, err error)
 
 type entry struct {
 	metaCtx *metacontext.MetaContext
 
 	constructed chan struct{}
 	err         error
-	value       interface{}
+	value       any
 }
 
 // SyncCache is an object which can be used to create singletons stored in a key-value store.
 type SyncCache struct {
 	mu    sync.Mutex
-	store map[interface{}]*entry
+	store map[any]*entry
 }
 
 // New creates an empty SyncCache.
 func New() *SyncCache {
 	return &SyncCache{
-		store: make(map[interface{}]*entry),
+		store: make(map[any]*entry),
 	}
 }
 
 // Do executes the constructor, if a value for key hasn't already been constructed.
-func (sc *SyncCache) Do(ctx context.Context, key interface{}, c Constructor) (interface{}, error) {
+func (sc *SyncCache) Do(ctx context.Context, key any, c Constructor) (any, error) {
 	e, found := sc.getEntry(ctx, key)
 	if !found {
 		// We need to construct this.
@@ -47,6 +47,7 @@ func (sc *SyncCache) Do(ctx context.Context, key interface{}, c Constructor) (in
 			if errors.Is(e.err, context.Canceled) {
 				sc.deleteEntry(key)
 			}
+
 			close(e.constructed)
 		}()
 	} else {
@@ -59,25 +60,30 @@ func (sc *SyncCache) Do(ctx context.Context, key interface{}, c Constructor) (in
 			}
 		}()
 	}
+
 	<-e.constructed
+
 	return e.value, e.err
 }
 
 // Add adds a readily constructed value for a given key.
-func (sc *SyncCache) Add(ctx context.Context, key interface{}, value interface{}, valueErr error) error {
+func (sc *SyncCache) Add(ctx context.Context, key any, value any, valueErr error) error {
 	e, found := sc.getEntry(ctx, key)
 	if found {
 		return errors.New("already exists")
 	}
+
 	e.value = value
 	e.err = valueErr
 	close(e.constructed)
+
 	return nil
 }
 
-func (sc *SyncCache) getEntry(ctx context.Context, key interface{}) (*entry, bool) {
+func (sc *SyncCache) getEntry(ctx context.Context, key any) (*entry, bool) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
+
 	e, ok := sc.store[key]
 	if !ok {
 		e = &entry{
@@ -86,12 +92,14 @@ func (sc *SyncCache) getEntry(ctx context.Context, key interface{}) (*entry, boo
 		}
 		sc.store[key] = e
 	}
+
 	return e, ok
 }
 
-func (sc *SyncCache) deleteEntry(key interface{}) {
+func (sc *SyncCache) deleteEntry(key any) {
 	// note; this does not cancel any ongoing construction.
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
+
 	delete(sc.store, key)
 }

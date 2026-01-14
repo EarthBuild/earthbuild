@@ -46,6 +46,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 			fmt.Fprintf(os.Stderr, "GetOrCreateEarthlyDir failed: %v\n", err)
 			return 1
 		}
+
 		logFile := filepath.Join(logDir, "autocomplete.log")
 
 		err = os.MkdirAll(logDir, 0o755) // #nosec G301
@@ -53,6 +54,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 			fmt.Fprintf(os.Stderr, "MkdirAll %s failed: %v\n", logDir, err)
 			return 1
 		}
+
 		autocomplete.SetupLog(logFile)
 		autocomplete.Logf("COMP_LINE=%q COMP_POINT=%q", os.Getenv("COMP_LINE"), os.Getenv("COMP_POINT"))
 	}
@@ -82,6 +84,7 @@ func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	if err != nil {
 		return err
 	}
+
 	if !(compPointInt > 0 && compPointInt < math.MaxInt) {
 		err = errors.Errorf("compPointInt is out of bounds.")
 		return err
@@ -98,6 +101,7 @@ func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	if err != nil {
 		return err
 	}
+
 	for _, p := range potentials {
 		fmt.Printf("%s\n", p)
 	}

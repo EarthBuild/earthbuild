@@ -27,6 +27,7 @@ func NewReturnErrorStrategy(litNames, symbNames []string) *ReturnErrorStrategy {
 		symbNames: symbNames,
 	}
 	res.DefaultErrorStrategy = antlr.NewDefaultErrorStrategy()
+
 	return res
 }
 
@@ -37,15 +38,19 @@ func (res *ReturnErrorStrategy) Recover(recognizer antlr.Parser, e antlr.Recogni
 		res.Err = errors.Errorf("invalid syntax")
 		res.ErrContext = recognizer.GetParserRuleContext()
 		expected := recognizer.GetExpectedTokens().StringVerbose(res.litNames, res.symbNames, false)
+
 		res.Hint = fmt.Sprintf("I got lost looking for '%v'", humanName(expected))
 		if expected == "EQUALS" {
 			res.Hint += " - did you define a key/value pair without a value?"
 		}
 	}
+
 	context := recognizer.GetParserRuleContext()
 	for context != nil {
 		context.SetException(e)
+
 		var ok bool
+
 		context, ok = context.GetParent().(antlr.ParserRuleContext)
 		if !ok {
 			break

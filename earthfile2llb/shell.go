@@ -19,6 +19,7 @@ func splitWildcards(name string) (string, string) {
 			break
 		}
 	}
+
 	if i == len(name) {
 		return name, ""
 	}
@@ -27,6 +28,7 @@ func splitWildcards(name string) (string, string) {
 	if name[:i] == "" || strings.HasSuffix(name[:i], string(filepath.Separator)) {
 		base = ""
 	}
+
 	return path.Dir(name[:i]), base + name[i:]
 }
 
@@ -34,6 +36,7 @@ func withShell(args []string, withShell bool) []string {
 	if withShell {
 		return []string{"/bin/sh", "-c", strings.Join(args, " ")}
 	}
+
 	return args
 }
 
@@ -43,10 +46,12 @@ func strWithEnvVarsAndDocker(
 	exitCodeFile, outputFile string,
 ) string {
 	var cmdParts []string
+
 	cmdParts = append(cmdParts, strings.Join(envVars, " "))
 	if withDocker {
 		cmdParts = append(cmdParts, dockerdWrapperPath, "execute")
 	}
+
 	if withDebugger {
 		cmdParts = append(cmdParts, debuggerPath)
 
@@ -54,27 +59,33 @@ func strWithEnvVarsAndDocker(
 			cmdParts = append(cmdParts, "--force")
 		}
 	}
+
 	if withShell {
 		var escapedArgs []string
 		if outputFile != "" {
 			escapedArgs = append(escapedArgs,
 				fmt.Sprintf("exec 1<>'\"'\"%s\"'\"' && ", escapeShellSingleQuotes(outputFile)))
 		}
+
 		if isExpression {
 			escapedArgs = append(escapedArgs, "echo")
 		}
+
 		for _, arg := range args {
 			escapedArgs = append(escapedArgs, escapeShellSingleQuotes(arg))
 		}
+
 		if exitCodeFile != "" {
 			escapedArgs = append(escapedArgs,
 				fmt.Sprintf("; echo $? >'\"'\"%s\"'\"'", escapeShellSingleQuotes(exitCodeFile)))
 		}
+
 		cmdParts = append(cmdParts, "/bin/sh", "-c")
 		cmdParts = append(cmdParts, fmt.Sprintf("'%s'", strings.Join(escapedArgs, " ")))
 	} else {
 		cmdParts = append(cmdParts, args...)
 	}
+
 	return strings.Join(cmdParts, " ")
 }
 
@@ -92,6 +103,7 @@ func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
 		if !withShell {
 			panic("unexpected exec mode")
 		}
+
 		return []string{
 			"/bin/sh", "-c",
 			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, false, exitCodeFile, ""),
@@ -104,6 +116,7 @@ func withShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 		if !withShell {
 			panic("unexpected exec mode")
 		}
+
 		return []string{
 			"/bin/sh", "-c",
 			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, false, "", outputFile),
@@ -116,6 +129,7 @@ func expressionWithShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 		if !withShell {
 			panic("unexpected exec mode")
 		}
+
 		return []string{
 			"/bin/sh", "-c",
 			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, true, "", outputFile),

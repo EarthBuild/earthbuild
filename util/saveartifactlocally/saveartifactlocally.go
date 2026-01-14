@@ -35,26 +35,34 @@ func SaveArtifactLocally(
 		if ifExists {
 			return nil
 		}
+
 		return errors.Errorf("cannot save artifact %s, since it does not exist", artifact.StringCanonical())
 	}
+
 	isWildcard := strings.ContainsAny(fromPattern, `*?[`)
+
 	for _, from := range fromGlobMatches {
 		fiSrc, err := os.Stat(from)
 		if err != nil {
 			return errors.Wrapf(err, "os stat %s", from)
 		}
+
 		srcIsDir := fiSrc.IsDir()
 		to := destPath
+
 		destIsDir := strings.HasSuffix(to, "/") || to == "."
 		if artifact.Target.IsLocalExternal() && !filepath.IsAbs(to) {
 			// Place within external dir.
 			to = path.Join(artifact.Target.LocalPath, to)
 		}
+
 		if destIsDir {
 			// Place within dest dir.
 			to = path.Join(to, path.Base(from))
 		}
+
 		destExists := false
+
 		fiDest, err := os.Stat(to)
 		if err != nil {
 			// Ignore err. Likely dest path does not exist.
@@ -62,15 +70,18 @@ func SaveArtifactLocally(
 				return errors.New(
 					"artifact is a wildcard, but AS LOCAL destination does not end with /")
 			}
+
 			destIsDir = fiSrc.IsDir()
 		} else {
 			destExists = true
 			destIsDir = fiDest.IsDir()
 		}
+
 		if srcIsDir && !destIsDir {
 			return errors.New(
 				"artifact is a directory, but existing AS LOCAL destination is a file")
 		}
+
 		if destExists {
 			if !srcIsDir {
 				// Remove preexisting dest file.
@@ -88,10 +99,12 @@ func SaveArtifactLocally(
 		}
 
 		toDir := path.Dir(to)
+
 		err = os.MkdirAll(toDir, 0o755) // #nosec G301
 		if err != nil {
 			return errors.Wrapf(err, "mkdir all for artifact %s", toDir)
 		}
+
 		err = os.Link(from, to)
 		if err != nil {
 			// Hard linking did not work. Try recursive copy.
@@ -107,12 +120,15 @@ func SaveArtifactLocally(
 			Target:   artifact.Target,
 			Artifact: artifactPath,
 		}
+
 		destPath2 := filepath.FromSlash(destPath)
 		if strings.HasSuffix(destPath, "/") {
 			destPath2 = filepath.Join(destPath2, filepath.Base(artifactPath))
 		}
+
 		exportCoordinator.AddArtifactSummary(artifact2.StringCanonical(), destPath2, salt)
 	}
+
 	return nil
 }
 
@@ -121,7 +137,9 @@ func trimFilePathPrefix(prefix string, thePath string, console conslogging.Conso
 	if err != nil {
 		console.Warnf("Warning: Could not compute relative path for %s "+
 			"as being relative to %s: %s\n", thePath, prefix, err.Error())
+
 		return thePath
 	}
+
 	return ret
 }

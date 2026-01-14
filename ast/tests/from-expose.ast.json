@@ -38,7 +38,7 @@
         {
           "command": {
             "args": [
-              "ubuntu"
+              "ubuntu:24.04"
             ],
             "name": "FROM"
           }

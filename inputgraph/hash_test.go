@@ -35,15 +35,8 @@ func TestHashTargetWithDocker(t *testing.T) {
 	r.NotEmpty(first)
 
 	path := "./testdata/with-docker/Earthfile"
-
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "with-docker")
-	r.NoError(err)
-
+	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "Earthfile")
-	defer func() {
-		err = os.RemoveAll(tmpDir)
-		r.NoError(err)
-	}()
 
 	err = copyFile(path, tmpFile)
 	r.NoError(err)
@@ -71,15 +64,18 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
+
 	out, err := os.Create(dst) // #nosec G304
 	if err != nil {
 		return err
 	}
 	defer out.Close()
+
 	_, err = io.Copy(out, in)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -97,6 +93,7 @@ func replaceInFile(path, find, replace string) error {
 
 	data := string(dataBytes)
 	data = strings.ReplaceAll(data, find, replace)
+
 	_, err = f.Seek(0, 0)
 	if err != nil {
 		return err

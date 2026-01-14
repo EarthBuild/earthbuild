@@ -51,6 +51,7 @@ func TestVersionAtLeast(t *testing.T) {
 			test.earthlyVer.Major, test.earthlyVer.Minor, test.major, test.minor)
 		t.Run(title, func(t *testing.T) {
 			t.Parallel()
+
 			actual := versionAtLeast(test.earthlyVer, test.major, test.minor)
 			Equal(t, test.expected, actual)
 		})

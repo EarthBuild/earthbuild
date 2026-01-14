@@ -33,10 +33,12 @@ func ParseProjectCommand(
 			if len(args) != 1 {
 				return "", "", errors.New("failed to parse PROJECT command")
 			}
+
 			parts := strings.Split(args[0], "/")
 			if len(parts) != 2 {
 				return "", "", errors.New("failed to parse PROJECT command")
 			}
+
 			return parts[0], parts[1], nil
 		}
 	}
@@ -49,6 +51,7 @@ func copyVisited(m map[string]struct{}) map[string]struct{} {
 	for k := range m {
 		m2[k] = struct{}{}
 	}
+
 	return m2
 }
 
@@ -57,9 +60,11 @@ func uniqStrs(all []string) []string {
 	for _, v := range all {
 		m[v] = struct{}{}
 	}
+
 	ret := make([]string, 0, len(m))
 	for k := range m {
 		ret = append(ret, k)
 	}
+
 	return ret
 }

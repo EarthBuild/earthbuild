@@ -17,10 +17,11 @@ func GetLogger(ctx context.Context) Logger {
 	if v == nil {
 		return Logger{}
 	}
+
 	return v.(Logger) // Note that this panics if not a real Logger.
 }
 
 // With adds logging metadata to the logger within the context.
-func With(ctx context.Context, key string, value interface{}) context.Context {
+func With(ctx context.Context, key string, value any) context.Context {
 	return WithLogger(ctx, GetLogger(ctx).With(key, value))
 }

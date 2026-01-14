@@ -57,20 +57,25 @@ func Metadata(ctx context.Context, dir, gitBranchOverride string) (*GitMetadata,
 	if err != nil {
 		return nil, err
 	}
+
 	err = detectIsGitDir(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
+
 	baseDir, err := detectGitBaseDir(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
+
 	var retErr error
+
 	remoteURL, err := detectGitRemoteURL(ctx, dir)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	var gitURL string
 	if remoteURL != "" {
 		gitURL, err = ParseGitRemoteURL(remoteURL)
@@ -78,51 +83,61 @@ func Metadata(ctx context.Context, dir, gitBranchOverride string) (*GitMetadata,
 			return nil, err
 		}
 	}
+
 	hash, err := detectGitHash(ctx, dir)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	shortHash, err := detectGitShortHash(ctx, dir)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	branch, err := detectGitBranch(ctx, dir, gitBranchOverride)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	tags, err := detectGitTags(ctx, dir)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	committerTimestamp, err := detectGitTimestamp(ctx, dir, committer)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	authorTimestamp, err := detectGitTimestamp(ctx, dir, author)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	authorEmail, err := detectGitAuthor(ctx, dir, "%ae")
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	authorName, err := detectGitAuthor(ctx, dir, "%an")
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	coAuthors, err := detectGitCoAuthors(ctx, dir)
 	if err != nil {
 		retErr = err
 		// Keep going.
 	}
+
 	refs, err := detectGitRefs(ctx, dir)
 	if err != nil {
 		retErr = err
@@ -133,6 +148,7 @@ func Metadata(ctx context.Context, dir, gitBranchOverride string) (*GitMetadata,
 	if err != nil {
 		return nil, errors.Wrapf(err, "get rel dir for %s when base git path is %s", dir, baseDir)
 	}
+
 	if !isRel {
 		return nil, errors.New("unexpected non-relative path within git dir")
 	}
@@ -180,10 +196,12 @@ func (gm *GitMetadata) Clone() *GitMetadata {
 func detectIsGitDir(ctx context.Context, dir string) error {
 	cmd := exec.CommandContext(ctx, "git", "status")
 	cmd.Dir = dir
+
 	_, err := cmd.Output()
 	if err != nil {
 		return ErrNotAGitDir
 	}
+
 	return nil
 }
 
@@ -206,31 +224,37 @@ func ParseGitRemoteURL(gitURL string) (string, error) {
 
 	s = strings.Replace(s, ":", "/", 1)
 	s = strings.TrimSuffix(s, ".git")
+
 	return s, nil
 }
 
 func detectGitRemoteURL(ctx context.Context, dir string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrapf(
 			ErrCouldNotDetectRemote, "returned error %s: %s", err.Error(), string(out))
 	}
+
 	outStr := string(out)
 	if outStr == "" {
 		return "", errors.Wrapf(ErrCouldNotDetectRemote, "no remote origin url output")
 	}
+
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
 func detectGitBaseDir(ctx context.Context, dir string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrap(err, "detect git directory")
 	}
+
 	outStr := string(out)
 	// cmd.Output produces a path with forward slash, but on Windows, we should preserve backslash paths.
 	// E.g. This would convert `C:/my/path` to `C:\my\path`, but only when the platform is Windows.
@@ -238,34 +262,41 @@ func detectGitBaseDir(ctx context.Context, dir string) (string, error) {
 	if outStr == "" {
 		return "", errors.New("No output returned for git base dir")
 	}
+
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
 func detectGitHash(ctx context.Context, dir string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrapf(ErrCouldNotDetectGitHash, "returned error %s: %s", err.Error(), string(out))
 	}
+
 	outStr := string(out)
 	if outStr == "" {
 		return "", errors.Wrapf(ErrCouldNotDetectGitHash, "no remote origin url output")
 	}
+
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
 func detectGitShortHash(ctx context.Context, dir string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--short=8", "HEAD")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrapf(ErrCouldNotDetectGitShortHash, "returned error %s: %s", err.Error(), string(out))
 	}
+
 	outStr := string(out)
 	if outStr == "" {
 		return "", errors.Wrapf(ErrCouldNotDetectGitShortHash, "no remote origin url output")
 	}
+
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
@@ -273,51 +304,63 @@ func detectGitBranch(ctx context.Context, dir, gitBranchOverride string) ([]stri
 	if gitBranchOverride != "" {
 		return []string{gitBranchOverride}, nil
 	}
+
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, errors.Wrapf(ErrCouldNotDetectGitBranch, "returned error %s: %s", err.Error(), string(out))
 	}
+
 	outStr := string(out)
 	if outStr != "" {
 		return strings.Split(outStr, "\n"), nil
 	}
+
 	return nil, nil
 }
 
 func detectGitTags(ctx context.Context, dir string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "git", "describe", "--exact-match", "--tags")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, errors.Wrapf(ErrCouldNotDetectGitTags, "returned error %s: %s", err.Error(), string(out))
 	}
+
 	outStr := string(out)
 	if outStr != "" {
 		return strings.Split(outStr, "\n"), nil
 	}
+
 	return nil, nil
 }
 
 func detectGitRefs(ctx context.Context, dir string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "git", "for-each-ref", "--points-at", "HEAD", "--format", "'%(refname:lstrip=-1)'")
 	cmd.Dir = dir
+
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, errors.Wrapf(ErrCouldNotDetectGitRefs, "returned error %s: %s", err.Error(), string(out))
 	}
+
 	outStr := string(out)
 	if outStr != "" {
 		refs := []string{}
-		for _, ref := range strings.Split(outStr, "\n") {
+
+		for ref := range strings.SplitSeq(outStr, "\n") {
 			ref = strings.Trim(ref, "'\"")
 			if ref != "" && ref != "HEAD" && !slices.Contains(refs, ref) {
 				refs = append(refs, ref)
 			}
 		}
+
 		return refs, nil
 	}
+
 	return nil, nil
 }
 
@@ -330,6 +373,7 @@ const (
 
 func detectGitTimestamp(ctx context.Context, dir string, tsType gitTimestampType) (string, error) {
 	var format string
+
 	switch tsType {
 	case author:
 		format = "%at"
@@ -340,18 +384,22 @@ func detectGitTimestamp(ctx context.Context, dir string, tsType gitTimestampType
 	cmd := exec.CommandContext(ctx, "git", "log", "-1", "--format="+format) // #nosec G204
 	cmd.Dir = dir
 	cmd.Stderr = nil // force capture of stderr on errors
+
 	out, err := cmd.Output()
 	if err != nil {
 		exitError, ok := err.(*exec.ExitError)
 		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return "", nil
 		}
+
 		return "", errors.Wrap(err, "detect git timestamp")
 	}
+
 	outStr := string(out)
 	if outStr == "" {
 		return "", nil
 	}
+
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
@@ -359,18 +407,22 @@ func detectGitAuthor(ctx context.Context, dir string, format string) (string, er
 	cmd := exec.CommandContext(ctx, "git", "log", "-1", "--format="+format) // #nosec G204
 	cmd.Dir = dir
 	cmd.Stderr = nil // force capture of stderr on errors
+
 	out, err := cmd.Output()
 	if err != nil {
 		exitError, ok := err.(*exec.ExitError)
 		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return "", nil
 		}
+
 		return "", errors.Wrap(err, "detect git author")
 	}
+
 	outStr := string(out)
 	if outStr == "" {
 		return "", nil
 	}
+
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
@@ -378,10 +430,12 @@ func detectGitAuthor(ctx context.Context, dir string, format string) (string, er
 func ConfigEmail(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "config", "--get", "user.email")
 	cmd.Stderr = nil // force capture of stderr on errors
+
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrap(err, "detect git global email")
 	}
+
 	return strings.TrimSpace(string(out)), nil
 }
 
@@ -389,17 +443,21 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "git", "log", "-1", "--format=%b")
 	cmd.Dir = dir
 	cmd.Stderr = nil // force capture of stderr on errors
+
 	out, err := cmd.Output()
 	if err != nil {
 		exitError, ok := err.(*exec.ExitError)
 		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return nil, nil
 		}
+
 		if out != nil && strings.Contains(string(out), "does not have any commits yet") {
 			return nil, nil
 		}
+
 		return nil, errors.Wrap(err, "detect git co-authors")
 	}
+
 	return ParseCoAuthorsFromBody(string(out)), nil
 }
 
@@ -407,17 +465,21 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 func ParseCoAuthorsFromBody(body string) []string {
 	coAuthors := []string{}
 	coAuthorsSeen := map[string]struct{}{}
-	for _, s := range strings.Split(body, "\n") {
+
+	for s := range strings.SplitSeq(body, "\n") {
 		s = strings.TrimSpace(s)
 		splits := strings.Split(s, " ")
+
 		n := len(splits)
 		if n > 2 {
 			if splits[0] == "Co-authored-by:" {
 				email := splits[n-1]
+
 				n = len(email)
 				if n > 2 {
 					if email[0] == '<' && email[n-1] == '>' {
 						email = email[1:(n - 1)]
+
 						_, seen := coAuthorsSeen[email]
 						if !seen {
 							coAuthors = append(coAuthors, email)
@@ -428,6 +490,7 @@ func ParseCoAuthorsFromBody(body string) []string {
 			}
 		}
 	}
+
 	return coAuthors
 }
 
@@ -437,10 +500,12 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 	if !filepath.IsAbs(basePath) {
 		return "", false, errors.Errorf("git base path %s is not absolute", basePath)
 	}
+
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", false, errors.Wrapf(err, "get abs path for %s", path)
 	}
+
 	absPath2, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
 		return "", false, errors.Wrapf(err, "eval symlinks for %s", absPath)
@@ -470,6 +535,7 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 		// e.g. We want: `C:\some\dir`, not `\C:some\dir`
 		pathParts[0] += string(filepath.Separator)
 	}
+
 	b, err := os.Stat(filepath.Join(pathParts[:len(basePathParts)]...))
 	if err != nil {
 		return "", false, errors.Wrapf(err, "stat for %v", pathParts)
@@ -486,6 +552,7 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 	if relPath == "" {
 		return ".", true, nil
 	}
+
 	return relPath, true, nil
 }
 
@@ -494,10 +561,12 @@ func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Ref
 	if gitMeta == nil || gitMeta.GitURL == "" {
 		return ref
 	}
+
 	gitURL := gitMeta.GitURL
 	if gitMeta.RelDir != "" {
 		gitURL = path.Join(gitURL, gitMeta.RelDir)
 	}
+
 	tag := ref.GetTag()
 	localPath := ref.GetLocalPath()
 	name := ref.GetName()

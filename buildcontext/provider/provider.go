@@ -70,6 +70,7 @@ func NewBuildContextProvider(console conslogging.ConsoleLogger) *BuildContextPro
 func (bcp *BuildContextProvider) AddDirs(dirs map[string]string) {
 	bcp.mu.Lock()
 	defer bcp.mu.Unlock()
+
 	for dirName, dir := range dirs {
 		bcp.addDir(dirName, dir)
 	}
@@ -87,6 +88,7 @@ func (bcp *BuildContextProvider) addDir(dirName, dir string) {
 	resetUIDAndGID := func(p string, st *fstypes.Stat) fsutil.MapResult {
 		st.Uid = 0
 		st.Gid = 0
+
 		return fsutil.MapResultKeep
 	}
 	sd := SyncedDir{
@@ -115,12 +117,14 @@ func (bcp *BuildContextProvider) TarStream(stream filesync.FileSync_TarStreamSer
 
 func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) (retErr error) {
 	var pr *protocol
+
 	for _, p := range supportedProtocols {
 		if method == p.name && isProtoSupported(p.name) {
 			pr = &p
 			break
 		}
 	}
+
 	if pr == nil {
 		return errors.New("failed to negotiate protocol")
 	}
@@ -128,6 +132,7 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	opts, _ := metadata.FromIncomingContext(stream.Context()) // if no metadata continue with empty object
 
 	dirName := ""
+
 	name, ok := opts[keyDirName]
 	if ok && len(name) > 0 {
 		dirName = name[0]
@@ -142,6 +147,7 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	if len(dir.Excludes) != 0 && (len(opts[keyOverrideExcludes]) == 0 || opts[keyOverrideExcludes][0] != "true") {
 		excludes = dir.Excludes
 	}
+
 	includes := opts[keyIncludePatterns]
 
 	followPaths := opts[keyFollowPaths]
@@ -153,10 +159,12 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 		doneCh = bcp.doneCh
 		bcp.doneCh = nil
 	}
+
 	fs, err := fsutil.NewFS(dir.Dir)
 	if err != nil {
 		return err
 	}
+
 	fs, err = fsutil.NewFilterFS(fs, &fsutil.FilterOpt{
 		ExcludePatterns:   excludes,
 		IncludePatterns:   includes,
@@ -173,18 +181,22 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 		if err != nil {
 			doneCh <- err
 		}
+
 		close(doneCh)
 	}
+
 	return err
 }
 
 func (bcp *BuildContextProvider) getDir(dirName string) (SyncedDir, error) {
 	bcp.mu.Lock()
 	defer bcp.mu.Unlock()
+
 	dir, ok := bcp.dirs[dirName]
 	if !ok {
 		return SyncedDir{}, status.Errorf(codes.NotFound, "no access allowed to dir %q", dirName)
 	}
+
 	return dir, nil
 }
 
@@ -215,6 +227,7 @@ func isProtoSupported(p string) bool {
 	if override := os.Getenv("BUILD_STREAM_PROTOCOL"); override != "" {
 		return strings.EqualFold(p, override)
 	}
+
 	return true
 }
 
@@ -238,16 +251,22 @@ func recvDiffCopy(
 	filter func(string, *fstypes.Stat) bool,
 ) error {
 	st := time.Now()
+
 	defer func() {
 		logrus.Debugf("diffcopy took: %v", time.Since(st))
 	}()
-	var cf fsutil.ChangeFunc
-	var ch fsutil.ContentHasher
+
+	var (
+		cf fsutil.ChangeFunc
+		ch fsutil.ContentHasher
+	)
+
 	if cu != nil {
 		cu.MarkSupported(true)
 		cf = cu.HandleChange
 		ch = cu.ContentHasher()
 	}
+
 	return errors.WithStack(fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
 		NotifyHashed:  cf,
 		ContentHasher: ch,

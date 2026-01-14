@@ -96,7 +96,9 @@ func (a *Bootstrap) Action(cliCtx *cli.Context) error {
 			fmt.Fprintf(os.Stderr, "Warning: failed to enable bash-completion: %s\n", err)
 			return nil // zsh-completion isn't available, silently fail.
 		}
+
 		fmt.Print(compEntry)
+
 		return nil
 	case "zsh":
 		compEntry, err := zshCompleteEntry()
@@ -104,7 +106,9 @@ func (a *Bootstrap) Action(cliCtx *cli.Context) error {
 			fmt.Fprintf(os.Stderr, "Warning: failed to bootstrap zsh-completion: %s\n", err)
 			return nil // zsh-completion isn't available, silently fail.
 		}
+
 		fmt.Print(compEntry)
+
 		return nil
 	case "":
 		break
@@ -117,7 +121,9 @@ func (a *Bootstrap) Action(cliCtx *cli.Context) error {
 
 func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 	var err error
+
 	console := a.cli.Console().WithPrefix("bootstrap")
+
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
 		// on the existence of ~/.earthly; therefore we must ensure it's created.
@@ -126,6 +132,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 			console.Warnf("Warning: Failed to create Earthly Dir: %v", err)
 			// Keep going.
 		}
+
 		err = cliutil.EnsurePermissions(a.cli.Flags().InstallationName)
 		if err != nil {
 			console.Warnf("Warning: Failed to ensure permissions: %v", err)
@@ -140,6 +147,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 			console.Warnf("Warning: %s\n", err.Error())
 			// Keep going.
 		}
+
 		err = a.insertZSHCompleteEntry()
 		if err != nil {
 			console.Warnf("Warning: %s\n", err.Error())
@@ -148,6 +156,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 
 		console.Printf("You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n")
 	}
+
 	err = symlinkEarthlyToEarth()
 	if err != nil {
 		console.Warnf("Warning: %s\n", err.Error())
@@ -158,6 +167,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "invalid buildkit_host: %s", a.cli.Flags().BuildkitHost)
 		}
+
 		if bkURL.Scheme == "tcp" && a.cli.Cfg().Global.TLSEnabled {
 			err := buildkitd.GenCerts(*a.cli.Cfg(), a.certsHostName)
 			if err != nil {
@@ -178,6 +188,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 	}
 
 	console.Printf("Bootstrapping successful.\n")
+
 	return nil
 }
 
@@ -186,7 +197,9 @@ func (a *Bootstrap) insertBashCompleteEntry() error {
 	if err != nil {
 		return errors.Wrapf(err, "could not get current user")
 	}
+
 	isRootUser := u.Uid == "0"
+
 	var path string
 	// Assume that non-root can't write to the system and that installation
 	// to root's home isn't desirable.  One possible exception might be if
@@ -205,17 +218,21 @@ func (a *Bootstrap) insertBashCompleteEntry() error {
 			// This will give a standardized fallback even if XDG isn't active
 			userPath = xdg.DataHome
 		}
+
 		path = filepath.Join(userPath, "bash-completion/completions/earthly")
 	}
+
 	ok, err := a.insertBashCompleteEntryAt(path)
 	if err != nil {
 		return err
 	}
+
 	if ok {
 		a.cli.Console().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
 	} else {
 		a.cli.Console().VerbosePrintf("Bash-completion already present at %s\n", path)
 	}
+
 	return nil
 }
 
@@ -226,6 +243,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrapf(err, "failed checking if %s exists", dirPath)
 	}
+
 	if !dirPathExists {
 		return false, fmt.Errorf("%s does not exist", dirPath)
 	}
@@ -234,6 +252,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrapf(err, "failed checking if %s exists", path)
 	}
+
 	if pathExists {
 		return false, nil // file already exists, don't update it.
 	}
@@ -254,6 +273,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrapf(err, "failed writing to %s", path)
 	}
+
 	return true, nil
 }
 
@@ -268,6 +288,7 @@ func (a *Bootstrap) insertZSHCompleteEntry() error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to check if %s exists", dirPath)
 		}
+
 		if dirPathExists {
 			return a.insertZSHCompleteEntryUnderPath(dirPath)
 		}
@@ -275,6 +296,7 @@ func (a *Bootstrap) insertZSHCompleteEntry() error {
 
 	fmt.Fprint(os.Stderr,
 		"Warning: unable to enable zsh-completion: none of "+strings.Join(potentialPaths, ", ")+" does not exist\n")
+
 	return nil // zsh-completion isn't available, silently fail.
 }
 
@@ -285,6 +307,7 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to check if %s exists", path)
 	}
+
 	if pathExists {
 		return nil // file already exists, don't update it.
 	}
@@ -312,9 +335,11 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 
 func (a *Bootstrap) deleteZcompdump() error {
 	var homeDir string
+
 	sudoUser, found := os.LookupEnv("SUDO_USER")
 	if !found {
 		var err error
+
 		homeDir, err = os.UserHomeDir()
 		if err != nil {
 			return errors.Wrapf(err, "failed to lookup current user home dir")
@@ -324,21 +349,26 @@ func (a *Bootstrap) deleteZcompdump() error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to lookup user %s", sudoUser)
 		}
+
 		homeDir = currentUser.HomeDir
 	}
+
 	files, err := os.ReadDir(homeDir)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read dir %s", homeDir)
 	}
+
 	for _, f := range files {
 		if strings.HasPrefix(f.Name(), ".zcompdump") {
 			path := filepath.Join(homeDir, f.Name())
+
 			err := os.Remove(path)
 			if err != nil {
 				return errors.Wrapf(err, "failed to remove %s", path)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -359,6 +389,7 @@ func symlinkEarthlyToEarth() error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to check if %q exists", earthPath)
 	}
+
 	if !earthPathExists && termutil.IsTTY() {
 		return nil // legacy earth binary doesn't exist, don't create it (unless we're under a non-tty system e.g. CI)
 	}
@@ -373,10 +404,12 @@ func symlinkEarthlyToEarth() error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to remove old install at %s", earthPath)
 	}
+
 	err = os.Symlink(binPath, earthPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to symlink %s to %s", binPath, earthPath)
 	}
+
 	return nil
 }
 
@@ -394,6 +427,7 @@ function _earthly {
     complete -o nospace -C '__earthly__' earthly
 }
 `
+
 	return renderEntryTemplate(template)
 }
 
@@ -402,5 +436,6 @@ func renderEntryTemplate(template string) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to determine earthly path: %s", err)
 	}
+
 	return strings.ReplaceAll(template, "__earthly__", earthlyPath), nil
 }

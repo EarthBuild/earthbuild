@@ -33,12 +33,13 @@ func NewSolveCache() *SolveCache {
 // Do sets an LLB state in the given solve cache. If the state has been previously constructed,
 // it is returned immediately without calling the constructor again.
 func (sc *SolveCache) Do(ctx context.Context, sk StateKey, constructor SolveCacheConstructor) (pllb.State, error) {
-	stateValue, err := sc.store.Do(ctx, sk, func(ctx context.Context, k interface{}) (interface{}, error) {
+	stateValue, err := sc.store.Do(ctx, sk, func(ctx context.Context, k any) (any, error) {
 		return constructor(ctx, k.(StateKey))
 	})
 	if err != nil {
 		return pllb.State{}, err
 	}
+
 	return stateValue.(pllb.State), nil
 }
 
@@ -51,6 +52,7 @@ func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error)
 	}
 
 	key := fmt.Sprintf("%s-%s", dockerTag, hash)
+
 	return StateKey(key), nil
 }
 

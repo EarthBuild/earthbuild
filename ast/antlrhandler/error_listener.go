@@ -37,7 +37,7 @@ func NewReturnErrorListener() *ReturnErrorListener {
 // SyntaxError implements ErrorListener SyntaxError.
 func (rel *ReturnErrorListener) SyntaxError(
 	recognizer antlr.Recognizer,
-	offendingSymbol interface{},
+	offendingSymbol any,
 	line, column int,
 	msg string,
 	e antlr.RecognitionException,
@@ -63,6 +63,7 @@ func (rel *ReturnErrorListener) SyntaxError(
 
 	stream := p.GetInputStream()
 	currIdx := stream.Index()
+
 	switch e.(type) {
 	case *antlr.NoViableAltException:
 		// TODO: this error doesn't give us much option to give good hints.
@@ -76,7 +77,6 @@ func (rel *ReturnErrorListener) SyntaxError(
 		//   token that doesn't match the expected token set. Unfortunately,
 		//   p.GetExpectedTokens() returns a *antlr.IntervalSet which ... has
 		//   zero useful exported methods or fields.
-
 		// Until we can figure that out, the "I got lost looking for..." message
 		// is pretty likely to be misleading.
 		hints[0] = "I couldn't find a pattern that completes the current statement - " +
@@ -91,6 +91,7 @@ func (rel *ReturnErrorListener) SyntaxError(
 
 	for idx := currIdx; idx >= 0; idx-- {
 		stream.Seek(idx)
+
 		tok := p.GetCurrentToken()
 		if tok.GetTokenType() != parser.EarthLexerAtom {
 			// The Atom type is our catch-all, and is the most likely candidate
@@ -98,26 +99,33 @@ func (rel *ReturnErrorListener) SyntaxError(
 			// tokens would probably provide misleading hints.
 			continue
 		}
+
 		if currLine, currCol := tok.GetLine(), tok.GetColumn(); currLine < line || (currLine == line && currCol < column) {
 			break
 		}
+
 		tokLit := tok.GetText()
+
 		for _, lit := range p.LiteralNames {
 			lit = strings.Trim(lit, "'")
 			if lit == "" {
 				continue
 			}
+
 			if tokLit == lit {
 				msg := fmt.Sprintf(
 					"I parsed '%v' as a word, but it looks like it should be a keyword - is it on the wrong line?", lit)
 				if _, ok := hintSet[msg]; ok {
 					break
 				}
+
 				hintSet[msg] = struct{}{}
 				hints = append(hints, msg)
+
 				break
 			}
 		}
 	}
+
 	rel.Errs = append(rel.Errs, hint.Wrap(finalErr, hints[0], hints[1:]...))
 }

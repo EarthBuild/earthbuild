@@ -59,31 +59,38 @@ var (
 // ReadUint16PrefixedData first reads a uint16 then reads that many bytes of data.
 func ReadUint16PrefixedData(r io.Reader) ([]byte, error) {
 	var l uint16
+
 	err := binary.Read(r, binary.LittleEndian, &l)
 	if err != nil {
 		return nil, err
 	}
+
 	data, err := io.ReadAll(io.LimitReader(r, int64(l)))
 	if err != nil {
 		return nil, err
 	}
+
 	if len(data) != int(l) {
 		return nil, ErrDataUnderflow
 	}
+
 	return data, nil
 }
 
 // ReadDataPacket decodes a data packet from the reader.
 func ReadDataPacket(r io.Reader) (int, []byte, error) {
 	var connDataType uint16
+
 	err := binary.Read(r, binary.LittleEndian, &connDataType)
 	if err != nil {
 		return 0, nil, err
 	}
+
 	data, err := ReadUint16PrefixedData(r)
 	if err != nil {
 		return 0, nil, err
 	}
+
 	return int(connDataType), data, nil
 }
 
@@ -93,6 +100,7 @@ func WriteDataPacket(w io.Writer, n int, data []byte) error {
 	if err != nil {
 		return err
 	}
+
 	return WriteUint16PrefixedData(w, data)
 }
 
@@ -102,20 +110,25 @@ func WriteUint16PrefixedData(w io.Writer, data []byte) error {
 	if n > math.MaxUint16 {
 		return ErrDataOverflow
 	}
+
 	err := binary.Write(w, binary.LittleEndian, uint16(n))
 	if err != nil {
 		return err
 	}
+
 	_, err = w.Write(data)
+
 	return err
 }
 
 // SerializeDataPacket returns a serialized a data packet.
 func SerializeDataPacket(payloadID int, data []byte) ([]byte, error) {
 	var b bytes.Buffer
+
 	err := WriteDataPacket(&b, payloadID, data)
 	if err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }

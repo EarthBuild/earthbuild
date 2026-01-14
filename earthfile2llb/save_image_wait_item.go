@@ -30,6 +30,7 @@ func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool
 func (siwi *saveImageWaitItem) SetDoSave() {
 	siwi.mu.Lock()
 	defer siwi.mu.Unlock()
+
 	if siwi.si.DockerTag != "" {
 		siwi.localExport = true
 	}
@@ -38,6 +39,7 @@ func (siwi *saveImageWaitItem) SetDoSave() {
 func (siwi *saveImageWaitItem) SetDoPush() {
 	siwi.mu.Lock()
 	defer siwi.mu.Unlock()
+
 	if siwi.si.DockerTag != "" {
 		siwi.doPush = siwi.allowPush
 	}

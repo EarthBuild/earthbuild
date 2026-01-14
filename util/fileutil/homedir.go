@@ -10,17 +10,21 @@ func getHomeFromSudoUser() (string, *user.User, bool) {
 	if !ok {
 		return "", nil, false
 	}
+
 	u, err := user.Lookup(sudoUserName)
 	if err != nil {
 		return "", nil, false
 	}
+
 	if u.HomeDir == "" {
 		return "", nil, false
 	}
+
 	writable, _ := IsDirWritable(u.HomeDir)
 	if !writable {
 		return "", nil, false
 	}
+
 	return u.HomeDir, u, true
 }
 
@@ -29,6 +33,7 @@ func getHomeFromHomeEnv() (string, *user.User, bool) {
 	if !ok {
 		return "", nil, false
 	}
+
 	return home, nil, true
 }
 
@@ -37,6 +42,7 @@ func getHomeFromUserCurrent() (string, *user.User, bool) {
 	if err != nil {
 		return "", nil, false
 	}
+
 	if u.HomeDir == "" {
 		return "", nil, false
 	}
@@ -61,5 +67,6 @@ func HomeDir() (string, *user.User) {
 			return home, u
 		}
 	}
+
 	return "/etc", nil
 }

@@ -52,5 +52,6 @@ func getVersionPlatform(version string, gitSHA string, builtBy string) string {
 	if builtBy != "" {
 		s += " " + builtBy
 	}
+
 	return s
 }

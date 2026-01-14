@@ -18,6 +18,7 @@ func GetValidEnvNames(app *cli.App) map[string]struct{} {
 			envs[envName] = struct{}{}
 		}
 	}
+
 	return envs
 }
 
@@ -28,6 +29,7 @@ func getValidEnvNamesFromCommands(cmds []*cli.Command) []string {
 			envs = append(envs, getEnvs(flg)...)
 		}
 	}
+
 	return envs
 }
 
@@ -38,8 +40,10 @@ func getEnvs(fl cli.Flag) []string {
 		if fv.IsNil() {
 			return nil
 		}
+
 		fv = fv.Elem()
 	}
+
 	field := fv.FieldByName("EnvVars")
 	if !field.IsValid() {
 		return nil

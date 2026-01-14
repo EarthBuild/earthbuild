@@ -36,13 +36,16 @@ func LoadDockerManifest(
 	// Check if any child has the platform as the default platform
 	defaultChild := 0
 	foundPlatform := false
+
 	for i, child := range children {
 		if platr.PlatformEquals(child.Platform, platutil.DefaultPlatform) {
 			defaultChild = i
 			foundPlatform = true
+
 			break
 		}
 	}
+
 	if !foundPlatform {
 		// fall back to using first defined platform (and display a warning)
 		console.Warnf(
@@ -51,6 +54,7 @@ func LoadDockerManifest(
 	}
 
 	var childImgs []string
+
 	for i, child := range children {
 		if i == defaultChild {
 			childImgs = append(childImgs, fmt.Sprintf("%s (=%s)", child.ImageName, parentImageName))
@@ -58,6 +62,7 @@ func LoadDockerManifest(
 			childImgs = append(childImgs, child.ImageName)
 		}
 	}
+
 	const noteDetail = "Note that when pushing a multi-platform image, " +
 		"it is pushed as a single multi-manifest image. " +
 		"Separate per-platform image tags are only available locally."
@@ -72,6 +77,7 @@ func LoadDockerManifest(
 	if err != nil {
 		return errors.Wrap(err, "docker tag default platform image")
 	}
+
 	return nil
 }
 
@@ -81,6 +87,7 @@ func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io
 	if err != nil {
 		return errors.Wrapf(err, "load tar")
 	}
+
 	return nil
 }
 
@@ -92,13 +99,16 @@ func DockerPullLocalImages(
 	pullMap map[string]string,
 ) error {
 	eg, ctx := errgroup.WithContext(ctx)
+
 	for pullName, finalName := range pullMap {
 		pn := pullName
 		fn := finalName
+
 		eg.Go(func() error {
 			return dockerPullLocalImage(ctx, fe, localRegistryAddr, pn, fn)
 		})
 	}
+
 	return eg.Wait()
 }
 
@@ -128,6 +138,7 @@ func dockerPullLocalImage(
 	}
 
 	force := true // Sometimes Docker GCs images automatically (force prevents an error).
+
 	err = fe.ImageRemove(ctx, force, fullPullName)
 	if err != nil {
 		return errors.Wrap(err, "image rmi after pull and retag")
@@ -154,6 +165,7 @@ func waitForImage(ctx context.Context, fe containerutil.ContainerFrontend, fullN
 					continue // Not available. Retry.
 				}
 			}
+
 			if info, ok := m[fullName]; ok && info.ID != "" {
 				return nil
 			}

@@ -17,6 +17,7 @@ func NewBuffer(maxSize int) (*Buffer, error) {
 	if maxSize < 0 {
 		return nil, errors.New("size must be a positive int")
 	}
+
 	return &Buffer{
 		maxSize: maxSize,
 	}, nil
@@ -41,12 +42,14 @@ func (c *Buffer) Write(buf []byte) (int, error) {
 		} else {
 			c.data = append(c.data, buf...)
 			c.offset = n
+
 			return n, nil
 		}
 	}
 
 	remain := c.maxSize - c.offset
 	copy(c.data[c.offset:], buf)
+
 	if len(buf) > remain {
 		copy(c.data, buf[remain:])
 	}
@@ -60,9 +63,11 @@ func (c *Buffer) Bytes() []byte {
 	if len(c.data) < c.maxSize {
 		return c.data
 	}
+
 	ret := make([]byte, c.maxSize)
 	copy(ret, c.data[c.offset:])
 	copy(ret[c.maxSize-c.offset:], c.data[:c.offset])
+
 	return ret
 }
 

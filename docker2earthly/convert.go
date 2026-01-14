@@ -25,6 +25,7 @@ const earthlyCurrentVersion = "0.7"
 func getArtifactName(s string) string {
 	split := strings.Split(s, "/")
 	n := len(split)
+
 	return split[n-1]
 }
 
@@ -44,6 +45,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 			return errors.Wrapf(err, "failed to open %q", dockerfilePath)
 		}
 		defer in2.Close()
+
 		in = in2
 	}
 
@@ -77,8 +79,10 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 			for _, arg := range initialArgs {
 				fromArgs = append(fromArgs, arg.String())
 			}
+
 			fromCmd = append(fromArgs, fromCmd...)
 		}
+
 		targets = append(targets, fromCmd)
 
 		if stage.Name == "" {
@@ -94,29 +98,36 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 				if len(parts) != 4 {
 					return errors.Errorf("failed to parse %q", l)
 				}
+
 				kv := strings.Split(parts[1], "=")
 				if len(kv) != 2 {
 					return errors.Errorf("failed to parse %q", l)
 				}
+
 				fromStageName := kv[1]
 				n := names[fromStageName]
 				artifactName := getArtifactName(parts[2])
 				l = fmt.Sprintf("COPY +subbuild%d/%s %s", n+1, artifactName, parts[3])
 				targets[n+1] = append(targets[n+1], fmt.Sprintf("SAVE ARTIFACT %s %s\n", parts[2], artifactName))
 			}
+
 			if strings.HasPrefix(l, "ADD ") {
 				return errors.Errorf("earthly does not support ADD, please convert to COPY instead")
 			}
+
 			targets[i+1] = append(targets[i+1], l)
 		}
 	}
+
 	i := len(targets) - 1
 	targets[i] = append(targets[i], "SAVE IMAGE "+imageTag)
 
 	var out io.Writer
+
 	if earthfilePath == "-" {
 		out2 := bufio.NewWriter(os.Stdout)
 		defer out2.Flush()
+
 		out = out2
 	} else {
 		out2, err := os.Create(earthfilePath) // #nosec G304
@@ -124,6 +135,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 			return errors.Wrapf(err, "failed to create Earthfile under %q", earthfilePath)
 		}
 		defer out2.Close()
+
 		out = out2
 	}
 
@@ -135,12 +147,14 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 				if j == 0 {
 					fmt.Fprintf(out, "subbuild%d:\n", i)
 				}
+
 				fmt.Fprintf(out, "    %s\n", l)
 			}
 		}
 	}
 
 	fmt.Fprintf(out, "\nbuild:\n    BUILD +subbuild%d\n", i)
+
 	return nil
 }
 
@@ -191,6 +205,7 @@ func GenerateEarthfile(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse Earthfile template")
 	}
+
 	buf := &bytes.Buffer{}
 
 	if !filepath.IsAbs(dockerfilePath) {

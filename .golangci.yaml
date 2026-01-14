@@ -31,19 +31,16 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocognit
-    - goconst
     - gocyclo
     - godoclint
     - godox
     - gomoddirectives
-    - goprintffuncname
     - inamedparam
     - interfacebloat
     - ireturn
     - maintidx
     - mirror
     - mnd
-    - modernize
     - musttag
     - nakedret
     - nestif
@@ -54,17 +51,14 @@ linters:
     - noinlineerr
     - nonamedreturns
     - predeclared
-    - protogetter
     - recvcheck
     - revive
     - staticcheck
     - tagliatelle
     - testpackage
-    - usetesting
     - varnamelen
     - wrapcheck
     - wsl
-    - wsl_v5
   exclusions:
     generated: lax
 formatters:

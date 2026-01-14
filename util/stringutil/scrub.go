@@ -18,8 +18,10 @@ func ScrubCredentialsAll(s string) string {
 	if !strings.Contains(s, "@") {
 		return s
 	}
+
 	parts := strings.Split(s, " ")
 	ret := []string{}
+
 	for _, part := range parts {
 		if strings.Contains(part, "@") {
 			ret = append(ret, ScrubCredentials(part))
@@ -27,6 +29,7 @@ func ScrubCredentialsAll(s string) string {
 			ret = append(ret, part)
 		}
 	}
+
 	return strings.Join(ret, " ")
 }
 
@@ -34,5 +37,6 @@ func ScrubCredentialsAll(s string) string {
 func ScrubANSICodes(input string) string {
 	re := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 	cleanedString := re.ReplaceAllString(input, "")
+
 	return cleanedString
 }

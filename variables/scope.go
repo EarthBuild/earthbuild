@@ -2,6 +2,7 @@ package variables
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -27,41 +28,48 @@ func NewScope() *Scope {
 // DebugString returns a string that can be printed while debugging.
 func (s *Scope) DebugString() string {
 	var sb strings.Builder
+
 	for _, k := range s.Sorted() {
 		v := s.variables[k]
 		sb.WriteString(fmt.Sprintf("%s=%s", k, v))
+
 		if s.activeVariables[k] {
 			sb.WriteString(" (active)")
 		} else {
 			sb.WriteString(" (inactive)")
 		}
+
 		sb.WriteString("\n")
 	}
+
 	return sb.String()
 }
 
 // Clone returns a copy of the scope.
 func (s *Scope) Clone() *Scope {
 	ret := NewScope()
-	for k, v := range s.variables {
-		ret.variables[k] = v
-	}
+	maps.Copy(ret.variables, s.variables)
+
 	for k := range s.activeVariables {
 		ret.activeVariables[k] = true
 	}
+
 	return ret
 }
 
 // Get gets a variable by name.
 func (s *Scope) Get(name string, opts ...ScopeOpt) (string, bool) {
 	opt := applyOpts(opts...)
+
 	v, ok := s.variables[name]
 	if !ok {
 		return "", false
 	}
+
 	if opt.active && !s.activeVariables[name] {
 		return "", false
 	}
+
 	return v, true
 }
 
@@ -69,14 +77,17 @@ func (s *Scope) Get(name string, opts ...ScopeOpt) (string, bool) {
 // value was set.
 func (s *Scope) Add(name, value string, opts ...ScopeOpt) bool {
 	opt := applyOpts(opts...)
+
 	_, existed := s.variables[name]
 	if opt.noOverride && existed {
 		return false
 	}
+
 	s.variables[name] = value
 	if opt.active {
 		s.activeVariables[name] = true
 	}
+
 	return true
 }
 
@@ -90,26 +101,33 @@ func (s *Scope) Remove(name string) {
 func (s *Scope) Map(opts ...ScopeOpt) map[string]string {
 	opt := applyOpts(opts...)
 	m := make(map[string]string)
+
 	for k, v := range s.variables {
 		if opt.active && !s.activeVariables[k] {
 			continue
 		}
+
 		m[k] = v
 	}
+
 	return m
 }
 
 // Keys returns a sorted list of variable names in this Scope.
 func (s *Scope) Sorted(opts ...ScopeOpt) []string {
 	opt := applyOpts(opts...)
+
 	sorted := make([]string, 0, len(s.variables))
 	for k := range s.variables {
 		if opt.active && !s.activeVariables[k] {
 			continue
 		}
+
 		sorted = append(sorted, k)
 	}
+
 	sort.Strings(sorted)
+
 	return sorted
 }
 
@@ -117,26 +135,31 @@ func (s *Scope) Sorted(opts ...ScopeOpt) []string {
 // in originally at the CLI or in a BUILD command.
 func (s *Scope) BuildArgs(opts ...ScopeOpt) []string {
 	vars := s.Sorted(opts...)
+
 	args := make([]string, 0, len(vars))
 	for _, v := range vars {
 		val, _ := s.Get(v)
 		args = append(args, v+"="+val)
 	}
+
 	return args
 }
 
 // RemoveReservedArgsFromScope returns a new scope omits any builtin arguments.
 func RemoveReservedArgsFromScope(scope *Scope) *Scope {
 	s := NewScope()
+
 	for k, v := range scope.variables {
 		if reserved.IsBuiltIn(k) {
 			continue
 		}
+
 		s.variables[k] = v
 		if scope.activeVariables[k] {
 			s.activeVariables[k] = true
 		}
 	}
+
 	return s
 }
 
@@ -148,6 +171,7 @@ func RemoveReservedArgsFromScope(scope *Scope) *Scope {
 // 3. All other things equal, left-most scopes have precedence.
 func CombineScopes(scopes ...*Scope) *Scope {
 	s := NewScope()
+
 	precedence := [][]ScopeOpt{
 		{WithActive(), NoOverride()},
 		{NoOverride()},
@@ -159,17 +183,20 @@ func CombineScopes(scopes ...*Scope) *Scope {
 			}
 		}
 	}
+
 	return s
 }
 
 // CombineScopesInactive combines all scopes (leaving all variables inactive), with left-most scope having precedence.
 func CombineScopesInactive(scopes ...*Scope) *Scope {
 	s := NewScope()
+
 	for _, scope := range scopes {
 		for k, v := range scope.Map() {
 			s.Add(k, v, NoOverride())
 		}
 	}
+
 	return s
 }
 
@@ -183,6 +210,7 @@ func applyOpts(opts ...ScopeOpt) scopeOpts {
 	for _, o := range opts {
 		opt = o(opt)
 	}
+
 	return opt
 }
 

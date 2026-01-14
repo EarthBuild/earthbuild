@@ -20,8 +20,9 @@ type Logger struct {
 }
 
 // With adds metadata to the logger.
-func (l Logger) With(key string, value interface{}) Logger {
+func (l Logger) With(key string, value any) Logger {
 	var valueStr string
+
 	switch v := value.(type) {
 	case string:
 		valueStr = v
@@ -30,11 +31,13 @@ func (l Logger) With(key string, value interface{}) Logger {
 	default:
 		valueStr = fmt.Sprintf("%v", v)
 	}
+
 	copy := l.clone()
 	copy.fields = append(copy.fields, field{
 		key:   key,
 		value: valueStr,
 	})
+
 	return copy
 }
 
@@ -71,6 +74,7 @@ func (l Logger) Panic(msg string) {
 func (l Logger) clone() Logger {
 	fieldsCopy := make([]field, len(l.fields))
 	copy(fieldsCopy, l.fields)
+
 	return Logger{
 		fields: fieldsCopy,
 	}
@@ -81,5 +85,6 @@ func (l Logger) entry() *logrus.Entry {
 	for _, field := range l.fields {
 		data[field.key] = field.value
 	}
+
 	return logrus.WithFields(data)
 }

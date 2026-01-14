@@ -14,7 +14,7 @@ func SetupLog(path string) {
 	logPath = path
 }
 
-func Logf(format string, args ...interface{}) {
+func Logf(format string, args ...any) {
 	Log(fmt.Sprintf(format, args...))
 }
 
@@ -28,5 +28,6 @@ func Log(s string) {
 		return
 	}
 	defer f.Close()
+
 	_, _ = f.WriteString(s + "\n")
 }

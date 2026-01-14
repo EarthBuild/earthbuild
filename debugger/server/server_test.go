@@ -17,11 +17,13 @@ func TestServer(t *testing.T) {
 	t.Parallel()
 
 	logrus.SetLevel(logrus.DebugLevel)
+
 	ctx := context.TODO()
 	log := slog.GetLogger(ctx).With("test.name", t.Name())
 
 	addr := "127.0.0.1:9834"
 	s := NewServer(addr, log)
+
 	go func() {
 		err := s.Start()
 		if err != nil {
@@ -32,12 +34,17 @@ func TestServer(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	const numRetries = 3
+
 	attempts := 0
-	var termConn net.Conn
-	var err error
+
+	var (
+		termConn net.Conn
+		err      error
+	)
 
 	for attempts < numRetries {
 		var d net.Dialer
+
 		termConn, err = d.DialContext(ctx, "tcp", addr)
 		if err != nil {
 			// Retry since the connection is rejected sometimes.
@@ -45,10 +52,13 @@ func TestServer(t *testing.T) {
 			time.Sleep(time.Second)
 
 			attempts++
+
 			continue
 		}
+
 		break
 	}
+
 	if attempts >= numRetries {
 		t.Fatal("Retries exhausted")
 	}
@@ -60,6 +70,7 @@ func TestServer(t *testing.T) {
 
 	// then the shell terminal
 	var d2 net.Dialer
+
 	shellConn, err := d2.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		t.Fatal(err)
@@ -79,10 +90,12 @@ func TestServer(t *testing.T) {
 	}
 
 	buf := make([]byte, 100)
+
 	n, err := termConn.Read(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	outputStr := string(buf[:n])
 
 	if inputStr != outputStr {

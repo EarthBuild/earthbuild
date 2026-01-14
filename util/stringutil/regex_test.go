@@ -50,6 +50,7 @@ func TestNamedGroupMatches(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			mapRes, sliceRes := NamedGroupMatches(tc.s, tc.re)
 			assert.Equal(t, tc.expectedMap, mapRes)
 			assert.Equal(t, tc.expectedSlice, sliceRes)

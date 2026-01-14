@@ -56,6 +56,7 @@ func (sf *shellFrontend) IsAvailable(ctx context.Context) bool {
 	args := append(sf.globalCompatibilityArgs, "ps")        //nolint:gocritic
 	cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
 	err := cmd.Run()
+
 	return err == nil
 }
 
@@ -64,26 +65,30 @@ const containerDateFormat = "2006-01-02 15:04:05.999999999 -0700 MST"
 func (sf *shellFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, error) {
 	// The custom format below is supported by Docker and Podman.
 	args := []string{"ps", "--format", `{{.ID}},{{.Names}},{{.Status}},{{.Image}},{{.CreatedAt}}`}
+
 	output, err := sf.commandContextOutput(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
+
 	return parseContainerList(output.stdout.String())
 }
 
 func parseContainerList(output string) ([]*ContainerInfo, error) {
 	ret := []*ContainerInfo{}
 	// The Docker & Podman JSON output format differs, so we parse the standard output here.
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(output), "\n")
+	for line := range lines {
 		parts := strings.Split(line, ",")
 		if len(parts) != 5 {
 			continue
 		}
+
 		createdAt, err := time.Parse(containerDateFormat, parts[4])
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse container date")
 		}
+
 		ret = append(ret, &ContainerInfo{
 			ID:      parts[0],
 			Name:    parts[1],
@@ -92,6 +97,7 @@ func parseContainerList(output string) ([]*ContainerInfo, error) {
 			Created: createdAt,
 		})
 	}
+
 	return ret, nil
 }
 
@@ -112,6 +118,7 @@ func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string
 	}
 
 	containers := []containerInfo{}
+
 	err := json.Unmarshal([]byte(output.stdout.String()), &containers)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal container inspect output %s", output.stdout.String())
@@ -146,6 +153,7 @@ func formatPorts(info containerInfo) []string {
 			ret = append(ret, fmt.Sprintf("%s:%s:%s", port.HostIP, port.HostPort, key))
 		}
 	}
+
 	return ret
 }
 
@@ -159,6 +167,7 @@ func (sf *shellFrontend) ContainerRemove(ctx context.Context, force bool, namesO
 	args = append(args, namesOrIDs...)
 
 	_, err := sf.commandContextOutput(ctx, args...)
+
 	return err
 }
 
@@ -166,11 +175,13 @@ func (sf *shellFrontend) ContainerStop(ctx context.Context, timeoutSec uint, nam
 	args := append([]string{"stop", "-t", strconv.FormatUint(uint64(timeoutSec), 10)}, namesOrIDs...)
 
 	_, err := sf.commandContextOutput(ctx, args...)
+
 	return err
 }
 
 func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerLogs, error) {
 	logs := map[string]*ContainerLogs{}
+
 	var err error
 
 	baseArgs := append(sf.globalCompatibilityArgs, "logs") //nolint:gocritic
@@ -180,6 +191,7 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 		cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
 
 		var stdout, stderr strings.Builder
+
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 
@@ -188,6 +200,7 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 			err = multierror.Append(err, cmdErr)
 			continue
 		}
+
 		logs[nameOrID] = &ContainerLogs{
 			Stdout: stdout.String(),
 			Stderr: stderr.String(),
@@ -199,6 +212,7 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 
 func (sf *shellFrontend) ContainerRun(ctx context.Context, containers ...ContainerRun) error {
 	var err error
+
 	for _, container := range containers {
 		args := []string{"run"}
 
@@ -223,6 +237,7 @@ func (sf *shellFrontend) ContainerRun(ctx context.Context, containers ...Contain
 			if mnt.ReadOnly {
 				mount = fmt.Sprintf("%s,ro=%t", mount, mnt.ReadOnly)
 			}
+
 			args = append(args, "--mount", mount)
 		}
 
@@ -281,6 +296,7 @@ func (sf *shellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[str
 		OS           string   `json:"Os"`
 		Tags         []string `json:"RepoTags"`
 	}{}
+
 	err := json.Unmarshal([]byte(output.stdout.String()), &images)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse image info")
@@ -307,11 +323,13 @@ func (sf *shellFrontend) ImageRemove(ctx context.Context, force bool, refs ...st
 	args = append(args, refs...)
 
 	_, err := sf.commandContextOutput(ctx, args...)
+
 	return err
 }
 
 func (sf *shellFrontend) ImageTag(ctx context.Context, tags ...ImageTag) error {
 	var err error
+
 	for _, tag := range tags {
 		_, cmdErr := sf.commandContextOutput(ctx, "tag", tag.SourceRef, tag.TargetRef)
 		if cmdErr != nil {
@@ -347,11 +365,13 @@ func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...strin
 	cmd.Env = os.Environ()
 	cmd.Stdout = &output.stdout
 	cmd.Stderr = &output.stderr
+
 	err := cmd.Run()
 	if err != nil {
 		format := "command failed: %s %s: %s: %s"
 		return output, errors.Wrapf(err, format, sf.binaryName, strings.Join(args, " "), err.Error(), output.string())
 	}
+
 	return output, nil
 }
 
@@ -362,6 +382,7 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 			calculatedBuildkitHost = cfg.BuildkitHostFileValue
 		} else {
 			var err error
+
 			calculatedBuildkitHost, err = DefaultAddressForSetting(feType, cfg.LocalContainerName, cfg.DefaultPort)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not validate default address")
@@ -381,6 +402,7 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 		if err != nil {
 			return nil, err
 		}
+
 		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
 			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
 			cfg.Console.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
@@ -420,7 +442,7 @@ func parseAndValidateURL(addr string) (*url.URL, error) {
 		return nil, fmt.Errorf("%s: %w", addr, errURLParseFailure)
 	}
 
-	if parsed.Scheme != "tcp" && parsed.Scheme != "docker-container" && parsed.Scheme != "podman-container" {
+	if parsed.Scheme != "tcp" && parsed.Scheme != SchemeDockerContainer && parsed.Scheme != SchemePodmanContainer {
 		format := "%s is not a valid scheme. Only tcp or docker-container is allowed at this time: %w"
 		return nil, fmt.Errorf(format, parsed.Scheme, errURLValidationFailure)
 	}
@@ -445,6 +467,6 @@ func IsLocal(addr string) bool {
 	return hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
 		hostname == net.IPv6loopback.String() ||
 		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
-		parsed.Scheme == "docker-container" || // Accommodate feature flagging during transition. Will have omitted TLS?
-		parsed.Scheme == "podman-container"
+		parsed.Scheme == SchemeDockerContainer || // Accommodate feature flagging during transition. Will have omitted TLS?
+		parsed.Scheme == SchemePodmanContainer
 }

@@ -26,11 +26,12 @@ func (h *Hasher) GetHash() []byte {
 	if h == nil {
 		return nil
 	}
+
 	return h.h.Sum(nil)
 }
 
 func (h *Hasher) HashInt(i int) {
-	h.HashBytes([]byte(fmt.Sprintf("int:%d", i)))
+	h.HashBytes(fmt.Appendf(nil, "int:%d", i))
 }
 
 func (h *Hasher) HashJSONMarshalled(v any) {
@@ -38,6 +39,7 @@ func (h *Hasher) HashJSONMarshalled(v any) {
 	if err != nil {
 		panic(fmt.Sprintf("failed to hash command: %s", err)) // shouldn't happen
 	}
+
 	h.HashBytes(dt)
 }
 
@@ -72,13 +74,17 @@ func (h *Hasher) HashFile(ctx context.Context, src string) error {
 	readCh := make(chan error)
 	buf := make([]byte, 1024*1024)
 	r := bufio.NewReader(f)
+
 	for {
 		var n int
+
 		go func() {
 			var err error
+
 			n, err = r.Read(buf)
 			readCh <- err
 		}()
+
 		select {
 		case err := <-readCh:
 			if err == io.EOF {
@@ -86,6 +92,7 @@ func (h *Hasher) HashFile(ctx context.Context, src string) error {
 			} else if err != nil {
 				return err
 			}
+
 			h.h.Write(buf[:n])
 		case <-ctx.Done():
 			return ctx.Err()

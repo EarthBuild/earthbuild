@@ -48,6 +48,7 @@ var (
 func getExitCode(errString string) (int, error) {
 	if matches, _ := stringutil.NamedGroupMatches(errString, reErrExitCode); len(matches["exit_code"]) == 1 {
 		exitCodeMatch := matches["exit_code"][0]
+
 		exitCode, err := strconv.ParseUint(exitCodeMatch, 10, 32)
 		if err != nil {
 			return 0, err
@@ -56,12 +57,16 @@ func getExitCode(errString string) (int, error) {
 		if exitCode == math.MaxUint32 {
 			return 0, errNoExitCodeOMM
 		}
+
 		if exitCode > 255 {
 			return 0, fmt.Errorf("exit code %d out of expected range (0-255)", exitCode)
 		}
+
 		exitCodeByte := exitCode & 0xFF
+
 		return int(exitCodeByte), nil // #nosec G115
 	}
+
 	return 0, errNoExitCode
 }
 
@@ -76,21 +81,26 @@ func determineFatalErrorType(errString string, exitCode int, exitParseErr error)
 	if strings.Contains(errString, "context canceled") || errString == "no active sessions" {
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 	}
+
 	if exitParseErr == errNoExitCodeOMM {
 		return logstream.FailureType_FAILURE_TYPE_OOM_KILLED, true
 	} else if exitParseErr != nil && exitParseErr != errNoExitCode {
 		// We have an exit code, and can't parse it
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, true
 	}
+
 	if exitCode > 0 {
 		return logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT, true
 	}
+
 	if reErrNotFound.MatchString(errString) {
 		return logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND, true
 	}
+
 	if strings.Contains(errString, errutil.EarthlyGitStdErrMagicString) {
 		return logstream.FailureType_FAILURE_TYPE_GIT, true
 	}
+
 	return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 }
 
@@ -105,6 +115,7 @@ func formatErrorMessage(
 	if internal {
 		internalStr = " internal"
 	}
+
 	errString = fmt.Sprintf("%s%s", internalStr, errString)
 
 	switch fatalErrorType {
@@ -121,10 +132,12 @@ func formatErrorMessage(
 				"      did not complete successfully. Exit code %d", internalStr, operation, exitCode)
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
+
 		reason := "unable to parse file_not_found error:" + errString
 		if len(m) > 2 {
 			reason = m[3]
 		}
+
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
@@ -137,6 +150,7 @@ func formatErrorMessage(
 					"          %s\n"+
 					"failed: %s\n\n%s", internalStr, operation, shorterErr, gitStdErr)
 		}
+
 		return fmt.Sprintf(
 			"The%s command\n"+
 				"          %s\n"+
@@ -152,6 +166,7 @@ func formatErrorMessage(
 func FormatError(operation string, errString string) string {
 	exitCode, err := getExitCode(errString)
 	fatalErrorType, _ := determineFatalErrorType(errString, exitCode, err)
+
 	return formatErrorMessage(errString, operation, false, fatalErrorType, exitCode)
 }
 
@@ -179,6 +194,7 @@ func (vm *vertexMonitor) parseError() {
 	} else {
 		vm.errorStr = fmt.Sprintf("WARN%s: %s", slString, formattedError)
 	}
+
 	vm.isFatalError = isFatalError
 	vm.fatalErrorType = fatalErrorType
 }
@@ -189,21 +205,26 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed decoding stats stream")
 		}
+
 		for _, statsSample := range stats {
 			statsJSON, err := json.Marshal(statsSample)
 			if err != nil {
 				return 0, errors.Wrap(err, "stats json encode failed")
 			}
+
 			_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
 			if err != nil {
 				return 0, errors.Wrap(err, "write stats")
 			}
 		}
+
 		return len(dt), nil
 	}
+
 	_, err := vm.cp.Write(dt, ts, int32(stream)) // #nosec G115
 	if err != nil {
 		return 0, errors.Wrap(err, "write log line")
 	}
+
 	return len(dt), nil
 }

@@ -11,6 +11,7 @@ func TestService(t *testing.T) {
 	t.Parallel()
 
 	go main()
+
 	time.Sleep(time.Second) // Leave time for service to start
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://localhost:8080/one/hello", nil)
@@ -26,6 +27,7 @@ func TestService(t *testing.T) {
 	defer resp.Body.Close()
 
 	expected := "Hello, World!"
+
 	actual, _ := io.ReadAll(resp.Body)
 	if expected != string(actual) {
 		t.Fail()

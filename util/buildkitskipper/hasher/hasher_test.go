@@ -31,15 +31,15 @@ func TestNilHasherIsNil(t *testing.T) {
 func TestHashEmptyFile(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.CreateTemp("", "file-to-hash")
+	file, err := os.CreateTemp(t.TempDir(), "file-to-hash")
 	if err != nil {
 		NoError(t, err)
 	}
-	defer os.Remove(file.Name())
 
 	h := hasher.New()
 	err = h.HashFile(context.Background(), file.Name())
 	NoError(t, err)
+
 	hash := h.GetHash()
 	NotNil(t, hash)
 	NotEqual(t, hash, emptyHash)
@@ -48,20 +48,21 @@ func TestHashEmptyFile(t *testing.T) {
 func TestHashFile(t *testing.T) {
 	t.Parallel()
 
-	file, err := os.CreateTemp("", "file-to-hash")
+	file, err := os.CreateTemp(t.TempDir(), "file-to-hash")
 	if err != nil {
 		NoError(t, err)
 	}
-	defer os.Remove(file.Name())
 
 	f, err := os.OpenFile(file.Name(), os.O_RDWR|os.O_TRUNC, 0)
 	if err != nil {
 		NoError(t, err)
 	}
+
 	_, err = f.WriteString("hello")
 	if err != nil {
 		NoError(t, err)
 	}
+
 	err = f.Close()
 	if err != nil {
 		NoError(t, err)
@@ -70,6 +71,7 @@ func TestHashFile(t *testing.T) {
 	h := hasher.New()
 	err = h.HashFile(context.Background(), file.Name())
 	NoError(t, err)
+
 	hash := h.GetHash()
 	NotNil(t, hash)
 	NotEqual(t, hash, emptyHash)

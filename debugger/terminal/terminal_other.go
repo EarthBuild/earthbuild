@@ -1,5 +1,4 @@
 //go:build !windows
-// +build !windows
 
 package terminal
 
@@ -25,6 +24,7 @@ func handlePtyData(data []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to write data to stdout")
 	}
+
 	return nil
 }
 
@@ -33,10 +33,12 @@ func getWindowSizePayload() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	b, err := json.Marshal(size)
 	if err != nil {
 		return nil, err
 	}
+
 	return common.SerializeDataPacket(common.WinSizeData, b)
 }
 
@@ -50,6 +52,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 	ctx, cancel := context.WithCancel(ctx)
 
 	ts := &termState{}
+
 	go func() {
 	outer:
 		for {
@@ -58,16 +61,20 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 				if err != io.EOF {
 					console.VerbosePrintf("ReadDataPacket failed: %s\n", err.Error())
 				}
+
 				break
 			}
+
 			switch connDataType {
 			case common.StartShellSession:
 				console.VerbosePrintf("starting new interactive shell pseudo terminal\n")
+
 				err := ts.makeRaw()
 				if err != nil {
 					console.VerbosePrintf("makeRaw failed: %s\n", err.Error())
 					break outer
 				}
+
 				sigs <- syscall.SIGWINCH
 			case common.EndShellSession:
 				err := ts.restore()
@@ -86,6 +93,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 				break outer
 			}
 		}
+
 		cancel()
 	}()
 
@@ -94,36 +102,44 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 			if len(sigs) > 0 {
 				continue
 			}
+
 			data, err := getWindowSizePayload()
 			if err != nil {
 				console.VerbosePrintf("failed to get window size payload: %s\n", err.Error())
 				break
 			}
+
 			writeCh <- data
 		}
+
 		cancel()
 	}()
 
 	go func() {
 		for {
 			buf := <-writeCh
+
 			_, err := conn.Write(buf)
 			if err != nil {
 				console.VerbosePrintf("failed to send term data to shell: %s\n", err.Error())
 				break
 			}
 		}
+
 		cancel()
 	}()
 	go func() {
 		for {
 			buf := make([]byte, 100)
+
 			n, err := os.Stdin.Read(buf)
 			if err != nil {
 				console.VerbosePrintf("failed to read from stdin: %s\n", err.Error())
 				break
 			}
+
 			buf = buf[:n]
+
 			buf2, err := common.SerializeDataPacket(common.PtyData, buf)
 			if err != nil {
 				console.VerbosePrintf("failed to serialize data: %s\n", err.Error())
@@ -132,16 +148,19 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 			writeCh <- buf2
 		}
+
 		cancel()
 	}()
 
 	<-ctx.Done()
 
 	console.VerbosePrintf("exiting interactive debugger shell\n")
+
 	err := ts.restore()
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -153,25 +172,31 @@ type termState struct {
 func (ts *termState) makeRaw() error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
+
 	if ts.oldState == nil {
 		var err error
+
 		ts.oldState, err = term.MakeRaw(int(os.Stdin.Fd()))
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize terminal in raw mode")
 		}
 	}
+
 	return nil
 }
 
 func (ts *termState) restore() error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
+
 	if ts.oldState != nil {
 		err := term.Restore(int(os.Stdin.Fd()), ts.oldState)
 		if err != nil {
 			return errors.Wrap(err, "failed to restore terminal mode")
 		}
+
 		ts.oldState = nil
 	}
+
 	return nil
 }

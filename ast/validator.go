@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -55,12 +56,16 @@ func getValidVersionsFormatted() string {
 	if validEarthfileVersions[0] != "0.0" {
 		panic("validEarthfileVersions should start with 0.0")
 	}
+
 	var sb strings.Builder
+
 	latestIndex := len(validEarthfileVersions) - 1
 	for i := 1; i < latestIndex; i++ {
 		sb.WriteString(validEarthfileVersions[i] + ", ")
 	}
+
 	sb.WriteString("or " + validEarthfileVersions[latestIndex])
+
 	return sb.String()
 }
 
@@ -81,13 +86,7 @@ func validVersion(ef spec.Earthfile) []error {
 	// version is always last in VERSION command
 	earthFileVersion := ef.Version.Args[len(ef.Version.Args)-1]
 
-	isVersionValid := false
-	for _, version := range validEarthfileVersions {
-		if version == earthFileVersion {
-			isVersionValid = true
-			break
-		}
-	}
+	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
 		err := errors.Errorf("Earthfile version is invalid, supported versions are %v", getValidVersionsFormatted())
@@ -99,6 +98,7 @@ func validVersion(ef spec.Earthfile) []error {
 
 func noTargetsWithSameName(ef spec.Earthfile) []error {
 	var errs []error
+
 	seenTargets := map[string]struct{}{}
 
 	for _, t := range ef.Targets {
@@ -118,7 +118,7 @@ func noTargetsWithKeywords(ef spec.Earthfile) []error {
 	var errs []error
 
 	for _, t := range ef.Targets {
-		if t.Name == "base" {
+		if t.Name == TargetBase {
 			err := errors.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
 				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name, t.Name)
 			errs = append(errs, err)

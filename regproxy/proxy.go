@@ -32,11 +32,13 @@ type registryProxy struct {
 // Serve waits for TCP connections and pipes data received from the connection
 // to BK via the gRPC server.
 func (r *registryProxy) serve(ctx context.Context) {
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
+
 	defer func() {
 		wg.Wait()
 		close(r.errCh)
 	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -48,13 +50,13 @@ func (r *registryProxy) serve(ctx context.Context) {
 				if !r.done.Load() {
 					r.errCh <- errors.Wrap(err, "failed to accept")
 				}
+
 				return
 			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+
+			wg.Go(func() {
 				r.errCh <- r.handle(ctx, conn)
-			}()
+			})
 		}
 	}
 }
@@ -84,10 +86,12 @@ func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to write to stream")
 		}
+
 		err = stream.CloseSend()
 		if err != nil {
 			return errors.Wrap(err, "failed to close stream")
 		}
+
 		return nil
 	})
 
@@ -96,6 +100,7 @@ func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to read from stream")
 		}
+
 		return nil
 	})
 

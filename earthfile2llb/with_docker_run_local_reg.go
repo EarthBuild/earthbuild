@@ -37,6 +37,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	if err != nil {
 		return err
 	}
+
 	w.c.nonSaveCommand()
 
 	_, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
@@ -60,8 +61,10 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 		if err != nil {
 			return errors.Wrap(err, "load")
 		}
+
 		imageDefChans = append(imageDefChans, imageDefChan)
 	}
+
 	for _, imageDefChan := range imageDefChans {
 		select {
 		case <-ctx.Done():
@@ -85,6 +88,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 				if !ok {
 					return nil
 				}
+
 				return err
 			case <-ctx.Done():
 				return ctx.Err()
@@ -96,10 +100,12 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	for result := range res.ResultChan {
 		// Pull and then retag all images with expected tags.
 		pullImage := fmt.Sprintf("%s/%s", w.c.opt.LocalRegistryAddr, result.IntermediateImageName)
+
 		err := w.c.containerFrontend.ImagePull(ctx, pullImage)
 		if err != nil {
 			return err
 		}
+
 		err = w.c.containerFrontend.ImageTag(ctx, containerutil.ImageTag{
 			SourceRef: pullImage,
 			TargetRef: result.FinalImageName,
@@ -149,9 +155,11 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {
 				return errNoImageTag
 			}
+
 			if len(mts.Final.SaveImages) > 1 {
 				return errors.Wrap(errNoImageTag, "multiple tags mentioned in SAVE IMAGE")
 			}
+
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
 
@@ -176,6 +184,7 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 		if err != nil {
 			return nil, err
 		}
+
 		err = afterFun(ctx, mts)
 		if err != nil {
 			return nil, err

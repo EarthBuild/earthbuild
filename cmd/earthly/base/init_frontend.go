@@ -21,9 +21,11 @@ func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
 		if cliCtx.IsSet("buildkit-image") {
 			return errors.New("the --buildkit-image and --ticktock flags are mutually exclusive")
 		}
+
 		if cli.Cfg().Global.BuildkitImage != "" {
 			return errors.New("the --ticktock flags can not be used in combination with the buildkit_image config option")
 		}
+
 		cli.Flags().BuildkitdImage += "-ticktock"
 	}
 
@@ -59,6 +61,7 @@ func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
 	if cli.Cfg().Global.CniMtu != 0 && cli.Cfg().Global.CniMtu < 68 {
 		return errors.New("invalid overridden MTU size")
 	}
+
 	cli.Flags().BuildkitdSettings.CniMtu = cli.Cfg().Global.CniMtu
 
 	if cli.Cfg().Global.IPTables != "" &&
@@ -66,11 +69,14 @@ func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
 		cli.Cfg().Global.IPTables != "iptables-nft" {
 		return errors.New(`invalid overridden iptables name. Valid values are "iptables-legacy" or "iptables-nft"`)
 	}
+
 	cli.Flags().BuildkitdSettings.IPTables = cli.Cfg().Global.IPTables
+
 	earthlyDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
 	if err != nil {
 		return errors.Wrap(err, "failed to get earthly dir")
 	}
+
 	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthlyDir, "buildkitd-startup.lock")
 
 	return nil

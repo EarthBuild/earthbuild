@@ -27,6 +27,7 @@ func (vc *verboseClient) Solve(ctx context.Context, req gwclient.SolveRequest) (
 	res, err := vc.c.Solve(ctx, req)
 	resStr, _ := json.MarshalIndent(res, "", "\t")
 	fmt.Printf("Solve req=%s res=%s; err=%v\n", reqStr, resStr, err)
+
 	return res, err
 }
 
@@ -35,6 +36,7 @@ func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest)
 	reqStr, _ := json.MarshalIndent(req, "", "\t")
 	err := vc.c.Export(ctx, req)
 	fmt.Printf("Export req=%s; err=%v\n", reqStr, err)
+
 	return err
 }
 
@@ -44,6 +46,7 @@ func (vc *verboseClient) ResolveImageConfig(
 ) (string, digest.Digest, []byte, error) {
 	s, _ := json.MarshalIndent(opt, "", "\t")
 	fmt.Printf("ResolveImageConfig %s %s\n", ref, s)
+
 	return vc.c.ResolveImageConfig(ctx, ref, opt)
 }
 
@@ -51,6 +54,7 @@ func (vc *verboseClient) ResolveImageConfig(
 func (vc *verboseClient) BuildOpts() gwclient.BuildOpts {
 	opts := vc.c.BuildOpts()
 	fmt.Printf("BuildOpts res=%v\n", opts)
+
 	return opts
 }
 
@@ -58,6 +62,7 @@ func (vc *verboseClient) BuildOpts() gwclient.BuildOpts {
 func (vc *verboseClient) Inputs(ctx context.Context) (map[string]llb.State, error) {
 	inputs, err := vc.c.Inputs(ctx)
 	fmt.Printf("Inputs=%v err=%v\n", inputs, err)
+
 	return inputs, err
 }
 
@@ -68,6 +73,7 @@ func (vc *verboseClient) NewContainer(
 	s, _ := json.MarshalIndent(req, "", "\t")
 	container, err := vc.c.NewContainer(ctx, req)
 	fmt.Printf("NewContainer req=%s container=%v err=%v\n", s, container, err)
+
 	return container, err
 }
 

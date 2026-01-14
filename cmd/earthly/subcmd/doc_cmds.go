@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/hint"
@@ -68,6 +69,7 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 	}
 
 	singleTgt := true
+
 	if !strings.ContainsRune(tgtPath, '+') {
 		tgtPath += "+base"
 		singleTgt = false
@@ -81,7 +83,9 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
 	resolver := buildcontext.NewResolver(nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, "", 0, "")
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
+
 	var gwClient gwclient.Client
+
 	bc, err := resolver.Resolve(cliCtx.Context, gwClient, platr, target)
 	if err != nil {
 		return errors.Wrap(err, "failed to resolve target")
@@ -94,11 +98,14 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to look up target")
 		}
+
 		return a.documentSingleTarget(cliCtx, "", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
 	}
 
 	tgts := bc.Earthfile.Targets
+
 	fmt.Println("TARGETS:")
+
 	const tgtIndent = docsIndent
 	for _, tgt := range tgts {
 		_ = a.documentSingleTarget(cliCtx, tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
@@ -112,12 +119,12 @@ func docString(body string, names ...string) (string, error) {
 	if firstWordEnd == -1 {
 		return "", errors.Errorf("failed to parse first word of documentation comments")
 	}
+
 	firstWord := body[:firstWordEnd]
-	for _, n := range names {
-		if firstWord == n {
-			return body, nil
-		}
+	if slices.Contains(names, firstWord) {
+		return body, nil
 	}
+
 	return "", hint.Wrapf(errors.New("no doc comment found"),
 		"a comment was found but the first word was not one of (%s)", strings.Join(names, ", "))
 }
@@ -139,12 +146,15 @@ func docSectionsOutput(currIndent, scopeIndent, title string, sections ...docSec
 	currIndent += scopeIndent
 	for _, section := range sections {
 		out.WriteString(indent(currIndent, section.identifier) + "\n")
+
 		if section.body == "" {
 			continue
 		}
+
 		indented := indent(currIndent+scopeIndent, section.body)
 		out.WriteString(strings.Trim(indented, "\n") + "\n")
 	}
+
 	return out.String()
 }
 
@@ -192,18 +202,23 @@ func addArg(
 	if stmt.Command == nil {
 		return nil
 	}
+
 	cmd := *stmt.Command
 	if cmd.Name != "ARG" {
 		return nil
 	}
+
 	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(cliCtx.Context, cmd, isBase, ft.ExplicitGlobal)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse ARG statement")
 	}
+
 	if onlyGlobal && !isGlobal {
 		return nil
 	}
+
 	docs, _ := docString(cmd.Docs, ident)
+
 	doc := docSection{
 		identifier: "--" + ident,
 		body:       docs,
@@ -211,11 +226,14 @@ func addArg(
 	if dflt != nil {
 		doc.identifier += "=" + *dflt
 	}
+
 	if isRequired {
 		io.requiredArgs = append(io.requiredArgs, doc)
 		return nil
 	}
+
 	io.optionalArgs = append(io.optionalArgs, doc)
+
 	return nil
 }
 
@@ -227,10 +245,12 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 			return nil, errors.Wrap(err, "failed to parse global ARG in base recipe")
 		}
 	}
+
 	for _, rb := range cmds {
 		if rb.Command == nil {
 			continue
 		}
+
 		cmd := *rb.Command
 		switch cmd.Name {
 		case "ARG":
@@ -243,11 +263,14 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
 			}
+
 			idents := []string{name}
 			if localName != nil {
 				idents = append(idents, *localName)
 			}
+
 			docs, _ := docString(cmd.Docs, idents...)
+
 			artDoc := docSection{
 				identifier: name,
 				body:       docs,
@@ -255,17 +278,21 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 			if localName != nil {
 				artDoc.identifier += " -> " + *localName
 				io.localArtifacts = append(io.localArtifacts, artDoc)
+
 				continue
 			}
+
 			io.artifacts = append(io.artifacts, artDoc)
 		case "SAVE IMAGE":
 			identifiers, err := earthfile2llb.ImageNames(cliCtx.Context, cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
 			}
+
 			if len(identifiers) == 0 {
 				continue
 			}
+
 			docs, _ := docString(cmd.Docs, identifiers...)
 			io.images = append(io.images, docSection{
 				identifier: strings.Join(identifiers, ", "),
@@ -273,6 +300,7 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 			})
 		}
 	}
+
 	return &io, nil
 }
 
@@ -300,11 +328,14 @@ func (a *Doc) documentSingleTarget(
 	}
 
 	usage := indent(currIndent, "+"+tgt.Name)
+
 	options := blockIO.options()
 	if options != "" {
 		usage += " " + options
 	}
+
 	fmt.Println(usage)
+
 	docIndent := currIndent + scopeIndent + scopeIndent
 	indented := indent(docIndent, docs)
 	fmt.Println(strings.Trim(indented, "\n"))
@@ -314,6 +345,7 @@ func (a *Doc) documentSingleTarget(
 	}
 
 	fmt.Println(blockIO.help(currIndent+scopeIndent, scopeIndent))
+
 	return nil
 }
 
@@ -323,8 +355,10 @@ func indent(indent, s string) string {
 		if l == "" {
 			continue
 		}
+
 		lines[i] = indent + l
 	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -334,5 +368,6 @@ func findTarget(ef spec.Earthfile, name string) (spec.Target, error) {
 			return tgt, nil
 		}
 	}
+
 	return spec.Target{}, errors.Errorf("could not find target named %q", name)
 }

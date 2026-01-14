@@ -218,3 +218,8 @@ type FrontendURLs struct {
 	BuildkitHost      *url.URL
 	LocalRegistryHost *url.URL
 }
+
+const (
+	SchemeDockerContainer = "docker-container"
+	SchemePodmanContainer = "podman-container"
+)

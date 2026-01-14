@@ -84,25 +84,33 @@ func (s *tarImageSolver) SolveImage(
 ) error {
 	platform := mts.Final.PlatformResolver.ToLLBPlatform(mts.Final.PlatformResolver.Current())
 	saveImage := mts.Final.LastSaveImage()
+
 	dt, err := saveImage.State.Marshal(ctx, llb.Platform(platform))
 	if err != nil {
 		return errors.Wrap(err, "state marshal")
 	}
+
 	pipeR, pipeW := io.Pipe()
+
 	solveOpt, err := s.newSolveOpt(saveImage.Image, dockerTag, pipeW)
 	if err != nil {
 		return errors.Wrap(err, "new solve opt")
 	}
+
 	ch := make(chan *client.SolveStatus)
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
+
 		_, err = s.bkClient.Solve(ctx, dt, *solveOpt, ch)
 		if err != nil {
 			return errors.Wrap(err, "solve")
 		}
+
 		return nil
 	})
 	eg.Go(func() error {
@@ -128,29 +136,36 @@ func (s *tarImageSolver) SolveImage(
 			return errors.Wrapf(err, "open file %s for writing", outFile)
 		}
 		defer file.Close()
+
 		bufFile := bufio.NewWriter(file)
 		defer bufFile.Flush()
+
 		buf := make([]byte, 1024)
 		for {
 			n, err := pipeR.Read(buf)
 			if err != nil && err != io.EOF {
 				return errors.Wrap(err, "pipe read")
 			}
+
 			if err == io.EOF {
 				break
 			}
+
 			_, err = bufFile.Write(buf[:n])
 			if err != nil {
 				return errors.Wrap(err, "write chunk to file")
 			}
 		}
+
 		return nil
 	})
+
 	go func() {
 		<-ctx.Done()
 		// Close read pipe on cancels, otherwise the whole thing hangs.
 		pipeR.Close() // #nosec G104
 	}()
+
 	return eg.Wait()
 }
 
@@ -196,10 +211,12 @@ func (m *multiImageSolver) SolveImages(
 		// Nothing to solve.
 		close(resultChan)
 		close(errChan)
+
 		return ret, nil
 	}
 
 	newInterImgFormat := false
+
 	info, err := m.bkClient.Info(ctx)
 	if err != nil {
 		// Maybe older buildkit.
@@ -218,12 +235,14 @@ func (m *multiImageSolver) SolveImages(
 		if resp == nil {
 			resp = make(map[string]string)
 		}
+
 		results := make([]*states.ImageResult, len(images))
 		for i, img := range images {
 			finalImageName, ok := onPullMap[img]
 			if !ok {
 				return errors.Errorf("image %s not found in onPullMap", img)
 			}
+
 			result := &states.ImageResult{
 				IntermediateImageName: img,
 				FinalImageName:        finalImageName,
@@ -235,7 +254,9 @@ func (m *multiImageSolver) SolveImages(
 				pref1 := result.FinalImageName + "|"
 				pref2 := fmt.Sprintf("docker.io/library/%s|", result.FinalImageName)
 				pref3 := fmt.Sprintf("docker.io/%s|", result.FinalImageName)
+
 				var k2 string
+
 				switch {
 				case strings.HasPrefix(k, pref1):
 					k2 = strings.TrimPrefix(k, pref1)
@@ -246,17 +267,21 @@ func (m *multiImageSolver) SolveImages(
 				default:
 					continue
 				}
+
 				switch k2 {
 				case exptypes.ExporterImageDescriptorKey:
 					vdec, err := base64.StdEncoding.DecodeString(v)
 					if err != nil {
 						return errors.Wrapf(err, "base64 decode img descriptor for img %s", img)
 					}
+
 					result.ImageDescriptor = &ocispecs.Descriptor{}
+
 					err = json.Unmarshal(vdec, result.ImageDescriptor)
 					if err != nil {
 						return errors.Wrapf(err, "json unmarshal img descriptor for img %s", img)
 					}
+
 					result.ImageDigest = result.ImageDescriptor.Digest.String()
 					result.FinalImageNameWithDigest = fmt.Sprintf(
 						"%s@%s", result.FinalImageName, result.ImageDigest)
@@ -264,19 +289,23 @@ func (m *multiImageSolver) SolveImages(
 					result.ConfigDigest = v
 				default:
 				}
+
 				result.Annotations[k2] = v
 			}
+
 			if result.ImageDigest == "" {
 				// TODO: This should use console.
 				fmt.Fprintf(os.Stderr, "Warning: Could not detect digest for image %s. "+
 					"Please update your buildkit installation.\n", result.FinalImageName)
 			}
+
 			results[i] = result
 		}
 		// Send any images created by BuildKit to the caller.
 		for _, res := range results {
 			resultChan <- res
 		}
+
 		close(resultChan)
 		// Wait for the closer func to be called. This signals that all WITH
 		// DOCKER statements have been run and we can release the image
@@ -287,6 +316,7 @@ func (m *multiImageSolver) SolveImages(
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+
 		return nil
 	}
 
@@ -334,6 +364,7 @@ func (m *multiImageSolver) SolveImages(
 		if err != nil {
 			errChan <- err
 		}
+
 		doneChan <- struct{}{}
 	}()
 
@@ -342,6 +373,7 @@ func (m *multiImageSolver) SolveImages(
 		if err != nil {
 			errChan <- err
 		}
+
 		doneChan <- struct{}{}
 	}()
 
@@ -386,7 +418,9 @@ func (m *multiImageSolver) addRefToResult(
 	} else {
 		localRegPullID = fmt.Sprintf("sess-%s/%s", gwClient.BuildOpts().SessionID, imageDef.ImageName)
 	}
+
 	gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
 	onPullMap[localRegPullID] = imageDef.ImageName
+
 	return nil
 }

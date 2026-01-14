@@ -11,6 +11,7 @@ func TestParse(t *testing.T) {
 	type args struct {
 		s string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -43,6 +44,7 @@ func TestParse(t *testing.T) {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parse() = %v, want %v", got, tt.want)
 			}

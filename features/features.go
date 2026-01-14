@@ -93,18 +93,24 @@ func (f *Features) Version() string {
 func parseFlagOverrides(env string) map[string]string {
 	env = strings.TrimSpace(env)
 	m := map[string]string{}
+
 	if env != "" {
-		for _, flag := range strings.Split(env, ",") {
+		for flag := range strings.SplitSeq(env, ",") {
 			flagNameAndValue := strings.SplitN(flag, "=", 2)
+
 			var flagValue string
+
 			flagName := strings.TrimSpace(flagNameAndValue[0])
 			flagName = strings.TrimPrefix(flagName, "--")
+
 			if len(flagNameAndValue) > 1 {
 				flagValue = strings.TrimSpace(flagNameAndValue[1])
 			}
+
 			m[flagName] = flagValue
 		}
 	}
+
 	return m
 }
 
@@ -118,6 +124,7 @@ func (f *Features) String() string {
 	typeOf := v.Type()
 
 	flags := []string{}
+
 	for i := range typeOf.NumField() {
 		tag := typeOf.Field(i).Tag
 		if flagName, ok := tag.Lookup("long"); ok {
@@ -127,12 +134,16 @@ func (f *Features) String() string {
 			}
 		}
 	}
+
 	sort.Strings(flags)
+
 	args := []string{"VERSION"}
 	if len(flags) > 0 {
 		args = append(args, strings.Join(flags, " "))
 	}
+
 	args = append(args, fmt.Sprintf("%d.%d", f.Major, f.Minor))
+
 	return strings.Join(args, " ")
 }
 
@@ -142,9 +153,11 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 	overrides := parseFlagOverrides(envOverrides)
 
 	fieldIndices := map[string]int{}
+
 	typeOf := reflect.ValueOf(*ftrs).Type()
 	for i := range typeOf.NumField() {
 		f := typeOf.Field(i)
+
 		tag := f.Tag
 		if flagName, ok := tag.Lookup("long"); ok {
 			fieldIndices[flagName] = i
@@ -152,17 +165,20 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 	}
 
 	ftrsStruct := reflect.ValueOf(ftrs).Elem()
+
 	for key := range overrides {
 		i, ok := fieldIndices[key]
 		if !ok {
 			return fmt.Errorf("unable to set %s: invalid flag", key)
 		}
+
 		fv := ftrsStruct.Field(i)
 		if fv.IsValid() && fv.CanSet() {
 			fv.SetBool(true)
 		} else {
 			return fmt.Errorf("unable to set %s: field is invalid or cant be set", key)
 		}
+
 		ifaceVal := fv.Interface()
 		if _, ok := ifaceVal.(bool); ok {
 			fv.SetBool(true)
@@ -170,7 +186,9 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 			return fmt.Errorf("unable to set %s: only boolean fields are currently supported", key)
 		}
 	}
+
 	processNegativeFlags(ftrs)
+
 	return nil
 }
 
@@ -184,6 +202,7 @@ func instrumentVersion(_ string, opt *goflags.Option, s *string) (*string, error
 // Get returns a features struct for a particular version.
 func Get(version *spec.Version) (*Features, bool, error) {
 	var ftrs Features
+
 	hasVersion := (version != nil)
 	if !hasVersion {
 		// If no version is specified, we default to 0.5 (the Earthly version
@@ -208,14 +227,17 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	versionValueStr := parsedArgs[0]
+
 	majorAndMinor := strings.Split(versionValueStr, ".")
 	if len(majorAndMinor) != 2 {
 		return nil, false, errUnexpectedArgs
 	}
+
 	ftrs.Major, err = strconv.Atoi(majorAndMinor[0])
 	if err != nil {
 		return nil, false, errors.Wrapf(err, "failed to parse major version %q", majorAndMinor[0])
 	}
+
 	ftrs.Minor, err = strconv.Atoi(majorAndMinor[1])
 	if err != nil {
 		return nil, false, errors.Wrapf(err, "failed to parse minor version %q", majorAndMinor[1])
@@ -242,6 +264,7 @@ func (f *Features) WithContext(ctx context.Context) (context.Context, error) {
 	if ctx.Value(ctxKey{}) != nil {
 		return ctx, errors.New("features is already set")
 	}
+
 	return context.WithValue(ctx, ctxKey{}, f), nil
 }
 
@@ -251,6 +274,7 @@ func FromContext(ctx context.Context) *Features {
 	if f, ok := ctx.Value(ctxKey{}).(*Features); ok {
 		return f
 	}
+
 	return nil
 }
 
@@ -263,16 +287,19 @@ func (f *Features) ProcessFlags() ([]string, error) {
 	for i := range t.NumField() {
 		field := t.Field(i)
 		value := v.Field(i)
+
 		version := field.Tag.Get("enabled_in_version")
 		if len(version) == 0 {
 			continue
 		}
+
 		majorVersion, minorVersion := mustParseVersion(field.Tag.Get("enabled_in_version"))
 		if versionAtLeast(*f, majorVersion, minorVersion) && value.Kind() == reflect.Bool {
 			if value.Bool() {
 				tagName := field.Tag.Get("long")
 				warningStrs = append(warningStrs, "--"+strings.ToLower(tagName))
 			}
+
 			value.SetBool(true)
 		}
 	}

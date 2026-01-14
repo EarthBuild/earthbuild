@@ -38,10 +38,12 @@ func TestMultiAuth(t *testing.T) {
 			newMockChild(t, mockTimeout),
 			newMockChild(t, mockTimeout),
 		}
+
 		srv := make([]authprovider.Child, 0, len(children))
 		for _, c := range children {
 			srv = append(srv, c)
 		}
+
 		return testCtx{
 			T:        t,
 			expect:   expect.New(t),
@@ -61,6 +63,7 @@ func TestMultiAuth(t *testing.T) {
 			*mockChild
 			*mockProjectAdder
 		}
+
 		p := projectProvider{
 			mockChild:        newMockChild(t, mockTimeout),
 			mockProjectAdder: newMockProjectAdder(t, mockTimeout),
@@ -72,10 +75,12 @@ func TestMultiAuth(t *testing.T) {
 
 	o.Spec("it does not continue to contact servers with no credentials for a given host", func(t testCtx) {
 		const host = "foo.bar"
+
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		res := make(chan fetchResult)
+
 		go func() {
 			resp, err := t.multi.FetchToken(ctx, &auth.FetchTokenRequest{Host: host})
 			res <- fetchResult{resp, err}
@@ -121,10 +126,12 @@ func TestMultiAuth(t *testing.T) {
 
 	o.Spec("it resets its knowledge of which servers it should contact after a project is added", func(t testCtx) {
 		const host = "foo.bar"
+
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		res := make(chan fetchResult)
+
 		go func() {
 			resp, err := t.multi.FetchToken(ctx, &auth.FetchTokenRequest{Host: host})
 			res <- fetchResult{resp, err}
@@ -143,6 +150,7 @@ func TestMultiAuth(t *testing.T) {
 					nil,
 				}
 			}
+
 			t.expect(c).To(haveMethodExecuted(
 				"FetchToken",
 				within(timeout),

@@ -41,5 +41,6 @@ func (g *Generic) WriteWithTimestamp(dt []byte, ts time.Time) (int, error) {
 		TimestampUnixNanos: g.run.b.TsUnixNanos(ts),
 		Data:               dt,
 	})
+
 	return len(dt), nil
 }

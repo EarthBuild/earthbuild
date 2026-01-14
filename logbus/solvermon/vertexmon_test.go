@@ -51,6 +51,7 @@ func TestGetExitCode(t *testing.T) {
 			if code != tt.expectedCode {
 				t.Errorf("getExitCode(%q) = %d, want %d", tt.errString, code, tt.expectedCode)
 			}
+
 			if err != tt.expectedError {
 				t.Errorf("getExitCode(%q) = %d, want %d", tt.errString, err, tt.expectedError)
 			}
@@ -148,6 +149,7 @@ func TestDetermineFatalErrorType(t *testing.T) {
 			if fatalType != tt.expectedType {
 				t.Errorf("determineFatalErrorType(%q, %d) = %v, want %v", tt.errString, tt.exitCode, fatalType, tt.expectedType)
 			}
+
 			if fatal != tt.expectedFatal {
 				t.Errorf("determineFatalErrorType(%q, %d) = %v, want %v", tt.errString, tt.exitCode, fatal, tt.expectedFatal)
 			}

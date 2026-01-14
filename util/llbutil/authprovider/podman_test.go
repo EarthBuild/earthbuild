@@ -55,10 +55,13 @@ func TestPodmanProvider(topT *testing.T) {
 			stderr: newMockWriter(t, mockTimeout),
 			result: make(chan session.Attachable),
 		}
+
 		go func() {
 			defer close(tt.result)
+
 			tt.result <- authprovider.NewPodman(tt.stderr, authprovider.WithOS(tt.os))
 		}()
+
 		return tt
 	})
 	defer o.Run()
@@ -90,11 +93,13 @@ func TestPodmanProvider(topT *testing.T) {
 				returning(val),
 			))
 		}
+
 		if e.auth == nil {
 			// The code should fall back to the default docker auth provider,
 			// which we can't really mock out - but we can at least verify that
 			// the return value is the correct type.
 			tt.expect(tt.os).To(haveMethodExecuted("Open", within(timeout), returning(nil, fs.ErrNotExist)))
+
 			select {
 			case res := <-tt.result:
 				_, ok := res.(credentials)
@@ -102,23 +107,29 @@ func TestPodmanProvider(topT *testing.T) {
 			case <-time.After(timeout):
 				tt.t.Fatalf("timed out waiting to fall back to the default docker auth provider")
 			}
+
 			return
 		}
-		creds := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", e.auth.user, e.auth.secret)))
+
+		creds := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", e.auth.user, e.auth.secret))
 		authFile := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
 		tt.expect(tt.os).To(haveMethodExecuted("Open",
 			within(timeout),
 			withArgs(e.auth.path),
 			returning(authFile, nil)))
+
 		select {
 		case res := <-tt.result:
 			creds, ok := res.(credentials)
 			tt.expect(ok).To(beTrue())
+
 			req := &auth.CredentialsRequest{
 				Host: e.auth.host,
 			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
+
 			resp, err := creds.Credentials(ctx, req)
 			tt.expect(err).To(not(haveOccurred()))
 			tt.expect(resp.Username).To(equal(e.auth.user))

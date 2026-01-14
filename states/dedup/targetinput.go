@@ -34,7 +34,9 @@ func (ti TargetInput) WithBuildArgInput(bai BuildArgInput) TargetInput {
 			break
 		}
 	}
+
 	tiClone.BuildArgs = append(tiClone.BuildArgs, bai)
+
 	return tiClone
 }
 
@@ -42,12 +44,14 @@ func (ti TargetInput) WithBuildArgInput(bai BuildArgInput) TargetInput {
 // build args, based on an include-list of names.
 func (ti TargetInput) WithFilterBuildArgs(buildArgNames map[string]bool) TargetInput {
 	tiClone := ti.clone()
+
 	tiClone.BuildArgs = make([]BuildArgInput, 0, len(buildArgNames))
 	for _, bai := range ti.BuildArgs {
 		if buildArgNames[bai.Name] {
 			tiClone.BuildArgs = append(tiClone.BuildArgs, bai)
 		}
 	}
+
 	return tiClone
 }
 
@@ -61,19 +65,23 @@ func (ti TargetInput) clone() TargetInput {
 	for _, bai := range ti.BuildArgs {
 		tiCopy.BuildArgs = append(tiCopy.BuildArgs, bai.clone())
 	}
+
 	return tiCopy
 }
 
 func (ti TargetInput) cloneNoTag() (TargetInput, error) {
 	targetStr := ""
+
 	if ti.TargetCanonical != "" {
 		target, err := domain.ParseTarget(ti.TargetCanonical)
 		if err != nil {
 			return TargetInput{}, err
 		}
+
 		target.Tag = ""
 		targetStr = target.StringCanonical()
 	}
+
 	tiCopy := TargetInput{
 		TargetCanonical: targetStr,
 		BuildArgs:       make([]BuildArgInput, 0, len(ti.BuildArgs)),
@@ -83,6 +91,7 @@ func (ti TargetInput) cloneNoTag() (TargetInput, error) {
 	for _, bai := range ti.BuildArgs {
 		tiCopy.BuildArgs = append(tiCopy.BuildArgs, bai.clone())
 	}
+
 	return tiCopy, nil
 }
 
@@ -92,7 +101,9 @@ func (ti TargetInput) Hash() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "serialize TargetInput when creating hash")
 	}
+
 	digest := sha256.Sum256(tiBytes)
+
 	return hex.EncodeToString(digest[:]), nil
 }
 
@@ -102,11 +113,14 @@ func (ti TargetInput) HashNoTag() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	tiBytes, err := json.Marshal(&tiNoTag)
 	if err != nil {
 		return "", errors.Wrap(err, "serialize TargetInput when creating hash no tag")
 	}
+
 	digest := sha256.Sum256(tiBytes)
+
 	return hex.EncodeToString(digest[:]), nil
 }
 
@@ -127,6 +141,7 @@ func (bai BuildArgInput) IsDefaultValue() bool {
 	if reserved.IsBuiltIn(bai.Name) {
 		return true
 	}
+
 	return bai.ConstantValue == bai.DefaultValue
 }
 
@@ -135,6 +150,7 @@ func (bai BuildArgInput) Equals(other BuildArgInput) bool {
 	if bai.Name != other.Name {
 		return false
 	}
+
 	if bai.ConstantValue != other.ConstantValue {
 		return false
 	}

@@ -6,7 +6,7 @@ dep:
     SAVE ARTIFACT hello.txt
 
 test:
-    FROM ubuntu
+    FROM ubuntu:24.04
     COPY +dep/hello.txt .
     EXPOSE 8080
     SAVE IMAGE hello-image

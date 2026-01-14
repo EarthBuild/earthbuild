@@ -61,6 +61,7 @@ func (c Command) Clone() Command {
 	newCmd.Args = args
 	srcLoc := *c.SourceLocation
 	newCmd.SourceLocation = &srcLoc
+
 	return newCmd
 }
 

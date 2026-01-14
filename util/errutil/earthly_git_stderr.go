@@ -15,11 +15,13 @@ var gitStdErrRegexp = regexp.MustCompile(`EARTHLY_GIT_STDERR: ([A-Za-z0-9+/]*={0
 // If no payload was extracted, then false is returned.
 func ExtractEarthlyGitStdErr(errStr string) (extracted, shorterErr string, ok bool) {
 	shorterErr = gitStdErrRegexp.ReplaceAllString(errStr, "")
+
 	matches := gitStdErrRegexp.FindStringSubmatch(errStr)
 	if len(matches) == 2 {
 		if stderr, err := base64.StdEncoding.DecodeString(matches[1]); err == nil {
 			return strings.TrimSpace(string(stderr)), shorterErr, true
 		}
 	}
+
 	return "", "", false
 }

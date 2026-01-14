@@ -90,6 +90,7 @@ func TestScope(topT *testing.T) {
 		o.Spec(tt.testName, func(tc testCtx) {
 			ok := tc.scope.Add(tt.name, tt.value)
 			tc.expect(ok).To(beTrue())
+
 			for _, opt := range tt.useOpts {
 				_, ok := tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beFalse())
@@ -102,6 +103,7 @@ func TestScope(topT *testing.T) {
 			value, ok := tc.scope.Get(tt.name)
 			tc.expect(ok).To(beTrue())
 			tc.expect(value).To(equal(tt.value))
+
 			for _, opt := range tt.useOpts {
 				value, ok := tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beTrue())
@@ -126,6 +128,7 @@ func TestScope(topT *testing.T) {
 			value, ok = clone.Get(tt.name)
 			tc.expect(ok).To(beTrue())
 			tc.expect(value).To(equal(tt.value))
+
 			for _, opt := range tt.useOpts {
 				value, ok = clone.Get(tt.name, opt)
 				tc.expect(ok).To(beTrue())
@@ -134,6 +137,7 @@ func TestScope(topT *testing.T) {
 
 			tc.scope.Remove(tt.name)
 			tc.scope.Add(tt.name, tt.value)
+
 			for _, opt := range tt.useOpts {
 				_, ok := tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beFalse())

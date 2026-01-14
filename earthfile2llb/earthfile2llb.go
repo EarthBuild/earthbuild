@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"maps"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
@@ -205,27 +206,31 @@ func Earthfile2LLB(
 	if opt.SolveCache == nil {
 		opt.SolveCache = states.NewSolveCache()
 	}
+
 	if opt.MetaResolver == nil {
 		opt.MetaResolver = NewCachedMetaResolver(opt.GwClient)
 	}
+
 	if opt.TargetInputHashStackSet == nil {
 		opt.TargetInputHashStackSet = make(map[string]bool)
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool)
-		for k, v := range opt.TargetInputHashStackSet {
-			newMap[k] = v
-		}
+		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
+
 	egWait := false
+
 	if opt.ErrorGroup == nil {
 		opt.ErrorGroup, ctx = serrgroup.WithContext(ctx)
 		egWait = true
+
 		defer func() {
 			if retErr == nil {
 				return
 			}
+
 			if egWait {
 				// We haven't waited for the ErrorGroup yet. The ErrorGroup will
 				// return the very first error encountered, which may be
@@ -235,6 +240,7 @@ func Earthfile2LLB(
 				err2 := opt.ErrorGroup.Err()
 				opt.Console.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
 				opt.Console.VerbosePrintf("earthfile2llb group error: %v", err2)
+
 				if err2 != nil {
 					retErr = err2
 					return
@@ -261,6 +267,7 @@ func Earthfile2LLB(
 		opt.DoSaves = !target.IsRemote() // legacy mode only saves artifacts that are locally referenced
 		opt.ForceSaveImage = true        // legacy mode always saves images regardless of locally or remotely referenced
 	}
+
 	opt.PlatformResolver.AllowNativeAndUser = opt.Features.NewPlatform
 
 	if opt.waitBlock == nil {
@@ -268,6 +275,7 @@ func Earthfile2LLB(
 	}
 
 	targetWithMetadata := bc.Ref.(domain.Target)
+
 	sts, found, err := opt.Visited.
 		Add(ctx, targetWithMetadata, opt.PlatformResolver, opt.AllowPrivileged, opt.OverridingVars, opt.parentDepSub)
 	if err != nil {
@@ -290,6 +298,7 @@ func Earthfile2LLB(
 	if err != nil {
 		return nil, err
 	}
+
 	if found {
 		if opt.TargetInputHashStackSet[tiHash] {
 			return nil, errors.Errorf("infinite cycle detected for target %s", target.String())
@@ -307,15 +316,18 @@ func Earthfile2LLB(
 		if opt.DoSaves {
 			sts.SetDoSaves()
 		}
+
 		if opt.DoPushes {
 			sts.SetDoPushes()
 		}
+
 		if opt.DoSaves || opt.DoPushes {
 			err := sts.Wait(ctx)
 			if err != nil {
 				return nil, errors.Wrapf(err, "wait failed on target %s", target.String())
 			}
 		}
+
 		sts.AttachTopLevelWaitItems(ctx, opt.waitBlock)
 
 		// This target has already been done.
@@ -324,6 +336,7 @@ func Earthfile2LLB(
 			Visited: opt.Visited,
 		}, nil
 	}
+
 	opt.TargetInputHashStackSet[tiHash] = true
 	opt.Console.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
@@ -361,6 +374,7 @@ func Earthfile2LLB(
 
 	if egWait {
 		egWait = false
+
 		err := opt.ErrorGroup.Wait()
 		if err != nil {
 			return nil, err

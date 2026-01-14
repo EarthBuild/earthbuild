@@ -21,7 +21,9 @@ func NewLocalArtifactWhiteList() *LocalArtifactWhiteList {
 func (l *LocalArtifactWhiteList) Exists(k string) bool {
 	l.m.Lock()
 	defer l.m.Unlock()
+
 	_, exists := l.paths[k]
+
 	return exists
 }
 
@@ -29,6 +31,7 @@ func (l *LocalArtifactWhiteList) Exists(k string) bool {
 func (l *LocalArtifactWhiteList) Add(path string) {
 	l.m.Lock()
 	defer l.m.Unlock()
+
 	l.paths[path] = struct{}{}
 }
 
@@ -36,9 +39,11 @@ func (l *LocalArtifactWhiteList) Add(path string) {
 func (l *LocalArtifactWhiteList) AsList() []string {
 	l.m.Lock()
 	defer l.m.Unlock()
+
 	paths := make([]string, 0, len(l.paths))
 	for path := range l.paths {
 		paths = append(paths, path)
 	}
+
 	return paths
 }

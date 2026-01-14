@@ -18,6 +18,7 @@ func TestGenerateEarthfile(t *testing.T) {
 		platforms        []string
 		target           string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -200,6 +201,7 @@ build:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			got, err := docker2earthly.GenerateEarthfile(
 				tt.args.buildContextPath, tt.args.dockerfilePath, tt.args.imageTags,
 				tt.args.buildArgs, tt.args.platforms, tt.args.target)
@@ -207,6 +209,7 @@ build:
 				t.Errorf("GenerateEarthfile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if got != tt.want {
 				t.Errorf("GenerateEarthfile() got = %v, want %v", got, tt.want)
 			}

@@ -126,6 +126,7 @@ func newSingleTarget(
 		incomingNewSubscriptions: make(chan string, 1024),
 	}
 	sts.addOverridingVarsAsBuildArgInputs(overridingVars)
+
 	if parentDepSub == nil {
 		// New simplified algorithm.
 		return sts, nil
@@ -144,6 +145,7 @@ OuterLoop:
 	}
 	// Keep monitoring async.
 	sts.MonitorDependencySubscription(ctx, parentDepSub)
+
 	go func() {
 		for {
 			select {
@@ -154,6 +156,7 @@ OuterLoop:
 			}
 		}
 	}()
+
 	return sts, nil
 }
 
@@ -162,6 +165,7 @@ OuterLoop:
 func (sts *SingleTarget) GetDoSaves() bool {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	return sts.doSaves
 }
 
@@ -169,10 +173,12 @@ func (sts *SingleTarget) GetDoSaves() bool {
 func (sts *SingleTarget) SetDoSaves() {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	sts.doSaves = true
 	for _, wi := range sts.WaitItems {
 		wi.SetDoSave()
 	}
+
 	for _, wb := range sts.WaitBlocks {
 		wb.SetDoSaves()
 	}
@@ -183,6 +189,7 @@ func (sts *SingleTarget) SetDoSaves() {
 func (sts *SingleTarget) GetDoPushes() bool {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	return sts.doPushes
 }
 
@@ -190,10 +197,12 @@ func (sts *SingleTarget) GetDoPushes() bool {
 func (sts *SingleTarget) SetDoPushes() {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	sts.doPushes = true
 	for _, wi := range sts.WaitItems {
 		wi.SetDoPush()
 	}
+
 	for _, wb := range sts.WaitBlocks {
 		wb.SetDoPushes()
 	}
@@ -203,6 +212,7 @@ func (sts *SingleTarget) SetDoPushes() {
 func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	sts.WaitBlocks = append(sts.WaitBlocks, waitBlock)
 }
 
@@ -210,12 +220,14 @@ func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
 func (sts *SingleTarget) Wait(ctx context.Context) error {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	for i := len(sts.WaitBlocks) - 1; i >= 0; i-- {
 		err := sts.WaitBlocks[i].Wait(ctx, sts.doPushes, sts.doSaves)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -223,6 +235,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	for _, item := range sts.WaitItems {
 		waitBlock.AddItem(item)
 	}
@@ -232,6 +245,7 @@ func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock 
 func (sts *SingleTarget) TargetInput() dedup.TargetInput {
 	sts.tiMu.Lock()
 	defer sts.tiMu.Unlock()
+
 	return sts.targetInput
 }
 
@@ -239,6 +253,7 @@ func (sts *SingleTarget) TargetInput() dedup.TargetInput {
 func (sts *SingleTarget) AddBuildArgInput(bai dedup.BuildArgInput) {
 	sts.tiMu.Lock()
 	defer sts.tiMu.Unlock()
+
 	sts.targetInput = sts.targetInput.WithBuildArgInput(bai)
 }
 
@@ -251,6 +266,7 @@ func (sts *SingleTarget) LastSaveImage() SaveImage {
 			Image: sts.MainImage,
 		}
 	}
+
 	return sts.SaveImages[len(sts.SaveImages)-1]
 }
 
@@ -262,11 +278,14 @@ func (sts *SingleTarget) AddDependentIDs(dependentIDs map[string]bool) {
 		return
 	default:
 	}
+
 	sts.depMu.Lock()
 	defer sts.depMu.Unlock()
+
 	for ID := range dependentIDs {
 		sts.dependentIDs[ID] = true
 	}
+
 	for _, sub := range sts.outgoingNewSubscriptions {
 		for ID := range dependentIDs {
 			sub <- ID
@@ -292,13 +311,16 @@ func (sts *SingleTarget) MonitorDependencySubscription(ctx context.Context, inCh
 func (sts *SingleTarget) NewDependencySubscription() chan string {
 	sts.depMu.Lock()
 	defer sts.depMu.Unlock()
+
 	ch := make(chan string, 1024) // size is an arbitrary maximum cycle length
 	sts.outgoingNewSubscriptions = append(sts.outgoingNewSubscriptions, ch)
 	// Send everything we have so far.
 	ch <- sts.ID // send our ID
+
 	for depID := range sts.dependentIDs {
 		ch <- depID
 	}
+
 	return ch
 }
 
@@ -310,6 +332,7 @@ func (sts *SingleTarget) Done() chan struct{} {
 func (sts *SingleTarget) addOverridingVarsAsBuildArgInputs(overridingVars *variables.Scope) {
 	sts.tiMu.Lock()
 	defer sts.tiMu.Unlock()
+
 	for _, key := range overridingVars.Sorted() {
 		ovVar, _ := overridingVars.Get(key)
 		sts.targetInput = sts.targetInput.WithBuildArgInput(

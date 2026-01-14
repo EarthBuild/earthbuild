@@ -38,7 +38,9 @@ func TestDurationSet(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			var d Duration
+
 			err := d.Set(tc.value)
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.expected, d)

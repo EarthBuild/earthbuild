@@ -60,14 +60,17 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 	if r1.IsUnresolvedImportReference() || r2.IsUnresolvedImportReference() {
 		return nil, errors.New("unresolved import references cannot be joined")
 	}
+
 	gitURL := r2.GetGitURL()
 	tag := r2.GetTag()
 	localPath := r2.GetLocalPath()
+
 	name := r2.GetName()
 	if r1.IsRemote() {
 		// r1 is remote. Turn relative targets into remote targets.
 		if !r2.IsRemote() {
 			tag = r1.GetTag()
+
 			if r2.IsLocalExternal() {
 				if path.IsAbs(r2.GetLocalPath()) {
 					return Target{}, errors.Errorf(
@@ -95,6 +98,7 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 			localPath = r1.GetLocalPath()
 		}
 	}
+
 	switch r2.(type) {
 	case Target:
 		return Target{
@@ -121,15 +125,19 @@ func referenceString(r Reference) string {
 	if r.IsImportReference() {
 		return fmt.Sprintf("%s+%s", escapePlus(r.GetImportRef()), r.GetName())
 	}
+
 	if r.IsLocalExternal() {
 		return fmt.Sprintf("%s+%s", escapePlus(r.GetLocalPath()), r.GetName())
 	}
+
 	if r.IsRemote() {
 		s := escapePlus(r.GetGitURL())
 		if r.GetTag() != "" {
 			s += ":" + escapePlus(r.GetTag())
 		}
+
 		s += "+" + r.GetName()
+
 		return s
 	}
 	// Local internal.
@@ -142,12 +150,16 @@ func referenceStringCanonical(r Reference) string {
 		if r.GetTag() != "" {
 			s += ":" + escapePlus(r.GetTag())
 		}
+
 		s += "+" + r.GetName()
+
 		return s
 	}
+
 	if r.GetLocalPath() == "." {
 		return "+" + r.GetName()
 	}
+
 	if r.GetLocalPath() == "" && r.GetImportRef() != "" {
 		return escapePlus(r.GetImportRef()) + "+" + r.GetName()
 	}
@@ -161,14 +173,18 @@ func referenceProjectCanonical(r Reference) string {
 		if r.GetTag() != "" {
 			s += ":" + escapePlus(r.GetTag())
 		}
+
 		return s
 	}
+
 	if r.GetLocalPath() == "." {
 		return ""
 	}
+
 	if r.GetLocalPath() == "" && r.GetImportRef() != "" {
 		return escapePlus(r.GetImportRef())
 	}
+
 	return escapePlus(r.GetLocalPath())
 }
 
@@ -177,9 +193,11 @@ func parseCommon(fullName string) (gitURL, tag, localPath, importRef, name strin
 	if err != nil {
 		return "", "", "", "", "", err
 	}
+
 	if len(partsPlus) != 2 {
 		return "", "", "", "", "", errors.Errorf("invalid target ref %s", fullName)
 	}
+
 	if partsPlus[0] == "" {
 		// Local target.
 		return "", "", ".", "", partsPlus[1], nil
@@ -227,16 +245,20 @@ func parseCommon(fullName string) (gitURL, tag, localPath, importRef, name strin
 func splitUnescapePlus(str string) ([]string, error) {
 	escape := false
 	ret := make([]string, 0, 2)
+
 	word := make([]rune, 0, len(str))
 	for _, c := range str {
 		if escape {
 			if c != '+' {
 				word = append(word, '\\')
 			}
+
 			word = append(word, c)
 			escape = false
+
 			continue
 		}
+
 		switch c {
 		case '\\':
 			escape = true
@@ -247,12 +269,15 @@ func splitUnescapePlus(str string) ([]string, error) {
 			word = append(word, c)
 		}
 	}
+
 	if escape {
 		return nil, errors.Errorf("cannot split by +: unterminated escape sequence at the end of %s", str)
 	}
+
 	if len(word) > 0 {
 		ret = append(ret, string(word))
 	}
+
 	return ret, nil
 }
 

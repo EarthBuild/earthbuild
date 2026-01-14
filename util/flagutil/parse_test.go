@@ -15,6 +15,7 @@ func TestSplitFlagString(t *testing.T) {
 	type args struct {
 		value cli.StringSlice
 	}
+
 	tests := []struct {
 		name string
 		args args

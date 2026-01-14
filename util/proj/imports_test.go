@@ -28,8 +28,10 @@ func (m beErrMatcher) Match(actual any) (any, error) {
 	if !ok {
 		return nil, errors.Errorf("expected %T to be of type error", actual)
 	}
+
 	if !errors.Is(err, m.expected) {
 		return nil, errors.Errorf("expected %q to wrap error %q", err, m.expected)
 	}
+
 	return actual, nil
 }

@@ -44,6 +44,7 @@ func (lsc *LocalStateCache) getOrConstruct(factory llbfactory.Factory) pllb.Stat
 
 	st := factory.Construct()
 	lsc.cache[key] = st
+
 	return st
 }
 
@@ -59,9 +60,11 @@ func getSharedKeyHintFromInclude(name string, incl []string) string {
 	}
 
 	addToHash(name)
+
 	for _, path := range incl {
 		addToHash(path)
 	}
+
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -73,9 +76,11 @@ func createIncludePatterns(incl []string) []string {
 		} else if strings.HasSuffix(inc, "/.") {
 			inc = inc[:len(inc)-1] + "*"
 		}
+
 		inc = quoteMeta(inc)
 		incl2 = append(incl2, inc)
 	}
+
 	return incl2
 }
 

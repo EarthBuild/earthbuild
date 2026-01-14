@@ -11,7 +11,9 @@ func (b *ByteSizeValue) Set(s string) error {
 	if err != nil {
 		return err
 	}
+
 	*b = ByteSizeValue(v)
+
 	return nil
 }
 

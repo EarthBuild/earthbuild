@@ -27,5 +27,6 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 	require.Equal(t, howCoolIsEarthly, resultFromDB)
 }

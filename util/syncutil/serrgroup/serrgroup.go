@@ -39,6 +39,7 @@ func WithContext(ctx context.Context) (*Group, context.Context) {
 func (g *Group) Err() error {
 	g.errMu.Lock()
 	defer g.errMu.Unlock()
+
 	return g.err
 }
 
@@ -46,9 +47,11 @@ func (g *Group) Err() error {
 // returns the first non-nil error (if any) from them.
 func (g *Group) Wait() error {
 	g.wg.Wait()
+
 	if g.cancel != nil {
 		g.cancel()
 	}
+
 	return g.Err()
 }
 
@@ -58,27 +61,26 @@ func (g *Group) Wait() error {
 // returned by Wait.
 func (g *Group) Go(f func() error) {
 	g.errMu.Lock()
+
 	if g.err != nil {
 		g.errMu.Unlock()
 		// Don't add more work if there has been an error.
 		return
 	}
+
 	g.errMu.Unlock()
 
-	g.wg.Add(1)
-
-	go func() {
-		defer g.wg.Done()
-
+	g.wg.Go(func() {
 		if err := f(); err != nil {
 			g.errOnce.Do(func() {
 				g.errMu.Lock()
 				defer g.errMu.Unlock()
+
 				g.err = err
 				if g.cancel != nil {
 					g.cancel()
 				}
 			})
 		}
-	}()
+	})
 }

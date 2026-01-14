@@ -41,8 +41,8 @@ const (
 )
 
 var (
-	ansiUp            = []byte(fmt.Sprintf("%c[A", esc))
-	ansiEraseRestLine = []byte(fmt.Sprintf("%c[K", esc))
+	ansiUp            = fmt.Appendf(nil, "%c[A", esc)
+	ansiEraseRestLine = fmt.Appendf(nil, "%c[K", esc)
 	ansiSupported     = os.Getenv("TERM") != "dumb" &&
 		(isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()))
 )
@@ -93,9 +93,12 @@ func New(
 	if ansiSupported {
 		ongoingTick = durationBetweenOngoingUpdates
 	}
+
 	ongoingTicker := time.NewTicker(ongoingTick)
 	ongoingTicker.Stop()
+
 	var logLevel conslogging.LogLevel
+
 	switch {
 	case debug:
 		logLevel = conslogging.Debug
@@ -104,7 +107,9 @@ func New(
 	default:
 		logLevel = conslogging.Info
 	}
+
 	var colorMode conslogging.ColorMode
+
 	switch {
 	case forceColor:
 		colorMode = conslogging.ForceColor
@@ -113,6 +118,7 @@ func New(
 	default:
 		colorMode = conslogging.AutoColor
 	}
+
 	f := &Formatter{
 		bus:              b,
 		console:          conslogging.New(nil, nil, colorMode, conslogging.DefaultPadding, logLevel, isGitHubActions),
@@ -131,6 +137,7 @@ func New(
 	if !disableOngoingUpdates {
 		go f.ongoingTickLoop(ctx)
 	}
+
 	return f
 }
 
@@ -138,6 +145,7 @@ func New(
 func (f *Formatter) Write(delta *logstream.Delta) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	err := f.processDelta(delta)
 	if err != nil {
 		f.errors = append(f.errors, err)
@@ -148,6 +156,7 @@ func (f *Formatter) Write(delta *logstream.Delta) {
 func (f *Formatter) SetDefaultPlatform(platform string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	f.defaultPlatform = platform
 }
 
@@ -155,12 +164,15 @@ func (f *Formatter) SetDefaultPlatform(platform string) {
 // formatting.
 func (f *Formatter) Close() error {
 	close(f.closedCh)
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	var retErr error
 	for _, err := range f.errors {
 		retErr = multierror.Append(retErr, err)
 	}
+
 	return retErr
 }
 
@@ -168,6 +180,7 @@ func (f *Formatter) Close() error {
 func (f *Formatter) Manifest() *logstream.RunManifest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	return proto.Clone(f.manifest).(*logstream.RunManifest)
 }
 
@@ -176,6 +189,7 @@ func (f *Formatter) processDelta(delta *logstream.Delta) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to apply delta")
 	}
+
 	switch d := delta.GetDeltaTypeOneof().(type) {
 	case *logstream.Delta_DeltaManifest:
 		err := f.handleDeltaManifest(d.DeltaManifest)
@@ -190,12 +204,14 @@ func (f *Formatter) processDelta(delta *logstream.Delta) error {
 	default:
 		return fmt.Errorf("unknown delta type %T", d)
 	}
+
 	return nil
 }
 
 func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 	f.ongoingTicker.Reset(f.ongoingTick)
 	defer f.ongoingTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -204,10 +220,12 @@ func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 			return
 		case <-f.ongoingTicker.C:
 			f.mu.Lock()
+
 			err := f.processOngoingTick()
 			if err != nil {
 				f.errors = append(f.errors, err)
 			}
+
 			f.mu.Unlock()
 		}
 	}
@@ -219,41 +237,52 @@ func (f *Formatter) handleDeltaManifest(dm *logstream.DeltaManifest) error {
 		if !ok {
 			return fmt.Errorf("command %q not found in manifest", commandID)
 		}
+
 		var tm *logstream.TargetManifest
+
 		if cm.GetTargetId() != "" {
 			var ok bool
+
 			tm, ok = f.manifest.GetTargets()[cm.GetTargetId()]
 			if !ok {
 				return fmt.Errorf("target %s not found in manifest", cm.GetTargetId())
 			}
 		}
+
 		if cmd.GetHasInteractive() && cmd.GetIsInteractive() {
 			if cm.GetEndedAtUnixNanos() == 0 {
 				if len(f.interactives) == 0 {
 					f.ongoingTicker.Stop()
 				}
+
 				f.interactives[commandID] = struct{}{}
 			} else if cmd.GetEndedAtUnixNanos() != 0 {
 				delete(f.interactives, commandID)
+
 				if len(f.interactives) == 0 {
 					f.ongoingTicker.Reset(f.ongoingTick)
 				}
 			}
 		}
+
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_IN_PROGRESS {
 			f.printHeader(cm.GetTargetId(), commandID, tm, cm, false)
 		}
+
 		if cmd.GetHasHasProgress() && f.shouldPrintProgress(commandID, cm) {
 			f.printProgress(cm.GetTargetId(), commandID, cm)
 		}
+
 		if cmd.GetStatus() == logstream.RunStatus_RUN_STATUS_FAILURE && cm.GetTargetId() != "" {
 			f.printError(cm.GetTargetId(), commandID, tm, cm)
 		}
 	}
+
 	if dm.GetFields().GetHasFailure() {
 		f.printBuildFailure()
 		f.printGHAFailure()
 	}
+
 	return nil
 }
 
@@ -263,6 +292,7 @@ func (f *Formatter) getCommand(commandID string) *command {
 		cmd = &command{}
 		f.commands[commandID] = cmd
 	}
+
 	return cmd
 }
 
@@ -272,16 +302,19 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 	// lookup --raw-output from the command manifest
 	cm := f.manifest.GetCommands()[dl.GetCommandId()]
+
 	rawOutput := false
 	if cm != nil {
 		// commandStr building order in converter.internalRun means
 		// --raw-output is always first after run
-		rawOutput = strings.Contains(cm.Name, "RUN --raw-output")
+		rawOutput = strings.Contains(cm.GetName(), "RUN --raw-output")
 	}
+
 	c, verboseOnly := f.targetConsole(targetID, commandID, rawOutput)
 	if verboseOnly && !f.verbose {
 		return nil
 	}
+
 	cmd := f.getCommand(dl.GetCommandId())
 
 	sameAsLast := (!f.lastOutputWasOngoingUpdate &&
@@ -290,18 +323,22 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 	output := dl.GetData()
 
-	if dl.Stream == BuildkitStatsStream {
+	if dl.GetStream() == BuildkitStatsStream {
 		var stats runc.Stats
+
 		err := json.Unmarshal(output, &stats)
 		if err != nil {
 			return errors.Wrap(err, "failed to parse stats")
 		}
+
 		totalCPU := time.Duration(stats.Cpu.Usage.Total) // #nosec G115 // Total is reported in nanoseconds
 		totalMem := stats.Memory.Usage.Usage             // in bytes
-		output = []byte(fmt.Sprintf("[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem)))
+
+		output = fmt.Appendf(nil, "[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem))
 		if f.execStatsTracker != nil {
 			f.execStatsTracker.Observe(f.targetName(dl.GetTargetId()), f.commandName(dl.GetCommandId()), totalMem, totalCPU)
 		}
+
 		if !f.displayStats {
 			return nil
 		}
@@ -315,6 +352,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 		cmd.openLine = nil
 		output = output[1:]
 	}
+
 	if sameAsLast && len(cmd.openLine) > 0 {
 		// Prettiness optimization: if there is an open line and the previous print out
 		// was of the same vertex, then use ANSI control sequence to go up one line and
@@ -333,15 +371,18 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 		// No \n found - update cmd.openLine to append the new output.
 		cmd.openLine = append(cmd.openLine, output...)
 	}
+
 	if !bytes.HasSuffix(printOutput, []byte{'\n'}) {
 		// If output doesn't terminate in \n, add our own.
 		printOutput = append(printOutput, '\n')
 	}
 
 	c.PrintBytes(printOutput)
+
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
 	f.lastCommandOutput = cmd
+
 	return nil
 }
 
@@ -354,6 +395,7 @@ func (f *Formatter) processOngoingTick() error {
 	f.lastOutputWasOngoingUpdate = true
 	f.lastOutputWasProgress = false
 	f.lastCommandOutput = nil
+
 	return nil
 }
 
@@ -364,22 +406,28 @@ func (f *Formatter) printHeader(
 	if verboseOnly && !f.verbose {
 		return
 	}
+
 	if failure {
 		c = c.WithFailed(true)
 	}
+
 	var metaParts []string
 	if cm.GetPlatform() != "" && cm.GetPlatform() != f.defaultPlatform {
 		metaParts = append(metaParts, cm.GetPlatform())
 	}
+
 	if tm != nil && tm.GetOverrideArgs() != nil {
 		metaParts = append(metaParts, strings.Join(tm.GetOverrideArgs(), " "))
 	}
+
 	if len(metaParts) > 0 {
 		c.WithMetadataMode(true).Printf("%s\n", strings.Join(metaParts, " | "))
 	}
+
 	if cm.GetIsCached() {
 		c = c.WithCached(true)
 	}
+
 	c.Print("--> " + cm.GetName() + "\n")
 
 	f.lastOutputWasOngoingUpdate = false
@@ -392,15 +440,18 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	if verboseOnly && !f.verbose {
 		return
 	}
+
 	builder := make([]string, 0, 2)
 	if f.lastOutputWasProgress {
 		builder = append(builder, string(ansiUp))
 	}
+
 	progressBar := progressbar.ProgressBar(int(cm.GetProgress()), 10)
 	builder = append(builder, fmt.Sprintf(
 		"[%s] %3d%% %s%s\n",
 		progressBar, cm.GetProgress(), cm.GetName(), string(ansiEraseRestLine)))
 	c.PrintBytes([]byte(strings.Join(builder, "")))
+
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = (cm.GetProgress() != 100)
 	f.lastCommandOutput = nil
@@ -420,15 +471,19 @@ func (f *Formatter) shouldPrintProgress(commandID string, cm *logstream.CommandM
 	// 	minDelta = durationBetweenSha256ProgressUpdate
 	// }
 	cmd := f.getCommand(commandID)
+
 	lastProgress := cmd.lastProgress
 	if time.Since(lastProgress) < minDelta && cm.GetProgress() < 100 {
 		return false
 	}
+
 	if cmd.lastPercentage == cm.GetProgress() {
 		return false
 	}
+
 	cmd.lastPercentage = cm.GetProgress()
 	cmd.lastProgress = time.Now()
+
 	return true
 }
 
@@ -438,6 +493,7 @@ func (f *Formatter) printError(
 	c, _ := f.targetConsole(targetID, commandID, false)
 	c.Printf("%s\n", cm.GetErrorMessage())
 	c.VerbosePrintf("Overriding args used: %s\n", strings.Join(tm.GetOverrideArgs(), " "))
+
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
 	f.lastCommandOutput = nil
@@ -448,29 +504,40 @@ func (f *Formatter) printBuildFailure() {
 	if failure.GetErrorMessage() == "" {
 		return
 	}
-	var tm *logstream.TargetManifest
-	var cm *logstream.CommandManifest
+
+	var (
+		tm *logstream.TargetManifest
+		cm *logstream.CommandManifest
+	)
+
 	if failure.GetTargetId() != "" {
 		tm = f.manifest.GetTargets()[failure.GetTargetId()]
 	}
+
 	if failure.GetCommandId() != "" {
 		cm = f.manifest.GetCommands()[failure.GetCommandId()]
 	}
+
 	c, _ := f.targetConsole(failure.GetTargetId(), failure.GetCommandId(), false)
 	c = c.WithFailed(true)
+
 	msgPrefix := "Error: " // print this prefix only when the command id is set
 	if failure.GetCommandId() != "" && failure.GetCommandId() != logbus.GenericDefault {
 		msgPrefix = ""
+
 		c.PrintFailure("")
 		c.Printf("Repeating the failure error...\n")
 		f.printHeader(failure.GetTargetId(), failure.GetCommandId(), tm, cm, true)
+
 		if len(failure.GetOutput()) > 0 {
 			c.PrintBytes(failure.GetOutput())
 		} else {
 			c.Printf("[no output]\n")
 		}
 	}
+
 	c.Printf("%s%s\n", msgPrefix, failure.GetErrorMessage())
+
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
 	f.lastCommandOutput = nil
@@ -481,32 +548,38 @@ func (f *Formatter) printGHAFailure() {
 	if failure.GetErrorMessage() == "" {
 		return
 	}
+
 	var cm *logstream.CommandManifest
 	if failure.GetCommandId() != "" {
 		cm = f.manifest.GetCommands()[failure.GetCommandId()]
 	}
+
 	c, _ := f.targetConsole(failure.GetTargetId(), failure.GetCommandId(), false)
 	c = c.WithFailed(true)
 
 	// Extract the error from first line of the error message
 	lines := strings.Split(failure.GetErrorMessage(), "\n")
+
 	var singleLineMessage string
 	if len(lines) > 1 {
 		singleLineMessage = strings.Join(strings.Fields(strings.Join(lines[1:], " ")), " ")
 	} else {
 		singleLineMessage = strings.Join(strings.Fields(lines[0]), " ")
 	}
+
 	singleLineMessage = stringutil.ScrubANSICodes(singleLineMessage)
 
 	// Print GHA Error with line info if available
-	if cm != nil && cm.SourceLocation != nil &&
-		cm.SourceLocation.File != "" && cm.SourceLocation.StartLine > 0 {
-		c.PrintGHAError(singleLineMessage, conslogging.WithGHASourceLocation(
-			cm.SourceLocation.File, cm.SourceLocation.StartLine, cm.SourceLocation.StartColumn,
-		))
+	sourceLocation := cm.GetSourceLocation()
+	file, startLine := sourceLocation.GetFile(), sourceLocation.GetStartLine()
+
+	if file != "" && startLine > 0 {
+		startColumn := sourceLocation.GetStartColumn()
+		c.PrintGHAError(singleLineMessage, conslogging.WithGHASourceLocation(file, startLine, startColumn))
 	} else {
 		c.PrintGHAError(singleLineMessage)
 	}
+
 	fullErrorMessage := stringutil.ScrubANSICodes(failure.GetErrorMessage())
 	output := stringutil.ScrubANSICodes(string(failure.GetOutput()))
 	// GHA Summary markdown
@@ -532,6 +605,7 @@ func (f *Formatter) targetName(targetID string) string {
 	if tm, ok := f.manifest.GetTargets()[targetID]; ok {
 		return tm.GetName()
 	}
+
 	return "unknown"
 }
 
@@ -539,13 +613,18 @@ func (f *Formatter) commandName(commandID string) string {
 	if cm, ok := f.manifest.GetCommands()[commandID]; ok {
 		return cm.GetName()
 	}
+
 	return "unknown"
 }
 
 func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput bool) (conslogging.ConsoleLogger, bool) {
-	var targetName string
-	var writerTargetID string
+	var (
+		targetName     string
+		writerTargetID string
+	)
+
 	verboseOnly := false
+
 	switch {
 	case targetID != "":
 		tm := f.manifest.GetTargets()[targetID]
@@ -557,6 +636,7 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 	case strings.HasPrefix(commandID, genericPrefix):
 		targetName = strings.TrimPrefix(commandID, genericPrefix)
 		writerTargetID = commandID
+
 		switch targetName {
 		case "context":
 			verboseOnly = true
@@ -570,6 +650,7 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 				targetName = cm.GetName()
 			}
 		}
+
 		switch {
 		case strings.HasPrefix(targetName, "internal "):
 			verboseOnly = true
@@ -583,11 +664,13 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 			targetName = "_internal:" + commandID
 		default:
 		}
+
 		writerTargetID = commandID
 	default:
 		targetName = "_unknown"
 		writerTargetID = "_unknown"
 	}
+
 	if rawOutput {
 		return f.console.
 			WithWriter(f.bus.FormattedWriter(writerTargetID, commandID)), verboseOnly

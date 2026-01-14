@@ -1759,7 +1759,8 @@ func (c *Converter) Let(ctx context.Context, key string, value string) error {
 // UpdateArg updates an existing arg to a new value. It errors if the arg could
 // not be found.
 func (c *Converter) UpdateArg(ctx context.Context, argKey string, argValue string, isBase bool) error {
-	if err := c.checkAllowed(setCmd); err != nil {
+	err := c.checkAllowed(setCmd)
+	if err != nil {
 		return err
 	}
 
@@ -1770,7 +1771,7 @@ func (c *Converter) UpdateArg(ctx context.Context, argKey string, argValue strin
 		pncvf = c.processNonConstantBuildArgFunc(ctx)
 	}
 
-	err := c.varCollection.UpdateVar(argKey, argValue, pncvf)
+	err = c.varCollection.UpdateVar(argKey, argValue, pncvf)
 	if err != nil {
 		return err
 	}

@@ -48,7 +48,6 @@ linters:
     - nilnesserr
     - nilnil
     - nlreturn
-    - noinlineerr
     - nonamedreturns
     - predeclared
     - recvcheck
@@ -58,7 +57,7 @@ linters:
     - testpackage
     - varnamelen
     - wrapcheck
-    - wsl
+    - wsl # deprecated
   exclusions:
     generated: lax
   settings:

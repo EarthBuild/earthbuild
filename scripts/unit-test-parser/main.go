@@ -30,7 +30,9 @@ func main() {
 		var event TestEvent
 
 		l := scanner.Text()
-		if err := json.Unmarshal([]byte(l), &event); err != nil {
+
+		err := json.Unmarshal([]byte(l), &event)
+		if err != nil {
 			log.Println(err)
 			os.Exit(1)
 		}
@@ -46,7 +48,8 @@ func main() {
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
+	err := scanner.Err()
+	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}

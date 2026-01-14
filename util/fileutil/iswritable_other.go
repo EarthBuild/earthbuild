@@ -28,7 +28,9 @@ func IsDirWritable(path string) (bool, error) {
 	}
 
 	var stat syscall.Stat_t
-	if err = syscall.Stat(path, &stat); err != nil {
+
+	err = syscall.Stat(path, &stat)
+	if err != nil {
 		return false, err
 	}
 

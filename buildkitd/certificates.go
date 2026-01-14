@@ -62,12 +62,10 @@ func GenCerts(cfg config.Config, hostname string) error {
 		case 0:
 			return nil
 		case len(all):
-			key, err := createTLSKey(cfg.Global.TLSCAKey)
+			caKey, err = createTLSKey(cfg.Global.TLSCAKey)
 			if err != nil {
 				return errors.Wrap(err, "could not create CA")
 			}
-
-			caKey = key
 		default:
 			found := all
 			for _, m := range missing {

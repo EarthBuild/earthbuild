@@ -11,9 +11,8 @@ import (
 type WriterSub struct {
 	w              io.Writer
 	targetIDFilter string
-
-	mu     sync.Mutex
-	errors []error
+	errors         []error
+	mu             sync.Mutex
 }
 
 // New creates a new WriterSub.

@@ -22,16 +22,14 @@ const (
 
 // Command is a build log writer for a command.
 type Command struct {
-	b         *Bus
-	commandID string
-	targetID  string
-
-	tailOutput *circbuf.Buffer
-
+	b            *Bus
+	tailOutput   *circbuf.Buffer
+	dependsOn    map[string]struct{}
+	commandID    string
+	targetID     string
 	mu           sync.Mutex
 	started      atomic.Bool
 	lastProgress atomic.Int32
-	dependsOn    map[string]struct{}
 }
 
 func newCommand(b *Bus, commandID string, targetID string) *Command {

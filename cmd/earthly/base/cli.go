@@ -12,19 +12,19 @@ import (
 )
 
 type CLI struct {
-	app                     *cli.App
-	console                 conslogging.ConsoleLogger
-	cfg                     *config.Config
-	logbusSetup             *setup.BusSetup
-	logbus                  *logbus.Bus
 	commandName             string
 	version                 string
 	gitSHA                  string
 	builtBy                 string
 	defaultBuildkitdImage   string
 	defaultInstallationName string
-	flags                   flag.Global
 	deferredFuncs           []func()
+	app                     *cli.App
+	cfg                     *config.Config
+	logbusSetup             *setup.BusSetup
+	logbus                  *logbus.Bus
+	console                 conslogging.ConsoleLogger
+	flags                   flag.Global
 }
 
 type CLIOpt func(CLI) CLI

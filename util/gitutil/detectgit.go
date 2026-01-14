@@ -34,21 +34,21 @@ var (
 
 // GitMetadata is a collection of git information about a certain directory.
 type GitMetadata struct {
-	BaseDir              string
-	RelDir               string
+	CommitterTimestamp   string
+	AuthorTimestamp      string
 	RemoteURL            string
 	GitURL               string
 	Hash                 string
 	ShortHash            string
-	BranchOverrideTagArg bool
+	RelDir               string
+	AuthorName           string
+	AuthorEmail          string
+	BaseDir              string
 	Branch               []string
 	Tags                 []string
-	CommitterTimestamp   string
-	AuthorTimestamp      string
-	AuthorEmail          string
-	AuthorName           string
 	CoAuthors            []string
 	Refs                 []string
+	BranchOverrideTagArg bool
 }
 
 // Metadata performs git metadata detection on the provided directory.

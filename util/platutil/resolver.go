@@ -8,12 +8,11 @@ import (
 
 // Resolver is a platform resolver.
 type Resolver struct {
+	currentPlatform    Platform
+	defaultPlatform    Platform
+	userPlatform       specs.Platform
+	nativePlatform     specs.Platform
 	AllowNativeAndUser bool // this will be set via feature flag.
-
-	currentPlatform Platform
-	defaultPlatform Platform
-	userPlatform    specs.Platform
-	nativePlatform  specs.Platform
 }
 
 // NewResolver returns a new platform resolver.

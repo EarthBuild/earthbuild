@@ -58,42 +58,42 @@ const (
 
 // Opt represent builder options.
 type Opt struct {
-	BkClient                              *client.Client
+	FeatureFlagOverrides                  string
+	GitImage                              string
+	DarwinProxyImage                      string
+	MaxCacheExport                        string
+	CacheExport                           string
+	GitBranchOverride                     string
+	LocalRegistryAddr                     string
+	GitLFSInclude                         string
+	BuildkitSkipper                       bk.BuildkitSkipper
+	Parallelism                           semutil.Semaphore
+	ContainerFrontend                     containerutil.ContainerFrontend
+	CleanCollection                       *cleanup.Collection
 	LogBusSolverMonitor                   *solvermon.SolverMonitor
-	Console                               conslogging.ConsoleLogger
-	Verbose                               bool
+	InternalSecretStore                   *secretprovider.MutableMapStore
+	BkClient                              *client.Client
+	CacheImports                          *states.CacheImports
+	GitLookup                             *buildcontext.GitLookup
+	BuildContextProvider                  *provider.BuildContextProvider
+	OverridingVars                        *variables.Scope
 	Attachables                           []session.Attachable
 	Enttlmnts                             []entitlements.Entitlement
-	NoCache                               bool
-	CacheImports                          *states.CacheImports
-	CacheExport                           string
-	MaxCacheExport                        string
-	UseInlineCache                        bool
-	SaveInlineCache                       bool
-	ImageResolveMode                      llb.ResolveMode
-	CleanCollection                       *cleanup.Collection
-	OverridingVars                        *variables.Scope
-	BuildContextProvider                  *provider.BuildContextProvider
-	GitLookup                             *buildcontext.GitLookup
-	GitBranchOverride                     string
-	UseFakeDep                            bool
-	Strict                                bool
-	DisableNoOutputUpdates                bool
-	ParallelConversion                    bool
-	Parallelism                           semutil.Semaphore
-	DarwinProxyImage                      string
+	Console                               conslogging.ConsoleLogger
 	DarwinProxyWait                       time.Duration
-	LocalRegistryAddr                     string
+	GitLogLevel                           buildkitgitutil.GitLogLevel
+	ImageResolveMode                      llb.ResolveMode
+	UseFakeDep                            bool
 	DisableRemoteRegistryProxy            bool
-	FeatureFlagOverrides                  string
-	ContainerFrontend                     containerutil.ContainerFrontend
-	InternalSecretStore                   *secretprovider.MutableMapStore
+	NoCache                               bool
+	ParallelConversion                    bool
+	Verbose                               bool
 	InteractiveDebugging                  bool
 	InteractiveDebuggingDebugLevelLogging bool
-	GitImage                              string
-	GitLFSInclude                         string
-	GitLogLevel                           buildkitgitutil.GitLogLevel
-	BuildkitSkipper                       bk.BuildkitSkipper
+	DisableNoOutputUpdates                bool
+	Strict                                bool
+	UseInlineCache                        bool
+	SaveInlineCache                       bool
 	NoAutoSkip                            bool
 }
 
@@ -103,33 +103,32 @@ type ProjectAdder interface {
 
 // BuildOpt is a collection of build options.
 type BuildOpt struct {
-	PlatformResolver           *platutil.Resolver
-	AllowPrivileged            bool
-	PrintPhases                bool
-	Push                       bool
-	CI                         bool
-	NoOutput                   bool
-	OnlyFinalTargetImages      bool
-	OnlyArtifact               *domain.Artifact
-	OnlyArtifactDestPath       string
-	EnableGatewayClientLogging bool
-	BuiltinArgs                variables.DefaultArgs
-	GlobalWaitBlockFtr         bool
-	LocalArtifactWhiteList     *gatewaycrafter.LocalArtifactWhiteList
-	Logbus                     *logbus.Bus
-	Runner                     string
 	ProjectAdder               ProjectAdder
+	OnlyArtifact               *domain.Artifact
+	Logbus                     *logbus.Bus
+	LocalArtifactWhiteList     *gatewaycrafter.LocalArtifactWhiteList
+	PlatformResolver           *platutil.Resolver
+	BuiltinArgs                variables.DefaultArgs
+	OnlyArtifactDestPath       string
+	Runner                     string
+	OnlyFinalTargetImages      bool
+	NoOutput                   bool
+	EnableGatewayClientLogging bool
+	CI                         bool
+	GlobalWaitBlockFtr         bool
+	Push                       bool
+	PrintPhases                bool
+	AllowPrivileged            bool
 }
 
 // Builder executes Earthly builds.
 type Builder struct {
-	s         *solver
-	opt       Opt
-	resolver  *buildcontext.Resolver
-	builtMain bool
-
-	outDirOnce sync.Once
 	outDir     string
+	s          *solver
+	resolver   *buildcontext.Resolver
+	opt        Opt
+	outDirOnce sync.Once
+	builtMain  bool
 }
 
 // NewBuilder returns a new earthly Builder.
@@ -765,7 +764,9 @@ func (b *Builder) convertAndBuild(
 		if mts.Final.GetDoSaves() {
 			outputPhaseSpecial = "single artifact"
 
-			outDir, err := b.tempEarthlyOutDir()
+			var outDir string
+
+			outDir, err = b.tempEarthlyOutDir()
 			if err != nil {
 				return nil, err
 			}
@@ -829,7 +830,9 @@ func (b *Builder) convertAndBuild(
 
 			if sts.GetDoSaves() {
 				for _, saveLocal := range sts.SaveLocals {
-					outDir, err := b.tempEarthlyOutDir()
+					var outDir string
+
+					outDir, err = b.tempEarthlyOutDir()
 					if err != nil {
 						return nil, err
 					}
@@ -858,7 +861,9 @@ func (b *Builder) convertAndBuild(
 			if sts.GetDoSaves() && sts.RunPush.HasState {
 				if opt.Push {
 					for _, saveLocal := range sts.RunPush.SaveLocals {
-						outDir, err := b.tempEarthlyOutDir()
+						var outDir string
+
+						outDir, err = b.tempEarthlyOutDir()
 						if err != nil {
 							return nil, err
 						}

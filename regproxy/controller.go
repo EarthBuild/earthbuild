@@ -25,10 +25,10 @@ const (
 type Controller struct {
 	registryClient    registry.RegistryClient
 	containerFrontend containerutil.ContainerFrontend
-	darwinProxy       bool
 	darwinProxyImage  string
-	darwinProxyWait   time.Duration
 	cons              conslog.ConsoleLogger
+	darwinProxyWait   time.Duration
+	darwinProxy       bool
 }
 
 // NewController creates and returns a new registry proxy controller.

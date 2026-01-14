@@ -15,9 +15,9 @@ import (
 
 type AWSOIDCInfo struct {
 	RoleARN         *arn.ARN       `mapstructure:"role-arn"`
+	SessionDuration *time.Duration `mapstructure:"session-duration"`
 	SessionName     string         `mapstructure:"session-name"`
 	Region          string         `mapstructure:"region"`
-	SessionDuration *time.Duration `mapstructure:"session-duration"`
 }
 
 var (

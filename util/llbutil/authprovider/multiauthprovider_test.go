@@ -27,8 +27,8 @@ func TestMultiAuth(t *testing.T) {
 	type testCtx struct {
 		*testing.T
 		expect   expect.Expectation
-		children []*mockChild
 		multi    *authprovider.MultiAuthProvider
+		children []*mockChild
 	}
 
 	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {

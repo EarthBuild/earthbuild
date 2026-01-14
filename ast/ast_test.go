@@ -23,9 +23,9 @@ func TestParse(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		check     func(*require.Assertions, spec.Earthfile, error)
 		note      string
 		earthfile string
-		check     func(*require.Assertions, spec.Earthfile, error)
 	}{
 		{
 			note: "it parses SET commands",

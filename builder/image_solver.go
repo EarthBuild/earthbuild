@@ -40,9 +40,9 @@ func newTarImageSolver(opt Opt, sm *solvermon.SolverMonitor) *tarImageSolver {
 type tarImageSolver struct {
 	bkClient     *client.Client
 	sm           *solvermon.SolverMonitor
+	cacheImports *states.CacheImports
 	attachables  []session.Attachable
 	enttlmnts    []entitlements.Entitlement
-	cacheImports *states.CacheImports
 }
 
 func (s *tarImageSolver) newSolveOpt(img *image.Image, dockerTag string, w io.WriteCloser) (*client.SolveOpt, error) {
@@ -172,9 +172,9 @@ func (s *tarImageSolver) SolveImage(
 type multiImageSolver struct {
 	bkClient     *client.Client
 	sm           *solvermon.SolverMonitor
+	cacheImports *states.CacheImports
 	attachables  []session.Attachable
 	enttlmnts    []entitlements.Entitlement
-	cacheImports *states.CacheImports
 }
 
 func newMultiImageSolver(opt Opt, sm *solvermon.SolverMonitor) *multiImageSolver {

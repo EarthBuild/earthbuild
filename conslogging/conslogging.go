@@ -55,29 +55,28 @@ var currentConsoleMutex sync.Mutex
 
 // ConsoleLogger is a writer for consoles.
 type ConsoleLogger struct {
-	prefix string
-	// metadataMode are printed in a different color.
-	metadataMode bool
-	// isLocal has a special prefix *local* added.
-	isLocal bool
-	// salt is a salt used for color consistency
-	// (the same salt will get the same color).
-	salt              string
-	colorMode         ColorMode
-	isCached          bool
-	isFailed          bool
-	githubAnnotations bool
-	logLevel          LogLevel
-
+	prefixWriter PrefixWriter
+	consoleErrW  io.Writer
+	errW         io.Writer
 	// The following are shared between instances and are protected by the mutex.
 	mu             *sync.Mutex
-	saltColors     map[string]*color.Color
 	nextColorIndex *int
-	errW           io.Writer
-	consoleErrW    io.Writer
-	prefixWriter   PrefixWriter
-	trailingLine   bool
-	prefixPadding  int
+	// salt is a salt used for color consistency
+	// (the same salt will get the same color).
+	saltColors        map[string]*color.Color
+	salt              string
+	prefix            string
+	colorMode         ColorMode
+	logLevel          LogLevel
+	prefixPadding     int
+	githubAnnotations bool
+	isFailed          bool
+	isCached          bool
+	// isLocal has a special prefix *local* added.
+	isLocal bool
+	// metadataMode are printed in a different color.
+	metadataMode bool
+	trailingLine bool
 }
 
 // Current returns the current console.

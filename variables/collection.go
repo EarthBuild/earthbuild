@@ -30,22 +30,19 @@ var (
 )
 
 type stackFrame struct {
-	frameName string
 	// absRef is the ref any other ref in this frame would be relative to.
 	absRef  domain.Reference
 	imports *domain.ImportTracker
-
 	// Always inactive scopes. These scopes only influence newly declared
 	// args. They do not otherwise participate when args are expanded.
 	overriding *Scope
-
 	// Always active scopes. These scopes influence the value of args directly.
 	args    *Scope
 	globals *Scope
-
 	// Explicitly defined scopes. These are declared as non-argument variables
 	// and will always be active, and even override the overriding scopes.
-	vars *Scope
+	vars      *Scope
+	frameName string
 }
 
 // Collection is a collection of variable scopes used within a single target.
@@ -53,36 +50,31 @@ type Collection struct {
 	// These scopes are always present, regardless of the stack position.
 	builtin *Scope // inactive
 	envs    *Scope // active
-
+	// A scope containing all scopes above, combined.
+	effectiveCache   *Scope
+	stack            []*stackFrame
+	project          string
+	org              string
+	console          conslogging.ConsoleLogger
 	errorOnRedeclare bool
 	shelloutAnywhere bool
-
-	project string
-	org     string
-
-	stack []*stackFrame
-
-	// A scope containing all scopes above, combined.
-	effectiveCache *Scope
-
-	console conslogging.ConsoleLogger
 }
 
 // NewCollectionOpt contains supported arguments which
 // the `NewCollection` function may accept.
 type NewCollectionOpt struct {
-	Console          conslogging.ConsoleLogger
-	Target           domain.Target
-	Push             bool
-	CI               bool
 	PlatformResolver *platutil.Resolver
-	NativePlatform   specs.Platform
 	GitMeta          *gitutil.GitMetadata
-	BuiltinArgs      DefaultArgs
 	OverridingVars   *Scope
 	AssignedVars     *Scope
 	Features         *features.Features
 	GlobalImports    map[string]domain.ImportTrackerVal
+	NativePlatform   specs.Platform
+	Target           domain.Target
+	BuiltinArgs      DefaultArgs
+	Console          conslogging.ConsoleLogger
+	Push             bool
+	CI               bool
 }
 
 // NewCollection creates a new Collection to be used in the context of a target.
@@ -286,10 +278,10 @@ func (c *Collection) declareOldArg(
 }
 
 type declarePrefs struct {
+	pncvf  ProcessNonConstantVariableFunc
 	val    string
 	global bool
 	arg    bool
-	pncvf  ProcessNonConstantVariableFunc
 }
 
 // DeclareOpt is an option function for declaring variables.

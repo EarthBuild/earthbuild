@@ -129,9 +129,9 @@ const (
 
 // Golang is used to auto-generate Earthfiles for go projects.
 type Golang struct {
-	root   string
 	fs     FS
 	execer Execer
+	root   string
 }
 
 // NewGolang returns a new Golang.

@@ -11,11 +11,10 @@ import (
 
 // RawWriterSub is a bus subscriber that can print formatted logs to a writer.
 type RawWriterSub struct {
-	w    io.Writer
-	json bool
-
-	mu     sync.Mutex
+	w      io.Writer
 	errors []error
+	mu     sync.Mutex
+	json   bool
 }
 
 // New creates a new WriterSub.

@@ -11,9 +11,9 @@ func TestStringToMap(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		input       string
-		expected    map[string]string
 		expectedErr error
+		expected    map[string]string
+		input       string
 	}{
 		"happy path": {
 			input: "key1=val1,key2= val2 , key3 =val3 ,",

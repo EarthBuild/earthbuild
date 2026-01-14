@@ -30,13 +30,13 @@ const (
 
 // Manifest is the structure for the log bundle manifest, including all overarching data we need.
 type Manifest struct {
-	Version    int              `json:"version"`
-	Duration   int              `json:"duration"`
+	CreatedAt  time.Time        `json:"created_at"`
 	Status     string           `json:"status"`
 	Result     string           `json:"result"`
-	CreatedAt  time.Time        `json:"created_at"`
-	Targets    []TargetManifest `json:"targets"`
 	Entrypoint string           `json:"entrypoint"`
+	Targets    []TargetManifest `json:"targets"`
+	Version    int              `json:"version"`
+	Duration   int              `json:"duration"`
 }
 
 // TargetManifest is the structure for an individual target, indicating all relevant information.
@@ -44,15 +44,15 @@ type TargetManifest struct {
 	Name     string `json:"name"`
 	Status   string `json:"status"`
 	Result   string `json:"result"`
-	Duration int    `json:"duration"`
-	Size     int    `json:"size"`
 	Command  string `json:"command,omitempty"`
 	Summary  string `json:"summary,omitempty"`
+	Duration int    `json:"duration"`
+	Size     int    `json:"size"`
 }
 
 // Permissions is the structure for the permissions manifest that can grant view rights to other Earthly users.
 type Permissions struct {
-	Version int      `json:"version"`
 	Users   []string `json:"users"`
 	Orgs    []string `json:"orgs"`
+	Version int      `json:"version"`
 }

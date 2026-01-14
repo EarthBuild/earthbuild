@@ -14,8 +14,8 @@ import (
 
 // LocalStateCache provides caching of local States.
 type LocalStateCache struct {
-	mu    sync.Mutex
 	cache map[string]pllb.State
+	mu    sync.Mutex
 }
 
 // NewSharedLocalStateCache creates a new local state cache.

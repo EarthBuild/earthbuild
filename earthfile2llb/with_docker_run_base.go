@@ -36,29 +36,29 @@ type DockerLoadOpt struct {
 
 // DockerPullOpt holds parameters for the WITH DOCKER --pull parameter.
 type DockerPullOpt struct {
-	ImageName string
 	Platform  platutil.Platform
+	ImageName string
 }
 
 // WithDockerOpt holds parameters for WITH DOCKER run.
 type WithDockerOpt struct {
-	Mounts                []string
-	Secrets               []string
-	WithShell             bool
-	WithEntrypoint        bool
-	WithSSH               bool
-	NoCache               bool
-	Interactive           bool
-	interactiveKeep       bool
-	WithAWSCredentials    bool
 	OIDCInfo              *oidcutil.AWSOIDCInfo
-	Pulls                 []DockerPullOpt
-	Loads                 []DockerLoadOpt
-	ComposeFiles          []string
-	ComposeServices       []string
-	TryCatchSaveArtifacts []debuggercommon.SaveFilesSettings
-	extraRunOpts          []llb.RunOption
 	CacheID               string
+	Pulls                 []DockerPullOpt
+	Secrets               []string
+	extraRunOpts          []llb.RunOption
+	Mounts                []string
+	TryCatchSaveArtifacts []debuggercommon.SaveFilesSettings
+	ComposeServices       []string
+	ComposeFiles          []string
+	Loads                 []DockerLoadOpt
+	WithSSH               bool
+	WithAWSCredentials    bool
+	interactiveKeep       bool
+	Interactive           bool
+	NoCache               bool
+	WithEntrypoint        bool
+	WithShell             bool
 }
 
 type withDockerRunBase struct {

@@ -98,10 +98,15 @@ func NewClient(
 
 	isLocal := isLocalBuildkit(settings)
 	if !isLocal {
-		remoteConsole := console.WithPrefix("buildkitd")
+		var (
+			remoteConsole = console.WithPrefix("buildkitd")
+			info          *client.Info
+			workerInfo    *client.WorkerInfo
+		)
+
 		remoteConsole.Printf("Connecting to %s...", settings.BuildkitAddress)
 
-		info, workerInfo, err := waitForConnection(ctx, containerName, settings, fe, opts...)
+		info, workerInfo, err = waitForConnection(ctx, containerName, settings, fe, opts...)
 		if err != nil {
 			return nil, errors.Wrap(err, "connect provided buildkit")
 		}
@@ -109,7 +114,9 @@ func NewClient(
 		remoteConsole.Printf("...Done")
 		printBuildkitInfo(remoteConsole, info, workerInfo, earthlyVersion, isLocal, settings.HasConfiguredCacheSize())
 
-		bkClient, err := client.New(ctx, settings.BuildkitAddress, opts...)
+		var bkClient *client.Client
+
+		bkClient, err = client.New(ctx, settings.BuildkitAddress, opts...)
 		if err != nil {
 			return nil, errors.Wrap(err, "start provided buildkit")
 		}
@@ -262,7 +269,12 @@ func maybeStart(
 			WithPrefix("buildkitd").
 			Printf("Found buildkit daemon as %s container (%s)\n", fe.Config().Binary, containerName)
 
-		info, workerInfo, err := maybeRestart(ctx, console, image, containerName, installationName, fe, settings, opts...)
+		var (
+			info       *client.Info
+			workerInfo *client.WorkerInfo
+		)
+
+		info, workerInfo, err = maybeRestart(ctx, console, image, containerName, installationName, fe, settings, opts...)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "maybe restart")
 		}
@@ -354,12 +366,16 @@ func maybeRestart(
 
 	if containerImageID == availableImageID {
 		// Images are the same. Check settings hash.
-		hash, err := GetSettingsHash(ctx, containerName, fe)
+		var hash string
+
+		hash, err = GetSettingsHash(ctx, containerName, fe)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not get settings hash")
 		}
 
-		hashOK, err := settings.VerifyHash(hash)
+		var hashOK bool
+
+		hashOK, err = settings.VerifyHash(hash)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "verify hash")
 		}
@@ -378,7 +394,12 @@ func maybeRestart(
 		}
 
 		if useExistingContainer {
-			info, workerInfo, err := checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+			var (
+				info       *client.Info
+				workerInfo *client.WorkerInfo
+			)
+
+			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "could not connect to buildkitd to shut down container")
 			}
@@ -391,7 +412,12 @@ func maybeRestart(
 		if settings.NoUpdate {
 			bkCons.Printf("Updated image available; however update was inhibited.\n")
 
-			info, workerInfo, err := checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+			var (
+				info       *client.Info
+				workerInfo *client.WorkerInfo
+			)
+
+			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "could not verify connection to buildkitd container")
 			}
@@ -515,12 +541,16 @@ func Start(
 		})
 	} else {
 		if settings.LocalRegistryAddress != "" {
-			lrURL, err := url.Parse(settings.LocalRegistryAddress)
+			var lrURL *url.URL
+
+			lrURL, err = url.Parse(settings.LocalRegistryAddress)
 			if err != nil {
 				panic("Local registry address was not a URL when attempting to start buildkit")
 			}
 
-			hostPort, err := strconv.Atoi(lrURL.Port())
+			var hostPort int
+
+			hostPort, err = strconv.Atoi(lrURL.Port())
 			if err != nil {
 				panic("Local registry host port was not a number when attempting to start buildkit")
 			}
@@ -533,13 +563,17 @@ func Start(
 			})
 		}
 
-		bkURL, err := url.Parse(settings.BuildkitAddress)
+		var bkURL *url.URL
+
+		bkURL, err = url.Parse(settings.BuildkitAddress)
 		if err != nil {
 			return errors.Wrap(err, "error parsing buildkit address url")
 		}
 
 		if settings.UseTCP {
-			hostPort, err := strconv.Atoi(bkURL.Port())
+			var hostPort int
+
+			hostPort, err = strconv.Atoi(bkURL.Port())
 			if err != nil {
 				panic("Local registry host port was not a number when attempting to start buildkit")
 			}
@@ -742,7 +776,7 @@ ContainerRunningLoop:
 					"These set the BuildKit GC target to a specific value. For more information see " +
 					"the Earthly config reference page: https://docs.earthly.dev/docs/earthly-config\n")
 
-			info, workerInfo, err := waitForConnection(ctx, containerName, settings, fe, opts...)
+			info, workerInfo, err = waitForConnection(ctx, containerName, settings, fe, opts...)
 			if err != nil {
 				return nil, nil, err
 			}

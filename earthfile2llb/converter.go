@@ -101,24 +101,24 @@ const (
 
 // Converter turns earthly commands to buildkit LLB representation.
 type Converter struct {
-	target              domain.Target
-	gitMeta             *gitutil.GitMetadata
-	platr               *platutil.Resolver
-	opt                 ConvertOpt
-	mts                 *states.MultiTarget
-	directDeps          []*states.SingleTarget
-	buildContextFactory llbfactory.Factory
 	cacheContext        pllb.State
-	persistentCacheDirs map[string]states.CacheMount // maps path->mount
-	varCollection       *variables.Collection
-	ranSave             bool
-	cmdSet              bool
-	ftrs                *features.Features
-	localWorkingDir     string
+	buildContextFactory llbfactory.Factory
 	containerFrontend   containerutil.ContainerFrontend
-	waitBlockStack      []*waitBlock
+	persistentCacheDirs map[string]states.CacheMount // maps path->mount
+	ftrs                *features.Features
+	mts                 *states.MultiTarget
+	platr               *platutil.Resolver
 	logbusTarget        *logbus.Target
+	varCollection       *variables.Collection
+	gitMeta             *gitutil.GitMetadata
+	waitBlockStack      []*waitBlock
+	directDeps          []*states.SingleTarget
+	localWorkingDir     string
+	target              domain.Target
+	opt                 ConvertOpt
 	nextCmdID           int
+	cmdSet              bool
+	ranSave             bool
 }
 
 // NewConverter constructs a new converter for a given earthly target.
@@ -356,7 +356,9 @@ func (c *Converter) FromDockerfile(
 		dfArtifact, parseErr := domain.ParseArtifact(dfPath)
 		if parseErr == nil {
 			// The Dockerfile is from a target's artifact.
-			mts, err := c.buildTarget(
+			var mts *states.MultiTarget
+
+			mts, err = c.buildTarget(
 				ctx, dfArtifact.Target.String(), platform, allowPrivileged,
 				false, buildArgs, false, fromDockerfileCmd, cmdID, nil)
 			if err != nil {
@@ -369,19 +371,24 @@ func (c *Converter) FromDockerfile(
 			}
 		} else {
 			// The Dockerfile is from the host.
-			dockerfileMetaTarget := domain.Target{
-				Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, path.Base(dfPath)),
-				LocalPath: path.Dir(dfPath),
-			}
+			var (
+				dockerfileMetaTarget = domain.Target{
+					Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, path.Base(dfPath)),
+					LocalPath: path.Dir(dfPath),
+				}
+				dockerfileMetaTargetRef domain.Reference
+			)
 
-			dockerfileMetaTargetRef, err := c.joinRefs(dockerfileMetaTarget)
+			dockerfileMetaTargetRef, err = c.joinRefs(dockerfileMetaTarget)
 			if err != nil {
 				return errors.Wrap(err, "join targets")
 			}
 
 			dockerfileMetaTarget = dockerfileMetaTargetRef.(domain.Target)
 
-			data, err := c.opt.Resolver.Resolve(ctx, c.opt.GwClient, c.platr, dockerfileMetaTarget)
+			var data *buildcontext.Data
+
+			data, err = c.opt.Resolver.Resolve(ctx, c.opt.GwClient, c.platr, dockerfileMetaTarget)
 			if err != nil {
 				return errors.Wrap(err, "resolve build context for dockerfile")
 			}
@@ -399,14 +406,18 @@ func (c *Converter) FromDockerfile(
 
 	contextArtifact, parseErr := domain.ParseArtifact(contextPath)
 	if parseErr == nil {
-		prefix, cmdID, err := c.newVertexMeta(ctx, false, false, true, nil)
+		var prefix string
+
+		prefix, cmdID, err = c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return err
 		}
 		// The build context is from a target's artifact.
 		// TODO: The build args are used for both the artifact and the Dockerfile. This could be
 		//       confusing to the user.
-		mts, err := c.buildTarget(
+		var mts *states.MultiTarget
+
+		mts, err = c.buildTarget(
 			ctx, contextArtifact.Target.String(), platform, allowPrivileged,
 			false, buildArgs, false, fromDockerfileCmd, cmdID, nil)
 		if err != nil {
@@ -424,7 +435,9 @@ func (c *Converter) FromDockerfile(
 			}
 		}
 
-		copyState, err := llbutil.CopyOp(ctx,
+		var copyState pllb.State
+
+		copyState, err = llbutil.CopyOp(ctx,
 			mts.Final.ArtifactsState, []string{contextArtifact.Artifact},
 			c.platr.Scratch(), "/", true, true, false, "", nil, false, false,
 			c.ftrs.UseCopyLink,
@@ -451,14 +464,18 @@ func (c *Converter) FromDockerfile(
 			LocalPath: path.Join(contextPath),
 		}
 
-		dockerfileMetaTargetRef, err := c.joinRefs(dockerfileMetaTarget)
+		var dockerfileMetaTargetRef domain.Reference
+
+		dockerfileMetaTargetRef, err = c.joinRefs(dockerfileMetaTarget)
 		if err != nil {
 			return errors.Wrap(err, "join targets")
 		}
 
 		dockerfileMetaTarget = dockerfileMetaTargetRef.(domain.Target)
 
-		data, err := c.opt.Resolver.Resolve(ctx, c.opt.GwClient, c.platr, dockerfileMetaTarget)
+		var data *buildcontext.Data
+
+		data, err = c.opt.Resolver.Resolve(ctx, c.opt.GwClient, c.platr, dockerfileMetaTarget)
 		if err != nil {
 			return errors.Wrap(err, "resolve build context for dockerfile")
 		}
@@ -752,30 +769,31 @@ func (c *Converter) CopyClassical(
 
 // ConvertRunOpts represents a set of options needed for the RUN command.
 type ConvertRunOpts struct {
+	// Internal.
+	statePrep func(context.Context, pllb.State) (pllb.State, error)
+	// Internal.
+	shellWrap            shellWrapFun
+	OIDCInfo             *oidcutil.AWSOIDCInfo
 	CommandName          string
+	InteractiveSaveFiles []debuggercommon.SaveFilesSettings
 	Args                 []string
-	Locally              bool
 	Mounts               []string
 	Secrets              []string
-	WithEntrypoint       bool
-	WithShell            bool
-	Privileged           bool
-	NoNetwork            bool
-	Push                 bool
-	Transient            bool
-	WithSSH              bool
-	NoCache              bool
-	Interactive          bool
-	InteractiveKeep      bool
-	InteractiveSaveFiles []debuggercommon.SaveFilesSettings
-	WithAWSCredentials   bool
-	OIDCInfo             *oidcutil.AWSOIDCInfo
-	RawOutput            bool
-
 	// Internal.
-	shellWrap    shellWrapFun
-	extraRunOpts []llb.RunOption
-	statePrep    func(context.Context, pllb.State) (pllb.State, error)
+	extraRunOpts       []llb.RunOption
+	WithEntrypoint     bool
+	Transient          bool
+	WithSSH            bool
+	NoCache            bool
+	Interactive        bool
+	InteractiveKeep    bool
+	Push               bool
+	WithAWSCredentials bool
+	NoNetwork          bool
+	RawOutput          bool
+	Privileged         bool
+	WithShell          bool
+	Locally            bool
 }
 
 // Run applies the earthly RUN command.
@@ -813,7 +831,9 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 	var exitCodeFile string
 
 	if opts.Locally {
-		exitCodeDir, err := os.MkdirTemp(os.TempDir(), "earthlyexitcode")
+		var exitCodeDir string
+
+		exitCodeDir, err = os.MkdirTemp(os.TempDir(), "earthlyexitcode")
 		if err != nil {
 			return 0, errors.Wrap(err, "create temp dir")
 		}
@@ -826,7 +846,9 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 	} else {
 		exitCodeFile = "/tmp/earthbuild_if_statement_exit_code"
 
-		prefix, _, err := c.newVertexMeta(ctx, false, false, true, nil)
+		var prefix string
+
+		prefix, _, err = c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return 0, err
 		}
@@ -858,7 +880,9 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return 0, errors.Wrap(err, "read exit code file")
 		}
 	} else {
-		ref, err := llbutil.StateToRef(
+		var ref gwclient.Reference
+
+		ref, err = llbutil.StateToRef(
 			ctx, c.opt.GwClient, state, c.opt.NoCache,
 			c.platr, c.opt.CacheImports.AsSlice())
 		if err != nil {
@@ -929,7 +953,9 @@ func (c *Converter) runCommand(
 	var outputFile string
 
 	if opts.Locally {
-		outputDir, err := os.MkdirTemp(os.TempDir(), "earthlyexproutput")
+		var outputDir string
+
+		outputDir, err = os.MkdirTemp(os.TempDir(), "earthlyexproutput")
 		if err != nil {
 			return "", errors.Wrap(err, "create temp dir")
 		}
@@ -942,7 +968,9 @@ func (c *Converter) runCommand(
 	} else {
 		srcBuildArgDir := "/run/buildargs"
 
-		prefix, _, err := c.newVertexMeta(ctx, false, false, true, nil)
+		var prefix string
+
+		prefix, _, err = c.newVertexMeta(ctx, false, false, true, nil)
 		if err != nil {
 			return "", err
 		}
@@ -2588,7 +2616,9 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	// Secrets.
 	for _, secretKeyValue := range opts.Secrets {
-		secretName, envVar, err := c.parseSecretFlag(secretKeyValue)
+		var secretName, envVar string
+
+		secretName, envVar, err = c.parseSecretFlag(secretKeyValue)
 		if err != nil {
 			return pllb.State{}, err
 		}
@@ -2608,7 +2638,12 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 	// AWS credential import.
 	if opts.WithAWSCredentials {
-		awsRunOpts, awsEnvs, err := c.awsSecrets(opts.OIDCInfo)
+		var (
+			awsRunOpts []llb.RunOption
+			awsEnvs    []string
+		)
+
+		awsRunOpts, awsEnvs, err = c.awsSecrets(opts.OIDCInfo)
 		if err != nil {
 			return pllb.State{}, err
 		}
@@ -2619,7 +2654,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 	if !opts.Locally {
 		// Debugger.
-		err := c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
+		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
 		if err != nil {
 			switch errors.Cause(err).(type) {
 			case *apicaps.CapError:
@@ -2636,7 +2671,9 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 			)
 		}
 
-		localPathAbs, err := filepath.Abs(c.target.LocalPath)
+		var localPathAbs string
+
+		localPathAbs, err = filepath.Abs(c.target.LocalPath)
 		if err != nil {
 			return pllb.State{}, errors.Wrapf(err, "unable to determine absolute path of %s", c.target.LocalPath)
 		}
@@ -2644,7 +2681,9 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		saveFiles := []debuggercommon.SaveFilesSettings{}
 
 		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
-			canSave, err := c.canSave(interactiveSaveFile.Dst)
+			var canSave bool
+
+			canSave, err = c.canSave(interactiveSaveFile.Dst)
 			if err != nil {
 				return pllb.State{}, err
 			}
@@ -2671,16 +2710,19 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 			})
 		}
 
-		debuggerSettingsSecretsKey := getDebuggerSecretKey(saveFiles)
-		debuggerSettings := debuggercommon.DebuggerSettings{
-			DebugLevelLogging: c.opt.InteractiveDebuggerDebugLevelLogging,
-			Enabled:           c.opt.InteractiveDebuggerEnabled,
-			SocketPath:        debuggercommon.DebuggerDefaultSocketPath,
-			Term:              os.Getenv("TERM"),
-			SaveFiles:         saveFiles,
-		}
+		var (
+			debuggerSettingsSecretsKey = getDebuggerSecretKey(saveFiles)
+			debuggerSettings           = debuggercommon.DebuggerSettings{
+				DebugLevelLogging: c.opt.InteractiveDebuggerDebugLevelLogging,
+				Enabled:           c.opt.InteractiveDebuggerEnabled,
+				SocketPath:        debuggercommon.DebuggerDefaultSocketPath,
+				Term:              os.Getenv("TERM"),
+				SaveFiles:         saveFiles,
+			}
+			debuggerSettingsData []byte
+		)
 
-		debuggerSettingsData, err := json.Marshal(&debuggerSettings)
+		debuggerSettingsData, err = json.Marshal(&debuggerSettings)
 		if err != nil {
 			return pllb.State{}, errors.Wrap(err, "debugger settings json marshal")
 		}

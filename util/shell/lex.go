@@ -21,12 +21,12 @@ import (
 // It doesn't support all flavors of ${xx:...} formats but new ones can
 // be added by adding code to the "special ${} format processing" section.
 type Lex struct {
+	ShellOut          EvalShellOutFn
 	escapeToken       rune
 	RawQuotes         bool
 	RawEscapes        bool
 	SkipProcessQuotes bool
 	SkipUnsetEnv      bool
-	ShellOut          EvalShellOutFn
 }
 
 // NewLex creates a new Lex which uses escapeToken to escape quotes.
@@ -92,15 +92,15 @@ type EvalShellOutFn func(cmd string) (string, error)
 var ErrNoShellOut = errors.New("shelling out is not available")
 
 type shellWord struct {
-	scanner           scanner.Scanner
 	envs              map[string]string
 	shellOutEnvs      map[string]struct{}
+	shellOut          EvalShellOutFn
+	scanner           scanner.Scanner
 	escapeToken       rune
 	rawQuotes         bool
 	rawEscapes        bool
 	skipUnsetEnv      bool
 	skipProcessQuotes bool
-	shellOut          EvalShellOutFn
 }
 
 func (sw *shellWord) process(source string) (string, []string, error) {

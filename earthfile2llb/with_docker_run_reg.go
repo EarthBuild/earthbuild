@@ -19,11 +19,10 @@ import (
 )
 
 type withDockerRunRegistry struct {
+	sem semutil.Semaphore
 	*withDockerRunBase
-	c *Converter
-
+	c              *Converter
 	enableParallel bool
-	sem            semutil.Semaphore
 }
 
 const internalWithDockerSecretPrefix = "52804da5-2787-46ad-8478-80c50f305e76" // #nosec G101
@@ -163,12 +162,12 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	w.c.opt.ErrorGroup.Go(func() error {
 		for {
 			select {
-			case err, ok := <-res.ErrChan:
+			case chanErr, ok := <-res.ErrChan:
 				if !ok {
 					return nil
 				}
 
-				return err
+				return chanErr
 			case <-ctx.Done():
 				return ctx.Err()
 			}

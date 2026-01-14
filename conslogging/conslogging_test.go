@@ -12,9 +12,9 @@ func Test_prettyPrefix(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		prefixPadding int
 		prefix        string
 		expected      string
+		prefixPadding int
 	}{
 		{
 			name:          "does not truncate if prefixPadding is NoPadding",

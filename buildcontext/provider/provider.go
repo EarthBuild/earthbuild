@@ -25,12 +25,11 @@ import (
 )
 
 const (
-	keyOverrideExcludes   = "override-excludes"
-	keyIncludePatterns    = "include-patterns"
-	keyExcludePatterns    = "exclude-patterns"
-	keyFollowPaths        = "followpaths"
-	keyDirName            = "dir-name"
-	keyExporterMetaPrefix = "exporter-md-"
+	keyOverrideExcludes = "override-excludes"
+	keyIncludePatterns  = "include-patterns"
+	keyExcludePatterns  = "exclude-patterns"
+	keyFollowPaths      = "followpaths"
+	keyDirName          = "dir-name"
 )
 
 var (
@@ -41,21 +40,19 @@ var (
 // BuildContextProvider is a BuildKit attachable which provides local files as part
 // of the build context.
 type BuildContextProvider struct {
-	p      progressCb
-	doneCh chan error
-
-	mu   sync.Mutex
-	dirs map[string]SyncedDir
-
+	p       progressCb
+	doneCh  chan error
+	dirs    map[string]SyncedDir
 	console conslogging.ConsoleLogger
+	mu      sync.Mutex
 }
 
 // SyncedDir is a directory to be synced across.
 type SyncedDir struct {
+	Map      func(string, *fstypes.Stat) fsutil.MapResult
 	Name     string
 	Dir      string
 	Excludes []string
-	Map      func(string, *fstypes.Stat) fsutil.MapResult
 }
 
 // NewBuildContextProvider creates a new provider for sending build context files from client.
@@ -209,10 +206,7 @@ func (bcp *BuildContextProvider) SetNextProgressCallback(f func(int, bool), done
 type progressCb func(int, bool)
 
 type protocol struct {
-	name   string
-	sendFn func(
-		stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB,
-	) error
+	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB) error
 	recvFn func(
 		stream grpc.ClientStream,
 		destDir string,
@@ -220,6 +214,7 @@ type protocol struct {
 		progress progressCb,
 		mapFunc func(string, *fstypes.Stat) bool,
 	) error
+	name string
 }
 
 func isProtoSupported(p string) bool {

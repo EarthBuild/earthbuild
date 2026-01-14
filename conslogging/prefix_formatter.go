@@ -35,8 +35,8 @@ var (
 )
 
 type prefixFormatter struct {
-	formatOpts []formatOpt
 	cache      sync.Map
+	formatOpts []formatOpt
 }
 
 type formatOpt func(str string, padding int, curLen int) string

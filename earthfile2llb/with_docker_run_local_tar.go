@@ -16,13 +16,11 @@ import (
 )
 
 type withDockerRunLocalTar struct {
-	c   *Converter
-	sem semutil.Semaphore
-
+	sem            semutil.Semaphore
+	c              *Converter
+	tarLoads       []tarLoadLocal
+	mu             sync.Mutex
 	enableParallel bool
-
-	mu       sync.Mutex
-	tarLoads []tarLoadLocal
 }
 
 func newWithDockerRunLocal(c *Converter, enableParallel bool) *withDockerRunLocalTar {
@@ -62,7 +60,9 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	// Build and solve images to be loaded.
 	loadPromises := make([]chan DockerLoadOpt, 0, len(opt.Loads))
 	for _, loadOpt := range opt.Loads {
-		lp, err := w.load(ctx, cmdID, loadOpt)
+		var lp chan DockerLoadOpt
+
+		lp, err = w.load(ctx, cmdID, loadOpt)
 		if err != nil {
 			return errors.Wrap(err, "load")
 		}
@@ -141,9 +141,9 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
 
-		err := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
-		if err != nil {
-			return err
+		inErr := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
+		if inErr != nil {
+			return inErr
 		}
 
 		optPromise <- opt

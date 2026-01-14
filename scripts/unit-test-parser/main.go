@@ -17,8 +17,8 @@ type TestEvent struct {
 	Action  string
 	Package string
 	Test    string
-	Elapsed float64 // seconds
 	Output  string
+	Elapsed float64 // seconds
 }
 
 func main() {

@@ -44,18 +44,16 @@ func New(console conslogging.ConsoleLogger, authServers []Child) *MultiAuthProvi
 // MultiAuthProvider is an auth provider that delegates authentication to
 // multiple child auth providers.
 type MultiAuthProvider struct {
-	console     conslogging.ConsoleLogger
 	authServers []Child
-	mu          sync.Mutex
-
 	// once an authServer has responded successfully, only that auth server
 	// will be used for all subsequent calls -- this is to prevent accidentally
 	// mixing credentials and using them inconsistently
 	foundAuthServer map[string]Child
-
 	// if an authServer returns an ErrAuthProviderNoResponse, dont call it again
 	// for this host unless AddProject is called.
 	skipAuthServer map[string][]Child
+	console        conslogging.ConsoleLogger
+	mu             sync.Mutex
 }
 
 // Register registers ap against server.

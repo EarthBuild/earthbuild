@@ -11,11 +11,11 @@ import (
 
 // visitedUpfrontHashCollection is a collection of visited targets.
 type visitedUpfrontHashCollection struct {
-	mu      sync.Mutex
 	visited map[string]*SingleTarget // targetInputHash -> sts
 	// visitedList is the same collection as above, but as a list,
 	// to make the ordering consistent.
 	visitedList []*SingleTarget
+	mu          sync.Mutex
 }
 
 // NewVisitedUpfrontHashCollection returns a collection of visited targets.

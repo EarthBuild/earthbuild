@@ -18,21 +18,21 @@ const targetInternal = "internal"
 // converter to the solver monitor via BuildKit.
 type VertexMeta struct {
 	SourceLocation      *spec.SourceLocation `json:"sl,omitempty"`
+	OverridingArgs      map[string]string    `json:"args,omitempty"`
+	CommandID           string               `json:"cid,omitempty"`
 	RepoGitURL          string               `json:"rgu,omitempty"`
 	RepoGitHash         string               `json:"rgh,omitempty"`
-	RepoFileRelToRepo   string               `json:"rfr,omitempty"`
-	CommandID           string               `json:"cid,omitempty"`
 	TargetID            string               `json:"tid,omitempty"`
 	TargetName          string               `json:"tnm,omitempty"`
 	CanonicalTargetName string               `json:"ctnm,omitempty"`
 	Platform            string               `json:"plt,omitempty"`
-	NonDefaultPlatform  bool                 `json:"defplt,omitempty"`
-	Local               bool                 `json:"lcl,omitempty"`
-	Interactive         bool                 `json:"itrctv,omitempty"`
-	OverridingArgs      map[string]string    `json:"args,omitempty"`
-	Secrets             []string             `json:"secrets,omitempty"`
-	Internal            bool                 `json:"itrnl,omitempty"`
 	Runner              string               `json:"runner,omitempty"`
+	RepoFileRelToRepo   string               `json:"rfr,omitempty"`
+	Secrets             []string             `json:"secrets,omitempty"`
+	Interactive         bool                 `json:"itrctv,omitempty"`
+	Local               bool                 `json:"lcl,omitempty"`
+	Internal            bool                 `json:"itrnl,omitempty"`
+	NonDefaultPlatform  bool                 `json:"defplt,omitempty"`
 }
 
 var vertexRegexp = regexp.MustCompile(`(?s)^\[([^\]]*)\] (.*)$`)

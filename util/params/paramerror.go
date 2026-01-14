@@ -7,8 +7,8 @@ import (
 )
 
 type Error struct {
-	msg   string
 	cause error
+	msg   string
 }
 
 func Errorf(format string, args ...any) error {

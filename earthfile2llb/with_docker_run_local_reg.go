@@ -57,7 +57,9 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	// Build and solve images to be loaded.
 	imageDefChans := make([]chan *states.ImageDef, 0, len(opt.Loads))
 	for _, loadOpt := range opt.Loads {
-		imageDefChan, err := w.load(ctx, loadOpt)
+		var imageDefChan chan *states.ImageDef
+
+		imageDefChan, err = w.load(ctx, loadOpt)
 		if err != nil {
 			return errors.Wrap(err, "load")
 		}
@@ -84,12 +86,12 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	w.c.opt.ErrorGroup.Go(func() error {
 		for {
 			select {
-			case err, ok := <-res.ErrChan:
+			case chanErr, ok := <-res.ErrChan:
 				if !ok {
 					return nil
 				}
 
-				return err
+				return chanErr
 			case <-ctx.Done():
 				return ctx.Err()
 			}
@@ -101,7 +103,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 		// Pull and then retag all images with expected tags.
 		pullImage := fmt.Sprintf("%s/%s", w.c.opt.LocalRegistryAddr, result.IntermediateImageName)
 
-		err := w.c.containerFrontend.ImagePull(ctx, pullImage)
+		err = w.c.containerFrontend.ImagePull(ctx, pullImage)
 		if err != nil {
 			return err
 		}

@@ -88,7 +88,9 @@ func getPotentialPaths(
 	expandedHomeLen := 0
 
 	if strings.HasPrefix(prefix, "~") {
-		users, err := fileutil.GetUserHomeDirs()
+		var users map[string]string
+
+		users, err = fileutil.GetUserHomeDirs()
 		if err != nil {
 			return nil, err
 		}
@@ -144,12 +146,16 @@ func getPotentialPaths(
 			targetToParse += ast.TargetBase
 		}
 
-		target, err := domain.ParseTarget(targetToParse)
+		var target domain.Target
+
+		target, err = domain.ParseTarget(targetToParse)
 		if err != nil {
 			return nil, err
 		}
 
-		targets, err := earthfile2llb.GetTargets(ctx, resolver, gwClient, target)
+		var targets []string
+
+		targets, err = earthfile2llb.GetTargets(ctx, resolver, gwClient, target)
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +188,9 @@ func getPotentialPaths(
 			usePrefixAsDir = false
 		}
 
-		files, err := os.ReadDir(p)
+		var files []os.DirEntry
+
+		files, err = os.ReadDir(p)
 		if err != nil {
 			return nil, err
 		}

@@ -35,21 +35,20 @@ type containerInfo struct {
 		} `json:"Ports"`
 	} `json:"NetworkSettings"`
 	Config struct {
-		Image  string            `json:"Image"`
 		Labels map[string]string `json:"Labels"`
+		Image  string            `json:"Image"`
 	} `json:"Config"`
 	Image string `json:"Image"`
 }
 
 type shellFrontend struct {
-	binaryName              string
-	rootless                bool
 	runCompatibilityArgs    []string
 	globalCompatibilityArgs []string
+	urls                    *FrontendURLs
+	binaryName              string
+	Console                 conslogging.ConsoleLogger
+	rootless                bool
 	likelyPodman            bool
-
-	urls    *FrontendURLs
-	Console conslogging.ConsoleLogger
 }
 
 func (sf *shellFrontend) IsAvailable(ctx context.Context) bool {

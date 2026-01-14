@@ -7,8 +7,8 @@ type CloseFun = func() error
 
 // Collection is a collection of cleanup operations.
 type Collection struct {
-	mu        sync.Mutex
 	closeFuns []CloseFun
+	mu        sync.Mutex
 }
 
 // NewCollection returns a new Collection.

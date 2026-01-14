@@ -11,9 +11,9 @@ import (
 // Error represents an auto-skip error that can include the source file name and
 // associated line number.
 type Error struct {
+	err    error
 	srcLoc *spec.SourceLocation
 	msg    string
-	err    error
 }
 
 func (e *Error) Error() string {

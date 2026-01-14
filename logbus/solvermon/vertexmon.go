@@ -25,15 +25,14 @@ const (
 )
 
 type vertexMonitor struct {
-	vertex    *client.Vertex
-	meta      *vertexmeta.VertexMeta
-	operation string
-	cp        *logbus.Command
-	ssp       *statsstreamparser.Parser
-
-	isFatalError   bool // If set, this is the root cause of the entire build failure.
-	fatalErrorType logstream.FailureType
+	vertex         *client.Vertex
+	meta           *vertexmeta.VertexMeta
+	cp             *logbus.Command
+	ssp            *statsstreamparser.Parser
+	operation      string
 	errorStr       string
+	fatalErrorType logstream.FailureType
+	isFatalError   bool // If set, this is the root cause of the entire build failure.
 	isCanceled     bool
 }
 

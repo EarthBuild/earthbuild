@@ -39,9 +39,8 @@ func GetEarthlyDir(installName string) string {
 
 func getEarthlyDirAndUser(installName string) (string, *user.User) {
 	homeDir, u := fileutil.HomeDir()
-	earthlyDir := filepath.Join(homeDir, "."+installName)
 
-	return earthlyDir, u
+	return filepath.Join(homeDir, "."+installName), u
 }
 
 // GetOrCreateEarthlyDir returns the .earthly dir. (Usually ~/.earthly).

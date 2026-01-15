@@ -25,6 +25,7 @@ func TestGolang(t *testing.T) {
 	//nolint:containedctx // TODO(jhorsts): replace onpar with std testing
 	type testCtx struct {
 		*testing.T
+
 		ctx    context.Context
 		expect expect.Expectation
 		golang *proj.Golang

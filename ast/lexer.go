@@ -17,6 +17,7 @@ const (
 // and dedentation tokens.
 type lexer struct {
 	*parser.EarthLexer
+
 	err                                          error
 	tokenQueue                                   []antlr.Token
 	prevIndentLevel                              int

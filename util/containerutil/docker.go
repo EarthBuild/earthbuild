@@ -18,6 +18,7 @@ import (
 
 type dockerShellFrontend struct {
 	*shellFrontend
+
 	userNamespaced bool
 }
 

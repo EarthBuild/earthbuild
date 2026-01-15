@@ -182,6 +182,7 @@ const (
 // Useful when the frontend was configured using FrontendAuto for deciding transport.
 type CurrentFrontend struct {
 	*FrontendURLs
+
 	Setting string
 	Binary  string
 	Type    string

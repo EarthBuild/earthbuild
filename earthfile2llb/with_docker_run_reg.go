@@ -19,8 +19,9 @@ import (
 )
 
 type withDockerRunRegistry struct {
-	sem semutil.Semaphore
 	*withDockerRunBase
+
+	sem            semutil.Semaphore
 	c              *Converter
 	enableParallel bool
 }

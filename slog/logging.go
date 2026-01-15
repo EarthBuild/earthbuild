@@ -32,13 +32,13 @@ func (l Logger) With(key string, value any) Logger {
 		valueStr = fmt.Sprintf("%v", v)
 	}
 
-	copy := l.clone()
-	copy.fields = append(copy.fields, field{
+	logger := l.clone()
+	logger.fields = append(logger.fields, field{
 		key:   key,
 		value: valueStr,
 	})
 
-	return copy
+	return logger
 }
 
 // Debug logs debug message.

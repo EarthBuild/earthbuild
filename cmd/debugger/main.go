@@ -53,7 +53,8 @@ func getShellPath() (string, bool) {
 	for _, sh := range []string{
 		"bash", "ksh", "zsh", "ash", "sh",
 	} {
-		if path, err := exec.LookPath(sh); err == nil {
+		path, err := exec.LookPath(sh)
+		if err == nil {
 			return path, true
 		}
 	}

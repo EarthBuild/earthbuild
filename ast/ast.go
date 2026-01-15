@@ -58,7 +58,8 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 	errorListener := antlrhandler.NewReturnErrorListener()
 	errorStrategy := antlrhandler.NewReturnErrorStrategy(parser.GetLexerLiteralNames(), parser.GetLexerSymbolicNames())
 
-	if _, err = preferences.reader.Seek(0, 0); err != nil {
+	_, err = preferences.reader.Seek(0, 0)
+	if err != nil {
 		return spec.Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
 	}
 
@@ -83,7 +84,7 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 	}
 
 	if errorStrategy.Err != nil {
-		err := errors.Wrapf(
+		err = errors.Wrapf(
 			errorStrategy.Err, "%s:%d:%d '%s'",
 			preferences.reader.Name(),
 			errorStrategy.RE.GetOffendingToken().GetLine(),
@@ -102,7 +103,8 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 
 	ef.Version = version
 
-	if err := validateAst(ef); err != nil {
+	err = validateAst(ef)
+	if err != nil {
 		return spec.Earthfile{}, err
 	}
 
@@ -112,7 +114,8 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 func walkTree(l *listener, tree parser.IEarthFileContext) (spec.Earthfile, error) {
 	antlr.ParseTreeWalkerDefault.Walk(l, tree)
 
-	if err := l.Err(); err != nil {
+	err := l.Err()
+	if err != nil {
 		return spec.Earthfile{}, err
 	}
 

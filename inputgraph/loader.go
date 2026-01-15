@@ -162,9 +162,11 @@ func (l *loader) handleCopy(ctx context.Context, cmd spec.Command) error {
 	}
 
 	srcs := args[:len(args)-1]
+	mustExist := !opts.IfExists
+
 	for _, src := range srcs {
-		mustExist := !opts.IfExists
-		if err := l.handleCopySrc(ctx, cmd, src, mustExist); err != nil {
+		err := l.handleCopySrc(ctx, cmd, src, mustExist)
+		if err != nil {
 			return err
 		}
 	}
@@ -272,7 +274,8 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		sort.Strings(files)
 
 		for _, file := range files {
-			if err = l.hasher.HashFile(ctx, file); err != nil {
+			err = l.hasher.HashFile(ctx, file)
+			if err != nil {
 				if errors.Is(err, os.ErrNotExist) && !mustExist {
 					continue
 				}
@@ -290,7 +293,9 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 	}
 
 	targetName := artifactSrc.Target.String()
-	if err := l.loadTargetFromString(ctx, targetName, extraArgs, false, cmd.SourceLocation); err != nil {
+
+	err = l.loadTargetFromString(ctx, targetName, extraArgs, false, cmd.SourceLocation)
+	if err != nil {
 		return err
 	}
 
@@ -452,13 +457,15 @@ func (l *loader) handleFromDockerfile(ctx context.Context, cmd spec.Command) err
 	}
 
 	if opts.Path != "" {
-		if err := l.handleCopySrc(ctx, cmd, opts.Path, false); err != nil {
+		err = l.handleCopySrc(ctx, cmd, opts.Path, false)
+		if err != nil {
 			return err
 		}
 	}
 
 	if len(args) > 0 {
-		if err := l.handleCopySrc(ctx, cmd, args[0], false); err != nil {
+		err = l.handleCopySrc(ctx, cmd, args[0], false)
+		if err != nil {
 			return err
 		}
 	}
@@ -791,20 +798,23 @@ func (l *loader) handleIfEval(ctx context.Context, ifStmt spec.IfStatement) erro
 }
 
 func (l *loader) handleIfDefault(ctx context.Context, ifStmt spec.IfStatement) error {
-	if err := l.loadBlock(ctx, ifStmt.IfBody); err != nil {
+	err := l.loadBlock(ctx, ifStmt.IfBody)
+	if err != nil {
 		return err
 	}
 
 	for _, elseIf := range ifStmt.ElseIf {
 		l.hashElseIf(elseIf)
 
-		if err := l.loadBlock(ctx, elseIf.Body); err != nil {
+		err = l.loadBlock(ctx, elseIf.Body)
+		if err != nil {
 			return err
 		}
 	}
 
 	if ifStmt.ElseBody != nil {
-		if err := l.loadBlock(ctx, *ifStmt.ElseBody); err != nil {
+		err = l.loadBlock(ctx, *ifStmt.ElseBody)
+		if err != nil {
 			return err
 		}
 	}
@@ -878,18 +888,21 @@ func (l *loader) handleWait(ctx context.Context, waitStmt spec.WaitStatement) er
 func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
 	l.hashTryStatement()
 
-	if err := l.handleStatements(ctx, tryStmt.TryBody); err != nil {
+	err := l.handleStatements(ctx, tryStmt.TryBody)
+	if err != nil {
 		return err
 	}
 
 	if tryStmt.CatchBody != nil {
-		if err := l.handleStatements(ctx, *tryStmt.CatchBody); err != nil {
+		err = l.handleStatements(ctx, *tryStmt.CatchBody)
+		if err != nil {
 			return err
 		}
 	}
 
 	if tryStmt.FinallyBody != nil {
-		if err := l.handleStatements(ctx, *tryStmt.FinallyBody); err != nil {
+		err = l.handleStatements(ctx, *tryStmt.FinallyBody)
+		if err != nil {
 			return err
 		}
 	}
@@ -901,7 +914,8 @@ func (l *loader) handleStatements(ctx context.Context, stmts []spec.Statement) e
 	l.hasher.HashInt(len(stmts))
 
 	for _, stmt := range stmts {
-		if err := l.handleStatement(ctx, stmt); err != nil {
+		err := l.handleStatement(ctx, stmt)
+		if err != nil {
 			return err
 		}
 	}
@@ -1107,8 +1121,6 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 	// Ensure all "base" target commands are processed once.
 	if !l.baseProcessed {
 		for _, stmt := range ef.BaseRecipe {
-			var err error
-
 			switch {
 			case stmt.Command == nil: // noop
 			case stmt.Command.Name == command.Import:
@@ -1142,7 +1154,8 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 			return nil, fmt.Errorf("target %q not found", l.target.Target)
 		}
 
-		if err := l.loadBlock(ctx, block); err != nil {
+		err = l.loadBlock(ctx, block)
+		if err != nil {
 			return nil, err
 		}
 	}

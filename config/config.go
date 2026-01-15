@@ -156,7 +156,8 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 		},
 	}
 
-	if err := yaml.Unmarshal(yamlData, &config); err != nil {
+	err := yaml.Unmarshal(yamlData, &config)
+	if err != nil {
 		return Config{}, errors.Wrap(err, "failed to parse YAML config")
 	}
 
@@ -164,7 +165,8 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 		config.Git = make(map[string]GitConfig)
 	}
 
-	if err := parseRelPaths(installationName, &config); err != nil {
+	err = parseRelPaths(installationName, &config)
+	if err != nil {
 		return Config{}, errors.Wrap(err, "failed to parse relative path")
 	}
 
@@ -512,7 +514,8 @@ func WriteConfigFile(configPath string, data []byte) error {
 }
 
 func parseRelPaths(instName string, cfg *Config) error {
-	if err := parseTLSPaths(instName, cfg); err != nil {
+	err := parseTLSPaths(instName, cfg)
+	if err != nil {
 		return errors.Wrap(err, "could not parse relative TLS paths")
 	}
 
@@ -533,7 +536,8 @@ func parseTLSPaths(instName string, cfg *Config) error {
 		"server cert": &cfg.Global.ServerTLSCert,
 	}
 	for name, field := range fields {
-		if err := parsePath(instName, field); err != nil {
+		err := parsePath(instName, field)
+		if err != nil {
 			return errors.Wrapf(err, "could not parse %v path %q", name, *field)
 		}
 	}

@@ -103,11 +103,13 @@ func GenCerts(cfg config.Config, hostname string) error {
 		Cert: caCert,
 	}
 
-	if err := genCert(ca, buildkit, hostname, cfg.Global.ServerTLSKey, cfg.Global.ServerTLSCert); err != nil {
+	err = genCert(ca, buildkit, hostname, cfg.Global.ServerTLSKey, cfg.Global.ServerTLSCert)
+	if err != nil {
 		return errors.Wrapf(err, "could not generate server TLS key/cert pair for %v", buildkit)
 	}
 
-	if err := genCert(ca, earthly, hostname, cfg.Global.ClientTLSKey, cfg.Global.ClientTLSCert); err != nil {
+	err = genCert(ca, earthly, hostname, cfg.Global.ClientTLSKey, cfg.Global.ClientTLSCert)
+	if err != nil {
 		return errors.Wrapf(err, "could not generate client TLS key/cert pair for %v", earthly)
 	}
 
@@ -134,7 +136,8 @@ func genCert(ca *certData, role, hostname, keyPath, certPath string) error {
 	}
 
 	if !certExists {
-		if _, err := createTLSCert(ca, key, role, certPath, hostname); err != nil {
+		_, err = createTLSCert(ca, key, role, certPath, hostname)
+		if err != nil {
 			return errors.Wrapf(err, "could not create %v TLS cert", role)
 		}
 	}
@@ -164,7 +167,8 @@ func createTLSKey(path string) (*rsa.PrivateKey, error) {
 		return nil, errors.Wrapf(err, "could not generate RSA key")
 	}
 
-	if err := savePEM(path, typeRSAKey, x509.MarshalPKCS1PrivateKey(key)); err != nil {
+	err = savePEM(path, typeRSAKey, x509.MarshalPKCS1PrivateKey(key))
+	if err != nil {
 		return nil, errors.Wrapf(err, "saving private key to %q failed", path)
 	}
 
@@ -212,7 +216,8 @@ func createTLSCert(ca *certData, key *rsa.PrivateKey, role, path, hostname strin
 		return nil, errors.Wrapf(err, "could not generate certificate for role %q", role)
 	}
 
-	if err := savePEM(path, typeCert, certBytes); err != nil {
+	err = savePEM(path, typeCert, certBytes)
+	if err != nil {
 		return nil, errors.Wrapf(err, "could not save certificate for role %q to path %q", role, path)
 	}
 
@@ -238,7 +243,8 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 		return nil, errors.Wrap(err, "creating CA certificate failed")
 	}
 
-	if err := savePEM(path, typeCert, caBytes); err != nil {
+	err = savePEM(path, typeCert, caBytes)
+	if err != nil {
 		return nil, errors.Wrapf(err, "saving CA certificate to %q failed", path)
 	}
 
@@ -265,7 +271,8 @@ func savePEM(path, typ string, bytes []byte) error {
 		return err
 	}
 
-	if err := f.Chmod(0o444); err != nil {
+	err = f.Chmod(0o444)
+	if err != nil {
 		return err
 	}
 

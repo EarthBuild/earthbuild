@@ -133,7 +133,8 @@ func podmanAuth(o OS, path string) (*configfile.ConfigFile, error) {
 
 	defer f.Close()
 
-	if err := cfg.LoadFromReader(f); err != nil {
+	err = cfg.LoadFromReader(f)
+	if err != nil {
 		return cfg, errors.Wrap(err, path)
 	}
 

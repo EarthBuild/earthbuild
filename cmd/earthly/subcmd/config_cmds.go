@@ -94,7 +94,8 @@ func (a *Config) action(cliCtx *cli.Context) error {
 
 	switch args[1] {
 	case "-h", "--help":
-		if err = config.PrintHelp(args[0]); err != nil {
+		err = config.PrintHelp(args[0])
+		if err != nil {
 			return errors.Wrap(err, "help")
 		}
 

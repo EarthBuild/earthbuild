@@ -18,7 +18,8 @@ func ExtractEarthlyGitStdErr(errStr string) (extracted, shorterErr string, ok bo
 
 	matches := gitStdErrRegexp.FindStringSubmatch(errStr)
 	if len(matches) == 2 {
-		if stderr, err := base64.StdEncoding.DecodeString(matches[1]); err == nil {
+		stderr, err := base64.StdEncoding.DecodeString(matches[1])
+		if err == nil {
 			return strings.TrimSpace(string(stderr)), shorterErr, true
 		}
 	}

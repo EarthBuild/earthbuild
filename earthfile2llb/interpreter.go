@@ -1606,7 +1606,8 @@ func (i *Interpreter) handleWildcardBuilds(
 	}
 
 	for _, child := range children {
-		if err := i.handleBuild(ctx, child, async); err != nil {
+		err = i.handleBuild(ctx, child, async)
+		if err != nil {
 			return err
 		}
 	}
@@ -2393,7 +2394,8 @@ func (i *Interpreter) handleCache(ctx context.Context, cmd spec.Command) error {
 		}
 	}
 
-	if err := i.converter.Cache(ctx, dir, opts); err != nil {
+	err = i.converter.Cache(ctx, dir, opts)
+	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply CACHE")
 	}
 
@@ -2428,7 +2430,8 @@ func (i *Interpreter) handleHost(ctx context.Context, cmd spec.Command) error {
 		return i.errorf(cmd.SourceLocation, "invalid HOST ip %s", ipStr)
 	}
 
-	if err := i.converter.Host(ctx, host, ip); err != nil {
+	err = i.converter.Host(ctx, host, ip)
+	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply HOST")
 	}
 

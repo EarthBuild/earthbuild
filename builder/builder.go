@@ -172,7 +172,8 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 		return nil, false
 	}
 
-	if err := caps.Supports(pb.CapEarthlyRegistryProxy); err != nil {
+	err := caps.Supports(pb.CapEarthlyRegistryProxy)
+	if err != nil {
 		cons.Print(err.Error())
 		return nil, false
 	}

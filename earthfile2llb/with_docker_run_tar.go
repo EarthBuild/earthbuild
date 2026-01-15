@@ -21,8 +21,9 @@ import (
 )
 
 type withDockerRunTar struct {
-	sem semutil.Semaphore
 	*withDockerRunBase
+
+	sem            semutil.Semaphore
 	c              *Converter
 	tarLoads       []tarLoad
 	mu             sync.Mutex

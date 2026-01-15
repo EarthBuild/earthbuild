@@ -77,6 +77,8 @@ func (img *Image) Clone() *Image {
 }
 
 // Config is a docker compatible config for an image.
+//
+//nolint:embeddedstructfieldcheck // fieldalignment takes precedence over embeddedstructfieldcheck
 type Config struct {
 	Healthcheck *image.HealthConfig `json:",omitempty"`
 	specs.ImageConfig

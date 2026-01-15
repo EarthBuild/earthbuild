@@ -27,8 +27,9 @@ type block struct {
 }
 
 type listener struct {
-	err error
 	*parser.BaseEarthParserListener
+
+	err             error
 	tokStream       *antlr.CommonTokenStream
 	ef              *spec.Earthfile
 	target          *spec.Target

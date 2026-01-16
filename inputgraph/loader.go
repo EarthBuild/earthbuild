@@ -214,6 +214,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 
 	// Complex form with args: (+target --arg=1). We'll wait to expand any args
 	// until the full target is processed below.
+	//nolint:nestif // TODO(jhorsts): simplify
 	if flagutil.IsInParamsForm(src) {
 		var artifactName string
 
@@ -249,54 +250,55 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 		}
 	}
 
-	// COPY classical (not from another target). The args are expanded here as
-	// files and directories will by read from.
-	if classical {
-		src, err = l.expandArgs(src)
+	if !classical {
+		extraArgs, err = l.expandArgsSlice(extraArgs)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to expand args")
 		}
 
-		if containsShellExpr(src) {
-			return newError(cmd.SourceLocation, "dynamic COPY source %q cannot be resolved", src)
-		}
+		targetName := artifactSrc.Target.String()
 
-		var (
-			files []string
-			path  = filepath.Join(l.target.GetLocalPath(), src)
-		)
-
-		files, err = l.expandCopyFiles(path, mustExist)
+		err = l.loadTargetFromString(ctx, targetName, extraArgs, false, cmd.SourceLocation)
 		if err != nil {
-			return addErrorSrc(err, cmd.SourceLocation)
-		}
-
-		sort.Strings(files)
-
-		for _, file := range files {
-			err = l.hasher.HashFile(ctx, file)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) && !mustExist {
-					continue
-				}
-
-				return wrapError(err, cmd.SourceLocation, "failed to hash file %s", path)
-			}
+			return err
 		}
 
 		return nil
 	}
 
-	extraArgs, err = l.expandArgsSlice(extraArgs)
+	// COPY classical (not from another target). The args are expanded here as
+	// files and directories will by read from.
+
+	src, err = l.expandArgs(src)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to expand args")
 	}
 
-	targetName := artifactSrc.Target.String()
+	if containsShellExpr(src) {
+		return newError(cmd.SourceLocation, "dynamic COPY source %q cannot be resolved", src)
+	}
 
-	err = l.loadTargetFromString(ctx, targetName, extraArgs, false, cmd.SourceLocation)
+	var (
+		files []string
+		path  = filepath.Join(l.target.GetLocalPath(), src)
+	)
+
+	files, err = l.expandCopyFiles(path, mustExist)
 	if err != nil {
-		return err
+		return addErrorSrc(err, cmd.SourceLocation)
+	}
+
+	sort.Strings(files)
+
+	for _, file := range files {
+		err = l.hasher.HashFile(ctx, file)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) && !mustExist {
+				continue
+			}
+
+			return wrapError(err, cmd.SourceLocation, "failed to hash file %s", path)
+		}
 	}
 
 	return nil

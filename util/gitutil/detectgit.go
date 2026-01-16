@@ -471,21 +471,21 @@ func ParseCoAuthorsFromBody(body string) []string {
 		splits := strings.Split(s, " ")
 
 		n := len(splits)
+		if n <= 2 || splits[0] != "Co-authored-by:" {
+			continue
+		}
+
+		email := splits[n-1]
+
+		n = len(email)
 		if n > 2 {
-			if splits[0] == "Co-authored-by:" {
-				email := splits[n-1]
+			if email[0] == '<' && email[n-1] == '>' {
+				email = email[1:(n - 1)]
 
-				n = len(email)
-				if n > 2 {
-					if email[0] == '<' && email[n-1] == '>' {
-						email = email[1:(n - 1)]
-
-						_, seen := coAuthorsSeen[email]
-						if !seen {
-							coAuthors = append(coAuthors, email)
-							coAuthorsSeen[email] = struct{}{}
-						}
-					}
+				_, seen := coAuthorsSeen[email]
+				if !seen {
+					coAuthors = append(coAuthors, email)
+					coAuthorsSeen[email] = struct{}{}
 				}
 			}
 		}

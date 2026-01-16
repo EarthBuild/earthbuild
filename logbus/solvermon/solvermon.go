@@ -96,9 +96,8 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		}
 
 		vm, exists := sm.vertices[cmdID]
-		if exists {
-			sm.digests[vertex.Digest] = cmdID
-		} else {
+		//nolint:nestif // TODO(jhorsts): simplify
+		if !exists {
 			category := meta.TargetName
 			if meta.Internal {
 				category = "internal " + category
@@ -133,16 +132,16 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp.SetName(operation) // Command created prior may not have a full name.
 			}
 
-			vm = &vertexMonitor{
+			sm.vertices[cmdID] = &vertexMonitor{
 				vertex:    vertex,
 				meta:      meta,
 				operation: operation,
 				cp:        cp,
 				ssp:       statsstreamparser.New(),
 			}
-			sm.vertices[cmdID] = vm
-			sm.digests[vertex.Digest] = cmdID
 		}
+
+		sm.digests[vertex.Digest] = cmdID
 
 		vm.vertex = vertex
 		if vertex.Cached {
@@ -157,31 +156,33 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			vm.parseError()
 		}
 
-		if vertex.Completed != nil {
-			var status logstream.RunStatus
+		if vertex.Completed == nil {
+			continue
+		}
 
-			switch {
-			case vm.isCanceled:
-				status = logstream.RunStatus_RUN_STATUS_CANCELED
-			case vertex.Error == "" && !vm.isFatalError:
-				status = logstream.RunStatus_RUN_STATUS_SUCCESS
-			default:
-				status = logstream.RunStatus_RUN_STATUS_FAILURE
-			}
+		var status logstream.RunStatus
 
-			vm.cp.SetEnd(*vertex.Completed, status, vm.errorStr)
+		switch {
+		case vm.isCanceled:
+			status = logstream.RunStatus_RUN_STATUS_CANCELED
+		case vertex.Error == "" && !vm.isFatalError:
+			status = logstream.RunStatus_RUN_STATUS_SUCCESS
+		default:
+			status = logstream.RunStatus_RUN_STATUS_FAILURE
+		}
 
-			if vm.isFatalError {
-				// Run this at the end so that we capture any additional log lines.
-				defer bp.SetFatalError(
-					*vertex.Completed,
-					vm.meta.TargetID,
-					cmdID,
-					vm.fatalErrorType,
-					"",
-					stringutil.ScrubCredentialsAll(vm.errorStr),
-				)
-			}
+		vm.cp.SetEnd(*vertex.Completed, status, vm.errorStr)
+
+		if vm.isFatalError {
+			// Run this at the end so that we capture any additional log lines.
+			defer bp.SetFatalError(
+				*vertex.Completed,
+				vm.meta.TargetID,
+				cmdID,
+				vm.fatalErrorType,
+				"",
+				stringutil.ScrubCredentialsAll(vm.errorStr),
+			)
 		}
 	}
 

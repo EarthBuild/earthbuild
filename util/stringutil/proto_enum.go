@@ -44,6 +44,7 @@ func EnumToStringArray[T ProtoEnum](items []T, f EnumToStringFunc) []string {
 	for _, item := range items {
 		strs = append(strs, f(item))
 	}
+
 	return strs
 }
 
@@ -52,5 +53,6 @@ func pretty(caser caser, e ProtoEnum) string {
 	idx := strings.Index(val, "_")
 	val = val[idx+1:]
 	prefix := strcase.ToScreamingSnake(val) + "_"
+
 	return caser.String(strings.ReplaceAll(strings.TrimPrefix(e.String(), prefix), "_", " "))
 }

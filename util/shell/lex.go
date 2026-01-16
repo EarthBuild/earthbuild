@@ -21,12 +21,12 @@ import (
 // It doesn't support all flavors of ${xx:...} formats but new ones can
 // be added by adding code to the "special ${} format processing" section.
 type Lex struct {
+	ShellOut          EvalShellOutFn
 	escapeToken       rune
 	RawQuotes         bool
 	RawEscapes        bool
 	SkipProcessQuotes bool
 	SkipUnsetEnv      bool
-	ShellOut          EvalShellOutFn
 }
 
 // NewLex creates a new Lex which uses escapeToken to escape quotes.
@@ -81,6 +81,7 @@ func (s *Lex) process(word string, env map[string]string, shelloutEnvs map[strin
 		shellOut:          s.ShellOut,
 	}
 	sw.scanner.Init(strings.NewReader(word))
+
 	return sw.process(word)
 }
 
@@ -91,15 +92,15 @@ type EvalShellOutFn func(cmd string) (string, error)
 var ErrNoShellOut = errors.New("shelling out is not available")
 
 type shellWord struct {
-	scanner           scanner.Scanner
 	envs              map[string]string
 	shellOutEnvs      map[string]struct{}
+	shellOut          EvalShellOutFn
+	scanner           scanner.Scanner
 	escapeToken       rune
 	rawQuotes         bool
 	rawEscapes        bool
 	skipUnsetEnv      bool
 	skipProcessQuotes bool
-	shellOut          EvalShellOutFn
 }
 
 func (sw *shellWord) process(source string) (string, []string, error) {
@@ -107,6 +108,7 @@ func (sw *shellWord) process(source string) (string, []string, error) {
 	if err != nil {
 		err = errors.Wrapf(err, "failed to process %q", source)
 	}
+
 	return word, words, err
 }
 
@@ -152,14 +154,17 @@ func (w *wordsStruct) getWords() []string {
 		w.word = ""
 		w.inWord = false
 	}
+
 	return w.words
 }
 
 // Process the word, starting at 'pos', and stop when we get to the
 // end of the word or the 'stopChar' character.
 func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
-	var result bytes.Buffer
-	var words wordsStruct
+	var (
+		result bytes.Buffer
+		words  wordsStruct
+	)
 
 	charFuncMapping := map[rune]func() (string, error){
 		'$': sw.processDollar,
@@ -176,12 +181,14 @@ func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
 			sw.scanner.Next()
 			return result.String(), words.getWords(), nil
 		}
+
 		if fn, ok := charFuncMapping[ch]; ok {
 			// Call special processing func for certain chars
 			tmp, err := fn()
 			if err != nil {
 				return "", []string{}, err
 			}
+
 			result.WriteString(tmp)
 
 			if ch == rune('$') {
@@ -214,9 +221,11 @@ func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
 			result.WriteRune(ch)
 		}
 	}
+
 	if stopChar != scanner.EOF {
 		return "", []string{}, errors.Errorf("unexpected end of statement while looking for matching %s", string(stopChar))
 	}
+
 	return result.String(), words.getWords(), nil
 }
 
@@ -229,7 +238,6 @@ func (sw *shellWord) processSingleQuote() (string, error) {
 	//   Enclosing characters in single quotes preserves the literal meaning of
 	//   all the characters (except single quotes, making it impossible to put
 	//   single-quotes in a single-quoted string).
-
 	var result bytes.Buffer
 
 	ch := sw.scanner.Next()
@@ -246,8 +254,10 @@ func (sw *shellWord) processSingleQuote() (string, error) {
 			if sw.rawQuotes {
 				result.WriteRune(ch)
 			}
+
 			return result.String(), nil
 		}
+
 		result.WriteRune(ch)
 	}
 }
@@ -264,7 +274,6 @@ func (sw *shellWord) processDoubleQuote() (string, error) {
 	//  serves to quote only the following characters:
 	//    $ ` " \ <newline>.
 	//  Otherwise it remains literal.
-
 	var result bytes.Buffer
 
 	ch := sw.scanner.Next()
@@ -281,12 +290,14 @@ func (sw *shellWord) processDoubleQuote() (string, error) {
 			if sw.rawQuotes {
 				result.WriteRune(ch)
 			}
+
 			return result.String(), nil
 		case '$':
 			value, err := sw.processDollar()
 			if err != nil {
 				return "", err
 			}
+
 			result.WriteString(value)
 		default:
 			ch := sw.scanner.Next()
@@ -307,6 +318,7 @@ func (sw *shellWord) processDoubleQuote() (string, error) {
 					ch = sw.scanner.Next()
 				}
 			}
+
 			result.WriteRune(ch)
 		}
 	}
@@ -314,7 +326,6 @@ func (sw *shellWord) processDoubleQuote() (string, error) {
 
 func (sw *shellWord) processDoubleQuoteIgnoringDollar() (string, error) {
 	// like processDoubleQuote except no variable substitution is done (as we are in the shell-out)
-
 	var result bytes.Buffer
 
 	result.WriteRune('"')
@@ -326,6 +337,7 @@ func (sw *shellWord) processDoubleQuoteIgnoringDollar() (string, error) {
 		case '"':
 			ch := sw.scanner.Next()
 			result.WriteRune(ch)
+
 			return result.String(), nil
 		default:
 			ch := sw.scanner.Next()
@@ -344,6 +356,7 @@ func (sw *shellWord) processDoubleQuoteIgnoringDollar() (string, error) {
 					ch = sw.scanner.Next()
 				}
 			}
+
 			result.WriteRune(ch)
 		}
 	}
@@ -367,8 +380,11 @@ func (sw *shellWord) processDollar() (string, error) {
 		if name == "" {
 			return "$", nil
 		}
+
 		value, err := sw.getEnv(name)
+
 		var found bool
+
 		switch err {
 		case nil:
 			found = true
@@ -377,9 +393,11 @@ func (sw *shellWord) processDollar() (string, error) {
 		default:
 			return "", err
 		}
+
 		if !found && sw.skipUnsetEnv {
 			return "$" + name, nil
 		}
+
 		return value, nil
 	}
 }
@@ -389,36 +407,46 @@ func (sw *shellWord) processDollarShellOut() (string, error) {
 
 	oldRawQuotes := sw.rawQuotes
 	sw.rawQuotes = true
+
 	defer func() { sw.rawQuotes = oldRawQuotes }()
 
 	seenParentheses := 1
 	escaped := false
+
 	for {
 		ch := sw.scanner.Peek()
 		if ch == scanner.EOF {
 			return "", errors.New("syntax error: missing ')'")
 		}
+
 		if escaped {
 			escaped = false
 			ch = sw.scanner.Next()
 			result.WriteRune(ch)
+
 			continue
 		}
+
 		switch ch {
 		case '\\':
 			escaped = true
 			_ = sw.scanner.Next()
+
 			continue
 		case ')':
 			seenParentheses--
 			ch = sw.scanner.Next()
+
 			if seenParentheses == 0 {
 				command := result.String()
+
 				if sw.shellOut == nil {
 					return "", ErrNoShellOut
 				}
+
 				return sw.shellOut(command)
 			}
+
 			result.WriteRune(ch)
 		case '(':
 			seenParentheses++
@@ -430,13 +458,16 @@ func (sw *shellWord) processDollarShellOut() (string, error) {
 			if err != nil {
 				return "", err
 			}
+
 			result.WriteString(s)
 		case '"':
 			_ = sw.scanner.Next()
+
 			s, err := sw.processDoubleQuoteIgnoringDollar()
 			if err != nil {
 				return "", err
 			}
+
 			result.WriteString(s)
 		default:
 			ch = sw.scanner.Next()
@@ -453,13 +484,17 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 		// Invalid ${{xx}, ${:xx}, ${:}. ${} case
 		return "", errors.New("syntax error: bad substitution")
 	}
+
 	name := sw.processName()
+
 	ch := sw.scanner.Next()
 	switch ch {
 	case '}':
 		// Normal ${xx} case
 		value, err := sw.getEnv(name)
+
 		var found bool
+
 		switch err {
 		case nil:
 			found = true
@@ -468,9 +503,11 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 		default:
 			return "", err
 		}
+
 		if !found && sw.skipUnsetEnv {
 			return fmt.Sprintf("${%s}", name), nil
 		}
+
 		return value, nil
 	case '?':
 		word, _, err := sw.processStopOn('}')
@@ -478,10 +515,14 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 			if sw.scanner.Peek() == scanner.EOF {
 				return "", errors.New("syntax error: missing '}'")
 			}
+
 			return "", err
 		}
+
 		newValue, err := sw.getEnv(name)
+
 		var found bool
+
 		switch err {
 		case nil:
 			found = true
@@ -490,16 +531,20 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 		default:
 			return "", err
 		}
+
 		if !found {
 			if sw.skipUnsetEnv {
 				return fmt.Sprintf("${%s?%s}", name, word), nil
 			}
+
 			message := "is not allowed to be unset"
 			if word != "" {
 				message = word
 			}
+
 			return "", errors.Errorf("%s: %s", name, message)
 		}
+
 		return newValue, nil
 	case '%':
 		word, _, err := sw.processStopOn('}')
@@ -507,10 +552,14 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 			if sw.scanner.Peek() == scanner.EOF {
 				return "", errors.New("syntax error: missing '}'")
 			}
+
 			return "", err
 		}
+
 		newValue, err := sw.getEnv(name)
+
 		var found bool
+
 		switch err {
 		case nil:
 			found = true
@@ -519,15 +568,19 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 		default:
 			return "", err
 		}
+
 		if !found && sw.skipUnsetEnv {
 			return fmt.Sprintf("${%s%%%s}", name, word), nil
 		}
+
 		if len(word) > len(newValue) {
 			return newValue, nil
 		}
+
 		if newValue[len(newValue)-len(word):] == word {
 			return newValue[:len(newValue)-len(word)], nil
 		}
+
 		return newValue, nil
 	case '#':
 		word, _, err := sw.processStopOn('}')
@@ -535,10 +588,14 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 			if sw.scanner.Peek() == scanner.EOF {
 				return "", errors.New("syntax error: missing '}'")
 			}
+
 			return "", err
 		}
+
 		newValue, err := sw.getEnv(name)
+
 		var found bool
+
 		switch err {
 		case nil:
 			found = true
@@ -547,15 +604,19 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 		default:
 			return "", err
 		}
+
 		if !found && sw.skipUnsetEnv {
 			return fmt.Sprintf("${%s#%s}", name, word), nil
 		}
+
 		if len(word) > len(newValue) {
 			return newValue, nil
 		}
+
 		if newValue[0:len(word)] == word {
 			return newValue[len(word):], nil
 		}
+
 		return newValue, nil
 	case ':':
 		// Special ${xx:...} format processing
@@ -567,13 +628,16 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 			if sw.scanner.Peek() == scanner.EOF {
 				return "", errors.New("syntax error: missing '}'")
 			}
+
 			return "", err
 		}
 
 		// Grab the current value of the variable in question so we
 		// can use it to determine what to do based on the modifier
 		newValue, err := sw.getEnv(name)
+
 		var found bool
+
 		switch err {
 		case nil:
 			found = true
@@ -588,15 +652,18 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 			if newValue != "" {
 				newValue = word
 			}
+
 			if !found && sw.skipUnsetEnv {
 				return fmt.Sprintf("${%s:%s%s}", name, string(modifier), word), nil
 			}
+
 			return newValue, nil
 
 		case '-':
 			if newValue == "" {
 				newValue = word
 			}
+
 			if !found && sw.skipUnsetEnv {
 				return fmt.Sprintf("${%s:%s%s}", name, string(modifier), word), nil
 			}
@@ -608,25 +675,31 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 				if sw.skipUnsetEnv {
 					return fmt.Sprintf("${%s:%s%s}", name, string(modifier), word), nil
 				}
+
 				message := "is not allowed to be unset"
 				if word != "" {
 					message = word
 				}
+
 				return "", errors.Errorf("%s: %s", name, message)
 			}
+
 			if newValue == "" {
 				message := "is not allowed to be empty"
 				if word != "" {
 					message = word
 				}
+
 				return "", errors.Errorf("%s: %s", name, message)
 			}
+
 			return newValue, nil
 
 		default:
 			return "", errors.Errorf("unsupported modifier (%c) in substitution", modifier)
 		}
 	}
+
 	return "", errors.Errorf("missing ':' in substitution")
 }
 
@@ -643,15 +716,19 @@ func (sw *shellWord) processName() string {
 				ch = sw.scanner.Next()
 				name.WriteRune(ch)
 			}
+
 			return name.String()
 		}
+
 		if name.Len() == 0 && isSpecialParam(ch) {
 			ch = sw.scanner.Next()
 			return string(ch)
 		}
+
 		if !unicode.IsLetter(ch) && !unicode.IsDigit(ch) && ch != '_' {
 			break
 		}
+
 		ch = sw.scanner.Next()
 		name.WriteRune(ch)
 	}
@@ -668,6 +745,7 @@ func isSpecialParam(char rune) bool {
 		// http://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_05_02
 		return true
 	}
+
 	return false
 }
 
@@ -715,5 +793,6 @@ func BuildShellOutEnvs(shellOutEnvs []string) map[string]struct{} {
 	for _, s := range shellOutEnvs {
 		m[s] = struct{}{}
 	}
+
 	return m
 }

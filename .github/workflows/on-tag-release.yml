@@ -56,4 +56,4 @@ jobs:
                       ./release+promote-to-dockerhub \
                       --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
                       --CONTAINER_REGISTRY_USER="${{ env.GHCR_USERNAME }}" \
-                      --DEST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"
+                      --DST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"

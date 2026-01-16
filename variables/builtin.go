@@ -45,6 +45,7 @@ func BuiltinArgs(
 	if platr != nil {
 		SetPlatformArgs(ret, platr)
 		setUserPlatformArgs(ret, platr)
+
 		if ftrs.NewPlatform {
 			setNativePlatformArgs(ret, platr)
 		}
@@ -70,15 +71,19 @@ func BuiltinArgs(
 	if gitMeta != nil {
 		ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
 		ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
+
 		branch := ""
 		if len(gitMeta.Branch) > 0 {
 			branch = gitMeta.Branch[0]
 		}
+
 		ret.Add(arg.EarthlyGitBranch, branch)
+
 		tag := ""
 		if len(gitMeta.Tags) > 0 {
 			tag = gitMeta.Tags[0]
 		}
+
 		ret.Add(arg.EarthlyGitTag, tag)
 		ret.Add(arg.EarthlyGitOriginURL, gitMeta.RemoteURL)
 		ret.Add(arg.EarthlyGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
@@ -88,19 +93,23 @@ func BuiltinArgs(
 		if ftrs.GitCommitAuthorTimestamp {
 			ret.Add(arg.EarthlyGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
 		}
+
 		if gitMeta.CommitterTimestamp == "" {
 			ret.Add(arg.EarthlySourceDateEpoch, "0")
 		} else {
 			ret.Add(arg.EarthlySourceDateEpoch, gitMeta.CommitterTimestamp)
 		}
+
 		if ftrs.EarthlyGitAuthorArgs {
 			ret.Add(arg.EarthlyGitAuthor, gitMeta.AuthorEmail)
 			ret.Add(arg.EarthlyGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
 		}
+
 		if ftrs.GitAuthorEmailNameArgs {
 			if gitMeta.AuthorName != "" && gitMeta.AuthorEmail != "" {
 				ret.Add(arg.EarthlyGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
 			}
+
 			ret.Add(arg.EarthlyGitAuthorEmail, gitMeta.AuthorEmail)
 			ret.Add(arg.EarthlyGitAuthorName, gitMeta.AuthorName)
 		}
@@ -116,6 +125,7 @@ func BuiltinArgs(
 	if ftrs.EarthlyCIRunnerArg {
 		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
 	}
+
 	return ret
 }
 
@@ -153,23 +163,29 @@ func SetLocally(s *Scope, locally bool) {
 // getProjectName returns the deprecated PROJECT_NAME value.
 func getProjectName(s string) string {
 	protocol := "unknown"
+
 	parts := strings.SplitN(s, "://", 2)
 	if len(parts) > 1 {
 		protocol = parts[0]
 		s = parts[1]
 	}
+
 	parts = strings.SplitN(s, "@", 2)
 	if len(parts) > 1 {
 		s = parts[1]
 	}
+
 	if protocol == "unknown" {
 		s = strings.Replace(s, ":", "/", 1)
 	}
+
 	s = strings.TrimSuffix(s, ".git")
+
 	parts = strings.SplitN(s, "/", 2)
 	if len(parts) > 1 {
 		s = parts[1]
 	}
+
 	return s
 }
 
@@ -180,8 +196,10 @@ func setTargetTag(ret *Scope, target domain.Target, gitMeta *gitutil.GitMetadata
 		branch := gitMeta.Branch[0]
 		ret.Add(arg.EarthlyTargetTag, branch)
 		ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(branch))
+
 		return
 	}
+
 	ret.Add(arg.EarthlyTargetTag, target.Tag)
 	ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
 }

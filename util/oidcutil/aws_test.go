@@ -82,6 +82,7 @@ func TestAWSOIDCInfoString(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			res := tc.subject.String()
 			assert.Equal(t, tc.expected, res)
 		})
@@ -114,6 +115,7 @@ func TestAWSOIDCInfoRoleARNString(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			res := tc.subject.RoleARNString()
 			assert.Equal(t, tc.expected, res)
 		})
@@ -124,9 +126,9 @@ func TestParseAWSOIDCInfo(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		input       string
-		expected    *AWSOIDCInfo
 		expectedErr error
+		expected    *AWSOIDCInfo
+		input       string
 	}{
 		"error when string is invalid": {
 			input:       "invalid string",
@@ -220,6 +222,7 @@ func TestParseAWSOIDCInfo(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			res, err := ParseAWSOIDCInfo(tc.input)
 			assert.Equal(t, tc.expectedErr, err)
 			assert.Equal(t, tc.expected, res)

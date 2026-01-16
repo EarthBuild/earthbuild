@@ -33,14 +33,18 @@ func CopyOp(
 		// TODO: needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
 		destAdjusted += string("/")
 	}
+
 	var baseCopyOpts []llb.CopyOption
 	if chown != "" {
 		baseCopyOpts = append(baseCopyOpts, llb.WithUser(chown))
 	}
+
 	var fa *pllb.FileAction
+
 	if !keepTs {
 		baseCopyOpts = append(baseCopyOpts, llb.WithCreatedTime(*defaultTs()))
 	}
+
 	for _, src := range srcs {
 		if ifExists && len(src) != 0 {
 			// Strip ./ and / prefixes as to make paths relative to top-level.
@@ -51,6 +55,7 @@ func CopyOp(
 			// with additional wildcards (e.g., '[f]oo/*').
 			src = fmt.Sprintf("[%s]%s", string(src[0]), src[1:])
 		}
+
 		copyOpts := append([]llb.CopyOption{
 			&llb.CopyInfo{
 				Mode:                chmod,
@@ -68,16 +73,20 @@ func CopyOp(
 			fa = fa.Copy(srcState, src, destAdjusted, copyOpts...)
 		}
 	}
+
 	if fa == nil {
 		return destState, nil
 	}
+
 	if merge && chown == "" {
 		cwd, err := destState.GetDir(ctx)
 		if err != nil {
 			return pllb.State{}, err
 		}
+
 		return pllb.Merge([]pllb.State{destState, pllb.Scratch().Dir(cwd).File(fa)}, opts...).Dir(cwd), nil
 	}
+
 	return destState.File(fa, opts...), nil
 }
 
@@ -105,6 +114,7 @@ func CopyWithRunOptions(
 	run := copyState.Run(opts...)
 	destState := run.AddMount("/dest", srcState)
 	destState = destState.Platform(platr.ToLLBPlatform(platr.Current()))
+
 	return destState
 }
 
@@ -114,10 +124,12 @@ func Abs(ctx context.Context, s pllb.State, p string) (string, error) {
 	if path.IsAbs(p) {
 		return p, nil
 	}
+
 	dir, err := s.GetDir(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "get dir")
 	}
+
 	return path.Join(dir, p), nil
 }
 
@@ -129,10 +141,12 @@ var (
 func defaultTs() *time.Time {
 	defaultTsParse.Do(func() {
 		var err error
+
 		defaultTsValue, err = time.Parse(time.RFC3339, "2020-04-16T12:00:00+00:00")
 		if err != nil {
 			panic(err)
 		}
 	})
+
 	return &defaultTsValue
 }

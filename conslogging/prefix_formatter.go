@@ -35,8 +35,8 @@ var (
 )
 
 type prefixFormatter struct {
-	formatOpts []formatOpt
 	cache      sync.Map
+	formatOpts []formatOpt
 }
 
 type formatOpt func(str string, padding int, curLen int) string
@@ -47,6 +47,7 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 		// no match for the regex, return original string
 		return str
 	}
+
 	matches := make([]string, 0, len(namedMatches))
 	for _, name := range namedGroups {
 		if len(namedMatches[name]) == 0 {
@@ -69,11 +70,13 @@ func truncateURLWithCreds(str string, padding int, curLen int) string {
 	}
 
 	seps := []string{"://", ":", "@", "#", ""}
+
 	var sb strings.Builder
 	for i := range matches {
 		sb.WriteString(matches[i])
 		sb.WriteString(seps[i])
 	}
+
 	return sb.String()
 }
 
@@ -88,11 +91,14 @@ func truncateURL(str string, padding int, curLen int) string {
 		if curLen <= padding || len(part) <= 1 || part == ".." {
 			return part
 		}
+
 		if strings.HasSuffix(part, "/") {
 			curLen -= len(part) - 1
 			return fmt.Sprintf("%c%c", part[0], '/')
 		}
+
 		curLen -= len(part) - 1
+
 		return string(part[0])
 	})
 }
@@ -105,10 +111,12 @@ func truncateGITURL(str string, padding int, curLen int) string {
 		l1 := len(s)
 		s = normalize(s)
 		charsRemoved := l1 - len(s)
+
 		curLen -= charsRemoved
 		if curLen <= padding {
 			return fmt.Sprintf("(%s)", s)
 		}
+
 		return fmt.Sprintf("(%s%s)", urlProtocol, truncateURL(s, padding, curLen))
 	})
 }
@@ -120,20 +128,24 @@ func truncateTargetURL(str string, padding int, curLen int) string {
 		l1 := len(s)
 		s = normalize(s)
 		charsRemoved := l1 - len(s)
+
 		curLen -= charsRemoved
 		if curLen <= padding {
 			return fmt.Sprintf("%s%c", s, suffixChar)
 		}
+
 		return fmt.Sprintf("%s%c", truncateURL(s, padding, curLen), suffixChar)
 	})
 }
 
 func normalize(s string) string {
 	isLocalDirPrefix := strings.HasPrefix(s, "./")
+
 	s = filepath.Clean(s)
 	if isLocalDirPrefix {
 		return "./" + s
 	}
+
 	return s
 }
 
@@ -151,21 +163,26 @@ func (pb *prefixFormatter) Format(prefix string, padding int) (modifiedPrefix st
 	if padding <= NoPadding {
 		return prefix
 	}
+
 	key := pb.getKey(prefix, padding)
 	if cachedPrefix, ok := pb.cache.Load(key); ok {
 		return cachedPrefix.(string)
 	}
+
 	defer func() {
 		modifiedPrefix = fmt.Sprintf("%*s", padding, prefix)
 		pb.cache.Store(key, modifiedPrefix)
 	}()
+
 	curLen := len(prefix)
 	for _, formatOpt := range pb.formatOpts {
 		if curLen <= padding {
 			return
 		}
+
 		prefix = formatOpt(prefix, padding, curLen)
 		curLen = len(prefix)
 	}
+
 	return
 }

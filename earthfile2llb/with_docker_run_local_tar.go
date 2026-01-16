@@ -16,13 +16,11 @@ import (
 )
 
 type withDockerRunLocalTar struct {
-	c   *Converter
-	sem semutil.Semaphore
-
+	sem            semutil.Semaphore
+	c              *Converter
+	tarLoads       []tarLoadLocal
+	mu             sync.Mutex
 	enableParallel bool
-
-	mu       sync.Mutex
-	tarLoads []tarLoadLocal
 }
 
 func newWithDockerRunLocal(c *Converter, enableParallel bool) *withDockerRunLocalTar {
@@ -47,6 +45,7 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	if err != nil {
 		return err
 	}
+
 	w.c.nonSaveCommand()
 
 	cmdID, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
@@ -61,12 +60,16 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	// Build and solve images to be loaded.
 	loadPromises := make([]chan DockerLoadOpt, 0, len(opt.Loads))
 	for _, loadOpt := range opt.Loads {
-		lp, err := w.load(ctx, cmdID, loadOpt)
+		var lp chan DockerLoadOpt
+
+		lp, err = w.load(ctx, cmdID, loadOpt)
 		if err != nil {
 			return errors.Wrap(err, "load")
 		}
+
 		loadPromises = append(loadPromises, lp)
 	}
+
 	for _, lp := range loadPromises {
 		select {
 		case <-ctx.Done():
@@ -109,15 +112,18 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt DockerLoadOpt) (chan DockerLoadOpt, error) {
 	optPromise := make(chan DockerLoadOpt, 1)
+
 	depTarget, err := domain.ParseTarget(opt.Target)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
 	}
+
 	afterFun := func(ctx context.Context, mts *states.MultiTarget) error {
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
@@ -125,18 +131,23 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 				return errors.New(
 					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement")
 			}
+
 			if len(mts.Final.SaveImages) > 1 {
 				return errors.New(
 					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement: " +
 						"multiple tags mentioned in SAVE IMAGE")
 			}
+
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
-		err := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
-		if err != nil {
-			return err
+
+		inErr := w.solveImage(ctx, mts, depTarget.String(), opt.ImageName)
+		if inErr != nil {
+			return inErr
 		}
+
 		optPromise <- opt
+
 		return nil
 	}
 	if w.enableParallel {
@@ -151,11 +162,13 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 		if err != nil {
 			return nil, err
 		}
+
 		err = afterFun(ctx, mts)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return optPromise, nil
 }
 
@@ -166,19 +179,25 @@ func (w *withDockerRunLocalTar) solveImage(
 	if err != nil {
 		return errors.Wrap(err, "mk temp dir for docker load")
 	}
+
 	w.c.opt.CleanCollection.Add(func() error {
 		return os.RemoveAll(outDir)
 	})
+
 	outFile := path.Join(outDir, "image.tar")
+
 	err = w.c.opt.DockerImageSolverTar.SolveImage(ctx, mts, dockerTag, outFile, !w.c.ftrs.NoTarBuildOutput)
 	if err != nil {
 		return errors.Wrapf(err, "build target %s for docker load", opName)
 	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	w.tarLoads = append(w.tarLoads, tarLoadLocal{
 		imgName: dockerTag,
 		imgFile: outFile,
 	})
+
 	return nil
 }

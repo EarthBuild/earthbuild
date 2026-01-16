@@ -9,16 +9,20 @@ import (
 // and returns a map with the keys and values.
 func StringToMap(str string) (map[string]string, error) {
 	pairs := strings.Split(str, ",")
+
 	kvp := make(map[string]string, len(pairs))
 	for _, pair := range pairs {
 		if strings.TrimSpace(pair) == "" {
 			continue
 		}
+
 		k, v, ok := strings.Cut(pair, "=")
 		if !ok {
 			return nil, errors.New("key/value must be set with =")
 		}
+
 		kvp[strings.TrimSpace(k)] = strings.TrimSpace(v)
 	}
+
 	return kvp, nil
 }

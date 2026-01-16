@@ -29,16 +29,18 @@ func GetEarthlyDir(installName string) string {
 		// if GetEarthlyDir is called by the autocomplete code, this may not be set
 		installName = "earthly"
 	}
+
 	earthlyDirOnce.Do(func() {
 		earthlyDir, earthlyDirSudoUser = getEarthlyDirAndUser(installName)
 	})
+
 	return earthlyDir
 }
 
 func getEarthlyDirAndUser(installName string) (string, *user.User) {
 	homeDir, u := fileutil.HomeDir()
-	earthlyDir := filepath.Join(homeDir, "."+installName)
-	return earthlyDir, u
+
+	return filepath.Join(homeDir, "."+installName), u
 }
 
 // GetOrCreateEarthlyDir returns the .earthly dir. (Usually ~/.earthly).
@@ -52,12 +54,14 @@ func GetOrCreateEarthlyDir(installName string) (string, error) {
 			earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 			return
 		}
+
 		if !earthlyDirExists {
 			err := os.MkdirAll(earthlyDir, 0o755) // #nosec G301
 			if err != nil {
 				earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 				return
 			}
+
 			if earthlyDirSudoUser != nil {
 				err := fileutil.EnsureUserOwned(earthlyDir, earthlyDirSudoUser)
 				if err != nil {
@@ -85,5 +89,6 @@ func EnsurePermissions(installName string) error {
 			return errors.Wrapf(err, "failed to ensure %s is owned by %s", earthlyDir, sudoUser)
 		}
 	}
+
 	return nil
 }

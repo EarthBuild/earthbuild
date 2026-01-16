@@ -11,9 +11,9 @@ import (
 // Error represents an auto-skip error that can include the source file name and
 // associated line number.
 type Error struct {
+	err    error
 	srcLoc *spec.SourceLocation
 	msg    string
-	err    error
 }
 
 func (e *Error) Error() string {
@@ -21,9 +21,11 @@ func (e *Error) Error() string {
 	if e.msg != "" {
 		parts = append(parts, e.msg)
 	}
+
 	if e.err != nil {
 		parts = append(parts, e.err.Error())
 	}
+
 	return strings.Join(parts, ": ")
 }
 
@@ -35,6 +37,7 @@ func FormatError(err error) string {
 	if errors.As(err, &e) {
 		return fmt.Sprintf("%s:%d:%d %s", e.srcLoc.File, e.srcLoc.StartLine, e.srcLoc.StartColumn, err)
 	}
+
 	return e.Error()
 }
 
@@ -53,6 +56,7 @@ func wrapError(err error, srcLoc *spec.SourceLocation, format string, args ...an
 	if format != "" {
 		e.msg = fmt.Sprintf(format, args...)
 	}
+
 	return e
 }
 

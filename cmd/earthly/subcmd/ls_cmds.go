@@ -60,15 +60,18 @@ func (a *List) action(cliCtx *cli.Context) error {
 	if cliCtx.NArg() > 1 {
 		return errors.New("invalid number of arguments provided")
 	}
+
 	var targetToParse string
 	if cliCtx.NArg() > 0 {
 		targetToParse = cliCtx.Args().Get(0)
 		if !(strings.HasPrefix(targetToParse, "/") || strings.HasPrefix(targetToParse, ".")) {
 			return errors.New("remote-paths are not currently supported; local paths must start with \"/\" or \".\"")
 		}
+
 		if strings.Contains(targetToParse, "+") {
 			return errors.New("path cannot contain a +")
 		}
+
 		targetToParse = strings.TrimSuffix(targetToParse, "/Earthfile")
 	}
 
@@ -105,25 +108,31 @@ func (a *List) action(cliCtx *cli.Context) error {
 
 	targets = append(targets, ast.TargetBase)
 	sort.Strings(targets)
+
 	for _, t := range targets {
 		var args []string
+
 		if t != ast.TargetBase {
 			target.Target = t
+
 			args, err = earthfile2llb.GetTargetArgs(cliCtx.Context, resolver, gwClient, target)
 			if err != nil {
 				return err
 			}
 		}
+
 		if a.showLong {
 			fmt.Printf("%s+%s\n", targetToParse, t)
 		} else {
 			fmt.Printf("+%s\n", t)
 		}
+
 		if a.showArgs {
 			for _, arg := range args {
 				fmt.Printf("  --%s\n", arg)
 			}
 		}
 	}
+
 	return nil
 }

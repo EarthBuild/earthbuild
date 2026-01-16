@@ -20,6 +20,7 @@ func Parse(filePath string, enableSourceMap bool) (ef spec.Earthfile, err error)
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
 	}
+
 	return ParseOpts(FromPath(filePath), opts...)
 }
 
@@ -29,25 +30,27 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}
-	prefs, err := from(defaultPrefs)
+
+	preferences, err := from(defaultPrefs)
 	if err != nil {
 		return spec.Earthfile{}, errors.Wrap(err, "ast: could not apply FromOpt")
 	}
+
 	for _, opt := range opts {
-		newPrefs, err := opt(prefs)
+		preferences, err = opt(preferences)
 		if err != nil {
 			return spec.Earthfile{}, errors.Wrap(err, "ast: could not apply options")
 		}
-		prefs = newPrefs
 	}
 
-	defer prefs.done()
+	defer preferences.done()
 
 	var versionOpts []Opt
-	if prefs.enableSourceMap {
+	if preferences.enableSourceMap {
 		versionOpts = append(versionOpts, WithSourceMap())
 	}
-	version, err := ParseVersionOpts(FromReader(prefs.reader), versionOpts...)
+
+	version, err := ParseVersionOpts(FromReader(preferences.reader), versionOpts...)
 	if err != nil {
 		return spec.Earthfile{}, err
 	}
@@ -55,44 +58,53 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 	errorListener := antlrhandler.NewReturnErrorListener()
 	errorStrategy := antlrhandler.NewReturnErrorStrategy(parser.GetLexerLiteralNames(), parser.GetLexerSymbolicNames())
 
-	if _, err := prefs.reader.Seek(0, 0); err != nil {
+	_, err = preferences.reader.Seek(0, 0)
+	if err != nil {
 		return spec.Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
 	}
-	b, err := io.ReadAll(prefs.reader)
+
+	b, err := io.ReadAll(preferences.reader)
 	if err != nil {
 		return spec.Earthfile{}, errors.Wrap(err, "ast: could not read Earthfile for parsing")
 	}
+
 	stream, tree, err := newEarthfileTree(string(b), errorListener, errorStrategy)
 	if err != nil {
 		return spec.Earthfile{}, err
 	}
-	ef, walkErr := walkTree(newListener(stream, prefs.reader.Name(), prefs.enableSourceMap), tree)
+
+	ef, walkErr := walkTree(newListener(stream, preferences.reader.Name(), preferences.enableSourceMap), tree)
 	if len(errorListener.Errs) > 0 {
-		errString := []string{"lexer error: " + prefs.reader.Name()}
+		errString := []string{"lexer error: " + preferences.reader.Name()}
 		for _, err := range errorListener.Errs {
 			errString = append(errString, err.Error())
 		}
+
 		return spec.Earthfile{}, errors.New(strings.Join(errString, "\n"))
 	}
+
 	if errorStrategy.Err != nil {
-		err := errors.Wrapf(
+		err = errors.Wrapf(
 			errorStrategy.Err, "%s:%d:%d '%s'",
-			prefs.reader.Name(),
+			preferences.reader.Name(),
 			errorStrategy.RE.GetOffendingToken().GetLine(),
 			errorStrategy.RE.GetOffendingToken().GetColumn(),
 			errorStrategy.RE.GetOffendingToken().GetText())
 		if errorStrategy.Hint != "" {
 			err = hint.Wrap(err, errorStrategy.Hint)
 		}
+
 		return spec.Earthfile{}, err
 	}
+
 	if walkErr != nil {
 		return spec.Earthfile{}, walkErr
 	}
 
 	ef.Version = version
 
-	if err := validateAst(ef); err != nil {
+	err = validateAst(ef)
+	if err != nil {
 		return spec.Earthfile{}, err
 	}
 
@@ -101,9 +113,12 @@ func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
 
 func walkTree(l *listener, tree parser.IEarthFileContext) (spec.Earthfile, error) {
 	antlr.ParseTreeWalkerDefault.Walk(l, tree)
-	if err := l.Err(); err != nil {
+
+	err := l.Err()
+	if err != nil {
 		return spec.Earthfile{}, err
 	}
+
 	return l.Earthfile(), nil
 }
 
@@ -116,13 +131,16 @@ func newEarthfileTree(
 	lexer := newLexer(input)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(errorListener)
+
 	stream := antlr.NewCommonTokenStream(lexer, 0)
 	if lexer.Err() != nil {
 		return nil, nil, lexer.Err()
 	}
+
 	p := parser.NewEarthParser(stream)
 	p.AddErrorListener(errorListener)
 	p.SetErrorHandler(errorStrategy)
 	p.BuildParseTrees = true
+
 	return stream, p.EarthFile(), nil
 }

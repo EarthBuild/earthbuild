@@ -79,30 +79,39 @@ func run() (code int) {
 	}()
 
 	setExportableVars()
+
 	startTime := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	defer func() {
 		signal.Stop(sigChan)
 		cancel()
 	}()
+
 	lastSignal := &syncutil.Signal{}
+
 	go func() {
 		for sig := range sigChan {
 			if lastSignal.Get() != nil {
 				// This is the second time we have received a signal. Quit immediately.
 				fmt.Printf("Received second signal %s. Forcing exit.\n", sig.String())
+
 				code = 9
+
 				return
 			}
+
 			lastSignal.Set(sig)
 			cancel()
 			fmt.Printf("Received signal %s. Cleaning up before exiting...\n", sig.String())
+
 			go func() {
 				// Wait for 30 seconds before forcing an exit.
 				time.Sleep(30 * time.Second)
 				fmt.Printf("Timed out cleaning up. Forcing exit.\n")
+
 				code = 9
 			}()
 		}
@@ -114,10 +123,12 @@ func run() (code int) {
 	// Separate call is made for build args and secrets.
 	envFile := eFlag.DefaultEnvFile
 	envFileOverride := false
+
 	if envFileFromEnv, ok := os.LookupEnv("EARTHLY_ENV_FILE"); ok {
 		envFile = envFileFromEnv
 		envFileOverride = true
 	}
+
 	envFileFromArgOK := true
 	flagSet := flag.NewFlagSet(common.GetBinaryName(), flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -133,14 +144,16 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		if err := f.Apply(flagSet); err != nil {
+		err := f.Apply(flagSet)
+		if err != nil {
 			envFileFromArgOK = false
 			break
 		}
 	}
 
 	if envFileFromArgOK {
-		if err := flagSet.Parse(os.Args[1:]); err == nil {
+		err := flagSet.Parse(os.Args[1:])
+		if err == nil {
 			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
 				envFile = envFileFlag.Value.String()
 				envFileOverride = envFile != eFlag.DefaultEnvFile // flag lib doesn't expose if a value was set or not
@@ -155,17 +168,20 @@ func run() (code int) {
 			return 1
 		}
 	}
+
 	colorMode := conslogging.AutoColor
 	if envutil.IsTrue("FORCE_COLOR") {
 		colorMode = conslogging.ForceColor
 		color.NoColor = false
 	}
+
 	if envutil.IsTrue("NO_COLOR") {
 		colorMode = conslogging.NoColor
 		color.NoColor = true
 	}
 
 	padding := conslogging.DefaultPadding
+
 	customPadding, ok := os.LookupEnv("EARTHLY_TARGET_PADDING")
 	if ok {
 		targetPadding, err := strconv.Atoi(customPadding)
@@ -177,6 +193,7 @@ func run() (code int) {
 	if envutil.IsTrue("EARTHLY_FULL_TARGET") {
 		padding = conslogging.NoPadding
 	}
+
 	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
 	cli.SetConsole(logging)

@@ -22,6 +22,7 @@ func WithDependency(
 		state = state.File(pllb.Mkdir("/tmp", 0o755),
 			llb.WithCustomNamef("%s(fakecopy) init scratch", vm.ToVertexPrefix()))
 	}
+
 	if depState.Output() == nil {
 		// depState is Scratch.
 		return state

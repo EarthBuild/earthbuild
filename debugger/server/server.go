@@ -14,15 +14,13 @@ import (
 
 // Server provides a debugger server.
 type Server struct {
-	shellConn    net.Conn
-	terminalConn net.Conn
-	mux          sync.Mutex
-
+	shellConn       net.Conn
+	terminalConn    net.Conn
 	dataForShell    chan []byte
 	dataForTerminal chan []byte
-
-	addr string
-	log  slog.Logger
+	addr            string
+	log             slog.Logger
+	mux             sync.Mutex
 }
 
 func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {
@@ -36,13 +34,16 @@ func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {
 
 		for {
 			buf := make([]byte, 1024)
+
 			n, err := conn.Read(buf)
 			if err != nil {
 				s.log.Error(errors.Wrap(err, "reading from connection failed"))
 				break
 			}
+
 			writeTo <- buf[:n]
 		}
+
 		cancel()
 	}()
 
@@ -80,6 +81,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	connLog := s.log.With("remote.addr", conn.RemoteAddr().String())
 
 	buf := make([]byte, 1)
+
 	_, err := conn.Read(buf)
 	if err != nil {
 		connLog.Error(errors.Wrap(err, "reading from connection failed"))
@@ -87,6 +89,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	}
 
 	var isShellConn bool
+
 	switch buf[0] {
 	case 0x01:
 		isShellConn = true
@@ -100,21 +103,26 @@ func (s *Server) handleRequest(conn net.Conn) {
 	func() {
 		s.mux.Lock()
 		defer s.mux.Unlock()
+
 		if isShellConn {
 			connLog.Debug("received shell connection")
+
 			if s.shellConn != nil {
 				connLog.Debug("closing existing shell connection")
 				s.shellConn.Close() // #nosec G104
 				s.shellConn = nil
 			}
+
 			s.shellConn = conn
 		} else {
 			connLog.Debug("received term connection")
+
 			if s.terminalConn != nil {
 				connLog.Debug("closing existing term connection")
 				s.terminalConn.Close() // #nosec G104
 				s.terminalConn = nil
 			}
+
 			s.terminalConn = conn
 		}
 	}()
@@ -129,7 +137,9 @@ func (s *Server) handleRequest(conn net.Conn) {
 // Start starts the debug server listener.
 func (s *Server) Start() error {
 	s.log.With("addr", s.addr).Debug("starting debugger server")
+
 	var lc net.ListenConfig
+
 	l, err := lc.Listen(context.Background(), "tcp", s.addr)
 	if err != nil {
 		return err
@@ -142,8 +152,10 @@ func (s *Server) Start() error {
 			fmt.Fprintf(os.Stderr, "Error accepting: %v", err.Error())
 			break
 		}
+
 		go s.handleRequest(conn)
 	}
+
 	return nil
 }
 

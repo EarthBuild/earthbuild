@@ -60,15 +60,14 @@ import (
 const autoSkipPrefix = "auto-skip"
 
 type Build struct {
-	cli CLI
-
+	cli          CLI
+	dockerTarget string
 	buildArgs    cli.StringSlice
 	platformsStr cli.StringSlice
 	secrets      cli.StringSlice
 	secretFiles  cli.StringSlice
 	cacheFrom    cli.StringSlice
 	dockerTags   cli.StringSlice
-	dockerTarget string
 }
 
 func NewBuild(cli CLI) *Build {
@@ -141,6 +140,7 @@ func (a *Build) Action(cliCtx *cli.Context) error {
 	if a.cli.Flags().ImageMode && a.cli.Flags().ArtifactMode {
 		return params.Errorf("both image and artifact modes cannot be active at the same time")
 	}
+
 	if (a.cli.Flags().ImageMode && a.cli.Flags().NoOutput) || (a.cli.Flags().ArtifactMode && a.cli.Flags().NoOutput) {
 		if a.cli.Flags().CI {
 			a.cli.Flags().NoOutput = false
@@ -148,6 +148,7 @@ func (a *Build) Action(cliCtx *cli.Context) error {
 			return params.Errorf("cannot use --no-output with image or artifact modes")
 		}
 	}
+
 	if a.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
 		return params.Errorf("A tty-terminal must be present in order to use the --interactive flag")
 	}
@@ -174,9 +175,11 @@ func (a *Build) gitLogLevel() buildkitgitutil.GitLogLevel {
 	if a.cli.Flags().Debug {
 		return buildkitgitutil.GitLogLevelTrace
 	}
+
 	if a.cli.Flags().Verbose {
 		return buildkitgitutil.GitLogLevelDebug
 	}
+
 	return buildkitgitutil.GitLogLevelDefault
 }
 
@@ -191,14 +194,18 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 	case a.cli.Flags().ImageMode:
 		if len(nonFlagArgs) == 0 {
 			_ = cli.ShowAppHelp(cliCtx)
+
 			return target, artifact, "", params.Errorf(
 				"no image reference provided. Try %s --image +<target-name>", cliCtx.App.Name)
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cliCtx)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 		}
+
 		targetName := nonFlagArgs[0]
+
 		var err error
+
 		target, err = domain.ParseTarget(targetName)
 		if err != nil {
 			return target, artifact, "", params.Wrapf(err, "invalid target name %s", targetName)
@@ -206,33 +213,42 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 	case a.cli.Flags().ArtifactMode:
 		if len(nonFlagArgs) == 0 {
 			_ = cli.ShowAppHelp(cliCtx)
+
 			return target, artifact, "", params.Errorf(
 				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", cliCtx.App.Name)
 		} else if len(nonFlagArgs) > 2 {
 			_ = cli.ShowAppHelp(cliCtx)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 		}
+
 		artifactName := nonFlagArgs[0]
 		if len(nonFlagArgs) == 2 {
 			destPath = nonFlagArgs[1]
 		}
+
 		var err error
+
 		artifact, err = domain.ParseArtifact(artifactName)
 		if err != nil {
 			return target, artifact, "", params.Wrapf(err, "invalid artifact name %s", artifactName)
 		}
+
 		target = artifact.Target
 	default:
 		if len(nonFlagArgs) == 0 {
 			_ = cli.ShowAppHelp(cliCtx)
+
 			return target, artifact, "", params.Errorf(
 				"no target reference provided. Try %s +<target-name>", cliCtx.App.Name)
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cliCtx)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 		}
+
 		targetName := nonFlagArgs[0]
+
 		var err error
+
 		target, err = domain.ParseTarget(targetName)
 		if err != nil {
 			return target, artifact, "", params.Errorf("invalid target %s", targetName)
@@ -258,6 +274,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	a.warnIfArgContainsBuildArg(flagArgs)
 
 	showUnexpectedEnvWarnings := true
+
 	dotEnvMap, err := godotenv.Read(a.cli.Flags().EnvFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
@@ -265,6 +282,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 			return errors.Wrapf(err, "read %s", a.cli.Flags().EnvFile)
 		}
 	}
+
 	argMap, err := godotenv.Read(a.cli.Flags().ArgFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
@@ -272,6 +290,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		// ignore ErrNotExist when using default .env file
 		return errors.Wrapf(err, "read %s", a.cli.Flags().ArgFile)
 	}
+
 	secretsFileMap, err := godotenv.Read(a.cli.Flags().SecretFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
@@ -295,6 +314,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	if err != nil {
 		return err
 	}
+
 	for secretKey := range secretsMap {
 		if !ast.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
@@ -321,6 +341,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		a.cli.Console().PrintFailure("auto-skip")
 		return err
 	}
+
 	if doSkip {
 		return nil
 	}
@@ -371,12 +392,14 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		return errors.Wrap(err, "make temp dir for cache")
 	}
 	defer os.RemoveAll(cacheLocalDir)
+
 	defaultLocalDirs := make(map[string]string)
 	defaultLocalDirs["earthly-cache"] = cacheLocalDir
 	buildContextProvider := provider.NewBuildContextProvider(a.cli.Console())
 	buildContextProvider.AddDirs(defaultLocalDirs)
 
 	internalSecretStore := secretprovider.NewMutableMapStore(nil)
+
 	customSecretProviderCmd, err := secretprovider.NewSecretProviderCmd(a.cli.Cfg().Global.SecretProvider)
 	if err != nil {
 		return errors.Wrap(err, "NewSecretProviderCmd")
@@ -412,18 +435,22 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	attachables = append(attachables, authProvider)
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
+
 	err = a.updateGitLookupConfig(gitLookup)
 	if err != nil {
 		return err
 	}
 
 	if a.cli.Flags().SSHAuthSock != "" {
-		ssh, err := sshprovider.NewSSHAgentProvider([]sshprovider.AgentConfig{{
+		var ssh session.Attachable
+
+		ssh, err = sshprovider.NewSSHAgentProvider([]sshprovider.AgentConfig{{
 			Paths: []string{a.cli.Flags().SSHAuthSock},
 		}})
 		if err != nil {
 			return errors.Wrap(err, "ssh agent provider")
 		}
+
 		attachables = append(attachables, ssh)
 	}
 
@@ -435,17 +462,21 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 			if !termutil.IsTTY() {
 				return errors.New("interactive mode unavailable due to terminal not being tty")
 			}
+
 			debugTermConsole := a.cli.Console().WithPrefix("internal-term")
-			err := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole) //nolint:contextcheck
-			if err != nil {
-				return errors.Wrap(err, "interactive terminal")
+
+			termErr := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole) //nolint:contextcheck
+			if termErr != nil {
+				return errors.Wrap(termErr, "interactive terminal")
 			}
+
 			return nil
 		},
 	})
 	if err != nil {
 		return errors.Wrap(err, "ssh agent provider")
 	}
+
 	attachables = append(attachables, socketProvider)
 
 	var enttlmnts []entitlements.Entitlement
@@ -459,20 +490,26 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	}
 
 	cacheImports := make([]string, 0)
+
 	var cacheImportImageName string
 	if a.cli.Flags().RemoteCache != "" {
 		cacheImportImageName, _, err = flagutil.ParseImageNameAndAttrs(a.cli.Flags().RemoteCache)
 		if err != nil {
 			return errors.Wrapf(err, "parse import cache error: %s", a.cli.Flags().RemoteCache)
 		}
+
 		cacheImports = append(cacheImports, cacheImportImageName)
 	}
 
 	if len(a.cacheFrom.Value()) > 0 {
 		cacheImports = append(cacheImports, a.cacheFrom.Value()...)
 	}
-	var cacheExport string
-	var maxCacheExport string
+
+	var (
+		cacheExport    string
+		maxCacheExport string
+	)
+
 	if a.cli.Flags().RemoteCache != "" && a.cli.Flags().Push {
 		if a.cli.Flags().MaxRemoteCache {
 			maxCacheExport = a.cli.Flags().RemoteCache
@@ -480,17 +517,23 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 			cacheExport = a.cli.Flags().RemoteCache
 		}
 	}
+
 	if a.cli.Cfg().Global.ConversionParallelism <= 0 {
 		return errors.New("configuration error: \"conversion_parallelism\" must be larger than zero")
 	}
+
 	parallelism := semutil.NewWeighted(int64(a.cli.Cfg().Global.ConversionParallelism))
 
 	localRegistryAddr := ""
+
 	if isLocal && a.cli.Flags().LocalRegistryHost != "" {
-		u, err := url.Parse(a.cli.Flags().LocalRegistryHost)
+		var u *url.URL
+
+		u, err = url.Parse(a.cli.Flags().LocalRegistryHost)
 		if err != nil {
 			return errors.Wrapf(err, "parse local registry host %s", a.cli.Flags().LocalRegistryHost)
 		}
+
 		localRegistryAddr = u.Host
 	}
 
@@ -547,6 +590,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		EarthlyVersion:  a.cli.Version(),
 		EarthlyBuildSha: a.cli.GitSHA(),
 	}
+
 	buildOpts := builder.BuildOpt{
 		PrintPhases:                true,
 		Push:                       a.cli.Flags().Push,
@@ -619,6 +663,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 		if k == "github" || k == "gitlab" || k == "bitbucket" {
 			a.cli.Console().Warnf("git configuration for %q found, did you mean %q?\n", k, k+".com")
 		}
+
 		pattern := v.Pattern
 		if pattern == "" {
 			// if empty, assume it will be of the form host.com/user/repo.git
@@ -626,13 +671,17 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 			if !strings.Contains(host, ".") {
 				host += ".com"
 			}
+
 			pattern = regexp.QuoteMeta(host) + "/[^/]+/[^/]+"
 		}
+
 		auth := v.Auth
+
 		suffix := v.Suffix
 		if suffix == "" {
 			suffix = ".git"
 		}
+
 		err := gitLookup.AddMatcher(
 			k, pattern, v.Substitute, v.User, v.Password, v.Prefix, suffix, auth, v.ServerKey,
 			common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand)
@@ -640,6 +689,7 @@ func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 			return errors.Wrap(err, "gitlookup")
 		}
 	}
+
 	return nil
 }
 
@@ -665,6 +715,7 @@ func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewa
 	if err != nil {
 		return err
 	}
+
 	if n != 0 {
 		return errors.New("expected EOF, but got more data")
 	}
@@ -673,6 +724,7 @@ func receiveFileVersion1(conn io.ReadWriteCloser, localArtifactWhiteList *gatewa
 	if err != nil {
 		return err
 	}
+
 	_, err = f.Write(data)
 	if err != nil {
 		return err
@@ -718,9 +770,11 @@ func receiveFileVersion2(
 		if err != nil {
 			return err
 		}
+
 		if len(data) == 0 {
 			break
 		}
+
 		_, err = f.Write(data)
 		if err != nil {
 			return err
@@ -735,25 +789,31 @@ func receiveFileVersion2(
 // e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>.
 func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
+
 	isLocal := containerutil.IsLocal(a.cli.Flags().BuildkitdSettings.BuildkitAddress)
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {
 			a.cli.Console().Warnf("failed to get hostname: %v", err)
+
 			hostname = "unknown"
 		}
+
 		runnerName = "local:" + hostname
 	} else {
 		runnerName = "bk:" + a.cli.Flags().BuildkitdSettings.BuildkitAddress
 	}
+
 	if !isLocal && (a.cli.Flags().UseInlineCache || a.cli.Flags().SaveInlineCache) {
 		a.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause " +
 			"builds to get stuck at 100%% CPU on remote Buildkit.")
 		a.cli.Console().Warnf("")
 	}
+
 	if isLocal && !a.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
 		return "", false, errors.New("Frontend is not available to perform the build. Is Docker installed and running?")
 	}
+
 	return runnerName, isLocal, nil
 }
 
@@ -764,17 +824,21 @@ func (a *Build) platformResolver(
 	if err != nil {
 		return nil, errors.Wrap(err, "get native platform via buildkit client")
 	}
+
 	a.cli.LogbusSetup().SetDefaultPlatform(platforms.Format(nativePlatform))
 	platr := platutil.NewResolver(nativePlatform)
 	platr.AllowNativeAndUser = true
+
 	platformsSlice := make([]platutil.Platform, 0, len(a.platformsStr.Value()))
 	for _, p := range a.platformsStr.Value() {
 		platform, err := platr.Parse(p)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parse platform %s", p)
 		}
+
 		platformsSlice = append(platformsSlice, platform)
 	}
+
 	switch len(platformsSlice) {
 	case 0:
 	case 1:
@@ -826,10 +890,13 @@ func (a *Build) initAutoSkip(
 	console.VerbosePrintf("hash calculation took %s", stats.Duration)
 
 	if !target.IsRemote() {
-		meta, err := gitutil.Metadata(ctx, target.GetLocalPath(), a.cli.Flags().GitBranchOverride)
+		var meta *gitutil.GitMetadata
+
+		meta, err = gitutil.Metadata(ctx, target.GetLocalPath(), a.cli.Flags().GitBranchOverride)
 		if err != nil {
 			console.VerboseWarnf("unable to detect all git metadata: %v", err.Error())
 		}
+
 		target = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
 		target.Tag = ""
 	}
@@ -846,6 +913,7 @@ func (a *Build) initAutoSkip(
 	if exists {
 		console.Printf("Target %s (hash %x) has already been run. Skipping.", targetStr, targetHash)
 		consoleNoPrefix.PrintSuccess()
+
 		return nil, true, nil
 	}
 
@@ -867,11 +935,14 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "parse args %s", strings.Join(cliCtx.Args().Slice(), " "))
 	}
+
 	if len(nonFlagArgs) == 0 {
 		_ = cli.ShowAppHelp(cliCtx)
+
 		return errors.Errorf(
 			"no build context path provided. Try %s docker-build <path>", cliCtx.App.Name)
 	}
+
 	if len(nonFlagArgs) != 1 {
 		_ = cli.ShowAppHelp(cliCtx)
 		return errors.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -899,6 +970,7 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	}
 
 	platforms := flagutil.SplitFlagString(a.platformsStr)
+
 	content, err := docker2earthly.GenerateEarthfile(
 		buildContextPath, a.cli.Flags().DockerfilePath, a.dockerTags.Value(),
 		buildArgs.Sorted(), platforms, a.dockerTarget)
@@ -928,5 +1000,6 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	a.platformsStr = cli.StringSlice{}
 
 	nonFlagArgs = []string{tempDir + "+build"}
+
 	return a.ActionBuildImp(cliCtx, flagArgs, nonFlagArgs)
 }

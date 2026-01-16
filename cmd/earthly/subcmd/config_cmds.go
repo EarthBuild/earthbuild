@@ -76,11 +76,13 @@ func (a *Config) Cmds() []*cli.Command {
 
 func (a *Config) action(cliCtx *cli.Context) error {
 	a.cli.SetCommandName("config")
+
 	if cliCtx.NArg() != 2 {
 		return errors.New("invalid number of arguments provided")
 	}
 
 	args := cliCtx.Args().Slice()
+
 	inConfig, err := config.ReadConfigFile(a.cli.Flags().ConfigPath)
 	if err != nil {
 		if cliCtx.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
@@ -92,9 +94,11 @@ func (a *Config) action(cliCtx *cli.Context) error {
 
 	switch args[1] {
 	case "-h", "--help":
-		if err = config.PrintHelp(args[0]); err != nil {
+		err = config.PrintHelp(args[0])
+		if err != nil {
 			return errors.Wrap(err, "help")
 		}
+
 		return nil // exit now without writing any changes to config
 	case "--delete":
 		outConfig, err = config.Delete(inConfig, args[0])
@@ -118,6 +122,7 @@ func (a *Config) action(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "write config")
 	}
+
 	a.cli.Console().Printf("Updated config file %s", a.cli.Flags().ConfigPath)
 
 	return nil

@@ -138,8 +138,10 @@ func TestAvailableFlags(t *testing.T) {
 			t.Parallel()
 
 			var fts features.Features
+
 			err := features.ApplyFlagOverrides(&fts, tt.flag)
 			Nil(t, err)
+
 			field := reflect.ValueOf(fts).FieldByName(tt.field)
 			True(t, field.IsValid(), "field %v does not exist on %T", tt.field, fts)
 			val, ok := field.Interface().(bool)
@@ -186,10 +188,10 @@ func TestProcessFlags(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name             string
 		f                *features.Features
-		expectedWarnings []string
 		expectedFeatures *features.Features
+		name             string
+		expectedWarnings []string
 	}{
 		{
 			name: "version v0.4",

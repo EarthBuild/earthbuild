@@ -34,8 +34,10 @@ func FromPath(path string) FromOpt {
 		if err != nil {
 			return p, errors.Wrapf(err, "ast: unable to open file '%v'", path)
 		}
+
 		p.reader = f
 		p.done = func() { f.Close() } // #nosec G104
+
 		return p, nil
 	}
 }

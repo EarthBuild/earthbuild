@@ -11,11 +11,11 @@ import (
 
 // visitedUpfrontHashCollection is a collection of visited targets.
 type visitedUpfrontHashCollection struct {
-	mu      sync.Mutex
 	visited map[string]*SingleTarget // targetInputHash -> sts
 	// visitedList is the same collection as above, but as a list,
 	// to make the ordering consistent.
 	visitedList []*SingleTarget
+	mu          sync.Mutex
 }
 
 // NewVisitedUpfrontHashCollection returns a collection of visited targets.
@@ -29,6 +29,7 @@ func NewVisitedUpfrontHashCollection() VisitedCollection {
 func (vc *visitedUpfrontHashCollection) All() []*SingleTarget {
 	vc.mu.Lock()
 	defer vc.mu.Unlock()
+
 	return append([]*SingleTarget{}, vc.visitedList...)
 }
 
@@ -47,17 +48,22 @@ func (vc *visitedUpfrontHashCollection) Add(
 	if err != nil {
 		return nil, false, err
 	}
+
 	newKey, err := newSts.targetInput.Hash()
 	if err != nil {
 		return nil, false, err
 	}
+
 	vc.mu.Lock()
 	defer vc.mu.Unlock()
+
 	sts, found := vc.visited[newKey]
 	if found {
 		return sts, true, nil
 	}
+
 	vc.visited[newKey] = newSts
 	vc.visitedList = append(vc.visitedList, newSts)
+
 	return newSts, false, nil
 }

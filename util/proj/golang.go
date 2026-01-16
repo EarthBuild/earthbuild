@@ -129,9 +129,9 @@ const (
 
 // Golang is used to auto-generate Earthfiles for go projects.
 type Golang struct {
-	root   string
 	fs     FS
 	execer Execer
+	root   string
 }
 
 // NewGolang returns a new Golang.
@@ -154,23 +154,28 @@ func (g *Golang) ForDir(ctx context.Context, dir string) (Project, error) {
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, errors.Wrap(ErrSkip, "no go.mod found")
 	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading go.mod")
 	}
+
 	out, _, err := g.execer.Command("go", "list", "-f", "{{.Dir}}").Run(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, hint.Wrap(errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
 			"go must be installed for 'go list' so that earthly can read information about your go project",
 		)
 	}
+
 	rootBytes, err := io.ReadAll(out)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read go project root directory")
 	}
+
 	root, err := filepath.Abs(strings.TrimSpace(string(rootBytes)))
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get absolute path for directory %q", string(rootBytes))
 	}
+
 	return &Golang{
 		root:   root,
 		fs:     g.fs,
@@ -208,25 +213,31 @@ func (f *targetFormatter) SetPrefix(pfx string) {
 		f.prefix = ""
 		return
 	}
+
 	if !strings.HasSuffix(pfx, "-") {
 		pfx += "-"
 	}
+
 	f.prefix = pfx
 }
 
 func (f *targetFormatter) Format(w io.Writer, indent string, level int) error {
 	t := strings.TrimSpace(f.template) + "\n"
+
 	tmpl, err := template.New("").Parse(t)
 	if err != nil {
 		return errors.Wrap(err, "golang: failed to parse target template")
 	}
+
 	type tmplCtx struct {
 		Prefix string
 		Indent string
 	}
+
 	err = tmpl.Execute(w, tmplCtx{Prefix: f.prefix, Indent: indent})
 	if err != nil {
 		return errors.Wrap(err, "golang: failed to execute target template")
 	}
+
 	return nil
 }

@@ -23,21 +23,21 @@ type ImageSolverResults struct {
 
 // ImageResult contains data about an image that was built.
 type ImageResult struct {
+	ImageDescriptor          *ocispecs.Descriptor
+	Annotations              map[string]string
 	IntermediateImageName    string
 	FinalImageName           string
 	FinalImageNameWithDigest string
 	ImageDigest              string
 	ConfigDigest             string
-	ImageDescriptor          *ocispecs.Descriptor
-	Annotations              map[string]string
 	NewInterImgFormat        bool
 }
 
 // ImageDef includes the information required to build an image in BuildKit.
 type ImageDef struct {
+	Platform  platutil.Platform
 	MTS       *MultiTarget
 	ImageName string
-	Platform  platutil.Platform
 }
 
 // MultiImageSolver can create a Docker image for the WITH DOCKER command using

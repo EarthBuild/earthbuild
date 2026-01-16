@@ -4,9 +4,9 @@ import "sync"
 
 // CacheImports is a synchronized set of cache imports.
 type CacheImports struct {
-	mu    sync.RWMutex
-	slice []string
 	store map[string]bool
+	slice []string
+	mu    sync.RWMutex
 }
 
 // NewCacheImports creates a new cache imports structure.

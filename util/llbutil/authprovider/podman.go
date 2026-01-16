@@ -64,19 +64,23 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 	for _, o := range opts {
 		conf = o(conf)
 	}
+
 	if authfile := conf.os.Getenv("REGISTRY_AUTH_FILE"); authfile != "" {
 		cfg, err := podmanAuth(conf.os, authfile)
 		if err != nil {
 			fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
 			return authprovider.NewDockerAuthProvider(cfg, nil)
 		}
+
 		syncDockerKey(cfg)
+
 		return authprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
 	xdgRuntime := conf.os.Getenv("XDG_RUNTIME_DIR")
 	if xdgRuntime == "" {
 		idCmd := exec.CommandContext(context.Background(), "id", "-u")
+
 		out, err := idCmd.CombinedOutput()
 		if err != nil {
 			return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)
@@ -86,42 +90,54 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 		// TODO: figure out how podman finds this path - on first pass we
 		// couldn't find a good location for it.
 		path := filepath.Join("/run", "containers", id, "auth.json")
+
 		cfg, err := podmanAuth(conf.os, path)
 		if errors.Is(err, fs.ErrNotExist) {
 			return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)
 		}
+
 		if err != nil {
 			fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
 			return authprovider.NewDockerAuthProvider(cfg, nil)
 		}
+
 		syncDockerKey(cfg)
+
 		return authprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
 	path := filepath.Join(xdgRuntime, "containers", podmanAuthFile)
+
 	cfg, err := podmanAuth(conf.os, path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)
 	}
+
 	if err != nil {
 		fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
 		return authprovider.NewDockerAuthProvider(cfg, nil)
 	}
+
 	syncDockerKey(cfg)
+
 	return authprovider.NewDockerAuthProvider(cfg, nil)
 }
 
 func podmanAuth(o OS, path string) (*configfile.ConfigFile, error) {
 	f, err := o.Open(path)
+
 	cfg := configfile.New(path)
 	if err != nil {
 		return cfg, errors.Wrap(err, path)
 	}
+
 	defer f.Close()
 
-	if err := cfg.LoadFromReader(f); err != nil {
+	err = cfg.LoadFromReader(f)
+	if err != nil {
 		return cfg, errors.Wrap(err, path)
 	}
+
 	return cfg, nil
 }
 
@@ -129,9 +145,11 @@ func syncDockerKey(cfg *configfile.ConfigFile) {
 	if _, ok := cfg.AuthConfigs[dockerDockerhubKey]; ok {
 		return
 	}
+
 	v, ok := cfg.AuthConfigs[podmanDockerhubKey]
 	if !ok {
 		return
 	}
+
 	cfg.AuthConfigs[dockerDockerhubKey] = v
 }

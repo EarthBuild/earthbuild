@@ -16,6 +16,7 @@ func ParseVersion(filePath string, enableSourceMap bool) (*spec.Version, error) 
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
 	}
+
 	return ParseVersionOpts(FromPath(filePath), opts...)
 }
 
@@ -26,6 +27,7 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*spec.Version, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}
+
 	prefs, err := fromOpt(defaultPrefs)
 	if err != nil {
 		return nil, errors.Wrap(err, "ast: could not apply ParseVersion from opt")
@@ -36,8 +38,10 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*spec.Version, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "ast: could not apply ParseVersion opts")
 		}
+
 		prefs = newPrefs
 	}
+
 	file := prefs.reader
 	defer prefs.done()
 
@@ -47,8 +51,12 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*spec.Version, error) {
 
 	scanner := bufio.NewScanner(file)
 	i := 0
-	var startLine int
-	var endLine int
+
+	var (
+		startLine int
+		endLine   int
+	)
+
 	args := []string{}
 
 outer:
@@ -56,13 +64,16 @@ outer:
 		i++
 		l := scanner.Text()
 		lineWidth := len(l)
+
 		l = strings.TrimSpace(l)
 		if len(l) == 0 {
 			continue
 		}
+
 		if l[0] == '#' {
 			continue
 		}
+
 		fields := strings.Fields(l)
 
 		if len(fields) == 0 {
@@ -71,10 +82,12 @@ outer:
 
 		foundComment := false
 		trailingLine := false
+
 		for _, f := range fields {
 			if foundComment {
 				continue // ignore rest of line
 			}
+
 			if trailingLine {
 				if strings.HasPrefix(f, "#") {
 					foundComment = true
@@ -84,11 +97,14 @@ outer:
 				// e.g. VERSION    \    UNEXPECTED
 				return nil, fmt.Errorf("malformed trailing line on %s:%d", file.Name(), i)
 			}
+
 			if f == "VERSION" && !foundVersion {
 				foundVersion = true
 				startLine = i
+
 				continue
 			}
+
 			if f == `\` {
 				trailingLine = true
 				continue
@@ -110,6 +126,7 @@ outer:
 		if trailingLine {
 			continue
 		}
+
 		endLine = i
 
 		version.Args = args

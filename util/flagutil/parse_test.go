@@ -15,10 +15,11 @@ func TestSplitFlagString(t *testing.T) {
 	type args struct {
 		value cli.StringSlice
 	}
+
 	tests := []struct {
 		name string
-		args args
 		want []string
+		args args
 	}{
 		{
 			name: "passing flag multiple times",

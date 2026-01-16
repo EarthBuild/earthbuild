@@ -55,11 +55,14 @@ func (a *Doc2Earth) Cmds() []*cli.Command {
 
 func (a *Doc2Earth) action(cliCtx *cli.Context) error {
 	a.cli.SetCommandName("docker2earthly")
+
 	err := docker2earthly.Docker2Earthly(a.cli.Flags().DockerfilePath, a.earthfilePath, a.earthfileFinalImage)
 	if err != nil {
 		return err
 	}
+
 	format := "An Earthfile has been generated; to run it use: earthly +build; then run with docker run -ti %s\n"
 	fmt.Fprintf(os.Stderr, format, a.earthfileFinalImage)
+
 	return nil
 }

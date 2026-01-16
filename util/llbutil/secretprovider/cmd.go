@@ -30,24 +30,30 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 	if len(c.cmd) == 0 {
 		return nil, secrets.ErrNotFound
 	}
+
 	q, err := url.ParseQuery(id)
 	if err != nil {
 		return nil, errors.New("invalid secret ID format")
 	}
+
 	name := q.Get("name")
 	if name == common.DebuggerSettingsSecretsKey {
 		// the interactive debugger passes config values by abusing secrets,
 		// we must not call the user's secret provider in this case.
 		return nil, secrets.ErrNotFound
 	}
+
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", c.cmd+" "+shellescape.Quote(name)) // #nosec G204
+
 	envs := os.Environ()
 	if q.Get("v") == "1" {
 		envs = append(envs, "EARTHLY_ORG="+shellescape.Quote(q.Get("org")))
 		envs = append(envs, "EARTHLY_PROJECT="+shellescape.Quote(q.Get("project")))
 	}
+
 	cmd.Env = envs
 	cmd.Stderr = os.Stderr
+
 	dt, err := cmd.Output()
 	if err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
@@ -59,7 +65,9 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 				}
 			}
 		}
+
 		return nil, err
 	}
+
 	return dt, nil
 }

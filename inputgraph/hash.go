@@ -11,11 +11,11 @@ import (
 
 // HashOpt contains all of the options available to the hasher.
 type HashOpt struct {
+	OverridingVars *variables.Scope
 	Target         domain.Target
+	BuiltinArgs    variables.DefaultArgs
 	Console        conslogging.ConsoleLogger
 	CI             bool
-	BuiltinArgs    variables.DefaultArgs
-	OverridingVars *variables.Scope
 }
 
 // HashTarget produces a hash from an Earthly target.
@@ -26,8 +26,10 @@ func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
 		if supportedRemoteTarget(t) {
 			h := hasher.New()
 			h.HashString(t.StringCanonical())
+
 			return h.GetHash(), Stats{}, nil
 		}
+
 		return nil, Stats{}, errInvalidRemoteTarget
 	}
 

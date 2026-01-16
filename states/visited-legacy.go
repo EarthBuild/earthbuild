@@ -13,10 +13,10 @@ import (
 
 // legacyVisitedCollection is a collection of visited targets.
 type legacyVisitedCollection struct {
-	mu      sync.Mutex
 	visited map[string][]*SingleTarget // targetStr -> sts list
 	// Same collection as above, but as a list, to make the ordering consistent.
 	visitedList []*SingleTarget
+	mu          sync.Mutex
 }
 
 // NewLegacyVisitedCollection returns a collection of visited targets.
@@ -30,6 +30,7 @@ func NewLegacyVisitedCollection() VisitedCollection {
 func (vc *legacyVisitedCollection) All() []*SingleTarget {
 	vc.mu.Lock()
 	defer vc.mu.Unlock()
+
 	return append([]*SingleTarget{}, vc.visitedList...)
 }
 
@@ -51,12 +52,17 @@ func (vc *legacyVisitedCollection) Add(
 	for depID := range dependents {
 		parentDepSub <- depID
 	}
+
 	defer vc.mu.Unlock()
+
 	for _, sts := range vc.visited[target.StringCanonical()] {
-		same, err := compareTargetInputs(target, platr, allowPrivileged, overridingVars, sts.TargetInput())
+		var same bool
+
+		same, err = compareTargetInputs(target, platr, allowPrivileged, overridingVars, sts.TargetInput())
 		if err != nil {
 			return nil, false, err
 		}
+
 		if same {
 			// Existing sts.
 			if dependents[sts.ID] {
@@ -73,6 +79,7 @@ func (vc *legacyVisitedCollection) Add(
 			}
 			// Subscribe that sts to the dependencies of our parent.
 			sts.MonitorDependencySubscription(ctx, parentDepSub)
+
 			return sts, true, nil
 		}
 	}
@@ -81,9 +88,11 @@ func (vc *legacyVisitedCollection) Add(
 	if err != nil {
 		return nil, false, err
 	}
+
 	targetStr := target.StringCanonical()
 	vc.visited[targetStr] = append(vc.visited[targetStr], sts)
 	vc.visitedList = append(vc.visitedList, sts)
+
 	return sts, false, nil
 }
 
@@ -99,15 +108,19 @@ func (vc *legacyVisitedCollection) waitAllDoneAndLock(
 	dependents := make(map[string]bool)
 	// wait all done & lock loop
 	prevLenList := 0
+
 	for {
 		vc.mu.Lock()
+
 		list := append([]*SingleTarget{}, vc.visited[target.StringCanonical()]...)
 		if prevLenList == len(list) {
 			// The list we have now is the same we just checked if it's done or waiting on us.
 			// We are finished.
 			return dependents, nil // no unlocking on purpose
 		}
+
 		prevLenList = len(list)
+
 		vc.mu.Unlock()
 		// Wait for sts's to be done outside of the mu lock.
 	stsLoop:
@@ -117,6 +130,7 @@ func (vc *legacyVisitedCollection) waitAllDoneAndLock(
 				// It's safe to perform comparison if they are waiting on us.
 				continue
 			}
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -147,16 +161,20 @@ func compareTargetInputs(
 	if target.StringCanonical() != other.TargetCanonical {
 		return false, nil
 	}
+
 	if allowPrivileged != other.AllowPrivileged {
 		return false, nil
 	}
+
 	stsPlat, err := platr.ParseAllowNativeAndUser(other.Platform)
 	if err != nil {
 		return false, err
 	}
+
 	if !platr.PlatformEquals(platr.Current(), stsPlat) {
 		return false, nil
 	}
+
 	for _, bai := range other.BuildArgs {
 		variable, found := overridingVars.Get(bai.Name)
 		if found {
@@ -172,5 +190,6 @@ func compareTargetInputs(
 			return false, nil
 		}
 	}
+
 	return true, nil
 }

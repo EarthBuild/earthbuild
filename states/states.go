@@ -29,10 +29,10 @@ type MultiTarget struct {
 
 // CacheMount holds run options needed to cache mounts, and some extra options.
 type CacheMount struct {
-	// Persisted should the cache be persisted to image.
-	Persisted bool
 	// RunOption Run options
 	RunOption llb.RunOption
+	// Persisted should the cache be persisted to image.
+	Persisted bool
 }
 
 // FinalTarget returns the final target of the states.
@@ -47,20 +47,39 @@ func (mts *MultiTarget) All() []*SingleTarget {
 
 // SingleTarget holds LLB states representing an earthly target.
 type SingleTarget struct {
-	// ID is a random unique string.
-	ID                     string
-	Target                 domain.Target
-	PlatformResolver       *platutil.Resolver
-	MainImage              *image.Image
 	MainState              pllb.State
 	ArtifactsState         pllb.State
-	SeparateArtifactsState []pllb.State
+	Target                 domain.Target
+	targetInput            dedup.TargetInput
 	SaveLocals             []SaveLocal
-	SaveImages             []SaveImage
-	VarCollection          *variables.Collection
-	RunPush                RunPush
-	InteractiveSession     InteractiveSession
-	GlobalImports          map[string]domain.ImportTrackerVal
+	SeparateArtifactsState []pllb.State
+	// outgoingNewSubscriptions is a list of channels to update when new dependentIDs are added.
+	outgoingNewSubscriptions []chan string
+	// WaitBlocks contains the caller's waitblock plus any additional waitblocks defined in the target
+	WaitBlocks []waitutil.WaitBlock
+	// WaitItems contains all wait items which are created by the target
+	// it exists for tracking items in the target vs a caller's wait block that is shared between multiple targets
+	WaitItems                []waitutil.WaitItem
+	SaveImages               []SaveImage
+	incomingNewSubscriptions chan string
+	// ID is a random unique string.
+	ID string
+	// doneCh is a channel that is closed when the sts is complete.
+	doneCh chan struct{}
+	// dependentIDs are the sts IDs of the transitive dependants of this target.
+	dependentIDs       map[string]bool
+	GlobalImports      map[string]domain.ImportTrackerVal
+	MainImage          *image.Image
+	PlatformResolver   *platutil.Resolver
+	VarCollection      *variables.Collection
+	InteractiveSession InteractiveSession
+	RunPush            RunPush
+	depMu              sync.Mutex
+	// doSavesMu is a mutex for doSave.
+	doSavesMu sync.Mutex
+	tiMu      sync.Mutex
+	// doPushes indicates whether the SaveImages should actually be pushed
+	doPushes bool
 	// HasDangling represents whether the target has dangling instructions -
 	// ie if there are any non-SAVE commands after the first SAVE command,
 	// or if the target is invoked via BUILD command (not COPY nor FROM).
@@ -70,34 +89,8 @@ type SingleTarget struct {
 	RanFromLike bool
 	// RanInteractive represents whether we have encountered an --interactive command.
 	RanInteractive bool
-
-	// doSavesMu is a mutex for doSave.
-	doSavesMu sync.Mutex
 	// doSaves indicates whether the SaveImages and the SaveLocals should actually be saved
 	doSaves bool
-
-	// doPushes indicates whether the SaveImages should actually be pushed
-	doPushes bool
-
-	// WaitBlocks contains the caller's waitblock plus any additional waitblocks defined in the target
-	WaitBlocks []waitutil.WaitBlock
-
-	// WaitItems contains all wait items which are created by the target
-	// it exists for tracking items in the target vs a caller's wait block that is shared between multiple targets
-	WaitItems []waitutil.WaitItem
-
-	// doneCh is a channel that is closed when the sts is complete.
-	doneCh chan struct{}
-
-	tiMu        sync.Mutex
-	targetInput dedup.TargetInput
-
-	depMu sync.Mutex
-	// dependentIDs are the sts IDs of the transitive dependants of this target.
-	dependentIDs map[string]bool
-	// outgoingNewSubscriptions is a list of channels to update when new dependentIDs are added.
-	outgoingNewSubscriptions []chan string
-	incomingNewSubscriptions chan string
 }
 
 func newSingleTarget(
@@ -126,6 +119,7 @@ func newSingleTarget(
 		incomingNewSubscriptions: make(chan string, 1024),
 	}
 	sts.addOverridingVarsAsBuildArgInputs(overridingVars)
+
 	if parentDepSub == nil {
 		// New simplified algorithm.
 		return sts, nil
@@ -144,6 +138,7 @@ OuterLoop:
 	}
 	// Keep monitoring async.
 	sts.MonitorDependencySubscription(ctx, parentDepSub)
+
 	go func() {
 		for {
 			select {
@@ -154,6 +149,7 @@ OuterLoop:
 			}
 		}
 	}()
+
 	return sts, nil
 }
 
@@ -162,6 +158,7 @@ OuterLoop:
 func (sts *SingleTarget) GetDoSaves() bool {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	return sts.doSaves
 }
 
@@ -169,10 +166,12 @@ func (sts *SingleTarget) GetDoSaves() bool {
 func (sts *SingleTarget) SetDoSaves() {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	sts.doSaves = true
 	for _, wi := range sts.WaitItems {
 		wi.SetDoSave()
 	}
+
 	for _, wb := range sts.WaitBlocks {
 		wb.SetDoSaves()
 	}
@@ -183,6 +182,7 @@ func (sts *SingleTarget) SetDoSaves() {
 func (sts *SingleTarget) GetDoPushes() bool {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	return sts.doPushes
 }
 
@@ -190,10 +190,12 @@ func (sts *SingleTarget) GetDoPushes() bool {
 func (sts *SingleTarget) SetDoPushes() {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	sts.doPushes = true
 	for _, wi := range sts.WaitItems {
 		wi.SetDoPush()
 	}
+
 	for _, wb := range sts.WaitBlocks {
 		wb.SetDoPushes()
 	}
@@ -203,6 +205,7 @@ func (sts *SingleTarget) SetDoPushes() {
 func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	sts.WaitBlocks = append(sts.WaitBlocks, waitBlock)
 }
 
@@ -210,12 +213,14 @@ func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
 func (sts *SingleTarget) Wait(ctx context.Context) error {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	for i := len(sts.WaitBlocks) - 1; i >= 0; i-- {
 		err := sts.WaitBlocks[i].Wait(ctx, sts.doPushes, sts.doSaves)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -223,6 +228,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
+
 	for _, item := range sts.WaitItems {
 		waitBlock.AddItem(item)
 	}
@@ -232,6 +238,7 @@ func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock 
 func (sts *SingleTarget) TargetInput() dedup.TargetInput {
 	sts.tiMu.Lock()
 	defer sts.tiMu.Unlock()
+
 	return sts.targetInput
 }
 
@@ -239,6 +246,7 @@ func (sts *SingleTarget) TargetInput() dedup.TargetInput {
 func (sts *SingleTarget) AddBuildArgInput(bai dedup.BuildArgInput) {
 	sts.tiMu.Lock()
 	defer sts.tiMu.Unlock()
+
 	sts.targetInput = sts.targetInput.WithBuildArgInput(bai)
 }
 
@@ -251,6 +259,7 @@ func (sts *SingleTarget) LastSaveImage() SaveImage {
 			Image: sts.MainImage,
 		}
 	}
+
 	return sts.SaveImages[len(sts.SaveImages)-1]
 }
 
@@ -262,11 +271,14 @@ func (sts *SingleTarget) AddDependentIDs(dependentIDs map[string]bool) {
 		return
 	default:
 	}
+
 	sts.depMu.Lock()
 	defer sts.depMu.Unlock()
+
 	for ID := range dependentIDs {
 		sts.dependentIDs[ID] = true
 	}
+
 	for _, sub := range sts.outgoingNewSubscriptions {
 		for ID := range dependentIDs {
 			sub <- ID
@@ -292,13 +304,16 @@ func (sts *SingleTarget) MonitorDependencySubscription(ctx context.Context, inCh
 func (sts *SingleTarget) NewDependencySubscription() chan string {
 	sts.depMu.Lock()
 	defer sts.depMu.Unlock()
+
 	ch := make(chan string, 1024) // size is an arbitrary maximum cycle length
 	sts.outgoingNewSubscriptions = append(sts.outgoingNewSubscriptions, ch)
 	// Send everything we have so far.
 	ch <- sts.ID // send our ID
+
 	for depID := range sts.dependentIDs {
 		ch <- depID
 	}
+
 	return ch
 }
 
@@ -310,6 +325,7 @@ func (sts *SingleTarget) Done() chan struct{} {
 func (sts *SingleTarget) addOverridingVarsAsBuildArgInputs(overridingVars *variables.Scope) {
 	sts.tiMu.Lock()
 	defer sts.tiMu.Unlock()
+
 	for _, key := range overridingVars.Sorted() {
 		ovVar, _ := overridingVars.Get(key)
 		sts.targetInput = sts.targetInput.WithBuildArgInput(
@@ -331,15 +347,15 @@ type SaveLocal struct {
 
 // SaveImage is a docker image to be saved.
 type SaveImage struct {
-	State        pllb.State
-	Image        *image.Image
-	DockerTag    string
-	Push         bool
-	InsecurePush bool
+	State               pllb.State
+	Platform            platutil.Platform
+	Image               *image.Image
+	DockerTag           string
+	HasPushDependencies bool
 	// CacheHint instructs Earthly to save a separate ref for this image, even if no tag is
 	// provided.
-	CacheHint           bool
-	HasPushDependencies bool
+	CacheHint    bool
+	InsecurePush bool
 	// ForceSave indicates whether the image should be force-saved and (possibly pushed).
 	ForceSave bool
 	// CheckDuplicate indicates whether to check if the image name shows up
@@ -349,22 +365,20 @@ type SaveImage struct {
 	// list (usually used for multi-platform setups). This means that the image
 	// can only be a single-platform image.
 	NoManifestList bool
-
-	Platform platutil.Platform
+	Push           bool
 	// true when the --platform value was set (either on cli, or via FROM --platform=..., or BUILD --platform=...)
 	HasPlatform bool
-
 	SkipBuilder bool // for use with WAIT/END
 }
 
 // RunPush is a series of RUN --push commands to be run after the build has been deemed as
 // successful, along with artifacts to save and images to push.
 type RunPush struct {
-	CommandStrs        []string
 	State              pllb.State
+	InteractiveSession InteractiveSession
+	CommandStrs        []string
 	SaveLocals         []SaveLocal
 	SaveImages         []SaveImage
-	InteractiveSession InteractiveSession
 	HasState           bool
 }
 
@@ -381,8 +395,8 @@ const (
 // InteractiveSession holds the relevant data for running an interactive session when
 // it is not desired to save the resulting changes into an image.
 type InteractiveSession struct {
-	CommandStr  string
 	State       pllb.State
-	Initialized bool
+	CommandStr  string
 	Kind        InteractiveSessionKind
+	Initialized bool
 }

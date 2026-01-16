@@ -50,6 +50,7 @@ func Local(name string, opts ...llb.LocalOption) Factory {
 // Copy makes a new copy of the localFactory.
 func (f *LocalFactory) Copy() *LocalFactory {
 	newOpts := append([]llb.LocalOption{}, f.opts...)
+
 	return &LocalFactory{
 		name: f.name,
 		opts: newOpts,
@@ -72,6 +73,7 @@ func (f *LocalFactory) GetSharedKey() string {
 func (f *LocalFactory) WithInclude(patterns []string) *LocalFactory {
 	f = f.Copy()
 	f.opts = append(f.opts, llb.IncludePatterns(patterns))
+
 	return f
 }
 
@@ -80,6 +82,7 @@ func (f *LocalFactory) WithSharedKeyHint(key string) *LocalFactory {
 	f = f.Copy()
 	f.opts = append(f.opts, llb.SharedKeyHint(key))
 	f.sharedKeyHint = key
+
 	return f
 }
 

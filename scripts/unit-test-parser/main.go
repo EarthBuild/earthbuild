@@ -17,31 +17,39 @@ type TestEvent struct {
 	Action  string
 	Package string
 	Test    string
-	Elapsed float64 // seconds
 	Output  string
+	Elapsed float64 // seconds
 }
 
 func main() {
 	eventsWithElapsedTimes := []TestEvent{}
 	scanner := bufio.NewScanner(os.Stdin)
 	passed := true
+
 	for scanner.Scan() {
 		var event TestEvent
+
 		l := scanner.Text()
-		if err := json.Unmarshal([]byte(l), &event); err != nil {
+
+		err := json.Unmarshal([]byte(l), &event)
+		if err != nil {
 			log.Println(err)
 			os.Exit(1)
 		}
+
 		fmt.Print(event.Output)
+
 		if event.Elapsed > 0 {
 			eventsWithElapsedTimes = append(eventsWithElapsedTimes, event)
 		}
+
 		if event.Action == "fail" {
 			passed = false
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
+	err := scanner.Err()
+	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
@@ -53,13 +61,16 @@ func main() {
 	fmt.Printf("\n--- Test Duration Summary ---\n")
 
 	var buf bytes.Buffer
+
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "Package\tTest\tAction\tElapsed (seconds)\n")
+
 	for _, event := range eventsWithElapsedTimes {
 		if event.Test != "" {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%v\n", event.Package, event.Test, event.Action, event.Elapsed)
 		}
 	}
+
 	w.Flush() // #nosec G104
 	fmt.Print(buf.String())
 
@@ -67,5 +78,6 @@ func main() {
 		fmt.Printf("test(s) failed\n")
 		os.Exit(1)
 	}
+
 	fmt.Printf("test(s) passed\n")
 }

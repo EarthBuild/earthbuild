@@ -46,11 +46,13 @@ func (a *Build) buildFlags() []cli.Flag {
 
 func (a *Build) HiddenFlags() []cli.Flag {
 	_, isAutocomplete := os.LookupEnv("COMP_LINE")
+
 	flags := a.buildFlags()
 	if isAutocomplete {
 		// Don't hide the build flags for autocomplete.
 		return flags
 	}
+
 	for _, flag := range flags {
 		switch f := flag.(type) {
 		case *cli.StringSliceFlag:

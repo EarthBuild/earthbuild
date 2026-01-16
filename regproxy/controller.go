@@ -25,10 +25,10 @@ const (
 type Controller struct {
 	registryClient    registry.RegistryClient
 	containerFrontend containerutil.ContainerFrontend
-	darwinProxy       bool
 	darwinProxyImage  string
-	darwinProxyWait   time.Duration
 	cons              conslog.ConsoleLogger
+	darwinProxyWait   time.Duration
+	darwinProxy       bool
 }
 
 // NewController creates and returns a new registry proxy controller.
@@ -76,12 +76,14 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 				c.cons.VerbosePrintf("Failed to serve registry proxy: %v", err)
 			}
 		}
+
 		doneCh <- struct{}{}
 	}()
 
 	closers := []func(ctx context.Context){
 		func(ctx context.Context) {
 			p.close()
+
 			select {
 			case <-ctx.Done():
 			case <-doneCh:
@@ -97,13 +99,16 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 				c.cons.VerbosePrintf("Failed to stop registry proxy support container: %v", err)
 			}
 		}
+
 		port, err := c.startDarwinProxy(ctx, containerName, registryPort)
 		if err != nil {
 			stopFn(ctx)
 			return "", nil, errors.Wrap(err, "failed to start Darwin support container")
 		}
+
 		addr = fmt.Sprintf("127.0.0.1:%d", port)
 		c.cons.VerbosePrintf("Starting Darwin proxy on %s", addr)
+
 		closers = append(closers, stopFn)
 	}
 
@@ -161,17 +166,21 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	// will return a 200 when ready.
 	for {
 		url := fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort)
+
 		req, err := http.NewRequestWithContext(childCtx, http.MethodGet, url, nil)
 		if err != nil {
 			return 0, err
 		}
+
 		res, err := http.DefaultClient.Do(req)
 		if res != nil && res.Body != nil {
 			res.Body.Close() // #nosec G104
 		}
+
 		if err == nil && res != nil && res.StatusCode == http.StatusOK {
 			break
 		}
+
 		select {
 		case <-childCtx.Done():
 			return 0, childCtx.Err()
@@ -188,6 +197,7 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	for _, container := range containers {
 		if strings.HasPrefix(container.Name, darwinContainerPrefix) &&
 			time.Since(container.Created) > darwinContainerMaxAge {
@@ -197,6 +207,7 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -204,19 +215,23 @@ func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) err
 	// Ignore parent context cancellations as to prevent orphaned containers.
 	detachedCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
 	if checkExists {
 		infos, err := c.containerFrontend.ContainerInfo(detachedCtx, containerName)
 		if err != nil {
 			return err
 		}
+
 		if info, ok := infos[containerName]; !ok || info.Status == containerutil.StatusMissing {
 			return nil
 		}
 	}
+
 	err := c.containerFrontend.ContainerRemove(detachedCtx, true, containerName)
 	if err != nil {
 		return errors.Wrap(err, "failed to stop support container")
 	}
+
 	return nil
 }
 

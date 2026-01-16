@@ -110,10 +110,12 @@ func ParseTarget(fullTargetName string) (Target, error) {
 	if err != nil {
 		return Target{}, err
 	}
+
 	ok := targetNameRegex.MatchString(target)
 	if !ok {
 		return Target{}, errors.Errorf("target name %s does not match %s", target, targetNamePattern)
 	}
+
 	return Target{
 		GitURL:    gitURL,
 		Tag:       tag,

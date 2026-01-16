@@ -17,9 +17,9 @@ var (
 // Platform is a platform set to either the user's platform, the native platform where the
 // build executes, or another specific platform.
 type Platform struct {
+	p      *specs.Platform
 	user   bool
 	native bool
-	p      *specs.Platform
 }
 
 // IsPlatformDefined returns true when the platform was explicitly set.
@@ -38,11 +38,14 @@ func (p Platform) String() string {
 	if p.p != nil {
 		return platforms.Format(*p.p)
 	}
+
 	if p.native {
 		return "native"
 	}
+
 	if p.user {
 		return "user"
 	}
+
 	return ""
 }

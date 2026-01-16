@@ -8,12 +8,11 @@ import (
 
 // Resolver is a platform resolver.
 type Resolver struct {
+	currentPlatform    Platform
+	defaultPlatform    Platform
+	userPlatform       specs.Platform
+	nativePlatform     specs.Platform
 	AllowNativeAndUser bool // this will be set via feature flag.
-
-	currentPlatform Platform
-	defaultPlatform Platform
-	userPlatform    specs.Platform
-	nativePlatform  specs.Platform
 }
 
 // NewResolver returns a new platform resolver.
@@ -32,6 +31,7 @@ func (r *Resolver) SubResolver(newPlatform Platform) *Resolver {
 	if newPlatform == DefaultPlatform {
 		newPlatform = r.defaultPlatform
 	}
+
 	return &Resolver{
 		currentPlatform:    newPlatform,
 		defaultPlatform:    newPlatform,
@@ -47,6 +47,7 @@ func (r *Resolver) SubPlatform(in Platform) Platform {
 	if in == DefaultPlatform {
 		return r.currentPlatform
 	}
+
 	return in
 }
 
@@ -56,7 +57,9 @@ func (r *Resolver) UpdatePlatform(newPlatform Platform) Platform {
 	if newPlatform == DefaultPlatform {
 		newPlatform = r.defaultPlatform
 	}
+
 	r.currentPlatform = newPlatform
+
 	return newPlatform
 }
 
@@ -86,14 +89,18 @@ func (r *Resolver) Parse(str string) (Platform, error) {
 	if r.AllowNativeAndUser {
 		return r.ParseAllowNativeAndUser(str)
 	}
+
 	if str == "" {
 		return DefaultPlatform, nil
 	}
+
 	p, err := platforms.Parse(str)
 	if err != nil {
 		return Platform{}, err
 	}
+
 	p = platforms.Normalize(p)
+
 	return Platform{p: &p}, nil
 }
 
@@ -112,7 +119,9 @@ func (r *Resolver) ParseAllowNativeAndUser(str string) (Platform, error) {
 		if err != nil {
 			return Platform{}, err
 		}
+
 		p = platforms.Normalize(p)
+
 		return Platform{p: &p}, nil
 	}
 }
@@ -121,6 +130,7 @@ func (r *Resolver) ParseAllowNativeAndUser(str string) (Platform, error) {
 // (resolves "user" / "native" / "") to an actual value.
 func (r *Resolver) Materialize(in Platform) Platform {
 	var out specs.Platform
+
 	switch {
 	case in.p != nil:
 		out = *in.p
@@ -129,7 +139,9 @@ func (r *Resolver) Materialize(in Platform) Platform {
 	default: // in.native or none (default)
 		out = r.nativePlatform
 	}
+
 	out = platforms.Normalize(out)
+
 	return Platform{p: &out}
 }
 
@@ -144,6 +156,7 @@ func (r *Resolver) Scratch() pllb.State {
 func (r *Resolver) PlatformEquals(p1, p2 Platform) bool {
 	p1 = r.Materialize(p1)
 	p2 = r.Materialize(p2)
+
 	return p1.p.OS == p2.p.OS &&
 		p1.p.Architecture == p2.p.Architecture &&
 		p1.p.Variant == p2.p.Variant

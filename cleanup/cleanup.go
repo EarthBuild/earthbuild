@@ -7,8 +7,8 @@ type CloseFun = func() error
 
 // Collection is a collection of cleanup operations.
 type Collection struct {
-	mu        sync.Mutex
 	closeFuns []CloseFun
+	mu        sync.Mutex
 }
 
 // NewCollection returns a new Collection.
@@ -20,6 +20,7 @@ func NewCollection() *Collection {
 func (c *Collection) Add(cf CloseFun) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.closeFuns = append(c.closeFuns, cf)
 }
 
@@ -29,7 +30,9 @@ func (c *Collection) Close() []error {
 	cfs := c.closeFuns
 	c.closeFuns = []CloseFun{}
 	c.mu.Unlock()
+
 	var errs []error
+
 	for _, cf := range cfs {
 		err := cf()
 		if err != nil {
@@ -37,5 +40,6 @@ func (c *Collection) Close() []error {
 			// Keep going.
 		}
 	}
+
 	return errs
 }

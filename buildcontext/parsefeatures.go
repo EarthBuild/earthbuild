@@ -10,8 +10,8 @@ import (
 )
 
 type buildFile struct {
-	path string
 	ftrs *features.Features
+	path string
 }
 
 func parseFeatures(
@@ -26,6 +26,7 @@ func parseFeatures(
 	if err != nil {
 		return nil, err
 	}
+
 	if !hasVersion {
 		return nil, fmt.Errorf("No version specified in %s/Earthfile", projectRef)
 	}

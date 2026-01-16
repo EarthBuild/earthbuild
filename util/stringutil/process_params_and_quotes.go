@@ -29,6 +29,7 @@ func ProcessParamsAndQuotes(args []string) []string {
 		if openQuote == 0 {
 			merged = append(merged, sb.String())
 			sb.Reset()
+
 			continue
 		}
 

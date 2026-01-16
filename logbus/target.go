@@ -10,8 +10,8 @@ import (
 // Target is a delta generator for a target.
 type Target struct {
 	b         *Bus
-	targetID  string
 	dependsOn map[string]struct{}
+	targetID  string
 	mu        sync.Mutex
 }
 
@@ -45,10 +45,12 @@ func (t *Target) SetEnd(end time.Time, status logstream.RunStatus, finalPlatform
 func (t *Target) AddDependsOn(targetID string) {
 	// Only add the dependency link once to avoid sending duplicates to Logstream.
 	t.mu.Lock()
+
 	if _, ok := t.dependsOn[targetID]; ok {
 		t.mu.Unlock()
 		return
 	}
+
 	t.dependsOn[targetID] = struct{}{}
 	t.mu.Unlock()
 

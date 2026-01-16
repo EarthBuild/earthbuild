@@ -98,6 +98,7 @@ func (a *Debug) actionAst(cliCtx *cli.Context) error {
 	if cliCtx.NArg() > 1 {
 		return errors.New("invalid number of arguments provided")
 	}
+
 	path := "./Earthfile"
 	if cliCtx.NArg() == 1 {
 		path = cliCtx.Args().First()
@@ -107,11 +108,14 @@ func (a *Debug) actionAst(cliCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
 	efDt, err := json.Marshal(ef)
 	if err != nil {
 		return errors.Wrap(err, "marshal ast")
 	}
+
 	fmt.Print(string(efDt))
+
 	return nil
 }
 
@@ -131,6 +135,7 @@ func (a *Debug) actionBuildkitSessionHistory(cliCtx *cli.Context) error {
 
 	byt, _ := json.MarshalIndent(history, "", "  ")
 	fmt.Println(string(byt))
+
 	return nil
 }
 
@@ -152,6 +157,7 @@ func (a *Debug) actionBuildkitInfo(cliCtx *cli.Context) error {
 	fmt.Printf("Buildkit revision: %s\n", info.BuildkitVersion.Revision)
 	fmt.Printf("Buildkit package: %s\n", info.BuildkitVersion.Package)
 	fmt.Printf("Num sessions: %d\n", info.NumSessions)
+
 	return nil
 }
 
@@ -168,12 +174,16 @@ func (a *Debug) actionBuildkitDiskUsage(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get buildkit disk usage")
 	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
+
 	fmt.Fprintf(w,
 		"ID\tDescription\tSize\tUsageCount\tRecordType\tMutable\tShared\tInUse\tParents\tCreatedAt\tLastUsedAt\n")
+
 	for _, info := range infos {
 		var rt string
+
 		switch info.RecordType {
 		case client.UsageRecordTypeCacheMount:
 			rt = "cache"
@@ -188,10 +198,12 @@ func (a *Debug) actionBuildkitDiskUsage(cliCtx *cli.Context) error {
 		case client.UsageRecordTypeRegular:
 			rt = "regular"
 		}
+
 		lua := "nil"
 		if info.LastUsedAt != nil {
 			lua = info.LastUsedAt.Format(time.RFC3339)
 		}
+
 		fmt.Fprintf(
 			w, "%s\t%s\t%d\t%d\t%s\t%t\t%t\t%t\t%s\t%s\t%s\n",
 			info.ID, info.Description, info.Size, info.UsageCount,
@@ -200,6 +212,7 @@ func (a *Debug) actionBuildkitDiskUsage(cliCtx *cli.Context) error {
 			info.CreatedAt.Format(time.RFC3339), lua,
 		)
 	}
+
 	return nil
 }
 
@@ -222,10 +235,12 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 		for _, p := range info.Platforms {
 			ps = append(ps, platforms.Format(p))
 		}
+
 		ls := make([]string, 0, len(info.Labels))
 		for lk, lv := range info.Labels {
 			ls = append(ls, fmt.Sprintf("%s=%s", lk, lv))
 		}
+
 		fmt.Printf("Worker %s\n", info.ID)
 		fmt.Printf("\tLabels: %s\n", strings.Join(ls, ","))
 		fmt.Printf("\tPlatforms: %s\n", strings.Join(ps, ","))
@@ -247,6 +262,7 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 		fmt.Printf("\tGC All-time runs: %d\n", info.GCAnalytics.AllTimeRuns)
 		fmt.Printf("\tGC All-time max duration: %s\n", humanizeDuration(info.GCAnalytics.AllTimeMaxDuration))
 		fmt.Printf("\tGC All-time duration: %s\n", humanizeDuration(info.GCAnalytics.AllTimeDuration))
+
 		if info.GCAnalytics.CurrentStartTime != nil {
 			fmt.Printf("\tGC Current start time: %s\n", humanizeTime(info.GCAnalytics.CurrentStartTime))
 			fmt.Printf("\tGC Current num records before: %d\n", info.GCAnalytics.CurrentNumRecordsBefore)
@@ -254,6 +270,7 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 		} else {
 			fmt.Printf("\tNo GC run currently ongoing\n")
 		}
+
 		if info.GCAnalytics.LastStartTime != nil {
 			fmt.Printf("\tGC Last start time: %s\n", humanizeTime(info.GCAnalytics.LastStartTime))
 			fmt.Printf("\tGC Last end time: %s\n", humanizeTime(info.GCAnalytics.LastEndTime))
@@ -269,6 +286,7 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 			fmt.Printf("\tGC has not run yet\n")
 		}
 	}
+
 	return nil
 }
 
@@ -285,8 +303,10 @@ func (a *Debug) actionBuildkitShutdownIfIdle(cliCtx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "shutdown buildkit if idle")
 	}
+
 	fmt.Printf("Shutting down: %t\n", ok)
 	fmt.Printf("Num sessions: %d\n", numSessions)
+
 	return nil
 }
 
@@ -298,9 +318,11 @@ func humanizeTime(t *time.Time) string {
 	if t == nil {
 		return "nil"
 	}
+
 	if t.IsZero() {
 		return "zero"
 	}
+
 	return t.Format(time.RFC3339)
 }
 

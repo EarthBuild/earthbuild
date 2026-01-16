@@ -44,18 +44,16 @@ func New(console conslogging.ConsoleLogger, authServers []Child) *MultiAuthProvi
 // MultiAuthProvider is an auth provider that delegates authentication to
 // multiple child auth providers.
 type MultiAuthProvider struct {
-	console     conslogging.ConsoleLogger
 	authServers []Child
-	mu          sync.Mutex
-
 	// once an authServer has responded successfully, only that auth server
 	// will be used for all subsequent calls -- this is to prevent accidentally
 	// mixing credentials and using them inconsistently
 	foundAuthServer map[string]Child
-
 	// if an authServer returns an ErrAuthProviderNoResponse, dont call it again
 	// for this host unless AddProject is called.
 	skipAuthServer map[string][]Child
+	console        conslogging.ConsoleLogger
+	mu             sync.Mutex
 }
 
 // Register registers ap against server.
@@ -68,12 +66,15 @@ func (ap *MultiAuthProvider) getAuthServers(host string) []Child {
 	if ok {
 		return []Child{as}
 	}
+
 	res := []Child{}
+
 	for _, as := range ap.authServers {
 		if !ap.shouldSkip(host, as) {
 			res = append(res, as)
 		}
 	}
+
 	return res
 }
 
@@ -86,6 +87,7 @@ func (ap *MultiAuthProvider) setSkipAuthServer(host string, as Child) {
 	if ap.shouldSkip(host, as) {
 		return // already exists in skip list
 	}
+
 	ap.skipAuthServer[host] = append(ap.skipAuthServer[host], as)
 }
 
@@ -98,13 +100,16 @@ func (ap *MultiAuthProvider) shouldSkip(host string, as Child) bool {
 func (ap *MultiAuthProvider) AddProject(org, proj string) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
+
 	ap.foundAuthServer = make(map[string]Child)
+
 	ap.skipAuthServer = make(map[string][]Child)
 	for _, s := range ap.authServers {
 		adder, ok := s.(ProjectAdder)
 		if !ok {
 			continue
 		}
+
 		adder.AddProject(org, proj)
 	}
 }
@@ -116,6 +121,7 @@ func (ap *MultiAuthProvider) FetchToken(
 ) (rr *auth.FetchTokenResponse, err error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
+
 	for _, as := range ap.getAuthServers(req.Host) {
 		a, err := as.FetchToken(ctx, req)
 		if err != nil {
@@ -123,15 +129,20 @@ func (ap *MultiAuthProvider) FetchToken(
 				ap.setSkipAuthServer(req.Host, as)
 				continue
 			}
+
 			return nil, err
 		}
+
 		if a.Anonymous {
 			ap.console.
 				Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
 		}
+
 		ap.setAuthServer(req.Host, as)
+
 		return a, nil
 	}
+
 	return nil, status.Errorf(codes.Unavailable,
 		"no configured auth servers in the list of client-side configs responded")
 }
@@ -143,6 +154,7 @@ func (ap *MultiAuthProvider) Credentials(
 ) (*auth.CredentialsResponse, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
+
 	for _, as := range ap.getAuthServers(req.Host) {
 		a, err := as.Credentials(ctx, req)
 		if err != nil {
@@ -150,11 +162,15 @@ func (ap *MultiAuthProvider) Credentials(
 				ap.setSkipAuthServer(req.Host, as)
 				continue
 			}
+
 			return nil, err
 		}
+
 		ap.setAuthServer(req.Host, as)
+
 		return a, nil
 	}
+
 	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
 }
 
@@ -165,6 +181,7 @@ func (ap *MultiAuthProvider) GetTokenAuthority(
 ) (*auth.GetTokenAuthorityResponse, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
+
 	for _, as := range ap.getAuthServers(req.Host) {
 		a, err := as.GetTokenAuthority(ctx, req)
 		if err != nil {
@@ -172,11 +189,15 @@ func (ap *MultiAuthProvider) GetTokenAuthority(
 				ap.setSkipAuthServer(req.Host, as)
 				continue
 			}
+
 			return nil, err
 		}
+
 		ap.setAuthServer(req.Host, as)
+
 		return a, nil
 	}
+
 	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
 }
 
@@ -187,6 +208,7 @@ func (ap *MultiAuthProvider) VerifyTokenAuthority(
 ) (*auth.VerifyTokenAuthorityResponse, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
+
 	for _, as := range ap.getAuthServers(req.Host) {
 		a, err := as.VerifyTokenAuthority(ctx, req)
 		if err != nil {
@@ -194,10 +216,14 @@ func (ap *MultiAuthProvider) VerifyTokenAuthority(
 				ap.setSkipAuthServer(req.Host, as)
 				continue
 			}
+
 			return nil, err
 		}
+
 		ap.setAuthServer(req.Host, as)
+
 		return a, nil
 	}
+
 	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
 }

@@ -18,16 +18,14 @@ type Subscriber interface {
 // bus via WriteFormattedLog. The formatted deltas are then passed on to
 // formatted subscribers.
 type Bus struct {
-	run       *Run
-	createdAt time.Time
-
-	rawMu      sync.Mutex
-	rawSubs    []Subscriber
-	rawHistory []*logstream.Delta
-
-	formattedMu      sync.Mutex
+	createdAt        time.Time
+	run              *Run
+	rawSubs          []Subscriber
+	rawHistory       []*logstream.Delta
 	formattedSubs    []Subscriber
 	formattedHistory []*logstream.Delta
+	rawMu            sync.Mutex
+	formattedMu      sync.Mutex
 }
 
 // New creates a new Bus.
@@ -37,6 +35,7 @@ func New() *Bus {
 		createdAt: time.Now(),
 	}
 	b.run = newRun(b)
+
 	return b
 }
 
@@ -79,9 +78,11 @@ func (b *Bus) RemoveSubscriber(sub Subscriber) {
 func (b *Bus) AddRawSubscriber(sub Subscriber) {
 	b.rawMu.Lock()
 	defer b.rawMu.Unlock()
+
 	for _, delta := range b.rawHistory {
 		sub.Write(delta)
 	}
+
 	b.rawSubs = append(b.rawSubs, sub)
 }
 
@@ -89,6 +90,7 @@ func (b *Bus) AddRawSubscriber(sub Subscriber) {
 func (b *Bus) RemoveRawSubscriber(sub Subscriber) {
 	b.rawMu.Lock()
 	defer b.rawMu.Unlock()
+
 	for i, s := range b.rawSubs {
 		if s == sub {
 			b.rawSubs = append(b.rawSubs[:i], b.rawSubs[i+1:]...)
@@ -102,6 +104,7 @@ func (b *Bus) RemoveRawSubscriber(sub Subscriber) {
 func (b *Bus) AddFormattedSubscriber(sub Subscriber) {
 	b.formattedMu.Lock()
 	defer b.formattedMu.Unlock()
+
 	b.formattedSubs = append(b.formattedSubs, sub)
 	for _, delta := range b.formattedHistory {
 		sub.Write(delta)
@@ -112,6 +115,7 @@ func (b *Bus) AddFormattedSubscriber(sub Subscriber) {
 func (b *Bus) RemoveFormattedSubscriber(sub Subscriber) {
 	b.formattedMu.Lock()
 	defer b.formattedMu.Unlock()
+
 	for i, s := range b.formattedSubs {
 		if s == sub {
 			b.formattedSubs = append(b.formattedSubs[:i], b.formattedSubs[i+1:]...)
@@ -132,8 +136,10 @@ func (b *Bus) WriteDeltaManifest(dm *logstream.DeltaManifest) {
 			DeltaManifest: dm,
 		},
 	}
+
 	b.rawMu.Lock()
 	defer b.rawMu.Unlock()
+
 	b.rawHistory = append(b.rawHistory, delta)
 	for _, sub := range b.rawSubs {
 		sub.Write(delta)
@@ -147,8 +153,10 @@ func (b *Bus) WriteRawLog(dl *logstream.DeltaLog) {
 			DeltaLog: dl,
 		},
 	}
+
 	b.rawMu.Lock()
 	defer b.rawMu.Unlock()
+
 	b.rawHistory = append(b.rawHistory, delta)
 	for _, sub := range b.rawSubs {
 		sub.Write(delta)
@@ -162,8 +170,10 @@ func (b *Bus) WriteFormattedLog(dfl *logstream.DeltaFormattedLog) {
 			DeltaFormattedLog: dfl,
 		},
 	}
+
 	b.formattedMu.Lock()
 	defer b.formattedMu.Unlock()
+
 	b.formattedHistory = append(b.formattedHistory, delta)
 	for _, sub := range b.formattedSubs {
 		sub.Write(delta)

@@ -59,10 +59,10 @@ func TestScope(topT *testing.T) {
 
 	for _, tt := range []struct {
 		testName    string
-		useOpts     []variables.ScopeOpt
-		failGetOpts []variables.ScopeOpt
 		name        string
 		value       string
+		useOpts     []variables.ScopeOpt
+		failGetOpts []variables.ScopeOpt
 	}{
 		{
 			testName: "it stores inactive values",
@@ -90,8 +90,9 @@ func TestScope(topT *testing.T) {
 		o.Spec(tt.testName, func(tc testCtx) {
 			ok := tc.scope.Add(tt.name, tt.value)
 			tc.expect(ok).To(beTrue())
+
 			for _, opt := range tt.useOpts {
-				_, ok := tc.scope.Get(tt.name, opt)
+				_, ok = tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beFalse())
 				ok = tc.scope.Add(tt.name, tt.value, opt, variables.NoOverride())
 				tc.expect(ok).To(beFalse())
@@ -102,8 +103,9 @@ func TestScope(topT *testing.T) {
 			value, ok := tc.scope.Get(tt.name)
 			tc.expect(ok).To(beTrue())
 			tc.expect(value).To(equal(tt.value))
+
 			for _, opt := range tt.useOpts {
-				value, ok := tc.scope.Get(tt.name, opt)
+				value, ok = tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beTrue())
 				tc.expect(value).To(equal(tt.value))
 
@@ -114,7 +116,7 @@ func TestScope(topT *testing.T) {
 			}
 
 			for _, opt := range tt.failGetOpts {
-				_, ok := tc.scope.Get(tt.name, opt)
+				_, ok = tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beFalse())
 
 				m := tc.scope.Map(opt)
@@ -126,6 +128,7 @@ func TestScope(topT *testing.T) {
 			value, ok = clone.Get(tt.name)
 			tc.expect(ok).To(beTrue())
 			tc.expect(value).To(equal(tt.value))
+
 			for _, opt := range tt.useOpts {
 				value, ok = clone.Get(tt.name, opt)
 				tc.expect(ok).To(beTrue())
@@ -134,6 +137,7 @@ func TestScope(topT *testing.T) {
 
 			tc.scope.Remove(tt.name)
 			tc.scope.Add(tt.name, tt.value)
+
 			for _, opt := range tt.useOpts {
 				_, ok := tc.scope.Get(tt.name, opt)
 				tc.expect(ok).To(beFalse())

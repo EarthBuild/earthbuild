@@ -19,11 +19,10 @@ import (
 )
 
 type withDockerRunRegistry struct {
+	sem semutil.Semaphore
 	*withDockerRunBase
-	c *Converter
-
+	c              *Converter
 	enableParallel bool
-	sem            semutil.Semaphore
 }
 
 const internalWithDockerSecretPrefix = "52804da5-2787-46ad-8478-80c50f305e76" // #nosec G101
@@ -56,6 +55,7 @@ func (w *withDockerRunRegistry) prepareImages(
 	}
 
 	composeImagesSet := make(map[setKey]bool)
+
 	for _, pull := range composePulls {
 		pull.Platform = w.c.platr.SubPlatform(pull.Platform)
 		composeImagesSet[setKey{
@@ -68,10 +68,12 @@ func (w *withDockerRunRegistry) prepareImages(
 	imageDefChans := make([]chan *states.ImageDef, 0, len(opt.Loads))
 	for _, loadOpt := range opt.Loads {
 		loadOpt.Platform = w.c.platr.SubPlatform(loadOpt.Platform)
+
 		imageDefChan, err := w.load(ctx, cmdID, loadOpt)
 		if err != nil {
 			return nil, errors.Wrap(err, "load")
 		}
+
 		imageDefChans = append(imageDefChans, imageDefChan)
 	}
 
@@ -97,6 +99,7 @@ func (w *withDockerRunRegistry) prepareImages(
 	// Add compose images (what's left of them) to the pull list.
 	for _, pull := range composePulls {
 		pull.Platform = w.c.platr.SubPlatform(pull.Platform)
+
 		key := setKey{
 			imageName: pull.ImageName,
 			platform:  w.c.platr.Materialize(pull.Platform).String(),
@@ -112,6 +115,7 @@ func (w *withDockerRunRegistry) prepareImages(
 		if err != nil {
 			return nil, errors.Wrap(err, "pull")
 		}
+
 		imagesToBuild = append(imagesToBuild, imageDef)
 	}
 
@@ -158,11 +162,12 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	w.c.opt.ErrorGroup.Go(func() error {
 		for {
 			select {
-			case err, ok := <-res.ErrChan:
+			case chanErr, ok := <-res.ErrChan:
 				if !ok {
 					return nil
 				}
-				return err
+
+				return chanErr
 			case <-ctx.Done():
 				return ctx.Err()
 			}
@@ -180,6 +185,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		return results[i].FinalImageNameWithDigest < results[j].FinalImageNameWithDigest
 	})
 	pullImages := make([]string, 0, len(results))
+
 	imgsWithDigests := make([]string, 0, len(results))
 	for _, result := range results {
 		// This will be decoded in the wrapper.
@@ -189,6 +195,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)
 		}
+
 		imgsWithDigests = append(imgsWithDigests, result.FinalImageNameWithDigest)
 	}
 
@@ -238,11 +245,13 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
 		))
+
 	err = w.c.opt.InternalSecretStore.SetSecret(
 		ctx, dockerLoadRegistrySecretID, []byte(strings.Join(pullImages, " ")))
 	if err != nil {
 		return errors.Wrap(err, "set docker load registry secret")
 	}
+
 	w.c.opt.CleanCollection.Add(func() error { //nolint:contextcheck
 		return w.c.opt.InternalSecretStore.DeleteSecret(context.Background(), dockerLoadRegistrySecretID)
 	})
@@ -315,9 +324,11 @@ func (w *withDockerRunRegistry) load(
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {
 				return errNoImageTag
 			}
+
 			if len(mts.Final.SaveImages) > 1 {
 				return errors.Wrap(errNoImageTag, "multiple tags mentioned in SAVE IMAGE")
 			}
+
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
 		}
 
@@ -342,6 +353,7 @@ func (w *withDockerRunRegistry) load(
 		if err != nil {
 			return nil, err
 		}
+
 		err = afterFn(ctx, mts)
 		if err != nil {
 			return nil, err
@@ -353,12 +365,14 @@ func (w *withDockerRunRegistry) load(
 
 func readImgResults(ctx context.Context, ch chan *states.ImageResult) ([]*states.ImageResult, error) {
 	var results []*states.ImageResult
+
 	for {
 		select {
 		case result, ok := <-ch:
 			if !ok {
 				return results, nil
 			}
+
 			results = append(results, result)
 		case <-ctx.Done():
 			return nil, ctx.Err()

@@ -16,12 +16,10 @@ import (
 //
 // A zero Group is valid and does not cancel on error.
 type Group struct {
-	cancel func()
-
-	wg sync.WaitGroup
-
-	errOnce sync.Once
 	err     error
+	cancel  func()
+	wg      sync.WaitGroup
+	errOnce sync.Once
 	errMu   sync.Mutex
 }
 
@@ -39,6 +37,7 @@ func WithContext(ctx context.Context) (*Group, context.Context) {
 func (g *Group) Err() error {
 	g.errMu.Lock()
 	defer g.errMu.Unlock()
+
 	return g.err
 }
 
@@ -46,9 +45,11 @@ func (g *Group) Err() error {
 // returns the first non-nil error (if any) from them.
 func (g *Group) Wait() error {
 	g.wg.Wait()
+
 	if g.cancel != nil {
 		g.cancel()
 	}
+
 	return g.Err()
 }
 
@@ -58,18 +59,22 @@ func (g *Group) Wait() error {
 // returned by Wait.
 func (g *Group) Go(f func() error) {
 	g.errMu.Lock()
+
 	if g.err != nil {
 		g.errMu.Unlock()
 		// Don't add more work if there has been an error.
 		return
 	}
+
 	g.errMu.Unlock()
 
 	g.wg.Go(func() {
-		if err := f(); err != nil {
+		err := f()
+		if err != nil {
 			g.errOnce.Do(func() {
 				g.errMu.Lock()
 				defer g.errMu.Unlock()
+
 				g.err = err
 				if g.cancel != nil {
 					g.cancel()

@@ -69,57 +69,54 @@ var (
 
 // GlobalConfig contains global config values.
 type GlobalConfig struct {
-	BuildkitCacheSizeMb        int           `help:"Size of the buildkit cache in Megabytes."                                                                                                              yaml:"cache_size_mb"`                  //nolint:lll
-	BuildkitCacheSizePct       int           `help:"Size of the buildkit cache, as percentage (0-100)."                                                                                                    yaml:"cache_size_pct"`                 //nolint:lll
-	BuildkitCacheKeepDurationS int           `help:"Max age of cache, in seconds. 0 disables age-based cache expiry."                                                                                      yaml:"buildkit_cache_keep_duration_s"` //nolint:lll
-	BuildkitImage              string        `help:"Choose a specific image for your buildkitd."                                                                                                           yaml:"buildkit_image"`                 //nolint:lll
-	BuildkitRestartTimeoutS    int           `help:"How long to wait for buildkit to (re)start, in seconds."                                                                                               yaml:"buildkit_restart_timeout_s"`     //nolint:lll
-	BuildkitAdditionalArgs     []string      `help:"Additional args to pass to buildkit when it starts. Useful for custom/self-signed certs, or user namespace complications."                             yaml:"buildkit_additional_args"`       //nolint:lll
-	BuildkitAdditionalConfig   string        `help:"Additional config to use when starting the buildkit container; like using custom/self-signed certificates."                                            yaml:"buildkit_additional_config"`     //nolint:lll
-	BuildkitMaxParallelism     int           `help:"Max parallelism for buildkit workers"                                                                                                                  yaml:"buildkit_max_parallelism"`       //nolint:lll
-	ConversionParallelism      int           `help:"Set the conversion parallelism for speeding up the use of IF, WITH, DOCKER --load, FROMDOCKERFILE and others. A value of 0 disables the feature"       yaml:"conversion_parallelism"`         //nolint:lll
-	CniMtu                     uint16        `help:"Override auto-detection of the default interface MTU, for all containers within buildkit"                                                              yaml:"cni_mtu"`                        //nolint:lll
-	BuildkitHost               string        `help:"The URL of your buildkit, remote or local."                                                                                                            yaml:"buildkit_host"`                  //nolint:lll
-	LocalRegistryHost          string        `help:"The URL of the local registry used for image exports to Docker."                                                                                       yaml:"local_registry_host"`            //nolint:lll
 	DarwinProxyImage           string        `help:"The container image & tag used for the Docker Desktop registry proxy."                                                                                 yaml:"darwin_proxy_image"`             //nolint:lll
-	DarwinProxyWait            time.Duration `help:"The maximum time to wait for the Darwin registry proxy support container to become available."                                                         yaml:"darwin_proxy_wait"`              //nolint:lll
+	ServerTLSKey               string        `help:"The path to the server key for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."  yaml:"buildkitd_tlskey"`               //nolint:lll
+	BuildkitScheme             string        `help:" *Deprecated* Change how Earthly communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental."                yaml:"buildkit_transport"`             //nolint:lll
+	BuildkitImage              string        `help:"Choose a specific image for your buildkitd."                                                                                                           yaml:"buildkit_image"`                 //nolint:lll
+	CachePath                  string        `help:" *Deprecated* The path to keep Earthly's cache."                                                                                                       yaml:"cache_path"`                     //nolint:lll
+	SecretProvider             string        `help:"Command to execute to retrieve secret."                                                                                                                yaml:"secret_provider"`                //nolint:lll
+	BuildkitAdditionalConfig   string        `help:"Additional config to use when starting the buildkit container; like using custom/self-signed certificates."                                            yaml:"buildkit_additional_config"`     //nolint:lll
+	IPTables                   string        `help:"Which iptables binary to use. Valid values are iptables-legacy or iptables-nft. Bypasses any autodetection."                                           yaml:"ip_tables"`                      //nolint:lll
+	ContainerFrontend          string        `help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker' and 'podman' (experimental)."    yaml:"container_frontend"`             //nolint:lll
+	ServerTLSCert              string        `help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit." yaml:"buildkitd_tlscert"`              //nolint:lll
+	BuildkitHost               string        `help:"The URL of your buildkit, remote or local."                                                                                                            yaml:"buildkit_host"`                  //nolint:lll
 	TLSCACert                  string        `help:"The path to the CA cert for verification. Relative paths are interpreted as relative to the config path."                                              yaml:"tlsca"`                          //nolint:lll
+	ClientTLSKey               string        `help:"The path to the client key for verification. Relative paths are interpreted as relative to the config path."                                           yaml:"tlskey"`                         //nolint:lll
+	GitImage                   string        `help:"Image used to resolve git repositories"                                                                                                                yaml:"git_image"`                      //nolint:lll
+	LocalRegistryHost          string        `help:"The URL of the local registry used for image exports to Docker."                                                                                       yaml:"local_registry_host"`            //nolint:lll
 	TLSCAKey                   string        `help:"The path to the CA key for generating any missing certificates. Relative paths are interpreted as relative to the config path."                        yaml:"tlsca_key"`                      //nolint:lll
 	ClientTLSCert              string        `help:"The path to the client cert for verification. Relative paths are interpreted as relative to the config path."                                          yaml:"tlscert"`                        //nolint:lll
-	ClientTLSKey               string        `help:"The path to the client key for verification. Relative paths are interpreted as relative to the config path."                                           yaml:"tlskey"`                         //nolint:lll
-	ServerTLSCert              string        `help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit." yaml:"buildkitd_tlscert"`              //nolint:lll
-	ServerTLSKey               string        `help:"The path to the server key for verification. Relative paths are interpreted as relative to the config path. Only used when Earthly manages buildkit."  yaml:"buildkitd_tlskey"`               //nolint:lll
+	BuildkitAdditionalArgs     []string      `help:"Additional args to pass to buildkit when it starts. Useful for custom/self-signed certs, or user namespace complications."                             yaml:"buildkit_additional_args"`       //nolint:lll
+	BuildkitCacheSizePct       int           `help:"Size of the buildkit cache, as percentage (0-100)."                                                                                                    yaml:"cache_size_pct"`                 //nolint:lll
+	BuildkitCacheSizeMb        int           `help:"Size of the buildkit cache in Megabytes."                                                                                                              yaml:"cache_size_mb"`                  //nolint:lll
+	ConversionParallelism      int           `help:"Set the conversion parallelism for speeding up the use of IF, WITH, DOCKER --load, FROMDOCKERFILE and others. A value of 0 disables the feature"       yaml:"conversion_parallelism"`         //nolint:lll
+	BuildkitMaxParallelism     int           `help:"Max parallelism for buildkit workers"                                                                                                                  yaml:"buildkit_max_parallelism"`       //nolint:lll
+	DarwinProxyWait            time.Duration `help:"The maximum time to wait for the Darwin registry proxy support container to become available."                                                         yaml:"darwin_proxy_wait"`              //nolint:lll
+	BuildkitRestartTimeoutS    int           `help:"How long to wait for buildkit to (re)start, in seconds."                                                                                               yaml:"buildkit_restart_timeout_s"`     //nolint:lll
+	BuildkitCacheKeepDurationS int           `help:"Max age of cache, in seconds. 0 disables age-based cache expiry."                                                                                      yaml:"buildkit_cache_keep_duration_s"` //nolint:lll
+	CniMtu                     uint16        `help:"Override auto-detection of the default interface MTU, for all containers within buildkit"                                                              yaml:"cni_mtu"`                        //nolint:lll
 	TLSEnabled                 bool          `help:"If TLS should be used to communicate with Buildkit. Only honored when BuildkitScheme is 'tcp'."                                                        yaml:"tls_enabled"`                    //nolint:lll
-	ContainerFrontend          string        `help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker' and 'podman' (experimental)."    yaml:"container_frontend"`             //nolint:lll
-	IPTables                   string        `help:"Which iptables binary to use. Valid values are iptables-legacy or iptables-nft. Bypasses any autodetection."                                           yaml:"ip_tables"`                      //nolint:lll
-	SecretProvider             string        `help:"Command to execute to retrieve secret."                                                                                                                yaml:"secret_provider"`                //nolint:lll
-	GitImage                   string        `help:"Image used to resolve git repositories"                                                                                                                yaml:"git_image"`                      //nolint:lll
-
-	// Obsolete.
-	CachePath      string `help:" *Deprecated* The path to keep Earthly's cache."                                                                                        yaml:"cache_path"`         //nolint:lll
-	BuildkitScheme string `help:" *Deprecated* Change how Earthly communicates with its buildkit daemon. Valid options are: docker-container, tcp. TCP is experimental." yaml:"buildkit_transport"` //nolint:lll
 }
 
 // GitConfig contains git-specific config values.
 type GitConfig struct {
-	// these are used for git vendors (e.g. github, gitlab)
+	StrictHostKeyChecking *bool  `help:"Allow ssh access to hosts with unknown server keys (e.g. no entries in known_hosts), defaults to true."                                                                                                                                                                           yaml:"strict_host_key_checking"` //nolint:lll
 	Pattern               string `help:"A regular expression defined to match git URLs, defaults to the regex: <site>/([^/]+)/([^/]+). For example if the site is github.com, then the default pattern will match github.com/<user>/<repo>."                                                                              yaml:"pattern"`                  //nolint:lll
 	Substitute            string `help:"If specified, a regular expression substitution will be preformed to determine which URL is cloned by git. Values like $1, $2, ... will be replaced with matched subgroup data. If no substitute is given, a URL will be created based on the requested SSH authentication mode." yaml:"substitute"`               //nolint:lll
 	Suffix                string `help:"The git repository suffix, like .git."                                                                                                                                                                                                                                            yaml:"suffix"`                   //nolint:lll // .git
 	Auth                  string `help:"What authentication method do you use? Valid options are: http, https, ssh."                                                                                                                                                                                                      yaml:"auth"`                     //nolint:lll // http, https, ssh
 	User                  string `help:"The username to use when auth is set to git or https."                                                                                                                                                                                                                            yaml:"user"`                     //nolint:lll
-	Port                  int    `help:"The port to connect to when using git; has no effect for http(s)."                                                                                                                                                                                                                yaml:"port"`                     //nolint:lll
 	Prefix                string `help:"This path is prefixed to the git clone url, e.g. ssh://user@host:port/prefix/project/repo.git"                                                                                                                                                                                    yaml:"prefix"`                   //nolint:lll
 	Password              string `help:"The https password to use when auth is set to https. This setting is ignored when auth is ssh."                                                                                                                                                                                   yaml:"password"`                 //nolint:lll
 	ServerKey             string `help:"SSH fingerprints, like you would add in your known hosts file, or get from ssh-keyscan."                                                                                                                                                                                          yaml:"serverkey"`                //nolint:lll
-	StrictHostKeyChecking *bool  `help:"Allow ssh access to hosts with unknown server keys (e.g. no entries in known_hosts), defaults to true."                                                                                                                                                                           yaml:"strict_host_key_checking"` //nolint:lll
 	SSHCommand            string `help:"Set a value for the core.sshCommand git config option, which allows you to provide custom SSH configuration."                                                                                                                                                                     yaml:"ssh_command"`              //nolint:lll
+	Port                  int    `help:"The port to connect to when using git; has no effect for http(s)."                                                                                                                                                                                                                yaml:"port"`                     //nolint:lll
 }
 
 // Config contains user's configuration values from ~/earthly/config.yml.
 type Config struct {
-	Global GlobalConfig         `help:"Global configuration object. Requires YAML literal to set directly." yaml:"global"`
 	Git    map[string]GitConfig `help:"Git configuration object. Requires YAML literal to set directly."    yaml:"git"`
+	Global GlobalConfig         `help:"Global configuration object. Requires YAML literal to set directly." yaml:"global"`
 }
 
 // PortOffset is the offset to use for dev ports.
@@ -128,6 +125,7 @@ func PortOffset(installationName string) int {
 		// No offset for the official release.
 		return 0
 	}
+
 	return 10 + int(crc32.ChecksumIEEE([]byte(installationName)))%1000
 }
 
@@ -158,7 +156,8 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 		},
 	}
 
-	if err := yaml.Unmarshal(yamlData, &config); err != nil {
+	err := yaml.Unmarshal(yamlData, &config)
+	if err != nil {
 		return Config{}, errors.Wrap(err, "failed to parse YAML config")
 	}
 
@@ -166,7 +165,8 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 		config.Git = make(map[string]GitConfig)
 	}
 
-	if err := parseRelPaths(installationName, &config); err != nil {
+	err = parseRelPaths(installationName, &config)
+	if err != nil {
 		return Config{}, errors.Wrap(err, "failed to parse relative path")
 	}
 
@@ -175,6 +175,7 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 
 func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
 	var val any
+
 	switch key.Kind() {
 	// add other types as needed as they are introduced in the config struct
 	case reflect.Map:
@@ -192,19 +193,23 @@ func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
 // This is saved to disk in your earthly config file.
 func Upsert(config []byte, path, value string) ([]byte, error) {
 	base := &yaml.Node{}
+
 	err := yaml.Unmarshal(config, base)
 	if err != nil || base.IsZero() {
 		// Possibly an empty file, or a simple comment results in a null document.
 		// Not handled well, so manufacture somewhat acceptable document
 		fullDoc := string(config) + "\n---"
+
 		otherErr := yaml.Unmarshal([]byte(fullDoc), base)
 		if otherErr != nil {
 			// Give up.
 			if err != nil {
 				return []byte{}, errors.Wrapf(err, "failed to parse config file")
 			}
+
 			return []byte{}, errors.Wrapf(otherErr, "failed to parse config file")
 		}
+
 		base.Content = []*yaml.Node{{Kind: yaml.MappingNode}}
 	}
 
@@ -238,10 +243,12 @@ func Upsert(config []byte, path, value string) ([]byte, error) {
 // If no key/value exists, the function will eventually return cleanly.
 func Delete(config []byte, path string) ([]byte, error) {
 	base := &yaml.Node{}
+
 	err := yaml.Unmarshal(config, base)
 	if err != nil {
 		return []byte{}, errors.Wrapf(err, "failed to parse config file")
 	}
+
 	if base.IsZero() {
 		return nil, errors.New("config is empty or missing")
 	}
@@ -270,7 +277,9 @@ func PrintHelp(path string) error {
 	if err != nil {
 		return errors.Wrapf(err, "'%s' is not a valid config value", path)
 	}
+
 	fmt.Printf("(%s): %s\n", t.Kind(), help)
+
 	return nil
 }
 
@@ -327,6 +336,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 
 func valueToYaml(value string) (*yaml.Node, error) {
 	valueNode := &yaml.Node{}
+
 	err := yaml.Unmarshal([]byte(value), valueNode)
 	if err != nil {
 		return nil, errors.Errorf("%s is not a valid YAML value", value)
@@ -334,6 +344,7 @@ func valueToYaml(value string) (*yaml.Node, error) {
 
 	// Unfold all the yaml so it's not mixed inline and flow styles in the final document
 	var fixStyling func(node *yaml.Node)
+
 	fixStyling = func(node *yaml.Node) {
 		node.Style = 0
 
@@ -379,7 +390,6 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 		case i == len(path)-1:
 			// Last node should assign path as the value, not another mapping node
 			// Otherwise we would need to dig it up again.
-
 			if last == nil {
 				// Single depth special case
 				yamlNodes = append(yamlNodes, key, value)
@@ -460,12 +470,15 @@ func deleteYamlValue(node *yaml.Node, path []string) []string {
 				// Build new Content without those nodes.
 				if len(path) == 0 {
 					var newContent []*yaml.Node
+
 					for j, n := range node.Content {
 						if j != i && j != i+1 {
 							newContent = append(newContent, n)
 						}
 					}
+
 					node.Content = newContent
+
 					return []string{}
 				}
 
@@ -486,6 +499,7 @@ func ReadConfigFile(configPath string) ([]byte, error) {
 	if err != nil {
 		return []byte{}, errors.Wrapf(err, "failed to read from %s", configPath)
 	}
+
 	return yamlData, nil
 }
 
@@ -500,9 +514,11 @@ func WriteConfigFile(configPath string, data []byte) error {
 }
 
 func parseRelPaths(instName string, cfg *Config) error {
-	if err := parseTLSPaths(instName, cfg); err != nil {
+	err := parseTLSPaths(instName, cfg)
+	if err != nil {
 		return errors.Wrap(err, "could not parse relative TLS paths")
 	}
+
 	return nil
 }
 
@@ -510,6 +526,7 @@ func parseTLSPaths(instName string, cfg *Config) error {
 	if !cfg.Global.TLSEnabled {
 		return nil
 	}
+
 	fields := map[string]*string{
 		"ca key":      &cfg.Global.TLSCAKey,
 		"ca cert":     &cfg.Global.TLSCACert,
@@ -519,10 +536,12 @@ func parseTLSPaths(instName string, cfg *Config) error {
 		"server cert": &cfg.Global.ServerTLSCert,
 	}
 	for name, field := range fields {
-		if err := parsePath(instName, field); err != nil {
+		err := parsePath(instName, field)
+		if err != nil {
 			return errors.Wrapf(err, "could not parse %v path %q", name, *field)
 		}
 	}
+
 	return nil
 }
 
@@ -530,11 +549,14 @@ func parsePath(instName string, field *string) error {
 	if field == nil {
 		return errors.New("cannot parse nil field")
 	}
+
 	newPath, err := cfgPath(instName, *field)
 	if err != nil {
 		return err
 	}
+
 	*field = newPath
+
 	return nil
 }
 
@@ -542,9 +564,11 @@ func cfgPath(instName, path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return path, nil
 	}
+
 	cfgDir, err := cliutil.GetOrCreateEarthlyDir(instName)
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(cfgDir, path), nil
 }

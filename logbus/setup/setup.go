@@ -56,15 +56,18 @@ func New(
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)
+
 	if busDebugFile != "" {
 		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open bus debug file %s", busDebugFile)
 		}
+
 		useJson := strings.HasSuffix(busDebugFile, ".json")
 		bs.BusDebugWriter = writersub.NewRaw(f, useJson)
 		bs.Bus.AddSubscriber(bs.BusDebugWriter)
 	}
+
 	return bs, nil
 }
 
@@ -88,12 +91,16 @@ func (bs *BusSetup) SetCI(isCI bool) {
 func (bs *BusSetup) DumpManifestToFile(path string) error {
 	m := bs.Formatter.Manifest()
 	proto.Merge(m, bs.InitialManifest)
+
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304
 	if err != nil {
 		return errors.Wrapf(err, "failed to open bus manifest debug file %s", path)
 	}
+
 	useJson := strings.HasSuffix(path, ".json")
+
 	var dt []byte
+
 	if useJson {
 		jsonOpts := protojson.MarshalOptions{
 			Multiline:       true,
@@ -105,13 +112,16 @@ func (bs *BusSetup) DumpManifestToFile(path string) error {
 	} else {
 		dt, err = proto.Marshal(m)
 	}
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal manifest")
 	}
+
 	_, err = f.Write(dt)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write manifest")
 	}
+
 	return nil
 }
 
@@ -131,7 +141,8 @@ func (bs *BusSetup) Close(ctx context.Context) error {
 		ret = multierror.Append(ret, errors.Wrap(multi, "console writer"))
 	}
 
-	if err := bs.Formatter.Close(); err != nil {
+	err := bs.Formatter.Close()
+	if err != nil {
 		ret = multierror.Append(ret, errors.Wrap(err, "formatter"))
 	}
 

@@ -41,6 +41,7 @@ func TestGolang(t *testing.T) {
 		fs := newMockFS(t, mockTimeout)
 		exec := newMockExecer(t, mockTimeout)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
 		return testCtx{
 			T:      t,
 			ctx:    ctx,
@@ -81,9 +82,12 @@ func TestGolang(t *testing.T) {
 			pers.Return(t.fs.StatOutput, nil, nil)
 			cmd := newMockCmd(t, mockTimeout)
 			pers.Return(t.exec.CommandOutput, cmd)
+
 			const projDir = "some/path/to/a/project"
+
 			stdout := bytes.NewBufferString(projDir)
 			pers.Return(cmd.RunOutput, stdout, nil, fs.ErrNotExist)
+
 			_, err := t.golang.ForDir(t.ctx, ".")
 			t.expect(t.fs).To(haveMethodExecuted("Stat", withArgs("go.mod")))
 			t.expect(t.exec).To(haveMethodExecuted("Command", withArgs("go", "list", "-f", "{{.Dir}}")))

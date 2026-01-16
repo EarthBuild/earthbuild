@@ -31,36 +31,36 @@ const (
 // by the subcommands so I thought it made since to declare them just once there and then
 // pass them in.
 type Global struct {
-	DockerfilePath             string
-	EnableProfiler             bool
+	FeatureFlagOverrides       string
 	InstallationName           string
-	ConfigPath                 string
 	GitUsernameOverride        string
 	GitPasswordOverride        string
 	GitBranchOverride          string
 	ExecStatsSummary           string
 	SSHAuthSock                string
-	Verbose                    bool
-	Debug                      bool
-	DisplayExecStats           bool
-	FeatureFlagOverrides       string
-	EnvFile                    string
 	ArgFile                    string
+	EnvFile                    string
+	LocalRegistryHost          string
+	ConfigPath                 string
+	DockerfilePath             string
+	RemoteCache                string
 	SecretFile                 string
-	NoBuildkitUpdate           bool
+	LocalSkipDB                string
 	LogstreamDebugFile         string
 	LogstreamDebugManifestFile string
-	ServerConnTimeout          time.Duration
+	GitLFSPullInclude          string
 	BuildkitHost               string
 	BuildkitdImage             string
 	ContainerName              string
-	GitLFSPullInclude          string
-	BuildkitdSettings          buildkitd.Settings
-	InteractiveDebugging       bool
-	BootstrapNoBuildkit        bool
-	ConversionParallelism      int
-	LocalRegistryHost          string
 	ContainerFrontend          containerutil.ContainerFrontend
+	BuildkitdSettings          buildkitd.Settings
+	ServerConnTimeout          time.Duration
+	ConversionParallelism      int
+	InteractiveDebugging       bool
+	NoCache                    bool
+	NoBuildkitUpdate           bool
+	DisplayExecStats           bool
+	Debug                      bool
 	ArtifactMode               bool
 	ImageMode                  bool
 	Pull                       bool
@@ -69,7 +69,7 @@ type Global struct {
 	UseTickTockBuildkitImage   bool
 	Output                     bool
 	NoOutput                   bool
-	NoCache                    bool
+	BootstrapNoBuildkit        bool
 	SkipBuildkit               bool
 	AllowPrivileged            bool
 	MaxRemoteCache             bool
@@ -78,8 +78,8 @@ type Global struct {
 	NoFakeDep                  bool
 	Strict                     bool
 	GlobalWaitEnd              bool
-	RemoteCache                string
-	LocalSkipDB                string
+	Verbose                    bool
+	EnableProfiler             bool
 	DisableRemoteRegistryProxy bool
 	NoAutoSkip                 bool
 	GithubAnnotations          bool
@@ -90,6 +90,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 	if defaultInstallationName == "" {
 		defaultInstallationName = "earthly"
 	}
+
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "installation-name",

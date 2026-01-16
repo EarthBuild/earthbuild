@@ -36,6 +36,7 @@ func (img *Image) Clone() *Image {
 	if img == nil {
 		return NewImage()
 	}
+
 	clone := &Image{
 		Architecture: img.Architecture,
 		OS:           img.OS,
@@ -64,18 +65,19 @@ func (img *Image) Clone() *Image {
 		}
 		copy(clone.Config.Healthcheck.Test, img.Config.Healthcheck.Test)
 	}
+
 	copy(clone.Config.Env, img.Config.Env)
 	copy(clone.Config.Entrypoint, img.Config.Entrypoint)
 	copy(clone.Config.Cmd, img.Config.Cmd)
 	maps.Copy(clone.Config.ExposedPorts, img.Config.ExposedPorts)
 	maps.Copy(clone.Config.Volumes, img.Config.Volumes)
 	maps.Copy(clone.Config.Labels, img.Config.Labels)
+
 	return clone
 }
 
 // Config is a docker compatible config for an image.
 type Config struct {
-	specs.ImageConfig
-
 	Healthcheck *image.HealthConfig `json:",omitempty"`
+	specs.ImageConfig
 }

@@ -20,9 +20,11 @@ func StateToRef(
 	cacheImports []string,
 ) (gwclient.Reference, error) {
 	platform := platr.SubPlatform(platr.Current())
+
 	if noCache {
 		state = state.SetMarshalDefaults(llb.IgnoreCache)
 	}
+
 	coes := make([]gwclient.CacheOptionsEntry, 0, len(cacheImports))
 	for _, ci := range cacheImports {
 		coe := gwclient.CacheOptionsEntry{
@@ -31,10 +33,12 @@ func StateToRef(
 		}
 		coes = append(coes, coe)
 	}
+
 	def, err := state.Marshal(ctx, llb.Platform(platr.ToLLBPlatform(platform)))
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal state")
 	}
+
 	r, err := gwClient.Solve(ctx, gwclient.SolveRequest{
 		Definition:   def.ToPB(),
 		CacheImports: coes,
@@ -42,9 +46,11 @@ func StateToRef(
 	if err != nil {
 		return nil, errors.Wrap(err, "solve state")
 	}
+
 	ref, err := r.SingleRef()
 	if err != nil {
 		return nil, errors.Wrap(err, "single ref")
 	}
+
 	return ref, nil
 }

@@ -25,12 +25,13 @@ jobs:
   prepare-release:
     name: prepare release
     needs: build-earthly
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       packages: write
     outputs:
       release_tag: ${{ steps.compute-tag.outputs.release_tag }}
+      version: ${{ steps.compute-version.outputs.version }}
       earthly_next: ${{ steps.read-next.outputs.earthly_next }}
     env:
       FORCE_COLOR: 1
@@ -56,6 +57,38 @@ jobs:
           set -euo pipefail
           RELEASE_TAG="$(git rev-parse --short=8 HEAD)"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Compute next version
+        id: compute-version
+        run: |-
+          set -euo pipefail
+          short_sha=$(git rev-parse --short=8 HEAD)
+
+          # Get all semver tags, extract base version (strip -rc-*, -dev-*, etc), find highest
+          # This handles both clean releases (v0.8.16) and RCs (v0.8.17-rc-1) -> base v0.8.17
+          highest_base_version=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | \
+            sed 's/\(v[0-9]*\.[0-9]*\.[0-9]*\).*/\1/' | \
+            sort -V | tail -1 || echo "")
+
+          if [ -z "$highest_base_version" ]; then
+            # No version tags found, start at v0.0.1
+            VERSION="v0.0.1-${short_sha}"
+          else
+            # Check if this exact version has been released (clean tag exists)
+            if git tag -l "$highest_base_version" | grep -q "^${highest_base_version}$"; then
+              # Clean release exists, increment patch for next version
+              major=$(echo "$highest_base_version" | sed 's/v\([0-9]*\)\..*/\1/')
+              minor=$(echo "$highest_base_version" | sed 's/v[0-9]*\.\([0-9]*\)\..*/\1/')
+              patch=$(echo "$highest_base_version" | sed 's/v[0-9]*\.[0-9]*\.\([0-9]*\)/\1/')
+              next_patch=$((patch + 1))
+              VERSION="v${major}.${minor}.${next_patch}-${short_sha}"
+            else
+              # Only RCs exist for this version, use the base version
+              VERSION="${highest_base_version}-${short_sha}"
+            fi
+          fi
+
+          echo "Computed version: $VERSION (highest base: ${highest_base_version:-none})"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Read earthly-next sha
         id: read-next
         run: |-
@@ -65,7 +98,7 @@ jobs:
   release-image:
     name: release dockerhub (main)
     needs: [build-earthly, prepare-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       packages: write
       contents: read
@@ -113,7 +146,7 @@ jobs:
   release-ticktock-image:
     name: release dockerhub (ticktock)
     needs: [build-earthly, prepare-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       packages: write
       contents: read
@@ -161,10 +194,43 @@ jobs:
             --RELEASE_TAG="${{ env.RELEASE_TAG }}-ticktock" \
             --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${{ env.EARTHLY_NEXT }}
 
+  copy-buildkitd-to-dockerhub:
+    name: copy buildkitd to dockerhub
+    needs: [build-earthly, prepare-release, release-image]
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: read
+    env:
+      FORCE_COLOR: 1
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          fetch-depth: 0
+      - name: Retrieve earthbuild from build-earthly job
+        run: |-
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG=${GITHUB_SHA}-ubuntu-latest-docker ./earthly upgrade
+          mkdir -p $(dirname "./build/linux/amd64/earthly")
+          mv ${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker ./build/linux/amd64/earthly
+      - name: Copy buildkitd from GHCR to DockerHub
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+        run: |-
+          set -euo pipefail
+          ./build/linux/amd64/earthly --push \
+            --secret CONTAINER_REGISTRY_TOKEN=${{ env.GITHUB_TOKEN }} \
+            --secret DEST_CONTAINER_REGISTRY_TOKEN=${{ env.DOCKERHUB_TOKEN }} \
+            ./release+copy-staging-buildkitd-to-dockerhub \
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
+            --CONTAINER_REGISTRY_USER="${{ github.actor }}" \
+            --DST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"
+
   release-binaries:
     name: release github
-    needs: [build-earthly, prepare-release]
-    runs-on: ubuntu-latest
+    needs: [build-earthly, prepare-release, copy-buildkitd-to-dockerhub]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
@@ -194,6 +260,7 @@ jobs:
         env:
           GPG_PRIVATE: ${{ secrets.GPG_PRIVATE }}
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
@@ -205,6 +272,7 @@ jobs:
             --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
             --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
+            --VERSION="${{ env.VERSION }}" \
             --PRERELEASE=false
 
       - name: Upload Release Binaries Artifact

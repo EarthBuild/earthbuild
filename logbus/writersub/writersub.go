@@ -11,9 +11,8 @@ import (
 type WriterSub struct {
 	w              io.Writer
 	targetIDFilter string
-
-	mu     sync.Mutex
-	errors []error
+	errors         []error
+	mu             sync.Mutex
 }
 
 // New creates a new WriterSub.
@@ -28,11 +27,13 @@ func New(w io.Writer, targetIDFilter string) *WriterSub {
 func (ws *WriterSub) Write(delta *logstream.Delta) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
+
 	switch d := delta.GetDeltaTypeOneof().(type) {
 	case *logstream.Delta_DeltaFormattedLog:
 		if ws.targetIDFilter != "" && d.DeltaFormattedLog.GetTargetId() != ws.targetIDFilter {
 			return
 		}
+
 		_, err := ws.w.Write(d.DeltaFormattedLog.GetData())
 		if err != nil {
 			ws.errors = append(ws.errors, err)
@@ -46,5 +47,6 @@ func (ws *WriterSub) Write(delta *logstream.Delta) {
 func (ws *WriterSub) Errors() []error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
+
 	return ws.errors
 }

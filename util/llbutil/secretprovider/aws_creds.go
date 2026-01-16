@@ -79,9 +79,11 @@ func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]b
 	if err != nil {
 		return nil, err
 	}
+
 	creds, err := cfg.Credentials.Retrieve(ctx)
 
-	if err = handleError(err, cfg.Region); err != nil {
+	err = handleError(err, cfg.Region)
+	if err != nil {
 		return nil, err
 	}
 
@@ -118,6 +120,7 @@ func getCFG(ctx context.Context) (aws.Config, error) {
 	if err != nil {
 		return aws.Config{}, errors.Wrap(err, "failed to load AWS config")
 	}
+
 	return cfg, nil
 }
 
@@ -128,6 +131,7 @@ func SetURLValuesFunc(awsInfo *oidcutil.AWSOIDCInfo) func(values url.Values) {
 		values.Set(sessionNameURLParam, awsInfo.SessionName)
 		values.Set(roleARNURLParam, awsInfo.RoleARN.String())
 		values.Set(regionURLParam, awsInfo.Region)
+
 		if awsInfo.SessionDuration != nil {
 			values.Set(sessionDurationURLParam, awsInfo.SessionDuration.String())
 		}

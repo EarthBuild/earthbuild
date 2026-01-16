@@ -18,21 +18,21 @@ const targetInternal = "internal"
 // converter to the solver monitor via BuildKit.
 type VertexMeta struct {
 	SourceLocation      *spec.SourceLocation `json:"sl,omitempty"`
+	OverridingArgs      map[string]string    `json:"args,omitempty"`
+	CommandID           string               `json:"cid,omitempty"`
 	RepoGitURL          string               `json:"rgu,omitempty"`
 	RepoGitHash         string               `json:"rgh,omitempty"`
-	RepoFileRelToRepo   string               `json:"rfr,omitempty"`
-	CommandID           string               `json:"cid,omitempty"`
 	TargetID            string               `json:"tid,omitempty"`
 	TargetName          string               `json:"tnm,omitempty"`
 	CanonicalTargetName string               `json:"ctnm,omitempty"`
 	Platform            string               `json:"plt,omitempty"`
-	NonDefaultPlatform  bool                 `json:"defplt,omitempty"`
-	Local               bool                 `json:"lcl,omitempty"`
-	Interactive         bool                 `json:"itrctv,omitempty"`
-	OverridingArgs      map[string]string    `json:"args,omitempty"`
-	Secrets             []string             `json:"secrets,omitempty"`
-	Internal            bool                 `json:"itrnl,omitempty"`
 	Runner              string               `json:"runner,omitempty"`
+	RepoFileRelToRepo   string               `json:"rfr,omitempty"`
+	Secrets             []string             `json:"secrets,omitempty"`
+	Interactive         bool                 `json:"itrctv,omitempty"`
+	Local               bool                 `json:"lcl,omitempty"`
+	Internal            bool                 `json:"itrnl,omitempty"`
+	NonDefaultPlatform  bool                 `json:"defplt,omitempty"`
 }
 
 var vertexRegexp = regexp.MustCompile(`(?s)^\[([^\]]*)\] (.*)$`)
@@ -40,20 +40,25 @@ var vertexRegexp = regexp.MustCompile(`(?s)^\[([^\]]*)\] (.*)$`)
 // ParseFromVertexPrefix parses the vertex prefix from the given string.
 func ParseFromVertexPrefix(in string) (*VertexMeta, string) {
 	vm := &VertexMeta{}
+
 	tail := in
 	if strings.HasPrefix(in, "importing cache manifest") ||
 		strings.HasPrefix(in, "exporting cache") {
 		vm.TargetName = "cache"
 		return vm, tail
 	}
+
 	match := vertexRegexp.FindStringSubmatch(in)
 	if len(match) < 2 {
 		vm.TargetName = targetInternal
 		vm.Internal = true
+
 		return vm, tail
 	}
+
 	vmDt64 := match[1]
 	tail = match[2]
+
 	dt, err := base64.StdEncoding.DecodeString(vmDt64)
 	if err != nil {
 		// Either "context <context-name>"
@@ -63,16 +68,20 @@ func ParseFromVertexPrefix(in string) (*VertexMeta, string) {
 		if len(splits) > 0 {
 			vm.TargetName = splits[0]
 		}
+
 		if vm.TargetName == targetInternal {
 			vm.Internal = true
 		}
+
 		return vm, tail
 	}
+
 	err = json.Unmarshal(dt, vm)
 	if err != nil {
 		vm.TargetName = vmDt64
 		return vm, tail
 	}
+
 	return vm, tail
 }
 
@@ -82,7 +91,9 @@ func (vm *VertexMeta) ToVertexPrefix() string {
 	if err != nil {
 		panic(err) // should never happen
 	}
+
 	b64Str := base64.StdEncoding.EncodeToString(dt)
+
 	return fmt.Sprintf("[%s] ", b64Str)
 }
 
@@ -92,11 +103,14 @@ func (vm *VertexMeta) OverridingArgsString() string {
 	if vm.OverridingArgs == nil {
 		return ""
 	}
+
 	args := make([]string, 0, len(vm.OverridingArgs))
 	for k, v := range vm.OverridingArgs {
 		args = append(args, k+"="+v)
 	}
+
 	slices.Sort(args)
+
 	return strings.Join(args, " ")
 }
 
@@ -106,6 +120,7 @@ func (vm *VertexMeta) SecretsString() string {
 	if len(vm.Secrets) == 0 {
 		return ""
 	}
+
 	return "secrets: " + strings.Join(vm.Secrets, " ")
 }
 
@@ -114,7 +129,9 @@ func (vm *VertexMeta) Salt() string {
 	if vm.TargetID != "" {
 		return vm.TargetID
 	}
+
 	var name string
+
 	switch {
 	case vm.TargetName != "":
 		name = vm.TargetName

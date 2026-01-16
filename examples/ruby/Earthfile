@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ruby:3.2.2
+FROM ruby:3.4.8
 WORKDIR /ruby-example
 
 deps:
@@ -17,3 +17,10 @@ docker:
     COPY +build/src src
     ENTRYPOINT ["ruby", "./src/hello.rb"]
     SAVE IMAGE --push earthbuild/examples:ruby
+
+# upgrade-deps Update dependencies to latest compatible versions and persist lockfile
+upgrade-deps:
+    FROM +deps
+    RUN bundle update
+
+    SAVE ARTIFACT Gemfile.lock AS LOCAL Gemfile.lock

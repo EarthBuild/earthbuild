@@ -17,18 +17,14 @@ const (
 // and dedentation tokens.
 type lexer struct {
 	*parser.EarthLexer
-
-	prevIndentLevel  int
-	indentLevel      int
-	afterNewLine     bool
-	afterLineComment bool
-
+	err                                          error
 	tokenQueue                                   []antlr.Token
+	prevIndentLevel                              int
+	indentLevel                                  int
 	wsChannel, wsStart, wsStop, wsLine, wsColumn int
-
-	err error
-
-	debug bool
+	afterNewLine                                 bool
+	afterLineComment                             bool
+	debug                                        bool
 }
 
 func newLexer(input antlr.CharStream) *lexer {
@@ -59,12 +55,14 @@ func (l *lexer) popRecipeMode() {
 		// need to add an error of our own.
 		_ = recover()
 	}()
+
 	m := l.getMode()
 	if m == parser.EarthLexerRECIPE {
 		// Special case: nothing above.
 		l.PopMode()
 		return
 	}
+
 	above := []int{m}
 	for {
 		m = l.PopMode()
@@ -72,8 +70,10 @@ func (l *lexer) popRecipeMode() {
 			l.PopMode()
 			break
 		}
+
 		above = append(above, m)
 	}
+
 	for i := len(above) - 1; i >= 0; i-- {
 		l.PushMode(above[i])
 	}
@@ -92,6 +92,7 @@ func (l *lexer) NextToken() antlr.Token {
 			l.processIndentation(peek)
 			peek = l.EarthLexer.NextToken()
 		}
+
 		l.afterLineComment = false
 	}
 
@@ -110,8 +111,10 @@ func (l *lexer) NextToken() antlr.Token {
 
 		// Force the default mode.
 		l.PushMode(0)
+
 		modeBefore = 0
 	}
+
 	switch modeBefore {
 	case 0, parser.EarthLexerRECIPE:
 		l.processIndentation(peek)
@@ -121,6 +124,7 @@ func (l *lexer) NextToken() antlr.Token {
 		if l.afterNewLine && peek.GetTokenType() == parser.EarthLexerCOMMENT {
 			l.afterLineComment = true
 		}
+
 		l.afterNewLine = peek.GetTokenType() == parser.EarthLexerNL
 	}
 
@@ -128,13 +132,16 @@ func (l *lexer) NextToken() antlr.Token {
 		if modeBefore >= 0 {
 			fmt.Print(parser.GetLexerModeNames()[modeBefore])
 		}
+
 		mode := l.getMode()
 		if mode >= 0 && peek.GetTokenType() > 0 {
 			if mode != modeBefore {
 				fmt.Printf(">>%s", parser.GetLexerModeNames()[mode])
 			}
+
 			fmt.Printf("-%d(%s) ", l.indentLevel, parser.GetLexerSymbolicNames()[peek.GetTokenType()])
 		}
+
 		if peek.GetTokenType() == parser.EarthLexerNL {
 			fmt.Printf("\n")
 		}
@@ -158,6 +165,7 @@ func (l *lexer) seek(line, column, index int) {
 	atn := l.Interpreter.(*antlr.LexerATNSimulator)
 	atn.Line = line
 	atn.CharPositionInLine = column
+
 	l.GetInputStream().Seek(index)
 }
 
@@ -179,6 +187,7 @@ func (l *lexer) handleCommentIndentLevel(comment antlr.Token) bool {
 		// there's no scenario where we would want to consider either of them.
 		return false
 	}
+
 	line, col, idx := l.pos()
 	defer l.seek(line, col, idx)
 
@@ -192,6 +201,7 @@ func (l *lexer) handleCommentIndentLevel(comment antlr.Token) bool {
 		switch next.GetTokenType() {
 		case parser.EarthLexerCOMMENT:
 			text := next.GetText()
+
 			alsoIndented := strings.HasPrefix(text, " ") || strings.HasPrefix(text, "\t")
 			if indented != alsoIndented {
 				return false
@@ -209,12 +219,14 @@ func (l *lexer) handleCommentIndentLevel(comment antlr.Token) bool {
 				l.indentLevel = 1
 				return true
 			}
+
 			return false
 		default:
 			if !indented {
 				l.indentLevel = 0
 				return true
 			}
+
 			return false
 		}
 	}
@@ -226,6 +238,7 @@ func (l *lexer) processIndentation(peek antlr.Token) {
 		if l.afterNewLine {
 			l.indentLevel++
 		}
+
 		l.wsChannel = peek.GetChannel()
 		l.wsStart = peek.GetStart()
 		l.wsStop = peek.GetStop()
@@ -253,11 +266,13 @@ func (l *lexer) handleIndentLevel(peek antlr.Token) {
 	if !l.afterNewLine {
 		return
 	}
+
 	l.afterNewLine = false
 
 	if l.prevIndentLevel == l.indentLevel {
 		return
 	}
+
 	prevIndent := l.prevIndentLevel
 	l.prevIndentLevel = l.indentLevel
 
@@ -266,6 +281,7 @@ func (l *lexer) handleIndentLevel(peek antlr.Token) {
 		if l.debug {
 			fmt.Printf("INDENT ")
 		}
+
 		return
 	}
 
@@ -273,6 +289,7 @@ func (l *lexer) handleIndentLevel(peek antlr.Token) {
 	if l.debug {
 		fmt.Printf("DEDENT ")
 	}
+
 	switch peek.GetTokenType() {
 	case parser.EarthLexerTarget, parser.EarthLexerUserCommand:
 	default:

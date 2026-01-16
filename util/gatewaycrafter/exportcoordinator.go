@@ -11,12 +11,12 @@ import (
 // ExportCoordinator is a thread-safe data-store used for coordinating the export
 // of images, and artifacts (e.g. OnPull, OnImage, and Artifact summaries).
 type ExportCoordinator struct {
-	m                     sync.Mutex
 	imageEntries          map[string]imageEntry
 	localOutputSummary    []LocalOutputSummaryEntry
 	artifactOutputSummary []ArtifactOutputSummaryEntry
 	pushedImageSummary    []PushedImageSummaryEntry
 	imgIndex              int
+	m                     sync.Mutex
 }
 
 type imageEntry struct {
@@ -57,7 +57,9 @@ func NewExportCoordinator() *ExportCoordinator {
 func (ec *ExportCoordinator) GetImage(k string) (*dockerutil.Manifest, string, bool) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
+
 	v, ok := ec.imageEntries[k]
+
 	return v.manifest, v.localImage, ok
 }
 
@@ -66,12 +68,14 @@ func (ec *ExportCoordinator) GetImage(k string) (*dockerutil.Manifest, string, b
 func (ec *ExportCoordinator) AddImage(sessionID, localImage string, manifest *dockerutil.Manifest) string {
 	ec.m.Lock()
 	defer ec.m.Unlock()
+
 	k := fmt.Sprintf("sess-%s/pullping:img-%d", sessionID, ec.imgIndex)
 	ec.imgIndex++
 	ec.imageEntries[k] = imageEntry{
 		localImage: localImage,
 		manifest:   manifest,
 	}
+
 	return k
 }
 
@@ -80,6 +84,7 @@ func (ec *ExportCoordinator) AddImage(sessionID, localImage string, manifest *do
 func (ec *ExportCoordinator) AddArtifactSummary(target, path, salt string) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
+
 	ec.artifactOutputSummary = append(ec.artifactOutputSummary, ArtifactOutputSummaryEntry{
 		Target: target,
 		Path:   path,
@@ -96,6 +101,7 @@ func (ec *ExportCoordinator) GetArtifactSummary() []ArtifactOutputSummaryEntry {
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].Target < entries[j].Target
 	})
+
 	return entries
 }
 
@@ -104,6 +110,7 @@ func (ec *ExportCoordinator) GetArtifactSummary() []ArtifactOutputSummaryEntry {
 func (ec *ExportCoordinator) AddLocalOutputSummary(target, dockerTag, salt string) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
+
 	ec.localOutputSummary = append(ec.localOutputSummary, LocalOutputSummaryEntry{
 		Target:    target,
 		DockerTag: dockerTag,
@@ -120,6 +127,7 @@ func (ec *ExportCoordinator) GetLocalOutputSummary() []LocalOutputSummaryEntry {
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].Target < entries[j].Target
 	})
+
 	return entries
 }
 
@@ -128,6 +136,7 @@ func (ec *ExportCoordinator) GetLocalOutputSummary() []LocalOutputSummaryEntry {
 func (ec *ExportCoordinator) AddPushedImageSummary(target, dockerTag, salt string, pushed bool) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
+
 	ec.pushedImageSummary = append(ec.pushedImageSummary, PushedImageSummaryEntry{
 		Target:    target,
 		DockerTag: dockerTag,
@@ -145,5 +154,6 @@ func (ec *ExportCoordinator) GetPushedImageSummary() []PushedImageSummaryEntry {
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].Target < entries[j].Target
 	})
+
 	return entries
 }

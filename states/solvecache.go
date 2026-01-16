@@ -39,6 +39,7 @@ func (sc *SolveCache) Do(ctx context.Context, sk StateKey, constructor SolveCach
 	if err != nil {
 		return pllb.State{}, err
 	}
+
 	return stateValue.(pllb.State), nil
 }
 
@@ -51,6 +52,7 @@ func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error)
 	}
 
 	key := fmt.Sprintf("%s-%s", dockerTag, hash)
+
 	return StateKey(key), nil
 }
 

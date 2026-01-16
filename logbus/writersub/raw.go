@@ -17,7 +17,7 @@ type RawWriterSub struct {
 	json   bool
 }
 
-// New creates a new WriterSub.
+// NewRaw creates a new WriterSub.
 func NewRaw(w io.Writer, json bool) *RawWriterSub {
 	return &RawWriterSub{
 		w:    w,

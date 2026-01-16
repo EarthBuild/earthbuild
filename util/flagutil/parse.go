@@ -172,7 +172,7 @@ func IsInParamsForm(str string) bool {
 		(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")"))
 }
 
-// parseParams turns "(+target --flag=something)" into "+target" and []string{"--flag=something"},
+// ParseParams turns "(+target --flag=something)" into "+target" and []string{"--flag=something"},
 // or "\"(+target --flag=something)\"" into "+target" and []string{"--flag=something"}.
 func ParseParams(str string) (string, []string, error) {
 	if !IsInParamsForm(str) {

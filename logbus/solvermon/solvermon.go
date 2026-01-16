@@ -132,13 +132,14 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp.SetName(operation) // Command created prior may not have a full name.
 			}
 
-			sm.vertices[cmdID] = &vertexMonitor{
+			vm = &vertexMonitor{
 				vertex:    vertex,
 				meta:      meta,
 				operation: operation,
 				cp:        cp,
 				ssp:       statsstreamparser.New(),
 			}
+			sm.vertices[cmdID] = vm
 		}
 
 		sm.digests[vertex.Digest] = cmdID

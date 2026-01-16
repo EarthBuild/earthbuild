@@ -1207,6 +1207,8 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "copy classical")
 		}
+
+		return nil
 	}
 
 	if dest == "" || dest == "." || len(srcs) > 1 {

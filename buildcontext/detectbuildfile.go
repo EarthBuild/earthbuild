@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ErrNotExist is the struct indicating that file does not exist.
+// ErrEarthfileNotExist is the struct indicating that file does not exist.
 type ErrEarthfileNotExist struct {
 	Target string
 }

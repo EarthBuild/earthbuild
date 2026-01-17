@@ -3,6 +3,8 @@ package autocomplete
 import (
 	"context"
 	"errors"
+	"iter"
+	"maps"
 	"os"
 	"os/user"
 	"path"
@@ -61,8 +63,9 @@ func containsDirectories(path string) bool {
 func getPotentialPaths(
 	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, prefix string,
 ) ([]string, error) {
+	var potentials []string
+
 	if prefix == "." {
-		potentials := []string{}
 		if containsDirectories(".") {
 			potentials = append(potentials, "./")
 		}
@@ -97,15 +100,7 @@ func getPotentialPaths(
 
 		// handle username completion
 		if !strings.Contains(prefix, "/") {
-			potentials := []string{}
-
-			for user := range users {
-				if strings.HasPrefix(user, prefix[1:]) {
-					potentials = append(potentials, "~"+user+"/")
-				}
-			}
-
-			return potentials, nil
+			return getPotentialHomeDirs(prefix, maps.Keys(users)), nil
 		}
 
 		// otherwise expand ~ into complete path
@@ -113,10 +108,8 @@ func getPotentialPaths(
 		user = parts[0]
 		rest := parts[1]
 
-		var homeDir string
-		if len(user) == 0 {
-			homeDir = currentUser.HomeDir
-		} else {
+		homeDir := currentUser.HomeDir
+		if len(user) > 0 {
 			homeDir = users[user]
 		}
 
@@ -139,8 +132,6 @@ func getPotentialPaths(
 			return []string{}, nil
 		}
 
-		dirPath := splits[0]
-
 		targetToParse := prefix
 		if strings.HasSuffix(targetToParse, "+") {
 			targetToParse += ast.TargetBase
@@ -160,21 +151,7 @@ func getPotentialPaths(
 			return nil, err
 		}
 
-		if len(targets) == 0 {
-			// only suggest when Earthfile has no other targets
-			targets = append(targets, ast.TargetBase)
-		}
-
-		potentials := []string{}
-
-		for _, target := range targets {
-			s := dirPath + "+" + target + " "
-			if strings.HasPrefix(s, prefix) {
-				potentials = append(potentials, replaceHomePrefix(s))
-			}
-		}
-
-		return potentials, nil
+		return getPotentialTargets(prefix, splits[0], replaceHomePrefix, targets), nil
 	}
 
 	usePrefixAsDir, err := fileutil.DirExists(prefix)
@@ -219,37 +196,71 @@ func getPotentialPaths(
 	paths := []string{}
 
 	for _, file := range files {
-		if strings.HasPrefix(file.Name(), f) {
-			if file.IsDir() {
-				s := path.Join(dir, file.Name())
-				if strings.HasPrefix(prefix, "./") {
-					s = "./" + s
-				}
+		if !strings.HasPrefix(file.Name(), f) || !file.IsDir() {
+			continue
+		}
 
-				if hasEarthfile(s) {
-					paths = append(paths, replaceHomePrefix(s)+"+")
-				}
+		s := path.Join(dir, file.Name())
+		if strings.HasPrefix(prefix, "./") {
+			s = "./" + s
+		}
 
-				if hasSubDirs(s) {
-					paths = append(paths, replaceHomePrefix(s)+"/")
-				}
-			}
+		if hasEarthfile(s) {
+			paths = append(paths, replaceHomePrefix(s)+"+")
+		}
+
+		if hasSubDirs(s) {
+			paths = append(paths, replaceHomePrefix(s)+"/")
 		}
 	}
 
-	if prefix != "./" && !strings.HasSuffix(prefix, "/./") { // dont suggest parent directory for "./"
-		if abs, _ := filepath.Abs(dir); abs != "/" { // if Abs fails, we will suggest "/../"
-			if strings.HasSuffix(prefix, "/.") {
-				paths = append(paths, prefix+"./")
-			}
+	// dont suggest parent directory for "./"
+	if prefix == "./" || strings.HasSuffix(prefix, "/./") {
+		return paths, nil
+	}
 
-			if strings.HasSuffix(prefix, "/") {
-				paths = append(paths, prefix+"../")
-			}
+	// if Abs fails, we will suggest "/../"
+	if abs, _ := filepath.Abs(dir); abs != "/" {
+		if strings.HasSuffix(prefix, "/.") {
+			paths = append(paths, prefix+"./")
+		}
+
+		if strings.HasSuffix(prefix, "/") {
+			paths = append(paths, prefix+"../")
 		}
 	}
 
 	return paths, nil
+}
+
+func getPotentialHomeDirs(prefix string, users iter.Seq[string]) []string {
+	var potentials []string
+
+	for user := range users {
+		if strings.HasPrefix(user, prefix[1:]) {
+			potentials = append(potentials, "~"+user+"/")
+		}
+	}
+
+	return potentials
+}
+
+func getPotentialTargets(prefix, dirPath string, replaceHomePrefix func(string) string, targets []string) []string {
+	var potentials []string
+
+	// only suggest when Earthfile has no other targets
+	if len(targets) == 0 {
+		targets = append(targets, ast.TargetBase)
+	}
+
+	for _, target := range targets {
+		s := dirPath + "+" + target + " "
+		if strings.HasPrefix(s, prefix) {
+			potentials = append(potentials, replaceHomePrefix(s))
+		}
+	}
+
+	return potentials
 }
 
 func getPotentialTargetBuildArgs(
@@ -481,36 +492,33 @@ func GetPotentials(
 				}
 
 				state = flagState
-			} else {
-				// targets only work under the root command
-				// TODO switch to strings.Contains when remote resolving works
-				if cmd == nil && (isLocalPath(w) || strings.HasPrefix(w, "+")) {
-					state = targetState
-					target = w
-				} else {
-					// must be under a command
-					foundCmd := getCmd(w, subCommands)
-					if foundCmd != nil {
-						subCommands = foundCmd.Subcommands
-						cmd = foundCmd
-					}
 
-					state = commandState
+				break
+			}
+
+			// targets only work under the root command
+			// TODO switch to strings.Contains when remote resolving works
+			if cmd == nil && (isLocalPath(w) || strings.HasPrefix(w, "+")) {
+				state = targetState
+				target = w
+			} else {
+				// must be under a command
+				foundCmd := getCmd(w, subCommands)
+				if foundCmd != nil {
+					subCommands = foundCmd.Subcommands
+					cmd = foundCmd
 				}
+
+				state = commandState
 			}
 		case state == targetState || state == targetFlagState:
-			if !strings.HasPrefix(w, "-") {
+			switch {
+			case !strings.HasPrefix(w, "-"), strings.HasSuffix(w, "="):
 				state = endOfSuggestionsState
-			} else {
-				if strings.HasSuffix(w, "=") {
-					state = endOfSuggestionsState
-				} else {
-					if artifactMode {
-						state = artifactFlagState
-					} else {
-						state = targetFlagState
-					}
-				}
+			case artifactMode:
+				state = artifactFlagState
+			default:
+				state = targetFlagState
 			}
 		}
 

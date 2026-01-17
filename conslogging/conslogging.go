@@ -272,7 +272,7 @@ func (cl ConsoleLogger) PrefixColor() *color.Color {
 	return cl.color(c)
 }
 
-// Prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY.
+// PrintGHASummary prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY.
 func (cl *ConsoleLogger) PrintGHASummary(message string) {
 	if !cl.githubAnnotations {
 		return

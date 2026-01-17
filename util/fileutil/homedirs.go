@@ -42,34 +42,36 @@ func GetUserHomeDirs() (map[string]string, error) {
 
 			users[u.Username] = path.Join(home, u.Username)
 		}
-	} else {
-		fp, err := os.Open("/etc/passwd")
+
+		return users, nil
+	}
+
+	fp, err := os.Open("/etc/passwd")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open /etc/passwd")
+	}
+
+	reader := bufio.NewReader(fp)
+	for {
+		line, err := reader.ReadString('\n')
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to open /etc/passwd")
+			if err == io.EOF {
+				break
+			}
+
+			return nil, errors.Wrap(err, "failed to read line")
 		}
 
-		reader := bufio.NewReader(fp)
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
 
-				return nil, errors.Wrap(err, "failed to read line")
-			}
-
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "#") {
-				continue
-			}
-
-			parts := strings.Split(line, ":")
-			if len(parts) >= 6 {
-				user := parts[0]
-				home := parts[5]
-				users[user] = home
-			}
+		parts := strings.Split(line, ":")
+		if len(parts) >= 6 {
+			user := parts[0]
+			home := parts[5]
+			users[user] = home
 		}
 	}
 

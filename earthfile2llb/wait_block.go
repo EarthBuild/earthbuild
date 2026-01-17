@@ -188,6 +188,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			platformImgName string
 		)
 
+		//nolint:nestif // TODO(jhorsts): simplify
 		if isMultiPlatform[item.si.DockerTag] {
 			platformBytes = []byte(item.si.Platform.String())
 
@@ -224,7 +225,8 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		refID++
 
 		if item.localExport {
-			if isMultiPlatform[item.si.DockerTag] {
+			switch {
+			case isMultiPlatform[item.si.DockerTag]:
 				// local docker instance does not support multi-platform images, so we must create a new entry
 				// and set it to the platformImgName
 				refPrefix, err = gwCrafter.AddPushImageEntry(ref, refID, platformImgName, false, false, item.si.Image, nil)
@@ -247,13 +249,11 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 				}
 
 				refID++
-			} else {
-				if item.c.opt.UseLocalRegistry {
-					exportCoordinatorImageID := exportCoordinator.AddImage(sessionID, item.si.DockerTag, nil)
-					gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(exportCoordinatorImageID))
-				} else {
-					gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
-				}
+			case item.c.opt.UseLocalRegistry:
+				exportCoordinatorImageID := exportCoordinator.AddImage(sessionID, item.si.DockerTag, nil)
+				gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(exportCoordinatorImageID))
+			default:
+				gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
 			}
 
 			exportCoordinator.AddLocalOutputSummary(item.c.target.String(), item.si.DockerTag, item.c.mts.Final.ID)

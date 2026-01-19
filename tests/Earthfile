@@ -87,6 +87,7 @@ ga-no-qemu-group4:
     BUILD +end-comment
     BUILD +file-copying
     BUILD +run-no-cache
+    BUILD +run-exec-form-test
     BUILD +save-artifact-file-as-dot
     BUILD +save-artifact-dir-as-dot
     BUILD +save-artifact-force-overwrite
@@ -802,6 +803,9 @@ gen-dockerfile-test:
 
 comments-test:
     DO +RUN_EARTHLY --earthfile=comments.earth --extra_args="--no-output" --target=+test
+
+run-exec-form-test:
+    DO +RUN_EARTHLY --earthfile=run-exec-form.earth --extra_args="--no-output" --target=+test-exec-form-run
 
 chown-test:
     RUN echo "test" > ./a.txt

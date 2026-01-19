@@ -47,7 +47,6 @@ linters:
     - nilnil
     - nlreturn
     - nonamedreturns
-    - predeclared
     - recvcheck
     - revive
     - staticcheck

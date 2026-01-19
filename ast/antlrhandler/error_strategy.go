@@ -10,6 +10,7 @@ import (
 // ReturnErrorStrategy allows for the error to be returned after parsing.
 type ReturnErrorStrategy struct {
 	*antlr.DefaultErrorStrategy
+
 	Err        error
 	Hint       string
 	ErrContext antlr.ParserRuleContext

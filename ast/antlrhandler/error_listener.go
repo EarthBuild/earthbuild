@@ -26,6 +26,7 @@ func humanName(symbol string) string {
 // ReturnErrorListener allows for the errors to be collected and returned after parsing.
 type ReturnErrorListener struct {
 	*antlr.DefaultErrorListener
+
 	Errs []error
 }
 

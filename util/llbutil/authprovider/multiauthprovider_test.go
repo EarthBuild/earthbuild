@@ -26,6 +26,7 @@ func TestMultiAuth(t *testing.T) {
 
 	type testCtx struct {
 		*testing.T
+
 		expect   expect.Expectation
 		multi    *authprovider.MultiAuthProvider
 		children []*mockChild

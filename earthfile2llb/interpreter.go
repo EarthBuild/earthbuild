@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 )
 
 const maxCommandRenameWarnings = 3
@@ -99,6 +100,9 @@ func (i *Interpreter) Run(ctx context.Context, ef spec.Earthfile) (retErr error)
 }
 
 func (i *Interpreter) handleTarget(ctx context.Context, t spec.Target) error {
+	ctx, span := otel.Tracer("").Start(ctx, t.Name)
+	defer span.End()
+
 	ctx = ContextWithSourceLocation(ctx, t.SourceLocation)
 	// Apply implicit FROM +base
 	err := i.converter.From(ctx, "+base", platutil.DefaultPlatform, i.allowPrivileged, false, nil)

@@ -123,7 +123,7 @@ type Converter struct {
 
 // NewConverter constructs a new converter for a given earthly target.
 func NewConverter(
-	ctx context.Context, target domain.Target, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt,
+	target domain.Target, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt,
 ) (*Converter, error) {
 	opt.BuildContextProvider.AddDirs(bc.LocalDirs)
 	sts.HasDangling = opt.HasDangling

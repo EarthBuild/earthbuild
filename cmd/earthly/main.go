@@ -144,7 +144,7 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		err := f.Apply(flagSet)
+		err = f.Apply(flagSet)
 		if err != nil {
 			envFileFromArgOK = false
 			break
@@ -152,7 +152,7 @@ func run() (code int) {
 	}
 
 	if envFileFromArgOK {
-		err := flagSet.Parse(os.Args[1:])
+		err = flagSet.Parse(os.Args[1:])
 		if err == nil {
 			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
 				envFile = envFileFlag.Value.String()
@@ -160,6 +160,7 @@ func run() (code int) {
 			}
 		}
 	}
+
 	err = godotenv.Load(envFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file

@@ -914,39 +914,6 @@ func (b *Builder) convertAndBuild(
 				}
 			}
 		}
-	case opt.NoOutput:
-		// noop
-	case opt.OnlyArtifact != nil:
-		if mts.Final.GetDoSaves() {
-			outputPhaseSpecial = "single artifact"
-			outDir, err := b.tempEarthlyOutDir()
-			if err != nil {
-				return nil, err
-			}
-			err = saveartifactlocally.SaveArtifactLocally(
-				ctx, exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
-			if err != nil {
-				return nil, err
-			}
-		}
-	case opt.OnlyFinalTargetImages:
-		outputPhaseSpecial = "single image"
-		for _, saveImage := range mts.Final.SaveImages {
-			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
-			shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
-			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
-			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
-				continue
-			}
-
-			if shouldPush {
-				exportCoordinator.AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), true)
-			}
-			if saveImage.Push && !opt.Push {
-				exportCoordinator.AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt(), false)
-			}
-			exportCoordinator.AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Console.Salt())
-		}
 	}
 
 	for _, artifactEntry := range exportCoordinator.GetArtifactSummary() {
@@ -976,8 +943,11 @@ func (b *Builder) convertAndBuild(
 
 	if opt.PrintPhases {
 		b.opt.Console.PrintPhaseFooter(PhasePush, !opt.Push, "")
-		ctx, span = otel.GetTracerProvider().Tracer("").Start(ctx, PhaseOutput)
+
+		ctx, span = otel.Tracer("").Start(ctx, PhaseOutput)
+
 		defer span.End()
+
 		b.opt.Console.PrintPhaseHeader(PhaseOutput, opt.NoOutput, outputPhaseSpecial)
 	}
 

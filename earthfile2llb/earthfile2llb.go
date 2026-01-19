@@ -319,7 +319,7 @@ func Earthfile2LLB(
 	opt.Console.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
 
-	converter, err := NewConverter(ctx, targetWithMetadata, bc, sts, opt)
+	converter, err := NewConverter(targetWithMetadata, bc, sts, opt)
 	if err != nil {
 		return nil, err
 	}

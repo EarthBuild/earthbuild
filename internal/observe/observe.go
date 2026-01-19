@@ -27,6 +27,7 @@ import (
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (shutdown func(context.Context) error, err error) {
 	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
+
 	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
 
 	var shutdownFuncs []func(context.Context) error
@@ -36,12 +37,16 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	// Each registered cleanup will be invoked once.
 	shutdown = func(ctx context.Context) error {
 		fmt.Println("Shutdown OTel providers")
-		var err error
+
+		var inErr error
+
 		for _, fn := range shutdownFuncs {
-			err = errors.Join(err, fn(ctx))
+			inErr = errors.Join(inErr, fn(ctx))
 		}
+
 		shutdownFuncs = nil
-		return err
+
+		return inErr
 	}
 
 	// handleErr calls shutdown for cleanup and makes sure that all errors are returned.
@@ -69,6 +74,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 		handleErr(err)
 		return shutdown, err
 	}
+
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 	otel.SetMeterProvider(meterProvider)
 
@@ -78,6 +84,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 		handleErr(err)
 		return shutdown, err
 	}
+
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
 
@@ -156,5 +163,6 @@ func newLoggerProvider() (*sdklog.LoggerProvider, error) {
 	loggerProvider := sdklog.NewLoggerProvider(
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 	)
+
 	return loggerProvider, nil
 }

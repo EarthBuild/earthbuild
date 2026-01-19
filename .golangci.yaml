@@ -15,7 +15,6 @@ linters:
     - dogsled
     - dupl
     - dupword
-    - embeddedstructfieldcheck
     - err113
     - errcheck
     - errchkjson
@@ -32,7 +31,6 @@ linters:
     - gochecknoinits
     - gocognit
     - gocyclo
-    - godoclint
     - godox
     - gomoddirectives
     - inamedparam
@@ -43,13 +41,11 @@ linters:
     - mnd
     - musttag
     - nakedret
-    - nestif
     - nilerr
     - nilnesserr
     - nilnil
     - nlreturn
     - nonamedreturns
-    - predeclared
     - recvcheck
     - revive
     - staticcheck

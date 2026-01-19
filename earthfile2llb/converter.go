@@ -352,6 +352,7 @@ func (c *Converter) FromDockerfile(
 
 	var dfData []byte
 
+	//nolint:nestif // TODO(jhorsts): simplify
 	if dfPath != "" {
 		dfArtifact, parseErr := domain.ParseArtifact(dfPath)
 		if parseErr == nil {
@@ -405,6 +406,7 @@ func (c *Converter) FromDockerfile(
 	var BuildContextFactory llbfactory.Factory
 
 	contextArtifact, parseErr := domain.ParseArtifact(contextPath)
+	//nolint:nestif // TODO(jhorsts): simplify
 	if parseErr == nil {
 		var prefix string
 
@@ -1106,95 +1108,102 @@ func (c *Converter) SaveArtifact(
 		return errors.Wrapf(err, "copyOp save artifact")
 	}
 
-	if saveAsLocalTo != "" {
-		separateArtifactsState := c.platr.Scratch()
+	if saveAsLocalTo == "" {
+		c.ranSave = true
+		c.markFakeDeps()
+
+		return nil
+	}
+
+	separateArtifactsState := c.platr.Scratch()
+
+	//nolint:nestif // TODO(jhorsts): simplify
+	if isPush {
+		pushState := c.persistCache(c.mts.Final.RunPush.State)
+
+		prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
+		if err != nil {
+			return err
+		}
+
+		separateArtifactsState, err = llbutil.CopyOp(ctx,
+			pushState, []string{saveFrom}, separateArtifactsState,
+			saveToAdjusted, true, true, keepTs, rootOwn, nil, ifExists, symlinkNoFollow,
+			c.ftrs.UseCopyLink,
+			llb.WithCustomNamef(
+				"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
+				prefix,
+				strIf(ifExists, "--if-exists "),
+				strIf(symlinkNoFollow, "--symlink-no-follow "),
+				saveFrom,
+				artifact.String(),
+				saveAsLocalTo))
+		if err != nil {
+			return errors.Wrapf(err, "copyOp save artifact as local")
+		}
+	} else {
+		prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
+		if err != nil {
+			return err
+		}
+
+		separateArtifactsState, err = llbutil.CopyOp(ctx,
+			pcState, []string{saveFrom}, separateArtifactsState,
+			saveToAdjusted, true, true, keepTs, rootOwn, nil, ifExists, symlinkNoFollow,
+			c.ftrs.UseCopyLink,
+			llb.WithCustomNamef(
+				"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
+				prefix,
+				strIf(ifExists, "--if-exists "),
+				strIf(symlinkNoFollow, "--symlink-no-follow "),
+				saveFrom,
+				artifact.String(),
+				saveAsLocalTo))
+		if err != nil {
+			return errors.Wrapf(err, "copyOp save artifact as local")
+		}
+	}
+
+	c.mts.Final.SeparateArtifactsState = append(c.mts.Final.SeparateArtifactsState, separateArtifactsState)
+
+	saveAsLocalToAdj := saveAsLocalTo
+	if saveAsLocalToAdj == "." {
+		saveAsLocalToAdj = "./"
+	}
+
+	if !force {
+		canSave, err := c.canSave(saveAsLocalToAdj)
+		if err != nil {
+			return err
+		}
+
+		if !canSave {
+			if c.ftrs.RequireForceForUnsafeSaves {
+				return fmt.Errorf("unable to save to %s; path must be located under %s", saveAsLocalTo, c.target.LocalPath)
+			}
+
+			c.opt.Console.Warnf(
+				"saving to path (%s) outside of current directory (%s) will require a --force flag in a future version",
+				saveAsLocalTo, c.target.LocalPath)
+		}
+	}
+
+	saveLocal := states.SaveLocal{
+		DestPath:     saveAsLocalToAdj,
+		ArtifactPath: artifactPath,
+		Index:        len(c.mts.Final.SeparateArtifactsState) - 1,
+		IfExists:     ifExists,
+	}
+
+	if c.ftrs.WaitBlock {
+		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.DoSaves)
+		c.waitBlock().AddItem(waitItem)
+		c.mts.Final.WaitItems = append(c.mts.Final.WaitItems, waitItem)
+	} else {
 		if isPush {
-			pushState := c.persistCache(c.mts.Final.RunPush.State)
-
-			prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
-			if err != nil {
-				return err
-			}
-
-			separateArtifactsState, err = llbutil.CopyOp(ctx,
-				pushState, []string{saveFrom}, separateArtifactsState,
-				saveToAdjusted, true, true, keepTs, rootOwn, nil, ifExists, symlinkNoFollow,
-				c.ftrs.UseCopyLink,
-				llb.WithCustomNamef(
-					"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
-					prefix,
-					strIf(ifExists, "--if-exists "),
-					strIf(symlinkNoFollow, "--symlink-no-follow "),
-					saveFrom,
-					artifact.String(),
-					saveAsLocalTo))
-			if err != nil {
-				return errors.Wrapf(err, "copyOp save artifact as local")
-			}
+			c.mts.Final.RunPush.SaveLocals = append(c.mts.Final.RunPush.SaveLocals, saveLocal)
 		} else {
-			prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
-			if err != nil {
-				return err
-			}
-
-			separateArtifactsState, err = llbutil.CopyOp(ctx,
-				pcState, []string{saveFrom}, separateArtifactsState,
-				saveToAdjusted, true, true, keepTs, rootOwn, nil, ifExists, symlinkNoFollow,
-				c.ftrs.UseCopyLink,
-				llb.WithCustomNamef(
-					"%sSAVE ARTIFACT %s%s%s %s AS LOCAL %s",
-					prefix,
-					strIf(ifExists, "--if-exists "),
-					strIf(symlinkNoFollow, "--symlink-no-follow "),
-					saveFrom,
-					artifact.String(),
-					saveAsLocalTo))
-			if err != nil {
-				return errors.Wrapf(err, "copyOp save artifact as local")
-			}
-		}
-
-		c.mts.Final.SeparateArtifactsState = append(c.mts.Final.SeparateArtifactsState, separateArtifactsState)
-
-		saveAsLocalToAdj := saveAsLocalTo
-		if saveAsLocalToAdj == "." {
-			saveAsLocalToAdj = "./"
-		}
-
-		if !force {
-			canSave, err := c.canSave(saveAsLocalToAdj)
-			if err != nil {
-				return err
-			}
-
-			if !canSave {
-				if c.ftrs.RequireForceForUnsafeSaves {
-					return fmt.Errorf("unable to save to %s; path must be located under %s", saveAsLocalTo, c.target.LocalPath)
-				}
-
-				c.opt.Console.Warnf(
-					"saving to path (%s) outside of current directory (%s) will require a --force flag in a future version",
-					saveAsLocalTo, c.target.LocalPath)
-			}
-		}
-
-		saveLocal := states.SaveLocal{
-			DestPath:     saveAsLocalToAdj,
-			ArtifactPath: artifactPath,
-			Index:        len(c.mts.Final.SeparateArtifactsState) - 1,
-			IfExists:     ifExists,
-		}
-
-		if c.ftrs.WaitBlock {
-			waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.DoSaves)
-			c.waitBlock().AddItem(waitItem)
-			c.mts.Final.WaitItems = append(c.mts.Final.WaitItems, waitItem)
-		} else {
-			if isPush {
-				c.mts.Final.RunPush.SaveLocals = append(c.mts.Final.RunPush.SaveLocals, saveLocal)
-			} else {
-				c.mts.Final.SaveLocals = append(c.mts.Final.SaveLocals, saveLocal)
-			}
+			c.mts.Final.SaveLocals = append(c.mts.Final.SaveLocals, saveLocal)
 		}
 	}
 
@@ -1382,6 +1391,7 @@ func (c *Converter) SaveImage(
 	}
 
 	for _, imageName := range imageNames {
+		//nolint:nestif // TODO(jhorsts): simplify
 		if c.mts.Final.RunPush.HasState {
 			if c.ftrs.WaitBlock {
 				panic("RunPush.HasState should never be true when --wait-block is used")
@@ -1982,31 +1992,33 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 		return errors.Errorf("invalid cache sharing mode %q", opts.Sharing)
 	}
 
-	if _, exists := c.persistentCacheDirs[mountTarget]; !exists {
-		mountOpts := []llb.MountOption{
-			llb.AsPersistentCacheDir(cacheID, shareMode),
-			llb.SourcePath("/cache"),
-		}
+	if _, exists := c.persistentCacheDirs[mountTarget]; exists {
+		return nil
+	}
 
-		mountMode := os.FileMode(0o644)
-		if opts.Mode != "" {
-			mountMode, err = ParseMode(opts.Mode)
-			if err != nil {
-				return errors.Errorf("failed to parse mount mode %s", opts.Mode)
-			}
-		}
+	mountOpts := []llb.MountOption{
+		llb.AsPersistentCacheDir(cacheID, shareMode),
+		llb.SourcePath("/cache"),
+	}
 
-		persisted := true // Without new --cache-persist-option we use old behaviour which is persisted
-		if c.ftrs.CachePersistOption {
-			persisted = opts.Persist
-		} else if opts.Persist {
-			return errors.Errorf("the --persist flag is only available when VERSION --cache-persist-option is enabled")
+	mountMode := os.FileMode(0o644)
+	if opts.Mode != "" {
+		mountMode, err = ParseMode(opts.Mode)
+		if err != nil {
+			return errors.Errorf("failed to parse mount mode %s", opts.Mode)
 		}
+	}
 
-		c.persistentCacheDirs[mountTarget] = states.CacheMount{
-			Persisted: persisted,
-			RunOption: pllb.AddMount(mountTarget, pllb.Scratch().File(pllb.Mkdir("/cache", mountMode)), mountOpts...),
-		}
+	persisted := true // Without new --cache-persist-option we use old behaviour which is persisted
+	if c.ftrs.CachePersistOption {
+		persisted = opts.Persist
+	} else if opts.Persist {
+		return errors.Errorf("the --persist flag is only available when VERSION --cache-persist-option is enabled")
+	}
+
+	c.persistentCacheDirs[mountTarget] = states.CacheMount{
+		Persisted: persisted,
+		RunOption: pllb.AddMount(mountTarget, pllb.Scratch().File(pllb.Mkdir("/cache", mountMode)), mountOpts...),
 	}
 
 	return nil
@@ -2443,55 +2455,59 @@ func (c *Converter) buildTarget(
 	}
 
 	c.directDeps = append(c.directDeps, mts.Final)
-	if propagateBuildArgs {
-		// Propagate build arg inputs upwards (a child target depending on a build arg means
-		// that the parent also depends on that build arg).
-		for _, bai := range mts.Final.TargetInput().BuildArgs {
-			// Check if the build arg has been overridden. If it has, it can no longer be an input
-			// directly, so skip it.
-			_, found := opt.OverridingVars.Get(bai.Name)
-			if found {
-				continue
-			}
-
-			c.mts.Final.AddBuildArgInput(bai)
-		}
-
-		if cmdT == fromCmd {
-			// Propagate globals.
-			globals := mts.Final.VarCollection.Globals()
-			for _, k := range globals.Sorted(variables.WithActive()) {
-				_, alreadyActive := c.varCollection.Get(k, variables.WithActive())
-				if alreadyActive {
-					// Globals don't override any variables in current scope.
-					continue
-				}
-
-				v, _ := globals.Get(k, variables.WithActive())
-				// Look for the default arg value in the built target's TargetInput.
-				defaultArgValue := ""
-
-				for _, childBai := range mts.Final.TargetInput().BuildArgs {
-					if childBai.Name == k {
-						defaultArgValue = childBai.DefaultValue
-						break
-					}
-				}
-
-				c.mts.Final.AddBuildArgInput(
-					dedup.BuildArgInput{
-						Name:          k,
-						DefaultValue:  defaultArgValue,
-						ConstantValue: v,
-					})
-			}
-
-			c.varCollection.SetGlobals(globals)
-			c.varCollection.Imports().SetGlobal(mts.Final.GlobalImports)
-			c.varCollection.SetProject(mts.Final.VarCollection.Project())
-			c.varCollection.SetOrg(mts.Final.VarCollection.Org())
-		}
+	if !propagateBuildArgs {
+		return mts, nil
 	}
+
+	// Propagate build arg inputs upwards (a child target depending on a build arg means
+	// that the parent also depends on that build arg).
+	for _, bai := range mts.Final.TargetInput().BuildArgs {
+		// Check if the build arg has been overridden. If it has, it can no longer be an input
+		// directly, so skip it.
+		_, found := opt.OverridingVars.Get(bai.Name)
+		if found {
+			continue
+		}
+
+		c.mts.Final.AddBuildArgInput(bai)
+	}
+
+	if cmdT != fromCmd {
+		return mts, nil
+	}
+
+	// Propagate globals.
+	globals := mts.Final.VarCollection.Globals()
+	for _, k := range globals.Sorted(variables.WithActive()) {
+		_, alreadyActive := c.varCollection.Get(k, variables.WithActive())
+		if alreadyActive {
+			// Globals don't override any variables in current scope.
+			continue
+		}
+
+		v, _ := globals.Get(k, variables.WithActive())
+		// Look for the default arg value in the built target's TargetInput.
+		defaultArgValue := ""
+
+		for _, childBai := range mts.Final.TargetInput().BuildArgs {
+			if childBai.Name == k {
+				defaultArgValue = childBai.DefaultValue
+				break
+			}
+		}
+
+		c.mts.Final.AddBuildArgInput(
+			dedup.BuildArgInput{
+				Name:          k,
+				DefaultValue:  defaultArgValue,
+				ConstantValue: v,
+			})
+	}
+
+	c.varCollection.SetGlobals(globals)
+	c.varCollection.Imports().SetGlobal(mts.Final.GlobalImports)
+	c.varCollection.SetProject(mts.Final.VarCollection.Project())
+	c.varCollection.SetOrg(mts.Final.VarCollection.Org())
 
 	return mts, nil
 }
@@ -2523,35 +2539,22 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	}
 
 	if opts.Locally {
-		if len(opts.Secrets) != 0 {
+		switch {
+		case len(opts.Secrets) != 0:
 			return pllb.State{}, errors.New("secrets not yet supported with LOCALLY") // TODO
-		}
-
-		if len(opts.Mounts) != 0 {
+		case len(opts.Mounts) != 0:
 			return pllb.State{}, errors.New("mounts not supported with LOCALLY")
-		}
-
-		if opts.WithSSH {
+		case opts.WithSSH:
 			return pllb.State{}, errors.New("--ssh not supported with LOCALLY")
-		}
-
-		if opts.Privileged {
+		case opts.Privileged:
 			return pllb.State{}, errors.New("--privileged not supported with LOCALLY")
-		}
-
-		if isInteractive {
+		case isInteractive:
 			return pllb.State{}, errors.New("interactive mode not supported with LOCALLY")
-		}
-
-		if opts.Push {
+		case opts.Push:
 			return pllb.State{}, errors.New("--push not supported with LOCALLY")
-		}
-
-		if opts.Transient {
+		case opts.Transient:
 			return pllb.State{}, errors.New("Transient run not supported with LOCALLY")
-		}
-
-		if opts.NoNetwork {
+		case opts.NoNetwork:
 			return pllb.State{}, errors.New("--network=none is not supported with LOCALLY")
 		}
 	}
@@ -2653,6 +2656,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		extraEnvVars = append(extraEnvVars, awsEnvs...)
 	}
 
+	//nolint:nestif // TODO(jhorsts): simplify
 	if !opts.Locally {
 		// Debugger.
 		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)

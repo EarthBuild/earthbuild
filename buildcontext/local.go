@@ -101,40 +101,41 @@ func (lr *localResolver) resolveLocal(
 	}
 
 	bf := buildFileValue.(*buildFile)
-
-	var buildContextFactory llbfactory.Factory
-	// guard against auto-complete code's GetTargetArgs() func which passes in a nil gwClient
-	// (but doesn't actually invoke buildkit)
-	if gwClient != nil {
-		if _, isTarget := ref.(domain.Target); isTarget {
-			noImplicitIgnore := bf.ftrs != nil && bf.ftrs.NoImplicitIgnore
-
-			useDockerIgnore := isDockerfile
-
-			ftrs := features.FromContext(ctx)
-			if ftrs != nil {
-				useDockerIgnore = useDockerIgnore && ftrs.UseDockerIgnore
-			}
-
-			excludes, err := readExcludes(ref.GetLocalPath(), noImplicitIgnore, useDockerIgnore)
-			if err != nil {
-				return nil, err
-			}
-
-			buildContextFactory = llbfactory.Local(
-				ref.GetLocalPath(),
-				llb.ExcludePatterns(excludes),
-				llb.Platform(platr.LLBNative()),
-				llb.WithCustomNamef("[context %s] local context %s", ref.GetLocalPath(), ref.GetLocalPath()),
-			)
-		}
-		// Else not needed: Commands don't come with a build context.
+	data := &Data{
+		BuildFilePath: bf.path,
+		GitMetadata:   metadata,
+		Features:      bf.ftrs,
 	}
 
-	return &Data{
-		BuildFilePath:       bf.path,
-		BuildContextFactory: buildContextFactory,
-		GitMetadata:         metadata,
-		Features:            bf.ftrs,
-	}, nil
+	if gwClient == nil {
+		return data, nil
+	}
+
+	// guard against auto-complete code's GetTargetArgs() func which passes in a nil gwClient
+	// (but doesn't actually invoke buildkit)
+	if _, isTarget := ref.(domain.Target); !isTarget {
+		return data, nil
+	}
+
+	noImplicitIgnore := bf.ftrs != nil && bf.ftrs.NoImplicitIgnore
+	useDockerIgnore := isDockerfile
+
+	ftrs := features.FromContext(ctx)
+	if ftrs != nil {
+		useDockerIgnore = useDockerIgnore && ftrs.UseDockerIgnore
+	}
+
+	excludes, err := readExcludes(ref.GetLocalPath(), noImplicitIgnore, useDockerIgnore)
+	if err != nil {
+		return nil, err
+	}
+
+	data.BuildContextFactory = llbfactory.Local(
+		ref.GetLocalPath(),
+		llb.ExcludePatterns(excludes),
+		llb.Platform(platr.LLBNative()),
+		llb.WithCustomNamef("[context %s] local context %s", ref.GetLocalPath(), ref.GetLocalPath()),
+	)
+
+	return data, nil
 }

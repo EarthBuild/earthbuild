@@ -249,13 +249,14 @@ func (f *Formatter) handleDeltaManifest(dm *logstream.DeltaManifest) error {
 		}
 
 		if cmd.GetHasInteractive() && cmd.GetIsInteractive() {
-			if cm.GetEndedAtUnixNanos() == 0 {
+			switch {
+			case cm.GetEndedAtUnixNanos() == 0:
 				if len(f.interactives) == 0 {
 					f.ongoingTicker.Stop()
 				}
 
 				f.interactives[commandID] = struct{}{}
-			} else if cmd.GetEndedAtUnixNanos() != 0 {
+			case cmd.GetEndedAtUnixNanos() > 0:
 				delete(f.interactives, commandID)
 
 				if len(f.interactives) == 0 {

@@ -196,30 +196,32 @@ func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
 			} else {
 				words.addRawString(tmp)
 			}
-		} else {
-			// Not special, just add it to the result
-			ch = sw.scanner.Next()
 
-			if ch == sw.escapeToken {
-				if sw.rawEscapes {
-					words.addRawChar(ch)
-					result.WriteRune(ch)
-				}
+			continue
+		}
 
-				// '\' (default escape token, but ` allowed) escapes, except end of line
-				ch = sw.scanner.Next()
+		// Not special, just add it to the result
+		ch = sw.scanner.Next()
 
-				if ch == scanner.EOF {
-					break
-				}
-
+		if ch == sw.escapeToken {
+			if sw.rawEscapes {
 				words.addRawChar(ch)
-			} else {
-				words.addChar(ch)
+				result.WriteRune(ch)
 			}
 
-			result.WriteRune(ch)
+			// '\' (default escape token, but ` allowed) escapes, except end of line
+			ch = sw.scanner.Next()
+
+			if ch == scanner.EOF {
+				break
+			}
+
+			words.addRawChar(ch)
+		} else {
+			words.addChar(ch)
 		}
+
+		result.WriteRune(ch)
 	}
 
 	if stopChar != scanner.EOF {

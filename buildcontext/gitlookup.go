@@ -263,54 +263,54 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 
 	splits := strings.Fields(keyScan)
 	if len(splits) < 3 {
-		err = errInvalidScan
-		return
+		return "", "", errInvalidScan
 	}
 
 	scannedHostname := splits[0]
+	keyAlg = splits[1]
+	keyData = splits[2]
 
 	if strings.HasPrefix(scannedHostname, "|") {
 		var ok bool
 
 		ok, err = isHashedHost(scannedHostname, hostname)
 		if err != nil {
-			return
+			return "", "", err
 		}
 
 		if !ok {
 			err = errKeyScanNoMatch
-			return
-		}
-	} else if scannedHostname != hostname {
-		// entry isn't hashed
-		// either the entry is of the form `[hostname]:port` or simply `hostname`
-		// check for entry without a port
-		// TODO: ACB is not sure if this part is needed
-		// (https://github.com/openssh/openssh-portable/commit/e9c71498a083a8b502aa831ea931ce294228eda0 is a bugfix
-		// that only affects hashed entries, however, it's not clear if old versions of ssh dropped the port in
-		// the non-hashed version).
-		if !hasPort(hostname) {
-			err = errKeyScanNoMatch
-			return
+			return "", "", err
 		}
 
-		var host string
-
-		host, _, err = net.SplitHostPort(hostname)
-		if err != nil {
-			err = errors.Wrapf(err, "SplitHostPort on %q failed", hostname)
-			return
-		}
-
-		if scannedHostname != host {
-			err = errKeyScanNoMatch
-			return
-		}
+		return
 	}
 
-	keyAlg = splits[1]
-	keyData = splits[2]
-	err = nil
+	if scannedHostname == hostname {
+		return
+	}
+
+	// entry isn't hashed
+	// either the entry is of the form `[hostname]:port` or simply `hostname`
+	// check for entry without a port
+	// TODO: ACB is not sure if this part is needed
+	// (https://github.com/openssh/openssh-portable/commit/e9c71498a083a8b502aa831ea931ce294228eda0 is a bugfix
+	// that only affects hashed entries, however, it's not clear if old versions of ssh dropped the port in
+	// the non-hashed version).
+	if !hasPort(hostname) {
+		return "", "", errKeyScanNoMatch
+	}
+
+	var host string
+
+	host, _, err = net.SplitHostPort(hostname)
+	if err != nil {
+		return "", "", errors.Wrapf(err, "SplitHostPort on %q failed", hostname)
+	}
+
+	if scannedHostname != host {
+		return "", "", errKeyScanNoMatch
+	}
 
 	return
 }
@@ -514,25 +514,9 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 var errNoRCHostEntry = errors.New("no netrc host entry")
 
 func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string, err error) {
-	var n *netrc.Netrc
-	if content := os.Getenv("NETRC_CONTENT"); content != "" {
-		n, err = netrc.ParseString(content)
-		if err != nil {
-			return "", "", errors.Wrap(err, "failed to parse NETRC_CONTENT data")
-		}
-	} else if path := os.Getenv("NETRC"); path != "" {
-		n, err = netrc.Parse(path)
-		if err != nil {
-			return "", "", errors.Wrapf(err, "failed to parse netrc file: %s", path)
-		}
-	} else {
-		homeDir, _ := fileutil.HomeDir()
-		path = filepath.Join(homeDir, ".netrc")
-
-		n, err = netrc.Parse(path)
-		if err != nil {
-			return "", "", errors.Wrap(err, "failed to parse default .netrc file")
-		}
+	n, err := gl.getNetrc()
+	if err != nil {
+		return "", "", err
 	}
 
 	machine := n.Machine(host)
@@ -544,6 +528,38 @@ func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string,
 	password = n.Machine(host).Get("password")
 
 	return login, password, nil
+}
+
+func (*GitLookup) getNetrc() (*netrc.Netrc, error) {
+	content := os.Getenv("NETRC_CONTENT")
+	if content != "" {
+		n, err := netrc.ParseString(content)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse NETRC_CONTENT data")
+		}
+
+		return n, nil
+	}
+
+	path := os.Getenv("NETRC")
+	if path != "" {
+		n, err := netrc.Parse(path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse netrc file: %s", path)
+		}
+
+		return n, nil
+	}
+
+	homeDir, _ := fileutil.HomeDir()
+	path = filepath.Join(homeDir, ".netrc")
+
+	n, err := netrc.Parse(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse default .netrc file")
+	}
+
+	return n, nil
 }
 
 var errMakeCloneURLSubNotSupported = errors.New("makeCloneURL does not support gitMatcher substitution")
@@ -724,38 +740,38 @@ func (gl *GitLookup) GetCloneURL(
 
 	sshCommand = m.sshCommand
 
-	if m.sub != "" {
-		if !m.re.MatchString(path) {
-			return "", "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
+	if m.sub == "" {
+		gitURL, keyScans, sshCommand, err = gl.makeCloneURL(ctx, m, host, gitPath)
+		if err != nil {
+			return "", "", nil, "", err
 		}
 
-		gitURL = m.re.ReplaceAllString(path, m.sub)
-		gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)",
-			path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
-
-		remote, protocol := parseGitProtocol(gitURL)
-		if protocol == SSHProtocol {
-			subHost := remote[:strings.IndexByte(remote, '/')]
-
-			_, keyScans, err = gl.getHostKeyAlgorithms(subHost)
-			if err != nil {
-				return "", "", nil, "", err
-			}
-
-			if len(keyScans) == 0 && m.strictHostKeyChecking {
-				return "", "", nil, "", errors.Errorf("no known_hosts entries exist for substituted host %s", subHost)
-			}
-		}
+		gl.console.VerbosePrintf("converted earthly reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
 
 		return gitURL, subPath, keyScans, sshCommand, nil
 	}
 
-	gitURL, keyScans, sshCommand, err = gl.makeCloneURL(ctx, m, host, gitPath)
-	if err != nil {
-		return "", "", nil, "", err
+	if !m.re.MatchString(path) {
+		return "", "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
 	}
 
-	gl.console.VerbosePrintf("converted earthly reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
+	gitURL = m.re.ReplaceAllString(path, m.sub)
+	gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)",
+		path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
+
+	remote, protocol := parseGitProtocol(gitURL)
+	if protocol == SSHProtocol {
+		subHost := remote[:strings.IndexByte(remote, '/')]
+
+		_, keyScans, err = gl.getHostKeyAlgorithms(subHost)
+		if err != nil {
+			return "", "", nil, "", err
+		}
+
+		if len(keyScans) == 0 && m.strictHostKeyChecking {
+			return "", "", nil, "", errors.Errorf("no known_hosts entries exist for substituted host %s", subHost)
+		}
+	}
 
 	return gitURL, subPath, keyScans, sshCommand, nil
 }
@@ -811,34 +827,34 @@ func (gl *GitLookup) ConvertCloneURL(
 	}
 
 	m := gl.getGitMatcherByName(host)
-	if m.sub != "" {
-		path := host + strings.TrimSuffix(gitPath, ".git")
-		if !m.re.MatchString(path) {
-			return "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
-		}
-
-		gitURL = m.re.ReplaceAllString(path, m.sub)
-
-		remote, protocol := parseGitProtocol(gitURL)
-		if protocol == SSHProtocol {
-			subHost := remote[:strings.IndexByte(remote, '/')]
-
-			_, keyScans, err = gl.getHostKeyAlgorithms(subHost)
-			if err != nil {
-				return "", nil, "", err
-			}
-
-			if len(keyScans) == 0 && m.strictHostKeyChecking {
-				return "", nil, "", errors.Errorf("no known_hosts entries exist for substituted host %s", subHost)
-			}
-		}
-
-		return gitURL, keyScans, m.sshCommand, nil
+	if m.sub == "" {
+		return gl.makeCloneURL(ctx, m, host,
+			m.prefix+gitPath, // Note that inURL already contains the suffix
+		)
 	}
 
-	return gl.makeCloneURL(ctx, m, host,
-		m.prefix+gitPath, // Note that inURL already contains the suffix
-	)
+	path := host + strings.TrimSuffix(gitPath, ".git")
+	if !m.re.MatchString(path) {
+		return "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
+	}
+
+	gitURL = m.re.ReplaceAllString(path, m.sub)
+
+	remote, protocol = parseGitProtocol(gitURL)
+	if protocol == SSHProtocol {
+		subHost := remote[:strings.IndexByte(remote, '/')]
+
+		_, keyScans, err = gl.getHostKeyAlgorithms(subHost)
+		if err != nil {
+			return "", nil, "", err
+		}
+
+		if len(keyScans) == 0 && m.strictHostKeyChecking {
+			return "", nil, "", errors.Errorf("no known_hosts entries exist for substituted host %s", subHost)
+		}
+	}
+
+	return gitURL, keyScans, m.sshCommand, nil
 }
 
 func loadKnownHostsFromPath(path string) ([]string, error) {

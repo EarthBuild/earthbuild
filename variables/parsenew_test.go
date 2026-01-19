@@ -13,7 +13,7 @@ func TestParseFlagArgs(t *testing.T) {
 		kvFlag []string
 		kv     []string
 	}{
-		{[]string{}, []string{}},
+		{nil, nil},
 		{[]string{"--flag=foo"}, []string{"flag=foo"}},
 		{[]string{"--flag", "foo"}, []string{"flag=foo"}},
 		{[]string{"--flag", "--foo"}, []string{"flag=--foo"}},
@@ -29,7 +29,7 @@ func TestParseFlagArgs(t *testing.T) {
 	for _, tt := range tests {
 		kvs, err := variables.ParseFlagArgs(tt.kvFlag)
 		NoError(t, err)
-		Equal(t, kvs, tt.kv)
+		Equal(t, tt.kv, kvs)
 	}
 }
 
@@ -58,21 +58,21 @@ func TestParseFlagArgsWithNonFlags(t *testing.T) {
 		flags    []string
 		nonFlags []string
 	}{
-		{[]string{}, []string{}, []string{}},
-		{[]string{"--flag=foo"}, []string{"flag=foo"}, []string{}},
+		{nil, nil, nil},
+		{[]string{"--flag=foo"}, []string{"flag=foo"}, nil},
 		{[]string{"--flag=foo", "arg"}, []string{"flag=foo"}, []string{"arg"}},
 		{[]string{"arg", "--flag=foo"}, []string{"flag=foo"}, []string{"arg"}},
 		{[]string{"arg", "--flag=foo", "arg2", "--flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
 		{[]string{"arg", "--flag", "foo", "arg2", "--flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
 		{[]string{"arg", "-flag", "foo", "arg2", "-flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
-		{[]string{"arg"}, []string{}, []string{"arg"}},
-		{[]string{"just", "args"}, []string{}, []string{"just", "args"}},
+		{[]string{"arg"}, nil, []string{"arg"}},
+		{[]string{"just", "args"}, nil, []string{"just", "args"}},
 	}
 
 	for _, tt := range tests {
 		flags, nonFlags, err := variables.ParseFlagArgsWithNonFlags(tt.kvFlag)
 		NoError(t, err)
-		Equal(t, flags, tt.flags)
-		Equal(t, nonFlags, tt.nonFlags)
+		Equal(t, tt.flags, flags)
+		Equal(t, tt.nonFlags, nonFlags)
 	}
 }

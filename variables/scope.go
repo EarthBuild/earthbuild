@@ -113,7 +113,7 @@ func (s *Scope) Map(opts ...ScopeOpt) map[string]string {
 	return m
 }
 
-// Keys returns a sorted list of variable names in this Scope.
+// Sorted returns a sorted list of variable names in this Scope.
 func (s *Scope) Sorted(opts ...ScopeOpt) []string {
 	opt := applyOpts(opts...)
 

@@ -27,7 +27,7 @@ const (
 	SecretFileFlag    = "secret-file-path"
 )
 
-// Put flags on Flags instead as there are other things in the CLI that are being called + set
+// Global flags on Flags instead as there are other things in the CLI that are being called + set
 // by the subcommands so I thought it made since to declare them just once there and then
 // pass them in.
 type Global struct {

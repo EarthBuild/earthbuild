@@ -237,26 +237,25 @@ func maybeStart(
 
 		tryLockDone.Store(true)
 
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, nil, errors.Errorf("timeout waiting for other instance of earthly to start buildkitd")
-			}
-
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			return nil, nil, errors.Errorf("timeout waiting for other instance of earthly to start buildkitd")
+		case err != nil:
 			return nil, nil, errors.Wrapf(err, "try flock context %s", settings.StartUpLockPath)
-		}
+		default:
+			defer func() {
+				inErr := startLock.Unlock()
+				if inErr != nil {
+					console.Warnf("Failed to unlock %s: %v", settings.StartUpLockPath, inErr)
 
-		defer func() {
-			err := startLock.Unlock()
-			if err != nil {
-				console.Warnf("Failed to unlock %s: %v", settings.StartUpLockPath, err)
+					if finalErr == nil {
+						finalErr = inErr
+					}
 
-				if finalErr == nil {
-					finalErr = err
+					return
 				}
-
-				return
-			}
-		}()
+			}()
+		}
 	}
 
 	isStarted, err := IsStarted(ctx, containerName, fe)
@@ -364,7 +363,8 @@ func maybeRestart(
 	bkCons.VerbosePrintf("Comparing running container %q image (%q) with available image %q (%q)\n",
 		containerName, containerImageID, image, availableImageID)
 
-	if containerImageID == availableImageID {
+	switch {
+	case containerImageID == availableImageID:
 		// Images are the same. Check settings hash.
 		var hash string
 
@@ -408,23 +408,21 @@ func maybeRestart(
 		}
 
 		bkCons.Printf("Settings do not match. Restarting buildkit daemon with updated settings...\n")
-	} else {
-		if settings.NoUpdate {
-			bkCons.Printf("Updated image available; however update was inhibited.\n")
+	case settings.NoUpdate:
+		bkCons.Printf("Updated image available; however update was inhibited.\n")
 
-			var (
-				info       *client.Info
-				workerInfo *client.WorkerInfo
-			)
+		var (
+			info       *client.Info
+			workerInfo *client.WorkerInfo
+		)
 
-			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "could not verify connection to buildkitd container")
-			}
-
-			return info, workerInfo, nil
+		info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "could not verify connection to buildkitd container")
 		}
 
+		return info, workerInfo, nil
+	default:
 		bkCons.Printf("Updated image available. Restarting buildkit daemon...\n")
 	}
 
@@ -532,7 +530,10 @@ func Start(
 		envOpts["IP_TABLES"] = settings.IPTables
 	}
 
-	if os.Getenv("EARTHLY_WITH_DOCKER") == "1" {
+	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+
+	//nolint:nestif // TODO(jhorsts): simplify
+	if withDocker {
 		// Add /sys/fs/cgroup if it's earthly-in-earthly.
 		volumeOpts = append(volumeOpts, containerutil.Mount{
 			Type:   containerutil.MountBind,
@@ -637,23 +638,23 @@ func Start(
 	}
 
 	if settings.CniMtu > 0 {
-		envOpts["CNI_MTU"] = strconv.FormatUint(uint64(settings.CniMtu), 10)
+		envOpts["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
 	}
 
 	if settings.CacheSizeMb > 0 {
-		envOpts["CACHE_SIZE_MB"] = strconv.FormatInt(int64(settings.CacheSizeMb), 10)
+		envOpts["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
 	}
 
 	if settings.CacheSizePct > 0 {
-		envOpts["CACHE_SIZE_PCT"] = strconv.FormatInt(int64(settings.CacheSizePct), 10)
+		envOpts["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
 	}
 
 	if settings.CacheKeepDuration > 0 {
-		envOpts["CACHE_KEEP_DURATION"] = strconv.FormatInt(int64(settings.CacheKeepDuration), 10)
+		envOpts["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
 	}
 
 	if settings.EnableProfiler {
-		envOpts["BUILDKIT_PPROF_ENABLED"] = strconv.FormatBool(true)
+		envOpts["BUILDKIT_PPROF_ENABLED"] = "true"
 	}
 
 	// Apply reset.
@@ -747,10 +748,11 @@ ContainerRunningLoop:
 
 	// Wait for the connection to be available.
 	info, workerInfo, err := waitForConnection(ctx, containerName, settings, fe, opts...)
-	if err != nil {
-		if !errors.Is(err, ErrBuildkitConnectionFailure) {
-			return nil, nil, err
-		}
+
+	switch {
+	case err != nil && !errors.Is(err, ErrBuildkitConnectionFailure):
+		return nil, nil, err
+	case err != nil:
 		// We timed out. Check if the user has a lot of cache and give buildkit another chance.
 		cacheSizeBytes, cacheSizeErr := getCacheSize(ctx, volumeName, fe)
 		if cacheSizeErr != nil {
@@ -785,9 +787,9 @@ ContainerRunningLoop:
 		}
 
 		return nil, nil, err
+	default:
+		return info, workerInfo, nil
 	}
-
-	return info, workerInfo, nil
 }
 
 func waitForConnection(
@@ -1135,7 +1137,12 @@ func printBuildkitInfo(
 		printFun = bkCons.VerbosePrintf
 	}
 
-	if info.BuildkitVersion.Version != "unknown" {
+	//nolint:nestif // TODO(jhorsts): simplify
+	if info.BuildkitVersion.Version == "unknown" {
+		bkCons.Warnf(
+			"Warning: Buildkit version is unknown. This usually means that " +
+				"it's from a version lower than Earthly Buildkit v0.6.20")
+	} else {
 		printFun(
 			"Version %s %s %s",
 			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
@@ -1166,19 +1173,15 @@ func printBuildkitInfo(
 				}
 
 				compatible = compatible && semverutil.IsCompatible(bkVersion, earthlyVersion)
-				if !compatible {
-					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with Earthly version (%s)",
+				if compatible {
+					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with Earthly version (%s)",
 						info.BuildkitVersion.Version, earthlyVersion)
 				} else {
-					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with Earthly version (%s)",
+					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with Earthly version (%s)",
 						info.BuildkitVersion.Version, earthlyVersion)
 				}
 			}
 		}
-	} else {
-		bkCons.Warnf(
-			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than Earthly Buildkit v0.6.20")
 	}
 
 	ps := make([]string, len(workerInfo.Platforms))

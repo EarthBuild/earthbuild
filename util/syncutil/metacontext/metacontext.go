@@ -2,6 +2,7 @@ package metacontext
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 )
@@ -98,28 +99,21 @@ func (mc *MetaContext) Add(ctx context.Context) error {
 // Deadline returns the earliest Deadline in the pool.
 func (mc *MetaContext) Deadline() (deadline time.Time, ok bool) {
 	mc.mu.Lock()
-	copy := append([]context.Context{}, mc.sub...)
+	contexts := slices.Clone(mc.sub)
 	mc.mu.Unlock()
 
-	if len(copy) == 0 {
-		return time.Time{}, false
-	}
-
-	min := time.Time{}
-	hasDl := false
-
-	for _, ctx := range copy {
-		dl, ok := ctx.Deadline() // don't hold lock for this call
-		if ok {
-			if !hasDl || dl.Before(min) {
-				min = dl
+	for _, ctx := range contexts {
+		dl, deadlineOk := ctx.Deadline() // don't hold lock for this call
+		if deadlineOk {
+			if !ok || dl.Before(deadline) {
+				deadline = dl
 			}
 
-			hasDl = true
+			ok = true
 		}
 	}
 
-	return min, hasDl
+	return deadline, ok
 }
 
 // Done returns the done channel. The MetaContext is done only when ALL of the

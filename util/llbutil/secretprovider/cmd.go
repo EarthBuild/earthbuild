@@ -56,18 +56,27 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 
 	dt, err := cmd.Output()
 	if err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				exitStatus := status.ExitStatus()
-				if exitStatus == 2 {
-					// exit code of 2 indicates secret not found (and earthly should continue looking in other stores)
-					return nil, secrets.ErrNotFound
-				}
-			}
-		}
-
-		return nil, err
+		return nil, c.secretNotFound(err)
 	}
 
 	return dt, nil
+}
+
+func (c *cmdStore) secretNotFound(err error) error {
+	exiterr, ok := err.(*exec.ExitError)
+	if !ok {
+		return err
+	}
+
+	status, ok := exiterr.Sys().(syscall.WaitStatus)
+	if !ok {
+		return err
+	}
+
+	// exit code of 2 indicates secret not found (and earthly should continue looking in other stores)
+	if status.ExitStatus() == 2 {
+		return secrets.ErrNotFound
+	}
+
+	return err
 }

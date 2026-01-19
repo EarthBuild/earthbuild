@@ -552,56 +552,54 @@ func (i *Interpreter) handleTry(ctx context.Context, tryStmt spec.TryStatement) 
 
 	saveArtifacts := []debuggercommon.SaveFilesSettings{}
 
-	if tryStmt.FinallyBody != nil {
-		for _, cmd := range *tryStmt.FinallyBody {
-			if cmd.Command == nil || cmd.Command.Name != "SAVE ARTIFACT" {
-				return i.errorf(tryStmt.SourceLocation,
-					"CATCH/FINALLY body only (currently) supports SAVE ARTIFACT ... AS LOCAL commands; got %s", cmd.Command.Name)
-			}
-
-			opts := commandflag.SaveArtifactOpts{}
-
-			args, err := flagutil.ParseArgsCleaned("SAVE ARTIFACT", &opts, flagutil.GetArgsCopy(*cmd.Command))
-			if err != nil {
-				return i.wrapError(err, cmd.Command.SourceLocation, "invalid SAVE ARTIFACT arguments %v", cmd.Command.Args)
-			}
-
-			if opts.KeepTs || opts.KeepOwn || opts.SymlinkNoFollow || opts.Force {
-				return i.wrapError(err, cmd.Command.SourceLocation,
-					"only the SAVE ARTIFACT --if-exists option is allowed in a TRY/FINALLY block: %v", cmd.Command.Args)
-			}
-
-			saveFrom, _, saveAsLocalTo, ok := parseSaveArtifactArgs(args)
-			if !ok {
-				return i.errorf(cmd.Command.SourceLocation,
-					"invalid arguments for SAVE ARTIFACT command: %v", cmd.Command.Args)
-			}
-
-			if strings.Contains(saveFrom, "*") {
-				return i.errorf(cmd.Command.SourceLocation,
-					"TRY/CATCH/FINALLY does not (currently) support wildcard SAVE ARTIFACT paths")
-			}
-
-			if saveAsLocalTo == "" {
-				return i.errorf(cmd.Command.SourceLocation, "missing local name for SAVE ARTIFACT within TRY/CATCH/FINALLY")
-			}
-
-			if strings.Contains(saveAsLocalTo, "$") {
-				return i.errorf(cmd.Command.SourceLocation,
-					"TRY/CATCH/FINALLY does not (currently) support expanding args for SAVE ARTIFACT paths")
-			}
-
-			destIsDir := strings.HasSuffix(saveAsLocalTo, "/") || saveAsLocalTo == "."
-			if destIsDir {
-				saveAsLocalTo = path.Join(saveAsLocalTo, path.Base(saveFrom))
-			}
-
-			saveArtifacts = append(saveArtifacts, debuggercommon.SaveFilesSettings{
-				Src:      saveFrom,
-				Dst:      saveAsLocalTo,
-				IfExists: opts.IfExists,
-			})
+	for _, cmd := range *tryStmt.FinallyBody {
+		if cmd.Command == nil || cmd.Command.Name != "SAVE ARTIFACT" {
+			return i.errorf(tryStmt.SourceLocation,
+				"CATCH/FINALLY body only (currently) supports SAVE ARTIFACT ... AS LOCAL commands; got %s", cmd.Command.Name)
 		}
+
+		opts := commandflag.SaveArtifactOpts{}
+
+		args, err := flagutil.ParseArgsCleaned("SAVE ARTIFACT", &opts, flagutil.GetArgsCopy(*cmd.Command))
+		if err != nil {
+			return i.wrapError(err, cmd.Command.SourceLocation, "invalid SAVE ARTIFACT arguments %v", cmd.Command.Args)
+		}
+
+		if opts.KeepTs || opts.KeepOwn || opts.SymlinkNoFollow || opts.Force {
+			return i.wrapError(err, cmd.Command.SourceLocation,
+				"only the SAVE ARTIFACT --if-exists option is allowed in a TRY/FINALLY block: %v", cmd.Command.Args)
+		}
+
+		saveFrom, _, saveAsLocalTo, ok := parseSaveArtifactArgs(args)
+		if !ok {
+			return i.errorf(cmd.Command.SourceLocation,
+				"invalid arguments for SAVE ARTIFACT command: %v", cmd.Command.Args)
+		}
+
+		if strings.Contains(saveFrom, "*") {
+			return i.errorf(cmd.Command.SourceLocation,
+				"TRY/CATCH/FINALLY does not (currently) support wildcard SAVE ARTIFACT paths")
+		}
+
+		if saveAsLocalTo == "" {
+			return i.errorf(cmd.Command.SourceLocation, "missing local name for SAVE ARTIFACT within TRY/CATCH/FINALLY")
+		}
+
+		if strings.Contains(saveAsLocalTo, "$") {
+			return i.errorf(cmd.Command.SourceLocation,
+				"TRY/CATCH/FINALLY does not (currently) support expanding args for SAVE ARTIFACT paths")
+		}
+
+		destIsDir := strings.HasSuffix(saveAsLocalTo, "/") || saveAsLocalTo == "."
+		if destIsDir {
+			saveAsLocalTo = path.Join(saveAsLocalTo, path.Base(saveFrom))
+		}
+
+		saveArtifacts = append(saveArtifacts, debuggercommon.SaveFilesSettings{
+			Src:      saveFrom,
+			Dst:      saveAsLocalTo,
+			IfExists: opts.IfExists,
+		})
 	}
 
 	i.interactiveSaveFiles = saveArtifacts
@@ -860,51 +858,53 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 		if opts.Push && !i.converter.ftrs.WaitBlock {
 			i.pushOnlyAllowed = true
 		}
-	} else {
-		if i.withDockerRan {
-			return i.errorf(cmd.SourceLocation, "only one RUN command allowed in WITH DOCKER")
-		}
 
-		if opts.Push {
-			return i.errorf(cmd.SourceLocation, "RUN --push not allowed in WITH DOCKER")
-		}
-
-		i.withDocker.Mounts = opts.Mounts
-		i.withDocker.Secrets = opts.Secrets
-		i.withDocker.WithShell = withShell
-		i.withDocker.WithEntrypoint = opts.WithEntrypoint
-		i.withDocker.WithSSH = opts.WithSSH
-		i.withDocker.NoCache = opts.NoCache
-		i.withDocker.Interactive = opts.Interactive
-		i.withDocker.interactiveKeep = opts.InteractiveKeep
-		i.withDocker.WithAWSCredentials = opts.WithAWS
-		i.withDocker.OIDCInfo = awsOIDCInfo
-
-		// TODO: Could this be allowed in the future, if dynamic build args
-		//       are expanded ahead of time?
-		allowParallel := true
-
-		for _, l := range i.withDocker.Loads {
-			if !isSafeAsyncBuildArgsKVStyle(l.BuildArgs) {
-				allowParallel = false
-				break
-			}
-		}
-
-		if i.local {
-			err = i.converter.WithDockerRunLocal(ctx, args, *i.withDocker, allowParallel)
-			if err != nil {
-				return i.wrapError(err, cmd.SourceLocation, "with docker run")
-			}
-		} else {
-			err = i.converter.WithDockerRun(ctx, args, *i.withDocker, allowParallel)
-			if err != nil {
-				return i.wrapError(err, cmd.SourceLocation, "with docker run")
-			}
-		}
-
-		i.withDockerRan = true
+		return nil
 	}
+
+	if i.withDockerRan {
+		return i.errorf(cmd.SourceLocation, "only one RUN command allowed in WITH DOCKER")
+	}
+
+	if opts.Push {
+		return i.errorf(cmd.SourceLocation, "RUN --push not allowed in WITH DOCKER")
+	}
+
+	i.withDocker.Mounts = opts.Mounts
+	i.withDocker.Secrets = opts.Secrets
+	i.withDocker.WithShell = withShell
+	i.withDocker.WithEntrypoint = opts.WithEntrypoint
+	i.withDocker.WithSSH = opts.WithSSH
+	i.withDocker.NoCache = opts.NoCache
+	i.withDocker.Interactive = opts.Interactive
+	i.withDocker.interactiveKeep = opts.InteractiveKeep
+	i.withDocker.WithAWSCredentials = opts.WithAWS
+	i.withDocker.OIDCInfo = awsOIDCInfo
+
+	// TODO: Could this be allowed in the future, if dynamic build args
+	//       are expanded ahead of time?
+	allowParallel := true
+
+	for _, l := range i.withDocker.Loads {
+		if !isSafeAsyncBuildArgsKVStyle(l.BuildArgs) {
+			allowParallel = false
+			break
+		}
+	}
+
+	if i.local {
+		err = i.converter.WithDockerRunLocal(ctx, args, *i.withDocker, allowParallel)
+		if err != nil {
+			return i.wrapError(err, cmd.SourceLocation, "with docker run")
+		}
+	} else {
+		err = i.converter.WithDockerRun(ctx, args, *i.withDocker, allowParallel)
+		if err != nil {
+			return i.wrapError(err, cmd.SourceLocation, "with docker run")
+		}
+	}
+
+	i.withDockerRan = true
 
 	return nil
 }
@@ -1126,6 +1126,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 			parseErr    error
 		)
 
+		//nolint:nestif // TODO(jhorsts): simplify
 		if flagutil.IsInParamsForm(src) {
 			var artifactStr string
 
@@ -1157,6 +1158,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 
 			artifactSrc, parseErr = domain.ParseArtifact(expandedSrc)
 		}
+
 		// If it parses as an artifact, treat as artifact.
 		if parseErr == nil {
 			srcs[index] = artifactSrc.String()
@@ -1191,80 +1193,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 		i.console.Warnf(`destination path %q contains a "~" which does not expand to a home directory`, dest)
 	}
 
-	if allArtifacts {
-		if dest == "" || dest == "." || len(srcs) > 1 {
-			// TODO needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
-			dest += string("/")
-		}
-
-		for index, src := range srcs {
-			var allowPrivileged bool
-
-			allowPrivileged, err = i.getAllowPrivilegedArtifact(src, opts.AllowPrivileged)
-			if err != nil {
-				return err
-			}
-
-			var expandedFlagArgs []string
-
-			expandedFlagArgs, err = i.expandArgsSlice(ctx, srcFlagArgs[index], false)
-			if err != nil {
-				return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY flag %s", srcFlagArgs[index])
-			}
-
-			var parsedFlagArgs []string
-
-			parsedFlagArgs, err = variables.ParseFlagArgs(expandedFlagArgs)
-			if err != nil {
-				return i.wrapError(err, cmd.SourceLocation, "parse flag args")
-			}
-
-			srcBuildArgs := append(parsedFlagArgs, expandedBuildArgs...) //nolint:gocritic
-
-			if !i.converter.ftrs.PassArgs && opts.PassArgs {
-				return i.errorf(cmd.SourceLocation,
-					"the COPY --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
-			}
-
-			expandedSrcs := []string{src}
-
-			if strings.Contains(srcArtifacts[index].Target.String(), "*") {
-				if !i.converter.ftrs.WildcardCopy {
-					return i.errorf(cmd.SourceLocation, "wildcard COPY commands are not enabled")
-				}
-
-				var expandedArtifacts []domain.Artifact
-
-				expandedArtifacts, err = i.converter.ExpandWildcardArtifacts(ctx, srcArtifacts[index])
-				if err != nil {
-					return i.wrapError(
-						err, cmd.SourceLocation, "failed to expand wildcard COPY %q", srcArtifacts[index].Target.String())
-				}
-
-				expandedSrcs = make([]string, 0, len(expandedArtifacts))
-				for _, artifact := range expandedArtifacts {
-					expandedSrcs = append(expandedSrcs, artifact.String())
-				}
-			}
-
-			for _, expandedSrc := range expandedSrcs {
-				if i.local {
-					err = i.converter.CopyArtifactLocal(
-						ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs, opts.IsDirCopy)
-					if err != nil {
-						return i.wrapError(err, cmd.SourceLocation, "copy artifact locally")
-					}
-				} else {
-					err = i.converter.CopyArtifact(
-						ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs,
-						opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow)
-					if err != nil {
-						return i.wrapError(err, cmd.SourceLocation, "copy artifact")
-					}
-				}
-			}
-		}
-	} else {
+	if !allArtifacts {
 		if len(expandedBuildArgs) != 0 {
 			return i.errorf(cmd.SourceLocation, "build args not supported for non +artifact arguments case %v", cmd.Args)
 		}
@@ -1277,6 +1206,81 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 			ctx, srcs, dest, opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists)
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "copy classical")
+		}
+
+		return nil
+	}
+
+	if dest == "" || dest == "." || len(srcs) > 1 {
+		// TODO needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		dest += string("/")
+	}
+
+	for index, src := range srcs {
+		var allowPrivileged bool
+
+		allowPrivileged, err = i.getAllowPrivilegedArtifact(src, opts.AllowPrivileged)
+		if err != nil {
+			return err
+		}
+
+		var expandedFlagArgs []string
+
+		expandedFlagArgs, err = i.expandArgsSlice(ctx, srcFlagArgs[index], false)
+		if err != nil {
+			return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY flag %s", srcFlagArgs[index])
+		}
+
+		var parsedFlagArgs []string
+
+		parsedFlagArgs, err = variables.ParseFlagArgs(expandedFlagArgs)
+		if err != nil {
+			return i.wrapError(err, cmd.SourceLocation, "parse flag args")
+		}
+
+		srcBuildArgs := append(parsedFlagArgs, expandedBuildArgs...) //nolint:gocritic
+
+		if !i.converter.ftrs.PassArgs && opts.PassArgs {
+			return i.errorf(cmd.SourceLocation,
+				"the COPY --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
+		}
+
+		expandedSrcs := []string{src}
+
+		if strings.Contains(srcArtifacts[index].Target.String(), "*") {
+			if !i.converter.ftrs.WildcardCopy {
+				return i.errorf(cmd.SourceLocation, "wildcard COPY commands are not enabled")
+			}
+
+			var expandedArtifacts []domain.Artifact
+
+			expandedArtifacts, err = i.converter.ExpandWildcardArtifacts(ctx, srcArtifacts[index])
+			if err != nil {
+				return i.wrapError(
+					err, cmd.SourceLocation, "failed to expand wildcard COPY %q", srcArtifacts[index].Target.String())
+			}
+
+			expandedSrcs = make([]string, 0, len(expandedArtifacts))
+			for _, artifact := range expandedArtifacts {
+				expandedSrcs = append(expandedSrcs, artifact.String())
+			}
+		}
+
+		for _, expandedSrc := range expandedSrcs {
+			if i.local {
+				err = i.converter.CopyArtifactLocal(
+					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs, opts.IsDirCopy)
+				if err != nil {
+					return i.wrapError(err, cmd.SourceLocation, "copy artifact locally")
+				}
+			} else {
+				err = i.converter.CopyArtifact(
+					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs,
+					opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow)
+				if err != nil {
+					return i.wrapError(err, cmd.SourceLocation, "copy artifact")
+				}
+			}
 		}
 	}
 

@@ -87,36 +87,38 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 	now := time.Now()
 
 	d := now.Sub(s.lastUpdate)
-	if d > time.Second*15 {
-		if s.numSent > 0 {
-			var transferRate string
-
-			if !s.lastUpdate.IsZero() {
-				bytes := humanize.Bytes(uint64(float64(s.bytesSent-s.lastBytesSent) / d.Seconds()))
-				transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
-			}
-
-			s.console.Printf("sent %s (%s)%s\n", humanizeBytes(s.bytesSent), puralize(s.numSent, "file"), transferRate)
-		} else {
-			s.console.Printf("sent %s\n", puralize(s.numStats, "file stat"))
-		}
-
-		if s.numReceived > 0 {
-			var transferRate string
-
-			if !s.lastUpdate.IsZero() {
-				bytes := humanizeBytes(int(float64(s.bytesReceived-s.lastBytesReceived) / d.Seconds()))
-				transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
-			}
-
-			s.console.Printf(
-				"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate)
-		}
-
-		s.lastUpdate = now
-		s.lastBytesSent = s.bytesSent
-		s.lastBytesReceived = s.bytesReceived
+	if d <= time.Second*15 {
+		return
 	}
+
+	if s.numSent > 0 {
+		var transferRate string
+
+		if !s.lastUpdate.IsZero() {
+			bytes := humanize.Bytes(uint64(float64(s.bytesSent-s.lastBytesSent) / d.Seconds()))
+			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
+		}
+
+		s.console.Printf("sent %s (%s)%s\n", humanizeBytes(s.bytesSent), puralize(s.numSent, "file"), transferRate)
+	} else {
+		s.console.Printf("sent %s\n", puralize(s.numStats, "file stat"))
+	}
+
+	if s.numReceived > 0 {
+		var transferRate string
+
+		if !s.lastUpdate.IsZero() {
+			bytes := humanizeBytes(int(float64(s.bytesReceived-s.lastBytesReceived) / d.Seconds()))
+			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
+		}
+
+		s.console.Printf(
+			"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate)
+	}
+
+	s.lastUpdate = now
+	s.lastBytesSent = s.bytesSent
+	s.lastBytesReceived = s.bytesReceived
 }
 
 func puralize(n int, suffix string) string {

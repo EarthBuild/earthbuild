@@ -8,10 +8,13 @@ import (
 
 // GetInodeBestEffort returns an inode if available, or 0 on failure.
 func GetInodeBestEffort(path string) uint64 {
-	var stat syscall.Stat_t
+	var (
+		stat  syscall.Stat_t
+		inode uint64
+	)
 
-	inode := uint64(0)
-	if err := syscall.Stat(path, &stat); err == nil {
+	err := syscall.Stat(path, &stat)
+	if err == nil {
 		inode = stat.Ino
 	}
 

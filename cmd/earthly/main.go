@@ -126,14 +126,16 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		if err := f.Apply(flagSet); err != nil {
+		err := f.Apply(flagSet)
+		if err != nil {
 			envFileFromArgOK = false
 			break
 		}
 	}
 
 	if envFileFromArgOK {
-		if err := flagSet.Parse(os.Args[1:]); err == nil {
+		err := flagSet.Parse(os.Args[1:])
+		if err == nil {
 			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
 				envFile = envFileFlag.Value.String()
 				envFileOverride = envFile != eFlag.DefaultEnvFile // flag lib doesn't expose if a value was set or not

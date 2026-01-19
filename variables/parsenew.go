@@ -25,28 +25,23 @@ func ParseFlagArgs(args []string) ([]string, error) {
 
 // ParseFlagArgsWithNonFlags parses flag-form args together with any possible optional additional
 // args. e.g. "--flag1=value arg1 --flag2=value --flag3=value arg2 arg3".
-func ParseFlagArgsWithNonFlags(args []string) ([]string, []string, error) {
-	flags := make([]string, 0, len(args))
-	nonFlags := []string{}
+func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err error) {
 	keyFromPrev := ""
 
 	for _, arg := range args {
 		var k, v string
+
 		if keyFromPrev != "" {
 			k = keyFromPrev
 			keyFromPrev = ""
 			v = arg
 		} else {
-			var (
-				trimmedArg string
-				ok         bool
-			)
+			trimmedArg, found := strings.CutPrefix(arg, "--")
+			if !found {
+				trimmedArg, found = strings.CutPrefix(arg, "-")
+			}
 
-			if trimmedArg, ok = strings.CutPrefix(arg, "--"); ok {
-				// noop
-			} else if trimmedArg, ok = strings.CutPrefix(arg, "-"); ok {
-				// noop
-			} else {
+			if !found {
 				nonFlags = append(nonFlags, arg)
 				continue
 			}

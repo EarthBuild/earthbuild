@@ -277,10 +277,12 @@ func Earthfile2LLB(
 		return nil, err
 	}
 
+	//nolint:nestif // TODO(jhorsts): simplify
 	if found {
 		if opt.TargetInputHashStackSet[tiHash] {
 			return nil, errors.Errorf("infinite cycle detected for target %s", target.String())
 		}
+
 		// Wait for the existing sts to complete first.
 		select {
 		case <-ctx.Done():

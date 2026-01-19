@@ -128,24 +128,7 @@ func (l *lexer) NextToken() antlr.Token {
 		l.afterNewLine = peek.GetTokenType() == parser.EarthLexerNL
 	}
 
-	if l.debug {
-		if modeBefore >= 0 {
-			fmt.Print(parser.GetLexerModeNames()[modeBefore])
-		}
-
-		mode := l.getMode()
-		if mode >= 0 && peek.GetTokenType() > 0 {
-			if mode != modeBefore {
-				fmt.Printf(">>%s", parser.GetLexerModeNames()[mode])
-			}
-
-			fmt.Printf("-%d(%s) ", l.indentLevel, parser.GetLexerSymbolicNames()[peek.GetTokenType()])
-		}
-
-		if peek.GetTokenType() == parser.EarthLexerNL {
-			fmt.Printf("\n")
-		}
-	}
+	l.debugToken(peek, modeBefore)
 
 	if len(l.tokenQueue) > 0 {
 		l.tokenQueue = append(l.tokenQueue, peek)
@@ -154,6 +137,29 @@ func (l *lexer) NextToken() antlr.Token {
 	}
 
 	return ret
+}
+
+func (l *lexer) debugToken(token antlr.Token, modeBefore int) {
+	if !l.debug {
+		return
+	}
+
+	if modeBefore >= 0 {
+		fmt.Print(parser.GetLexerModeNames()[modeBefore])
+	}
+
+	mode := l.getMode()
+	if mode >= 0 && token.GetTokenType() > 0 {
+		if mode != modeBefore {
+			fmt.Printf(">>%s", parser.GetLexerModeNames()[mode])
+		}
+
+		fmt.Printf("-%d(%s) ", l.indentLevel, parser.GetLexerSymbolicNames()[token.GetTokenType()])
+	}
+
+	if token.GetTokenType() == parser.EarthLexerNL {
+		fmt.Printf("\n")
+	}
 }
 
 func (l *lexer) pos() (line, column, index int) {

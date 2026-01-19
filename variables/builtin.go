@@ -68,62 +68,55 @@ func BuiltinArgs(
 		SetLocally(ret, false)
 	}
 
-	if gitMeta != nil {
-		ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
-		ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
-
-		branch := ""
-		if len(gitMeta.Branch) > 0 {
-			branch = gitMeta.Branch[0]
-		}
-
-		ret.Add(arg.EarthlyGitBranch, branch)
-
-		tag := ""
-		if len(gitMeta.Tags) > 0 {
-			tag = gitMeta.Tags[0]
-		}
-
-		ret.Add(arg.EarthlyGitTag, tag)
-		ret.Add(arg.EarthlyGitOriginURL, gitMeta.RemoteURL)
-		ret.Add(arg.EarthlyGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
-		ret.Add(arg.EarthlyGitProjectName, getProjectName(gitMeta.RemoteURL))
-		ret.Add(arg.EarthlyGitCommitTimestamp, gitMeta.CommitterTimestamp)
-
-		if ftrs.GitCommitAuthorTimestamp {
-			ret.Add(arg.EarthlyGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
-		}
-
-		if gitMeta.CommitterTimestamp == "" {
-			ret.Add(arg.EarthlySourceDateEpoch, "0")
-		} else {
-			ret.Add(arg.EarthlySourceDateEpoch, gitMeta.CommitterTimestamp)
-		}
-
-		if ftrs.EarthlyGitAuthorArgs {
-			ret.Add(arg.EarthlyGitAuthor, gitMeta.AuthorEmail)
-			ret.Add(arg.EarthlyGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
-		}
-
-		if ftrs.GitAuthorEmailNameArgs {
-			if gitMeta.AuthorName != "" && gitMeta.AuthorEmail != "" {
-				ret.Add(arg.EarthlyGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
-			}
-
-			ret.Add(arg.EarthlyGitAuthorEmail, gitMeta.AuthorEmail)
-			ret.Add(arg.EarthlyGitAuthorName, gitMeta.AuthorName)
-		}
-
-		if ftrs.GitRefs {
-			ret.Add(arg.EarthlyGitRefs, strings.Join(gitMeta.Refs, " "))
-		}
-	} else {
-		// Ensure SOURCE_DATE_EPOCH is always available
-		ret.Add(arg.EarthlySourceDateEpoch, "0")
-	}
-
 	if ftrs.EarthlyCIRunnerArg {
 		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
+	}
+
+	if gitMeta == nil {
+		// Ensure SOURCE_DATE_EPOCH is always available
+		ret.Add(arg.EarthlySourceDateEpoch, "0")
+		return ret
+	}
+
+	// Populate git-related built-in args
+
+	ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
+	ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
+
+	branch := firstOrZero(gitMeta.Branch)
+
+	ret.Add(arg.EarthlyGitBranch, branch)
+
+	tag := firstOrZero(gitMeta.Tags)
+
+	ret.Add(arg.EarthlyGitTag, tag)
+	ret.Add(arg.EarthlyGitOriginURL, gitMeta.RemoteURL)
+	ret.Add(arg.EarthlyGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
+	ret.Add(arg.EarthlyGitProjectName, getProjectName(gitMeta.RemoteURL))
+	ret.Add(arg.EarthlyGitCommitTimestamp, gitMeta.CommitterTimestamp)
+
+	if ftrs.GitCommitAuthorTimestamp {
+		ret.Add(arg.EarthlyGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
+	}
+
+	ret.Add(arg.EarthlySourceDateEpoch, max(gitMeta.CommitterTimestamp, "0"))
+
+	if ftrs.EarthlyGitAuthorArgs {
+		ret.Add(arg.EarthlyGitAuthor, gitMeta.AuthorEmail)
+		ret.Add(arg.EarthlyGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
+	}
+
+	if ftrs.GitAuthorEmailNameArgs {
+		if gitMeta.AuthorName != "" && gitMeta.AuthorEmail != "" {
+			ret.Add(arg.EarthlyGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
+		}
+
+		ret.Add(arg.EarthlyGitAuthorEmail, gitMeta.AuthorEmail)
+		ret.Add(arg.EarthlyGitAuthorName, gitMeta.AuthorName)
+	}
+
+	if ftrs.GitRefs {
+		ret.Add(arg.EarthlyGitRefs, strings.Join(gitMeta.Refs, " "))
 	}
 
 	return ret
@@ -202,4 +195,15 @@ func setTargetTag(ret *Scope, target domain.Target, gitMeta *gitutil.GitMetadata
 
 	ret.Add(arg.EarthlyTargetTag, target.Tag)
 	ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
+}
+
+// firstOrZero returns the first element of a slice or the zero value if the slice is empty.
+func firstOrZero[T any](s []T) T {
+	if len(s) > 0 {
+		return s[0]
+	}
+
+	var v T
+
+	return v
 }

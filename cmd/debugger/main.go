@@ -53,7 +53,8 @@ func getShellPath() (string, bool) {
 	for _, sh := range []string{
 		"bash", "ksh", "zsh", "ash", "sh",
 	} {
-		if path, err := exec.LookPath(sh); err == nil {
+		path, err := exec.LookPath(sh)
+		if err == nil {
 			return path, true
 		}
 	}
@@ -382,10 +383,10 @@ func main() {
 		if err != nil {
 			conslogger.Warnf("%v\n", err)
 
+			exitCode = 127
+
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				exitCode = exitErr.ExitCode()
-			} else {
-				exitCode = 127
 			}
 		}
 
@@ -402,64 +403,74 @@ func main() {
 
 	err = cmd.Run()
 	if err != nil {
-		quotedCmd := shellescape.QuoteCommand(args)
-
-		exitCode := 1
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-			if debuggerSettings.Enabled {
-				conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)
-			}
-		} else {
-			conslogger.Warnf("Command %s failed with unexpected execution error %v\n", quotedCmd, err)
-		}
-
-		if debuggerSettings.Enabled {
-			c := color.New(color.FgYellow)
-			c.Println("Entering interactive debugger") // #nosec G104
-			// Sometimes the interactive shell doesn't correctly get a newline
-			// Take a brief pause and issue a new line as a work around.
-			time.Sleep(time.Millisecond * 5)
-
-			err = os.Setenv("TERM", debuggerSettings.Term)
-			if err != nil {
-				conslogger.Warnf("Failed to set term: %v\n", err)
-			}
-
-			cmdBuilder := func() (*exec.Cmd, error) {
-				_ = populateShellHistory(quotedCmd) // best effort
-
-				shellPath, ok := getShellPath()
-				if !ok {
-					return nil, ErrNoShellFound
-				}
-
-				conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
-
-				return exec.CommandContext(ctx, shellPath), nil // #nosec G204
-			}
-
-			err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)
-			if err != nil {
-				conslogger.Warnf("%v\n", err)
-			}
-		}
-
-		for _, saveFile := range debuggerSettings.SaveFiles {
-			err = sendFile(ctx, common.DefaultSaveFileSocketPath, saveFile.Src, saveFile.Dst)
-			if err != nil {
-				if !errors.Is(err, os.ErrNotExist) || !saveFile.IfExists {
-					// treat it as a warning (we will exit due to RUN failure)
-					conslogger.Warnf("failed to save %s: %s\n", saveFile.Src, err)
-				}
-			}
-		}
-
-		// ensure that this always exits with an error status; otherwise it will be cached by earthly
-		if exitCode == 0 {
-			exitCode = 1
-		}
-
-		os.Exit(exitCode)
+		handleError(ctx, err, debuggerSettings, args, conslogger)
 	}
+}
+
+func handleError(
+	ctx context.Context,
+	err error,
+	debuggerSettings *common.DebuggerSettings,
+	args []string,
+	conslogger conslogging.ConsoleLogger,
+) {
+	quotedCmd := shellescape.QuoteCommand(args)
+
+	exitCode := 1
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		exitCode = exitErr.ExitCode()
+		if debuggerSettings.Enabled {
+			conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)
+		}
+	} else {
+		conslogger.Warnf("Command %s failed with unexpected execution error %v\n", quotedCmd, err)
+	}
+
+	if debuggerSettings.Enabled {
+		c := color.New(color.FgYellow)
+		c.Println("Entering interactive debugger") // #nosec G104
+		// Sometimes the interactive shell doesn't correctly get a newline
+		// Take a brief pause and issue a new line as a work around.
+		time.Sleep(time.Millisecond * 5)
+
+		err = os.Setenv("TERM", debuggerSettings.Term)
+		if err != nil {
+			conslogger.Warnf("Failed to set term: %v\n", err)
+		}
+
+		cmdBuilder := func() (*exec.Cmd, error) {
+			_ = populateShellHistory(quotedCmd) // best effort
+
+			shellPath, ok := getShellPath()
+			if !ok {
+				return nil, ErrNoShellFound
+			}
+
+			conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
+
+			return exec.CommandContext(ctx, shellPath), nil // #nosec G204
+		}
+
+		err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)
+		if err != nil {
+			conslogger.Warnf("%v\n", err)
+		}
+	}
+
+	for _, saveFile := range debuggerSettings.SaveFiles {
+		err = sendFile(ctx, common.DefaultSaveFileSocketPath, saveFile.Src, saveFile.Dst)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) || !saveFile.IfExists {
+				// treat it as a warning (we will exit due to RUN failure)
+				conslogger.Warnf("failed to save %s: %s\n", saveFile.Src, err)
+			}
+		}
+	}
+
+	// ensure that this always exits with an error status; otherwise it will be cached by earthly
+	if exitCode == 0 {
+		exitCode = 1
+	}
+
+	os.Exit(exitCode)
 }

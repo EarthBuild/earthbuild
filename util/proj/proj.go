@@ -62,9 +62,10 @@ func (c stdCmd) Run(ctx context.Context) (stdout, stderr io.Reader, _ error) {
 	var outw, errw bytes.Buffer
 
 	cmd.Stdout = &outw
-
 	cmd.Stderr = &errw
-	if err := cmd.Run(); err != nil {
+
+	err := cmd.Run()
+	if err != nil {
 		return &outw, &errw, err
 	}
 

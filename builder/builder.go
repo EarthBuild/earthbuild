@@ -172,7 +172,8 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 		return nil, false
 	}
 
-	if err := caps.Supports(pb.CapEarthlyRegistryProxy); err != nil {
+	err := caps.Supports(pb.CapEarthlyRegistryProxy)
+	if err != nil {
 		cons.Print(err.Error())
 		return nil, false
 	}
@@ -450,35 +451,8 @@ func (b *Builder) convertAndBuild(
 					return nil, err
 				}
 
-				if !isMultiPlatform[saveImage.DockerTag] {
-					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
-						if _, found := singPlatImgNames[saveImage.DockerTag]; found {
-							return nil, errors.Errorf(
-								"image %s is defined multiple times for the same default platform",
-								saveImage.DockerTag)
-						}
-
-						singPlatImgNames[saveImage.DockerTag] = true
-					}
-
-					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
-
-					refPrefix, err := gwCrafter.AddPushImageEntry(
-						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil)
-					if err != nil {
-						return nil, err
-					}
-
-					imageIndex++
-
-					if shouldExport {
-						if b.opt.LocalRegistryAddr != "" {
-							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
-						} else {
-							gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
-						}
-					}
-				} else {
+				//nolint:nestif // TODO(jhorsts): simplify
+				if isMultiPlatform[saveImage.DockerTag] {
 					resolvedPlat := sts.PlatformResolver.Materialize(sts.PlatformResolver.Current())
 					platformStr := resolvedPlat.String()
 
@@ -535,6 +509,34 @@ func (b *Builder) convertAndBuild(
 								ImageName: platformImgName,
 								Platform:  resolvedPlat,
 							})
+					}
+				} else {
+					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
+						if _, found := singPlatImgNames[saveImage.DockerTag]; found {
+							return nil, errors.Errorf(
+								"image %s is defined multiple times for the same default platform",
+								saveImage.DockerTag)
+						}
+
+						singPlatImgNames[saveImage.DockerTag] = true
+					}
+
+					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
+
+					refPrefix, err := gwCrafter.AddPushImageEntry(
+						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil)
+					if err != nil {
+						return nil, err
+					}
+
+					imageIndex++
+
+					if shouldExport {
+						if b.opt.LocalRegistryAddr != "" {
+							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
+						} else {
+							gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
+						}
 					}
 				}
 			}
@@ -858,55 +860,59 @@ func (b *Builder) convertAndBuild(
 				}
 			}
 
-			if sts.GetDoSaves() && sts.RunPush.HasState {
-				if opt.Push {
-					for _, saveLocal := range sts.RunPush.SaveLocals {
-						var outDir string
+			if !sts.GetDoSaves() || !sts.RunPush.HasState {
+				continue
+			}
 
-						outDir, err = b.tempEarthlyOutDir()
-						if err != nil {
-							return nil, err
-						}
+			if opt.Push {
+				for _, saveLocal := range sts.RunPush.SaveLocals {
+					var outDir string
 
-						dirID, ok := dirIDs[dirIndex]
-						if !ok {
-							return nil, fmt.Errorf("failed to map dir index %d", dirIndex)
-						}
-
-						artifactDir := filepath.Join(outDir, "index-"+dirID)
-						artifact := domain.Artifact{
-							Target:   sts.Target,
-							Artifact: saveLocal.ArtifactPath,
-						}
-
-						err = saveartifactlocally.SaveArtifactLocally(
-							ctx, exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
-						if err != nil {
-							return nil, err
-						}
-
-						dirIndex++
-					}
-				} else {
-					for _, commandStr := range sts.RunPush.CommandStrs {
-						pushConsole.Printf("Did not execute push command %s\n", commandStr)
+					outDir, err = b.tempEarthlyOutDir()
+					if err != nil {
+						return nil, err
 					}
 
-					for _, saveImage := range sts.RunPush.SaveImages {
-						pushConsole.Printf(
-							"Did not push image %s as evaluating the image would "+
-								"have caused a RUN --push to execute", saveImage.DockerTag)
-						outputConsole.Printf("Did not output image %s locally, "+
-							"as evaluating the image would have caused a "+
-							"RUN --push to execute", saveImage.DockerTag)
+					dirID, ok := dirIDs[dirIndex]
+					if !ok {
+						return nil, fmt.Errorf("failed to map dir index %d", dirIndex)
 					}
 
-					if sts.RunPush.InteractiveSession.Initialized {
-						pushConsole.Printf("Did not start an %s interactive session "+
-							"with command %s\n", sts.RunPush.InteractiveSession.Kind,
-							sts.RunPush.InteractiveSession.CommandStr)
+					artifactDir := filepath.Join(outDir, "index-"+dirID)
+					artifact := domain.Artifact{
+						Target:   sts.Target,
+						Artifact: saveLocal.ArtifactPath,
 					}
+
+					err = saveartifactlocally.SaveArtifactLocally(
+						ctx, exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
+					if err != nil {
+						return nil, err
+					}
+
+					dirIndex++
 				}
+
+				continue
+			}
+
+			for _, commandStr := range sts.RunPush.CommandStrs {
+				pushConsole.Printf("Did not execute push command %s\n", commandStr)
+			}
+
+			for _, saveImage := range sts.RunPush.SaveImages {
+				pushConsole.Printf(
+					"Did not push image %s as evaluating the image would "+
+						"have caused a RUN --push to execute", saveImage.DockerTag)
+				outputConsole.Printf("Did not output image %s locally, "+
+					"as evaluating the image would have caused a "+
+					"RUN --push to execute", saveImage.DockerTag)
+			}
+
+			if sts.RunPush.InteractiveSession.Initialized {
+				pushConsole.Printf("Did not start an %s interactive session "+
+					"with command %s\n", sts.RunPush.InteractiveSession.Kind,
+					sts.RunPush.InteractiveSession.CommandStr)
 			}
 		}
 	}

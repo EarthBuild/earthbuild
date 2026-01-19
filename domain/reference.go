@@ -66,37 +66,39 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 	localPath := r2.GetLocalPath()
 
 	name := r2.GetName()
-	if r1.IsRemote() {
+	switch {
+	case r1.IsRemote():
 		// r1 is remote. Turn relative targets into remote targets.
-		if !r2.IsRemote() {
-			tag = r1.GetTag()
-
-			if r2.IsLocalExternal() {
-				if path.IsAbs(r2.GetLocalPath()) {
-					return Target{}, errors.Errorf(
-						"absolute path %s not supported as reference in external target context", r2.GetLocalPath())
-				}
-
-				gitURL = path.Join(r1.GetGitURL(), localPath)
-				localPath = ""
-			} else if r2.IsLocalInternal() {
-				gitURL = r1.GetGitURL()
-				localPath = ""
-			}
+		if r2.IsRemote() {
+			break
 		}
-	} else {
+
+		tag = r1.GetTag()
+
 		if r2.IsLocalExternal() {
-			if path.IsAbs(localPath) {
-				localPath = path.Clean(localPath)
-			} else {
-				localPath = path.Join(r1.GetLocalPath(), localPath)
-				if !(strings.HasPrefix(localPath, ".") || strings.HasPrefix(localPath, "/")) {
-					localPath = "./" + localPath
-				}
+			if path.IsAbs(r2.GetLocalPath()) {
+				return Target{}, errors.Errorf(
+					"absolute path %s not supported as reference in external target context", r2.GetLocalPath())
 			}
+
+			gitURL = path.Join(r1.GetGitURL(), localPath)
+			localPath = ""
 		} else if r2.IsLocalInternal() {
-			localPath = r1.GetLocalPath()
+			gitURL = r1.GetGitURL()
+			localPath = ""
 		}
+	case r2.IsLocalExternal():
+		if path.IsAbs(localPath) {
+			localPath = path.Clean(localPath)
+			break
+		}
+
+		localPath = path.Join(r1.GetLocalPath(), localPath)
+		if !(strings.HasPrefix(localPath, ".") || strings.HasPrefix(localPath, "/")) {
+			localPath = "./" + localPath
+		}
+	case r2.IsLocalInternal():
+		localPath = r1.GetLocalPath()
 	}
 
 	switch r2.(type) {

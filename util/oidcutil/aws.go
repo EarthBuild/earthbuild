@@ -98,9 +98,10 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 	info := &AWSOIDCInfo{}
 	metadata := &mapstructure.Metadata{}
 	decodeCFG := newDecodeCFG(info, metadata, decodeCFGTemplate)
-
 	decoder, _ := mapstructure.NewDecoder(decodeCFG)
-	if err := decoder.Decode(m); err != nil {
+
+	err = decoder.Decode(m)
+	if err != nil {
 		return nil, err
 	}
 
@@ -135,7 +136,8 @@ func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHo
 		}
 
 		for _, validator := range validators {
-			if err := validator(&res); err != nil {
+			err = validator(&res)
+			if err != nil {
 				return nil, err
 			}
 		}
@@ -161,7 +163,8 @@ func timeDurationValidationsHookFunc(validators ...func(input time.Duration) err
 		}
 
 		for _, validator := range validators {
-			if err := validator(parsed); err != nil {
+			err := validator(parsed)
+			if err != nil {
 				return nil, err
 			}
 		}

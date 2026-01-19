@@ -82,7 +82,8 @@ func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]b
 
 	creds, err := cfg.Credentials.Retrieve(ctx)
 
-	if err = handleError(err, cfg.Region); err != nil {
+	err = handleError(err, cfg.Region)
+	if err != nil {
 		return nil, err
 	}
 

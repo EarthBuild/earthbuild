@@ -141,7 +141,8 @@ func (bs *BusSetup) Close(ctx context.Context) error {
 		ret = multierror.Append(ret, errors.Wrap(multi, "console writer"))
 	}
 
-	if err := bs.Formatter.Close(); err != nil {
+	err := bs.Formatter.Close()
+	if err != nil {
 		ret = multierror.Append(ret, errors.Wrap(err, "formatter"))
 	}
 

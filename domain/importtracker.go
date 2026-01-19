@@ -132,51 +132,49 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 func (ir *ImportTracker) Deref(
 	ref Reference,
 ) (resolvedRef Reference, allowPrivileged, allowPrivilegedSet bool, err error) {
-	if ref.IsImportReference() {
-		resolvedImport, ok := ir.local[ref.GetImportRef()]
-		if !ok {
-			resolvedImport, ok = ir.global[ref.GetImportRef()]
-			if !ok {
-				return nil, false, false, errors.Errorf("import reference %s could not be resolved", ref.GetImportRef())
-			}
-		}
-
-		var resolvedRef Reference
-
-		resolvedRefStr := fmt.Sprintf("%s+%s", resolvedImport.fullPath, ref.GetName())
-		switch ref.(type) {
-		case Target:
-			ref2, err := ParseTarget(resolvedRefStr)
-			if err != nil {
-				return nil, false, false, err
-			}
-
-			resolvedRef = Target{
-				GitURL:    ref2.GitURL,
-				Tag:       ref2.Tag,
-				LocalPath: ref2.LocalPath,
-				Target:    ref2.Target,
-				ImportRef: ref.GetImportRef(), // set import ref too
-			}
-		case Command:
-			ref2, err := ParseCommand(resolvedRefStr)
-			if err != nil {
-				return nil, false, false, err
-			}
-
-			resolvedRef = Command{
-				GitURL:    ref2.GitURL,
-				Tag:       ref2.Tag,
-				LocalPath: ref2.LocalPath,
-				Command:   ref2.Command,
-				ImportRef: ref.GetImportRef(), // set import ref too
-			}
-		default:
-			return nil, false, false, errors.New("ref resolve not supported for this type")
-		}
-
-		return resolvedRef, resolvedImport.allowPrivileged, true, nil
+	if !ref.IsImportReference() {
+		return ref, false, false, nil
 	}
 
-	return ref, false, false, nil
+	resolvedImport, ok := ir.local[ref.GetImportRef()]
+	if !ok {
+		resolvedImport, ok = ir.global[ref.GetImportRef()]
+		if !ok {
+			return nil, false, false, errors.Errorf("import reference %s could not be resolved", ref.GetImportRef())
+		}
+	}
+
+	resolvedRefStr := fmt.Sprintf("%s+%s", resolvedImport.fullPath, ref.GetName())
+	switch ref.(type) {
+	case Target:
+		ref2, err := ParseTarget(resolvedRefStr)
+		if err != nil {
+			return nil, false, false, err
+		}
+
+		resolvedRef = Target{
+			GitURL:    ref2.GitURL,
+			Tag:       ref2.Tag,
+			LocalPath: ref2.LocalPath,
+			Target:    ref2.Target,
+			ImportRef: ref.GetImportRef(), // set import ref too
+		}
+	case Command:
+		ref2, err := ParseCommand(resolvedRefStr)
+		if err != nil {
+			return nil, false, false, err
+		}
+
+		resolvedRef = Command{
+			GitURL:    ref2.GitURL,
+			Tag:       ref2.Tag,
+			LocalPath: ref2.LocalPath,
+			Command:   ref2.Command,
+			ImportRef: ref.GetImportRef(), // set import ref too
+		}
+	default:
+		return nil, false, false, errors.New("ref resolve not supported for this type")
+	}
+
+	return resolvedRef, resolvedImport.allowPrivileged, true, nil
 }

@@ -18,6 +18,8 @@
   ],
   includePaths: [
     'Earthfile',
+    '**/go.mod',
+    '**/go.sum',
     'docs/**',
     'examples/**',
     '.github/**',

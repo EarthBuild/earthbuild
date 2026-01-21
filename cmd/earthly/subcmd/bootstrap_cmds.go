@@ -174,7 +174,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 	}
 
 	if !a.noBuildkit {
-		// connect to local buildkit instance (to trigger pulling and running the earthly/buildkitd image)
+		// connect to local buildkit instance (to trigger pulling and running the earthbuild/buildkitd image)
 		bkClient, err := a.cli.GetBuildkitClient(cliCtx)
 		if err != nil {
 			console.Warnf("Warning: Bootstrapping buildkit failed: %v", err)

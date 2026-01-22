@@ -4,7 +4,6 @@ go 1.25
 
 require (
 	git.sr.ht/~nelsam/hel v0.9.0
-	git.sr.ht/~nelsam/hel/v4 v4.1.2
 	github.com/EarthBuild/earthbuild/ast v0.0.0-00010101000000-000000000000
 	github.com/EarthBuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
 	github.com/adrg/xdg v0.4.0
@@ -121,7 +120,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.14.0 // indirect
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
-	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect

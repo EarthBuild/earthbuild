@@ -30,7 +30,7 @@ type RunOpts struct {
 	Network         string   `description:"Network to use; currently network=none is only supported"                                      long:"network"`          //nolint:lll
 	Secrets         []string `description:"Make available a secret"                                                                       long:"secret"`           //nolint:lll
 	Mounts          []string `description:"Mount a file or directory"                                                                     long:"mount"`            //nolint:lll
-	Push            bool     `description:"Execute this command only if the build succeeds and also if earthly is invoked in push mode"   long:"push"`             //nolint:lll
+	Push            bool     `description:"Execute this command only if the build succeeds and also if earthbuild is invoked in push mode"   long:"push"`             //nolint:lll
 	Privileged      bool     `description:"Enable privileged mode"                                                                        long:"privileged"`       //nolint:lll
 	WithEntrypoint  bool     `description:"Include the entrypoint of the image when running the command"                                  long:"entrypoint"`       //nolint:lll
 	WithDocker      bool     `description:"Deprecated"                                                                                    long:"with-docker"`      //nolint:lll
@@ -44,7 +44,7 @@ type RunOpts struct {
 
 type FromOpts struct {
 	Platform        string   `description:"The platform to use"                                           long:"platform"`         //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target" long:"build-arg"`        //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced EarthBuild target" long:"build-arg"`        //nolint:lll
 	AllowPrivileged bool     `description:"Allow commands under remote targets to enable privileged mode" long:"allow-privileged"` //nolint:lll
 	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`        //nolint:lll
 }
@@ -53,7 +53,7 @@ type FromDockerfileOpts struct {
 	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`         //nolint:lll
 	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`           //nolint:lll
 	Path            string   `description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference" short:"f"`               //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target and also to the Dockerfile build"      long:"build-arg"`        //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced EarthBuild target and also to the Dockerfile build"      long:"build-arg"`        //nolint:lll
 	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"` //nolint:lll
 }
 
@@ -62,7 +62,7 @@ type CopyOpts struct {
 	Chown           string   `description:"Apply a specific group and/or owner to the copied files and directories" long:"chown"`             //nolint:lll
 	Chmod           string   `description:"Apply a mode to the copied files and directories"                        long:"chmod"`             //nolint:lll
 	Platform        string   `description:"The platform to use"                                                     long:"platform"`          //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target"           long:"build-arg"`         //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced EarthBuild target"           long:"build-arg"`         //nolint:lll
 	IsDirCopy       bool     `description:"Copy entire directories, not just the contents"                          long:"dir"`               //nolint:lll
 	KeepTs          bool     `description:"Keep created time file timestamps"                                       long:"keep-ts"`           //nolint:lll
 	KeepOwn         bool     `description:"Keep owner info"                                                         long:"keep-own"`          //nolint:lll
@@ -82,8 +82,8 @@ type SaveArtifactOpts struct {
 
 type SaveImageOpts struct {
 	CacheFrom            []string `description:"Declare additional cache import as a Docker tag"                                                                      long:"cache-from"`             //nolint:lll
-	Push                 bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthly is invoked in push mode" long:"push"`                   //nolint:lll
-	CacheHint            bool     `description:"Instruct Earthly that the current target should be saved entirely as part of the remote cache"                        long:"cache-hint"`             //nolint:lll
+	Push                 bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthbuild is invoked in push mode" long:"push"`                   //nolint:lll
+	CacheHint            bool     `description:"Instruct EarthBuild that the current target should be saved entirely as part of the remote cache"                        long:"cache-hint"`             //nolint:lll
 	Insecure             bool     `description:"Use unencrypted connection for the push"                                                                              long:"insecure"`               //nolint:lll
 	NoManifestList       bool     `description:"Do not include a manifest list (specifying the platform) in the creation of the image"                                long:"no-manifest-list"`       //nolint:lll
 	WithoutEarthlyLabels bool     `description:"Disable build information dev.earthly labels to reduce the chance of changing images digests."                        long:"without-earthly-labels"` //nolint:lll
@@ -91,7 +91,7 @@ type SaveImageOpts struct {
 
 type BuildOpts struct {
 	Platforms       []string `description:"The platform to use"                                           long:"platform"`         //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced Earthly target" long:"build-arg"`        //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced EarthBuild target" long:"build-arg"`        //nolint:lll
 	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                       long:"allow-privileged"` //nolint:lll
 	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`        //nolint:lll
 	AutoSkip        bool     `description:"Use auto-skip to bypass the target if nothing has changed"     long:"auto-skip"`        //nolint:lll

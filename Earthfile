@@ -328,7 +328,7 @@ debugger:
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
 
-# earthly builds the earthly CLI and docker image.
+# earthly builds the EarthBuild CLI and docker image.
 earthly:
     FROM +code
     ENV CGO_ENABLED=0

@@ -223,7 +223,7 @@ func maybeStart(
 			time.Sleep(3 * time.Second)
 
 			if !tryLockDone.Load() {
-				console.Warnf("waiting on other instance of earthly to start buildkitd (as indicated by %q existing)",
+				console.Warnf("waiting on other instance of earthbuild to start buildkitd (as indicated by %q existing)",
 					settings.StartUpLockPath)
 			}
 		}()
@@ -239,7 +239,7 @@ func maybeStart(
 
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return nil, nil, errors.Errorf("timeout waiting for other instance of earthly to start buildkitd")
+			return nil, nil, errors.Errorf("timeout waiting for other instance of earth to start buildkitd")
 		case err != nil:
 			return nil, nil, errors.Wrapf(err, "try flock context %s", settings.StartUpLockPath)
 		default:
@@ -773,10 +773,10 @@ ContainerRunningLoop:
 			console.
 				WithPrefix("buildkitd").
 				Printf("To reduce the size of the cache, you can run one of\n" +
-					"\t\tearthly config 'global.cache_size_mb' <new-size>\n" +
-					"\t\tearthly config 'global.cache_size_pct' <new-percent>\n" +
+					"\t\tearth config 'global.cache_size_mb' <new-size>\n" +
+					"\t\tearth config 'global.cache_size_pct' <new-percent>\n" +
 					"These set the BuildKit GC target to a specific value. For more information see " +
-					"the Earthly config reference page: https://docs.earthly.dev/docs/earthly-config\n")
+					"the EarthBuild config reference page: https://docs.earthbuild.dev/docs/earthly-config\n")
 
 			info, workerInfo, err = waitForConnection(ctx, containerName, settings, fe, opts...)
 			if err != nil {
@@ -1167,17 +1167,17 @@ func printBuildkitInfo(
 
 				earthlyVersion, err := semverutil.Parse(earthlyVersion)
 				if err != nil {
-					bkCons.VerbosePrintf("Warning: could not parse earthly version: %v", err)
+					bkCons.VerbosePrintf("Warning: could not parse earth version: %v", err)
 
 					compatible = false
 				}
 
 				compatible = compatible && semverutil.IsCompatible(bkVersion, earthlyVersion)
 				if compatible {
-					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with Earthly version (%s)",
+					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with EarthBuild version (%s)",
 						info.BuildkitVersion.Version, earthlyVersion)
 				} else {
-					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with Earthly version (%s)",
+					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with EarthBuild version (%s)",
 						info.BuildkitVersion.Version, earthlyVersion)
 				}
 			}
@@ -1233,7 +1233,7 @@ func printBuildkitInfo(
 		if size, ok := getGCPolicySize(workerInfo); ok && size < minRecommendedCacheSize {
 			bkCons.Warnf("Configured cache size of %s is smaller than the minimum recommended size of %s",
 				units.HumanSize(float64(size)), units.HumanSize(minRecommendedCacheSize))
-			bkCons.Warnf("Please consider increasing the cache size: https://docs.earthly.dev/docs/caching/managing-cache")
+			bkCons.Warnf("Please consider increasing the cache size: https://docs.earthbuild.dev/docs/caching/managing-cache")
 		}
 	}
 }

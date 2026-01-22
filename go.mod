@@ -3,7 +3,8 @@ module github.com/EarthBuild/earthbuild
 go 1.25
 
 require (
-	git.sr.ht/~nelsam/hel v0.6.2
+	git.sr.ht/~nelsam/hel v0.9.0
+	git.sr.ht/~nelsam/hel/v4 v4.1.2
 	github.com/EarthBuild/earthbuild/ast v0.0.0-00010101000000-000000000000
 	github.com/EarthBuild/earthbuild/util/deltautil v0.0.0-20240507235053-335389ed3e2a
 	github.com/adrg/xdg v0.4.0
@@ -40,7 +41,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/otiai10/copy v1.14.0
 	github.com/pkg/errors v0.9.1
-	github.com/poy/onpar v0.3.2
+	github.com/poy/onpar v1.1.2
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	github.com/tonistiigi/fsutil v0.0.0-20230825212630-f09800878302
@@ -56,6 +57,7 @@ require (
 )
 
 require (
+	git.sr.ht/~nelsam/correct v0.1.1 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.11.1 // indirect

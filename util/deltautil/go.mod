@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/earthly/cloud-api v1.0.1-0.20240508215807-a958f373126f
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (

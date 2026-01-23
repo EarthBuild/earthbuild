@@ -20,7 +20,7 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/earthly/cloud-api v1.0.1-0.20240712142419-23b6f0913996
-	github.com/elastic/go-sysinfo v1.9.0
+	github.com/elastic/go-sysinfo v1.15.4
 	github.com/fatih/color v1.18.0
 	github.com/gofrs/flock v0.13.0
 	github.com/google/uuid v1.6.0
@@ -84,7 +84,7 @@ require (
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/docker v24.0.0-rc.2.0.20230905130451-032797ea4bcb+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
-	github.com/elastic/go-windows v1.0.0 // indirect
+	github.com/elastic/go-windows v1.0.2 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
@@ -107,7 +107,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.1.0-rc.2 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.4.0 // indirect

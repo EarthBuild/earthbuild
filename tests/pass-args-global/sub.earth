@@ -1,6 +1,6 @@
 VERSION 0.8
 
 test:
-  FROM alpine:3.18
+  FROM alpine:3.23
   ARG --required MY_ARG
   RUN test "$MY_ARG" = "defined_globally"

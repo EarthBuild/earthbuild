@@ -1,6 +1,6 @@
 VERSION 0.8
 test:
-    FROM alpine:3.18
+    FROM alpine:3.23
     WORKDIR test
 
     RUN echo "1" > 1
@@ -16,6 +16,6 @@ test:
     END
 
 copy-test:
-    FROM alpine:3.18
+    FROM alpine:3.23
     WORKDIR test
     COPY +test/2 .

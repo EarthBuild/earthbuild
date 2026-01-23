@@ -3,7 +3,7 @@ VERSION 0.8
 ARG --global MY_ARG=this-should-be-ignored
 
 test:
-  FROM alpine:3.18
+  FROM alpine:3.23
   ARG MY_ARG=defaultvalue
   DO --pass-args +FUNC1 --EXTRA_ARG="yes please"
 

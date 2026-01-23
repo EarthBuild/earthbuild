@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test:
-    FROM alpine:3.18
+    FROM alpine:3.23
     GIT CLONE ssh://git.example.com/home/git/testuser/repo.git /repo
     GIT CLONE ssh://git@git.example.com/home/git/testuser/repo.git /repo2
     GIT CLONE ssh://git@git.example.com:22/home/git/testuser/repo.git /repo3

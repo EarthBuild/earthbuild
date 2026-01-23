@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test:
-    FROM alpine:3.18
+    FROM alpine:3.23
 
     RUN echo $(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1) >> file.txt && \
         cat file.txt

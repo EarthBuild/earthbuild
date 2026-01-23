@@ -1,6 +1,6 @@
 VERSION 0.7
 
-FROM alpine:3.18
+FROM alpine:3.23
 
 test-successful-command:
     DO ./some/subdir+COMMAND_THAT_SUCCEEDS

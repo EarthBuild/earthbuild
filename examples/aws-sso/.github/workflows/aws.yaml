@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: earthly/actions-setup@v1.0.5
+      - uses: earthly/actions-setup@v1.0.13
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2.0.0
+        uses: aws-actions/configure-aws-credentials@v2.2.0
         with:
           role-to-assume: <your OIDC role ARN>
           aws-region: <your AWS region>

@@ -315,19 +315,6 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 	return
 }
 
-// This comes from crypto/ssh/common.go
-// supportedHostKeyAlgos specifies the supported host-key algorithms (i.e. methods
-// of authenticating servers) in preference order.
-var supportedHostKeyAlgos = []string{
-	ssh.CertAlgoRSAv01, ssh.CertAlgoDSAv01, ssh.CertAlgoECDSA256v01,
-	ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
-
-	ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-	ssh.KeyAlgoRSA, ssh.KeyAlgoDSA,
-
-	ssh.KeyAlgoED25519,
-}
-
 //nolint:unparam // error return kept for future use
 func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, error) {
 	foundAlgs := map[string]bool{}
@@ -372,7 +359,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 
 	algs := []string{}
 
-	for _, alg := range supportedHostKeyAlgos {
+	for _, alg := range ssh.SupportedAlgorithms().HostKeys {
 		if _, ok := foundAlgs[alg]; ok {
 			algs = append(algs, alg)
 		}

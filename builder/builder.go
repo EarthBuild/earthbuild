@@ -430,7 +430,7 @@ func (b *Builder) convertAndBuild(
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
 				shouldExport := !opt.NoOutput &&
 					opt.OnlyArtifact == nil &&
-					!(opt.OnlyFinalTargetImages && sts != mts.Final) &&
+					(!opt.OnlyFinalTargetImages || sts == mts.Final) &&
 					saveImage.DockerTag != "" &&
 					doSave
 				shouldPush := opt.Push &&

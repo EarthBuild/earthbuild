@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var internal = errors.New("internal")
+var errInternal = errors.New("internal")
 
 func TestWrapf(t *testing.T) {
 	t.Parallel()
@@ -15,18 +15,18 @@ func TestWrapf(t *testing.T) {
 	t.Run("without args", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrapf(internal, "some hint")
+		res := Wrapf(errInternal, "some hint")
 		assert.Equal(t, &Error{
-			err:   internal,
+			err:   errInternal,
 			hints: []string{"some hint"},
 		}, res)
 	})
 	t.Run("with args", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrapf(internal, "some hint with arg %s", "my-arg")
+		res := Wrapf(errInternal, "some hint with arg %s", "my-arg")
 		assert.Equal(t, &Error{
-			err:   internal,
+			err:   errInternal,
 			hints: []string{"some hint with arg my-arg"},
 		}, res)
 	})
@@ -38,18 +38,18 @@ func TestWrap(t *testing.T) {
 	t.Run("with one hint", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrap(internal, "some hint")
+		res := Wrap(errInternal, "some hint")
 		assert.Equal(t, &Error{
-			err:   internal,
+			err:   errInternal,
 			hints: []string{"some hint"},
 		}, res)
 	})
 	t.Run("with multiple hints", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrap(internal, "some hint", "another hint")
+		res := Wrap(errInternal, "some hint", "another hint")
 		assert.Equal(t, &Error{
-			err:   internal,
+			err:   errInternal,
 			hints: []string{"some hint", "another hint"},
 		}, res)
 	})
@@ -58,7 +58,7 @@ func TestWrap(t *testing.T) {
 func TestReceivers(t *testing.T) {
 	t.Parallel()
 
-	err := Wrap(internal, "some hint", "another hint")
+	err := Wrap(errInternal, "some hint", "another hint")
 
 	t.Run("test Error", func(t *testing.T) {
 		t.Parallel()
@@ -93,8 +93,8 @@ func TestFromError(t *testing.T) {
 			err: errors.New("some error: Hint 123"),
 		},
 		"err is a hint error": {
-			err:                 Wrap(internal, "some hint"),
-			expectedErr:         Wrap(internal, "some hint\n").(*Error),
+			err:                 Wrap(errInternal, "some hint"),
+			expectedErr:         Wrap(errInternal, "some hint\n").(*Error),
 			expectedIsHintError: true,
 		},
 	}

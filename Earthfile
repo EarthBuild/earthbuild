@@ -45,8 +45,6 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 deps:
     FROM +base
     COPY go.mod go.sum ./
-    COPY ./ast/go.mod ./ast/go.sum ./ast
-    COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         go mod download
@@ -87,7 +85,7 @@ code:
         dockertar docker2earthly domain features internal slog states util variables regproxy ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
-    COPY --dir ast/antlrhandler ast/spec ast/hint ast/command ast/commandflag ast/*.go ast/
+    COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 

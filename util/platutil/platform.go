@@ -1,7 +1,7 @@
 package platutil
 
 import (
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 

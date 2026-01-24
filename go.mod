@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
 	github.com/containerd/containerd v1.7.8
 	github.com/containerd/go-runc v1.1.0
-	github.com/creack/pty v1.1.21
+	github.com/creack/pty v1.1.24
 	github.com/docker/cli v29.1.5+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/docker/go-connections v0.6.0

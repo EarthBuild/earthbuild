@@ -49,7 +49,7 @@ import (
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/containerd/containerd/platforms"
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/earthly/cloud-api/logstream"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"

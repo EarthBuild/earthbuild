@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/ast/spec"
@@ -47,7 +48,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
-	"github.com/alessio/shellescape"
 	"github.com/containerd/containerd/platforms"
 	"github.com/docker/distribution/reference"
 	"github.com/earthly/cloud-api/logstream"

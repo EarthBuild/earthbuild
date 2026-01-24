@@ -15,7 +15,7 @@ require (
 	github.com/containerd/go-runc v1.1.0
 	github.com/creack/pty v1.1.21
 	github.com/docker/cli v29.1.5+incompatible
-	github.com/docker/distribution v2.8.2+incompatible
+	github.com/docker/distribution v2.8.3+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1

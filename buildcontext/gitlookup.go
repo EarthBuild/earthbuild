@@ -283,11 +283,11 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 			return "", "", err
 		}
 
-		return
+		return keyAlg, keyData, err
 	}
 
 	if scannedHostname == hostname {
-		return
+		return keyAlg, keyData, err
 	}
 
 	// entry isn't hashed
@@ -312,7 +312,7 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 		return "", "", errKeyScanNoMatch
 	}
 
-	return
+	return keyAlg, keyData, err
 }
 
 // This comes from crypto/ssh/common.go
@@ -440,7 +440,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	protocol, ok = gl.autoProtocols[host]
 	if ok {
-		return
+		return protocol, err
 	}
 
 	defer func() {
@@ -459,7 +459,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		protocol = httpsProtocol
 		err = nil
 
-		return
+		return protocol, err
 	}
 
 	algs, keys, err := gl.getHostKeyAlgorithms(host)
@@ -470,7 +470,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		protocol = httpsProtocol
 		err = nil
 
-		return
+		return protocol, err
 	}
 
 	if len(keys) == 0 {
@@ -479,7 +479,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		protocol = httpsProtocol
 		err = nil
 
-		return
+		return protocol, err
 	}
 
 	config := &ssh.ClientConfig{
@@ -499,7 +499,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		protocol = httpsProtocol
 		err = nil
 
-		return
+		return protocol, err
 	}
 	defer client.Close()
 
@@ -508,7 +508,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 	protocol = sshProtocol
 	err = nil
 
-	return
+	return protocol, err
 }
 
 var errNoRCHostEntry = errors.New("no netrc host entry")

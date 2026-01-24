@@ -171,6 +171,14 @@ lint:
             echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
     END
 
+fmt:
+  BUILD +fmt-go
+
+# format-go formats Go code using gofmt. Run: earthly +format-go
+fmt-go:
+    LOCALLY
+    RUN gofmt -s -w .
+
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck

@@ -177,12 +177,12 @@ func (pb *prefixFormatter) Format(prefix string, padding int) (modifiedPrefix st
 	curLen := len(prefix)
 	for _, formatOpt := range pb.formatOpts {
 		if curLen <= padding {
-			return
+			return modifiedPrefix
 		}
 
 		prefix = formatOpt(prefix, padding, curLen)
 		curLen = len(prefix)
 	}
 
-	return
+	return modifiedPrefix
 }

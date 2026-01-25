@@ -359,7 +359,9 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 
 	algs := []string{}
 
-	for _, alg := range ssh.SupportedAlgorithms().HostKeys {
+	// TODO(jhorsts): why are we supporting insecure algorithms?
+	// Is it safe to remove insecure algorithms?
+	for _, alg := range append(ssh.SupportedAlgorithms().HostKeys, ssh.InsecureAlgorithms().HostKeys...) {
 		if _, ok := foundAlgs[alg]; ok {
 			algs = append(algs, alg)
 		}
@@ -481,7 +483,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	client, err := ssh.Dial("tcp", net.JoinHostPort(host, "22"), config)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to connect to %s over ssh due to %s; falling back to https", host, err.Error())
+		gl.console.VerbosePrintf("failed to connect to '%s' over ssh due to '%s'; falling back to https", host, err.Error())
 
 		protocol = httpsProtocol
 		err = nil

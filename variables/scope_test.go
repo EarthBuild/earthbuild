@@ -17,7 +17,9 @@ func TestScope(topT *testing.T) {
 		scope  *variables.Scope
 	}
 
-	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
+	o := onpar.New()
+
+	o.BeforeEach(func(t *testing.T) testCtx {
 		t.Helper()
 
 		return testCtx{
@@ -26,7 +28,7 @@ func TestScope(topT *testing.T) {
 			scope:  variables.NewScope(),
 		}
 	})
-	defer o.Run()
+	defer o.Run(topT)
 
 	o.Spec("it returns false for unset variables", func(tc testCtx) {
 		_, ok := tc.scope.Get("foo")

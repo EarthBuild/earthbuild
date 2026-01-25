@@ -183,6 +183,12 @@
   packageRules: [
     {
       matchPackageNames: [
+        'git.sr.ht/~nelsam/hel',
+      ],
+      allowedVersions: '< 1.0.0',
+    },
+    {
+      matchPackageNames: [
         'earthly/earthly',
       ],
       matchDatasources: [

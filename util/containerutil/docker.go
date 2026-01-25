@@ -78,7 +78,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		// Likely podman making itself available via the docker CLI.
 		// This can happen either when podman set /var/run/docker.sock itself,
 		// or when the user has aliased podman=docker.
-		fe.shellFrontend.likelyPodman = true
+		fe.likelyPodman = true
 	}
 
 	return fe, nil

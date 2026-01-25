@@ -21,7 +21,6 @@ import (
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
@@ -35,6 +34,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/inodeutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
@@ -48,7 +48,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
 	"github.com/earthly/cloud-api/logstream"
 	"github.com/google/uuid"
@@ -3345,7 +3345,7 @@ func (c *Converter) checkAllowed(command cmdType) error {
 		return errors.New("--use-project-secrets must be enabled in order to use PROJECT")
 	}
 
-	if c.mts.Final.RanInteractive && !(command == saveImageCmd || command == saveArtifactCmd) {
+	if c.mts.Final.RanInteractive && command != saveImageCmd && command != saveArtifactCmd {
 		return errors.New("If present, a single --interactive command must be the last command in a target")
 	}
 

@@ -48,7 +48,6 @@ linters:
     - nonamedreturns
     - recvcheck
     - revive
-    - staticcheck
     - tagliatelle
     - testpackage
     - varnamelen

@@ -1,31 +1,5 @@
 VERSION 0.8
 
-FROM ../+base
-
-# deps downloads and caches all dependencies for the ast package. When called
-# directly, go.mod and go.sum will be updated locally.
-deps:
-    COPY go.mod go.sum ./
-    RUN \
-        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        go mod download
-    SAVE ARTIFACT go.mod AS LOCAL go.mod
-    SAVE ARTIFACT go.sum AS LOCAL go.sum
-
-code:
-    FROM +deps
-    COPY . .
-
-# unit-test runs the unit tests in the ast package.
-unit-test:
-    FROM +code
-    ARG testname
-    RUN \
-        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        if [ -n "$testname" ]; then testarg="-run $testname"; fi && \
-        go test -race -count 1 $testarg ./...
-
 # generate (re-)generates generated code in this module.
 generate:
     BUILD ./parser+parser

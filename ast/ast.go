@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/antlrhandler"
-	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/ast/parser"
 	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 	"github.com/pkg/errors"
 )

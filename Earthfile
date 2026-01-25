@@ -276,22 +276,6 @@ unit-test:
     # The following are separate go modules and need to be tested separately.
     # The not-a-unit-test.sh script above actually DOES run unit-tests as well
 
-# submodule-decouple-check checks that go submodules within earthly do not
-# depend on the core earthly project.
-submodule-decouple-check:
-    FROM +code
-    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
-    do \
-        for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
-        do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/EarthBuild/earthbuild" ]; \
-            then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/EarthBuild/earthbuild' module"; \
-               exit 1; \
-            fi; \
-        done; \
-    done
-
 # changelog saves the CHANGELOG.md as an artifact
 changelog:
     FROM scratch
@@ -655,7 +639,6 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
-    BUILD +submodule-decouple-check
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations

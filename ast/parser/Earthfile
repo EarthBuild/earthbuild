@@ -2,7 +2,7 @@ VERSION 0.8
 
 FROM amazoncorretto:25-alpine3.22
 
-RUN apk add --no-cache ca-certificates curl openssl && \
+RUN apk add --no-cache ca-certificates curl openssl go && \
     update-ca-certificates
 
 # Install antlr.

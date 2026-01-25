@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/EarthBuild/earthbuild/ast/hint"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/pkg/errors"
 )
 

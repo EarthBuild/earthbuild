@@ -99,11 +99,9 @@ func (l *listener) docs(c antlr.ParserRuleContext) string {
 		line = strings.TrimPrefix(line, "#")
 
 		once.Do(func() {
-			runes := []rune(line)
-
 			var trimRunes []rune
 
-			for _, r := range runes {
+			for _, r := range line {
 				if unicode.IsSpace(r) {
 					trimRunes = append(trimRunes, r)
 					continue

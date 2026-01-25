@@ -50,10 +50,10 @@ const (
 
 var (
 	// ErrDataOverflow occurs when too much data is sent.
-	ErrDataOverflow = errors.New("Data overflow")
+	ErrDataOverflow = errors.New("data overflow")
 
 	// ErrDataUnderflow occurs when too little data is received.
-	ErrDataUnderflow = errors.New("Data underflow")
+	ErrDataUnderflow = errors.New("data underflow")
 )
 
 // ReadUint16PrefixedData first reads a uint16 then reads that many bytes of data.

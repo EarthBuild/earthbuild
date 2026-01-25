@@ -45,8 +45,6 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 deps:
     FROM +base
     COPY go.mod go.sum ./
-    COPY ./ast/go.mod ./ast/go.sum ./ast
-    COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         go mod download
@@ -83,11 +81,11 @@ code:
             go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
-    COPY --dir autocomplete buildcontext builder logbus cleanup cmd config conslogging debugger \
-        dockertar docker2earthly domain features internal slog states util variables regproxy ./
+    COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
+        docker2earthly dockertar domain features internal logbus regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
-    COPY --dir ast/antlrhandler ast/spec ast/hint ast/command ast/commandflag ast/*.go ast/
+    COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
@@ -277,24 +275,6 @@ unit-test:
 
     # The following are separate go modules and need to be tested separately.
     # The not-a-unit-test.sh script above actually DOES run unit-tests as well
-    BUILD ./ast+unit-test
-    BUILD ./util/deltautil+unit-test
-
-# submodule-decouple-check checks that go submodules within earthly do not
-# depend on the core earthly project.
-submodule-decouple-check:
-    FROM +code
-    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
-    do \
-        for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
-        do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/EarthBuild/earthbuild" ]; \
-            then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/EarthBuild/earthbuild' module"; \
-               exit 1; \
-            fi; \
-        done; \
-    done
 
 # changelog saves the CHANGELOG.md as an artifact
 changelog:
@@ -659,7 +639,6 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
-    BUILD +submodule-decouple-check
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations

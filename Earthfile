@@ -81,8 +81,8 @@ code:
             go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
-    COPY --dir autocomplete buildcontext builder logbus cleanup cmd config conslogging debugger \
-        dockertar docker2earthly domain features internal slog states util variables regproxy ./
+    COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
+        docker2earthly dockertar domain features internal logbus regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
@@ -275,8 +275,6 @@ unit-test:
 
     # The following are separate go modules and need to be tested separately.
     # The not-a-unit-test.sh script above actually DOES run unit-tests as well
-    BUILD ./ast+unit-test
-    BUILD ./util/deltautil+unit-test
 
 # submodule-decouple-check checks that go submodules within earthly do not
 # depend on the core earthly project.

@@ -14,11 +14,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/pkg/errors"
 )
 
 type certData struct {

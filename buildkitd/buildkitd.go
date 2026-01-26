@@ -13,7 +13,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/containerd/containerd/platforms"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/buildkitutil"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/util/semverutil"
+	"github.com/containerd/platforms"
 	"github.com/docker/go-units"
 	"github.com/dustin/go-humanize"
 	"github.com/gofrs/flock"
@@ -22,13 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/EarthBuild/earthbuild/ast/hint"
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/buildkitutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/EarthBuild/earthbuild/util/semverutil"
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB
@@ -867,7 +866,7 @@ func checkConnection(
 
 	var (
 		mu         sync.Mutex // protects the vars below
-		connErr    error      = errors.New("timeout")
+		connErr    = errors.New("timeout")
 		info       *client.Info
 		workerInfo *client.WorkerInfo
 	)

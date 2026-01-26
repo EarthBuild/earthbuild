@@ -8,13 +8,12 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/containerd/containerd/platforms"
+	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/containerd/platforms"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-
-	"github.com/EarthBuild/earthbuild/ast"
 )
 
 type Debug struct {

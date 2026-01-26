@@ -3,7 +3,7 @@ package platutil
 import (
 	"context"
 
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"

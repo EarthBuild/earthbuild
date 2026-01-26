@@ -25,8 +25,8 @@ func NewEarthlyApp(
 		"   \t" + earthly + " [options] --artifact <target-ref>/<artifact-path> [<dest-path>]\n" +
 		"   \t" + earthly + " [options] command [command options]\n" +
 		"\n" +
-		"Executes Earthly builds. For more information see https://docs.earthly.dev/docs/earthly-command.\n" +
-		"To get started with using Earthly check out the getting started guide at https://docs.earthly.dev/basics.\n" +
+		"Executes EarthBuild builds. For more information see https://docs.earthbuild.dev/docs/earthly-command.\n" +
+		"To get started with using EarthBuild check out the getting started guide at https://docs.earthbuild.dev/basics.\n" +
 		"\n" +
 		"For help on build-specific flags try \n" +
 		"\n" +

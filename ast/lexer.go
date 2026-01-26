@@ -13,7 +13,7 @@ const (
 	newlineChannel = antlr.LexerDefaultTokenChannel
 )
 
-// lexer is a lexer for an earthly file, which also emits indentation
+// lexer is a lexer for an Earthfile, which also emits indentation
 // and dedentation tokens.
 type lexer struct {
 	*parser.EarthLexer

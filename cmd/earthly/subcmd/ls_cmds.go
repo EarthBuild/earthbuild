@@ -33,7 +33,7 @@ func (a *List) Cmds() []*cli.Command {
 		{
 			Name:        "ls",
 			Usage:       "List targets from an Earthfile",
-			UsageText:   "earthly [options] ls [<earthfile-ref>]",
+			UsageText:   "earth [options] ls [<earthfile-ref>]",
 			Description: "List targets from an Earthfile.",
 			Action:      a.action,
 			Flags: []cli.Flag{

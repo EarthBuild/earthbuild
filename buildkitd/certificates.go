@@ -199,7 +199,7 @@ func createTLSCert(ca *certData, key *rsa.PrivateKey, role, path, hostname strin
 	cert := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			Organization: []string{fmt.Sprintf("Earthly GRPC: %v side", role)},
+			Organization: []string{fmt.Sprintf("EarthBuild GRPC: %v side", role)},
 		},
 		DNSNames:     []string{hostname},
 		IPAddresses:  []net.IP{net.IPv6loopback, net.ParseIP("127.0.0.1")},

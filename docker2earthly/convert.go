@@ -55,7 +55,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 			"# This Earthfile was generated using docker2earthly",
 			"# the conversion is done on a best-effort basis",
 			"# and might not follow best practices, please",
-			"# visit https://docs.earthly.dev for Earthfile guides",
+			"# visit https://docs.earthbuild.dev for Earthfile guides",
 		},
 	}
 

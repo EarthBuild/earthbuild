@@ -121,7 +121,7 @@ type BuildOpt struct {
 	AllowPrivileged            bool
 }
 
-// Builder executes Earthly builds.
+// Builder executes EarthBuild builds.
 type Builder struct {
 	outDir     string
 	s          *solver

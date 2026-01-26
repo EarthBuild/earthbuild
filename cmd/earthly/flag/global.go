@@ -197,7 +197,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:    EnvFileFlag,
 			EnvVars: []string{"EARTHLY_ENV_FILE_PATH"},
-			Usage: "Use values from this file as earthly environment variables; " +
+			Usage: "Use values from this file as earth environment variables; " +
 				"values are no longer used as --build-arg's or --secret's",
 			Value:       DefaultEnvFile,
 			Destination: &global.EnvFile,
@@ -205,14 +205,14 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:        ArgFileFlag,
 			EnvVars:     []string{"EARTHLY_ARG_FILE_PATH"},
-			Usage:       "Use values from this file as earthly buildargs",
+			Usage:       "Use values from this file as earth buildargs",
 			Value:       DefaultArgFile,
 			Destination: &global.ArgFile,
 		},
 		&cli.StringFlag{
 			Name:        SecretFileFlag,
 			EnvVars:     []string{"EARTHLY_SECRET_FILE_PATH"},
-			Usage:       "Use values from this file as earthly secrets",
+			Usage:       "Use values from this file as earth secrets",
 			Value:       DefaultSecretFile,
 			Destination: &global.SecretFile,
 		},
@@ -232,7 +232,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:        "server-conn-timeout",
-			Usage:       "Earthly API server connection timeout value",
+			Usage:       "EarthBuild API server connection timeout value",
 			EnvVars:     []string{"EARTHLY_SERVER_CONN_TIMEOUT"},
 			Hidden:      true, // Internal.
 			Value:       5 * time.Second,
@@ -271,7 +271,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.BoolFlag{
 			Name:        "ticktock",
 			EnvVars:     []string{"EARTHLY_TICKTOCK"},
-			Usage:       "Use earthly's experimental buildkit ticktock codebase",
+			Usage:       "Use earthbuild's experimental buildkit ticktock codebase",
 			Destination: &global.UseTickTockBuildkitImage,
 			Hidden:      true, // Experimental
 		},

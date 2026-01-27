@@ -41,7 +41,6 @@ linters:
     - mnd
     - musttag
     - nakedret
-    - nilerr
     - nilnesserr
     - nilnil
     - nlreturn

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Install EarthBuild</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/">EarthBuild</a></h1>
+        <nav>
+            <a href="/install.html">Install</a>
+            <a href="https://docs.earthbuild.dev">Docs</a>
+            <a href="https://github.com/EarthBuild/earthbuild">GitHub</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Install EarthBuild</h2>
+        <p>Get EarthBuild running on your machine in under a minute.</p>
+
+        <h3>Prerequisites</h3>
+        <p>EarthBuild requires Docker to be installed and running:</p>
+        <ul>
+            <li><strong>macOS:</strong> <a href="https://docs.docker.com/desktop/mac/install/">Docker Desktop for Mac</a></li>
+            <li><strong>Linux:</strong> <a href="https://docs.docker.com/engine/install/">Docker Engine</a></li>
+            <li><strong>Windows:</strong> <a href="https://docs.docker.com/desktop/windows/install/">Docker Desktop for Windows</a> with WSL 2</li>
+        </ul>
+
+        <h3>macOS</h3>
+        <p>Install with Homebrew:</p>
+        <pre><code>brew install earthbuild/tap/earthbuild</code></pre>
+
+        <p>Or download directly:</p>
+        <pre><code>curl -fsSL https://get.earthbuild.dev | sh</code></pre>
+
+        <h3>Linux</h3>
+        <p>Install with our script:</p>
+        <pre><code>curl -fsSL https://get.earthbuild.dev | sh</code></pre>
+
+        <p>Or install manually:</p>
+        <pre><code># Download the latest release
+curl -LO https://github.com/EarthBuild/earthbuild/releases/latest/download/earthbuild-linux-amd64
+
+# Make it executable
+chmod +x earthbuild-linux-amd64
+
+# Move to your PATH
+sudo mv earthbuild-linux-amd64 /usr/local/bin/earthbuild</code></pre>
+
+        <h3>Windows (WSL 2)</h3>
+        <p>Inside your WSL 2 environment:</p>
+        <pre><code>curl -fsSL https://get.earthbuild.dev | sh</code></pre>
+
+        <blockquote>
+            <strong>Note:</strong> Native Windows support is experimental. We recommend using WSL 2.
+        </blockquote>
+
+        <h3>Verify Installation</h3>
+        <pre><code>earthbuild --version</code></pre>
+
+        <p>Bootstrap EarthBuild (first-time setup):</p>
+        <pre><code>earthbuild bootstrap</code></pre>
+
+        <h3>Next Steps</h3>
+        <ul>
+            <li><a href="https://docs.earthbuild.dev/getting-started">Getting Started Guide</a></li>
+            <li><a href="https://docs.earthbuild.dev/earthfile">Earthfile Reference</a></li>
+            <li><a href="https://docs.earthbuild.dev/examples">Example Projects</a></li>
+        </ul>
+    </main>
+
+    <footer>
+        <p>EarthBuild is open source. <a href="https://github.com/EarthBuild/earthbuild">Contribute on GitHub</a></p>
+    </footer>
+</body>
+</html>

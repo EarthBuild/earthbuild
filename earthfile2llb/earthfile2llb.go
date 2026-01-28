@@ -252,7 +252,10 @@ func Earthfile2LLB(
 		opt.waitBlock = newWaitBlock()
 	}
 
-	targetWithMetadata := bc.Ref.(domain.Target)
+	targetWithMetadata, ok := bc.Ref.(domain.Target)
+	if !ok {
+		return nil, errors.Errorf("want domain.Target, got %T", bc.Ref)
+	}
 
 	sts, found, err := opt.Visited.
 		Add(ctx, targetWithMetadata, opt.PlatformResolver, opt.AllowPrivileged, opt.OverridingVars, opt.parentDepSub)

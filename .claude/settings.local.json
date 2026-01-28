@@ -12,7 +12,8 @@
       "Bash(cat:*)",
       "Bash(ls:*)",
       "Bash(git rev-parse:*)",
-      "WebFetch(domain:earthly.dev)"
+      "WebFetch(domain:earthly.dev)",
+      "Bash(gh issue view:*)"
     ]
   }
 }

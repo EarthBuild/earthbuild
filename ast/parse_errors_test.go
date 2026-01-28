@@ -25,11 +25,9 @@ test:
     FROM alpine
     IF $foo END
 `,
-			expectedHint: `
-  Hints:
-  - I couldn't find a pattern that completes the current statement - check your quote pairs, paren pairs, and newlines
-  - I parsed 'END' as a word, but it looks like it should be a keyword - is it on the wrong line?
-`,
+			expectedHint: "Hint: I couldn't find a pattern that completes the current statement - " +
+				"check your quote pairs, paren pairs, and newlines\n" +
+				"I parsed 'END' as a word, but it looks like it should be a keyword - is it on the wrong line?",
 		},
 		{
 			name: "key-value with missing EQUALS",
@@ -40,9 +38,7 @@ test:
     FROM alpine
     LABEL a
 `,
-			expectedHint: `
-  Hint: I got lost looking for '=' - did you define a key/value pair without a value?
-`,
+			expectedHint: `Hint: I got lost looking for '=' - did you define a key/value pair without a value?`,
 		},
 	}
 

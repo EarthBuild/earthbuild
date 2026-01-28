@@ -40,7 +40,6 @@ linters:
     - mirror
     - mnd
     - musttag
-    - nakedret
     - nilerr
     - nilnesserr
     - nilnil
@@ -48,7 +47,6 @@ linters:
     - nonamedreturns
     - recvcheck
     - revive
-    - staticcheck
     - tagliatelle
     - testpackage
     - varnamelen

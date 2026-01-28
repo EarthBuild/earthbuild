@@ -94,7 +94,7 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 		}
 
 		localPath = path.Join(r1.GetLocalPath(), localPath)
-		if !(strings.HasPrefix(localPath, ".") || strings.HasPrefix(localPath, "/")) {
+		if !strings.HasPrefix(localPath, ".") && !strings.HasPrefix(localPath, "/") {
 			localPath = "./" + localPath
 		}
 	case r2.IsLocalInternal():

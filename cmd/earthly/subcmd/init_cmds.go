@@ -6,8 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/EarthBuild/earthbuild/ast/hint"
-
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"

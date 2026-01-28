@@ -2,7 +2,7 @@ package platutil
 
 import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 

@@ -30,7 +30,8 @@
 
         <h3>macOS</h3>
         <p>Install with Homebrew:</p>
-        <pre><code>brew install earthbuild/tap/earthbuild</code></pre>
+        <pre><code>brew tap earthbuild/earthbuild
+brew install earth</code></pre>
 
         <p>Or download directly:</p>
         <pre><code>curl -fsSL https://www.earthbuild.dev/install.sh | sh</code></pre>
@@ -56,6 +57,19 @@ sudo mv earth-linux-amd64 /usr/local/bin/earth</code></pre>
         <blockquote>
             <strong>Note:</strong> Native Windows support is experimental. We recommend using WSL 2.
         </blockquote>
+
+        <h3>Nix / NixOS</h3>
+        <p>EarthBuild is available in nixpkgs:</p>
+        <pre><code>nix-shell -p earthbuild</code></pre>
+
+        <p>Or add to your NixOS configuration:</p>
+        <pre><code>environment.systemPackages = [ pkgs.earthbuild ];</code></pre>
+
+        <p>For nix-darwin:</p>
+        <pre><code>environment.systemPackages = [ pkgs.earthbuild ];</code></pre>
+
+        <p>For home-manager:</p>
+        <pre><code>home.packages = [ pkgs.earthbuild ];</code></pre>
 
         <h3>Verify Installation</h3>
         <pre><code>earth --version</code></pre>

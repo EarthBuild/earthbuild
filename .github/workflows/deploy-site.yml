@@ -2,7 +2,7 @@ name: Deploy Marketing Site
 
 on:
   push:
-    branches: [main]
+    branches: [marketing-site]  # TODO: change back to main before merge
     paths:
       - 'www/**'
       - '.github/workflows/deploy-site.yml'

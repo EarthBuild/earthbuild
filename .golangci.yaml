@@ -19,7 +19,6 @@ linters:
     - errcheck
     - errchkjson
     - errname
-    - errorlint
     - exhaustive
     - exhaustruct
     - fatcontext

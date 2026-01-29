@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/pkg/errors"
 )
 
 func Test_readExcludes(t *testing.T) {
@@ -122,7 +124,7 @@ func Test_readExcludes(t *testing.T) {
 			}
 
 			excludes, err := readExcludes(dir, testcase.noImplicitIgnore, testcase.useDockerIgnore)
-			if err != testcase.expectedErr {
+			if !errors.Is(err, testcase.expectedErr) {
 				t.Logf("actual err: %v", err)
 				t.Logf("expected err: %v", testcase.expectedErr)
 				t.Error("unexpected error getting excludes")

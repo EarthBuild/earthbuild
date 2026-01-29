@@ -73,8 +73,10 @@ func TestError(t *testing.T) {
 func TestCause(t *testing.T) {
 	t.Parallel()
 
-	pe, _ := Wrapf(internal, "some error").(*Error)
-	res := pe.Cause()
+	var err *Error
+
+	assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+	res := err.Cause()
 	assert.Equal(t, errors.Cause(internal), res)
 }
 
@@ -84,15 +86,19 @@ func TestIs(t *testing.T) {
 	t.Run("non param error", func(t *testing.T) {
 		t.Parallel()
 
-		pe, _ := Errorf("some error").(*Error)
-		res := pe.Is(internal)
+		var err *Error
+
+		assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+		res := err.Is(internal)
 		assert.False(t, res)
 	})
 	t.Run("param error", func(t *testing.T) {
 		t.Parallel()
 
-		pe, _ := Errorf("some error").(*Error)
-		res := pe.Is(pe)
+		var err *Error
+
+		assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+		res := err.Is(err)
 		assert.True(t, res)
 	})
 }
@@ -100,7 +106,9 @@ func TestIs(t *testing.T) {
 func TestParentError(t *testing.T) {
 	t.Parallel()
 
-	pe, _ := Wrapf(internal, "some error").(*Error)
-	res := pe.ParentError()
+	var err *Error
+
+	assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+	res := err.ParentError()
 	assert.Equal(t, "some error", res)
 }

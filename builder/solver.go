@@ -71,8 +71,9 @@ func (s *solver) buildMainMulti(
 		_, inErr := s.bkClient.Build(ctx, *solveOpt, "", bf, ch)
 		if inErr != nil {
 			if grpcErr, ok := grpcerrors.AsGRPCStatus(inErr); ok {
-				if ie, ok := earthfile2llb.FromError(errors.New(grpcErr.Message())); ok {
-					inErr = ie
+				interpreterErr := earthfile2llb.FromError(errors.New(grpcErr.Message()))
+				if interpreterErr != nil {
+					inErr = interpreterErr
 				}
 			}
 			// The actual error from bkClient.Build sometimes races with

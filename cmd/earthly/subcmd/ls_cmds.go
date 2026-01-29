@@ -90,7 +90,7 @@ func (a *List) action(cliCtx *cli.Context) error {
 
 	// the +base is required to make ParseTarget work; however is ignored by GetTargets
 	target, err := domain.ParseTarget(targetToParse + "+base")
-	if errors.Is(err, buildcontext.ErrEarthfileNotExist{}) {
+	if errors.Is(err, buildcontext.EarthfileNotExistError{}) {
 		return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	} else if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (a *List) action(cliCtx *cli.Context) error {
 	targets, err := earthfile2llb.GetTargets(cliCtx.Context, resolver, gwClient, target)
 	if err != nil {
 		switch err := errors.Cause(err).(type) {
-		case *buildcontext.ErrEarthfileNotExist:
+		case *buildcontext.EarthfileNotExistError:
 			return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 		default:
 			return err

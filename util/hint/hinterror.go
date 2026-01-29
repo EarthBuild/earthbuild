@@ -18,7 +18,7 @@ type Error struct {
 	hints []string
 }
 
-// Error returns the error string.
+// Error implements [error] interface.
 func (e *Error) Error() string {
 	return fmt.Sprintf(`%v:Hint: %v`, e.err, e.Hint())
 }

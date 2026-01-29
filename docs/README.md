@@ -32,7 +32,7 @@ Earthbuild's key features/benefits are:
 
 ## Installation
 
-The best way to install EarthBuild is by following the [installation instructions](https://earthbuild.dev/get-earthbuild).
+The best way to install EarthBuild is by following the [installation instructions](https://www.earthbuild.dev/install.html).
 
 For a full list of installation options see the [alternative installation page](./alt-installation/alt-installation.md).
 

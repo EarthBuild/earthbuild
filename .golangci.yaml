@@ -40,7 +40,6 @@ linters:
     - mirror
     - mnd
     - musttag
-    - nakedret
     - nilnesserr
     - nilnil
     - nlreturn

@@ -83,30 +83,30 @@ signed-release:
 
     ARG EARTHLY_GIT_HASH
 
-    COPY (../+earthly-all/* \
+    COPY (../+all-binaries/* \
          --VERSION=$VERSION \
          --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$RELEASE_TAG" \
-         --DEFAULT_INSTALLATION_NAME="earthly" \
+         --DEFAULT_INSTALLATION_NAME="earth" \
          ) ./release/
 
 
-    RUN test -f ./release/earthly-linux-amd64 && \
-        test -f ./release/earthly-darwin-amd64 && \
-        test -f ./release/earthly-darwin-arm64 && \
-        test -f ./release/earthly-linux-arm64 && \
-        test -f ./release/earthly-windows-amd64.exe
+    RUN test -f ./release/earth-linux-amd64 && \
+        test -f ./release/earth-darwin-amd64 && \
+        test -f ./release/earth-darwin-arm64 && \
+        test -f ./release/earth-linux-arm64 && \
+        test -f ./release/earth-windows-amd64.exe
 
-    RUN file ./release/earthly-linux-amd64 | grep "x86-64"
-    RUN file ./release/earthly-linux-amd64 | grep "ELF 64-bit"
-    RUN file ./release/earthly-darwin-amd64 | grep "Mach-O 64-bit x86_64"
-    RUN file ./release/earthly-darwin-arm64 | grep "Mach-O 64-bit arm64"
-    RUN file ./release/earthly-linux-arm64 | grep "aarch64"
-    RUN file ./release/earthly-linux-arm64 | grep "ELF 64-bit"
-    RUN file ./release/earthly-windows-amd64.exe | grep "PE32"
+    RUN file ./release/earth-linux-amd64 | grep "x86-64"
+    RUN file ./release/earth-linux-amd64 | grep "ELF 64-bit"
+    RUN file ./release/earth-darwin-amd64 | grep "Mach-O 64-bit x86_64"
+    RUN file ./release/earth-darwin-arm64 | grep "Mach-O 64-bit arm64"
+    RUN file ./release/earth-linux-arm64 | grep "aarch64"
+    RUN file ./release/earth-linux-arm64 | grep "ELF 64-bit"
+    RUN file ./release/earth-windows-amd64.exe | grep "PE32"
 
     # GPG Sign
     RUN --secret GPG_PRIVATE echo "${GPG_PRIVATE}" | gpg --import && \
-        cd release && sha256sum earthly-* > checksum && \
+        cd release && sha256sum earth-* > checksum && \
         cat checksum | gpg --default-key earthly-apt -abs --clearsign --no-emit-version > checksum.asc && rm checksum
 
     SAVE ARTIFACT ./release AS LOCAL ./release

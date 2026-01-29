@@ -32,12 +32,14 @@ func TestMultiAuth(t *testing.T) {
 		children []*mockChild
 	}
 
-	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
+	o := onpar.New()
+
+	o.BeforeEach(func(t *testing.T) testCtx {
 		t.Helper()
 
 		children := []*mockChild{
-			newMockChild(t, mockTimeout),
-			newMockChild(t, mockTimeout),
+			newMockChild(pers.WithTimeout(t, mockTimeout)),
+			newMockChild(pers.WithTimeout(t, mockTimeout)),
 		}
 
 		srv := make([]authprovider.Child, 0, len(children))
@@ -52,7 +54,7 @@ func TestMultiAuth(t *testing.T) {
 			multi:    authprovider.New(newConsLogger(), srv),
 		}
 	})
-	defer o.Run()
+	defer o.Run(t)
 
 	type fetchResult struct {
 		resp *auth.FetchTokenResponse
@@ -66,12 +68,13 @@ func TestMultiAuth(t *testing.T) {
 		}
 
 		p := projectProvider{
-			mockChild:        newMockChild(t, mockTimeout),
-			mockProjectAdder: newMockProjectAdder(t, mockTimeout),
+			mockChild:        newMockChild(pers.WithTimeout(t, mockTimeout)),
+			mockProjectAdder: newMockProjectAdder(pers.WithTimeout(t, mockTimeout)),
 		}
 		t.multi = authprovider.New(newConsLogger(), []authprovider.Child{p})
+		pers.Return(p.mockProjectAdder.method.AddProject)
 		t.multi.AddProject("foo", "bar")
-		t.expect(p.mockProjectAdder).To(haveMethodExecuted("AddProject", withArgs("foo", "bar")))
+		t.expect(p.mockProjectAdder.method.AddProject).To(haveMethodExecuted(withArgs("foo", "bar")))
 	})
 
 	o.Spec("it does not continue to contact servers with no credentials for a given host", func(t testCtx) {
@@ -88,8 +91,7 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range t.children {
-			t.expect(c).To(haveMethodExecuted(
-				"FetchToken",
+			t.expect(c.method.FetchToken).To(haveMethodExecuted(
 				within(timeout),
 				withArgs(pers.Any, equal(&auth.FetchTokenRequest{Host: host})),
 				returning(nil, authprovider.ErrAuthProviderNoResponse),
@@ -110,9 +112,8 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range t.children {
-			t.expect(c).To(not(haveMethodExecuted(
-				"FetchToken",
-				within(10*time.Millisecond),
+			t.expect(c.method.FetchToken).To(not(haveMethodExecuted(
+				within(10 * time.Millisecond),
 			)))
 		}
 
@@ -152,8 +153,7 @@ func TestMultiAuth(t *testing.T) {
 				}
 			}
 
-			t.expect(c).To(haveMethodExecuted(
-				"FetchToken",
+			t.expect(c.method.FetchToken).To(haveMethodExecuted(
 				within(timeout),
 				withArgs(pers.Any, equal(&auth.FetchTokenRequest{Host: host})),
 				returning(ret...),
@@ -175,8 +175,7 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range t.children {
-			t.expect(c).To(haveMethodExecuted(
-				"FetchToken",
+			t.expect(c.method.FetchToken).To(haveMethodExecuted(
 				within(timeout),
 				withArgs(pers.Any, equal(&auth.FetchTokenRequest{Host: host})),
 				returning(nil, authprovider.ErrAuthProviderNoResponse),

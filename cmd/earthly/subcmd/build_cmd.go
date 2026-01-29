@@ -425,12 +425,12 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
-	auth, ok := attachable.(auth.AuthServer)
+	authSvr, ok := attachable.(auth.AuthServer)
 	if !ok {
 		return fmt.Errorf("want auth.AuthServer, got %T", attachable)
 	}
 
-	authProvider := authprovider.New(a.cli.Console(), []authprovider.Child{auth})
+	authProvider := authprovider.New(a.cli.Console(), []authprovider.Child{authSvr})
 	attachables = append(attachables, authProvider)
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)

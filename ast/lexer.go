@@ -166,7 +166,7 @@ func (l *lexer) debugToken(token antlr.Token, modeBefore int) {
 func (l *lexer) pos() (line, column, index int) {
 	atn, ok := l.Interpreter.(*antlr.LexerATNSimulator)
 	if !ok {
-		return 0, 0, 0
+		panic(fmt.Sprintf("want *antlr.LexerATNSimulator, got %T", l.Interpreter))
 	}
 
 	return atn.Line, atn.CharPositionInLine, l.GetInputStream().Index()
@@ -175,7 +175,7 @@ func (l *lexer) pos() (line, column, index int) {
 func (l *lexer) seek(line, column, index int) {
 	atn, ok := l.Interpreter.(*antlr.LexerATNSimulator)
 	if !ok {
-		return
+		panic(fmt.Sprintf("want *antlr.LexerATNSimulator, got %T", l.Interpreter))
 	}
 
 	atn.Line = line

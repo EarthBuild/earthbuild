@@ -63,8 +63,12 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 	go p.serve(ctx)
 
 	// Find the assigned port.
-	registryPort := ln.Addr().(*net.TCPAddr).Port
-	addr = fmt.Sprintf("127.0.0.1:%d", registryPort)
+	registry, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		return "", nil, errors.New("failed to get proxy listener address")
+	}
+
+	addr = fmt.Sprintf("127.0.0.1:%d", registry.Port)
 
 	c.cons.VerbosePrintf("Starting registry proxy on %s", addr)
 
@@ -100,7 +104,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 			}
 		}
 
-		port, err := c.startDarwinProxy(ctx, containerName, registryPort)
+		port, err := c.startDarwinProxy(ctx, containerName, registry.Port)
 		if err != nil {
 			stopFn(ctx)
 			return "", nil, errors.Wrap(err, "failed to start Darwin support container")
@@ -240,9 +244,14 @@ func acquireFreePort(ctx context.Context) (int, error) {
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to listen on open port")
+		return 0, errors.Wrap(err, "listen on open port")
 	}
 	defer ln.Close() // Immediately close the listener
 
-	return ln.Addr().(*net.TCPAddr).Port, nil
+	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, errors.New("get TCP address")
+	}
+
+	return tcpAddr.Port, nil
 }

@@ -24,7 +24,6 @@ linters:
     - exhaustruct
     - fatcontext
     - forbidigo
-    - forcetypeassert
     - funcorder
     - funlen
     - gochecknoglobals

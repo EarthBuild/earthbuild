@@ -173,7 +173,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	}
 
 	grpcErr, grpcErrOK := grpcerrors.AsGRPCStatus(err)
-	hintErr, hintErrOK := getHintErr(err, grpcErr)
+	hintErr := getHintErr(err, grpcErr)
 
 	var (
 		paramsErr   *params.Error
@@ -181,7 +181,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	)
 
 	switch {
-	case hintErrOK:
+	case hintErr != nil:
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_OTHER,
@@ -478,17 +478,17 @@ func errorWithPrefix(err string) string {
 	return "Error: " + err
 }
 
-func getHintErr(err error, grpcError *status.Status) (*hint.Error, bool) {
+func getHintErr(err error, grpcError *status.Status) *hint.Error {
 	res := new(hint.Error)
 	if errors.As(err, &res) {
-		return res, true
+		return res
 	}
 
 	if grpcError != nil {
 		return hint.FromError(errors.New(grpcError.Message()))
 	}
 
-	return nil, false
+	return nil
 }
 
 func redactSecretsFromArgs(args []string) []string {

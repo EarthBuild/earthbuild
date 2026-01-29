@@ -415,18 +415,22 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 
 	cfg := config.LoadDefaultConfigFile(os.Stderr)
 
-	var authChildren []authprovider.Child
+	var attachable session.Attachable
 
 	switch a.cli.Flags().ContainerFrontend.Config().Setting {
 	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
-		authChildren = append(authChildren, authprovider.NewPodman(os.Stderr).(auth.AuthServer))
-
+		attachable = authprovider.NewPodman(os.Stderr)
 	default:
 		// includes containerutil.FrontendDocker, containerutil.FrontendDockerShell:
-		authChildren = append(authChildren, dockerauthprovider.NewDockerAuthProvider(cfg, nil).(auth.AuthServer))
+		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
-	authProvider := authprovider.New(a.cli.Console(), authChildren)
+	authSvr, ok := attachable.(auth.AuthServer)
+	if !ok {
+		return fmt.Errorf("want auth.AuthServer, got %T", attachable)
+	}
+
+	authProvider := authprovider.New(a.cli.Console(), []authprovider.Child{authSvr})
 	attachables = append(attachables, authProvider)
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
@@ -890,7 +894,13 @@ func (a *Build) initAutoSkip(
 			console.VerboseWarnf("unable to detect all git metadata: %v", err.Error())
 		}
 
-		target = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
+		var ok bool
+
+		target, ok = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
+		if !ok {
+			return nil, false, errors.Errorf("want domain.Target, got %T", target)
+		}
+
 		target.Tag = ""
 	}
 

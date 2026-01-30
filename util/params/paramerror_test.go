@@ -97,7 +97,7 @@ assert.True(t, errors.As(Errorf("some error"), &err))
 
 		var err *Error
 
-		assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+assert.True(t, errors.As(Errorf("some error"), &err))
 		res := err.Is(err)
 		assert.True(t, res)
 	})

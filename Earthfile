@@ -105,7 +105,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.23.2
+    ARG alpine_version=3.23.3
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
@@ -430,12 +430,12 @@ earthly-windows-amd64:
 # linux amd64 and linux arm64
 # Darwin amd64 and arm64
 # Windows amd64
-earthly-all:
-    COPY +earthly-linux-amd64/earthly ./earthly-linux-amd64
-    COPY +earthly-linux-arm64/earthly ./earthly-linux-arm64
-    COPY +earthly-darwin-amd64/earthly ./earthly-darwin-amd64
-    COPY +earthly-darwin-arm64/earthly ./earthly-darwin-arm64
-    COPY +earthly-windows-amd64/earthly.exe ./earthly-windows-amd64.exe
+all-binaries:
+    COPY +earthly-linux-amd64/earthly ./earth-linux-amd64
+    COPY +earthly-linux-arm64/earthly ./earth-linux-arm64
+    COPY +earthly-darwin-amd64/earthly ./earth-darwin-amd64
+    COPY +earthly-darwin-arm64/earthly ./earth-darwin-arm64
+    COPY +earthly-windows-amd64/earthly.exe ./earth-windows-amd64.exe
     SAVE ARTIFACT ./*
 
 # earthly-docker builds earthly as a docker image and pushes
@@ -518,7 +518,7 @@ prerelease:
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ./buildkitd+buildkitd --TAG=prerelease  --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    COPY (+earthly-all/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
+    COPY (+all-binaries/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
     SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
 # prerelease-script copies the earthly folder and saves it as an artifact
@@ -638,7 +638,7 @@ all-buildkitd:
 # - Prerelease version of earthly as a container image
 all:
     BUILD +all-buildkitd
-    BUILD +earthly-all
+    BUILD +all-binaries
     BUILD +earthly-docker
     BUILD +prerelease
 

@@ -283,11 +283,11 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 			return "", "", err
 		}
 
-		return keyAlg, keyData, err
+		return keyAlg, keyData, nil
 	}
 
 	if scannedHostname == hostname {
-		return keyAlg, keyData, err
+		return keyAlg, keyData, nil
 	}
 
 	// entry isn't hashed
@@ -312,7 +312,7 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 		return "", "", errKeyScanNoMatch
 	}
 
-	return keyAlg, keyData, err
+	return keyAlg, keyData, nil
 }
 
 //nolint:unparam // error return kept for future use
@@ -429,7 +429,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	protocol, ok = gl.autoProtocols[host]
 	if ok {
-		return protocol, err
+		return protocol, nil
 	}
 
 	defer func() {
@@ -445,10 +445,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https",
 			gl.sshAuthSock, err.Error())
 
-		protocol = httpsProtocol
-		err = nil
-
-		return protocol, err
+		return httpsProtocol, nil
 	}
 
 	algs, keys, err := gl.getHostKeyAlgorithms(host)
@@ -456,19 +453,12 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		gl.console.VerbosePrintf("failed to get accepted host key algorithms for %s: %s; falling back to https",
 			host, err.Error())
 
-		protocol = httpsProtocol
-		err = nil
-
-		return protocol, err
+		return httpsProtocol, nil
 	}
 
 	if len(keys) == 0 {
 		gl.console.VerbosePrintf("no known_hosts entries found for %s; falling back to https", host)
-
-		protocol = httpsProtocol
-		err = nil
-
-		return protocol, err
+		return httpsProtocol, nil
 	}
 
 	config := &ssh.ClientConfig{
@@ -484,20 +474,13 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 	client, err := ssh.Dial("tcp", net.JoinHostPort(host, "22"), config)
 	if err != nil {
 		gl.console.VerbosePrintf("failed to connect to '%s' over ssh due to '%s'; falling back to https", host, err.Error())
-
-		protocol = httpsProtocol
-		err = nil
-
-		return protocol, err
+		return httpsProtocol, nil
 	}
 	defer client.Close()
 
 	gl.console.VerbosePrintf("defaulting to ssh protocol for %s", host)
 
-	protocol = sshProtocol
-	err = nil
-
-	return protocol, err
+	return sshProtocol, nil
 }
 
 var errNoRCHostEntry = errors.New("no netrc host entry")

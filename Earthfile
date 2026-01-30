@@ -172,10 +172,10 @@ lint:
 fmt:
   BUILD +fmt-go
 
-# format-go formats Go code using gofmt. Run: earthly +format-go
+# format-go formats Go code using gofumpt. Run: earthly +fmt-go
 fmt-go:
     LOCALLY
-    RUN gofmt -s -w .
+    RUN gofumpt -w .
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:

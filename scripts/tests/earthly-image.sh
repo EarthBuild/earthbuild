@@ -43,13 +43,13 @@ if "$FRONTEND" run --rm --privileged "${EARTHLY_IMAGE}" 2>&1 | tee output.txt; t
     echo "expected failure"
     exit 1
 fi
-acbgrep "Executes Earthly builds" output.txt # Display help
+acbgrep "Executes EarthBuild builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 if "$FRONTEND" run --rm -e NO_BUILDKIT=1 "${EARTHLY_IMAGE}" 2>&1 | tee output.txt; then
     echo "expected failure"
     exit 1
 fi
-acbgrep "Executes Earthly builds" output.txt # Display help
+acbgrep "Executes EarthBuild builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 
 echo "Test --version (smoke test)."
@@ -58,9 +58,9 @@ echo "Test --version (smoke test)."
 
 echo "Test --help."
 "$FRONTEND" run --rm --privileged "${EARTHLY_IMAGE}" --help 2>&1 | tee output.txt
-acbgrep "Executes Earthly builds" output.txt # Display help
+acbgrep "Executes EarthBuild builds" output.txt # Display help
 "$FRONTEND" run --rm -e NO_BUILDKIT=1 "${EARTHLY_IMAGE}" --help 2>&1 | tee output.txt
-acbgrep "Executes Earthly builds" output.txt # Display help
+acbgrep "Executes EarthBuild builds" output.txt # Display help
 
 echo "Test hello world with embedded buildkit."
 "$FRONTEND" run --rm --privileged -e EARTHLY_ADDITIONAL_BUILDKIT_CONFIG -v "$dockerconfig:/root/.docker/config.json" "${EARTHLY_IMAGE}" --no-cache github.com/EarthBuild/hello-world:4d466d524f768a379374c785fdef30470e87721d+hello 2>&1 | tee output.txt

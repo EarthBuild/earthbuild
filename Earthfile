@@ -169,6 +169,14 @@ lint:
             echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
     END
 
+fmt:
+  BUILD +fmt-go
+
+# format-go formats Go code using gofumpt. Run: earthly +fmt-go
+fmt-go:
+    LOCALLY
+    RUN gofumpt -w .
+
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
@@ -308,7 +316,7 @@ debugger:
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
 
-# earthly builds the earthly CLI and docker image.
+# earthly builds the EarthBuild CLI and docker image.
 earthly:
     FROM +code
     ENV CGO_ENABLED=0

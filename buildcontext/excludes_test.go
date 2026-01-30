@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 func Test_readExcludes(t *testing.T) {

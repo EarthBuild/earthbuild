@@ -88,7 +88,7 @@ func TestIs(t *testing.T) {
 
 		var err *Error
 
-		assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+assert.True(t, errors.As(Errorf("some error"), &err))
 		res := err.Is(internal)
 		assert.False(t, res)
 	})

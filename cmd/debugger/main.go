@@ -147,7 +147,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	for {
 		n, err := r.Read(b[:cap(b)])
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 
@@ -384,7 +384,9 @@ func main() {
 
 			exitCode = 127
 
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			var exitErr *exec.ExitError
+
+			if errors.As(err, &exitErr) {
 				exitCode = exitErr.ExitCode()
 			}
 		}
@@ -416,7 +418,10 @@ func handleError(
 	quotedCmd := shellescape.QuoteCommand(args)
 
 	exitCode := 1
-	if exitErr, ok := err.(*exec.ExitError); ok {
+
+	var exitErr *exec.ExitError
+
+	if errors.As(err, &exitErr) {
 		exitCode = exitErr.ExitCode()
 		if debuggerSettings.Enabled {
 			conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)

@@ -143,12 +143,12 @@ func (s *tarImageSolver) SolveImage(
 		buf := make([]byte, 1024)
 		for {
 			n, err := pipeR.Read(buf)
-			if err != nil && err != io.EOF {
-				return errors.Wrap(err, "pipe read")
-			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
 
-			if err == io.EOF {
-				break
+				return errors.Wrap(err, "pipe read")
 			}
 
 			_, err = bufFile.Write(buf[:n])

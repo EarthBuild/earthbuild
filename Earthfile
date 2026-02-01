@@ -2,7 +2,7 @@ VERSION 0.8
 
 # TODO update to 3.18; however currently "podman login" (used under not-a-unit-test.sh) will error with
 # "Error: default OCI runtime "crun" not found: invalid argument".
-FROM alpine:3.18
+FROM alpine:3.23
 RUN apk add --update --no-cache \
     bash \
     bash-completion \
@@ -291,7 +291,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.0-slim@sha256:9813eecff3a08a6ac88aea5b43663c82a931fd9557f6aceaa847f0d8ce738978
+    FROM python:3.14.2-slim@sha256:9b81fe9acff79e61affb44aaf3b6ff234392e8ca477cb86c9f7fd11732ce9b6a
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -512,7 +512,7 @@ earthly-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.18
+    FROM alpine:3.23
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -523,7 +523,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.18
+    FROM alpine:3.23
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -533,7 +533,7 @@ prerelease-script:
 ci-release:
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
-    FROM alpine:3.18
+    FROM alpine:3.23
     ARG BUILDKIT_PROJECT
     ARG EARTHLY_GIT_HASH
     ARG --required TAG_SUFFIX
@@ -856,7 +856,7 @@ license:
     SAVE ARTIFACT LICENSE
 
 node:
-    FROM node:24.9.0-alpine3.22
+    FROM node:24.13.0-alpine3.22
     # renovate: datasource=npm packageName=npm
     LET npm_version=11.8.0
     RUN \

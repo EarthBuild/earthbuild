@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.22
+FROM alpine:3.23
 
 release-dockerhub:
     ARG --required RELEASE_TAG
@@ -65,7 +65,7 @@ perform-release-buildkitd-dockerhub:
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
-    FROM alpine:3.22
+    FROM alpine:3.23
 
     RUN apk add file gpg gpg-agent
 
@@ -118,7 +118,7 @@ promote-release:
     BUILD +promote-to-dockerhub
 
 gh-cli:
-    FROM alpine:3.22
+    FROM alpine:3.23
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
 
@@ -232,7 +232,7 @@ copy-img:
     RUN --push --no-cache echo "Done copying image from '${SRC_REF}' to '${DEST_REF}'"
 
 skopeo:
-    FROM alpine:3.22
+    FROM alpine:3.23
 
     # https://github.com/containers/skopeo/blob/main/install.md#alpine
     RUN apk add skopeo

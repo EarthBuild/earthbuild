@@ -2,14 +2,14 @@ VERSION 0.8
 ARG --global REGISTRY
 
 test1:
-    FROM alpine:3.18
+    FROM alpine:3.23
     RUN echo "execute-test1-run-before-copy"
     COPY ./input ./
     RUN echo "execute-test1-run-after-copy"
     SAVE IMAGE --push --insecure $REGISTRY/test1:latest
 
 test2-base:
-    FROM node:24.9.0-alpine3.22
+    FROM node:24.13.0-alpine3.22
     # renovate: datasource=npm packageName=npm
     ARG npm_version=11.6.1
     RUN npm install -g npm@$npm_version
@@ -37,6 +37,6 @@ test2:
 
 # Smoke test for --cache-hint.
 test3:
-    FROM alpine:3.18
+    FROM alpine:3.23
     RUN echo "content" >./file.txt
     SAVE IMAGE --cache-hint

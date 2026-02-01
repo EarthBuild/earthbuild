@@ -1,5 +1,5 @@
 VERSION 0.7 # leave as 0.7 for testing backwards compatibility
-FROM alpine:3.18
+FROM alpine:3.23
 
 build:
     CACHE /cache/persisted

@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM node:24.9.0-alpine3.22
+FROM node:24.13.0-alpine3.22
 WORKDIR /app
 
 deps:

@@ -1,5 +1,5 @@
 VERSION --allow-privileged-from-dockerfile 0.8
-FROM alpine:3.18
+FROM alpine:3.23
 
 privileged-context:
     RUN --privileged echo "hello dockerfile from privileged context" > a.txt

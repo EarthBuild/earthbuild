@@ -10,10 +10,10 @@
   "author": "",
   "license": "MPL-2.0",
   "devDependencies": {
-    "webpack": "5.102.1",
+    "webpack": "5.104.1",
     "webpack-cli": "6.0.1"
   },
   "dependencies": {
-    "http-server": "^0.12.1"
+    "http-server": "^14.0.0"
   }
 }

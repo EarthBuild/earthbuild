@@ -28,7 +28,7 @@ func parseFeatures(
 	}
 
 	if !hasVersion {
-		return nil, fmt.Errorf("No version specified in %s/Earthfile", projectRef)
+		return nil, fmt.Errorf("no version specified in %s/Earthfile", projectRef)
 	}
 
 	warningStrs, err := ftrs.ProcessFlags()

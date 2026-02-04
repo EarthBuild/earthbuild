@@ -5,13 +5,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
-
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
@@ -35,7 +34,7 @@ func (a *Doc) Cmds() []*cli.Command {
 		{
 			Name:        "doc",
 			Usage:       "Document targets from an Earthfile",
-			UsageText:   "earthly [options] doc [<earthfile-ref>[+<target-ref>]]",
+			UsageText:   "earth [options] doc [<earthfile-ref>[+<target-ref>]]",
 			Description: "Document targets from an Earthfile by reading in line comments.",
 			Action:      a.action,
 			Flags: []cli.Flag{

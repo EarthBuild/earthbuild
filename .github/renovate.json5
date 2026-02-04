@@ -18,6 +18,8 @@
   ],
   includePaths: [
     'Earthfile',
+    '**/go.mod',
+    '**/go.sum',
     'docs/**',
     'examples/**',
     '.github/**',
@@ -35,10 +37,28 @@
     '**/vendor/**',
     '**/__fixtures__/**',
   ],
+  "github-actions": {
+    enabled: true
+  },
+  npm: {
+    enabled: true
+  },
+  "pip_requirements": {
+    enabled: true
+  },
+  bundler: {
+    enabled: true
+  },
+  "docker-compose": {
+    enabled: true
+  },
   dockerfile: {
+    enabled: true,
     managerFilePatterns: [
       '/Earthfile/',
       '/.*\\.earth$/',
+      '/Dockerfile*/',
+      '/docker-compose*/',
     ],
   },
   customManagers: [
@@ -99,6 +119,62 @@
       ],
       depNameTemplate: 'earthbuild/dind',
       datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
+      description: 'Update docker-compose versions in shell scripts',
+      managerFilePatterns: [
+        '/**/*.sh',
+      ],
+      matchStrings: [
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+packageName=(?<packageName>.+?)\\s+curl.*?releases/download/(?<currentValue>[0-9.]+[^/]*)/docker-compose',
+      ],
+    },
+
+    {
+      customType: 'regex',
+      description: 'Update Go version in .mise.toml',
+      managerFilePatterns: [
+        '**/.mise.toml',
+      ],
+      matchStrings: [
+        '^go\\s*=\\s*"(?<currentValue>.+?)"',
+      ],
+      datasourceTemplate: 'golang-version',
+      depNameTemplate: 'go',
+    },
+    {
+      customType: 'regex',
+      description: 'Update docker-compose versions in shell scripts',
+      managerFilePatterns: [
+        '/**/*.sh',
+      ],
+      matchStrings: [
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+packageName=(?<packageName>.+?)\\s+curl.*?releases/download/(?<currentValue>[0-9.]+[^/]*)/docker-compose',
+      ],
+    },
+    {
+      customType: 'regex',
+      description: 'Update Python package versions in requirements.txt',
+      managerFilePatterns: [
+        '**/requirements.txt',
+      ],
+      matchStrings: [
+        '^(?<depName>[a-zA-Z0-9_-]+)==(?<currentValue>.+?)$',
+      ],
+      datasourceTemplate: 'pypi',
+    },
+    {
+      customType: 'regex',
+      description: 'Update Go version in .mise.toml',
+      managerFilePatterns: [
+        '**/.mise.toml',
+      ],
+      matchStrings: [
+        '^go\\s*=\\s*"(?<currentValue>.+?)"',
+      ],
+      datasourceTemplate: 'golang-version',
+      depNameTemplate: 'go',
     },
   ],
   labels: [
@@ -184,15 +260,19 @@
         'every month',
       ],
     },
-    // disable any docker dependencies that are not alpine/git or earthbuild/dind (temporary until we add other dependencies)
+    // group all Dockerfile dependency updates
     {
       matchManagers: [
         'dockerfile',
       ],
-      enabled: false,
+      groupName: 'dockerfile-dependencies',
       matchPackageNames: [
         '!alpine/git',
         '!earthbuild/dind',
+        '!earthly/earthly',
+      ],
+      schedule: [
+        'every month',
       ],
     },
     {
@@ -225,28 +305,101 @@
       allowedVersions: '/^ubuntu-23\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
-    // disable any dependencies in docs/ & examples/ except for earthly/earthly and earthbuild/dind (temporary until we add other dependencies)
+    // group all examples and docs dependency updates together (except earthly/earthly and earthbuild/dind)
     {
       matchFileNames: [
-        'examples/**',
-        'docs/**',
+        '**/.mise.toml',
       ],
-      enabled: false,
+      separateMajorMinor: false,
+      groupName: 'examples-and-docs-dependencies',
       matchPackageNames: [
-        '!earthbuild/dind',
         '!earthly/earthly',
+        '!earthbuild/dind',
+      ],
+      schedule: [
+        'every month',
+      ],
+    },
+    // group all Node.js dependencies in examples
+    {
+      matchFileNames: [
+        'examples/**/package.json',
+        'tests/**/package.json',
+      ],
+      groupName: 'nodejs-examples-dependencies',
+      matchManagers: [
+        'npm',
+      ],
+      schedule: [
+        'every month',
+      ],
+    },
+    // group all Python dependencies in examples
+    {
+      matchFileNames: [
+        'examples/**/requirements.txt',
+        'tests/**/requirements.txt',
+      ],
+      groupName: 'python-examples-dependencies',
+      matchManagers: [
+        'pip_requirements',
+      ],
+      schedule: [
+        'every month',
+      ],
+    },
+    // group all Ruby dependencies in examples
+    {
+      matchFileNames: [
+        'examples/**/Gemfile',
+        'tests/**/Gemfile',
+      ],
+      groupName: 'ruby-examples-dependencies',
+      matchManagers: [
+        'bundler',
+      ],
+      schedule: [
+        'every month',
       ],
     },
     {
-      // group all examples and docs updates in one PR (except for earthly/earthly which is in a different PR)
-      matchFileNames: [
-        'examples/**',
-        'docs/**',
+      // group all GitHub Actions updates
+      groupName: 'github-actions',
+      matchManagers: [
+        'github-actions',
       ],
-      separateMajorMinor: false,
-      groupName: 'docs-dependencies',
-      matchPackageNames: [
-        '!earthly/earthly',
+      schedule: [
+        'every month',
+      ],
+    },
+    {
+      // group all shell script dependency updates
+      groupName: 'shell-script-dependencies',
+      matchFileNames: [
+        '**/*.sh',
+      ],
+      schedule: [
+        'every month',
+      ],
+    },
+    // group all docker-compose dependency updates
+    {
+      matchManagers: [
+        'docker-compose',
+      ],
+      groupName: 'docker-compose-dependencies',
+      schedule: [
+        'every month',
+      ],
+    },
+    // group all mise tool version updates
+    {
+      matchFileNames: [
+        '**/.mise.toml',
+      ],
+      groupName: 'mise-tool-versions',
+      schedule: [
+        'every month',
       ],
     },
   ],

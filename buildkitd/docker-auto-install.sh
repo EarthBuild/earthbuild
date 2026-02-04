@@ -80,12 +80,15 @@ install_docker_compose() {
             echo "Detected architecture is $(uname -m)"
             case "$(uname -m)" in
                 armv7l|armhf)
+                    # renovate: datasource=github-releases packageName=linuxserver/docker-docker-compose
                     curl -L "https://github.com/linuxserver/docker-docker-compose/releases/download/1.27.4-ls27/docker-compose-armhf" -o /usr/local/bin/docker-compose
                     ;;
                 arm64|aarch64)
+                    # renovate: datasource=github-releases packageName=linuxserver/docker-docker-compose
                     curl -L "https://github.com/linuxserver/docker-docker-compose/releases/download/1.27.4-ls27/docker-compose-arm64" -o /usr/local/bin/docker-compose
                     ;;
                 *)
+                    # renovate: datasource=github-releases packageName=docker/compose
                     curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
                     ;;
             esac

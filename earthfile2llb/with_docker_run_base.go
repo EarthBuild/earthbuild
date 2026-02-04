@@ -10,7 +10,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"

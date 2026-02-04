@@ -33,7 +33,7 @@ func (a *List) Cmds() []*cli.Command {
 		{
 			Name:        "ls",
 			Usage:       "List targets from an Earthfile",
-			UsageText:   "earthly [options] ls [<earthfile-ref>]",
+			UsageText:   "earth [options] ls [<earthfile-ref>]",
 			Description: "List targets from an Earthfile.",
 			Action:      a.action,
 			Flags: []cli.Flag{
@@ -64,7 +64,7 @@ func (a *List) action(cliCtx *cli.Context) error {
 	var targetToParse string
 	if cliCtx.NArg() > 0 {
 		targetToParse = cliCtx.Args().Get(0)
-		if !(strings.HasPrefix(targetToParse, "/") || strings.HasPrefix(targetToParse, ".")) {
+		if !strings.HasPrefix(targetToParse, "/") && !strings.HasPrefix(targetToParse, ".") {
 			return errors.New("remote-paths are not currently supported; local paths must start with \"/\" or \".\"")
 		}
 

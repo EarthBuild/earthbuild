@@ -11,23 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/containerd/containerd/platforms"
-	"github.com/docker/cli/cli/config"
-	"github.com/joho/godotenv"
-	bkclient "github.com/moby/buildkit/client"
-	"github.com/moby/buildkit/client/llb"
-	"github.com/moby/buildkit/session"
-	"github.com/moby/buildkit/session/auth"
-	dockerauthprovider "github.com/moby/buildkit/session/auth/authprovider"
-	"github.com/moby/buildkit/session/localhost/localhostprovider"
-	"github.com/moby/buildkit/session/socketforward/socketprovider"
-	"github.com/moby/buildkit/session/sshforward/sshprovider"
-	"github.com/moby/buildkit/util/entitlements"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel"
-
 	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
@@ -55,6 +38,22 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/containerd/containerd/platforms"
+	"github.com/docker/cli/cli/config"
+	"github.com/joho/godotenv"
+	bkclient "github.com/moby/buildkit/client"
+	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/auth"
+	dockerauthprovider "github.com/moby/buildkit/session/auth/authprovider"
+	"github.com/moby/buildkit/session/localhost/localhostprovider"
+	"github.com/moby/buildkit/session/socketforward/socketprovider"
+	"github.com/moby/buildkit/session/sshforward/sshprovider"
+	"github.com/moby/buildkit/util/entitlements"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel"
 )
 
 const autoSkipPrefix = "auto-skip"
@@ -420,18 +419,22 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 
 	cfg := config.LoadDefaultConfigFile(os.Stderr)
 
-	var authChildren []authprovider.Child
+	var attachable session.Attachable
 
 	switch a.cli.Flags().ContainerFrontend.Config().Setting {
 	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
-		authChildren = append(authChildren, authprovider.NewPodman(os.Stderr).(auth.AuthServer))
-
+		attachable = authprovider.NewPodman(os.Stderr)
 	default:
 		// includes containerutil.FrontendDocker, containerutil.FrontendDockerShell:
-		authChildren = append(authChildren, dockerauthprovider.NewDockerAuthProvider(cfg, nil).(auth.AuthServer))
+		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
-	authProvider := authprovider.New(a.cli.Console(), authChildren)
+	authSvr, ok := attachable.(auth.AuthServer)
+	if !ok {
+		return fmt.Errorf("want auth.AuthServer, got %T", attachable)
+	}
+
+	authProvider := authprovider.New(a.cli.Console(), []authprovider.Child{authSvr})
 	attachables = append(attachables, authProvider)
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
@@ -897,7 +900,13 @@ func (a *Build) initAutoSkip(
 			console.VerboseWarnf("unable to detect all git metadata: %v", err.Error())
 		}
 
-		target = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
+		var ok bool
+
+		target, ok = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
+		if !ok {
+			return nil, false, errors.Errorf("want domain.Target, got %T", target)
+		}
+
 		target.Tag = ""
 	}
 

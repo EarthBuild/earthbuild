@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.25.5
+LET GO_VERSION=1.25.6
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -45,8 +45,6 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 deps:
     FROM +base
     COPY go.mod go.sum ./
-    COPY ./ast/go.mod ./ast/go.sum ./ast
-    COPY ./util/deltautil/go.mod ./util/deltautil/go.sum ./util/deltautil
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         go mod download
@@ -83,11 +81,11 @@ code:
             go mod download
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
-    COPY --dir autocomplete buildcontext builder logbus cleanup cmd config conslogging debugger \
-        dockertar docker2earthly domain features internal slog states util variables regproxy ./
+    COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
+        docker2earthly dockertar domain features internal logbus regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
-    COPY --dir ast/antlrhandler ast/spec ast/hint ast/command ast/commandflag ast/*.go ast/
+    COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
@@ -107,7 +105,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.23.2
+    ARG alpine_version=3.23.3
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
@@ -170,6 +168,14 @@ lint:
             --mount type=cache,target=/root/.cache/golangci_lint \
             echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
     END
+
+fmt:
+  BUILD +fmt-go
+
+# format-go formats Go code using gofumpt. Run: earthly +fmt-go
+fmt-go:
+    LOCALLY
+    RUN gofumpt -w .
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
@@ -277,24 +283,6 @@ unit-test:
 
     # The following are separate go modules and need to be tested separately.
     # The not-a-unit-test.sh script above actually DOES run unit-tests as well
-    BUILD ./ast+unit-test
-    BUILD ./util/deltautil+unit-test
-
-# submodule-decouple-check checks that go submodules within earthly do not
-# depend on the core earthly project.
-submodule-decouple-check:
-    FROM +code
-    RUN for submodule in github.com/EarthBuild/earthbuild/ast github.com/EarthBuild/earthbuild/util/deltautil; \
-    do \
-        for dep in $(go list -f '{{range .Deps}}{{.}} {{end}}' $submodule/...); \
-        do \
-            if [ "$(go list -f '{{if .Module}}{{.Module}}{{end}}' $dep)" == "github.com/EarthBuild/earthbuild" ]; \
-            then \
-               echo "FAIL: submodule $submodule imports $dep, which is in the core 'github.com/EarthBuild/earthbuild' module"; \
-               exit 1; \
-            fi; \
-        done; \
-    done
 
 # changelog saves the CHANGELOG.md as an artifact
 changelog:
@@ -328,7 +316,7 @@ debugger:
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
 
-# earthly builds the earthly CLI and docker image.
+# earthly builds the EarthBuild CLI and docker image.
 earthly:
     FROM +code
     ENV CGO_ENABLED=0
@@ -442,12 +430,12 @@ earthly-windows-amd64:
 # linux amd64 and linux arm64
 # Darwin amd64 and arm64
 # Windows amd64
-earthly-all:
-    COPY +earthly-linux-amd64/earthly ./earthly-linux-amd64
-    COPY +earthly-linux-arm64/earthly ./earthly-linux-arm64
-    COPY +earthly-darwin-amd64/earthly ./earthly-darwin-amd64
-    COPY +earthly-darwin-arm64/earthly ./earthly-darwin-arm64
-    COPY +earthly-windows-amd64/earthly.exe ./earthly-windows-amd64.exe
+all-binaries:
+    COPY +earthly-linux-amd64/earthly ./earth-linux-amd64
+    COPY +earthly-linux-arm64/earthly ./earth-linux-arm64
+    COPY +earthly-darwin-amd64/earthly ./earth-darwin-amd64
+    COPY +earthly-darwin-arm64/earthly ./earth-darwin-arm64
+    COPY +earthly-windows-amd64/earthly.exe ./earth-windows-amd64.exe
     SAVE ARTIFACT ./*
 
 # earthly-docker builds earthly as a docker image and pushes
@@ -530,7 +518,7 @@ prerelease:
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ./buildkitd+buildkitd --TAG=prerelease  --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    COPY (+earthly-all/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
+    COPY (+all-binaries/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
     SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
 # prerelease-script copies the earthly folder and saves it as an artifact
@@ -650,7 +638,7 @@ all-buildkitd:
 # - Prerelease version of earthly as a container image
 all:
     BUILD +all-buildkitd
-    BUILD +earthly-all
+    BUILD +all-binaries
     BUILD +earthly-docker
     BUILD +prerelease
 
@@ -659,7 +647,6 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
-    BUILD +submodule-decouple-check
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations
@@ -871,7 +858,7 @@ license:
 node:
     FROM node:24.9.0-alpine3.22
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.7.0
+    LET npm_version=11.8.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -914,6 +901,7 @@ merge-main-to-docs:
 
     ARG git_repo="earthly/earthly"
     ARG git_url="git@github.com:$git_repo"
+    # renovate: datasource=github-releases packageName=earthly/lib
     ARG earthly_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
     DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
@@ -983,6 +971,7 @@ open-pr-for-fork:
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh
 
+    # renovate: datasource=github-releases packageName=earthly/lib
     ARG earthly_lib_version=3.0.1
     ARG SECRET_PATH=littleredcorvette-id_rsa
     ARG git_repo="earthly/earthly"

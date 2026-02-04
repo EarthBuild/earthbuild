@@ -14,7 +14,6 @@ import (
 	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/hint"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -22,6 +21,7 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
@@ -2278,7 +2278,10 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd spec.Command) error {
 		return i.wrapError(err, cmd.SourceLocation, "unable to resolve user command %s", ucName)
 	}
 
-	command := bc.Ref.(domain.Command)
+	command, ok := bc.Ref.(domain.Command)
+	if !ok {
+		return i.errorf(cmd.SourceLocation, "want domain.Command, got %T", bc.Ref)
+	}
 
 	if resolvedAllowPrivilegedSet {
 		allowPrivileged = allowPrivileged && resolvedAllowPrivileged

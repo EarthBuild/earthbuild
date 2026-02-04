@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/pkg/errors"
 )
 

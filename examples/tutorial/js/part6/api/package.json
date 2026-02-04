@@ -10,8 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.17.1",
-    "http-proxy-middleware": "^1.0.4",
+    "express": "^5.0.0",
+    "http-proxy-middleware": "^3.0.0",
     "pg": "^8.7.3"
   }
 }

@@ -1173,7 +1173,7 @@ dont-save-indirect-remote-artifact:
     RUN test ! -f ./output/testfile
 
 remote-earthfile-must-have-version:
-    DO +RUN_EARTHLY --target=github.com/EarthBuild/test-remote/output/no-version:main+copy-from-savelocal --should_fail=true --output_contains="No version specified in github.com/EarthBuild/test-remote/output/no-version"
+    DO +RUN_EARTHLY --target=github.com/EarthBuild/test-remote/output/no-version:main+copy-from-savelocal --should_fail=true --output_contains="no version specified in github.com/EarthBuild/test-remote/output/no-version"
     RUN test ! -f ./output/testfile
 
 push-build:

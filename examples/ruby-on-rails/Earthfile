@@ -1,6 +1,7 @@
 VERSION 0.8
 FROM ruby:3.4.8
 WORKDIR /ruby-on-rails-example
+# renovate: datasource=rubygems packageName=bundler
 ENV BUNDLER_VERSION=2.5.9
 
 deps:

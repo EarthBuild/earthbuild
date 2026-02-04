@@ -283,11 +283,11 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 			return "", "", err
 		}
 
-		return
+		return keyAlg, keyData, nil
 	}
 
 	if scannedHostname == hostname {
-		return
+		return keyAlg, keyData, nil
 	}
 
 	// entry isn't hashed
@@ -312,20 +312,7 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 		return "", "", errKeyScanNoMatch
 	}
 
-	return
-}
-
-// This comes from crypto/ssh/common.go
-// supportedHostKeyAlgos specifies the supported host-key algorithms (i.e. methods
-// of authenticating servers) in preference order.
-var supportedHostKeyAlgos = []string{
-	ssh.CertAlgoRSAv01, ssh.CertAlgoDSAv01, ssh.CertAlgoECDSA256v01,
-	ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
-
-	ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-	ssh.KeyAlgoRSA, ssh.KeyAlgoDSA,
-
-	ssh.KeyAlgoED25519,
+	return keyAlg, keyData, nil
 }
 
 //nolint:unparam // error return kept for future use
@@ -372,7 +359,9 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 
 	algs := []string{}
 
-	for _, alg := range supportedHostKeyAlgos {
+	// TODO(jhorsts): why are we supporting insecure algorithms?
+	// Is it safe to remove insecure algorithms?
+	for _, alg := range append(ssh.SupportedAlgorithms().HostKeys, ssh.InsecureAlgorithms().HostKeys...) {
 		if _, ok := foundAlgs[alg]; ok {
 			algs = append(algs, alg)
 		}
@@ -440,7 +429,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	protocol, ok = gl.autoProtocols[host]
 	if ok {
-		return
+		return protocol, nil
 	}
 
 	defer func() {
@@ -456,10 +445,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https",
 			gl.sshAuthSock, err.Error())
 
-		protocol = httpsProtocol
-		err = nil
-
-		return
+		return httpsProtocol, nil
 	}
 
 	algs, keys, err := gl.getHostKeyAlgorithms(host)
@@ -467,19 +453,12 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 		gl.console.VerbosePrintf("failed to get accepted host key algorithms for %s: %s; falling back to https",
 			host, err.Error())
 
-		protocol = httpsProtocol
-		err = nil
-
-		return
+		return httpsProtocol, nil
 	}
 
 	if len(keys) == 0 {
 		gl.console.VerbosePrintf("no known_hosts entries found for %s; falling back to https", host)
-
-		protocol = httpsProtocol
-		err = nil
-
-		return
+		return httpsProtocol, nil
 	}
 
 	config := &ssh.ClientConfig{
@@ -494,21 +473,14 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	client, err := ssh.Dial("tcp", net.JoinHostPort(host, "22"), config)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to connect to %s over ssh due to %s; falling back to https", host, err.Error())
-
-		protocol = httpsProtocol
-		err = nil
-
-		return
+		gl.console.VerbosePrintf("failed to connect to '%s' over ssh due to '%s'; falling back to https", host, err.Error())
+		return httpsProtocol, nil
 	}
 	defer client.Close()
 
 	gl.console.VerbosePrintf("defaulting to ssh protocol for %s", host)
 
-	protocol = sshProtocol
-	err = nil
-
-	return
+	return sshProtocol, nil
 }
 
 var errNoRCHostEntry = errors.New("no netrc host entry")

@@ -18,6 +18,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
@@ -42,7 +43,6 @@ import (
 	"github.com/moby/buildkit/util/entitlements"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -247,7 +247,7 @@ func useSecondaryProxy() (bool, error) {
 func (b *Builder) convertAndBuild(
 	ctx context.Context, target domain.Target, opt BuildOpt,
 ) (*states.MultiTarget, error) {
-	_, span := otel.GetTracerProvider().Tracer("").Start(ctx, PhaseBuild)
+	_, span := telemetry.Tracer().Start(ctx, PhaseBuild)
 	defer span.End()
 
 	var (
@@ -949,7 +949,7 @@ func (b *Builder) convertAndBuild(
 	if opt.PrintPhases {
 		b.opt.Console.PrintPhaseFooter(PhasePush, !opt.Push, "")
 
-		ctx, span = otel.Tracer("").Start(ctx, PhaseOutput)
+		ctx, span = telemetry.Tracer().Start(ctx, PhaseOutput)
 
 		defer span.End()
 

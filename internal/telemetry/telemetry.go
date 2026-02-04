@@ -1,4 +1,4 @@
-package observe
+package telemetry
 
 import (
 	"context"
@@ -21,7 +21,15 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer = otel.Tracer("go.earthbuild.dev/earthbuild")
+
+// Tracer returns the tracer for the EarthBuild CLI.
+func Tracer() trace.Tracer {
+	return tracer
+}
 
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.

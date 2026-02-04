@@ -25,6 +25,7 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earthly"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -38,7 +39,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/platforms"
 	"github.com/docker/cli/cli/config"
 	"github.com/joho/godotenv"
 	bkclient "github.com/moby/buildkit/client"
@@ -53,7 +54,6 @@ import (
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel"
 )
 
 const autoSkipPrefix = "auto-skip"
@@ -258,7 +258,7 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 }
 
 func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []string) error {
-	_, span := otel.GetTracerProvider().Tracer("").Start(cliCtx.Context, builder.PhaseInit)
+	_, span := telemetry.Tracer().Start(cliCtx.Context, builder.PhaseInit)
 	defer span.End()
 
 	target, artifact, destPath, err := a.parseTarget(cliCtx, nonFlagArgs)

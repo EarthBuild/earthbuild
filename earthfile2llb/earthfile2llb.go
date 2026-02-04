@@ -11,6 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -181,6 +182,9 @@ type ConvertOpt struct {
 func Earthfile2LLB(
 	ctx context.Context, target domain.Target, opt ConvertOpt, initialCall bool,
 ) (mts *states.MultiTarget, retErr error) {
+	ctx, span := telemetry.Tracer().Start(ctx, "+"+target.Target)
+	defer span.End()
+
 	if opt.SolveCache == nil {
 		opt.SolveCache = states.NewSolveCache()
 	}

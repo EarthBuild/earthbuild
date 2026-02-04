@@ -12,14 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/internal/observe"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
@@ -64,14 +63,14 @@ func main() {
 func run() (code int) {
 	ctx := context.Background()
 
-	shutdown, err := observe.Setup(ctx)
+	shutdown, err := telemetry.Setup(ctx)
 	if err != nil {
 		fmt.Printf("Error setting up OpenTelemetry: %s\n", err.Error())
 	} else {
 		defer shutdown(ctx)
 	}
 
-	ctx, span := otel.Tracer("earth").Start(ctx, "main")
+	ctx, span := telemetry.Tracer().Start(ctx, "main")
 	defer span.End()
 
 	defer func() {

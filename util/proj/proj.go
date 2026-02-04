@@ -1,4 +1,5 @@
-//go:generate hel --output helheim_mocks_test.go
+// Mocks are generated using mockery. See .mockery.yaml in the project root.
+// To regenerate mocks, run: earthly +mocks
 
 // Package proj contains types and functions for managing a project's
 // Earthfile(s).

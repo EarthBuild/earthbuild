@@ -154,9 +154,11 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				// This is a boolean flag with an explicit value
 				value := parts[1]
 				modifiedValue, err := modFunc(flagName, nil, &value)
+
 				if err != nil {
 					return nil, err
 				}
+
 				if modifiedValue != nil {
 					result = append(result, "--"+flagName+"="+*modifiedValue)
 				} else {
@@ -175,9 +177,11 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				if len(flagName) == 1 && boolFlags[flagName] {
 					value := parts[1]
 					modifiedValue, err := modFunc(flagName, nil, &value)
+
 					if err != nil {
 						return nil, err
 					}
+
 					if modifiedValue != nil {
 						result = append(result, "-"+flagName+"="+*modifiedValue)
 						continue
@@ -188,9 +192,11 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 					value := args[i+1]
 					modifiedValue, err := modFunc(flagPart, nil, &value)
+
 					if err != nil {
 						return nil, err
 					}
+
 					if modifiedValue != nil {
 						result = append(result, arg, *modifiedValue)
 						i++ // Skip the next arg since we consumed it
@@ -209,9 +215,11 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 						if j == len(flagPart)-1 && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 							value := args[i+1]
 							modifiedValue, err := modFunc(flagName, nil, &value)
+
 							if err != nil {
 								return nil, err
 							}
+
 							if modifiedValue != nil {
 								result = append(result, arg, *modifiedValue)
 								i++ // Skip the next arg since we consumed it
@@ -221,6 +229,7 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 						}
 					}
 				}
+
 				if modified {
 					continue
 				}

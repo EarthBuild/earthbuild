@@ -3,6 +3,7 @@ package flagutil
 import (
 	"context"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
@@ -25,9 +26,7 @@ type ArgumentModFunc func(flagName string, opt *flags.Option, flagVal *string) (
 
 // ParseArgs parses flags and args from a command string.
 func ParseArgs(command string, data any, args []string) ([]string, error) {
-	return ParseArgsWithValueModifier(command, data, args,
-		func(_ string, _ *flags.Option, s *string) (*string, error) { return s, nil },
-	)
+	return ParseArgsWithValueModifier(command, data, args, nil)
 }
 
 func ParseArgsCleaned(cmdName string, opts any, args []string) ([]string, error) {
@@ -62,19 +61,17 @@ func ParseArgsWithValueModifier(
 func ParseArgsWithValueModifierAndOptions(
 	command string, data any, args []string, argumentModFunc ArgumentModFunc, parserOptions flags.Options,
 ) ([]string, error) {
-	p := flags.NewNamedParser("", parserOptions)
-
-	var modFuncErr error
-
-	modFunc := func(flagName string, opt *flags.Option, flagVal *string) *string {
-		p, err := argumentModFunc(flagName, opt, flagVal)
+	// Preprocess args if we have a modifier function
+	if argumentModFunc != nil {
+		boolFlags := getBoolFlagNames(data)
+		var err error
+		args, err = preprocessArgs(args, boolFlags, argumentModFunc)
 		if err != nil {
-			modFuncErr = err
+			return nil, err
 		}
-
-		return p
 	}
-	p.ArgumentMod = modFunc
+
+	p := flags.NewNamedParser("", parserOptions)
 
 	_, err := p.AddGroup(command+" [options] args", "", data)
 	if err != nil {
@@ -90,11 +87,96 @@ func ParseArgsWithValueModifierAndOptions(
 		return nil, err
 	}
 
-	if modFuncErr != nil {
-		return nil, modFuncErr
+	return res, nil
+}
+
+// getBoolFlagNames extracts boolean flag names from a struct using reflection
+func getBoolFlagNames(data any) map[string]bool {
+	boolFlags := make(map[string]bool)
+
+	if data == nil {
+		return boolFlags
 	}
 
-	return res, nil
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return boolFlags
+	}
+
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fieldType := field.Type
+
+		// Check if it's a boolean type
+		isBool := fieldType.Kind() == reflect.Bool
+
+		// Get flag names from tags
+		if shortTag := field.Tag.Get("short"); shortTag != "" && isBool {
+			boolFlags[shortTag] = true
+		}
+		if longTag := field.Tag.Get("long"); longTag != "" && isBool {
+			boolFlags[longTag] = true
+		}
+	}
+
+	return boolFlags
+}
+
+// preprocessArgs processes arguments before parsing, applying the modifier function to boolean flag values
+func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentModFunc) ([]string, error) {
+	result := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		// Check if this is a flag with a value (e.g., --flag=value)
+		if strings.HasPrefix(arg, "--") {
+			parts := strings.SplitN(arg[2:], "=", 2)
+			flagName := parts[0]
+
+			if len(parts) == 2 && boolFlags[flagName] {
+				// This is a boolean flag with an explicit value
+				value := parts[1]
+				modifiedValue, err := modFunc(flagName, nil, &value)
+				if err != nil {
+					return nil, err
+				}
+				if modifiedValue != nil {
+					result = append(result, "--"+flagName+"="+*modifiedValue)
+				} else {
+					result = append(result, "--"+flagName)
+				}
+				continue
+			}
+		} else if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+			// Short flag
+			flagName := strings.TrimPrefix(arg, "-")
+			if len(flagName) == 1 && boolFlags[flagName] {
+				// Check if next arg is the value
+				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					value := args[i+1]
+					modifiedValue, err := modFunc(flagName, nil, &value)
+					if err != nil {
+						return nil, err
+					}
+					if modifiedValue != nil {
+						result = append(result, arg, *modifiedValue)
+						i++ // Skip the next arg since we consumed it
+						continue
+					}
+				}
+			}
+		}
+
+		result = append(result, arg)
+	}
+
+	return result, nil
 }
 
 // SplitFlagString would return an array of values from the StringSlice, whether it's passed using

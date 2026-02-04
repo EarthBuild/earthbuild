@@ -44,6 +44,10 @@ func (e *Error) Hint() string {
 // Wrap wraps up an error with hints, to help display hints to a user about what
 // might fix the problem.
 func Wrap(err error, firstHint string, extraHints ...string) error {
+	return wrap(err, firstHint, extraHints...)
+}
+
+func wrap(err error, firstHint string, extraHints ...string) *Error {
 	return &Error{err: err, hints: append([]string{firstHint}, extraHints...)}
 }
 
@@ -53,27 +57,27 @@ func Wrapf(err error, hintf string, args ...any) error {
 }
 
 // FromError attempts to parse the given error's string to an *hint.Error.
-func FromError(err error) (*Error, bool) {
+func FromError(err error) *Error {
 	if err == nil {
-		return nil, false
+		return nil
 	}
 
 	matches, _ := stringutil.NamedGroupMatches(err.Error(), errWithHintRegex)
 	if len(matches) != 2 {
-		return nil, false
+		return nil
 	}
 
 	for k := range matches {
 		if len(matches[k]) != 1 {
-			return nil, false
+			return nil
 		}
 	}
 
 	errMsg := matches["error"][0]
 	hint := matches["hint"][0]
 
-	return Wrap(
+	return wrap(
 		errors.New(errMsg),
 		hint,
-	).(*Error), true
+	)
 }

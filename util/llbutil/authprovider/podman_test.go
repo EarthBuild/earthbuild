@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -14,8 +15,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
+	"github.com/stretchr/testify/mock"
 )
 
 const (
@@ -30,46 +30,12 @@ const (
 `
 )
 
-func TestPodmanProvider(topT *testing.T) {
-	topT.Parallel()
-
-	type testCtx struct {
-		t      *testing.T
-		expect expect.Expectation
-		os     *mockOS
-		stderr *mockWriter
-		result chan session.Attachable
-	}
+func TestPodmanProvider(t *testing.T) {
+	t.Parallel()
 
 	type credentials interface {
 		Credentials(ctx context.Context, req *auth.CredentialsRequest) (*auth.CredentialsResponse, error)
 	}
-
-	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
-		t.Helper()
-
-		tt := testCtx{
-			t:      t,
-			expect: expect.New(t),
-			os:     newMockOS(t, mockTimeout),
-			stderr: newMockWriter(t, mockTimeout),
-			result: make(chan session.Attachable),
-		}
-
-		go func() {
-			defer close(tt.result)
-
-			tt.result <- authprovider.NewPodman(tt.stderr, authprovider.WithOS(tt.os))
-		}()
-
-		return tt
-	})
-	defer o.Run()
-
-	o.AfterEach(func(tt testCtx) {
-		_, ok := <-tt.result
-		tt.expect(ok).To(beFalse()) // Ensure that the channel was closed
-	})
 
 	type authFile struct {
 		path   any // can be a string or a matcher
@@ -79,66 +45,14 @@ func TestPodmanProvider(topT *testing.T) {
 	}
 
 	type entry struct {
+		name string
 		auth *authFile
 		envs []string
 	}
 
-	onpar.TableSpec(o, func(tt testCtx, e entry) {
-		for _, env := range e.envs {
-			name, val, ok := strings.Cut(env, "=")
-			tt.expect(ok).To(beTrue())
-			tt.expect(tt.os).To(haveMethodExecuted("Getenv",
-				within(timeout),
-				withArgs(name),
-				returning(val),
-			))
-		}
-
-		if e.auth == nil {
-			// The code should fall back to the default docker auth provider,
-			// which we can't really mock out - but we can at least verify that
-			// the return value is the correct type.
-			tt.expect(tt.os).To(haveMethodExecuted("Open", within(timeout), returning(nil, fs.ErrNotExist)))
-
-			select {
-			case res := <-tt.result:
-				_, ok := res.(credentials)
-				tt.expect(ok).To(beTrue())
-			case <-time.After(timeout):
-				tt.t.Fatalf("timed out waiting to fall back to the default docker auth provider")
-			}
-
-			return
-		}
-
-		creds := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", e.auth.user, e.auth.secret))
-		authFile := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
-		tt.expect(tt.os).To(haveMethodExecuted("Open",
-			within(timeout),
-			withArgs(e.auth.path),
-			returning(authFile, nil)))
-
-		select {
-		case res := <-tt.result:
-			creds, ok := res.(credentials)
-			tt.expect(ok).To(beTrue())
-
-			req := &auth.CredentialsRequest{
-				Host: e.auth.host,
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-
-			resp, err := creds.Credentials(ctx, req)
-			tt.expect(err).To(not(haveOccurred()))
-			tt.expect(resp.Username).To(equal(e.auth.user))
-			tt.expect(resp.Secret).To(equal(e.auth.secret))
-		case <-time.After(timeout):
-			tt.t.Fatalf("timed out waiting for a podman auth provider")
-		}
-	}).
-		Entry("it prefers REGISTRY_AUTH_FILE", entry{
+	tests := []entry{
+		{
+			name: "it prefers REGISTRY_AUTH_FILE",
 			envs: []string{
 				"REGISTRY_AUTH_FILE=/path/to/someFile",
 			},
@@ -148,8 +62,9 @@ func TestPodmanProvider(topT *testing.T) {
 				user:   "foo",
 				secret: "bar",
 			},
-		}).
-		Entry("it falls back to XDG_RUNTIME_DIR/containers/auth.json", entry{
+		},
+		{
+			name: "it falls back to XDG_RUNTIME_DIR/containers/auth.json",
 			envs: []string{
 				"REGISTRY_AUTH_FILE=",
 				"XDG_RUNTIME_DIR=/path/to/some/dir",
@@ -160,24 +75,127 @@ func TestPodmanProvider(topT *testing.T) {
 				user:   "eggs",
 				secret: "bacon",
 			},
-		}).
-		Entry("it checks the root runtime dir last", entry{
+		},
+		{
+			name: "it checks the root runtime dir last",
 			envs: []string{
 				"REGISTRY_AUTH_FILE=",
 				"XDG_RUNTIME_DIR=",
 			},
 			auth: &authFile{
-				path:   matchRegexp("/run/containers/[0-9]*/auth.json"),
+				path:   regexp.MustCompile("/run/containers/[0-9]*/auth.json"),
 				host:   "foo",
 				user:   "bar",
 				secret: "baz",
 			},
-		}).
-		Entry("it returns a provider even when no podman auth file exists", entry{
+		},
+		{
+			name: "it returns a provider even when no podman auth file exists",
 			envs: []string{
 				"REGISTRY_AUTH_FILE=",
 				"XDG_RUNTIME_DIR=",
 			},
 			auth: nil,
+		},
+	}
+
+	for _, e := range tests {
+		e := e // capture range variable
+		t.Run(e.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockOS := newMockOS()
+			stderr := newMockWriter()
+			result := make(chan session.Attachable)
+
+			// Set up mock expectations for Getenv calls
+			for _, env := range e.envs {
+				name, val, ok := strings.Cut(env, "=")
+				if !ok {
+					t.Fatalf("invalid env format: %s", env)
+				}
+				mockOS.On("Getenv", name).Return(val)
+			}
+
+			if e.auth == nil {
+				// The code should fall back to the default docker auth provider
+				mockOS.On("Open", mock.Anything).Return(nil, fs.ErrNotExist)
+
+				go func() {
+					defer close(result)
+					result <- authprovider.NewPodman(stderr, authprovider.WithOS(mockOS))
+				}()
+
+				select {
+				case res := <-result:
+					_, ok := res.(credentials)
+					if !ok {
+						t.Error("expected result to implement credentials interface")
+					}
+				case <-time.After(timeout):
+					t.Fatal("timed out waiting to fall back to the default docker auth provider")
+				}
+
+				mockOS.AssertExpectations(t)
+				return
+			}
+
+			creds := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", e.auth.user, e.auth.secret))
+			authFileContent := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
+
+			// Handle both string and regex matchers for path
+			switch p := e.auth.path.(type) {
+			case string:
+				mockOS.On("Open", p).Return(authFileContent, nil)
+			case *regexp.Regexp:
+				// For regex, we use MatchedBy to match the argument
+				mockOS.On("Open", mock.MatchedBy(func(path string) bool {
+					return p.MatchString(path)
+				})).Return(authFileContent, nil)
+			default:
+				t.Fatalf("unexpected path type: %T", p)
+			}
+
+			go func() {
+				defer close(result)
+				result <- authprovider.NewPodman(stderr, authprovider.WithOS(mockOS))
+			}()
+
+			select {
+			case res := <-result:
+				creds, ok := res.(credentials)
+				if !ok {
+					t.Fatal("expected result to implement credentials interface")
+				}
+
+				req := &auth.CredentialsRequest{
+					Host: e.auth.host,
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), timeout)
+				defer cancel()
+
+				resp, err := creds.Credentials(ctx, req)
+				if err != nil {
+					t.Errorf("expected no error from Credentials, got: %v", err)
+				}
+				if resp.Username != e.auth.user {
+					t.Errorf("expected username to be %q, got %q", e.auth.user, resp.Username)
+				}
+				if resp.Secret != e.auth.secret {
+					t.Errorf("expected secret to be %q, got %q", e.auth.secret, resp.Secret)
+				}
+			case <-time.After(timeout):
+				t.Fatal("timed out waiting for a podman auth provider")
+			}
+
+			// Verify channel was closed
+			_, ok := <-result
+			if ok {
+				t.Error("expected result channel to be closed")
+			}
+
+			mockOS.AssertExpectations(t)
 		})
+	}
 }

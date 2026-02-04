@@ -3,12 +3,10 @@ package subcmd_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
-	"github.com/poy/onpar/matchers"
 	"github.com/urfave/cli/v2"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
@@ -18,21 +16,6 @@ import (
 
 func TestRootCmdsHelp(t *testing.T) {
 	t.Parallel()
-
-	type testCtx struct {
-		t      *testing.T
-		expect expect.Expectation
-	}
-
-	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
-		t.Helper()
-
-		return testCtx{
-			t:      t,
-			expect: expect.New(t),
-		}
-	})
-	defer o.Run()
 
 	ctx := context.TODO()
 	newCLI := base.NewCLI(conslogging.ConsoleLogger{},
@@ -48,16 +31,22 @@ func TestRootCmdsHelp(t *testing.T) {
 
 	rootCLI := app.BaseCLI.App().Commands
 
-	usageChecks := onpar.TableSpec(o, func(tt testCtx, cmd *cli.Command) {
-		tt.expect(cmd.Usage).To(matchers.Not(matchers.EndWith(".")))
-	})
-	descChecks := onpar.TableSpec(o, func(tt testCtx, cmd *cli.Command) {
-		tt.expect(cmd.Description).To(matchers.EndWith("."))
-	})
-
 	for _, subCmd := range checkSubCommands(rootCLI) {
-		usageChecks.Entry(fmt.Sprintf("Help usage for %s should not end with '.'", subCmd.Name), subCmd)
-		descChecks.Entry(fmt.Sprintf("Help description for %s should end with '.'", subCmd.Name), subCmd)
+		subCmd := subCmd // capture range variable
+
+		t.Run(fmt.Sprintf("Help usage for %s should not end with '.'", subCmd.Name), func(t *testing.T) {
+			t.Parallel()
+			if strings.HasSuffix(subCmd.Usage, ".") {
+				t.Errorf("command %q usage should not end with '.', got: %q", subCmd.Name, subCmd.Usage)
+			}
+		})
+
+		t.Run(fmt.Sprintf("Help description for %s should end with '.'", subCmd.Name), func(t *testing.T) {
+			t.Parallel()
+			if !strings.HasSuffix(subCmd.Description, ".") {
+				t.Errorf("command %q description should end with '.', got: %q", subCmd.Name, subCmd.Description)
+			}
+		})
 	}
 }
 

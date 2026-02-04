@@ -217,7 +217,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		var helpMsg string
 
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
-			"For more information see https://docs.earthly.dev/guides/multi-platform\n"
+			"For more information see https://docs.earthbuild.dev/guides/multi-platform\n"
 		app.BaseCLI.Console().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
@@ -249,7 +249,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 
 		return 1
 	case strings.Contains(err.Error(), "security.insecure is not allowed"):
-		helpMsg := "earthly --allow-privileged (earthly -P) flag is required\n"
+		helpMsg := "earth --allow-privileged (earth -P) flag is required\n"
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
@@ -262,7 +262,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
 		helpMsg := "Check your git auth settings.\n" +
 			"Did you ssh-add today? Need to configure ~/.earthly/config.yml?\n" +
-			"For more information see https://docs.earthly.dev/guides/auth\n"
+			"For more information see https://docs.earthbuild.dev/guides/auth\n"
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_GIT,

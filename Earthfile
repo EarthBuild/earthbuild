@@ -105,7 +105,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.23.2
+    ARG alpine_version=3.23.3
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
@@ -168,6 +168,14 @@ lint:
             --mount type=cache,target=/root/.cache/golangci_lint \
             echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
     END
+
+fmt:
+  BUILD +fmt-go
+
+# format-go formats Go code using gofumpt. Run: earthly +fmt-go
+fmt-go:
+    LOCALLY
+    RUN gofumpt -w .
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
@@ -306,7 +314,7 @@ debugger:
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
 
-# earthly builds the earthly CLI and docker image.
+# earthly builds the EarthBuild CLI and docker image.
 earthly:
     FROM +code
     ENV CGO_ENABLED=0

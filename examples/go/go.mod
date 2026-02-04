@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/sirupsen/logrus v1.9.4
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (

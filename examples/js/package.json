@@ -14,6 +14,6 @@
     "webpack-cli": "6.0.1"
   },
   "dependencies": {
-    "http-server": "^0.13.0"
+    "http-server": "^14.0.0"
   }
 }

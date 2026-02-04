@@ -47,7 +47,7 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 			Usage: "Bootstraps earth installation including buildkit image download and " +
 				"optionally shell autocompletion",
 			UsageText: "earth [options] bootstrap [--no-buildkit, --with-autocomplete, --certs-hostname]",
-			Description: "Bootstraps earthly installation including buildkit image download and " +
+			Description: "Bootstraps earthbuild installation including buildkit image download and " +
 				"optionally shell autocompletion.",
 			Action: b.Action,
 			Flags: []cli.Flag{
@@ -126,7 +126,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 		// on the existence of ~/.earthly; therefore we must ensure it's created.
 		_, dirErr := cliutil.GetOrCreateEarthlyDir(a.cli.Flags().InstallationName)
 		if dirErr != nil {
-			console.Warnf("Warning: Failed to create Earthly Dir: %v", dirErr)
+			console.Warnf("Warning: Failed to create earthbuild Dir: %v", dirErr)
 			// Keep going.
 		}
 

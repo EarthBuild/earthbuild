@@ -1,6 +1,7 @@
 package variables_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/variables"
@@ -51,24 +52,14 @@ func TestScope(t *testing.T) {
 
 		inactive := scope.Sorted()
 		expected := []string{"a", "b", "e", "z"}
-		if len(inactive) != len(expected) {
-			t.Fatalf("expected sorted list to have %d elements, got %d", len(expected), len(inactive))
-		}
-		for i, v := range expected {
-			if inactive[i] != v {
-				t.Errorf("expected element %d to be %q, got %q", i, v, inactive[i])
-			}
+		if !reflect.DeepEqual(inactive, expected) {
+			t.Errorf("expected sorted list to be %v, got %v", expected, inactive)
 		}
 
 		active := scope.Sorted(variables.WithActive())
 		expectedActive := []string{"a", "b", "z"}
-		if len(active) != len(expectedActive) {
-			t.Fatalf("expected active sorted list to have %d elements, got %d", len(expectedActive), len(active))
-		}
-		for i, v := range expectedActive {
-			if active[i] != v {
-				t.Errorf("expected active element %d to be %q, got %q", i, v, active[i])
-			}
+		if !reflect.DeepEqual(active, expectedActive) {
+			t.Errorf("expected active sorted list to be %v, got %v", expectedActive, active)
 		}
 	})
 

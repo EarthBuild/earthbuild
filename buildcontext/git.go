@@ -212,7 +212,10 @@ func (gr *gitResolver) resolveEarthProject(
 		return nil, err
 	}
 
-	localBuildFile := localBuildFileValue.(*buildFile)
+	localBuildFile, ok := localBuildFileValue.(*buildFile)
+	if !ok {
+		return nil, fmt.Errorf("want *buildFile, got %T", localBuildFileValue)
+	}
 
 	// TODO: Apply excludes / .earthignore.
 	return &Data{
@@ -569,7 +572,10 @@ func (gr *gitResolver) resolveGitProject(
 		return nil, "", "", err
 	}
 
-	rgp = rgpValue.(*resolvedGitProject)
+	rgp, ok := rgpValue.(*resolvedGitProject)
+	if !ok {
+		return nil, "", "", fmt.Errorf("want *resolvedGitProject, got %T", rgpValue)
+	}
 
 	return rgp, gitURL, subDir, nil
 }

@@ -1,28 +1,21 @@
 package reserved
 
 import (
+	_ "embed"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
-	"path"
-	"runtime"
 	"strings"
 	"testing"
 )
 
+//go:embed "names.go"
+var namesSrc []byte
+
 // getConsts parses names.go and returns all constants.
-// Unfortunately reflect is unable to work on the package level.
 func getConsts() (map[string]string, error) {
-	_, filename, _, _ := runtime.Caller(0)
-	namesPath := path.Join(path.Dir(filename), "names.go")
-
-	namesSrc, err := os.ReadFile(namesPath) // #nosec G304
-	if err != nil {
-		return nil, err
-	}
-
 	fset := token.NewFileSet()
 
 	f, err := parser.ParseFile(fset, "", namesSrc, 0)
@@ -33,16 +26,30 @@ func getConsts() (map[string]string, error) {
 	consts := map[string]string{}
 
 	for name, obj := range f.Scope.Objects {
-		if obj.Kind == ast.Con {
-			val := obj.Decl.(*ast.ValueSpec).Values[0].(*ast.BasicLit).Value
-
-			parsedVal, ok := trimDoubleQuotes(val)
-			if !ok {
-				return nil, fmt.Errorf("failed to parse %s", val)
-			}
-
-			consts[name] = parsedVal
+		if obj.Kind != ast.Con {
+			continue
 		}
+
+		spec, ok := obj.Decl.(*ast.ValueSpec)
+		if !ok {
+			return nil, fmt.Errorf("want *ast.ValueSpec, got %T", obj.Decl)
+		}
+
+		if len(spec.Values) == 0 {
+			return nil, errors.New("empty values")
+		}
+
+		literal, ok := spec.Values[0].(*ast.BasicLit)
+		if !ok {
+			return nil, fmt.Errorf("want *ast.BasicLit, got %T", spec.Values[0])
+		}
+
+		parsedVal, ok := trimDoubleQuotes(literal.Value)
+		if !ok {
+			return nil, fmt.Errorf("parse literal '%s'", literal.Value)
+		}
+
+		consts[name] = parsedVal
 	}
 
 	return consts, nil

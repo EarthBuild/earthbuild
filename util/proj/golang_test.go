@@ -29,6 +29,7 @@ func TestGolang(t *testing.T) {
 
 		golang := proj.NewGolang(mockFS, exec)
 		result := golang.Type(ctx)
+
 		if result != "go" {
 			t.Errorf("expected Type to return %q, got %q", "go", result)
 		}

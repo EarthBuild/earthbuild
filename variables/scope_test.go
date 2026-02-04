@@ -95,32 +95,36 @@ func TestScope(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			scope := variables.NewScope()
 
 			ok := scope.Add(tt.name, tt.value)
+
 			if !ok {
 				t.Error("expected Add to return true")
 			}
 
 			for _, opt := range tt.useOpts {
 				_, ok = scope.Get(tt.name, opt)
+
 				if ok {
 					t.Error("expected Get with opt to return false before adding with opt")
 				}
 				ok = scope.Add(tt.name, tt.value, opt, variables.NoOverride())
+
 				if ok {
 					t.Error("expected Add with NoOverride to return false")
 				}
 				ok = scope.Add(tt.name, tt.value, opt)
+
 				if !ok {
 					t.Error("expected Add with opt to return true")
 				}
 			}
 
 			value, ok := scope.Get(tt.name)
+
 			if !ok {
 				t.Error("expected Get to return true")
 			}
@@ -130,6 +134,7 @@ func TestScope(t *testing.T) {
 
 			for _, opt := range tt.useOpts {
 				value, ok = scope.Get(tt.name, opt)
+
 				if !ok {
 					t.Error("expected Get with opt to return true")
 				}
@@ -139,6 +144,7 @@ func TestScope(t *testing.T) {
 
 				m := scope.Map(opt)
 				value, ok = m[tt.name]
+
 				if !ok {
 					t.Error("expected map to contain name")
 				}
@@ -149,6 +155,7 @@ func TestScope(t *testing.T) {
 
 			for _, opt := range tt.failGetOpts {
 				_, ok = scope.Get(tt.name, opt)
+
 				if ok {
 					t.Error("expected Get with failGetOpt to return false")
 				}

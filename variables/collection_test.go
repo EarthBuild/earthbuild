@@ -33,18 +33,22 @@ func TestCollection(t *testing.T) {
 			t.Parallel()
 			name := "EARTHLY_VERSION"
 			_, ok := coll.Get(name, variables.WithActive())
+
 			if ok {
 				t.Error("expected Get to return false before declaring variable")
 			}
 
 			_, _, err := coll.DeclareVar("EARTHLY_VERSION", variables.AsArg())
+
 			if err != nil {
 				t.Errorf("expected no error from DeclareVar, got: %v", err)
 			}
 			v, ok := coll.Get(name, variables.WithActive())
+
 			if !ok {
 				t.Error("expected Get to return true after declaring variable")
 			}
+
 			if v != "some version" {
 				t.Errorf("expected value to be %q, got %q", "some version", v)
 			}
@@ -114,18 +118,22 @@ func TestCollection(t *testing.T) {
 
 			name := "EARTHLY_VERSION"
 			_, ok := testColl.Get(name, variables.WithActive())
+
 			if ok {
 				t.Error("expected Get to return false before declaring variable")
 			}
 
 			_, _, err := testColl.DeclareVar("EARTHLY_VERSION")
+
 			if err != nil {
 				t.Errorf("expected no error from DeclareVar, got: %v", err)
 			}
 			v, ok := testColl.Get(name, variables.WithActive())
+
 			if !ok {
 				t.Error("expected Get to return true after declaring variable")
 			}
+
 			if v != "" {
 				t.Errorf("expected value to be empty string, got %q", v)
 			}

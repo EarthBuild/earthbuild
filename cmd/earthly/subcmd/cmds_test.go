@@ -32,8 +32,6 @@ func TestRootCmdsHelp(t *testing.T) {
 	rootCLI := app.BaseCLI.App().Commands
 
 	for _, subCmd := range checkSubCommands(rootCLI) {
-		subCmd := subCmd // capture range variable
-
 		t.Run(fmt.Sprintf("Help usage for %s should not end with '.'", subCmd.Name), func(t *testing.T) {
 			t.Parallel()
 			if strings.HasSuffix(subCmd.Usage, ".") {

@@ -100,7 +100,6 @@ func TestPodmanProvider(t *testing.T) {
 	}
 
 	for _, e := range tests {
-		e := e // capture range variable
 		t.Run(e.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -111,6 +110,7 @@ func TestPodmanProvider(t *testing.T) {
 			// Set up mock expectations for Getenv calls
 			for _, env := range e.envs {
 				name, val, ok := strings.Cut(env, "=")
+
 				if !ok {
 					t.Fatalf("invalid env format: %s", env)
 				}
@@ -129,6 +129,7 @@ func TestPodmanProvider(t *testing.T) {
 				select {
 				case res := <-result:
 					_, ok := res.(credentials)
+
 					if !ok {
 						t.Error("expected result to implement credentials interface")
 					}
@@ -164,6 +165,7 @@ func TestPodmanProvider(t *testing.T) {
 			select {
 			case res := <-result:
 				creds, ok := res.(credentials)
+
 				if !ok {
 					t.Fatal("expected result to implement credentials interface")
 				}
@@ -176,6 +178,7 @@ func TestPodmanProvider(t *testing.T) {
 				defer cancel()
 
 				resp, err := creds.Credentials(ctx, req)
+
 				if err != nil {
 					t.Errorf("expected no error from Credentials, got: %v", err)
 				}
@@ -191,6 +194,7 @@ func TestPodmanProvider(t *testing.T) {
 
 			// Verify channel was closed
 			_, ok := <-result
+
 			if ok {
 				t.Error("expected result channel to be closed")
 			}

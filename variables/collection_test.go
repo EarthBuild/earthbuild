@@ -15,14 +15,17 @@ func TestCollection(t *testing.T) {
 
 	setupFeatures := func(t *testing.T) *features.Features {
 		t.Helper()
+
 		f, _, err := features.Get(&spec.Version{Args: []string{"0.7"}})
 		if err != nil {
 			t.Fatalf("failed to get features: %v", err)
 		}
+
 		_, err = f.ProcessFlags()
 		if err != nil {
 			t.Fatalf("failed to process flags: %v", err)
 		}
+
 		return f
 	}
 
@@ -31,7 +34,9 @@ func TestCollection(t *testing.T) {
 
 		t.Run("builtins are used for newly registered variables", func(t *testing.T) {
 			t.Parallel()
+
 			name := "EARTHLY_VERSION"
+
 			_, ok := coll.Get(name, variables.WithActive())
 
 			if ok {
@@ -43,6 +48,7 @@ func TestCollection(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error from DeclareVar, got: %v", err)
 			}
+
 			v, ok := coll.Get(name, variables.WithActive())
 
 			if !ok {
@@ -117,6 +123,7 @@ func TestCollection(t *testing.T) {
 			})
 
 			name := "EARTHLY_VERSION"
+
 			_, ok := testColl.Get(name, variables.WithActive())
 
 			if ok {
@@ -128,6 +135,7 @@ func TestCollection(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected no error from DeclareVar, got: %v", err)
 			}
+
 			v, ok := testColl.Get(name, variables.WithActive())
 
 			if !ok {

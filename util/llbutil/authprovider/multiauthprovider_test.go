@@ -88,6 +88,7 @@ func TestMultiAuth(t *testing.T) {
 			if result.resp != nil {
 				t.Error("expected response to be nil")
 			}
+
 			if status.Code(result.err) != codes.Unavailable {
 				t.Errorf("expected error code to be Unavailable, got: %v", status.Code(result.err))
 			}
@@ -111,6 +112,7 @@ func TestMultiAuth(t *testing.T) {
 			if result.resp != nil {
 				t.Error("expected response to be nil")
 			}
+
 			if status.Code(result.err) != codes.Unavailable {
 				t.Errorf("expected error code to be Unavailable, got: %v", status.Code(result.err))
 			}
@@ -196,6 +198,7 @@ func TestMultiAuth(t *testing.T) {
 			if result.resp != nil {
 				t.Error("expected response to be nil")
 			}
+
 			if status.Code(result.err) != codes.Unavailable {
 				t.Errorf("expected error code to be Unavailable, got: %v", status.Code(result.err))
 			}

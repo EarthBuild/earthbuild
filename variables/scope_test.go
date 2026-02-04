@@ -12,6 +12,7 @@ func TestScope(t *testing.T) {
 
 	t.Run("it returns false for unset variables", func(t *testing.T) {
 		t.Parallel()
+
 		scope := variables.NewScope()
 
 		_, ok := scope.Get("foo")
@@ -22,6 +23,7 @@ func TestScope(t *testing.T) {
 
 	t.Run("NoOverride prevents Add from overriding an existing value", func(t *testing.T) {
 		t.Parallel()
+
 		scope := variables.NewScope()
 
 		scope.Add("foo", "bar")
@@ -31,6 +33,7 @@ func TestScope(t *testing.T) {
 		if !ok {
 			t.Error("expected Get to return true")
 		}
+
 		if v != "bar" {
 			t.Errorf("expected value to be %q, got %q", "bar", v)
 		}
@@ -43,6 +46,7 @@ func TestScope(t *testing.T) {
 
 	t.Run("it returns a sorted list of names", func(t *testing.T) {
 		t.Parallel()
+
 		scope := variables.NewScope()
 
 		scope.Add("a", "", variables.WithActive())
@@ -51,12 +55,14 @@ func TestScope(t *testing.T) {
 		scope.Add("b", "", variables.WithActive())
 
 		inactive := scope.Sorted()
+
 		expected := []string{"a", "b", "e", "z"}
 		if !reflect.DeepEqual(inactive, expected) {
 			t.Errorf("expected sorted list to be %v, got %v", expected, inactive)
 		}
 
 		active := scope.Sorted(variables.WithActive())
+
 		expectedActive := []string{"a", "b", "z"}
 		if !reflect.DeepEqual(active, expectedActive) {
 			t.Errorf("expected active sorted list to be %v, got %v", expectedActive, active)
@@ -97,6 +103,7 @@ func TestScope(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			scope := variables.NewScope()
 
 			ok := scope.Add(tt.name, tt.value)
@@ -111,11 +118,13 @@ func TestScope(t *testing.T) {
 				if ok {
 					t.Error("expected Get with opt to return false before adding with opt")
 				}
+
 				ok = scope.Add(tt.name, tt.value, opt, variables.NoOverride())
 
 				if ok {
 					t.Error("expected Add with NoOverride to return false")
 				}
+
 				ok = scope.Add(tt.name, tt.value, opt)
 
 				if !ok {
@@ -128,6 +137,7 @@ func TestScope(t *testing.T) {
 			if !ok {
 				t.Error("expected Get to return true")
 			}
+
 			if value != tt.value {
 				t.Errorf("expected value to be %q, got %q", tt.value, value)
 			}
@@ -138,16 +148,19 @@ func TestScope(t *testing.T) {
 				if !ok {
 					t.Error("expected Get with opt to return true")
 				}
+
 				if value != tt.value {
 					t.Errorf("expected value with opt to be %q, got %q", tt.value, value)
 				}
 
 				m := scope.Map(opt)
+
 				value, ok = m[tt.name]
 
 				if !ok {
 					t.Error("expected map to contain name")
 				}
+
 				if value != tt.value {
 					t.Errorf("expected map value to be %q, got %q", tt.value, value)
 				}
@@ -161,6 +174,7 @@ func TestScope(t *testing.T) {
 				}
 
 				m := scope.Map(opt)
+
 				_, ok = m[tt.name]
 				if ok {
 					t.Error("expected map with failGetOpt to not contain name")
@@ -168,19 +182,23 @@ func TestScope(t *testing.T) {
 			}
 
 			clone := scope.Clone()
+
 			value, ok = clone.Get(tt.name)
 			if !ok {
 				t.Error("expected cloned Get to return true")
 			}
+
 			if value != tt.value {
 				t.Errorf("expected cloned value to be %q, got %q", tt.value, value)
 			}
 
 			for _, opt := range tt.useOpts {
 				value, ok = clone.Get(tt.name, opt)
+
 				if !ok {
 					t.Error("expected cloned Get with opt to return true")
 				}
+
 				if value != tt.value {
 					t.Errorf("expected cloned value with opt to be %q, got %q", tt.value, value)
 				}
@@ -203,6 +221,7 @@ func TestScope(t *testing.T) {
 
 		t.Run("it prefers left values", func(t *testing.T) {
 			t.Parallel()
+
 			scope := variables.NewScope()
 			scope.Add("a", "b")
 
@@ -210,10 +229,12 @@ func TestScope(t *testing.T) {
 			other.Add("a", "c")
 
 			c := variables.CombineScopes(scope, other)
+
 			v, ok := c.Get("a")
 			if !ok {
 				t.Error("expected Get to return true")
 			}
+
 			if v != "b" {
 				t.Errorf("expected value to be %q, got %q", "b", v)
 			}
@@ -221,6 +242,7 @@ func TestScope(t *testing.T) {
 
 		t.Run("it prefers active to inactive values", func(t *testing.T) {
 			t.Parallel()
+
 			scope := variables.NewScope()
 			scope.Add("active", "b")
 
@@ -228,10 +250,12 @@ func TestScope(t *testing.T) {
 			other.Add("active", "d", variables.WithActive())
 
 			c := variables.CombineScopes(scope, other)
+
 			env, ok := c.Get("active")
 			if !ok {
 				t.Error("expected Get to return true")
 			}
+
 			if env != "d" {
 				t.Errorf("expected value to be %q, got %q", "d", env)
 			}

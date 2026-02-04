@@ -114,6 +114,7 @@ func TestPodmanProvider(t *testing.T) {
 				if !ok {
 					t.Fatalf("invalid env format: %s", env)
 				}
+
 				mockOS.On("Getenv", name).Return(val)
 			}
 
@@ -123,6 +124,7 @@ func TestPodmanProvider(t *testing.T) {
 
 				go func() {
 					defer close(result)
+
 					result <- authprovider.NewPodman(stderr, authprovider.WithOS(mockOS))
 				}()
 
@@ -138,6 +140,7 @@ func TestPodmanProvider(t *testing.T) {
 				}
 
 				mockOS.AssertExpectations(t)
+
 				return
 			}
 
@@ -159,6 +162,7 @@ func TestPodmanProvider(t *testing.T) {
 
 			go func() {
 				defer close(result)
+
 				result <- authprovider.NewPodman(stderr, authprovider.WithOS(mockOS))
 			}()
 
@@ -182,9 +186,11 @@ func TestPodmanProvider(t *testing.T) {
 				if err != nil {
 					t.Errorf("expected no error from Credentials, got: %v", err)
 				}
+
 				if resp.Username != e.auth.user {
 					t.Errorf("expected username to be %q, got %q", e.auth.user, resp.Username)
 				}
+
 				if resp.Secret != e.auth.secret {
 					t.Errorf("expected secret to be %q, got %q", e.auth.secret, resp.Secret)
 				}

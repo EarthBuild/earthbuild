@@ -64,7 +64,9 @@ func ParseArgsWithValueModifierAndOptions(
 	// Preprocess args if we have a modifier function
 	if argumentModFunc != nil {
 		boolFlags := getBoolFlagNames(data)
+
 		var err error
+
 		args, err = preprocessArgs(args, boolFlags, argumentModFunc)
 		if err != nil {
 			return nil, err
@@ -90,7 +92,7 @@ func ParseArgsWithValueModifierAndOptions(
 	return res, nil
 }
 
-// getBoolFlagNames extracts boolean flag names from a struct using reflection
+// getBoolFlagNames extracts boolean flag names from a struct using reflection.
 func getBoolFlagNames(data any) map[string]bool {
 	boolFlags := make(map[string]bool)
 
@@ -108,12 +110,13 @@ func getBoolFlagNames(data any) map[string]bool {
 	}
 
 	collectBoolFlags(v.Type(), boolFlags)
+
 	return boolFlags
 }
 
-// collectBoolFlags recursively collects boolean flag names from a struct type
+// collectBoolFlags recursively collects boolean flag names from a struct type.
 func collectBoolFlags(t reflect.Type, boolFlags map[string]bool) {
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		fieldType := field.Type
 
@@ -131,6 +134,7 @@ func collectBoolFlags(t reflect.Type, boolFlags map[string]bool) {
 		if shortTag != "" && isBool {
 			boolFlags[shortTag] = true
 		}
+
 		longTag := field.Tag.Get("long")
 		if longTag != "" && isBool {
 			boolFlags[longTag] = true
@@ -138,7 +142,7 @@ func collectBoolFlags(t reflect.Type, boolFlags map[string]bool) {
 	}
 }
 
-// preprocessArgs processes arguments before parsing, applying the modifier function to boolean flag values
+// preprocessArgs processes arguments before parsing, applying the modifier function to boolean flag values.
 func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentModFunc) ([]string, error) {
 	result := make([]string, 0, len(args))
 
@@ -146,8 +150,10 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 		arg := args[i]
 
 		// Check if this is a flag with a value (e.g., --flag=value)
-		if strings.HasPrefix(arg, "--") {
+		switch {
+		case strings.HasPrefix(arg, "--"):
 			parts := strings.SplitN(arg[2:], "=", 2)
+
 			flagName := parts[0]
 
 			if len(parts) == 2 && boolFlags[flagName] {
@@ -164,16 +170,20 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				} else {
 					result = append(result, "--"+flagName)
 				}
+
 				continue
 			}
-		} else if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+		case strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--"):
 			// Short flag handling
 			flagPart := strings.TrimPrefix(arg, "-")
 
 			// Check if it has an attached value (e.g., -f=value)
-			if strings.Contains(flagPart, "=") {
+			switch {
+			case strings.Contains(flagPart, "="):
 				parts := strings.SplitN(flagPart, "=", 2)
+
 				flagName := parts[0]
+
 				if len(flagName) == 1 && boolFlags[flagName] {
 					value := parts[1]
 					modifiedValue, err := modFunc(flagName, nil, &value)
@@ -184,10 +194,11 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 
 					if modifiedValue != nil {
 						result = append(result, "-"+flagName+"="+*modifiedValue)
+
 						continue
 					}
 				}
-			} else if len(flagPart) == 1 && boolFlags[flagPart] {
+			case len(flagPart) == 1 && boolFlags[flagPart]:
 				// Single short flag, check if next arg is the value
 				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 					value := args[i+1]
@@ -200,13 +211,15 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 					if modifiedValue != nil {
 						result = append(result, arg, *modifiedValue)
 						i++ // Skip the next arg since we consumed it
+
 						continue
 					}
 				}
-			} else if len(flagPart) > 1 {
+			case len(flagPart) > 1:
 				// Handle clustered short flags (e.g., -abc)
 				// Check each character to see if any are boolean flags that need modification
 				modified := false
+
 				for j, c := range flagPart {
 					flagName := string(c)
 					if boolFlags[flagName] {
@@ -224,6 +237,7 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 								result = append(result, arg, *modifiedValue)
 								i++ // Skip the next arg since we consumed it
 								modified = true
+
 								break
 							}
 						}

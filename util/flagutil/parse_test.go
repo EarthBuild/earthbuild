@@ -134,10 +134,12 @@ func TestGetBoolFlagNames(t *testing.T) {
 	t.Parallel()
 
 	t.Run("simple struct", func(t *testing.T) {
+		t.Parallel()
+
 		type opts struct {
+			Debug   bool   `long:"debug"   short:"d"`
+			Output  string `long:"output"  short:"o"`
 			Verbose bool   `long:"verbose" short:"v"`
-			Debug   bool   `long:"debug" short:"d"`
-			Output  string `long:"output" short:"o"`
 		}
 
 		flags := getBoolFlagNames(&opts{})
@@ -150,12 +152,16 @@ func TestGetBoolFlagNames(t *testing.T) {
 	})
 
 	t.Run("embedded struct", func(t *testing.T) {
+		t.Parallel()
+
 		type baseOpts struct {
+			Debug   bool `long:"debug"   short:"d"`
 			Verbose bool `long:"verbose" short:"v"`
-			Debug   bool `long:"debug" short:"d"`
 		}
+
 		type extendedOpts struct {
 			baseOpts
+
 			NoCache bool   `long:"no-cache"`
 			Output  string `long:"output"`
 		}
@@ -170,6 +176,8 @@ func TestGetBoolFlagNames(t *testing.T) {
 	})
 
 	t.Run("nil data", func(t *testing.T) {
+		t.Parallel()
+
 		flags := getBoolFlagNames(nil)
 		assert.Empty(t, flags)
 	})
@@ -183,47 +191,58 @@ func TestPreprocessArgs(t *testing.T) {
 			expanded := "true"
 			return &expanded, nil
 		}
+
 		return flagVal, nil
 	}
 
 	t.Run("long flag with equals", func(t *testing.T) {
+		t.Parallel()
+
 		boolFlags := map[string]bool{"verbose": true}
 		args := []string{"--verbose=$VAR"}
 		result, err := preprocessArgs(args, boolFlags, modFunc)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []string{"--verbose=true"}, result)
 	})
 
 	t.Run("short flag with value", func(t *testing.T) {
+		t.Parallel()
+
 		boolFlags := map[string]bool{"v": true}
 		args := []string{"-v", "$VAR"}
 		result, err := preprocessArgs(args, boolFlags, modFunc)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []string{"-v", "true"}, result)
 	})
 
 	t.Run("short flag with equals", func(t *testing.T) {
+		t.Parallel()
+
 		boolFlags := map[string]bool{"v": true}
 		args := []string{"-v=$VAR"}
 		result, err := preprocessArgs(args, boolFlags, modFunc)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []string{"-v=true"}, result)
 	})
 
 	t.Run("clustered short flags", func(t *testing.T) {
+		t.Parallel()
+
 		boolFlags := map[string]bool{"v": true, "d": true}
 		args := []string{"-vd", "$VAR"}
 		result, err := preprocessArgs(args, boolFlags, modFunc)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Should modify the value for the last flag in the cluster
 		assert.Equal(t, []string{"-vd", "true"}, result)
 	})
 
 	t.Run("non-boolean flag unchanged", func(t *testing.T) {
+		t.Parallel()
+
 		boolFlags := map[string]bool{"verbose": true}
 		args := []string{"--output=file.txt", "arg1"}
 		result, err := preprocessArgs(args, boolFlags, modFunc)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, args, result)
 	})
 }

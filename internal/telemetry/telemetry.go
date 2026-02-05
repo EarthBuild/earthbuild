@@ -44,17 +44,15 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	// The errors from the calls are joined.
 	// Each registered cleanup will be invoked once.
 	shutdown = func(ctx context.Context) error {
-		fmt.Println("Shutdown OTel providers")
-
-		var inErr error
+		var shutdownErr error
 
 		for _, fn := range shutdownFuncs {
-			inErr = errors.Join(inErr, fn(ctx))
+			shutdownErr = errors.Join(shutdownErr, fn(ctx))
 		}
 
 		shutdownFuncs = nil
 
-		return inErr
+		return shutdownErr
 	}
 
 	// handleErr calls shutdown for cleanup and makes sure that all errors are returned.
@@ -68,7 +66,10 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 		propagation.Baggage{},
 	))
 
-	tracerProvider, err := newTracerProvider(ctx)
+	// Set up tracer provider.
+	var tracerProvider *sdktrace.TracerProvider
+
+	tracerProvider, err = newTracerProvider(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,9 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(ctx)
+	var meterProvider *metric.MeterProvider
+
+	meterProvider, err = newMeterProvider(ctx)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -87,7 +90,9 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider()
+	var loggerProvider *sdklog.LoggerProvider
+
+	loggerProvider, err = newLoggerProvider()
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -100,6 +105,15 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 }
 
 func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	// If no exporter is configured, set the exporter to "none".
+	_, ok := os.LookupEnv("OTEL_TRACES_EXPORTER")
+	if !ok {
+		err := os.Setenv("OTEL_TRACES_EXPORTER", "none")
+		if err != nil {
+			return nil, fmt.Errorf("set OTEL_TRACES_EXPORTER to 'none': %w", err)
+		}
+	}
+
 	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return nil, err
@@ -136,14 +150,20 @@ func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 }
 
 func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
-	// 1. Automatically create a MetricReader based on OTEL_METRICS_EXPORTER
-	// This handles OTLP, Prometheus, or Console automatically.
+	// If no exporter is configured, set the exporter to "none".
+	_, ok := os.LookupEnv("OTEL_METRICS_EXPORTER")
+	if !ok {
+		err := os.Setenv("OTEL_METRICS_EXPORTER", "none")
+		if err != nil {
+			return nil, fmt.Errorf("set OTEL_METRICS_EXPORTER to 'none': %w", err)
+		}
+	}
+
 	reader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Define the Resource (Service Name, etc.)
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),
@@ -152,7 +172,6 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 		return nil, err
 	}
 
-	// 3. Create the MeterProvider
 	mp := metric.NewMeterProvider(
 		metric.WithReader(reader),
 		metric.WithResource(res),
@@ -163,6 +182,15 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 }
 
 func newLoggerProvider() (*sdklog.LoggerProvider, error) {
+	// If no exporter is configured, set the exporter to "none".
+	_, ok := os.LookupEnv("OTEL_LOGS_EXPORTER")
+	if !ok {
+		err := os.Setenv("OTEL_LOGS_EXPORTER", "none")
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	logExporter, err := stdoutlog.New()
 	if err != nil {
 		return nil, err

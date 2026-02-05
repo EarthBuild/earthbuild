@@ -88,16 +88,17 @@ func TestIs(t *testing.T) {
 
 		var err *Error
 
-assert.True(t, errors.As(Errorf("some error"), &err))
+		assert.True(t, errors.As(Errorf("some error"), &err))
 		res := err.Is(internal)
 		assert.False(t, res)
 	})
+
 	t.Run("param error", func(t *testing.T) {
 		t.Parallel()
 
 		var err *Error
 
-assert.True(t, errors.As(Errorf("some error"), &err))
+		assert.True(t, errors.As(Errorf("some error"), &err))
 		res := err.Is(err)
 		assert.True(t, res)
 	})

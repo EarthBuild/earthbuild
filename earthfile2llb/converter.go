@@ -3445,7 +3445,7 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 
 		data, _, _, err := c.ResolveReference(ctx, childTarget)
 		if err != nil {
-			notExist := buildcontext.ErrEarthfileNotExist{}
+			notExist := buildcontext.EarthfileNotExistError{}
 			if errors.As(err, &notExist) {
 				continue
 			}

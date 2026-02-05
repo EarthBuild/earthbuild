@@ -130,7 +130,12 @@ func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHo
 			return data, nil
 		}
 
-		res, err := arn.Parse(data.(string))
+		s, ok := data.(string)
+		if !ok {
+			return nil, fmt.Errorf("want string, got %T", data)
+		}
+
+		res, err := arn.Parse(s)
 		if err != nil {
 			return nil, err
 		}
@@ -156,8 +161,13 @@ func timeDurationValidationsHookFunc(validators ...func(input time.Duration) err
 			return data, nil
 		}
 
+		s, ok := data.(string)
+		if !ok {
+			return nil, fmt.Errorf("want string, got %T", data)
+		}
+
 		// Convert it by parsing
-		parsed, err := time.ParseDuration(data.(string))
+		parsed, err := time.ParseDuration(s)
 		if err != nil {
 			return nil, err
 		}

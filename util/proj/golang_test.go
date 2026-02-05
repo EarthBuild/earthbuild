@@ -74,7 +74,6 @@ func TestGolang(t *testing.T) {
 			mockFS.On("Stat", "go.mod").Return(nil, errors.New("boom"))
 
 			_, err := golang.ForDir(ctx, ".")
-
 			if err == nil {
 				t.Error("expected an error to occur")
 			}
@@ -107,7 +106,6 @@ func TestGolang(t *testing.T) {
 			cmd.On("Run", mock.Anything).Return(stdout, nil, fs.ErrNotExist)
 
 			_, err := golang.ForDir(ctx, ".")
-
 			if err == nil {
 				t.Error("expected an error to occur")
 			}

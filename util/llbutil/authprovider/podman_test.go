@@ -182,7 +182,6 @@ func TestPodmanProvider(t *testing.T) {
 				defer cancel()
 
 				resp, err := creds.Credentials(ctx, req)
-
 				if err != nil {
 					t.Errorf("expected no error from Credentials, got: %v", err)
 				}

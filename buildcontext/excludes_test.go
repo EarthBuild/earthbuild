@@ -1,12 +1,11 @@
 package buildcontext
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
-
-	"errors"
 )
 
 func Test_readExcludes(t *testing.T) {

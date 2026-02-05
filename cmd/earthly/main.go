@@ -61,7 +61,7 @@ func main() {
 
 // run executes the CLI and returns an exit code to pass to [os.Exit].
 func run() (code int) {
-	ctx := context.Background()
+	ctx := telemetry.WithTraceparent(context.Background())
 
 	shutdown, err := telemetry.Setup(ctx)
 	if err != nil {

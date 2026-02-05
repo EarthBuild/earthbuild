@@ -174,3 +174,18 @@ func newLoggerProvider() (*sdklog.LoggerProvider, error) {
 
 	return loggerProvider, nil
 }
+
+// WithTraceparent returns a context with the traceparent (W3C Trace Context format)
+// extracted from the environment variable TRACEPARENT.
+func WithTraceparent(ctx context.Context) context.Context {
+	traceparent := os.Getenv("TRACEPARENT")
+	if traceparent == "" {
+		return ctx
+	}
+
+	carrier := propagation.MapCarrier{
+		"traceparent": traceparent,
+	}
+
+	return otel.GetTextMapPropagator().Extract(ctx, carrier)
+}

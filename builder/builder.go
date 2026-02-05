@@ -18,7 +18,6 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
-	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
@@ -247,9 +246,6 @@ func useSecondaryProxy() (bool, error) {
 func (b *Builder) convertAndBuild(
 	ctx context.Context, target domain.Target, opt BuildOpt,
 ) (*states.MultiTarget, error) {
-	_, span := telemetry.Tracer().Start(ctx, PhaseBuild)
-	defer span.End()
-
 	var (
 		sharedLocalStateCache = earthfile2llb.NewSharedLocalStateCache()
 		featureFlagOverrides  = b.opt.FeatureFlagOverrides
@@ -948,11 +944,6 @@ func (b *Builder) convertAndBuild(
 
 	if opt.PrintPhases {
 		b.opt.Console.PrintPhaseFooter(PhasePush, !opt.Push, "")
-
-		ctx, span = telemetry.Tracer().Start(ctx, PhaseOutput)
-
-		defer span.End()
-
 		b.opt.Console.PrintPhaseHeader(PhaseOutput, opt.NoOutput, outputPhaseSpecial)
 	}
 

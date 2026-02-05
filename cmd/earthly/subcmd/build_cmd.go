@@ -25,7 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earthly"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -258,9 +257,6 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 }
 
 func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []string) error {
-	_, span := telemetry.Tracer().Start(cliCtx.Context, builder.PhaseInit)
-	defer span.End()
-
 	target, artifact, destPath, err := a.parseTarget(cliCtx, nonFlagArgs)
 	if err != nil {
 		return err
@@ -623,8 +619,6 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		buildOpts.OnlyArtifact = &artifact
 		buildOpts.OnlyArtifactDestPath = destPath
 	}
-
-	span.End()
 
 	_, err = b.BuildTarget(cliCtx.Context, target, buildOpts)
 	if err != nil {

@@ -55,9 +55,10 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 		return shutdownErr
 	}
 
-	// handleErr calls shutdown for cleanup and makes sure that all errors are returned.
-	handleErr := func(inErr error) {
-		err = errors.Join(inErr, shutdown(ctx))
+	// handleError calls shutdown for cleanup and makes sure that all errors are returned.
+	//nolint:unparam // shutdown is not used in the return value
+	handleError := func(err error) (func(context.Context) error, error) {
+		return nil, errors.Join(fmt.Errorf("setup telemetry: %w", err), shutdown(ctx))
 	}
 
 	// Set up propagator.
@@ -71,7 +72,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 
 	tracerProvider, err = newTracerProvider(ctx)
 	if err != nil {
-		return nil, err
+		return handleError(err)
 	}
 
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
@@ -82,8 +83,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 
 	meterProvider, err = newMeterProvider(ctx)
 	if err != nil {
-		handleErr(err)
-		return shutdown, err
+		return handleError(err)
 	}
 
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
@@ -94,34 +94,37 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 
 	loggerProvider, err = newLoggerProvider()
 	if err != nil {
-		handleErr(err)
-		return shutdown, err
+		return handleError(err)
 	}
 
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
 
-	return shutdown, err
+	return shutdown, nil
 }
 
 func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	errorf := func(format string, args ...any) (*sdktrace.TracerProvider, error) {
+		return nil, fmt.Errorf("create tracer provider: "+format, args...)
+	}
+
 	// If no exporter is configured, set the exporter to "none".
 	_, ok := os.LookupEnv("OTEL_TRACES_EXPORTER")
 	if !ok {
 		err := os.Setenv("OTEL_TRACES_EXPORTER", "none")
 		if err != nil {
-			return nil, fmt.Errorf("set OTEL_TRACES_EXPORTER to 'none': %w", err)
+			return errorf("set OTEL_TRACES_EXPORTER to 'none': %w", err)
 		}
 	}
 
 	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
-		return nil, err
+		return errorf("create span exporter: %w", err)
 	}
 
 	executable, err := os.Executable()
 	if err != nil {
-		panic(err)
+		return errorf("get executable path: %w", err)
 	}
 
 	executablePath := filepath.Dir(executable)
@@ -138,7 +141,7 @@ func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 		resource.WithTelemetrySDK(),
 	)
 	if err != nil {
-		return nil, err
+		return errorf("create resource: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -150,18 +153,22 @@ func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 }
 
 func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
+	errorf := func(format string, args ...any) (*metric.MeterProvider, error) {
+		return nil, fmt.Errorf("create meter provider: "+format, args...)
+	}
+
 	// If no exporter is configured, set the exporter to "none".
 	_, ok := os.LookupEnv("OTEL_METRICS_EXPORTER")
 	if !ok {
 		err := os.Setenv("OTEL_METRICS_EXPORTER", "none")
 		if err != nil {
-			return nil, fmt.Errorf("set OTEL_METRICS_EXPORTER to 'none': %w", err)
+			return errorf("set OTEL_METRICS_EXPORTER to 'none': %w", err)
 		}
 	}
 
 	reader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
-		return nil, err
+		return errorf("create metric reader: %w", err)
 	}
 
 	res, err := resource.New(ctx,
@@ -169,7 +176,7 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 		resource.WithTelemetrySDK(),
 	)
 	if err != nil {
-		return nil, err
+		return errorf("create resource: %w", err)
 	}
 
 	mp := metric.NewMeterProvider(
@@ -182,18 +189,22 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 }
 
 func newLoggerProvider() (*sdklog.LoggerProvider, error) {
+	errorf := func(format string, args ...any) (*sdklog.LoggerProvider, error) {
+		return nil, fmt.Errorf("create logger provider: "+format, args...)
+	}
+
 	// If no exporter is configured, set the exporter to "none".
 	_, ok := os.LookupEnv("OTEL_LOGS_EXPORTER")
 	if !ok {
 		err := os.Setenv("OTEL_LOGS_EXPORTER", "none")
 		if err != nil {
-			return nil, err
+			return errorf("set OTEL_LOGS_EXPORTER to 'none': %w", err)
 		}
 	}
 
 	logExporter, err := stdoutlog.New()
 	if err != nil {
-		return nil, err
+		return errorf("create log exporter: %w", err)
 	}
 
 	loggerProvider := sdklog.NewLoggerProvider(

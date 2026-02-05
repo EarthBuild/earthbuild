@@ -153,26 +153,27 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 		switch {
 		case strings.HasPrefix(arg, "--"):
 			parts := strings.SplitN(arg[2:], "=", 2)
-
 			flagName := parts[0]
 
-			if len(parts) == 2 && boolFlags[flagName] {
-				// This is a boolean flag with an explicit value
-				value := parts[1]
-				modifiedValue, err := modFunc(flagName, nil, &value)
-
-				if err != nil {
-					return nil, err
-				}
-
-				if modifiedValue != nil {
-					result = append(result, "--"+flagName+"="+*modifiedValue)
-				} else {
-					result = append(result, "--"+flagName)
-				}
-
+			if len(parts) != 2 || !boolFlags[flagName] {
+				result = append(result, arg)
 				continue
 			}
+
+			// This is a boolean flag with an explicit value
+			value := parts[1]
+			modifiedValue, err := modFunc(flagName, nil, &value)
+			if err != nil {
+				return nil, err
+			}
+
+			if modifiedValue != nil {
+				result = append(result, "--"+flagName+"="+*modifiedValue)
+			} else {
+				result = append(result, "--"+flagName)
+			}
+
+			continue
 		case strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--"):
 			// Short flag handling
 			flagPart := strings.TrimPrefix(arg, "-")
@@ -181,23 +182,26 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 			switch {
 			case strings.Contains(flagPart, "="):
 				parts := strings.SplitN(flagPart, "=", 2)
-
 				flagName := parts[0]
 
-				if len(flagName) == 1 && boolFlags[flagName] {
-					value := parts[1]
-					modifiedValue, err := modFunc(flagName, nil, &value)
-
-					if err != nil {
-						return nil, err
-					}
-
-					if modifiedValue != nil {
-						result = append(result, "-"+flagName+"="+*modifiedValue)
-
-						continue
-					}
+				if len(flagName) != 1 || !boolFlags[flagName] {
+					result = append(result, arg)
+					continue
 				}
+
+				value := parts[1]
+				modifiedValue, err := modFunc(flagName, nil, &value)
+				if err != nil {
+					return nil, err
+				}
+
+				if modifiedValue != nil {
+					result = append(result, "-"+flagName+"="+*modifiedValue)
+					continue
+				}
+
+				result = append(result, arg)
+				continue
 			case len(flagPart) == 1 && boolFlags[flagPart]:
 				// Single short flag, check if next arg is the value
 				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
@@ -222,25 +226,30 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 
 				for j, c := range flagPart {
 					flagName := string(c)
-					if boolFlags[flagName] {
-						// For clustered flags, we can only modify if it's the last flag
-						// and the next arg is a value
-						if j == len(flagPart)-1 && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-							value := args[i+1]
-							modifiedValue, err := modFunc(flagName, nil, &value)
+					if !boolFlags[flagName] {
+						continue
+					}
 
-							if err != nil {
-								return nil, err
-							}
+					// For clustered flags, we can only modify if it's the last flag
+					// and the next arg is a value
+					isLastFlag := j == len(flagPart)-1
+					hasNextValue := i+1 < len(args) && !strings.HasPrefix(args[i+1], "-")
 
-							if modifiedValue != nil {
-								result = append(result, arg, *modifiedValue)
-								i++ // Skip the next arg since we consumed it
-								modified = true
+					if !isLastFlag || !hasNextValue {
+						continue
+					}
 
-								break
-							}
-						}
+					value := args[i+1]
+					modifiedValue, err := modFunc(flagName, nil, &value)
+					if err != nil {
+						return nil, err
+					}
+
+					if modifiedValue != nil {
+						result = append(result, arg, *modifiedValue)
+						i++ // Skip the next arg since we consumed it
+						modified = true
+						break
 					}
 				}
 

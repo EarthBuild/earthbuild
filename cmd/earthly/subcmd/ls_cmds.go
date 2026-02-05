@@ -98,12 +98,11 @@ func (a *List) action(cliCtx *cli.Context) error {
 
 	targets, err := earthfile2llb.GetTargets(cliCtx.Context, resolver, gwClient, target)
 	if err != nil {
-		switch err := errors.Cause(err).(type) {
-		case *buildcontext.EarthfileNotExistError:
+		if errors.Is(errors.Cause(err), buildcontext.EarthfileNotExistError{}) {
 			return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
-		default:
-			return err
 		}
+
+		return err
 	}
 
 	targets = append(targets, ast.TargetBase)

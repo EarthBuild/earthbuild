@@ -86,11 +86,14 @@ func (a *List) action(cliCtx *cli.Context) error {
 
 	// TODO this is a nil pointer which causes a panic if we try to expand a remotelyreferenced earthfile
 	// it's expensive to create this gwclient, so we need to implement a lazy eval which returns it when required.
-	var gwClient gwclient.Client
+	var (
+		gwClient    gwclient.Client
+		notExistErr buildcontext.EarthfileNotExistError
+	)
 
 	// the +base is required to make ParseTarget work; however is ignored by GetTargets
 	target, err := domain.ParseTarget(targetToParse + "+base")
-	if errors.Is(err, buildcontext.EarthfileNotExistError{}) {
+	if errors.As(err, &notExistErr) {
 		return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	} else if err != nil {
 		return err
@@ -98,7 +101,7 @@ func (a *List) action(cliCtx *cli.Context) error {
 
 	targets, err := earthfile2llb.GetTargets(cliCtx.Context, resolver, gwClient, target)
 	if err != nil {
-		if errors.Is(errors.Cause(err), buildcontext.EarthfileNotExistError{}) {
+		if errors.As(errors.Cause(err), &notExistErr) {
 			return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 		}
 

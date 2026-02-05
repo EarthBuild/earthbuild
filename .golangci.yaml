@@ -51,6 +51,7 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl # deprecated
+    - wsl_v5
   exclusions:
     generated: lax
   settings:

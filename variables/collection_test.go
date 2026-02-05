@@ -42,6 +42,7 @@ func TestCollection(t *testing.T) {
 			if ok {
 				t.Error("expected Get to return false before declaring variable")
 			}
+
 			_, _, err := coll.DeclareVar("EARTHLY_VERSION", variables.AsArg())
 
 			if err != nil {

@@ -43,7 +43,6 @@ func TestCollection(t *testing.T) {
 				t.Error("expected Get to return false before declaring variable")
 			}
 			_, _, err := coll.DeclareVar("EARTHLY_VERSION", variables.AsArg())
-
 			if err != nil {
 				t.Errorf("expected no error from DeclareVar, got: %v", err)
 			}
@@ -130,7 +129,6 @@ func TestCollection(t *testing.T) {
 			}
 
 			_, _, err := testColl.DeclareVar("EARTHLY_VERSION")
-
 			if err != nil {
 				t.Errorf("expected no error from DeclareVar, got: %v", err)
 			}

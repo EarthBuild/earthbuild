@@ -207,7 +207,6 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 					value := args[i+1]
 					modifiedValue, err := modFunc(flagPart, nil, &value)
-
 					if err != nil {
 						return nil, err
 					}

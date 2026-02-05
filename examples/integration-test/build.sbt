@@ -1,4 +1,4 @@
-lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.5"
+lazy val scalatest = "org.scalatest" %% "scalatest" % "3.2.19"
 
 scalaVersion := "2.12.1"
 name := "scala-example"

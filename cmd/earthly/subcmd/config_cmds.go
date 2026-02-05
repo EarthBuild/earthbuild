@@ -26,7 +26,7 @@ func (a *Config) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:   "config",
-			Usage:  "Edits your Earthly configuration file",
+			Usage:  "Edits your EarthBuild configuration file",
 			Action: a.action,
 			//nolint:lll
 			UsageText: `Examples of common settings:
@@ -62,7 +62,7 @@ func (a *Config) Cmds() []*cli.Command {
 
 						Only one key/value can be set per invocation.
 
-						To get help with a specific key, do "config [key] --help". Or, visit https://docs.earthly.dev/earthly-config for more details.`,
+						To get help with a specific key, do "config [key] --help". Or, visit https://docs.earthbuild.dev/earthly-config for more details.`,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:        "dry-run",

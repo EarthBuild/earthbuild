@@ -49,6 +49,7 @@ func WrapError(
 	}
 }
 
+// Error implements [error] interface.
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {

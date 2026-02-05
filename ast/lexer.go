@@ -13,7 +13,7 @@ const (
 	newlineChannel = antlr.LexerDefaultTokenChannel
 )
 
-// lexer is a lexer for an earthly file, which also emits indentation
+// lexer is a lexer for an Earthfile, which also emits indentation
 // and dedentation tokens.
 type lexer struct {
 	*parser.EarthLexer
@@ -164,12 +164,20 @@ func (l *lexer) debugToken(token antlr.Token, modeBefore int) {
 }
 
 func (l *lexer) pos() (line, column, index int) {
-	atn := l.Interpreter.(*antlr.LexerATNSimulator)
+	atn, ok := l.Interpreter.(*antlr.LexerATNSimulator)
+	if !ok {
+		panic(fmt.Sprintf("want *antlr.LexerATNSimulator, got %T", l.Interpreter))
+	}
+
 	return atn.Line, atn.CharPositionInLine, l.GetInputStream().Index()
 }
 
 func (l *lexer) seek(line, column, index int) {
-	atn := l.Interpreter.(*antlr.LexerATNSimulator)
+	atn, ok := l.Interpreter.(*antlr.LexerATNSimulator)
+	if !ok {
+		panic(fmt.Sprintf("want *antlr.LexerATNSimulator, got %T", l.Interpreter))
+	}
+
 	atn.Line = line
 	atn.CharPositionInLine = column
 

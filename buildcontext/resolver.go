@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -111,7 +112,10 @@ func (r *Resolver) ExpandWildcard(
 		return nil, errors.Wrap(err, "failed to join references")
 	}
 
-	target = ref.(domain.Target)
+	target, ok := ref.(domain.Target)
+	if !ok {
+		return nil, fmt.Errorf("want domain.Target, got %T", ref)
+	}
 
 	matches, err := fileutil.GlobDirs(target.GetLocalPath())
 	if err != nil {
@@ -185,13 +189,21 @@ func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthf
 	path = filepath.Clean(path)
 
 	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
-		return ast.Parse(k.(string), true)
+		filePath, ok := k.(string)
+		if !ok {
+			return nil, fmt.Errorf("want string, got %T", k)
+		}
+
+		return ast.Parse(filePath, true)
 	})
 	if err != nil {
 		return spec.Earthfile{}, err
 	}
 
-	ef := efValue.(spec.Earthfile)
+	ef, ok := efValue.(spec.Earthfile)
+	if !ok {
+		return spec.Earthfile{}, errors.Errorf("want spec.Earthfile, got %T", efValue)
+	}
 
 	return ef, nil
 }

@@ -180,7 +180,9 @@ func (f *Formatter) Manifest() *logstream.RunManifest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return proto.Clone(f.manifest).(*logstream.RunManifest)
+	manifest, _ := proto.Clone(f.manifest).(*logstream.RunManifest)
+
+	return manifest
 }
 
 func (f *Formatter) processDelta(delta *logstream.Delta) error {

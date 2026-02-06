@@ -81,9 +81,11 @@ func determineFatalErrorType(errString string, exitCode int, exitParseErr error)
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 	}
 
-	if exitParseErr == errNoExitCodeOMM {
+	if errors.Is(exitParseErr, errNoExitCodeOMM) {
 		return logstream.FailureType_FAILURE_TYPE_OOM_KILLED, true
-	} else if exitParseErr != nil && exitParseErr != errNoExitCode {
+	}
+
+	if exitParseErr != nil && !errors.Is(exitParseErr, errNoExitCode) {
 		// We have an exit code, and can't parse it
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, true
 	}

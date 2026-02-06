@@ -49,5 +49,7 @@ func getEnvs(fl cli.Flag) []string {
 		return nil
 	}
 
-	return field.Interface().([]string)
+	v, _ := field.Interface().([]string)
+
+	return v
 }

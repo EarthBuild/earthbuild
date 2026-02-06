@@ -385,7 +385,12 @@ func (c *Converter) FromDockerfile(
 				return errors.Wrap(err, "join targets")
 			}
 
-			dockerfileMetaTarget = dockerfileMetaTargetRef.(domain.Target)
+			var ok bool
+
+			dockerfileMetaTarget, ok = dockerfileMetaTargetRef.(domain.Target)
+			if !ok {
+				return errors.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
+			}
 
 			var data *buildcontext.Data
 
@@ -473,7 +478,12 @@ func (c *Converter) FromDockerfile(
 			return errors.Wrap(err, "join targets")
 		}
 
-		dockerfileMetaTarget = dockerfileMetaTargetRef.(domain.Target)
+		var ok bool
+
+		dockerfileMetaTarget, ok = dockerfileMetaTargetRef.(domain.Target)
+		if !ok {
+			return errors.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
+		}
 
 		var data *buildcontext.Data
 
@@ -2284,7 +2294,12 @@ func (c *Converter) absolutizeTarget(
 		return domain.Target{}, domain.Target{}, false, errors.Wrap(err, "join targets")
 	}
 
-	return targetRef.(domain.Target), relTarget, allowPrivileged, nil
+	target, ok := targetRef.(domain.Target)
+	if !ok {
+		return domain.Target{}, domain.Target{}, false, errors.Errorf("want domain.Target, got %T", targetRef)
+	}
+
+	return target, relTarget, allowPrivileged, nil
 }
 
 func (c *Converter) checkAutoSkip(
@@ -2661,12 +2676,13 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		// Debugger.
 		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
 		if err != nil {
-			switch errors.Cause(err).(type) {
-			case *apicaps.CapError:
+			var capErr *apicaps.CapError
+
+			if errors.As(err, &capErr) {
 				if c.opt.InteractiveDebuggerEnabled || isInteractive {
 					return pllb.State{}, errors.Wrap(err, "interactive debugger requires a newer version of buildkit")
 				}
-			default:
+			} else {
 				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
 			}
 		} else {
@@ -3430,7 +3446,7 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 
 		data, _, _, err := c.ResolveReference(ctx, childTarget)
 		if err != nil {
-			notExist := buildcontext.ErrEarthfileNotExist{}
+			notExist := buildcontext.EarthfileNotExistError{}
 			if errors.As(err, &notExist) {
 				continue
 			}

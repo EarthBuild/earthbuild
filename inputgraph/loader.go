@@ -140,7 +140,10 @@ func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 		return domain.Target{}, errors.Wrapf(err, "failed to join %s and %s", l.target, target)
 	}
 
-	target = targetRef.(domain.Target)
+	target, ok := targetRef.(domain.Target)
+	if !ok {
+		return domain.Target{}, errors.Errorf("want domain.Target, got %T", targetRef)
+	}
 
 	return target, nil
 }

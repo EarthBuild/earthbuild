@@ -1,6 +1,7 @@
 package deltautil
 
 import (
+	"errors"
 	"fmt"
 
 	pb "github.com/EarthBuild/earthbuild/logstream"
@@ -49,13 +50,23 @@ func WithDeltaManifest(m *pb.RunManifest, d *pb.Delta) (*pb.RunManifest, error) 
 		return m, nil
 	}
 
-	var ret *pb.RunManifest
+	var (
+		ret *pb.RunManifest
+		ok  bool
+	)
 
 	switch dm.GetDeltaManifestOneof().(type) {
 	case *pb.DeltaManifest_ResetAll:
-		ret = proto.Clone(dm.GetResetAll()).(*pb.RunManifest)
+		ret, ok = proto.Clone(dm.GetResetAll()).(*pb.RunManifest)
+		if !ok {
+			return nil, errors.New("clone manifest")
+		}
 	case *pb.DeltaManifest_Fields:
-		ret = proto.Clone(m).(*pb.RunManifest)
+		ret, ok = proto.Clone(m).(*pb.RunManifest)
+		if !ok {
+			return nil, errors.New("clone manifest")
+		}
+
 		setManifestFields(dm, ret)
 	}
 

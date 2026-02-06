@@ -49,6 +49,7 @@ func WrapError(
 	}
 }
 
+// Error implements [error] interface.
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {
@@ -93,8 +94,8 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 		return nil, false
 	}
 
-	ie, ok := err.(*InterpreterError)
-	if ok {
+	var ie *InterpreterError
+	if errors.As(err, &ie) {
 		return ie, true
 	}
 
@@ -107,19 +108,19 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 }
 
 // FromError attempts to parse the given error's string to an *InterpreterError.
-func FromError(err error) (*InterpreterError, bool) {
+func FromError(err error) *InterpreterError {
 	if err == nil {
-		return nil, false
+		return nil
 	}
 
 	matches, _ := stringutil.NamedGroupMatches(err.Error(), regex)
 	if len(matches) != 4 && len(matches) != 5 {
-		return nil, false
+		return nil
 	}
 
 	for k := range matches {
 		if k != "stack" && len(matches[k]) != 1 {
-			return nil, false
+			return nil
 		}
 	}
 
@@ -127,12 +128,12 @@ func FromError(err error) (*InterpreterError, bool) {
 
 	line, err := strconv.Atoi(matches["line"][0])
 	if err != nil {
-		return nil, false
+		return nil //nolint:nilerr // not InterpreterError
 	}
 
 	column, err := strconv.Atoi(matches["column"][0])
 	if err != nil {
-		return nil, false
+		return nil //nolint:nilerr // not InterpreterError
 	}
 
 	errMsg := matches["error"][0]
@@ -152,5 +153,5 @@ func FromError(err error) (*InterpreterError, bool) {
 		stack,
 		"%s",
 		errMsg,
-	), true
+	)
 }

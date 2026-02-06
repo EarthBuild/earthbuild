@@ -387,8 +387,8 @@ func detectGitTimestamp(ctx context.Context, dir string, tsType gitTimestampType
 
 	out, err := cmd.Output()
 	if err != nil {
-		exitError, ok := err.(*exec.ExitError)
-		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return "", nil
 		}
 
@@ -410,8 +410,8 @@ func detectGitAuthor(ctx context.Context, dir string, format string) (string, er
 
 	out, err := cmd.Output()
 	if err != nil {
-		exitError, ok := err.(*exec.ExitError)
-		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return "", nil
 		}
 
@@ -446,8 +446,8 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		exitError, ok := err.(*exec.ExitError)
-		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return nil, nil
 		}
 

@@ -1,0 +1,56 @@
+# Mockery v2 configuration
+# See https://vektra.github.io/mockery/latest/configuration/
+
+# Version of mockery to use
+version: "2"
+
+# Global configuration
+with-expecter: true  # Generate expecter interfaces for better type safety
+dir: "{{.InterfaceDir}}"  # Generate mocks in the same directory as the interface
+mockname: "mock{{.InterfaceName}}"  # Naming convention: mockInterfaceName
+filename: "{{.MockName}}_test.go"  # Generate as test files
+outpkg: "{{.PackageName}}_test"  # Generate in test package
+inpackage: false  # Don't generate in the same package
+testonly: true  # Generate in *_test.go files
+
+# Package-specific configurations
+packages:
+  # Auth provider mocks
+  github.com/EarthBuild/earthbuild/util/llbutil/authprovider:
+    config:
+      with-expecter: true
+      dir: "{{.InterfaceDir}}"
+      filename: "{{.MockName}}_test.go"
+      outpkg: "{{.PackageName}}_test"
+      interfaces:
+        ProjectAdder:
+          config:
+            mockname: "mockProjectAdder"
+        Child:
+          config:
+            mockname: "mockChild"
+        OS:
+          config:
+            mockname: "mockOS"
+
+  # Project utilities mocks
+  github.com/EarthBuild/earthbuild/util/proj:
+    config:
+      with-expecter: true
+      dir: "{{.InterfaceDir}}"
+      filename: "{{.MockName}}_test.go"
+      outpkg: "{{.PackageName}}_test"
+      interfaces:
+        FS:
+          config:
+            mockname: "mockFS"
+        Cmd:
+          config:
+            mockname: "mockCmd"
+        Execer:
+          config:
+            mockname: "mockExecer"
+
+# You can add more packages as needed following the pattern above
+# To generate all mocks, run: mockery
+# To generate mocks for a specific package: mockery --name=InterfaceName

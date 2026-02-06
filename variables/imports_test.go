@@ -1,20 +1,11 @@
 package variables_test
 
 import (
-	"github.com/poy/onpar/matchers"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
-	beTrue       = matchers.BeTrue
-	beFalse      = matchers.BeFalse
-	equal        = matchers.Equal
-	not          = matchers.Not
-	haveOccurred = matchers.HaveOccurred
-)
-
-var (
-	NoError = require.NoError
-	Error   = require.Error
-	Equal   = require.Equal
+	NoError = assert.NoError
+	Equal   = assert.Equal
+	Error   = assert.Error
 )

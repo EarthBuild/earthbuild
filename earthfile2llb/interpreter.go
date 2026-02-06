@@ -2274,7 +2274,10 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd spec.Command) error {
 		return i.wrapError(err, cmd.SourceLocation, "unable to resolve user command %s", ucName)
 	}
 
-	command := bc.Ref.(domain.Command)
+	command, ok := bc.Ref.(domain.Command)
+	if !ok {
+		return i.errorf(cmd.SourceLocation, "want domain.Command, got %T", bc.Ref)
+	}
 
 	if resolvedAllowPrivilegedSet {
 		allowPrivileged = allowPrivileged && resolvedAllowPrivileged

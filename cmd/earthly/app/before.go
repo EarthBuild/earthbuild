@@ -187,14 +187,14 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error
 
 	if app.BaseCLI.Flags().ConversionParallelism != 0 {
 		app.BaseCLI.Console().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, " +
-			"please use 'earthly config global.conversion_parallelism <parallelism>' instead")
+			"please use 'earth config global.conversion_parallelism <parallelism>' instead")
 	}
 
 	// command line overrides the config file
 	if app.BaseCLI.Flags().GitUsernameOverride != "" || app.BaseCLI.Flags().GitPasswordOverride != "" {
 		app.BaseCLI.Console().Warnf("Warning: the --git-username and --git-password command flags " +
 			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
-			"see https://docs.earthly.dev/earthly-config for reference.\n")
+			"see https://docs.earthbuild.dev/earthly-config for reference.\n")
 
 		if _, ok := cfg.Git["github.com"]; !ok {
 			cfg.Git["github.com"] = config.GitConfig{}
@@ -231,8 +231,8 @@ func (app *EarthlyApp) warnIfEarth() {
 
 	baseName := path.Base(binPath)
 	if baseName == "earth" {
-		app.BaseCLI.Console().Warnf("Warning: the earth binary has been renamed to earthly; " +
-			"the earth command is currently symlinked, but is deprecated and will one day be removed.")
+		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
+			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
 
 		absPath, err := filepath.Abs(binPath)
 		if err != nil {
@@ -243,7 +243,7 @@ func (app *EarthlyApp) warnIfEarth() {
 
 		earthlyPathExists, _ := fileutil.FileExists(earthlyPath)
 		if earthlyPathExists {
-			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earthly, you can `rm %s`", absPath)
+			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
 		}
 	}
 }

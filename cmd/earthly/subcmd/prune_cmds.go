@@ -32,8 +32,8 @@ func (a *Prune) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:  "prune",
-			Usage: "Prune Earthly build cache",
-			Description: `Prune Earthly build cache in one of two forms.
+			Usage: "Prune EarthBuild build cache",
+			Description: `Prune EarthBuild build cache in one of two forms.
 	Standard Form:
 		Issues a prune command on the BuildKit daemon.
 	Reset Form:

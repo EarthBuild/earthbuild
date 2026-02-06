@@ -24,6 +24,7 @@ func Wrapf(err error, format string, args ...any) error {
 	}
 }
 
+// Error implements [error] interface.
 func (e *Error) Error() string {
 	if e.cause != nil {
 		return fmt.Errorf("%s: %w", e.msg, e.cause).Error()

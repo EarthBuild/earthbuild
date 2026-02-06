@@ -26,7 +26,6 @@ func TestFromError(t *testing.T) {
 	tests := map[string]struct {
 		providerErr    error
 		expectedResult *InterpreterError
-		success        bool
 	}{
 		"nil error": {},
 		"no file path": {
@@ -44,12 +43,10 @@ func TestFromError(t *testing.T) {
 		"success without stack": {
 			providerErr:    ieWithStack,
 			expectedResult: ieWithStack,
-			success:        true,
 		},
 		"success with stack": {
 			providerErr:    ieWithoutStack,
 			expectedResult: ieWithoutStack,
-			success:        true,
 		},
 	}
 
@@ -57,9 +54,8 @@ func TestFromError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			ie, ok := FromError(tc.providerErr)
+			ie := FromError(tc.providerErr)
 			assert.Equal(t, tc.expectedResult, ie)
-			assert.Equal(t, tc.success, ok)
 		})
 	}
 }

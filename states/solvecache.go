@@ -34,13 +34,20 @@ func NewSolveCache() *SolveCache {
 // it is returned immediately without calling the constructor again.
 func (sc *SolveCache) Do(ctx context.Context, sk StateKey, constructor SolveCacheConstructor) (pllb.State, error) {
 	stateValue, err := sc.store.Do(ctx, sk, func(ctx context.Context, k any) (any, error) {
-		return constructor(ctx, k.(StateKey))
+		key, ok := k.(StateKey)
+		if !ok {
+			return pllb.State{}, fmt.Errorf("want StateKey, got %T", k)
+		}
+
+		return constructor(ctx, key)
 	})
 	if err != nil {
 		return pllb.State{}, err
 	}
 
-	return stateValue.(pllb.State), nil
+	v, _ := stateValue.(pllb.State)
+
+	return v, nil
 }
 
 // KeyFromHashAndTag builds a state key from a given target state and a docker tag.

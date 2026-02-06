@@ -62,12 +62,12 @@ func (c *cmdStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
 }
 
 func (c *cmdStore) secretNotFound(err error) error {
-	exiterr, ok := err.(*exec.ExitError)
-	if !ok {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
 		return err
 	}
 
-	status, ok := exiterr.Sys().(syscall.WaitStatus)
+	status, ok := exitErr.Sys().(syscall.WaitStatus)
 	if !ok {
 		return err
 	}

@@ -23,7 +23,7 @@ func Parse(s string) (Version, error) {
 	var v Version
 
 	n, err := fmt.Sscanf(s, "%d.%d.%d%s", &v.Major, &v.Minor, &v.Patch, &v.Tail)
-	if err == io.EOF && n == 3 { // no tail case
+	if errors.Is(err, io.EOF) && n == 3 { // no tail case
 		return v, nil
 	}
 

@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )

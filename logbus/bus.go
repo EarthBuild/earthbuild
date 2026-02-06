@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 )
 
 // Subscriber is an object that can receive deltas.

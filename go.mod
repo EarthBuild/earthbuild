@@ -18,7 +18,6 @@ require (
 	github.com/docker/go-connections v0.6.0
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/earthly/cloud-api v1.0.1-0.20240712142419-23b6f0913996
 	github.com/elastic/go-sysinfo v1.15.4
 	github.com/fatih/color v1.18.0
 	github.com/gofrs/flock v0.13.0

@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 )
 
 // WriterSub is a bus subscriber that can print formatted logs to a writer.

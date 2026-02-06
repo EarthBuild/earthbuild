@@ -1,7 +1,7 @@
 package logbus
 
 import (
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 )
 
 // FormattedWriter is a writer that produces DeltaFormattedLog messages.

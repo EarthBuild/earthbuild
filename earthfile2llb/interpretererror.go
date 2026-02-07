@@ -94,8 +94,8 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 		return nil, false
 	}
 
-	ie, ok := err.(*InterpreterError)
-	if ok {
+	var ie *InterpreterError
+	if errors.As(err, &ie) {
 		return ie, true
 	}
 

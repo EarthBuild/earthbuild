@@ -21,7 +21,9 @@ func TestCollection(topT *testing.T) {
 		features *features.Features
 	}
 
-	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
+	o := onpar.New()
+
+	o.BeforeEach(func(t *testing.T) testCtx {
 		t.Helper()
 
 		expect := expect.New(t)
@@ -35,9 +37,9 @@ func TestCollection(topT *testing.T) {
 			features: f,
 		}
 	})
-	defer o.Run()
+	defer o.Run(topT)
 
-	registerBaseSpecs := func(o *onpar.Onpar[testCtx, testCtx]) {
+	registerBaseSpecs := func(o *onpar.Onpar) {
 		// This is a quick and dirty workaround for registering the same specs
 		// with multiple setup/teardown functions. It should be a first class
 		// feature in onpar some day, but for now this will do.
@@ -55,7 +57,7 @@ func TestCollection(topT *testing.T) {
 	}
 
 	o.Group("Defaults", func() {
-		o := onpar.BeforeEach(o, func(tc testCtx) testCtx {
+		o.BeforeEach(func(tc testCtx) testCtx {
 			tc.coll = variables.NewCollection(variables.NewCollectionOpt{
 				PlatformResolver: platutil.NewResolver(specs.Platform{
 					Architecture: "foo",
@@ -77,7 +79,7 @@ func TestCollection(topT *testing.T) {
 	})
 
 	o.Group("ArgScopeSet", func() {
-		o := onpar.BeforeEach(o, func(tc testCtx) testCtx {
+		o.BeforeEach(func(tc testCtx) testCtx {
 			tc.features.ArgScopeSet = true
 			tc.coll = variables.NewCollection(variables.NewCollectionOpt{
 				PlatformResolver: platutil.NewResolver(specs.Platform{

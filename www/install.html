@@ -41,14 +41,17 @@ brew install earth</code></pre>
         <pre><code>curl -fsSL https://www.earthbuild.dev/install.sh | sh</code></pre>
 
         <p>Or install manually:</p>
-        <pre><code># Download the latest release
-curl -LO https://github.com/EarthBuild/earthbuild/releases/latest/download/earth-linux-amd64
+        <pre><code># Set your architecture (e.g., amd64, arm64)
+ARCH=amd64
+
+# Download the latest release for your architecture
+curl -LO "https://github.com/EarthBuild/earthbuild/releases/latest/download/earth-linux-${ARCH}"
 
 # Make it executable
-chmod +x earth-linux-amd64
+chmod +x "earth-linux-${ARCH}"
 
 # Move to your PATH
-sudo mv earth-linux-amd64 /usr/local/bin/earth</code></pre>
+sudo mv "earth-linux-${ARCH}" /usr/local/bin/earth</code></pre>
 
         <h3>Windows (WSL 2)</h3>
         <p>Inside your WSL 2 environment:</p>

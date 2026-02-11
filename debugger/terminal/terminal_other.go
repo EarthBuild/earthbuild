@@ -89,7 +89,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 					break outer
 				}
 			default:
-				console.VerbosePrintf("unhandled terminal data type: %q\n", connDataType)
+				console.VerbosePrintf("unhandled terminal data type: %d\n", connDataType)
 				break outer
 			}
 		}

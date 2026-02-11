@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     permissions:
       contents: read
-      packages: read
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

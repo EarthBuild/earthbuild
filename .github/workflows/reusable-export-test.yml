@@ -25,6 +25,9 @@ jobs:
     name: Export tests
     runs-on: ${{inputs.RUNS_ON}}
     if: ${{ !inputs.SKIP_JOB && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    permissions:
+      contents: read
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

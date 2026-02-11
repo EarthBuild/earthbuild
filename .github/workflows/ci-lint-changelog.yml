@@ -13,6 +13,9 @@ jobs:
   test:
     name: +lint-changelog
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

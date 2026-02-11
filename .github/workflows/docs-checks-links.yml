@@ -13,6 +13,9 @@ concurrency:
 jobs:
   check-broken-links:
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

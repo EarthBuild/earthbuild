@@ -18,7 +18,9 @@ func GetLogger(ctx context.Context) Logger {
 		return Logger{}
 	}
 
-	return v.(Logger) // Note that this panics if not a real Logger.
+	logger, _ := v.(Logger)
+
+	return logger
 }
 
 // With adds logging metadata to the logger within the context.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var errInternal = errors.New("internal")
@@ -69,14 +70,20 @@ func TestReceivers(t *testing.T) {
 	t.Run("test Message", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Equal(t, "internal", err.(*Error).Message())
+		var hintErr *Error
+
+		require.ErrorAs(t, err, &hintErr)
+		assert.Equal(t, "internal", hintErr.Message())
 	})
 
 	t.Run("test Hint", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Equal(t, "internal", err.(*Error).Message())
-		assert.Equal(t, "some hint\nanother hint\n", err.(*Error).Hint())
+		var hintErr *Error
+
+		require.ErrorAs(t, err, &hintErr)
+		assert.Equal(t, "internal", hintErr.Message())
+		assert.Equal(t, "some hint\nanother hint\n", hintErr.Hint())
 	})
 }
 
@@ -94,7 +101,7 @@ func TestFromError(t *testing.T) {
 		},
 		"err is a hint error": {
 			err:                 Wrap(errInternal, "some hint"),
-			expectedErr:         Wrap(errInternal, "some hint\n").(*Error),
+			expectedErr:         wrap(errInternal, "some hint\n"),
 			expectedIsHintError: true,
 		},
 	}
@@ -103,9 +110,8 @@ func TestFromError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			res, isHintErr := FromError(tc.err)
+			res := FromError(tc.err)
 			assert.Equal(t, tc.expectedErr, res)
-			assert.Equal(t, tc.expectedIsHintError, isHintErr)
 		})
 	}
 }

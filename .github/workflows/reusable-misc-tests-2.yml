@@ -38,6 +38,7 @@ jobs:
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
+      EARTHLY_REMOTE_CACHE: "earthly-ghcr-cache,image-manifest=true,oci-mediatypes=true,ref=${{ vars.REMOTE_CACHE_REGISTRY }}"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:

@@ -32,6 +32,9 @@ jobs:
     name: repo auth tests
     if: ${{ !inputs.SKIP_JOB && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ${{inputs.RUNS_ON}}
+    permissions:
+      contents: read
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

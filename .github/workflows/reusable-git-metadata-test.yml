@@ -29,6 +29,9 @@ jobs:
     name: +testing-gha-${{inputs.RUNS_ON}}-${{inputs.BINARY}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
+    permissions:
+      contents: read
+      packages: write
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

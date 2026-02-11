@@ -108,15 +108,6 @@ func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 		return nil, fmt.Errorf("create tracer provider: "+format, args...)
 	}
 
-	// If no exporter is configured, set the exporter to "none".
-	_, ok := os.LookupEnv("OTEL_TRACES_EXPORTER")
-	if !ok {
-		err := os.Setenv("OTEL_TRACES_EXPORTER", "none")
-		if err != nil {
-			return errorf("set OTEL_TRACES_EXPORTER to 'none': %w", err)
-		}
-	}
-
 	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return errorf("create span exporter: %w", err)
@@ -157,15 +148,6 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 		return nil, fmt.Errorf("create meter provider: "+format, args...)
 	}
 
-	// If no exporter is configured, set the exporter to "none".
-	_, ok := os.LookupEnv("OTEL_METRICS_EXPORTER")
-	if !ok {
-		err := os.Setenv("OTEL_METRICS_EXPORTER", "none")
-		if err != nil {
-			return errorf("set OTEL_METRICS_EXPORTER to 'none': %w", err)
-		}
-	}
-
 	reader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
 		return errorf("create metric reader: %w", err)
@@ -191,15 +173,6 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 func newLoggerProvider() (*sdklog.LoggerProvider, error) {
 	errorf := func(format string, args ...any) (*sdklog.LoggerProvider, error) {
 		return nil, fmt.Errorf("create logger provider: "+format, args...)
-	}
-
-	// If no exporter is configured, set the exporter to "none".
-	_, ok := os.LookupEnv("OTEL_LOGS_EXPORTER")
-	if !ok {
-		err := os.Setenv("OTEL_LOGS_EXPORTER", "none")
-		if err != nil {
-			return errorf("set OTEL_LOGS_EXPORTER to 'none': %w", err)
-		}
 	}
 
 	logExporter, err := stdoutlog.New()

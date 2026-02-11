@@ -61,6 +61,7 @@ func main() {
 
 // run executes the CLI and returns an exit code to pass to [os.Exit].
 func run() (code int) {
+	// set up OpenTelemetry
 	ctx := telemetry.WithTraceparent(context.Background())
 
 	shutdown, err := telemetry.Setup(ctx)
@@ -76,6 +77,8 @@ func run() (code int) {
 	defer func() {
 		span.SetAttributes(semconv.ProcessExitCode(code))
 	}()
+
+	// main
 
 	setExportableVars()
 

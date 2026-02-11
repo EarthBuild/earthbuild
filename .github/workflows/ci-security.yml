@@ -6,6 +6,9 @@ on:
       - '**/go.mod'
       - '**/go.sum'
 
+env:
+  EARTHLY_REMOTE_CACHE: "earthly-ghcr-cache,image-manifest=true,oci-mediatypes=true,ref=${{ vars.REMOTE_CACHE_REGISTRY }}"
+
 jobs:
   govulncheck:
     name: Go Vulnerabilities Report

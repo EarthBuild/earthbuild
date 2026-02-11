@@ -12,6 +12,9 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
 
+env:
+  EARTHLY_REMOTE_CACHE: "earthly-ghcr-cache,image-manifest=true,oci-mediatypes=true,ref=${{ vars.REMOTE_CACHE_REGISTRY }}"
+
 jobs:
   build-earthly:
     permissions: write-all

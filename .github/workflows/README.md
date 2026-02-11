@@ -2,6 +2,21 @@
 
 Documentation for this repo GitHub actions configuration
 
+## Earthly remote cache (GHCR)
+
+CI workflows that execute `earthly` set `EARTHLY_REMOTE_CACHE` from the repository Actions variable `REMOTE_CACHE_REGISTRY`.
+
+Set `REMOTE_CACHE_REGISTRY` to a full GHCR image ref used only for cache, for example:
+
+`ghcr.io/earthly/cache/buildkit/earthly:ci`
+
+Permissions required for workflows that write cache:
+
+- `packages: write` to push/update cache layers
+- `packages: read` to pull existing cache layers
+
+For pull requests from forks (where secrets/tokens may be restricted), cache export may fail due to permissions. Cache import from public refs can still work.
+
 ## Skipping PR Workflows (DISABLED! SEE NOTE BELOW)
 
 The following is disabled due to issue https://github.com/orgs/community/discussions/13261.

@@ -19,7 +19,7 @@ This tutorial will walk you through a basic example of using EarthBuild.
 
 ## Installation
 
-We recommend you install EarthBuild on your computer, so you can follow along and try the examples. See the [installation instructions](https://earthly.dev/get-earthly).
+We recommend you install EarthBuild on your computer, so you can follow along and try the examples. See the [installation instructions](https://www.earthbuild.dev/install.html).
 
 ## Questions & Feedback
 

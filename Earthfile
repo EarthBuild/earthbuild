@@ -217,15 +217,13 @@ markdown-spellcheck:
 # mocks runs 'go generate' against this module and saves generated mock files
 # locally.
 mocks:
-    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
-    ENV hel_version=0.6.6
-    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
-    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
-    ENV goimports_version=0.24.1
-    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
+    # renovate: datasource=github-releases packageName=vektra/mockery
+    ENV mockery_version=2.43.2
+    RUN go install github.com/vektra/mockery/v2@v$mockery_version
     COPY --dir +code/earthly /
-    RUN go generate ./...
-    FOR mockfile IN $(find . -name 'helheim*_test.go')
+    COPY .mockery.yaml .
+    RUN mockery
+    FOR mockfile IN $(find . -name 'mock*_test.go')
         SAVE ARTIFACT $mockfile AS LOCAL $mockfile
     END
 

@@ -1,63 +1,75 @@
 package variables_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
 )
 
-func TestScope(topT *testing.T) {
-	topT.Parallel()
+func TestScope(t *testing.T) {
+	t.Parallel()
 
-	type testCtx struct {
-		t      *testing.T
-		expect expect.Expectation
-		scope  *variables.Scope
-	}
+	t.Run("it returns false for unset variables", func(t *testing.T) {
+		t.Parallel()
 
-	o := onpar.BeforeEach(onpar.New(topT), func(t *testing.T) testCtx {
-		t.Helper()
+		scope := variables.NewScope()
 
-		return testCtx{
-			t:      t,
-			expect: expect.New(t),
-			scope:  variables.NewScope(),
+		_, ok := scope.Get("foo")
+		if ok {
+			t.Error("expected Get to return false for unset variable")
 		}
 	})
-	defer o.Run()
 
-	o.Spec("it returns false for unset variables", func(tc testCtx) {
-		_, ok := tc.scope.Get("foo")
-		tc.expect(ok).To(beFalse())
+	t.Run("NoOverride prevents Add from overriding an existing value", func(t *testing.T) {
+		t.Parallel()
+
+		scope := variables.NewScope()
+
+		scope.Add("foo", "bar")
+		scope.Add("foo", "baz", variables.WithActive(), variables.NoOverride())
+
+		v, ok := scope.Get("foo")
+		if !ok {
+			t.Error("expected Get to return true")
+		}
+
+		if v != "bar" {
+			t.Errorf("expected value to be %q, got %q", "bar", v)
+		}
+
+		_, ok = scope.Get("foo", variables.WithActive())
+		if ok {
+			t.Error("expected Get with WithActive to return false")
+		}
 	})
 
-	o.Spec("NoOverride prevents Add from overriding an existing value", func(tc testCtx) {
-		tc.scope.Add("foo", "bar")
-		tc.scope.Add("foo", "baz", variables.WithActive(), variables.NoOverride())
+	t.Run("it returns a sorted list of names", func(t *testing.T) {
+		t.Parallel()
 
-		v, ok := tc.scope.Get("foo")
-		tc.expect(ok).To(beTrue())
-		tc.expect(v).To(equal("bar"))
+		scope := variables.NewScope()
 
-		_, ok = tc.scope.Get("foo", variables.WithActive())
-		tc.expect(ok).To(beFalse())
+		scope.Add("a", "", variables.WithActive())
+		scope.Add("z", "", variables.WithActive())
+		scope.Add("e", "")
+		scope.Add("b", "", variables.WithActive())
+
+		inactive := scope.Sorted()
+
+		expected := []string{"a", "b", "e", "z"}
+		if !reflect.DeepEqual(inactive, expected) {
+			t.Errorf("expected sorted list to be %v, got %v", expected, inactive)
+		}
+
+		active := scope.Sorted(variables.WithActive())
+
+		expectedActive := []string{"a", "b", "z"}
+		if !reflect.DeepEqual(active, expectedActive) {
+			t.Errorf("expected active sorted list to be %v, got %v", expectedActive, active)
+		}
 	})
 
-	o.Spec("it returns a sorted list of names", func(tc testCtx) {
-		tc.scope.Add("a", "", variables.WithActive())
-		tc.scope.Add("z", "", variables.WithActive())
-		tc.scope.Add("e", "")
-		tc.scope.Add("b", "", variables.WithActive())
-
-		inactive := tc.scope.Sorted()
-		tc.expect(inactive).To(equal([]string{"a", "b", "e", "z"}))
-		active := tc.scope.Sorted(variables.WithActive())
-		tc.expect(active).To(equal([]string{"a", "b", "z"}))
-	})
-
-	for _, tt := range []struct {
+	tests := []struct {
 		testName    string
 		name        string
 		value       string
@@ -86,88 +98,167 @@ func TestScope(topT *testing.T) {
 			name:  "bacon",
 			value: "eggs",
 		},
-	} {
-		o.Spec(tt.testName, func(tc testCtx) {
-			ok := tc.scope.Add(tt.name, tt.value)
-			tc.expect(ok).To(beTrue())
+	}
 
-			for _, opt := range tt.useOpts {
-				_, ok = tc.scope.Get(tt.name, opt)
-				tc.expect(ok).To(beFalse())
-				ok = tc.scope.Add(tt.name, tt.value, opt, variables.NoOverride())
-				tc.expect(ok).To(beFalse())
-				ok = tc.scope.Add(tt.name, tt.value, opt)
-				tc.expect(ok).To(beTrue())
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			scope := variables.NewScope()
+
+			ok := scope.Add(tt.name, tt.value)
+
+			if !ok {
+				t.Error("expected Add to return true")
 			}
 
-			value, ok := tc.scope.Get(tt.name)
-			tc.expect(ok).To(beTrue())
-			tc.expect(value).To(equal(tt.value))
+			for _, opt := range tt.useOpts {
+				_, ok = scope.Get(tt.name, opt)
+
+				if ok {
+					t.Error("expected Get with opt to return false before adding with opt")
+				}
+
+				ok = scope.Add(tt.name, tt.value, opt, variables.NoOverride())
+
+				if ok {
+					t.Error("expected Add with NoOverride to return false")
+				}
+
+				ok = scope.Add(tt.name, tt.value, opt)
+
+				if !ok {
+					t.Error("expected Add with opt to return true")
+				}
+			}
+
+			value, ok := scope.Get(tt.name)
+
+			if !ok {
+				t.Error("expected Get to return true")
+			}
+
+			if value != tt.value {
+				t.Errorf("expected value to be %q, got %q", tt.value, value)
+			}
 
 			for _, opt := range tt.useOpts {
-				value, ok = tc.scope.Get(tt.name, opt)
-				tc.expect(ok).To(beTrue())
-				tc.expect(value).To(equal(tt.value))
+				value, ok = scope.Get(tt.name, opt)
 
-				m := tc.scope.Map(opt)
+				if !ok {
+					t.Error("expected Get with opt to return true")
+				}
+
+				if value != tt.value {
+					t.Errorf("expected value with opt to be %q, got %q", tt.value, value)
+				}
+
+				m := scope.Map(opt)
+
 				value, ok = m[tt.name]
-				tc.expect(ok).To(beTrue())
-				tc.expect(value).To(equal(tt.value))
+
+				if !ok {
+					t.Error("expected map to contain name")
+				}
+
+				if value != tt.value {
+					t.Errorf("expected map value to be %q, got %q", tt.value, value)
+				}
 			}
 
 			for _, opt := range tt.failGetOpts {
-				_, ok = tc.scope.Get(tt.name, opt)
-				tc.expect(ok).To(beFalse())
+				_, ok = scope.Get(tt.name, opt)
 
-				m := tc.scope.Map(opt)
+				if ok {
+					t.Error("expected Get with failGetOpt to return false")
+				}
+
+				m := scope.Map(opt)
+
 				_, ok = m[tt.name]
-				tc.expect(ok).To(beFalse())
+				if ok {
+					t.Error("expected map with failGetOpt to not contain name")
+				}
 			}
 
-			clone := tc.scope.Clone()
+			clone := scope.Clone()
+
 			value, ok = clone.Get(tt.name)
-			tc.expect(ok).To(beTrue())
-			tc.expect(value).To(equal(tt.value))
+			if !ok {
+				t.Error("expected cloned Get to return true")
+			}
+
+			if value != tt.value {
+				t.Errorf("expected cloned value to be %q, got %q", tt.value, value)
+			}
 
 			for _, opt := range tt.useOpts {
 				value, ok = clone.Get(tt.name, opt)
-				tc.expect(ok).To(beTrue())
-				tc.expect(value).To(equal(tt.value))
+
+				if !ok {
+					t.Error("expected cloned Get with opt to return true")
+				}
+
+				if value != tt.value {
+					t.Errorf("expected cloned value with opt to be %q, got %q", tt.value, value)
+				}
 			}
 
-			tc.scope.Remove(tt.name)
-			tc.scope.Add(tt.name, tt.value)
+			scope.Remove(tt.name)
+			scope.Add(tt.name, tt.value)
 
 			for _, opt := range tt.useOpts {
-				_, ok := tc.scope.Get(tt.name, opt)
-				tc.expect(ok).To(beFalse())
+				_, ok := scope.Get(tt.name, opt)
+				if ok {
+					t.Error("expected Get with opt to return false after Remove")
+				}
 			}
 		})
 	}
 
-	o.Group("CombineScopes", func() {
-		o.Spec("it prefers left values", func(tc testCtx) {
-			tc.scope.Add("a", "b")
+	t.Run("CombineScopes", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("it prefers left values", func(t *testing.T) {
+			t.Parallel()
+
+			scope := variables.NewScope()
+			scope.Add("a", "b")
 
 			other := variables.NewScope()
 			other.Add("a", "c")
 
-			c := variables.CombineScopes(tc.scope, other)
+			c := variables.CombineScopes(scope, other)
+
 			v, ok := c.Get("a")
-			tc.expect(ok).To(beTrue())
-			tc.expect(v).To(equal("b"))
+			if !ok {
+				t.Error("expected Get to return true")
+			}
+
+			if v != "b" {
+				t.Errorf("expected value to be %q, got %q", "b", v)
+			}
 		})
 
-		o.Spec("it prefers active to inactive values", func(tc testCtx) {
-			tc.scope.Add("active", "b")
+		t.Run("it prefers active to inactive values", func(t *testing.T) {
+			t.Parallel()
+
+			scope := variables.NewScope()
+			scope.Add("active", "b")
 
 			other := variables.NewScope()
 			other.Add("active", "d", variables.WithActive())
 
-			c := variables.CombineScopes(tc.scope, other)
+			c := variables.CombineScopes(scope, other)
+
 			env, ok := c.Get("active")
-			tc.expect(ok).To(beTrue())
-			tc.expect(env).To(equal("d"))
+			if !ok {
+				t.Error("expected Get to return true")
+			}
+
+			if env != "d" {
+				t.Errorf("expected value to be %q, got %q", "d", env)
+			}
 		})
 	})
 }

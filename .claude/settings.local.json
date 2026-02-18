@@ -11,7 +11,9 @@
       "Bash(earthly +earthly-linux-amd64:*)",
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "WebFetch(domain:earthly.dev)",
+      "Bash(gh issue view:*)"
     ]
   }
 }

@@ -2676,12 +2676,13 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		// Debugger.
 		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
 		if err != nil {
-			switch errors.Cause(err).(type) {
-			case *apicaps.CapError:
+			var capErr *apicaps.CapError
+
+			if errors.As(err, &capErr) {
 				if c.opt.InteractiveDebuggerEnabled || isInteractive {
 					return pllb.State{}, errors.Wrap(err, "interactive debugger requires a newer version of buildkit")
 				}
-			default:
+			} else {
 				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
 			}
 		} else {

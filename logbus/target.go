@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 )
 
 // Target is a delta generator for a target.

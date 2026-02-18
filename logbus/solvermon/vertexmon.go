@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/earthly/cloud-api/logstream"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
 )

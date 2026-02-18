@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	pb "github.com/earthly/cloud-api/logstream"
+	pb "github.com/EarthBuild/earthbuild/logstream"
 	"google.golang.org/protobuf/proto"
 )
 

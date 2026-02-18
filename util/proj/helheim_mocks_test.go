@@ -9,359 +9,519 @@ package proj_test
 
 import (
 	"context"
+	"git.sr.ht/~nelsam/hel/pkg/pers"
+	"git.sr.ht/~nelsam/hel/vegr"
+	"github.com/EarthBuild/earthbuild/util/proj"
 	"io"
 	"io/fs"
 	"time"
-
-	"git.sr.ht/~nelsam/hel/vegr"
-	"github.com/EarthBuild/earthbuild/util/proj"
 )
 
+var (
+	_ = vegr.EnforceVersion(7 - vegr.MinVersion)
+	_ = vegr.EnforceVersion(vegr.MaxVersion - 7)
+)
+
+type mockFS_Open_In struct {
+	Name string
+}
+
+func (mockFS_Open_In) Variadic() bool {
+	return false
+}
+
+type mockFS_Open_Out struct {
+	Panic_ any
+	Ret0   fs.File
+	Ret1   error
+}
+type mockFS_Open struct {
+	vegr.Method[mockFS_Open_In, mockFS_Open_Out]
+}
+type mockFS_Stat_In struct {
+	Name string
+}
+
+func (mockFS_Stat_In) Variadic() bool {
+	return false
+}
+
+type mockFS_Stat_Out struct {
+	Panic_ any
+	Ret0   fs.FileInfo
+	Ret1   error
+}
+type mockFS_Stat struct {
+	vegr.Method[mockFS_Stat_In, mockFS_Stat_Out]
+}
 type mockFS struct {
-	t          vegr.T
-	timeout    time.Duration
-	OpenCalled chan bool
-	OpenInput  struct {
-		Name chan string
-	}
-	OpenOutput struct {
-		Ret0 chan fs.File
-		Ret1 chan error
-	}
-	StatCalled chan bool
-	StatInput  struct {
-		Name chan string
-	}
-	StatOutput struct {
-		Ret0 chan fs.FileInfo
-		Ret1 chan error
+	prefs  vegr.Prefs
+	method struct {
+		Open mockFS_Open
+		Stat mockFS_Stat
 	}
 }
 
-func newMockFS(t vegr.T, timeout time.Duration) *mockFS {
-	m := &mockFS{t: t, timeout: timeout}
-	m.OpenCalled = make(chan bool, 100)
-	m.OpenInput.Name = make(chan string, 100)
-	m.OpenOutput.Ret0 = make(chan fs.File, 100)
-	m.OpenOutput.Ret1 = make(chan error, 100)
-	m.StatCalled = make(chan bool, 100)
-	m.StatInput.Name = make(chan string, 100)
-	m.StatOutput.Ret0 = make(chan fs.FileInfo, 100)
-	m.StatOutput.Ret1 = make(chan error, 100)
+func newMockFS(cst pers.Constructor) *mockFS {
+	m := &mockFS{prefs: vegr.MakePrefs(cst)}
+	m.method.Open.Method = vegr.NewMethod[mockFS_Open_In, mockFS_Open_Out]("mockFS", "Open", 100, vegr.WithPrefs(m.prefs))
+	m.method.Stat.Method = vegr.NewMethod[mockFS_Stat_In, mockFS_Stat_Out]("mockFS", "Stat", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
 func (m *mockFS) Open(name string) (ret0 fs.File, ret1 error) {
-	m.t.Helper()
-	m.OpenCalled <- true
-	m.OpenInput.Name <- name
-	vegr.PopulateReturns(m.t, "Open", m.timeout, m.OpenOutput, &ret0, &ret1)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Open, mockFS_Open_In{Name: name}, &ret0, &ret1)
 	return ret0, ret1
 }
 func (m *mockFS) Stat(name string) (ret0 fs.FileInfo, ret1 error) {
-	m.t.Helper()
-	m.StatCalled <- true
-	m.StatInput.Name <- name
-	vegr.PopulateReturns(m.t, "Stat", m.timeout, m.StatOutput, &ret0, &ret1)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Stat, mockFS_Stat_In{Name: name}, &ret0, &ret1)
 	return ret0, ret1
 }
 
-type mockCmd struct {
-	t         vegr.T
-	timeout   time.Duration
-	RunCalled chan bool
-	RunInput  struct {
-		Ctx chan context.Context
-	}
-	RunOutput struct {
-		Stdout, Stderr chan io.Reader
-		Ret1           chan error
-	}
+type mockFile_Stat_In struct {
 }
 
-func newMockCmd(t vegr.T, timeout time.Duration) *mockCmd {
-	m := &mockCmd{t: t, timeout: timeout}
-	m.RunCalled = make(chan bool, 100)
-	m.RunInput.Ctx = make(chan context.Context, 100)
-	m.RunOutput.Stdout = make(chan io.Reader, 100)
-	m.RunOutput.Stderr = make(chan io.Reader, 100)
-	m.RunOutput.Ret1 = make(chan error, 100)
-	return m
-}
-func (m *mockCmd) Run(ctx context.Context) (stdout, stderr io.Reader, ret1 error) {
-	m.t.Helper()
-	m.RunCalled <- true
-	m.RunInput.Ctx <- ctx
-	vegr.PopulateReturns(m.t, "Run", m.timeout, m.RunOutput, &stdout, &stderr, &ret1)
-	return stdout, stderr, ret1
+func (mockFile_Stat_In) Variadic() bool {
+	return false
 }
 
-type mockExecer struct {
-	t             vegr.T
-	timeout       time.Duration
-	CommandCalled chan bool
-	CommandInput  struct {
-		Name chan string
-		Args chan []string
-	}
-	CommandOutput struct {
-		Ret0 chan proj.Cmd
-	}
+type mockFile_Stat_Out struct {
+	Panic_ any
+	Ret0   fs.FileInfo
+	Ret1   error
+}
+type mockFile_Stat struct {
+	vegr.Method[mockFile_Stat_In, mockFile_Stat_Out]
+}
+type mockFile_Read_In struct {
+	Arg0 []byte
 }
 
-func newMockExecer(t vegr.T, timeout time.Duration) *mockExecer {
-	m := &mockExecer{t: t, timeout: timeout}
-	m.CommandCalled = make(chan bool, 100)
-	m.CommandInput.Name = make(chan string, 100)
-	m.CommandInput.Args = make(chan []string, 100)
-	m.CommandOutput.Ret0 = make(chan proj.Cmd, 100)
-	return m
-}
-func (m *mockExecer) Command(name string, args ...string) (ret0 proj.Cmd) {
-	m.t.Helper()
-	m.CommandCalled <- true
-	m.CommandInput.Name <- name
-	m.CommandInput.Args <- args
-	vegr.PopulateReturns(m.t, "Command", m.timeout, m.CommandOutput, &ret0)
-	return ret0
+func (mockFile_Read_In) Variadic() bool {
+	return false
 }
 
-type mockProject struct {
-	t       vegr.T
-	timeout time.Duration
+type mockFile_Read_Out struct {
+	Panic_ any
+	Ret0   int
+	Ret1   error
+}
+type mockFile_Read struct {
+	vegr.Method[mockFile_Read_In, mockFile_Read_Out]
+}
+type mockFile_Close_In struct {
 }
 
-func newMockProject(t vegr.T, timeout time.Duration) *mockProject {
-	m := &mockProject{t: t, timeout: timeout}
-	return m
+func (mockFile_Close_In) Variadic() bool {
+	return false
 }
 
-type mockFileInfo struct {
-	t          vegr.T
-	timeout    time.Duration
-	NameCalled chan bool
-	NameOutput struct {
-		Ret0 chan string
-	}
-	SizeCalled chan bool
-	SizeOutput struct {
-		Ret0 chan int64
-	}
-	ModeCalled chan bool
-	ModeOutput struct {
-		Ret0 chan fs.FileMode
-	}
-	ModTimeCalled chan bool
-	ModTimeOutput struct {
-		Ret0 chan time.Time
-	}
-	IsDirCalled chan bool
-	IsDirOutput struct {
-		Ret0 chan bool
-	}
-	SysCalled chan bool
-	SysOutput struct {
-		Ret0 chan any
-	}
+type mockFile_Close_Out struct {
+	Panic_ any
+	Ret0   error
 }
-
-func newMockFileInfo(t vegr.T, timeout time.Duration) *mockFileInfo {
-	m := &mockFileInfo{t: t, timeout: timeout}
-	m.NameCalled = make(chan bool, 100)
-	m.NameOutput.Ret0 = make(chan string, 100)
-	m.SizeCalled = make(chan bool, 100)
-	m.SizeOutput.Ret0 = make(chan int64, 100)
-	m.ModeCalled = make(chan bool, 100)
-	m.ModeOutput.Ret0 = make(chan fs.FileMode, 100)
-	m.ModTimeCalled = make(chan bool, 100)
-	m.ModTimeOutput.Ret0 = make(chan time.Time, 100)
-	m.IsDirCalled = make(chan bool, 100)
-	m.IsDirOutput.Ret0 = make(chan bool, 100)
-	m.SysCalled = make(chan bool, 100)
-	m.SysOutput.Ret0 = make(chan any, 100)
-	return m
+type mockFile_Close struct {
+	vegr.Method[mockFile_Close_In, mockFile_Close_Out]
 }
-func (m *mockFileInfo) Name() (ret0 string) {
-	m.t.Helper()
-	m.NameCalled <- true
-	vegr.PopulateReturns(m.t, "Name", m.timeout, m.NameOutput, &ret0)
-	return ret0
-}
-func (m *mockFileInfo) Size() (ret0 int64) {
-	m.t.Helper()
-	m.SizeCalled <- true
-	vegr.PopulateReturns(m.t, "Size", m.timeout, m.SizeOutput, &ret0)
-	return ret0
-}
-func (m *mockFileInfo) Mode() (ret0 fs.FileMode) {
-	m.t.Helper()
-	m.ModeCalled <- true
-	vegr.PopulateReturns(m.t, "Mode", m.timeout, m.ModeOutput, &ret0)
-	return ret0
-}
-func (m *mockFileInfo) ModTime() (ret0 time.Time) {
-	m.t.Helper()
-	m.ModTimeCalled <- true
-	vegr.PopulateReturns(m.t, "ModTime", m.timeout, m.ModTimeOutput, &ret0)
-	return ret0
-}
-func (m *mockFileInfo) IsDir() (ret0 bool) {
-	m.t.Helper()
-	m.IsDirCalled <- true
-	vegr.PopulateReturns(m.t, "IsDir", m.timeout, m.IsDirOutput, &ret0)
-	return ret0
-}
-func (m *mockFileInfo) Sys() (ret0 any) {
-	m.t.Helper()
-	m.SysCalled <- true
-	vegr.PopulateReturns(m.t, "Sys", m.timeout, m.SysOutput, &ret0)
-	return ret0
-}
-
 type mockFile struct {
-	t          vegr.T
-	timeout    time.Duration
-	StatCalled chan bool
-	StatOutput struct {
-		Ret0 chan fs.FileInfo
-		Ret1 chan error
-	}
-	ReadCalled chan bool
-	ReadInput  struct {
-		Arg0 chan []byte
-	}
-	ReadOutput struct {
-		Ret0 chan int
-		Ret1 chan error
-	}
-	CloseCalled chan bool
-	CloseOutput struct {
-		Ret0 chan error
+	prefs  vegr.Prefs
+	method struct {
+		Stat  mockFile_Stat
+		Read  mockFile_Read
+		Close mockFile_Close
 	}
 }
 
-func newMockFile(t vegr.T, timeout time.Duration) *mockFile {
-	m := &mockFile{t: t, timeout: timeout}
-	m.StatCalled = make(chan bool, 100)
-	m.StatOutput.Ret0 = make(chan fs.FileInfo, 100)
-	m.StatOutput.Ret1 = make(chan error, 100)
-	m.ReadCalled = make(chan bool, 100)
-	m.ReadInput.Arg0 = make(chan []byte, 100)
-	m.ReadOutput.Ret0 = make(chan int, 100)
-	m.ReadOutput.Ret1 = make(chan error, 100)
-	m.CloseCalled = make(chan bool, 100)
-	m.CloseOutput.Ret0 = make(chan error, 100)
+func newMockFile(cst pers.Constructor) *mockFile {
+	m := &mockFile{prefs: vegr.MakePrefs(cst)}
+	m.method.Stat.Method = vegr.NewMethod[mockFile_Stat_In, mockFile_Stat_Out]("mockFile", "Stat", 100, vegr.WithPrefs(m.prefs))
+	m.method.Read.Method = vegr.NewMethod[mockFile_Read_In, mockFile_Read_Out]("mockFile", "Read", 100, vegr.WithPrefs(m.prefs))
+	m.method.Close.Method = vegr.NewMethod[mockFile_Close_In, mockFile_Close_Out]("mockFile", "Close", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
 func (m *mockFile) Stat() (ret0 fs.FileInfo, ret1 error) {
-	m.t.Helper()
-	m.StatCalled <- true
-	vegr.PopulateReturns(m.t, "Stat", m.timeout, m.StatOutput, &ret0, &ret1)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Stat, mockFile_Stat_In{}, &ret0, &ret1)
 	return ret0, ret1
 }
 func (m *mockFile) Read(arg0 []byte) (ret0 int, ret1 error) {
-	m.t.Helper()
-	m.ReadCalled <- true
-	m.ReadInput.Arg0 <- arg0
-	vegr.PopulateReturns(m.t, "Read", m.timeout, m.ReadOutput, &ret0, &ret1)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Read, mockFile_Read_In{Arg0: arg0}, &ret0, &ret1)
 	return ret0, ret1
 }
 func (m *mockFile) Close() (ret0 error) {
-	m.t.Helper()
-	m.CloseCalled <- true
-	vegr.PopulateReturns(m.t, "Close", m.timeout, m.CloseOutput, &ret0)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Close, mockFile_Close_In{}, &ret0)
 	return ret0
 }
 
-type mockContext struct {
-	t              vegr.T
-	timeout        time.Duration
-	DeadlineCalled chan bool
-	DeadlineOutput struct {
-		Deadline chan time.Time
-		Ok       chan bool
-	}
-	DoneCalled chan bool
-	DoneOutput struct {
-		Ret0 chan (<-chan struct{})
-	}
-	ErrCalled chan bool
-	ErrOutput struct {
-		Ret0 chan error
-	}
-	ValueCalled chan bool
-	ValueInput  struct {
-		Key chan any
-	}
-	ValueOutput struct {
-		Ret0 chan any
+type mockFileInfo_Name_In struct {
+}
+
+func (mockFileInfo_Name_In) Variadic() bool {
+	return false
+}
+
+type mockFileInfo_Name_Out struct {
+	Panic_ any
+	Ret0   string
+}
+type mockFileInfo_Name struct {
+	vegr.Method[mockFileInfo_Name_In, mockFileInfo_Name_Out]
+}
+type mockFileInfo_Size_In struct {
+}
+
+func (mockFileInfo_Size_In) Variadic() bool {
+	return false
+}
+
+type mockFileInfo_Size_Out struct {
+	Panic_ any
+	Ret0   int64
+}
+type mockFileInfo_Size struct {
+	vegr.Method[mockFileInfo_Size_In, mockFileInfo_Size_Out]
+}
+type mockFileInfo_Mode_In struct {
+}
+
+func (mockFileInfo_Mode_In) Variadic() bool {
+	return false
+}
+
+type mockFileInfo_Mode_Out struct {
+	Panic_ any
+	Ret0   fs.FileMode
+}
+type mockFileInfo_Mode struct {
+	vegr.Method[mockFileInfo_Mode_In, mockFileInfo_Mode_Out]
+}
+type mockFileInfo_ModTime_In struct {
+}
+
+func (mockFileInfo_ModTime_In) Variadic() bool {
+	return false
+}
+
+type mockFileInfo_ModTime_Out struct {
+	Panic_ any
+	Ret0   time.Time
+}
+type mockFileInfo_ModTime struct {
+	vegr.Method[mockFileInfo_ModTime_In, mockFileInfo_ModTime_Out]
+}
+type mockFileInfo_IsDir_In struct {
+}
+
+func (mockFileInfo_IsDir_In) Variadic() bool {
+	return false
+}
+
+type mockFileInfo_IsDir_Out struct {
+	Panic_ any
+	Ret0   bool
+}
+type mockFileInfo_IsDir struct {
+	vegr.Method[mockFileInfo_IsDir_In, mockFileInfo_IsDir_Out]
+}
+type mockFileInfo_Sys_In struct {
+}
+
+func (mockFileInfo_Sys_In) Variadic() bool {
+	return false
+}
+
+type mockFileInfo_Sys_Out struct {
+	Panic_ any
+	Ret0   any
+}
+type mockFileInfo_Sys struct {
+	vegr.Method[mockFileInfo_Sys_In, mockFileInfo_Sys_Out]
+}
+type mockFileInfo struct {
+	prefs  vegr.Prefs
+	method struct {
+		Name    mockFileInfo_Name
+		Size    mockFileInfo_Size
+		Mode    mockFileInfo_Mode
+		ModTime mockFileInfo_ModTime
+		IsDir   mockFileInfo_IsDir
+		Sys     mockFileInfo_Sys
 	}
 }
 
-func newMockContext(t vegr.T, timeout time.Duration) *mockContext {
-	m := &mockContext{t: t, timeout: timeout}
-	m.DeadlineCalled = make(chan bool, 100)
-	m.DeadlineOutput.Deadline = make(chan time.Time, 100)
-	m.DeadlineOutput.Ok = make(chan bool, 100)
-	m.DoneCalled = make(chan bool, 100)
-	m.DoneOutput.Ret0 = make(chan (<-chan struct{}), 100)
-	m.ErrCalled = make(chan bool, 100)
-	m.ErrOutput.Ret0 = make(chan error, 100)
-	m.ValueCalled = make(chan bool, 100)
-	m.ValueInput.Key = make(chan any, 100)
-	m.ValueOutput.Ret0 = make(chan any, 100)
+func newMockFileInfo(cst pers.Constructor) *mockFileInfo {
+	m := &mockFileInfo{prefs: vegr.MakePrefs(cst)}
+	m.method.Name.Method = vegr.NewMethod[mockFileInfo_Name_In, mockFileInfo_Name_Out]("mockFileInfo", "Name", 100, vegr.WithPrefs(m.prefs))
+	m.method.Size.Method = vegr.NewMethod[mockFileInfo_Size_In, mockFileInfo_Size_Out]("mockFileInfo", "Size", 100, vegr.WithPrefs(m.prefs))
+	m.method.Mode.Method = vegr.NewMethod[mockFileInfo_Mode_In, mockFileInfo_Mode_Out]("mockFileInfo", "Mode", 100, vegr.WithPrefs(m.prefs))
+	m.method.ModTime.Method = vegr.NewMethod[mockFileInfo_ModTime_In, mockFileInfo_ModTime_Out]("mockFileInfo", "ModTime", 100, vegr.WithPrefs(m.prefs))
+	m.method.IsDir.Method = vegr.NewMethod[mockFileInfo_IsDir_In, mockFileInfo_IsDir_Out]("mockFileInfo", "IsDir", 100, vegr.WithPrefs(m.prefs))
+	m.method.Sys.Method = vegr.NewMethod[mockFileInfo_Sys_In, mockFileInfo_Sys_Out]("mockFileInfo", "Sys", 100, vegr.WithPrefs(m.prefs))
+	return m
+}
+func (m *mockFileInfo) Name() (ret0 string) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Name, mockFileInfo_Name_In{}, &ret0)
+	return ret0
+}
+func (m *mockFileInfo) Size() (ret0 int64) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Size, mockFileInfo_Size_In{}, &ret0)
+	return ret0
+}
+func (m *mockFileInfo) Mode() (ret0 fs.FileMode) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Mode, mockFileInfo_Mode_In{}, &ret0)
+	return ret0
+}
+func (m *mockFileInfo) ModTime() (ret0 time.Time) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.ModTime, mockFileInfo_ModTime_In{}, &ret0)
+	return ret0
+}
+func (m *mockFileInfo) IsDir() (ret0 bool) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.IsDir, mockFileInfo_IsDir_In{}, &ret0)
+	return ret0
+}
+func (m *mockFileInfo) Sys() (ret0 any) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Sys, mockFileInfo_Sys_In{}, &ret0)
+	return ret0
+}
+
+type mockExecer_Command_In struct {
+	Name string
+	Args []string
+}
+
+func (mockExecer_Command_In) Variadic() bool {
+	return true
+}
+
+type mockExecer_Command_Out struct {
+	Panic_ any
+	Ret0   proj.Cmd
+}
+type mockExecer_Command struct {
+	vegr.Method[mockExecer_Command_In, mockExecer_Command_Out]
+}
+type mockExecer struct {
+	prefs  vegr.Prefs
+	method struct {
+		Command mockExecer_Command
+	}
+}
+
+func newMockExecer(cst pers.Constructor) *mockExecer {
+	m := &mockExecer{prefs: vegr.MakePrefs(cst)}
+	m.method.Command.Method = vegr.NewMethod[mockExecer_Command_In, mockExecer_Command_Out]("mockExecer", "Command", 100, vegr.WithPrefs(m.prefs))
+	return m
+}
+func (m *mockExecer) Command(name string, args ...string) (ret0 proj.Cmd) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Command, mockExecer_Command_In{Name: name, Args: args}, &ret0)
+	return ret0
+}
+
+type mockCmd_Run_In struct {
+	Ctx context.Context
+}
+
+func (mockCmd_Run_In) Variadic() bool {
+	return false
+}
+
+type mockCmd_Run_Out struct {
+	Panic_         any
+	Stdout, Stderr io.Reader
+	Ret1           error
+}
+type mockCmd_Run struct {
+	vegr.Method[mockCmd_Run_In, mockCmd_Run_Out]
+}
+type mockCmd struct {
+	prefs  vegr.Prefs
+	method struct {
+		Run mockCmd_Run
+	}
+}
+
+func newMockCmd(cst pers.Constructor) *mockCmd {
+	m := &mockCmd{prefs: vegr.MakePrefs(cst)}
+	m.method.Run.Method = vegr.NewMethod[mockCmd_Run_In, mockCmd_Run_Out]("mockCmd", "Run", 100, vegr.WithPrefs(m.prefs))
+	return m
+}
+func (m *mockCmd) Run(ctx context.Context) (stdout, stderr io.Reader, ret1 error) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Run, mockCmd_Run_In{Ctx: ctx}, &stdout, &stderr, &ret1)
+	return stdout, stderr, ret1
+}
+
+type mockContext_Deadline_In struct {
+}
+
+func (mockContext_Deadline_In) Variadic() bool {
+	return false
+}
+
+type mockContext_Deadline_Out struct {
+	Panic_   any
+	Deadline time.Time
+	Ok       bool
+}
+type mockContext_Deadline struct {
+	vegr.Method[mockContext_Deadline_In, mockContext_Deadline_Out]
+}
+type mockContext_Done_In struct {
+}
+
+func (mockContext_Done_In) Variadic() bool {
+	return false
+}
+
+type mockContext_Done_Out struct {
+	Panic_ any
+	Ret0   <-chan struct{}
+}
+type mockContext_Done struct {
+	vegr.Method[mockContext_Done_In, mockContext_Done_Out]
+}
+type mockContext_Err_In struct {
+}
+
+func (mockContext_Err_In) Variadic() bool {
+	return false
+}
+
+type mockContext_Err_Out struct {
+	Panic_ any
+	Ret0   error
+}
+type mockContext_Err struct {
+	vegr.Method[mockContext_Err_In, mockContext_Err_Out]
+}
+type mockContext_Value_In struct {
+	Key any
+}
+
+func (mockContext_Value_In) Variadic() bool {
+	return false
+}
+
+type mockContext_Value_Out struct {
+	Panic_ any
+	Ret0   any
+}
+type mockContext_Value struct {
+	vegr.Method[mockContext_Value_In, mockContext_Value_Out]
+}
+type mockContext struct {
+	prefs  vegr.Prefs
+	method struct {
+		Deadline mockContext_Deadline
+		Done     mockContext_Done
+		Err      mockContext_Err
+		Value    mockContext_Value
+	}
+}
+
+func newMockContext(cst pers.Constructor) *mockContext {
+	m := &mockContext{prefs: vegr.MakePrefs(cst)}
+	m.method.Deadline.Method = vegr.NewMethod[mockContext_Deadline_In, mockContext_Deadline_Out]("mockContext", "Deadline", 100, vegr.WithPrefs(m.prefs))
+	m.method.Done.Method = vegr.NewMethod[mockContext_Done_In, mockContext_Done_Out]("mockContext", "Done", 100, vegr.WithPrefs(m.prefs))
+	m.method.Err.Method = vegr.NewMethod[mockContext_Err_In, mockContext_Err_Out]("mockContext", "Err", 100, vegr.WithPrefs(m.prefs))
+	m.method.Value.Method = vegr.NewMethod[mockContext_Value_In, mockContext_Value_Out]("mockContext", "Value", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
 func (m *mockContext) Deadline() (deadline time.Time, ok bool) {
-	m.t.Helper()
-	m.DeadlineCalled <- true
-	vegr.PopulateReturns(m.t, "Deadline", m.timeout, m.DeadlineOutput, &deadline, &ok)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Deadline, mockContext_Deadline_In{}, &deadline, &ok)
 	return deadline, ok
 }
 func (m *mockContext) Done() (ret0 <-chan struct{}) {
-	m.t.Helper()
-	m.DoneCalled <- true
-	vegr.PopulateReturns(m.t, "Done", m.timeout, m.DoneOutput, &ret0)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Done, mockContext_Done_In{}, &ret0)
 	return ret0
 }
 func (m *mockContext) Err() (ret0 error) {
-	m.t.Helper()
-	m.ErrCalled <- true
-	vegr.PopulateReturns(m.t, "Err", m.timeout, m.ErrOutput, &ret0)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Err, mockContext_Err_In{}, &ret0)
 	return ret0
 }
 func (m *mockContext) Value(key any) (ret0 any) {
-	m.t.Helper()
-	m.ValueCalled <- true
-	m.ValueInput.Key <- key
-	vegr.PopulateReturns(m.t, "Value", m.timeout, m.ValueOutput, &ret0)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Value, mockContext_Value_In{Key: key}, &ret0)
 	return ret0
 }
 
+type mockReader_Read_In struct {
+	P []byte
+}
+
+func (mockReader_Read_In) Variadic() bool {
+	return false
+}
+
+type mockReader_Read_Out struct {
+	Panic_ any
+	N      int
+	Err    error
+}
+type mockReader_Read struct {
+	vegr.Method[mockReader_Read_In, mockReader_Read_Out]
+}
 type mockReader struct {
-	t          vegr.T
-	timeout    time.Duration
-	ReadCalled chan bool
-	ReadInput  struct {
-		P chan []byte
-	}
-	ReadOutput struct {
-		N   chan int
-		Err chan error
+	prefs  vegr.Prefs
+	method struct {
+		Read mockReader_Read
 	}
 }
 
-func newMockReader(t vegr.T, timeout time.Duration) *mockReader {
-	m := &mockReader{t: t, timeout: timeout}
-	m.ReadCalled = make(chan bool, 100)
-	m.ReadInput.P = make(chan []byte, 100)
-	m.ReadOutput.N = make(chan int, 100)
-	m.ReadOutput.Err = make(chan error, 100)
+func newMockReader(cst pers.Constructor) *mockReader {
+	m := &mockReader{prefs: vegr.MakePrefs(cst)}
+	m.method.Read.Method = vegr.NewMethod[mockReader_Read_In, mockReader_Read_Out]("mockReader", "Read", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
 func (m *mockReader) Read(p []byte) (n int, err error) {
-	m.t.Helper()
-	m.ReadCalled <- true
-	m.ReadInput.P <- p
-	vegr.PopulateReturns(m.t, "Read", m.timeout, m.ReadOutput, &n, &err)
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Read, mockReader_Read_In{P: p}, &n, &err)
+	return n, err
+}
+
+type mockWriter_Write_In struct {
+	P []byte
+}
+
+func (mockWriter_Write_In) Variadic() bool {
+	return false
+}
+
+type mockWriter_Write_Out struct {
+	Panic_ any
+	N      int
+	Err    error
+}
+type mockWriter_Write struct {
+	vegr.Method[mockWriter_Write_In, mockWriter_Write_Out]
+}
+type mockWriter struct {
+	prefs  vegr.Prefs
+	method struct {
+		Write mockWriter_Write
+	}
+}
+
+func newMockWriter(cst pers.Constructor) *mockWriter {
+	m := &mockWriter{prefs: vegr.MakePrefs(cst)}
+	m.method.Write.Method = vegr.NewMethod[mockWriter_Write_In, mockWriter_Write_Out]("mockWriter", "Write", 100, vegr.WithPrefs(m.prefs))
+	return m
+}
+func (m *mockWriter) Write(p []byte) (n int, err error) {
+	m.prefs.T().Helper()
+	vegr.Perform(m.prefs.T(), m.method.Write, mockWriter_Write_In{P: p}, &n, &err)
 	return n, err
 }

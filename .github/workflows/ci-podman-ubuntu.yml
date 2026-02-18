@@ -16,6 +16,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   # this job will output a boolean value to check whether files that require these tests to run
   # since all jobs depend on `build-earthly` job, conditionally running it will either cause all jobs to run or skip,

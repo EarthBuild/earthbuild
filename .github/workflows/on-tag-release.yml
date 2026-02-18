@@ -4,12 +4,16 @@ on:
     release:
         types: [published]
 
+env:
+    EARTHLY_REMOTE_CACHE: "earthly-ghcr-cache,image-manifest=true,oci-mediatypes=true,ref=${{ vars.REMOTE_CACHE_REGISTRY }}"
+
 jobs:
     add-artifacts-to-release:
         runs-on: ubuntu-24.04-arm
         permissions:
             contents: write
             actions: read
+            packages: write
         env:
             FORCE_COLOR: 1
         steps:
@@ -30,7 +34,7 @@ jobs:
         runs-on: ubuntu-24.04-arm
         permissions:
             contents: read
-            packages: read
+            packages: write
         env:
             FORCE_COLOR: 1
         steps:

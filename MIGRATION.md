@@ -226,15 +226,21 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
 +         uses: earthbuild/actions-setup@main
          with:
 -          earthly-version: v0.8.5 # example
-+          version: v0.9.0 # example, use the latest earthbuild version
++          version: v0.8.17 # example, use the latest earthbuild version
        - name: Run build
 -         run: earthly --ci +all
 +         run: earth --ci +all
 ```
 
+## Other repositories
+
+For other repositories in the earthly ecosystem, we've created EarthBuild forks:
+
+<!-- TODO: push tags, establish our first tag and document -->
+- [earthly/lib](https://github.com/earthly/lib) -> [earthbuild/lib](https://github.com/EarthBuild/lib)
+- [earthly/dind](https://github.com/earthly/dind) -> [earthbuild/dind](https://github.com/EarthBuild/dind)
+- [earthly/actions-setup](https://github.com/earthly/actions-setup) -> [earthbuild/actions-setup](https://github.com/EarthBuild/actions-setup)
+
 ## Hint 🤖
 
-It's 2025.
 Provide this document to your agent of choice to pick up the heavy lifting at your org.
-
-<!-- TODO test efficacy of the migration on production repositories using claude/gemini and adjust doc -->

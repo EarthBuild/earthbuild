@@ -1,4 +1,4 @@
-scalaVersion := "2.13.1"
+scalaVersion := "2.13.18"
 name := "scala-example"
 organization := "earthly.dev"
 version := "1.0"

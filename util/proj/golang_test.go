@@ -36,11 +36,13 @@ func TestGolang(t *testing.T) {
 		cancel func()
 	}
 
-	o := onpar.BeforeEach(onpar.New(t), func(t *testing.T) testCtx {
+	o := onpar.New()
+
+	o.BeforeEach(func(t *testing.T) testCtx {
 		t.Helper()
 
-		fs := newMockFS(t, mockTimeout)
-		exec := newMockExecer(t, mockTimeout)
+		fs := newMockFS(pers.WithTimeout(t, mockTimeout))
+		exec := newMockExecer(pers.WithTimeout(t, mockTimeout))
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		return testCtx{
@@ -53,7 +55,7 @@ func TestGolang(t *testing.T) {
 			cancel: cancel,
 		}
 	})
-	defer o.Run()
+	defer o.Run(t)
 
 	o.AfterEach(func(t testCtx) {
 		t.cancel()
@@ -65,34 +67,34 @@ func TestGolang(t *testing.T) {
 
 	o.Group("ForDir", func() {
 		o.Spec("it skips projects without a go.mod", func(t testCtx) {
-			pers.Return(t.fs.StatOutput, nil, fs.ErrNotExist)
+			pers.Return(t.fs.method.Stat, nil, fs.ErrNotExist)
 			_, err := t.golang.ForDir(t.ctx, ".")
-			t.expect(t.fs).To(haveMethodExecuted("Stat", withArgs("go.mod")))
+			t.expect(t.fs.method.Stat).To(haveMethodExecuted(withArgs("go.mod")))
 			t.expect(err).To(beErr(proj.ErrSkip))
 		})
 
 		o.Spec("it errors if reading go.mod fails", func(t testCtx) {
-			pers.Return(t.fs.StatOutput, nil, errors.New("boom"))
+			pers.Return(t.fs.method.Stat, nil, errors.New("boom"))
 			_, err := t.golang.ForDir(t.ctx, ".")
-			t.expect(t.fs).To(haveMethodExecuted("Stat", withArgs("go.mod")))
+			t.expect(t.fs.method.Stat).To(haveMethodExecuted(withArgs("go.mod")))
 			t.expect(err).To(haveOccurred())
 			t.expect(err).To(not(beErr(proj.ErrSkip)))
 		})
 
 		o.Spec("it errors if 'go' is not available", func(t testCtx) {
-			pers.Return(t.fs.StatOutput, nil, nil)
-			cmd := newMockCmd(t, mockTimeout)
-			pers.Return(t.exec.CommandOutput, cmd)
+			pers.Return(t.fs.method.Stat, nil, nil)
+			cmd := newMockCmd(pers.WithTimeout(t, mockTimeout))
+			pers.Return(t.exec.method.Command, cmd)
 
 			const projDir = "some/path/to/a/project"
 
 			stdout := bytes.NewBufferString(projDir)
-			pers.Return(cmd.RunOutput, stdout, nil, fs.ErrNotExist)
+			pers.Return(cmd.method.Run, stdout, nil, fs.ErrNotExist)
 
 			_, err := t.golang.ForDir(t.ctx, ".")
-			t.expect(t.fs).To(haveMethodExecuted("Stat", withArgs("go.mod")))
-			t.expect(t.exec).To(haveMethodExecuted("Command", withArgs("go", "list", "-f", "{{.Dir}}")))
-			t.expect(cmd).To(haveMethodExecuted("Run"))
+			t.expect(t.fs.method.Stat).To(haveMethodExecuted(withArgs("go.mod")))
+			t.expect(t.exec.method.Command).To(haveMethodExecuted(withArgs("go", "list", "-f", "{{.Dir}}")))
+			t.expect(cmd.method.Run).To(haveMethodExecuted())
 			t.expect(err).To(haveOccurred())
 			t.expect(err).To(not(beErr(proj.ErrSkip)))
 		})

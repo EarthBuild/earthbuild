@@ -796,13 +796,10 @@ examples-2:
     BUILD ./examples/readme/go1+all
     BUILD ./examples/readme/go2+build
     # TODO: This example is flaky for some reason.
-    #BUILD ./examples/terraform+localstack
+    # BUILD ./examples/terraform+localstack
     BUILD ./examples/ruby+docker
     BUILD ./examples/ruby-on-rails+docker
-    IF [ "$TARGETARCH" = "amd64" ]
-        # This crashes randomly on arm.
-        BUILD ./examples/scala+docker
-    END
+    BUILD ./examples/scala+docker
     BUILD ./examples/clojure+docker
     BUILD ./examples/cobol+docker
     BUILD ./examples/rust+docker

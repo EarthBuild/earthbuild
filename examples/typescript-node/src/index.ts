@@ -13,4 +13,8 @@ app.get('/hello', (req, res) => {
     res.status(200).send(hello);
 });
 
-app.listen('8080', () => console.log(`Hello world app listening on port 8080`));
+if (require.main === module) {
+    app.listen('8080', () => console.log(`Hello world app listening on port 8080`));
+}
+
+export default app;

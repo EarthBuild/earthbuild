@@ -37,8 +37,8 @@ EarthBuild on the `v0.8.x` minor version.
 
 We will publish a breaking change to these features in the first unique minor version for EarthBuild, `v0.9.x`.
 
-These changes include renaming of configuration variables from `EARTHLY_*` to `EARTHBUILD_*`, removal of Earthfile syntax related to cloud
-hosting like `PROJECT` and naming of built-in arguments like `ARG EARTHLY_GIT_PROJECT_NAME` to `ARG EARTHBUILD_GIT_PROJECT_NAME`.
+These changes include renaming of configuration variables from `EARTHLY_*` to `EARTH_*`, removal of Earthfile syntax related to cloud
+hosting like `PROJECT` and naming of built-in arguments like `ARG EARTHLY_GIT_PROJECT_NAME` to `ARG EARTH_GIT_PROJECT_NAME`.
 
 ### Binary Name Change
 
@@ -106,7 +106,7 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 
 ### Environment Variable Changes
 
-All `EARTHLY_*` environment variables have been renamed to `EARTHBUILD_*` to reflect the project's new identity. The following environment variables are affected:
+All `EARTHLY_*` environment variables have been renamed to `EARTH_*` to reflect the project's new identity. The following environment variables are affected:
 
 #### Removed Environment Variables
 
@@ -120,7 +120,7 @@ The following environment variables have been removed along with their associate
 
 #### Migration Strategy
 
-**Immediate:** EarthBuild will continue to recognize `EARTHLY_*` environment variables in the current version but will log deprecation warnings encouraging migration to `EARTHBUILD_*` variables.
+**Immediate:** EarthBuild will continue to recognize `EARTHLY_*` environment variables in the current version but will log deprecation warnings encouraging migration to `EARTH_*` variables.
 
 **Future Breaking Change:** In version `vX.X.X`, support for `EARTHLY_*` environment variables will be removed entirely. You must update your environment configurations before upgrading to that version.
 
@@ -176,36 +176,36 @@ COMMANDS:
    help, h                     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --config value                   Path to config file [$EARTHBUILD_CONFIG]
-   --ssh-auth-sock value            The SSH auth socket to use for ssh-agent forwarding (default: "/private/tmp/com.apple.launchd.ZviWbhl8ar/Listeners") [$EARTHBUILD_SSH_AUTH_SOCK]
+   --config value                   Path to config file [$EARTH_CONFIG]
+   --ssh-auth-sock value            The SSH auth socket to use for ssh-agent forwarding (default: "/private/tmp/com.apple.launchd.ZviWbhl8ar/Listeners") [$EARTH_SSH_AUTH_SOCK]
    --git-username value             The git username to use for git HTTPS authentication [$GIT_USERNAME]
    --git-password value             The git password to use for git HTTPS authentication [$GIT_PASSWORD]
-   --verbose, -V                    Enable verbose logging (default: false) [$EARTHBUILD_VERBOSE]
+   --verbose, -V                    Enable verbose logging (default: false) [$EARTH_VERBOSE]
    --buildkit-host value            The URL to use for connecting to a buildkit host
-                                      If empty, earthly will attempt to start a buildkitd instance via docker run [$EARTHBUILD_BUILDKIT_HOST]
-                                    Disable collection of analytics (default: false) [$EARTHBUILD_DISABLE_ANALYTICS, $DO_NOT_TRACK]
-   --env-file-path value            Use values from this file as earthly environment variables; values are no longer used as --build-arg's or --secret's (default: ".env") [$EARTHBUILD_ENV_FILE_PATH]
-   --arg-file-path value            Use values from this file as earthly buildargs (default: ".arg") [$EARTHBUILD_ARG_FILE_PATH]
-   --secret-file-path value         Use values from this file as earthly secrets (default: ".secret") [$EARTHBUILD_SECRET_FILE_PATH]
+                                      If empty, earthly will attempt to start a buildkitd instance via docker run [$EARTH_BUILDKIT_HOST]
+                                    Disable collection of analytics (default: false) [$EARTH_DISABLE_ANALYTICS, $DO_NOT_TRACK]
+   --env-file-path value            Use values from this file as earthly environment variables; values are no longer used as --build-arg's or --secret's (default: ".env") [$EARTH_ENV_FILE_PATH]
+   --arg-file-path value            Use values from this file as earthly buildargs (default: ".arg") [$EARTH_ARG_FILE_PATH]
+   --secret-file-path value         Use values from this file as earthly secrets (default: ".secret") [$EARTH_SECRET_FILE_PATH]
    --artifact, -a                   Output specified artifact; a wildcard (*) can be used to output all artifacts (default: false)
    --image                          Output only docker image of the specified target (default: false)
-   --push                           Push docker images and execute RUN --push commands (default: false) [$EARTHBUILD_PUSH]
+   --push                           Push docker images and execute RUN --push commands (default: false) [$EARTH_PUSH]
    --ci                             Execute in CI mode.
-                                    Implies --no-output --strict (default: false) [$EARTHBUILD_CI]
-   --output                         Allow artifacts or images to be output, even when running under --ci mode (default: false) [$EARTHBUILD_OUTPUT]
+                                    Implies --no-output --strict (default: false) [$EARTH_CI]
+   --output                         Allow artifacts or images to be output, even when running under --ci mode (default: false) [$EARTH_OUTPUT]
    --no-output                      Do not output artifacts or images
-                                    (using --push is still allowed) (default: false) [$EARTHBUILD_NO_OUTPUT]
-   --no-cache                       Do not use cache while building (default: false) [$EARTHBUILD_NO_CACHE]
-   --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands (default: false) [$EARTHBUILD_ALLOW_PRIVILEGED]
-   --max-remote-cache               Saves all intermediate images too in the remote cache (default: false) [$EARTHBUILD_MAX_REMOTE_CACHE]
-   --save-inline-cache              Enable cache inlining when pushing images (default: false) [$EARTHBUILD_SAVE_INLINE_CACHE]
+                                    (using --push is still allowed) (default: false) [$EARTH_NO_OUTPUT]
+   --no-cache                       Do not use cache while building (default: false) [$EARTH_NO_CACHE]
+   --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands (default: false) [$EARTH_ALLOW_PRIVILEGED]
+   --max-remote-cache               Saves all intermediate images too in the remote cache (default: false) [$EARTH_MAX_REMOTE_CACHE]
+   --save-inline-cache              Enable cache inlining when pushing images (default: false) [$EARTH_SAVE_INLINE_CACHE]
    --use-inline-cache               Attempt to use any inline cache that may have been previously pushed
-                                    uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from (default: false) [$EARTHBUILD_USE_INLINE_CACHE]
-   --interactive, -i                Enable interactive debugging (default: false) [$EARTHBUILD_INTERACTIVE]
-   --strict                         Disallow usage of features that may create unrepeatable builds (default: false) [$EARTHBUILD_STRICT]
-   --buildkit-image value           The docker image to use for the buildkit daemon (default: "docker.io/earthly/buildkitd:v0.8.15") [$EARTHBUILD_BUILDKIT_IMAGE]
-   --remote-cache value             A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHBUILD_REMOTE_CACHE]
-   --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images (default: false) [$EARTHBUILD_DISABLE_REMOTE_REGISTRY_PROXY]
+                                    uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from (default: false) [$EARTH_USE_INLINE_CACHE]
+   --interactive, -i                Enable interactive debugging (default: false) [$EARTH_INTERACTIVE]
+   --strict                         Disallow usage of features that may create unrepeatable builds (default: false) [$EARTH_STRICT]
+   --buildkit-image value           The docker image to use for the buildkit daemon (default: "docker.io/earthly/buildkitd:v0.8.15") [$EARTH_BUILDKIT_IMAGE]
+   --remote-cache value             A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTH_REMOTE_CACHE]
+   --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images (default: false) [$EARTH_DISABLE_REMOTE_REGISTRY_PROXY]
    --github-annotations             Enable GitHub Actions workflow specific output. When enabled, errors and warnings are reported as annotations in GitHub. (default: false) [$GITHUB_ACTIONS]
    --help, -h                       show help
    --version, -v                    print the version
@@ -219,7 +219,7 @@ Again, this will be logged as a warning in `v0.8.x` and removed, treated as an e
 
 The exception here is that the `PROJECT` command is removed entirely since it related to the cloud offering.
 
-Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTHBUILD_*`.
+Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`.
 
 ## CI
 

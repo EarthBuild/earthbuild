@@ -61,19 +61,7 @@ We recommend using this period of overlap to update your CI configuration in pre
 
 ### Installation
 
-To switch to EarthBuild, you will need to use the new installation scripts.
-
-<!-- TODO: Add a link to the new installation instructions. -->
-<!-- TODO: What do we want the new installer to do? Install aliases? Move config? -->
-
-```bash
-# Example of a potential new installation command
-/bin/bash -c "$(curl -fsSL https://.../install.sh)"
-```
-
-- Mac - Brew
-- Nix?
-- WSL?
+To switch to EarthBuild, you will need to use [the new installation scripts](https://www.earthbuild.dev/install.html).
 
 You should remove the old `earthly` binary from your systems to avoid confusion.
 
@@ -122,10 +110,9 @@ The following environment variables have been removed along with their associate
 
 **Immediate:** EarthBuild will continue to recognize `EARTHLY_*` environment variables in the current version but will log deprecation warnings encouraging migration to `EARTH_*` variables.
 
-**Future Breaking Change:** In version `vX.X.X`, support for `EARTHLY_*` environment variables will be removed entirely. You must update your environment configurations before upgrading to that version.
+**Future Breaking Change:** In version `v0.9.0` and onwards, support for `EARTHLY_*` environment variables will be removed entirely. You must update your environment configurations before upgrading to that version.
 
-**Standard Variables Unchanged:** Some environment variables remain unchanged as they follow standard
-conventions:
+**Standard Variables Unchanged:** Some environment variables remain unchanged as they follow standard conventions:
 
 - `DO_NOT_TRACK` - Standard analytics opt-out variable
 - `GIT_USERNAME` - Git authentication username
@@ -250,4 +237,4 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
 It's 2025.
 Provide this document to your agent of choice to pick up the heavy lifting at your org.
 
-<!-- TODO test efficacy of the migration on largescale repositories using clause/gemini and adjust doc -->
+<!-- TODO test efficacy of the migration on production repositories using claude/gemini and adjust doc -->

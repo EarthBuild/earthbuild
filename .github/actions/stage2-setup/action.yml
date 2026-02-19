@@ -95,7 +95,14 @@ runs:
           "registry-mirrors": [
             "https://mirror.gcr.io",
             "https://public.ecr.aws"
-          ]
+          ],
+          "default-ulimits": {
+            "nofile": {
+              "Name": "nofile",
+              "Hard": 1048576,
+              "Soft": 1048576
+            }
+          }
         }
         EOF
         sudo systemctl restart docker

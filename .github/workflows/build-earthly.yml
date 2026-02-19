@@ -63,8 +63,14 @@ jobs:
       - name: Set Docker default ulimits for Docker 29+ compatibility
         if: inputs.BINARY == 'docker'
         run: |
-          jq '. + {"default-ulimits": {"nofile": {"Name": "nofile", "Hard": 1048576, "Soft": 1048576}}}' /etc/docker/daemon.json > /tmp/daemon.json
-          sudo mv /tmp/daemon.json /etc/docker/daemon.json
+          sudo mkdir -p /etc/docker
+          echo '{}' | jq '. + {"default-ulimits": {"nofile": {"Name": "nofile", "Hard": 1048576, "Soft": 1048576}}}' > /tmp/daemon.json
+          if [ -f /etc/docker/daemon.json ]; then
+            jq -s '.[0] * .[1]' /etc/docker/daemon.json /tmp/daemon.json > /tmp/daemon-merged.json
+            sudo mv /tmp/daemon-merged.json /etc/docker/daemon.json
+          else
+            sudo mv /tmp/daemon.json /etc/docker/daemon.json
+          fi
           sudo systemctl restart docker
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} $(which earth) bootstrap

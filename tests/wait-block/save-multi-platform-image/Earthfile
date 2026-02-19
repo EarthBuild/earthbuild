@@ -30,9 +30,9 @@ check-tag-exists-locally:
     ARG --required REGISTRY
     ARG --required tag
 
-    RUN docker images | grep -w "${tag}"
-    RUN docker images | grep -w "${tag}_linux_amd64"
-    RUN docker images | grep -w "${tag}_linux_arm64"
+    RUN docker images --format '{{.Repository}}:{{.Tag}}' | grep -w "${tag}"
+    RUN docker images --format '{{.Repository}}:{{.Tag}}' | grep -w "${tag}_linux_amd64"
+    RUN docker images --format '{{.Repository}}:{{.Tag}}' | grep -w "${tag}_linux_arm64"
 
     RUN test "$(docker run --rm "$REGISTRY/myuser/earthly-multiplatform-wait-test:$tag" cat /contrived-platform-data)" = "$(uname -m)"
     RUN test "$(docker run --rm "$REGISTRY/myuser/earthly-multiplatform-wait-test:${tag}_linux_amd64" cat /contrived-platform-data)" = "x86_64"

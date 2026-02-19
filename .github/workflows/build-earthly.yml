@@ -63,8 +63,12 @@ jobs:
       - name: Set Docker default ulimits for Docker 29+ compatibility
         if: inputs.BINARY == 'docker'
         run: |
-          sudo mkdir -p /etc/docker
-          echo '{"default-ulimits": {"nofile": {"Name": "nofile", "Hard": 1048576, "Soft": 1048576}}}' | sudo tee /etc/docker/daemon.json
+          for svc in docker containerd; do
+            sudo mkdir -p /etc/systemd/system/${svc}.service.d
+            printf '[Service]\nLimitNOFILE=1048576\n' | sudo tee /etc/systemd/system/${svc}.service.d/override.conf
+          done
+          sudo systemctl daemon-reload
+          sudo systemctl restart containerd
           sudo systemctl restart docker
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} $(which earth) bootstrap

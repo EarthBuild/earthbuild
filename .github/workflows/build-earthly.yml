@@ -64,16 +64,14 @@ jobs:
         if: inputs.BINARY == 'docker'
         run: |
           sudo mkdir -p /etc/docker
-          echo '{}' | jq '. + {"default-ulimits": {"nofile": {"Name": "nofile", "Hard": 1048576, "Soft": 1048576}}}' > /tmp/daemon.json
-          if [ -f /etc/docker/daemon.json ]; then
-            jq -s '.[0] * .[1]' /etc/docker/daemon.json /tmp/daemon.json > /tmp/daemon-merged.json
-            sudo mv /tmp/daemon-merged.json /etc/docker/daemon.json
-          else
-            sudo mv /tmp/daemon.json /etc/docker/daemon.json
-          fi
+          echo '{"default-ulimits": {"nofile": {"Name": "nofile", "Hard": 1048576, "Soft": 1048576}}}' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
+          docker info | grep -A2 'Default Ulimits'
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} $(which earth) bootstrap
+      - name: Verify buildkitd ulimits
+        if: inputs.BINARY == 'docker'
+        run: docker exec earth-buildkitd sh -c 'ulimit -n'
       - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} $(which earth) config global.buildkit_additional_config "'[registry.\"docker.io\"]

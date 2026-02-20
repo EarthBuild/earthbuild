@@ -159,6 +159,11 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
+    - name: Set fixed buildkitd image for Docker 29+ (non-fork)
+      if: steps.fork-check.outputs.is_fork != 'true'
+      shell: bash
+      run: |
+        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

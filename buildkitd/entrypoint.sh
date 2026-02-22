@@ -3,6 +3,7 @@ set -e
 
 # Docker 29+ (containerd v2) lowered the default open file limit from 1048576
 # to 1024, which starves buildkitd. Ensure we always have enough.
+# shellcheck disable=SC3045
 ulimit -n 1048576 2>/dev/null || true
 
 echo "starting earthly-buildkit with EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"

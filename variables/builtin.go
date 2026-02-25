@@ -81,6 +81,7 @@ func BuiltinArgs(
 
 	ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
 	ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
+	ret.Add(arg.EarthbuildGitContentHash, gitMeta.ContentHash)
 
 	branch := firstOrZero(gitMeta.Branch)
 

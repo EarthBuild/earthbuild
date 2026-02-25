@@ -48,6 +48,8 @@ type resolvedGitProject struct {
 	hash string
 	// shortHash is the short git hash.
 	shortHash string
+	// contentHash is the git tree hash (content-addressable).
+	contentHash string
 	// branches is the git branches.
 	branches []string
 	// tags is the git tags.
@@ -227,6 +229,7 @@ func (gr *gitResolver) resolveEarthProject(
 			RemoteURL:            gitURL,
 			Hash:                 rgp.hash,
 			ShortHash:            rgp.shortHash,
+			ContentHash:          rgp.contentHash,
 			BranchOverrideTagArg: gr.gitBranchOverride != "",
 			Branch:               rgp.branches,
 			Tags:                 rgp.tags,
@@ -306,6 +309,7 @@ func (gr *gitResolver) resolveGitProject(
 				"git rev-parse HEAD >/dest/git-hash ; " +
 					"uname -m >/dest/uname-m ;" +
 					"git rev-parse --short=8 HEAD >/dest/git-short-hash ; " +
+					"git rev-parse HEAD^{tree} >/dest/git-content-hash ; " +
 					"git rev-parse --abbrev-ref HEAD >/dest/git-branch  || touch /dest/git-branch ; " +
 					"ls .git/refs/heads/ | head -n 1 >/dest/git-default-branch  || touch /dest/git-default-branch ; " +
 					"git describe --exact-match --tags >/dest/git-tags || touch /dest/git-tags ; " +
@@ -378,6 +382,15 @@ func (gr *gitResolver) resolveGitProject(
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "read git-short-hash")
+		}
+
+		var gitContentHashBytes []byte
+
+		gitContentHashBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+			Filename: "git-content-hash",
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "read git-content-hash")
 		}
 
 		var gitBranch string
@@ -474,6 +487,7 @@ func (gr *gitResolver) resolveGitProject(
 
 		gitHash := strings.SplitN(string(gitHashBytes), "\n", 2)[0]
 		gitShortHash := strings.SplitN(string(gitShortHashBytes), "\n", 2)[0]
+		gitContentHash := strings.SplitN(string(gitContentHashBytes), "\n", 2)[0]
 		gitBranches := strings.SplitN(gitBranch, "\n", 2)
 		gitAuthorEmail := strings.SplitN(string(gitAuthorEmailBytes), "\n", 2)[0]
 		gitAuthorName := strings.SplitN(string(gitAuthorNameBytes), "\n", 2)[0]
@@ -537,6 +551,7 @@ func (gr *gitResolver) resolveGitProject(
 		rgp = &resolvedGitProject{
 			hash:           gitHash,
 			shortHash:      gitShortHash,
+			contentHash:    gitContentHash,
 			branches:       gitBranches2,
 			tags:           gitTags2,
 			committerTs:    gitCommitterTs,

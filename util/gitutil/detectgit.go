@@ -277,55 +277,34 @@ func detectGitBaseDir(ctx context.Context, dir string) (string, error) {
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
-func detectGitHash(ctx context.Context, dir string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+func gitRevParse(ctx context.Context, dir string, sentinel error, args ...string) (string, error) {
+	revParseArgs := append([]string{"rev-parse"}, args...)
+	cmd := exec.CommandContext(ctx, "git", revParseArgs...) //nolint:gosec
 	cmd.Dir = dir
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrapf(ErrCouldNotDetectGitHash, "returned error %s: %s", err.Error(), string(out))
+		return "", errors.Wrapf(sentinel, "returned error %s: %s", err.Error(), string(out))
 	}
 
 	outStr := string(out)
 	if outStr == "" {
-		return "", errors.Wrapf(ErrCouldNotDetectGitHash, "no remote origin url output")
+		return "", errors.Wrapf(sentinel, "no output")
 	}
 
 	return strings.SplitN(outStr, "\n", 2)[0], nil
+}
+
+func detectGitHash(ctx context.Context, dir string) (string, error) {
+	return gitRevParse(ctx, dir, ErrCouldNotDetectGitHash, "HEAD")
 }
 
 func detectGitShortHash(ctx context.Context, dir string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--short=8", "HEAD")
-	cmd.Dir = dir
-
-	out, err := cmd.Output()
-	if err != nil {
-		return "", errors.Wrapf(ErrCouldNotDetectGitShortHash, "returned error %s: %s", err.Error(), string(out))
-	}
-
-	outStr := string(out)
-	if outStr == "" {
-		return "", errors.Wrapf(ErrCouldNotDetectGitShortHash, "no remote origin url output")
-	}
-
-	return strings.SplitN(outStr, "\n", 2)[0], nil
+	return gitRevParse(ctx, dir, ErrCouldNotDetectGitShortHash, "--short=8", "HEAD")
 }
 
 func detectGitContentHash(ctx context.Context, dir string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD^{tree}")
-	cmd.Dir = dir
-
-	out, err := cmd.Output()
-	if err != nil {
-		return "", errors.Wrapf(ErrCouldNotDetectGitContentHash, "returned error %s: %s", err.Error(), string(out))
-	}
-
-	outStr := string(out)
-	if outStr == "" {
-		return "", errors.Wrapf(ErrCouldNotDetectGitContentHash, "no git tree hash output")
-	}
-
-	return strings.SplitN(outStr, "\n", 2)[0], nil
+	return gitRevParse(ctx, dir, ErrCouldNotDetectGitContentHash, "HEAD^{tree}")
 }
 
 func detectGitBranch(ctx context.Context, dir, gitBranchOverride string) ([]string, error) {

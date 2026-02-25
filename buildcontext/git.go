@@ -366,31 +366,23 @@ func (gr *gitResolver) resolveGitProject(
 				gitImage, string(unameM), platr.LLBNative().Architecture)
 		}
 
-		var gitHashBytes []byte
-
-		gitHashBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-hash",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-hash")
+		metaFiles := []string{
+			"git-hash", "git-short-hash", "git-content-hash",
+			"git-default-branch", "git-tags",
+			"git-committer-ts", "git-author-ts",
+			"git-author-email", "git-author-name",
+			"git-body", "git-refs", "Earthfile-paths",
 		}
 
-		var gitShortHashBytes []byte
+		meta := make(map[string][]byte, len(metaFiles))
 
-		gitShortHashBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-short-hash",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-short-hash")
-		}
-
-		var gitContentHashBytes []byte
-
-		gitContentHashBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-content-hash",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-content-hash")
+		for _, name := range metaFiles {
+			meta[name], err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
+				Filename: name,
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "read "+name)
+			}
 		}
 
 		var gitBranch string
@@ -400,98 +392,17 @@ func (gr *gitResolver) resolveGitProject(
 			return nil, errors.Wrap(err, "read git-branch")
 		}
 
-		var gitDefaultBranchBytes []byte
-
-		gitDefaultBranchBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-default-branch",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-default-branch")
-		}
-
-		var gitTagsBytes []byte
-
-		gitTagsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-tags",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-tags")
-		}
-
-		var gitCommitterTsBytes []byte
-
-		gitCommitterTsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-committer-ts",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-committer-ts")
-		}
-
-		var gitAuthorTsBytes []byte
-
-		gitAuthorTsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-author-ts",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-author-ts")
-		}
-
-		var gitAuthorEmailBytes []byte
-
-		gitAuthorEmailBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-author-email",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-author-email")
-		}
-
-		var gitAuthorNameBytes []byte
-
-		gitAuthorNameBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-author-name",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-author-name")
-		}
-
-		var gitBodyBytes []byte
-
-		gitBodyBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-body",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-body")
-		}
-
-		var gitRefsBytes []byte
-
-		gitRefsBytes, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "git-refs",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read git-refs")
-		}
-
-		var earthfilePathsRaw []byte
-
-		earthfilePathsRaw, err = gitMetaRef.ReadFile(ctx, gwclient.ReadRequest{
-			Filename: "Earthfile-paths",
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "read Earthfile-paths")
-		}
-
 		isNotHead := func(s string) bool {
 			return s != "" && s != "HEAD"
 		}
 
-		gitHash := strings.SplitN(string(gitHashBytes), "\n", 2)[0]
-		gitShortHash := strings.SplitN(string(gitShortHashBytes), "\n", 2)[0]
-		gitContentHash := strings.SplitN(string(gitContentHashBytes), "\n", 2)[0]
+		gitHash := strings.SplitN(string(meta["git-hash"]), "\n", 2)[0]
+		gitShortHash := strings.SplitN(string(meta["git-short-hash"]), "\n", 2)[0]
+		gitContentHash := strings.SplitN(string(meta["git-content-hash"]), "\n", 2)[0]
 		gitBranches := strings.SplitN(gitBranch, "\n", 2)
-		gitAuthorEmail := strings.SplitN(string(gitAuthorEmailBytes), "\n", 2)[0]
-		gitAuthorName := strings.SplitN(string(gitAuthorNameBytes), "\n", 2)[0]
-		gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(gitBodyBytes))
+		gitAuthorEmail := strings.SplitN(string(meta["git-author-email"]), "\n", 2)[0]
+		gitAuthorName := strings.SplitN(string(meta["git-author-name"]), "\n", 2)[0]
+		gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(meta["git-body"]))
 
 		var gitBranches2 []string
 
@@ -509,11 +420,11 @@ func (gr *gitResolver) resolveGitProject(
 					gitBranches2 = []string{gitRef}
 				}
 			} else {
-				gitBranches2 = []string{strings.SplitN(string(gitDefaultBranchBytes), "\n", 2)[0]}
+				gitBranches2 = []string{strings.SplitN(string(meta["git-default-branch"]), "\n", 2)[0]}
 			}
 		}
 
-		gitTags := strings.SplitN(string(gitTagsBytes), "\n", 2)
+		gitTags := strings.SplitN(string(meta["git-tags"]), "\n", 2)
 
 		var gitTags2 []string
 
@@ -523,9 +434,9 @@ func (gr *gitResolver) resolveGitProject(
 			}
 		}
 
-		gitCommitterTs := strings.SplitN(string(gitCommitterTsBytes), "\n", 2)[0]
-		gitAuthorTs := strings.SplitN(string(gitAuthorTsBytes), "\n", 2)[0]
-		gitRefs := strings.Split(string(gitRefsBytes), "\n")
+		gitCommitterTs := strings.SplitN(string(meta["git-committer-ts"]), "\n", 2)[0]
+		gitAuthorTs := strings.SplitN(string(meta["git-author-ts"]), "\n", 2)[0]
+		gitRefs := strings.Split(string(meta["git-refs"]), "\n")
 
 		var gitRefs2 []string
 
@@ -560,7 +471,7 @@ func (gr *gitResolver) resolveGitProject(
 			authorName:     gitAuthorName,
 			coAuthors:      gitCoAuthors,
 			refs:           gitRefs2,
-			earthfilePaths: strings.Split(strings.TrimSpace(string(earthfilePathsRaw)), "\n"),
+			earthfilePaths: strings.Split(strings.TrimSpace(string(meta["Earthfile-paths"])), "\n"),
 			state: pllb.Git(
 				gitURL,
 				gitHash,

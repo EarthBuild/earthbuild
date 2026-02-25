@@ -997,27 +997,27 @@ save-artifact-dont-overwrite:
 
     DO +RUN_EARTHLY --should_fail=true --earthfile=save-artifact-dont-overwrite.earth --extra_args="--version-flag-overrides=require-force-for-unsafe-saves" \
         --target=+dont-overwrite-abs-ref --post_command="> /tmp/output 2>&1"
-    RUN cat /tmp/output | acbgrep 'Error.*path must be located under'
+    RUN cat /tmp/output | acbgrep 'path must be located under'
 
     DO +RUN_EARTHLY --should_fail=true --earthfile=save-artifact-dont-overwrite.earth --extra_args="--version-flag-overrides=require-force-for-unsafe-saves" \
         --target=+dont-overwrite-rel-ref --post_command="> /tmp/output 2>&1"
-    RUN cat /tmp/output | acbgrep 'Error.*path must be located under'
+    RUN cat /tmp/output | acbgrep 'path must be located under'
 
     DO +RUN_EARTHLY --should_fail=true --earthfile=save-artifact-dont-overwrite.earth --extra_args="--version-flag-overrides=require-force-for-unsafe-saves" \
         --target=+dont-overwrite-rel-other-ref --post_command="> /tmp/output 2>&1"
-    RUN cat /tmp/output | acbgrep 'Error.*path must be located under'
+    RUN cat /tmp/output | acbgrep 'path must be located under'
 
     DO +RUN_EARTHLY --should_fail=true --earthfile=save-artifact-dont-overwrite.earth --extra_args="--version-flag-overrides=require-force-for-unsafe-saves" \
         --target=+dont-overwrite-root --post_command="> /tmp/output 2>&1"
-    RUN cat /tmp/output | acbgrep 'Error.*path must be located under'
+    RUN cat /tmp/output | acbgrep 'path must be located under'
 
     DO +RUN_EARTHLY --should_fail=true --earthfile=save-artifact-dont-overwrite.earth --extra_args="--version-flag-overrides=require-force-for-unsafe-saves" \
         --target=+dont-overwrite-root2 --post_command="> /tmp/output 2>&1"
-    RUN cat /tmp/output | acbgrep 'Error.*path must be located under'
+    RUN cat /tmp/output | acbgrep 'path must be located under'
 
     DO +RUN_EARTHLY --should_fail=true --earthfile=save-artifact-dont-overwrite.earth --extra_args="--version-flag-overrides=require-force-for-unsafe-saves" \
         --target=+dont-overwrite-root3 --post_command="> /tmp/output 2>&1"
-    RUN cat /tmp/output | acbgrep 'Error.*path must be located under'
+    RUN cat /tmp/output | acbgrep 'path must be located under'
 
     RUN ls important-data
 

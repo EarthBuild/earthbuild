@@ -7,11 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
+	"github.com/stretchr/testify/mock"
 )
 
 const (
@@ -22,81 +20,103 @@ const (
 func TestGolang(t *testing.T) {
 	t.Parallel()
 
-	//nolint:containedctx // TODO(jhorsts): replace onpar with std testing
-	type testCtx struct {
-		*testing.T
+	t.Run("Type", func(t *testing.T) {
+		t.Parallel()
 
-		ctx    context.Context
-		expect expect.Expectation
-		golang *proj.Golang
+		mockFS := newMockFS()
+		exec := newMockExecer()
 
-		fs   *mockFS
-		exec *mockExecer
-
-		cancel func()
-	}
-
-	o := onpar.New()
-
-	o.BeforeEach(func(t *testing.T) testCtx {
-		t.Helper()
-
-		fs := newMockFS(pers.WithTimeout(t, mockTimeout))
-		exec := newMockExecer(pers.WithTimeout(t, mockTimeout))
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 
-		return testCtx{
-			T:      t,
-			ctx:    ctx,
-			expect: expect.New(t),
-			golang: proj.NewGolang(fs, exec),
-			fs:     fs,
-			exec:   exec,
-			cancel: cancel,
+		golang := proj.NewGolang(mockFS, exec)
+		result := golang.Type(ctx)
+
+		if result != "go" {
+			t.Errorf("expected Type to return %q, got %q", "go", result)
 		}
 	})
-	defer o.Run(t)
 
-	o.AfterEach(func(t testCtx) {
-		t.cancel()
-	})
+	t.Run("ForDir", func(t *testing.T) {
+		t.Parallel()
 
-	o.Spec("Type", func(t testCtx) {
-		t.expect(t.golang.Type(t.ctx)).To(equal("go"))
-	})
+		t.Run("it skips projects without a go.mod", func(t *testing.T) {
+			t.Parallel()
 
-	o.Group("ForDir", func() {
-		o.Spec("it skips projects without a go.mod", func(t testCtx) {
-			pers.Return(t.fs.method.Stat, nil, fs.ErrNotExist)
-			_, err := t.golang.ForDir(t.ctx, ".")
-			t.expect(t.fs.method.Stat).To(haveMethodExecuted(withArgs("go.mod")))
-			t.expect(err).To(beErr(proj.ErrSkip))
+			mockFS := newMockFS()
+			exec := newMockExecer()
+
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			golang := proj.NewGolang(mockFS, exec)
+			mockFS.On("Stat", "go.mod").Return(nil, fs.ErrNotExist)
+
+			_, err := golang.ForDir(ctx, ".")
+
+			if !errors.Is(err, proj.ErrSkip) {
+				t.Errorf("expected error to be proj.ErrSkip, got: %v", err)
+			}
+
+			mockFS.AssertExpectations(t)
 		})
 
-		o.Spec("it errors if reading go.mod fails", func(t testCtx) {
-			pers.Return(t.fs.method.Stat, nil, errors.New("boom"))
-			_, err := t.golang.ForDir(t.ctx, ".")
-			t.expect(t.fs.method.Stat).To(haveMethodExecuted(withArgs("go.mod")))
-			t.expect(err).To(haveOccurred())
-			t.expect(err).To(not(beErr(proj.ErrSkip)))
+		t.Run("it errors if reading go.mod fails", func(t *testing.T) {
+			t.Parallel()
+
+			mockFS := newMockFS()
+			exec := newMockExecer()
+
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			golang := proj.NewGolang(mockFS, exec)
+			mockFS.On("Stat", "go.mod").Return(nil, errors.New("boom"))
+
+			_, err := golang.ForDir(ctx, ".")
+			if err == nil {
+				t.Error("expected an error to occur")
+			}
+
+			if errors.Is(err, proj.ErrSkip) {
+				t.Error("expected error not to be proj.ErrSkip")
+			}
+
+			mockFS.AssertExpectations(t)
 		})
 
-		o.Spec("it errors if 'go' is not available", func(t testCtx) {
-			pers.Return(t.fs.method.Stat, nil, nil)
-			cmd := newMockCmd(pers.WithTimeout(t, mockTimeout))
-			pers.Return(t.exec.method.Command, cmd)
+		t.Run("it errors if 'go' is not available", func(t *testing.T) {
+			t.Parallel()
+
+			mockFS := newMockFS()
+			exec := newMockExecer()
+
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			golang := proj.NewGolang(mockFS, exec)
+			mockFS.On("Stat", "go.mod").Return(nil, nil)
+
+			cmd := newMockCmd()
+			exec.On("Command", "go", "list", "-f", "{{.Dir}}").Return(cmd)
 
 			const projDir = "some/path/to/a/project"
 
 			stdout := bytes.NewBufferString(projDir)
-			pers.Return(cmd.method.Run, stdout, nil, fs.ErrNotExist)
+			cmd.On("Run", mock.Anything).Return(stdout, nil, fs.ErrNotExist)
 
-			_, err := t.golang.ForDir(t.ctx, ".")
-			t.expect(t.fs.method.Stat).To(haveMethodExecuted(withArgs("go.mod")))
-			t.expect(t.exec.method.Command).To(haveMethodExecuted(withArgs("go", "list", "-f", "{{.Dir}}")))
-			t.expect(cmd.method.Run).To(haveMethodExecuted())
-			t.expect(err).To(haveOccurred())
-			t.expect(err).To(not(beErr(proj.ErrSkip)))
+			_, err := golang.ForDir(ctx, ".")
+			if err == nil {
+				t.Error("expected an error to occur")
+			}
+
+			if errors.Is(err, proj.ErrSkip) {
+				t.Error("expected error not to be proj.ErrSkip")
+			}
+
+			mockFS.AssertExpectations(t)
+			exec.AssertExpectations(t)
+			cmd.AssertExpectations(t)
 		})
 	})
 }

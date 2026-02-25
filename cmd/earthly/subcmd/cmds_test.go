@@ -6,12 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/urfave/cli/v2"
-
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/urfave/cli/v2"
 )
 
 func TestRootCmdsHelp(t *testing.T) {

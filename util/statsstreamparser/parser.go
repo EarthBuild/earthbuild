@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/alexcb/binarystream"
@@ -37,7 +38,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 		if !ssp.readProtocolVersion {
 			protocolVersion, err := ssp.bsr.ReadUint8()
 			if err != nil {
-				if err == binarystream.ErrBufferUnderflow {
+				if errors.Is(err, binarystream.ErrBufferUnderflow) {
 					break
 				}
 
@@ -53,7 +54,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 
 		statsStreamJSON, err := ssp.bsr.ReadUint32PrefixedString()
 		if err != nil {
-			if err == binarystream.ErrBufferUnderflow {
+			if errors.Is(err, binarystream.ErrBufferUnderflow) {
 				break
 			}
 

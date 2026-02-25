@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var errInternal = errors.New("internal")
@@ -69,18 +70,18 @@ func TestReceivers(t *testing.T) {
 	t.Run("test Message", func(t *testing.T) {
 		t.Parallel()
 
-		hintErr, ok := err.(*Error)
+		var hintErr *Error
 
-		assert.True(t, ok)
+		require.ErrorAs(t, err, &hintErr)
 		assert.Equal(t, "internal", hintErr.Message())
 	})
 
 	t.Run("test Hint", func(t *testing.T) {
 		t.Parallel()
 
-		hintErr, ok := err.(*Error)
+		var hintErr *Error
 
-		assert.True(t, ok)
+		require.ErrorAs(t, err, &hintErr)
 		assert.Equal(t, "internal", hintErr.Message())
 		assert.Equal(t, "some hint\nanother hint\n", hintErr.Hint())
 	})

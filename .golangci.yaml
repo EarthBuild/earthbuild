@@ -18,7 +18,6 @@ linters:
     - err113
     - errcheck
     - errchkjson
-    - errorlint
     - exhaustive
     - exhaustruct
     - fatcontext

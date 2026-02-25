@@ -387,11 +387,10 @@ func (sw *shellWord) processDollar() (string, error) {
 
 		var found bool
 
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			found = true
-		case errEnvNotFound:
-			break
+		case errors.Is(err, errEnvNotFound): // noop
 		default:
 			return "", err
 		}
@@ -497,11 +496,10 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 
 		var found bool
 
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			found = true
-		case errEnvNotFound:
-			break
+		case errors.Is(err, errEnvNotFound): // noop
 		default:
 			return "", err
 		}
@@ -525,11 +523,10 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 
 		var found bool
 
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			found = true
-		case errEnvNotFound:
-			break
+		case errors.Is(err, errEnvNotFound): // noop
 		default:
 			return "", err
 		}
@@ -562,11 +559,10 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 
 		var found bool
 
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			found = true
-		case errEnvNotFound:
-			break
+		case errors.Is(err, errEnvNotFound): // noop
 		default:
 			return "", err
 		}
@@ -598,11 +594,10 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 
 		var found bool
 
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			found = true
-		case errEnvNotFound:
-			break
+		case errors.Is(err, errEnvNotFound): // noop
 		default:
 			return "", err
 		}
@@ -640,11 +635,10 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 
 		var found bool
 
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			found = true
-		case errEnvNotFound:
-			break
+		case errors.Is(err, errEnvNotFound): // noop
 		default:
 			return "", err
 		}

@@ -89,7 +89,7 @@ func TestBuiltinArgsContentHash(t *testing.T) {
 
 	scope := BuiltinArgs(domain.Target{Target: "test"}, nil, gitMeta, DefaultArgs{}, ftrs, false, false)
 
-	val, found := scope.Get(arg.EarthbuildGitContentHash)
+	val, found := scope.Get(arg.EarthGitContentHash)
 	Equal(t, true, found)
 	Equal(t, "deadbeef01234567890abcdef01234567890abcd", val)
 }
@@ -101,6 +101,6 @@ func TestBuiltinArgsContentHashNilGitMeta(t *testing.T) {
 
 	scope := BuiltinArgs(domain.Target{Target: "test"}, nil, nil, DefaultArgs{}, ftrs, false, false)
 
-	_, found := scope.Get(arg.EarthbuildGitContentHash)
+	_, found := scope.Get(arg.EarthGitContentHash)
 	Equal(t, false, found)
 }

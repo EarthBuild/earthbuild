@@ -66,18 +66,22 @@ func TestDetectGitContentHash(t *testing.T) {
 
 	run := func(args ...string) string {
 		t.Helper()
-		cmd := exec.Command(args[0], args[1:]...)
+
+		cmd := exec.CommandContext(context.Background(), args[0], args[1:]...) //nolint:gosec // test helper
 		cmd.Dir = dir
+
 		cmd.Env = append(os.Environ(),
 			"GIT_AUTHOR_NAME=test",
 			"GIT_AUTHOR_EMAIL=test@test.com",
 			"GIT_COMMITTER_NAME=test",
 			"GIT_COMMITTER_EMAIL=test@test.com",
 		)
+
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("%v failed: %s\n%s", args, err, out)
 		}
+
 		return strings.TrimSpace(string(out))
 	}
 
@@ -86,7 +90,7 @@ func TestDetectGitContentHash(t *testing.T) {
 	run("git", "config", "commit.gpgsign", "false")
 
 	// Write a file and commit.
-	NoError(t, os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("hello\n"), 0o644))
+	NoError(t, os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("hello\n"), 0o600))
 	run("git", "add", "hello.txt")
 	run("git", "commit", "--no-verify", "-m", "first")
 

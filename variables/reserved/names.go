@@ -1,7 +1,7 @@
 package reserved
 
 const (
-	EarthbuildGitContentHash        = "EARTHBUILD_GIT_CONTENT_HASH"
+	EarthGitContentHash             = "EARTH_GIT_CONTENT_HASH"
 	EarthlyBuildSha                 = "EARTHLY_BUILD_SHA"
 	EarthlyGitBranch                = "EARTHLY_GIT_BRANCH"
 	EarthlyGitCommitTimestamp       = "EARTHLY_GIT_COMMIT_TIMESTAMP"
@@ -47,7 +47,7 @@ var args map[string]struct{}
 
 func init() {
 	args = map[string]struct{}{
-		EarthbuildGitContentHash:        {},
+		EarthGitContentHash:             {},
 		EarthlyBuildSha:                 {},
 		EarthlyGitBranch:                {},
 		EarthlyGitCommitTimestamp:       {},

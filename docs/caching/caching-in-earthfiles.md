@@ -201,7 +201,7 @@ In Earthly, like in Dockerfiles, ARGs declared in Earthfiles also behave as envi
 
 For this reason, it is best to declare ARGs as late as possible within the target they are used in, and try to avoid declaring `--global` ARGs as much as possible. If an ARG is not yet declared, it will not influence the cache state of a layer, allowing for more cache hits. Limiting the scope of ARGs as much as possible will yield better cache performance.
 
-Watch out especially for ARGs that change often, such as the built-in ARG `EARTHLY_GIT_HASH`. Declaring this ARG as late as possible in the build will cause less cache misses. If you need a git-derived identifier that doesn't change as often, consider `EARTHBUILD_GIT_CONTENT_HASH` instead — it only changes when the file tree actually changes, not on every commit.
+Watch out especially for ARGs that change often, such as the built-in ARG `EARTHLY_GIT_HASH`. Declaring this ARG as late as possible in the build will cause less cache misses. If you need a git-derived identifier that doesn't change as often, consider `EARTH_GIT_CONTENT_HASH` instead — it only changes when the file tree actually changes, not on every commit.
 
 ### Secrets
 

@@ -86,7 +86,7 @@ runs:
         BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
         echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
         echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
-    - name: Set up Docker Hub Mirrors
+    - name: Set up Docker Hub Mirrors and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
         sudo mkdir -p /etc/docker
@@ -98,6 +98,12 @@ runs:
           ]
         }
         EOF
+        for svc in docker containerd; do
+          sudo mkdir -p /etc/systemd/system/${svc}.service.d
+          printf '[Service]\nLimitNOFILE=1048576\n' | sudo tee /etc/systemd/system/${svc}.service.d/override.conf
+        done
+        sudo systemctl daemon-reload
+        sudo systemctl restart containerd
         sudo systemctl restart docker
       shell: bash
     - name: Login to GHCR
@@ -153,6 +159,11 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
+    - name: Set fixed buildkitd image for Docker 29+ (non-fork)
+      if: steps.fork-check.outputs.is_fork != 'true'
+      shell: bash
+      run: |
+        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

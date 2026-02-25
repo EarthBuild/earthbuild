@@ -661,6 +661,10 @@ func Start(
 		envOpts["EARTHLY_RESET_TMP_DIR"] = "true"
 	}
 
+	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)
+	// lowered the default from 1048576 to 1024, which starves buildkitd.
+	additionalArgs := append([]string{"--ulimit", "nofile=1048576:1048576"}, settings.AdditionalArgs...)
+
 	// Execute.
 	err = fe.ContainerRun(ctx, containerutil.ContainerRun{
 		NameOrID:       containerName,
@@ -670,7 +674,7 @@ func Start(
 		Labels:         labelOpts,
 		Mounts:         volumeOpts,
 		Ports:          portOpts,
-		AdditionalArgs: settings.AdditionalArgs,
+		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
 		return errors.Wrap(err, "could not start buildkit")

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/fatih/color"
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/pkg/errors"

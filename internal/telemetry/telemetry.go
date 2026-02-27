@@ -14,7 +14,6 @@ import (
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -34,13 +33,13 @@ func Tracer() trace.Tracer {
 
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func Setup(ctx context.Context) (shutdown func(context.Context) error, err error) {
-	var shutdowns []func(context.Context) error
+func Setup(ctx context.Context) (ShutdownFunc, error) {
+	var shutdowns []ShutdownFunc
 
 	// shutdown calls cleanup functions registered via shutdowns.
 	// The errors from the calls are joined.
 	// Each registered cleanup will be invoked once.
-	shutdown = func(ctx context.Context) error {
+	shutdown := func(ctx context.Context) error {
 		var shutdownErr error
 
 		for _, fn := range shutdowns {
@@ -53,8 +52,7 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	}
 
 	// handleError calls shutdown for cleanup and makes sure that all errors are returned.
-	//nolint:unparam // shutdown is not used in the return value
-	handleError := func(err error) (func(context.Context) error, error) {
+	handleError := func(err error) (ShutdownFunc, error) {
 		return nil, errors.Join(fmt.Errorf("setup telemetry: %w", err), shutdown(ctx))
 	}
 
@@ -64,23 +62,28 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 		propagation.Baggage{},
 	))
 
-	var tracerShutdown, meterShutdown, loggerShutdown func(context.Context) error
+	var tracerShutdown, meterShutdown, loggerShutdown ShutdownFunc
 
-	tracerShutdown, err = setupTracerProvider(ctx)
+	otelResource, err := newOTelResource(ctx)
+	if err != nil {
+		return handleError(err)
+	}
+
+	tracerShutdown, err = setupTracerProvider(ctx, otelResource)
 	if err != nil {
 		return handleError(err)
 	}
 
 	shutdowns = append(shutdowns, tracerShutdown)
 
-	meterShutdown, err = setupMeterProvider(ctx)
+	meterShutdown, err = setupMeterProvider(ctx, otelResource)
 	if err != nil {
 		return handleError(err)
 	}
 
 	shutdowns = append(shutdowns, meterShutdown)
 
-	loggerShutdown, err = setupLoggerProvider()
+	loggerShutdown, err = setupLoggerProvider(ctx)
 	if err != nil {
 		return handleError(err)
 	}
@@ -90,31 +93,18 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	return shutdown, nil
 }
 
-func setupTracerProvider(ctx context.Context) (shutdown func(context.Context) error, err error) {
-	errorf := func(format string, args ...any) (func(context.Context) error, error) {
-		return nil, fmt.Errorf("create tracer provider: "+format, args...)
-	}
+// ShutdownFunc shuts down all OTel providers.
+type ShutdownFunc func(context.Context) error
 
-	err = optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-	if err != nil {
-		return errorf("%w", err)
-	}
-
-	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
-
-	exporter, err := autoexport.NewSpanExporter(ctx)
-	if err != nil {
-		return errorf("create span exporter: %w", err)
-	}
-
+func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 	executable, err := os.Executable()
 	if err != nil {
-		return errorf("get executable path: %w", err)
+		return nil, fmt.Errorf("get executable path: %w", err)
 	}
 
 	executablePath := filepath.Dir(executable)
 
-	res, err := resource.New(ctx,
+	return resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName("EarthBuild"),
 			semconv.ProcessCommand(os.Args[0]),
@@ -125,8 +115,23 @@ func setupTracerProvider(ctx context.Context) (shutdown func(context.Context) er
 		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),
 	)
+}
+
+func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
+	errorf := func(format string, args ...any) (ShutdownFunc, error) {
+		return nil, fmt.Errorf("create tracer provider: "+format, args...)
+	}
+
+	err := optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
 	if err != nil {
-		return errorf("create resource: %w", err)
+		return errorf("%w", err)
+	}
+
+	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
+
+	exporter, err := autoexport.NewSpanExporter(ctx)
+	if err != nil {
+		return errorf("create span exporter: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -139,8 +144,8 @@ func setupTracerProvider(ctx context.Context) (shutdown func(context.Context) er
 	return tp.Shutdown, nil
 }
 
-func setupMeterProvider(ctx context.Context) (func(context.Context) error, error) {
-	errorf := func(format string, args ...any) (func(context.Context) error, error) {
+func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
+	errorf := func(format string, args ...any) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("create meter provider: "+format, args...)
 	}
 
@@ -154,14 +159,6 @@ func setupMeterProvider(ctx context.Context) (func(context.Context) error, error
 		return errorf("create metric reader: %w", err)
 	}
 
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
-	)
-	if err != nil {
-		return errorf("create resource: %w", err)
-	}
-
 	mp := metric.NewMeterProvider(
 		metric.WithReader(reader),
 		metric.WithResource(res),
@@ -171,8 +168,8 @@ func setupMeterProvider(ctx context.Context) (func(context.Context) error, error
 	return mp.Shutdown, nil
 }
 
-func setupLoggerProvider() (func(context.Context) error, error) {
-	errorf := func(format string, args ...any) (func(context.Context) error, error) {
+func setupLoggerProvider(ctx context.Context) (ShutdownFunc, error) {
+	errorf := func(format string, args ...any) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("create logger provider: "+format, args...)
 	}
 
@@ -183,7 +180,7 @@ func setupLoggerProvider() (func(context.Context) error, error) {
 
 	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
 
-	logExporter, err := stdoutlog.New()
+	logExporter, err := autoexport.NewLogExporter(ctx)
 	if err != nil {
 		return errorf("create log exporter: %w", err)
 	}
@@ -222,7 +219,8 @@ func optIn(key ...string) error {
 	var found bool
 
 	for _, k := range key {
-		if _, ok := os.LookupEnv(k); ok {
+		_, ok := os.LookupEnv(k)
+		if ok {
 			found = true
 			break
 		}

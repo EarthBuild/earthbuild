@@ -74,49 +74,66 @@ func BuiltinArgs(
 	if gitMeta == nil {
 		// Ensure SOURCE_DATE_EPOCH is always available
 		ret.Add(arg.EarthlySourceDateEpoch, "0")
+		ret.Add(arg.EarthSourceDateEpoch, "0")
 		return ret
 	}
 
 	// Populate git-related built-in args
 
 	ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
+	ret.Add(arg.EarthGitHash, gitMeta.Hash)
 	ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
+	ret.Add(arg.EarthGitShortHash, gitMeta.ShortHash)
 	ret.Add(arg.EarthGitContentHash, gitMeta.ContentHash)
 
 	branch := firstOrZero(gitMeta.Branch)
 
 	ret.Add(arg.EarthlyGitBranch, branch)
+	ret.Add(arg.EarthGitBranch, branch)
 
 	tag := firstOrZero(gitMeta.Tags)
 
 	ret.Add(arg.EarthlyGitTag, tag)
+	ret.Add(arg.EarthGitTag, tag)
 	ret.Add(arg.EarthlyGitOriginURL, gitMeta.RemoteURL)
+	ret.Add(arg.EarthGitOriginURL, gitMeta.RemoteURL)
 	ret.Add(arg.EarthlyGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
+	ret.Add(arg.EarthGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
 	ret.Add(arg.EarthlyGitProjectName, getProjectName(gitMeta.RemoteURL))
+	ret.Add(arg.EarthGitProjectName, getProjectName(gitMeta.RemoteURL))
 	ret.Add(arg.EarthlyGitCommitTimestamp, gitMeta.CommitterTimestamp)
+	ret.Add(arg.EarthGitCommitTimestamp, gitMeta.CommitterTimestamp)
 
 	if ftrs.GitCommitAuthorTimestamp {
 		ret.Add(arg.EarthlyGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
+		ret.Add(arg.EarthGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
 	}
 
 	ret.Add(arg.EarthlySourceDateEpoch, max(gitMeta.CommitterTimestamp, "0"))
+	ret.Add(arg.EarthSourceDateEpoch, max(gitMeta.CommitterTimestamp, "0"))
 
 	if ftrs.EarthlyGitAuthorArgs {
 		ret.Add(arg.EarthlyGitAuthor, gitMeta.AuthorEmail)
+		ret.Add(arg.EarthGitAuthor, gitMeta.AuthorEmail)
 		ret.Add(arg.EarthlyGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
+		ret.Add(arg.EarthGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
 	}
 
 	if ftrs.GitAuthorEmailNameArgs {
 		if gitMeta.AuthorName != "" && gitMeta.AuthorEmail != "" {
 			ret.Add(arg.EarthlyGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
+			ret.Add(arg.EarthGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
 		}
 
 		ret.Add(arg.EarthlyGitAuthorEmail, gitMeta.AuthorEmail)
+		ret.Add(arg.EarthGitAuthorEmail, gitMeta.AuthorEmail)
 		ret.Add(arg.EarthlyGitAuthorName, gitMeta.AuthorName)
+		ret.Add(arg.EarthGitAuthorName, gitMeta.AuthorName)
 	}
 
 	if ftrs.GitRefs {
 		ret.Add(arg.EarthlyGitRefs, strings.Join(gitMeta.Refs, " "))
+		ret.Add(arg.EarthGitRefs, strings.Join(gitMeta.Refs, " "))
 	}
 
 	return ret

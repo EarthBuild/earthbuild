@@ -12,23 +12,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/internal/telemetry"
-	"github.com/EarthBuild/earthbuild/internal/version"
-	"github.com/fatih/color"
-	"github.com/joho/godotenv"
-	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
-
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
+	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
+	"github.com/fatih/color"
+	"github.com/joho/godotenv"
+	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
 // These vars are set by ldflags.

@@ -97,24 +97,39 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 type ShutdownFunc func(context.Context) error
 
 func newOTelResource(ctx context.Context) (*resource.Resource, error) {
-	executable, err := os.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("get executable path: %w", err)
+	errorf := func(format string, args ...any) (*resource.Resource, error) {
+		return nil, fmt.Errorf("create OTel resource: "+format, args...)
 	}
 
-	executablePath := filepath.Dir(executable)
+	executable, err := os.Executable()
+	if err != nil {
+		return errorf("get executable path: %w", err)
+	}
 
-	return resource.New(ctx,
+	var otelResource *resource.Resource
+
+	otelResource, err = resource.New(ctx,
+		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithAttributes(
 			semconv.ServiceName("EarthBuild"),
-			semconv.ProcessCommand(os.Args[0]),
+			semconv.ProcessCommand(filepath.Base(executable)),
 			semconv.ProcessPID(os.Getpid()),
-			semconv.ProcessCommandArgs(os.Args[1:]...),
-			semconv.ProcessExecutablePath(executablePath),
+			semconv.ProcessCommandArgs(os.Args...),
+			semconv.ProcessExecutablePath(executable),
 		),
 		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),
 	)
+	if err != nil {
+		return errorf("%w", err)
+	}
+
+	otelResource, err = resource.Merge(resource.Default(), otelResource)
+	if err != nil {
+		return errorf("%w", err)
+	}
+
+	return otelResource, nil
 }
 
 func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {

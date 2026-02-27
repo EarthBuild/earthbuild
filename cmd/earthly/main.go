@@ -65,7 +65,7 @@ func run() (code int) {
 
 	shutdown, err := telemetry.Setup(ctx)
 	if err != nil {
-		fmt.Printf("Error setting up OpenTelemetry: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, "Error setting up OpenTelemetry: %s\n", err.Error())
 	} else {
 		defer shutdown(ctx)
 	}

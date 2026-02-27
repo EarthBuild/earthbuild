@@ -26,4 +26,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Execute lint
-        run: earthly --ci -P +lint-changelog
+        run: earth --ci -P +lint-changelog

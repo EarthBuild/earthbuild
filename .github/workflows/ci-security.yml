@@ -20,4 +20,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Govulncheck
-        run: earthly --ci +govulncheck
+        run: earth --ci +govulncheck

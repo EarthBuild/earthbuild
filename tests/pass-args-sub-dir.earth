@@ -17,28 +17,28 @@ test-pass-args-via-from:
   FROM --pass-args ..+parent-target-wants-bar
 
 test-empty-via-copy:
-  FROM alpine:3.18
+  FROM alpine:3.23
   COPY ..+parent-target-wants-empty/data .
 
 test-pass-args-via-copy:
-  FROM alpine:3.18
+  FROM alpine:3.23
   COPY --pass-args ..+parent-target-wants-bar/data .
 
 test-empty-via-build:
   BUILD ..+parent-target-wants-empty
 
 test-pass-args-via-build:
-  FROM alpine:3.18
+  FROM alpine:3.23
   BUILD --pass-args ..+parent-target-wants-bar
 
 test-empty-command:
-  FROM alpine:3.18
+  FROM alpine:3.23
   DO ..+PARENTCMD
   RUN cat data
   RUN grep '^foo=$' data
 
 test-pass-args-command:
-  FROM alpine:3.18
+  FROM alpine:3.23
   DO --pass-args ..+PARENTCMD
   RUN cat data
   RUN grep '^foo=bar$' data

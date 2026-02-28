@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.18
+FROM alpine:3.23
 
 #################################################################################################################
 # tests for testing RUN commands are executed on the localhost
@@ -119,7 +119,7 @@ test-local-overwrites:
 # tests for testing containerized artifacts can be referenced by local targets
 
 busybox-artifact:
-    FROM busybox:1.32.1 # if this is changed the grep in test-copy-from-busybox-to-local must also be updated
+    FROM busybox:1.37.0 # if this is changed the grep in test-copy-from-busybox-to-local must also be updated
     RUN busybox > /data
     SAVE ARTIFACT /data the-data
 
@@ -137,7 +137,7 @@ test-copy-from-busybox-to-local-with-workdir:
     RUN cat /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e/0b59ac77-91d7-4b84-9d1c-12f64fc6f48e | grep "BusyBox v1.32.1"
 
 alpine-artifacts:
-    FROM alpine:3.18.3 # if this is changed, the grep in test-multi-copy-from-alpine-to-local must also be updated
+    FROM alpine:3.23.3 # if this is changed, the grep in test-multi-copy-from-alpine-to-local must also be updated
     SAVE ARTIFACT /etc/alpine-release alpine-release
     SAVE ARTIFACT /etc/motd alpine-motd
     SAVE ARTIFACT /etc/os-release alpine-os-release
@@ -151,7 +151,7 @@ test-multi-copy-from-alpine-to-local:
     RUN cat /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d/alpine-os-release | grep "ID=alpine"
 
 busybox-dir-artifact:
-    FROM busybox:1.32.1
+    FROM busybox:1.37.0
     RUN mkdir /data-dir
     RUN busybox > /data-dir/busybox
     RUN hostname > /data-dir/hostname

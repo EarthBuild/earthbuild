@@ -8,7 +8,7 @@ version := "1.0"
 libraryDependencies ++= Seq(
   "org.tpolecat" %% "doobie-core"      % "0.9.0",
   "org.tpolecat" %% "doobie-postgres"  % "0.9.0",         
-  "org.tpolecat" %% "doobie-scalatest" % "0.9.0" % "test" 
+  "org.tpolecat" %% "doobie-scalatest" % "0.13.4" % "test" 
 )
 
 lazy val root = (project in file("."))

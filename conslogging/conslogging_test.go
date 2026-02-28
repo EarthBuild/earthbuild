@@ -109,7 +109,7 @@ func Test_prettyPrefix(t *testing.T) {
 		{
 			name:          "git url with credentials gets truncated",
 			prefixPadding: DefaultPadding,
-			prefix:        "https://testuser:xxxx@selfsigned.example.com/repo.git#main",
+			prefix:        "https://testuser:xxxx@selfsigned.example.com/repo.git#main", // #nosec G101
 			expected:      "    h://t:x@s/repo#m",
 		},
 	}

@@ -176,6 +176,7 @@ func (ts *termState) makeRaw() error {
 	if ts.oldState == nil {
 		var err error
 
+		// #nosec G115 - Fd() returns a small int
 		ts.oldState, err = term.MakeRaw(int(os.Stdin.Fd()))
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize terminal in raw mode")
@@ -190,6 +191,7 @@ func (ts *termState) restore() error {
 	defer ts.mu.Unlock()
 
 	if ts.oldState != nil {
+		// #nosec G115 - Fd() returns a small int
 		err := term.Restore(int(os.Stdin.Fd()), ts.oldState)
 		if err != nil {
 			return errors.Wrap(err, "failed to restore terminal mode")

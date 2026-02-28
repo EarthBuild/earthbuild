@@ -142,18 +142,18 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 	for i, lines := range targets {
 		for j, l := range lines {
 			if i == 0 {
-				fmt.Fprintf(out, "%s\n", l)
+				fmt.Fprintf(out, "%s\n", l) // #nosec G705
 			} else {
 				if j == 0 {
 					fmt.Fprintf(out, "subbuild%d:\n", i)
 				}
 
-				fmt.Fprintf(out, "    %s\n", l)
+				fmt.Fprintf(out, "    %s\n", l) // #nosec G705
 			}
 		}
 	}
 
-	fmt.Fprintf(out, "\nbuild:\n    BUILD +subbuild%d\n", i)
+	fmt.Fprintf(out, "\nbuild:\n    BUILD +subbuild%d\n", i) // #nosec G705
 
 	return nil
 }

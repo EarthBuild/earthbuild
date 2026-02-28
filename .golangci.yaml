@@ -37,6 +37,7 @@ linters:
     - mirror
     - mnd
     - musttag
+    - nestif
     - nilnesserr
     - nilnil
     - nlreturn
@@ -48,11 +49,14 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl # deprecated
+    - wsl_v5
   exclusions:
     generated: lax
   settings:
     govet:
       enable-all: true
+      disable:
+        - fieldalignment
 formatters:
   enable:
     - gofumpt

@@ -3,6 +3,7 @@ package flagutil
 import (
 	"context"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
@@ -25,9 +26,7 @@ type ArgumentModFunc func(flagName string, opt *flags.Option, flagVal *string) (
 
 // ParseArgs parses flags and args from a command string.
 func ParseArgs(command string, data any, args []string) ([]string, error) {
-	return ParseArgsWithValueModifier(command, data, args,
-		func(_ string, _ *flags.Option, s *string) (*string, error) { return s, nil },
-	)
+	return ParseArgsWithValueModifier(command, data, args, nil)
 }
 
 func ParseArgsCleaned(cmdName string, opts any, args []string) ([]string, error) {
@@ -62,19 +61,19 @@ func ParseArgsWithValueModifier(
 func ParseArgsWithValueModifierAndOptions(
 	command string, data any, args []string, argumentModFunc ArgumentModFunc, parserOptions flags.Options,
 ) ([]string, error) {
-	p := flags.NewNamedParser("", parserOptions)
+	// Preprocess args if we have a modifier function
+	if argumentModFunc != nil {
+		boolFlags := getBoolFlagNames(data)
 
-	var modFuncErr error
+		var err error
 
-	modFunc := func(flagName string, opt *flags.Option, flagVal *string) *string {
-		p, err := argumentModFunc(flagName, opt, flagVal)
+		args, err = preprocessArgs(args, boolFlags, argumentModFunc)
 		if err != nil {
-			modFuncErr = err
+			return nil, err
 		}
-
-		return p
 	}
-	p.ArgumentMod = modFunc
+
+	p := flags.NewNamedParser("", parserOptions)
 
 	_, err := p.AddGroup(command+" [options] args", "", data)
 	if err != nil {
@@ -90,11 +89,179 @@ func ParseArgsWithValueModifierAndOptions(
 		return nil, err
 	}
 
-	if modFuncErr != nil {
-		return nil, modFuncErr
+	return res, nil
+}
+
+// getBoolFlagNames extracts boolean flag names from a struct using reflection.
+func getBoolFlagNames(data any) map[string]bool {
+	boolFlags := make(map[string]bool)
+
+	if data == nil {
+		return boolFlags
 	}
 
-	return res, nil
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return boolFlags
+	}
+
+	collectBoolFlags(v.Type(), boolFlags)
+
+	return boolFlags
+}
+
+// collectBoolFlags recursively collects boolean flag names from a struct type.
+func collectBoolFlags(t reflect.Type, boolFlags map[string]bool) {
+	for i := range t.NumField() {
+		field := t.Field(i)
+		fieldType := field.Type
+
+		// Handle embedded structs recursively
+		if field.Anonymous && fieldType.Kind() == reflect.Struct {
+			collectBoolFlags(fieldType, boolFlags)
+			continue
+		}
+
+		// Check if it's a boolean type
+		isBool := fieldType.Kind() == reflect.Bool
+
+		// Get flag names from tags
+		shortTag := field.Tag.Get("short")
+		if shortTag != "" && isBool {
+			boolFlags[shortTag] = true
+		}
+
+		longTag := field.Tag.Get("long")
+		if longTag != "" && isBool {
+			boolFlags[longTag] = true
+		}
+	}
+}
+
+// preprocessArgs processes arguments before parsing, applying the modifier function to boolean flag values.
+func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentModFunc) ([]string, error) {
+	result := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		// Check if this is a flag with a value (e.g., --flag=value)
+		switch {
+		case strings.HasPrefix(arg, "--"):
+			parts := strings.SplitN(arg[2:], "=", 2)
+			flagName := parts[0]
+
+			if len(parts) != 2 || !boolFlags[flagName] {
+				result = append(result, arg)
+				continue
+			}
+
+			// This is a boolean flag with an explicit value
+			value := parts[1]
+			modifiedValue, err := modFunc(flagName, nil, &value)
+			if err != nil {
+				return nil, err
+			}
+
+			if modifiedValue != nil {
+				result = append(result, "--"+flagName+"="+*modifiedValue)
+			} else {
+				result = append(result, "--"+flagName)
+			}
+
+			continue
+		case strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--"):
+			// Short flag handling
+			flagPart := strings.TrimPrefix(arg, "-")
+
+			// Check if it has an attached value (e.g., -f=value)
+			switch {
+			case strings.Contains(flagPart, "="):
+				parts := strings.SplitN(flagPart, "=", 2)
+				flagName := parts[0]
+
+				if len(flagName) != 1 || !boolFlags[flagName] {
+					result = append(result, arg)
+					continue
+				}
+
+				value := parts[1]
+				modifiedValue, err := modFunc(flagName, nil, &value)
+				if err != nil {
+					return nil, err
+				}
+
+				if modifiedValue != nil {
+					result = append(result, "-"+flagName+"="+*modifiedValue)
+					continue
+				}
+
+				result = append(result, arg)
+				continue
+			case len(flagPart) == 1 && boolFlags[flagPart]:
+				// Single short flag, check if next arg is the value
+				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					value := args[i+1]
+					modifiedValue, err := modFunc(flagPart, nil, &value)
+					if err != nil {
+						return nil, err
+					}
+
+					if modifiedValue != nil {
+						result = append(result, arg, *modifiedValue)
+						i++ // Skip the next arg since we consumed it
+
+						continue
+					}
+				}
+			case len(flagPart) > 1:
+				// Handle clustered short flags (e.g., -abc)
+				// Check each character to see if any are boolean flags that need modification
+				modified := false
+
+				for j, c := range flagPart {
+					flagName := string(c)
+					if !boolFlags[flagName] {
+						continue
+					}
+
+					// For clustered flags, we can only modify if it's the last flag
+					// and the next arg is a value
+					isLastFlag := j == len(flagPart)-1
+					hasNextValue := i+1 < len(args) && !strings.HasPrefix(args[i+1], "-")
+
+					if !isLastFlag || !hasNextValue {
+						continue
+					}
+
+					value := args[i+1]
+					modifiedValue, err := modFunc(flagName, nil, &value)
+					if err != nil {
+						return nil, err
+					}
+
+					if modifiedValue != nil {
+						result = append(result, arg, *modifiedValue)
+						i++ // Skip the next arg since we consumed it
+						modified = true
+						break
+					}
+				}
+
+				if modified {
+					continue
+				}
+			}
+		}
+
+		result = append(result, arg)
+	}
+
+	return result, nil
 }
 
 // SplitFlagString would return an array of values from the StringSlice, whether it's passed using

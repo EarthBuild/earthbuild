@@ -26,4 +26,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Execute merge
-        run: earthly --push --ci +merge-main-to-docs
+        run: earth --push --ci +merge-main-to-docs

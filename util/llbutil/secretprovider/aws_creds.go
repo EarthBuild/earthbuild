@@ -39,6 +39,7 @@ var AWSCredentials = []string{
 	awsRegion,
 }
 
+// #nosec G101
 var awsEnvNames = map[string]string{
 	awsAccessKey:    "AWS_ACCESS_KEY_ID",
 	awsSecretKey:    "AWS_SECRET_ACCESS_KEY",

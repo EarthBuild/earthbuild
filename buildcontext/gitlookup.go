@@ -335,12 +335,11 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 	} {
 		for _, keyScan := range keyScans {
 			keyAlg, keyData, err := parseKeyScanIfHostMatches(keyScan, hostname)
-			switch err {
-			case nil:
-			case errKeyScanNoMatch:
+			switch {
+			case errors.Is(err, errKeyScanNoMatch):
 				gl.console.VerbosePrintf("ignoring key scan %q: due to host mismatch", keyScan)
 				continue
-			default:
+			case err != nil:
 				gl.console.Warnf("failed to parse key scan %q: %s", keyScan, err)
 				continue
 			}

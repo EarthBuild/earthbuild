@@ -20,9 +20,9 @@ check-tag-exists-locally:
 
     RUN true
 
-    RUN docker images | grep 'earthly-multiplatform-wait-test-with-from[ ]\+latest_linux_amd64'
-    RUN docker images | grep 'earthly-multiplatform-wait-test-with-from[ ]\+latest_linux_arm_v7'
-    RUN if docker images | grep 'earthly-multiplatform-wait-test-with-from[ ]\+latest_linux_arm64'; then echo "Error: latest_linux_arm64 should not have be saved, but was" && exit 1; fi
+    RUN docker images --format '{{.Repository}}:{{.Tag}}' | grep 'earthly-multiplatform-wait-test-with-from:latest_linux_amd64'
+    RUN docker images --format '{{.Repository}}:{{.Tag}}' | grep 'earthly-multiplatform-wait-test-with-from:latest_linux_arm_v7'
+    RUN if docker images --format '{{.Repository}}:{{.Tag}}' | grep 'earthly-multiplatform-wait-test-with-from:latest_linux_arm64'; then echo "Error: latest_linux_arm64 should not have be saved, but was" && exit 1; fi
 
 
 deps:

@@ -49,6 +49,7 @@ func WrapError(
 	}
 }
 
+// Error implements [error] interface.
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {
@@ -93,8 +94,8 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 		return nil, false
 	}
 
-	ie, ok := err.(*InterpreterError)
-	if ok {
+	var ie *InterpreterError
+	if errors.As(err, &ie) {
 		return ie, true
 	}
 

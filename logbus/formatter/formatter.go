@@ -12,13 +12,13 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/deltautil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/progressbar"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	runc "github.com/containerd/go-runc"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/earthly/cloud-api/logstream"
 	"github.com/hashicorp/go-multierror"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
@@ -180,7 +180,9 @@ func (f *Formatter) Manifest() *logstream.RunManifest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return proto.Clone(f.manifest).(*logstream.RunManifest)
+	manifest, _ := proto.Clone(f.manifest).(*logstream.RunManifest)
+
+	return manifest
 }
 
 func (f *Formatter) processDelta(delta *logstream.Delta) error {

@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/earthly/cloud-api/logstream"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
 )
@@ -81,9 +81,11 @@ func determineFatalErrorType(errString string, exitCode int, exitParseErr error)
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 	}
 
-	if exitParseErr == errNoExitCodeOMM {
+	if errors.Is(exitParseErr, errNoExitCodeOMM) {
 		return logstream.FailureType_FAILURE_TYPE_OOM_KILLED, true
-	} else if exitParseErr != nil && exitParseErr != errNoExitCode {
+	}
+
+	if exitParseErr != nil && !errors.Is(exitParseErr, errNoExitCode) {
 		// We have an exit code, and can't parse it
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, true
 	}

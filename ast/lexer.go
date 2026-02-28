@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/parser"
-	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
+	"github.com/antlr4-go/antlr/v4"
 )
 
 const (
@@ -164,12 +164,20 @@ func (l *lexer) debugToken(token antlr.Token, modeBefore int) {
 }
 
 func (l *lexer) pos() (line, column, index int) {
-	atn := l.Interpreter.(*antlr.LexerATNSimulator)
+	atn, ok := l.Interpreter.(*antlr.LexerATNSimulator)
+	if !ok {
+		panic(fmt.Sprintf("want *antlr.LexerATNSimulator, got %T", l.Interpreter))
+	}
+
 	return atn.Line, atn.CharPositionInLine, l.GetInputStream().Index()
 }
 
 func (l *lexer) seek(line, column, index int) {
-	atn := l.Interpreter.(*antlr.LexerATNSimulator)
+	atn, ok := l.Interpreter.(*antlr.LexerATNSimulator)
+	if !ok {
+		panic(fmt.Sprintf("want *antlr.LexerATNSimulator, got %T", l.Interpreter))
+	}
+
 	atn.Line = line
 	atn.CharPositionInLine = column
 

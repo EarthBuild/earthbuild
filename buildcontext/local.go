@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -62,7 +63,10 @@ func (lr *localResolver) resolveLocal(
 		return nil, err
 	}
 
-	metadata := metadataValue.(*gitutil.GitMetadata)
+	metadata, ok := metadataValue.(*gitutil.GitMetadata)
+	if !ok {
+		return nil, fmt.Errorf("want *gitutil.GitMetadata, got %T", metadataValue)
+	}
 
 	localPath := filepath.FromSlash(ref.GetLocalPath())
 	key := localPath
@@ -100,7 +104,11 @@ func (lr *localResolver) resolveLocal(
 		return nil, err
 	}
 
-	bf := buildFileValue.(*buildFile)
+	bf, ok := buildFileValue.(*buildFile)
+	if !ok {
+		return nil, fmt.Errorf("want *buildFile, got %T", buildFileValue)
+	}
+
 	data := &Data{
 		BuildFilePath: bf.path,
 		GitMetadata:   metadata,

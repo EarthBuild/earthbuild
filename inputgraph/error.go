@@ -16,6 +16,7 @@ type Error struct {
 	msg    string
 }
 
+// Error implements [error] interface.
 func (e *Error) Error() string {
 	parts := []string{}
 	if e.msg != "" {

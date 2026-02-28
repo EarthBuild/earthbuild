@@ -3,7 +3,7 @@ package solvermon
 import (
 	"testing"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -52,7 +52,7 @@ func TestGetExitCode(t *testing.T) {
 				t.Errorf("getExitCode(%q) = %d, want %d", tt.errString, code, tt.expectedCode)
 			}
 
-			if err != tt.expectedError {
+			if !errors.Is(err, tt.expectedError) {
 				t.Errorf("getExitCode(%q) = %d, want %d", tt.errString, err, tt.expectedError)
 			}
 		})

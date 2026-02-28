@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1" // #nosec G505
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -87,13 +88,14 @@ func (h *Hasher) HashFile(ctx context.Context, src string) error {
 
 		select {
 		case err := <-readCh:
-			if err == io.EOF {
+			switch {
+			case errors.Is(err, io.EOF):
 				return nil
-			} else if err != nil {
+			case err != nil:
 				return err
+			default:
+				h.h.Write(buf[:n])
 			}
-
-			h.h.Write(buf[:n])
 		case <-ctx.Done():
 			return ctx.Err()
 		}

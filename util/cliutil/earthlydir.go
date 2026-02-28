@@ -18,7 +18,7 @@ var (
 
 var (
 	earthlyDirCreateOnce sync.Once
-	earthlyDirCreateErr  error
+	errEarthlyDirCreate  error
 )
 
 // GetEarthlyDir returns the .earthly dir. (Usually ~/.earthly).
@@ -51,27 +51,27 @@ func GetOrCreateEarthlyDir(installName string) (string, error) {
 	earthlyDirCreateOnce.Do(func() {
 		earthlyDirExists, err := fileutil.DirExists(earthlyDir)
 		if err != nil {
-			earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
+			errEarthlyDirCreate = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 			return
 		}
 
 		if !earthlyDirExists {
 			err := os.MkdirAll(earthlyDir, 0o755) // #nosec G301
 			if err != nil {
-				earthlyDirCreateErr = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
+				errEarthlyDirCreate = errors.Wrapf(err, "unable to create dir %s", earthlyDir)
 				return
 			}
 
 			if earthlyDirSudoUser != nil {
 				err := fileutil.EnsureUserOwned(earthlyDir, earthlyDirSudoUser)
 				if err != nil {
-					earthlyDirCreateErr = errors.Wrapf(err, "failed to ensure %s is owned by %s", earthlyDir, earthlyDirSudoUser)
+					errEarthlyDirCreate = errors.Wrapf(err, "failed to ensure %s is owned by %s", earthlyDir, earthlyDirSudoUser)
 				}
 			}
 		}
 	})
 
-	return earthlyDir, earthlyDirCreateErr
+	return earthlyDir, errEarthlyDirCreate
 }
 
 // IsBootstrapped provides a tentatively correct guess about the state of our bootstrapping.

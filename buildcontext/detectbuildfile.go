@@ -12,13 +12,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ErrEarthfileNotExist is the struct indicating that file does not exist.
-type ErrEarthfileNotExist struct {
+// EarthfileNotExistError is the struct indicating that file does not exist.
+type EarthfileNotExistError struct {
 	Target string
 }
 
-// Error is function required by error interface.
-func (err ErrEarthfileNotExist) Error() string {
+// Error implements [error] interface.
+func (err EarthfileNotExistError) Error() string {
 	return "No Earthfile nor build.earth file found for target " + err.Target
 }
 
@@ -36,7 +36,7 @@ func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
 
 		_, err = os.Stat(buildEarthPath)
 		if os.IsNotExist(err) {
-			return "", ErrEarthfileNotExist{Target: ref.String()}
+			return "", EarthfileNotExistError{Target: ref.String()}
 		} else if err != nil {
 			return "", errors.Wrapf(err, "stat file %s", buildEarthPath)
 		}
@@ -78,7 +78,7 @@ func detectBuildFileInRef(
 		return buildEarthPath, nil
 	}
 
-	return "", ErrEarthfileNotExist{Target: earthlyRef.String()}
+	return "", EarthfileNotExistError{Target: earthlyRef.String()}
 }
 
 func fileExists(ctx context.Context, ref gwclient.Reference, fpath string) (bool, error) {

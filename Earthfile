@@ -144,7 +144,7 @@ earthly-script-no-stdout:
 # lint runs basic go linters against the earthly project.
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.9.0
+    LET golangci_lint_version=2.10.1
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /

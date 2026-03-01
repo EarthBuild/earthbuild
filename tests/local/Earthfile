@@ -1,5 +1,9 @@
 VERSION 0.8
-FROM alpine:3.23
+# renovate: datasource=docker packageName=alpine
+ARG --global alpine_version=3.23.3
+# renovate: datasource=docker packageName=busybox
+ARG --global busybox_version=1.37.0
+FROM alpine:$alpine_version
 
 #################################################################################################################
 # tests for testing RUN commands are executed on the localhost
@@ -119,7 +123,7 @@ test-local-overwrites:
 # tests for testing containerized artifacts can be referenced by local targets
 
 busybox-artifact:
-    FROM busybox:1.37.0 # if this is changed the grep in test-copy-from-busybox-to-local must also be updated
+    FROM busybox:$busybox_version
     RUN busybox > /data
     SAVE ARTIFACT /data the-data
 
@@ -127,17 +131,17 @@ test-copy-from-busybox-to-local:
     LOCALLY
     RUN rm -rf /tmp/4eb5dcb7-2245-4f35-ab41-252f78e7a451
     COPY +busybox-artifact/the-data /tmp/4eb5dcb7-2245-4f35-ab41-252f78e7a451
-    RUN cat /tmp/4eb5dcb7-2245-4f35-ab41-252f78e7a451 | grep "BusyBox v1.32.1"
+    RUN cat /tmp/4eb5dcb7-2245-4f35-ab41-252f78e7a451 | grep "BusyBox v${busybox_version}"
 
 test-copy-from-busybox-to-local-with-workdir:
     LOCALLY
     RUN rm -rf /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e
     WORKDIR /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e
     COPY +busybox-artifact/the-data 0b59ac77-91d7-4b84-9d1c-12f64fc6f48e
-    RUN cat /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e/0b59ac77-91d7-4b84-9d1c-12f64fc6f48e | grep "BusyBox v1.32.1"
+    RUN cat /tmp/earthbuild-test-5816ebd4-6b18-421e-a1b4-5991af91e11e/0b59ac77-91d7-4b84-9d1c-12f64fc6f48e | grep "BusyBox v${busybox_version}"
 
 alpine-artifacts:
-    FROM alpine:3.23.3 # if this is changed, the grep in test-multi-copy-from-alpine-to-local must also be updated
+    FROM alpine:$alpine_version # if this is changed, the grep in test-multi-copy-from-alpine-to-local must also be updated
     SAVE ARTIFACT /etc/alpine-release alpine-release
     SAVE ARTIFACT /etc/motd alpine-motd
     SAVE ARTIFACT /etc/os-release alpine-os-release
@@ -146,12 +150,12 @@ test-multi-copy-from-alpine-to-local:
     LOCALLY
     RUN rm -rf /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d
     COPY +alpine-artifacts/alpine-release +alpine-artifacts/alpine-motd +alpine-artifacts/alpine-os-release /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d
-    RUN cat /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d/alpine-release | grep 3\\.18\\.3
+    RUN cat /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d/alpine-release | grep $alpine_version
     RUN cat /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d/alpine-motd | grep alpinelinux.org
     RUN cat /tmp/ac0887d7-fda7-4a1b-9873-054488c7e44d/alpine-os-release | grep "ID=alpine"
 
 busybox-dir-artifact:
-    FROM busybox:1.37.0
+    FROM busybox:$busybox_version
     RUN mkdir /data-dir
     RUN busybox > /data-dir/busybox
     RUN hostname > /data-dir/hostname
@@ -161,35 +165,30 @@ test-locally-can-copy-dir-contents:
     LOCALLY
     RUN rm -rf /tmp/f3fa2ae8-df5e-4b34-875d-c0919fae20d8
     COPY +busybox-dir-artifact/the-data /tmp/f3fa2ae8-df5e-4b34-875d-c0919fae20d8
-    RUN cat /tmp/f3fa2ae8-df5e-4b34-875d-c0919fae20d8/busybox | grep "BusyBox v1.32.1"
+    RUN cat /tmp/f3fa2ae8-df5e-4b34-875d-c0919fae20d8/busybox | grep "BusyBox v${busybox_version}"
     RUN cat /tmp/f3fa2ae8-df5e-4b34-875d-c0919fae20d8/hostname | grep "buildkitsandbox"
 
 test-locally-can-copy-dir:
     LOCALLY
     RUN rm -rf /tmp/008f5069-567a-4aab-8024-1c974100a67f
     COPY --dir +busybox-dir-artifact/the-data /tmp/008f5069-567a-4aab-8024-1c974100a67f
-    RUN cat /tmp/008f5069-567a-4aab-8024-1c974100a67f/the-data/busybox | grep "BusyBox v1.32.1"
+    RUN cat /tmp/008f5069-567a-4aab-8024-1c974100a67f/the-data/busybox | grep "BusyBox v${busybox_version}"
     RUN cat /tmp/008f5069-567a-4aab-8024-1c974100a67f/the-data/hostname | grep "buildkitsandbox"
 
 test-locally-workdir:
     LOCALLY
     WORKDIR /tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c
-    RUN set -e; \
-        if [ "$(uname -s)" = "Darwin" ]; then \
-            test "$(pwd)" = "/private/tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c"; \
-        else \
-            test "$(pwd)" = "/tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c"; \
-        fi
+    RUN test "$(pwd)" = "/tmp/earthbuild-197ec076-b89d-4861-b8ca-33a34170712c"
 
 #################################################################################################################
 # tests for building containers and loading and running them locally
 
 mycontainer:
-    FROM busybox:latest
+    FROM busybox:$busybox_version
     CMD echo hello worldz
 
 mycontainer2:
-    FROM busybox:latest
+    FROM busybox:$busybox_version
     CMD echo fizzbuzz
 
 test-with-docker:

@@ -21,7 +21,7 @@ const (
 {{- $indent := and .Prefix .Indent}}{{/* if .Prefix is empty string, empty string; otherwise .Indent */}}
 {{- if .Prefix }}{{.Prefix}}base:
 {{ end -}}
-{{$indent}}LET go_version = 1.25
+{{$indent}}LET go_version = 1.26
 {{$indent}}LET distro = alpine3.23
 
 {{$indent}}FROM golang:${go_version}-${distro}

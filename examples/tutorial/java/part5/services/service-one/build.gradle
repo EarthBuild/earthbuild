@@ -23,7 +23,7 @@ application {
 
 dependencies {
     implementation 'joda-time:joda-time:2.12.7'      // or use java.time on JDK 8+
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.14.3'
 }
 
 tasks.named('test') {

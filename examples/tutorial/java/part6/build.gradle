@@ -25,7 +25,7 @@ dependencies {
 
     implementation 'org.postgresql:postgresql:42.7.10'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.14.3'
 }
 
 tasks.named('test') {

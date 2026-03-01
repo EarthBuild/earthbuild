@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.18
+FROM alpine:3.23
 WORKDIR /test
 
 ARG notaglobal=this-only-exists-in-base
@@ -37,13 +37,13 @@ test1:
     BUILD +file-exists --VAR1=$(ls)
 
 test2:
-    ARG ALPINE=3.11
+    ARG ALPINE=3.23
     FROM alpine:$ALPINE
     RUN echo $ALPINE
     RUN test "$ALPINE" == "3.11"
 
 dummy:
-    FROM alpine:3.18
+    FROM alpine:3.23
 
 test3:
     ARG VAR1="test"

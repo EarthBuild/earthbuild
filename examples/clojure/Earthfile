@@ -11,7 +11,7 @@ build:
     SAVE ARTIFACT version
 
 docker:
-    FROM amazoncorretto:25-alpine3.22
+    FROM amazoncorretto:25.0.2-alpine3.22
     COPY +build/* .
     EXPOSE 8080
     ENTRYPOINT java -Dserver.port=8080 -jar earthly-example-standalone.jar

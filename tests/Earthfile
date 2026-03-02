@@ -87,6 +87,7 @@ ga-no-qemu-group4:
     BUILD +end-comment
     BUILD +file-copying
     BUILD +run-no-cache
+    BUILD +run-exec-form-test
     BUILD +save-artifact-file-as-dot
     BUILD +save-artifact-dir-as-dot
     BUILD +save-artifact-force-overwrite
@@ -479,9 +480,8 @@ remote-test:
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/hello-world:main+hello
     RUN --privileged \
-        --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthbuild \
-        -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
+        /usr/bin/earthly-entrypoint.sh --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
         ls /tmp/hostname.3d4b1831-c07e-4b2d-805e-2b8ce578bb50
     RUN --privileged \
         --entrypoint \
@@ -802,6 +802,9 @@ gen-dockerfile-test:
 
 comments-test:
     DO +RUN_EARTHLY --earthfile=comments.earth --extra_args="--no-output" --target=+test
+
+run-exec-form-test:
+    DO +RUN_EARTHLY --earthfile=run-exec-form.earth --extra_args="--no-output" --target=+test-exec-form-run
 
 chown-test:
     RUN echo "test" > ./a.txt

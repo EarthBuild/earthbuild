@@ -34,5 +34,5 @@ test-aws-failure:
     RUN --secret OIDC_USER_TOKEN=test-oidc-user/token \
         --mount=type=tmpfs,target=/tmp/earthbuild \
         --privileged \
-        --entrypoint \
-        2>&1 |grep "Help: make sure the role \"arn:aws:iam::123456789012:role/does-not-exist\" has a valid trust policy configured in AWS"
+        /usr/bin/earthly-entrypoint.sh 2>&1 \
+        |grep "Help: make sure the role \"arn:aws:iam::123456789012:role/does-not-exist\" has a valid trust policy configured in AWS"

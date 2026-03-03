@@ -6,9 +6,9 @@ organization := "earthly.dev"
 version := "1.0"
 
 libraryDependencies ++= Seq(
-  "org.tpolecat" %% "doobie-core"      % "0.13.4",
-  "org.tpolecat" %% "doobie-postgres"  % "0.13.4",         
-  "org.tpolecat" %% "doobie-scalatest" % "0.13.4" % "test" 
+  "org.tpolecat" %% "doobie-core"      % "1.0.0-RC2",
+  "org.tpolecat" %% "doobie-postgres"  % "1.0.0-RC2",         
+  "org.tpolecat" %% "doobie-scalatest" % "1.0.0-RC2" % "test" 
 )
 
 lazy val root = (project in file("."))

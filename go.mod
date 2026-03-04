@@ -1,6 +1,6 @@
 module github.com/EarthBuild/earthbuild
 
-go 1.25
+go 1.26
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0
@@ -136,6 +136,6 @@ require (
 
 replace (
 	github.com/jessevdk/go-flags => github.com/alexcb/go-flags v0.0.0-20210722203016-f11d7ecb5ee5
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20240515200521-531b303aa8ec
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20260219223358-c40c767e201d
 	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65
 )

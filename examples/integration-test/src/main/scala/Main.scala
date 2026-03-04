@@ -1,6 +1,7 @@
 import doobie._
 import doobie.implicits._
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import scala.concurrent.ExecutionContext
 
 object Main extends App {
@@ -9,16 +10,16 @@ object Main extends App {
 
   if(dv.version() > 1)
   {
-    implicit val cs = IO.contextShift(ExecutionContext.global)
+
     val xa = Transactor.fromDriverManager[IO](
-      "org.postgresql.Driver", 
-      "jdbc:postgresql://localhost:5432/iso3166", 
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/iso3166",
       "postgres",
       "postgres"
     )
 
     val countries = dal.countries(5)
-                       .transact(xa).unsafeRunSync
+                       .transact(xa).unsafeRunSync()
                        .toList.map(_.name).mkString(", ")
 
     println(s"The first 5 countries alphabetically are: $countries")
@@ -29,7 +30,7 @@ class DataAccessLayer()
 {
   case class Country(name : String)
 
-  def countries(limit : Int): ConnectionIO[List[Country]] 
+  def countries(limit : Int): ConnectionIO[List[Country]]
       = sql"select name from country"
           .query[Country]
           .stream

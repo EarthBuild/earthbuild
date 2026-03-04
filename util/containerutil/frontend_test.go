@@ -703,7 +703,7 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 		go func(name string) {
 			defer wg.Done()
 
-			cmd := exec.CommandContext(ctx, feBinary, "run", "-d", "--rm", "--name", name, image,
+			cmd := exec.CommandContext(ctx, feBinary, "run", "-d", "--rm", "--name", name, image, // #nosec G204,G702
 				"sh", "-c", `echo output stream&&>&2 echo error stream&&sleep 100`)
 			output, createErr := cmd.CombinedOutput()
 
@@ -725,7 +725,7 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 // pullImageIfNecessary will only pull the image if it does not exist locally
 // This helps us avoid unauthenticated rate limits in tests.
 func pullImageIfNecessary(ctx context.Context, feBinary string, image string) error {
-	cmd := exec.CommandContext(ctx, feBinary, "inspect", "--type=image", image)
+	cmd := exec.CommandContext(ctx, feBinary, "inspect", "--type=image", image) // #nosec G204,G702
 
 	_, inspectErr := cmd.CombinedOutput()
 	if inspectErr == nil {
@@ -733,7 +733,7 @@ func pullImageIfNecessary(ctx context.Context, feBinary string, image string) er
 		return nil
 	}
 
-	cmd = exec.CommandContext(ctx, feBinary, "pull", image)
+	cmd = exec.CommandContext(ctx, feBinary, "pull", image) // #nosec G204,G702
 
 	_, pullErr := cmd.CombinedOutput()
 	if pullErr != nil {
@@ -755,7 +755,7 @@ func removeContainers(ctx context.Context, feBinary string, names ...string) err
 		go func(name string) {
 			defer wg.Done()
 
-			removeCmd := exec.CommandContext(ctx, feBinary, "rm", "-f", name)
+			removeCmd := exec.CommandContext(ctx, feBinary, "rm", "-f", name) // #nosec G204
 			_, removeErr := removeCmd.CombinedOutput()
 
 			m.Lock()
@@ -790,7 +790,7 @@ func waitForContainers(ctx context.Context, feBinary string, names ...string) er
 			for attempts < maxAttempts {
 				attempts++
 				// docker inspect -f {{.State.Running}} CONTAINERNAME`"=="true"
-				cmd := exec.CommandContext(ctx, feBinary, "inspect", "-f", "{{.State.Running}}", name)
+				cmd := exec.CommandContext(ctx, feBinary, "inspect", "-f", "{{.State.Running}}", name) // #nosec G204
 
 				output, inspectErr := cmd.CombinedOutput()
 				if inspectErr != nil {

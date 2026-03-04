@@ -17,6 +17,18 @@ const (
 	EarthGitShortHash               = "EARTH_GIT_SHORT_HASH"
 	EarthGitTag                     = "EARTH_GIT_TAG"
 	EarthSourceDateEpoch            = "EARTH_SOURCE_DATE_EPOCH"
+	EarthBuildSha                   = "EARTH_BUILD_SHA"
+	EarthLocally                    = "EARTH_LOCALLY"
+	EarthPush                       = "EARTH_PUSH"
+	EarthCI                         = "EARTH_CI"
+	EarthCIRunner                   = "EARTH_CI_RUNNER"
+	EarthTarget                     = "EARTH_TARGET"
+	EarthTargetName                 = "EARTH_TARGET_NAME"
+	EarthTargetProject              = "EARTH_TARGET_PROJECT"
+	EarthTargetProjectNoTag         = "EARTH_TARGET_PROJECT_NO_TAG"
+	EarthTargetTag                  = "EARTH_TARGET_TAG"
+	EarthTargetTagDocker            = "EARTH_TARGET_TAG_DOCKER"
+	EarthVersion                    = "EARTH_VERSION"
 	EarthlyBuildSha                 = "EARTHLY_BUILD_SHA"
 	EarthlyGitBranch                = "EARTHLY_GIT_BRANCH"
 	EarthlyGitCommitTimestamp       = "EARTHLY_GIT_COMMIT_TIMESTAMP"
@@ -78,6 +90,18 @@ func init() {
 		EarthGitShortHash:               {},
 		EarthGitTag:                     {},
 		EarthSourceDateEpoch:            {},
+		EarthBuildSha:                   {},
+		EarthLocally:                    {},
+		EarthPush:                       {},
+		EarthCI:                         {},
+		EarthCIRunner:                   {},
+		EarthTarget:                     {},
+		EarthTargetName:                 {},
+		EarthTargetProject:              {},
+		EarthTargetProjectNoTag:         {},
+		EarthTargetTag:                  {},
+		EarthTargetTagDocker:            {},
+		EarthVersion:                    {},
 		EarthlyBuildSha:                 {},
 		EarthlyGitBranch:                {},
 		EarthlyGitCommitTimestamp:       {},

@@ -44,13 +44,13 @@ func (a *Prune) Cmds() []*cli.Command {
 				&cli.BoolFlag{
 					Name:        "all",
 					Aliases:     []string{"a"},
-					EnvVars:     []string{"EARTHLY_PRUNE_ALL"},
+					EnvVars:     []string{"EARTH_PRUNE_ALL", "EARTHLY_PRUNE_ALL"},
 					Usage:       "Prune all cache via BuildKit daemon",
 					Destination: &a.all,
 				},
 				&cli.BoolFlag{
 					Name:        "reset",
-					EnvVars:     []string{"EARTHLY_PRUNE_RESET"},
+					EnvVars:     []string{"EARTH_PRUNE_RESET", "EARTHLY_PRUNE_RESET"},
 					Usage:       `Reset cache entirely by restarting BuildKit daemon and wiping cache dir.`,
 					Destination: &a.reset,
 				},

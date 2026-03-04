@@ -106,7 +106,7 @@ func run() (code int) {
 	envFile := eFlag.DefaultEnvFile
 	envFileOverride := false
 
-	if envFileFromEnv, ok := os.LookupEnv("EARTHLY_ENV_FILE"); ok {
+	if envFileFromEnv, ok := envutil.LookupEnv("EARTH_ENV_FILE", "EARTHLY_ENV_FILE"); ok {
 		envFile = envFileFromEnv
 		envFileOverride = true
 	}
@@ -165,7 +165,7 @@ func run() (code int) {
 
 	padding := conslogging.DefaultPadding
 
-	customPadding, ok := os.LookupEnv("EARTHLY_TARGET_PADDING")
+	customPadding, ok := envutil.LookupEnv("EARTH_TARGET_PADDING", "EARTHLY_TARGET_PADDING")
 	if ok {
 		targetPadding, err := strconv.Atoi(customPadding)
 		if err == nil {
@@ -173,7 +173,7 @@ func run() (code int) {
 		}
 	}
 
-	if envutil.IsTrue("EARTHLY_FULL_TARGET") {
+	if envutil.IsTrueWithFallback("EARTH_FULL_TARGET", "EARTHLY_FULL_TARGET") {
 		padding = conslogging.NoPadding
 	}
 

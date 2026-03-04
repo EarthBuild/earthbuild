@@ -67,7 +67,7 @@ func init() {
 		EarthGitAuthorName:              {},
 		EarthGitBranch:                  {},
 		EarthGitCoAuthors:               {},
-		EarthGitCommitAuthorTimestamp:    {},
+		EarthGitCommitAuthorTimestamp:   {},
 		EarthGitCommitTimestamp:         {},
 		EarthGitContentHash:             {},
 		EarthGitHash:                    {},

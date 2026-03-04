@@ -75,6 +75,7 @@ func BuiltinArgs(
 		// Ensure SOURCE_DATE_EPOCH is always available
 		ret.Add(arg.EarthlySourceDateEpoch, "0")
 		ret.Add(arg.EarthSourceDateEpoch, "0")
+
 		return ret
 	}
 

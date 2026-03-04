@@ -100,7 +100,7 @@ func (a *Build) Cmds() []*cli.Command {
 				&cli.StringFlag{
 					Name:        "dockerfile",
 					Aliases:     []string{"f"},
-					EnvVars:     []string{"EARTHLY_DOCKER_FILE"},
+					EnvVars:     []string{"EARTH_DOCKER_FILE", "EARTHLY_DOCKER_FILE"},
 					Usage:       "Path to dockerfile input",
 					Value:       "Dockerfile",
 					Destination: &a.cli.Flags().DockerfilePath,
@@ -108,13 +108,13 @@ func (a *Build) Cmds() []*cli.Command {
 				&cli.StringSliceFlag{
 					Name:        "tag",
 					Aliases:     []string{"t"},
-					EnvVars:     []string{"EARTHLY_DOCKER_TAGS"},
+					EnvVars:     []string{"EARTH_DOCKER_TAGS", "EARTHLY_DOCKER_TAGS"},
 					Usage:       "Name and tag for the built image; formatted as 'name:tag'",
 					Destination: &a.dockerTags,
 				},
 				&cli.StringFlag{
 					Name:        "target",
-					EnvVars:     []string{"EARTHLY_DOCKER_TARGET"},
+					EnvVars:     []string{"EARTH_DOCKER_TARGET", "EARTHLY_DOCKER_TARGET"},
 					Usage:       "The docker target to build in the specified dockerfile",
 					Destination: &a.dockerTarget,
 				},

@@ -76,7 +76,7 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 				&cli.StringFlag{
 					Name:        "certs-hostname",
 					Usage:       "Hostname to generate certificates for",
-					EnvVars:     []string{"EARTHLY_CERTS_HOSTNAME"},
+					EnvVars:     []string{"EARTH_CERTS_HOSTNAME", "EARTHLY_CERTS_HOSTNAME"},
 					Value:       "localhost",
 					Destination: &b.certsHostName,
 				},

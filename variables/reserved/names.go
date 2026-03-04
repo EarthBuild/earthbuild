@@ -1,6 +1,34 @@
 package reserved
 
 const (
+	EarthGitAuthor                  = "EARTH_GIT_AUTHOR"
+	EarthGitAuthorEmail             = "EARTH_GIT_AUTHOR_EMAIL"
+	EarthGitAuthorName              = "EARTH_GIT_AUTHOR_NAME"
+	EarthGitBranch                  = "EARTH_GIT_BRANCH"
+	EarthGitCoAuthors               = "EARTH_GIT_CO_AUTHORS"
+	EarthGitCommitAuthorTimestamp   = "EARTH_GIT_COMMIT_AUTHOR_TIMESTAMP"
+	EarthGitCommitTimestamp         = "EARTH_GIT_COMMIT_TIMESTAMP"
+	EarthGitContentHash             = "EARTH_GIT_CONTENT_HASH"
+	EarthGitHash                    = "EARTH_GIT_HASH"
+	EarthGitOriginURL               = "EARTH_GIT_ORIGIN_URL"
+	EarthGitOriginURLScrubbed       = "EARTH_GIT_ORIGIN_URL_SCRUBBED"
+	EarthGitProjectName             = "EARTH_GIT_PROJECT_NAME"
+	EarthGitRefs                    = "EARTH_GIT_REFS"
+	EarthGitShortHash               = "EARTH_GIT_SHORT_HASH"
+	EarthGitTag                     = "EARTH_GIT_TAG"
+	EarthSourceDateEpoch            = "EARTH_SOURCE_DATE_EPOCH"
+	EarthBuildSha                   = "EARTH_BUILD_SHA"
+	EarthLocally                    = "EARTH_LOCALLY"
+	EarthPush                       = "EARTH_PUSH"
+	EarthCI                         = "EARTH_CI"
+	EarthCIRunner                   = "EARTH_CI_RUNNER"
+	EarthTarget                     = "EARTH_TARGET"
+	EarthTargetName                 = "EARTH_TARGET_NAME"
+	EarthTargetProject              = "EARTH_TARGET_PROJECT"
+	EarthTargetProjectNoTag         = "EARTH_TARGET_PROJECT_NO_TAG"
+	EarthTargetTag                  = "EARTH_TARGET_TAG"
+	EarthTargetTagDocker            = "EARTH_TARGET_TAG_DOCKER"
+	EarthVersion                    = "EARTH_VERSION"
 	EarthlyBuildSha                 = "EARTHLY_BUILD_SHA"
 	EarthlyGitBranch                = "EARTHLY_GIT_BRANCH"
 	EarthlyGitCommitTimestamp       = "EARTHLY_GIT_COMMIT_TIMESTAMP"
@@ -46,6 +74,34 @@ var args map[string]struct{}
 
 func init() {
 	args = map[string]struct{}{
+		EarthGitAuthor:                  {},
+		EarthGitAuthorEmail:             {},
+		EarthGitAuthorName:              {},
+		EarthGitBranch:                  {},
+		EarthGitCoAuthors:               {},
+		EarthGitCommitAuthorTimestamp:   {},
+		EarthGitCommitTimestamp:         {},
+		EarthGitContentHash:             {},
+		EarthGitHash:                    {},
+		EarthGitOriginURL:               {},
+		EarthGitOriginURLScrubbed:       {},
+		EarthGitProjectName:             {},
+		EarthGitRefs:                    {},
+		EarthGitShortHash:               {},
+		EarthGitTag:                     {},
+		EarthSourceDateEpoch:            {},
+		EarthBuildSha:                   {},
+		EarthLocally:                    {},
+		EarthPush:                       {},
+		EarthCI:                         {},
+		EarthCIRunner:                   {},
+		EarthTarget:                     {},
+		EarthTargetName:                 {},
+		EarthTargetProject:              {},
+		EarthTargetProjectNoTag:         {},
+		EarthTargetTag:                  {},
+		EarthTargetTagDocker:            {},
+		EarthVersion:                    {},
 		EarthlyBuildSha:                 {},
 		EarthlyGitBranch:                {},
 		EarthlyGitCommitTimestamp:       {},

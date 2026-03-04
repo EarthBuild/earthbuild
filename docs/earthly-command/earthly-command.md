@@ -65,7 +65,7 @@ Synopsis:
   - Artifact form `earthly --artifact <target-ref>/<artifact-path> <dest-path> [--<build-arg-key>=<build-arg-value>...]`
   - Image form `earthly --image <target-ref> [--<build-arg-key>=<build-arg-value>...]`
 
-Also available as an env var setting: `EARTHLY_BUILD_ARGS="<build-arg-key>=<build-arg-value>,<build-arg-key>=<build-arg-value>,..."`.
+Also available as an env var setting: `EARTH_BUILD_ARGS="<build-arg-key>=<build-arg-value>,..."`.
 
 Build arg overrides may be specified as part of the Earthly command. The value of the build arg `<build-arg-key>` is set to `<build-arg-value>`.
 
@@ -120,9 +120,11 @@ Lines beginning with `#` are treated as comments. Blank lines are allowed. Here 
 
 ```.env
 # Settings
-EARTHLY_ALLOW_PRIVILEGED=true
-EARTHLY_VERBOSE=true
+EARTH_ALLOW_PRIVILEGED=true
+EARTH_VERBOSE=true
 ```
+
+The legacy `EARTHLY_` prefix is also accepted for backward compatibility.
 
 ### Global Options
 
@@ -141,19 +143,19 @@ Prints help information about earthly.
 
 ##### `--config <path>`
 
-Also available as an env var setting: `EARTHLY_CONFIG=<path>`.
+Also available as an env var setting: `EARTH_CONFIG=<path>`.
 
 Overrides the earthly [configuration file](../earthly-config/earthly-config.md), defaults to `~/.earthly/config.yml`.
 
 ##### `--installation-name <name>`
 
-Also available as an env var setting: `EARTHLY_INSTALLATION_NAME=<name>`.
+Also available as an env var setting: `EARTH_INSTALLATION_NAME=<name>`.
 
 Overrides the Earthly installation name. The installation name is used for the BuildKit Daemon name, the cache volume name, the configuration directory (`~/.<installation-name>`) and for the ports used by BuildKit. Using multiple installation names on the same system allows Earthly to run as multiple isolated instances, each with its own configuration, cache and daemon. Defaults to `earthly`.
 
 ##### `--ssh-auth-sock <path-to-sock>`
 
-Also available as an env var setting: `EARTHLY_SSH_AUTH_SOCK=<path-to-sock>`.
+Also available as an env var setting: `EARTH_SSH_AUTH_SOCK=<path-to-sock>`.
 
 Sets the path to the SSH agent sock, which can be used for SSH authentication. SSH authentication is used by Earthly in order to perform git clone's underneath.
 
@@ -165,7 +167,7 @@ For more information see the [Authentication page](../guides/auth.md).
 
 ##### `--verbose`
 
-Also available as an env var setting: `EARTHLY_VERBOSE=1`.
+Also available as an env var setting: `EARTH_VERBOSE=1`.
 
 Enables verbose logging.
 
@@ -194,7 +196,7 @@ Build options are specific to executing Earthly builds; they are simply listed i
 
 ##### `--secret|-s <secret-id>[=<value>]`
 
-Also available as an env var setting: `EARTHLY_SECRETS="<secret-id>=<value>,<secret-id>=<value>,..."`.
+Also available as an env var setting: `EARTH_SECRETS="<secret-id>=<value>,<secret-id>=<value>,..."`.
 
 Passes a secret with ID `<secret-id>` to the build environments. If `<value>` is not specified, then the value becomes the value of the environment variable with the same name as `<secret-id>`.
 
@@ -204,7 +206,7 @@ Secrets can also be stored in a `.secret` file using the same syntax as an `.arg
 
 ##### `--secret-file <secret-id>=<path>`
 
-Also available as an env var setting: `EARTHLY_SECRET_FILES="<secret-id>=<path>,<secret-id>=<path>,..."`.
+Also available as an env var setting: `EARTH_SECRET_FILES="<secret-id>=<path>,<secret-id>=<path>,..."`.
 
 Loads the contents of a file located at `<path>` into a secret with ID `<secret-id>` for use within the build environments.
 
@@ -212,7 +214,7 @@ The secret can be referenced within Earthfile recipes as `RUN --secret <arbitrar
 
 ##### `--push`
 
-Also available as an env var setting: `EARTHLY_PUSH=true`.
+Also available as an env var setting: `EARTH_PUSH=true`.
 
 Instructs Earthly to push any docker images declared with the `--push` flag to remote docker registries and to run any `RUN --push` commands. For more information see the [`SAVE IMAGE` Earthfile command](../earthfile/earthfile.md#save-image) and the [`RUN --push` Earthfile command](../earthfile/earthfile.md#run).
 
@@ -220,37 +222,37 @@ Pushing only happens during the output phase, and only if the build has succeede
 
 ##### `--no-output`
 
-Also available as an env var setting: `EARTHLY_NO_OUTPUT=true`.
+Also available as an env var setting: `EARTH_NO_OUTPUT=true`.
 
 Instructs Earthly not to output any images or artifacts. This option cannot be used with the *artifact form* or the *image form*.
 
 ##### `--output`
 
-Also available as an env var setting: `EARTHLY_OUTPUT=true`.
+Also available as an env var setting: `EARTH_OUTPUT=true`.
 
 Allow artifacts or images to be output, even when running under --ci mode.
 
 ##### `--no-cache`
 
-Also available as an env var setting: `EARTHLY_NO_CACHE=true`.
+Also available as an env var setting: `EARTH_NO_CACHE=true`.
 
 Instructs Earthly to ignore any cache when building. It does, however, continue to store new cache formed as part of the build (to be possibly used on future invocations).
 
 ##### `--auto-skip` (**experimental**)
 
-Also available as an env var setting: `EARTHLY_AUTO_SKIP=true`.
+Also available as an env var setting: `EARTH_AUTO_SKIP=true`.
 
 Instructs Earthly to skip any targets that have not changed from a previous build. For more information see the [auto-skip guide](../caching/caching-in-earthfiles.md#auto-skip).
 
 ##### `--allow-privileged|-P`
 
-Also available as an env var setting: `EARTHLY_ALLOW_PRIVILEGED=true`.
+Also available as an env var setting: `EARTH_ALLOW_PRIVILEGED=true`.
 
 Permits the build to use the --privileged flag in RUN commands. For more information see the [`RUN --privileged` command](../earthfile/earthfile.md#run).
 
 ##### `--ci`
 
-Also available as an env var setting: `EARTHLY_CI=true`
+Also available as an env var setting: `EARTH_CI=true`
 
 In *target mode*, this option is an alias for
 
@@ -266,7 +268,7 @@ In *artifact* and *image modes* , this option is an alias for
 
 ##### `--platform <platform>`
 
-Also available as an env var setting: `EARTHLY_PLATFORMS=<platform>`.
+Also available as an env var setting: `EARTH_PLATFORMS=<platform>`.
 
 Sets the platform to build for.
 
@@ -287,13 +289,13 @@ build:
 
 This option has been deprecated in favor of the new build arg syntax `earthly <target-ref> --<key>=<value>`.
 
-Also available as an env var setting: `EARTHLY_BUILD_ARGS="<key>=<value>,<key>=<value>,..."`.
+Also available as an env var setting: `EARTH_BUILD_ARGS="<key>=<value>,<key>=<value>,..."`.
 
 Overrides the value of the build arg `<key>`. If `<value>` is not specified, then the value becomes the value of the environment variable with the same name as `<key>`. For more information see the [`ARG` Earthfile command](../earthfile/earthfile.md#arg).
 
 ##### `--interactive|-i`
 
-Also available as an env var setting: `EARTHLY_INTERACTIVE=true`.
+Also available as an env var setting: `EARTH_INTERACTIVE=true`.
 
 Enable interactive debugging mode. By default when a `RUN` command fails, earthly will display the error and exit. If the interactive mode is enabled and an error occurs, an interactive shell is presented which can be used for investigating the error interactively. Due to technical limitations, only a single interactive shell can be used on the system at any given time.
 
@@ -305,12 +307,12 @@ Disallow usage of features that may create unrepeatable builds.
 
 These options can only be set via environment variables, and have no command line equivalent.
 
-| Variable               | Usage                                                                                                                                                                                                      |
-|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| NO_COLOR               | `NO_COLOR=1` disables the use of color.                                                                                                                                                                    |
-| FORCE_COLOR            | `FORCE_COLOR=1` forces the use of color.                                                                                                                                                                   |
-| EARTHLY_TARGET_PADDING | `EARTHLY_TARGET_PADDING=n` will set the column to the width of `n` characters. If a name is longer than `n`, its path will be truncated and remaining extra length will cause the column to go ragged. |
-| EARTHLY_FULL_TARGET    | `EARTHLY_FULL_TARGET=1` will always print the full target name, and leave the target name column ragged.                                                                                                   |
+| Variable              | Usage                                                                                                                                                                                                |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| NO_COLOR              | `NO_COLOR=1` disables the use of color.                                                                                                                                                              |
+| FORCE_COLOR           | `FORCE_COLOR=1` forces the use of color.                                                                                                                                                             |
+| EARTH_TARGET_PADDING  | `EARTH_TARGET_PADDING=n` will set the column to the width of `n` characters. If a name is longer than `n`, its path will be truncated and remaining extra length will cause the column to go ragged.  |
+| EARTH_FULL_TARGET     | `EARTH_FULL_TARGET=1` will always print the full target name, and leave the target name column ragged.                                                                                                |
 
 
 ## earthly --version

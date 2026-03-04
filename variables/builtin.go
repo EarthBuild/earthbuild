@@ -33,11 +33,15 @@ func BuiltinArgs(
 ) *Scope {
 	ret := NewScope()
 	ret.Add(arg.EarthlyTarget, target.StringCanonical())
+	ret.Add(arg.EarthTarget, target.StringCanonical())
 	ret.Add(arg.EarthlyTargetProject, target.ProjectCanonical())
+	ret.Add(arg.EarthTargetProject, target.ProjectCanonical())
 	targetNoTag := target
 	targetNoTag.Tag = ""
 	ret.Add(arg.EarthlyTargetProjectNoTag, targetNoTag.ProjectCanonical())
+	ret.Add(arg.EarthTargetProjectNoTag, targetNoTag.ProjectCanonical())
 	ret.Add(arg.EarthlyTargetName, target.Target)
+	ret.Add(arg.EarthTargetName, target.Target)
 
 	setTargetTag(ret, target, gitMeta)
 
@@ -52,15 +56,19 @@ func BuiltinArgs(
 
 	if ftrs.WaitBlock {
 		ret.Add(arg.EarthlyPush, strconv.FormatBool(push))
+		ret.Add(arg.EarthPush, strconv.FormatBool(push))
 	}
 
 	if ftrs.EarthlyVersionArg {
 		ret.Add(arg.EarthlyVersion, defaultArgs.EarthlyVersion)
+		ret.Add(arg.EarthVersion, defaultArgs.EarthlyVersion)
 		ret.Add(arg.EarthlyBuildSha, defaultArgs.EarthlyBuildSha)
+		ret.Add(arg.EarthBuildSha, defaultArgs.EarthlyBuildSha)
 	}
 
 	if ftrs.EarthlyCIArg {
 		ret.Add(arg.EarthlyCI, strconv.FormatBool(ci))
+		ret.Add(arg.EarthCI, strconv.FormatBool(ci))
 	}
 
 	if ftrs.EarthlyLocallyArg {
@@ -69,53 +77,73 @@ func BuiltinArgs(
 
 	if ftrs.EarthlyCIRunnerArg {
 		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
+		ret.Add(arg.EarthCIRunner, strconv.FormatBool(false))
 	}
 
 	if gitMeta == nil {
 		// Ensure SOURCE_DATE_EPOCH is always available
 		ret.Add(arg.EarthlySourceDateEpoch, "0")
+		ret.Add(arg.EarthSourceDateEpoch, "0")
+
 		return ret
 	}
 
 	// Populate git-related built-in args
 
 	ret.Add(arg.EarthlyGitHash, gitMeta.Hash)
+	ret.Add(arg.EarthGitHash, gitMeta.Hash)
 	ret.Add(arg.EarthlyGitShortHash, gitMeta.ShortHash)
+	ret.Add(arg.EarthGitShortHash, gitMeta.ShortHash)
+	ret.Add(arg.EarthGitContentHash, gitMeta.ContentHash)
 
 	branch := firstOrZero(gitMeta.Branch)
 
 	ret.Add(arg.EarthlyGitBranch, branch)
+	ret.Add(arg.EarthGitBranch, branch)
 
 	tag := firstOrZero(gitMeta.Tags)
 
 	ret.Add(arg.EarthlyGitTag, tag)
+	ret.Add(arg.EarthGitTag, tag)
 	ret.Add(arg.EarthlyGitOriginURL, gitMeta.RemoteURL)
+	ret.Add(arg.EarthGitOriginURL, gitMeta.RemoteURL)
 	ret.Add(arg.EarthlyGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
+	ret.Add(arg.EarthGitOriginURLScrubbed, stringutil.ScrubCredentials(gitMeta.RemoteURL))
 	ret.Add(arg.EarthlyGitProjectName, getProjectName(gitMeta.RemoteURL))
+	ret.Add(arg.EarthGitProjectName, getProjectName(gitMeta.RemoteURL))
 	ret.Add(arg.EarthlyGitCommitTimestamp, gitMeta.CommitterTimestamp)
+	ret.Add(arg.EarthGitCommitTimestamp, gitMeta.CommitterTimestamp)
 
 	if ftrs.GitCommitAuthorTimestamp {
 		ret.Add(arg.EarthlyGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
+		ret.Add(arg.EarthGitCommitAuthorTimestamp, gitMeta.AuthorTimestamp)
 	}
 
 	ret.Add(arg.EarthlySourceDateEpoch, max(gitMeta.CommitterTimestamp, "0"))
+	ret.Add(arg.EarthSourceDateEpoch, max(gitMeta.CommitterTimestamp, "0"))
 
 	if ftrs.EarthlyGitAuthorArgs {
 		ret.Add(arg.EarthlyGitAuthor, gitMeta.AuthorEmail)
+		ret.Add(arg.EarthGitAuthor, gitMeta.AuthorEmail)
 		ret.Add(arg.EarthlyGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
+		ret.Add(arg.EarthGitCoAuthors, strings.Join(gitMeta.CoAuthors, " "))
 	}
 
 	if ftrs.GitAuthorEmailNameArgs {
 		if gitMeta.AuthorName != "" && gitMeta.AuthorEmail != "" {
 			ret.Add(arg.EarthlyGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
+			ret.Add(arg.EarthGitAuthor, fmt.Sprintf("%s <%s>", gitMeta.AuthorName, gitMeta.AuthorEmail))
 		}
 
 		ret.Add(arg.EarthlyGitAuthorEmail, gitMeta.AuthorEmail)
+		ret.Add(arg.EarthGitAuthorEmail, gitMeta.AuthorEmail)
 		ret.Add(arg.EarthlyGitAuthorName, gitMeta.AuthorName)
+		ret.Add(arg.EarthGitAuthorName, gitMeta.AuthorName)
 	}
 
 	if ftrs.GitRefs {
 		ret.Add(arg.EarthlyGitRefs, strings.Join(gitMeta.Refs, " "))
+		ret.Add(arg.EarthGitRefs, strings.Join(gitMeta.Refs, " "))
 	}
 
 	return ret
@@ -150,6 +178,7 @@ func setNativePlatformArgs(s *Scope, platr *platutil.Resolver) {
 // SetLocally sets the locally built-in arg value.
 func SetLocally(s *Scope, locally bool) {
 	s.Add(arg.EarthlyLocally, strconv.FormatBool(locally))
+	s.Add(arg.EarthLocally, strconv.FormatBool(locally))
 }
 
 // getProjectName returns the deprecated PROJECT_NAME value.
@@ -187,13 +216,17 @@ func setTargetTag(ret *Scope, target domain.Target, gitMeta *gitutil.GitMetadata
 	if gitMeta != nil && gitMeta.BranchOverrideTagArg && len(gitMeta.Branch) > 0 {
 		branch := gitMeta.Branch[0]
 		ret.Add(arg.EarthlyTargetTag, branch)
+		ret.Add(arg.EarthTargetTag, branch)
 		ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(branch))
+		ret.Add(arg.EarthTargetTagDocker, llbutil.DockerTagSafe(branch))
 
 		return
 	}
 
 	ret.Add(arg.EarthlyTargetTag, target.Tag)
+	ret.Add(arg.EarthTargetTag, target.Tag)
 	ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
+	ret.Add(arg.EarthTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
 }
 
 // firstOrZero returns the first element of a slice or the zero value if the slice is empty.

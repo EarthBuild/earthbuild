@@ -54,10 +54,10 @@ This is possible in a few ways:
 
    If the value of the secret is omitted on the command line Earthly will lookup the environment variable with that name.
 
-3. Via the environment variable `EARTHLY_SECRETS`
+3. Via the environment variable `EARTH_SECRETS`
 
    ```bash
-   export EARTHLY_SECRETS="passwd=itsasecret"
+   export EARTH_SECRETS="passwd=itsasecret"
    earthly +hush
    ```
 
@@ -66,13 +66,13 @@ This is possible in a few ways:
 4. Via the `.secret` file.
 
    Create a `.secret` file in the same directory where you plan to run `earthly` from. Its contents should be:
-   
+
    ```
    passwd=itsasecret
    ```
-   
+
    Then simply run earthly:
-   
+
    ```bash
    earthly +hello
    ```

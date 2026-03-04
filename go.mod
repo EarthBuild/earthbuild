@@ -104,6 +104,7 @@ require (
 	github.com/opencontainers/runc v1.1.9 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -137,5 +138,5 @@ require (
 replace (
 	github.com/jessevdk/go-flags => github.com/alexcb/go-flags v0.0.0-20210722203016-f11d7ecb5ee5
 	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20260219223358-c40c767e201d
-	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65
+	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20250810091249-fd33950ae16a
 )

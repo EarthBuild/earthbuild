@@ -398,7 +398,7 @@ func main() {
 
 	conslogger.VerbosePrintf("running command: (%s); version: %s\n", args, Version)
 
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...) // #nosec G204
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...) // #nosec G204,G702
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

@@ -5,8 +5,8 @@ Builtin args are variables with values automatically filled-in by Earthly.
 The value of a builtin arg can never be overridden. However, you can always have an additional `ARG`, which takes as the default value, the value of the builtin arg. The additional arg can be overridden. Example
 
 ```Dockerfile
-ARG EARTHLY_TARGET_TAG
-ARG TAG=$EARTHLY_TARGET_TAG
+ARG EARTH_TARGET_TAG
+ARG TAG=$EARTH_TARGET_TAG
 SAVE IMAGE --push some/name:$TAG
 ```
 
@@ -17,32 +17,40 @@ SAVE IMAGE --push some/name:$TAG
 Earthly builtin args need to be pre-declared before they can be used. For example
 
 ```Dockerfile
-ARG EARTHLY_TARGET
-RUN echo "The current target is $EARTHLY_TARGET"
+ARG EARTH_TARGET
+RUN echo "The current target is $EARTH_TARGET"
 ```
+
+{% endhint %}
+
+{% hint style='info' %}
+
+##### Note
+
+The legacy `EARTHLY_*` prefix is also accepted for backward compatibility.
 
 {% endhint %}
 
 ### General args
 
-| Name | Description | Example value |
-| --- | --- | --- |
-| `EARTHLY_CI` | Whether the build is being executed in --ci mode. | `true`, `false` |
-| `EARTHLY_BUILD_SHA` | The git hash of the commit which built the currently running version of Earthly. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
-| `EARTHLY_LOCALLY` | Whether the target is being executed `LOCALLY`. | `true`, `false` |
-| `EARTHLY_PUSH` | Whether `earthly` was called with the `--push` flag, or not. | `true`, `false` |
-| `EARTHLY_VERSION` | The version of Earthly currently running. | `v0.8.0` |
+| Name               | Description                                                                     | Example value                              |
+| ------------------ | ------------------------------------------------------------------------------- | ------------------------------------------ |
+| `EARTH_CI`         | Whether the build is being executed in --ci mode.                               | `true`, `false`                            |
+| `EARTH_BUILD_SHA`  | The git hash of the commit which built the currently running version of Earthly. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
+| `EARTH_LOCALLY`    | Whether the target is being executed `LOCALLY`.                                 | `true`, `false`                            |
+| `EARTH_PUSH`       | Whether `earthly` was called with the `--push` flag, or not.                    | `true`, `false`                            |
+| `EARTH_VERSION`    | The version of Earthly currently running.                                       | `v0.8.0`                                   |
 
 ### Target-related args
 
-| Name | Description | Example value |
-| --- | --- | --- |
-| `EARTHLY_TARGET_NAME` | The name part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the name would be `foo` |
-| `EARTHLY_TARGET_PROJECT_NO_TAG` | The project part of the canonical reference of the current target, but without the tag. | For the target `github.com/bar/buz/src:john/work+foo`, this would be `github.com/bar/buz/src` |
-| `EARTHLY_TARGET_PROJECT` | The project part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the canonical project would be `github.com/bar/buz/src:john` |
-| `EARTHLY_TARGET_TAG_DOCKER` | The tag part of the canonical reference of the current target, sanitized for safe use as a docker tag. This is guaranteed to be a valid docker tag, even if no canonical form exists, in which case, `latest` is used. | For the target `github.com/bar/buz/src:john/work+foo`, the docker tag would be `john_work` |
-| `EARTHLY_TARGET_TAG` | The tag part of the canonical reference of the current target. Note that if the target has no [canonical form](../guides/importing.md#canonical-form), the value is an empty string. | For the target `github.com/bar/buz/src:john/work+foo`, the tag would be `john/work` |
-| `EARTHLY_TARGET` | The canonical reference of the current target. | For example, for a target named `foo`, which exists on `john/work` branch, in a repository at `github.com/bar/buz`, in a subdirectory `src`, the canonical reference would be `github.com/bar/buz/src:john/work+foo`. For more information about canonical references, see [importing guide](../guides/importing.md). |
+| Name                         | Description                                                                                                                                                                                                         | Example value                                                                                                                                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `EARTH_TARGET_NAME`          | The name part of the canonical reference of the current target.                                                                                                                                                     | For the target `github.com/bar/buz/src:john/work+foo`, the name would be `foo`                                                                                                                                                             |
+| `EARTH_TARGET_PROJECT_NO_TAG` | The project part of the canonical reference of the current target, but without the tag.                                                                                                                            | For the target `github.com/bar/buz/src:john/work+foo`, this would be `github.com/bar/buz/src`                                                                                                                                              |
+| `EARTH_TARGET_PROJECT`       | The project part of the canonical reference of the current target.                                                                                                                                                  | For the target `github.com/bar/buz/src:john/work+foo`, the canonical project would be `github.com/bar/buz/src:john`                                                                                                                        |
+| `EARTH_TARGET_TAG_DOCKER`    | The tag part of the canonical reference of the current target, sanitized for safe use as a docker tag. This is guaranteed to be a valid docker tag, even if no canonical form exists, in which case, `latest` is used. | For the target `github.com/bar/buz/src:john/work+foo`, the docker tag would be `john_work`                                                                                                                                                  |
+| `EARTH_TARGET_TAG`           | The tag part of the canonical reference of the current target. Note that if the target has no [canonical form](../guides/importing.md#canonical-form), the value is an empty string.                                 | For the target `github.com/bar/buz/src:john/work+foo`, the tag would be `john/work`                                                                                                                                                         |
+| `EARTH_TARGET`               | The canonical reference of the current target.                                                                                                                                                                      | For example, for a target named `foo`, which exists on `john/work` branch, in a repository at `github.com/bar/buz`, in a subdirectory `src`, the canonical reference would be `github.com/bar/buz/src:john/work+foo`. See [importing guide](../guides/importing.md). |
 
 ### Git-related args
 

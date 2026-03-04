@@ -1129,7 +1129,7 @@ A good balance is often to perform pushes on the `main` branch only, and to disa
 Main branch build: `earthly --ci --push +target`.
 PR build: `earthly --ci +target`.
 
-The push option can also be configured via the env var `EARTHLY_PUSH`, which may be easier to manipulate in your CI of choice.
+The push option can also be configured via the env var `EARTH_PUSH`, which may be easier to manipulate in your CI of choice.
 
 A more extreme case of this idea can be to use explicit maximum cache: `earthly --ci --push --remote-cache=.... --max-remote-cache +target`. The idea, again is to tradeoff performance on the `main` branch, for the benefit of faster PR builds. Whether this is actually beneficial needs to be measured on a project-by-project basis, however.
 

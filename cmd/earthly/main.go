@@ -12,21 +12,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/internal/version"
-	"github.com/fatih/color"
-	"github.com/joho/godotenv"
-	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
+	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
+	"github.com/fatih/color"
+	"github.com/joho/godotenv"
+	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
 // These vars are set by ldflags.
@@ -59,10 +60,28 @@ func main() {
 
 // run executes the CLI and returns an exit code to pass to [os.Exit].
 func run() (code int) {
+	// set up OpenTelemetry
+	ctx := telemetry.WithTraceparent(context.Background())
+
+	shutdown, err := telemetry.Setup(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error setting up OpenTelemetry: %s\n", err.Error())
+	} else {
+		defer shutdown(ctx)
+	}
+
+	ctx, span := telemetry.Tracer().Start(ctx, "main")
+	defer span.End()
+
+	defer func() {
+		span.SetAttributes(semconv.ProcessExitCode(code))
+	}()
+
+	// main
+
 	setExportableVars()
 
 	startTime := time.Now()
-	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -126,7 +145,7 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		err := f.Apply(flagSet)
+		err = f.Apply(flagSet)
 		if err != nil {
 			envFileFromArgOK = false
 			break
@@ -134,7 +153,7 @@ func run() (code int) {
 	}
 
 	if envFileFromArgOK {
-		err := flagSet.Parse(os.Args[1:])
+		err = flagSet.Parse(os.Args[1:])
 		if err == nil {
 			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
 				envFile = envFileFlag.Value.String()
@@ -143,7 +162,7 @@ func run() (code int) {
 		}
 	}
 
-	err := godotenv.Load(envFile)
+	err = godotenv.Load(envFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
 		if envFileOverride || !errors.Is(err, os.ErrNotExist) {
@@ -181,7 +200,6 @@ func run() (code int) {
 
 	cli.SetConsole(logging)
 	earthly := app.NewEarthlyApp(cli, rootApp, buildApp, ctx)
-	code = earthly.Run(ctx, logging, startTime, lastSignal)
 
-	return code
+	return earthly.Run(ctx, logging, startTime, lastSignal)
 }

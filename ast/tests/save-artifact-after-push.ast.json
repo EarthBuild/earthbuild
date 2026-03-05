@@ -7,7 +7,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.18"
+              "alpine:3.23"
             ],
             "name": "FROM"
           }
@@ -117,7 +117,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.18"
+              "alpine:3.23"
             ],
             "name": "FROM"
           }

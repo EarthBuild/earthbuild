@@ -12,6 +12,9 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
 
+env:
+  EARTHLY_REMOTE_CACHE: "earthly-ghcr-cache,image-manifest=true,oci-mediatypes=true,ref=${{ vars.REMOTE_CACHE_REGISTRY }}"
+
 jobs:
   build-earthly:
     permissions: write-all
@@ -199,7 +202,7 @@ jobs:
     needs: [build-earthly, prepare-release, release-image]
     runs-on: ubuntu-24.04
     permissions:
-      packages: read
+      packages: write
     env:
       FORCE_COLOR: 1
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -233,6 +236,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      packages: write
     env:
       FORCE_COLOR: 1
       GITHUB_USER: "earthbuild"

@@ -1150,7 +1150,7 @@ func printBuildkitInfo(
 			"Version %s %s %s",
 			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
 
-		if info.BuildkitVersion.Package != "github.com/earthbuild/buildkit" {
+		if !strings.EqualFold(info.BuildkitVersion.Package, "github.com/EarthBuild/buildkit") {
 			bkCons.Warnf("Using a non-EarthBuild version of Buildkit. This is not supported.")
 		} else if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthlyVersion {
 			if isLocal {

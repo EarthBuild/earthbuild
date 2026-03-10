@@ -36,7 +36,6 @@ integration-test:
         RUN docker run --rm -d -p 8080:8080 typescript-node-example:latest && npm run test:integration
     END
 
-
 all:
     BUILD +build
     BUILD +docker

@@ -30,8 +30,8 @@ jobs:
         run: brew install podman
       - name: Podman Mac Helper
         # the $(ls /usr/local/Cellar/podman) fills in the version number
-        run: sudo /usr/local/Cellar/podman/$(ls /usr/local/Cellar/podman)/bin/podman-mac-helper install \
-          && echo "DOCKER_HOST=unix:///Users/runner/.local/share/containers/podman/machine/podman-machine-default/podman.sock" >> $GITHUB_ENV
+        run: sudo "/usr/local/Cellar/podman/$(ls /usr/local/Cellar/podman)/bin/podman-mac-helper" install \
+          && echo "DOCKER_HOST=unix:///Users/runner/.local/share/containers/podman/machine/podman-machine-default/podman.sock" >> "$GITHUB_ENV"
       - name: Init and start podman machine
         run: podman machine init --now --cpus ${{ env.PODMAN_CPUS }} --disk-size ${{ env.PODMAN_DISK_SPACE_GB }} --memory ${{ env.PODMAN_MEMORY_MB }} --rootful=true
       - name: Podman machine ls
@@ -48,12 +48,12 @@ jobs:
         run: sysctl -a | grep machdep.cpu.features
       - name: Configure Earthly to use GCR mirror
         run: |-
-          earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
-      - name: Bootstrap Earthly using released earthly
-        run: earthly bootstrap
-      - name: Build latest earthly using released earthly
-        run: earthly -P --use-inline-cache +for-darwin
+      - name: Bootstrap earth using released earth
+        run: earth bootstrap
+      - name: Build latest earth using released earth
+        run: earth -P --use-inline-cache +for-darwin
       - name: Re-bootstrap Earthly using latest earthly build
         run: ${{ env.BUILT_EARTHLY_PATH }} bootstrap
       - name: rebuild earthly using latest earthly build

@@ -1,13 +1,12 @@
-// Code generated from ast/parser/EarthLexer.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ast/parser/EarthLexer.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package parser
 
 import (
 	"fmt"
+	"github.com/antlr4-go/antlr/v4"
 	"sync"
 	"unicode"
-
-	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 )
 
 // Suppress unused import error
@@ -22,29 +21,29 @@ type EarthLexer struct {
 	// TODO: EOF string
 }
 
-var earthlexerLexerStaticData struct {
+var EarthLexerLexerStaticData struct {
 	once                   sync.Once
 	serializedATN          []int32
-	channelNames           []string
-	modeNames              []string
-	literalNames           []string
-	symbolicNames          []string
-	ruleNames              []string
-	predictionContextCache *antlr.PredictionContextCache
+	ChannelNames           []string
+	ModeNames              []string
+	LiteralNames           []string
+	SymbolicNames          []string
+	RuleNames              []string
+	PredictionContextCache *antlr.PredictionContextCache
 	atn                    *antlr.ATN
 	decisionToDFA          []*antlr.DFA
 }
 
 func earthlexerLexerInit() {
-	staticData := &earthlexerLexerStaticData
-	staticData.channelNames = []string{
+	staticData := &EarthLexerLexerStaticData
+	staticData.ChannelNames = []string{
 		"DEFAULT_TOKEN_CHANNEL", "HIDDEN", "WHITESPACE_CHANNEL", "COMMENTS_CHANNEL",
 	}
-	staticData.modeNames = []string{
+	staticData.ModeNames = []string{
 		"DEFAULT_MODE", "RECIPE", "BLOCK", "COMMAND_ARGS", "COMMAND_ARGS_KEY_VALUE",
 		"COMMAND_ARGS_KEY_VALUE_ASSIGNMENT", "COMMAND_ARGS_KEY_VALUE_LABEL",
 	}
-	staticData.literalNames = []string{
+	staticData.LiteralNames = []string{
 		"", "", "", "", "", "", "'FROM'", "'FROM DOCKERFILE'", "'LOCALLY'",
 		"'COPY'", "'SAVE ARTIFACT'", "'SAVE IMAGE'", "'RUN'", "'EXPOSE'", "'VOLUME'",
 		"'ENV'", "'ARG'", "'SET'", "'LET'", "'LABEL'", "'BUILD'", "'WORKDIR'",
@@ -54,7 +53,7 @@ func earthlexerLexerInit() {
 		"", "", "", "", "", "", "", "", "'ELSE'", "'ELSE IF'", "'CATCH'", "'FINALLY'",
 		"'END'",
 	}
-	staticData.symbolicNames = []string{
+	staticData.SymbolicNames = []string{
 		"", "INDENT", "DEDENT", "Target", "UserCommand", "Function", "FROM",
 		"FROM_DOCKERFILE", "LOCALLY", "COPY", "SAVE_ARTIFACT", "SAVE_IMAGE",
 		"RUN", "EXPOSE", "VOLUME", "ENV", "ARG", "SET", "LET", "LABEL", "BUILD",
@@ -64,7 +63,7 @@ func earthlexerLexerInit() {
 		"FOR", "WAIT", "NL", "WS", "COMMENT", "ELSE", "ELSE_IF", "CATCH", "FINALLY",
 		"END", "Atom", "EQUALS",
 	}
-	staticData.ruleNames = []string{
+	staticData.RuleNames = []string{
 		"Target", "UserCommand", "Function", "FROM", "FROM_DOCKERFILE", "LOCALLY",
 		"COPY", "SAVE_ARTIFACT", "SAVE_IMAGE", "RUN", "EXPOSE", "VOLUME", "ENV",
 		"ARG", "SET", "LET", "LABEL", "BUILD", "WORKDIR", "USER", "CMD", "ENTRYPOINT",
@@ -91,7 +90,7 @@ func earthlexerLexerInit() {
 		"WS_CAKV", "COMMENT_CAKV", "Atom_CAKVA", "NL_CAKVA", "WS_CAKVA", "COMMENT_CAKVA",
 		"EQUALS_L", "Atom_CAKVL", "NL_CAKVL", "WS_CAKVL", "COMMENT_CAKVL",
 	}
-	staticData.predictionContextCache = antlr.NewPredictionContextCache()
+	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
 		4, 0, 54, 1379, 6, -1, 6, -1, 6, -1, 6, -1, 6, -1, 6, -1, 6, -1, 2, 0,
 		7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7, 4, 2, 5, 7, 5, 2, 6,
@@ -726,7 +725,7 @@ func earthlexerLexerInit() {
 // NewEarthLexer(). You can call this function if you wish to initialize the static state ahead
 // of time.
 func EarthLexerInit() {
-	staticData := &earthlexerLexerStaticData
+	staticData := &EarthLexerLexerStaticData
 	staticData.once.Do(earthlexerLexerInit)
 }
 
@@ -735,13 +734,13 @@ func NewEarthLexer(input antlr.CharStream) *EarthLexer {
 	EarthLexerInit()
 	l := new(EarthLexer)
 	l.BaseLexer = antlr.NewBaseLexer(input)
-	staticData := &earthlexerLexerStaticData
-	l.Interpreter = antlr.NewLexerATNSimulator(l, staticData.atn, staticData.decisionToDFA, staticData.predictionContextCache)
-	l.channelNames = staticData.channelNames
-	l.modeNames = staticData.modeNames
-	l.RuleNames = staticData.ruleNames
-	l.LiteralNames = staticData.literalNames
-	l.SymbolicNames = staticData.symbolicNames
+	staticData := &EarthLexerLexerStaticData
+	l.Interpreter = antlr.NewLexerATNSimulator(l, staticData.atn, staticData.decisionToDFA, staticData.PredictionContextCache)
+	l.channelNames = staticData.ChannelNames
+	l.modeNames = staticData.ModeNames
+	l.RuleNames = staticData.RuleNames
+	l.LiteralNames = staticData.LiteralNames
+	l.SymbolicNames = staticData.SymbolicNames
 	l.GrammarFileName = "EarthLexer.g4"
 	// TODO: l.EOF = antlr.TokenEOF
 

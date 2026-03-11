@@ -8,7 +8,7 @@ sbt:
     # Defaults if not specified
 
     # renovate: datasource=github-releases packageName=sbt/sbt
-    ARG sbt_version=1.3.2
+    ARG sbt_version=1.8.2
     ARG sbt_home=/usr/local/sbt
 
     # Download and extract from archive
@@ -51,7 +51,7 @@ docker:
     FROM +project-files
     COPY src src
     RUN sbt 'set test in assembly := {}' assembly
-    ENTRYPOINT ["java","-cp","target/scala-2.12/scala-example-assembly-1.0.jar","Main"]
+    ENTRYPOINT ["java","-cp","target/scala-3.8.2/scala-example-assembly-1.0.jar","Main"]
     SAVE IMAGE --push earthbuild/examples:integration
 
 smoke-test:

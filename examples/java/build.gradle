@@ -21,7 +21,7 @@ application {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.2'
+    implementation 'joda-time:joda-time:2.14.0'
     testImplementation 'junit:junit:5.11'
 }
 

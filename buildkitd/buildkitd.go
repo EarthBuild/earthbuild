@@ -661,6 +661,10 @@ func Start(
 		envOpts["EARTHLY_RESET_TMP_DIR"] = "true"
 	}
 
+	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)
+	// lowered the default from 1048576 to 1024, which starves buildkitd.
+	additionalArgs := append([]string{"--ulimit", "nofile=1048576:1048576"}, settings.AdditionalArgs...)
+
 	// Execute.
 	err = fe.ContainerRun(ctx, containerutil.ContainerRun{
 		NameOrID:       containerName,
@@ -670,7 +674,7 @@ func Start(
 		Labels:         labelOpts,
 		Mounts:         volumeOpts,
 		Ports:          portOpts,
-		AdditionalArgs: settings.AdditionalArgs,
+		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
 		return errors.Wrap(err, "could not start buildkit")
@@ -1146,7 +1150,7 @@ func printBuildkitInfo(
 			"Version %s %s %s",
 			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
 
-		if info.BuildkitVersion.Package != "github.com/earthbuild/buildkit" {
+		if !strings.EqualFold(info.BuildkitVersion.Package, "github.com/EarthBuild/buildkit") {
 			bkCons.Warnf("Using a non-EarthBuild version of Buildkit. This is not supported.")
 		} else if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthlyVersion {
 			if isLocal {

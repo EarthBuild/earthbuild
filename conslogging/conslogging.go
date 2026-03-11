@@ -291,7 +291,7 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 		return
 	}
 
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // #nosec G302, G304
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // #nosec G302, G304, G703
 	if err != nil {
 		return
 	}

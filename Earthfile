@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.25.6
+LET GO_VERSION=1.26.0
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -53,7 +53,7 @@ deps:
 
 # code downloads and caches all dependencies for earthly and then copies the go code
 # directories into the image.
-# If BUILDKIT_PROJECT or CLOUD_API environment variables are set it will also update the go mods
+# If BUILDKIT_PROJECT environment variable is set it will also update the go mods
 # for the local versions
 code:
     FROM +deps
@@ -68,21 +68,9 @@ code:
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             go mod download
     END
-    # Use CLOUD_API to point go.mod to a cloud API dir being actively developed. Examples:
-    #   --CLOUD_API=../cloud/api+proto/api/public/'*'
-    #   --CLOUD_API=github.com/earthly/cloud/api:<git-ref>+proto/api/public/'*'
-    #   --CLOUD_API=github.com/earthly/cloud-api:<git-ref>+code/'*'
-    ARG CLOUD_API
-    IF [ "$CLOUD_API" != "" ]
-        COPY --dir "$CLOUD_API" /cloud-api/
-        RUN go mod edit -replace github.com/earthly/cloud-api=/cloud-api
-        RUN \
-            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-            go mod download
-    END
     COPY ./ast/parser+parser/*.go ./ast/parser/
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earthly dockertar domain features internal logbus regproxy states slog util variables ./
+        docker2earthly dockertar domain features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
@@ -156,7 +144,7 @@ earthly-script-no-stdout:
 # lint runs basic go linters against the earthly project.
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.8.0
+    LET golangci_lint_version=2.10.1
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
@@ -204,7 +192,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.13.0
+    ARG vale_version=3.13.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything
@@ -855,7 +843,7 @@ license:
 node:
     FROM node:24.9.0-alpine3.22
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.8.0
+    LET npm_version=11.11.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

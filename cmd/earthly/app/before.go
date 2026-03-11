@@ -230,7 +230,7 @@ func (app *EarthlyApp) warnIfEarth() {
 	binPath := os.Args[0]
 
 	baseName := path.Base(binPath)
-	if baseName == "earth" {
+	if baseName == "earthly" {
 		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
 			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
 

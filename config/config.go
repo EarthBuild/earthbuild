@@ -99,6 +99,7 @@ type GlobalConfig struct {
 }
 
 // GitConfig contains git-specific config values.
+// #nosec G117
 type GitConfig struct {
 	StrictHostKeyChecking *bool  `help:"Allow ssh access to hosts with unknown server keys (e.g. no entries in known_hosts), defaults to true."                                                                                                                                                                           yaml:"strict_host_key_checking"` //nolint:lll
 	Pattern               string `help:"A regular expression defined to match git URLs, defaults to the regex: <site>/([^/]+)/([^/]+). For example if the site is github.com, then the default pattern will match github.com/<user>/<repo>."                                                                              yaml:"pattern"`                  //nolint:lll
@@ -316,8 +317,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 		return validatePath(t.Elem(), path[1:])
 	}
 
-	for i := range t.NumField() {
-		field := t.Field(i)
+	for field := range t.Fields() {
 		yamlTag := field.Tag.Get("yaml")
 		helpTag := field.Tag.Get("help")
 

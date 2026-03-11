@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earthly/cloud-api/logstream"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/fatih/color"
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/pkg/errors"
@@ -452,16 +452,16 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 
 func (app *EarthlyApp) printCrashLogs(ctx context.Context) {
 	app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "System Info", "")
-	fmt.Fprintf(os.Stderr, "version: %s\n", app.BaseCLI.Version())
-	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA())
-	fmt.Fprintf(os.Stderr, "platform: %s\n", common.GetPlatform())
+	fmt.Fprintf(os.Stderr, "version: %s\n", app.BaseCLI.Version())  // #nosec G705
+	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA()) // #nosec G705
+	fmt.Fprintf(os.Stderr, "platform: %s\n", common.GetPlatform())  // #nosec G705
 
 	dockerVersion, err := buildkitd.GetDockerVersion(ctx, app.BaseCLI.Flags().ContainerFrontend)
 	if err != nil {
 		app.BaseCLI.Console().Warnf("failed querying docker version: %s\n", err.Error())
 	} else {
 		app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "Docker Version", "")
-		fmt.Fprintln(os.Stderr, dockerVersion)
+		fmt.Fprintln(os.Stderr, dockerVersion) // #nosec G705
 	}
 
 	logs, err := buildkitd.GetLogs(ctx,
@@ -470,7 +470,7 @@ func (app *EarthlyApp) printCrashLogs(ctx context.Context) {
 		app.BaseCLI.Console().Warnf("failed fetching earthly-buildkit logs: %s\n", err.Error())
 	} else {
 		app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "Buildkit Logs", "")
-		fmt.Fprintln(os.Stderr, logs)
+		fmt.Fprintln(os.Stderr, logs) // #nosec G705
 	}
 }
 

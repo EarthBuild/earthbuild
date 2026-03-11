@@ -19,6 +19,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
+	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
@@ -68,12 +69,12 @@ func (app *EarthlyApp) unhideFlags() error {
 	// TODO delete this check after 2022-03-01
 	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" {
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
-		app.BaseCLI.Console().Warn("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
+		app.BaseCLI.Console().Warn("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTH_SHOW_HIDDEN\n")
 	}
 
 	showHidden := false
 
-	showHiddenStr := os.Getenv("EARTHLY_SHOW_HIDDEN")
+	showHiddenStr, _ := envutil.LookupEnv("EARTH_SHOW_HIDDEN", "EARTHLY_SHOW_HIDDEN")
 	if showHiddenStr != "" {
 		showHidden, err = strconv.ParseBool(showHiddenStr)
 		if err != nil {

@@ -23,7 +23,7 @@ Heres a quick breakdown:
 - `-t` tells Docker to emulate a TTY. This makes the `buildkit` log output colorized.
 - `-v earthbuild-tmp:/tmp/earthbuild:rw` mounts (and creates, if necessary) the `earthbuild-tmp` Docker volume into the containers `/tmp/earthbuild`. This is used as a temporary/working directory for `buildkitd` during builds.
 
-Assuming you are running this on your machine, you could use this `buildkitd` by setting `EARTHLY_BUILDKIT_HOST=docker-container://<container-name>`, or by specifying the appropriate values in `config.yml`.
+Assuming you are running this on your machine, you could use this `buildkitd` by setting `EARTH_BUILDKIT_HOST=docker-container://<container-name>`, or by specifying the appropriate values in `config.yml`.
 
 ### Usage (Use As Remote)
 
@@ -36,7 +36,7 @@ Omitting the options already discussed from the simple example:
 - `-e BUILDKIT_TCP_TRANSPORT_ENABLED=true` makes `buildkitd` listen on a TCP port instead of a Unix socket.
 - `-p 8372:8372` forwards the hosts port 8372 to the containers port 8372. When using TCP, `buildkit` will always listen on 8372, but you can configure the apparent port by forwarding a different port on your host.
 
-Assuming you ran this on another machine named `fast-builder`, you could use this remote `buildkitd` by setting `EARTHLY_BUILDKIT_HOST=tcp://fast-builder:8372`, or by specifying the address in your `config.yml`.
+Assuming you ran this on another machine named `fast-builder`, you could use this remote `buildkitd` by setting `EARTH_BUILDKIT_HOST=tcp://fast-builder:8372`, or by specifying the address in your `config.yml`.
 
 ## Using This Image
 
@@ -62,7 +62,7 @@ rm: can't remove '/var/earthbuild/dind/...': Resource busy
 
 To use this image externally, it requires you to forward a port on your machine to the containers port 8372. You will need to ensure that external access to the machine on the port you chose is possible as well.
 
-When using this container locally with `earthly`, please note that setting `EARTHLY_BUILDKIT_HOST` values with hosts `127.0.0.1`, ` ::1/128`, or `localhost` are considered local and will result in Earthly attempting to manage the BuildKit container itself. Consider using your hostname, or another alternative name in these cases.
+When using this container locally with `earthly`, please note that setting `EARTH_BUILDKIT_HOST` values with hosts `127.0.0.1`, ` ::1/128`, or `localhost` are considered local and will result in Earthly attempting to manage the BuildKit container itself. Consider using your hostname, or another alternative name in these cases.
 
 ### Supported Environment Variables
 

@@ -10,13 +10,13 @@ func (a *Build) buildFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:        "platform",
-			EnvVars:     []string{"EARTHLY_PLATFORMS"},
+			EnvVars:     []string{"EARTH_PLATFORMS", "EARTHLY_PLATFORMS"},
 			Usage:       "Specify the target platform to build for or this can be read from ENV VAR",
 			Destination: &a.platformsStr,
 		},
 		&cli.StringSliceFlag{
 			Name:        "build-arg",
-			EnvVars:     []string{"EARTHLY_BUILD_ARGS"},
+			EnvVars:     []string{"EARTH_BUILD_ARGS", "EARTHLY_BUILD_ARGS"},
 			Usage:       "A build arg override, specified as <key>=[<value>]",
 			Destination: &a.buildArgs,
 			Hidden:      true, // Deprecated
@@ -24,19 +24,19 @@ func (a *Build) buildFlags() []cli.Flag {
 		&cli.StringSliceFlag{
 			Name:        "secret",
 			Aliases:     []string{"s"},
-			EnvVars:     []string{"EARTHLY_SECRETS"},
+			EnvVars:     []string{"EARTH_SECRETS", "EARTHLY_SECRETS"},
 			Usage:       "A secret override, specified as <key>=[<value>]",
 			Destination: &a.secrets,
 		},
 		&cli.StringSliceFlag{
 			Name:        "secret-file",
-			EnvVars:     []string{"EARTHLY_SECRET_FILES"},
+			EnvVars:     []string{"EARTH_SECRET_FILES", "EARTHLY_SECRET_FILES"},
 			Usage:       "A secret override, specified as <key>=<path>",
 			Destination: &a.secretFiles,
 		},
 		&cli.StringSliceFlag{
 			Name:        "cache-from",
-			EnvVars:     []string{"EARTHLY_CACHE_FROM"},
+			EnvVars:     []string{"EARTH_CACHE_FROM", "EARTHLY_CACHE_FROM"},
 			Usage:       "Remote docker image tags to use as readonly explicit cache (experimental)",
 			Destination: &a.cacheFrom,
 			Hidden:      true, // Experimental

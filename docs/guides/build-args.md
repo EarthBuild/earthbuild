@@ -81,7 +81,7 @@ Argument values can be set multiple ways:
 1. On the command line
 
    The value can be directly specified on the command line (as shown in the previous example):
-   
+
    ```
    earthly +hello --HELLO=world --FOO=bar
    ```
@@ -89,35 +89,35 @@ Argument values can be set multiple ways:
 2. From environment variables
 
    Similar to above, except that the value is an environment variable:
-   
+
    ```bash
    export HELLO="world"
    export FOO="bar"
    earthly +hello --HELLO="$HELLO" --FOO="$FOO"
    ```
 
-3. Via the `EARTHLY_BUILD_ARGS` environment variable
+3. Via the `EARTH_BUILD_ARGS` environment variable
 
-    The value can also be set via the `EARTHLY_BUILD_ARGS` environment variable.
-    
+    The value can also be set via the `EARTH_BUILD_ARGS` environment variable.
+
     ```bash
-    export EARTHLY_BUILD_ARGS="HELLO=world,FOO=bar"
+    export EARTH_BUILD_ARGS="HELLO=world,FOO=bar"
     earthly +hello
     ```
 
-    This may be useful if you have a set of build args that you'd like to always use and would prefer not to have to specify them on the command line every time. The `EARTHLY_BUILD_ARGS` environment variable may also be stored in your `~/.bashrc` file, or some other shell-specific startup script.
+    This may be useful if you have a set of build args that you'd like to always use and would prefer not to have to specify them on the command line every time. The `EARTH_BUILD_ARGS` environment variable may also be stored in your `~/.bashrc` file, or some other shell-specific startup script.
 
 4. From an `.arg` file
 
    It is also possible to create an `.arg` file to contain the build arguments to pass
    to earthly. First create an `.arg` file with:
-   
+
    ```
    name=eggplant
    ```
-   
+
    Then simply run earthly:
-   
+
    ```bash
    earthly +hello
    ```

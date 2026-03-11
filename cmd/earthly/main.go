@@ -71,6 +71,7 @@ func run() (code int) {
 	}
 
 	ctx = telemetry.WithTraceparent(ctx)
+
 	ctx, span := telemetry.Tracer().Start(ctx, "main")
 	defer span.End()
 

@@ -61,7 +61,7 @@ func main() {
 // run executes the CLI and returns an exit code to pass to [os.Exit].
 func run() (code int) {
 	// set up OpenTelemetry
-	ctx := telemetry.WithTraceparent(context.Background())
+	ctx := context.Background()
 
 	shutdown, err := telemetry.Setup(ctx)
 	if err != nil {
@@ -70,6 +70,7 @@ func run() (code int) {
 		defer shutdown(ctx)
 	}
 
+	ctx = telemetry.WithTraceparent(ctx)
 	ctx, span := telemetry.Tracer().Start(ctx, "main")
 	defer span.End()
 

@@ -137,12 +137,14 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 		return nil, fmt.Errorf("create tracer provider: "+format, args...)
 	}
 
-	err := optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+	enabled, err := optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
 	if err != nil {
 		return errorf("%w", err)
 	}
 
-	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
+	if enabled {
+		http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
+	}
 
 	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
@@ -164,7 +166,7 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 		return nil, fmt.Errorf("create meter provider: "+format, args...)
 	}
 
-	err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
+	_, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
 	if err != nil {
 		return errorf("%w", err)
 	}
@@ -188,7 +190,7 @@ func setupLoggerProvider(ctx context.Context) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("create logger provider: "+format, args...)
 	}
 
-	err := optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+	_, err := optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
 	if err != nil {
 		return errorf("%w", err)
 	}
@@ -225,30 +227,23 @@ func WithTraceparent(ctx context.Context) context.Context {
 }
 
 // optIn checks if user has opted into telemetry by setting any of the environment variables.
+// Returns true if the user has opted in, false otherwise.
 // The first environment variable MUST be OTEL_..._EXPORTER.
-func optIn(key ...string) error {
+func optIn(key ...string) (bool, error) {
 	if !strings.HasPrefix(key[0], "OTEL_") || !strings.HasSuffix(key[0], "_EXPORTER") {
-		return fmt.Errorf("first env var must be OTEL_..._EXPORTER: %s", key[0])
+		return false, fmt.Errorf("first env var must be OTEL_..._EXPORTER: %s", key[0])
 	}
-
-	var found bool
 
 	for _, k := range key {
-		_, ok := os.LookupEnv(k)
-		if ok {
-			found = true
-			break
+		if _, ok := os.LookupEnv(k); ok {
+			return true, nil
 		}
-	}
-
-	if found {
-		return nil
 	}
 
 	err := os.Setenv(key[0], "none")
 	if err != nil {
-		return fmt.Errorf("set env var %s to none: %w", key[0], err)
+		return false, fmt.Errorf("set env var %s to none: %w", key[0], err)
 	}
 
-	return nil
+	return false, nil
 }

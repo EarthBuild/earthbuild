@@ -34,6 +34,8 @@ func Tracer() trace.Tracer {
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (ShutdownFunc, error) {
+	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
+
 	var shutdowns []ShutdownFunc
 
 	// shutdown calls cleanup functions registered via shutdowns.
@@ -194,8 +196,6 @@ func setupLoggerProvider(ctx context.Context) (ShutdownFunc, error) {
 	if err != nil {
 		return errorf("%w", err)
 	}
-
-	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
 
 	logExporter, err := autoexport.NewLogExporter(ctx)
 	if err != nil {

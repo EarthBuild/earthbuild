@@ -2587,7 +2587,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 
 		finalArgs = append(c.mts.Final.MainImage.Config.Entrypoint, finalArgs...)
-		opts.WithShell = false // Don't use shell when --entrypoint is passed.
+		// WithShell is already set correctly by the parser based on
+		// exec-form vs shell-form syntax. Don't override it here.
 	}
 
 	runOpts := opts.extraRunOpts

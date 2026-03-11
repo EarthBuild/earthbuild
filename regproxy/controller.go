@@ -176,7 +176,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 			return 0, err
 		}
 
-		res, err := http.DefaultClient.Do(req)
+		res, err := http.DefaultClient.Do(req) // #nosec G704
 		if res != nil && res.Body != nil {
 			res.Body.Close() // #nosec G104
 		}

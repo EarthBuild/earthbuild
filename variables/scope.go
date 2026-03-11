@@ -31,7 +31,7 @@ func (s *Scope) DebugString() string {
 
 	for _, k := range s.Sorted() {
 		v := s.variables[k]
-		sb.WriteString(fmt.Sprintf("%s=%s", k, v))
+		fmt.Fprintf(&sb, "%s=%s", k, v)
 
 		if s.activeVariables[k] {
 			sb.WriteString(" (active)")

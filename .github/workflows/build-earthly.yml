@@ -24,6 +24,8 @@ on:
         type: boolean
         default: false
 
+permissions: {}
+
 jobs:
 
   build-earthly:
@@ -73,19 +75,19 @@ jobs:
           sudo systemctl restart containerd
           sudo systemctl restart docker
       - name: Earthly bootstrap
-        run: ${{inputs.SUDO}} $(which earth) bootstrap
+        run: ${{inputs.SUDO}} "$(which earth)" bootstrap
       - name: Configure Earthly to use GCR mirror
         run: |-
-          ${{inputs.SUDO}} $(which earth) config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} ${{inputs.BINARY}} login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
-        run: ${{inputs.SUDO}} $(which earth) +update-buildkit --BUILDKIT_GIT_SHA=$(cat earthly-next)
+        run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earthly using released earthly
-        run: ${{inputs.SUDO}} $(which earth) --use-inline-cache +for-linux
+        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
       - name: Earthly bootstrap using latest earthly build
         run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
@@ -122,12 +124,12 @@ jobs:
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
-            --VERSION="0.8.17" \
+            --VERSION="0.8.18" \
             --DEFAULT_INSTALLATION_NAME=earthly \
             ./artifacts/earthly
 
           # Save the buildkitd image as tarball
-          ${{inputs.SUDO}} ${{inputs.BINARY}} save \
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" save \
             "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             -o ./artifacts/buildkitd-image.tar
 
@@ -141,5 +143,5 @@ jobs:
           path: ./artifacts/
           retention-days: 1
       - name: Buildkit logs (runs on failure)
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earth-buildkitd
+        run: ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earth-buildkitd
         if: ${{ failure() }}

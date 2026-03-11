@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.25.6
+LET GO_VERSION=1.26.0
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -144,7 +144,7 @@ earthly-script-no-stdout:
 # lint runs basic go linters against the earthly project.
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.8.0
+    LET golangci_lint_version=2.10.1
     RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
@@ -192,7 +192,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.13.0
+    ARG vale_version=3.13.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything

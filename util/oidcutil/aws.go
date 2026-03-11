@@ -28,15 +28,18 @@ var (
 				if input.Seconds() < 900 || input.Seconds() > 43200 {
 					return errors.New("duration must be between 900s and 43200s")
 				}
+
 				return nil
 			}),
 			stringToARN(func(input *arn.ARN) error {
 				if input.Service != "iam" {
 					return fmt.Errorf(`aws service ("%s") must be "iam"`, input.Service)
 				}
+
 				if !strings.HasPrefix(input.Resource, "role/") {
 					return fmt.Errorf(`resource ("%s") must be an aws role"`, input.Resource)
 				}
+
 				return nil
 			}),
 		),

@@ -2574,7 +2574,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 	}
 
-	if opts.shellWrap == nil {
+	if opts.shellWrap == nil && opts.WithShell {
 		opts.shellWrap = withShellAndEnvVars
 	}
 
@@ -2587,7 +2587,8 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 
 		finalArgs = append(c.mts.Final.MainImage.Config.Entrypoint, finalArgs...)
-		opts.WithShell = false // Don't use shell when --entrypoint is passed.
+		// WithShell is already set correctly by the parser based on
+		// exec-form vs shell-form syntax. Don't override it here.
 	}
 
 	runOpts := opts.extraRunOpts
@@ -2769,7 +2770,10 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 	// Shell and debugger wrap.
 	prependDebugger := !opts.Locally
 
-	finalArgs = opts.shellWrap(finalArgs, extraEnvVars, opts.WithShell, prependDebugger, isInteractive)
+	if opts.WithShell {
+		finalArgs = opts.shellWrap(finalArgs, extraEnvVars, opts.WithShell, prependDebugger, isInteractive)
+	}
+
 	if opts.NoCache {
 		// llb.IgnoreCache is not always enough; we will force a different cache key as a work-around
 		finalArgs = append(finalArgs, "#"+uuid.NewString())

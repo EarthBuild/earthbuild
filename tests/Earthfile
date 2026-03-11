@@ -480,8 +480,9 @@ remote-test:
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output github.com/EarthBuild/hello-world:main+hello
     RUN --privileged \
+        --entrypoint \
         --mount=type=tmpfs,target=/tmp/earthbuild \
-        /usr/bin/earthly-entrypoint.sh --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
+        -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
         ls /tmp/hostname.3d4b1831-c07e-4b2d-805e-2b8ce578bb50
     RUN --privileged \
         --entrypoint \

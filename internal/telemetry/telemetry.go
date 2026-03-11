@@ -111,7 +111,6 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 	var otelResource *resource.Resource
 
 	otelResource, err = resource.New(ctx,
-		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithAttributes(
 			semconv.ServiceName("EarthBuild"),
 			semconv.ProcessCommand(filepath.Base(executable)),
@@ -119,8 +118,6 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 			semconv.ProcessCommandArgs(os.Args...),
 			semconv.ProcessExecutablePath(executable),
 		),
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
 	)
 	if err != nil {
 		return errorf("%w", err)

@@ -85,7 +85,7 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 
 	shutdowns = append(shutdowns, meterShutdown)
 
-	loggerShutdown, err = setupLoggerProvider(ctx)
+	loggerShutdown, err = setupLoggerProvider(ctx, otelResource)
 	if err != nil {
 		return handleError(err)
 	}
@@ -184,7 +184,7 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	return mp.Shutdown, nil
 }
 
-func setupLoggerProvider(ctx context.Context) (ShutdownFunc, error) {
+func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
 	errorf := func(format string, args ...any) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("create logger provider: "+format, args...)
 	}
@@ -201,6 +201,7 @@ func setupLoggerProvider(ctx context.Context) (ShutdownFunc, error) {
 
 	loggerProvider := sdklog.NewLoggerProvider(
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		sdklog.WithResource(res),
 	)
 
 	global.SetLoggerProvider(loggerProvider)

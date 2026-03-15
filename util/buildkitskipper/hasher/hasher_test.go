@@ -53,7 +53,7 @@ func TestHashFile(t *testing.T) {
 		NoError(t, err)
 	}
 
-	f, err := os.OpenFile(file.Name(), os.O_RDWR|os.O_TRUNC, 0)
+	f, err := os.OpenFile(file.Name(), os.O_RDWR|os.O_TRUNC, 0) // #nosec G703
 	if err != nil {
 		NoError(t, err)
 	}

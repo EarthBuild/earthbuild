@@ -24,6 +24,8 @@ var (
 	ErrCouldNotDetectGitHash = errors.New("Could not auto-detect or parse Git hash")
 	// ErrCouldNotDetectGitShortHash is an error returned when git short hash could not be detected.
 	ErrCouldNotDetectGitShortHash = errors.New("Could not auto-detect or parse Git short hash")
+	// ErrCouldNotDetectGitContentHash is an error returned when git tree hash could not be detected.
+	ErrCouldNotDetectGitContentHash = errors.New("Could not auto-detect or parse Git content hash")
 	// ErrCouldNotDetectGitBranch is an error returned when git branch could not be detected.
 	ErrCouldNotDetectGitBranch = errors.New("Could not auto-detect or parse Git branch")
 	// ErrCouldNotDetectGitTags is an error returned when git tags could not be detected.
@@ -40,6 +42,7 @@ type GitMetadata struct {
 	GitURL               string
 	Hash                 string
 	ShortHash            string
+	ContentHash          string
 	RelDir               string
 	AuthorName           string
 	AuthorEmail          string
@@ -91,6 +94,12 @@ func Metadata(ctx context.Context, dir, gitBranchOverride string) (*GitMetadata,
 	}
 
 	shortHash, err := detectGitShortHash(ctx, dir)
+	if err != nil {
+		retErr = err
+		// Keep going.
+	}
+
+	contentHash, err := detectGitContentHash(ctx, dir)
 	if err != nil {
 		retErr = err
 		// Keep going.
@@ -160,6 +169,7 @@ func Metadata(ctx context.Context, dir, gitBranchOverride string) (*GitMetadata,
 		GitURL:               gitURL,
 		Hash:                 hash,
 		ShortHash:            shortHash,
+		ContentHash:          contentHash,
 		BranchOverrideTagArg: gitBranchOverride != "",
 		Branch:               branch,
 		Tags:                 tags,
@@ -181,6 +191,7 @@ func (gm *GitMetadata) Clone() *GitMetadata {
 		GitURL:               gm.GitURL,
 		Hash:                 gm.Hash,
 		ShortHash:            gm.ShortHash,
+		ContentHash:          gm.ContentHash,
 		BranchOverrideTagArg: gm.BranchOverrideTagArg,
 		Branch:               gm.Branch,
 		Tags:                 gm.Tags,
@@ -266,38 +277,34 @@ func detectGitBaseDir(ctx context.Context, dir string) (string, error) {
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
-func detectGitHash(ctx context.Context, dir string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+func gitRevParse(ctx context.Context, dir string, sentinel error, args ...string) (string, error) {
+	revParseArgs := append([]string{"rev-parse"}, args...)
+	cmd := exec.CommandContext(ctx, "git", revParseArgs...) //nolint:gosec
 	cmd.Dir = dir
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrapf(ErrCouldNotDetectGitHash, "returned error %s: %s", err.Error(), string(out))
+		return "", errors.Wrapf(sentinel, "returned error %s: %s", err.Error(), string(out))
 	}
 
 	outStr := string(out)
 	if outStr == "" {
-		return "", errors.Wrapf(ErrCouldNotDetectGitHash, "no remote origin url output")
+		return "", errors.Wrapf(sentinel, "no output")
 	}
 
 	return strings.SplitN(outStr, "\n", 2)[0], nil
 }
 
+func detectGitHash(ctx context.Context, dir string) (string, error) {
+	return gitRevParse(ctx, dir, ErrCouldNotDetectGitHash, "HEAD")
+}
+
 func detectGitShortHash(ctx context.Context, dir string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--short=8", "HEAD")
-	cmd.Dir = dir
+	return gitRevParse(ctx, dir, ErrCouldNotDetectGitShortHash, "--short=8", "HEAD")
+}
 
-	out, err := cmd.Output()
-	if err != nil {
-		return "", errors.Wrapf(ErrCouldNotDetectGitShortHash, "returned error %s: %s", err.Error(), string(out))
-	}
-
-	outStr := string(out)
-	if outStr == "" {
-		return "", errors.Wrapf(ErrCouldNotDetectGitShortHash, "no remote origin url output")
-	}
-
-	return strings.SplitN(outStr, "\n", 2)[0], nil
+func detectGitContentHash(ctx context.Context, dir string) (string, error) {
+	return gitRevParse(ctx, dir, ErrCouldNotDetectGitContentHash, "HEAD^{tree}")
 }
 
 func detectGitBranch(ctx context.Context, dir, gitBranchOverride string) ([]string, error) {

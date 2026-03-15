@@ -1,6 +1,7 @@
-import * as config from './jest.config';
+import config from "./jest.config.ts";
 
 export default {
-    ...config.default,
-    rootDir: 'integration'
+  ...config,
+  rootDir: ".",
+  testMatch: ["<rootDir>/integration/**/*.spec.ts"],
 };

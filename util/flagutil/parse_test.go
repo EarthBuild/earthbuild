@@ -137,8 +137,8 @@ func TestGetBoolFlagNames(t *testing.T) {
 		t.Parallel()
 
 		type opts struct {
-			Debug   bool   `long:"debug"   short:"d"`
 			Output  string `long:"output"  short:"o"`
+			Debug   bool   `long:"debug"   short:"d"`
 			Verbose bool   `long:"verbose" short:"v"`
 		}
 
@@ -159,11 +159,12 @@ func TestGetBoolFlagNames(t *testing.T) {
 			Verbose bool `long:"verbose" short:"v"`
 		}
 
+		//nolint:embeddedstructfieldcheck // fieldalignment takes precedence
 		type extendedOpts struct {
-			baseOpts
-
-			NoCache bool   `long:"no-cache"`
 			Output  string `long:"output"`
+			NoCache bool   `long:"no-cache"`
+
+			baseOpts
 		}
 
 		flags := getBoolFlagNames(&extendedOpts{})

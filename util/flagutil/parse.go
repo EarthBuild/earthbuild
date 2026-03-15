@@ -116,8 +116,7 @@ func getBoolFlagNames(data any) map[string]bool {
 
 // collectBoolFlags recursively collects boolean flag names from a struct type.
 func collectBoolFlags(t reflect.Type, boolFlags map[string]bool) {
-	for i := range t.NumField() {
-		field := t.Field(i)
+	for field := range t.Fields() {
 		fieldType := field.Type
 
 		// Handle embedded structs recursively
@@ -162,6 +161,7 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 
 			// This is a boolean flag with an explicit value
 			value := parts[1]
+
 			modifiedValue, err := modFunc(flagName, nil, &value)
 			if err != nil {
 				return nil, err
@@ -190,6 +190,7 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				}
 
 				value := parts[1]
+
 				modifiedValue, err := modFunc(flagName, nil, &value)
 				if err != nil {
 					return nil, err
@@ -201,11 +202,13 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 				}
 
 				result = append(result, arg)
+
 				continue
 			case len(flagPart) == 1 && boolFlags[flagPart]:
 				// Single short flag, check if next arg is the value
 				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 					value := args[i+1]
+
 					modifiedValue, err := modFunc(flagPart, nil, &value)
 					if err != nil {
 						return nil, err
@@ -239,6 +242,7 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 					}
 
 					value := args[i+1]
+
 					modifiedValue, err := modFunc(flagName, nil, &value)
 					if err != nil {
 						return nil, err
@@ -248,6 +252,7 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 						result = append(result, arg, *modifiedValue)
 						i++ // Skip the next arg since we consumed it
 						modified = true
+
 						break
 					}
 				}

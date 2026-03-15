@@ -8,8 +8,8 @@ import (
 )
 
 type argGroup struct {
-	values []*string
 	key    string
+	values []*string
 }
 
 // BuildArgMatrix builds a 2-dimensional slice of arguments that contains all

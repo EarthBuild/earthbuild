@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.18
+FROM alpine:3.23
 
  ARG foo
 # ^^ leading whitespace at the top level causes INDENT/DEDENT confusion in the

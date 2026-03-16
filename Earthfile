@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.26.0
+LET GO_VERSION=1.26.1
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -843,7 +843,7 @@ license:
 node:
     FROM node:24.9.0-alpine3.22
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.11.0
+    LET npm_version=11.11.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

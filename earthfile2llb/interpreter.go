@@ -1231,14 +1231,14 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 			return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY flag %s", srcFlagArgs[index])
 		}
 
-		var parsedFlagArgs []string
-
-		parsedFlagArgs, err = variables.ParseFlagArgs(expandedFlagArgs)
+		parsedFlagArgs, err := variables.ParseFlagArgs(expandedFlagArgs)
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "parse flag args")
 		}
 
-		srcBuildArgs := append(parsedFlagArgs, expandedBuildArgs...) //nolint:gocritic
+		srcBuildArgs := make([]string, 0, len(parsedFlagArgs)+len(expandedBuildArgs))
+		srcBuildArgs = append(srcBuildArgs, parsedFlagArgs...)
+		srcBuildArgs = append(srcBuildArgs, expandedBuildArgs...)
 
 		if !i.converter.ftrs.PassArgs && opts.PassArgs {
 			return i.errorf(cmd.SourceLocation,

@@ -3,8 +3,12 @@ al.essio.dev/pkg/shellescape v1.6.0/go.mod h1:6sIqp7X2P6mThCQ7twERpZTuigpr6KbZWt
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 git.sr.ht/~nelsam/correct v0.1.1 h1:DOIoaI1fwOqiBI3bA+24ZqLTwhKXeTFSUj1PyuIf7N4=
 git.sr.ht/~nelsam/correct v0.1.1/go.mod h1:ftLUfw6zfxcpnS9LQQe/7FiOGey3m/iF46olkT53uwE=
+git.sr.ht/~nelsam/correct v0.1.2 h1:jh6ey96zjubCvrEky6Jcpa7k5NCUFc8+TwQu3+voyVE=
+git.sr.ht/~nelsam/correct v0.1.2/go.mod h1:ftLUfw6zfxcpnS9LQQe/7FiOGey3m/iF46olkT53uwE=
 git.sr.ht/~nelsam/hel v0.9.0 h1:j98FaW40jlSvQbUKqEdvEEgX9WEekDz9Kfz/fsRpSa4=
 git.sr.ht/~nelsam/hel v0.9.0/go.mod h1:fsyI8ZSTf9VPVb2vlXFE1iVO7a6ErQHUgx419Y4nKO8=
+git.sr.ht/~nelsam/hel v0.9.4 h1:i9caNNprvdedpQ8WWNGW4jrTUH9IiLQKVVfF0r7ilMk=
+git.sr.ht/~nelsam/hel v0.9.4/go.mod h1:rSzEThKdnnl7BuvLjR6QnLj7o6XpPBIC6ms6nV9tm+Y=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 h1:bvDV9vkmnHYOMsOr4WLk+Vo07yKIzd94sVoIqshQ4bU=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24/go.mod h1:8o94RPi1/7XTJvwPpRSzSUedZrtlirdB3r9Z20bi2f8=
 github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0 h1:59MxjQVfjXsBpLy+dbd2/ELV5ofnUkUZBvWSC85sheA=

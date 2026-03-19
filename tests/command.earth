@@ -1,6 +1,6 @@
 VERSION 0.7 # Do not update this to 0.8 (function.earth is used for testing 0.8)
 
-FROM alpine:3.18
+FROM alpine:3.23
 WORKDIR /test
 
 ARG --global global_var=default

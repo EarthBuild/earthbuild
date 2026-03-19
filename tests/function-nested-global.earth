@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM alpine:3.18
+FROM alpine:3.23
 WORKDIR /test
 
 # foo should be overridden with the value "expected" to run this test.

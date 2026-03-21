@@ -738,7 +738,8 @@ func (i *Interpreter) flagValModifierFuncWithContext(
 	ctx context.Context,
 ) func(string, *flags.Option, *string) (*string, error) {
 	return func(flagName string, flagOpt *flags.Option, flagVal *string) (*string, error) {
-		if flagOpt.IsBool() && flagVal != nil {
+		// flagOpt is nil when called from our preprocessor, which only calls this for boolean flags
+		if flagVal != nil {
 			newFlag, err := i.expandArgs(ctx, *flagVal, false, false)
 			if err != nil {
 				return nil, err

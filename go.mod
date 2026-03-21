@@ -4,6 +4,7 @@ go 1.26
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0
+	git.sr.ht/~nelsam/correct v0.1.2
 	git.sr.ht/~nelsam/hel v0.9.4
 	github.com/adrg/xdg v0.5.3
 	github.com/alexcb/binarystream v0.0.0-20231130184431-f2f7a7543c6d
@@ -62,7 +63,6 @@ require (
 )
 
 require (
-	git.sr.ht/~nelsam/correct v0.1.2 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.11.7 // indirect

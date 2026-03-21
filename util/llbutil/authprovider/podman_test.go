@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"git.sr.ht/~nelsam/correct/match"
+	"git.sr.ht/~nelsam/correct/result"
 	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session"
@@ -78,6 +81,17 @@ func TestPodmanProvider(t *testing.T) {
 		envs []string
 	}
 
+	matchRegexp := func(pattern string) match.Match[string] {
+		return func(s string) match.Result {
+			matched, err := regexp.MatchString(pattern, s)
+			if err != nil {
+				return result.Simplef(false, s, "regexp error: %v", err)
+			}
+
+			return result.Simplef(matched, s, "matches regexp %q", pattern)
+		}
+	}
+
 	for _, tt := range []struct {
 		name  string
 		entry entry
@@ -119,9 +133,7 @@ func TestPodmanProvider(t *testing.T) {
 					"XDG_RUNTIME_DIR=",
 				},
 				auth: &authFile{
-					path: pers.Matches(func(s string) (*bool, bool) {
-						return new(true), strings.HasPrefix(s, "/run/containers/") && strings.HasSuffix(s, "/auth.json")
-					}),
+					path:   matchRegexp("/run/containers/[0-9]*/auth.json"),
 					host:   "foo",
 					user:   "bar",
 					secret: "baz",
@@ -174,7 +186,7 @@ func TestPodmanProvider(t *testing.T) {
 			authFile := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
 			pers.MethodWasCalled(t, tc.os.method.Open,
 				pers.Within(timeout),
-				pers.WithArgs(pers.Any),
+				pers.WithArgs(e.auth.path),
 				pers.Returning(authFile, nil),
 			)
 

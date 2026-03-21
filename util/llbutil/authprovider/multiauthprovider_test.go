@@ -11,8 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session/auth"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,16 +24,11 @@ func TestMultiAuth(t *testing.T) {
 	t.Parallel()
 
 	type testCtx struct {
-		*testing.T
-
-		expect   expect.Expectation
 		multi    *authprovider.MultiAuthProvider
 		children []*mockChild
 	}
 
-	o := onpar.New()
-
-	o.BeforeEach(func(t *testing.T) testCtx {
+	setup := func(t *testing.T) testCtx {
 		t.Helper()
 
 		children := []*mockChild{
@@ -48,20 +42,19 @@ func TestMultiAuth(t *testing.T) {
 		}
 
 		return testCtx{
-			T:        t,
-			expect:   expect.New(t),
 			children: children,
 			multi:    authprovider.New(newConsLogger(), srv),
 		}
-	})
-	defer o.Run(t)
+	}
 
 	type fetchResult struct {
 		resp *auth.FetchTokenResponse
 		err  error
 	}
 
-	o.Spec("it calls child ProjectAdders", func(t testCtx) {
+	t.Run("it calls child ProjectAdders", func(t *testing.T) {
+		t.Parallel()
+
 		type projectProvider struct {
 			*mockChild
 			*mockProjectAdder
@@ -71,14 +64,17 @@ func TestMultiAuth(t *testing.T) {
 			mockChild:        newMockChild(pers.WithTimeout(t, mockTimeout)),
 			mockProjectAdder: newMockProjectAdder(pers.WithTimeout(t, mockTimeout)),
 		}
-		t.multi = authprovider.New(newConsLogger(), []authprovider.Child{p})
+		multi := authprovider.New(newConsLogger(), []authprovider.Child{p})
 		pers.Return(p.mockProjectAdder.method.AddProject)
-		t.multi.AddProject("foo", "bar")
-		t.expect(p.mockProjectAdder.method.AddProject).To(haveMethodExecuted(withArgs("foo", "bar")))
+		multi.AddProject("foo", "bar")
+		pers.MethodWasCalled(t, p.mockProjectAdder.method.AddProject, pers.WithArgs("foo", "bar"))
 	})
 
-	o.Spec("it does not continue to contact servers with no credentials for a given host", func(t testCtx) {
-		const host = "foo.bar"
+	t.Run("it does not continue to contact servers with no credentials for a given host", func(t *testing.T) {
+		t.Parallel()
+
+		tc := setup(t)
+		req := &auth.FetchTokenRequest{Host: "foo.bar"}
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -86,48 +82,49 @@ func TestMultiAuth(t *testing.T) {
 		res := make(chan fetchResult)
 
 		go func() {
-			resp, err := t.multi.FetchToken(ctx, &auth.FetchTokenRequest{Host: host})
+			resp, err := tc.multi.FetchToken(ctx, req)
 			res <- fetchResult{resp, err}
 		}()
 
-		for _, c := range t.children {
-			t.expect(c.method.FetchToken).To(haveMethodExecuted(
-				within(timeout),
-				withArgs(pers.Any, equal(&auth.FetchTokenRequest{Host: host})),
-				returning(nil, authprovider.ErrAuthProviderNoResponse),
-			))
+		for _, c := range tc.children {
+			pers.MethodWasCalled(t, c.method.FetchToken,
+				pers.Within(timeout),
+				pers.WithArgs(pers.Any, req),
+				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),
+			)
 		}
 
 		select {
 		case result := <-res:
-			t.expect(result.resp).To(beNil())
-			t.expect(status.Code(result.err)).To(equal(codes.Unavailable))
+			require.Nil(t, result.resp)
+			require.Equal(t, codes.Unavailable, status.Code(result.err))
 		case <-time.After(timeout):
 			t.Fatal("timed out waiting for FetchToken to return")
 		}
 
 		go func() {
-			resp, err := t.multi.FetchToken(ctx, &auth.FetchTokenRequest{Host: host})
+			resp, err := tc.multi.FetchToken(ctx, req)
 			res <- fetchResult{resp, err}
 		}()
 
-		for _, c := range t.children {
-			t.expect(c.method.FetchToken).To(not(haveMethodExecuted(
-				within(10 * time.Millisecond),
-			)))
+		for _, c := range tc.children {
+			pers.MethodWasNotCalled(t, c.method.FetchToken, "FetchToken", pers.Within(10*time.Millisecond))
 		}
 
 		select {
 		case result := <-res:
-			t.expect(result.resp).To(beNil())
-			t.expect(status.Code(result.err)).To(equal(codes.Unavailable))
+			require.Nil(t, result.resp)
+			require.Equal(t, codes.Unavailable, status.Code(result.err))
 		case <-time.After(timeout):
 			t.Fatal("timed out waiting for FetchToken to return")
 		}
 	})
 
-	o.Spec("it resets its knowledge of which servers it should contact after a project is added", func(t testCtx) {
-		const host = "foo.bar"
+	t.Run("it resets its knowledge of which servers it should contact after a project is added", func(t *testing.T) {
+		t.Parallel()
+
+		tc := setup(t)
+		req := &auth.FetchTokenRequest{Host: "foo.bar"}
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -135,57 +132,55 @@ func TestMultiAuth(t *testing.T) {
 		res := make(chan fetchResult)
 
 		go func() {
-			resp, err := t.multi.FetchToken(ctx, &auth.FetchTokenRequest{Host: host})
+			resp, err := tc.multi.FetchToken(ctx, req)
 			res <- fetchResult{resp, err}
 		}()
 
-		for i, c := range t.children {
+		for i, c := range tc.children {
 			ret := []any{
-				nil,
+				(*auth.FetchTokenResponse)(nil),
 				authprovider.ErrAuthProviderNoResponse,
 			}
-			if i == len(t.children)-1 {
-				// ensure one child responds so that we can prove that
-				// successful results are also cache-busted.
+			if i == len(tc.children)-1 {
 				ret = []any{
 					&auth.FetchTokenResponse{},
 					nil,
 				}
 			}
 
-			t.expect(c.method.FetchToken).To(haveMethodExecuted(
-				within(timeout),
-				withArgs(pers.Any, equal(&auth.FetchTokenRequest{Host: host})),
-				returning(ret...),
-			))
+			pers.MethodWasCalled(t, c.method.FetchToken,
+				pers.Within(timeout),
+				pers.WithArgs(pers.Any, req),
+				pers.Returning(ret...),
+			)
 		}
 
 		select {
 		case result := <-res:
-			t.expect(status.Code(result.err)).To(not(haveOccurred()))
+			require.NoError(t, result.err)
 		case <-time.After(timeout):
 			t.Fatal("timed out waiting for FetchToken to return")
 		}
 
-		t.multi.AddProject("foo", "bar")
+		tc.multi.AddProject("foo", "bar")
 
 		go func() {
-			resp, err := t.multi.FetchToken(ctx, &auth.FetchTokenRequest{Host: host})
+			resp, err := tc.multi.FetchToken(ctx, req)
 			res <- fetchResult{resp, err}
 		}()
 
-		for _, c := range t.children {
-			t.expect(c.method.FetchToken).To(haveMethodExecuted(
-				within(timeout),
-				withArgs(pers.Any, equal(&auth.FetchTokenRequest{Host: host})),
-				returning(nil, authprovider.ErrAuthProviderNoResponse),
-			))
+		for _, c := range tc.children {
+			pers.MethodWasCalled(t, c.method.FetchToken,
+				pers.Within(timeout),
+				pers.WithArgs(pers.Any, req),
+				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),
+			)
 		}
 
 		select {
 		case result := <-res:
-			t.expect(result.resp).To(beNil())
-			t.expect(status.Code(result.err)).To(equal(codes.Unavailable))
+			require.Nil(t, result.resp)
+			require.Equal(t, codes.Unavailable, status.Code(result.err))
 		case <-time.After(timeout):
 			t.Fatal("timed out waiting for FetchToken to return")
 		}

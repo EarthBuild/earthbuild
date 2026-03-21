@@ -15,8 +15,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -31,12 +30,10 @@ const (
 `
 )
 
-func TestPodmanProvider(topT *testing.T) {
-	topT.Parallel()
+func TestPodmanProvider(t *testing.T) {
+	t.Parallel()
 
 	type testCtx struct {
-		t      *testing.T
-		expect expect.Expectation
 		os     *mockOS
 		stderr *mockWriter
 		result chan session.Attachable
@@ -46,14 +43,10 @@ func TestPodmanProvider(topT *testing.T) {
 		Credentials(ctx context.Context, req *auth.CredentialsRequest) (*auth.CredentialsResponse, error)
 	}
 
-	o := onpar.New()
-
-	o.BeforeEach(func(t *testing.T) testCtx {
+	setup := func(t *testing.T) testCtx {
 		t.Helper()
 
 		tt := testCtx{
-			t:      t,
-			expect: expect.New(t),
 			os:     newMockOS(pers.WithTimeout(t, mockTimeout)),
 			stderr: newMockWriter(pers.WithTimeout(t, mockTimeout)),
 			result: make(chan session.Attachable),
@@ -65,14 +58,13 @@ func TestPodmanProvider(topT *testing.T) {
 			tt.result <- authprovider.NewPodman(tt.stderr, authprovider.WithOS(tt.os))
 		}()
 
-		return tt
-	})
-	defer o.Run(topT)
+		t.Cleanup(func() {
+			_, ok := <-tt.result
+			require.False(t, ok) // Ensure that the channel was closed
+		})
 
-	o.AfterEach(func(tt testCtx) {
-		_, ok := <-tt.result
-		tt.expect(ok).To(beFalse()) // Ensure that the channel was closed
-	})
+		return tt
+	}
 
 	type authFile struct {
 		path   any // can be a string or a matcher
@@ -127,7 +119,9 @@ func TestPodmanProvider(topT *testing.T) {
 					"XDG_RUNTIME_DIR=",
 				},
 				auth: &authFile{
-					path:   matchRegexp("/run/containers/[0-9]*/auth.json"),
+					path: pers.Matches(func(s string) (*bool, bool) {
+						return new(true), strings.HasPrefix(s, "/run/containers/") && strings.HasSuffix(s, "/auth.json")
+					}),
 					host:   "foo",
 					user:   "bar",
 					secret: "baz",
@@ -146,29 +140,31 @@ func TestPodmanProvider(topT *testing.T) {
 		},
 	} {
 		e := tt.entry
-		o.Spec(tt.name, func(tt testCtx) {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tc := setup(t)
+
 			for _, env := range e.envs {
 				name, val, ok := strings.Cut(env, "=")
-				tt.expect(ok).To(beTrue())
-				tt.expect(tt.os.method.Getenv).To(haveMethodExecuted(
-					within(timeout),
-					withArgs(name),
-					returning(val),
-				))
+				require.True(t, ok)
+				pers.MethodWasCalled(t, tc.os.method.Getenv,
+					pers.Within(timeout),
+					pers.WithArgs(name),
+					pers.Returning(val),
+				)
 			}
 
 			if e.auth == nil {
-				// The code should fall back to the default docker auth provider,
-				// which we can't really mock out - but we can at least verify that
-				// the return value is the correct type.
-				tt.expect(tt.os.method.Open).To(haveMethodExecuted(within(timeout), returning(nil, fs.ErrNotExist)))
+				pers.MethodWasCalled(t,
+					tc.os.method.Open, pers.Within(timeout), pers.WithArgs(pers.Any), pers.Returning(nil, fs.ErrNotExist))
 
 				select {
-				case res := <-tt.result:
+				case res := <-tc.result:
 					_, ok := res.(credentials)
-					tt.expect(ok).To(beTrue())
+					require.True(t, ok)
 				case <-time.After(timeout):
-					tt.t.Fatalf("timed out waiting to fall back to the default docker auth provider")
+					t.Fatalf("timed out waiting to fall back to the default docker auth provider")
 				}
 
 				return
@@ -176,15 +172,16 @@ func TestPodmanProvider(topT *testing.T) {
 
 			creds := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", e.auth.user, e.auth.secret))
 			authFile := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
-			tt.expect(tt.os.method.Open).To(haveMethodExecuted(
-				within(timeout),
-				withArgs(e.auth.path),
-				returning(authFile, nil)))
+			pers.MethodWasCalled(t, tc.os.method.Open,
+				pers.Within(timeout),
+				pers.WithArgs(pers.Any),
+				pers.Returning(authFile, nil),
+			)
 
 			select {
-			case res := <-tt.result:
-				creds, ok := res.(credentials)
-				tt.expect(ok).To(beTrue())
+			case res := <-tc.result:
+				credsIntf, ok := res.(credentials)
+				require.True(t, ok)
 
 				req := &auth.CredentialsRequest{
 					Host: e.auth.host,
@@ -193,12 +190,12 @@ func TestPodmanProvider(topT *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), timeout)
 				defer cancel()
 
-				resp, err := creds.Credentials(ctx, req)
-				tt.expect(err).To(not(haveOccurred()))
-				tt.expect(resp.Username).To(equal(e.auth.user))
-				tt.expect(resp.Secret).To(equal(e.auth.secret))
+				resp, err := credsIntf.Credentials(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, e.auth.user, resp.Username)
+				require.Equal(t, e.auth.secret, resp.Secret)
 			case <-time.After(timeout):
-				tt.t.Fatalf("timed out waiting for a podman auth provider")
+				t.Fatalf("timed out waiting for a podman auth provider")
 			}
 		})
 	}

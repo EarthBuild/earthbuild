@@ -192,7 +192,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.14.0
+    ARG vale_version=3.14.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything

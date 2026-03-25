@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFeaturesStringEnabled(t *testing.T) {
@@ -17,7 +18,7 @@ func TestFeaturesStringEnabled(t *testing.T) {
 		ReferencedSaveOnly: true,
 	}
 	s := fts.String()
-	Equal(t, "VERSION --referenced-save-only 0.5", s)
+	require.Equal(t, "VERSION --referenced-save-only 0.5", s)
 }
 
 func TestFeaturesStringDisabled(t *testing.T) {
@@ -29,7 +30,7 @@ func TestFeaturesStringDisabled(t *testing.T) {
 		ReferencedSaveOnly: false,
 	}
 	s := fts.String()
-	Equal(t, "VERSION 1.1", s)
+	require.Equal(t, "VERSION 1.1", s)
 }
 
 func TestApplyFlagOverrides(t *testing.T) {
@@ -37,12 +38,12 @@ func TestApplyFlagOverrides(t *testing.T) {
 
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "referenced-save-only")
-	Nil(t, err)
-	Equal(t, true, fts.ReferencedSaveOnly)
-	Equal(t, false, fts.UseCopyIncludePatterns)
-	Equal(t, false, fts.ForIn)
-	Equal(t, false, fts.RequireForceForUnsafeSaves)
-	Equal(t, false, fts.NoImplicitIgnore)
+	require.NoError(t, err)
+	require.True(t, fts.ReferencedSaveOnly)
+	require.False(t, fts.UseCopyIncludePatterns)
+	require.False(t, fts.ForIn)
+	require.False(t, fts.RequireForceForUnsafeSaves)
+	require.False(t, fts.NoImplicitIgnore)
 }
 
 func TestApplyFlagOverridesWithDashDashPrefix(t *testing.T) {
@@ -50,12 +51,12 @@ func TestApplyFlagOverridesWithDashDashPrefix(t *testing.T) {
 
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "--referenced-save-only")
-	Nil(t, err)
-	Equal(t, true, fts.ReferencedSaveOnly)
-	Equal(t, false, fts.UseCopyIncludePatterns)
-	Equal(t, false, fts.ForIn)
-	Equal(t, false, fts.RequireForceForUnsafeSaves)
-	Equal(t, false, fts.NoImplicitIgnore)
+	require.NoError(t, err)
+	require.True(t, fts.ReferencedSaveOnly)
+	require.False(t, fts.UseCopyIncludePatterns)
+	require.False(t, fts.ForIn)
+	require.False(t, fts.RequireForceForUnsafeSaves)
+	require.False(t, fts.NoImplicitIgnore)
 }
 
 func TestApplyFlagOverridesMultipleFlags(t *testing.T) {
@@ -63,12 +64,12 @@ func TestApplyFlagOverridesMultipleFlags(t *testing.T) {
 
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "referenced-save-only,use-copy-include-patterns,no-implicit-ignore")
-	Nil(t, err)
-	Equal(t, true, fts.ReferencedSaveOnly)
-	Equal(t, true, fts.UseCopyIncludePatterns)
-	Equal(t, false, fts.ForIn)
-	Equal(t, false, fts.RequireForceForUnsafeSaves)
-	Equal(t, true, fts.NoImplicitIgnore)
+	require.NoError(t, err)
+	require.True(t, fts.ReferencedSaveOnly)
+	require.True(t, fts.UseCopyIncludePatterns)
+	require.False(t, fts.ForIn)
+	require.False(t, fts.RequireForceForUnsafeSaves)
+	require.True(t, fts.NoImplicitIgnore)
 }
 
 func TestApplyFlagOverridesEmptyString(t *testing.T) {
@@ -76,12 +77,12 @@ func TestApplyFlagOverridesEmptyString(t *testing.T) {
 
 	fts := &features.Features{}
 	err := features.ApplyFlagOverrides(fts, "")
-	Nil(t, err)
-	Equal(t, false, fts.ReferencedSaveOnly)
-	Equal(t, false, fts.UseCopyIncludePatterns)
-	Equal(t, false, fts.ForIn)
-	Equal(t, false, fts.RequireForceForUnsafeSaves)
-	Equal(t, false, fts.NoImplicitIgnore)
+	require.NoError(t, err)
+	require.False(t, fts.ReferencedSaveOnly)
+	require.False(t, fts.UseCopyIncludePatterns)
+	require.False(t, fts.ForIn)
+	require.False(t, fts.RequireForceForUnsafeSaves)
+	require.False(t, fts.NoImplicitIgnore)
 }
 
 func TestAvailableFlags(t *testing.T) {
@@ -140,13 +141,13 @@ func TestAvailableFlags(t *testing.T) {
 			var fts features.Features
 
 			err := features.ApplyFlagOverrides(&fts, tt.flag)
-			Nil(t, err)
+			require.NoError(t, err)
 
 			field := reflect.ValueOf(fts).FieldByName(tt.field)
-			True(t, field.IsValid(), "field %v does not exist on %T", tt.field, fts)
+			require.True(t, field.IsValid(), "field %v does not exist on %T", tt.field, fts)
 			val, ok := field.Interface().(bool)
-			True(t, ok, "field %v was not a boolean", tt.field)
-			True(t, val, "expected field %v to be set to true by flag %v", tt.field, tt.flag)
+			require.True(t, ok, "field %v was not a boolean", tt.field)
+			require.True(t, val, "expected field %v to be set to true by flag %v", tt.field, tt.flag)
 		})
 	}
 }
@@ -161,8 +162,8 @@ func TestContext(t *testing.T) {
 
 		ctx := context.Background()
 		newCtx, err := fts.WithContext(ctx)
-		Equal(t, fts, features.FromContext(newCtx))
-		NoError(t, err)
+		require.Equal(t, fts, features.FromContext(newCtx))
+		require.NoError(t, err)
 	})
 
 	t.Run("context cannot be set more than once", func(t *testing.T) {
@@ -170,17 +171,17 @@ func TestContext(t *testing.T) {
 
 		ctx := context.Background()
 		ctx2, err := fts.WithContext(ctx)
-		NoError(t, err)
+		require.NoError(t, err)
 		ctx3, err := fts.WithContext(ctx2)
-		Error(t, err)
-		Equal(t, ctx2, ctx3)
+		require.Error(t, err)
+		require.Equal(t, ctx2, ctx3)
 	})
 
 	t.Run("returns nil when not set in context", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := context.Background()
-		Nil(t, features.FromContext(ctx))
+		require.Nil(t, features.FromContext(ctx))
 	})
 }
 
@@ -404,11 +405,11 @@ func TestProcessFlags(t *testing.T) {
 
 	for _, tc := range testCases {
 		warnings, err := tc.f.ProcessFlags()
-		NoError(t, err, tc.name)
+		require.NoError(t, err, tc.name)
 
-		Equal(t, len(tc.expectedWarnings), len(warnings), tc.name)
-		Equal(t, tc.expectedWarnings, warnings, tc.name)
+		require.Len(t, warnings, len(tc.expectedWarnings), tc.name)
+		require.Equal(t, tc.expectedWarnings, warnings, tc.name)
 
-		Equal(t, tc.expectedFeatures, tc.f, tc.name)
+		require.Equal(t, tc.expectedFeatures, tc.f, tc.name)
 	}
 }

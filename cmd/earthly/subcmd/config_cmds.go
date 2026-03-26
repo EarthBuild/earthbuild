@@ -1,13 +1,13 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/pkg/errors"
-
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type Config struct {
@@ -74,18 +74,18 @@ func (a *Config) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Config) action(cliCtx *cli.Context) error {
+func (a *Config) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("config")
 
-	if cliCtx.NArg() != 2 {
+	if cmd.NArg() != 2 {
 		return errors.New("invalid number of arguments provided")
 	}
 
-	args := cliCtx.Args().Slice()
+	args := cmd.Args().Slice()
 
 	inConfig, err := config.ReadConfigFile(a.cli.Flags().ConfigPath)
 	if err != nil {
-		if cliCtx.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
+		if cmd.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
 			return errors.Wrapf(err, "read config")
 		}
 	}

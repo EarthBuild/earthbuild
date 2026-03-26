@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"io"
 	"io/fs"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const efIndent = "    "
@@ -35,9 +36,7 @@ func (a *Init) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Init) action(cliCtx *cli.Context) error {
-	ctx := cliCtx.Context
-
+func (a *Init) action(ctx context.Context, cmd *cli.Command) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return errors.Wrap(err, "could not load current working directory")

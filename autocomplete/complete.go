@@ -19,9 +19,8 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var errCompPointOutOfBounds = errors.New("COMP_POINT out of bounds")
@@ -412,14 +411,14 @@ func GetPotentials(
 	gwClient gwclient.Client,
 	compLine string,
 	compPoint int,
-	app *cli.App,
+	app *cli.Command,
 ) ([]string, error) {
 	if compPoint > len(compLine) {
 		return nil, errCompPointOutOfBounds
 	}
 
 	compLine = compLine[:compPoint]
-	subCommands := app.Commands
+	commands := app.Commands
 
 	flagValues := map[string]string{}
 	flagValuePotentialFuncs := map[string]FlagValuePotentialFn{}
@@ -503,9 +502,9 @@ func GetPotentials(
 				target = w
 			} else {
 				// must be under a command
-				foundCmd := getCmd(w, subCommands)
+				foundCmd := getCmd(w, commands)
 				if foundCmd != nil {
-					subCommands = foundCmd.Subcommands
+					commands = foundCmd.Commands
 					cmd = foundCmd
 				}
 
@@ -546,7 +545,7 @@ func GetPotentials(
 
 	case rootState, commandState:
 		if cmd != nil {
-			potentials = getVisibleCommands(cmd.Subcommands)
+			potentials = getVisibleCommands(cmd.Commands)
 			potentials = padStrings(potentials, "", " ")
 		} else {
 			potentials = getVisibleCommands(app.Commands)

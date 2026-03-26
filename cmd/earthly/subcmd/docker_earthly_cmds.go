@@ -1,12 +1,12 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/EarthBuild/earthbuild/docker2earthly"
-
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type Doc2Earth struct {
@@ -53,7 +53,7 @@ func (a *Doc2Earth) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Doc2Earth) action(cliCtx *cli.Context) error {
+func (a *Doc2Earth) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("docker2earthly")
 
 	err := docker2earthly.Docker2Earthly(a.cli.Flags().DockerfilePath, a.earthfilePath, a.earthfileFinalImage)

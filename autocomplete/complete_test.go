@@ -6,12 +6,11 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
-
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func getApp() *cli.App {
-	app := cli.NewApp()
+func getApp() *cli.Command {
+	app := new(cli.Command)
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
 			Name: "flag",
@@ -41,7 +40,7 @@ func getApp() *cli.App {
 					Name: "subflag",
 				},
 			},
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name: "abc",
 				},
@@ -55,7 +54,7 @@ func getApp() *cli.App {
 							Name: "surf-the-internet",
 						},
 					},
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name: "dancing-queen",
 						},

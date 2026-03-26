@@ -39,3 +39,7 @@ func (d *Duration) Set(value string) error {
 
 	return nil
 }
+
+func (vf *Duration) Get() any {
+	return *vf
+}

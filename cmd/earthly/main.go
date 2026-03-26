@@ -147,10 +147,12 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		err = f.Apply(flagSet)
-		if err != nil {
-			envFileFromArgOK = false
-			break
+		for _, name := range f.Names() {
+			if bf, ok := f.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
+				flagSet.Bool(name, false, "")
+			} else {
+				flagSet.String(name, "", "")
+			}
 		}
 	}
 

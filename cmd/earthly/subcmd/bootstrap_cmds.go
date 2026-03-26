@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -10,15 +11,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/adrg/xdg"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
+	"github.com/adrg/xdg"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
 )
 
 type BootstrapInterface interface {
@@ -76,7 +76,7 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 				&cli.StringFlag{
 					Name:        "certs-hostname",
 					Usage:       "Hostname to generate certificates for",
-					EnvVars:     []string{"EARTHLY_CERTS_HOSTNAME"},
+					Sources:     cli.EnvVars("EARTHLY_CERTS_HOSTNAME"),
 					Value:       "localhost",
 					Destination: &b.certsHostName,
 				},
@@ -85,7 +85,7 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Bootstrap) Action(cliCtx *cli.Context) error {
+func (a *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("actionbootstrap")
 
 	switch a.homebrewSource {
@@ -115,10 +115,10 @@ func (a *Bootstrap) Action(cliCtx *cli.Context) error {
 		return errors.Errorf("unhandled source %q", a.homebrewSource)
 	}
 
-	return a.bootstrap(cliCtx)
+	return a.bootstrap(ctx, cmd)
 }
 
-func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
+func (a *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 	console := a.cli.Console().WithPrefix("bootstrap")
 
 	defer func() {
@@ -175,7 +175,7 @@ func (a *Bootstrap) bootstrap(cliCtx *cli.Context) error {
 
 	if !a.noBuildkit {
 		// connect to local buildkit instance (to trigger pulling and running the earthbuild/buildkitd image)
-		bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+		bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 		if err != nil {
 			console.Warnf("Warning: Bootstrapping buildkit failed: %v", err)
 			// Keep going.

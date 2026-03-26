@@ -3,10 +3,10 @@ package cliutil
 import (
 	"reflect"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func GetValidEnvNames(app *cli.App) map[string]struct{} {
+func GetValidEnvNames(app *cli.Command) map[string]struct{} {
 	envs := map[string]struct{}{}
 	for _, envName := range getValidEnvNamesFromCommands(app.Commands) {
 		envs[envName] = struct{}{}

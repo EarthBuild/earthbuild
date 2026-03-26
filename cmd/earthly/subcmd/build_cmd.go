@@ -52,7 +52,7 @@ import (
 	"github.com/moby/buildkit/util/entitlements"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const autoSkipPrefix = "auto-skip"
@@ -60,12 +60,12 @@ const autoSkipPrefix = "auto-skip"
 type Build struct {
 	cli          CLI
 	dockerTarget string
-	buildArgs    cli.StringSlice
-	platformsStr cli.StringSlice
-	secrets      cli.StringSlice
-	secretFiles  cli.StringSlice
-	cacheFrom    cli.StringSlice
-	dockerTags   cli.StringSlice
+	buildArgs    []string
+	platformsStr []string
+	secrets      []string
+	secretFiles  []string
+	cacheFrom    []string
+	dockerTags   []string
 }
 
 func NewBuild(cli CLI) *Build {
@@ -100,7 +100,7 @@ func (a *Build) Cmds() []*cli.Command {
 				&cli.StringFlag{
 					Name:        "dockerfile",
 					Aliases:     []string{"f"},
-					EnvVars:     []string{"EARTHLY_DOCKER_FILE"},
+					Sources:     cli.EnvVars("EARTHLY_DOCKER_FILE"),
 					Usage:       "Path to dockerfile input",
 					Value:       "Dockerfile",
 					Destination: &a.cli.Flags().DockerfilePath,
@@ -108,13 +108,13 @@ func (a *Build) Cmds() []*cli.Command {
 				&cli.StringSliceFlag{
 					Name:        "tag",
 					Aliases:     []string{"t"},
-					EnvVars:     []string{"EARTHLY_DOCKER_TAGS"},
+					Sources:     cli.EnvVars("EARTHLY_DOCKER_TAGS"),
 					Usage:       "Name and tag for the built image; formatted as 'name:tag'",
 					Destination: &a.dockerTags,
 				},
 				&cli.StringFlag{
 					Name:        "target",
-					EnvVars:     []string{"EARTHLY_DOCKER_TARGET"},
+					Sources:     cli.EnvVars("EARTHLY_DOCKER_TARGET"),
 					Usage:       "The docker target to build in the specified dockerfile",
 					Destination: &a.dockerTarget,
 				},
@@ -123,7 +123,7 @@ func (a *Build) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Build) Action(cliCtx *cli.Context) error {
+func (a *Build) Action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("build")
 
 	if a.cli.Flags().CI {
@@ -151,12 +151,12 @@ func (a *Build) Action(cliCtx *cli.Context) error {
 		return params.Errorf("A tty-terminal must be present in order to use the --interactive flag")
 	}
 
-	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cliCtx.Args().Slice())
+	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		return errors.Wrapf(err, "parse args %s", strings.Join(cliCtx.Args().Slice(), " "))
+		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
 	}
 
-	return a.ActionBuildImp(cliCtx, flagArgs, nonFlagArgs)
+	return a.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
 }
 
 // warnIfArgContainsBuildArg will issue a warning if a flag is incorrectly prefixed with build-arg.
@@ -181,7 +181,7 @@ func (a *Build) gitLogLevel() buildkitgitutil.GitLogLevel {
 	return buildkitgitutil.GitLogLevelDefault
 }
 
-func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.Target, domain.Artifact, string, error) {
+func (a *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Target, domain.Artifact, string, error) {
 	var (
 		target   domain.Target
 		artifact domain.Artifact
@@ -191,12 +191,12 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 	switch {
 	case a.cli.Flags().ImageMode:
 		if len(nonFlagArgs) == 0 {
-			_ = cli.ShowAppHelp(cliCtx)
+			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no image reference provided. Try %s --image +<target-name>", cliCtx.App.Name)
+				"no image reference provided. Try %s --image +<target-name>", cmd.Root().Name)
 		} else if len(nonFlagArgs) != 1 {
-			_ = cli.ShowAppHelp(cliCtx)
+			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 		}
 
@@ -210,12 +210,12 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 		}
 	case a.cli.Flags().ArtifactMode:
 		if len(nonFlagArgs) == 0 {
-			_ = cli.ShowAppHelp(cliCtx)
+			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", cliCtx.App.Name)
+				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", cmd.Root().Name)
 		} else if len(nonFlagArgs) > 2 {
-			_ = cli.ShowAppHelp(cliCtx)
+			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 		}
 
@@ -234,12 +234,12 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 		target = artifact.Target
 	default:
 		if len(nonFlagArgs) == 0 {
-			_ = cli.ShowAppHelp(cliCtx)
+			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no target reference provided. Try %s +<target-name>", cliCtx.App.Name)
+				"no target reference provided. Try %s +<target-name>", cmd.Root().Name)
 		} else if len(nonFlagArgs) != 1 {
-			_ = cli.ShowAppHelp(cliCtx)
+			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 		}
 
@@ -256,8 +256,8 @@ func (a *Build) parseTarget(cliCtx *cli.Context, nonFlagArgs []string) (domain.T
 	return target, artifact, destPath, nil
 }
 
-func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []string) error {
-	target, artifact, destPath, err := a.parseTarget(cliCtx, nonFlagArgs)
+func (a *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, nonFlagArgs []string) error {
+	target, artifact, destPath, err := a.parseTarget(cmd, nonFlagArgs)
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	dotEnvMap, err := godotenv.Read(a.cli.Flags().EnvFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
-		if cliCtx.IsSet(flag.EnvFileFlag) || !errors.Is(err, os.ErrNotExist) {
+		if cmd.IsSet(flag.EnvFileFlag) || !errors.Is(err, os.ErrNotExist) {
 			return errors.Wrapf(err, "read %s", a.cli.Flags().EnvFile)
 		}
 	}
@@ -281,7 +281,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	argMap, err := godotenv.Read(a.cli.Flags().ArgFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
-	} else if cliCtx.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist) {
+	} else if cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
 		return errors.Wrapf(err, "read %s", a.cli.Flags().ArgFile)
 	}
@@ -289,7 +289,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	secretsFileMap, err := godotenv.Read(a.cli.Flags().SecretFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
-	} else if cliCtx.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist) {
+	} else if cmd.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
 		return errors.Wrapf(err, "read %s", a.cli.Flags().SecretFile)
 	}
@@ -305,7 +305,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	}
 
 	secretsMap, err := common.
-		ProcessSecrets(a.secrets.Value(), a.secretFiles.Value(), secretsFileMap, a.cli.Flags().SecretFile)
+		ProcessSecrets(a.secrets, a.secretFiles, secretsFileMap, a.cli.Flags().SecretFile)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		}
 	}
 
-	overridingVars, err := common.CombineVariables(argMap, flagArgs, a.buildArgs.Value())
+	overridingVars, err := common.CombineVariables(argMap, flagArgs, a.buildArgs)
 	if err != nil {
 		return err
 	}
@@ -331,7 +331,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		a.cli.Console().WithPrefix(autoSkipPrefix).Warnf("Failed to initialize auto-skip database: %v", err)
 	}
 
-	addHashFn, doSkip, err := a.initAutoSkip(cliCtx.Context, skipDB, target, overridingVars)
+	addHashFn, doSkip, err := a.initAutoSkip(ctx, skipDB, target, overridingVars)
 	if err != nil {
 		a.cli.Console().PrintFailure("auto-skip")
 		return err
@@ -341,7 +341,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		return nil
 	}
 
-	err = a.cli.InitFrontend(cliCtx)
+	err = a.cli.InitFrontend(ctx, cmd)
 	if err != nil {
 		return errors.Wrapf(err, "could not init frontend")
 	}
@@ -353,7 +353,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	}
 
 	bkClient, err := buildkitd.NewClient(
-		cliCtx.Context,
+		ctx,
 		a.cli.Console(),
 		a.cli.Flags().BuildkitdImage,
 		a.cli.Flags().ContainerName,
@@ -367,12 +367,12 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 	}
 	defer bkClient.Close()
 
-	platr, err := a.platformResolver(cliCtx.Context, bkClient, target)
+	platr, err := a.platformResolver(ctx, bkClient, target)
 	if err != nil {
 		return err
 	}
 
-	runnerName, isLocal, err := a.runnerName(cliCtx.Context)
+	runnerName, isLocal, err := a.runnerName(ctx)
 	if err != nil {
 		return err
 	}
@@ -419,7 +419,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 
 	switch a.cli.Flags().ContainerFrontend.Config().Setting {
 	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
-		attachable = authprovider.NewPodman(os.Stderr)
+		attachable = authprovider.NewPodman(ctx, os.Stderr)
 	default:
 		// includes containerutil.FrontendDocker, containerutil.FrontendDockerShell:
 		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
@@ -464,7 +464,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 
 			debugTermConsole := a.cli.Console().WithPrefix("internal-term")
 
-			termErr := terminal.ConnectTerm(cliCtx.Context, conn, debugTermConsole) //nolint:contextcheck
+			termErr := terminal.ConnectTerm(ctx, conn, debugTermConsole)
 			if termErr != nil {
 				return errors.Wrap(termErr, "interactive terminal")
 			}
@@ -500,8 +500,8 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		cacheImports = append(cacheImports, cacheImportImageName)
 	}
 
-	if len(a.cacheFrom.Value()) > 0 {
-		cacheImports = append(cacheImports, a.cacheFrom.Value()...)
+	if len(a.cacheFrom) > 0 {
+		cacheImports = append(cacheImports, a.cacheFrom...)
 	}
 
 	var (
@@ -578,7 +578,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		NoAutoSkip:                            a.cli.Flags().NoAutoSkip,
 	}
 
-	b, err := builder.NewBuilder(cliCtx.Context, builderOpts)
+	b, err := builder.NewBuilder(ctx, builderOpts)
 	if err != nil {
 		return errors.Wrap(err, "new builder")
 	}
@@ -620,7 +620,7 @@ func (a *Build) ActionBuildImp(cliCtx *cli.Context, flagArgs, nonFlagArgs []stri
 		buildOpts.OnlyArtifactDestPath = destPath
 	}
 
-	_, err = b.BuildTarget(cliCtx.Context, target, buildOpts)
+	_, err = b.BuildTarget(ctx, target, buildOpts)
 	if err != nil {
 		return errors.Wrap(err, "build target")
 	}
@@ -826,8 +826,8 @@ func (a *Build) platformResolver(
 	platr := platutil.NewResolver(nativePlatform)
 	platr.AllowNativeAndUser = true
 
-	platformsSlice := make([]platutil.Platform, 0, len(a.platformsStr.Value()))
-	for _, p := range a.platformsStr.Value() {
+	platformsSlice := make([]platutil.Platform, 0, len(a.platformsStr))
+	for _, p := range a.platformsStr {
 		platform, err := platr.Parse(p)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parse platform %s", p)
@@ -931,23 +931,23 @@ func (a *Build) initAutoSkip(
 	return addHashFn, false, nil
 }
 
-func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
+func (a *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("docker-build")
 
-	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cliCtx.Args().Slice())
+	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		return errors.Wrapf(err, "parse args %s", strings.Join(cliCtx.Args().Slice(), " "))
+		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
 	}
 
 	if len(nonFlagArgs) == 0 {
-		_ = cli.ShowAppHelp(cliCtx)
+		_ = cli.ShowAppHelp(cmd)
 
 		return errors.Errorf(
-			"no build context path provided. Try %s docker-build <path>", cliCtx.App.Name)
+			"no build context path provided. Try %s docker-build <path>", cmd.Root().Name)
 	}
 
 	if len(nonFlagArgs) != 1 {
-		_ = cli.ShowAppHelp(cliCtx)
+		_ = cli.ShowAppHelp(cmd)
 		return errors.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 	}
 
@@ -963,11 +963,11 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	defer os.RemoveAll(tempDir)
 
 	argMap, err := godotenv.Read(a.cli.Flags().ArgFile)
-	if err != nil && (cliCtx.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist)) {
+	if err != nil && (cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist)) {
 		return errors.Wrapf(err, "read %q", a.cli.Flags().ArgFile)
 	}
 
-	buildArgs, err := common.CombineVariables(argMap, flagArgs, a.buildArgs.Value())
+	buildArgs, err := common.CombineVariables(argMap, flagArgs, a.buildArgs)
 	if err != nil {
 		return errors.Wrapf(err, "combining build args")
 	}
@@ -975,7 +975,7 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	platforms := flagutil.SplitFlagString(a.platformsStr)
 
 	content, err := docker2earthly.GenerateEarthfile(
-		buildContextPath, a.cli.Flags().DockerfilePath, a.dockerTags.Value(),
+		buildContextPath, a.cli.Flags().DockerfilePath, a.dockerTags,
 		buildArgs.Sorted(), platforms, a.dockerTarget)
 	if err != nil {
 		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
@@ -999,10 +999,10 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 	a.cli.Flags().ImageMode = false
 	a.cli.Flags().ArtifactMode = false
 	a.dockerTarget = ""
-	a.dockerTags = cli.StringSlice{}
-	a.platformsStr = cli.StringSlice{}
+	a.dockerTags = []string{}
+	a.platformsStr = []string{}
 
 	nonFlagArgs = []string{tempDir + "+build"}
 
-	return a.ActionBuildImp(cliCtx, flagArgs, nonFlagArgs)
+	return a.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
 }

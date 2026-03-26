@@ -1,7 +1,7 @@
 package subcmd
 
 import (
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func concatCmds(slices [][]*cli.Command) []*cli.Command {

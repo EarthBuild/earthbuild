@@ -159,10 +159,12 @@ func run() (code int) {
 	if envFileFromArgOK {
 		err = flagSet.Parse(os.Args[1:])
 		if err == nil {
-			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
-				envFile = envFileFlag.Value.String()
-				envFileOverride = envFile != eFlag.DefaultEnvFile // flag lib doesn't expose if a value was set or not
-			}
+			flagSet.Visit(func(f *flag.Flag) {
+				if f.Name == eFlag.EnvFileFlag {
+					envFile = f.Value.String()
+					envFileOverride = true
+				}
+			})
 		}
 	}
 

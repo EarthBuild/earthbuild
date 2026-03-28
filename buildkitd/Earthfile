@@ -12,7 +12,7 @@ buildkitd:
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:c40c767e201de9ad72c8c52e207dc8f4b5b51e9d+build
+        ARG BUILDKIT_BASE_IMAGE=github.com/earthbuild/buildkit:c40c767e201de9ad72c8c52e207dc8f4b5b51e9d+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
@@ -96,13 +96,13 @@ buildkit-sha:
     ARG --required BUILDKIT_GIT_ORG
     RUN --no-cache set -e; \
         if [ "$(echo -n $BUILDKIT_GIT_SHA | wc -c)" = 40 ]; then \
-            echo "pinning github.com/earthly/buildkit to reference git sha1: $BUILDKIT_GIT_SHA"; \
+            echo "pinning github.com/${BUILDKIT_GIT_ORG}/buildkit to reference git sha1: $BUILDKIT_GIT_SHA"; \
             buildkit_sha1="$BUILDKIT_GIT_SHA"; \
         else \
             test -z "$BUILDKIT_GIT_SHA"; \
             echo "looking up branch $BUILDKIT_GIT_BRANCH"; \
             buildkit_sha1=$(git ls-remote --refs -q https://github.com/$BUILDKIT_GIT_ORG/buildkit.git "$BUILDKIT_GIT_BRANCH" | awk 'BEGIN { FS = "[ \t]+" } {print $1}'); \
-            echo "pinning github.com/earthly/buildkit@${BUILDKIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
+            echo "pinning github.com/${BUILDKIT_GIT_ORG}/buildkit@${BUILDKIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
         fi && \
         test -n "$buildkit_sha1" && \
         echo "$buildkit_sha1" > buildkit_sha

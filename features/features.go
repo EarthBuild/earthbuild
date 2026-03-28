@@ -195,10 +195,6 @@ func ApplyFlagOverrides(ftrs *Features, envOverrides string) error {
 var errUnexpectedArgs = errors.New("unexpected VERSION arguments; " +
 	"should be VERSION [flags] <major-version>.<minor-version>")
 
-func instrumentVersion(_ string, opt *goflags.Option, s *string) (*string, error) {
-	return s, nil // don't modify the flag, just pass it back.
-}
-
 // Get returns a features struct for a particular version.
 func Get(version *spec.Version) (*Features, bool, error) {
 	var ftrs Features
@@ -217,7 +213,7 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	parsedArgs, err := flagutil.ParseArgsWithValueModifierAndOptions(
-		"VERSION", &ftrs, version.Args, instrumentVersion, goflags.PassDoubleDash|goflags.PassAfterNonOption)
+		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption)
 	if err != nil {
 		return nil, false, err
 	}

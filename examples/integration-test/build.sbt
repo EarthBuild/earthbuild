@@ -1,4 +1,4 @@
-lazy val scalatest = "org.scalatest" %% "scalatest" % "3.2.19"
+lazy val scalatest = "org.scalatest" %% "scalatest" % "3.2.20"
 
 scalaVersion := "3.8.2"
 name := "scala-example"
@@ -7,8 +7,8 @@ version := "1.0"
 
 libraryDependencies ++= Seq(
   "org.tpolecat" %% "doobie-core"      % "1.0.0-RC2",
-  "org.tpolecat" %% "doobie-postgres"  % "1.0.0-RC2",         
-  "org.tpolecat" %% "doobie-scalatest" % "1.0.0-RC2" % "test" 
+  "org.tpolecat" %% "doobie-postgres"  % "1.0.0-RC12",         
+  "org.tpolecat" %% "doobie-scalatest" % "1.0.0-RC12" % "test" 
 )
 
 lazy val root = (project in file("."))

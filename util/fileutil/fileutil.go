@@ -53,12 +53,10 @@ func DirExistsBestEffort(filename string) bool {
 // EnsureUserOwned changes the files in the directory to be owned by the use and their group,
 // as specified by the provided user.
 func EnsureUserOwned(dir string, owner *user.User) error {
-	exists, err := DirExists(dir)
-	if err != nil || !exists {
-		return err
+	uid, err := strconv.Atoi(owner.Uid)
+	if err != nil {
+		return errors.Wrapf(err, "convert uid %s to int", owner.Uid)
 	}
-
-	uid, _ := strconv.Atoi(owner.Uid)
 
 	gid := 0
 	if owner.Gid != "" {
@@ -66,8 +64,23 @@ func EnsureUserOwned(dir string, owner *user.User) error {
 		gid, _ = strconv.Atoi(owner.Gid)
 	}
 
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return errors.Wrapf(err, "open root %s", dir)
+	}
+	defer root.Close()
+
 	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		return os.Chown(path, uid, gid)
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return errors.Wrapf(err, "get relative path for %s to %s", path, dir)
+		}
+
+		return root.Chown(rel, uid, gid)
 	})
 }
 

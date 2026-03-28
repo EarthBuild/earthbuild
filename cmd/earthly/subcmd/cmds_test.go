@@ -3,37 +3,19 @@ package subcmd_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/poy/onpar"
-	"github.com/poy/onpar/expect"
-	"github.com/poy/onpar/matchers"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 )
 
 func TestRootCmdsHelp(t *testing.T) {
 	t.Parallel()
-
-	type testCtx struct {
-		t      *testing.T
-		expect expect.Expectation
-	}
-
-	o := onpar.New()
-
-	o.BeforeEach(func(t *testing.T) testCtx {
-		t.Helper()
-
-		return testCtx{
-			t:      t,
-			expect: expect.New(t),
-		}
-	})
-	defer o.Run(t)
 
 	ctx := context.TODO()
 	newCLI := base.NewCLI(conslogging.ConsoleLogger{},
@@ -50,11 +32,13 @@ func TestRootCmdsHelp(t *testing.T) {
 	rootCLI := app.BaseCLI.App().Commands
 
 	for _, cmd := range checkSubCommands(rootCLI) {
-		o.Spec(fmt.Sprintf("Help usage for %s should not end with '.'", cmd.Name), func(tt testCtx) {
-			tt.expect(cmd.Usage).To(matchers.Not(matchers.EndWith(".")))
+		t.Run(fmt.Sprintf("Help usage for %s should not end with '.'", cmd.Name), func(t *testing.T) {
+			t.Parallel()
+			require.False(t, strings.HasSuffix(cmd.Usage, "."))
 		})
-		o.Spec(fmt.Sprintf("Help description for %s should end with '.'", cmd.Name), func(tt testCtx) {
-			tt.expect(cmd.Description).To(matchers.EndWith("."))
+		t.Run(fmt.Sprintf("Help description for %s should end with '.'", cmd.Name), func(t *testing.T) {
+			t.Parallel()
+			require.True(t, strings.HasSuffix(cmd.Description, "."))
 		})
 	}
 }

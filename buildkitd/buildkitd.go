@@ -398,7 +398,7 @@ func maybeRestart(
 				workerInfo *client.WorkerInfo
 			)
 
-			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+			info, workerInfo, err = connectWithRetry(ctx, console, containerName, fe, settings.BuildkitAddress, settings.Timeout, opts...)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "could not connect to buildkitd to shut down container")
 			}
@@ -415,7 +415,7 @@ func maybeRestart(
 			workerInfo *client.WorkerInfo
 		)
 
-		info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+		info, workerInfo, err = connectWithRetry(ctx, console, containerName, fe, settings.BuildkitAddress, settings.Timeout, opts...)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not verify connection to buildkitd container")
 		}
@@ -947,6 +947,73 @@ func checkConnection(
 	}
 
 	return info, workerInfo, nil
+}
+
+// connectWithRetry attempts to connect to an already-running buildkitd container,
+// retrying every 5 seconds until the given timeout is reached.
+// It logs diagnostic information including container and docker frontend status.
+func connectWithRetry(
+	ctx context.Context,
+	console conslogging.ConsoleLogger,
+	containerName string,
+	fe containerutil.ContainerFrontend,
+	address string,
+	timeout time.Duration,
+	opts ...client.ClientOpt,
+) (*client.Info, *client.WorkerInfo, error) {
+	bkCons := console.WithPrefix("buildkitd")
+	const attemptTimeout = 5 * time.Second
+	const retryInterval = 5 * time.Second
+
+	logContainerAndDockerStatus := func() {
+		if fe.IsAvailable(ctx) {
+			bkCons.Printf("Docker frontend (%s) is available\n", fe.Config().Binary)
+		} else {
+			bkCons.Warnf("Warning: Docker frontend (%s) does not appear to be available\n", fe.Config().Binary)
+		}
+		infos, err := fe.ContainerInfo(ctx, containerName)
+		if err != nil {
+			bkCons.Warnf("Warning: could not check %q container status: %v\n", containerName, err)
+		} else if ci, ok := infos[containerName]; ok {
+			bkCons.Printf("Container %q status: %s\n", containerName, ci.Status)
+		} else {
+			bkCons.Printf("Container %q not found\n", containerName)
+		}
+	}
+
+	logContainerAndDockerStatus()
+
+	deadline := time.Now().Add(timeout)
+
+	for attempt := 1; ; attempt++ {
+		bkCons.VerbosePrintf("Attempting to connect to buildkitd at %s (attempt %d, per-attempt timeout %v)...\n",
+			address, attempt, attemptTimeout)
+
+		info, workerInfo, connErr := checkConnection(ctx, address, attemptTimeout, opts...)
+		if connErr == nil {
+			if attempt > 1 {
+				bkCons.Printf("Successfully connected to buildkitd on attempt %d\n", attempt)
+			}
+			return info, workerInfo, nil
+		}
+
+		bkCons.VerbosePrintf("Connection attempt %d to buildkitd failed: %v\n", attempt, connErr)
+
+		timeLeft := time.Until(deadline)
+		if timeLeft < retryInterval {
+			bkCons.Warnf("Could not connect to buildkitd after %d attempt(s) over %v; final diagnostics:\n", attempt, timeout)
+			logContainerAndDockerStatus()
+			return nil, nil, connErr
+		}
+
+		bkCons.VerbosePrintf("Retrying in %v (%.0fs remaining after retry)...\n", retryInterval, (timeLeft - retryInterval).Seconds())
+
+		select {
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		case <-time.After(retryInterval):
+		}
+	}
 }
 
 // MaybePull checks whether an image is available locally and pulls it if it is not.

@@ -9,7 +9,6 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -289,20 +288,13 @@ func getPotentialArtifactBuildArgs(
 	return getPotentialTargetBuildArgs(ctx, resolver, gwClient, artifact.Target.String())
 }
 
-// isVisibleFlag returns if a flag is hidden or not
-// this code comes from https://github.com/urfave/cli/blob/d648edd48d89ef3a841b1ec75c2ebbd4de5f748f/flag.go#L136
+// isVisibleFlag returns if a flag is hidden or not.
 func isVisibleFlag(fl cli.Flag) bool {
-	fv := reflect.ValueOf(fl)
-	for fv.Kind() == reflect.Ptr {
-		fv = reflect.Indirect(fv)
+	if vf, ok := fl.(cli.VisibleFlag); ok {
+		return vf.IsVisible()
 	}
 
-	field := fv.FieldByName("Hidden")
-	if !field.IsValid() || !field.Bool() {
-		return true
-	}
-
-	return false
+	return true
 }
 
 func getCmd(name string, cmds []*cli.Command) *cli.Command {

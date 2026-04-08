@@ -1,8 +1,6 @@
 package cliutil
 
 import (
-	"reflect"
-
 	"github.com/urfave/cli/v3"
 )
 
@@ -14,7 +12,7 @@ func GetValidEnvNames(app *cli.Command) map[string]struct{} {
 
 	// and root level flags
 	for _, flg := range app.Flags {
-		for _, envName := range getEnvs(flg) {
+		for _, envName := range flagEnvVars(flg) {
 			envs[envName] = struct{}{}
 		}
 	}
@@ -22,34 +20,21 @@ func GetValidEnvNames(app *cli.Command) map[string]struct{} {
 	return envs
 }
 
+func flagEnvVars(flg cli.Flag) []string {
+	if df, ok := flg.(cli.DocGenerationFlag); ok {
+		return df.GetEnvVars()
+	}
+
+	return nil
+}
+
 func getValidEnvNamesFromCommands(cmds []*cli.Command) []string {
 	envs := make([]string, 0, len(cmds))
 	for _, cmd := range cmds {
 		for _, flg := range cmd.Flags {
-			envs = append(envs, getEnvs(flg)...)
+			envs = append(envs, flagEnvVars(flg)...)
 		}
 	}
 
 	return envs
-}
-
-// it's not obvious if urfave supports converting a "flag interface" to a "genericFlag".
-func getEnvs(fl cli.Flag) []string {
-	fv := reflect.ValueOf(fl)
-	for fv.Kind() == reflect.Ptr {
-		if fv.IsNil() {
-			return nil
-		}
-
-		fv = fv.Elem()
-	}
-
-	field := fv.FieldByName("EnvVars")
-	if !field.IsValid() {
-		return nil
-	}
-
-	v, _ := field.Interface().([]string)
-
-	return v
 }

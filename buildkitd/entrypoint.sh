@@ -113,19 +113,31 @@ if [ -z "$IP_TABLES" ]; then
 else
     echo "Manual iptables specified ($IP_TABLES), skipping autodetection."
 fi
-if [ ! -e "/sbin/$IP_TABLES" ]; then
-    echo "IP_TABLES was set to $IP_TABLES, but /sbin/$IP_TABLES does not exist; searching for alternative"
-    if [ -e "/sbin/iptables-nft" ]; then
-        IP_TABLES="iptables-nft"
-    elif [ -e "/sbin/iptables-legacy" ]; then
-        IP_TABLES="iptables-legacy"
-    else
-        echo "No iptables binary found"
-        exit 1
+IPTABLES_PATH=""
+for dir in /sbin /usr/sbin; do
+    if [ -e "$dir/$IP_TABLES" ]; then
+        IPTABLES_PATH="$dir/$IP_TABLES"
+        break
     fi
-    echo "Using $IP_TABLES"
+done
+if [ -z "$IPTABLES_PATH" ]; then
+    echo "$IP_TABLES not found; searching for alternative"
+    for dir in /sbin /usr/sbin; do
+        if [ -e "$dir/iptables-nft" ]; then
+            IPTABLES_PATH="$dir/iptables-nft"
+            break
+        elif [ -e "$dir/iptables-legacy" ]; then
+            IPTABLES_PATH="$dir/iptables-legacy"
+            break
+        fi
+    done
 fi
-ln -sf "/sbin/$IP_TABLES" /sbin/iptables
+if [ -z "$IPTABLES_PATH" ]; then
+    echo "No iptables binary found"
+    exit 1
+fi
+echo "Using $IPTABLES_PATH"
+ln -sf "$IPTABLES_PATH" /sbin/iptables
 
 # clear any leftovers (that aren't explicitly cached) in the dind dir
 find /tmp/earthbuild/dind/ -maxdepth 1 -mindepth 1 | grep -v cache_ | xargs -r rm -rf

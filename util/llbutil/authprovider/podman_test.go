@@ -204,8 +204,8 @@ func TestPodmanProvider(t *testing.T) {
 
 				resp, err := credsIntf.Credentials(ctx, req)
 				require.NoError(t, err)
-				require.Equal(t, e.auth.user, resp.Username)
-				require.Equal(t, e.auth.secret, resp.Secret)
+				require.Equal(t, e.auth.user, resp.GetUsername())
+				require.Equal(t, e.auth.secret, resp.GetSecret())
 			case <-time.After(timeout):
 				t.Fatalf("timed out waiting for a podman auth provider")
 			}

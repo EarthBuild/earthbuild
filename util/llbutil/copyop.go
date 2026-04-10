@@ -56,9 +56,14 @@ func CopyOp(
 			src = fmt.Sprintf("[%s]%s", string(src[0]), src[1:])
 		}
 
+		var chmodOpt *llb.ChmodOpt
+		if chmod != nil {
+			chmodOpt = &llb.ChmodOpt{Mode: *chmod}
+		}
+
 		copyOpts := append([]llb.CopyOption{
 			&llb.CopyInfo{
-				Mode:                chmod,
+				Mode:                chmodOpt,
 				FollowSymlinks:      !symlinkNoFollow,
 				CopyDirContentsOnly: !isDir,
 				AttemptUnpack:       false,

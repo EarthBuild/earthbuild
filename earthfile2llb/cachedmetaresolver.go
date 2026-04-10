@@ -43,8 +43,8 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
 ) (string, digest.Digest, []byte, error) {
 	platformStr := ""
-	if opt.Platform != nil {
-		platformStr = platforms.Format(*opt.Platform)
+	if opt.ImageOpt != nil && opt.ImageOpt.Platform != nil {
+		platformStr = platforms.Format(*opt.ImageOpt.Platform)
 	}
 
 	key := cachedMetaResolverKey{

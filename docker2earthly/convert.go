@@ -64,7 +64,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 		return errors.Wrapf(err, "failed to parse Dockerfile located at %q", dockerfilePath)
 	}
 
-	stages, initialArgs, err := instructions.Parse(dockerfile.AST)
+	stages, initialArgs, err := instructions.Parse(dockerfile.AST, nil)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse Dockerfile located at %q", dockerfilePath)
 	}

@@ -1248,7 +1248,7 @@ func printBuildkitInfo(
 func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 	for _, p := range workerInfo.GCPolicy {
 		if p.All {
-			return p.KeepBytes, true
+			return p.ReservedSpace, true
 		}
 	}
 

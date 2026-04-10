@@ -4,7 +4,7 @@ import (
 	"maps"
 
 	"github.com/EarthBuild/earthbuild/util/llbutil"
-	"github.com/moby/buildkit/exporter/containerimage/image"
+	dockerimagespec "github.com/moby/docker-image-spec/specs-go/v1"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -55,7 +55,7 @@ func (img *Image) Clone() *Image {
 		},
 	}
 	if img.Config.Healthcheck != nil {
-		clone.Config.Healthcheck = &image.HealthConfig{
+		clone.Config.Healthcheck = &dockerimagespec.HealthcheckConfig{
 			Test:          make([]string, len(img.Config.Healthcheck.Test)),
 			Interval:      img.Config.Healthcheck.Interval,
 			Timeout:       img.Config.Healthcheck.Timeout,
@@ -80,6 +80,6 @@ func (img *Image) Clone() *Image {
 //
 //nolint:embeddedstructfieldcheck // fieldalignment takes precedence over embeddedstructfieldcheck
 type Config struct {
-	Healthcheck *image.HealthConfig `json:",omitempty"`
+	Healthcheck *dockerimagespec.HealthcheckConfig `json:",omitempty"`
 	specs.ImageConfig
 }

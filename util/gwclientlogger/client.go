@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/moby/buildkit/solver/pb"
 	digest "github.com/opencontainers/go-digest"
 )
 
@@ -42,12 +44,22 @@ func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest)
 
 // ResolveImageConfig wraps gwclient.ResolveImageConfig.
 func (vc *verboseClient) ResolveImageConfig(
-	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
+	ctx context.Context, ref string, opt sourceresolver.Opt,
 ) (string, digest.Digest, []byte, error) {
 	s, _ := json.MarshalIndent(opt, "", "\t")
 	fmt.Printf("ResolveImageConfig %s %s\n", ref, s)
 
 	return vc.c.ResolveImageConfig(ctx, ref, opt)
+}
+
+// ResolveSourceMetadata wraps gwclient.ResolveSourceMetadata.
+func (vc *verboseClient) ResolveSourceMetadata(
+	ctx context.Context, op *pb.SourceOp, opt sourceresolver.Opt,
+) (*sourceresolver.MetaResponse, error) {
+	s, _ := json.MarshalIndent(opt, "", "\t")
+	fmt.Printf("ResolveSourceMetadata op=%v %s\n", op, s)
+
+	return vc.c.ResolveSourceMetadata(ctx, op, opt)
 }
 
 // BuildOpts wraps gwclient.BuildOpts.

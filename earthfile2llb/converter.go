@@ -53,13 +53,14 @@ import (
 	"github.com/distribution/reference"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
-	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
 	"github.com/moby/buildkit/frontend/dockerui"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session/localhost"
 	solverpb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/util/apicaps"
+	dockerimagespec "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -522,7 +523,7 @@ func (c *Converter) FromDockerfile(
 
 	bcRawState, done := BuildContextFactory.Construct().RawState()
 	bc.SetBuildContext(&bcRawState, c.mts.FinalTarget().String())
-	state, dfImg, _, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
+	dfResult, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
 		MetaResolver: c.opt.MetaResolver,
 		LLBCaps:      c.opt.LLBCaps,
 		Config: dockerui.Config{
@@ -539,8 +540,10 @@ func (c *Converter) FromDockerfile(
 	if err != nil {
 		return errors.Wrapf(err, "dockerfile2llb %s", dfPath)
 	}
+
+	state := dfResult.State
 	// Convert dockerfile2llb image into earthfile2llb image via JSON.
-	imgDt, err := json.Marshal(dfImg)
+	imgDt, err := json.Marshal(dfResult.Image)
 	if err != nil {
 		return errors.Wrap(err, "marshal dockerfile image")
 	}
@@ -552,7 +555,7 @@ func (c *Converter) FromDockerfile(
 		return errors.Wrap(err, "unmarshal dockerfile image")
 	}
 
-	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(*state), &img)
+	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(state), &img)
 	c.mts.Final.MainState = state2
 	c.mts.Final.MainImage = img2
 	c.mts.Final.RanFromLike = true
@@ -1941,7 +1944,7 @@ func (c *Converter) Healthcheck(
 
 	c.nonSaveCommand()
 
-	hc := &dockerimage.HealthConfig{}
+	hc := &dockerimagespec.HealthcheckConfig{}
 	if isNone {
 		hc.Test = []string{"NONE"}
 	} else {
@@ -3081,9 +3084,11 @@ func (c *Converter) internalFromClassical(
 	ref, dgst, dt, err := c.opt.MetaResolver.ResolveImageConfig(
 		ctx, baseImageName,
 		llb.ResolveImageConfigOpt{
-			Platform:    &llbPlatform,
-			ResolveMode: c.opt.ImageResolveMode.String(),
-			LogName:     logName,
+			ImageOpt: &sourceresolver.ResolveImageOpt{
+				Platform:    &llbPlatform,
+				ResolveMode: c.opt.ImageResolveMode.String(),
+			},
+			LogName: logName,
 		})
 	if err != nil {
 		return pllb.State{}, nil, nil, errors.Wrapf(err, "resolve image config for %s", imageName)

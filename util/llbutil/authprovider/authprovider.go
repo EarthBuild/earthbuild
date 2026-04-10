@@ -122,23 +122,23 @@ func (ap *MultiAuthProvider) FetchToken(
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	for _, as := range ap.getAuthServers(req.Host) {
+	for _, as := range ap.getAuthServers(req.GetHost()) {
 		a, err := as.FetchToken(ctx, req)
 		if err != nil {
 			if errors.Is(err, ErrAuthProviderNoResponse) {
-				ap.setSkipAuthServer(req.Host, as)
+				ap.setSkipAuthServer(req.GetHost(), as)
 				continue
 			}
 
 			return nil, err
 		}
 
-		if a.Anonymous {
+		if a.GetAnonymous() {
 			ap.console.
-				Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
+				Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.GetHost())
 		}
 
-		ap.setAuthServer(req.Host, as)
+		ap.setAuthServer(req.GetHost(), as)
 
 		return a, nil
 	}
@@ -155,18 +155,18 @@ func (ap *MultiAuthProvider) Credentials(
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	for _, as := range ap.getAuthServers(req.Host) {
+	for _, as := range ap.getAuthServers(req.GetHost()) {
 		a, err := as.Credentials(ctx, req)
 		if err != nil {
 			if errors.Is(err, ErrAuthProviderNoResponse) {
-				ap.setSkipAuthServer(req.Host, as)
+				ap.setSkipAuthServer(req.GetHost(), as)
 				continue
 			}
 
 			return nil, err
 		}
 
-		ap.setAuthServer(req.Host, as)
+		ap.setAuthServer(req.GetHost(), as)
 
 		return a, nil
 	}
@@ -182,18 +182,18 @@ func (ap *MultiAuthProvider) GetTokenAuthority(
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	for _, as := range ap.getAuthServers(req.Host) {
+	for _, as := range ap.getAuthServers(req.GetHost()) {
 		a, err := as.GetTokenAuthority(ctx, req)
 		if err != nil {
 			if errors.Is(err, ErrAuthProviderNoResponse) {
-				ap.setSkipAuthServer(req.Host, as)
+				ap.setSkipAuthServer(req.GetHost(), as)
 				continue
 			}
 
 			return nil, err
 		}
 
-		ap.setAuthServer(req.Host, as)
+		ap.setAuthServer(req.GetHost(), as)
 
 		return a, nil
 	}
@@ -209,18 +209,18 @@ func (ap *MultiAuthProvider) VerifyTokenAuthority(
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	for _, as := range ap.getAuthServers(req.Host) {
+	for _, as := range ap.getAuthServers(req.GetHost()) {
 		a, err := as.VerifyTokenAuthority(ctx, req)
 		if err != nil {
 			if errors.Is(err, ErrAuthProviderNoResponse) {
-				ap.setSkipAuthServer(req.Host, as)
+				ap.setSkipAuthServer(req.GetHost(), as)
 				continue
 			}
 
 			return nil, err
 		}
 
-		ap.setAuthServer(req.Host, as)
+		ap.setAuthServer(req.GetHost(), as)
 
 		return a, nil
 	}

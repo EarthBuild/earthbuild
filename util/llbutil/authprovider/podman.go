@@ -57,6 +57,14 @@ func WithOS(o OS) PodmanOpt {
 	}
 }
 
+func newAuthProvider(cfg *configfile.ConfigFile) session.Attachable {
+	return authprovider.NewDockerAuthProvider(
+		authprovider.DockerAuthProviderConfig{
+			AuthConfigProvider: authprovider.LoadAuthConfig(cfg),
+		},
+	)
+}
+
 func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 	conf := podmanCfg{
 		os: defaultOS{},
@@ -69,12 +77,12 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 		cfg, err := podmanAuth(conf.os, authfile)
 		if err != nil {
 			fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
-			return authprovider.NewDockerAuthProvider(cfg, nil)
+			return newAuthProvider(cfg)
 		}
 
 		syncDockerKey(cfg)
 
-		return authprovider.NewDockerAuthProvider(cfg, nil)
+		return newAuthProvider(cfg)
 	}
 
 	xdgRuntime := conf.os.Getenv("XDG_RUNTIME_DIR")
@@ -83,7 +91,7 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 
 		out, err := idCmd.CombinedOutput()
 		if err != nil {
-			return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)
+			return newAuthProvider(config.LoadDefaultConfigFile(stderr))
 		}
 
 		id := strings.TrimSpace(string(out))
@@ -93,34 +101,34 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 
 		cfg, err := podmanAuth(conf.os, path)
 		if errors.Is(err, fs.ErrNotExist) {
-			return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)
+			return newAuthProvider(config.LoadDefaultConfigFile(stderr))
 		}
 
 		if err != nil {
 			fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
-			return authprovider.NewDockerAuthProvider(cfg, nil)
+			return newAuthProvider(cfg)
 		}
 
 		syncDockerKey(cfg)
 
-		return authprovider.NewDockerAuthProvider(cfg, nil)
+		return newAuthProvider(cfg)
 	}
 
 	path := filepath.Join(xdgRuntime, "containers", podmanAuthFile)
 
 	cfg, err := podmanAuth(conf.os, path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return authprovider.NewDockerAuthProvider(config.LoadDefaultConfigFile(stderr), nil)
+		return newAuthProvider(config.LoadDefaultConfigFile(stderr))
 	}
 
 	if err != nil {
 		fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
-		return authprovider.NewDockerAuthProvider(cfg, nil)
+		return newAuthProvider(cfg)
 	}
 
 	syncDockerKey(cfg)
 
-	return authprovider.NewDockerAuthProvider(cfg, nil)
+	return newAuthProvider(cfg)
 }
 
 func podmanAuth(o OS, path string) (*configfile.ConfigFile, error) {

@@ -114,8 +114,16 @@ else
     echo "Manual iptables specified ($IP_TABLES), skipping autodetection."
 fi
 if [ ! -e "/sbin/$IP_TABLES" ]; then
-    echo "IP_TABLES is set to $IP_TABLES, but /sbin/$IP_TABLES does not exist"
-    exit 1
+    echo "IP_TABLES was set to $IP_TABLES, but /sbin/$IP_TABLES does not exist; searching for alternative"
+    if [ -e "/sbin/iptables-nft" ]; then
+        IP_TABLES="iptables-nft"
+    elif [ -e "/sbin/iptables-legacy" ]; then
+        IP_TABLES="iptables-legacy"
+    else
+        echo "No iptables binary found"
+        exit 1
+    fi
+    echo "Using $IP_TABLES"
 fi
 ln -sf "/sbin/$IP_TABLES" /sbin/iptables
 

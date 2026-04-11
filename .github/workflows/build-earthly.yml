@@ -91,7 +91,7 @@ jobs:
         if: inputs.USE_NEXT
         run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earthly using released earthly
-        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
+        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux --EARTHLY_BUILDKIT_IMAGE_BASE="${EARTHLY_BUILDKIT_IMAGE_BASE}"
       - name: Earthly bootstrap using latest earthly build
         run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env

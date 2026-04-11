@@ -41,6 +41,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Use fixed buildkitd image with Docker 29+ ulimit fix and grpc-go ALPN support
       EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
+      # Use prebuilt base image to avoid compiling buildkit from source in CI
+      EARTHLY_BUILDKIT_IMAGE_BASE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
     steps:
       - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2

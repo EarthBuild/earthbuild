@@ -58,7 +58,7 @@ func main() {
 	// Disable gRPC ALPN enforcement to allow mixed grpc-go versions
 	// between earthly client and buildkitd during the upgrade transition.
 	// TODO: remove once all released buildkitd images use grpc-go >= 1.67
-	os.Setenv("GRPC_ENFORCE_ALPN_ENABLED", "false")
+	_ = os.Setenv("GRPC_ENFORCE_ALPN_ENABLED", "false")
 	os.Exit(run())
 }
 

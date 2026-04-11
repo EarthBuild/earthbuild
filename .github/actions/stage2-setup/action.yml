@@ -190,8 +190,7 @@ runs:
         (strings ${{inputs.BUILT_EARTHLY_PATH}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
         echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
       shell: bash
-    - name: Limit buildkit parallelism for Podman (lower memory overhead)
-      if: ${{ inputs.BINARY == 'podman' }}
+    - name: Limit buildkit parallelism to avoid OOM on CI runners
       run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 2
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}

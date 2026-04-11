@@ -75,7 +75,6 @@ jobs:
           sudo systemctl restart containerd
           sudo systemctl restart docker
       - name: Limit buildkit parallelism to avoid OOM on CI runners
-        if: inputs.BINARY == 'podman' || inputs.USE_NEXT
         run: ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 2
       - name: Configure Earthly to use GCR mirror
         run: |-

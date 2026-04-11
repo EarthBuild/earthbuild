@@ -541,7 +541,7 @@ for-own:
     # the documentation on +earthly for extra detail about this option.
     ARG GO_GCFLAGS
     BUILD ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD +build-ticktock
+    # BUILD +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     COPY (+earthly/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/own/earthly
 
@@ -563,7 +563,7 @@ for-linux:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
+    # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     BUILD ./ast/parser+parser
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
@@ -574,7 +574,7 @@ for-linux-arm64:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
+    # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     BUILD ./ast/parser+parser
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
@@ -586,7 +586,7 @@ for-darwin:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
+    # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     BUILD ./ast/parser+parser
     COPY (+earthly-darwin-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/amd64/earthly
@@ -597,7 +597,7 @@ for-darwin-m1:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
+    # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     BUILD ./ast/parser+parser
     COPY (+earthly-darwin-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/arm64/earthly

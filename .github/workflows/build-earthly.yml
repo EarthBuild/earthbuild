@@ -74,6 +74,9 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl restart containerd
           sudo systemctl restart docker
+      - name: Limit buildkit parallelism for Podman (lower memory overhead)
+        if: inputs.BINARY == 'podman'
+        run: ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 2
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} "$(which earth)" bootstrap
       - name: Configure Earthly to use GCR mirror

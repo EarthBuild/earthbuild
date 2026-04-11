@@ -41,8 +41,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Use fixed buildkitd image with Docker 29+ ulimit fix and grpc-go ALPN support
       EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
-      # Use prebuilt base image to avoid compiling buildkit from source in CI
-      EARTHLY_BUILDKIT_IMAGE_BASE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
     steps:
       - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -91,7 +89,7 @@ jobs:
         if: inputs.USE_NEXT
         run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earthly using released earthly
-        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux --EARTHLY_BUILDKIT_IMAGE_BASE="${EARTHLY_BUILDKIT_IMAGE_BASE}"
+        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
       - name: Earthly bootstrap using latest earthly build
         run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env

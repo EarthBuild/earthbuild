@@ -15,14 +15,11 @@ buildkitd:
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
         FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
-    ELSE IF [ "$EARTHLY_BUILDKIT_IMAGE_BASE" != "" ]
-        # Use a prebuilt buildkit image instead of compiling from source.
-        # This avoids the slow git clone + Go compilation, reduces CI memory
-        # usage, and removes the dependency on GitHub serving arbitrary SHAs.
-        FROM $EARTHLY_BUILDKIT_IMAGE_BASE
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/earthbuild/buildkit:447cef529f3b5b7a69f7b24e88a339cf6f958e6a+build
-        FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
+        # Use a prebuilt buildkit image. Set EARTHLY_BUILDKIT_IMAGE_BASE to
+        # override, or use BUILDKIT_PROJECT to compile from source.
+        ARG EARTHLY_BUILDKIT_IMAGE_BASE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
+        FROM $EARTHLY_BUILDKIT_IMAGE_BASE
     END
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
     RUN apk add --update --no-cache \

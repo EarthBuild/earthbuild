@@ -561,9 +561,8 @@ build-ticktock:
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
     ARG BUILDKIT_PROJECT
-    ARG EARTHLY_BUILDKIT_IMAGE_BASE
     ARG GO_GCFLAGS
-    BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE_BASE"
+    BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     BUILD ./ast/parser+parser
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./

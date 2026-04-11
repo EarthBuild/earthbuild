@@ -6,6 +6,11 @@ set -e
 # shellcheck disable=SC3045
 ulimit -n 1048576 2>/dev/null || true
 
+# Disable gRPC ALPN enforcement to allow mixed grpc-go versions
+# between earthly client and buildkitd during the upgrade transition.
+# TODO: remove once all released earthly binaries use grpc-go >= 1.67
+export GRPC_ENFORCE_ALPN_ENABLED=false
+
 echo "starting earthly-buildkit with EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"
 
 if [ "$BUILDKIT_DEBUG" = "true" ]; then

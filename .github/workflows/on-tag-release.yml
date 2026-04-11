@@ -12,7 +12,7 @@ jobs:
             actions: read
         env:
             FORCE_COLOR: 1
-            EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.3
+            EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
         steps:
             - uses: earthbuild/actions-setup@main
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -34,7 +34,7 @@ jobs:
             packages: read
         env:
             FORCE_COLOR: 1
-            EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.3
+            EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4
         steps:
             - uses: earthbuild/actions-setup@main
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

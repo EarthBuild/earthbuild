@@ -163,7 +163,7 @@ runs:
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.3" >> $GITHUB_ENV
+        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.4" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

@@ -11,6 +11,13 @@ ulimit -n 1048576 2>/dev/null || true
 # TODO: remove once all released earthly binaries use grpc-go >= 1.67
 export GRPC_ENFORCE_ALPN_ENABLED=false
 
+# Cap Go heap memory to prevent buildkitd from consuming all available RAM.
+# The new buildkit has more aggressive caching defaults; GOMEMLIMIT forces
+# the GC to collect earlier, reducing peak memory.
+if [ -z "$GOMEMLIMIT" ]; then
+    export GOMEMLIMIT=4GiB
+fi
+
 echo "starting earthly-buildkit with EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"
 
 if [ "$BUILDKIT_DEBUG" = "true" ]; then

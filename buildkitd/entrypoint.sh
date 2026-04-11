@@ -265,6 +265,11 @@ export TLS_ENABLED
 
 envsubst </etc/buildkitd.toml.template >/etc/buildkitd.toml
 
+# Fix TOML: new buildkit parser requires section headers on their own line.
+# Older earth binaries may pass EARTHLY_ADDITIONAL_BUILDKIT_CONFIG with
+# section header and key on one line (e.g. [registry."docker.io"] mirrors = ...).
+sed -i 's/\] \([a-z]\)/]\n\1/g' /etc/buildkitd.toml
+
 # Session history is 1h by default unless otherwise specified
 if [ -z "$BUILDKIT_SESSION_HISTORY_DURATION" ]; then
   BUILDKIT_SESSION_HISTORY_DURATION="1h"

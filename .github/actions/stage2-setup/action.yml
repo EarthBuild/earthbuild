@@ -191,7 +191,12 @@ runs:
         echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
       shell: bash
     - name: Limit buildkit parallelism to avoid OOM on CI runners
-      run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 2
+      run: |-
+        if [ "${{inputs.BINARY}}" = "podman" ]; then
+          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 1
+        else
+          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 2
+        fi
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} bootstrap

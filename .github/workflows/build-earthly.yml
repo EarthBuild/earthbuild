@@ -64,8 +64,7 @@ jobs:
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
-      - name: Add swap for extra memory headroom (Podman)
-        if: inputs.BINARY == 'podman'
+      - name: Add swap for extra memory headroom
         run: |
           sudo fallocate -l 12G /extra-swapfile
           sudo chmod 600 /extra-swapfile

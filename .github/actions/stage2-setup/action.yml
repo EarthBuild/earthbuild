@@ -39,10 +39,23 @@ inputs:
   DOCKERHUB_MIRROR_PASSWORD:
     description: "Docker Hub mirror password (legacy - GCR mirror is public)"
     required: false
+  MORE_MEMORY:
+    description: "Add 8GB swap to increase available memory (useful for Podman)"
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
   steps:
+    - name: Add swap for extra memory headroom
+      if: ${{ inputs.MORE_MEMORY == 'true' || inputs.BINARY == 'podman' }}
+      shell: bash
+      run: |
+        sudo fallocate -l 8G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        echo "Swap added: $(swapon --show)"
     - name: Unset CI
       shell: bash
       run: |
@@ -191,12 +204,7 @@ runs:
         echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
       shell: bash
     - name: Limit buildkit parallelism to avoid OOM on CI runners
-      run: |-
-        if [ "${{inputs.BINARY}}" = "podman" ]; then
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 1
-        else
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 2
-        fi
+      run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 2
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} bootstrap

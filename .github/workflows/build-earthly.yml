@@ -64,6 +64,14 @@ jobs:
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
+      - name: Add swap for extra memory headroom (Podman)
+        if: inputs.BINARY == 'podman'
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "Swap added: $(swapon --show)"
       - name: Set Docker default ulimits for Docker 29+ compatibility
         if: inputs.BINARY == 'docker'
         run: |
@@ -76,11 +84,7 @@ jobs:
           sudo systemctl restart docker
       - name: Limit buildkit parallelism to avoid OOM on CI runners
         run: |-
-          if [ "${{inputs.BINARY}}" = "podman" ]; then
-            ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 1
-          else
-            ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 2
-          fi
+          ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 2
       - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]

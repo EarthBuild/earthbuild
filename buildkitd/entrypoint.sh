@@ -84,13 +84,16 @@ fi
 if [ -z "$IP_TABLES" ]; then
     echo "Autodetecting iptables"
 
-    if lsmod | grep -wq "^ip_tables"; then
-        echo "Detected iptables-legacy module"
-        IP_TABLES="iptables-legacy"
-
-    elif lsmod | grep -wq "^nf_tables"; then
+    # Prefer nf_tables when present: on modern GH runners the ip_tables
+    # module is autoloaded even when userspace uses nft, so checking nft first
+    # avoids splitting rules across backends (which silently breaks NAT).
+    if lsmod | grep -wq "^nf_tables"; then
         echo "Detected iptables-nft module"
         IP_TABLES="iptables-nft"
+
+    elif lsmod | grep -wq "^ip_tables"; then
+        echo "Detected iptables-legacy module"
+        IP_TABLES="iptables-legacy"
     else
         echo "Could not find an ip_tables module; falling back to heuristics."
 

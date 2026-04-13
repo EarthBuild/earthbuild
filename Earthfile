@@ -27,7 +27,7 @@ LET GO_VERSION=1.26.2
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
-RUN wget https://golang.org/dl/go${GO_VERSION}.linux-$USERARCH.tar.gz && \
+RUN wget https://go.dev/dl/go${GO_VERSION}.linux-$USERARCH.tar.gz && \
     tar -C /usr/local -xzf go${GO_VERSION}.linux-$USERARCH.tar.gz && \
     rm go${GO_VERSION}.linux-$USERARCH.tar.gz
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"

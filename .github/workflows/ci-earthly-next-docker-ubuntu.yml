@@ -22,7 +22,7 @@ jobs:
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -34,7 +34,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group1"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -48,7 +48,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group2"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -62,7 +62,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group3"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -76,7 +76,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group4"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -90,7 +90,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group5"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -104,7 +104,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group6"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -118,7 +118,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group7"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -132,7 +132,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group8"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -146,7 +146,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group9"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -160,7 +160,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group10"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -174,7 +174,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group11"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
@@ -188,7 +188,7 @@ jobs:
     with:
       TEST_TARGET: "+test-no-qemu-group12"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04-arm"
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""

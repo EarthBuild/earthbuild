@@ -492,7 +492,8 @@ earthly-integration-test-base:
     RUN rm ./setup-registry.sh
 
     # Limit nested buildkit parallelism to avoid OOM in CI tests
-    RUN yq -i ".global.buildkit_max_parallelism = 4" /etc/.earthly/config.yml
+    # Match outer parallelism (2) to halve peak memory from nested earthly-in-earthly tests.
+    RUN yq -i ".global.buildkit_max_parallelism = 2" /etc/.earthly/config.yml
 
     # pull out buildkit_additional_config from the earthly config, for the special case of earthly-in-earthly testing
     # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set

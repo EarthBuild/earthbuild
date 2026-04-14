@@ -8,7 +8,7 @@ Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#m
 
 ## Just Like Docker...Mostly
 
-`ARG`s in Earthly work similar to `ARG`s in Dockerfiles, however there are a few differences when it comes to scope. Also, Earthly has a number of [built in `ARG`s](../earthfile/builtin-args.md) that are available to use.
+`ARG`s in EarthBuild work similar to `ARG`s in Dockerfiles, however there are a few differences when it comes to scope. Also, EarthBuild has a number of [built in `ARG`s](../earthfile/builtin-args.md) that are available to use.
 
 Let's say we wanted to have the option to pass in a tag for our Docker image when we run `earthly +docker`.
 
@@ -70,9 +70,9 @@ with-copy:
 
 ## Builtin `ARG`s
 
-There are a number of builtin `ARG`s that Earthly offers. You can read about a [complete list of them](https://docs.earthly.dev/docs/earthfile/builtin-args), but for now, let's take a look at how they work.
+There are a number of builtin `ARG`s that EarthBuild offers. You can read about a [complete list of them](https://docs.earthly.dev/docs/earthfile/builtin-args), but for now, let's take a look at how they work.
 
-**In order to use Earthly builtin `ARG`s they need to be pre-declared.** Once you do that, you can use them just like any other `ARG`.
+**In order to use EarthBuild builtin `ARG`s they need to be pre-declared.** Once you do that, you can use them just like any other `ARG`.
 
 ```Dockerfile
 ARG USERARCH

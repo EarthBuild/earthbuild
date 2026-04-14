@@ -89,7 +89,7 @@ docker:
 
 In this case, running `earthly +docker` will not produce any output. In other words, you will not have a `local-output/go-example` written locally, but running `earthly +build` will still produce output as expected.
 
-The exception to this rule is the `BUILD` command. If you want to use `COPY` or `FROM` and still have Earthly create `local-output/go-example` locally, you'll need to use the `BUILD` command to do so.
+The exception to this rule is the `BUILD` command. If you want to use `COPY` or `FROM` and still have EarthBuild create `local-output/go-example` locally, you'll need to use the `BUILD` command to do so.
 
 ```Dockerfile
 build:

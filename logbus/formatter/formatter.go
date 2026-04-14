@@ -540,6 +540,10 @@ func (f *Formatter) printBuildFailure() {
 
 	c.Printf("%s%s\n", msgPrefix, failure.GetErrorMessage())
 
+	if failure.GetHelpMessage() != "" {
+		c.HelpPrint(failure.GetHelpMessage())
+	}
+
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
 	f.lastCommandOutput = nil

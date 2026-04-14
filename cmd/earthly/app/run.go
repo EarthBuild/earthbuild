@@ -188,7 +188,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			hintErr.Hint(),
 			hintErr.Message(),
 		)
-		app.BaseCLI.Console().HelpPrint(hintErr.Hint())
 
 		return 1
 	case errors.As(err, &autoSkipErr):
@@ -218,7 +217,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
 			"For more information see https://docs.earthbuild.dev/guides/multi-platform\n"
-		app.BaseCLI.Console().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_OTHER,
@@ -236,7 +234,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			args = stringutil.FilterElementsFromList(args, "--ci")
 			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
 			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
-			app.BaseCLI.Console().HelpPrint(helpMsg)
 		}
 		// This error would have been displayed earlier from the SolverMonitor.
 		// This SetGenericFatalError is a catch-all just in case that hasn't happened.
@@ -249,14 +246,30 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 
 		return 1
 	case strings.Contains(err.Error(), "security.insecure is not allowed"):
-		helpMsg := "earth --allow-privileged (earth -P) flag is required\n"
+		// Extract target info from error if available
+		targetInfo := ""
+		if ie != nil && isInterpreterError {
+			targetInfo = ie.TargetID
+		}
+
+		userMsg := "This build requires privileged mode."
+		if targetInfo != "" {
+			userMsg = fmt.Sprintf("Target %s requires privileged mode.", targetInfo)
+		}
+
+		helpMsg := "To fix this, use one of the following:\n" +
+			"  • Run with the -P flag: earth -P +your-target\n" +
+			"  • Set environment variable: export EARTHLY_ALLOW_PRIVILEGED=true\n" +
+			"  • Add to config: earth config global.allow_privileged true"
+
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
 			helpMsg,
-			err.Error(),
+			userMsg,
 		)
-		app.BaseCLI.Console().HelpPrint(helpMsg)
+
+		app.BaseCLI.Console().VerboseWarnf("Technical details: %v\n", err.Error())
 
 		return 9
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
@@ -276,8 +289,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		} else {
 			app.BaseCLI.Console().VerboseWarnf("Error: %v\n", err.Error())
 		}
-
-		app.BaseCLI.Console().HelpPrint(helpMsg)
 
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
@@ -310,7 +321,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		helpMsg := fmt.Sprintf("%s responded with a rate limit error. This is usually because you are not logged in.\n"+
 			"You can login using the command:\n"+
 			"  docker login%s", registryName, registryHost)
-		app.BaseCLI.Console().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_RATE_LIMITED,
@@ -338,7 +348,6 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			"Verify your account to lift this restriction."
 		app.BaseCLI.Logbus().Run().
 			SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
-		app.BaseCLI.Console().HelpPrint(helpMsg)
 
 		return 1
 	case grpcErrOK && grpcErr.Code() != codes.Canceled:

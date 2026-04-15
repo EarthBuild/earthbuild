@@ -125,7 +125,7 @@ The target `+npm`, on the other hand, specifies its own environment with the `FR
 
 ## Running the build
 
-In the example `Earthfile` we have defined two explicit targets: `+build` and `+docker`. **We can tell EarthBuild to execute a target by passing typing a plus sign (+) followed by the target name.** In this case our docker target calls on our build target, so we can run both with:
+In the example `Earthfile` we have defined two explicit targets: `+build` and `+docker`. **We can tell EarthBuild to execute a target by typing a plus sign (+) followed by the target name.** In this case our docker target calls on our build target, so we can run both with:
 
 ```bash
 earthly +docker

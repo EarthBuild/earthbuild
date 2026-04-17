@@ -10,7 +10,7 @@ Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#m
 
 `ARG`s in EarthBuild work similar to `ARG`s in Dockerfiles, however there are a few differences when it comes to scope. Also, EarthBuild has a number of [built in `ARG`s](../earthfile/builtin-args.md) that are available to use.
 
-Let's say we wanted to have the option to pass in a tag for our Docker image when we run `earthly +docker`.
+Let's say we wanted to have the option to pass in a tag for our Docker image when we run `earth +docker`.
 
 ```Dockerfile
 docker:

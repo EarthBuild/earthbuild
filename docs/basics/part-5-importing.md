@@ -74,7 +74,7 @@ build:
 
 This code tells `FROM` that there is another Earthfile in the `services/service-one` directory and that the Earthfile contains a target called `+deps`. In this case, if we were to run `+build` EarthBuild is smart enough to go into the subdirectory, run the `+deps` target in that Earthfile, and then use it as the base image for `+build`.
 
-We can also reference an Earthfile in another repo, which works in a similar way. If the reference does not begin with one of `/`, `./`, or `../`, then earthly treats it as a repository. See [the reference](../earthfile/earthfile.md#from) for details.
+We can also reference an Earthfile in another repo, which works in a similar way. If the reference does not begin with one of `/`, `./`, or `../`, then earthbuild treats it as a repository. See [the reference](../earthfile/earthfile.md#from) for details.
 
 ```Dockerfile
 build:

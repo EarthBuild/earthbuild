@@ -11,11 +11,7 @@ To use EarthBuild in a CI, you typically encode the following steps in your CI's
 3. Log in to image registries, such as DockerHub
 4. Run EarthBuild
 
-As part of this, you may need to set up credentials for Earthly Cloud, if you are using Earthly Satellites or Earthly Secrets. For this, you can use the following command:
 
-```bash
-earthly account create-token my-ci-token
-```
 
 Finally, here is a complete example of how to run EarthBuild in GitHub Actions:
 

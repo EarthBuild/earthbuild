@@ -7,7 +7,7 @@ Learning EarthBuild does not stop here. Discover more of what EarthBuild can do 
 ##### Recommended reading:
 
 - [The Earthfile reference](../earthfile/earthfile.md)
-- [The **earthly command** reference](../earthly-command/earthly-command.md)
+- [The **earth command** reference](../earthly-command/earthly-command.md)
 - [Guides](https://tinyurl.com/2p8cpnxv) <!-- should be ../earthfile/guides but gitbook produces a 404 link for this -->
 
 - [Examples using EarthBuild](../examples/examples.md)
@@ -25,7 +25,7 @@ Learning EarthBuild does not stop here. Discover more of what EarthBuild can do 
 
 ## Questions & Feedback
 
-If you have any questions, feedback or suggestions for EarthBuild or this tutorial feel free to reach out to us on our [Slack community](https://earthly.dev/slack) or open a [GitHub issue](https://github.com/earthbuild/earthbuild/issues). Earthly is free and open and we love and appreciate feedback and contributions from the community!
+If you have any questions, feedback or suggestions for EarthBuild or this tutorial feel free to reach out to us on our [Slack community](https://earthly.dev/slack) or open a [GitHub issue](https://github.com/earthbuild/earthbuild/issues). EarthBuild is free and open and we love and appreciate feedback and contributions from the community!
 
 ## Go back
 

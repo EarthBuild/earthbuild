@@ -12,7 +12,7 @@ If you're interested in understanding why the community fork is happening, [this
 ----------------------------------
 
 <div align="center">
-<a href="https://earthbuild.dev"><img src="img/logo-earthbuild.svg" alt="EarthBuild" width="320px" /></a>
+  <a href="https://earthbuild.dev"><img src="img/logo-earthbuild.svg" alt="EarthBuild" width="320" /></a>
 
 *It's like Docker for builds*
 

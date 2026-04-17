@@ -165,7 +165,7 @@ earthly --allow-privileged +integration-tests
 To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
 ```
 
 In this example, we use `WITH DOCKER` to run a frontend app and backend api together using EarthBuild.

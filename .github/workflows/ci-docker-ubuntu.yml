@@ -699,6 +699,15 @@ jobs:
       matrix:
         runs_on: [ubuntu-latest, ubuntu-24.04-arm]
         target: ['+test-misc', '+test-no-qemu-group5', '+test-no-qemu-slow']
+        # Three concurrent ARM entries in the previous run all failed at the
+        # ~6-minute mark (earthly "Canceled"), likely GHCR pull contention or
+        # ARM-runner capacity pressure. Keep one ARM entry to prove the path
+        # still works in isolation; run all three targets on x86 natively.
+        exclude:
+          - runs_on: ubuntu-24.04-arm
+            target: '+test-no-qemu-group5'
+          - runs_on: ubuntu-24.04-arm
+            target: '+test-no-qemu-slow'
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

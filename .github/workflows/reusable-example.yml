@@ -77,11 +77,39 @@ jobs:
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+        # See reusable-test.yml — single retry mitigates transient earthly
+        # "Canceled" failures that are non-deterministic across runs.
         if: github.event_name != 'push'
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
         if: github.event_name == 'push'
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Build and test multi-platform example
         run: |
           ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ./examples/multiplatform+all

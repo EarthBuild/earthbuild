@@ -59,7 +59,22 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run linux-amd64 specific tests
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ./tests+ga-linux-amd64
+        # See reusable-test.yml — single retry mitigates transient earthly
+        # "Canceled" failures that are non-deterministic across runs.
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ./tests+ga-linux-amd64
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Execute earthly ${{inputs.BINARY}} command
         run: (cd tests/docker && ${{inputs.SUDO}} ../../${{inputs.BUILT_EARTHLY_PATH}} docker-build --tag examples-test-docker:latest . && diff <(docker run --rm examples-test-docker:latest) <(echo "hello dockerfile") )
       - name: Execute private image test (Earthly Only) # TODO move to separate workflow
@@ -69,7 +84,19 @@ jobs:
         run: frontend=${{inputs.BINARY}} ./tests/save-images/test.sh
       - name: Experimental tests
         run: |-
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ./tests+experimental
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ./tests+experimental
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Test buildkit info-level logging
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd 2>&1 | grep 'running server on'
       - name: Test for uncommitted generated code

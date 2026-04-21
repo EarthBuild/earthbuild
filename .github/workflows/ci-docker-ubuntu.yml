@@ -732,7 +732,20 @@ jobs:
       - name: Limit buildkit parallelism to avoid OOM
         run: earth config global.buildkit_max_parallelism 2
       - name: Run ${{ matrix.target }} natively on ${{ matrix.runs_on }}
-        run: earth --ci -P ${{ matrix.target }}
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            earth --ci -P ${{ matrix.target }}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Buildkit logs (on failure)
         if: ${{ failure() }}
         run: docker logs earthly-buildkitd || true

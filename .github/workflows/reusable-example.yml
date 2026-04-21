@@ -91,7 +91,8 @@ jobs:
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
-            echo "Attempt $attempt exited $rc; retrying once."
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
             attempt=$((attempt + 1))
           done
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
@@ -107,7 +108,8 @@ jobs:
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
-            echo "Attempt $attempt exited $rc; retrying once."
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
             attempt=$((attempt + 1))
           done
       - name: Build and test multi-platform example

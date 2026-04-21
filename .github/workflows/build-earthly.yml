@@ -123,20 +123,48 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build and push +ci-release using latest earthly build
+        # Same retry rationale as +for-linux above — this was the step that
+        # still tripped Canceled in run 24735475094 because the wrapper only
+        # covered +for-linux.
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Build +ci-release using latest earthly build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-          # Build ci-release (builds binary and buildkitd but doesn't push)
-          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
-          # Explicitly output the buildkitd image to local docker daemon
-          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            # Build ci-release (builds binary and buildkitd but doesn't push)
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release && \
+              ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Save artifacts for fork CI
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-

@@ -683,13 +683,14 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
-  # Experimental: run the flaky +test-misc target natively on both x86 and ARM.
-  # Self-contained (does not depend on build-earthly) to avoid the amd64-only
-  # coupling in +ci-release and ./earthly. Uses the multi-arch buildkitd fix.5
-  # image, so this still exercises the buildkit under test. continue-on-error
-  # keeps the matrix non-blocking while we evaluate native-ARM stability.
-  docker-test-misc-native:
-    name: +test-misc native (${{ matrix.runs_on }})
+  # Experimental: run the worst no-qemu flaky targets natively on both x86 and
+  # ARM. Self-contained (does not depend on build-earthly) to avoid the
+  # amd64-only coupling in +ci-release and ./earthly. Uses the multi-arch
+  # buildkitd fix.5 image, so this still exercises the buildkit under test.
+  # continue-on-error keeps the matrix non-blocking while we evaluate
+  # native-runner stability.
+  docker-native-tests:
+    name: ${{ matrix.target }} native (${{ matrix.runs_on }})
     if: ${{ !failure() }}
     runs-on: ${{ matrix.runs_on }}
     continue-on-error: true
@@ -697,6 +698,7 @@ jobs:
       fail-fast: false
       matrix:
         runs_on: [ubuntu-latest, ubuntu-24.04-arm]
+        target: ['+test-misc', '+test-no-qemu-group5', '+test-no-qemu-slow']
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -722,8 +724,8 @@ jobs:
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Limit buildkit parallelism to avoid OOM
         run: earth config global.buildkit_max_parallelism 2
-      - name: Run +test-misc natively on ${{ matrix.runs_on }}
-        run: earth --ci -P +test-misc
+      - name: Run ${{ matrix.target }} natively on ${{ matrix.runs_on }}
+        run: earth --ci -P ${{ matrix.target }}
       - name: Buildkit logs (on failure)
         if: ${{ failure() }}
         run: docker logs earthly-buildkitd || true

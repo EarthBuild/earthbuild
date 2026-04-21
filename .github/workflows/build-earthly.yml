@@ -96,7 +96,24 @@ jobs:
         if: inputs.USE_NEXT
         run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earthly using released earthly
-        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
+        # Non-deterministic earthly "Canceled" failures (different targets
+        # each run, no signal received) force a single retry. Downstream
+        # jobs all depend on this step, so retrying here avoids cascading
+        # skipped jobs.
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Earthly bootstrap using latest earthly build
         run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env

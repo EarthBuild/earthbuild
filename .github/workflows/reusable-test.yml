@@ -68,8 +68,23 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
+        # Non-deterministic earthly "Canceled" failures (different targets
+        # each run, no signal received) force a single retry. Two attempts
+        # maximum — genuine test failures still fail and are not hidden.
         run: |-
-          ${{inputs.SUDO}} ${{ inputs.BUILT_EARTHLY_PATH }} ${{inputs.EXTRA_ARGS}} --ci -P ${{inputs.TEST_TARGET}}
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{ inputs.BUILT_EARTHLY_PATH }} ${{inputs.EXTRA_ARGS}} --ci -P ${{inputs.TEST_TARGET}}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; retrying once."
+            attempt=$((attempt + 1))
+          done
       - name: Display buildkit version
         run: |-
           ${{inputs.SUDO}} ${{inputs.BINARY}} ps -a

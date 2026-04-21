@@ -750,6 +750,12 @@ test-no-qemu-group12:
     BUILD --pass-args ./tests+ga-no-qemu-group12 \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
+# test-no-qemu-group13 was split out of group4 to reduce per-job memory
+# pressure — group4 used to back-to-back Canceled even with buildkit trim.
+test-no-qemu-group13:
+    BUILD --pass-args ./tests+ga-no-qemu-group13 \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
 # test-no-qemu-slow runs the tests from ./tests+ga-no-qemu-slow
 test-no-qemu-slow:
     BUILD --pass-args ./tests+ga-no-qemu-slow \

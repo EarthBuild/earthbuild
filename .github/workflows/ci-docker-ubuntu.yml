@@ -236,6 +236,19 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
+  docker-tests-no-qemu-group13:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group13"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
   docker-tests-no-qemu-slow:
     needs: build-earthly
     if: ${{ !failure() }}
@@ -684,13 +697,13 @@ jobs:
     secrets: inherit
 
   # Experimental: run the worst no-qemu flaky targets natively on both x86 and
-  # ARM. Self-contained (does not depend on build-earthly) to avoid the
-  # amd64-only coupling in +ci-release and ./earthly. Uses the multi-arch
-  # buildkitd fix.5 image, so this still exercises the buildkit under test.
-  # continue-on-error keeps the matrix non-blocking while we evaluate
-  # native-runner stability.
+  # ARM. Needs build-earthly so the PR's staging buildkit image exists for
+  # the x86 matrix entry (the Earthfile +ci-release target only builds
+  # linux/amd64, so ARM falls back to the multi-arch fix.5 image).
+  # continue-on-error keeps the matrix non-blocking.
   docker-native-tests:
     name: ${{ matrix.target }} native (${{ matrix.runs_on }})
+    needs: build-earthly
     if: ${{ !failure() }}
     runs-on: ${{ matrix.runs_on }}
     continue-on-error: true
@@ -710,7 +723,10 @@ jobs:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5
+      # x86 matrix entry uses the PR's own staging buildkit (same as the main
+      # pipeline does after stage2-setup was updated). ARM falls back to the
+      # multi-arch fix.5 image because +ci-release doesn't build linux/arm64.
+      EARTHLY_BUILDKIT_IMAGE: ${{ contains(matrix.runs_on, 'arm') && 'ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5' || format('ghcr.io/earthbuild/earthbuild:buildkitd-staging-{0}-ubuntu-latest-docker', github.sha) }}
     steps:
       - uses: earthbuild/actions-setup@main
         with:

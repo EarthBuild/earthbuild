@@ -1,0 +1,58 @@
+name: ARM Experiment
+
+# Proof-of-concept: run a small test natively on ubuntu-24.04-arm instead of
+# through QEMU emulation. Goal is to validate that flaky no-qemu tests can be
+# moved onto native ARM runners alongside x86, avoiding emulation overhead.
+# This workflow is intentionally isolated from the main CI; failure here does
+# not gate the PR while we validate the approach.
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  arm-lint:
+    name: lint natively on ubuntu-24.04-arm
+    runs-on: ubuntu-24.04-arm
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Multi-arch manifest — linux/arm64 variant is used automatically on ARM runner.
+      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5
+    steps:
+      - uses: earthbuild/actions-setup@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Runner / tooling versions
+        run: |
+          uname -a
+          docker version
+          earth --version
+      - name: Earthly bootstrap
+        run: earth bootstrap
+      - name: Configure GCR mirror
+        run: |
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Limit buildkit parallelism to avoid OOM
+        run: earth config global.buildkit_max_parallelism 2
+      - name: Run +lint-all natively on ARM64
+        run: earth --ci +lint-all
+      - name: Buildkit logs (on failure)
+        if: ${{ failure() }}
+        run: docker logs earthly-buildkitd || true

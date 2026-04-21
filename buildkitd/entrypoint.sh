@@ -11,12 +11,13 @@ ulimit -n 1048576 2>/dev/null || true
 # TODO: remove once all released earthly binaries use grpc-go >= 1.67
 export GRPC_ENFORCE_ALPN_ENABLED=false
 
-# Cap Go heap memory to prevent buildkitd from consuming all available RAM.
-# The new buildkit has more aggressive caching defaults; GOMEMLIMIT forces
-# the GC to collect earlier, reducing peak memory.
-if [ -z "$GOMEMLIMIT" ]; then
-    export GOMEMLIMIT=4GiB
-fi
+# GOMEMLIMIT was previously set to 4GiB to cap buildkitd's Go heap and
+# reduce peak memory. Under concurrent CI load we saw long hangs and
+# non-deterministic "Canceled" failures consistent with GC thrash when the
+# soft limit is approached. stage2-setup now adds 12G of swap on every
+# runner (matching build-earthly), so constraining the heap is no longer
+# needed. Leave GOMEMLIMIT honoured if set externally, otherwise let Go
+# size the heap to the host.
 
 echo "starting earthly-buildkit with EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"
 

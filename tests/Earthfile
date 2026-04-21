@@ -60,6 +60,9 @@ ga-no-qemu-group3:
     BUILD +non-transitive-args-test
 
 ga-no-qemu-group4:
+    # First half of the former group4; the second half is in group13.
+    # Split to halve peak memory per CI job — group4 was back-to-back
+    # Canceled even with nested buildkit trim and outer=dev buildkit.
     BUILD +star-test
     BUILD +dockerfile-test
     BUILD +fail-test
@@ -76,6 +79,9 @@ ga-no-qemu-group4:
     BUILD +env-home-test
     BUILD +stack-failure-test
     BUILD +multi-stack-failure-test
+
+ga-no-qemu-group13:
+    # Second half of the former group4; see note there.
     BUILD +no-cache-local-artifact-test
     BUILD +empty-git-test
     BUILD +escape-test

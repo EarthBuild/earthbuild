@@ -48,7 +48,12 @@ runs:
   using: "composite"
   steps:
     - name: Add swap for extra memory headroom
-      if: ${{ inputs.MORE_MEMORY == 'true' || inputs.BINARY == 'podman' }}
+      # build-earthly always adds 12G swap; stage2-setup previously only did
+      # so for podman / MORE_MEMORY. Tests on docker runners fail with
+      # earthly "Canceled" mid-build and runc "file already closed" errors,
+      # consistent with silent OOM-killed buildkit-runc children on the
+      # 16 GiB runner. Mirror build-earthly and add swap unconditionally so
+      # the test path has the same headroom as the build path.
       shell: bash
       run: |
         sudo fallocate -l 12G /extra-swapfile

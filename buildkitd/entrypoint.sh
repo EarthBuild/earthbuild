@@ -294,12 +294,8 @@ if [ -z "$BUILDKIT_SESSION_TIMEOUT" ]; then
 fi
 export BUILDKIT_SESSION_TIMEOUT
 
-# Set up OOM. Default 500 (not 0) so nested buildkit-runc children become
-# preferred victims of the kernel OOM killer and buildkitd itself survives
-# memory pressure. Under CI load the newer buildkit has a much higher peak
-# RSS than the old one; with OOM_SCORE_ADJ=0 the kernel was picking
-# buildkitd as the victim, producing earthly "Canceled" with no signal.
-OOM_SCORE_ADJ="${BUILDKIT_OOM_SCORE_ADJ:-500}"
+# Set up OOM
+OOM_SCORE_ADJ="${BUILDKIT_OOM_SCORE_ADJ:-0}"
 export OOM_SCORE_ADJ
 if [ -n "$OOM_EXCLUDED_PIDS" ]; then
   echo "The following PIDs will be ignored by the OOM reaper: $OOM_EXCLUDED_PIDS"

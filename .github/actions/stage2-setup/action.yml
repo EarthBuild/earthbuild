@@ -177,11 +177,19 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - name: Set fixed buildkitd image for Docker 29+ and grpc-go ALPN (non-fork)
+    - name: Point outer buildkit at the PR's own staging image (non-fork)
+      # Previously hardcoded to buildkitd-v0.8.17-fix.5 (the stable pinned
+      # image). That meant CI was testing the PR's earthly CLI against the
+      # *old* buildkit on the outer layer, and only exercising the PR's
+      # buildkit inside earthly-in-earthly tests. Use the staging tag that
+      # build-earthly pushed for this SHA so the outer layer covers the
+      # PR's buildkit too — matches what the fork path already does above.
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5" >> $GITHUB_ENV
+        TAG_SUFFIX="ubuntu-latest-${{inputs.BINARY}}"
+        if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

@@ -64,7 +64,23 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
-        run: ${{ inputs.BUILT_EARTHLY_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        # See reusable-test.yml — single retry mitigates transient earthly
+        # "Canceled" failures that are non-deterministic across runs.
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{ inputs.BUILT_EARTHLY_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            docker rm -f earthly-buildkitd 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Execute tests
         # See reusable-test.yml — single retry mitigates transient earthly
         # "Canceled" failures that are non-deterministic across runs.

@@ -19,8 +19,12 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-rsa-key
 ssh-add -l
 
-# next validate ssh is working
-ssh git@git.example.com | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
+# next validate ssh is working (verbose + stderr capture so diagnostics land in CI logs)
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1)
+echo \"=== ssh -v output ===\"
+echo \"\$ssh_out\"
+echo \"=== end ssh output ===\"
+echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # test the clone can work (unsure if we should merge this, or merge it commented out -- it's useful if you need to debug something, but makes test runs longer)
 git clone git@git.example.com:testuser/repo.git therepo1
@@ -59,8 +63,12 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-ed25519-key
 ssh-add -l
 
-# next validate ssh is working
-ssh git@git.example.com | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
+# next validate ssh is working (verbose + stderr capture so diagnostics land in CI logs)
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1)
+echo \"=== ssh -v output ===\"
+echo \"\$ssh_out\"
+echo \"=== end ssh output ===\"
+echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # finally perform earthly tests
 earthly --config \$earthly_config --verbose -D +test
@@ -86,8 +94,12 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-rsa-key
 ssh-add -l
 
-# next validate ssh is working
-ssh git@git.example.com | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
+# next validate ssh is working (verbose + stderr capture so diagnostics land in CI logs)
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1)
+echo \"=== ssh -v output ===\"
+echo \"\$ssh_out\"
+echo \"=== end ssh output ===\"
+echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # finally perform earthly tests
 earthly --config \$earthly_config --verbose -D +test

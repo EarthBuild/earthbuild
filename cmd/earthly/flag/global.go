@@ -85,10 +85,7 @@ type Global struct {
 }
 
 func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
-	defaultInstallationName := installName
-	if defaultInstallationName == "" {
-		defaultInstallationName = "earthly"
-	}
+	defaultInstallationName := max(installName, "earthly")
 
 	return []cli.Flag{
 		&cli.StringFlag{

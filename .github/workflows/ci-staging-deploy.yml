@@ -107,9 +107,9 @@ jobs:
       contents: read
     env:
       FORCE_COLOR: 1
-      DOCKERHUB_USER: "earthbuild"
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
       DOCKERHUB_IMG: "earthbuild-staging"
-      DOCKERHUB_BUILDKIT_IMG: "buildkitd"
+      DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Set up QEMU
@@ -134,7 +134,7 @@ jobs:
           mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
       - name: Release to DockerHub (main)
         env:
-          RELEASE_TAG: ${{ needs.prepare-release.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
@@ -155,9 +155,9 @@ jobs:
       contents: read
     env:
       FORCE_COLOR: 1
-      DOCKERHUB_USER: "earthbuild"
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USERNAME }}
       DOCKERHUB_IMG: "earthbuild-staging"
-      DOCKERHUB_BUILDKIT_IMG: "buildkitd"
+      DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
@@ -183,7 +183,7 @@ jobs:
           mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
       - name: Release to DockerHub (ticktock)
         env:
-          RELEASE_TAG: ${{ needs.prepare-release.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
           EARTHLY_NEXT: ${{ needs.prepare-release.outputs.earthly_next }}
         run: |-
           set -euo pipefail

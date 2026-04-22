@@ -306,6 +306,13 @@ jobs:
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
+  # podman-examples-* are continue-on-error because running the example
+  # suites under podman's rootless overhead regularly OOMs the 16 GiB
+  # runner (each podman-examples-N builds 3-10 example projects in
+  # parallel, each pulling multi-hundred-MB base images). Docker CI
+  # already covers the examples' correctness; podman CI's value is
+  # verifying earthly works with the podman frontend, which the smaller
+  # podman-* tests prove. Treat example failures as informational.
   podman-examples-1:
     # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
     needs: build-earthly
@@ -319,6 +326,7 @@ jobs:
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-1"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      CONTINUE_ON_ERROR: true
     secrets: inherit
 
   podman-examples-2:
@@ -334,6 +342,7 @@ jobs:
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-2"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      CONTINUE_ON_ERROR: true
     secrets: inherit
 
   podman-examples-3:
@@ -349,6 +358,7 @@ jobs:
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-3"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      CONTINUE_ON_ERROR: true
     secrets: inherit
 
   podman-examples-4:
@@ -365,6 +375,7 @@ jobs:
       EXAMPLE_NAME: "+examples-4"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
       MORE_SPACE: false
+      CONTINUE_ON_ERROR: true
     secrets: inherit
 
   podman-examples-5:
@@ -380,6 +391,7 @@ jobs:
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-5"
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      CONTINUE_ON_ERROR: true
     secrets: inherit
 
 #  podman-test-local:

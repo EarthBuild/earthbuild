@@ -756,9 +756,29 @@ test-no-qemu-group13:
     BUILD --pass-args ./tests+ga-no-qemu-group13 \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
-# test-no-qemu-slow runs the tests from ./tests+ga-no-qemu-slow
+# test-no-qemu-slow runs the tests from ./tests+ga-no-qemu-slow.
+# Still works for local dev; CI splits into the four sub-targets below so
+# each slow sub-group lands on its own runner (original slow packed ~40
+# subtargets including 15 docker-in-docker scenarios, which pushed CI
+# jobs past their memory budget).
 test-no-qemu-slow:
     BUILD --pass-args ./tests+ga-no-qemu-slow \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-with-docker:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-with-docker \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-git-ssh:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-git-ssh \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-private-https:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-private-https \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-misc:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-misc \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
 # test-no-qemu-kind runs the tests from ./tests+ga-no-qemu-kind

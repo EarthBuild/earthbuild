@@ -249,18 +249,59 @@ jobs:
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
-  docker-tests-no-qemu-slow:
+  # +test-no-qemu-slow was ~40 sub-targets (15 docker-in-docker + 11 SSH +
+  # 10 HTTPS + misc). Split into four CI jobs so each lands on its own
+  # 16 GiB runner instead of trying to fit all of them in one job.
+  docker-tests-no-qemu-slow-with-docker:
     needs: build-earthly
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
-      TEST_TARGET: "+test-no-qemu-slow"
+      TEST_TARGET: "+test-no-qemu-slow-with-docker"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  docker-tests-no-qemu-slow-git-ssh:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-slow-git-ssh"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
+  docker-tests-no-qemu-slow-private-https:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-slow-private-https"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
+  docker-tests-no-qemu-slow-misc:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-slow-misc"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
   docker-tests-no-qemu-kind:
@@ -566,7 +607,8 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
-  docker-wait-block-no-qemu-slow:
+  # Split matches the test-no-qemu-slow-* split above.
+  docker-wait-block-no-qemu-slow-with-docker:
     needs: build-earthly
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
@@ -576,8 +618,46 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      TARGET_NAME: "+test-no-qemu-slow"
-      # EXTRA_ARGS: "--auto-skip"
+      TARGET_NAME: "+test-no-qemu-slow-with-docker"
+    secrets: inherit
+
+  docker-wait-block-no-qemu-slow-git-ssh:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-wait-block-target.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      TARGET_NAME: "+test-no-qemu-slow-git-ssh"
+    secrets: inherit
+
+  docker-wait-block-no-qemu-slow-private-https:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-wait-block-target.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      TARGET_NAME: "+test-no-qemu-slow-private-https"
+    secrets: inherit
+
+  docker-wait-block-no-qemu-slow-misc:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-wait-block-target.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      TARGET_NAME: "+test-no-qemu-slow-misc"
     secrets: inherit
 
   docker-wait-block-qemu:
@@ -681,19 +761,63 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
-  race-tests-no-qemu-slow:
+  # Race-tests add -race instrumentation (roughly 2x memory) on top of the
+  # already heavy slow suite, so we split race slow the same way as the
+  # plain slow tests above.
+  race-tests-no-qemu-slow-with-docker:
     needs: build-earthly
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      TEST_TARGET: "+test-no-qemu-slow"
+      TEST_TARGET: "+test-no-qemu-slow-with-docker"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
-      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  race-tests-no-qemu-slow-git-ssh:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-race-test.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      TEST_TARGET: "+test-no-qemu-slow-git-ssh"
+      RUNS_ON: "ubuntu-latest"
+      USE_QEMU: false
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
+  race-tests-no-qemu-slow-private-https:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-race-test.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      TEST_TARGET: "+test-no-qemu-slow-private-https"
+      RUNS_ON: "ubuntu-latest"
+      USE_QEMU: false
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
+  race-tests-no-qemu-slow-misc:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-race-test.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      TEST_TARGET: "+test-no-qemu-slow-misc"
+      RUNS_ON: "ubuntu-latest"
+      USE_QEMU: false
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
   # Experimental: run the worst no-qemu flaky targets natively on both x86 and

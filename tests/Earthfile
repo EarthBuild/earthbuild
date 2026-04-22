@@ -224,15 +224,32 @@ ga-no-qemu-group12:
     BUILD --pass-args ./with-docker-validate-labels+all
     BUILD --pass-args +run-no-cache-save-artifact
 
+# ga-no-qemu-slow is kept as an umbrella that still runs everything when
+# called directly (useful for local dev), but CI splits it into the four
+# sub-targets below so each lands on its own 16-GiB runner. Combined the
+# slow bundle was ~40 subtargets including 15 docker-in-docker scenarios
+# which pushed CI jobs past their memory budget.
 ga-no-qemu-slow:
-    BUILD +server
+    BUILD +ga-no-qemu-slow-with-docker
+    BUILD +ga-no-qemu-slow-git-ssh
+    BUILD +ga-no-qemu-slow-private-https
+    BUILD +ga-no-qemu-slow-misc
+
+ga-no-qemu-slow-with-docker:
     BUILD --pass-args ./with-docker+all
     BUILD --pass-args ./with-docker-cache+test
+
+ga-no-qemu-slow-git-ssh:
     # this has been moved to a separate target until we get the flakey "tell me who you are" bug
     # fixed; see https://github.com/earthly/earthly/issues/2567
     #BUILD --pass-args ./git-metadata+test
     BUILD --pass-args ./git-ssh-server+all
+
+ga-no-qemu-slow-private-https:
     BUILD --pass-args ./private-https+all
+
+ga-no-qemu-slow-misc:
+    BUILD +server
     BUILD --pass-args ./version+test-all
 
 ga-no-qemu-kind:

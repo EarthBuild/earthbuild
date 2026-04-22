@@ -8,9 +8,9 @@ Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#m
 
 ## The `WITH DOCKER` Command
 
-You may find that you need to run Docker commands inside a target. For those cases Earthly offers `WITH DOCKER`. `WITH DOCKER` will initialize a Docker daemon that can be used in the context of a `RUN` command.
+You may find that you need to run Docker commands inside a target. For those cases EarthBuild offers `WITH DOCKER`. `WITH DOCKER` will initialize a Docker daemon that can be used in the context of a `RUN` command.
 
-Whenever you need to use `WITH DOCKER` we recommend (though it is not required) that you use Earthly's own Docker in Docker (dind) image: `earthbuild/dind:alpine-3.22-docker-28.3.3-r1`.
+Whenever you need to use `WITH DOCKER` we recommend (though it is not required) that you use EarthBuild's own Docker in Docker (dind) image: `earthbuild/dind:alpine-3.22-docker-28.3.3-r1`.
 
 Notice `WITH DOCKER` creates a block of code that has an `END` keyword. Everything that happens within this block is going to take place within our `earthbuild/dind:alpine-3.22-docker-28.3.3-r1` container.
 
@@ -149,7 +149,7 @@ integration-tests:
     END
 ```
 
-When we use the `--compose` flag, Earthly will start up the services defined in the `docker-compose` file for us. In this case, we built a separate image that copies in our test files and uses the command to run the tests as its `ENTRYPOINT`. We can then load this image into our `WITH DOCKER` command. Note that loading an image will not run it by default, we need to explicitly run the image after we load it.
+When we use the `--compose` flag, EarthBuild will start up the services defined in the `docker-compose` file for us. In this case, we built a separate image that copies in our test files and uses the command to run the tests as its `ENTRYPOINT`. We can then load this image into our `WITH DOCKER` command. Note that loading an image will not run it by default, we need to explicitly run the image after we load it.
 
 You'll need to use `--allow-privileged` (or `-P` for short) to run this example.
 
@@ -165,10 +165,10 @@ earthly --allow-privileged +integration-tests
 To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/js/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part6/part6 ./part6
 ```
 
-In this example, we use `WITH DOCKER` to run a frontend app and backend api together using Earthly.
+In this example, we use `WITH DOCKER` to run a frontend app and backend api together using EarthBuild.
 
 The App
 

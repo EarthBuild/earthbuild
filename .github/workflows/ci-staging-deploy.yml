@@ -277,6 +277,27 @@ jobs:
             --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
             --VERSION="${{ env.VERSION }}" \
             --PRERELEASE=false
+      - name: Smoke test binary default buildkit image
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |-
+          set -euo pipefail
+          EXPECTED_IMAGE="docker.io/earthbuild/buildkitd:${VERSION}"
+          ACTUAL_LINE="$(./release/release/earth-linux-amd64 --help | grep -- '--buildkit-image value' || true)"
+
+          if [ -z "${ACTUAL_LINE}" ]; then
+            echo "Failed to find --buildkit-image flag in --help output."
+            exit 1
+          fi
+
+          if [[ "${ACTUAL_LINE}" != *"(default: \"${EXPECTED_IMAGE}\")"* ]]; then
+            echo "Smoke test failed: default buildkit image is incorrect."
+            echo "Expected: ${EXPECTED_IMAGE}"
+            echo "Actual line: ${ACTUAL_LINE}"
+            exit 1
+          fi
+
+          echo "Smoke test passed: default buildkit image is ${EXPECTED_IMAGE}"
 
       - name: Upload Release Binaries Artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

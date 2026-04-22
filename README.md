@@ -44,7 +44,7 @@ If you're interested in understanding why the community fork is happening, [this
 
 🌎 [EarthBuild](https://earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
 
-[![Get EarthBuild](docs/img/get-earthbuild-button.svg "Get EarthBuild")](https://www.earthbuild.dev/install.html)
+<div align="center"><a href="https://www.earthbuild.dev/install.html"><img width="260" src="docs/img/get-earthbuild-button.svg" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
 
 ----------------------------------
 

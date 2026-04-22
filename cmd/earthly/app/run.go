@@ -252,13 +252,31 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			targetInfo = ie.TargetID
 		}
 
+		// If no target info from interpreter error, try to extract from args
+		if targetInfo == "" && len(args) > 1 {
+			for _, arg := range args[1:] {
+				if strings.HasPrefix(arg, "+") {
+					targetInfo = arg
+					break
+				}
+			}
+		}
+
 		userMsg := "This build requires privileged mode."
 		if targetInfo != "" {
 			userMsg = fmt.Sprintf("Target %s requires privileged mode.", targetInfo)
 		}
 
+		// Create help message with actual target if available
+		var flagExample string
+		if targetInfo != "" {
+			flagExample = fmt.Sprintf("earth -P %s", targetInfo)
+		} else {
+			flagExample = "earth -P +your-target"
+		}
+
 		helpMsg := "To fix this, use one of the following:\n" +
-			"  • Run with the -P flag: earth -P +your-target\n" +
+			fmt.Sprintf("  • Run with the -P flag: %s\n", flagExample) +
 			"  • Set environment variable: export EARTHLY_ALLOW_PRIVILEGED=true\n" +
 			"  • Add to config: earth config global.allow_privileged true"
 

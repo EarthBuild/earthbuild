@@ -756,6 +756,13 @@ test-no-qemu-group13:
     BUILD --pass-args ./tests+ga-no-qemu-group13 \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
+# test-no-qemu-group14 carries the test-runner (earthly-in-earthly)
+# tail of the original group5 — pass-args/cache/aws-flag tests that
+# SIGKILL'd (exit 137) when bundled with group5's 40+ earlier BUILDs.
+test-no-qemu-group14:
+    BUILD --pass-args ./tests+ga-no-qemu-group14 \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
 # test-no-qemu-slow runs the tests from ./tests+ga-no-qemu-slow.
 # Still works for local dev; CI splits into the four sub-targets below so
 # each slow sub-group lands on its own runner (original slow packed ~40

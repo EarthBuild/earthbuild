@@ -249,6 +249,19 @@ jobs:
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
+  docker-tests-no-qemu-group14:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group14"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+    secrets: inherit
+
   # +test-no-qemu-slow was ~40 sub-targets (15 docker-in-docker + 11 SSH +
   # 10 HTTPS + misc). Split into four CI jobs so each lands on its own
   # 16 GiB runner instead of trying to fit all of them in one job.

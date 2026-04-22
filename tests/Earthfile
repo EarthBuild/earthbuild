@@ -138,19 +138,6 @@ ga-no-qemu-group5:
     BUILD +test-works-without-earthly-server
     BUILD +test-init-unsupported
     BUILD +test-init-golang
-    BUILD +pass-args-test
-    BUILD +pass-args-defaults-test
-    BUILD +pass-args-no-builtins-via-function-test
-    BUILD +test-reserved-label
-    BUILD +test-cache-mount-mode
-    BUILD +test-cache-mode
-    BUILD +test-shared-cache
-    BUILD +test-cache-persist
-    BUILD +test-visited-upfront-hash-collection
-    BUILD +test-exec-stats
-    BUILD +test-aws-flag-envs
-    BUILD +test-aws-flag-configs
-    BUILD +test-aws-flag-none
 
     # Forcing the implicit global wait/end block, causes some tests, which rely
     # on the ability to have two different targets issue the same SAVE IMAGE tag name
@@ -164,6 +151,25 @@ ga-no-qemu-group5:
         BUILD +save-artifact-after-push
         BUILD --pass-args ./with-docker-via-command+test
     END
+
+# group14 carries the memory-heavy second half of the original group5:
+# pass-args/cache/aws-flag tests all spawn nested earthly-in-earthly runs
+# (test-runner style). Combined with the rest of group5 they OOM'd
+# on the 16-GiB runner (SIGKILL/exit 137 on +test-aws-flag-*).
+ga-no-qemu-group14:
+    BUILD +pass-args-test
+    BUILD +pass-args-defaults-test
+    BUILD +pass-args-no-builtins-via-function-test
+    BUILD +test-reserved-label
+    BUILD +test-cache-mount-mode
+    BUILD +test-cache-mode
+    BUILD +test-shared-cache
+    BUILD +test-cache-persist
+    BUILD +test-visited-upfront-hash-collection
+    BUILD +test-exec-stats
+    BUILD +test-aws-flag-envs
+    BUILD +test-aws-flag-configs
+    BUILD +test-aws-flag-none
 
 ga-no-qemu-group6:
     BUILD +cache-test

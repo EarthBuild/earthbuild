@@ -60,10 +60,10 @@ jobs:
           ${{inputs.SUDO}} ${{inputs.BINARY}} stop earthly-buildkitd || true && \
           for i in 1 2 3 4; do
               ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} github.com/EarthBuild/hello-world+hello & \
-              pids[${i}]=$!
+              pids[i]=$!
           done && \
-          for pid in ${pids[*]}; do
-              wait $pid
+          for pid in "${pids[@]}"; do
+              wait "$pid"
           done
       - name: Execute interactive debugger test
         run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly ${{inputs.BUILT_EARTHLY_PATH}} --timeout 180
@@ -72,7 +72,25 @@ jobs:
       - name: Execute docker2earth test
         run: "./tests/docker2earth/test.sh"
       - name: Execute remote-cache test
-        run: frontend=${{inputs.BINARY}} ./tests/remote-cache/test.sh
+        # Single retry for transient earthly "Canceled" failures under CI load.
+        # Other steps in this workflow deliberately don't have retries (the
+        # parallel-buildkit-start test spawns 4 concurrent earthlys and
+        # re-running could tangle), but remote-cache/test.sh is self-contained.
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            frontend="${{inputs.BINARY}}" ./tests/remote-cache/test.sh
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Execute registry-certs test
         run: frontend=${{inputs.BINARY}} ./tests/registry-certs/test.sh
       - name: Execute try-catch test

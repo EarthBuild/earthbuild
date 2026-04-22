@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 540" role="img" aria-label="EarthBuild">
+  <title>EarthBuild</title>
+
+  <!-- Human-readable source. img/logo-earthbuild.svg is the optimised version
+       produced by running this through `npx svgo` with the multipass flag.
+       Edit this file for design changes, then re-optimise. -->
+
+  <!-- Single mid-green works on light and dark backgrounds (contrast ≥ 4.3:1 vs #fff, #000, #0d1117).
+       Optically centred (icon shifted up ~8px from geometric centre).
+       Ring stroke 7, box stroke 5. All shapes stroke-only — transparent background. -->
+  <g fill="none" stroke="#2f8a50" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="300" cy="200" r="170" stroke-width="7"/>
+
+    <g stroke-width="5">
+      <!-- Top box: full isometric outline -->
+      <polygon points="300,90 371,132 300,174 229,132"/>
+      <polygon points="229,132 300,174 300,216 229,174"/>
+      <polygon points="371,132 300,174 300,216 371,174"/>
+
+      <!-- Bottom box: left + right faces, plus half-length stubs running along the
+           (hidden) rhombus back edges from its top corners. -->
+      <polygon points="229,210 300,252 300,294 229,252"/>
+      <polygon points="371,210 300,252 300,294 371,252"/>
+      <line x1="229" y1="210" x2="258" y2="193"/>
+      <line x1="371" y1="210" x2="342" y2="193"/>
+    </g>
+  </g>
+
+  <!-- Wordmark: "EarthBuild" in JetBrains Mono Bold, converted to SVG paths
+       (no external font dependency — works in <img>, email, GitHub README, etc.).
+       Width 408px at font-size 68, centred at x=300, baseline y=490. -->
+  <g fill="#2f8a50" transform="translate(96 490) scale(0.068 -0.068)">
+    <path transform="translate(0 0)" d="M88 0V730H526V620H211V430H491V324H211V110H526V0Z"/>
+    <path transform="translate(600 0)" d="M239 -10Q155 -10 106.5 37.5Q58 85 58 162Q58 242 113.0 289.5Q168 337 264 337H398V376Q398 459 301 459Q257 459 231.0 442.0Q205 425 202 394H82Q86 468 144.5 514.0Q203 560 302 560Q407 560 465.0 511.0Q523 462 523 373V0H401V103Q394 50 351.0 20.0Q308 -10 239 -10ZM279 92Q334 92 366.0 119.0Q398 146 398 191V256H270Q229 256 205.0 233.0Q181 210 181 174Q181 137 206.5 114.5Q232 92 279 92Z"/>
+    <path transform="translate(1200 0)" d="M97 0V550H219V443Q229 497 268.5 528.5Q308 560 371 560Q455 560 502.0 506.0Q549 452 549 355V303H424V349Q424 399 398.0 425.5Q372 452 324 452Q274 452 248.0 422.0Q222 392 222 337V0Z"/>
+    <path transform="translate(1800 0)" d="M355 0Q278 0 232.5 44.5Q187 89 187 165V437H35V550H187V705H313V550H532V437H313V168Q313 144 326.5 128.5Q340 113 364 113H527V0Z"/>
+    <path transform="translate(2400 0)" d="M77 0V730H202V550L199 448Q209 500 248.0 530.0Q287 560 347 560Q428 560 476.5 506.0Q525 452 525 361V0H400V346Q400 397 373.5 424.5Q347 452 302 452Q255 452 228.5 424.0Q202 396 202 344V0Z"/>
+    <path transform="translate(3000 0)" d="M77 0V730H301Q406 730 468.5 679.0Q531 628 531 542Q531 482 496.5 439.0Q462 396 407 387V385Q448 380 480.0 355.5Q512 331 530.0 292.5Q548 254 548 208Q548 145 519.0 98.0Q490 51 437.0 25.5Q384 0 312 0ZM199 429H299Q348 429 377.0 455.5Q406 482 406 528Q406 573 377.5 599.5Q349 626 299 626H199ZM199 104H305Q360 104 391.5 133.5Q423 163 423 214Q423 265 391.5 296.5Q360 328 305 328H199Z"/>
+    <path transform="translate(3600 0)" d="M300 -10Q195 -10 135.0 48.5Q75 107 75 208V550H200V209Q200 157 226.0 128.0Q252 99 300 99Q347 99 373.5 128.0Q400 157 400 209V550H525V208Q525 107 464.0 48.5Q403 -10 300 -10Z"/>
+    <path transform="translate(4200 0)" d="M76 0V113H264V437H96V550H389V113H558V0ZM318 642Q280 642 258.0 661.5Q236 681 236 714Q236 747 258.0 766.5Q280 786 318 786Q356 786 378.0 766.5Q400 747 400 714Q400 681 378.0 661.5Q356 642 318 642Z"/>
+    <path transform="translate(4800 0)" d="M389 0Q307 0 257.5 49.0Q208 98 208 178V617H27V730H333V181Q333 150 350.5 131.5Q368 113 398 113H559V0Z"/>
+    <path transform="translate(5400 0)" d="M250 -10Q170 -10 120.5 47.0Q71 104 71 200V349Q71 446 120.0 503.0Q169 560 250 560Q307 560 346.5 531.0Q386 502 402 450L398 576V730H523V0H401V100Q386 48 347.0 19.0Q308 -10 250 -10ZM297 98Q345 98 371.5 127.0Q398 156 398 209V341Q398 394 371.5 423.0Q345 452 297 452Q249 452 222.5 426.0Q196 400 196 346V204Q196 150 222.5 124.0Q249 98 297 98Z"/>
+  </g>
+</svg>

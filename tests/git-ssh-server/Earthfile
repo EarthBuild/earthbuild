@@ -19,11 +19,9 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-rsa-key
 ssh-add -l
 
-# next validate ssh is working (verbose + stderr capture so diagnostics land in CI logs)
-ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1)
-echo \"=== ssh -v output ===\"
-echo \"\$ssh_out\"
-echo \"=== end ssh output ===\"
+# next validate ssh is working. no-interactive-login exits 128 (git-shell convention),
+# so wrap in '|| true' to prevent set -e tripping; the real verification is the grep.
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1 || true)
 echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # test the clone can work (unsure if we should merge this, or merge it commented out -- it's useful if you need to debug something, but makes test runs longer)
@@ -63,11 +61,9 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-ed25519-key
 ssh-add -l
 
-# next validate ssh is working (verbose + stderr capture so diagnostics land in CI logs)
-ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1)
-echo \"=== ssh -v output ===\"
-echo \"\$ssh_out\"
-echo \"=== end ssh output ===\"
+# next validate ssh is working. no-interactive-login exits 128 (git-shell convention),
+# so wrap in '|| true' to prevent set -e tripping; the real verification is the grep.
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1 || true)
 echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # finally perform earthly tests
@@ -94,11 +90,9 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-rsa-key
 ssh-add -l
 
-# next validate ssh is working (verbose + stderr capture so diagnostics land in CI logs)
-ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1)
-echo \"=== ssh -v output ===\"
-echo \"\$ssh_out\"
-echo \"=== end ssh output ===\"
+# next validate ssh is working. no-interactive-login exits 128 (git-shell convention),
+# so wrap in '|| true' to prevent set -e tripping; the real verification is the grep.
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1 || true)
 echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # finally perform earthly tests

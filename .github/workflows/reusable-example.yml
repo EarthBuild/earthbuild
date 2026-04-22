@@ -83,14 +83,22 @@ jobs:
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
         # See reusable-test.yml — single retry mitigates transient earthly
         # "Canceled" failures that are non-deterministic across runs.
+        #
+        # -P (parallel target builds) is dropped for podman: fanning out
+        # 5-13 parallel example builds, each pulling a multi-hundred-MB
+        # base image, OOMs the 16 GiB runner under podman's rootless
+        # overhead. Serializing within the group roughly halves peak
+        # memory at the cost of longer wall time.
         if: github.event_name != 'push'
         run: |-
+          PFLAG="-P"
+          if [ "${{inputs.BINARY}}" = "podman" ]; then PFLAG=""; fi
           set +e
           attempt=1
           max_attempts=2
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci $PFLAG ${{inputs.EXAMPLE_NAME}}
             rc=$?
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
@@ -102,12 +110,14 @@ jobs:
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
         if: github.event_name == 'push'
         run: |-
+          PFLAG="-P"
+          if [ "${{inputs.BINARY}}" = "podman" ]; then PFLAG=""; fi
           set +e
           attempt=1
           max_attempts=2
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push $PFLAG ${{inputs.EXAMPLE_NAME}}
             rc=$?
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi

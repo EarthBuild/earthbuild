@@ -126,6 +126,11 @@ jobs:
         # Same retry rationale as +for-linux above — this was the step that
         # still tripped Canceled in run 24735475094 because the wrapper only
         # covered +for-linux.
+        #
+        # Between attempts we both drop the buildkitd container AND
+        # remove ~/.earthly state: a previous run hit "Error: no active
+        # sessions" on attempt 2 because earthly client-side state was
+        # still referencing the old (dead) session. Clean reset.
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
@@ -140,8 +145,11 @@ jobs:
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
-            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            echo "Attempt $attempt exited $rc; resetting buildkitd+earthly state and retrying once."
             ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly/tmp 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
           done
       - name: Build +ci-release using latest earthly build (fork - no push)

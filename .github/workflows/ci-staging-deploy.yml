@@ -228,7 +228,8 @@ jobs:
             ./release+copy-staging-buildkitd-to-dockerhub \
             --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
             --CONTAINER_REGISTRY_USER="${{ github.actor }}" \
-            --DST_CONTAINER_REGISTRY_USER="earthbuild" \
+            --DST_CONTAINER_REGISTRY_USER="${{ vars.DOCKERHUB_USERNAME }}" \
+            --DST_REPOSITORY_USER="earthbuild" \
             --DST_DOCKERHUB_BUILDKIT_IMG="buildkitd" \
             --DEST_TAG="${{ env.VERSION }}"
 

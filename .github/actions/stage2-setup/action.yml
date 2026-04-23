@@ -76,14 +76,16 @@ runs:
           echo "is_fork=false" >> $GITHUB_OUTPUT
           echo "Running on main repo - will use GHCR"
         fi
-    - name: Download artifacts (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Download build-earthly artifacts
+      # Always download — the artifact contains at minimum the
+      # buildkitd-image tarball (every run) and on fork PRs also the
+      # earthly binary + tag-suffix.txt. Loading the local tarball
+      # avoids a per-job ghcr pull of the ~300 MB staging image.
       uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
       with:
         name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
-    - name: Load buildkitd image from artifact (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Load buildkitd image from artifact
       shell: bash
       run: |
         echo "Loading buildkitd image from artifact..."

@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type Doc struct {
@@ -49,16 +50,16 @@ func (a *Doc) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Doc) action(cliCtx *cli.Context) error {
+func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("docTarget")
 
-	if cliCtx.NArg() > 1 {
+	if cmd.NArg() > 1 {
 		return errors.New("invalid number of arguments provided")
 	}
 
 	var tgtPath string
-	if cliCtx.NArg() > 0 {
-		tgtPath = cliCtx.Args().Get(0)
+	if cmd.NArg() > 0 {
+		tgtPath = cmd.Args().Get(0)
 		switch tgtPath[0] {
 		case '.', '/', '+':
 		default:
@@ -85,7 +86,7 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 
 	var gwClient gwclient.Client
 
-	bc, err := resolver.Resolve(cliCtx.Context, gwClient, platr, target)
+	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
 		return errors.Wrap(err, "failed to resolve target")
 	}
@@ -98,7 +99,7 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 			return errors.Wrap(err, "failed to look up target")
 		}
 
-		return a.documentSingleTarget(cliCtx, "", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
+		return a.documentSingleTarget(ctx, "", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
 	}
 
 	tgts := bc.Earthfile.Targets
@@ -107,7 +108,7 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 
 	const tgtIndent = docsIndent
 	for _, tgt := range tgts {
-		_ = a.documentSingleTarget(cliCtx, tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		_ = a.documentSingleTarget(ctx, tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
 	}
 
 	return nil
@@ -196,7 +197,7 @@ func (io blockIO) help(indent, scopeIndent string) string {
 }
 
 func addArg(
-	cliCtx *cli.Context, io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool,
+	ctx context.Context, io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool,
 ) error {
 	if stmt.Command == nil {
 		return nil
@@ -207,7 +208,7 @@ func addArg(
 		return nil
 	}
 
-	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(cliCtx.Context, cmd, isBase, ft.ExplicitGlobal)
+	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(ctx, cmd, isBase, ft.ExplicitGlobal)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse ARG statement")
 	}
@@ -236,10 +237,10 @@ func addArg(
 	return nil
 }
 
-func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
+func parseDocSections(ctx context.Context, ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
 	var io blockIO
 	for _, base := range baseRcp {
-		err := addArg(cliCtx, &io, ft, base, true, true)
+		err := addArg(ctx, &io, ft, base, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse global ARG in base recipe")
 		}
@@ -253,12 +254,12 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 		cmd := *rb.Command
 		switch cmd.Name {
 		case "ARG":
-			err := addArg(cliCtx, &io, ft, rb, false, false)
+			err := addArg(ctx, &io, ft, rb, false, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse non-global ARG")
 			}
 		case "SAVE ARTIFACT":
-			name, localName, err := earthfile2llb.ArtifactName(cliCtx.Context, cmd)
+			name, localName, err := earthfile2llb.ArtifactName(ctx, cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
 			}
@@ -283,7 +284,7 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 
 			io.artifacts = append(io.artifacts, artDoc)
 		case "SAVE IMAGE":
-			identifiers, err := earthfile2llb.ImageNames(cliCtx.Context, cmd)
+			identifiers, err := earthfile2llb.ImageNames(ctx, cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
 			}
@@ -304,7 +305,7 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 }
 
 func (a *Doc) documentSingleTarget(
-	cliCtx *cli.Context,
+	ctx context.Context,
 	currIndent, scopeIndent string,
 	ft *features.Features,
 	baseRcp spec.Block,
@@ -321,7 +322,7 @@ func (a *Doc) documentSingleTarget(
 		return err
 	}
 
-	blockIO, err := parseDocSections(cliCtx, ft, baseRcp, tgt.Recipe)
+	blockIO, err := parseDocSections(ctx, ft, baseRcp, tgt.Recipe)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse body of recipe '%v'", tgt.Name)
 	}

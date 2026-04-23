@@ -1,24 +1,24 @@
 package base
 
 import (
+	"context"
 	"net/url"
 	"path/filepath"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-
 	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
 )
 
-func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
+func (cli *CLI) InitFrontend(ctx context.Context, cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
-	if !cliCtx.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
+	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
 	}
 
 	if cli.Flags().UseTickTockBuildkitImage {
-		if cliCtx.IsSet("buildkit-image") {
+		if cmd.IsSet("buildkit-image") {
 			return errors.New("the --buildkit-image and --ticktock flags are mutually exclusive")
 		}
 

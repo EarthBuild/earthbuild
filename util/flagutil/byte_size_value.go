@@ -18,3 +18,7 @@ func (b *ByteSizeValue) Set(s string) error {
 }
 
 func (b *ByteSizeValue) String() string { return humanize.Bytes(uint64(*b)) }
+
+func (vf *ByteSizeValue) Get() any {
+	return *vf
+}

@@ -3,12 +3,11 @@ package base
 import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
-	"github.com/EarthBuild/earthbuild/logbus"
-	"github.com/urfave/cli/v2"
-
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/setup"
+	"github.com/urfave/cli/v3"
 )
 
 type CLI struct {
@@ -19,7 +18,7 @@ type CLI struct {
 	defaultBuildkitdImage   string
 	defaultInstallationName string
 	deferredFuncs           []func()
-	app                     *cli.App
+	app                     *cli.Command
 	cfg                     *config.Config
 	logbusSetup             *setup.BusSetup
 	logbus                  *logbus.Bus
@@ -66,7 +65,7 @@ func WithDefaultInstallationName(name string) CLIOpt {
 
 func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	cli := CLI{
-		app:     cli.NewApp(),
+		app:     new(cli.Command),
 		console: console,
 		logbus:  logbus.New(),
 		flags: flag.Global{
@@ -81,7 +80,7 @@ func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	return &cli
 }
 
-func (c *CLI) App() *cli.App {
+func (c *CLI) App() *cli.Command {
 	return c.app
 }
 

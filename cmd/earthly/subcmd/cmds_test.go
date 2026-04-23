@@ -11,7 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func TestRootCmdsHelp(t *testing.T) {
@@ -49,8 +49,8 @@ func checkSubCommands(commands []*cli.Command) []*cli.Command {
 
 	for _, command := range commands {
 		allCommands = append(allCommands, command)
-		if len(command.Subcommands) != 0 {
-			allCommands = append(allCommands, checkSubCommands(command.Subcommands)...)
+		if len(command.Commands) != 0 {
+			allCommands = append(allCommands, checkSubCommands(command.Commands)...)
 		}
 	}
 

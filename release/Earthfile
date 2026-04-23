@@ -179,14 +179,17 @@ promote-to-dockerhub:
 copy-staging-buildkitd-to-dockerhub:
     ARG --required RELEASE_TAG
     ARG --required DST_CONTAINER_REGISTRY_USER
+    ARG DST_DOCKERHUB_BUILDKIT_IMG="buildkitd"
+    ARG DEST_TAG="$RELEASE_TAG"
 
     LET SRC_DOCKER_REGISTRY="ghcr.io"
     LET DST_DOCKER_REGISTRY="docker.io"
 
     # Source: ghcr.io/earthbuild/earthbuild:buildkitd-staging-<commit-sha>
-    # Dest: docker.io/earthbuild/buildkitd-staging:<commit-sha>
+    # Dest defaults to: docker.io/<user>/buildkitd:<commit-sha>
+    # and can be overridden for release-style tags (e.g. semver-hash).
     LET SRC_IMG="${SRC_DOCKER_REGISTRY}/earthbuild/earthbuild:buildkitd-staging-${RELEASE_TAG}"
-    LET DEST_IMG="${DST_DOCKER_REGISTRY}/${DST_CONTAINER_REGISTRY_USER}/buildkitd-staging:${RELEASE_TAG}"
+    LET DEST_IMG="${DST_DOCKER_REGISTRY}/${DST_CONTAINER_REGISTRY_USER}/${DST_DOCKERHUB_BUILDKIT_IMG}:${DEST_TAG}"
 
     BUILD +copy-img \
         --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \

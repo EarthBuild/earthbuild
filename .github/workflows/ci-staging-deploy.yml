@@ -217,9 +217,9 @@ jobs:
           mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
       - name: Copy buildkitd from GHCR to DockerHub
         env:
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
@@ -228,7 +228,9 @@ jobs:
             ./release+copy-staging-buildkitd-to-dockerhub \
             --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
             --CONTAINER_REGISTRY_USER="${{ github.actor }}" \
-            --DST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"
+            --DST_CONTAINER_REGISTRY_USER="earthbuild" \
+            --DST_DOCKERHUB_BUILDKIT_IMG="buildkitd" \
+            --DEST_TAG="${{ env.VERSION }}"
 
   release-binaries:
     name: release github

@@ -180,16 +180,26 @@ jobs:
         # thundering-herd on ghcr that contributed to the Canceled flake.
         # Fork PRs can't push to ghcr anyway, so they already relied on
         # this path; it's just always-on now.
+        #
+        # Earthly pushes from buildkit's internal store straight to ghcr
+        # without tagging the image in the host daemon, so we need an
+        # explicit pull first before `save` can find the tag. We pay the
+        # pull once here so the ~40 downstream test jobs don't have to.
+        # On fork PRs the image is built locally via --image (in the
+        # "Build +ci-release ... (fork - no push)" step above) so the
+        # pull should be a no-op hit against the local cache.
         run: |-
           set -euo pipefail
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+          IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
 
           mkdir -p ./artifacts
           echo "${TAG_SUFFIX}" > ./artifacts/tag-suffix.txt
-          ${{inputs.SUDO}} "${{inputs.BINARY}}" save \
-            "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
-            -o ./artifacts/buildkitd-image.tar
+          if ! ${{inputs.SUDO}} "${{inputs.BINARY}}" image inspect "$IMG" >/dev/null 2>&1; then
+            ${{inputs.SUDO}} "${{inputs.BINARY}}" pull "$IMG"
+          fi
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" save "$IMG" -o ./artifacts/buildkitd-image.tar
       - name: Build earthly binary artifact (fork only)
         # Fork PRs can't read the earthly binary from ghcr, so ship it in
         # the artifact. Non-fork runs extract it via `earthly upgrade`

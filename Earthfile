@@ -168,7 +168,7 @@ fmt-go:
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.1.4
+    ENV govulncheck_version=1.3.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)

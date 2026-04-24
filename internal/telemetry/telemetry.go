@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
@@ -180,6 +181,11 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 		metric.WithResource(res),
 	)
 	otel.SetMeterProvider(mp)
+
+	err = runtime.Start()
+	if err != nil {
+		return errorf("initialize runtime metrics: %w", err)
+	}
 
 	return mp.Shutdown, nil
 }

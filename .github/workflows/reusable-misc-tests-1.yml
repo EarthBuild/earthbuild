@@ -85,7 +85,6 @@ jobs:
         # back-to-back Canceled flakes even with the standard 2-attempt
         # retry applied to other steps. Third attempt gets us over the
         # line without masking a genuine repeated failure.
-        continue-on-error: true
         run: |-
           set +e
           attempt=1

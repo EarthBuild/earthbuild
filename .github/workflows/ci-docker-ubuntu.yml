@@ -840,17 +840,15 @@ jobs:
       SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
-  # Experimental: run the worst no-qemu flaky targets natively on both x86 and
-  # ARM. Needs build-earthly so the PR's staging buildkit image exists for
+  # Run the worst no-qemu flaky targets natively on both x86 and ARM.
+  # Needs build-earthly so the PR's staging buildkit image exists for
   # the x86 matrix entry (the Earthfile +ci-release target only builds
   # linux/amd64, so ARM falls back to the multi-arch fix.5 image).
-  # continue-on-error keeps the matrix non-blocking.
   docker-native-tests:
     name: ${{ matrix.target }} native (${{ matrix.runs_on }})
     needs: build-earthly
     if: ${{ !failure() }}
     runs-on: ${{ matrix.runs_on }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:

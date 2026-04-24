@@ -146,8 +146,11 @@ jobs:
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd+earthly state and retrying once."
-            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
-            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly/tmp 2>/dev/null || true
+            # The source-built earthly names its buildkit container
+            # earthly-dev-buildkitd, not earthly-buildkitd — rm both so the
+            # retry doesn't pick up a dead session from the previous run.
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly/tmp ~/.earthly-dev/buildkit ~/.earthly-dev/tmp 2>/dev/null || true
             sleep 3
             ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
@@ -170,7 +173,8 @@ jobs:
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
-            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
+            # Source-built earthly → earthly-dev-buildkitd container; rm both.
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
             attempt=$((attempt + 1))
           done
       - name: Save buildkitd image tarball (all runs)

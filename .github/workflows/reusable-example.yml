@@ -34,9 +34,6 @@ on:
       MORE_SPACE:
         type: boolean
         default: false
-      CONTINUE_ON_ERROR:
-        type: boolean
-        default: false
 
 
 env:
@@ -51,7 +48,6 @@ jobs:
     name: ${{inputs.EXAMPLE_NAME}}-${{inputs.RUNS_ON}}-${{inputs.BINARY}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
-    continue-on-error: ${{inputs.CONTINUE_ON_ERROR}}
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

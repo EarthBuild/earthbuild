@@ -75,6 +75,7 @@ code:
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/testdata ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
+    COPY --dir tests/cli tests/
     SAVE ARTIFACT /earthly
 
 # update-buildkit updates earthly's buildkit dependency.

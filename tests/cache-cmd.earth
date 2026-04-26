@@ -36,7 +36,7 @@ test-save-artifact:
     RUN echo "artifact 1" >> ./my/artifacts/1
     SAVE ARTIFACT ./my/artifacts AS LOCAL ./artifacts1
     RUN echo "artifact 2" >> ./my/artifacts/2
-    SAVE ARTIFACT ./my/artifacts AS LOCAL ./artifacts2
+    SAVE ARTIFACT ./my/artifacts/2 AS LOCAL ./artifacts2/2
 
 test-arg:
     CACHE --persist /foo

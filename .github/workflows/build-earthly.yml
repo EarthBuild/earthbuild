@@ -97,7 +97,7 @@ jobs:
       - name: Earthly bootstrap
         run: ${{inputs.SUDO}} "$(which earth)" bootstrap
       - name: Login to GitHub Container Registry
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
@@ -141,7 +141,7 @@ jobs:
         # remove ~/.earthly state: a previous run hit "Error: no active
         # sessions" on attempt 2 because earthly client-side state was
         # still referencing the old (dead) session. Clean reset.
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
@@ -240,5 +240,7 @@ jobs:
           path: ./artifacts/
           retention-days: 1
       - name: Buildkit logs (runs on failure)
-        run: ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-buildkitd
+        run: |-
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-buildkitd || true
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-dev-buildkitd || true
         if: ${{ failure() }}

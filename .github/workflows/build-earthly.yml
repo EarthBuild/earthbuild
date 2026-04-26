@@ -67,7 +67,7 @@ jobs:
         if: inputs.BINARY != 'docker'
       - name: Install Podman (with apt-get)
         run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
-        if: inputs.binary == 'podman'
+        if: inputs.BINARY == 'podman'
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
@@ -152,12 +152,12 @@ jobs:
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
-            echo "Attempt $attempt exited $rc; resetting buildkitd+earthly state and retrying once."
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
             # The source-built earthly names its buildkit container
             # earthly-dev-buildkitd, not earthly-buildkitd — rm both so the
             # retry doesn't pick up a dead session from the previous run.
             ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
-            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly/tmp ~/.earthly-dev/buildkit ~/.earthly-dev/tmp 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             sleep 3
             ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
@@ -237,5 +237,5 @@ jobs:
           path: ./artifacts/
           retention-days: 1
       - name: Buildkit logs (runs on failure)
-        run: ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earth-buildkitd
+        run: ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-buildkitd
         if: ${{ failure() }}

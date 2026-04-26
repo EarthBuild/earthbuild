@@ -94,6 +94,7 @@ jobs:
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
             ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             attempt=$((attempt + 1))
           done
       - name: Display buildkit version

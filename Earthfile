@@ -469,6 +469,8 @@ earthly-integration-test-base:
     ENV NO_DOCKER=1
     ENV NETWORK_MODE=host # Note that this breaks access to embedded registry in WITH DOCKER.
     ENV EARTHLY_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
+    ENV BUILDKIT_MAX_PARALLELISM=1
+    ENV CACHE_SIZE_MB=4096
     WORKDIR /test
 
     # The inner buildkit requires Docker hub creds to prevent rate-limiting issues.
@@ -498,6 +500,8 @@ earthly-integration-test-base:
     # Parallelism 1: halves nested concurrent runc children.
     # cache_size_mb 4096: buildkit keeps its cache index in RAM; the default
     # 20 GiB inflates index pressure — tests don't need that much nested cache.
+    # Set both config and env: the buildkit image has ENV defaults and the
+    # entrypoint passes env through to buildkitd.
     RUN yq -i ".global.buildkit_max_parallelism = 1" /etc/.earthly/config.yml
     RUN yq -i ".global.cache_size_mb = 4096" /etc/.earthly/config.yml
 

@@ -47,7 +47,7 @@ func TestVersionFixtures(t *testing.T) {
 		t.Run(fixture, func(t *testing.T) {
 			t.Parallel()
 
-			ef, err := ast.ParseOpts(ast.FromPath(filepath.Join("..", "tests", "version", fixture)))
+			ef, err := ast.ParseOpts(ast.FromPath(filepath.Join("testdata", "version", fixture)))
 			require.NoError(t, err)
 			require.NotNil(t, ef.Version)
 
@@ -96,7 +96,7 @@ func TestInvalidVersionFixtures(t *testing.T) {
 		t.Run(test.fixture, func(t *testing.T) {
 			t.Parallel()
 
-			path := filepath.Join("..", "tests", "version", test.fixture)
+			path := filepath.Join("testdata", "version", test.fixture)
 			if test.parseVersion {
 				version, err := ast.ParseVersion(path, false)
 				require.NoError(t, err)
@@ -114,8 +114,10 @@ func TestInvalidVersionFixtures(t *testing.T) {
 				if ftrsErr == nil {
 					_, ftrsErr = ftrs.ProcessFlags()
 				}
+
 				err = ftrsErr
 			}
+
 			require.Error(t, err)
 			require.ErrorContains(t, err, test.wantErr)
 		})

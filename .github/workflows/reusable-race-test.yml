@@ -85,7 +85,8 @@ jobs:
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
-            docker rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            docker rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            docker volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             attempt=$((attempt + 1))
           done
@@ -105,7 +106,8 @@ jobs:
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
-            docker rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            docker rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            docker volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             attempt=$((attempt + 1))
           done

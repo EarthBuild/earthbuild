@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -60,6 +61,105 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 	}
 }
 
+func TestConfigCommand(t *testing.T) {
+	projectDir := t.TempDir()
+	configPath := filepath.Join(projectDir, "config.yml")
+
+	out, err := runEarth(t, projectDir, "--config", configPath, "config", "global.cache_size_mb", "10")
+	require.Error(t, err)
+	require.Contains(t, out, "failed to read from "+configPath)
+
+	require.NoError(t, os.WriteFile(configPath, nil, 0o600))
+
+	configSteps := []struct {
+		name     string
+		args     []string
+		expected string
+	}{
+		{
+			name:     "integer",
+			args:     []string{"--config", configPath, "config", "global.cache_size_mb", "10"},
+			expected: "expected-1.yml",
+		},
+		{
+			name:     "nested string",
+			args:     []string{"--config", configPath, "config", `git."example.com".password`, "hunter2"},
+			expected: "expected-2.yml",
+		},
+		{
+			name:     "list",
+			args:     []string{"--config", configPath, "config", "global.buildkit_additional_args", "['userns', '--host']"},
+			expected: "expected-3.yml",
+		},
+		{
+			name:     "another integer",
+			args:     []string{"--config", configPath, "config", "global.conversion_parallelism", "5"},
+			expected: "expected-4.yml",
+		},
+		{
+			name:     "delete",
+			args:     []string{"--config", configPath, "config", "global.conversion_parallelism", "--delete"},
+			expected: "expected-5.yml",
+		},
+	}
+
+	for _, step := range configSteps {
+		t.Run(step.name, func(t *testing.T) {
+			out, err := runEarth(t, projectDir, step.args...)
+			require.NoError(t, err, out)
+			requireFileEquals(t, configPath, filepath.Join(repoRoot(), "tests", "config", step.expected))
+		})
+	}
+
+	for _, helpArg := range []string{"--help", "-h"} {
+		t.Run("help "+helpArg, func(t *testing.T) {
+			before := readFile(t, configPath)
+			out, err := runEarth(t, projectDir, "--config", configPath, "config", "global.conversion_parallelism", helpArg)
+			require.NoError(t, err, out)
+			require.Equal(t, before, readFile(t, configPath))
+		})
+	}
+
+	for _, invalidValue := range []string{"oops", ""} {
+		t.Run("invalid conversion_parallelism "+invalidValue, func(t *testing.T) {
+			out, err := runEarth(t, projectDir, "--config", configPath, "config", "global.conversion_parallelism", invalidValue)
+			require.Error(t, err)
+			require.Contains(t, out, "upsert config")
+		})
+	}
+
+	out, err = runEarth(t, projectDir, "--config", configPath, "config", "global.buildkit_image", "")
+	require.NoError(t, err, out)
+}
+
+func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
+	home := t.TempDir()
+	projectDir := t.TempDir()
+
+	out, err := runEarthWithEnv(t, projectDir, []string{"HOME=" + home}, "config", "global.cache_size_mb", "10")
+	require.NoError(t, err, out)
+	requireFileEquals(t, filepath.Join(home, ".earthly", "config.yml"), filepath.Join(repoRoot(), "tests", "config", "expected-1.yml"))
+
+	otherConfig := filepath.Join(home, ".earthly", "other-config.yml")
+	require.NoError(t, os.WriteFile(otherConfig, nil, 0o600))
+	out, err = runEarthWithEnv(t, projectDir, []string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig}, "config", "global.cache_size_mb", "10")
+	require.NoError(t, err, out)
+	requireFileEquals(t, otherConfig, filepath.Join(repoRoot(), "tests", "config", "expected-1.yml"))
+
+	namedHome := filepath.Join(home, ".earthly-test2", "config.yml")
+	out, err = runEarthWithEnv(t, projectDir, []string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"}, "config", "global.cache_size_mb", "10")
+	require.NoError(t, err, out)
+	requireFileEquals(t, namedHome, filepath.Join(repoRoot(), "tests", "config", "expected-1.yml"))
+}
+
+func TestConfigReadFailures(t *testing.T) {
+	projectDir := copyFixtureDir(t, "config")
+
+	out, err := runEarth(t, projectDir, "--config=this-does-not-exist.yml", "+hello")
+	require.Error(t, err)
+	require.Contains(t, out, "failed to read from this-does-not-exist.yml")
+}
+
 func buildEarthBinary() (string, func(), error) {
 	if binary := os.Getenv("EARTHLY_TEST_BINARY"); binary != "" {
 		return binary, func() {}, nil
@@ -91,6 +191,12 @@ func buildEarthBinary() (string, func(), error) {
 func runEarth(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 
+	return runEarthWithEnv(t, dir, nil, args...)
+}
+
+func runEarthWithEnv(t *testing.T, dir string, env []string, args ...string) (string, error) {
+	t.Helper()
+
 	earthCmdMu.Lock()
 	defer earthCmdMu.Unlock()
 
@@ -101,10 +207,10 @@ func runEarth(t *testing.T, dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, testBinary, args...)
 	cmd.Dir = dir
 
-	cmd.Env = append(os.Environ(),
+	cmd.Env = envWithOverrides(os.Environ(), append([]string{
 		"EARTHLY_DISABLE_AUTO_UPDATE=true",
 		"EARTHLY_DISABLE_FRONTEND_DETECTION=true",
-	)
+	}, env...)...)
 
 	out, err := cmd.CombinedOutput()
 
@@ -135,6 +241,52 @@ func replaceVersionLine(t *testing.T, path, versionLine string) {
 
 	//nolint:gosec // This writes a temporary test fixture.
 	require.NoError(t, os.WriteFile(path, bytes.Join(lines, []byte("\n")), 0o600))
+}
+
+func requireFileEquals(t *testing.T, actualPath, expectedPath string) {
+	t.Helper()
+
+	require.Equal(t, readFile(t, expectedPath), readFile(t, actualPath))
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+
+	//nolint:gosec // Test fixture paths are generated by test helpers.
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	return string(data)
+}
+
+func envWithOverrides(base []string, overrides ...string) []string {
+	values := make(map[string]string, len(base)+len(overrides))
+	order := make([]string, 0, len(base)+len(overrides))
+
+	add := func(entry string) {
+		name, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			return
+		}
+		if _, exists := values[name]; !exists {
+			order = append(order, name)
+		}
+		values[name] = value
+	}
+
+	for _, entry := range base {
+		add(entry)
+	}
+	for _, entry := range overrides {
+		add(entry)
+	}
+
+	env := make([]string, 0, len(values))
+	for _, name := range order {
+		env = append(env, name+"="+values[name])
+	}
+
+	return env
 }
 
 func repoRoot() string {

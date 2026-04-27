@@ -1229,11 +1229,9 @@ build-arg-repeat:
     RUN cat ./output/out-default-1 | grep "B=1"
 
 arg-redeclare-error:
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-working-global
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-working-global-override
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-working-default-override
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict --should_fail=true
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict-if --should_fail=true
+    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth
+    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict --should_fail=true --output_contains="if you want to change the value of .FOO."
+    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict-if --should_fail=true --output_contains="if you want to change the value of .FOO."
     DO +RUN_EARTHLY --earthfile=arg-global-after-local.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' was already declared as a non-global ARG in this scope - did you mean to add '--global' to the original declaration?"
 
 arg-scope-requires-shellout-anywhere:

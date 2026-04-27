@@ -61,6 +61,10 @@ runs:
         sudo mkswap /extra-swapfile
         sudo swapon /extra-swapfile
         echo "Swap added: $(swapon --show)"
+    - name: Limit BuildKit parallelism
+      shell: bash
+      run: |
+        echo "BUILDKIT_MAX_PARALLELISM=1" >> "$GITHUB_ENV"
     - name: Unset CI
       shell: bash
       run: |

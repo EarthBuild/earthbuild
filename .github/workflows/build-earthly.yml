@@ -146,8 +146,12 @@ jobs:
             ${{inputs.SUDO}} "$(which earth)" bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
           done
-      - name: Earthly bootstrap using latest earthly build
-        run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
+      - name: Configure and bootstrap using latest earthly build
+        run: |-
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly config global.buildkit_max_parallelism 1
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -184,6 +188,7 @@ jobs:
             ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             sleep 3
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly config global.buildkit_max_parallelism 1 2>/dev/null || true
             ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
           done
@@ -210,6 +215,7 @@ jobs:
             ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             sleep 3
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly config global.buildkit_max_parallelism 1 2>/dev/null || true
             ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
           done

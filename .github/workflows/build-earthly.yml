@@ -89,7 +89,7 @@ jobs:
           sudo systemctl restart containerd
           sudo systemctl restart docker
       - name: Limit buildkit parallelism to avoid OOM on CI runners
-        run: ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 2
+        run: ${{inputs.SUDO}} "$(which earth)" config global.buildkit_max_parallelism 1
       - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]
@@ -101,7 +101,25 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
-        run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} "$(which earth)" bootstrap 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Build latest earthly using released earthly
         # Non-deterministic earthly "Canceled" failures (different targets
         # each run, no signal received) force a single retry. Downstream
@@ -119,7 +137,8 @@ jobs:
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
-            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             sleep 3
             ${{inputs.SUDO}} "$(which earth)" bootstrap 2>/dev/null || true
@@ -159,7 +178,8 @@ jobs:
             # The source-built earthly names its buildkit container
             # earthly-dev-buildkitd, not earthly-buildkitd — rm both so the
             # retry doesn't pick up a dead session from the previous run.
-            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             sleep 3
             ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
@@ -184,7 +204,11 @@ jobs:
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
             # Source-built earthly → earthly-dev-buildkitd container; rm both.
-            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -f earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
             attempt=$((attempt + 1))
           done
       - name: Save buildkitd image tarball (all runs)

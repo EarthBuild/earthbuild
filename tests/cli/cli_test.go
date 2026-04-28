@@ -61,6 +61,27 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 	}
 }
 
+func TestBuildArgRepeatArtifacts(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == "true" {
+		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
+	}
+
+	for _, target := range []string{"+build-all-1", "+build-all-2"} {
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+
+			projectDir := copyFixtureDir(t, "build-arg-repeat")
+
+			out, err := runEarth(t, projectDir, target)
+			require.NoError(t, err, out)
+			require.Equal(t, "A=other\nB=1\n", readFile(t, filepath.Join(projectDir, "output", "out-other-1")))
+			require.Equal(t, "A=default\nB=1\n", readFile(t, filepath.Join(projectDir, "output", "out-default-1")))
+		})
+	}
+}
+
 func TestConfigCommand(t *testing.T) {
 	t.Parallel()
 
@@ -217,7 +238,20 @@ func buildEarthBinary() (string, func(), error) {
 	defer cancel()
 
 	//nolint:gosec // This test builds the repository's own CLI binary.
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", binary, "./cmd/earthly")
+	cmd := exec.CommandContext(
+		ctx,
+		"go",
+		"build",
+		"-tags",
+		"dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix",
+		"-ldflags",
+		"-X main.DefaultBuildkitdImage=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5 "+
+			"-X main.DefaultInstallationName=earthly "+
+			"-X main.Version=dev-test",
+		"-o",
+		binary,
+		"./cmd/earthly",
+	)
 	cmd.Dir = repoRoot()
 
 	out, err := cmd.CombinedOutput()

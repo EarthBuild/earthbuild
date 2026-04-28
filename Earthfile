@@ -261,13 +261,13 @@ unit-test:
                 --secret DOCKERHUB_MIRROR_PASS \
                 --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
                 --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-                ./not-a-unit-test.sh
+                EARTHLY_SKIP_BUILDKIT_CLI_TESTS=true ./not-a-unit-test.sh
         END
     ELSE
         RUN \
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-            ./not-a-unit-test.sh
+            EARTHLY_SKIP_BUILDKIT_CLI_TESTS=true ./not-a-unit-test.sh
     END
 
     # The following are separate go modules and need to be tested separately.

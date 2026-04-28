@@ -82,6 +82,92 @@ func TestBuildArgRepeatArtifacts(t *testing.T) {
 	}
 }
 
+func TestEarthfileValidationFailures(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == "true" {
+		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
+	}
+
+	testCases := []struct {
+		name     string
+		fixture  string
+		args     []string
+		contains []string
+	}{
+		{
+			name:    "arg-scope-requires-shellout-anywhere",
+			fixture: "arg-scope-requires-shellout-anywhere",
+			args:    []string{"+base"},
+			contains: []string{
+				"--arg-scope-and-set requires --shell-out-anywhere",
+			},
+		},
+		{
+			name:    "arg-set",
+			fixture: "arg-set",
+			args:    []string{"+base"},
+			contains: []string{
+				"ARG and cannot be used with SET",
+				"LET foo",
+			},
+		},
+		{
+			name:    "first-command-run",
+			fixture: "first-command",
+			args:    []string{"+start-with-run"},
+			contains: []string{
+				"apply RUN: requires a FROM",
+			},
+		},
+		{
+			name:    "first-command-if",
+			fixture: "first-command",
+			args:    []string{"+start-with-if"},
+			contains: []string{
+				"apply IF: requires a FROM",
+			},
+		},
+		{
+			name:    "first-command-non-from-target",
+			fixture: "first-command",
+			args:    []string{"+start-with-non-from-target"},
+			contains: []string{
+				"apply RUN: requires a FROM",
+			},
+		},
+		{
+			name:    "duplicate-target",
+			fixture: "duplicate-target-names",
+			args:    []string{"+duplicate"},
+			contains: []string{
+				"duplicate",
+			},
+		},
+		{
+			name:    "reserved-target",
+			fixture: "reserved-target-names",
+			args:    []string{"+reserved"},
+			contains: []string{
+				"reserved",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			projectDir := copyFixtureDir(t, tc.fixture)
+			out, err := runEarth(t, projectDir, tc.args...)
+			require.Error(t, err)
+			for _, expected := range tc.contains {
+				require.Contains(t, out, expected)
+			}
+		})
+	}
+}
+
 func TestConfigCommand(t *testing.T) {
 	t.Parallel()
 

@@ -100,18 +100,13 @@ ga-no-qemu-group13:
 
 ga-no-qemu-group5:
     BUILD +push-build
-    BUILD +arg-scope-requires-shellout-anywhere
-    BUILD +arg-set
     BUILD +if
     BUILD +for
-    BUILD +first-command
     BUILD +platform-output
     BUILD +command
     BUILD +function
     BUILD +function-nested-global
     BUILD --pass-args ./functions-do-not-propagate-args+test-all
-    BUILD +duplicate
-    BUILD +reserved
     BUILD +quotes-test
     BUILD +quotes-test-extra
     BUILD +new-args

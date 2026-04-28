@@ -107,7 +107,7 @@ func TestConfigCommand(t *testing.T) {
 		t.Run(step.name, func(t *testing.T) {
 			out, err := runEarth(t, projectDir, step.args...)
 			require.NoError(t, err, out)
-			requireFileEquals(t, configPath, filepath.Join(repoRoot(), "tests", "config", step.expected))
+			requireFileEquals(t, configPath, filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", step.expected))
 		})
 	}
 
@@ -138,18 +138,18 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 
 	out, err := runEarthWithEnv(t, projectDir, []string{"HOME=" + home}, "config", "global.cache_size_mb", "10")
 	require.NoError(t, err, out)
-	requireFileEquals(t, filepath.Join(home, ".earthly", "config.yml"), filepath.Join(repoRoot(), "tests", "config", "expected-1.yml"))
+	requireFileEquals(t, filepath.Join(home, ".earthly", "config.yml"), filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml"))
 
 	otherConfig := filepath.Join(home, ".earthly", "other-config.yml")
 	require.NoError(t, os.WriteFile(otherConfig, nil, 0o600))
 	out, err = runEarthWithEnv(t, projectDir, []string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig}, "config", "global.cache_size_mb", "10")
 	require.NoError(t, err, out)
-	requireFileEquals(t, otherConfig, filepath.Join(repoRoot(), "tests", "config", "expected-1.yml"))
+	requireFileEquals(t, otherConfig, filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml"))
 
 	namedHome := filepath.Join(home, ".earthly-test2", "config.yml")
 	out, err = runEarthWithEnv(t, projectDir, []string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"}, "config", "global.cache_size_mb", "10")
 	require.NoError(t, err, out)
-	requireFileEquals(t, namedHome, filepath.Join(repoRoot(), "tests", "config", "expected-1.yml"))
+	requireFileEquals(t, namedHome, filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml"))
 }
 
 func TestConfigReadFailures(t *testing.T) {
@@ -210,6 +210,7 @@ func runEarthWithEnv(t *testing.T, dir string, env []string, args ...string) (st
 	cmd.Env = envWithOverrides(os.Environ(), append([]string{
 		"EARTHLY_DISABLE_AUTO_UPDATE=true",
 		"EARTHLY_DISABLE_FRONTEND_DETECTION=true",
+		"OTEL_SDK_DISABLED=true",
 	}, env...)...)
 
 	out, err := cmd.CombinedOutput()

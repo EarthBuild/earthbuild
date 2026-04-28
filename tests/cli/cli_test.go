@@ -161,6 +161,7 @@ func TestEarthfileValidationFailures(t *testing.T) {
 			projectDir := copyFixtureDir(t, tc.fixture)
 			out, err := runEarth(t, projectDir, tc.args...)
 			require.Error(t, err)
+
 			for _, expected := range tc.contains {
 				require.Contains(t, out, expected)
 			}

@@ -21,6 +21,8 @@ var (
 	testBinary string
 )
 
+const skipBuildkitCLITestsValue = "true"
+
 func TestMain(m *testing.M) {
 	binary, cleanup, err := buildEarthBinary()
 	if err != nil {
@@ -64,7 +66,7 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 func TestBuildArgRepeatArtifacts(t *testing.T) {
 	t.Parallel()
 
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == "true" {
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
 		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
 	}
 
@@ -85,7 +87,7 @@ func TestBuildArgRepeatArtifacts(t *testing.T) {
 func TestEarthfileValidationFailures(t *testing.T) {
 	t.Parallel()
 
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == "true" {
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
 		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
 	}
 
@@ -185,11 +187,12 @@ func TestInitCommand(t *testing.T) {
 	t.Run("golang project", func(t *testing.T) {
 		t.Parallel()
 
-		if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == "true" {
+		if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
 			t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
 		}
 
-		projectDir := copyFixtureDir(t, "go-project")
+		projectDir := t.TempDir()
+		writeGoProject(t, projectDir)
 
 		out, err := runEarth(t, projectDir, "init")
 		require.NoError(t, err, out)
@@ -203,6 +206,40 @@ func TestInitCommand(t *testing.T) {
 		out, err = runEarth(t, projectDir, "+test")
 		require.NoError(t, err, out)
 	})
+}
+
+func writeGoProject(t *testing.T, projectDir string) {
+	t.Helper()
+
+	files := map[string]string{
+		"go.mod": `module example-go-project
+
+go 1.25
+`,
+		"main.go": `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello, World")
+}
+`,
+		"main_test.go": `package main_test
+
+import (
+	"os"
+	"testing"
+)
+
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
+}
+`,
+	}
+
+	for name, content := range files {
+		require.NoError(t, os.WriteFile(filepath.Join(projectDir, name), []byte(content), 0o600))
+	}
 }
 
 func TestConfigCommand(t *testing.T) {

@@ -62,19 +62,22 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 }
 
 func TestConfigCommand(t *testing.T) {
+	t.Parallel()
+
 	projectDir := t.TempDir()
 	configPath := filepath.Join(projectDir, "config.yml")
+	expectedDir := filepath.Join(repoRoot(), "tests", "cli", "testdata", "config")
 
-	out, err := runEarth(t, projectDir, "--config", configPath, "config", "global.cache_size_mb", "10")
-	require.Error(t, err)
-	require.Contains(t, out, "failed to read from "+configPath)
+	cmdOut, cmdErr := runEarth(t, projectDir, "--config", configPath, "config", "global.cache_size_mb", "10")
+	require.Error(t, cmdErr)
+	require.Contains(t, cmdOut, "failed to read from "+configPath)
 
 	require.NoError(t, os.WriteFile(configPath, nil, 0o600))
 
 	configSteps := []struct {
 		name     string
-		args     []string
 		expected string
+		args     []string
 	}{
 		{
 			name:     "integer",
@@ -105,54 +108,92 @@ func TestConfigCommand(t *testing.T) {
 
 	for _, step := range configSteps {
 		t.Run(step.name, func(t *testing.T) {
-			out, err := runEarth(t, projectDir, step.args...)
-			require.NoError(t, err, out)
-			requireFileEquals(t, configPath, filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", step.expected))
+			stepOut, err := runEarth(t, projectDir, step.args...)
+			require.NoError(t, err, stepOut)
+			requireFileEquals(t, configPath, filepath.Join(expectedDir, step.expected))
 		})
 	}
 
 	for _, helpArg := range []string{"--help", "-h"} {
 		t.Run("help "+helpArg, func(t *testing.T) {
 			before := readFile(t, configPath)
-			out, err := runEarth(t, projectDir, "--config", configPath, "config", "global.conversion_parallelism", helpArg)
-			require.NoError(t, err, out)
+			helpOut, err := runEarth(
+				t,
+				projectDir,
+				"--config",
+				configPath,
+				"config",
+				"global.conversion_parallelism",
+				helpArg,
+			)
+			require.NoError(t, err, helpOut)
 			require.Equal(t, before, readFile(t, configPath))
 		})
 	}
 
 	for _, invalidValue := range []string{"oops", ""} {
 		t.Run("invalid conversion_parallelism "+invalidValue, func(t *testing.T) {
-			out, err := runEarth(t, projectDir, "--config", configPath, "config", "global.conversion_parallelism", invalidValue)
+			t.Parallel()
+
+			invalidOut, err := runEarth(
+				t,
+				projectDir,
+				"--config",
+				configPath,
+				"config",
+				"global.conversion_parallelism",
+				invalidValue,
+			)
 			require.Error(t, err)
-			require.Contains(t, out, "upsert config")
+			require.Contains(t, invalidOut, "upsert config")
 		})
 	}
 
-	out, err = runEarth(t, projectDir, "--config", configPath, "config", "global.buildkit_image", "")
-	require.NoError(t, err, out)
+	finalOut, finalErr := runEarth(t, projectDir, "--config", configPath, "config", "global.buildkit_image", "")
+	require.NoError(t, finalErr, finalOut)
 }
 
 func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
+	t.Parallel()
+
 	home := t.TempDir()
 	projectDir := t.TempDir()
+	expectedConfig := filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml")
 
 	out, err := runEarthWithEnv(t, projectDir, []string{"HOME=" + home}, "config", "global.cache_size_mb", "10")
 	require.NoError(t, err, out)
-	requireFileEquals(t, filepath.Join(home, ".earthly", "config.yml"), filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml"))
+	requireFileEquals(t, filepath.Join(home, ".earthly", "config.yml"), expectedConfig)
 
 	otherConfig := filepath.Join(home, ".earthly", "other-config.yml")
 	require.NoError(t, os.WriteFile(otherConfig, nil, 0o600))
-	out, err = runEarthWithEnv(t, projectDir, []string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig}, "config", "global.cache_size_mb", "10")
+
+	out, err = runEarthWithEnv(
+		t,
+		projectDir,
+		[]string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig},
+		"config",
+		"global.cache_size_mb",
+		"10",
+	)
 	require.NoError(t, err, out)
-	requireFileEquals(t, otherConfig, filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml"))
+	requireFileEquals(t, otherConfig, expectedConfig)
 
 	namedHome := filepath.Join(home, ".earthly-test2", "config.yml")
-	out, err = runEarthWithEnv(t, projectDir, []string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"}, "config", "global.cache_size_mb", "10")
+	out, err = runEarthWithEnv(
+		t,
+		projectDir,
+		[]string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"},
+		"config",
+		"global.cache_size_mb",
+		"10",
+	)
 	require.NoError(t, err, out)
-	requireFileEquals(t, namedHome, filepath.Join(repoRoot(), "tests", "cli", "testdata", "config", "expected-1.yml"))
+	requireFileEquals(t, namedHome, expectedConfig)
 }
 
 func TestConfigReadFailures(t *testing.T) {
+	t.Parallel()
+
 	projectDir := copyFixtureDir(t, "config")
 
 	out, err := runEarth(t, projectDir, "--config=this-does-not-exist.yml", "+hello")
@@ -269,15 +310,18 @@ func envWithOverrides(base []string, overrides ...string) []string {
 		if !ok {
 			return
 		}
+
 		if _, exists := values[name]; !exists {
 			order = append(order, name)
 		}
+
 		values[name] = value
 	}
 
 	for _, entry := range base {
 		add(entry)
 	}
+
 	for _, entry := range overrides {
 		add(entry)
 	}

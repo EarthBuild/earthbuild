@@ -169,6 +169,42 @@ func TestEarthfileValidationFailures(t *testing.T) {
 	}
 }
 
+func TestInitCommand(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unsupported project", func(t *testing.T) {
+		t.Parallel()
+
+		projectDir := copyFixtureDir(t, "yaml-project")
+
+		out, err := runEarth(t, projectDir, "init")
+		require.Error(t, err)
+		require.Contains(t, out, "no supported projects found")
+	})
+
+	t.Run("golang project", func(t *testing.T) {
+		t.Parallel()
+
+		if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == "true" {
+			t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
+		}
+
+		projectDir := copyFixtureDir(t, "go-project")
+
+		out, err := runEarth(t, projectDir, "init")
+		require.NoError(t, err, out)
+
+		earthfile := readFile(t, filepath.Join(projectDir, "Earthfile"))
+		require.False(t, strings.HasSuffix(earthfile, "\n\n"), "Earthfile from init has trailing newlines")
+
+		out, err = runEarth(t, projectDir, "+build")
+		require.NoError(t, err, out)
+
+		out, err = runEarth(t, projectDir, "+test")
+		require.NoError(t, err, out)
+	})
+}
+
 func TestConfigCommand(t *testing.T) {
 	t.Parallel()
 

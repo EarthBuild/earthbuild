@@ -129,8 +129,6 @@ ga-no-qemu-group5:
     BUILD +doc-recipe-block
     BUILD +no-network
     BUILD +test-works-without-earthly-server
-    BUILD +test-init-unsupported
-    BUILD +test-init-golang
 
     # Forcing the implicit global wait/end block, causes some tests, which rely
     # on the ability to have two different targets issue the same SAVE IMAGE tag name

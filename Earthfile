@@ -432,9 +432,14 @@ earthly-docker:
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:bef273ef45432500395a7fa8417353dbef5c179a
+    ARG EARTHLY_BUILDKIT_IMAGE_BASE
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    IF [ "$EARTHLY_BUILDKIT_IMAGE_BASE" != "" ]
+        FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE_BASE" --TAG="$TAG"
+    ELSE
+        FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    END
     RUN apk add --update --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
     # When Earthly is run from a container, the registry proxy networking setup
@@ -464,7 +469,12 @@ earthly-docker:
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
 earthly-integration-test-base:
-    FROM --pass-args +earthly-docker
+    ARG EARTHLY_BUILDKIT_IMAGE
+    IF [ "$EARTHLY_BUILDKIT_IMAGE" != "" ]
+        FROM --pass-args +earthly-docker --BUILDKIT_PROJECT="" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE"
+    ELSE
+        FROM --pass-args +earthly-docker --BUILDKIT_PROJECT=""
+    END
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
     ENV NO_DOCKER=1

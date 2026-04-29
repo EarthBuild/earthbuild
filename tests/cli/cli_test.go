@@ -84,6 +84,31 @@ func TestBuildArgRepeatArtifacts(t *testing.T) {
 	}
 }
 
+func TestCacheCommand(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
+		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
+	}
+
+	projectDir := copyFixtureDir(t, "cache-cmd")
+
+	targets := []string{
+		"+test",
+		"+test-save-artifact",
+		"+test-no-sharing",
+		"+test-arg",
+		"+test-id-expand-args",
+	}
+	for _, target := range targets {
+		out, err := runEarth(t, projectDir, target)
+		require.NoError(t, err, out)
+	}
+
+	require.Equal(t, "artifact 1\n", readFile(t, filepath.Join(projectDir, "artifacts1", "1")))
+	require.Equal(t, "artifact 2\n", readFile(t, filepath.Join(projectDir, "artifacts2", "2")))
+}
+
 func TestEarthfileValidationFailures(t *testing.T) {
 	t.Parallel()
 

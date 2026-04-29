@@ -195,7 +195,6 @@ ga-no-qemu-group8:
     BUILD --pass-args ./raw-output+test-all
 
 ga-no-qemu-group9:
-    BUILD +cache-cmd
     BUILD --pass-args ./config+test
     BUILD +arg-redeclare-error
     # Autoskip not currently available so don't test it
@@ -1438,15 +1437,6 @@ doc-recipe-block:
     DO +RUN_EARTHLY --earthfile=doc-recipe-block.earth --extra_args="doc --long" --target="" --post_command=">output.txt"
     RUN grep 'REQUIRED ARGS:' output.txt
     RUN grep 'IMAGES:' output.txt
-
-cache-cmd:
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-save-artifact
-    RUN test "$(cat ./artifacts1/1)" = "artifact 1"
-    RUN test "$(cat ./artifacts2/2)" = "artifact 2"
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-no-sharing
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-arg
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-id-expand-args
 
 ls:
     COPY ls.earth Earthfile

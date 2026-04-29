@@ -109,6 +109,34 @@ func TestCacheCommand(t *testing.T) {
 	require.Equal(t, "artifact 2\n", readFile(t, filepath.Join(projectDir, "artifacts2", "2")))
 }
 
+func TestInfiniteRecursionFailures(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
+		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
+	}
+
+	for _, target := range []string{
+		"+test1",
+		"+test2",
+		"+test3",
+		"+test4",
+		"+test5",
+		"+test6",
+		"+test7",
+		"+test8",
+	} {
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+
+			projectDir := copyFixtureDir(t, "infinite-recursion")
+			out, err := runEarth(t, projectDir, target)
+			require.Error(t, err)
+			require.Contains(t, out, "infinite cycle detected")
+		})
+	}
+}
+
 func TestEarthfileValidationFailures(t *testing.T) {
 	t.Parallel()
 

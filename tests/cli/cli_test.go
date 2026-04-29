@@ -137,6 +137,70 @@ func TestInfiniteRecursionFailures(t *testing.T) {
 	}
 }
 
+func TestLetSetAndScope(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
+		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
+	}
+
+	successCases := []struct {
+		name    string
+		fixture string
+		args    []string
+	}{
+		{name: "let-scope", fixture: "let-scope", args: []string{"+all"}},
+		{name: "let-set", fixture: "let-set", args: []string{"+all"}},
+	}
+
+	for _, tc := range successCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			projectDir := copyFixtureDir(t, tc.fixture)
+			out, err := runEarth(t, projectDir, tc.args...)
+			require.NoError(t, err, out)
+		})
+	}
+
+	requireFailure := func(name, fixture, contains string, args ...string) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			projectDir := copyFixtureDir(t, fixture)
+			out, err := runEarth(t, projectDir, args...)
+			require.Error(t, err)
+			require.Contains(t, out, contains)
+		})
+	}
+
+	requireFailure(
+		"let-scope arg after let",
+		"let-scope",
+		"was already declared with LET and cannot be redeclared as an ARG",
+		"+arg-after-let-errors",
+	)
+	requireFailure(
+		"let-set global set",
+		"let-set",
+		"is an ARG and cannot be used with SET",
+		"+test-set-global-fails",
+	)
+	requireFailure(
+		"let-set nonexistent",
+		"let-set",
+		"needs to be declared with 'LET nonexistent = someValue' before it can be used with SET",
+		"+test-set-nonexistent-fails",
+	)
+	requireFailure(
+		"let-set nonexistent override",
+		"let-set",
+		"needs to be declared with 'LET nonexistent = someValue' before it can be used with SET",
+		"+test-set-nonexistent-fails",
+		"--nonexistent=foo",
+	)
+}
+
 func TestEarthfileValidationFailures(t *testing.T) {
 	t.Parallel()
 

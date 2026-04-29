@@ -171,8 +171,6 @@ ga-no-qemu-group7:
     BUILD +cache-mount-arg
     BUILD +save-artifact-selective
     BUILD +if-exists
-    BUILD +let-set
-    BUILD +let-scope
     BUILD +save-artifact-selective-referencing-remote
     BUILD --pass-args ./secret-provider-config+test-all
     BUILD --pass-args ./shell-out+test-all
@@ -1229,26 +1227,6 @@ arg-scope-requires-shellout-anywhere:
 
 arg-set:
     DO +RUN_EARTHLY --earthfile=arg-set.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first"
-
-let-scope:
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+base
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+let-overrides-arg
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+let-overrides-global-arg
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+arg-after-let-errors --should_fail=true --output_contains="Hint: 'bar' was already declared with LET and cannot be redeclared as an ARG"
-
-let-set:
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target=+base
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test --expected=bazinga"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test --bar=eggs --expected=eggsinga"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-global --foo=banana --topExpected='banana car' --expected='banana phone'"
-
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target=+test-set-global-fails --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target=+test-set-nonexistent-fails --should_fail=true --output_contains="Hint: 'nonexistent' needs to be declared with 'LET nonexistent = someValue' before it can be used with SET"
-    # Also ensure that we error when the variable exists in overrides.
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-set-nonexistent-fails --nonexistent=foo" --should_fail=true --output_contains="Hint: 'nonexistent' needs to be declared with 'LET nonexistent = someValue' before it can be used with SET"
-
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-if --expected='ifSwitch was true'"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-if --ifSwitch=false --expected='ifSwitch was false'"
 
 if:
     RUN touch exists-locally

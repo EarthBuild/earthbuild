@@ -173,6 +173,8 @@ ga-no-qemu-group7:
     BUILD +if-exists
     BUILD +save-artifact-selective-referencing-remote
     BUILD --pass-args ./secret-provider-config+test-all
+
+ga-no-qemu-group15:
     BUILD --pass-args ./shell-out+test-all
     BUILD --pass-args ./with-docker-compose+all
     BUILD +dotenv-test
@@ -261,6 +263,9 @@ ga-no-qemu:
     BUILD +ga-no-qemu-group10
     BUILD +ga-no-qemu-group11
     BUILD +ga-no-qemu-group12
+    BUILD +ga-no-qemu-group13
+    BUILD +ga-no-qemu-group14
+    BUILD +ga-no-qemu-group15
     BUILD +ga-no-qemu-slow
 
 # tests that only run on linux amd64

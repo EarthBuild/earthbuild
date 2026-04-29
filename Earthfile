@@ -677,13 +677,22 @@ test-no-qemu:
     BUILD --pass-args +test-no-qemu-group10
     BUILD --pass-args +test-no-qemu-group11
     BUILD --pass-args +test-no-qemu-group12
+    BUILD --pass-args +test-no-qemu-group13
+    BUILD --pass-args +test-no-qemu-group14
+    BUILD --pass-args +test-no-qemu-group15
     BUILD --pass-args +test-no-qemu-slow
 
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
-    BUILD +test-misc-group1
-    BUILD +test-misc-group2
-    BUILD +test-ast
+    WAIT
+        BUILD +test-misc-group1
+    END
+    WAIT
+        BUILD +test-misc-group2
+    END
+    WAIT
+        BUILD +test-ast
+    END
 
 test-misc-group1:
     BUILD +unit-test
@@ -692,9 +701,15 @@ test-misc-group2:
     BUILD +earthly-script-no-stdout
 
 test-ast:
-    BUILD +test-ast-group1
-    BUILD +test-ast-group2
-    BUILD +test-ast-group3
+    WAIT
+        BUILD +test-ast-group1
+    END
+    WAIT
+        BUILD +test-ast-group2
+    END
+    WAIT
+        BUILD +test-ast-group3
+    END
 
 test-ast-group1:
     BUILD --pass-args ./ast/tests+group1
@@ -738,6 +753,12 @@ test-no-qemu-group6:
 # test-no-qemu-group7 runs the tests from ./tests+ga-no-qemu-group7
 test-no-qemu-group7:
     BUILD --pass-args ./tests+ga-no-qemu-group7 \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+# test-no-qemu-group15 carries the nested shell/dotenv/privileged tail of
+# the original group7 so the remaining group7 job has less buildkit pressure.
+test-no-qemu-group15:
+    BUILD --pass-args ./tests+ga-no-qemu-group15 \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
 # test-no-qemu-group8 runs the tests from ./tests+ga-no-qemu-group8

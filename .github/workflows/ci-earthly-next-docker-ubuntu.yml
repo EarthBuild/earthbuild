@@ -158,6 +158,20 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
+  earthly-next-docker-tests-no-qemu-group15:
+    needs: build-earthly-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group15"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
   earthly-next-docker-tests-no-qemu-group9:
     needs: build-earthly-with-next
     uses: ./.github/workflows/reusable-test.yml

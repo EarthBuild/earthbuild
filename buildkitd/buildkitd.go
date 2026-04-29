@@ -506,6 +506,9 @@ func Start(
 		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
 	}
 
+	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	addBuildkitTelemetryEnv(envOpts, containerName, installationName, withDocker)
+
 	labelOpts := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
 	}
@@ -528,8 +531,6 @@ func Start(
 	if settings.IPTables != "" {
 		envOpts["IP_TABLES"] = settings.IPTables
 	}
-
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -681,6 +682,67 @@ func Start(
 	}
 
 	return nil
+}
+
+func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installationName string, withDocker bool) {
+	for _, key := range []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_HEADERS",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
+		"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+		"OTEL_EXPORTER_OTLP_PROTOCOL",
+		"OTEL_METRICS_EXPORTER",
+	} {
+		if value := os.Getenv(key); value != "" {
+			envOpts[key] = value
+		}
+	}
+
+	if _, ok := envOpts["OTEL_METRICS_EXPORTER"]; !ok {
+		if envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] != "" || envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] != "" {
+			envOpts["OTEL_METRICS_EXPORTER"] = "otlp"
+		}
+	}
+
+	if envOpts["OTEL_METRICS_EXPORTER"] == "" {
+		return
+	}
+
+	envOpts["OTEL_SERVICE_NAME"] = "EarthBuild-buildkitd"
+
+	nesting := "outer"
+	if withDocker {
+		nesting = "inner"
+	}
+
+	resourceAttrs := map[string]string{
+		"earthbuild.process.role":            "buildkitd",
+		"earthbuild.process.nesting":         nesting,
+		"earthbuild.buildkit.container.name": containerName,
+		"earthbuild.installation.name":       installationName,
+	}
+	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
+		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),
+		resourceAttrs,
+	)
+}
+
+func appendOTELResourceAttributes(base string, attrs map[string]string) string {
+	parts := make([]string, 0, len(attrs)+1)
+	if strings.TrimSpace(base) != "" {
+		parts = append(parts, strings.TrimRight(strings.TrimSpace(base), ","))
+	}
+
+	for key, value := range attrs {
+		if value == "" {
+			continue
+		}
+
+		parts = append(parts, key+"="+value)
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // Stop stops the buildkitd container.

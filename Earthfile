@@ -39,6 +39,7 @@ ARG CR_REPO="earthbuild"
 ARG REGISTRY_BASE="ghcr.io"
 
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
+ARG --global BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:bef273ef45432500395a7fa8417353dbef5c179a
 
 # deps downloads and caches all dependencies for earthly. When called directly,
 # go.mod and go.sum will be updated locally.

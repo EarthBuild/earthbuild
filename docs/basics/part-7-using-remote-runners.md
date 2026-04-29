@@ -1,8 +1,8 @@
-Earthly has the ability to run builds both locally and remotely. In this section, we will explore how to use remote runners to perform builds on remote machines.
+EarthBuild has the ability to run builds both locally and remotely. In this section, we will explore how to use remote runners to perform builds on remote machines.
 
 ## Remote Runners
 
-Earthly is able to use remote runners for performing builds on remote machines. When Earthly uses a remote runner, the inputs of the build are picked up from the local environment, then the execution takes place remotely, including any pushes (`RUN --push` commands, and `SAVE IMAGE --push` commands), but any local outputs are sent back to the local environment. All this takes place while your local Earthly process still provides the logs of the build in real time locally.
+EarthBuild is able to use remote runners for performing builds on remote machines. When EarthBuild uses a remote runner, the inputs of the build are picked up from the local environment, then the execution takes place remotely, including any pushes (`RUN --push` commands, and `SAVE IMAGE --push` commands), but any local outputs are sent back to the local environment. All this takes place while your local EarthBuild process still provides the logs of the build in real time locally.
 
 Remote runners are especially useful in a few specific circumstances:
 
@@ -22,7 +22,7 @@ To run your own remote BuildKit, you can follow the instructions on the [remote 
 
 ### Secrets and remote builds
 
-When running remote builds, some operations might require access to secrets. For example, if you are pushing images to a private registry, or if you are logged in to DockerHub to prevent rate limiting. Earthly will automatically pass the credentials from your local machine to the remote runner.
+When running remote builds, some operations might require access to secrets. For example, if you are pushing images to a private registry, or if you are logged in to DockerHub to prevent rate limiting. EarthBuild will automatically pass the credentials from your local machine to the remote runner.
 
 Any secret that is available locally, including Docker/Podman credentials, will be passed to the remote runner whenever needed by the build.
 

@@ -144,8 +144,8 @@ github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260413083301-6c17b8942a3d h1:Tm
 github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260413083301-6c17b8942a3d/go.mod h1:u55XoJY7x6xGJ5jHw4XsUv0p/JbPRqYNIZxl2J2/Kzs=
 github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429100004-bef273ef4543 h1:lZj6PZ6Qfpzi3ffRIR/j+KSF44HmNdHu0f0O6SLkqsQ=
 github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429100004-bef273ef4543/go.mod h1:u55XoJY7x6xGJ5jHw4XsUv0p/JbPRqYNIZxl2J2/Kzs=
-github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429172349-e5fde549790d h1:6qlMtlLi0LOFcSgPbjY/qHDciAElUsd0HOeeqgpwxFE=
-github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429172349-e5fde549790d/go.mod h1:u55XoJY7x6xGJ5jHw4XsUv0p/JbPRqYNIZxl2J2/Kzs=
+github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429193449-66e3662795d1 h1:3AJbh5St+QoMPk98Lw2db9UEndBQ8HmBu3a5vrZZAcA=
+github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429193449-66e3662795d1/go.mod h1:u55XoJY7x6xGJ5jHw4XsUv0p/JbPRqYNIZxl2J2/Kzs=
 github.com/earthbuild/fsutil v0.0.0-20260410102147-dafa0bd30022 h1:XQX2rISZxOC1s6fvMmZv/4ps4Zb5EaAZx7pmVVSnIbI=
 github.com/earthbuild/fsutil v0.0.0-20260410102147-dafa0bd30022/go.mod h1:BKdcez7BiVtBvIcef90ZPc6ebqIWr4JWD7+EvLm6J98=
 github.com/elastic/go-sysinfo v1.15.4 h1:A3zQcunCxik14MgXu39cXFXcIw2sFXZ0zL886eyiv1Q=

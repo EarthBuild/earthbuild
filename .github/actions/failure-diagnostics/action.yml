@@ -1,0 +1,68 @@
+name: Failure diagnostics
+description: Dump useful host and buildkit state after a CI job failure.
+inputs:
+  BINARY:
+    description: "Container engine to inspect, usually docker or podman."
+    required: true
+  SUDO:
+    description: "Optional sudo prefix."
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set +e
+
+        engine="${{ inputs.BINARY }}"
+        sudo_prefix="${{ inputs.SUDO }}"
+
+        run_cmd() {
+          echo "+ $*"
+          "$@"
+        }
+
+        run_shell() {
+          echo "+ $*"
+          bash -lc "$*"
+        }
+
+        echo "::group::host memory, disk and pressure"
+        date -u
+        uname -a
+        run_cmd free -h
+        run_cmd df -h
+        run_cmd uptime
+        run_shell 'test -r /proc/pressure/memory && cat /proc/pressure/memory || true'
+        run_shell 'test -r /proc/pressure/io && cat /proc/pressure/io || true'
+        echo "::endgroup::"
+
+        echo "::group::top processes"
+        run_shell 'ps -eo pid,ppid,stat,pcpu,pmem,rss,vsz,oom_score,oom_score_adj,comm,args --sort=-rss | head -80'
+        echo "::endgroup::"
+
+        echo "::group::kernel oom and cgroup messages"
+        $sudo_prefix dmesg -T 2>/dev/null | grep -Ei 'out of memory|oom|killed process|memory cgroup|cgroup' | tail -200 || true
+        echo "::endgroup::"
+
+        echo "::group::container engine state"
+        run_shell "$sudo_prefix $engine version || true"
+        run_shell "$sudo_prefix $engine info || true"
+        run_shell "$sudo_prefix $engine ps -a || true"
+        run_shell "$sudo_prefix $engine stats --no-stream --all || true"
+        echo "::endgroup::"
+
+        echo "::group::buildkit containers"
+        for name in earthly-buildkitd earthly-dev-buildkitd earthly-integration-buildkitd earthly-test-buildkitd; do
+          echo "--- $name inspect ---"
+          $sudo_prefix "$engine" inspect "$name" 2>/dev/null || true
+          echo "--- $name logs tail ---"
+          $sudo_prefix "$engine" logs --tail 300 "$name" 2>&1 || true
+        done
+        echo "::endgroup::"
+
+        echo "::group::earthly directories"
+        run_shell 'du -sh ~/.earthly ~/.earthly-dev 2>/dev/null || true'
+        run_shell 'find ~/.earthly ~/.earthly-dev -maxdepth 2 -type d 2>/dev/null | sort | head -100 || true'
+        echo "::endgroup::"

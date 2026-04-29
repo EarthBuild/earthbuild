@@ -730,8 +730,18 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 
 func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 	parts := make([]string, 0, len(attrs)+1)
-	if strings.TrimSpace(base) != "" {
-		parts = append(parts, strings.TrimRight(strings.TrimSpace(base), ","))
+
+	for attr := range strings.SplitSeq(base, ",") {
+		attr = strings.TrimSpace(attr)
+		if attr == "" {
+			continue
+		}
+
+		if _, value, ok := strings.Cut(attr, "="); !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+
+		parts = append(parts, attr)
 	}
 
 	for key, value := range attrs {

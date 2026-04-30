@@ -97,6 +97,7 @@ func (s *solver) buildMainMulti(
 				return solvermon.NewFirstFailureError(buildErr, failure)
 			}
 		}
+
 		return buildErr
 	}
 
@@ -111,9 +112,11 @@ func isCanceledErr(err error) bool {
 	if errors.Is(err, context.Canceled) {
 		return true
 	}
+
 	if grpcErr, ok := grpcerrors.AsGRPCStatus(err); ok && grpcErr.Code() == codes.Canceled {
 		return true
 	}
+
 	return false
 }
 

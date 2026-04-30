@@ -418,6 +418,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			failureErr.Failure.Error,
 		)
 		app.BaseCLI.Console().Warnf("%s\n", failureErr.Failure.String())
+
 		return true
 	}():
 		return 1

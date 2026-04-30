@@ -193,6 +193,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				if vertex.Completed != nil {
 					end = *vertex.Completed
 				}
+
 				sm.firstFailure = &FirstFailure{
 					End:         end,
 					TargetID:    vm.meta.TargetID,

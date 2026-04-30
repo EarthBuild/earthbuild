@@ -2,7 +2,6 @@ package solvermon
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -92,5 +91,5 @@ func TestNewFirstFailureErrorReturnsCauseWithoutFailureMessage(t *testing.T) {
 	err := NewFirstFailureError(cause, FirstFailure{})
 
 	require.ErrorIs(t, err, context.Canceled)
-	require.False(t, strings.Contains(err.Error(), "build failed in target"))
+	require.NotContains(t, err.Error(), "build failed in target")
 }

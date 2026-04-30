@@ -47,6 +47,7 @@ func NewFirstFailureError(cause error, failure FirstFailure) error {
 	if failure.Error == "" {
 		return cause
 	}
+
 	return &FirstFailureError{
 		Cause:   cause,
 		Failure: failure,
@@ -58,6 +59,7 @@ func AsFirstFailureError(err error) (*FirstFailureError, bool) {
 	if errors.As(err, &failureErr) {
 		return failureErr, true
 	}
+
 	return nil, false
 }
 
@@ -65,5 +67,6 @@ func (f FirstFailure) String() string {
 	if f.Error != "" {
 		return f.Error
 	}
+
 	return fmt.Sprintf("build failed in target %s command %s", f.TargetID, f.CommandID)
 }

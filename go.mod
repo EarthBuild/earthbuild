@@ -51,6 +51,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.68.0
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/log v0.16.0
+	go.opentelemetry.io/otel/metric v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/sdk/log v0.16.0
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
@@ -147,7 +148,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.16.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.39.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.39.0 // indirect
-	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
@@ -161,6 +161,6 @@ require (
 )
 
 replace (
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260429193449-66e3662795d1
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260430080438-9ab7a6c2730d
 	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20260410102147-dafa0bd30022
 )

@@ -231,8 +231,12 @@ ga-no-qemu-slow:
     BUILD +ga-no-qemu-slow-misc
 
 ga-no-qemu-slow-with-docker:
-    BUILD --pass-args ./with-docker+all
-    BUILD --pass-args ./with-docker-cache+test
+    WAIT
+        BUILD --pass-args ./with-docker+all
+    END
+    WAIT
+        BUILD --pass-args ./with-docker-cache+test
+    END
 
 ga-no-qemu-slow-git-ssh:
     # this has been moved to a separate target until we get the flakey "tell me who you are" bug
@@ -241,7 +245,9 @@ ga-no-qemu-slow-git-ssh:
     BUILD --pass-args ./git-ssh-server+all
 
 ga-no-qemu-slow-private-https:
-    BUILD --pass-args ./private-https+all
+    WAIT
+        BUILD --pass-args ./private-https+all
+    END
 
 ga-no-qemu-slow-misc:
     BUILD +server

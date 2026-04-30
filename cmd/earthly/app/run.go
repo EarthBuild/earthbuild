@@ -422,6 +422,22 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		return true
 	}():
 		return 1
+	case func() bool {
+		cancelErr, ok := solvermon.AsFirstCancellationError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetEnd(cancelErr.Cancellation.End, logstream.RunStatus_RUN_STATUS_CANCELED)
+		app.BaseCLI.Console().Warnf("Canceled while running:\n%s\n", cancelErr.Cancellation.String())
+
+		return true
+	}():
+		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+			app.printCrashLogs(ctx)
+		}
+
+		return 2
 	case errors.Is(err, context.Canceled), grpcErrOK && grpcErr.Code() == codes.Canceled:
 		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
 

@@ -96,6 +96,9 @@ func (s *solver) buildMainMulti(
 			if failure, ok := s.logbusSM.FirstFailure(); ok {
 				return solvermon.NewFirstFailureError(buildErr, failure)
 			}
+			if cancellation, ok := s.logbusSM.FirstCancellation(); ok {
+				return solvermon.NewFirstCancellationError(buildErr, cancellation)
+			}
 		}
 
 		return buildErr

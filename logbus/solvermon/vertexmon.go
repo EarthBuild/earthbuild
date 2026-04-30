@@ -179,6 +179,7 @@ func (vm *vertexMonitor) parseError() {
 	exitCode, err := getExitCode(errString)
 	fatalErrorType, isFatalError := determineFatalErrorType(errString, exitCode, err)
 	formattedError := formatErrorMessage(errString, indentOp, vm.meta.Internal, fatalErrorType, exitCode)
+	isCanceled := strings.Contains(errString, "context canceled") || errString == "no active sessions"
 
 	// Add Error location
 	slString := ""
@@ -198,6 +199,7 @@ func (vm *vertexMonitor) parseError() {
 
 	vm.isFatalError = isFatalError
 	vm.fatalErrorType = fatalErrorType
+	vm.isCanceled = isCanceled
 }
 
 func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error) {

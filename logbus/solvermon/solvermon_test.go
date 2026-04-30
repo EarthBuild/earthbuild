@@ -66,6 +66,12 @@ func TestFirstFailureIgnoresCancellationOnlyVertexError(t *testing.T) {
 
 	_, ok := sm.FirstFailure()
 	require.False(t, ok)
+
+	cancellation, ok := sm.FirstCancellation()
+	require.True(t, ok)
+	require.Equal(t, "target-id", cancellation.TargetID)
+	require.Contains(t, cancellation.Error, "RUN bad")
+	require.Contains(t, cancellation.Error, "context canceled")
 }
 
 func TestFirstFailureErrorWrapsCause(t *testing.T) {
@@ -89,6 +95,32 @@ func TestNewFirstFailureErrorReturnsCauseWithoutFailureMessage(t *testing.T) {
 
 	cause := context.Canceled
 	err := NewFirstFailureError(cause, FirstFailure{})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotContains(t, err.Error(), "build failed in target")
+}
+
+func TestFirstCancellationErrorWrapsCause(t *testing.T) {
+	t.Parallel()
+
+	cause := context.Canceled
+	err := NewFirstCancellationError(cause, FirstFailure{
+		Error: "first cancellation",
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, "first cancellation", err.Error())
+
+	cancelErr, ok := AsFirstCancellationError(err)
+	require.True(t, ok)
+	require.Equal(t, "first cancellation", cancelErr.Cancellation.Error)
+}
+
+func TestNewFirstCancellationErrorReturnsCauseWithoutCancellationMessage(t *testing.T) {
+	t.Parallel()
+
+	cause := context.Canceled
+	err := NewFirstCancellationError(cause, FirstFailure{})
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotContains(t, err.Error(), "build failed in target")

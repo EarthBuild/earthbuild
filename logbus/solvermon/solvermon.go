@@ -22,6 +22,7 @@ type SolverMonitor struct {
 	digests      map[digest.Digest]string  // digest -> cmdID
 	vertices     map[string]*vertexMonitor // cmdID -> vertexMonitor
 	firstFailure *FirstFailure
+	firstCancel  *FirstFailure
 	mu           sync.Mutex
 }
 
@@ -44,6 +45,18 @@ func (sm *SolverMonitor) FirstFailure() (FirstFailure, bool) {
 	}
 
 	return *sm.firstFailure, true
+}
+
+// FirstCancellation returns the first canceled vertex observed by the monitor.
+func (sm *SolverMonitor) FirstCancellation() (FirstFailure, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sm.firstCancel == nil {
+		return FirstFailure{}, false
+	}
+
+	return *sm.firstCancel, true
 }
 
 // MonitorProgress processes a channel of buildkit solve statuses.
@@ -187,20 +200,13 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 
 		vm.cp.SetEnd(*vertex.Completed, status, vm.errorStr)
 
+		if vm.isCanceled && sm.firstCancel == nil {
+			sm.firstCancel = sm.failureFromVertex(vm, cmdID, vertex)
+		}
+
 		if vm.isFatalError {
 			if sm.firstFailure == nil {
-				end := time.Now()
-				if vertex.Completed != nil {
-					end = *vertex.Completed
-				}
-
-				sm.firstFailure = &FirstFailure{
-					End:         end,
-					TargetID:    vm.meta.TargetID,
-					CommandID:   cmdID,
-					Error:       stringutil.ScrubCredentialsAll(vm.errorStr),
-					FailureType: vm.fatalErrorType,
-				}
+				sm.firstFailure = sm.failureFromVertex(vm, cmdID, vertex)
 			}
 			// Run this at the end so that we capture any additional log lines.
 			defer bp.SetFatalError(
@@ -250,4 +256,19 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 	}
 
 	return nil
+}
+
+func (sm *SolverMonitor) failureFromVertex(vm *vertexMonitor, cmdID string, vertex *client.Vertex) *FirstFailure {
+	end := time.Now()
+	if vertex.Completed != nil {
+		end = *vertex.Completed
+	}
+
+	return &FirstFailure{
+		End:         end,
+		TargetID:    vm.meta.TargetID,
+		CommandID:   cmdID,
+		Error:       stringutil.ScrubCredentialsAll(vm.errorStr),
+		FailureType: vm.fatalErrorType,
+	}
 }

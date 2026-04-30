@@ -70,3 +70,46 @@ func (f FirstFailure) String() string {
 
 	return fmt.Sprintf("build failed in target %s command %s", f.TargetID, f.CommandID)
 }
+
+// FirstCancellationError wraps a canceled solve with the first canceled vertex
+// observed by the solver monitor.
+type FirstCancellationError struct {
+	Cause        error
+	Cancellation FirstFailure
+}
+
+func (e *FirstCancellationError) Error() string {
+	if e.Cancellation.Error != "" {
+		return e.Cancellation.Error
+	}
+
+	return e.Cause.Error()
+}
+
+func (e *FirstCancellationError) Unwrap() error {
+	return e.Cause
+}
+
+func (e *FirstCancellationError) Is(target error) bool {
+	return errors.Is(e.Cause, target)
+}
+
+func NewFirstCancellationError(cause error, cancellation FirstFailure) error {
+	if cancellation.Error == "" {
+		return cause
+	}
+
+	return &FirstCancellationError{
+		Cause:        cause,
+		Cancellation: cancellation,
+	}
+}
+
+func AsFirstCancellationError(err error) (*FirstCancellationError, bool) {
+	var cancelErr *FirstCancellationError
+	if errors.As(err, &cancelErr) {
+		return cancelErr, true
+	}
+
+	return nil, false
+}

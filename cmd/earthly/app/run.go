@@ -22,6 +22,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -402,6 +403,24 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		}
 
 		return 6
+	case func() bool {
+		failureErr, ok := solvermon.AsFirstFailureError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetFatalError(
+			failureErr.Failure.End,
+			failureErr.Failure.TargetID,
+			failureErr.Failure.CommandID,
+			failureErr.Failure.FailureType,
+			"",
+			failureErr.Failure.Error,
+		)
+		app.BaseCLI.Console().Warnf("%s\n", failureErr.Failure.String())
+		return true
+	}():
+		return 1
 	case errors.Is(err, context.Canceled), grpcErrOK && grpcErr.Code() == codes.Canceled:
 		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
 

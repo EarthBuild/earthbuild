@@ -18,10 +18,11 @@ import (
 
 // SolverMonitor is a buildkit solver monitor.
 type SolverMonitor struct {
-	b        *logbus.Bus
-	digests  map[digest.Digest]string  // digest -> cmdID
-	vertices map[string]*vertexMonitor // cmdID -> vertexMonitor
-	mu       sync.Mutex
+	b            *logbus.Bus
+	digests      map[digest.Digest]string  // digest -> cmdID
+	vertices     map[string]*vertexMonitor // cmdID -> vertexMonitor
+	firstFailure *FirstFailure
+	mu           sync.Mutex
 }
 
 // New creates a new SolverMonitor.
@@ -31,6 +32,18 @@ func New(b *logbus.Bus) *SolverMonitor {
 		digests:  make(map[digest.Digest]string),
 		vertices: make(map[string]*vertexMonitor),
 	}
+}
+
+// FirstFailure returns the first fatal vertex failure observed by the monitor.
+func (sm *SolverMonitor) FirstFailure() (FirstFailure, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sm.firstFailure == nil {
+		return FirstFailure{}, false
+	}
+
+	return *sm.firstFailure, true
 }
 
 // MonitorProgress processes a channel of buildkit solve statuses.
@@ -175,6 +188,19 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		vm.cp.SetEnd(*vertex.Completed, status, vm.errorStr)
 
 		if vm.isFatalError {
+			if sm.firstFailure == nil {
+				end := time.Now()
+				if vertex.Completed != nil {
+					end = *vertex.Completed
+				}
+				sm.firstFailure = &FirstFailure{
+					End:         end,
+					TargetID:    vm.meta.TargetID,
+					CommandID:   cmdID,
+					Error:       stringutil.ScrubCredentialsAll(vm.errorStr),
+					FailureType: vm.fatalErrorType,
+				}
+			}
 			// Run this at the end so that we capture any additional log lines.
 			defer bp.SetFatalError(
 				*vertex.Completed,

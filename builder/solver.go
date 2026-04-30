@@ -21,6 +21,7 @@ import (
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 )
 
 // statusChanSize is used to ensure we consume all BK status messages without
@@ -91,6 +92,11 @@ func (s *solver) buildMainMulti(
 	err = eg.Wait()
 
 	if buildErr != nil {
+		if isCanceledErr(buildErr) {
+			if failure, ok := s.logbusSM.FirstFailure(); ok {
+				return solvermon.NewFirstFailureError(buildErr, failure)
+			}
+		}
 		return buildErr
 	}
 
@@ -99,6 +105,16 @@ func (s *solver) buildMainMulti(
 	}
 
 	return nil
+}
+
+func isCanceledErr(err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	if grpcErr, ok := grpcerrors.AsGRPCStatus(err); ok && grpcErr.Code() == codes.Canceled {
+		return true
+	}
+	return false
 }
 
 func (s *solver) newSolveOptMulti(

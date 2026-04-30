@@ -106,7 +106,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 	}
 
 	if a.keepDuration > 0 || a.targetSize > 0 {
-		opts = append(opts, client.WithKeepOpt(time.Duration(a.keepDuration), int64(a.targetSize))) // #nosec G115
+		opts = append(opts, client.WithKeepOpt(time.Duration(a.keepDuration), int64(a.targetSize), 0, 0)) // #nosec G115
 	}
 
 	ch := make(chan client.UsageInfo, 1)

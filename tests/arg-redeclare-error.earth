@@ -4,6 +4,11 @@ FROM alpine:3.18
 ARG --global FOO = bar
 ARG FOO = bacon
 
+all:
+    BUILD +test-working-global
+    BUILD +test-working-global-override
+    BUILD +test-working-default-override
+
 test-working-global:
     RUN test "$FOO" = "bar"
 

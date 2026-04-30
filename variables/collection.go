@@ -212,7 +212,12 @@ func (c *Collection) ExpandOld(word string) string {
 	shlex := dfShell.NewLex('\\')
 	varMap := c.effective().Map(WithActive())
 
-	ret, err := shlex.ProcessWordWithMap(word, varMap)
+	envSlice := make([]string, 0, len(varMap))
+	for k, v := range varMap {
+		envSlice = append(envSlice, k+"="+v)
+	}
+
+	ret, _, err := shlex.ProcessWord(word, dfShell.EnvsFromSlice(envSlice))
 	if err != nil {
 		// No effect if there is an error.
 		return word

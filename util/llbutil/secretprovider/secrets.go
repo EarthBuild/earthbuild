@@ -27,13 +27,13 @@ func (sp *secretProvider) Register(server *grpc.Server) {
 func (sp *secretProvider) GetSecret(
 	ctx context.Context, req *secrets.GetSecretRequest,
 ) (*secrets.GetSecretResponse, error) {
-	v, err := url.ParseQuery(req.ID)
+	v, err := url.ParseQuery(req.GetID())
 	if err != nil {
 		return nil, errors.New("failed to parse secret ID")
 	}
 
 	for _, store := range sp.stores {
-		data, err := store.GetSecret(ctx, req.ID)
+		data, err := store.GetSecret(ctx, req.GetID())
 		if err != nil {
 			if errors.Is(err, secrets.ErrNotFound) {
 				continue

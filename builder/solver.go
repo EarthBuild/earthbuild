@@ -192,8 +192,17 @@ func (s *solver) newSolveOptMulti(
 		CacheImports:        cacheImports,
 		CacheExports:        cacheExports,
 		Session:             s.attachables,
-		AllowedEntitlements: s.enttlmnts,
+		AllowedEntitlements: entitlementsToStrings(s.enttlmnts),
 	}, nil
+}
+
+func entitlementsToStrings(ents []entitlements.Entitlement) []string {
+	s := make([]string, len(ents))
+	for i, e := range ents {
+		s[i] = string(e)
+	}
+
+	return s
 }
 
 func newCacheImportOpt(ref string) client.CacheOptionsEntry {

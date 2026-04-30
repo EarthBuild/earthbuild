@@ -59,7 +59,7 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 			fmt.Fprintf(os.Stderr, "Warning: OpenTelemetry shutdown failed; continuing: %s\n", shutdownErr)
 		}
 
-		return nil
+		return shutdownErr
 	}
 
 	// handleError calls shutdown for cleanup and makes sure that all errors are returned.

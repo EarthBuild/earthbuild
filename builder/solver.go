@@ -92,16 +92,7 @@ func (s *solver) buildMainMulti(
 	err = eg.Wait()
 
 	if buildErr != nil {
-		if isCanceledErr(buildErr) {
-			if failure, ok := s.logbusSM.FirstFailure(); ok {
-				return solvermon.NewFirstFailureError(buildErr, failure)
-			}
-			if cancellation, ok := s.logbusSM.FirstCancellation(); ok {
-				return solvermon.NewFirstCancellationError(buildErr, cancellation)
-			}
-		}
-
-		return buildErr
+		return s.withBuildkitFailureContext(buildErr)
 	}
 
 	if err != nil {
@@ -109,6 +100,22 @@ func (s *solver) buildMainMulti(
 	}
 
 	return nil
+}
+
+func (s *solver) withBuildkitFailureContext(buildErr error) error {
+	if !isCanceledErr(buildErr) {
+		return buildErr
+	}
+
+	if failure, ok := s.logbusSM.FirstFailure(); ok {
+		return solvermon.NewFirstFailureError(buildErr, failure)
+	}
+
+	if cancellation, ok := s.logbusSM.FirstCancellation(); ok {
+		return solvermon.NewFirstCancellationError(buildErr, cancellation)
+	}
+
+	return buildErr
 }
 
 func isCanceledErr(err error) bool {

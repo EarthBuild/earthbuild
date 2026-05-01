@@ -13,7 +13,7 @@
   configMigration: true,
   prHourlyLimit: 1,
   prConcurrentLimit: 3,
-  schedule: [ // utc timezone
+  schedule: [
     'after 4pm on monday',
   ],
   includePaths: [
@@ -37,20 +37,20 @@
     '**/vendor/**',
     '**/__fixtures__/**',
   ],
-  "github-actions": {
-    enabled: true
+  'github-actions': {
+    enabled: true,
   },
   npm: {
-    enabled: true
+    enabled: true,
   },
-  "pip_requirements": {
-    enabled: true
+  pip_requirements: {
+    enabled: true,
   },
   bundler: {
-    enabled: true
+    enabled: true,
   },
-  "docker-compose": {
-    enabled: true
+  'docker-compose': {
+    enabled: true,
   },
   dockerfile: {
     enabled: true,
@@ -94,7 +94,7 @@
     },
     {
       customType: 'regex',
-      description: "Update _version LETs, ARGs and ENVs in Earthfile",
+      description: 'Update _version LETs, ARGs and ENVs in Earthfile',
       managerFilePatterns: [
         '/^Earthfile$/',
       ],
@@ -130,7 +130,6 @@
         '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+packageName=(?<packageName>.+?)\\s+curl.*?releases/download/(?<currentValue>[0-9.]+[^/]*)/docker-compose',
       ],
     },
-
     {
       customType: 'regex',
       description: 'Update Go version in .mise.toml',
@@ -197,14 +196,12 @@
       addLabels: [
         'earthly-version-in-docs',
       ],
-      schedule: [ // update as soon as possible
+      schedule: [
         'at any time',
       ],
       automerge: true,
     },
     {
-      // Point earthly/earthly updates in docs to docs-0.8 branch by:
-      // 1. disable all PRs targeting docs-0.8 for all packages except earthly/earthly
       matchBaseBranches: [
         'docs-0.8',
       ],
@@ -215,7 +212,6 @@
       ],
     },
     {
-      // 2. disable PRs targeting main for earthly/earthly
       matchBaseBranches: [
         'main',
       ],
@@ -225,7 +221,6 @@
       enabled: false,
     },
     {
-      // disable earthly/dind updates in source & tests files for branch docs-0.8
       matchBaseBranches: [
         'docs-0.8',
       ],
@@ -243,7 +238,6 @@
       enabled: false,
     },
     {
-      // disable earthly/dind updates in docs & examples files for branch main
       matchBaseBranches: [
         'main',
       ],
@@ -256,7 +250,6 @@
       ],
       enabled: false,
     },
-    // group all alpine/git updates across the repo to one PR and schedule it to once a month
     {
       groupName: 'alpine/git',
       matchPackageNames: [
@@ -266,7 +259,6 @@
         'every month',
       ],
     },
-    // group all Dockerfile dependency updates
     {
       matchManagers: [
         'dockerfile',
@@ -282,7 +274,6 @@
       ],
     },
     {
-      // rule to update earthbuild/dind:alpine-* images
       groupName: 'dind-images',
       matchPackageNames: [
         'earthbuild/dind',
@@ -292,7 +283,6 @@
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-r(?<revision>\\d+)$',
     },
     {
-      // rule to update earthbuild/dind:ubuntu:20.04-* images
       groupName: 'dind-images',
       matchPackageNames: [
         'earthbuild/dind',
@@ -302,7 +292,6 @@
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     {
-      // rule to update earthbuild/dind:ubuntu:23.04-* images
       groupName: 'dind-images',
       matchPackageNames: [
         'earthbuild/dind',
@@ -311,7 +300,6 @@
       allowedVersions: '/^ubuntu-23\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
-    // group all examples and docs dependency updates together (except earthly/earthly and earthbuild/dind)
     {
       matchFileNames: [
         '**/.mise.toml',
@@ -326,7 +314,6 @@
         'every month',
       ],
     },
-    // group all Node.js dependencies in examples
     {
       matchFileNames: [
         'examples/**/package.json',
@@ -340,7 +327,6 @@
         'every month',
       ],
     },
-    // group all Python dependencies in examples
     {
       matchFileNames: [
         'examples/**/requirements.txt',
@@ -354,7 +340,6 @@
         'every month',
       ],
     },
-    // group all Ruby dependencies in examples
     {
       matchFileNames: [
         'examples/**/Gemfile',
@@ -369,7 +354,6 @@
       ],
     },
     {
-      // group all GitHub Actions updates
       groupName: 'github-actions',
       matchManagers: [
         'github-actions',
@@ -379,7 +363,6 @@
       ],
     },
     {
-      // group all shell script dependency updates
       groupName: 'shell-script-dependencies',
       matchFileNames: [
         '**/*.sh',
@@ -388,7 +371,6 @@
         'every month',
       ],
     },
-    // group all docker-compose dependency updates
     {
       matchManagers: [
         'docker-compose',
@@ -398,7 +380,6 @@
         'every month',
       ],
     },
-    // group all mise tool version updates
     {
       matchFileNames: [
         '**/.mise.toml',
@@ -408,11 +389,10 @@
         'every month',
       ],
     },
-    // group all golang.org/x/ dependencies
     {
       groupName: 'x',
-      matchPackagePatterns: [
-        '^golang\\.org/x/',
+      matchPackageNames: [
+        '/^golang\\.org/x//',
       ],
     },
   ],

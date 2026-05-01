@@ -36,7 +36,7 @@ type vertexMonitor struct {
 	isCanceled     bool
 }
 
-var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll
+var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)(?:\s+\(.*\))?$`) //nolint:lll
 
 var (
 	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
@@ -73,6 +73,23 @@ var (
 	reErrNotFound = regexp.MustCompile(`^\s*(internal)?failed to calculate checksum of ref ([^ ]::[^ ]*|[^ ]*): (.*)\s*$`)
 	reHint        = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
 )
+
+func exitCodeDetail(exitCode int) string {
+	switch exitCode {
+	case 126:
+		return "Exit code 126 conventionally means the command was found but could not be executed. " +
+			"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
+			"and container runtime or security restrictions."
+	default:
+		if exitCode > 128 {
+			return fmt.Sprintf(
+				"Exit code %d, which usually means the process was killed by signal %d",
+				exitCode, exitCode-128)
+		}
+
+		return fmt.Sprintf("Exit code %d", exitCode)
+	}
+}
 
 func isCancellationSymptom(errString string) bool {
 	return strings.Contains(errString, "context canceled") ||
@@ -134,15 +151,10 @@ func formatErrorMessage(
 				"      was terminated because the build system ran out of memory. "+
 				"If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation)
 	case logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT:
-		exitDetail := fmt.Sprintf("Exit code %d", exitCode)
-		if exitCode > 128 {
-			exitDetail = fmt.Sprintf("%s, which usually means the process was killed by signal %d", exitDetail, exitCode-128)
-		}
-
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
-				"      did not complete successfully. %s", internalStr, operation, exitDetail)
+				"      did not complete successfully. %s", internalStr, operation, exitCodeDetail(exitCode))
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
 

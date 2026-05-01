@@ -411,7 +411,7 @@
     // group all golang.org/x/ dependencies
     {
       groupName: 'x',
-      matchPackagePatterns: [
+      matchPackageNames: [
         '^golang\\.org/x/',
       ],
     },

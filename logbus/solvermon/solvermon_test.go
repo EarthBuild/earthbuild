@@ -74,6 +74,37 @@ func TestFirstFailureIgnoresCancellationOnlyVertexError(t *testing.T) {
 	require.Contains(t, cancellation.Error, "context canceled")
 }
 
+func TestFirstCancellationCapturesSessionLossVertexError(t *testing.T) {
+	t.Parallel()
+
+	sm := New(logbus.New())
+	completed := time.Now()
+
+	err := sm.handleBuildkitStatus(&client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Digest: digest.FromString("session-loss"),
+				Name: (&vertexmeta.VertexMeta{
+					TargetID: "target-id", TargetName: "+target",
+				}).ToVertexPrefix() + "local context .",
+				Completed: &completed,
+				Error:     "could not access local files without session",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, ok := sm.FirstFailure()
+	require.False(t, ok)
+
+	cancellation, ok := sm.FirstCancellation()
+	require.True(t, ok)
+	require.Equal(t, "target-id", cancellation.TargetID)
+	require.Contains(t, cancellation.Error, "local context .")
+	require.Contains(t, cancellation.Error, "lost the solve session")
+	require.Contains(t, cancellation.Error, "could not access local files without session")
+}
+
 func TestFirstFailureErrorWrapsCause(t *testing.T) {
 	t.Parallel()
 

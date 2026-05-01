@@ -429,7 +429,13 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		}
 
 		app.BaseCLI.Logbus().Run().SetEnd(cancelErr.Cancellation.End, logstream.RunStatus_RUN_STATUS_CANCELED)
-		app.BaseCLI.Console().Warnf("Canceled while running:\n%s\n", cancelErr.Cancellation.String())
+		app.BaseCLI.Console().Warnf(
+			"BuildKit canceled or lost the solve session while running:\n%s\n"+
+				"This usually means the command above was interrupted after an earlier failure, resource event, "+
+				"or buildkit/session failure. "+
+				"Earth did not receive a more specific root cause from BuildKit.\n",
+			cancelErr.Cancellation.String(),
+		)
 
 		return true
 	}():

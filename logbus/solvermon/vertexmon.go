@@ -74,10 +74,17 @@ var (
 	reHint        = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
 )
 
+func isCancellationSymptom(errString string) bool {
+	return strings.Contains(errString, "context canceled") ||
+		strings.Contains(errString, "no active sessions") ||
+		strings.Contains(errString, "could not access local files without session") ||
+		strings.Contains(errString, "evaluating released result")
+}
+
 // determineFatalErrorType returns logstream.FailureType
 // and whether or not its a Fatal Error.
 func determineFatalErrorType(errString string, exitCode int, exitParseErr error) (logstream.FailureType, bool) {
-	if strings.Contains(errString, "context canceled") || errString == "no active sessions" {
+	if isCancellationSymptom(errString) {
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 	}
 
@@ -127,10 +134,15 @@ func formatErrorMessage(
 				"      was terminated because the build system ran out of memory. "+
 				"If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation)
 	case logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT:
+		exitDetail := fmt.Sprintf("Exit code %d", exitCode)
+		if exitCode > 128 {
+			exitDetail = fmt.Sprintf("%s, which usually means the process was killed by signal %d", exitDetail, exitCode-128)
+		}
+
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
-				"      did not complete successfully. Exit code %d", internalStr, operation, exitCode)
+				"      did not complete successfully. %s", internalStr, operation, exitDetail)
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
 
@@ -157,6 +169,14 @@ func formatErrorMessage(
 				"          %s\n"+
 				"failed: %s", internalStr, operation, errString)
 	default:
+		if isCancellationSymptom(errString) {
+			return fmt.Sprintf(
+				"The%s command\n"+
+					"          %s\n"+
+					"was interrupted because BuildKit canceled or lost the solve session before reporting a root cause.\n"+
+					"Original BuildKit error: %s", internalStr, operation, errString)
+		}
+
 		return fmt.Sprintf(
 			"The%s command\n"+
 				"          %s\n"+
@@ -179,7 +199,7 @@ func (vm *vertexMonitor) parseError() {
 	exitCode, err := getExitCode(errString)
 	fatalErrorType, isFatalError := determineFatalErrorType(errString, exitCode, err)
 	formattedError := formatErrorMessage(errString, indentOp, vm.meta.Internal, fatalErrorType, exitCode)
-	isCanceled := strings.Contains(errString, "context canceled") || errString == "no active sessions"
+	isCanceled := isCancellationSymptom(errString)
 
 	// Add Error location
 	slString := ""

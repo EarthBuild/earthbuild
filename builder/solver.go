@@ -115,6 +115,10 @@ func (s *solver) withBuildkitFailureContext(buildErr error) error {
 		return solvermon.NewFirstCancellationError(buildErr, cancellation)
 	}
 
+	if details, ok := s.logbusSM.CancellationDetails(); ok {
+		return solvermon.NewCancellationDetailsError(buildErr, details)
+	}
+
 	return buildErr
 }
 

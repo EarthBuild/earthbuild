@@ -105,6 +105,51 @@ func TestFirstCancellationCapturesSessionLossVertexError(t *testing.T) {
 	require.Contains(t, cancellation.Error, "could not access local files without session")
 }
 
+func TestCancellationDetailsTracksActiveRecentAndLogs(t *testing.T) {
+	t.Parallel()
+
+	sm := New(logbus.New())
+	started := time.Now()
+	completed := started.Add(time.Second)
+	activeDigest := digest.FromString("active")
+	recentDigest := digest.FromString("recent")
+
+	err := sm.handleBuildkitStatus(&client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Digest:  activeDigest,
+				Name:    (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN sleep",
+				Started: &started,
+			},
+			{
+				Digest:    recentDigest,
+				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN done",
+				Started:   &started,
+				Completed: &completed,
+			},
+		},
+		Logs: []*client.VertexLog{
+			{
+				Vertex:    activeDigest,
+				Data:      []byte("tail line\n"),
+				Timestamp: completed,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	details, ok := sm.CancellationDetails()
+	require.True(t, ok)
+	require.Len(t, details.Active, 1)
+	require.Equal(t, "RUN sleep", details.Active[0].Operation)
+	require.Len(t, details.Recent, 1)
+	require.Equal(t, "RUN done", details.Recent[0].Operation)
+	require.Len(t, details.Logs, 1)
+	require.Equal(t, "tail line", details.Logs[0].Text)
+	require.Contains(t, details.String(), "Last active operations")
+	require.Contains(t, details.String(), "Recent output")
+}
+
 func TestFirstFailureErrorWrapsCause(t *testing.T) {
 	t.Parallel()
 
@@ -155,4 +200,22 @@ func TestNewFirstCancellationErrorReturnsCauseWithoutCancellationMessage(t *test
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotContains(t, err.Error(), "build failed in target")
+}
+
+func TestCancellationDetailsErrorWrapsCause(t *testing.T) {
+	t.Parallel()
+
+	err := NewCancellationDetailsError(context.Canceled, CancellationDetails{
+		End: time.Now(),
+		Active: []OperationSnapshot{
+			{Operation: "RUN active"},
+		},
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Contains(t, err.Error(), "RUN active")
+
+	detailsErr, ok := AsCancellationDetailsError(err)
+	require.True(t, ok)
+	require.Len(t, detailsErr.Details.Active, 1)
 }

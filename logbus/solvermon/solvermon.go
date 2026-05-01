@@ -2,6 +2,7 @@ package solvermon
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,8 +22,11 @@ type SolverMonitor struct {
 	b            *logbus.Bus
 	digests      map[digest.Digest]string  // digest -> cmdID
 	vertices     map[string]*vertexMonitor // cmdID -> vertexMonitor
+	active       map[string]OperationSnapshot
 	firstFailure *FirstFailure
 	firstCancel  *FirstFailure
+	recent       []OperationSnapshot
+	recentLogs   []LogSnapshot
 	mu           sync.Mutex
 }
 
@@ -32,6 +36,7 @@ func New(b *logbus.Bus) *SolverMonitor {
 		b:        b,
 		digests:  make(map[digest.Digest]string),
 		vertices: make(map[string]*vertexMonitor),
+		active:   make(map[string]OperationSnapshot),
 	}
 }
 
@@ -57,6 +62,29 @@ func (sm *SolverMonitor) FirstCancellation() (FirstFailure, bool) {
 	}
 
 	return *sm.firstCancel, true
+}
+
+// CancellationDetails returns recent progress context for a solve that was
+// canceled without a fatal or cancellation-specific vertex error.
+func (sm *SolverMonitor) CancellationDetails() (CancellationDetails, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	details := CancellationDetails{
+		End:    time.Now(),
+		Active: make([]OperationSnapshot, 0, len(sm.active)),
+		Recent: append([]OperationSnapshot(nil), sm.recent...),
+		Logs:   append([]LogSnapshot(nil), sm.recentLogs...),
+	}
+	for _, op := range sm.active {
+		details.Active = append(details.Active, op)
+	}
+
+	slices.SortFunc(details.Active, func(a, b OperationSnapshot) int {
+		return a.OperationStarted.Compare(b.OperationStarted)
+	})
+
+	return details, !details.Empty()
 }
 
 // MonitorProgress processes a channel of buildkit solve statuses.
@@ -179,6 +207,10 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			vm.cp.SetStart(*vertex.Started)
 		}
 
+		if vertex.Completed == nil {
+			sm.recordVertexProgress(cmdID, vm, vertex, logstream.RunStatus_RUN_STATUS_UNKNOWN)
+		}
+
 		if vertex.Error != "" {
 			vm.parseError()
 		}
@@ -199,6 +231,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		}
 
 		vm.cp.SetEnd(*vertex.Completed, status, vm.errorStr)
+		sm.recordVertexProgress(cmdID, vm, vertex, status)
 
 		if vm.isCanceled && sm.firstCancel == nil {
 			sm.firstCancel = sm.failureFromVertex(vm, cmdID, vertex)
@@ -253,9 +286,51 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		if err != nil {
 			return err
 		}
+
+		sm.recordLog(vm, logLine)
 	}
 
 	return nil
+}
+
+func (sm *SolverMonitor) recordVertexProgress(
+	cmdID string,
+	vm *vertexMonitor,
+	vertex *client.Vertex,
+	status logstream.RunStatus,
+) {
+	if vertex.Started == nil {
+		return
+	}
+
+	snapshot := OperationSnapshot{
+		TargetID:         vm.meta.TargetID,
+		CommandID:        cmdID,
+		Operation:        vm.operation,
+		OperationStarted: *vertex.Started,
+		Status:           status,
+		Error:            vm.errorStr,
+	}
+
+	if vertex.Completed == nil {
+		sm.active[cmdID] = snapshot
+		return
+	}
+
+	snapshot.End = *vertex.Completed
+
+	delete(sm.active, cmdID)
+	sm.recent = appendWithLimit(sm.recent, snapshot, recentOperationLimit)
+}
+
+func (sm *SolverMonitor) recordLog(vm *vertexMonitor, logLine *client.VertexLog) {
+	for _, line := range splitLogLines(string(logLine.Data)) {
+		sm.recentLogs = appendWithLimit(sm.recentLogs, LogSnapshot{
+			Operation: vm.operation,
+			Text:      line,
+			Timestamp: logLine.Timestamp,
+		}, recentLogLimit)
+	}
 }
 
 func (sm *SolverMonitor) failureFromVertex(vm *vertexMonitor, cmdID string, vertex *client.Vertex) *FirstFailure {

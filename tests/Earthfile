@@ -1775,6 +1775,9 @@ RUN_EARTHLY:
 
         if ! tail -n 1 earthly.output | grep 'exit_code=[0-9]\+'; then
             echo ERROR: failed to extract exit_code # something is wrong with the above sh script
+            echo =================== earthly.output tail ===================
+            tail -n 80 earthly.output || true
+            echo ================= End earthly.output tail =================
             exit 1
         fi
         exit_code=\$(tail -n 1 earthly.output | cut -d \"=\" -f2)

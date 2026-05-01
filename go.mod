@@ -161,6 +161,6 @@ require (
 )
 
 replace (
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260501065445-2425b2819459
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.8.17-fix.4.0.20260501102016-5684c7978b65
 	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20260410102147-dafa0bd30022
 )

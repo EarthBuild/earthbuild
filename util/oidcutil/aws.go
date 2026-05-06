@@ -82,7 +82,10 @@ func (oi *AWSOIDCInfo) String() string {
 	write("session-name=", oi.SessionName)
 	write("role-arn=", oi.RoleARNString())
 	write("region=", oi.Region)
-	write("session-duration=", oi.SessionDuration.String())
+
+	if oi.SessionDuration != nil {
+		write("session-duration=", oi.SessionDuration.String())
+	}
 
 	return sb.String()
 }

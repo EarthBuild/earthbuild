@@ -13,7 +13,7 @@ deps:
         ARG ZIG_ARCH="aarch64"
     END
     RUN echo "Installing Zig $ZIG_VERSION for $ZIG_ARCH with https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz"
-    RUN wget --tries=5 --timeout=15 --continue -O zig.tar.xz https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz && \
+    RUN wget --tries=5 --timeout=300 --continue -O zig.tar.xz https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz && \
         mkdir zig && \
         tar -xvf zig.tar.xz --strip-components 1 -C zig && \
         ln -sf /zig/zig /usr/bin/zig

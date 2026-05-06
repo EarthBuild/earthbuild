@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
@@ -48,7 +49,7 @@ func (a *Init) action(cliCtx *cli.Context) error {
 		return errors.Wrapf(err, "could not get absolute path for %q", wd)
 	}
 
-	efPath := filepath.Join(absWd, "Earthfile")
+	efPath := filepath.Join(absWd, buildcontext.Earthfile)
 
 	_, err = os.Stat(efPath)
 	if err == nil {

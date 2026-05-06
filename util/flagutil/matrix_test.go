@@ -11,6 +11,7 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
+	//nolint:goconst
 	tests := []struct {
 		in  []string
 		out [][]string

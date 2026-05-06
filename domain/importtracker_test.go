@@ -21,21 +21,21 @@ func TestImports(t *testing.T) {
 		expected  string
 		ok        bool
 	}{
-		{"github.com/foo/bar", "", "bar+abc", "github.com/foo/bar+abc", true},
-		{"github.com/foo/bar", "buz", "buz+abc", "github.com/foo/bar+abc", true},
-		{"github.com/foo/bar", "buz", "bar+abc", "", false},
-		{"github.com/foo/bar:v1.2.3", "", "bar+abc", "github.com/foo/bar:v1.2.3+abc", true},
-		{"github.com/foo/bar:v1.2.3", "buz", "buz+abc", "github.com/foo/bar:v1.2.3+abc", true},
-		{"github.com/foo/bar:v1.2.3", "buz", "bar+abc", "", false},
-		{"./foo/bar", "", "bar+abc", "./foo/bar+abc", true},
-		{"./foo/bar", "buz", "buz+abc", "./foo/bar+abc", true},
-		{"./foo/bar", "buz", "bar+abc", "", false},
-		{"../foo/bar", "", "bar+abc", "../foo/bar+abc", true},
-		{"../foo/bar", "buz", "buz+abc", "../foo/bar+abc", true},
-		{"../foo/bar", "buz", "bar+abc", "", false},
-		{"/foo/bar", "", "bar+abc", "/foo/bar+abc", true},
-		{"/foo/bar", "buz", "buz+abc", "/foo/bar+abc", true},
-		{"/foo/bar", "buz", "bar+abc", "", false},
+		{"github.com/foo/a", "", "a+abc", "github.com/foo/a+abc", true},
+		{"github.com/foo/b", "b", "b+abc", "github.com/foo/b+abc", true},
+		{"github.com/foo/c", "1", "c+abc", "", false},
+		{"github.com/foo/d:v1.2.3", "", "d+abc", "github.com/foo/d:v1.2.3+abc", true},
+		{"github.com/foo/e:v1.2.3", "e", "e+abc", "github.com/foo/e:v1.2.3+abc", true},
+		{"github.com/foo/f:v1.2.3", "2", "f+abc", "", false},
+		{"./foo/g", "", "g+abc", "./foo/g+abc", true},
+		{"./foo/i", "3", "3+abc", "./foo/i+abc", true},
+		{"./foo/j", "4", "j+abc", "", false},
+		{"../foo/k", "", "k+abc", "../foo/k+abc", true},
+		{"../foo/l", "5", "5+abc", "../foo/l+abc", true},
+		{"../foo/m", "6", "m+abc", "", false},
+		{"/foo/n", "", "n+abc", "/foo/n+abc", true},
+		{"/foo/o", "7", "7+abc", "/foo/o+abc", true},
+		{"/foo/p", "8", "p+abc", "", false},
 	}
 
 	var console conslogging.ConsoleLogger

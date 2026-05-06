@@ -2,6 +2,7 @@ package variables
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -489,13 +490,13 @@ func (c *Collection) IsStackAtBase() bool {
 // StackString returns the stack as a string.
 func (c *Collection) StackString() string {
 	builder := make([]string, 0, len(c.stack))
-	for i := len(c.stack) - 1; i >= 0; i-- {
-		activeNames := c.stack[i].args.Sorted(WithActive())
+	for _, v := range slices.Backward(c.stack) {
+		activeNames := v.args.Sorted(WithActive())
 		row := make([]string, 0, len(activeNames)+1)
 
-		row = append(row, c.stack[i].frameName)
+		row = append(row, v.frameName)
 		for _, k := range activeNames {
-			v, _ := c.stack[i].overriding.Get(k)
+			v, _ := v.overriding.Get(k)
 			row = append(row, fmt.Sprintf("--%s=%s", k, v))
 		}
 

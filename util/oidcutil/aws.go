@@ -13,6 +13,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+const iam = "iam"
+
 type AWSOIDCInfo struct {
 	RoleARN         *arn.ARN       `mapstructure:"role-arn"`
 	SessionDuration *time.Duration `mapstructure:"session-duration"`
@@ -32,8 +34,8 @@ var (
 				return nil
 			}),
 			stringToARN(func(input *arn.ARN) error {
-				if input.Service != "iam" {
-					return fmt.Errorf(`aws service ("%s") must be "iam"`, input.Service)
+				if input.Service != iam {
+					return fmt.Errorf(`aws service ("%s") must be "%s"`, input.Service, iam)
 				}
 
 				if !strings.HasPrefix(input.Resource, "role/") {
@@ -62,24 +64,27 @@ func (oi *AWSOIDCInfo) String() string {
 		return ""
 	}
 
-	sb := strings.Builder{}
-	if oi.SessionName != "" {
-		sb.WriteString("session-name=" + oi.SessionName)
+	var sb strings.Builder
+
+	write := func(prefix, value string) {
+		if value == "" {
+			return
+		}
+
+		if sb.Len() > 0 {
+			sb.WriteString(",")
+		}
+
+		sb.WriteString(prefix)
+		sb.WriteString(value)
 	}
 
-	if oi.RoleARN != nil {
-		sb.WriteString(",role-arn=" + oi.RoleARN.String())
-	}
+	write("session-name=", oi.SessionName)
+	write("role-arn=", oi.RoleARNString())
+	write("region=", oi.Region)
+	write("session-duration=", oi.SessionDuration.String())
 
-	if oi.Region != "" {
-		sb.WriteString(",region=" + oi.Region)
-	}
-
-	if oi.SessionDuration != nil {
-		sb.WriteString(",session-duration=" + oi.SessionDuration.String())
-	}
-
-	return strings.TrimPrefix(sb.String(), ",")
+	return sb.String()
 }
 
 func (oi *AWSOIDCInfo) RoleARNString() string {

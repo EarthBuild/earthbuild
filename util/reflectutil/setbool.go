@@ -8,7 +8,7 @@ import (
 // Upon success a true value is returned, otherwise false.
 func SetBool(iface any, fieldName string, value bool) bool {
 	rv := reflect.ValueOf(iface)
-	for rv.Kind() == reflect.Ptr {
+	for rv.Kind() == reflect.Pointer {
 		rv = reflect.Indirect(rv)
 	}
 

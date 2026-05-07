@@ -40,14 +40,14 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 
 	w.c.nonSaveCommand()
 
-	_, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
+	_, cmd, err := w.c.newLogbusCommand(ctx, commandName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
 
 	defer func() {
 		if retErr != nil {
-			message := solvermon.FormatError("WITH DOCKER RUN", retErr.Error())
+			message := solvermon.FormatError(commandName, retErr.Error())
 			cmd.SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_FAILURE, message)
 		}
 	}()
@@ -118,7 +118,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	}
 
 	crOpts := ConvertRunOpts{
-		CommandName:          "WITH DOCKER RUN",
+		CommandName:          commandName,
 		Locally:              true,
 		Args:                 args,
 		Mounts:               opt.Mounts,

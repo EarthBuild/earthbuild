@@ -10,6 +10,7 @@ import (
 func TestParseFlagArgs(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		kvFlag []string
 		kv     []string
@@ -54,6 +55,7 @@ func TestNegativeParseFlagArgs(t *testing.T) {
 func TestParseFlagArgsWithNonFlags(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		kvFlag   []string
 		flags    []string

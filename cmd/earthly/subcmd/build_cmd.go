@@ -981,7 +981,7 @@ func (a *Build) actionDockerBuild(cliCtx *cli.Context) error {
 		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
 	}
 
-	earthfilePath := filepath.Join(tempDir, "Earthfile")
+	earthfilePath := filepath.Join(tempDir, buildcontext.Earthfile)
 
 	out, err := os.Create(earthfilePath) // #nosec G304
 	if err != nil {

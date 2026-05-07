@@ -3197,7 +3197,7 @@ func (c *Converter) newLogbusCommand(ctx context.Context, name string) (string, 
 	if c.gitMeta != nil {
 		gitURL = c.gitMeta.RemoteURL
 		gitHash = c.gitMeta.Hash
-		fileRelToRepo = path.Join(c.gitMeta.RelDir, "Earthfile")
+		fileRelToRepo = path.Join(c.gitMeta.RelDir, buildcontext.Earthfile)
 	}
 
 	platform := c.platr.Materialize(c.platr.Current())
@@ -3245,7 +3245,7 @@ func (c *Converter) newVertexMeta(
 	if c.gitMeta != nil {
 		gitURL = c.gitMeta.RemoteURL
 		gitHash = c.gitMeta.Hash
-		fileRelToRepo = path.Join(c.gitMeta.RelDir, "Earthfile")
+		fileRelToRepo = path.Join(c.gitMeta.RelDir, buildcontext.Earthfile)
 	}
 
 	var (

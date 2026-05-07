@@ -10,6 +10,7 @@ import (
 func TestNamedGroupMatches(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := map[string]struct {
 		s             string
 		re            *regexp.Regexp

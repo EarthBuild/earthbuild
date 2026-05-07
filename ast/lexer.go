@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/parser"
@@ -75,8 +76,8 @@ func (l *lexer) popRecipeMode() {
 		above = append(above, m)
 	}
 
-	for i := len(above) - 1; i >= 0; i-- {
-		l.PushMode(above[i])
+	for _, v := range slices.Backward(above) {
+		l.PushMode(v)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -181,7 +182,7 @@ func IsEarthlyBinary(path string) bool {
 		return false
 	}
 
-	if !bytes.Contains(data, []byte("Earthfile")) {
+	if !bytes.Contains(data, []byte(buildcontext.Earthfile)) {
 		return false
 	}
 

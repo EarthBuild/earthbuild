@@ -19,7 +19,7 @@ func TestShellParserMandatoryEnvVars(t *testing.T) {
 	)
 
 	shlex := NewLex('\\')
-	setEnvs := []string{"VAR=plain", "ARG=x"}
+	setEnvs := []string{"VAR=plain", "ARG=x"} //nolint:goconst
 	emptyEnvs := []string{"VAR=", "ARG=x"}
 	unsetEnvs := []string{"ARG=x"}
 
@@ -68,6 +68,7 @@ func TestProcessWordEscapedDoubleQuote(t *testing.T) {
 func TestShellParserReplace(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	cases := []struct {
 		envs map[string]string
 		word string
@@ -162,7 +163,7 @@ func TestShellParser4EnvVars(t *testing.T) {
 		if ((platform == "W" || platform == "A") && runtime.GOOS == "windows") ||
 			((platform == "U" || platform == "A") && runtime.GOOS != "windows") {
 			newWord, err := shlex.ProcessWord(source, envs, nil)
-			if expected == "error" {
+			if expected == "error" { //nolint:goconst
 				require.Errorf(t, err, "input: %q, result: %q", source, newWord)
 			} else {
 				require.NoError(t, err, "at line %d of %s", lineCount, fn)
@@ -178,6 +179,8 @@ func TestShellParser4EnvVars(t *testing.T) {
 			}
 		}
 	}
+
+	require.NoError(t, scanner.Err())
 }
 
 func TestShellParser4Words(t *testing.T) {
@@ -262,6 +265,8 @@ func TestShellParser4Words(t *testing.T) {
 				}
 			}
 		}
+
+		require.NoError(t, scanner.Err())
 	}
 }
 
@@ -292,7 +297,7 @@ func TestGetEnv(t *testing.T) {
 		t.Fatal("4 - 'foo' should map to ''")
 	}
 
-	sw.envs = BuildEnvs([]string{"foo=bar"})
+	sw.envs = BuildEnvs([]string{"foo=bar"}) //nolint:goconst
 
 	if getEnv("foo") != "bar" {
 		t.Fatal("5 - 'foo' should map to 'bar'")

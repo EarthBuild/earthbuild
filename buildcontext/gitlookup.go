@@ -52,6 +52,8 @@ const (
 	httpsProtocol gitProtocol = "https"
 )
 
+const gitUser = "git"
+
 // GitLookup looksup gits.
 type GitLookup struct {
 	sshAuthSock   string
@@ -84,7 +86,7 @@ func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLoo
 		catchAll: &gitMatcher{
 			name:     "",
 			re:       regexp.MustCompile("[^/]+/[^/]+/[^/]+"),
-			user:     "git",
+			user:     gitUser,
 			suffix:   ".git",
 			protocol: autoProtocol,
 		},
@@ -461,7 +463,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 	}
 
 	config := &ssh.ClientConfig{
-		User: "git",
+		User: gitUser,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers),
 		},
@@ -554,7 +556,7 @@ func (gl *GitLookup) makeCloneURL(
 
 		switch configuredProtocol {
 		case sshProtocol:
-			user = "git"
+			user = gitUser
 		case httpProtocol, httpsProtocol:
 			user = ""
 			password = ""
@@ -568,7 +570,7 @@ func (gl *GitLookup) makeCloneURL(
 
 			user, ok = os.LookupEnv("USER")
 			if !ok {
-				user = "git"
+				user = gitUser
 
 				gl.console.VerbosePrintf("ssh auth configured without a user; failed to get current user, defaulting to git")
 			} else {

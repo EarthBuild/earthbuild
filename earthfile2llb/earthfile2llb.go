@@ -27,6 +27,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const commandName = "WITH DOCKER RUN "
+
 type ProjectAdder interface {
 	AddProject(org, proj string)
 }

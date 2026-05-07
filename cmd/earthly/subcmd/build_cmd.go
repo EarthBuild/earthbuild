@@ -97,6 +97,7 @@ func (a *Build) Cmds() []*cli.Command {
 				"[--arg1=arg-value]",
 			Description: "*beta* Builds a Dockerfile without an Earthfile.",
 			Action:      a.actionDockerBuild,
+			StopOnNthArg: new(1),
 			Flags: append(a.buildFlags(),
 				&cli.StringFlag{
 					Name:        "dockerfile",

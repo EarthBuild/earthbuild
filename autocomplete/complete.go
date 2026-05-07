@@ -547,7 +547,7 @@ func GetPotentials(
 				potentials = append(potentials, "./")
 			}
 
-			if fileutil.FileExistsBestEffort("Earthfile") {
+			if fileutil.FileExistsBestEffort(buildcontext.Earthfile) {
 				potentials = append(potentials, "+")
 			}
 		}
@@ -595,7 +595,7 @@ func GetPotentials(
 }
 
 func hasEarthfile(dirPath string) bool {
-	info, err := os.Stat(path.Join(dirPath, "Earthfile"))
+	info, err := os.Stat(filepath.Join(dirPath, buildcontext.Earthfile))
 	if err != nil {
 		return false
 	}

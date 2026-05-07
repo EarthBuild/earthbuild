@@ -31,7 +31,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
-	github.com/mattn/go-isatty v0.0.20
+	github.com/mattn/go-isatty v0.0.22
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/moby/buildkit v0.8.2-0.20210129065303-6b9ea0c202cf

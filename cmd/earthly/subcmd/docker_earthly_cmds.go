@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/docker2earthly"
 	"github.com/urfave/cli/v3"
 )
@@ -40,7 +41,7 @@ func (a *Doc2Earth) Cmds() []*cli.Command {
 				&cli.StringFlag{
 					Name:        "earthfile",
 					Usage:       "Path to Earthfile output, or - for stdout",
-					Value:       "Earthfile",
+					Value:       buildcontext.Earthfile,
 					Destination: &a.earthfilePath,
 				},
 				&cli.StringFlag{

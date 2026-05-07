@@ -9,6 +9,8 @@ import (
 func Test_parseSecretFlag(t *testing.T) {
 	t.Parallel()
 
+	const secretID = "SECRET_ID"
+
 	tests := []struct {
 		name              string
 		val               string
@@ -22,9 +24,9 @@ func Test_parseSecretFlag(t *testing.T) {
 		},
 		{
 			name:         "just the name",
-			val:          "SECRET_ID",
-			wantSecretID: "SECRET_ID",
-			wantEnvVar:   "SECRET_ID",
+			val:          secretID,
+			wantSecretID: secretID,
+			wantEnvVar:   secretID,
 		},
 		{
 			name:    "blank secret name",
@@ -38,10 +40,10 @@ func Test_parseSecretFlag(t *testing.T) {
 		},
 		{
 			name:              "has flag but includes +secrets/",
-			val:               "FOO=+secrets/BAR",
+			val:               "TOKEN=+secrets/token",
 			wantErr:           false,
-			wantSecretID:      "BAR",
-			wantEnvVar:        "FOO",
+			wantSecretID:      "token",
+			wantEnvVar:        "TOKEN",
 			useProjectSecrets: true,
 		},
 		{

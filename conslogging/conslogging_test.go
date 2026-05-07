@@ -10,6 +10,7 @@ import (
 func Test_prettyPrefix(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	testCases := []struct {
 		name          string
 		prefix        string

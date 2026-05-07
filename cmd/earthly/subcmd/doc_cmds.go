@@ -141,18 +141,21 @@ func docSectionsOutput(currIndent, scopeIndent, title string, sections ...docSec
 
 	var out strings.Builder
 
-	out.WriteString(indent(currIndent, title+":") + "\n")
+	out.WriteString(indent(currIndent, title+":"))
+	out.WriteByte('\n')
 
 	currIndent += scopeIndent
 	for _, section := range sections {
-		out.WriteString(indent(currIndent, section.identifier) + "\n")
+		out.WriteString(indent(currIndent, section.identifier))
+		out.WriteByte('\n')
 
 		if section.body == "" {
 			continue
 		}
 
 		indented := indent(currIndent+scopeIndent, section.body)
-		out.WriteString(strings.Trim(indented, "\n") + "\n")
+		out.WriteString(strings.Trim(indented, "\n"))
+		out.WriteByte('\n')
 	}
 
 	return out.String()
@@ -182,7 +185,9 @@ func (io blockIO) options() string {
 			sb.WriteByte(' ')
 		}
 
-		sb.WriteString("[" + arg.identifier + "]")
+		sb.WriteByte('[')
+		sb.WriteString(arg.identifier)
+		sb.WriteByte(']')
 	}
 
 	return sb.String()

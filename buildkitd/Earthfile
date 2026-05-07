@@ -3,7 +3,7 @@ VERSION 0.8
 FROM alpine:3.22
 
 buildkitd:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:1115d90af61373dc78defc3e59c9c7765f7b4091
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
     ARG EARTHLY_BUILDKIT_IMAGE_BASE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"

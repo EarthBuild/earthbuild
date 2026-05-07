@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/EarthBuild/earthbuild/examples/go-monorepo/libs/hello v0.0.0
 	github.com/labstack/echo/v4 v4.15.1
-	github.com/labstack/echo/v5 v5.0.4
+	github.com/labstack/echo/v5 v5.1.1
 )
 
 replace github.com/EarthBuild/earthbuild/examples/go-monorepo/libs/hello v0.0.0 => ../../libs/hello

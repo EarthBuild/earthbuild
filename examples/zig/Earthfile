@@ -3,8 +3,7 @@ VERSION 0.8
 deps:
     FROM alpine:3.23
 
-    # renovate: datasource=github-releases packageName=ziglang/zig
-    ARG ZIG_VERSION=0.12.0
+    ARG ZIG_VERSION=0.17.0
 
     ARG TARGETARCH
     IF [ "$TARGETARCH" = "amd64" ]
@@ -12,8 +11,8 @@ deps:
     ELSE IF [ "$TARGETARCH" = "arm64" ]
         ARG ZIG_ARCH="aarch64"
     END
-    RUN echo "Installing Zig $ZIG_VERSION for $ZIG_ARCH with https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz"
-    RUN wget --tries=5 --timeout=300 --continue -O zig.tar.xz https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz && \
+    RUN echo "Installing Zig $ZIG_VERSION for $ZIG_ARCH with https://ziglang.org/builds/zig-x86_64-linux-$ZIG_VERSION-dev.261+3d1fb4fac.tar.xz"
+    RUN wget --tries=5 --timeout=300 --continue -O zig.tar.xz https://ziglang.org/builds/zig-x86_64-linux-$ZIG_VERSION-dev.261+3d1fb4fac.tar.xz && \
         mkdir zig && \
         tar -xvf zig.tar.xz --strip-components 1 -C zig && \
         ln -sf /zig/zig /usr/bin/zig

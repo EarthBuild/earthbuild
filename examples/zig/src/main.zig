@@ -1,31 +1,22 @@
 const std = @import("std");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-
-    const out = std.io.getStdOut().writer();
+pub fn main(init: std.process.Init) !void {
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     const argLen = args.len;
     if (argLen > 2) {
-        try out.writeAll("too many arguments\n");
+        std.debug.print("too many arguments\n", .{});
         return;
     } else if (argLen < 2) {
-        try out.writeAll("too few arguments\n");
+        std.debug.print("too few arguments\n", .{});
         return;
     }
 
     const to = try std.fmt.parseInt(usize, args[1], 10);
-    var arena = std.heap.ArenaAllocator.init(allocator);
-    defer arena.deinit();
 
     for (0..to) |num| {
-        const result = try fizzBuzz(arena.allocator(), num);
-        try out.print("{s}\n", .{result});
+        const result = try fizzBuzz(init.arena.allocator(), num);
+        std.debug.print("{s}\n", .{result});
     }
 }
 
@@ -44,7 +35,7 @@ fn fizzBuzz(allocator: std.mem.Allocator, num: usize) ![]const u8 {
 }
 
 test {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 

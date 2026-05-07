@@ -27,6 +27,7 @@ import (
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	urfavecli "github.com/urfave/cli/v3"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
@@ -148,7 +149,7 @@ func run() (code int) {
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
 		for _, name := range f.Names() {
-			if bf, ok := f.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
+			if _, ok := f.(*urfavecli.BoolFlag); ok {
 				flagSet.Bool(name, false, "")
 			} else {
 				flagSet.String(name, "", "")

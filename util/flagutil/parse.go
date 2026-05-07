@@ -9,10 +9,8 @@ import (
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/pkg/errors"
-
 	"github.com/jessevdk/go-flags"
-	"github.com/urfave/cli/v2"
+	"github.com/pkg/errors"
 )
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
@@ -273,12 +271,17 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 // multiple occuranced of the flag or with the values passed with a command. For example:
 //
 //	--platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64"
-func SplitFlagString(value cli.StringSlice) []string {
-	valueStr := strings.TrimLeft(strings.TrimRight(value.String(), "]"), "[")
+func SplitFlagString(values []string) []string {
+	var res []string
 
-	return strings.FieldsFunc(valueStr, func(r rune) bool {
-		return r == ' ' || r == ','
-	})
+	for _, val := range values {
+		parts := strings.FieldsFunc(val, func(r rune) bool {
+			return r == ' ' || r == ','
+		})
+		res = append(res, parts...)
+	}
+
+	return res
 }
 
 var (

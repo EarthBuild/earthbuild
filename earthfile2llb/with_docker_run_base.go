@@ -67,13 +67,12 @@ type withDockerRunBase struct {
 
 func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) error {
 	params := composeParams(opt)
-	args := []string{
-		"/bin/sh", "-c",
+	args := shellCmd(
 		fmt.Sprintf(
 			"%s %s",
 			strings.Join(params, " "),
 			dockerAutoInstallScriptPath),
-	}
+	)
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
@@ -166,13 +165,12 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDockerOpt) ([]byte, error) {
 	// Add the right run to fetch the docker compose config.
 	params := composeParams(opt)
-	args := []string{
-		"/bin/sh", "-c",
+	args := shellCmd(
 		fmt.Sprintf(
 			"%s %s get-compose-config",
 			strings.Join(params, " "),
 			dockerdWrapperPath),
-	}
+	)
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
@@ -221,10 +219,9 @@ func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, o
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
 		envVars2 := append(params, envVars...) //nolint:gocritic
 
-		return []string{
-			"/bin/sh", "-c",
+		return shellCmd(
 			strWithEnvVarsAndDocker(args, envVars2, isWithShell, withDebugger, forceDebugger, true, false, "", ""),
-		}
+		)
 	}
 }
 

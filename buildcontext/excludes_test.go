@@ -8,6 +8,7 @@ import (
 	"testing"
 )
 
+//nolint:goconst
 func Test_readExcludes(t *testing.T) {
 	t.Parallel()
 

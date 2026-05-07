@@ -10,6 +10,7 @@ import (
 func TestRedactSecretsFromArgs(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	for _, testCase := range []struct {
 		args     []string
 		expected []string

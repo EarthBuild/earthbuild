@@ -144,8 +144,8 @@ earthly-script-no-stdout:
 # lint runs basic go linters against the earthly project.
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.11.4
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+    LET golangci_lint_version=2.12.2
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -843,7 +843,7 @@ license:
 node:
     FROM node:24.9.0-alpine3.22
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.12.1
+    LET npm_version=11.13.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

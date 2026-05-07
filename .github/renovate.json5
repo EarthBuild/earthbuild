@@ -408,5 +408,12 @@
         'every month',
       ],
     },
+    // group all golang.org/x/ dependencies
+    {
+      groupName: 'x',
+      matchPackageNames: [
+        '^golang\\.org/x/',
+      ],
+    },
   ],
 }

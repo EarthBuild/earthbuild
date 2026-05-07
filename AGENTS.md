@@ -2,7 +2,7 @@
 
 ## Golang
 
-* Use the concepts and capabilities of Go version declared in `go.mod`.
+* Use the concepts and capabilities of Go version declared in `go.mod`. Read more here: <https://go.dev/blog/go1.26>
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
 

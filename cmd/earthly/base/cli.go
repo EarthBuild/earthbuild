@@ -96,6 +96,10 @@ func (c *CLI) SetAppUseShortOptionHandling(use bool) {
 	c.app.UseShortOptionHandling = use
 }
 
+func (c *CLI) SetAppStopOnNthArg(stop *int) {
+	c.app.StopOnNthArg = stop
+}
+
 func (c *CLI) SetAction(action cli.ActionFunc) {
 	c.app.Action = action
 }

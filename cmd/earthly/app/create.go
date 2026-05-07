@@ -32,6 +32,7 @@ func NewEarthlyApp(
 		"\n" +
 		"\t" + earthly + " build --help")
 	earthlyApp.BaseCLI.SetAppUseShortOptionHandling(true)
+	earthlyApp.BaseCLI.SetAppStopOnNthArg(new(1))
 	earthlyApp.BaseCLI.SetAction(buildApp.Action)
 	earthlyApp.BaseCLI.SetVersion(
 		getVersionPlatform(earthlyApp.BaseCLI.Version(), earthlyApp.BaseCLI.GitSHA(), earthlyApp.BaseCLI.BuiltBy()))

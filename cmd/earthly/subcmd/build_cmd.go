@@ -77,12 +77,13 @@ func NewBuild(cli CLI) *Build {
 func (a *Build) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
-			Name:        "build",
-			Usage:       "Build an EarthBuild target",
-			Description: "Build an EarthBuild target.",
-			Action:      a.Action,
-			Flags:       a.buildFlags(),
-			Hidden:      true, // Meant to be used mainly for help output.
+			Name:         "build",
+			Usage:        "Build an EarthBuild target",
+			Description:  "Build an EarthBuild target.",
+			Action:       a.Action,
+			StopOnNthArg: new(1),
+			Flags:        a.buildFlags(),
+			Hidden:       true, // Meant to be used mainly for help output.
 		},
 		{
 			Name:  "docker-build",

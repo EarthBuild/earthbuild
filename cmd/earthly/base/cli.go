@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// CLI contains the common "earth" command line interface.
 type CLI struct {
 	commandName             string
 	version                 string
@@ -63,6 +64,7 @@ func WithDefaultInstallationName(name string) CLIOpt {
 	}
 }
 
+// NewCLI creates a new [CLI].
 func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	cli := CLI{
 		app:     new(cli.Command),
@@ -80,6 +82,7 @@ func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	return &cli
 }
 
+// App returns the app's [cli.Command].
 func (c *CLI) App() *cli.Command {
 	return c.app
 }
@@ -96,6 +99,7 @@ func (c *CLI) SetAppUseShortOptionHandling(use bool) {
 	c.app.UseShortOptionHandling = use
 }
 
+// SetAppStopOnNthArg tells the cli that it should stop processing flags after the Nth argument.
 func (c *CLI) SetAppStopOnNthArg(stop *int) {
 	c.app.StopOnNthArg = stop
 }

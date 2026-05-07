@@ -10,65 +10,64 @@ import (
 )
 
 func getApp() *cli.Command {
-	app := new(cli.Command)
-	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name: "flag",
-		},
-		&cli.BoolFlag{
-			Name: "fleet",
-		},
-		&cli.StringFlag{
-			Name: "fig",
-		},
-	}
-	app.Commands = []*cli.Command{
-		{
-			Name: "prune",
-		},
-		{
-			Name: "foo",
-		},
-		{
-			Name:   "hide",
-			Hidden: true,
-		},
-		{
-			Name: "sub",
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name: "subflag",
-				},
+	return &cli.Command{
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name: "flag",
 			},
-			Commands: []*cli.Command{
-				{
-					Name: "abc",
-				},
-				{
-					Name: "abba",
-					Flags: []cli.Flag{
-						&cli.BoolFlag{
-							Name: "subsubflag",
-						},
-						&cli.BoolFlag{
-							Name: "surf-the-internet",
-						},
-					},
-					Commands: []*cli.Command{
-						{
-							Name: "dancing-queen",
-						},
-					},
-				},
-				{
-					Name:   "hide",
-					Hidden: true,
-				},
+			&cli.BoolFlag{
+				Name: "fleet",
+			},
+			&cli.StringFlag{
+				Name: "fig",
 			},
 		},
+		Commands: []*cli.Command{
+			{
+				Name: "prune",
+			},
+			{
+				Name: "foo",
+			},
+			{
+				Name:   "hide",
+				Hidden: true,
+			},
+			{
+				Name: "sub",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name: "subflag",
+					},
+				},
+				Commands: []*cli.Command{
+					{
+						Name: "abc",
+					},
+					{
+						Name: "abba",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name: "subsubflag",
+							},
+							&cli.BoolFlag{
+								Name: "surf-the-internet",
+							},
+						},
+						Commands: []*cli.Command{
+							{
+								Name: "dancing-queen",
+							},
+						},
+					},
+					{
+						Name:   "hide",
+						Hidden: true,
+					},
+				},
+			},
+		},
 	}
-
-	return app
 }
 
 func getPotentials(cmd string) ([]string, error) {

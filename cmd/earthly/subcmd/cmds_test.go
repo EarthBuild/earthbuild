@@ -49,7 +49,7 @@ func checkSubCommands(commands []*cli.Command) []*cli.Command {
 
 	for _, command := range commands {
 		allCommands = append(allCommands, command)
-		if len(command.Commands) != 0 {
+		if len(command.Commands) > 0 {
 			allCommands = append(allCommands, checkSubCommands(command.Commands)...)
 		}
 	}

@@ -85,6 +85,7 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 	}
 }
 
+// Action handles the bootstrap command.
 func (a *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("actionbootstrap")
 

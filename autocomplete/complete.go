@@ -288,15 +288,6 @@ func getPotentialArtifactBuildArgs(
 	return getPotentialTargetBuildArgs(ctx, resolver, gwClient, artifact.Target.String())
 }
 
-// isVisibleFlag returns if a flag is hidden or not.
-func isVisibleFlag(fl cli.Flag) bool {
-	if vf, ok := fl.(cli.VisibleFlag); ok {
-		return vf.IsVisible()
-	}
-
-	return true
-}
-
 func getCmd(name string, cmds []*cli.Command) *cli.Command {
 	for _, c := range cmds {
 		if name == c.Name {
@@ -311,11 +302,14 @@ func getVisibleFlags(flags []cli.Flag) []string {
 	visibleFlags := []string{}
 
 	for _, f := range flags {
-		if isVisibleFlag(f) {
-			for _, n := range f.Names() {
-				if len(n) > 1 {
-					visibleFlags = append(visibleFlags, n)
-				}
+		vf, ok := f.(cli.VisibleFlag)
+		if ok && !vf.IsVisible() {
+			continue
+		}
+
+		for _, n := range f.Names() {
+			if len(n) > 1 {
+				visibleFlags = append(visibleFlags, n)
 			}
 		}
 	}

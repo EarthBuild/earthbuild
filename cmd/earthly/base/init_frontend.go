@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// InitFrontend initializes the frontend for the given command.
 func (cli *CLI) InitFrontend(ctx context.Context, cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
 	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {

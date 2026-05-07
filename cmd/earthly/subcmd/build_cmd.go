@@ -95,8 +95,8 @@ func (a *Build) Cmds() []*cli.Command {
 				"[--platform <platform1[,platform2,...]>] " +
 				"<build-context-dir> " +
 				"[--arg1=arg-value]",
-			Description: "*beta* Builds a Dockerfile without an Earthfile.",
-			Action:      a.actionDockerBuild,
+			Description:  "*beta* Builds a Dockerfile without an Earthfile.",
+			Action:       a.actionDockerBuild,
 			StopOnNthArg: new(1),
 			Flags: append(a.buildFlags(),
 				&cli.StringFlag{
@@ -196,7 +196,7 @@ func (a *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no image reference provided. Try %s --image +<target-name>", cmd.Root().Name)
+				"no image reference provided. Try %s --image +<target-name>", common.GetBinaryName())
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -215,7 +215,7 @@ func (a *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", cmd.Root().Name)
+				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName())
 		} else if len(nonFlagArgs) > 2 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -239,7 +239,7 @@ func (a *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no target reference provided. Try %s +<target-name>", cmd.Root().Name)
+				"no target reference provided. Try %s +<target-name>", common.GetBinaryName())
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -945,7 +945,7 @@ func (a *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 		_ = cli.ShowAppHelp(cmd)
 
 		return errors.Errorf(
-			"no build context path provided. Try %s docker-build <path>", cmd.Root().Name)
+			"no build context path provided. Try %s docker-build <path>", common.GetBinaryName())
 	}
 
 	if len(nonFlagArgs) != 1 {

@@ -9,6 +9,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// GetBuildkitClient returns a Buildkit client.
 func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (c *client.Client, err error) {
 	err = cli.InitFrontend(ctx, cmd)
 	if err != nil {

@@ -1,6 +1,7 @@
 package flag
 
 import (
+	"cmp"
 	"os"
 	"time"
 
@@ -84,8 +85,9 @@ type Global struct {
 	GithubAnnotations          bool
 }
 
+// RootFlags returns the root flags for the CLI.
 func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
-	defaultInstallationName := max(installName, "earthly")
+	defaultInstallationName := cmp.Or(installName, "earthly")
 
 	return []cli.Flag{
 		&cli.StringFlag{

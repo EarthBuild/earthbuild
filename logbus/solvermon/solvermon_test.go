@@ -1,0 +1,221 @@
+package solvermon
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logstream"
+	"github.com/EarthBuild/earthbuild/util/vertexmeta"
+	"github.com/moby/buildkit/client"
+	"github.com/opencontainers/go-digest"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFirstFailureCapturesFirstFatalVertexError(t *testing.T) {
+	t.Parallel()
+
+	sm := New(logbus.New())
+	completed := time.Now()
+
+	err := sm.handleBuildkitStatus(&client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Digest:    digest.FromString("fatal"),
+				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN bad",
+				Completed: &completed,
+				Error:     `process "bad" did not complete successfully: exit code: 42`,
+			},
+			{
+				Digest:    digest.FromString("later"),
+				Name:      (&vertexmeta.VertexMeta{TargetID: "later-target", TargetName: "+later"}).ToVertexPrefix() + "RUN worse",
+				Completed: &completed,
+				Error:     `process "worse" did not complete successfully: exit code: 43`,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	failure, ok := sm.FirstFailure()
+	require.True(t, ok)
+	require.Equal(t, "target-id", failure.TargetID)
+	require.Equal(t, logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT, failure.FailureType)
+	require.Contains(t, failure.Error, "RUN bad")
+	require.Contains(t, failure.Error, "Exit code 42")
+	require.NotContains(t, failure.Error, "RUN worse")
+}
+
+func TestFirstFailureIgnoresCancellationOnlyVertexError(t *testing.T) {
+	t.Parallel()
+
+	sm := New(logbus.New())
+	completed := time.Now()
+
+	err := sm.handleBuildkitStatus(&client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Digest:    digest.FromString("canceled"),
+				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN bad",
+				Completed: &completed,
+				Error:     `process "bad" did not complete successfully: exit code: 137: context canceled: context canceled`,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, ok := sm.FirstFailure()
+	require.False(t, ok)
+
+	cancellation, ok := sm.FirstCancellation()
+	require.True(t, ok)
+	require.Equal(t, "target-id", cancellation.TargetID)
+	require.Contains(t, cancellation.Error, "RUN bad")
+	require.Contains(t, cancellation.Error, "context canceled")
+}
+
+func TestFirstCancellationCapturesSessionLossVertexError(t *testing.T) {
+	t.Parallel()
+
+	sm := New(logbus.New())
+	completed := time.Now()
+
+	err := sm.handleBuildkitStatus(&client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Digest: digest.FromString("session-loss"),
+				Name: (&vertexmeta.VertexMeta{
+					TargetID: "target-id", TargetName: "+target",
+				}).ToVertexPrefix() + "local context .",
+				Completed: &completed,
+				Error:     "could not access local files without session",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, ok := sm.FirstFailure()
+	require.False(t, ok)
+
+	cancellation, ok := sm.FirstCancellation()
+	require.True(t, ok)
+	require.Equal(t, "target-id", cancellation.TargetID)
+	require.Contains(t, cancellation.Error, "local context .")
+	require.Contains(t, cancellation.Error, "lost the solve session")
+	require.Contains(t, cancellation.Error, "could not access local files without session")
+}
+
+func TestCancellationDetailsTracksActiveRecentAndLogs(t *testing.T) {
+	t.Parallel()
+
+	sm := New(logbus.New())
+	started := time.Now()
+	completed := started.Add(time.Second)
+	activeDigest := digest.FromString("active")
+	recentDigest := digest.FromString("recent")
+
+	err := sm.handleBuildkitStatus(&client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Digest:  activeDigest,
+				Name:    (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN sleep",
+				Started: &started,
+			},
+			{
+				Digest:    recentDigest,
+				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN done",
+				Started:   &started,
+				Completed: &completed,
+			},
+		},
+		Logs: []*client.VertexLog{
+			{
+				Vertex:    activeDigest,
+				Data:      []byte("tail line\n"),
+				Timestamp: completed,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	details, ok := sm.CancellationDetails()
+	require.True(t, ok)
+	require.Len(t, details.Active, 1)
+	require.Equal(t, "RUN sleep", details.Active[0].Operation)
+	require.Len(t, details.Recent, 1)
+	require.Equal(t, "RUN done", details.Recent[0].Operation)
+	require.Len(t, details.Logs, 1)
+	require.Equal(t, "tail line", details.Logs[0].Text)
+	require.Contains(t, details.String(), "Last active operations")
+	require.Contains(t, details.String(), "Recent output")
+}
+
+func TestFirstFailureErrorWrapsCause(t *testing.T) {
+	t.Parallel()
+
+	cause := context.Canceled
+	err := NewFirstFailureError(cause, FirstFailure{
+		Error: "first failure",
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, "first failure", err.Error())
+
+	failureErr, ok := AsFirstFailureError(err)
+	require.True(t, ok)
+	require.Equal(t, "first failure", failureErr.Failure.Error)
+}
+
+func TestNewFirstFailureErrorReturnsCauseWithoutFailureMessage(t *testing.T) {
+	t.Parallel()
+
+	cause := context.Canceled
+	err := NewFirstFailureError(cause, FirstFailure{})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotContains(t, err.Error(), "build failed in target")
+}
+
+func TestFirstCancellationErrorWrapsCause(t *testing.T) {
+	t.Parallel()
+
+	cause := context.Canceled
+	err := NewFirstCancellationError(cause, FirstFailure{
+		Error: "first cancellation",
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, "first cancellation", err.Error())
+
+	cancelErr, ok := AsFirstCancellationError(err)
+	require.True(t, ok)
+	require.Equal(t, "first cancellation", cancelErr.Cancellation.Error)
+}
+
+func TestNewFirstCancellationErrorReturnsCauseWithoutCancellationMessage(t *testing.T) {
+	t.Parallel()
+
+	cause := context.Canceled
+	err := NewFirstCancellationError(cause, FirstFailure{})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotContains(t, err.Error(), "build failed in target")
+}
+
+func TestCancellationDetailsErrorWrapsCause(t *testing.T) {
+	t.Parallel()
+
+	err := NewCancellationDetailsError(context.Canceled, CancellationDetails{
+		End: time.Now(),
+		Active: []OperationSnapshot{
+			{Operation: "RUN active"},
+		},
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Contains(t, err.Error(), "RUN active")
+
+	detailsErr, ok := AsCancellationDetailsError(err)
+	require.True(t, ok)
+	require.Len(t, detailsErr.Details.Active, 1)
+}

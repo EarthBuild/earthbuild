@@ -30,6 +30,13 @@ func TestGetExitCode(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			name: "match with hinted exit code",
+			errString: "process \"foo\" did not complete successfully: " +
+				"exit code: 126 (command was found but could not be executed)",
+			expectedCode:  126,
+			expectedError: nil,
+		},
+		{
 			name:          "match with max uint32",
 			errString:     "process \"foo\" did not complete successfully: exit code: 4294967295",
 			expectedCode:  0,
@@ -73,6 +80,22 @@ func TestDetermineFatalErrorType(t *testing.T) {
 		{
 			name:          "context canceled",
 			errString:     "context canceled",
+			exitCode:      0,
+			parseErr:      nil,
+			expectedType:  logstream.FailureType_FAILURE_TYPE_UNKNOWN,
+			expectedFatal: false,
+		},
+		{
+			name:          "lost local session",
+			errString:     "could not access local files without session",
+			exitCode:      0,
+			parseErr:      nil,
+			expectedType:  logstream.FailureType_FAILURE_TYPE_UNKNOWN,
+			expectedFatal: false,
+		},
+		{
+			name:          "released result after cancellation",
+			errString:     "rpc error: code = Unknown desc = evaluating released result",
 			exitCode:      0,
 			parseErr:      nil,
 			expectedType:  logstream.FailureType_FAILURE_TYPE_UNKNOWN,
@@ -203,4 +226,24 @@ func TestReErrNotFound(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFormatErrorExplainsSignalExitCode(t *testing.T) {
+	t.Parallel()
+
+	msg := FormatError("RUN bad", `process "bad" did not complete successfully: exit code: 137`)
+
+	assert.Contains(t, msg, "Exit code 137")
+	assert.Contains(t, msg, "signal 9")
+}
+
+func TestFormatErrorExplainsExitCode126(t *testing.T) {
+	t.Parallel()
+
+	msg := FormatError("RUN bad", `process "bad" did not complete successfully: exit code: 126`)
+
+	assert.Contains(t, msg, "Exit code 126")
+	assert.Contains(t, msg, "command was found but could not be executed")
+	assert.Contains(t, msg, "executable permissions")
+	assert.Contains(t, msg, "shebang/interpreter")
 }

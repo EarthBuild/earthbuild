@@ -21,6 +21,7 @@ import (
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 )
 
 // statusChanSize is used to ensure we consume all BK status messages without
@@ -91,7 +92,7 @@ func (s *solver) buildMainMulti(
 	err = eg.Wait()
 
 	if buildErr != nil {
-		return buildErr
+		return s.withBuildkitFailureContext(buildErr)
 	}
 
 	if err != nil {
@@ -99,6 +100,38 @@ func (s *solver) buildMainMulti(
 	}
 
 	return nil
+}
+
+func (s *solver) withBuildkitFailureContext(buildErr error) error {
+	if !isCanceledErr(buildErr) {
+		return buildErr
+	}
+
+	if failure, ok := s.logbusSM.FirstFailure(); ok {
+		return solvermon.NewFirstFailureError(buildErr, failure)
+	}
+
+	if cancellation, ok := s.logbusSM.FirstCancellation(); ok {
+		return solvermon.NewFirstCancellationError(buildErr, cancellation)
+	}
+
+	if details, ok := s.logbusSM.CancellationDetails(); ok {
+		return solvermon.NewCancellationDetailsError(buildErr, details)
+	}
+
+	return buildErr
+}
+
+func isCanceledErr(err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	if grpcErr, ok := grpcerrors.AsGRPCStatus(err); ok && grpcErr.Code() == codes.Canceled {
+		return true
+	}
+
+	return false
 }
 
 func (s *solver) newSolveOptMulti(
@@ -192,8 +225,17 @@ func (s *solver) newSolveOptMulti(
 		CacheImports:        cacheImports,
 		CacheExports:        cacheExports,
 		Session:             s.attachables,
-		AllowedEntitlements: s.enttlmnts,
+		AllowedEntitlements: entitlementsToStrings(s.enttlmnts),
 	}, nil
+}
+
+func entitlementsToStrings(ents []entitlements.Entitlement) []string {
+	s := make([]string, len(ents))
+	for i, e := range ents {
+		s[i] = string(e)
+	}
+
+	return s
 }
 
 func newCacheImportOpt(ref string) client.CacheOptionsEntry {

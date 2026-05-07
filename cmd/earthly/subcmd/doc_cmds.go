@@ -98,7 +98,7 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 			return errors.Wrap(err, "failed to look up target")
 		}
 
-		return a.documentSingleTarget(cliCtx, "", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
+		return a.documentSingleTarget(cliCtx, "", bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
 	}
 
 	tgts := bc.Earthfile.Targets
@@ -107,7 +107,7 @@ func (a *Doc) action(cliCtx *cli.Context) error {
 
 	const tgtIndent = docsIndent
 	for _, tgt := range tgts {
-		_ = a.documentSingleTarget(cliCtx, tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		_ = a.documentSingleTarget(cliCtx, tgtIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
 	}
 
 	return nil
@@ -305,7 +305,7 @@ func parseDocSections(cliCtx *cli.Context, ft *features.Features, baseRcp, cmds 
 
 func (a *Doc) documentSingleTarget(
 	cliCtx *cli.Context,
-	currIndent, scopeIndent string,
+	currIndent string,
 	ft *features.Features,
 	baseRcp spec.Block,
 	tgt spec.Target,
@@ -325,6 +325,8 @@ func (a *Doc) documentSingleTarget(
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse body of recipe '%v'", tgt.Name)
 	}
+
+	const scopeIndent = "  "
 
 	usage := indent(currIndent, "+"+tgt.Name)
 

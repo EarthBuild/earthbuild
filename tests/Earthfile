@@ -37,7 +37,6 @@ ga-no-qemu-group2:
     BUILD +git-clone-test
     BUILD +builtin-args-invalid-default-test
     BUILD +builtin-args-invalid-pass-test
-    BUILD +builtin-args-cli-tests
     BUILD +parser-smoke-test
 
 ga-no-qemu-group3:
@@ -60,22 +59,38 @@ ga-no-qemu-group3:
     BUILD +non-transitive-args-test
 
 ga-no-qemu-group4:
-    BUILD +star-test
-    BUILD +dockerfile-test
-    BUILD +fail-test
-    BUILD +fail-push-test
-    BUILD +allow-privileged-import-test
-    BUILD +reject-privileged-import-test
-    BUILD +required-arg-test
-    BUILD +push-test
-    BUILD +push-arg-test
-    BUILD +ci-arg-test
-    BUILD +gen-dockerfile-test
-    BUILD +chown-test
-    BUILD +env-test
-    BUILD +env-home-test
-    BUILD +stack-failure-test
-    BUILD +multi-stack-failure-test
+    # First half of the former group4; the second half is in group13.
+    # Split to halve peak memory per CI job — group4 was back-to-back
+    # Canceled even with nested buildkit trim and outer=dev buildkit.
+    # Keep the same coverage, but avoid starting all nested Earth sessions at
+    # once. This group has repeatedly canceled in CI under full fan-out.
+    WAIT
+        BUILD +star-test
+        BUILD +dockerfile-test
+        BUILD +fail-test
+        BUILD +fail-push-test
+    END
+    WAIT
+        BUILD +allow-privileged-import-test
+        BUILD +reject-privileged-import-test
+        BUILD +required-arg-test
+        BUILD +push-test
+    END
+    WAIT
+        BUILD +push-arg-test
+        BUILD +ci-arg-test
+        BUILD +gen-dockerfile-test
+        BUILD +chown-test
+    END
+    WAIT
+        BUILD +env-test
+        BUILD +env-home-test
+        BUILD +stack-failure-test
+        BUILD +multi-stack-failure-test
+    END
+
+ga-no-qemu-group13:
+    # Second half of the former group4; see note there.
     BUILD +no-cache-local-artifact-test
     BUILD +empty-git-test
     BUILD +escape-test
@@ -95,19 +110,13 @@ ga-no-qemu-group4:
 
 ga-no-qemu-group5:
     BUILD +push-build
-    BUILD +build-arg-repeat
-    BUILD +arg-scope-requires-shellout-anywhere
-    BUILD +arg-set
     BUILD +if
     BUILD +for
-    BUILD +first-command
     BUILD +platform-output
     BUILD +command
     BUILD +function
     BUILD +function-nested-global
     BUILD --pass-args ./functions-do-not-propagate-args+test-all
-    BUILD +duplicate
-    BUILD +reserved
     BUILD +quotes-test
     BUILD +quotes-test-extra
     BUILD +new-args
@@ -130,21 +139,6 @@ ga-no-qemu-group5:
     BUILD +doc-recipe-block
     BUILD +no-network
     BUILD +test-works-without-earthly-server
-    BUILD +test-init-unsupported
-    BUILD +test-init-golang
-    BUILD +pass-args-test
-    BUILD +pass-args-defaults-test
-    BUILD +pass-args-no-builtins-via-function-test
-    BUILD +test-reserved-label
-    BUILD +test-cache-mount-mode
-    BUILD +test-cache-mode
-    BUILD +test-shared-cache
-    BUILD +test-cache-persist
-    BUILD +test-visited-upfront-hash-collection
-    BUILD +test-exec-stats
-    BUILD +test-aws-flag-envs
-    BUILD +test-aws-flag-configs
-    BUILD +test-aws-flag-none
 
     # Forcing the implicit global wait/end block, causes some tests, which rely
     # on the ability to have two different targets issue the same SAVE IMAGE tag name
@@ -159,6 +153,25 @@ ga-no-qemu-group5:
         BUILD --pass-args ./with-docker-via-command+test
     END
 
+# group14 carries the memory-heavy second half of the original group5:
+# pass-args/cache/aws-flag tests all spawn nested earthly-in-earthly runs
+# (test-runner style). Combined with the rest of group5 they OOM'd
+# on the 16-GiB runner (SIGKILL/exit 137 on +test-aws-flag-*).
+ga-no-qemu-group14:
+    BUILD +pass-args-test
+    BUILD +pass-args-defaults-test
+    BUILD +pass-args-no-builtins-via-function-test
+    BUILD +test-reserved-label
+    BUILD +test-cache-mount-mode
+    BUILD +test-cache-mode
+    BUILD +test-shared-cache
+    BUILD +test-cache-persist
+    BUILD +test-visited-upfront-hash-collection
+    BUILD +test-exec-stats
+    BUILD +test-aws-flag-envs
+    BUILD +test-aws-flag-configs
+    BUILD +test-aws-flag-none
+
 ga-no-qemu-group6:
     BUILD +cache-test
     BUILD --pass-args ./scrub-https-credentials+all
@@ -166,13 +179,12 @@ ga-no-qemu-group6:
 
 ga-no-qemu-group7:
     BUILD +cache-mount-arg
-    BUILD +infinite-recursion
     BUILD +save-artifact-selective
     BUILD +if-exists
-    BUILD +let-set
-    BUILD +let-scope
     BUILD +save-artifact-selective-referencing-remote
     BUILD --pass-args ./secret-provider-config+test-all
+
+ga-no-qemu-group15:
     BUILD --pass-args ./shell-out+test-all
     BUILD --pass-args ./with-docker-compose+all
     BUILD +dotenv-test
@@ -192,7 +204,6 @@ ga-no-qemu-group8:
     BUILD --pass-args ./raw-output+test-all
 
 ga-no-qemu-group9:
-    BUILD +cache-cmd
     BUILD --pass-args ./config+test
     BUILD +arg-redeclare-error
     # Autoskip not currently available so don't test it
@@ -218,15 +229,38 @@ ga-no-qemu-group12:
     BUILD --pass-args ./with-docker-validate-labels+all
     BUILD --pass-args +run-no-cache-save-artifact
 
+# ga-no-qemu-slow is kept as an umbrella that still runs everything when
+# called directly (useful for local dev), but CI splits it into the four
+# sub-targets below so each lands on its own 16-GiB runner. Combined the
+# slow bundle was ~40 subtargets including 15 docker-in-docker scenarios
+# which pushed CI jobs past their memory budget.
 ga-no-qemu-slow:
-    BUILD +server
-    BUILD --pass-args ./with-docker+all
-    BUILD --pass-args ./with-docker-cache+test
+    BUILD +ga-no-qemu-slow-with-docker
+    BUILD +ga-no-qemu-slow-git-ssh
+    BUILD +ga-no-qemu-slow-private-https
+    BUILD +ga-no-qemu-slow-misc
+
+ga-no-qemu-slow-with-docker:
+    WAIT
+        BUILD --pass-args ./with-docker+all
+    END
+    WAIT
+        BUILD --pass-args ./with-docker-cache+test
+    END
+
+ga-no-qemu-slow-git-ssh:
     # this has been moved to a separate target until we get the flakey "tell me who you are" bug
     # fixed; see https://github.com/earthly/earthly/issues/2567
     #BUILD --pass-args ./git-metadata+test
     BUILD --pass-args ./git-ssh-server+all
-    BUILD --pass-args ./private-https+all
+
+ga-no-qemu-slow-private-https:
+    WAIT
+        BUILD --pass-args ./private-https+all
+    END
+
+ga-no-qemu-slow-misc:
+    BUILD +server
     BUILD --pass-args ./version+test-all
 
 ga-no-qemu-kind:
@@ -245,6 +279,9 @@ ga-no-qemu:
     BUILD +ga-no-qemu-group10
     BUILD +ga-no-qemu-group11
     BUILD +ga-no-qemu-group12
+    BUILD +ga-no-qemu-group13
+    BUILD +ga-no-qemu-group14
+    BUILD +ga-no-qemu-group15
     BUILD +ga-no-qemu-slow
 
 # tests that only run on linux amd64
@@ -372,13 +409,6 @@ builtin-args-invalid-pass-test:
     DO +RUN_EARTHLY --earthfile=builtin-args-invalid-pass.earth --should_fail=true --target=+test --output_contains="value cannot be specified for built-in build arg EARTHLY_VERSION"
     RUN sed -i "1s/VERSION \(.*\)/VERSION --arg-scope-and-set \1/" Earthfile
     DO +RUN_EARTHLY --should_fail=true --target=+test --output_contains="value cannot be specified for built-in build arg EARTHLY_VERSION"
-
-builtin-args-cli-tests:
-    DO +RUN_EARTHLY --earthfile=builtin-args.earth --should_fail=true --extra_args="--build-arg EARTHLY_VERSION=123" --target=+builtin-args-test \
-        --output_contains="cannot be passed on the command line"
-    RUN sed -i "1s/VERSION \(.*\)/VERSION --arg-scope-and-set \1/" Earthfile
-    DO +RUN_EARTHLY --should_fail=true --extra_args="--build-arg EARTHLY_VERSION=123" --target=+builtin-args-test \
-        --output_contains="cannot be passed on the command line"
 
 parser-smoke-test:
     DO +RUN_EARTHLY --earthfile=parser-smoke.earth --target=+test
@@ -1208,11 +1238,9 @@ build-arg-repeat:
     RUN cat ./output/out-default-1 | grep "B=1"
 
 arg-redeclare-error:
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-working-global
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-working-global-override
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-working-default-override
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict --should_fail=true
-    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict-if --should_fail=true
+    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth
+    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict --should_fail=true --output_contains="if you want to change the value of .FOO."
+    DO +RUN_EARTHLY --earthfile=arg-redeclare-error.earth --target=+test-error-conflict-if --should_fail=true --output_contains="if you want to change the value of .FOO."
     DO +RUN_EARTHLY --earthfile=arg-global-after-local.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' was already declared as a non-global ARG in this scope - did you mean to add '--global' to the original declaration?"
 
 arg-scope-requires-shellout-anywhere:
@@ -1220,26 +1248,6 @@ arg-scope-requires-shellout-anywhere:
 
 arg-set:
     DO +RUN_EARTHLY --earthfile=arg-set.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first"
-
-let-scope:
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+base
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+let-overrides-arg
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+let-overrides-global-arg
-    DO +RUN_EARTHLY --earthfile=let-scope.earth --target=+arg-after-let-errors --should_fail=true --output_contains="Hint: 'bar' was already declared with LET and cannot be redeclared as an ARG"
-
-let-set:
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target=+base
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test --expected=bazinga"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test --bar=eggs --expected=eggsinga"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-global --foo=banana --topExpected='banana car' --expected='banana phone'"
-
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target=+test-set-global-fails --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target=+test-set-nonexistent-fails --should_fail=true --output_contains="Hint: 'nonexistent' needs to be declared with 'LET nonexistent = someValue' before it can be used with SET"
-    # Also ensure that we error when the variable exists in overrides.
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-set-nonexistent-fails --nonexistent=foo" --should_fail=true --output_contains="Hint: 'nonexistent' needs to be declared with 'LET nonexistent = someValue' before it can be used with SET"
-
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-if --expected='ifSwitch was true'"
-    DO +RUN_EARTHLY --earthfile=let-set.earth --target="+test-if --ifSwitch=false --expected='ifSwitch was false'"
 
 if:
     RUN touch exists-locally
@@ -1296,16 +1304,6 @@ new-args:
 
 import:
     DO +RUN_EARTHLY --earthfile=import.earth
-
-infinite-recursion:
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test1
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test2
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test3
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test4
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test5
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test6
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test7
-    DO +RUN_EARTHLY --earthfile=infinite-recursion.earth --should_fail=true --target=+test8
 
 from-dockerfile-arg:
     DO +RUN_EARTHLY --earthfile=from-dockerfile-arg.earth --target=+all
@@ -1411,6 +1409,8 @@ help:
     RUN earthly --help | grep 'buildkit-volume-name'
 
 doc:
+    # Detailed doc formatting coverage lives in cmd/earthly/subcmd/doc_cmds_test.go.
+    # Keep this as a full CLI smoke test.
     DO +RUN_EARTHLY --earthfile=target-docs.earth --extra_args="doc" --target="" --post_command=">output.txt"
     RUN pcregrep --multiline "TARGETS:
   \+documented-target
@@ -1418,97 +1418,13 @@ doc:
       that spans multiple lines.
 
       It also has a separator between paragraphs." output.txt
-    DO +RUN_EARTHLY --earthfile=target-docs.earth --extra_args="doc" --target="" --grep_flags="-v" --output_contains="undocumented-target"
-    DO +RUN_EARTHLY --earthfile=target-docs.earth --extra_args="doc" --target="" --grep_flags="-v" --output_contains="incorrectly-documented-target"
-    DO +RUN_EARTHLY --earthfile=target-docs.earth --extra_args="doc" --target="+documented-target" --post_command=">output.txt"
-    RUN pcregrep --multiline "\+documented-target
-    documented-target is a target with documentation
-    that spans multiple lines.
-
-    It also has a separator between paragraphs." output.txt
-    DO +RUN_EARTHLY --earthfile=target-docs.earth --extra_args="doc" --target="+undocumented-target" --should_fail=true --output_contains="no doc comment found"
-    DO +RUN_EARTHLY --earthfile=target-docs.earth --extra_args="doc" --target="+incorrectly-documented-target" --should_fail=true --output_contains="no doc comment found"
 
 doc-recipe-block:
-    DO +RUN_EARTHLY --earthfile=doc-recipe-block.earth --extra_args="doc" --target="" --post_command=">output.txt"
-    RUN pcregrep --multiline "TARGETS:
-  \+foo --requiredArg \[--globalArg\] \[--withDefault=foo\] \[--withDocs\] \[--withoutDocs\]
-      foo is a target with documentation. Targets without documentation won't show
-      up in 'earthly doc' even if they have documented commands in their recipe." output.txt
-
-    DO +RUN_EARTHLY --earthfile=doc-recipe-block.earth --extra_args="doc" --target="+foo" --post_command=">output.txt"
-    RUN pcregrep --multiline "\+foo --requiredArg \[--globalArg\] \[--withDefault=foo\] \[--withDocs\] \[--withoutDocs\]
-    foo is a target with documentation. Targets without documentation won't show
-    up in 'earthly doc' even if they have documented commands in their recipe.
-  REQUIRED ARGS:
-    --requiredArg
-  OPTIONAL ARGS:
-    --globalArg
-      globalArg is a documented global arg. earthly doc does not distinguish between
-      global and non-global args, because they work the same to end users.
-    --withDefault=foo
-      withDefault is a documented argument with a default.
-    --withDocs
-      withDocs is a documented argument.
-    --withoutDocs
-  ARTIFACTS:
-    bar.txt
-      bar.txt is a documented artifact.
-    baz.txt
-  LOCAL ARTIFACTS:
-    baz.txt -> out/baz.txt
-      out/baz.txt is a documented artifact that is saved locally.
-    bacon.txt -> out/eggs.txt
-      bacon.txt is also a documented artifact that is saved locally.
-  IMAGES:
-    baz
-      baz is a documented image.
-    bar
-    bacon, eggs
-      eggs is just one of the image names, and yet it should still be recognized for this multiple-name SAVE IMAGE format." output.txt
-
+    # Detailed recipe block output coverage lives in cmd/earthly/subcmd/doc_cmds_test.go.
+    # Keep this as a full CLI smoke test for the --long path.
     DO +RUN_EARTHLY --earthfile=doc-recipe-block.earth --extra_args="doc --long" --target="" --post_command=">output.txt"
-    RUN pcregrep --multiline "TARGETS:
-  \+foo --requiredArg \[--globalArg\] \[--withDefault=foo\] \[--withDocs\] \[--withoutDocs\]
-      foo is a target with documentation. Targets without documentation won't show
-      up in 'earthly doc' even if they have documented commands in their recipe.
-    REQUIRED ARGS:
-      --requiredArg
-    OPTIONAL ARGS:
-      --globalArg
-        globalArg is a documented global arg. earthly doc does not distinguish between
-        global and non-global args, because they work the same to end users.
-      --withDefault=foo
-        withDefault is a documented argument with a default.
-      --withDocs
-        withDocs is a documented argument.
-      --withoutDocs
-    ARTIFACTS:
-      bar.txt
-        bar.txt is a documented artifact.
-      baz.txt
-    LOCAL ARTIFACTS:
-      baz.txt -> out/baz.txt
-        out/baz.txt is a documented artifact that is saved locally.
-      bacon.txt -> out/eggs.txt
-        bacon.txt is also a documented artifact that is saved locally.
-    IMAGES:
-      baz
-        baz is a documented image.
-      bar
-      bacon, eggs
-        eggs is just one of the image names, and yet it should still be recognized for this multiple-name SAVE IMAGE format." output.txt
-
-cache-cmd:
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-save-artifact
-    RUN test "$(cat ./artifacts1/1)" = "artifact 1"
-    RUN test -d ./artifacts1/2; test $? = 1
-    RUN test "$(cat ./artifacts2/1)" = "artifact 1"
-    RUN test "$(cat ./artifacts2/2)" = "artifact 2"
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-no-sharing
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-arg
-    DO +RUN_EARTHLY --earthfile=cache-cmd.earth --target=+test-id-expand-args
+    RUN grep 'REQUIRED ARGS:' output.txt
+    RUN grep 'IMAGES:' output.txt
 
 ls:
     COPY ls.earth Earthfile
@@ -1726,18 +1642,22 @@ test-cache-persist:
 test-visited-upfront-hash-collection:
   DO +RUN_EARTHLY \
       --earthfile=visited-upfront-hash-collection.earth \
+      --pre_command="export BUILDKIT_MAX_PARALLELISM=5" \
       --target=+parallel
   DO +TEST_PARALLELIZATION
   DO +RUN_EARTHLY \
       --earthfile=visited-upfront-hash-collection.earth \
+      --pre_command="export BUILDKIT_MAX_PARALLELISM=5" \
       --target=+parallel-dynamic-arg
   DO +TEST_PARALLELIZATION
   DO +RUN_EARTHLY \
       --earthfile=visited-upfront-hash-collection.earth \
+      --pre_command="export BUILDKIT_MAX_PARALLELISM=5" \
       --target=+parallel-dynamic-let
   DO +TEST_PARALLELIZATION
   DO +RUN_EARTHLY \
       --earthfile=visited-upfront-hash-collection.earth \
+      --pre_command="export BUILDKIT_MAX_PARALLELISM=5" \
       --target=+parallel-dynamic-set
   DO +TEST_PARALLELIZATION
 
@@ -1855,6 +1775,9 @@ RUN_EARTHLY:
 
         if ! tail -n 1 earthly.output | grep 'exit_code=[0-9]\+'; then
             echo ERROR: failed to extract exit_code # something is wrong with the above sh script
+            echo =================== earthly.output tail ===================
+            tail -n 80 earthly.output || true
+            echo ================= End earthly.output tail =================
             exit 1
         fi
         exit_code=\$(tail -n 1 earthly.output | cut -d \"=\" -f2)

@@ -6,6 +6,28 @@ set -e
 # shellcheck disable=SC3045
 ulimit -n 1048576 2>/dev/null || true
 
+# Disable gRPC ALPN enforcement to allow mixed grpc-go versions
+# between earthly client and buildkitd during the upgrade transition.
+# TODO: remove once all released earthly binaries use grpc-go >= 1.67
+export GRPC_ENFORCE_ALPN_ENABLED=false
+
+# Cap Go heap memory to prevent buildkitd from consuming all available RAM.
+# The new BuildKit has more concurrent export paths, so keep the old memory
+# profile unless an operator explicitly overrides it.
+if [ -z "$GOMEMLIMIT" ]; then
+    export GOMEMLIMIT=4GiB
+fi
+
+# BuildKit now finalizes image exports concurrently with cache exports and
+# pushes registry cache blobs concurrently. Default EarthBuild back to the
+# previous lower-memory behavior; these remain externally overrideable.
+if [ -z "$BUILDKIT_DISABLE_PARALLEL_EXPORT_FINALIZE" ]; then
+    export BUILDKIT_DISABLE_PARALLEL_EXPORT_FINALIZE=1
+fi
+if [ -z "$BUILDKIT_REGISTRY_CACHE_EXPORT_MAX_CONCURRENCY" ]; then
+    export BUILDKIT_REGISTRY_CACHE_EXPORT_MAX_CONCURRENCY=1
+fi
+
 echo "starting earthly-buildkit with EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"
 
 if [ "$BUILDKIT_DEBUG" = "true" ]; then
@@ -72,13 +94,16 @@ fi
 if [ -z "$IP_TABLES" ]; then
     echo "Autodetecting iptables"
 
-    if lsmod | grep -wq "^ip_tables"; then
-        echo "Detected iptables-legacy module"
-        IP_TABLES="iptables-legacy"
-
-    elif lsmod | grep -wq "^nf_tables"; then
+    # Prefer nf_tables when present: on modern GH runners the ip_tables
+    # module is autoloaded even when userspace uses nft, so checking nft first
+    # avoids splitting rules across backends (which silently breaks NAT).
+    if lsmod | grep -wq "^nf_tables"; then
         echo "Detected iptables-nft module"
         IP_TABLES="iptables-nft"
+
+    elif lsmod | grep -wq "^ip_tables"; then
+        echo "Detected iptables-legacy module"
+        IP_TABLES="iptables-legacy"
     else
         echo "Could not find an ip_tables module; falling back to heuristics."
 
@@ -113,11 +138,31 @@ if [ -z "$IP_TABLES" ]; then
 else
     echo "Manual iptables specified ($IP_TABLES), skipping autodetection."
 fi
-if [ ! -e "/sbin/$IP_TABLES" ]; then
-    echo "IP_TABLES is set to $IP_TABLES, but /sbin/$IP_TABLES does not exist"
+IPTABLES_PATH=""
+for dir in /sbin /usr/sbin; do
+    if [ -e "$dir/$IP_TABLES" ]; then
+        IPTABLES_PATH="$dir/$IP_TABLES"
+        break
+    fi
+done
+if [ -z "$IPTABLES_PATH" ]; then
+    echo "$IP_TABLES not found; searching for alternative"
+    for dir in /sbin /usr/sbin; do
+        if [ -e "$dir/iptables-nft" ]; then
+            IPTABLES_PATH="$dir/iptables-nft"
+            break
+        elif [ -e "$dir/iptables-legacy" ]; then
+            IPTABLES_PATH="$dir/iptables-legacy"
+            break
+        fi
+    done
+fi
+if [ -z "$IPTABLES_PATH" ]; then
+    echo "No iptables binary found"
     exit 1
 fi
-ln -sf "/sbin/$IP_TABLES" /sbin/iptables
+echo "Using $IPTABLES_PATH"
+ln -sf "$IPTABLES_PATH" /sbin/iptables
 
 # clear any leftovers (that aren't explicitly cached) in the dind dir
 find /tmp/earthbuild/dind/ -maxdepth 1 -mindepth 1 | grep -v cache_ | xargs -r rm -rf
@@ -239,6 +284,11 @@ fi
 export TLS_ENABLED
 
 envsubst </etc/buildkitd.toml.template >/etc/buildkitd.toml
+
+# Fix TOML: new buildkit parser requires section headers on their own line.
+# Older earth binaries may pass EARTHLY_ADDITIONAL_BUILDKIT_CONFIG with
+# section header and key on one line (e.g. [registry."docker.io"] mirrors = ...).
+sed -i 's/\] \([a-z]\)/]\n\1/g' /etc/buildkitd.toml
 
 # Session history is 1h by default unless otherwise specified
 if [ -z "$BUILDKIT_SESSION_HISTORY_DURATION" ]; then

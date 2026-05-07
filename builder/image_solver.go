@@ -73,7 +73,7 @@ func (s *tarImageSolver) newSolveOpt(img *image.Image, dockerTag string, w io.Wr
 		},
 		CacheImports:        cacheImports,
 		Session:             s.attachables,
-		AllowedEntitlements: s.enttlmnts,
+		AllowedEntitlements: entitlementsToStrings(s.enttlmnts),
 	}, nil
 }
 
@@ -356,7 +356,7 @@ func (m *multiImageSolver) SolveImages(
 		},
 		CacheImports:        cacheImports,
 		Session:             m.attachables,
-		AllowedEntitlements: m.enttlmnts,
+		AllowedEntitlements: entitlementsToStrings(m.enttlmnts),
 	}
 
 	go func() {

@@ -1,0 +1,10 @@
+VERSION 0.8
+FROM alpine:3.18
+
+reserved:
+    FROM +base
+    RUN ls /etc/alpine-release
+
+base:
+    FROM fedora:latest
+    RUN echo this target is invalid and should produce a parsing error

@@ -22,6 +22,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -402,10 +403,80 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		}
 
 		return 6
+	case func() bool {
+		failureErr, ok := solvermon.AsFirstFailureError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetFatalError(
+			failureErr.Failure.End,
+			failureErr.Failure.TargetID,
+			failureErr.Failure.CommandID,
+			failureErr.Failure.FailureType,
+			"",
+			failureErr.Failure.Error,
+		)
+		app.BaseCLI.Console().Warnf("%s\n", failureErr.Failure.String())
+
+		return true
+	}():
+		return 1
+	case func() bool {
+		cancelErr, ok := solvermon.AsFirstCancellationError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetEnd(cancelErr.Cancellation.End, logstream.RunStatus_RUN_STATUS_CANCELED)
+		app.BaseCLI.Console().Warnf(
+			"BuildKit canceled or lost the solve session while running:\n%s\n"+
+				"This usually means the command above was interrupted after an earlier failure, resource event, "+
+				"or buildkit/session failure. "+
+				"Earth did not receive a more specific root cause from BuildKit.\n",
+			cancelErr.Cancellation.String(),
+		)
+
+		return true
+	}():
+		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+			app.printCrashLogs(ctx)
+		}
+
+		return 2
+	case func() bool {
+		detailsErr, ok := solvermon.AsCancellationDetailsError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetEnd(detailsErr.Details.End, logstream.RunStatus_RUN_STATUS_CANCELED)
+		app.BaseCLI.Console().Warnf(
+			"BuildKit canceled or lost the solve session.\n%s\n"+
+				"Earth did not receive a more specific root cause from BuildKit.\n",
+			detailsErr.Details.String(),
+		)
+
+		return true
+	}():
+		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+			app.printCrashLogs(ctx)
+		}
+
+		return 2
 	case errors.Is(err, context.Canceled), grpcErrOK && grpcErr.Code() == codes.Canceled:
 		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
 
-		if app.BaseCLI.Flags().Verbose {
+		showCanceledErr := app.BaseCLI.Flags().Verbose
+		if grpcErrOK && grpcErr.Message() != "" && grpcErr.Message() != context.Canceled.Error() {
+			showCanceledErr = true
+		}
+
+		if !grpcErrOK && err.Error() != context.Canceled.Error() {
+			showCanceledErr = true
+		}
+
+		if showCanceledErr {
 			app.BaseCLI.Console().Warnf("Canceled: %v\n", err)
 		} else {
 			app.BaseCLI.Console().Warn("Canceled\n")

@@ -69,9 +69,32 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{inputs.TARGET_NAME}} using wait-block override
+        # See reusable-test.yml — single retry mitigates transient earthly
+        # "Canceled" failures that are non-deterministic across runs.
         run: |-
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ${{inputs.EXTRA_ARGS}} --ci -P --global-wait-end \
-           ${{inputs.TARGET_NAME}} --GLOBAL_WAIT_END=true
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ${{inputs.EXTRA_ARGS}} --ci -P --global-wait-end \
+             ${{inputs.TARGET_NAME}} --GLOBAL_WAIT_END=true
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+      - name: Failure diagnostics
+        if: ${{ failure() }}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

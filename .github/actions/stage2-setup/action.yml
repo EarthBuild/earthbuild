@@ -39,10 +39,28 @@ inputs:
   DOCKERHUB_MIRROR_PASSWORD:
     description: "Docker Hub mirror password (legacy - GCR mirror is public)"
     required: false
+  MORE_MEMORY:
+    description: "Add 8GB swap to increase available memory (useful for Podman)"
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
   steps:
+    - name: Add swap for extra memory headroom
+      # build-earthly always adds 12G swap; stage2-setup previously only did
+      # so for podman / MORE_MEMORY. Tests on docker runners fail with
+      # earthly "Canceled" mid-build and runc "file already closed" errors,
+      # consistent with silent OOM-killed buildkit-runc children on the
+      # 16 GiB runner. Mirror build-earthly and add swap unconditionally so
+      # the test path has the same headroom as the build path.
+      shell: bash
+      run: |
+        sudo fallocate -l 12G /extra-swapfile
+        sudo chmod 600 /extra-swapfile
+        sudo mkswap /extra-swapfile
+        sudo swapon /extra-swapfile
+        echo "Swap added: $(swapon --show)"
     - name: Unset CI
       shell: bash
       run: |
@@ -58,14 +76,16 @@ runs:
           echo "is_fork=false" >> $GITHUB_OUTPUT
           echo "Running on main repo - will use GHCR"
         fi
-    - name: Download artifacts (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Download build-earthly artifacts
+      # Always download — the artifact contains at minimum the
+      # buildkitd-image tarball (every run) and on fork PRs also the
+      # earthly binary + tag-suffix.txt. Loading the local tarball
+      # avoids a per-job ghcr pull of the ~300 MB staging image.
       uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
       with:
         name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
-    - name: Load buildkitd image from artifact (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Load buildkitd image from artifact
       shell: bash
       run: |
         echo "Loading buildkitd image from artifact..."
@@ -159,11 +179,19 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - name: Set fixed buildkitd image for Docker 29+ (non-fork)
+    - name: Point outer buildkit at the PR's own staging image (non-fork)
+      # Previously hardcoded to buildkitd-v0.8.17-fix.5 (the stable pinned
+      # image). That meant CI was testing the PR's earthly CLI against the
+      # *old* buildkit on the outer layer, and only exercising the PR's
+      # buildkit inside earthly-in-earthly tests. Use the staging tag that
+      # build-earthly pushed for this SHA so the outer layer covers the
+      # PR's buildkit too — matches what the fork path already does above.
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1" >> $GITHUB_ENV
+        TAG_SUFFIX="ubuntu-latest-${{inputs.BINARY}}"
+        if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
@@ -189,6 +217,9 @@ runs:
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
         (strings ${{inputs.BUILT_EARTHLY_PATH}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
         echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
+      shell: bash
+    - name: Limit buildkit parallelism to avoid OOM on CI runners
+      run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_max_parallelism 1
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} bootstrap

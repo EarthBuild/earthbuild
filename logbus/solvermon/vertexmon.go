@@ -36,7 +36,7 @@ type vertexMonitor struct {
 	isCanceled     bool
 }
 
-var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll
+var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)(?:\s+\(.*\))?$`) //nolint:lll
 
 var (
 	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
@@ -74,10 +74,34 @@ var (
 	reHint        = regexp.MustCompile(`^(?P<msg>.+?):Hint: .+`)
 )
 
+func exitCodeDetail(exitCode int) string {
+	switch exitCode {
+	case 126:
+		return "Exit code 126 conventionally means the command was found but could not be executed. " +
+			"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
+			"and container runtime or security restrictions."
+	default:
+		if exitCode > 128 {
+			return fmt.Sprintf(
+				"Exit code %d, which usually means the process was killed by signal %d",
+				exitCode, exitCode-128)
+		}
+
+		return fmt.Sprintf("Exit code %d", exitCode)
+	}
+}
+
+func isCancellationSymptom(errString string) bool {
+	return strings.Contains(errString, "context canceled") ||
+		strings.Contains(errString, "no active sessions") ||
+		strings.Contains(errString, "could not access local files without session") ||
+		strings.Contains(errString, "evaluating released result")
+}
+
 // determineFatalErrorType returns logstream.FailureType
 // and whether or not its a Fatal Error.
 func determineFatalErrorType(errString string, exitCode int, exitParseErr error) (logstream.FailureType, bool) {
-	if strings.Contains(errString, "context canceled") || errString == "no active sessions" {
+	if isCancellationSymptom(errString) {
 		return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 	}
 
@@ -130,7 +154,7 @@ func formatErrorMessage(
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
-				"      did not complete successfully. Exit code %d", internalStr, operation, exitCode)
+				"      did not complete successfully. %s", internalStr, operation, exitCodeDetail(exitCode))
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
 
@@ -157,6 +181,14 @@ func formatErrorMessage(
 				"          %s\n"+
 				"failed: %s", internalStr, operation, errString)
 	default:
+		if isCancellationSymptom(errString) {
+			return fmt.Sprintf(
+				"The%s command\n"+
+					"          %s\n"+
+					"was interrupted because BuildKit canceled or lost the solve session before reporting a root cause.\n"+
+					"Original BuildKit error: %s", internalStr, operation, errString)
+		}
+
 		return fmt.Sprintf(
 			"The%s command\n"+
 				"          %s\n"+
@@ -179,6 +211,7 @@ func (vm *vertexMonitor) parseError() {
 	exitCode, err := getExitCode(errString)
 	fatalErrorType, isFatalError := determineFatalErrorType(errString, exitCode, err)
 	formattedError := formatErrorMessage(errString, indentOp, vm.meta.Internal, fatalErrorType, exitCode)
+	isCanceled := isCancellationSymptom(errString)
 
 	// Add Error location
 	slString := ""
@@ -198,6 +231,7 @@ func (vm *vertexMonitor) parseError() {
 
 	vm.isFatalError = isFatalError
 	vm.fatalErrorType = fatalErrorType
+	vm.isCanceled = isCanceled
 }
 
 func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error) {

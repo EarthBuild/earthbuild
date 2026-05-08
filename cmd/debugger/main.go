@@ -373,7 +373,7 @@ func main() {
 		}
 
 		cmdBuilder := func() (*exec.Cmd, error) {
-			return exec.CommandContext(ctx, args[0], args[1:]...), nil // #nosec G204
+			return exec.CommandContext(ctx, args[0], args[1:]...), nil // #nosec G204,G702
 		}
 
 		exitCode := 0

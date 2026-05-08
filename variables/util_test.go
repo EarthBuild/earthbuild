@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseEscapedKeyValue(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		kv string
 		k  string
@@ -31,8 +33,8 @@ func TestParseEscapedKeyValue(t *testing.T) {
 
 	for _, tt := range tests {
 		k, v, ok := variables.ParseKeyValue(tt.kv)
-		Equal(t, tt.k, k)
-		Equal(t, tt.v, v)
-		Equal(t, tt.ok, ok)
+		require.Equal(t, tt.k, k)
+		require.Equal(t, tt.v, v)
+		require.Equal(t, tt.ok, ok)
 	}
 }

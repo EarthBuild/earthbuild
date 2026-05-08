@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" role="img" aria-label="EarthBuild wraps your build tooling and runs anywhere">
+  <title>EarthBuild wraps your build tooling and runs anywhere</title>
+  <defs>
+    <symbol id="logo" viewBox="0 0 600 540">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="300" cy="200" r="170" stroke-width="14"/>
+        <g stroke-width="10">
+          <path d="m300 90 71 42-71 42-71-42z"/>
+          <path d="m229 132 71 42v42l-71-42zm142 0-71 42v42l71-42zm-142 78 71 42v42l-71-42zm142 0-71 42v42l71-42zm-142 0 29-17m113 17-29-17"/>
+        </g>
+      </g>
+    </symbol>
+  </defs>
+  <style>
+    .text { fill: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    .muted { fill: #6b7280; }
+    .brand { color: #2f8a50; fill: #2f8a50; }
+    .brand-stroke { stroke: #2f8a50; fill: none; stroke-width: 1.5; }
+    .brand-surface { fill: #2f8a50; fill-opacity: 0.08; }
+    .hero-stroke { stroke: #2f8a50; fill: none; stroke-width: 2; }
+    .hero-surface { fill: #2f8a50; fill-opacity: 0.12; }
+    .chip { stroke: #2f8a50; stroke-width: 1; fill: #2f8a50; fill-opacity: 0.06; }
+    .arrow { stroke: #2f8a50; stroke-width: 2.5; fill: none; stroke-linecap: round; }
+    .arrowhead { fill: #2f8a50; }
+    .mono { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; }
+    .section-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; fill: #6b7280; }
+    .chip-text { font-size: 13px; fill: #1a1a1a; }
+    .tagline { font-size: 13px; fill: #6b7280; }
+    .wordmark { font-size: 38px; font-weight: 700; fill: #2f8a50; letter-spacing: -0.5px; }
+    .caption { font-size: 14px; fill: #6b7280; font-style: italic; }
+
+    @media (prefers-color-scheme: dark) {
+      .text, .chip-text { fill: #f1f1f1; }
+      .muted, .tagline, .section-label, .caption { fill: #9ca3af; }
+      .brand { color: #4fb876; fill: #4fb876; }
+      .brand-stroke, .hero-stroke { stroke: #4fb876; }
+      .brand-surface { fill: #4fb876; fill-opacity: 0.15; }
+      .hero-surface { fill: #4fb876; fill-opacity: 0.20; }
+      .chip { stroke: #4fb876; fill: #4fb876; fill-opacity: 0.12; }
+      .arrow { stroke: #4fb876; }
+      .arrowhead { fill: #4fb876; }
+      .wordmark { fill: #4fb876; }
+    }
+  </style>
+
+  <!-- LEFT CARD: your stack -->
+  <rect x="40" y="60" width="360" height="220" rx="14" class="brand-surface"/>
+  <rect x="40" y="60" width="360" height="220" rx="14" class="brand-stroke"/>
+  <text x="220" y="90" class="text section-label" text-anchor="middle">Your stack</text>
+  <g>
+    <rect x="70" y="114" width="140" height="32" rx="16" class="chip"/>
+    <text x="140" y="135" class="text chip-text" text-anchor="middle">Go</text>
+    <rect x="230" y="114" width="140" height="32" rx="16" class="chip"/>
+    <text x="300" y="135" class="text chip-text" text-anchor="middle">TypeScript</text>
+    <rect x="70" y="154" width="140" height="32" rx="16" class="chip"/>
+    <text x="140" y="175" class="text chip-text" text-anchor="middle">Python</text>
+    <rect x="230" y="154" width="140" height="32" rx="16" class="chip"/>
+    <text x="300" y="175" class="text chip-text" text-anchor="middle">Rust</text>
+    <rect x="70" y="194" width="140" height="32" rx="16" class="chip"/>
+    <text x="140" y="215" class="text chip-text" text-anchor="middle">npm</text>
+    <rect x="230" y="194" width="140" height="32" rx="16" class="chip"/>
+    <text x="300" y="215" class="text chip-text" text-anchor="middle">maven</text>
+    <rect x="70" y="234" width="140" height="32" rx="16" class="chip"/>
+    <text x="140" y="255" class="text chip-text" text-anchor="middle">cargo</text>
+    <rect x="230" y="234" width="140" height="32" rx="16" class="chip"/>
+    <text x="300" y="255" class="text chip-text" text-anchor="middle">gradle · …</text>
+  </g>
+
+  <!-- Arrow left→center -->
+  <path d="M410 170 L 448 170" class="arrow"/>
+  <polygon points="458,170 442,162 442,178" class="arrowhead"/>
+
+  <!-- CENTER HERO -->
+  <rect x="466" y="40" width="348" height="260" rx="18" class="hero-surface"/>
+  <rect x="466" y="40" width="348" height="260" rx="18" class="hero-stroke"/>
+  <use href="#logo" x="580" y="72" width="120" height="120" class="brand"/>
+  <text x="640" y="230" class="text wordmark mono" text-anchor="middle">EarthBuild</text>
+  <text x="640" y="260" class="text caption" text-anchor="middle">wraps your build tools</text>
+  <text x="640" y="280" class="text caption" text-anchor="middle">into one repeatable build</text>
+
+  <!-- Arrow center→right -->
+  <path d="M822 170 L 860 170" class="arrow"/>
+  <polygon points="870,170 854,162 854,178" class="arrowhead"/>
+
+  <!-- RIGHT CARD: anywhere -->
+  <rect x="880" y="60" width="360" height="220" rx="14" class="brand-surface"/>
+  <rect x="880" y="60" width="360" height="220" rx="14" class="brand-stroke"/>
+  <text x="1060" y="90" class="text section-label" text-anchor="middle">Runs anywhere</text>
+  <g>
+    <rect x="910" y="114" width="140" height="32" rx="16" class="chip"/>
+    <text x="980" y="135" class="text chip-text" text-anchor="middle">Your laptop</text>
+    <rect x="1070" y="114" width="140" height="32" rx="16" class="chip"/>
+    <text x="1140" y="135" class="text chip-text" text-anchor="middle">GitHub Actions</text>
+    <rect x="910" y="154" width="140" height="32" rx="16" class="chip"/>
+    <text x="980" y="175" class="text chip-text" text-anchor="middle">Jenkins</text>
+    <rect x="1070" y="154" width="140" height="32" rx="16" class="chip"/>
+    <text x="1140" y="175" class="text chip-text" text-anchor="middle">GitLab CI</text>
+    <rect x="910" y="194" width="140" height="32" rx="16" class="chip"/>
+    <text x="980" y="215" class="text chip-text" text-anchor="middle">Circle CI</text>
+    <rect x="1070" y="194" width="140" height="32" rx="16" class="chip"/>
+    <text x="1140" y="215" class="text chip-text" text-anchor="middle">Cloud runners</text>
+    <rect x="910" y="234" width="140" height="32" rx="16" class="chip"/>
+    <text x="980" y="255" class="text chip-text" text-anchor="middle">Buildkite</text>
+    <rect x="1070" y="234" width="140" height="32" rx="16" class="chip"/>
+    <text x="1140" y="255" class="text chip-text" text-anchor="middle">…any container host</text>
+  </g>
+
+  <!-- Caption line -->
+  <text x="640" y="328" class="text caption" text-anchor="middle">One build definition. Reproducible. No build guru required.</text>
+</svg>

@@ -48,7 +48,7 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 
 	w.c.nonSaveCommand()
 
-	cmdID, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
+	cmdID, cmd, err := w.c.newLogbusCommand(ctx, commandName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
@@ -92,7 +92,7 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	}
 
 	crOpts := ConvertRunOpts{
-		CommandName:          "WITH DOCKER RUN",
+		CommandName:          commandName,
 		Locally:              true,
 		Args:                 args,
 		Mounts:               opt.Mounts,

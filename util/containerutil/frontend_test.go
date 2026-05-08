@@ -22,6 +22,7 @@ import (
 func TestFrontendNew(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	testCases := []struct {
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
 		binary  string
@@ -140,7 +141,9 @@ func TestFrontendContainerInfo(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			testContainers := []string{"test-1", "test-2"}
+			testContainers := make([]string, 0, 3)
+			testContainers = append(testContainers, "test-1", "test-2")
+
 			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
 			t.Cleanup(cleanup)
 			NoError(t, err)

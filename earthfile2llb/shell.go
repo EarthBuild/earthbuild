@@ -34,7 +34,7 @@ func splitWildcards(name string) (string, string) {
 
 func withShell(args []string, withShell bool) []string {
 	if withShell {
-		return []string{"/bin/sh", "-c", strings.Join(args, " ")}
+		return shellCmd(strings.Join(args, " "))
 	}
 
 	return args
@@ -80,8 +80,7 @@ func strWithEnvVarsAndDocker(
 				fmt.Sprintf("; echo $? >'\"'\"%s\"'\"'", escapeShellSingleQuotes(exitCodeFile)))
 		}
 
-		cmdParts = append(cmdParts, "/bin/sh", "-c")
-		cmdParts = append(cmdParts, fmt.Sprintf("'%s'", strings.Join(escapedArgs, " ")))
+		cmdParts = append(cmdParts, shellCmd(fmt.Sprintf("'%s'", strings.Join(escapedArgs, " ")))...)
 	} else {
 		cmdParts = append(cmdParts, args...)
 	}
@@ -91,11 +90,12 @@ func strWithEnvVarsAndDocker(
 
 type shellWrapFun func(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string
 
+func shellCmd(cmd string) []string {
+	return []string{"/bin/sh", "-c", cmd}
+}
+
 func withShellAndEnvVars(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string {
-	return []string{
-		"/bin/sh", "-c",
-		strWithEnvVarsAndDocker(args, envVars, withShell, withDebugger, forceDebugger, false, false, "", ""),
-	}
+	return shellCmd(strWithEnvVarsAndDocker(args, envVars, withShell, withDebugger, forceDebugger, false, false, "", ""))
 }
 
 func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
@@ -104,10 +104,9 @@ func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
 			panic("unexpected exec mode")
 		}
 
-		return []string{
-			"/bin/sh", "-c",
+		return shellCmd(
 			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, false, exitCodeFile, ""),
-		}
+		)
 	}
 }
 
@@ -117,10 +116,9 @@ func withShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 			panic("unexpected exec mode")
 		}
 
-		return []string{
-			"/bin/sh", "-c",
+		return shellCmd(
 			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, false, "", outputFile),
-		}
+		)
 	}
 }
 
@@ -130,10 +128,9 @@ func expressionWithShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 			panic("unexpected exec mode")
 		}
 
-		return []string{
-			"/bin/sh", "-c",
+		return shellCmd(
 			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, true, "", outputFile),
-		}
+		)
 	}
 }
 

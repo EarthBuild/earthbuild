@@ -7,7 +7,7 @@ Earthbuild is a super simple CI/CD framework that gives you repeatable builds th
 
 Earthbuild can run locally or on top of popular CI systems – such as [Jenkins](./ci-integration/guides/jenkins.md), [CircleCI](./ci-integration/guides/circle-integration.md), [GitHub Actions](./ci-integration/guides/gh-actions-integration.md), [AWS CodeBuild](./ci-integration/guides/codebuild-integration.md), [Google Cloud Build](./ci-integration/guides/google-cloud-build.md), and [GitLab CI/CD](./ci-integration/guides/gitlab-integration.md). It typically acts as the layer between language-specific tooling (such as maven, gradle, npm, pip, and go build) and the CI build spec.
 
-![Earthbuild fits between language-specific tooling and the CI](img/integration-diagram-v2.png)
+![Earthbuild fits between language-specific tooling and the CI](img/integration-diagram.svg)
 
 Earthbuild's key features/benefits are:
 

@@ -22,7 +22,7 @@ application {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.14.0'      // or use java.time on JDK 8+
+    implementation 'joda-time:joda-time:2.14.1'      // or use java.time on JDK 8+
     testImplementation 'org.junit.jupiter:junit-jupiter:6.0.3'
 }
 

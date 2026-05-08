@@ -491,6 +491,12 @@ func getHintErr(err error, grpcError *status.Status) *hint.Error {
 	return nil
 }
 
+// Flags that are related to secrets.
+const (
+	secretArgShort = "-s"
+	secretArg      = "--secret"
+)
+
 func redactSecretsFromArgs(args []string) []string {
 	redacted := []string{}
 
@@ -506,7 +512,7 @@ func redactSecretsFromArgs(args []string) []string {
 			}
 		}
 
-		if arg == "-s" || arg == "--secret" {
+		if arg == secretArgShort || arg == secretArg {
 			isSecret = true
 		}
 

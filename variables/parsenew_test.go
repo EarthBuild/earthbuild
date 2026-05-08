@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseFlagArgs(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		kvFlag []string
 		kv     []string
@@ -28,8 +30,8 @@ func TestParseFlagArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		kvs, err := variables.ParseFlagArgs(tt.kvFlag)
-		NoError(t, err)
-		Equal(t, tt.kv, kvs)
+		require.NoError(t, err)
+		require.Equal(t, tt.kv, kvs)
 	}
 }
 
@@ -46,13 +48,14 @@ func TestNegativeParseFlagArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		_, err := variables.ParseFlagArgs(tt.kvFlag)
-		Error(t, err)
+		require.Error(t, err)
 	}
 }
 
 func TestParseFlagArgsWithNonFlags(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		kvFlag   []string
 		flags    []string
@@ -71,8 +74,8 @@ func TestParseFlagArgsWithNonFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		flags, nonFlags, err := variables.ParseFlagArgsWithNonFlags(tt.kvFlag)
-		NoError(t, err)
-		Equal(t, tt.flags, flags)
-		Equal(t, tt.nonFlags, nonFlags)
+		require.NoError(t, err)
+		require.Equal(t, tt.flags, flags)
+		require.Equal(t, tt.nonFlags, nonFlags)
 	}
 }

@@ -841,9 +841,9 @@ license:
     SAVE ARTIFACT LICENSE
 
 node:
-    FROM node:24.9.0-alpine3.22
+    FROM node:26.1.0-alpine3.23
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.13.0
+    LET npm_version=11.14.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

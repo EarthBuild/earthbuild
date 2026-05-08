@@ -3,7 +3,7 @@ module github.com/EarthBuild/earthbuild/examples/go
 go 1.25
 
 require (
-	github.com/go-redis/redis/v8 v8.11.5
+	github.com/go-redis/redis/v9 v9.19.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 )

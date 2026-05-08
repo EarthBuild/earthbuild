@@ -2,7 +2,7 @@ VERSION 0.8
 
 # TODO update to 3.18; however currently "podman login" (used under not-a-unit-test.sh) will error with
 # "Error: default OCI runtime "crun" not found: invalid argument".
-FROM alpine:3.23
+FROM alpine:3.18
 RUN apk add --update --no-cache \
     bash \
     bash-completion \

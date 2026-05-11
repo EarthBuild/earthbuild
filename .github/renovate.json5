@@ -390,6 +390,13 @@
         '^golang\\.org/x/',
       ],
     },
+    // group all AWS SDK dependencies
+    {
+      groupName: 'AWS SDK',
+      matchPackageNames: [
+        '^github\\.com/aws/',
+      ],
+    },
     // group Go version updates
     {
       groupName: 'go',

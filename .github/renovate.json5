@@ -400,5 +400,12 @@
         'golang-version',
       ],
     },
+    // group all OpenTelemetry dependencies
+    {
+      groupName: 'otel',
+      matchPackageNames: [
+        '^go\\.opentelemetry\\.io/',
+      ],
+    },
   ],
 }

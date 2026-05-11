@@ -12,6 +12,8 @@ on:
   pull_request:
     branches: [ main, get-ci-working ]
 
+permissions: write-all
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -25,13 +27,11 @@ jobs:
   docker-ci:
     name: Docker CI Ubuntu
     needs: fast-checks
-    if: ${{ !failure() }}
     uses: ./.github/workflows/ci-docker-ubuntu.yml
     secrets: inherit
 
   podman-ci:
     name: Podman CI Ubuntu
     needs: fast-checks
-    if: ${{ !failure() }}
     uses: ./.github/workflows/ci-podman-ubuntu.yml
     secrets: inherit

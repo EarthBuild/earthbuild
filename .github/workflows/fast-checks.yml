@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}

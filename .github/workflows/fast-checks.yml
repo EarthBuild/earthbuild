@@ -18,7 +18,9 @@ jobs:
     name: Fast Checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: earthbuild/actions-setup@main
+      - uses: earthbuild/actions-setup@feat-volume-caching
+        with:
+          experimental-buildkit-volume-cache: true
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Lint
         run: earth +lint-all

@@ -18,9 +18,15 @@ jobs:
     name: Fast Checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: earthbuild/actions-setup@feat-volume-caching
-        with:
-          experimental-buildkit-volume-cache: true
+      - uses: earthbuild/actions-setup@main
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Lint
-        run: earth +lint-all
+        run: earth --ci --remote-cache=ghcr.io/${{ github.repository }}/earthbuild-fast-checks-cache:latest +lint-all

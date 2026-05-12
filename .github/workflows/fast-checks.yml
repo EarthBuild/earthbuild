@@ -28,5 +28,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - run: echo "EARTHLY_REMOTE_CACHE=ghcr.io/${GITHUB_REPOSITORY,,}/earthbuild-fast-checks-cache:latest" >> .env
+
       - name: Lint
-        run: earth --ci --push --remote-cache=ghcr.io/${{ github.repository }}/earthbuild-fast-checks-cache:latest +lint-all
+        run: earth --ci --push +lint-all

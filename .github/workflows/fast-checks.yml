@@ -29,4 +29,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint
-        run: earth --ci --remote-cache=ghcr.io/${{ github.repository }}/earthbuild-fast-checks-cache:latest +lint-all
+        run: earth --ci --push --remote-cache=ghcr.io/${{ github.repository }}/earthbuild-fast-checks-cache:latest +lint-all

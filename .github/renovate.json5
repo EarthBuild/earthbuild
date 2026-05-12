@@ -414,5 +414,12 @@
         '^go\\.opentelemetry\\.io/',
       ],
     },
+    // group all Golang extended packages
+    {
+      groupName: 'x',
+      matchPackageNames: [
+        '^golang\\.org/x/',
+      ],
+    },
   ],
 }

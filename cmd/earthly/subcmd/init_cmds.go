@@ -16,19 +16,16 @@ import (
 
 const efIndent = "    "
 
-// Init encapsulates the init command logic.
 type Init struct {
 	cli CLI
 }
 
-// NewInit creates a new Init command.
 func NewInit(cli CLI) *Init {
 	return &Init{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the init command.
 func (a *Init) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -40,7 +37,7 @@ func (a *Init) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Init) action(ctx context.Context, _ *cli.Command) error {
+func (a *Init) action(ctx context.Context, cmd *cli.Command) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return errors.Wrap(err, "could not load current working directory")
@@ -116,7 +113,7 @@ func initSingleProject(w io.Writer, p proj.Project) error {
 			}
 		}
 
-		err := tgt.Format(w, efIndent)
+		err := tgt.Format(w, efIndent, 0)
 		if err != nil {
 			return errors.Wrapf(err, "could not format target for project type %T", p)
 		}

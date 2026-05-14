@@ -11,14 +11,12 @@ import (
 	"github.com/containerd/go-runc"
 )
 
-// Parser parses stream data containing execution statistics.
 type Parser struct {
 	buf                 *bytes.Buffer
 	bsr                 *binarystream.BinaryStream
 	readProtocolVersion bool
 }
 
-// New creates a new parser instance.
 func New() *Parser {
 	buf := bytes.NewBuffer(nil)
 
@@ -28,7 +26,6 @@ func New() *Parser {
 	}
 }
 
-// Parse parses stream data containing execution statistics.
 func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 	_, err := ssp.buf.Write(b)
 	if err != nil {

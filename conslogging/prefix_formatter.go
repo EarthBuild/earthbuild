@@ -34,8 +34,7 @@ var (
 	formatter = NewPrefixFormatter(truncateURLWithCreds, truncateSha, truncateGITURL, truncateTargetURL)
 )
 
-// PrefixFormatter is a formatter for log output.
-type PrefixFormatter struct {
+type prefixFormatter struct {
 	cache      sync.Map
 	formatOpts []formatOpt
 }
@@ -150,19 +149,17 @@ func normalize(s string) string {
 	return s
 }
 
-// NewPrefixFormatter creates a new prefix formatter for log output.
-func NewPrefixFormatter(formatOpt ...formatOpt) *PrefixFormatter {
-	return &PrefixFormatter{
+func NewPrefixFormatter(formatOpt ...formatOpt) *prefixFormatter {
+	return &prefixFormatter{
 		formatOpts: formatOpt,
 	}
 }
 
-func (pb *PrefixFormatter) getKey(prefix string, padding int) string {
+func (pb *prefixFormatter) getKey(prefix string, padding int) string {
 	return fmt.Sprintf("%s-%d", prefix, padding)
 }
 
-// Format returns a formatted prefix.
-func (pb *PrefixFormatter) Format(prefix string, padding int) (modifiedPrefix string) {
+func (pb *prefixFormatter) Format(prefix string, padding int) (modifiedPrefix string) {
 	if padding <= NoPadding {
 		return prefix
 	}

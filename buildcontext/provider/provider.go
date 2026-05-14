@@ -82,7 +82,7 @@ func (bcp *BuildContextProvider) AddDir(dirName, dir string) {
 }
 
 func (bcp *BuildContextProvider) addDir(dirName, dir string) {
-	resetUIDAndGID := func(_ string, st *fstypes.Stat) fsutil.MapResult {
+	resetUIDAndGID := func(p string, st *fstypes.Stat) fsutil.MapResult {
 		st.Uid = 0
 		st.Gid = 0
 

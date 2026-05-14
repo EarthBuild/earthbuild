@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Prune encapsulates the prune command logic.
 type Prune struct {
 	cli CLI
 
@@ -23,14 +22,12 @@ type Prune struct {
 	targetSize   flagutil.ByteSizeValue
 }
 
-// NewPrune creates a new Prune command.
 func NewPrune(cli CLI) *Prune {
 	return &Prune{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the prune command.
 func (a *Prune) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{

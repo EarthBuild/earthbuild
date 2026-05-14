@@ -3,7 +3,8 @@ package stringutil_test
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/util/stringutil"
+	. "github.com/EarthBuild/earthbuild/util/stringutil"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +32,7 @@ func TestRemoveFromFromArgs(t *testing.T) {
 			expected: []string{"a", "b", "c"},
 		},
 	} {
-		actual := stringutil.FilterElementsFromList(testCase.args, testCase.remove...)
+		actual := FilterElementsFromList(testCase.args, testCase.remove...)
 		require.ElementsMatch(t, testCase.expected, actual)
 	}
 }

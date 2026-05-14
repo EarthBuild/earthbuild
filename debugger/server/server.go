@@ -1,5 +1,3 @@
-// Package server implements the EarthBuild debugger server,
-// managing incoming debug sessions and interacting with the solver.
 package server
 
 import (

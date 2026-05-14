@@ -1,4 +1,3 @@
-// Package writersub implements logbus subscribers that format and write log streams to standard output or files.
 package writersub
 
 import (

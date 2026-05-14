@@ -264,7 +264,7 @@ func (gr *gitResolver) resolveGitProject(
 	scrubbedGITURL := stringutil.ScrubCredentials(gitURL)
 	cacheKey := fmt.Sprintf("%s#%s", scrubbedGITURL, gitRef)
 
-	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, _ any) (any, error) {
+	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, k any) (any, error) {
 		// Copy all Earthfile, build.earth and Dockerfile files.
 		vm := &vertexmeta.VertexMeta{
 			TargetName: cacheKey,

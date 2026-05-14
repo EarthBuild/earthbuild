@@ -1,4 +1,3 @@
-// Package circbuf provides an in-memory circular buffer implementation to bound the size of captured log streams.
 package circbuf
 
 import "errors"
@@ -60,8 +59,6 @@ func (c *Buffer) Write(buf []byte) (int, error) {
 	return n, nil
 }
 
-// Bytes returns the contents of the buffer, with the oldest contents at the
-// beginning.
 func (c *Buffer) Bytes() []byte {
 	if len(c.data) < c.maxSize {
 		return c.data
@@ -74,12 +71,10 @@ func (c *Buffer) Bytes() []byte {
 	return ret
 }
 
-// Size returns the current size of the buffer.
 func (c *Buffer) Size() int {
 	return len(c.data)
 }
 
-// TotalWritten returns the total number of bytes written to the buffer.
 func (c *Buffer) TotalWritten() int {
 	return c.written
 }

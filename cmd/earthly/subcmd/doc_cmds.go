@@ -18,21 +18,18 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Doc encapsulates the doc command logic.
 type Doc struct {
 	cli CLI
 
 	docShowLong bool
 }
 
-// NewDoc creates a new Doc command.
 func NewDoc(cli CLI) *Doc {
 	return &Doc{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the doc command.
 func (a *Doc) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -102,7 +99,7 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 			return errors.Wrap(err, "failed to look up target")
 		}
 
-		return a.documentSingleTarget("", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
+		return a.documentSingleTarget(ctx, "", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
 	}
 
 	tgts := bc.Earthfile.Targets
@@ -111,7 +108,7 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 
 	const tgtIndent = docsIndent
 	for _, tgt := range tgts {
-		_ = a.documentSingleTarget(tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		_ = a.documentSingleTarget(ctx, tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
 	}
 
 	return nil
@@ -204,7 +201,9 @@ func (io blockIO) help(indent, scopeIndent string) string {
 		docSectionsOutput(indent, scopeIndent, "IMAGES", io.images...)
 }
 
-func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool) error {
+func addArg(
+	ctx context.Context, io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool,
+) error {
 	if stmt.Command == nil {
 		return nil
 	}
@@ -214,7 +213,7 @@ func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onl
 		return nil
 	}
 
-	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(cmd, isBase, ft.ExplicitGlobal)
+	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(ctx, cmd, isBase, ft.ExplicitGlobal)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse ARG statement")
 	}
@@ -243,10 +242,10 @@ func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onl
 	return nil
 }
 
-func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
+func parseDocSections(ctx context.Context, ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
 	var io blockIO
 	for _, base := range baseRcp {
-		err := addArg(&io, ft, base, true, true)
+		err := addArg(ctx, &io, ft, base, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse global ARG in base recipe")
 		}
@@ -260,12 +259,12 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 		cmd := *rb.Command
 		switch cmd.Name {
 		case "ARG":
-			err := addArg(&io, ft, rb, false, false)
+			err := addArg(ctx, &io, ft, rb, false, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse non-global ARG")
 			}
 		case "SAVE ARTIFACT":
-			name, localName, err := earthfile2llb.ArtifactName(cmd)
+			name, localName, err := earthfile2llb.ArtifactName(ctx, cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
 			}
@@ -290,7 +289,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 
 			io.artifacts = append(io.artifacts, artDoc)
 		case "SAVE IMAGE":
-			identifiers, err := earthfile2llb.ImageNames(cmd)
+			identifiers, err := earthfile2llb.ImageNames(ctx, cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
 			}
@@ -311,6 +310,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 }
 
 func (a *Doc) documentSingleTarget(
+	ctx context.Context,
 	currIndent, scopeIndent string,
 	ft *features.Features,
 	baseRcp spec.Block,
@@ -327,7 +327,7 @@ func (a *Doc) documentSingleTarget(
 		return err
 	}
 
-	blockIO, err := parseDocSections(ft, baseRcp, tgt.Recipe)
+	blockIO, err := parseDocSections(ctx, ft, baseRcp, tgt.Recipe)
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse body of recipe '%v'", tgt.Name)
 	}

@@ -14,27 +14,17 @@ import (
 const (
 	// DefaultBuildkitdContainerSuffix is the suffix of the buildkitd container.
 	DefaultBuildkitdContainerSuffix = "-buildkitd"
-
 	// DefaultBuildkitdVolumeSuffix is the suffix of the docker volume used for storing the cache.
 	DefaultBuildkitdVolumeSuffix = "-cache"
 
-	// DefaultEnvFile is the default path to the env file.
 	DefaultEnvFile = ".env"
+	EnvFileFlag    = "env-file-path"
 
-	// EnvFileFlag is the flag for the env file path.
-	EnvFileFlag = "env-file-path"
-
-	// DefaultArgFile is the default path to the arg file.
 	DefaultArgFile = ".arg"
+	ArgFileFlag    = "arg-file-path"
 
-	// ArgFileFlag is the flag for the arg file path.
-	ArgFileFlag = "arg-file-path"
-
-	// DefaultSecretFile is the default path to the secret file.
 	DefaultSecretFile = ".secret"
-
-	// SecretFileFlag is the flag for the secret file path.
-	SecretFileFlag = "secret-file-path"
+	SecretFileFlag    = "secret-file-path"
 )
 
 // Global flags on Flags instead as there are other things in the CLI that are being called + set

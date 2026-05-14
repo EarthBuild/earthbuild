@@ -1,4 +1,3 @@
-// Package buildkitd manages the lifecycle of the embedded or remote Buildkit daemon used by EarthBuild.
 package buildkitd
 
 import (
@@ -476,7 +475,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 func Start(
 	ctx context.Context,
 	console conslogging.ConsoleLogger,
-	image, containerName, _ string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	reset bool,

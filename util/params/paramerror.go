@@ -6,20 +6,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Error represents an error with an associated parent error and cause.
 type Error struct {
 	cause error
 	msg   string
 }
 
-// Errorf returns an Error configured with format message.
 func Errorf(format string, args ...any) error {
 	return &Error{
 		msg: fmt.Sprintf(format, args...),
 	}
 }
 
-// Wrapf returns an Error wrapping the provided error with format message.
 func Wrapf(err error, format string, args ...any) error {
 	return &Error{
 		msg:   fmt.Sprintf(format, args...),
@@ -36,18 +33,15 @@ func (e *Error) Error() string {
 	return e.msg
 }
 
-// Cause returns the underlying error.
 func (e *Error) Cause() error {
 	return errors.Cause(e.cause)
 }
 
-// Is checks if the err is an Error.
 func (e *Error) Is(err error) bool {
 	_, ok := err.(*Error)
 	return ok
 }
 
-// ParentError returns the parent error message.
 func (e *Error) ParentError() string {
 	return e.msg
 }

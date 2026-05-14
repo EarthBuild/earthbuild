@@ -4,14 +4,12 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Root encapsulates the root command logic.
 type Root struct {
 	cli CLI
 
 	buildCmd *Build
 }
 
-// NewRoot creates a new Root command.
 func NewRoot(cli CLI, buildCmd *Build) *Root {
 	return &Root{
 		cli:      cli,
@@ -19,7 +17,6 @@ func NewRoot(cli CLI, buildCmd *Build) *Root {
 	}
 }
 
-// Cmds returns the list of commands for the root command.
 func (a *Root) Cmds() []*cli.Command {
 	cmds := concatCmds([][]*cli.Command{
 		NewDebug(a.cli).Cmds(),

@@ -17,21 +17,18 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Debug encapsulates the debug command logic.
 type Debug struct {
 	cli CLI
 
 	enableSourceMap bool
 }
 
-// NewDebug creates a new Debug command.
 func NewDebug(cli CLI) *Debug {
 	return &Debug{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the debug command.
 func (a *Debug) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -95,7 +92,7 @@ func (a *Debug) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Debug) actionAst(_ context.Context, cmd *cli.Command) error {
+func (a *Debug) actionAst(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugAst")
 
 	if cmd.NArg() > 1 {

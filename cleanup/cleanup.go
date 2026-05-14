@@ -1,4 +1,3 @@
-// Package cleanup manages a collection of deferred functions to ensure proper resource cleanup upon application exit.
 package cleanup
 
 import "sync"

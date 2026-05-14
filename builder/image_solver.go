@@ -220,7 +220,6 @@ func (m *multiImageSolver) SolveImages(
 	info, err := m.bkClient.Info(ctx)
 	if err != nil {
 		// Maybe older buildkit.
-		fmt.Println("Unable to determine BuildKit version. Maybe older buildkit.")
 	} else {
 		switch info.BuildkitVersion.Version {
 		case "v0.6.19":

@@ -17,4 +17,9 @@ func (b *ByteSizeValue) Set(s string) error {
 	return nil
 }
 
+// String implements [fmt.Stringer].
 func (b *ByteSizeValue) String() string { return humanize.Bytes(uint64(*b)) }
+
+func (vf *ByteSizeValue) Get() any {
+	return *vf
+}

@@ -7,14 +7,13 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
 )
 
 func TestSplitFlagString(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		value cli.StringSlice
+		value []string
 	}
 
 	tests := []struct {
@@ -25,21 +24,21 @@ func TestSplitFlagString(t *testing.T) {
 		{
 			name: "passing flag multiple times",
 			args: args{
-				value: *(cli.NewStringSlice("a b")),
+				value: []string{"a b"},
 			},
 			want: []string{"a", "b"},
 		},
 		{
 			name: "passing values with a comma",
 			args: args{
-				value: *(cli.NewStringSlice("a,b")),
+				value: []string{"a,b"},
 			},
 			want: []string{"a", "b"},
 		},
 		{
 			name: "passing values with a comma and multiple flags",
 			args: args{
-				value: *(cli.NewStringSlice("a b,c   d")),
+				value: []string{"a b,c   d"},
 			},
 			want: []string{"a", "b", "c", "d"},
 		},

@@ -1,18 +1,19 @@
 package subcmd
 
 import (
-	"github.com/moby/buildkit/client"
-	"github.com/urfave/cli/v2"
+	"context"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/setup"
+	"github.com/moby/buildkit/client"
+	"github.com/urfave/cli/v3"
 )
 
 type CLI interface {
-	App() *cli.App
+	App() *cli.Command
 
 	Version() string
 	GitSHA() string
@@ -21,11 +22,11 @@ type CLI interface {
 	Console() conslogging.ConsoleLogger
 	SetConsole(conslogging.ConsoleLogger)
 
-	InitFrontend(*cli.Context) error
+	InitFrontend(context.Context, *cli.Command) error
 	Cfg() *config.Config
 	SetCommandName(name string)
 
-	GetBuildkitClient(*cli.Context) (client *client.Client, err error)
+	GetBuildkitClient(context.Context, *cli.Command) (client *client.Client, err error)
 
 	LogbusSetup() *setup.BusSetup
 	Logbus() *logbus.Bus

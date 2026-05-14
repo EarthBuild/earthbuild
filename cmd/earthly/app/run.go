@@ -9,19 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/logstream"
-	"github.com/fatih/color"
-	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc/codes"
-
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -29,6 +23,11 @@ import (
 	"github.com/EarthBuild/earthbuild/util/reflectutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
+	"github.com/fatih/color"
+	"github.com/moby/buildkit/util/grpcerrors"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -102,7 +101,7 @@ func unhideFlagsCommands(cmds []*cli.Command) {
 			reflectutil.SetBool(flg, "Hidden", false)
 		}
 
-		unhideFlagsCommands(cmd.Subcommands)
+		unhideFlagsCommands(cmd.Commands)
 	}
 }
 
@@ -136,7 +135,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 		)
 	}()
 
-	err := app.BaseCLI.App().RunContext(ctx, args)
+	err := app.BaseCLI.App().Run(ctx, args)
 	if err != nil {
 		return app.handleError(ctx, err, args, lastSignal)
 	}

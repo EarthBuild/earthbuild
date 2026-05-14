@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -24,16 +25,13 @@ func Wrap(s ...string) string {
 	return strings.Join(s, "\n\t")
 }
 
-func CombineVariables(
-	dotEnvMap map[string]string, flagArgs []string, buildFlagArgs []string,
-) (*variables.Scope, error) {
+func CombineVariables(dotEnvMap map[string]string, flagArgs, buildFlagArgs []string) (*variables.Scope, error) {
 	dotEnvVars := variables.NewScope()
 	for k, v := range dotEnvMap {
 		dotEnvVars.Add(k, v)
 	}
 
-	buildArgs := append([]string{}, buildFlagArgs...)
-	buildArgs = append(buildArgs, flagArgs...)
+	buildArgs := slices.Concat(buildFlagArgs, flagArgs)
 
 	overridingVars, err := variables.ParseCommandLineArgs(buildArgs)
 	if err != nil {

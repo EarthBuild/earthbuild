@@ -3,14 +3,14 @@ package base
 import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
-	"github.com/EarthBuild/earthbuild/logbus"
-	"github.com/urfave/cli/v2"
-
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/setup"
+	"github.com/urfave/cli/v3"
 )
 
+// CLI contains the common "earth" command line interface.
 type CLI struct {
 	commandName             string
 	version                 string
@@ -19,7 +19,7 @@ type CLI struct {
 	defaultBuildkitdImage   string
 	defaultInstallationName string
 	deferredFuncs           []func()
-	app                     *cli.App
+	app                     *cli.Command
 	cfg                     *config.Config
 	logbusSetup             *setup.BusSetup
 	logbus                  *logbus.Bus
@@ -64,9 +64,10 @@ func WithDefaultInstallationName(name string) CLIOpt {
 	}
 }
 
+// NewCLI creates a new [CLI].
 func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	cli := CLI{
-		app:     cli.NewApp(),
+		app:     new(cli.Command),
 		console: console,
 		logbus:  logbus.New(),
 		flags: flag.Global{
@@ -81,7 +82,8 @@ func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	return &cli
 }
 
-func (c *CLI) App() *cli.App {
+// App returns the app's [cli.Command].
+func (c *CLI) App() *cli.Command {
 	return c.app
 }
 
@@ -95,6 +97,11 @@ func (c *CLI) SetAppUsageText(usageText string) {
 
 func (c *CLI) SetAppUseShortOptionHandling(use bool) {
 	c.app.UseShortOptionHandling = use
+}
+
+// SetAppStopOnNthArg tells the cli that it should stop processing flags after the Nth argument.
+func (c *CLI) SetAppStopOnNthArg(stop *int) {
+	c.app.StopOnNthArg = stop
 }
 
 func (c *CLI) SetAction(action cli.ActionFunc) {

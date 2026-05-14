@@ -58,7 +58,7 @@ func TestPodmanProvider(t *testing.T) {
 		go func() {
 			defer close(tt.result)
 
-			tt.result <- authprovider.NewPodman(tt.stderr, authprovider.WithOS(tt.os))
+			tt.result <- authprovider.NewPodman(t.Context(), tt.stderr, authprovider.WithOS(tt.os))
 		}()
 
 		t.Cleanup(func() {

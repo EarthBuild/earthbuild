@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,7 +14,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type Debug struct {
@@ -36,7 +37,7 @@ func (a *Debug) Cmds() []*cli.Command {
 			Description: "Print debug information about an Earthfile.",
 			ArgsUsage:   "[<path>]",
 			Hidden:      true, // Dev purposes only.
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:        "ast",
 					Usage:       "Output the AST",
@@ -91,16 +92,16 @@ func (a *Debug) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Debug) actionAst(cliCtx *cli.Context) error {
+func (a *Debug) actionAst(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugAst")
 
-	if cliCtx.NArg() > 1 {
+	if cmd.NArg() > 1 {
 		return errors.New("invalid number of arguments provided")
 	}
 
 	path := "./Earthfile"
-	if cliCtx.NArg() == 1 {
-		path = cliCtx.Args().First()
+	if cmd.NArg() == 1 {
+		path = cmd.Args().First()
 	}
 
 	ef, err := ast.Parse(path, a.enableSourceMap)
@@ -118,16 +119,16 @@ func (a *Debug) actionAst(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (a *Debug) actionBuildkitSessionHistory(cliCtx *cli.Context) error {
+func (a *Debug) actionBuildkitSessionHistory(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugBuildkitSessions")
 
-	bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
 		return errors.Wrap(err, "build new buildkitd client")
 	}
 	defer bkClient.Close()
 
-	history, err := bkClient.SessionHistory(cliCtx.Context)
+	history, err := bkClient.SessionHistory(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get buildkit session history")
 	}
@@ -138,16 +139,16 @@ func (a *Debug) actionBuildkitSessionHistory(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (a *Debug) actionBuildkitInfo(cliCtx *cli.Context) error {
+func (a *Debug) actionBuildkitInfo(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugBuildkitInfo")
 
-	bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
 		return errors.Wrap(err, "build new buildkitd client")
 	}
 	defer bkClient.Close()
 
-	info, err := bkClient.Info(cliCtx.Context)
+	info, err := bkClient.Info(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get buildkit info")
 	}
@@ -160,16 +161,16 @@ func (a *Debug) actionBuildkitInfo(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (a *Debug) actionBuildkitDiskUsage(cliCtx *cli.Context) error {
+func (a *Debug) actionBuildkitDiskUsage(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugBuildkitDiskUsage")
 
-	bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
 		return errors.Wrap(err, "build new buildkitd client")
 	}
 	defer bkClient.Close()
 
-	infos, err := bkClient.DiskUsage(cliCtx.Context)
+	infos, err := bkClient.DiskUsage(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get buildkit disk usage")
 	}
@@ -215,16 +216,16 @@ func (a *Debug) actionBuildkitDiskUsage(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
+func (a *Debug) actionBuildkitWorkers(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugBuildkitWorkers")
 
-	bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
 		return errors.Wrap(err, "build new buildkitd client")
 	}
 	defer bkClient.Close()
 
-	workers, err := bkClient.ListWorkers(cliCtx.Context)
+	workers, err := bkClient.ListWorkers(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get buildkit workers")
 	}
@@ -289,16 +290,16 @@ func (a *Debug) actionBuildkitWorkers(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (a *Debug) actionBuildkitShutdownIfIdle(cliCtx *cli.Context) error {
+func (a *Debug) actionBuildkitShutdownIfIdle(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("debugBuildkitShutdownIfIdle")
 
-	bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
 		return errors.Wrap(err, "build new buildkitd client")
 	}
 	defer bkClient.Close()
 
-	ok, numSessions, err := bkClient.ShutdownIfIdle(cliCtx.Context)
+	ok, numSessions, err := bkClient.ShutdownIfIdle(ctx)
 	if err != nil {
 		return errors.Wrap(err, "shutdown buildkit if idle")
 	}

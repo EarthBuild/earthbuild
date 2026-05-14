@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.26.2
+LET GO_VERSION=1.26.3
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -93,7 +93,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.23.3
+    ARG alpine_version=3.23.4
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
@@ -843,7 +843,7 @@ license:
 node:
     FROM node:26.1.0-alpine3.23
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.14.0
+    LET npm_version=11.14.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

@@ -27,6 +27,7 @@ import (
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	urfavecli "github.com/urfave/cli/v3"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
@@ -147,20 +148,24 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		err = f.Apply(flagSet)
-		if err != nil {
-			envFileFromArgOK = false
-			break
+		for _, name := range f.Names() {
+			if _, ok := f.(*urfavecli.BoolFlag); ok {
+				flagSet.Bool(name, false, "")
+			} else {
+				flagSet.String(name, "", "")
+			}
 		}
 	}
 
 	if envFileFromArgOK {
 		err = flagSet.Parse(os.Args[1:])
 		if err == nil {
-			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
-				envFile = envFileFlag.Value.String()
-				envFileOverride = envFile != eFlag.DefaultEnvFile // flag lib doesn't expose if a value was set or not
-			}
+			flagSet.Visit(func(f *flag.Flag) {
+				if f.Name == eFlag.EnvFileFlag {
+					envFile = f.Value.String()
+					envFileOverride = true
+				}
+			})
 		}
 	}
 

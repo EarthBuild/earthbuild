@@ -6,70 +6,68 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
-
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func getApp() *cli.App {
-	app := cli.NewApp()
-	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name: "flag",
-		},
-		&cli.BoolFlag{
-			Name: "fleet",
-		},
-		&cli.StringFlag{
-			Name: "fig",
-		},
-	}
-	app.Commands = []*cli.Command{
-		{
-			Name: "prune",
-		},
-		{
-			Name: "foo",
-		},
-		{
-			Name:   "hide",
-			Hidden: true,
-		},
-		{
-			Name: "sub",
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name: "subflag",
-				},
+func getApp() *cli.Command {
+	return &cli.Command{
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name: "flag",
 			},
-			Subcommands: []*cli.Command{
-				{
-					Name: "abc",
-				},
-				{
-					Name: "abba",
-					Flags: []cli.Flag{
-						&cli.BoolFlag{
-							Name: "subsubflag",
-						},
-						&cli.BoolFlag{
-							Name: "surf-the-internet",
-						},
-					},
-					Subcommands: []*cli.Command{
-						{
-							Name: "dancing-queen",
-						},
-					},
-				},
-				{
-					Name:   "hide",
-					Hidden: true,
-				},
+			&cli.BoolFlag{
+				Name: "fleet",
+			},
+			&cli.StringFlag{
+				Name: "fig",
 			},
 		},
+		Commands: []*cli.Command{
+			{
+				Name: "prune",
+			},
+			{
+				Name: "foo",
+			},
+			{
+				Name:   "hide",
+				Hidden: true,
+			},
+			{
+				Name: "sub",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name: "subflag",
+					},
+				},
+				Commands: []*cli.Command{
+					{
+						Name: "abc",
+					},
+					{
+						Name: "abba",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name: "subsubflag",
+							},
+							&cli.BoolFlag{
+								Name: "surf-the-internet",
+							},
+						},
+						Commands: []*cli.Command{
+							{
+								Name: "dancing-queen",
+							},
+						},
+					},
+					{
+						Name:   "hide",
+						Hidden: true,
+					},
+				},
+			},
+		},
 	}
-
-	return app
 }
 
 func getPotentials(cmd string) ([]string, error) {

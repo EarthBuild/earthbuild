@@ -93,8 +93,8 @@ type Target interface {
 	// SetPrefix sets a prefix to prepend to this target's name.
 	SetPrefix(string)
 
-	// Format writes out the target with the given indentation string and level.
-	Format(w io.Writer, indent string, level int) error
+	// Format writes out the target with the given indentation string.
+	Format(w io.Writer, indent string) error
 }
 
 // ProjectType represents a type of project (typically a language).

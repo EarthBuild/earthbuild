@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
@@ -9,13 +8,13 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 )
 
+// EarthlyApp encapsulates the core earthly command-line application.
 type EarthlyApp struct {
 	BaseCLI *base.CLI
 }
 
-func NewEarthlyApp(
-	cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.Build, ctx context.Context,
-) *EarthlyApp {
+// NewEarthlyApp creates a new EarthlyApp.
+func NewEarthlyApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.Build) *EarthlyApp {
 	earthly := common.GetBinaryName()
 	earthlyApp := &EarthlyApp{BaseCLI: cliInstance}
 

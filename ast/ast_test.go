@@ -123,7 +123,7 @@ VERSION 0.6
   foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s spec.Earthfile, err error) {
+			check: func(r *require.Assertions, _ spec.Earthfile, err error) {
 				r.Error(err)
 				r.ErrorContains(err, "no viable alternative at input '  '")
 			},
@@ -255,7 +255,7 @@ foo:
 # Comment regarding something
     SAVE ARTIFACT /stuff
 `,
-			check: func(r *require.Assertions, s spec.Earthfile, err error) {
+			check: func(r *require.Assertions, _ spec.Earthfile, err error) {
 				r.NoError(err)
 			},
 		},

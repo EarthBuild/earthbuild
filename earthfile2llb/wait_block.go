@@ -411,7 +411,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 	for _, entry := range artifacts {
 		err = saveartifactlocally.SaveArtifactLocally(
-			ctx, exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists)
+			exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists)
 		if err != nil {
 			return err
 		}

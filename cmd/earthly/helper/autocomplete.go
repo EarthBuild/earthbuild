@@ -86,7 +86,7 @@ func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	}
 
 	if compPointInt == 0 || compPointInt >= math.MaxInt {
-		err = errors.Errorf("compPointInt is out of bounds.")
+		err = errors.Errorf("compPointInt is out of bounds")
 		return err
 	}
 

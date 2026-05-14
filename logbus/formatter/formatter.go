@@ -1,3 +1,5 @@
+// Package formatter implements specialized formatting logic for translating logbus events
+// into human-readable console output.
 package formatter
 
 import (

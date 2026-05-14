@@ -385,6 +385,7 @@ const (
 	endOfSuggestionsState               // 8
 )
 
+// FlagValuePotentialFn is a function that returns a list of potential arguments for a flag.
 type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 
 // GetPotentials returns a list of potential arguments for shell auto completion

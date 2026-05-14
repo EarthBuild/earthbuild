@@ -35,7 +35,7 @@ func TestFromError(t *testing.T) {
 			providerErr: errors.New("path/to/Earthfile 5:4 some error message"),
 		},
 		"no column": {
-			providerErr: errors.New("path/to/Earthfile line 5:"),
+			providerErr: errors.New("path/to/Earthfile line 5:"), //nolint:revive
 		},
 		"no error message": {
 			providerErr: errors.New("path/to/Earthfile line 5:4"),

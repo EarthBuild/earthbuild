@@ -22,7 +22,9 @@ const (
 
 const (
 	buildEarthFile = "build.earth"
-	Earthfile      = "Earthfile"
+
+	// Earthfile is the default project configuration file.
+	Earthfile = "Earthfile"
 )
 
 var errDuplicateIgnoreFile = errors.New("both .earthignore and .earthlyignore exist - please remove one")

@@ -381,15 +381,12 @@ func ParseParams(str string) (string, []string, error) {
 			nextEscaped = true
 		case ' ', '\t', '\n':
 			if !inQuotes && !nextEscaped {
+				nextEscaped = false
+
 				if len(part) > 0 {
 					parts = append(parts, string(part))
 					part = []rune{}
-					nextEscaped = false
-
-					continue
 				}
-
-				nextEscaped = false
 
 				continue
 			}

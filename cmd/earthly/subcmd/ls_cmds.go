@@ -15,6 +15,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// List encapsulates the ls command logic.
 type List struct {
 	cli CLI
 
@@ -22,12 +23,14 @@ type List struct {
 	showLong bool
 }
 
+// NewList creates a new List command.
 func NewList(cli CLI) *List {
 	return &List{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the list command.
 func (a *List) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{

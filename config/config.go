@@ -1,3 +1,5 @@
+// Package config manages EarthBuild's global and repository-level configuration,
+// handling YAML parsing and default values.
 package config
 
 import (

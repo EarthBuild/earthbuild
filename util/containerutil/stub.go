@@ -18,7 +18,7 @@ var ErrFrontendNotInitialized = errors.New("frontend (e.g. docker/podman) not in
 // NewStubFrontend creates a stubbed frontend. Useful in cases where a frontend could not be detected,
 // but we still need a frontend. Examples include earthly/earthly, or integration tests. It is
 // currently only used as a fallback when docker or other frontends are missing.
-func NewStubFrontend(ctx context.Context, cfg *FrontendConfig) (ContainerFrontend, error) {
+func NewStubFrontend(cfg *FrontendConfig) (ContainerFrontend, error) {
 	fe := &stubFrontend{
 		shellFrontend: &shellFrontend{Console: cfg.Console},
 	}
@@ -37,7 +37,7 @@ func (*stubFrontend) Scheme() string {
 	return ""
 }
 
-func (*stubFrontend) IsAvailable(ctx context.Context) bool {
+func (*stubFrontend) IsAvailable(context.Context) bool {
 	return false
 }
 
@@ -48,58 +48,58 @@ func (sf *stubFrontend) Config() *CurrentFrontend {
 	}
 }
 
-func (*stubFrontend) Information(ctx context.Context) (*FrontendInfo, error) {
+func (*stubFrontend) Information(context.Context) (*FrontendInfo, error) {
 	return &FrontendInfo{}, nil
 }
 
-func (*stubFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, error) {
+func (*stubFrontend) ContainerList(context.Context) ([]*ContainerInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerInfo, error) {
+func (*stubFrontend) ContainerInfo(context.Context, ...string) (map[string]*ContainerInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerRemove(ctx context.Context, force bool, namesOrIDs ...string) error {
+func (*stubFrontend) ContainerRemove(context.Context, bool, ...string) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerStop(ctx context.Context, timeoutSec uint, namesOrIDs ...string) error {
+func (*stubFrontend) ContainerStop(context.Context, uint, ...string) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerLogs, error) {
+func (*stubFrontend) ContainerLogs(context.Context, ...string) (map[string]*ContainerLogs, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerRun(ctx context.Context, containers ...ContainerRun) error {
+func (*stubFrontend) ContainerRun(context.Context, ...ContainerRun) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ImageInfo(ctx context.Context, refs ...string) (map[string]*ImageInfo, error) {
+func (*stubFrontend) ImageInfo(context.Context, ...string) (map[string]*ImageInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ImagePull(ctx context.Context, refs ...string) error {
+func (*stubFrontend) ImagePull(context.Context, ...string) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ImageRemove(ctx context.Context, force bool, refs ...string) error {
+func (*stubFrontend) ImageRemove(context.Context, bool, ...string) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ImageTag(ctx context.Context, tags ...ImageTag) error {
+func (*stubFrontend) ImageTag(context.Context, ...ImageTag) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ImageLoadFromFileCommand(filename string) string {
+func (*stubFrontend) ImageLoadFromFileCommand(string) string {
 	return ""
 }
 
-func (*stubFrontend) ImageLoad(ctx context.Context, image ...io.Reader) error {
+func (*stubFrontend) ImageLoad(context.Context, ...io.Reader) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]*VolumeInfo, error) {
+func (*stubFrontend) VolumeInfo(context.Context, ...string) (map[string]*VolumeInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }

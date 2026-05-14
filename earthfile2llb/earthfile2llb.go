@@ -1,3 +1,4 @@
+// Package earthfile2llb converts parsed Earthfile ASTs into Buildkit Low-Level Builder (LLB) graphs for execution.
 package earthfile2llb
 
 import (
@@ -29,6 +30,7 @@ import (
 
 const commandName = "WITH DOCKER RUN "
 
+// ProjectAdder provides an interface for adding projects.
 type ProjectAdder interface {
 	AddProject(org, proj string)
 }

@@ -8,9 +8,7 @@ import (
 )
 
 // WithDependency creates a fake dependency between two states.
-func WithDependency(
-	state, depState pllb.State, stateStr, depStr string, platr *platutil.Resolver, opts ...llb.RunOption,
-) pllb.State {
+func WithDependency(state, depState pllb.State, stateStr, depStr string, platr *platutil.Resolver) pllb.State {
 	// TODO: Is there a better way to mark two states as depending on each other?
 	vm := &vertexmeta.VertexMeta{
 		Internal: true,

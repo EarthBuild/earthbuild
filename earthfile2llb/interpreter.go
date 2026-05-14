@@ -737,7 +737,7 @@ func (i *Interpreter) getAllowPrivilegedArtifact(artifactName string, allowPrivi
 func (i *Interpreter) flagValModifierFuncWithContext(
 	ctx context.Context,
 ) func(string, *flags.Option, *string) (*string, error) {
-	return func(flagName string, flagOpt *flags.Option, flagVal *string) (*string, error) {
+	return func(_ string, _ *flags.Option, flagVal *string) (*string, error) {
 		// flagOpt is nil when called from our preprocessor, which only calls this for boolean flags
 		if flagVal != nil {
 			newFlag, err := i.expandArgs(ctx, *flagVal, false, false)
@@ -1451,11 +1451,12 @@ func (i *Interpreter) handleSaveImage(ctx context.Context, cmd spec.Command) err
 func newOnExecutionSuccess(numSuccessRequired int, saveHashFn func()) func(context.Context) {
 	var mu sync.Mutex
 
-	return func(ctx context.Context) {
+	return func(_ context.Context) {
 		mu.Lock()
 		defer mu.Unlock()
 
-		numSuccessRequired -= 1
+		numSuccessRequired--
+
 		if numSuccessRequired == 0 {
 			saveHashFn()
 		}
@@ -1825,7 +1826,7 @@ func (i *Interpreter) handleArg(ctx context.Context, cmd spec.Command) error {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts, key, valueOrNil, err := flagutil.ParseArgArgs(ctx, cmd, i.isBase, i.converter.ftrs.ExplicitGlobal)
+	opts, key, valueOrNil, err := flagutil.ParseArgArgs(cmd, i.isBase, i.converter.ftrs.ExplicitGlobal)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "invalid ARG arguments %v", cmd.Args)
 	}
@@ -1916,7 +1917,7 @@ func (i *Interpreter) handleSet(ctx context.Context, cmd spec.Command) error {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand SET %s", value)
 	}
 
-	return i.converter.UpdateArg(ctx, key, newVal, i.isBase)
+	return i.converter.UpdateArg(ctx, key, newVal)
 }
 
 func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
@@ -2387,9 +2388,9 @@ func (i *Interpreter) handleCache(ctx context.Context, cmd spec.Command) error {
 	expandedMode, err := i.expandArgs(ctx, opts.Mode, false, false)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand CACHE mode %s", opts.Mode)
-	} else {
-		opts.Mode = expandedMode
 	}
+
+	opts.Mode = expandedMode
 
 	if !path.IsAbs(dir) {
 		dir = path.Clean(path.Join("/", i.converter.mts.Final.MainImage.Config.WorkingDir, dir))
@@ -2607,7 +2608,7 @@ func requiresShellOutOrCmdInvalid(s string) bool {
 	var required bool
 
 	shlex := shell.NewLex('\\')
-	shlex.ShellOut = func(cmd string) (string, error) {
+	shlex.ShellOut = func(_ string) (string, error) {
 		required = true
 		return "", nil
 	}

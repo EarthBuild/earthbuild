@@ -319,7 +319,7 @@ func (w *withDockerRunRegistry) load(
 		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
 	}
 
-	afterFn := func(ctx context.Context, mts *states.MultiTarget) error {
+	afterFn := func(_ context.Context, mts *states.MultiTarget) error {
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {

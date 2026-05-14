@@ -30,6 +30,7 @@ linters:
     - gocyclo
     - godox
     - gomoddirectives
+    - gomodguard # deprecated
     - inamedparam
     - interfacebloat
     - ireturn

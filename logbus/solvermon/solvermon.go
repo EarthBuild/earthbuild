@@ -1,3 +1,4 @@
+// Package solvermon monitors the progress of buildkit solvers, tracking operations and identifying fatal errors.
 package solvermon
 
 import (

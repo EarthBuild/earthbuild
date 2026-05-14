@@ -4,8 +4,10 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
+// ByteSizeValue represents a byte size that can be parsed from a flag.
 type ByteSizeValue uint64
 
+// Set implements the [cli.GenericFlag].Set method.
 func (b *ByteSizeValue) Set(s string) error {
 	v, err := humanize.ParseBytes(s)
 	if err != nil {
@@ -20,6 +22,7 @@ func (b *ByteSizeValue) Set(s string) error {
 // String implements [fmt.Stringer].
 func (b *ByteSizeValue) String() string { return humanize.Bytes(uint64(*b)) }
 
-func (vf *ByteSizeValue) Get() any {
-	return *vf
+// Get implements the [cli.GenericFlag].Get method.
+func (b *ByteSizeValue) Get() any {
+	return *b
 }

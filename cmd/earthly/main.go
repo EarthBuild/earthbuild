@@ -1,3 +1,4 @@
+// Package main is the primary entry point for the EarthBuild CLI executable.
 package main
 
 import (
@@ -84,7 +85,6 @@ func run() (code int) {
 
 	setExportableVars()
 
-	startTime := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -206,7 +206,7 @@ func run() (code int) {
 	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
 	cli.SetConsole(logging)
-	earthly := app.NewEarthlyApp(cli, rootApp, buildApp, ctx)
+	earthly := app.NewEarthlyApp(cli, rootApp, buildApp)
 
-	return earthly.Run(ctx, logging, startTime, lastSignal)
+	return earthly.Run(ctx, lastSignal)
 }

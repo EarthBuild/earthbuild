@@ -66,5 +66,4 @@ func (res *ReturnErrorStrategy) RecoverInline(recognizer antlr.Parser) antlr.Tok
 }
 
 // Sync implements ErrorStrategy Sync.
-func (res *ReturnErrorStrategy) Sync(recognizer antlr.Parser) {
-}
+func (res *ReturnErrorStrategy) Sync(_ antlr.Parser) {}

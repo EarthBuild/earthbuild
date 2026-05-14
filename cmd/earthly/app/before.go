@@ -144,7 +144,7 @@ func (app *EarthlyApp) parseFrontend(ctx context.Context) error {
 	if err != nil {
 		origErr := err
 
-		stub, err := containerutil.NewStubFrontend(ctx, feCfg)
+		stub, err := containerutil.NewStubFrontend(feCfg)
 		if err != nil {
 			return errors.Wrap(err, "failed stub frontend initialization")
 		}

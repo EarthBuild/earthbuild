@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var internal = errors.New("internal")
+var errInternal = errors.New("internal")
 
 func TestErrorf(t *testing.T) {
 	t.Parallel()
@@ -36,19 +36,19 @@ func TestWrapf(t *testing.T) {
 	t.Run("without args", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrapf(internal, "some error")
+		res := Wrapf(errInternal, "some error")
 		assert.Equal(t, &Error{
 			msg:   "some error",
-			cause: internal,
+			cause: errInternal,
 		}, res)
 	})
 	t.Run("with args", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrapf(internal, "some error %s", "myarg")
+		res := Wrapf(errInternal, "some error %s", "myarg")
 		assert.Equal(t, &Error{
 			msg:   "some error myarg",
-			cause: internal,
+			cause: errInternal,
 		}, res)
 	})
 }
@@ -65,7 +65,7 @@ func TestError(t *testing.T) {
 	t.Run("with cause", func(t *testing.T) {
 		t.Parallel()
 
-		res := Wrapf(internal, "some error").Error()
+		res := Wrapf(errInternal, "some error").Error()
 		assert.Equal(t, "some error: internal", res)
 	})
 }
@@ -75,9 +75,9 @@ func TestCause(t *testing.T) {
 
 	var err *Error
 
-	assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+	assert.True(t, errors.As(Wrapf(errInternal, "some error"), &err))
 	res := err.Cause()
-	assert.Equal(t, errors.Cause(internal), res)
+	assert.Equal(t, errors.Cause(errInternal), res)
 }
 
 func TestIs(t *testing.T) {
@@ -89,7 +89,7 @@ func TestIs(t *testing.T) {
 		var err *Error
 
 		assert.True(t, errors.As(Errorf("some error"), &err))
-		res := err.Is(internal)
+		res := err.Is(errInternal)
 		assert.False(t, res)
 	})
 
@@ -109,7 +109,7 @@ func TestParentError(t *testing.T) {
 
 	var err *Error
 
-	assert.True(t, errors.As(Wrapf(internal, "some error"), &err))
+	assert.True(t, errors.As(Wrapf(errInternal, "some error"), &err))
 	res := err.ParentError()
 	assert.Equal(t, "some error", res)
 }

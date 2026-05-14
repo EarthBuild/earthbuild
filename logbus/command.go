@@ -97,19 +97,19 @@ func (c *Command) SetStart(start time.Time) {
 
 // AddDependsOn creates a delta that will be used to merge the specified target
 // ID & name into the command's list of targets on which it depends.
-func (t *Command) AddDependsOn(targetID, refName string) {
+func (c *Command) AddDependsOn(targetID, refName string) {
 	// Only add the dependency link once to avoid sending duplicates to Logstream.
-	t.mu.Lock()
+	c.mu.Lock()
 
-	if _, ok := t.dependsOn[targetID]; ok {
-		t.mu.Unlock()
+	if _, ok := c.dependsOn[targetID]; ok {
+		c.mu.Unlock()
 		return
 	}
 
-	t.dependsOn[targetID] = struct{}{}
-	t.mu.Unlock()
+	c.dependsOn[targetID] = struct{}{}
+	c.mu.Unlock()
 
-	t.commandDelta(&logstream.DeltaCommandManifest{
+	c.commandDelta(&logstream.DeltaCommandManifest{
 		DependsOn: []*logstream.CommandTarget{
 			{
 				TargetId:       targetID,

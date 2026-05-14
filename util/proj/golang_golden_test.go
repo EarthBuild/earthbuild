@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	goOut_base  = "./testdata/golang_base.out"
-	goOut_named = "./testdata/golang_named.out"
+	goOutBase  = "./testdata/golang_base.out"
+	goOutNamed = "./testdata/golang_named.out"
 
 	version = "VERSION --arg-scope-and-set 0.7\n\n"
 )
@@ -102,17 +102,17 @@ func TestGolang_Targets_Base(t *testing.T) {
 			buf.WriteString("\n")
 		}
 
-		err := tgt.Format(buf, "    ", 0)
+		err := tgt.Format(buf, "    ")
 		if err != nil {
 			t.Fatalf("failed to format code: %v", err)
 		}
 	}
 
 	if *update {
-		saveGoldenFile(t, goOut_base, buf.Bytes())
+		saveGoldenFile(t, goOutBase, buf.Bytes())
 	}
 
-	matchGolden(t, buf.Bytes(), goOut_base)
+	matchGolden(t, buf.Bytes(), goOutBase)
 }
 
 func TestGolang_Targets_Named(t *testing.T) {
@@ -138,15 +138,15 @@ func TestGolang_Targets_Named(t *testing.T) {
 			buf.WriteString("\n")
 		}
 
-		err := tgt.Format(buf, "    ", 0)
+		err := tgt.Format(buf, "    ")
 		if err != nil {
 			t.Fatalf("failed to format code: %v", err)
 		}
 	}
 
 	if *update {
-		saveGoldenFile(t, goOut_named, buf.Bytes())
+		saveGoldenFile(t, goOutNamed, buf.Bytes())
 	}
 
-	matchGolden(t, buf.Bytes(), goOut_named)
+	matchGolden(t, buf.Bytes(), goOutNamed)
 }

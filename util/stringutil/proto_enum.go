@@ -19,6 +19,7 @@ type caser interface {
 	String(s string) string
 }
 
+// ProtoEnum represents a protobuf enumeration type.
 type ProtoEnum interface {
 	fmt.Stringer
 	Type() protoreflect.EnumType

@@ -1,3 +1,5 @@
+// Package gatewaycrafter coordinates the crafting of buildkit gateway requests, managing artifact exports,
+// image pushes, and local output summaries.
 package gatewaycrafter
 
 import (

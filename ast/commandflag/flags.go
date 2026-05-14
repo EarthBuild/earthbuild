@@ -8,6 +8,7 @@ import (
 // This applies to new features which do **not** break backwards compatibility, which is needed
 // to ensure an Earthfile that uses `VERSION 0.7` can be built by **any** of the earthly-v0.7.x binaries.
 
+// IfOpts contains options for the IF command.
 type IfOpts struct {
 	Secrets    []string `description:"Make available a secret"                       long:"secret"`
 	Mounts     []string `description:"Mount a file or directory"                     long:"mount"`
@@ -16,6 +17,7 @@ type IfOpts struct {
 	NoCache    bool     `description:"Always run this specific item, ignoring cache" long:"no-cache"`
 }
 
+// ForOpts contains options for the FOR command.
 type ForOpts struct {
 	Separators string   `description:"The separators to use for tokenizing the output of the IN expression. Defaults to '\n\t '" long:"sep"`        //nolint:lll
 	Secrets    []string `description:"Make available a secret"                                                                   long:"secret"`     //nolint:lll
@@ -25,6 +27,7 @@ type ForOpts struct {
 	NoCache    bool     `description:"Always run this specific item, ignoring cache"                                             long:"no-cache"`   //nolint:lll
 }
 
+// RunOpts contains options for the RUN command.
 type RunOpts struct {
 	OIDC            string   `description:"make credentials from oidc provider (currently only works with AWS) available to RUN commands"  long:"oidc"`             //nolint:lll
 	Network         string   `description:"Network to use; currently network=none is only supported"                                       long:"network"`          //nolint:lll
@@ -42,6 +45,7 @@ type RunOpts struct {
 	RawOutput       bool     `description:"Do not prefix output with target. Print Raw"                                                    long:"raw-output"`       //nolint:lll
 }
 
+// FromOpts contains options for the FROM command.
 type FromOpts struct {
 	Platform        string   `description:"The platform to use"                                              long:"platform"`         //nolint:lll
 	BuildArgs       []string `description:"A build arg override passed on to a referenced EarthBuild target" long:"build-arg"`        //nolint:lll
@@ -49,6 +53,7 @@ type FromOpts struct {
 	PassArgs        bool     `description:"Pass arguments to external targets"                               long:"pass-args"`        //nolint:lll
 }
 
+// FromDockerfileOpts contains options for the FROM DOCKERFILE command.
 type FromDockerfileOpts struct {
 	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`         //nolint:lll
 	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`           //nolint:lll
@@ -57,6 +62,7 @@ type FromDockerfileOpts struct {
 	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"` //nolint:lll
 }
 
+// CopyOpts contains options for the COPY command.
 type CopyOpts struct {
 	From            string   `description:"Not supported"                                                           long:"from"`              //nolint:lll
 	Chown           string   `description:"Apply a specific group and/or owner to the copied files and directories" long:"chown"`             //nolint:lll
@@ -72,6 +78,7 @@ type CopyOpts struct {
 	PassArgs        bool     `description:"Pass arguments to external targets"                                      long:"pass-args"`         //nolint:lll
 }
 
+// SaveArtifactOpts contains options for the SAVE ARTIFACT command.
 type SaveArtifactOpts struct {
 	KeepTs          bool `description:"Keep created time file timestamps"                                                                               long:"keep-ts"`           //nolint:lll
 	KeepOwn         bool `description:"Keep owner info"                                                                                                 long:"keep-own"`          //nolint:lll
@@ -80,6 +87,7 @@ type SaveArtifactOpts struct {
 	Force           bool `description:"Force artifact to be saved, even if it means overwriting files or directories outside of the relative directory" long:"force"`             //nolint:lll
 }
 
+// SaveImageOpts contains options for the SAVE IMAGE command.
 type SaveImageOpts struct {
 	CacheFrom            []string `description:"Declare additional cache import as a Docker tag"                                                                         long:"cache-from"`             //nolint:lll
 	Push                 bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthbuild is invoked in push mode" long:"push"`                   //nolint:lll
@@ -89,6 +97,7 @@ type SaveImageOpts struct {
 	WithoutEarthlyLabels bool     `description:"Disable build information dev.earthly labels to reduce the chance of changing images digests."                           long:"without-earthly-labels"` //nolint:lll
 }
 
+// BuildOpts contains options for the BUILD command.
 type BuildOpts struct {
 	Platforms       []string `description:"The platform to use"                                              long:"platform"`         //nolint:lll
 	BuildArgs       []string `description:"A build arg override passed on to a referenced EarthBuild target" long:"build-arg"`        //nolint:lll
@@ -97,11 +106,13 @@ type BuildOpts struct {
 	AutoSkip        bool     `description:"Use auto-skip to bypass the target if nothing has changed"        long:"auto-skip"`        //nolint:lll
 }
 
+// GitCloneOpts contains options for the GIT CLONE command.
 type GitCloneOpts struct {
 	Branch string `description:"The git ref to use when cloning"   long:"branch"`
 	KeepTs bool   `description:"Keep created time file timestamps" long:"keep-ts"`
 }
 
+// HealthCheckOpts contains options for the HEALTHCHECK command.
 type HealthCheckOpts struct {
 	Interval      time.Duration `default:"30s"                                                                                                       description:"The interval between healthchecks"                                long:"interval"`       //nolint:lll
 	Timeout       time.Duration `default:"30s"                                                                                                       description:"The timeout before the command is considered failed"              long:"timeout"`        //nolint:lll
@@ -110,6 +121,7 @@ type HealthCheckOpts struct {
 	StartInterval time.Duration `default:"5s"                                                                                                        description:"The time interval between health checks during the start period"  long:"start-interval"` //nolint:lll
 }
 
+// WithDockerOpts contains options for the WITH DOCKER command.
 type WithDockerOpts struct {
 	Platform        string   `description:"The platform to use"                                             long:"platform"` //nolint:lll
 	CacheID         string   `description:"When specified, layer data will be persisted to specified cache" long:"cache-id"` //nolint:lll
@@ -122,27 +134,34 @@ type WithDockerOpts struct {
 	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`        //nolint:lll
 }
 
+// DoOpts contains options for the DO command.
 type DoOpts struct {
 	AllowPrivileged bool `description:"Allow targets to assume privileged mode" long:"allow-privileged"`
 	PassArgs        bool `description:"Pass arguments to external targets"      long:"pass-args"`
 }
 
+// ImportOpts contains options for the IMPORT command.
 type ImportOpts struct {
 	AllowPrivileged bool `description:"Allow targets to assume privileged mode" long:"allow-privileged"`
 	PassArgs        bool `description:"Pass arguments to external targets"      long:"pass-args"`
 }
 
+// ArgOpts contains options for the ARG command.
 type ArgOpts struct {
 	Required bool `description:"Require argument to be non-empty"                       long:"required"`
 	Global   bool `description:"Global argument to make available to all other targets" long:"global"`
 }
 
+// ProjectOpts contains options for the PROJECT command.
 type ProjectOpts struct{}
 
+// SetOpts contains options for the SET command.
 type SetOpts struct{}
 
+// LetOpts contains options for the LET command.
 type LetOpts struct{}
 
+// CacheOpts contains options for the CACHE command.
 type CacheOpts struct {
 	Sharing string `description:"The cache sharing mode: locked (default), shared, private"                 long:"sharing"`
 	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"` //nolint:lll

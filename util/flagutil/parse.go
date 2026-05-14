@@ -1,7 +1,6 @@
 package flagutil
 
 import (
-	"context"
 	"os"
 	"reflect"
 	"strings"
@@ -27,11 +26,13 @@ func ParseArgs(command string, data any, args []string) ([]string, error) {
 	return ParseArgsWithValueModifier(command, data, args, nil)
 }
 
+// ParseArgsCleaned parses arguments properly handling quoting rules.
 func ParseArgsCleaned(cmdName string, opts any, args []string) ([]string, error) {
 	processed := stringutil.ProcessParamsAndQuotes(args)
 	return ParseArgs(cmdName, opts, processed)
 }
 
+// ParseArgsWithValueModifierCleaned parses args similarly, extracting a value modifier if applicable.
 func ParseArgsWithValueModifierCleaned(
 	cmdName string, opts any, args []string, argumentModFunc ArgumentModFunc,
 ) ([]string, error) {
@@ -284,6 +285,7 @@ func SplitFlagString(values []string) []string {
 	return res
 }
 
+// These are errors that can be returned from [ParseArgArgs].
 var (
 	ErrInvalidSyntax         = errors.New("invalid syntax")
 	ErrRequiredArgHasDefault = errors.New("required ARG cannot have a default value")
@@ -293,7 +295,7 @@ var (
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(
-	ctx context.Context, cmd spec.Command, isBaseTarget bool, explicitGlobalFeature bool,
+	cmd spec.Command, isBaseTarget, explicitGlobalFeature bool,
 ) (commandflag.ArgOpts, string, *string, error) {
 	var opts commandflag.ArgOpts
 
@@ -335,6 +337,7 @@ func ParseArgArgs(
 	}
 }
 
+// GetArgsCopy returns a deep copy of parsed args.
 func GetArgsCopy(cmd spec.Command) []string {
 	argsCopy := make([]string, len(cmd.Args))
 	copy(argsCopy, cmd.Args)
@@ -342,6 +345,7 @@ func GetArgsCopy(cmd spec.Command) []string {
 	return argsCopy
 }
 
+// IsInParamsForm determines if the args slice uses params form representation.
 func IsInParamsForm(str string) bool {
 	return (strings.HasPrefix(str, "\"(") && strings.HasSuffix(str, "\")")) ||
 		(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")"))
@@ -383,10 +387,11 @@ func ParseParams(str string) (string, []string, error) {
 					nextEscaped = false
 
 					continue
-				} else {
-					nextEscaped = false
-					continue
 				}
+
+				nextEscaped = false
+
+				continue
 			}
 
 			nextEscaped = false

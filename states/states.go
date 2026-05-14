@@ -1,3 +1,5 @@
+// Package states manages the resolution and execution states of Earthfile targets, maintaining caches,
+// tracking imports, and coordinating solvers.
 package states
 
 import (
@@ -226,7 +228,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 }
 
 // AttachTopLevelWaitItems adds pre-created wait items to a new waitblock.
-func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock waitutil.WaitBlock) {
+func (sts *SingleTarget) AttachTopLevelWaitItems(_ context.Context, waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 

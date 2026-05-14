@@ -1,3 +1,5 @@
+// Package semverutil provides utilities for parsing and comparing semantic versions, particularly
+// for Earthfile features.
 package semverutil
 
 import (

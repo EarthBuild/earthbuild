@@ -49,7 +49,7 @@ jobs:
       # Use fixed buildkitd image with Docker 29+ ulimit fix until next release
       EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
     steps:
-      - uses: earthbuild/actions-setup@main
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

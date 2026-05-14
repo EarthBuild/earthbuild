@@ -1,4 +1,3 @@
-// Package dockertar handles the extraction and parsing of Docker image tarballs to retrieve image metadata and IDs.
 package dockertar
 
 import (

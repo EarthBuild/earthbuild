@@ -247,7 +247,6 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 
 var errInvalidOctal = errors.New("invalid octal")
 
-// ParseMode parses a string mode to os.FileMode.
 func ParseMode(s string) (os.FileMode, error) {
 	if len(s) == 0 || s[0] != '0' {
 		return 0, errInvalidOctal

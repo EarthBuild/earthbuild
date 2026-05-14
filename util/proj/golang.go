@@ -221,7 +221,7 @@ func (f *targetFormatter) SetPrefix(pfx string) {
 	f.prefix = pfx
 }
 
-func (f *targetFormatter) Format(w io.Writer, indent string) error {
+func (f *targetFormatter) Format(w io.Writer, indent string, level int) error {
 	t := strings.TrimSpace(f.template) + "\n"
 
 	tmpl, err := template.New("").Parse(t)

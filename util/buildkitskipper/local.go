@@ -42,7 +42,7 @@ type LocalBuildkitSkipper struct {
 }
 
 // Add a new hash value (org & target are ignored in this implementation).
-func (l *LocalBuildkitSkipper) Add(_ context.Context, _ string, data []byte) error {
+func (l *LocalBuildkitSkipper) Add(ctx context.Context, target string, data []byte) error {
 	if len(data) != sha1.Size {
 		return errInvalidHash
 	}
@@ -61,7 +61,7 @@ func (l *LocalBuildkitSkipper) Add(_ context.Context, _ string, data []byte) err
 }
 
 // Exists checks if the hash exists.
-func (l *LocalBuildkitSkipper) Exists(_ context.Context, data []byte) (bool, error) {
+func (l *LocalBuildkitSkipper) Exists(ctx context.Context, data []byte) (bool, error) {
 	if len(data) != sha1.Size {
 		return false, errInvalidHash
 	}

@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ParseImageNameAndAttrs parses the image name and returns its registry attributes.
 func ParseImageNameAndAttrs(s string) (string, map[string]string, error) {
 	entries := strings.Split(s, ",")
 	imageName := entries[0]

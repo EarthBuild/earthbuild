@@ -114,8 +114,7 @@ func (l *listener) docs(c antlr.ParserRuleContext) string {
 		})
 
 		line = strings.TrimPrefix(line, leadingTrim)
-		docs.WriteString(line)
-		docs.WriteByte('\n')
+		docs.WriteString(line + "\n")
 	}
 
 	return docs.String()
@@ -123,11 +122,11 @@ func (l *listener) docs(c antlr.ParserRuleContext) string {
 
 // Base -----------------------------------------------------------------------
 
-func (l *listener) EnterEarthFile(*parser.EarthFileContext) {
+func (l *listener) EnterEarthFile(c *parser.EarthFileContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitEarthFile(*parser.EarthFileContext) {
+func (l *listener) ExitEarthFile(c *parser.EarthFileContext) {
 	l.ef.BaseRecipe = l.popBlock()
 }
 
@@ -153,7 +152,7 @@ func (l *listener) EnterTargetHeader(c *parser.TargetHeaderContext) {
 	l.target.Docs = l.docs(c)
 }
 
-func (l *listener) ExitTarget(*parser.TargetContext) {
+func (l *listener) ExitTarget(c *parser.TargetContext) {
 	l.target.Recipe = l.popBlock()
 	l.ef.Targets = append(l.ef.Targets, *l.target)
 	l.target = nil
@@ -180,7 +179,7 @@ func (l *listener) EnterUserCommandHeader(c *parser.UserCommandHeaderContext) {
 	l.function.Name = strings.TrimSuffix(c.GetText(), ":")
 }
 
-func (l *listener) ExitUserCommand(*parser.UserCommandContext) {
+func (l *listener) ExitUserCommand(c *parser.UserCommandContext) {
 	l.function.Recipe = l.popBlock()
 	l.ef.Functions = append(l.ef.Functions, *l.function)
 	l.function = nil
@@ -207,7 +206,7 @@ func (l *listener) EnterFunctionHeader(c *parser.FunctionHeaderContext) {
 	l.function.Name = strings.TrimSuffix(c.GetText(), ":")
 }
 
-func (l *listener) ExitFunction(*parser.FunctionContext) {
+func (l *listener) ExitFunction(c *parser.FunctionContext) {
 	l.function.Recipe = l.popBlock()
 	l.ef.Functions = append(l.ef.Functions, *l.function)
 	l.function = nil
@@ -228,7 +227,7 @@ func (l *listener) EnterStmt(c *parser.StmtContext) {
 	}
 }
 
-func (l *listener) ExitStmt(*parser.StmtContext) {
+func (l *listener) ExitStmt(c *parser.StmtContext) {
 	l.block().block = append(l.block().block, *l.block().statement)
 	l.block().statement = nil
 }
@@ -253,7 +252,7 @@ func (l *listener) EnterCommandStmt(c *parser.CommandStmtContext) {
 	l.execMode = false
 }
 
-func (l *listener) ExitCommandStmt(*parser.CommandStmtContext) {
+func (l *listener) ExitCommandStmt(c *parser.CommandStmtContext) {
 	l.command.Args = l.stmtWords
 	l.command.ExecMode = l.execMode
 	l.block().statement.Command = l.command
@@ -262,131 +261,131 @@ func (l *listener) ExitCommandStmt(*parser.CommandStmtContext) {
 
 // Individual commands --------------------------------------------------------
 
-func (l *listener) EnterFromStmt(*parser.FromStmtContext) {
+func (l *listener) EnterFromStmt(c *parser.FromStmtContext) {
 	l.command.Name = "FROM"
 }
 
-func (l *listener) EnterFromDockerfileStmt(*parser.FromDockerfileStmtContext) {
+func (l *listener) EnterFromDockerfileStmt(c *parser.FromDockerfileStmtContext) {
 	l.command.Name = "FROM DOCKERFILE"
 }
 
-func (l *listener) EnterLocallyStmt(*parser.LocallyStmtContext) {
+func (l *listener) EnterLocallyStmt(c *parser.LocallyStmtContext) {
 	l.command.Name = "LOCALLY"
 }
 
-func (l *listener) EnterCopyStmt(*parser.CopyStmtContext) {
+func (l *listener) EnterCopyStmt(c *parser.CopyStmtContext) {
 	l.command.Name = "COPY"
 }
 
-func (l *listener) EnterRunStmt(*parser.RunStmtContext) {
+func (l *listener) EnterRunStmt(c *parser.RunStmtContext) {
 	l.command.Name = "RUN"
 }
 
-func (l *listener) EnterSaveArtifact(*parser.SaveArtifactContext) {
+func (l *listener) EnterSaveArtifact(c *parser.SaveArtifactContext) {
 	l.command.Name = "SAVE ARTIFACT"
 }
 
-func (l *listener) EnterSaveImage(*parser.SaveImageContext) {
+func (l *listener) EnterSaveImage(c *parser.SaveImageContext) {
 	l.command.Name = "SAVE IMAGE"
 }
 
-func (l *listener) EnterBuildStmt(*parser.BuildStmtContext) {
+func (l *listener) EnterBuildStmt(c *parser.BuildStmtContext) {
 	l.command.Name = "BUILD"
 }
 
-func (l *listener) EnterWorkdirStmt(*parser.WorkdirStmtContext) {
+func (l *listener) EnterWorkdirStmt(c *parser.WorkdirStmtContext) {
 	l.command.Name = "WORKDIR"
 }
 
-func (l *listener) EnterUserStmt(*parser.UserStmtContext) {
+func (l *listener) EnterUserStmt(c *parser.UserStmtContext) {
 	l.command.Name = "USER"
 }
 
-func (l *listener) EnterCmdStmt(*parser.CmdStmtContext) {
+func (l *listener) EnterCmdStmt(c *parser.CmdStmtContext) {
 	l.command.Name = "CMD"
 }
 
-func (l *listener) EnterEntrypointStmt(*parser.EntrypointStmtContext) {
+func (l *listener) EnterEntrypointStmt(c *parser.EntrypointStmtContext) {
 	l.command.Name = "ENTRYPOINT"
 }
 
-func (l *listener) EnterExposeStmt(*parser.ExposeStmtContext) {
+func (l *listener) EnterExposeStmt(c *parser.ExposeStmtContext) {
 	l.command.Name = "EXPOSE"
 }
 
-func (l *listener) EnterVolumeStmt(*parser.VolumeStmtContext) {
+func (l *listener) EnterVolumeStmt(c *parser.VolumeStmtContext) {
 	l.command.Name = "VOLUME"
 }
 
-func (l *listener) EnterEnvStmt(*parser.EnvStmtContext) {
+func (l *listener) EnterEnvStmt(c *parser.EnvStmtContext) {
 	l.command.Name = "ENV"
 }
 
-func (l *listener) EnterArgStmt(*parser.ArgStmtContext) {
+func (l *listener) EnterArgStmt(c *parser.ArgStmtContext) {
 	l.command.Name = "ARG"
 }
 
-func (l *listener) EnterSetStmt(*parser.SetStmtContext) {
+func (l *listener) EnterSetStmt(c *parser.SetStmtContext) {
 	l.command.Name = "SET"
 }
 
-func (l *listener) EnterLetStmt(*parser.LetStmtContext) {
+func (l *listener) EnterLetStmt(c *parser.LetStmtContext) {
 	l.command.Name = "LET"
 }
 
-func (l *listener) EnterLabelStmt(*parser.LabelStmtContext) {
+func (l *listener) EnterLabelStmt(c *parser.LabelStmtContext) {
 	l.command.Name = "LABEL"
 }
 
-func (l *listener) EnterGitCloneStmt(*parser.GitCloneStmtContext) {
+func (l *listener) EnterGitCloneStmt(c *parser.GitCloneStmtContext) {
 	l.command.Name = "GIT CLONE"
 }
 
-func (l *listener) EnterHealthcheckStmt(*parser.HealthcheckStmtContext) {
+func (l *listener) EnterHealthcheckStmt(c *parser.HealthcheckStmtContext) {
 	l.command.Name = "HEALTHCHECK"
 }
 
-func (l *listener) EnterAddStmt(*parser.AddStmtContext) {
+func (l *listener) EnterAddStmt(c *parser.AddStmtContext) {
 	l.command.Name = "ADD"
 }
 
-func (l *listener) EnterStopsignalStmt(*parser.StopsignalStmtContext) {
+func (l *listener) EnterStopsignalStmt(c *parser.StopsignalStmtContext) {
 	l.command.Name = "STOP SIGNAL"
 }
 
-func (l *listener) EnterOnbuildStmt(*parser.OnbuildStmtContext) {
+func (l *listener) EnterOnbuildStmt(c *parser.OnbuildStmtContext) {
 	l.command.Name = "ONBUILD"
 }
 
-func (l *listener) EnterShellStmt(*parser.ShellStmtContext) {
+func (l *listener) EnterShellStmt(c *parser.ShellStmtContext) {
 	l.command.Name = "SHELL"
 }
 
-func (l *listener) EnterUserCommandStmt(*parser.UserCommandStmtContext) {
+func (l *listener) EnterUserCommandStmt(c *parser.UserCommandStmtContext) {
 	l.command.Name = "COMMAND"
 }
 
-func (l *listener) EnterFunctionStmt(*parser.FunctionStmtContext) {
+func (l *listener) EnterFunctionStmt(c *parser.FunctionStmtContext) {
 	l.command.Name = "FUNCTION"
 }
 
-func (l *listener) EnterDoStmt(*parser.DoStmtContext) {
+func (l *listener) EnterDoStmt(c *parser.DoStmtContext) {
 	l.command.Name = "DO"
 }
 
-func (l *listener) EnterImportStmt(*parser.ImportStmtContext) {
+func (l *listener) EnterImportStmt(c *parser.ImportStmtContext) {
 	l.command.Name = "IMPORT"
 }
 
-func (l *listener) EnterCacheStmt(*parser.CacheStmtContext) {
+func (l *listener) EnterCacheStmt(c *parser.CacheStmtContext) {
 	l.command.Name = "CACHE"
 }
 
-func (l *listener) EnterHostStmt(*parser.HostStmtContext) {
+func (l *listener) EnterHostStmt(ctx *parser.HostStmtContext) {
 	l.command.Name = "HOST"
 }
 
-func (l *listener) EnterProjectStmt(*parser.ProjectStmtContext) {
+func (l *listener) EnterProjectStmt(c *parser.ProjectStmtContext) {
 	l.command.Name = "PROJECT"
 }
 
@@ -405,18 +404,18 @@ func (l *listener) EnterWithStmt(c *parser.WithStmtContext) {
 	}
 }
 
-func (l *listener) ExitWithStmt(*parser.WithStmtContext) {
+func (l *listener) ExitWithStmt(c *parser.WithStmtContext) {
 	l.block().statement.With = l.block().withStatement
 	l.block().withStatement = nil
 }
 
 // withBlock ------------------------------------------------------------------
 
-func (l *listener) EnterWithBlock(*parser.WithBlockContext) {
+func (l *listener) EnterWithBlock(c *parser.WithBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitWithBlock(*parser.WithBlockContext) {
+func (l *listener) ExitWithBlock(c *parser.WithBlockContext) {
 	withBlock := l.popBlock()
 	l.block().withStatement.Body = withBlock
 }
@@ -439,7 +438,7 @@ func (l *listener) EnterWithCommand(c *parser.WithCommandContext) {
 	l.execMode = false
 }
 
-func (l *listener) ExitWithCommand(*parser.WithCommandContext) {
+func (l *listener) ExitWithCommand(c *parser.WithCommandContext) {
 	l.command.Args = l.stmtWords
 	l.command.ExecMode = l.execMode
 	l.block().withStatement.Command = *l.command
@@ -448,7 +447,7 @@ func (l *listener) ExitWithCommand(*parser.WithCommandContext) {
 
 // Individual with commands ---------------------------------------------------
 
-func (l *listener) EnterDockerCommand(*parser.DockerCommandContext) {
+func (l *listener) EnterDockerCommand(c *parser.DockerCommandContext) {
 	l.command.Name = "DOCKER"
 }
 
@@ -467,26 +466,26 @@ func (l *listener) EnterIfStmt(c *parser.IfStmtContext) {
 	}
 }
 
-func (l *listener) ExitIfStmt(*parser.IfStmtContext) {
+func (l *listener) ExitIfStmt(c *parser.IfStmtContext) {
 	l.block().statement.If = l.block().ifStatement
 	l.block().ifStatement = nil
 }
 
-func (l *listener) EnterIfExpr(*parser.IfExprContext) {
+func (l *listener) EnterIfExpr(c *parser.IfExprContext) {
 	l.stmtWords = []string{}
 	l.execMode = false
 }
 
-func (l *listener) ExitIfExpr(*parser.IfExprContext) {
+func (l *listener) ExitIfExpr(c *parser.IfExprContext) {
 	l.block().ifStatement.Expression = l.stmtWords
 	l.block().ifStatement.ExecMode = l.execMode
 }
 
-func (l *listener) EnterIfBlock(*parser.IfBlockContext) {
+func (l *listener) EnterIfBlock(c *parser.IfBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitIfBlock(*parser.IfBlockContext) {
+func (l *listener) ExitIfBlock(c *parser.IfBlockContext) {
 	ifBlock := l.popBlock()
 	l.block().ifStatement.IfBody = ifBlock
 }
@@ -504,35 +503,35 @@ func (l *listener) EnterElseIfClause(c *parser.ElseIfClauseContext) {
 	}
 }
 
-func (l *listener) ExitElseIfClause(*parser.ElseIfClauseContext) {
+func (l *listener) ExitElseIfClause(c *parser.ElseIfClauseContext) {
 	l.block().ifStatement.ElseIf = append(l.block().ifStatement.ElseIf, *l.block().elseIf)
 	l.block().elseIf = nil
 }
 
-func (l *listener) EnterElseIfExpr(*parser.ElseIfExprContext) {
+func (l *listener) EnterElseIfExpr(c *parser.ElseIfExprContext) {
 	l.stmtWords = []string{}
 	l.execMode = false
 }
 
-func (l *listener) ExitElseIfExpr(*parser.ElseIfExprContext) {
+func (l *listener) ExitElseIfExpr(c *parser.ElseIfExprContext) {
 	l.block().elseIf.Expression = l.stmtWords
 	l.block().elseIf.ExecMode = l.execMode
 }
 
-func (l *listener) EnterElseIfBlock(*parser.ElseIfBlockContext) {
+func (l *listener) EnterElseIfBlock(c *parser.ElseIfBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitElseIfBlock(*parser.ElseIfBlockContext) {
+func (l *listener) ExitElseIfBlock(c *parser.ElseIfBlockContext) {
 	elseIfBlock := l.popBlock()
 	l.block().elseIf.Body = elseIfBlock
 }
 
-func (l *listener) EnterElseBlock(*parser.ElseBlockContext) {
+func (l *listener) EnterElseBlock(c *parser.ElseBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitElseBlock(*parser.ElseBlockContext) {
+func (l *listener) ExitElseBlock(c *parser.ElseBlockContext) {
 	elseBlock := l.popBlock()
 	l.block().ifStatement.ElseBody = &elseBlock
 }
@@ -552,34 +551,34 @@ func (l *listener) EnterTryStmt(c *parser.TryStmtContext) {
 	}
 }
 
-func (l *listener) ExitTryStmt(*parser.TryStmtContext) {
+func (l *listener) ExitTryStmt(c *parser.TryStmtContext) {
 	l.block().statement.Try = l.block().tryStatement
 	l.block().tryStatement = nil
 }
 
-func (l *listener) EnterTryBlock(*parser.TryBlockContext) {
+func (l *listener) EnterTryBlock(c *parser.TryBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitTryBlock(*parser.TryBlockContext) {
+func (l *listener) ExitTryBlock(c *parser.TryBlockContext) {
 	tryBlock := l.popBlock()
 	l.block().tryStatement.TryBody = tryBlock
 }
 
-func (l *listener) EnterCatchBlock(*parser.CatchBlockContext) {
+func (l *listener) EnterCatchBlock(c *parser.CatchBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitCatchBlock(*parser.CatchBlockContext) {
+func (l *listener) ExitCatchBlock(c *parser.CatchBlockContext) {
 	catchBlock := l.popBlock()
 	l.block().tryStatement.CatchBody = &catchBlock
 }
 
-func (l *listener) EnterFinallyBlock(*parser.FinallyBlockContext) {
+func (l *listener) EnterFinallyBlock(c *parser.FinallyBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitFinallyBlock(*parser.FinallyBlockContext) {
+func (l *listener) ExitFinallyBlock(c *parser.FinallyBlockContext) {
 	finallyBlock := l.popBlock()
 	l.block().tryStatement.FinallyBody = &finallyBlock
 }
@@ -599,24 +598,24 @@ func (l *listener) EnterForStmt(c *parser.ForStmtContext) {
 	}
 }
 
-func (l *listener) ExitForStmt(*parser.ForStmtContext) {
+func (l *listener) ExitForStmt(c *parser.ForStmtContext) {
 	l.block().statement.For = l.block().forStatement
 	l.block().forStatement = nil
 }
 
-func (l *listener) EnterForExpr(*parser.ForExprContext) {
+func (l *listener) EnterForExpr(c *parser.ForExprContext) {
 	l.stmtWords = []string{}
 }
 
-func (l *listener) ExitForExpr(*parser.ForExprContext) {
+func (l *listener) ExitForExpr(c *parser.ForExprContext) {
 	l.block().forStatement.Args = l.stmtWords
 }
 
-func (l *listener) EnterForBlock(*parser.ForBlockContext) {
+func (l *listener) EnterForBlock(c *parser.ForBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitForBlock(*parser.ForBlockContext) {
+func (l *listener) ExitForBlock(c *parser.ForBlockContext) {
 	forBlock := l.popBlock()
 	l.block().forStatement.Body = forBlock
 }
@@ -636,24 +635,24 @@ func (l *listener) EnterWaitStmt(c *parser.WaitStmtContext) {
 	}
 }
 
-func (l *listener) ExitWaitStmt(*parser.WaitStmtContext) {
+func (l *listener) ExitWaitStmt(c *parser.WaitStmtContext) {
 	l.block().statement.Wait = l.block().waitStatement
 	l.block().waitStatement = nil
 }
 
-func (l *listener) EnterWaitExpr(*parser.WaitExprContext) {
+func (l *listener) EnterWaitExpr(c *parser.WaitExprContext) {
 	l.stmtWords = []string{}
 }
 
-func (l *listener) ExitWaitExpr(*parser.WaitExprContext) {
+func (l *listener) ExitWaitExpr(c *parser.WaitExprContext) {
 	l.block().waitStatement.Args = l.stmtWords
 }
 
-func (l *listener) EnterWaitBlock(*parser.WaitBlockContext) {
+func (l *listener) EnterWaitBlock(c *parser.WaitBlockContext) {
 	l.pushNewBlock()
 }
 
-func (l *listener) ExitWaitBlock(*parser.WaitBlockContext) {
+func (l *listener) ExitWaitBlock(c *parser.WaitBlockContext) {
 	waitBlock := l.popBlock()
 	l.block().waitStatement.Body = waitBlock
 }

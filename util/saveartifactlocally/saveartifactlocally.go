@@ -1,8 +1,7 @@
-// Package saveartifactlocally handles the extraction and local saving of build artifacts
-// from EarthBuild's buildkit containers.
 package saveartifactlocally
 
 import (
+	"context"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 
 // SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock.
 func SaveArtifactLocally(
+	ctx context.Context,
 	exportCoordinator *gatewaycrafter.ExportCoordinator,
 	console conslogging.ConsoleLogger,
 	artifact domain.Artifact,

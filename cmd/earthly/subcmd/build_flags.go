@@ -6,19 +6,19 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func (b *Build) buildFlags() []cli.Flag {
+func (a *Build) buildFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:        "platform",
 			Sources:     cli.EnvVars("EARTHLY_PLATFORMS"),
 			Usage:       "Specify the target platform to build for or this can be read from ENV VAR",
-			Destination: &b.platformsStr,
+			Destination: &a.platformsStr,
 		},
 		&cli.StringSliceFlag{
 			Name:        "build-arg",
 			Sources:     cli.EnvVars("EARTHLY_BUILD_ARGS"),
 			Usage:       "A build arg override, specified as <key>=[<value>]",
-			Destination: &b.buildArgs,
+			Destination: &a.buildArgs,
 			Hidden:      true, // Deprecated
 		},
 		&cli.StringSliceFlag{
@@ -26,29 +26,28 @@ func (b *Build) buildFlags() []cli.Flag {
 			Aliases:     []string{"s"},
 			Sources:     cli.EnvVars("EARTHLY_SECRETS"),
 			Usage:       "A secret override, specified as <key>=[<value>]",
-			Destination: &b.secrets,
+			Destination: &a.secrets,
 		},
 		&cli.StringSliceFlag{
 			Name:        "secret-file",
 			Sources:     cli.EnvVars("EARTHLY_SECRET_FILES"),
 			Usage:       "A secret override, specified as <key>=<path>",
-			Destination: &b.secretFiles,
+			Destination: &a.secretFiles,
 		},
 		&cli.StringSliceFlag{
 			Name:        "cache-from",
 			Sources:     cli.EnvVars("EARTHLY_CACHE_FROM"),
 			Usage:       "Remote docker image tags to use as readonly explicit cache (experimental)",
-			Destination: &b.cacheFrom,
+			Destination: &a.cacheFrom,
 			Hidden:      true, // Experimental
 		},
 	}
 }
 
-// HiddenFlags returns the hidden build flags.
-func (b *Build) HiddenFlags() []cli.Flag {
+func (a *Build) HiddenFlags() []cli.Flag {
 	_, isAutocomplete := os.LookupEnv("COMP_LINE")
 
-	flags := b.buildFlags()
+	flags := a.buildFlags()
 	if isAutocomplete {
 		// Don't hide the build flags for autocomplete.
 		return flags

@@ -1,5 +1,3 @@
-// Package synccache implements a concurrent-safe cache that evaluates and
-// stores the result of a functional constructor.
 package synccache
 
 import (

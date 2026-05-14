@@ -372,7 +372,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 }
 
 func (gl *GitLookup) newHostKeyCallback(keys []string) ssh.HostKeyCallback {
-	return func(hostname string, _ net.Addr, key ssh.PublicKey) error {
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		for _, keyScan := range keys {
 			k, _, _, _, err := ssh.ParseAuthorizedKey([]byte(keyScan))
 			if err != nil {

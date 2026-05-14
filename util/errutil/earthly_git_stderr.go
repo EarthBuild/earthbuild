@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// EarthlyGitStdErrMagicString is a magic string that is prepended to the base64 encoded git stderr.
 const EarthlyGitStdErrMagicString = "EARTHLY_GIT_STDERR"
 
 var gitStdErrRegexp = regexp.MustCompile(`EARTHLY_GIT_STDERR: ([A-Za-z0-9+/]*={0,2}):`)

@@ -10,12 +10,10 @@ import (
 // Duration implements cli.GenericFlag methods to support time.Duration with days, e.g. 1d.
 type Duration time.Duration
 
-// String implements the [fmt.Stringer].
 func (d *Duration) String() string {
 	return (time.Duration(*d)).String()
 }
 
-// Set implements the [cli.GenericFlag].Set method.
 func (d *Duration) Set(value string) error {
 	if value == "" {
 		return nil
@@ -42,7 +40,6 @@ func (d *Duration) Set(value string) error {
 	return nil
 }
 
-// Get implements the [cli.GenericFlag].Get method.
-func (d *Duration) Get() any {
-	return *d
+func (vf *Duration) Get() any {
+	return *vf
 }

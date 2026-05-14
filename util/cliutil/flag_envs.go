@@ -4,7 +4,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// GetValidEnvNames returns valid environment variable names for CLI configuration.
 func GetValidEnvNames(app *cli.Command) map[string]struct{} {
 	envs := map[string]struct{}{}
 	for _, envName := range getValidEnvNamesFromCommands(app.Commands) {

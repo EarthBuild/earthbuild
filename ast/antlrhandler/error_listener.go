@@ -38,7 +38,7 @@ func NewReturnErrorListener() *ReturnErrorListener {
 // SyntaxError implements ErrorListener SyntaxError.
 func (rel *ReturnErrorListener) SyntaxError(
 	recognizer antlr.Recognizer,
-	_ any,
+	offendingSymbol any,
 	line, column int,
 	msg string,
 	e antlr.RecognitionException,

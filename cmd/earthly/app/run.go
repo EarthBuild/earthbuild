@@ -12,6 +12,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
+	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/logstream"
@@ -40,7 +41,12 @@ var (
 )
 
 // Run runs the CLI and returns an exit code to pass to [os.Exit].
-func (app *EarthlyApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
+func (app *EarthlyApp) Run(
+	ctx context.Context,
+	console conslogging.ConsoleLogger,
+	startTime time.Time,
+	lastSignal *syncutil.Signal,
+) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
@@ -102,7 +108,7 @@ func unhideFlagsCommands(cmds []*cli.Command) {
 func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncutil.Signal) int {
 	defer func() {
 		if app.BaseCLI.LogbusSetup() != nil {
-			err := app.BaseCLI.LogbusSetup().Close()
+			err := app.BaseCLI.LogbusSetup().Close(ctx)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v", err)
 			}

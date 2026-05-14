@@ -10,7 +10,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Doc2Earth encapsulates the doc2earth command logic.
 type Doc2Earth struct {
 	cli CLI
 
@@ -18,14 +17,12 @@ type Doc2Earth struct {
 	earthfileFinalImage string
 }
 
-// NewDoc2Earth creates a new Doc2Earth command.
 func NewDoc2Earth(cli CLI) *Doc2Earth {
 	return &Doc2Earth{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the docker2earthly command.
 func (a *Doc2Earth) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -57,7 +54,7 @@ func (a *Doc2Earth) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Doc2Earth) action(context.Context, *cli.Command) error {
+func (a *Doc2Earth) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("docker2earthly")
 
 	err := docker2earthly.Docker2Earthly(a.cli.Flags().DockerfilePath, a.earthfilePath, a.earthfileFinalImage)

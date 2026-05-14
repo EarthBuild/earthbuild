@@ -1,4 +1,3 @@
-// Package main provides the standalone EarthBuild debugger executable.
 package main
 
 import (

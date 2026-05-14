@@ -57,7 +57,6 @@ import (
 
 const autoSkipPrefix = "auto-skip"
 
-// Build encapsulates the build command logic.
 type Build struct {
 	cli          CLI
 	dockerTarget string
@@ -69,23 +68,21 @@ type Build struct {
 	dockerTags   []string
 }
 
-// NewBuild creates a new Build command.
 func NewBuild(cli CLI) *Build {
 	return &Build{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the build command.
-func (b *Build) Cmds() []*cli.Command {
+func (a *Build) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:         "build",
 			Usage:        "Build an EarthBuild target",
 			Description:  "Build an EarthBuild target.",
-			Action:       b.Action,
+			Action:       a.Action,
 			StopOnNthArg: new(1),
-			Flags:        b.buildFlags(),
+			Flags:        a.buildFlags(),
 			Hidden:       true, // Meant to be used mainly for help output.
 		},
 		{
@@ -99,61 +96,60 @@ func (b *Build) Cmds() []*cli.Command {
 				"<build-context-dir> " +
 				"[--arg1=arg-value]",
 			Description:  "*beta* Builds a Dockerfile without an Earthfile.",
-			Action:       b.actionDockerBuild,
+			Action:       a.actionDockerBuild,
 			StopOnNthArg: new(1),
-			Flags: append(b.buildFlags(),
+			Flags: append(a.buildFlags(),
 				&cli.StringFlag{
 					Name:        "dockerfile",
 					Aliases:     []string{"f"},
 					Sources:     cli.EnvVars("EARTHLY_DOCKER_FILE"),
 					Usage:       "Path to dockerfile input",
 					Value:       "Dockerfile",
-					Destination: &b.cli.Flags().DockerfilePath,
+					Destination: &a.cli.Flags().DockerfilePath,
 				},
 				&cli.StringSliceFlag{
 					Name:        "tag",
 					Aliases:     []string{"t"},
 					Sources:     cli.EnvVars("EARTHLY_DOCKER_TAGS"),
 					Usage:       "Name and tag for the built image; formatted as 'name:tag'",
-					Destination: &b.dockerTags,
+					Destination: &a.dockerTags,
 				},
 				&cli.StringFlag{
 					Name:        "target",
 					Sources:     cli.EnvVars("EARTHLY_DOCKER_TARGET"),
 					Usage:       "The docker target to build in the specified dockerfile",
-					Destination: &b.dockerTarget,
+					Destination: &a.dockerTarget,
 				},
 			),
 		},
 	}
 }
 
-// Action handles the "build" command.
-func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
-	b.cli.SetCommandName("build")
+func (a *Build) Action(ctx context.Context, cmd *cli.Command) error {
+	a.cli.SetCommandName("build")
 
-	if b.cli.Flags().CI {
-		b.cli.Flags().NoOutput = !b.cli.Flags().Output && !b.cli.Flags().ArtifactMode && !b.cli.Flags().ImageMode
-		b.cli.Flags().Strict = true
+	if a.cli.Flags().CI {
+		a.cli.Flags().NoOutput = !a.cli.Flags().Output && !a.cli.Flags().ArtifactMode && !a.cli.Flags().ImageMode
+		a.cli.Flags().Strict = true
 
-		if b.cli.Flags().InteractiveDebugging {
+		if a.cli.Flags().InteractiveDebugging {
 			return params.Errorf("unable to use --ci flag in combination with --interactive flag")
 		}
 	}
 
-	if b.cli.Flags().ImageMode && b.cli.Flags().ArtifactMode {
+	if a.cli.Flags().ImageMode && a.cli.Flags().ArtifactMode {
 		return params.Errorf("both image and artifact modes cannot be active at the same time")
 	}
 
-	if (b.cli.Flags().ImageMode && b.cli.Flags().NoOutput) || (b.cli.Flags().ArtifactMode && b.cli.Flags().NoOutput) {
-		if b.cli.Flags().CI {
-			b.cli.Flags().NoOutput = false
+	if (a.cli.Flags().ImageMode && a.cli.Flags().NoOutput) || (a.cli.Flags().ArtifactMode && a.cli.Flags().NoOutput) {
+		if a.cli.Flags().CI {
+			a.cli.Flags().NoOutput = false
 		} else {
 			return params.Errorf("cannot use --no-output with image or artifact modes")
 		}
 	}
 
-	if b.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
+	if a.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
 		return params.Errorf("A tty-terminal must be present in order to use the --interactive flag")
 	}
 
@@ -162,32 +158,32 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
 	}
 
-	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
+	return a.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
 }
 
 // warnIfArgContainsBuildArg will issue a warning if a flag is incorrectly prefixed with build-arg.
 // TODO this check should be replaced with a warning if an arg was given but never used.
-func (b *Build) warnIfArgContainsBuildArg(flagArgs []string) {
+func (a *Build) warnIfArgContainsBuildArg(flagArgs []string) {
 	for _, flag := range flagArgs {
 		if strings.HasPrefix(flag, "build-arg=") || strings.HasPrefix(flag, "buildarg=") {
-			b.cli.Console().Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
+			a.cli.Console().Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
 		}
 	}
 }
 
-func (b *Build) gitLogLevel() buildkitgitutil.GitLogLevel {
-	if b.cli.Flags().Debug {
+func (a *Build) gitLogLevel() buildkitgitutil.GitLogLevel {
+	if a.cli.Flags().Debug {
 		return buildkitgitutil.GitLogLevelTrace
 	}
 
-	if b.cli.Flags().Verbose {
+	if a.cli.Flags().Verbose {
 		return buildkitgitutil.GitLogLevelDebug
 	}
 
 	return buildkitgitutil.GitLogLevelDefault
 }
 
-func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Target, domain.Artifact, string, error) {
+func (a *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Target, domain.Artifact, string, error) {
 	var (
 		target   domain.Target
 		artifact domain.Artifact
@@ -195,7 +191,7 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 	)
 
 	switch {
-	case b.cli.Flags().ImageMode:
+	case a.cli.Flags().ImageMode:
 		if len(nonFlagArgs) == 0 {
 			_ = cli.ShowAppHelp(cmd)
 
@@ -214,7 +210,7 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 		if err != nil {
 			return target, artifact, "", params.Wrapf(err, "invalid target name %s", targetName)
 		}
-	case b.cli.Flags().ArtifactMode:
+	case a.cli.Flags().ArtifactMode:
 		if len(nonFlagArgs) == 0 {
 			_ = cli.ShowAppHelp(cmd)
 
@@ -262,9 +258,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 	return target, artifact, destPath, nil
 }
 
-// ActionBuildImp handles the "build" command implementation.
-func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, nonFlagArgs []string) error {
-	target, artifact, destPath, err := b.parseTarget(cmd, nonFlagArgs)
+func (a *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, nonFlagArgs []string) error {
+	target, artifact, destPath, err := a.parseTarget(cmd, nonFlagArgs)
 	if err != nil {
 		return err
 	}
@@ -272,47 +267,47 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	cleanCollection := cleanup.NewCollection()
 	defer cleanCollection.Close()
 
-	b.cli.Console().PrintPhaseHeader(builder.PhaseInit, false, "")
-	b.warnIfArgContainsBuildArg(flagArgs)
+	a.cli.Console().PrintPhaseHeader(builder.PhaseInit, false, "")
+	a.warnIfArgContainsBuildArg(flagArgs)
 
 	showUnexpectedEnvWarnings := true
 
-	dotEnvMap, err := godotenv.Read(b.cli.Flags().EnvFile)
+	dotEnvMap, err := godotenv.Read(a.cli.Flags().EnvFile)
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
 		if cmd.IsSet(flag.EnvFileFlag) || !errors.Is(err, os.ErrNotExist) {
-			return errors.Wrapf(err, "read %s", b.cli.Flags().EnvFile)
+			return errors.Wrapf(err, "read %s", a.cli.Flags().EnvFile)
 		}
 	}
 
-	argMap, err := godotenv.Read(b.cli.Flags().ArgFile)
+	argMap, err := godotenv.Read(a.cli.Flags().ArgFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
 	} else if cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
-		return errors.Wrapf(err, "read %s", b.cli.Flags().ArgFile)
+		return errors.Wrapf(err, "read %s", a.cli.Flags().ArgFile)
 	}
 
-	secretsFileMap, err := godotenv.Read(b.cli.Flags().SecretFile)
+	secretsFileMap, err := godotenv.Read(a.cli.Flags().SecretFile)
 	if err == nil {
 		showUnexpectedEnvWarnings = false
 	} else if cmd.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
-		return errors.Wrapf(err, "read %s", b.cli.Flags().SecretFile)
+		return errors.Wrapf(err, "read %s", a.cli.Flags().SecretFile)
 	}
 
 	if showUnexpectedEnvWarnings {
-		validEnvNames := cliutil.GetValidEnvNames(b.cli.App())
+		validEnvNames := cliutil.GetValidEnvNames(a.cli.App())
 		for k := range dotEnvMap {
 			if _, found := validEnvNames[k]; !found {
-				b.cli.Console().Warnf("unexpected env \"%s\": as of v0.7.0, "+
+				a.cli.Console().Warnf("unexpected env \"%s\": as of v0.7.0, "+
 					"--build-arg values must be defined in .arg (and --secret values in .secret)", k)
 			}
 		}
 	}
 
 	secretsMap, err := common.
-		ProcessSecrets(b.secrets, b.secretFiles, secretsFileMap, b.cli.Flags().SecretFile)
+		ProcessSecrets(a.secrets, a.secretFiles, secretsFileMap, a.cli.Flags().SecretFile)
 	if err != nil {
 		return err
 	}
@@ -321,26 +316,26 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		if !ast.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
 			// see https://github.com/earthly/earthly/issues/2883
-			b.cli.Console().Warnf(
+			a.cli.Console().Warnf(
 				"Deprecation: secret key %q does not follow the recommended naming convention "+
 					"(a letter followed by alphanumeric characters or underscores); "+
 					"this will become an error in a future version of earthly.", secretKey)
 		}
 	}
 
-	overridingVars, err := common.CombineVariables(argMap, flagArgs, b.buildArgs)
+	overridingVars, err := common.CombineVariables(argMap, flagArgs, a.buildArgs)
 	if err != nil {
 		return err
 	}
 
-	skipDB, err := bk.NewBuildkitSkipper(b.cli.Flags().LocalSkipDB)
+	skipDB, err := bk.NewBuildkitSkipper(a.cli.Flags().LocalSkipDB)
 	if err != nil {
-		b.cli.Console().WithPrefix(autoSkipPrefix).Warnf("Failed to initialize auto-skip database: %v", err)
+		a.cli.Console().WithPrefix(autoSkipPrefix).Warnf("Failed to initialize auto-skip database: %v", err)
 	}
 
-	addHashFn, doSkip, err := b.initAutoSkip(ctx, skipDB, target, overridingVars)
+	addHashFn, doSkip, err := a.initAutoSkip(ctx, skipDB, target, overridingVars)
 	if err != nil {
-		b.cli.Console().PrintFailure("auto-skip")
+		a.cli.Console().PrintFailure("auto-skip")
 		return err
 	}
 
@@ -348,38 +343,38 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return nil
 	}
 
-	err = b.cli.InitFrontend(ctx, cmd)
+	err = a.cli.InitFrontend(ctx, cmd)
 	if err != nil {
 		return errors.Wrapf(err, "could not init frontend")
 	}
 
 	// After configuring frontend, buildkit address should not be empty.
 	// It should be set to a local container or remote address at this point.
-	if b.cli.Flags().BuildkitdSettings.BuildkitAddress == "" {
+	if a.cli.Flags().BuildkitdSettings.BuildkitAddress == "" {
 		return errors.New("could not determine buildkit address - is Docker or Podman running?")
 	}
 
 	bkClient, err := buildkitd.NewClient(
 		ctx,
-		b.cli.Console(),
-		b.cli.Flags().BuildkitdImage,
-		b.cli.Flags().ContainerName,
-		b.cli.Flags().InstallationName,
-		b.cli.Flags().ContainerFrontend,
-		b.cli.Version(),
-		b.cli.Flags().BuildkitdSettings,
+		a.cli.Console(),
+		a.cli.Flags().BuildkitdImage,
+		a.cli.Flags().ContainerName,
+		a.cli.Flags().InstallationName,
+		a.cli.Flags().ContainerFrontend,
+		a.cli.Version(),
+		a.cli.Flags().BuildkitdSettings,
 	)
 	if err != nil {
 		return errors.Wrap(err, "build new buildkitd client")
 	}
 	defer bkClient.Close()
 
-	platr, err := b.platformResolver(ctx, bkClient, target)
+	platr, err := a.platformResolver(ctx, bkClient, target)
 	if err != nil {
 		return err
 	}
 
-	runnerName, isLocal, err := b.runnerName(ctx)
+	runnerName, isLocal, err := a.runnerName(ctx)
 	if err != nil {
 		return err
 	}
@@ -397,12 +392,12 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	defaultLocalDirs := make(map[string]string)
 	defaultLocalDirs["earthly-cache"] = cacheLocalDir
-	buildContextProvider := provider.NewBuildContextProvider(b.cli.Console())
+	buildContextProvider := provider.NewBuildContextProvider(a.cli.Console())
 	buildContextProvider.AddDirs(defaultLocalDirs)
 
 	internalSecretStore := secretprovider.NewMutableMapStore(nil)
 
-	customSecretProviderCmd, err := secretprovider.NewSecretProviderCmd(b.cli.Cfg().Global.SecretProvider)
+	customSecretProviderCmd, err := secretprovider.NewSecretProviderCmd(a.cli.Cfg().Global.SecretProvider)
 	if err != nil {
 		return errors.Wrap(err, "NewSecretProviderCmd")
 	}
@@ -424,7 +419,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	var attachable session.Attachable
 
-	switch b.cli.Flags().ContainerFrontend.Config().Setting {
+	switch a.cli.Flags().ContainerFrontend.Config().Setting {
 	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
 		attachable = authprovider.NewPodman(ctx, os.Stderr)
 	default:
@@ -437,21 +432,21 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return fmt.Errorf("want auth.AuthServer, got %T", attachable)
 	}
 
-	authProvider := authprovider.New(b.cli.Console(), []authprovider.Child{authSvr})
+	authProvider := authprovider.New(a.cli.Console(), []authprovider.Child{authSvr})
 	attachables = append(attachables, authProvider)
 
-	gitLookup := buildcontext.NewGitLookup(b.cli.Console(), b.cli.Flags().SSHAuthSock)
+	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
 
-	err = b.updateGitLookupConfig(gitLookup)
+	err = a.updateGitLookupConfig(gitLookup)
 	if err != nil {
 		return err
 	}
 
-	if b.cli.Flags().SSHAuthSock != "" {
+	if a.cli.Flags().SSHAuthSock != "" {
 		var ssh session.Attachable
 
 		ssh, err = sshprovider.NewSSHAgentProvider([]sshprovider.AgentConfig{{
-			Paths: []string{b.cli.Flags().SSHAuthSock},
+			Paths: []string{a.cli.Flags().SSHAuthSock},
 		}})
 		if err != nil {
 			return errors.Wrap(err, "ssh agent provider")
@@ -469,7 +464,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 				return errors.New("interactive mode unavailable due to terminal not being tty")
 			}
 
-			debugTermConsole := b.cli.Console().WithPrefix("internal-term")
+			debugTermConsole := a.cli.Console().WithPrefix("internal-term")
 
 			termErr := terminal.ConnectTerm(ctx, conn, debugTermConsole)
 			if termErr != nil {
@@ -486,29 +481,29 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	attachables = append(attachables, socketProvider)
 
 	var enttlmnts []entitlements.Entitlement
-	if b.cli.Flags().AllowPrivileged {
+	if a.cli.Flags().AllowPrivileged {
 		enttlmnts = append(enttlmnts, entitlements.EntitlementSecurityInsecure)
 	}
 
 	imageResolveMode := llb.ResolveModePreferLocal
-	if b.cli.Flags().Pull {
+	if a.cli.Flags().Pull {
 		imageResolveMode = llb.ResolveModeForcePull
 	}
 
 	cacheImports := make([]string, 0)
 
 	var cacheImportImageName string
-	if b.cli.Flags().RemoteCache != "" {
-		cacheImportImageName, _, err = flagutil.ParseImageNameAndAttrs(b.cli.Flags().RemoteCache)
+	if a.cli.Flags().RemoteCache != "" {
+		cacheImportImageName, _, err = flagutil.ParseImageNameAndAttrs(a.cli.Flags().RemoteCache)
 		if err != nil {
-			return errors.Wrapf(err, "parse import cache error: %s", b.cli.Flags().RemoteCache)
+			return errors.Wrapf(err, "parse import cache error: %s", a.cli.Flags().RemoteCache)
 		}
 
 		cacheImports = append(cacheImports, cacheImportImageName)
 	}
 
-	if len(b.cacheFrom) > 0 {
-		cacheImports = append(cacheImports, b.cacheFrom...)
+	if len(a.cacheFrom) > 0 {
+		cacheImports = append(cacheImports, a.cacheFrom...)
 	}
 
 	var (
@@ -516,104 +511,104 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		maxCacheExport string
 	)
 
-	if b.cli.Flags().RemoteCache != "" && b.cli.Flags().Push {
-		if b.cli.Flags().MaxRemoteCache {
-			maxCacheExport = b.cli.Flags().RemoteCache
+	if a.cli.Flags().RemoteCache != "" && a.cli.Flags().Push {
+		if a.cli.Flags().MaxRemoteCache {
+			maxCacheExport = a.cli.Flags().RemoteCache
 		} else {
-			cacheExport = b.cli.Flags().RemoteCache
+			cacheExport = a.cli.Flags().RemoteCache
 		}
 	}
 
-	if b.cli.Cfg().Global.ConversionParallelism <= 0 {
+	if a.cli.Cfg().Global.ConversionParallelism <= 0 {
 		return errors.New("configuration error: \"conversion_parallelism\" must be larger than zero")
 	}
 
-	parallelism := semutil.NewWeighted(int64(b.cli.Cfg().Global.ConversionParallelism))
+	parallelism := semutil.NewWeighted(int64(a.cli.Cfg().Global.ConversionParallelism))
 
 	localRegistryAddr := ""
 
-	if isLocal && b.cli.Flags().LocalRegistryHost != "" {
+	if isLocal && a.cli.Flags().LocalRegistryHost != "" {
 		var u *url.URL
 
-		u, err = url.Parse(b.cli.Flags().LocalRegistryHost)
+		u, err = url.Parse(a.cli.Flags().LocalRegistryHost)
 		if err != nil {
-			return errors.Wrapf(err, "parse local registry host %s", b.cli.Flags().LocalRegistryHost)
+			return errors.Wrapf(err, "parse local registry host %s", a.cli.Flags().LocalRegistryHost)
 		}
 
 		localRegistryAddr = u.Host
 	}
 
-	logbusSM := b.cli.LogbusSetup().SolverMonitor
+	logbusSM := a.cli.LogbusSetup().SolverMonitor
 
 	builderOpts := builder.Opt{
 		BkClient:                              bkClient,
 		LogBusSolverMonitor:                   logbusSM,
-		Console:                               b.cli.Console(),
-		Verbose:                               b.cli.Flags().Verbose,
+		Console:                               a.cli.Console(),
+		Verbose:                               a.cli.Flags().Verbose,
 		Attachables:                           attachables,
 		Enttlmnts:                             enttlmnts,
-		NoCache:                               b.cli.Flags().NoCache,
+		NoCache:                               a.cli.Flags().NoCache,
 		CacheImports:                          states.NewCacheImports(cacheImports),
 		CacheExport:                           cacheExport,
 		MaxCacheExport:                        maxCacheExport,
-		UseInlineCache:                        b.cli.Flags().UseInlineCache,
-		SaveInlineCache:                       b.cli.Flags().SaveInlineCache,
+		UseInlineCache:                        a.cli.Flags().UseInlineCache,
+		SaveInlineCache:                       a.cli.Flags().SaveInlineCache,
 		ImageResolveMode:                      imageResolveMode,
 		CleanCollection:                       cleanCollection,
 		OverridingVars:                        overridingVars,
 		BuildContextProvider:                  buildContextProvider,
 		GitLookup:                             gitLookup,
-		GitBranchOverride:                     b.cli.Flags().GitBranchOverride,
-		UseFakeDep:                            !b.cli.Flags().NoFakeDep,
-		Strict:                                b.cli.Flags().Strict,
-		DisableNoOutputUpdates:                b.cli.Flags().InteractiveDebugging,
-		ParallelConversion:                    (b.cli.Cfg().Global.ConversionParallelism != 0),
+		GitBranchOverride:                     a.cli.Flags().GitBranchOverride,
+		UseFakeDep:                            !a.cli.Flags().NoFakeDep,
+		Strict:                                a.cli.Flags().Strict,
+		DisableNoOutputUpdates:                a.cli.Flags().InteractiveDebugging,
+		ParallelConversion:                    (a.cli.Cfg().Global.ConversionParallelism != 0),
 		Parallelism:                           parallelism,
 		LocalRegistryAddr:                     localRegistryAddr,
-		DarwinProxyImage:                      b.cli.Cfg().Global.DarwinProxyImage,
-		DarwinProxyWait:                       b.cli.Cfg().Global.DarwinProxyWait,
-		FeatureFlagOverrides:                  b.cli.Flags().FeatureFlagOverrides,
-		ContainerFrontend:                     b.cli.Flags().ContainerFrontend,
+		DarwinProxyImage:                      a.cli.Cfg().Global.DarwinProxyImage,
+		DarwinProxyWait:                       a.cli.Cfg().Global.DarwinProxyWait,
+		FeatureFlagOverrides:                  a.cli.Flags().FeatureFlagOverrides,
+		ContainerFrontend:                     a.cli.Flags().ContainerFrontend,
 		InternalSecretStore:                   internalSecretStore,
-		InteractiveDebugging:                  b.cli.Flags().InteractiveDebugging,
-		InteractiveDebuggingDebugLevelLogging: b.cli.Flags().Debug,
-		GitImage:                              b.cli.Cfg().Global.GitImage,
-		GitLFSInclude:                         b.cli.Flags().GitLFSPullInclude,
-		GitLogLevel:                           b.gitLogLevel(),
-		DisableRemoteRegistryProxy:            b.cli.Flags().DisableRemoteRegistryProxy,
+		InteractiveDebugging:                  a.cli.Flags().InteractiveDebugging,
+		InteractiveDebuggingDebugLevelLogging: a.cli.Flags().Debug,
+		GitImage:                              a.cli.Cfg().Global.GitImage,
+		GitLFSInclude:                         a.cli.Flags().GitLFSPullInclude,
+		GitLogLevel:                           a.gitLogLevel(),
+		DisableRemoteRegistryProxy:            a.cli.Flags().DisableRemoteRegistryProxy,
 		BuildkitSkipper:                       skipDB,
-		NoAutoSkip:                            b.cli.Flags().NoAutoSkip,
+		NoAutoSkip:                            a.cli.Flags().NoAutoSkip,
 	}
 
-	build, err := builder.NewBuilder(builderOpts)
+	b, err := builder.NewBuilder(ctx, builderOpts)
 	if err != nil {
 		return errors.Wrap(err, "new builder")
 	}
 
-	b.cli.Console().PrintPhaseFooter(builder.PhaseInit)
+	a.cli.Console().PrintPhaseFooter(builder.PhaseInit, false, "")
 
 	builtinArgs := variables.DefaultArgs{
-		EarthlyVersion:  b.cli.Version(),
-		EarthlyBuildSha: b.cli.GitSHA(),
+		EarthlyVersion:  a.cli.Version(),
+		EarthlyBuildSha: a.cli.GitSHA(),
 	}
 
 	buildOpts := builder.BuildOpt{
 		PrintPhases:                true,
-		Push:                       b.cli.Flags().Push,
-		CI:                         b.cli.Flags().CI,
-		NoOutput:                   b.cli.Flags().NoOutput,
-		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
+		Push:                       a.cli.Flags().Push,
+		CI:                         a.cli.Flags().CI,
+		NoOutput:                   a.cli.Flags().NoOutput,
+		OnlyFinalTargetImages:      a.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
-		EnableGatewayClientLogging: b.cli.Flags().Debug,
+		EnableGatewayClientLogging: a.cli.Flags().Debug,
 		BuiltinArgs:                builtinArgs,
 		LocalArtifactWhiteList:     localArtifactWhiteList,
-		Logbus:                     b.cli.Logbus(),
+		Logbus:                     a.cli.Logbus(),
 		Runner:                     runnerName,
 
 		// feature-flip the removal of builder.go code
 		// once VERSION 0.7 is released AND support for 0.6 is dropped,
 		// we can remove this flag along with code from builder.go.
-		GlobalWaitBlockFtr: b.cli.Flags().GlobalWaitEnd,
+		GlobalWaitBlockFtr: a.cli.Flags().GlobalWaitEnd,
 
 		// explicitly set this to true at the top level (without granting the entitlements.EntitlementSecurityInsecure
 		// buildkit option), to differentiate between a user forgetting to run "earth -P", versus a remotely referencing
@@ -622,17 +617,17 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 		ProjectAdder: authProvider,
 	}
-	if b.cli.Flags().ArtifactMode {
+	if a.cli.Flags().ArtifactMode {
 		buildOpts.OnlyArtifact = &artifact
 		buildOpts.OnlyArtifactDestPath = destPath
 	}
 
-	_, err = build.BuildTarget(ctx, target, buildOpts)
+	_, err = b.BuildTarget(ctx, target, buildOpts)
 	if err != nil {
 		return errors.Wrap(err, "build target")
 	}
 
-	if b.cli.Flags().SkipBuildkit && addHashFn != nil {
+	if a.cli.Flags().SkipBuildkit && addHashFn != nil {
 		addHashFn()
 	}
 
@@ -662,10 +657,10 @@ func getTryCatchSaveFileHandler(
 	}
 }
 
-func (b *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
-	for k, v := range b.cli.Cfg().Git {
+func (a *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
+	for k, v := range a.cli.Cfg().Git {
 		if k == "github" || k == "gitlab" || k == "bitbucket" {
-			b.cli.Console().Warnf("git configuration for %q found, did you mean %q?\n", k, k+".com")
+			a.cli.Console().Warnf("git configuration for %q found, did you mean %q?\n", k, k+".com")
 		}
 
 		pattern := v.Pattern
@@ -791,37 +786,37 @@ func receiveFileVersion2(
 // runnerName returns the name of the local or remote BK "runner"; which is a
 // representation of what BuildKit instance is being used,
 // e.g. local:<hostname>, sat:<org>/<name>, or bk:<remote-address>.
-func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
+func (a *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 
-	isLocal := containerutil.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddress)
+	isLocal := containerutil.IsLocal(a.cli.Flags().BuildkitdSettings.BuildkitAddress)
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {
-			b.cli.Console().Warnf("failed to get hostname: %v", err)
+			a.cli.Console().Warnf("failed to get hostname: %v", err)
 
 			hostname = "unknown"
 		}
 
 		runnerName = "local:" + hostname
 	} else {
-		runnerName = "bk:" + b.cli.Flags().BuildkitdSettings.BuildkitAddress
+		runnerName = "bk:" + a.cli.Flags().BuildkitdSettings.BuildkitAddress
 	}
 
-	if !isLocal && (b.cli.Flags().UseInlineCache || b.cli.Flags().SaveInlineCache) {
-		b.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause " +
+	if !isLocal && (a.cli.Flags().UseInlineCache || a.cli.Flags().SaveInlineCache) {
+		a.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause " +
 			"builds to get stuck at 100%% CPU on remote Buildkit.")
-		b.cli.Console().Warnf("")
+		a.cli.Console().Warnf("")
 	}
 
-	if isLocal && !b.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
+	if isLocal && !a.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
 		return "", false, errors.New("Frontend is not available to perform the build. Is Docker installed and running?")
 	}
 
 	return runnerName, isLocal, nil
 }
 
-func (b *Build) platformResolver(
+func (a *Build) platformResolver(
 	ctx context.Context, bkClient *bkclient.Client, target domain.Target,
 ) (*platutil.Resolver, error) {
 	nativePlatform, err := platutil.GetNativePlatformViaBkClient(ctx, bkClient)
@@ -829,12 +824,12 @@ func (b *Build) platformResolver(
 		return nil, errors.Wrap(err, "get native platform via buildkit client")
 	}
 
-	b.cli.LogbusSetup().SetDefaultPlatform(platforms.Format(nativePlatform))
+	a.cli.LogbusSetup().SetDefaultPlatform(platforms.Format(nativePlatform))
 	platr := platutil.NewResolver(nativePlatform)
 	platr.AllowNativeAndUser = true
 
-	platformsSlice := make([]platutil.Platform, 0, len(b.platformsStr))
-	for _, p := range b.platformsStr {
+	platformsSlice := make([]platutil.Platform, 0, len(a.platformsStr))
+	for _, p := range a.platformsStr {
 		platform, err := platr.Parse(p)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parse platform %s", p)
@@ -855,34 +850,34 @@ func (b *Build) platformResolver(
 	return platr, nil
 }
 
-func (b *Build) initAutoSkip(
+func (a *Build) initAutoSkip(
 	ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope,
 ) (func(), bool, error) {
-	if !b.cli.Flags().SkipBuildkit {
+	if !a.cli.Flags().SkipBuildkit {
 		return nil, false, nil
 	}
 
-	console := b.cli.Console().WithPrefix(autoSkipPrefix)
+	console := a.cli.Console().WithPrefix(autoSkipPrefix)
 
 	if skipDB == nil {
 		return nil, false, nil
 	}
 
-	consoleNoPrefix := b.cli.Console()
+	consoleNoPrefix := a.cli.Console()
 
-	if b.cli.Flags().NoCache {
+	if a.cli.Flags().NoCache {
 		return nil, false, errors.New("--no-cache cannot be used with --auto-skip")
 	}
 
-	if b.cli.Flags().NoAutoSkip {
+	if a.cli.Flags().NoAutoSkip {
 		return nil, false, errors.New("--no-auto-skip cannot be used with --auto-skip")
 	}
 
 	targetHash, stats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
-		Console:        b.cli.Console(),
-		CI:             b.cli.Flags().CI,
-		BuiltinArgs:    variables.DefaultArgs{EarthlyVersion: b.cli.Version(), EarthlyBuildSha: b.cli.GitSHA()},
+		Console:        a.cli.Console(),
+		CI:             a.cli.Flags().CI,
+		BuiltinArgs:    variables.DefaultArgs{EarthlyVersion: a.cli.Version(), EarthlyBuildSha: a.cli.GitSHA()},
 		OverridingVars: overridingVars,
 	})
 	if err != nil {
@@ -896,7 +891,7 @@ func (b *Build) initAutoSkip(
 	if !target.IsRemote() {
 		var meta *gitutil.GitMetadata
 
-		meta, err = gitutil.Metadata(ctx, target.GetLocalPath(), b.cli.Flags().GitBranchOverride)
+		meta, err = gitutil.Metadata(ctx, target.GetLocalPath(), a.cli.Flags().GitBranchOverride)
 		if err != nil {
 			console.VerboseWarnf("unable to detect all git metadata: %v", err.Error())
 		}
@@ -911,7 +906,7 @@ func (b *Build) initAutoSkip(
 		target.Tag = ""
 	}
 
-	targetConsole := b.cli.Console().WithPrefix(target.String())
+	targetConsole := a.cli.Console().WithPrefix(target.String())
 	targetStr := targetConsole.PrefixColor().Sprint(target.StringCanonical())
 
 	exists, err := skipDB.Exists(ctx, targetHash)
@@ -930,7 +925,7 @@ func (b *Build) initAutoSkip(
 	addHashFn := func() {
 		err := skipDB.Add(ctx, target.StringCanonical(), targetHash)
 		if err != nil {
-			b.cli.Console().WithPrefix(autoSkipPrefix).
+			a.cli.Console().WithPrefix(autoSkipPrefix).
 				Warnf("failed to record %s (hash %x) as completed: %s", target.String(), target, err)
 		}
 	}
@@ -938,8 +933,8 @@ func (b *Build) initAutoSkip(
 	return addHashFn, false, nil
 }
 
-func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
-	b.cli.SetCommandName("docker-build")
+func (a *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
+	a.cli.SetCommandName("docker-build")
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
@@ -969,21 +964,21 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 	}
 	defer os.RemoveAll(tempDir)
 
-	argMap, err := godotenv.Read(b.cli.Flags().ArgFile)
+	argMap, err := godotenv.Read(a.cli.Flags().ArgFile)
 	if err != nil && (cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist)) {
-		return errors.Wrapf(err, "read %q", b.cli.Flags().ArgFile)
+		return errors.Wrapf(err, "read %q", a.cli.Flags().ArgFile)
 	}
 
-	buildArgs, err := common.CombineVariables(argMap, flagArgs, b.buildArgs)
+	buildArgs, err := common.CombineVariables(argMap, flagArgs, a.buildArgs)
 	if err != nil {
 		return errors.Wrapf(err, "combining build args")
 	}
 
-	platforms := flagutil.SplitFlagString(b.platformsStr)
+	platforms := flagutil.SplitFlagString(a.platformsStr)
 
 	content, err := docker2earthly.GenerateEarthfile(
-		buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
-		buildArgs.Sorted(), platforms, b.dockerTarget)
+		buildContextPath, a.cli.Flags().DockerfilePath, a.dockerTags,
+		buildArgs.Sorted(), platforms, a.dockerTarget)
 	if err != nil {
 		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
 	}
@@ -1002,14 +997,14 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	// The following should not be set in the context of executing the build from the generated Earthfile:
-	b.cli.Flags().DockerfilePath = ""
-	b.cli.Flags().ImageMode = false
-	b.cli.Flags().ArtifactMode = false
-	b.dockerTarget = ""
-	b.dockerTags = []string{}
-	b.platformsStr = []string{}
+	a.cli.Flags().DockerfilePath = ""
+	a.cli.Flags().ImageMode = false
+	a.cli.Flags().ArtifactMode = false
+	a.dockerTarget = ""
+	a.dockerTags = []string{}
+	a.platformsStr = []string{}
 
 	nonFlagArgs = []string{tempDir + "+build"}
 
-	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
+	return a.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
 }

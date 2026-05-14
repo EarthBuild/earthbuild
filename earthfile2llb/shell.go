@@ -99,7 +99,7 @@ func withShellAndEnvVars(args []string, envVars []string, withShell, withDebugge
 }
 
 func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
-	return func(args []string, envVars []string, withShell, withDebugger, _ bool) []string {
+	return func(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string {
 		if !withShell {
 			panic("unexpected exec mode")
 		}
@@ -111,7 +111,7 @@ func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
 }
 
 func withShellAndEnvVarsOutput(outputFile string) shellWrapFun {
-	return func(args []string, envVars []string, withShell, withDebugger, _ bool) []string {
+	return func(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string {
 		if !withShell {
 			panic("unexpected exec mode")
 		}
@@ -123,7 +123,7 @@ func withShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 }
 
 func expressionWithShellAndEnvVarsOutput(outputFile string) shellWrapFun {
-	return func(args []string, envVars []string, withShell, withDebugger, _ bool) []string {
+	return func(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string {
 		if !withShell {
 			panic("unexpected exec mode")
 		}

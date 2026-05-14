@@ -1,9 +1,7 @@
 package command
 
-// Type is a type of command in an Earthfile.
 type Type int
 
-// All supported command types.
 const (
 	AddCmd            Type = iota + 1 // "ADD"
 	ArgCmd                            // "ARG"

@@ -188,7 +188,7 @@ func TestPreprocessArgs(t *testing.T) {
 	t.Parallel()
 
 	//nolint:goconst
-	modFunc := func(_ string, _ *flags.Option, flagVal *string) (*string, error) {
+	modFunc := func(flagName string, opt *flags.Option, flagVal *string) (*string, error) {
 		if flagVal != nil && *flagVal == "$VAR" {
 			expanded := "true"
 			return &expanded, nil

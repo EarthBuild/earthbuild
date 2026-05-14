@@ -1,4 +1,3 @@
-// Package xcontext provides utilities for creating detached or isolated contexts that survive parent cancellation.
 package xcontext
 
 import (

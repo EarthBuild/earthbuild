@@ -97,7 +97,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 
 	if c.darwinProxy {
 		containerName := fmt.Sprintf("%s-%s", darwinContainerPrefix, stringutil.RandomAlphanumeric(6))
-		stopFn := func(_ context.Context) {
+		stopFn := func(ctx context.Context) {
 			err := c.stopDarwinProxy(containerName, true) //nolint:contextcheck
 			if err != nil {
 				c.cons.VerbosePrintf("Failed to stop registry proxy support container: %v", err)

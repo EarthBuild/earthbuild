@@ -20,13 +20,13 @@ func (a Artifact) Clone() Artifact {
 }
 
 // String returns a string representation of the Artifact.
-func (a Artifact) String() string {
-	return fmt.Sprintf("%s%s", a.Target.String(), path.Join("/", escapePlus(a.Artifact)))
+func (ea Artifact) String() string {
+	return fmt.Sprintf("%s%s", ea.Target.String(), path.Join("/", escapePlus(ea.Artifact)))
 }
 
 // StringCanonical returns a string representation of the Artifact.
-func (a Artifact) StringCanonical() string {
-	return fmt.Sprintf("%s%s", a.Target.StringCanonical(), path.Join("/", escapePlus(a.Artifact)))
+func (ea Artifact) StringCanonical() string {
+	return fmt.Sprintf("%s%s", ea.Target.StringCanonical(), path.Join("/", escapePlus(ea.Artifact)))
 }
 
 // ParseArtifact parses a string representation of an Artifact.

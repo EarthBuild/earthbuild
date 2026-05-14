@@ -12,7 +12,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// CLI is the interface for the base EarthBuild CLI.
 type CLI interface {
 	App() *cli.Command
 

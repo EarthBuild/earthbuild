@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ParseProjectCommand parses a project command from arguments.
 func ParseProjectCommand(
 	ctx context.Context, target domain.Target, console conslogging.ConsoleLogger,
 ) (string, string, error) {

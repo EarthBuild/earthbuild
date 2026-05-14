@@ -385,7 +385,7 @@ func (l *loader) expandDirs(dirs ...string) ([]string, error) {
 }
 
 func (l *loader) expandArgs(args string) (string, error) {
-	expanded, err := l.varCollection.Expand(args, func(_ string) (string, error) {
+	expanded, err := l.varCollection.Expand(args, func(cmd string) (string, error) {
 		return args, nil // Return the original expression so it can be referenced later.
 	})
 	if err != nil {
@@ -423,7 +423,7 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	case command.Copy:
 		return l.handleCopy(ctx, cmd)
 	case command.Arg:
-		return l.handleArg(cmd, false)
+		return l.handleArg(ctx, cmd, false)
 	case command.Let:
 		return l.handleLet(cmd)
 	case command.Set:
@@ -478,8 +478,8 @@ func (l *loader) handleFromDockerfile(ctx context.Context, cmd spec.Command) err
 	return nil
 }
 
-func (l *loader) handleArg(cmd spec.Command, isBase bool) error {
-	opts, key, valueOrNil, err := flagutil.ParseArgArgs(cmd, isBase, l.features.ExplicitGlobal)
+func (l *loader) handleArg(ctx context.Context, cmd spec.Command, isBase bool) error {
+	opts, key, valueOrNil, err := flagutil.ParseArgArgs(ctx, cmd, isBase, l.features.ExplicitGlobal)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse args")
 	}
@@ -1131,7 +1131,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 			case stmt.Command.Name == command.Import:
 				err = l.handleImport(*stmt.Command, true)
 			case stmt.Command.Name == command.Arg:
-				err = l.handleArg(*stmt.Command, true)
+				err = l.handleArg(ctx, *stmt.Command, true)
 			case stmt.Command.Name == command.From:
 				err = l.handleFrom(ctx, *stmt.Command)
 			}

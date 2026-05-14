@@ -10,21 +10,18 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Config encapsulates the config command logic.
 type Config struct {
 	cli CLI
 
 	dryRun bool
 }
 
-// NewConfig creates a new Config command.
 func NewConfig(cli CLI) *Config {
 	return &Config{
 		cli: cli,
 	}
 }
 
-// Cmds returns the list of commands for the config command.
 func (a *Config) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -78,7 +75,7 @@ func (a *Config) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Config) action(_ context.Context, cmd *cli.Command) error {
+func (a *Config) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("config")
 
 	if cmd.NArg() != 2 {

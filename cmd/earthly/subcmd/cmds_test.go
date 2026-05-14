@@ -1,6 +1,7 @@
 package subcmd_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 func TestRootCmdsHelp(t *testing.T) {
 	t.Parallel()
 
+	ctx := context.TODO()
 	newCLI := base.NewCLI(conslogging.ConsoleLogger{},
 		base.WithVersion(""),
 		base.WithGitSHA(""),
@@ -25,7 +27,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	)
 	buildApp := subcmd.NewBuild(newCLI)
 	rootApp := subcmd.NewRoot(newCLI, buildApp)
-	app := app.NewEarthlyApp(newCLI, rootApp, buildApp)
+	app := app.NewEarthlyApp(newCLI, rootApp, buildApp, ctx)
 
 	rootCLI := app.BaseCLI.App().Commands
 

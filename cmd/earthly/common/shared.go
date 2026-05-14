@@ -21,12 +21,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Wrap formats strings by joining them with newlines and tabs.
 func Wrap(s ...string) string {
 	return strings.Join(s, "\n\t")
 }
 
-// CombineVariables merges dot env map with flag arguments to return a new variable scope.
 func CombineVariables(dotEnvMap map[string]string, flagArgs, buildFlagArgs []string) (*variables.Scope, error) {
 	dotEnvVars := variables.NewScope()
 	for k, v := range dotEnvMap {
@@ -43,7 +41,6 @@ func CombineVariables(dotEnvMap map[string]string, flagArgs, buildFlagArgs []str
 	return variables.CombineScopes(overridingVars, dotEnvVars), nil
 }
 
-// ProcessSecrets processes local and remote secrets.
 func ProcessSecrets(
 	secrets, secretFiles []string, dotEnvMap map[string]string, secretsFilePath string,
 ) (map[string][]byte, error) {
@@ -108,7 +105,6 @@ func ProcessSecrets(
 	return finalSecrets, nil
 }
 
-// GetPlatform returns the current operating system and architecture platform.
 func GetPlatform() string {
 	h, err := gsysinfo.Host()
 	if err != nil {
@@ -120,7 +116,6 @@ func GetPlatform() string {
 	return fmt.Sprintf("%s/%s; %s %s", runtime.GOOS, runtime.GOARCH, info.OS.Name, info.OS.Version)
 }
 
-// GetBinaryName returns the default executable binary name for earthbuild.
 func GetBinaryName() string {
 	if len(os.Args) == 0 {
 		return "earthly"
@@ -133,7 +128,6 @@ func GetBinaryName() string {
 	return baseName
 }
 
-// PromptInput requests input from the user.
 func PromptInput(ctx context.Context, question string) (string, error) {
 	fmt.Print(question)
 
@@ -163,7 +157,6 @@ func PromptInput(ctx context.Context, question string) (string, error) {
 	}
 }
 
-// IfNilBoolDefault returns the boolean value if ptr is set, or the default value otherwise.
 func IfNilBoolDefault(ptr *bool, defaultValue bool) bool {
 	if ptr == nil {
 		return defaultValue
@@ -172,7 +165,6 @@ func IfNilBoolDefault(ptr *bool, defaultValue bool) bool {
 	return *ptr
 }
 
-// IsEarthlyBinary checks whether the specified path refers to an earthbuild executable binary.
 func IsEarthlyBinary(path string) bool {
 	// apply heuristics to see if binary is a version of earthly
 	data, err := os.ReadFile(path) // #nosec G304

@@ -2,6 +2,7 @@ package execstatssummary
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -82,7 +83,7 @@ func (t *Tracker) String() string {
 }
 
 // Close closes the tracker, and writes the summary to disk (or stdout).
-func (t *Tracker) Close() error {
+func (t *Tracker) Close(ctx context.Context) error {
 	summary := t.String()
 	if t.path == "-" {
 		fmt.Print(summary)

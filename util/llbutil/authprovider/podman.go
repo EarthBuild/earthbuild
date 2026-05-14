@@ -57,7 +57,6 @@ func WithOS(o OS) PodmanOpt {
 	}
 }
 
-// NewPodman creates a new podman authentication provider.
 func NewPodman(ctx context.Context, stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 	conf := podmanCfg{
 		os: defaultOS{},

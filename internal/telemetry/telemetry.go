@@ -1,4 +1,4 @@
-// Package telemetry implements OpenTelemetry tracing and metrics collection for Earthly's internal operations.
+// Package telemetry implements OpenTelemetry tracing and metrics collection for EarthlBuild's internal operations.
 package telemetry
 
 import (

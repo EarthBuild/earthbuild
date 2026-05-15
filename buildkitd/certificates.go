@@ -227,7 +227,7 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2021),
 		Subject: pkix.Name{
-			Organization: []string{"EarthBuild Buildkit GRPC CA"},
+			Organization: []string{"earth Buildkit GRPC CA"},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),

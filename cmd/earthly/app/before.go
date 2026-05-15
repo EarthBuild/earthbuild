@@ -227,8 +227,8 @@ func (app *EarthApp) warnIfEarth() {
 
 	baseName := path.Base(binPath)
 	if baseName == cmdName {
-		app.BaseCLI.Console().Warnf("Warning: the earth binary has been renamed to earth; " +
-			"the earth command is currently symlinked, but is deprecated and will one day be removed.")
+		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
+			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
 
 		absPath, err := filepath.Abs(binPath)
 		if err != nil {

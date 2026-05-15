@@ -1,3 +1,4 @@
+// Package features manages version-specific feature flags and backward compatibility layers for EarthBuild.
 package features
 
 import (
@@ -274,6 +275,7 @@ func FromContext(ctx context.Context) *Features {
 	return nil
 }
 
+// ProcessFlags enables any features that were enabled by flags.
 func (f *Features) ProcessFlags() ([]string, error) {
 	warningStrs := make([]string, 0)
 

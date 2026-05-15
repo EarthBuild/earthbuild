@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"context"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/cleanup"
@@ -14,7 +13,7 @@ func TestTempEarthlyOutDir(t *testing.T) {
 
 	r := require.New(t)
 
-	b, _ := NewBuilder(context.Background(), Opt{
+	b, _ := NewBuilder(Opt{
 		CleanCollection: cleanup.NewCollection(),
 	})
 

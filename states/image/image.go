@@ -1,3 +1,5 @@
+// Package image provides data structures and logic for representing and manipulating container images
+// within the build state.
 package image
 
 import (

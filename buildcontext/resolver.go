@@ -188,7 +188,7 @@ func (r *Resolver) Resolve(
 func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
 	path = filepath.Clean(path)
 
-	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
+	efValue, err := r.parseCache.Do(ctx, path, func(_ context.Context, k any) (any, error) {
 		filePath, ok := k.(string)
 		if !ok {
 			return nil, fmt.Errorf("want string, got %T", k)

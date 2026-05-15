@@ -220,6 +220,9 @@ type FrontendURLs struct {
 }
 
 const (
+	// SchemeDockerContainer is the scheme used for docker-container addresses.
 	SchemeDockerContainer = "docker-container"
+
+	// SchemePodmanContainer is the scheme used for podman-container addresses.
 	SchemePodmanContainer = "podman-container"
 )

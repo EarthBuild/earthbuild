@@ -126,7 +126,7 @@ func GetBinaryName() string {
 		return "earthly"
 	}
 
-	// can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
 	binPath := os.Args[0]
 	baseName := path.Base(binPath)
 
@@ -174,7 +174,7 @@ func IfNilBoolDefault(ptr *bool, defaultValue bool) bool {
 
 // IsEarthlyBinary checks whether the specified path refers to an earthbuild executable binary.
 func IsEarthlyBinary(path string) bool {
-	// apply heuristics to see if binary is a version of earthly
+	// apply heuristics to see if binary is a version of earth
 	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return false

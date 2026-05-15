@@ -24,7 +24,7 @@ func NewGatewayCrafter() *GatewayCrafter {
 
 // GatewayCrafter wraps the gwclient.Result object with a helper function which is used
 // to deduplicate code between builder.go and wait_block.go eventually all SAVE IMAGE
-// (and other EarthBuild exporter) logic will be triggered via the WAIT/END PopWaitBlock()
+// (and other earth exporter) logic will be triggered via the WAIT/END PopWaitBlock()
 // function and code that direct accesses to the underlying result instance will be removed.
 type GatewayCrafter struct {
 	res  *gwclient.Result

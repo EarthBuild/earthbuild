@@ -285,7 +285,7 @@ VERSION 0.7
 #
 # Sample output:
 #
-#     $ earthly +foo --json='{"a":"b","c":"d"}'
+#     $ earth +foo --json='{"a":"b","c":"d"}'
 #     {
 #         "a": "b",
 #         "c": "d"
@@ -303,7 +303,7 @@ foo:
 
 Sample output:
 
-    $ earthly +foo --json='{"a":"b","c":"d"}'
+    $ earth +foo --json='{"a":"b","c":"d"}'
     {
         "a": "b",
         "c": "d"

@@ -184,7 +184,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Value:   "",
 			Sources: cli.EnvVars("EARTHLY_BUILDKIT_HOST"),
 			Usage: `The URL to use for connecting to a buildkit host
-		If empty, earthly will attempt to start a buildkitd instance via docker run`,
+		If empty, earth will attempt to start a buildkitd instance via docker run`,
 			Destination: &global.BuildkitHost,
 		},
 		&cli.BoolFlag{

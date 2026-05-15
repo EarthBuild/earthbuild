@@ -162,7 +162,7 @@ func (g *Golang) ForDir(ctx context.Context, dir string) (Project, error) {
 	out, _, err := g.execer.Command("go", "list", "-f", "{{.Dir}}").Run(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, hint.Wrap(errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
-			"go must be installed for 'go list' so that earthly can read information about your go project",
+			"go must be installed for 'go list' so that earth can read information about your go project",
 		)
 	}
 

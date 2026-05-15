@@ -1,4 +1,4 @@
-// Package features manages version-specific feature flags and backward compatibility layers for EarthBuild.
+// Package features manages version-specific feature flags and backward compatibility layers for earth.
 package features
 
 import (

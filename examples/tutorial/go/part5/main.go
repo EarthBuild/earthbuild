@@ -1,4 +1,4 @@
-// Package main demonstrates advanced EarthBuild tutorial concepts in a Go application.
+// Package main demonstrates advanced earth tutorial concepts in a Go application.
 package main
 
 import "github.com/sirupsen/logrus"

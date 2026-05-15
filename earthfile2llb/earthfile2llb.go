@@ -51,8 +51,8 @@ type ConvertOpt struct {
 	// MultiImageSolver can solve multiple images using a single build
 	// request. Primarily used for WITH DOCKER commands.
 	MultiImageSolver states.MultiImageSolver
-	// ContainerFrontend is the currently used container frontend, as detected by Earthly at app start. It provides info
-	// and access to commands to manipulate the current container frontend.
+	// ContainerFrontend is the currently used container frontend, as detected by earth at app start.
+	// It provides info and access to commands to manipulate the current container frontend.
 	ContainerFrontend containerutil.ContainerFrontend
 	// Visited is a collection of target states which have been converted to LLB.
 	// This is used for deduplication and infinite cycle detection.
@@ -61,7 +61,7 @@ type ConvertOpt struct {
 	Parallelism semutil.Semaphore
 	// waitBlock references the current WAIT/END scope
 	waitBlock *waitBlock
-	// InternalSecretStore is a secret store used internally by Earthly.
+	// InternalSecretStore is a secret store used internally by earth.
 	// It is mainly used to pass along parameters to buildkit processes without
 	// invalidating the cache.
 	InternalSecretStore *secretprovider.MutableMapStore
@@ -85,8 +85,8 @@ type ConvertOpt struct {
 	Logbus *logbus.Bus
 	// LLBCaps indicates that builder's capabilities
 	LLBCaps *apicaps.CapSet
-	// TempEarthlyOutDir is a path to a temp dir where artifacts are temporarily saved
-	TempEarthlyOutDir func() (string, error)
+	// TempEarthOutDir is a path to a temp dir where artifacts are temporarily saved
+	TempEarthOutDir func() (string, error)
 	// A cache for image solves. (maybe dockerTag +) depTargetInputHash -> context containing image.tar.
 	SolveCache *states.SolveCache
 	// LocalArtifactWhiteList points to the per-connection list of seen SAVE ARTIFACT ... AS LOCAL entries
@@ -135,7 +135,7 @@ type ConvertOpt struct {
 	ImageResolveMode llb.ResolveMode
 	// NoCache sets llb.IgnoreCache before calling StateToRef
 	NoCache bool
-	// EnableInteractiveDebugger is set to true when earthly is run with the --interactive cli flag
+	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
 	InteractiveDebuggerEnabled bool
 	// IsCI determines whether it is running from a CI environment.
 	IsCI bool

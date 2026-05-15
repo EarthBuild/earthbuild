@@ -1,4 +1,4 @@
-// Package main is the primary entry point for the EarthBuild CLI executable.
+// Package main is the primary entry point for the earth CLI executable.
 package main
 
 import (
@@ -38,15 +38,15 @@ var (
 	Version string
 	// GitSha contains the git sha used to build this app.
 	GitSha string
-	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc).
+	// BuiltBy contains information on which build-system was used (e.g. official earth binaries, homebrew, etc).
 	BuiltBy string
 
 	// DefaultBuildkitdImage is the default buildkitd image to use.
 	DefaultBuildkitdImage string
 
-	// DefaultInstallationName is the name included in the various earthly global resources on the system,
+	// DefaultInstallationName is the name included in the various earth global resources on the system,
 	// such as the ~/.earthly dir name, the buildkitd container name, the docker volume name, etc.
-	// This should be set to "earthly" for official releases.
+	// This should be set to "earth" for official releases.
 	DefaultInstallationName string
 )
 
@@ -123,7 +123,7 @@ func run() (code int) {
 	// Occasional spurious warnings show up - these are coming from imported libraries. Discard them.
 	logrus.StandardLogger().Out = io.Discard
 
-	// Load .env into current global env's. This is mainly for applying Earthly settings.
+	// Load .env into current global env's. This is mainly for applying earth settings.
 	// Separate call is made for build args and secrets.
 	envFile := eFlag.DefaultEnvFile
 	envFileOverride := false
@@ -206,7 +206,7 @@ func run() (code int) {
 	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
 	cli.SetConsole(logging)
-	earthly := app.NewEarthlyApp(cli, rootApp, buildApp)
+	earth := app.NewEarthApp(cli, rootApp, buildApp)
 
-	return earthly.Run(ctx, lastSignal)
+	return earth.Run(ctx, lastSignal)
 }

@@ -1,2 +1,2 @@
-// Package terminal manages interactive terminal connections for debugging active EarthBuild builds.
+// Package terminal manages interactive terminal connections for debugging active earth builds.
 package terminal

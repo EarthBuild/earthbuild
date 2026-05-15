@@ -90,7 +90,7 @@ type SaveArtifactOpts struct {
 // SaveImageOpts contains options for the SAVE IMAGE command.
 type SaveImageOpts struct {
 	CacheFrom          []string `description:"Declare additional cache import as a Docker tag"                                                                         long:"cache-from"`             //nolint:lll
-	Push               bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthbuild is invoked in push mode" long:"push"`                   //nolint:lll
+	Push               bool     "description:\"Push the image to the remote registry provided that the build succeeds and also that earth is invoked in push mode\" long:\"push\""                   //nolint:lll
 	CacheHint          bool     `description:"Instruct earth that the current target should be saved entirely as part of the remote cache"                             long:"cache-hint"`             //nolint:lll
 	Insecure           bool     `description:"Use unencrypted connection for the push"                                                                                 long:"insecure"`               //nolint:lll
 	NoManifestList     bool     `description:"Do not include a manifest list (specifying the platform) in the creation of the image"                                   long:"no-manifest-list"`       //nolint:lll

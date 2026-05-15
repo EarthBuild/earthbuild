@@ -47,10 +47,10 @@ type RunOpts struct {
 
 // FromOpts contains options for the FROM command.
 type FromOpts struct {
-	Platform        string   `description:"The platform to use"                                              long:"platform"`         //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target" long:"build-arg"`             //nolint:lll
-	AllowPrivileged bool     `description:"Allow commands under remote targets to enable privileged mode"    long:"allow-privileged"` //nolint:lll
-	PassArgs        bool     `description:"Pass arguments to external targets"                               long:"pass-args"`        //nolint:lll
+	Platform        string   `description:"The platform to use"                                           long:"platform"`         //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"   long:"build-arg"`        //nolint:lll
+	AllowPrivileged bool     `description:"Allow commands under remote targets to enable privileged mode" long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                            long:"pass-args"`        //nolint:lll
 }
 
 // FromDockerfileOpts contains options for the FROM DOCKERFILE command.
@@ -58,7 +58,7 @@ type FromDockerfileOpts struct {
 	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`         //nolint:lll
 	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`           //nolint:lll
 	Path            string   `description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference" short:"f"`               //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target and also to the Dockerfile build"   long:"build-arg"`             //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target and also to the Dockerfile build"        long:"build-arg"`        //nolint:lll
 	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"` //nolint:lll
 }
 
@@ -68,7 +68,7 @@ type CopyOpts struct {
 	Chown           string   `description:"Apply a specific group and/or owner to the copied files and directories" long:"chown"`             //nolint:lll
 	Chmod           string   `description:"Apply a mode to the copied files and directories"                        long:"chmod"`             //nolint:lll
 	Platform        string   `description:"The platform to use"                                                     long:"platform"`          //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"        long:"build-arg"`              //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"             long:"build-arg"`         //nolint:lll
 	IsDirCopy       bool     `description:"Copy entire directories, not just the contents"                          long:"dir"`               //nolint:lll
 	KeepTs          bool     `description:"Keep created time file timestamps"                                       long:"keep-ts"`           //nolint:lll
 	KeepOwn         bool     `description:"Keep owner info"                                                         long:"keep-own"`          //nolint:lll
@@ -91,7 +91,7 @@ type SaveArtifactOpts struct {
 type SaveImageOpts struct {
 	CacheFrom          []string `description:"Declare additional cache import as a Docker tag"                                                                         long:"cache-from"`             //nolint:lll
 	Push               bool     `description:"Push the image to the remote registry provided that the build succeeds and also that earthbuild is invoked in push mode" long:"push"`                   //nolint:lll
-	CacheHint          bool     `description:"Instruct earth that the current target should be saved entirely as part of the remote cache"                        long:"cache-hint"`                  //nolint:lll
+	CacheHint          bool     `description:"Instruct earth that the current target should be saved entirely as part of the remote cache"                             long:"cache-hint"`             //nolint:lll
 	Insecure           bool     `description:"Use unencrypted connection for the push"                                                                                 long:"insecure"`               //nolint:lll
 	NoManifestList     bool     `description:"Do not include a manifest list (specifying the platform) in the creation of the image"                                   long:"no-manifest-list"`       //nolint:lll
 	WithoutEarthLabels bool     `description:"Disable build information dev.earthly labels to reduce the chance of changing images digests."                           long:"without-earthly-labels"` //nolint:lll
@@ -99,11 +99,11 @@ type SaveImageOpts struct {
 
 // BuildOpts contains options for the BUILD command.
 type BuildOpts struct {
-	Platforms       []string `description:"The platform to use"                                              long:"platform"`         //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target" long:"build-arg"`             //nolint:lll
-	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                          long:"allow-privileged"` //nolint:lll
-	PassArgs        bool     `description:"Pass arguments to external targets"                               long:"pass-args"`        //nolint:lll
-	AutoSkip        bool     `description:"Use auto-skip to bypass the target if nothing has changed"        long:"auto-skip"`        //nolint:lll
+	Platforms       []string `description:"The platform to use"                                         long:"platform"`         //nolint:lll
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target" long:"build-arg"`        //nolint:lll
+	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                     long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                          long:"pass-args"`        //nolint:lll
+	AutoSkip        bool     `description:"Use auto-skip to bypass the target if nothing has changed"   long:"auto-skip"`        //nolint:lll
 }
 
 // GitCloneOpts contains options for the GIT CLONE command.
@@ -123,15 +123,15 @@ type HealthCheckOpts struct {
 
 // WithDockerOpts contains options for the WITH DOCKER command.
 type WithDockerOpts struct {
-	Platform        string   `description:"The platform to use"                                                long:"platform"` //nolint:lll
-	CacheID         string   `description:"When specified, layer data will be persisted to specified cache"    long:"cache-id"` //nolint:lll
-	ComposeFiles    []string `description:"A compose file used to bring up services from"                      long:"compose"`  //nolint:lll
-	ComposeServices []string `description:"A compose service to bring up"                                      long:"service"`  //nolint:lll
-	Loads           []string `description:"An image produced by earth which is loaded as a Docker image"  long:"load"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"   long:"build-arg"` //nolint:lll
-	Pulls           []string `description:"An image which is pulled and made available in the docker cache"    long:"pull"`
-	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"         long:"allow-privileged"` //nolint:lll
-	PassArgs        bool     `description:"Pass arguments to external targets"                                 long:"pass-args"`        //nolint:lll
+	Platform        string   `description:"The platform to use"                                             long:"platform"` //nolint:lll
+	CacheID         string   `description:"When specified, layer data will be persisted to specified cache" long:"cache-id"` //nolint:lll
+	ComposeFiles    []string `description:"A compose file used to bring up services from"                   long:"compose"`  //nolint:lll
+	ComposeServices []string `description:"A compose service to bring up"                                   long:"service"`  //nolint:lll
+	Loads           []string `description:"An image produced by earth which is loaded as a Docker image"    long:"load"`
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"     long:"build-arg"` //nolint:lll
+	Pulls           []string `description:"An image which is pulled and made available in the docker cache" long:"pull"`
+	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"      long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`        //nolint:lll
 }
 
 // DoOpts contains options for the DO command.

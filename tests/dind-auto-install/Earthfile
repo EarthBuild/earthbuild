@@ -13,7 +13,7 @@ all:
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
     LET earthbuild_dind_ubuntu_2004_version=ubuntu-20.04-docker-28.1.1-1
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
-    LET earthbuild_dind_ubuntu_2404_version=ubuntu-24.04-docker-29.3.0-1
+    LET earthbuild_dind_ubuntu_2404_version=ubuntu-24.04-docker-28.5.2-1
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind
     LET earthbuild_dind_ubuntu_2604_version=ubuntu-26.04-docker-29.4.1-1
 

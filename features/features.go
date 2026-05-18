@@ -30,7 +30,7 @@ type Features struct {
 
 	// VERSION 0.6
 	ForIn                      bool `description:"allow the use of the FOR command"                                                                                                                 enabled_in_version:"0.6" long:"for-in"`                         //nolint:lll
-	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earthly-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`             //nolint:lll
+	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earth-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`               //nolint:lll
 	ReferencedSaveOnly         bool `description:"only save artifacts that are directly referenced"                                                                                                 enabled_in_version:"0.6" long:"referenced-save-only"`           //nolint:lll
 	RequireForceForUnsafeSaves bool `description:"require the --force flag when saving to path outside of current path"                                                                             enabled_in_version:"0.6" long:"require-force-for-unsafe-saves"` //nolint:lll
 	UseCopyIncludePatterns     bool `description:"specify an include pattern to buildkit when performing copies"                                                                                    enabled_in_version:"0.6" long:"use-copy-include-patterns"`      //nolint:lll

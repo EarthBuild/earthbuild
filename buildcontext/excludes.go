@@ -16,7 +16,7 @@ const (
 )
 
 const (
-	tmpOutputDir          = ".tmp-earthly-out"
+	tmpOutputDir          = ".tmp-earth-out"
 	tmpOutputDirWithSlash = tmpOutputDir + "/"
 )
 

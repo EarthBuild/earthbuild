@@ -2,6 +2,6 @@ VERSION \ # This is an example of a user that wants to comment out a single feat
     #--try \
     0.8
 
-FROM alpine:3.18
+FROM alpine:3.23
 test:
     RUN echo "pass"

@@ -1,7 +1,7 @@
 VERSION --try 0.8
 
 test:
-    FROM alpine:3.18
+    FROM alpine:3.23
     TRY
         RUN echo pocus > data
     FINALLY

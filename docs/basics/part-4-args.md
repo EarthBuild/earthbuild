@@ -96,7 +96,7 @@ earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+pa
 
 ```Dockerfile
 VERSION 0.8
-FROM node:13.10.1-alpine3.11
+FROM node:26.1.0-alpine3.23
 WORKDIR /js-example
 
 deps:

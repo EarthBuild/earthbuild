@@ -256,6 +256,18 @@ func dockerdFlag(name, value string) string {
 	return fmt.Sprintf("%s='%s'", name, escapeShellSingleQuotes(value))
 }
 
+// stripImageDigest drops a trailing `@<algo>:<hex>` digest from an image name
+// so it's a valid `docker tag` target, as dockerd refuses digest-bearing tags.
+// Digest-pinned compose services are still verified at `docker compose up`
+// time: compose re-fetches the manifest upstream (the retagged image has no
+// RepoDigest) and reuses the pre-pulled layers. So the pre-pull dedups layers
+// but gives no offline path for digest-pinned services. See issue #512.
+func stripImageDigest(name string) string {
+	withoutDigest, _, _ := strings.Cut(name, "@")
+
+	return withoutDigest
+}
+
 func platformIncompatMsg(platr *platutil.Resolver) string {
 	currentPlatStr := platr.Materialize(platr.Current()).String()
 	nativePlatStr := platr.Materialize(platutil.NativePlatform).String()

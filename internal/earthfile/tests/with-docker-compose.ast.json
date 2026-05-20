@@ -71,11 +71,26 @@
               "startLine": 8
             }
           }
+        },
+        {
+          "command": {
+            "args": [
+              "+test-digest-pinned-image"
+            ],
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 14,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
+          }
         }
       ],
       "sourceLocation": {
         "endColumn": 1,
-        "endLine": 15,
+        "endLine": 16,
         "file": "with-docker-compose.earth",
         "startColumn": 1,
         "startLine": 7
@@ -92,10 +107,10 @@
             "name": "FROM",
             "sourceLocation": {
               "endColumn": 45,
-              "endLine": 16,
+              "endLine": 17,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 16
+              "startLine": 17
             }
           }
         },
@@ -109,10 +124,10 @@
             "name": "CMD",
             "sourceLocation": {
               "endColumn": 64,
-              "endLine": 17,
+              "endLine": 18,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 17
+              "startLine": 18
             }
           }
         },
@@ -124,20 +139,20 @@
             "name": "SAVE IMAGE",
             "sourceLocation": {
               "endColumn": 38,
-              "endLine": 18,
+              "endLine": 19,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 18
+              "startLine": 19
             }
           }
         }
       ],
       "sourceLocation": {
         "endColumn": 1,
-        "endLine": 20,
+        "endLine": 21,
         "file": "with-docker-compose.earth",
         "startColumn": 1,
-        "startLine": 15
+        "startLine": 16
       }
     },
     {
@@ -154,10 +169,10 @@
             "name": "RUN",
             "sourceLocation": {
               "endColumn": 45,
-              "endLine": 21,
+              "endLine": 22,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 21
+              "startLine": 22
             }
           }
         },
@@ -170,10 +185,10 @@
             "name": "COPY",
             "sourceLocation": {
               "endColumn": 30,
-              "endLine": 22,
+              "endLine": 23,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 22
+              "startLine": 23
             }
           }
         },
@@ -188,10 +203,10 @@
             "name": "ARG",
             "sourceLocation": {
               "endColumn": 16,
-              "endLine": 24,
+              "endLine": 25,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 24
+              "startLine": 25
             }
           }
         },
@@ -224,10 +239,10 @@
                   "name": "RUN",
                   "sourceLocation": {
                     "endColumn": 93,
-                    "endLine": 30,
+                    "endLine": 31,
                     "file": "with-docker-compose.earth",
                     "startColumn": 9,
-                    "startLine": 29
+                    "startLine": 30
                   }
                 }
               }
@@ -244,28 +259,120 @@
               "name": "DOCKER",
               "sourceLocation": {
                 "endColumn": 36,
-                "endLine": 28,
+                "endLine": 29,
                 "file": "with-docker-compose.earth",
                 "startColumn": 10,
-                "startLine": 25
+                "startLine": 26
               }
             },
             "sourceLocation": {
               "endColumn": 8,
-              "endLine": 31,
+              "endLine": 32,
               "file": "with-docker-compose.earth",
               "startColumn": 5,
-              "startLine": 25
+              "startLine": 26
             }
           }
         }
       ],
       "sourceLocation": {
         "endColumn": 1,
-        "endLine": 32,
+        "endLine": 34,
         "file": "with-docker-compose.earth",
         "startColumn": 1,
-        "startLine": 20
+        "startLine": 21
+      }
+    },
+    {
+      "docs": "Regression test for https://github.com/EarthBuild/earthbuild/issues/512:\ncompose services pinned by digest must not break the image pre-pull, and the\npin must still be honoured when the service runs.\n",
+      "name": "test-digest-pinned-image",
+      "recipe": [
+        {
+          "command": {
+            "args": [
+              "docker-compose.digest.yml",
+              "./docker-compose.yml"
+            ],
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 56,
+              "endLine": 38,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
+          }
+        },
+        {
+          "with": {
+            "body": [
+              {
+                "command": {
+                  "args": [
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "tag-and-digest",
+                    "|",
+                    "grep",
+                    "'hello from tag-and-digest'",
+                    "&&",
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "digest-only",
+                    "|",
+                    "grep",
+                    "'hello from digest-only'",
+                    "&&",
+                    "docker",
+                    "image",
+                    "inspect",
+                    "alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
+                  ],
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 112,
+                    "endLine": 42,
+                    "file": "with-docker-compose.earth",
+                    "startColumn": 9,
+                    "startLine": 40
+                  }
+                }
+              }
+            ],
+            "command": {
+              "args": [
+                "--compose",
+                "docker-compose.yml"
+              ],
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 45,
+                "endLine": 39,
+                "file": "with-docker-compose.earth",
+                "startColumn": 10,
+                "startLine": 39
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 43,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 39
+            }
+          }
+        }
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 44,
+        "file": "with-docker-compose.earth",
+        "startColumn": 1,
+        "startLine": 37
       }
     }
   ],

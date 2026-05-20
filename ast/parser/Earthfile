@@ -14,8 +14,7 @@ RUN curl -O https://www.antlr.org/download/antlr-${ANTLR_VERSION}-complete.jar
 WORKDIR /earthly
 
 parser:
-    COPY ./*.g4 ./ast/parser/
-    COPY ./export.go ./ast/parser/
+    COPY *.g4  export.go parser.go ./ast/parser/
     RUN java \
         -Xmx500M \
         -cp "/usr/local/lib/antlr-${ANTLR_VERSION}-complete.jar:$CLASSPATH" \

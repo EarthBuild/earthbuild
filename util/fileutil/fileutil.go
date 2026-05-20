@@ -1,3 +1,5 @@
+// Package fileutil contains robust cross-platform utilities for file and directory checks, path expansion,\
+// and globbing.
 package fileutil
 
 import (
@@ -70,7 +72,7 @@ func EnsureUserOwned(dir string, owner *user.User) error {
 	}
 	defer root.Close()
 
-	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	return filepath.WalkDir(dir, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

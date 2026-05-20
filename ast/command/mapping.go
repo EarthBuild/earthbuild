@@ -41,6 +41,9 @@ func init() {
 	}
 }
 
-func CommandToString(cmd Type) string {
+// ToString returns the string name of the command.
+//
+// TODO(jhorsts): replace with Type.String().
+func ToString(cmd Type) string {
 	return cmdMap[cmd]
 }

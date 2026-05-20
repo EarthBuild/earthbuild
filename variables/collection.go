@@ -18,17 +18,20 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// Standard errors related to variable collections.
 var (
 	ErrRedeclared   = errors.New("this variable was declared twice in the same target")
 	ErrVarNotFound  = errors.New("no matching variable found in this scope")
 	ErrInvalidScope = errors.New("this action is not allowed in this scope")
 	ErrSetArg       = errors.New("ARG values cannot be reassigned")
-
-	ShellOutEnvs = map[string]struct{}{
-		"HOME": {},
-		"PATH": {},
-	}
 )
+
+// ShellOutEnvs is a map of environment variables that are always present when
+// shelling-out.
+var ShellOutEnvs = map[string]struct{}{
+	"HOME": {},
+	"PATH": {},
+}
 
 type stackFrame struct {
 	// absRef is the ref any other ref in this frame would be relative to.

@@ -23,6 +23,7 @@ func (e *Error) Error() string {
 	return fmt.Sprintf(`%v:Hint: %v`, e.err, e.Hint())
 }
 
+// Message returns the error's message without the hints.
 func (e *Error) Message() string {
 	return e.err.Error()
 }

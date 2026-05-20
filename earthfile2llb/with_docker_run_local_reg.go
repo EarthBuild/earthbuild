@@ -151,7 +151,7 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
 	}
 
-	afterFun := func(ctx context.Context, mts *states.MultiTarget) error {
+	afterFun := func(_ context.Context, mts *states.MultiTarget) error {
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {

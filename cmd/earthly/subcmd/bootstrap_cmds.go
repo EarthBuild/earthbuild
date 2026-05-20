@@ -21,10 +21,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-type BootstrapInterface interface {
-	NewBootstrap(CLI) *Bootstrap
-}
-
+// Bootstrap encapsulates the bootstrap command logic.
 type Bootstrap struct {
 	cli              CLI
 	homebrewSource   string
@@ -34,12 +31,14 @@ type Bootstrap struct {
 	withAutocomplete bool
 }
 
+// NewBootstrap creates a new Bootstrap command.
 func NewBootstrap(cli CLI) *Bootstrap {
 	return &Bootstrap{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the bootstrap command.
 func (b *Bootstrap) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -86,10 +85,10 @@ func (b *Bootstrap) Cmds() []*cli.Command {
 }
 
 // Action handles the bootstrap command.
-func (a *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
-	a.cli.SetCommandName("actionbootstrap")
+func (b *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
+	b.cli.SetCommandName("actionbootstrap")
 
-	switch a.homebrewSource {
+	switch b.homebrewSource {
 	case "bash":
 		compEntry, err := bashCompleteEntry()
 		if err != nil {
@@ -113,40 +112,40 @@ func (a *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 	case "":
 		break
 	default:
-		return errors.Errorf("unhandled source %q", a.homebrewSource)
+		return errors.Errorf("unhandled source %q", b.homebrewSource)
 	}
 
-	return a.bootstrap(ctx, cmd)
+	return b.bootstrap(ctx, cmd)
 }
 
-func (a *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
-	console := a.cli.Console().WithPrefix("bootstrap")
+func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
+	console := b.cli.Console().WithPrefix("bootstrap")
 
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
 		// on the existence of ~/.earthly; therefore we must ensure it's created.
-		_, dirErr := cliutil.GetOrCreateEarthlyDir(a.cli.Flags().InstallationName)
+		_, dirErr := cliutil.GetOrCreateEarthlyDir(b.cli.Flags().InstallationName)
 		if dirErr != nil {
 			console.Warnf("Warning: Failed to create earthbuild Dir: %v", dirErr)
 			// Keep going.
 		}
 
-		dirErr = cliutil.EnsurePermissions(a.cli.Flags().InstallationName)
+		dirErr = cliutil.EnsurePermissions(b.cli.Flags().InstallationName)
 		if dirErr != nil {
 			console.Warnf("Warning: Failed to ensure permissions: %v", dirErr)
 			// Keep going.
 		}
 	}()
 
-	if a.withAutocomplete {
+	if b.withAutocomplete {
 		// Because this requires sudo, it should warn and not fail the rest of it.
-		err := a.insertBashCompleteEntry()
+		err := b.insertBashCompleteEntry()
 		if err != nil {
 			console.Warnf("Warning: %s\n", err.Error())
 			// Keep going.
 		}
 
-		err = a.insertZSHCompleteEntry()
+		err = b.insertZSHCompleteEntry()
 		if err != nil {
 			console.Warnf("Warning: %s\n", err.Error())
 			// Keep going.
@@ -160,23 +159,23 @@ func (a *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 		console.Warnf("Warning: %s\n", err.Error())
 	}
 
-	if !a.noBuildkit || a.genCerts {
-		bkURL, err := url.Parse(a.cli.Flags().BuildkitHost)
+	if !b.noBuildkit || b.genCerts {
+		bkURL, err := url.Parse(b.cli.Flags().BuildkitHost)
 		if err != nil {
-			return errors.Wrapf(err, "invalid buildkit_host: %s", a.cli.Flags().BuildkitHost)
+			return errors.Wrapf(err, "invalid buildkit_host: %s", b.cli.Flags().BuildkitHost)
 		}
 
-		if bkURL.Scheme == "tcp" && a.cli.Cfg().Global.TLSEnabled {
-			err := buildkitd.GenCerts(*a.cli.Cfg(), a.certsHostName)
+		if bkURL.Scheme == "tcp" && b.cli.Cfg().Global.TLSEnabled {
+			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName)
 			if err != nil {
 				return errors.Wrap(err, "failed to generate TLS certs")
 			}
 		}
 	}
 
-	if !a.noBuildkit {
+	if !b.noBuildkit {
 		// connect to local buildkit instance (to trigger pulling and running the earthbuild/buildkitd image)
-		bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
+		bkClient, err := b.cli.GetBuildkitClient(ctx, cmd)
 		if err != nil {
 			console.Warnf("Warning: Bootstrapping buildkit failed: %v", err)
 			// Keep going.
@@ -190,7 +189,7 @@ func (a *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func (a *Bootstrap) insertBashCompleteEntry() error {
+func (b *Bootstrap) insertBashCompleteEntry() error {
 	u, err := user.Current()
 	if err != nil {
 		return errors.Wrapf(err, "could not get current user")
@@ -220,21 +219,21 @@ func (a *Bootstrap) insertBashCompleteEntry() error {
 		path = filepath.Join(userPath, "bash-completion/completions/earthly")
 	}
 
-	ok, err := a.insertBashCompleteEntryAt(path)
+	ok, err := b.insertBashCompleteEntryAt(path)
 	if err != nil {
 		return err
 	}
 
 	if ok {
-		a.cli.Console().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
+		b.cli.Console().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
 	} else {
-		a.cli.Console().VerbosePrintf("Bash-completion already present at %s\n", path)
+		b.cli.Console().VerbosePrintf("Bash-completion already present at %s\n", path)
 	}
 
 	return nil
 }
 
-func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
+func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	dirPath := filepath.Dir(path)
 
 	dirPathExists, err := fileutil.DirExists(dirPath)
@@ -276,7 +275,7 @@ func (a *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 }
 
 // If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache.
-func (a *Bootstrap) insertZSHCompleteEntry() error {
+func (b *Bootstrap) insertZSHCompleteEntry() error {
 	potentialPaths := []string{
 		"/usr/local/share/zsh/site-functions",
 		"/usr/share/zsh/site-functions",
@@ -288,7 +287,7 @@ func (a *Bootstrap) insertZSHCompleteEntry() error {
 		}
 
 		if dirPathExists {
-			return a.insertZSHCompleteEntryUnderPath(dirPath)
+			return b.insertZSHCompleteEntryUnderPath(dirPath)
 		}
 	}
 
@@ -298,7 +297,7 @@ func (a *Bootstrap) insertZSHCompleteEntry() error {
 	return nil // zsh-completion isn't available, silently fail.
 }
 
-func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
+func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 	path := filepath.Join(dirPath, "_earthly")
 
 	pathExists, err := fileutil.FileExists(path)
@@ -328,10 +327,10 @@ func (a *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 		return errors.Wrapf(err, "failed writing to %s", path)
 	}
 
-	return a.deleteZcompdump()
+	return b.deleteZcompdump()
 }
 
-func (a *Bootstrap) deleteZcompdump() error {
+func (b *Bootstrap) deleteZcompdump() error {
 	var homeDir string
 
 	sudoUser, found := os.LookupEnv("SUDO_USER")

@@ -14,10 +14,12 @@ func SetupLog(path string) {
 	logPath = path
 }
 
+// Logf writes a formatted string to the log file.
 func Logf(format string, args ...any) {
 	Log(fmt.Sprintf(format, args...))
 }
 
+// Log writes a string to the log file.
 func Log(s string) {
 	if logPath == "" {
 		return

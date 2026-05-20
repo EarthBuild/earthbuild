@@ -1,3 +1,4 @@
+// Package builder orchestrates the top-level resolution and execution of EarthBuild targets and commands.
 package builder
 
 import (
@@ -97,6 +98,7 @@ type Opt struct {
 	NoAutoSkip                            bool
 }
 
+// ProjectAdder provides an interface for adding projects.
 type ProjectAdder interface {
 	AddProject(org, project string)
 }
@@ -132,7 +134,7 @@ type Builder struct {
 }
 
 // NewBuilder returns a new earthly Builder.
-func NewBuilder(ctx context.Context, opt Opt) (*Builder, error) {
+func NewBuilder(opt Opt) (*Builder, error) {
 	b := &Builder{
 		s: &solver{
 			logbusSM:        opt.LogBusSolverMonitor,
@@ -626,7 +628,7 @@ func (b *Builder) convertAndBuild(
 		return nil
 	}
 	onImage := func(
-		childCtx context.Context, eg *errgroup.Group, imageName, waitFor, manifestKey string,
+		childCtx context.Context, eg *errgroup.Group, _, waitFor, manifestKey string,
 	) (io.WriteCloser, error) {
 		pipeR, pipeW := io.Pipe()
 
@@ -647,9 +649,7 @@ func (b *Builder) convertAndBuild(
 
 		return pipeW, nil
 	}
-	onArtifact := func(
-		childCtx context.Context, index string, artifact domain.Artifact, artifactPath string, destPath string,
-	) (string, error) {
+	onArtifact := func(_ context.Context, index string, _ domain.Artifact, _, destPath string) (string, error) {
 		if !opt.LocalArtifactWhiteList.Exists(destPath) {
 			err := errors.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
 			return "", err
@@ -669,10 +669,10 @@ func (b *Builder) convertAndBuild(
 
 		return artifactDir, nil
 	}
-	onFinalArtifact := func(childCtx context.Context) (string, error) {
+	onFinalArtifact := func(context.Context) (string, error) {
 		return b.tempEarthlyOutDir()
 	}
-	onPull := func(childCtx context.Context, imagesToPull []string, resp map[string]string) error {
+	onPull := func(childCtx context.Context, imagesToPull []string, _ map[string]string) error {
 		if b.opt.LocalRegistryAddr == "" {
 			return nil
 		}
@@ -724,7 +724,7 @@ func (b *Builder) convertAndBuild(
 	}
 
 	if opt.PrintPhases {
-		b.opt.Console.PrintPhaseFooter(PhaseBuild, false, "")
+		b.opt.Console.PrintPhaseFooter(PhaseBuild)
 	}
 
 	b.builtMain = true
@@ -774,7 +774,7 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err = saveartifactlocally.SaveArtifactLocally(
-				ctx, exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
+				exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
 			if err != nil {
 				return nil, err
 			}
@@ -851,7 +851,7 @@ func (b *Builder) convertAndBuild(
 					}
 
 					err = saveartifactlocally.SaveArtifactLocally(
-						ctx, exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
+						exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
 					if err != nil {
 						return nil, err
 					}
@@ -885,7 +885,7 @@ func (b *Builder) convertAndBuild(
 					}
 
 					err = saveartifactlocally.SaveArtifactLocally(
-						ctx, exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
+						exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
 					if err != nil {
 						return nil, err
 					}
@@ -943,7 +943,7 @@ func (b *Builder) convertAndBuild(
 	pushConsole.Flush()
 
 	if opt.PrintPhases {
-		b.opt.Console.PrintPhaseFooter(PhasePush, !opt.Push, "")
+		b.opt.Console.PrintPhaseFooter(PhasePush)
 		b.opt.Console.PrintPhaseHeader(PhaseOutput, opt.NoOutput, outputPhaseSpecial)
 	}
 
@@ -958,7 +958,7 @@ func (b *Builder) convertAndBuild(
 	}
 
 	if opt.PrintPhases {
-		b.opt.Console.PrintPhaseFooter(PhaseOutput, false, "")
+		b.opt.Console.PrintPhaseFooter(PhaseOutput)
 		b.opt.Console.PrintSuccess()
 	}
 

@@ -1,3 +1,5 @@
+// Package ast provides the top-level functions for parsing Earthfiles from paths or readers
+// into an Abstract Syntax Tree.
 package ast
 
 import (
@@ -12,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// TargetBase is the name of the default target which is used when an
+// Earthfile is parsed which does not have any targets.
 const TargetBase = "base"
 
 // Parse parses an earthfile into an AST.

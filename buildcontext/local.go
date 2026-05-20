@@ -77,7 +77,7 @@ func (lr *localResolver) resolveLocal(
 		key = ref.String()
 	}
 
-	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
+	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(context.Context, any) (any, error) {
 		var buildFilePath string
 
 		buildFilePath, err = detectBuildFile(ref, localPath)

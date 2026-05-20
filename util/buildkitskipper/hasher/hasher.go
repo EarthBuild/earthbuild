@@ -1,3 +1,4 @@
+// Package hasher implements deterministic hashing for build targets and their inputs to support cache keys.
 package hasher
 
 import (
@@ -13,16 +14,19 @@ import (
 	"strconv"
 )
 
+// Hasher provides deterministic hashing for build targets and inputs.
 type Hasher struct {
 	h hash.Hash
 }
 
+// New creates a new Hash instance.
 func New() *Hasher {
 	return &Hasher{
 		h: sha1.New(), // #nosec G401
 	}
 }
 
+// GetHash returns the computed hash.
 func (h *Hasher) GetHash() []byte {
 	if h == nil {
 		return nil
@@ -31,10 +35,12 @@ func (h *Hasher) GetHash() []byte {
 	return h.h.Sum(nil)
 }
 
+// HashInt hashes an integer.
 func (h *Hasher) HashInt(i int) {
 	h.HashBytes(fmt.Appendf(nil, "int:%d", i))
 }
 
+// HashJSONMarshalled hashes a JSON marshalled value.
 func (h *Hasher) HashJSONMarshalled(v any) {
 	dt, err := json.Marshal(v)
 	if err != nil {
@@ -44,19 +50,23 @@ func (h *Hasher) HashJSONMarshalled(v any) {
 	h.HashBytes(dt)
 }
 
+// HashBool hashes a boolean.
 func (h *Hasher) HashBool(v bool) {
 	h.HashBytes([]byte("bool:" + strconv.FormatBool(v)))
 }
 
+// HashString hashes a string.
 func (h *Hasher) HashString(s string) {
 	h.HashBytes([]byte("str:" + s))
 }
 
+// HashBytes hashes a byte slice.
 func (h *Hasher) HashBytes(b []byte) {
 	h.h.Write([]byte(strconv.Itoa(len(b))))
 	h.h.Write(b)
 }
 
+// HashFile hashes a file.
 func (h *Hasher) HashFile(ctx context.Context, src string) error {
 	stat, err := os.Stat(src)
 	if err != nil {

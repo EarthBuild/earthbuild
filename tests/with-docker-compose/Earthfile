@@ -11,6 +11,7 @@ all:
         --INDEX=3 \
         --INDEX=4 \
         --INDEX=5
+    BUILD +test-digest-pinned-image
 
 print-countries:
     FROM jbergknoff/postgresql-client:latest
@@ -28,4 +29,12 @@ test:
             --load +print-countries
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
             docker-compose up --exit-code-from print-countries print-countries | grep Brazil
+    END
+
+# Regression: https://github.com/EarthBuild/earthbuild/issues/512 — a compose
+# service pinned by `name:tag@sha256:…` must not break the wrapper's retag step.
+test-digest-pinned-image:
+    COPY docker-compose.digest.yml ./docker-compose.yml
+    WITH DOCKER --compose docker-compose.yml
+        RUN docker compose up --exit-code-from app | grep 'hello from digest-pinned'
     END

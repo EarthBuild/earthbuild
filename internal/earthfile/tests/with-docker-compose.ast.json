@@ -43,6 +43,14 @@
             ],
             "name": "BUILD"
           }
+        },
+        {
+          "command": {
+            "args": [
+              "+test-digest-pinned-image"
+            ],
+            "name": "BUILD"
+          }
         }
       ]
     },
@@ -149,6 +157,63 @@
                 "postgres",
                 "--load",
                 "+print-countries"
+              ],
+              "name": "DOCKER"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "docs": "Regression test for https://github.com/EarthBuild/earthbuild/issues/512:\ncompose services pinned by digest must not break the image pre-pull, and the\npin must still be honoured when the service runs.\n",
+      "name": "test-digest-pinned-image",
+      "recipe": [
+        {
+          "command": {
+            "args": [
+              "docker-compose.digest.yml",
+              "./docker-compose.yml"
+            ],
+            "name": "COPY"
+          }
+        },
+        {
+          "with": {
+            "body": [
+              {
+                "command": {
+                  "args": [
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "tag-and-digest",
+                    "|",
+                    "grep",
+                    "'hello from tag-and-digest'",
+                    "&&",
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "digest-only",
+                    "|",
+                    "grep",
+                    "'hello from digest-only'",
+                    "&&",
+                    "docker",
+                    "image",
+                    "inspect",
+                    "alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
+                  ],
+                  "name": "RUN"
+                }
+              }
+            ],
+            "command": {
+              "args": [
+                "--compose",
+                "docker-compose.yml"
               ],
               "name": "DOCKER"
             }

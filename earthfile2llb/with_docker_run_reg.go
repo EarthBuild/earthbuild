@@ -187,10 +187,11 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	imgsWithDigests := make([]string, 0, len(results))
 	for _, result := range results {
-		// This will be decoded in the wrapper.
+		// This will be decoded in the wrapper, which retags the pulled image.
+		// `docker tag` rejects digest-bearing targets. See stripImageDigest.
 		if result.NewInterImgFormat {
 			pullImages = append(
-				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName),
+				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, stripImageDigest(result.FinalImageName)),
 			)
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)

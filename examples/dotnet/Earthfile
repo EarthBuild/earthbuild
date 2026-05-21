@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1.302-alpine3.12
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1.410-alpine3.12
 WORKDIR /dotnet-example
 
 deps:
@@ -17,7 +17,7 @@ build:
     SAVE ARTIFACT publish AS LOCAL publish
 
 docker:
-    FROM mcr.microsoft.com/dotnet/core/runtime:3.1.6-alpine3.12
+    FROM mcr.microsoft.com/dotnet/core/runtime:3.1.16-alpine3.12
     COPY +build/publish .
     ENTRYPOINT ["dotnet", "HelloEarthly.dll"]
     SAVE IMAGE --push earthbuild/examples:dotnet

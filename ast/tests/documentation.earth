@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM golang:1.25-alpine3.23
+FROM golang:1.26-alpine3.23
 
 # documented-target is a target with documentation comments
 # above it.

@@ -23,7 +23,7 @@ Please note that these examples, although similar, are distinct from the ones us
 <!-- vale HouseStyle.Spelling = NO -->
 - [clojure](./clojure)
 - [cobol](./cobol)
-- [c](./c)
+- [c](./c) - also demonstrates running `valgrind` inside earthbuild, useful on macOS / Windows where valgrind isn't available natively.
 - [cpp](./cpp)
 - [dotnet](./dotnet)
 - [elixir](./elixir)

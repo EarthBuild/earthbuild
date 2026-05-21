@@ -42,7 +42,7 @@ Please note that these examples, although similar, are distinct from the ones us
 
 <!-- vale HouseStyle.Spelling = NO -->
 
-- [c](https://github.com/earthbuild/earthbuild/tree/main/examples/c)
+- [c](https://github.com/earthbuild/earthbuild/tree/main/examples/c) - also demonstrates running `valgrind` inside earthbuild, useful on macOS / Windows where valgrind isn't available natively.
 - [clojure](https://github.com/earthbuild/earthbuild/tree/main/examples/clojure)
 - [cobol](https://github.com/earthbuild/earthbuild/tree/main/examples/cobol)
 - [cpp](https://github.com/earthbuild/earthbuild/tree/main/examples/cpp)

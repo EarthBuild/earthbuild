@@ -1,9 +1,18 @@
 VERSION 0.8
-FROM alpine:3.23.3
+
+# renovate: datasource=docker packageName=alpine
+ARG --global alpine_version=3.23.3
+FROM alpine:$alpine_version
 WORKDIR /c-example
 
 deps:
-    RUN apk --update add build-base cmake
+    # renovate: datasource=repology depName=alpine_3_23/build-base versioning=loose
+    ARG build_base_version=0.5-r3
+    # renovate: datasource=repology depName=alpine_3_23/cmake versioning=loose
+    ARG cmake_version=4.1.3-r0
+    RUN apk --update add \
+            build-base=$build_base_version \
+            cmake=$cmake_version
 
 build:
     FROM +deps
@@ -19,14 +28,41 @@ docker:
 
 unit-test:
     FROM +deps
-    RUN apk add cunit-dev
+    # renovate: datasource=repology depName=alpine_3_23/cunit-dev versioning=loose
+    ARG cunit_dev_version=2.1.3-r7
+    RUN apk add cunit-dev=$cunit_dev_version
     COPY src src
     COPY test test
     RUN cmake test
     RUN make
     RUN ./unit-test
 
+# memcheck runs the unit-test binary under valgrind's memcheck tool to detect
+# leaks, invalid reads/writes, and uninitialised reads. Built with -g -O0 so
+# stack traces resolve to source lines.
+memcheck:
+    FROM +deps
+    # renovate: datasource=repology depName=alpine_3_23/cunit-dev versioning=loose
+    ARG cunit_dev_version=2.1.3-r7
+    # renovate: datasource=repology depName=alpine_3_23/valgrind versioning=loose
+    ARG valgrind_version=3.25.1-r2
+    RUN apk add \
+            cunit-dev=$cunit_dev_version \
+            valgrind=$valgrind_version
+    COPY src src
+    COPY test test
+    RUN cmake -DCMAKE_C_FLAGS="-g -O0" test
+    RUN make
+    RUN valgrind \
+            --error-exitcode=1 \
+            --leak-check=full \
+            --show-leak-kinds=all \
+            --errors-for-leak-kinds=definite \
+            --track-origins=yes \
+            ./unit-test
+
 all:
     BUILD +build
     BUILD +unit-test
+    BUILD +memcheck
     BUILD +docker

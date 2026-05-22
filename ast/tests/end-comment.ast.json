@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "busybox:1.32.0"
+          "busybox:1.37.0"
         ],
         "name": "FROM"
       }

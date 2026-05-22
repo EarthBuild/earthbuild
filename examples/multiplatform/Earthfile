@@ -30,7 +30,7 @@ all:
 #     docker run --rm earthbuild/examples:multiplatform_linux_arm_v6
 #
 docker:
-    FROM alpine:3.18
+    FROM alpine:3.23
     RUN uname -m
     CMD ["uname", "-m"]
     SAVE IMAGE --push earthbuild/examples:multiplatform

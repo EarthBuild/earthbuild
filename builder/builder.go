@@ -1021,7 +1021,7 @@ func (b *Builder) tempEarthOutDir() (string, error) {
 	var err error
 
 	b.outDirOnce.Do(func() {
-		tmpParentDir := ".tmp-earthly-out"
+		tmpParentDir := ".tmp-earth-out"
 
 		err = os.MkdirAll(tmpParentDir, 0o755) // #nosec G301
 		if err != nil {

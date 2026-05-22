@@ -83,7 +83,7 @@ func (ie InterpreterError) Unwrap() error {
 	return ie.cause
 }
 
-// Stack returns the Earthly stack within the error.
+// Stack returns the earth stack within the error.
 func (ie InterpreterError) Stack() string {
 	return ie.stack
 }

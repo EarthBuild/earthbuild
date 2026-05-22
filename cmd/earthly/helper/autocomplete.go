@@ -41,9 +41,9 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 
 	_, debugEnabled := os.LookupEnv("EARTHLY_AUTOCOMPLETE_DEBUG")
 	if debugEnabled {
-		logDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
+		logDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "GetOrCreateEarthlyDir failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "GetOrCreateEarthDir failed: %v\n", err)
 			return 1
 		}
 

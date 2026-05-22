@@ -1,5 +1,5 @@
 // Package saveartifactlocally handles the extraction and local saving of build artifacts
-// from EarthBuild's buildkit containers.
+// from earth's buildkit containers.
 package saveartifactlocally
 
 import (

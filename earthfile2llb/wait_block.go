@@ -378,7 +378,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 		c.opt.LocalArtifactWhiteList.Add(saveLocalItem.saveLocal.DestPath)
 
-		outDir, err := c.opt.TempEarthlyOutDir()
+		outDir, err := c.opt.TempEarthOutDir()
 		if err != nil {
 			return err
 		}

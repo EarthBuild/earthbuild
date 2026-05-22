@@ -16,7 +16,7 @@ import (
 )
 
 // These are functions that are used for getting information about an Earthfile,
-// most notably for `earthly doc` and `earthly ls` output.
+// most notably for `earth doc` and `earth ls` output.
 
 // GetTargets returns a list of targets from an Earthfile.
 // Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used).

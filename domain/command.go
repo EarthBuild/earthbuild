@@ -13,7 +13,7 @@ const commandNamePattern = "^[A-Z][A-Z0-9._]*$"
 
 var commandNameRegex = regexp.MustCompile(commandNamePattern)
 
-// Command is an earthly command identifier.
+// Command is an earth command identifier.
 type Command struct {
 	// Remote representation.
 	GitURL string `json:"gitUrl"` // e.g. "github.com/EarthBuild/earthbuild/examples/go"

@@ -39,7 +39,7 @@ var errCannotAsync = errors.New("cannot run async operation")
 // use as default to differentiate between an un specified string flag and a specified flag with empty value.
 var defaultZeroStringFlag = uuid.NewString()
 
-// Interpreter interprets Earthly AST's into calls to the converter.
+// Interpreter interprets earth AST's into calls to the converter.
 type Interpreter struct {
 	target               domain.Target
 	interactiveSaveFiles []debuggercommon.SaveFilesSettings
@@ -640,7 +640,7 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
 
 	if len(args) != 1 {
 		if len(args) == 3 && args[1] == "AS" {
-			return i.errorf(cmd.SourceLocation, "AS not supported, use earthly targets instead")
+			return i.errorf(cmd.SourceLocation, "AS not supported, use earth targets instead")
 		}
 
 		if len(args) < 1 {
@@ -1416,7 +1416,7 @@ func (i *Interpreter) handleSaveImage(ctx context.Context, cmd spec.Command) err
 		return nil
 	}
 
-	if opts.WithoutEarthlyLabels {
+	if opts.WithoutEarthLabels {
 		if !i.converter.ftrs.AllowWithoutEarthlyLabels {
 			return i.errorf(cmd.SourceLocation, "the SAVE IMAGE --without-earthly-labels flag must be enabled with "+
 				"the VERSION --allow-without-earthly-labels feature flag.")
@@ -2479,7 +2479,7 @@ func (i *Interpreter) handleDoFunction(
 		i.console.Printf(
 			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.
-Note that switching now may cause breakages for your colleagues if they are using older Earthly versions.
+Note that switching now may cause breakages for your colleagues if they are using older earth versions.
 `, sourceLocationFile)
 		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = true
 	}

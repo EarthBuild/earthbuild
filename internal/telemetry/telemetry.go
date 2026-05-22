@@ -28,7 +28,7 @@ import (
 
 var tracer = otel.Tracer("go.earthbuild.dev/earthbuild")
 
-// Tracer returns the tracer for the EarthBuild CLI.
+// Tracer returns the tracer for the earth CLI.
 func Tracer() trace.Tracer {
 	return tracer
 }

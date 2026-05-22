@@ -124,7 +124,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
 		// on the existence of ~/.earthly; therefore we must ensure it's created.
-		_, dirErr := cliutil.GetOrCreateEarthlyDir(b.cli.Flags().InstallationName)
+		_, dirErr := cliutil.GetOrCreateEarthDir(b.cli.Flags().InstallationName)
 		if dirErr != nil {
 			console.Warnf("Warning: Failed to create earthbuild Dir: %v", dirErr)
 			// Keep going.
@@ -392,11 +392,11 @@ func symlinkEarthlyToEarth() error {
 	}
 
 	if !common.IsEarthlyBinary(earthPath) {
-		return nil // file exists but is not an earthly binary, leave it alone.
+		return nil // file exists but is not an earth binary, leave it alone.
 	}
 
 	// otherwise legacy earth command has been detected, remove it and symlink
-	// to the new earthly command.
+	// to the new earth command.
 	err = os.Remove(earthPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to remove old install at %s", earthPath)
@@ -429,10 +429,10 @@ function _earthly {
 }
 
 func renderEntryTemplate(template string) (string, error) {
-	earthlyPath, err := os.Executable()
+	earthPath, err := os.Executable()
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to determine earthly path: %s", err)
+		return "", errors.Wrapf(err, "failed to determine earth path: %s", err)
 	}
 
-	return strings.ReplaceAll(template, "__earthly__", earthlyPath), nil
+	return strings.ReplaceAll(template, "__earthly__", earthPath), nil
 }

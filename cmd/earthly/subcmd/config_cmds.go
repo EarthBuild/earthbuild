@@ -29,7 +29,7 @@ func (a *Config) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:   "config",
-			Usage:  "Edits your EarthBuild configuration file",
+			Usage:  "Edits your earth configuration file",
 			Action: a.action,
 			//nolint:lll
 			UsageText: `Examples of common settings:
@@ -51,7 +51,7 @@ func (a *Config) Cmds() []*cli.Command {
 							* allows access over ssh
 							* using port 2222
 							* sets the username to git
-							* is recognized to earthly as example.com/name-of-repo
+							* is recognized to earth as example.com/name-of-repo
 
 							config git "{example: {pattern: 'example.com/([^/]+)', substitute: 'ssh://git@example.com:2222/var/git/repos/\$1.git', auth: ssh}}`,
 			//nolint:lll

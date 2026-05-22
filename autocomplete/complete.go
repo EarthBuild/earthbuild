@@ -389,9 +389,9 @@ const (
 type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 
 // GetPotentials returns a list of potential arguments for shell auto completion
-// NOTE: you can cause earthly to run this command with:
+// NOTE: you can cause earth to run this command with:
 //
-//	COMP_LINE="earthly -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
+//	COMP_LINE="earth -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
 func GetPotentials(
 	ctx context.Context,
 	resolver *buildcontext.Resolver,
@@ -412,7 +412,7 @@ func GetPotentials(
 
 	// getWord returns the next word and a boolean if it is valid
 	// TODO this function does not handle escaped space, e.g.
-	// earthly --build-arg key="value with space" +mytarget will fail
+	// earth --build-arg key="value with space" +mytarget will fail
 	hasNextWord := len(compLine) > 0
 	getWord := func() (string, bool) {
 		if !hasNextWord {
@@ -434,7 +434,7 @@ func GetPotentials(
 		return word, true
 	}
 
-	// remove first word which is most likely "earthly", or "/some/path/to/earthly", etc.
+	// remove first word which is most likely "earth", or "/some/path/to/earth", etc.
 	prevWord, _ := getWord()
 
 	state := rootState

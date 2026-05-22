@@ -40,7 +40,7 @@ var (
 )
 
 // Run runs the CLI and returns an exit code to pass to [os.Exit].
-func (app *EarthlyApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
+func (app *EarthApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
@@ -55,7 +55,7 @@ func (app *EarthlyApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (co
 	return app.run(ctx, os.Args, lastSignal)
 }
 
-func (app *EarthlyApp) unhideFlags() error {
+func (app *EarthApp) unhideFlags() error {
 	var err error
 
 	// TODO delete this check after 2022-03-01
@@ -99,7 +99,7 @@ func unhideFlagsCommands(cmds []*cli.Command) {
 	}
 }
 
-func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncutil.Signal) int {
+func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncutil.Signal) int {
 	defer func() {
 		if app.BaseCLI.LogbusSetup() != nil {
 			err := app.BaseCLI.LogbusSetup().Close()
@@ -140,7 +140,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 }
 
 // handleError handles run error, logs it and returns appropriate exit code.
-func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
+func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
 
 	if app.BaseCLI.Flags().Debug {
@@ -443,7 +443,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	}
 }
 
-func (app *EarthlyApp) printCrashLogs(ctx context.Context) {
+func (app *EarthApp) printCrashLogs(ctx context.Context) {
 	app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "System Info", "")
 	fmt.Fprintf(os.Stderr, "version: %s\n", app.BaseCLI.Version())  // #nosec G705
 	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA()) // #nosec G705

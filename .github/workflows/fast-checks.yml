@@ -1,0 +1,35 @@
+name: Fast Checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  checks:
+    name: Fast Checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: earthbuild/actions-setup@main
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: echo "EARTHLY_REMOTE_CACHE=ghcr.io/${GITHUB_REPOSITORY,,}/earthbuild-fast-checks-cache:latest" >> .env
+
+      - name: Lint
+        run: earth --ci --push +lint-all

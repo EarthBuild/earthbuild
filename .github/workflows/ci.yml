@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/renovate.json5'
+      - '.github/CODEOWNERS'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main, get-ci-working ]
+
+permissions: write-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-checks:
+    name: Fast Checks
+    uses: ./.github/workflows/fast-checks.yml
+    secrets: inherit
+
+  docker-ci:
+    name: Docker CI Ubuntu
+    needs: fast-checks
+    uses: ./.github/workflows/ci-docker-ubuntu.yml
+    secrets: inherit
+
+  podman-ci:
+    name: Podman CI Ubuntu
+    needs: fast-checks
+    uses: ./.github/workflows/ci-podman-ubuntu.yml
+    secrets: inherit

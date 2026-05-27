@@ -1,3 +1,4 @@
+// Package progressbar implements console-based progress bars for long-running operations.
 package progressbar
 
 import "strings"

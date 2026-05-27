@@ -54,6 +54,7 @@ type Command struct {
 	ExecMode       bool            `json:"execMode,omitempty"`
 }
 
+// Clone returns a deep copy of the command.
 func (c Command) Clone() Command {
 	newCmd := c
 	args := make([]string, len(c.Args))

@@ -97,7 +97,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
@@ -306,7 +306,7 @@ The `Earthfile` is at the root of the directory.
 
 ```Dockerfile
 VERSION 0.8
-FROM node:13.10.1-alpine3.11
+FROM node:26.1.0-alpine3.23
 WORKDIR /js-example
 
 app-deps:

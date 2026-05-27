@@ -1,18 +1,19 @@
 package subcmd
 
 import (
+	"context"
 	"time"
-
-	"github.com/dustin/go-humanize"
-	"github.com/moby/buildkit/client"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
+	"github.com/dustin/go-humanize"
+	"github.com/moby/buildkit/client"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
+	"golang.org/x/sync/errgroup"
 )
 
+// Prune encapsulates the prune command logic.
 type Prune struct {
 	cli CLI
 
@@ -22,18 +23,20 @@ type Prune struct {
 	targetSize   flagutil.ByteSizeValue
 }
 
+// NewPrune creates a new Prune command.
 func NewPrune(cli CLI) *Prune {
 	return &Prune{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the prune command.
 func (a *Prune) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:  "prune",
-			Usage: "Prune EarthBuild build cache",
-			Description: `Prune EarthBuild build cache in one of two forms.
+			Usage: "Prune earth build cache",
+			Description: `Prune earth build cache in one of two forms.
 	Standard Form:
 		Issues a prune command on the BuildKit daemon.
 	Reset Form:
@@ -44,13 +47,13 @@ func (a *Prune) Cmds() []*cli.Command {
 				&cli.BoolFlag{
 					Name:        "all",
 					Aliases:     []string{"a"},
-					EnvVars:     []string{"EARTHLY_PRUNE_ALL"},
+					Sources:     cli.EnvVars("EARTHLY_PRUNE_ALL"),
 					Usage:       "Prune all cache via BuildKit daemon",
 					Destination: &a.all,
 				},
 				&cli.BoolFlag{
 					Name:        "reset",
-					EnvVars:     []string{"EARTHLY_PRUNE_RESET"},
+					Sources:     cli.EnvVars("EARTHLY_PRUNE_RESET"),
 					Usage:       `Reset cache entirely by restarting BuildKit daemon and wiping cache dir.`,
 					Destination: &a.reset,
 				},
@@ -70,21 +73,21 @@ func (a *Prune) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Prune) action(cliCtx *cli.Context) error {
+func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("prune")
 
-	if cliCtx.NArg() != 0 {
+	if cmd.NArg() != 0 {
 		return errors.New("invalid arguments")
 	}
 
 	if a.reset {
-		err := a.cli.InitFrontend(cliCtx)
+		err := a.cli.InitFrontend(ctx, cmd)
 		if err != nil {
 			return err
 		}
 
 		err = buildkitd.ResetCache(
-			cliCtx.Context, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
+			ctx, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
 			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings)
 		if err != nil {
 			return errors.Wrap(err, "reset cache")
@@ -93,7 +96,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 		return nil
 	}
 
-	bkClient, err := a.cli.GetBuildkitClient(cliCtx)
+	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
 		return errors.Wrap(err, "prune new buildkitd client")
 	}
@@ -110,7 +113,7 @@ func (a *Prune) action(cliCtx *cli.Context) error {
 	}
 
 	ch := make(chan client.UsageInfo, 1)
-	eg, ctx := errgroup.WithContext(cliCtx.Context)
+	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		err = bkClient.Prune(ctx, ch, opts...)
 		if err != nil {

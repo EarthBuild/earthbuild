@@ -1,3 +1,4 @@
+// Package buildkitd manages the lifecycle of the embedded or remote Buildkit daemon used by earth.
 package buildkitd
 
 import (
@@ -47,7 +48,7 @@ func NewClient(
 	console conslogging.ConsoleLogger,
 	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
-	earthlyVersion string,
+	earthVersion string,
 	settings Settings,
 	opts ...client.ClientOpt,
 ) (_ *client.Client, retErr error) {
@@ -69,8 +70,8 @@ func NewClient(
 				if containsAny(retErr.Error(), tlsPaths...) {
 					retErr = hint.Wrap(retErr,
 						"podman now requires TLS certs by default - "+
-							"try stopping the earthly-buildkitd container and re-running 'earthly bootstrap'",
-						"alternatively, run 'earthly config global.tls_enabled false' to disable TLS",
+							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
+						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
 					)
 				}
 			default:
@@ -84,7 +85,7 @@ func NewClient(
 			// errors.Is() won't work. We use strings.Contains instead to handle
 			// that case.
 			retErr = hint.Wrap(retErr,
-				"did earthly's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.")
+				"did earth's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.")
 
 			return
 		}
@@ -111,7 +112,7 @@ func NewClient(
 		}
 
 		remoteConsole.Printf("...Done")
-		printBuildkitInfo(remoteConsole, info, workerInfo, earthlyVersion, isLocal, settings.HasConfiguredCacheSize())
+		printBuildkitInfo(remoteConsole, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
 
 		var bkClient *client.Client
 
@@ -134,7 +135,7 @@ func NewClient(
 		return nil, errors.Wrap(err, "maybe start buildkitd")
 	}
 
-	printBuildkitInfo(bkCons, info, workerInfo, earthlyVersion, isLocal, settings.HasConfiguredCacheSize())
+	printBuildkitInfo(bkCons, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
 
 	bkClient, err := client.New(ctx, settings.BuildkitAddress, opts...)
 	if err != nil {
@@ -475,7 +476,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 func Start(
 	ctx context.Context,
 	console conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName, _ string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	reset bool,
@@ -529,11 +530,13 @@ func Start(
 		envOpts["IP_TABLES"] = settings.IPTables
 	}
 
+	const localhost = "127.0.0.1"
+
 	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
-		// Add /sys/fs/cgroup if it's earthly-in-earthly.
+		// Add /sys/fs/cgroup if it's earth-in-earth.
 		volumeOpts = append(volumeOpts, containerutil.Mount{
 			Type:   containerutil.MountBind,
 			Source: "/sys/fs/cgroup",
@@ -556,7 +559,7 @@ func Start(
 			}
 
 			portOpts = append(portOpts, containerutil.Port{
-				IP:            "127.0.0.1",
+				IP:            localhost,
 				HostPort:      hostPort,
 				ContainerPort: 8371,
 				Protocol:      containerutil.ProtocolTCP,
@@ -579,15 +582,15 @@ func Start(
 			}
 
 			portOpts = append(portOpts, containerutil.Port{
-				IP:            "127.0.0.1",
+				IP:            localhost,
 				HostPort:      hostPort,
 				ContainerPort: 8372,
 				Protocol:      containerutil.ProtocolTCP,
 			})
 			if settings.EnableProfiler {
 				portOpts = append(portOpts, containerutil.Port{
-					IP:            "127.0.0.1",
-					HostPort:      6061, // 6060 is reserved for earthly client
+					IP:            localhost,
+					HostPort:      6061, // 6060 is reserved for earth client
 					ContainerPort: 6060,
 					Protocol:      containerutil.ProtocolTCP,
 				})
@@ -779,7 +782,7 @@ ContainerRunningLoop:
 					"\t\tearth config 'global.cache_size_mb' <new-size>\n" +
 					"\t\tearth config 'global.cache_size_pct' <new-percent>\n" +
 					"These set the BuildKit GC target to a specific value. For more information see " +
-					"the EarthBuild config reference page: https://docs.earthbuild.dev/docs/earthly-config\n")
+					"the earth config reference page: https://docs.earthbuild.dev/docs/earthly-config\n")
 
 			info, workerInfo, err = waitForConnection(ctx, containerName, settings, fe, opts...)
 			if err != nil {
@@ -861,6 +864,8 @@ func waitForConnection(
 	}
 }
 
+const unknown = "unknown"
+
 func checkConnection(
 	ctx context.Context, address string, timeout time.Duration, opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
@@ -925,9 +930,9 @@ func checkConnection(
 				// Degrade gracefully.
 				info = &client.Info{
 					BuildkitVersion: client.BuildkitVersion{
-						Version:  "unknown",
-						Package:  "unknown",
-						Revision: "unknown",
+						Version:  unknown,
+						Package:  unknown,
+						Revision: unknown,
 					},
 				}
 			} else {
@@ -1131,7 +1136,7 @@ func printBuildkitInfo(
 	bkCons conslogging.ConsoleLogger,
 	info *client.Info,
 	workerInfo *client.WorkerInfo,
-	earthlyVersion string,
+	earthVersion string,
 	isLocal, hasConfiguredCacheSize bool,
 ) {
 	// Print most of this stuff only for remote buildkits
@@ -1141,10 +1146,10 @@ func printBuildkitInfo(
 	}
 
 	//nolint:nestif // TODO(jhorsts): simplify
-	if info.BuildkitVersion.Version == "unknown" {
+	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than Earthly Buildkit v0.6.20")
+				"it's from a version lower than earth Buildkit v0.6.20")
 	} else {
 		printFun(
 			"Version %s %s %s",
@@ -1156,12 +1161,12 @@ func printBuildkitInfo(
 			bkCons.Warnf("Using a non-EarthBuild version of Buildkit is not supported.\n"+
 				"  Supported: %s\n"+
 				"  Detected:  %s", buildkitPackage, info.BuildkitVersion.Package)
-		} else if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthlyVersion {
+		} else if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthVersion {
 			if isLocal {
 				// For local buildkits we expect perfect version match.
 				bkCons.Warnf(
-					"Warning: Buildkit version (%s) is different from Earthly version (%s)",
-					info.BuildkitVersion.Version, earthlyVersion)
+					"Warning: Buildkit version (%s) is different from earth version (%s)",
+					info.BuildkitVersion.Version, earthVersion)
 			} else {
 				compatible := true
 
@@ -1172,20 +1177,20 @@ func printBuildkitInfo(
 					compatible = false
 				}
 
-				earthlyVersion, err := semverutil.Parse(earthlyVersion)
+				earthVersion, err := semverutil.Parse(earthVersion)
 				if err != nil {
 					bkCons.VerbosePrintf("Warning: could not parse earth version: %v", err)
 
 					compatible = false
 				}
 
-				compatible = compatible && semverutil.IsCompatible(bkVersion, earthlyVersion)
+				compatible = compatible && semverutil.IsCompatible(bkVersion, earthVersion)
 				if compatible {
-					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with EarthBuild version (%s)",
-						info.BuildkitVersion.Version, earthlyVersion)
+					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with earth version (%s)",
+						info.BuildkitVersion.Version, earthVersion)
 				} else {
-					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with EarthBuild version (%s)",
-						info.BuildkitVersion.Version, earthlyVersion)
+					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with earth version (%s)",
+						info.BuildkitVersion.Version, earthVersion)
 				}
 			}
 		}

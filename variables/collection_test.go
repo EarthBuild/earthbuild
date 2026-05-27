@@ -37,6 +37,7 @@ func TestCollection(t *testing.T) {
 		})
 	}
 
+	//nolint:goconst
 	t.Run("Defaults", func(t *testing.T) {
 		t.Parallel()
 
@@ -58,7 +59,7 @@ func TestCollection(t *testing.T) {
 					Variant:      "bacon",
 				}),
 				BuiltinArgs: variables.DefaultArgs{
-					EarthlyVersion: "some version",
+					EarthVersion: "some version",
 				},
 				Features: tc.features,
 			})
@@ -91,7 +92,7 @@ func TestCollection(t *testing.T) {
 					Variant:      "bacon",
 				}),
 				BuiltinArgs: variables.DefaultArgs{
-					EarthlyVersion: "some version",
+					EarthVersion: "some version",
 				},
 				Features: tc.features,
 			})

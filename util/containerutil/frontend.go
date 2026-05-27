@@ -11,7 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
-// ContainerFrontend is an interface specifying all the container options Earthly needs to do.
+// ContainerFrontend is an interface specifying all the container options earth needs to do.
 type ContainerFrontend interface {
 	Scheme() string
 

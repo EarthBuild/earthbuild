@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Artifact is an earthly artifact identifier.
+// Artifact is an earth artifact identifier.
 type Artifact struct {
 	Target   Target
 	Artifact string
@@ -20,13 +20,13 @@ func (a Artifact) Clone() Artifact {
 }
 
 // String returns a string representation of the Artifact.
-func (ea Artifact) String() string {
-	return fmt.Sprintf("%s%s", ea.Target.String(), path.Join("/", escapePlus(ea.Artifact)))
+func (a Artifact) String() string {
+	return fmt.Sprintf("%s%s", a.Target.String(), path.Join("/", escapePlus(a.Artifact)))
 }
 
 // StringCanonical returns a string representation of the Artifact.
-func (ea Artifact) StringCanonical() string {
-	return fmt.Sprintf("%s%s", ea.Target.StringCanonical(), path.Join("/", escapePlus(ea.Artifact)))
+func (a Artifact) StringCanonical() string {
+	return fmt.Sprintf("%s%s", a.Target.StringCanonical(), path.Join("/", escapePlus(a.Artifact)))
 }
 
 // ParseArtifact parses a string representation of an Artifact.

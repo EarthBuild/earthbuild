@@ -1,3 +1,4 @@
+// Package main provides a script for parsing and transforming unit test output.
 package main
 
 import (

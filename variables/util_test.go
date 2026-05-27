@@ -10,6 +10,7 @@ import (
 func TestParseEscapedKeyValue(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		kv string
 		k  string

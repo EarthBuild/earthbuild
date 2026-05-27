@@ -15,13 +15,25 @@ const (
 	dockerIgnoreFile  = ".dockerignore"
 )
 
+const (
+	tmpOutputDir          = ".tmp-earth-out"
+	tmpOutputDirWithSlash = tmpOutputDir + "/"
+)
+
+const (
+	buildEarthFile = "build.earth"
+
+	// Earthfile is the default project configuration file.
+	Earthfile = "Earthfile"
+)
+
 var errDuplicateIgnoreFile = errors.New("both .earthignore and .earthlyignore exist - please remove one")
 
 // ImplicitExcludes is a list of implicit patterns to exclude.
 var ImplicitExcludes = []string{
-	".tmp-earthly-out/",
-	"build.earth",
-	"Earthfile",
+	tmpOutputDirWithSlash,
+	buildEarthFile,
+	Earthfile,
 	earthIgnoreFile,
 	earthlyIgnoreFile,
 }

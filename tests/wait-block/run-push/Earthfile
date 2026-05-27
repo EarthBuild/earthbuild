@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test:
-    FROM debian:11.4
+    FROM debian:11.11
     ARG --required echoserver_ip
     ARG --required echoserver_port
     RUN --no-cache /bin/bash -c "echo no-cache-1 > /dev/tcp/$echoserver_ip/$echoserver_port"

@@ -8,6 +8,7 @@ import (
 func Test_parseKeyScanIfHostMatches(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	testcases := []struct {
 		key      string
 		hostname string

@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.26.2
+LET GO_VERSION=1.26.3
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -70,7 +70,7 @@ code:
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earthly dockertar domain features internal logbus logstream regproxy states slog util variables ./
+        docker2earth dockertar domain features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
@@ -93,7 +93,7 @@ update-buildkit:
 
 lint-scripts-base:
     # renovate: datasource=docker packageName=alpine
-    ARG alpine_version=3.23.3
+    ARG alpine_version=3.23.4
     FROM alpine:$alpine_version
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
@@ -144,8 +144,8 @@ earthly-script-no-stdout:
 # lint runs basic go linters against the earthly project.
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.11.4
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+    LET golangci_lint_version=2.12.2
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -279,7 +279,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.0-slim@sha256:9813eecff3a08a6ac88aea5b43663c82a931fd9557f6aceaa847f0d8ce738978
+    FROM python:3.14.3-slim@sha256:6a27522252aef8432841f224d9baaa6e9fce07b07584154fa0b9a96603af7456
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -500,7 +500,7 @@ earthly-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.18
+    FROM alpine:3.23
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -511,7 +511,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.18
+    FROM alpine:3.23
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -521,7 +521,7 @@ prerelease-script:
 ci-release:
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
-    FROM alpine:3.18
+    FROM alpine:3.23
     ARG BUILDKIT_PROJECT
     ARG EARTHLY_GIT_HASH
     ARG --required TAG_SUFFIX
@@ -841,9 +841,9 @@ license:
     SAVE ARTIFACT LICENSE
 
 node:
-    FROM node:24.9.0-alpine3.22
+    FROM node:26.1.0-alpine3.23
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.12.1
+    LET npm_version=11.14.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -878,7 +878,7 @@ merge-main-to-docs:
 
     ARG TARGETARCH
     # renovate: datasource=github-releases packageName=cli/cli
-    ENV gh_version=v2.89.0
+    ENV gh_version=v2.92.0
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
@@ -950,7 +950,7 @@ open-pr-for-fork:
 
     ARG TARGETARCH
     # renovate: datasource=github-releases packageName=cli/cli
-    ENV gh_version=v2.89.0
+    ENV gh_version=v2.92.0
     RUN curl -Lo ghlinux.tar.gz \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \

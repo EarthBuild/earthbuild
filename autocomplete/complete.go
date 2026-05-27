@@ -9,7 +9,6 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -19,9 +18,8 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var errCompPointOutOfBounds = errors.New("COMP_POINT out of bounds")
@@ -290,22 +288,6 @@ func getPotentialArtifactBuildArgs(
 	return getPotentialTargetBuildArgs(ctx, resolver, gwClient, artifact.Target.String())
 }
 
-// isVisibleFlag returns if a flag is hidden or not
-// this code comes from https://github.com/urfave/cli/blob/d648edd48d89ef3a841b1ec75c2ebbd4de5f748f/flag.go#L136
-func isVisibleFlag(fl cli.Flag) bool {
-	fv := reflect.ValueOf(fl)
-	for fv.Kind() == reflect.Ptr {
-		fv = reflect.Indirect(fv)
-	}
-
-	field := fv.FieldByName("Hidden")
-	if !field.IsValid() || !field.Bool() {
-		return true
-	}
-
-	return false
-}
-
 func getCmd(name string, cmds []*cli.Command) *cli.Command {
 	for _, c := range cmds {
 		if name == c.Name {
@@ -320,11 +302,14 @@ func getVisibleFlags(flags []cli.Flag) []string {
 	visibleFlags := []string{}
 
 	for _, f := range flags {
-		if isVisibleFlag(f) {
-			for _, n := range f.Names() {
-				if len(n) > 1 {
-					visibleFlags = append(visibleFlags, n)
-				}
+		vf, ok := f.(cli.VisibleFlag)
+		if ok && !vf.IsVisible() {
+			continue
+		}
+
+		for _, n := range f.Names() {
+			if len(n) > 1 {
+				visibleFlags = append(visibleFlags, n)
 			}
 		}
 	}
@@ -400,33 +385,34 @@ const (
 	endOfSuggestionsState               // 8
 )
 
+// FlagValuePotentialFn is a function that returns a list of potential arguments for a flag.
 type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 
 // GetPotentials returns a list of potential arguments for shell auto completion
-// NOTE: you can cause earthly to run this command with:
+// NOTE: you can cause earth to run this command with:
 //
-//	COMP_LINE="earthly -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
+//	COMP_LINE="earth -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
 func GetPotentials(
 	ctx context.Context,
 	resolver *buildcontext.Resolver,
 	gwClient gwclient.Client,
 	compLine string,
 	compPoint int,
-	app *cli.App,
+	app *cli.Command,
 ) ([]string, error) {
 	if compPoint > len(compLine) {
 		return nil, errCompPointOutOfBounds
 	}
 
 	compLine = compLine[:compPoint]
-	subCommands := app.Commands
+	commands := app.Commands
 
 	flagValues := map[string]string{}
 	flagValuePotentialFuncs := map[string]FlagValuePotentialFn{}
 
 	// getWord returns the next word and a boolean if it is valid
 	// TODO this function does not handle escaped space, e.g.
-	// earthly --build-arg key="value with space" +mytarget will fail
+	// earth --build-arg key="value with space" +mytarget will fail
 	hasNextWord := len(compLine) > 0
 	getWord := func() (string, bool) {
 		if !hasNextWord {
@@ -448,7 +434,7 @@ func GetPotentials(
 		return word, true
 	}
 
-	// remove first word which is most likely "earthly", or "/some/path/to/earthly", etc.
+	// remove first word which is most likely "earth", or "/some/path/to/earth", etc.
 	prevWord, _ := getWord()
 
 	state := rootState
@@ -503,9 +489,9 @@ func GetPotentials(
 				target = w
 			} else {
 				// must be under a command
-				foundCmd := getCmd(w, subCommands)
+				foundCmd := getCmd(w, commands)
 				if foundCmd != nil {
-					subCommands = foundCmd.Subcommands
+					commands = foundCmd.Commands
 					cmd = foundCmd
 				}
 
@@ -546,7 +532,7 @@ func GetPotentials(
 
 	case rootState, commandState:
 		if cmd != nil {
-			potentials = getVisibleCommands(cmd.Subcommands)
+			potentials = getVisibleCommands(cmd.Commands)
 			potentials = padStrings(potentials, "", " ")
 		} else {
 			potentials = getVisibleCommands(app.Commands)
@@ -556,7 +542,7 @@ func GetPotentials(
 				potentials = append(potentials, "./")
 			}
 
-			if fileutil.FileExistsBestEffort("Earthfile") {
+			if fileutil.FileExistsBestEffort(buildcontext.Earthfile) {
 				potentials = append(potentials, "+")
 			}
 		}
@@ -604,7 +590,7 @@ func GetPotentials(
 }
 
 func hasEarthfile(dirPath string) bool {
-	info, err := os.Stat(path.Join(dirPath, "Earthfile"))
+	info, err := os.Stat(filepath.Join(dirPath, buildcontext.Earthfile))
 	if err != nil {
 		return false
 	}

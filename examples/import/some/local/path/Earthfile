@@ -1,7 +1,7 @@
 VERSION 0.8
 
 base-image:
-    FROM busybox:1.32.0
+    FROM busybox:1.37.0
 
 get-file:
     FROM +base-image

@@ -1,29 +1,34 @@
 package subcmd
 
 import (
+	"context"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
+	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const efIndent = "    "
 
+// Init encapsulates the init command logic.
 type Init struct {
 	cli CLI
 }
 
+// NewInit creates a new Init command.
 func NewInit(cli CLI) *Init {
 	return &Init{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the init command.
 func (a *Init) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -35,9 +40,7 @@ func (a *Init) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Init) action(cliCtx *cli.Context) error {
-	ctx := cliCtx.Context
-
+func (a *Init) action(ctx context.Context, _ *cli.Command) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return errors.Wrap(err, "could not load current working directory")
@@ -48,7 +51,7 @@ func (a *Init) action(cliCtx *cli.Context) error {
 		return errors.Wrapf(err, "could not get absolute path for %q", wd)
 	}
 
-	efPath := filepath.Join(absWd, "Earthfile")
+	efPath := filepath.Join(absWd, buildcontext.Earthfile)
 
 	_, err = os.Stat(efPath)
 	if err == nil {
@@ -113,7 +116,7 @@ func initSingleProject(w io.Writer, p proj.Project) error {
 			}
 		}
 
-		err := tgt.Format(w, efIndent, 0)
+		err := tgt.Format(w, efIndent)
 		if err != nil {
 			return errors.Wrapf(err, "could not format target for project type %T", p)
 		}

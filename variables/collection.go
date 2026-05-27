@@ -2,6 +2,7 @@ package variables
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -17,17 +18,20 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// Standard errors related to variable collections.
 var (
 	ErrRedeclared   = errors.New("this variable was declared twice in the same target")
 	ErrVarNotFound  = errors.New("no matching variable found in this scope")
 	ErrInvalidScope = errors.New("this action is not allowed in this scope")
 	ErrSetArg       = errors.New("ARG values cannot be reassigned")
-
-	ShellOutEnvs = map[string]struct{}{
-		"HOME": {},
-		"PATH": {},
-	}
 )
+
+// ShellOutEnvs is a map of environment variables that are always present when
+// shelling-out.
+var ShellOutEnvs = map[string]struct{}{
+	"HOME": {},
+	"PATH": {},
+}
 
 type stackFrame struct {
 	// absRef is the ref any other ref in this frame would be relative to.
@@ -489,13 +493,13 @@ func (c *Collection) IsStackAtBase() bool {
 // StackString returns the stack as a string.
 func (c *Collection) StackString() string {
 	builder := make([]string, 0, len(c.stack))
-	for i := len(c.stack) - 1; i >= 0; i-- {
-		activeNames := c.stack[i].args.Sorted(WithActive())
+	for _, v := range slices.Backward(c.stack) {
+		activeNames := v.args.Sorted(WithActive())
 		row := make([]string, 0, len(activeNames)+1)
 
-		row = append(row, c.stack[i].frameName)
+		row = append(row, v.frameName)
 		for _, k := range activeNames {
-			v, _ := c.stack[i].overriding.Get(k)
+			v, _ := v.overriding.Get(k)
 			row = append(row, fmt.Sprintf("--%s=%s", k, v))
 		}
 

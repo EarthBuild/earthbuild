@@ -52,6 +52,8 @@ const (
 	httpsProtocol gitProtocol = "https"
 )
 
+const gitUser = "git"
+
 // GitLookup looksup gits.
 type GitLookup struct {
 	sshAuthSock   string
@@ -84,7 +86,7 @@ func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLoo
 		catchAll: &gitMatcher{
 			name:     "",
 			re:       regexp.MustCompile("[^/]+/[^/]+/[^/]+"),
-			user:     "git",
+			user:     gitUser,
 			suffix:   ".git",
 			protocol: autoProtocol,
 		},
@@ -370,7 +372,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 }
 
 func (gl *GitLookup) newHostKeyCallback(keys []string) ssh.HostKeyCallback {
-	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	return func(hostname string, _ net.Addr, key ssh.PublicKey) error {
 		for _, keyScan := range keys {
 			k, _, _, _, err := ssh.ParseAuthorizedKey([]byte(keyScan))
 			if err != nil {
@@ -391,14 +393,14 @@ func (gl *GitLookup) getGitMatcherByPath(path string) (string, *gitMatcher, erro
 	for _, m := range gl.matchers {
 		match := m.re.FindString(path)
 		if match != "" {
-			gl.console.VerbosePrintf("matched earthly reference %s with git config entry %s (regex %s)", path, m.name, m.re)
+			gl.console.VerbosePrintf("matched earth reference %s with git config entry %s (regex %s)", path, m.name, m.re)
 			return match, m, nil
 		}
 	}
 
 	match := gl.catchAll.re.FindString(path)
 	if match != "" {
-		gl.console.VerbosePrintf("matched earthly reference %s with pre-configured catch-all (regex %s)",
+		gl.console.VerbosePrintf("matched earth reference %s with pre-configured catch-all (regex %s)",
 			path, gl.catchAll.re)
 
 		return match, gl.catchAll, nil
@@ -461,7 +463,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 	}
 
 	config := &ssh.ClientConfig{
-		User: "git",
+		User: gitUser,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers),
 		},
@@ -554,7 +556,7 @@ func (gl *GitLookup) makeCloneURL(
 
 		switch configuredProtocol {
 		case sshProtocol:
-			user = "git"
+			user = gitUser
 		case httpProtocol, httpsProtocol:
 			user = ""
 			password = ""
@@ -568,7 +570,7 @@ func (gl *GitLookup) makeCloneURL(
 
 			user, ok = os.LookupEnv("USER")
 			if !ok {
-				user = "git"
+				user = gitUser
 
 				gl.console.VerbosePrintf("ssh auth configured without a user; failed to get current user, defaulting to git")
 			} else {
@@ -680,7 +682,7 @@ func parseGitProtocol(remote string) (string, int) {
 
 // GetCloneURL returns the repo to clone, and a path relative to the repo
 //
-//	"github.com/earthly/earthly"             ---> ("git@github.com/earthly/earthly.git", "")
+//	"github.com/earthly/earthly"                   ---> ("git@github.com/earthly/earthly.git", "")
 //	"github.com/EarthBuild/earthbuild/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
 //	"github.com/EarthBuild/earthbuild/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
 //
@@ -717,7 +719,7 @@ func (gl *GitLookup) GetCloneURL(
 			return "", "", nil, "", err
 		}
 
-		gl.console.VerbosePrintf("converted earthly reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
+		gl.console.VerbosePrintf("converted earth reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
 
 		return gitURL, subPath, keyScans, sshCommand, nil
 	}
@@ -727,7 +729,7 @@ func (gl *GitLookup) GetCloneURL(
 	}
 
 	gitURL = m.re.ReplaceAllString(path, m.sub)
-	gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)",
+	gl.console.VerbosePrintf("converted earth reference %s to git url %s (using regex substitution %s)",
 		path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
 
 	remote, protocol := parseGitProtocol(gitURL)

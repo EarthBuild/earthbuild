@@ -1,5 +1,6 @@
 package command
 
+// Names used for various AST commands.
 const (
 	Add            = "ADD"
 	Arg            = "ARG"

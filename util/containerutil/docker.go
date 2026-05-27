@@ -27,7 +27,7 @@ type dockerShellFrontend struct {
 func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (ContainerFrontend, error) {
 	fe := &dockerShellFrontend{
 		shellFrontend: &shellFrontend{
-			binaryName:              "docker",
+			binaryName:              FrontendDocker,
 			runCompatibilityArgs:    make([]string, 0),
 			globalCompatibilityArgs: make([]string, 0),
 			Console:                 cfg.Console,

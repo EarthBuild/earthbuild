@@ -221,6 +221,8 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error
 	return nil
 }
 
+const cmdName = "earthly"
+
 func (app *EarthlyApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
@@ -230,7 +232,7 @@ func (app *EarthlyApp) warnIfEarth() {
 	binPath := os.Args[0]
 
 	baseName := path.Base(binPath)
-	if baseName == "earthly" {
+	if baseName == cmdName {
 		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
 			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
 
@@ -239,7 +241,7 @@ func (app *EarthlyApp) warnIfEarth() {
 			return
 		}
 
-		earthlyPath := path.Join(path.Dir(absPath), "earthly")
+		earthlyPath := path.Join(path.Dir(absPath), cmdName)
 
 		earthlyPathExists, _ := fileutil.FileExists(earthlyPath)
 		if earthlyPathExists {

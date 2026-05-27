@@ -357,7 +357,8 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 	// Assumes mu locked.
 	var w bytes.Buffer
 
-	w.WriteString(string(header) + " ")
+	w.WriteString(string(header))
+	w.WriteByte(' ')
 
 	if !strings.HasSuffix(msg, "\n") {
 		w.WriteByte('\n')

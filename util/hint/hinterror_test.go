@@ -19,7 +19,7 @@ func TestWrapf(t *testing.T) {
 		res := Wrapf(errInternal, "some hint")
 		assert.Equal(t, &Error{
 			err:   errInternal,
-			hints: []string{"some hint"},
+			hints: []string{"some hint"}, //nolint:goconst
 		}, res)
 	})
 	t.Run("with args", func(t *testing.T) {

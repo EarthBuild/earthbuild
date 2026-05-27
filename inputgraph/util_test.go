@@ -20,6 +20,7 @@ func TestParseProjectCommand(t *testing.T) {
 	t.Skip()
 
 	r := require.New(t)
+	//nolint:goconst
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",
 		Target:    "with-docker-load",

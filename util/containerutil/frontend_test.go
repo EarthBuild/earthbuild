@@ -22,6 +22,7 @@ import (
 func TestFrontendNew(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	testCases := []struct {
 		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
 		binary  string

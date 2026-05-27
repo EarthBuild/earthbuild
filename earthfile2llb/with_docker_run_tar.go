@@ -167,7 +167,7 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 	})
 
 	crOpts := ConvertRunOpts{
-		CommandName:          "WITH DOCKER RUN",
+		CommandName:          commandName,
 		Args:                 args,
 		Mounts:               opt.Mounts,
 		Secrets:              opt.Secrets,

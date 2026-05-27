@@ -92,6 +92,7 @@ func TestPodmanProvider(t *testing.T) {
 		}
 	}
 
+	//nolint:goconst
 	for _, tt := range []struct {
 		name  string
 		entry entry

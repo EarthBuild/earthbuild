@@ -37,6 +37,7 @@ func TestCollection(t *testing.T) {
 		})
 	}
 
+	//nolint:goconst
 	t.Run("Defaults", func(t *testing.T) {
 		t.Parallel()
 

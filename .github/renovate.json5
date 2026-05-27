@@ -130,19 +130,6 @@
         '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+packageName=(?<packageName>.+?)\\s+curl.*?releases/download/(?<currentValue>[0-9.]+[^/]*)/docker-compose',
       ],
     },
-
-    {
-      customType: 'regex',
-      description: 'Update Go version in .mise.toml',
-      managerFilePatterns: [
-        '**/.mise.toml',
-      ],
-      matchStrings: [
-        '^go\\s*=\\s*"(?<currentValue>.+?)"',
-      ],
-      datasourceTemplate: 'golang-version',
-      depNameTemplate: 'go',
-    },
     {
       customType: 'regex',
       description: 'Update docker-compose versions in shell scripts',
@@ -163,18 +150,6 @@
         '^(?<depName>[a-zA-Z0-9_-]+)==(?<currentValue>.+?)$',
       ],
       datasourceTemplate: 'pypi',
-    },
-    {
-      customType: 'regex',
-      description: 'Update Go version in .mise.toml',
-      managerFilePatterns: [
-        '**/.mise.toml',
-      ],
-      matchStrings: [
-        '^go\\s*=\\s*"(?<currentValue>.+?)"',
-      ],
-      datasourceTemplate: 'golang-version',
-      depNameTemplate: 'go',
     },
   ],
   labels: [
@@ -406,6 +381,44 @@
       groupName: 'mise-tool-versions',
       schedule: [
         'every month',
+      ],
+    },
+    // group all golang.org/x/ dependencies
+    {
+      groupName: 'x',
+      matchPackageNames: [
+        '^golang\\.org/x/',
+      ],
+    },
+    // group all AWS SDK dependencies
+    {
+      groupName: 'AWS SDK',
+      matchPackageNames: [
+        '^github\\.com/aws/',
+      ],
+    },
+    // group Go version updates
+    {
+      groupName: 'go',
+      matchPackageNames: [
+        'go',
+      ],
+      matchDatasources: [
+        'golang-version',
+      ],
+    },
+    // group all OpenTelemetry dependencies
+    {
+      groupName: 'otel',
+      matchPackageNames: [
+        '^go\\.opentelemetry\\.io/',
+      ],
+    },
+    // group all Golang extended packages
+    {
+      groupName: 'x',
+      matchPackageNames: [
+        '^golang\\.org/x/',
       ],
     },
   ],

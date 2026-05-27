@@ -22,6 +22,7 @@ var _ ast.NamedReader = &namedStringReader{}
 func TestParse(t *testing.T) {
 	t.Parallel()
 
+	//nolint:goconst
 	tests := []struct {
 		check     func(*require.Assertions, spec.Earthfile, error)
 		note      string

@@ -2,6 +2,7 @@ package states
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/moby/buildkit/client/llb"
@@ -214,8 +215,8 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 
-	for i := len(sts.WaitBlocks) - 1; i >= 0; i-- {
-		err := sts.WaitBlocks[i].Wait(ctx, sts.doPushes, sts.doSaves)
+	for _, v := range slices.Backward(sts.WaitBlocks) {
+		err := v.Wait(ctx, sts.doPushes, sts.doSaves)
 		if err != nil {
 			return err
 		}

@@ -294,7 +294,7 @@ func getPotentialArtifactBuildArgs(
 // this code comes from https://github.com/urfave/cli/blob/d648edd48d89ef3a841b1ec75c2ebbd4de5f748f/flag.go#L136
 func isVisibleFlag(fl cli.Flag) bool {
 	fv := reflect.ValueOf(fl)
-	for fv.Kind() == reflect.Ptr {
+	for fv.Kind() == reflect.Pointer {
 		fv = reflect.Indirect(fv)
 	}
 
@@ -556,7 +556,7 @@ func GetPotentials(
 				potentials = append(potentials, "./")
 			}
 
-			if fileutil.FileExistsBestEffort("Earthfile") {
+			if fileutil.FileExistsBestEffort(buildcontext.Earthfile) {
 				potentials = append(potentials, "+")
 			}
 		}
@@ -604,7 +604,7 @@ func GetPotentials(
 }
 
 func hasEarthfile(dirPath string) bool {
-	info, err := os.Stat(path.Join(dirPath, "Earthfile"))
+	info, err := os.Stat(filepath.Join(dirPath, buildcontext.Earthfile))
 	if err != nil {
 		return false
 	}

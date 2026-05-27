@@ -529,6 +529,8 @@ func Start(
 		envOpts["IP_TABLES"] = settings.IPTables
 	}
 
+	const localhost = "127.0.0.1"
+
 	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
 
 	//nolint:nestif // TODO(jhorsts): simplify
@@ -556,7 +558,7 @@ func Start(
 			}
 
 			portOpts = append(portOpts, containerutil.Port{
-				IP:            "127.0.0.1",
+				IP:            localhost,
 				HostPort:      hostPort,
 				ContainerPort: 8371,
 				Protocol:      containerutil.ProtocolTCP,
@@ -579,14 +581,14 @@ func Start(
 			}
 
 			portOpts = append(portOpts, containerutil.Port{
-				IP:            "127.0.0.1",
+				IP:            localhost,
 				HostPort:      hostPort,
 				ContainerPort: 8372,
 				Protocol:      containerutil.ProtocolTCP,
 			})
 			if settings.EnableProfiler {
 				portOpts = append(portOpts, containerutil.Port{
-					IP:            "127.0.0.1",
+					IP:            localhost,
 					HostPort:      6061, // 6060 is reserved for earthly client
 					ContainerPort: 6060,
 					Protocol:      containerutil.ProtocolTCP,
@@ -861,6 +863,8 @@ func waitForConnection(
 	}
 }
 
+const unknown = "unknown"
+
 func checkConnection(
 	ctx context.Context, address string, timeout time.Duration, opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
@@ -925,9 +929,9 @@ func checkConnection(
 				// Degrade gracefully.
 				info = &client.Info{
 					BuildkitVersion: client.BuildkitVersion{
-						Version:  "unknown",
-						Package:  "unknown",
-						Revision: "unknown",
+						Version:  unknown,
+						Package:  unknown,
+						Revision: unknown,
 					},
 				}
 			} else {
@@ -1141,7 +1145,7 @@ func printBuildkitInfo(
 	}
 
 	//nolint:nestif // TODO(jhorsts): simplify
-	if info.BuildkitVersion.Version == "unknown" {
+	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
 				"it's from a version lower than Earthly Buildkit v0.6.20")

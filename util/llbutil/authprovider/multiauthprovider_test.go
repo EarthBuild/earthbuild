@@ -74,7 +74,7 @@ func TestMultiAuth(t *testing.T) {
 		t.Parallel()
 
 		tc := setup(t)
-		req := &auth.FetchTokenRequest{Host: "foo.bar"}
+		req := &auth.FetchTokenRequest{Host: "foo.bar"} //nolint:goconst
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()

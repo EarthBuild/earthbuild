@@ -268,11 +268,9 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		}
 
 		// Create help message with actual target if available
-		var flagExample string
+		flagExample := "earth -P +your-target"
 		if targetInfo != "" {
 			flagExample = fmt.Sprintf("earth -P %s", targetInfo)
-		} else {
-			flagExample = "earth -P +your-target"
 		}
 
 		helpMsg := "To fix this, use one of the following:\n" +

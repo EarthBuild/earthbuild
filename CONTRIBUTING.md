@@ -13,6 +13,8 @@ The hooks are configured in [`prek.toml`](./prek.toml) and run:
 - **gofumpt** — formats Go code in-place.
 - **golangci-lint `--fix`** — applies all auto-fixable lint corrections
   (requires golangci-lint v2.11.4, matching the version pinned in `Earthfile`).
+- **shellcheck** — lints shell scripts, mirroring the `+lint-scripts` Earthfile target
+  but without the Docker overhead.
 
 ### Setup
 

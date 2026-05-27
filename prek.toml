@@ -20,3 +20,12 @@ language = "system"
 entry = "golangci-lint run --fix"
 types = ["go"]
 pass_filenames = false
+
+# Lint shell scripts with shellcheck, mirroring the +lint-scripts Earthfile target.
+# -x allows shellcheck to follow `source` directives across files.
+[[repos.hooks]]
+id = "shellcheck"
+name = "shellcheck"
+language = "system"
+entry = "shellcheck -x"
+types = ["shell"]

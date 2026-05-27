@@ -98,7 +98,7 @@ func newLoader(opt HashOpt) *loader {
 		primaryTarget:  true,
 		logTarget:      opt.Target.StringCanonical(),
 	}
-	// Log the built-in args (platform, earthly version, etc.) that were just
+	// Log the built-in args (platform, earth version, etc.) that were just
 	// hashed above so they appear in the hash log.
 	l.logInput("builtin args", fmt.Sprintf("%+v", opt.BuiltinArgs))
 

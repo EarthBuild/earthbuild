@@ -242,9 +242,10 @@ func composeParams(opt WithDockerOpt) []string {
 // layer-level dedup but no offline path for digest-pinned services.
 // See issue #512.
 func stripImageDigest(name string) string {
-	if i := strings.Index(name, "@"); i >= 0 {
-		return name[:i]
-	}
+i := strings.Index(name, "@")
+if i >= 0 {
+	return name[:i]
+}
 
 	return name
 }

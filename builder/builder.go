@@ -25,6 +25,7 @@ import (
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
 	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/gwclientlogger"
@@ -79,6 +80,7 @@ type Opt struct {
 	GitBranchOverride                     string
 	FeatureFlagOverrides                  string
 	CacheExport                           string
+	VertexStateStore                      buildkitskipper.VertexStateStore
 	Enttlmnts                             []entitlements.Entitlement
 	Attachables                           []session.Attachable
 	DarwinProxyWait                       time.Duration

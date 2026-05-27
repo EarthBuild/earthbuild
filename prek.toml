@@ -1,0 +1,22 @@
+[[repos]]
+repo = "local"
+
+# Format Go code with gofumpt (matches the formatter used in golangci-lint config).
+[[repos.hooks]]
+id = "gofumpt"
+name = "gofumpt"
+language = "system"
+entry = "gofumpt -w"
+types = ["go"]
+
+# Run golangci-lint with --fix to auto-correct all fixable lint issues.
+# pass_filenames = false so golangci-lint analyses full packages rather than
+# individual files, which is required for correct type-checking.
+# golangci-lint v2.11.4 is required (matches the version pinned in Earthfile).
+[[repos.hooks]]
+id = "golangci-lint-fix"
+name = "golangci-lint (auto-fix)"
+language = "system"
+entry = "golangci-lint run --fix"
+types = ["go"]
+pass_filenames = false

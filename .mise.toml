@@ -1,2 +1,7 @@
 [tools]
 go = "1.25.5"
+prek = "0.4.3"
+# renovate: datasource=github-releases packageName=golangci/golangci-lint
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "v2.11.4"
+# renovate: datasource=github-releases packageName=mvdan/gofumpt
+"go:mvdan.cc/gofumpt" = "v0.10.0"

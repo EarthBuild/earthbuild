@@ -4,6 +4,34 @@
 
 Please refer to [code-of-conduct.md](./code-of-conduct.md) for details.
 
+## Pre-commit hooks (lint auto-fix)
+
+This repository uses [prek](https://prek.j178.dev/) to manage Git pre-commit hooks that
+auto-fix linting and formatting issues before every commit.
+
+The hooks are configured in [`prek.toml`](./prek.toml) and run:
+- **gofumpt** — formats Go code in-place.
+- **golangci-lint `--fix`** — applies all auto-fixable lint corrections
+  (requires golangci-lint v2.11.4, matching the version pinned in `Earthfile`).
+
+### Setup
+
+1. Install all tools declared in `.mise.toml` (Go, prek, golangci-lint, gofumpt):
+   ```bash
+   mise install
+   ```
+
+2. Install the Git hook shims (one-time per checkout):
+   ```bash
+   prek install
+   ```
+
+After this, `gofumpt` and `golangci-lint --fix` will run automatically on every
+`git commit`. To run the hooks manually against all files:
+```bash
+prek run --all-files
+```
+
 ## Using Earthly prerelease
 
 To build Earthly from source, you need the same requirements as Earthly. We recommend that you use the prerelease version of Earthly for development purposes. To launch the prerelease Earthly, simply use the `./earthly` script provided in the root of the earthly repository. The prerelease Earthly tracks the version on main. You can use `./earthly --version` to identify which Git hash was used to build it.

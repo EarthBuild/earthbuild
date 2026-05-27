@@ -285,7 +285,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 			userMsg,
 		)
 
-		app.BaseCLI.Console().VerboseWarnf("Technical details: %v\n", err.Error())
+		app.BaseCLI.Console().VerboseWarnf("Error: %s\n", err.Error())
 
 		return 9
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):

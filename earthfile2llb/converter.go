@@ -2349,7 +2349,7 @@ func (c *Converter) checkAutoSkip(
 		return false, nil, err
 	}
 
-	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
+	targetHash, hashStats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            c.opt.Log,
 		BuiltinArgs:    c.opt.BuiltinArgs,
@@ -2371,6 +2371,16 @@ func (c *Converter) checkAutoSkip(
 	if exists {
 		console.Printf("Target %s (hash %x) has already been run. Skipping.", target.String(), targetHash)
 		return true, nil, nil
+	}
+
+	// Cache miss: log the inputs that were hashed so the user can understand
+	// what will cause this target to be rebuilt.
+	if len(hashStats.HashLog) > 0 {
+		console.VerbosePrintf("cache miss for %s — hashed inputs:", target.String())
+
+		for _, entry := range hashStats.HashLog {
+			console.VerbosePrintf("  %-16s %s", entry.Label, entry.Detail)
+		}
 	}
 
 	return exists, func() {

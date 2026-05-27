@@ -152,6 +152,11 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 
 		if vertex.Started != nil {
 			vm.cp.SetStart(*vertex.Started)
+
+			if !vertex.Cached && !vm.cacheMissLogged && !vm.meta.Internal {
+				vm.cacheMissLogged = true
+				_, _ = vm.cp.Write([]byte("*cache miss*\n"), *vertex.Started, logbus.Stderr)
+			}
 		}
 
 		if vertex.Error != "" {

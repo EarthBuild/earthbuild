@@ -25,15 +25,16 @@ const (
 )
 
 type vertexMonitor struct {
-	vertex         *client.Vertex
-	meta           *vertexmeta.VertexMeta
-	cp             *logbus.Command
-	ssp            *statsstreamparser.Parser
-	operation      string
-	errorStr       string
-	fatalErrorType logstream.FailureType
-	isFatalError   bool // If set, this is the root cause of the entire build failure.
-	isCanceled     bool
+	vertex          *client.Vertex
+	meta            *vertexmeta.VertexMeta
+	cp              *logbus.Command
+	ssp             *statsstreamparser.Parser
+	operation       string
+	errorStr        string
+	fatalErrorType  logstream.FailureType
+	isFatalError    bool // If set, this is the root cause of the entire build failure.
+	isCanceled      bool
+	cacheMissLogged bool // Whether the cache miss log line has already been written.
 }
 
 var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll

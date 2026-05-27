@@ -98,6 +98,11 @@ func (s *solver) buildMainMulti(
 		return err
 	}
 
+	saveErr := s.logbusSM.SaveState(ctx)
+	if saveErr != nil {
+		console.Warnf("failed to save vertex state: %v", saveErr)
+	}
+
 	return nil
 }
 

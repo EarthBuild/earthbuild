@@ -26,6 +26,7 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
@@ -545,6 +546,12 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	logbusSM := b.cli.LogbusSetup().SolverMonitor
 
+	var vertexStateStore buildkitskipper.VertexStateStore
+	if skipDB != nil {
+		vertexStateStore = skipDB.VertexStateStore()
+		logbusSM.Configure(ctx, vertexStateStore, target.StringCanonical())
+	}
+
 	builderOpts := builder.Opt{
 		BkClient:                              bkClient,
 		LogBusSolverMonitor:                   logbusSM,
@@ -582,6 +589,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		GitLogLevel:                           b.gitLogLevel(),
 		DisableRemoteRegistryProxy:            b.cli.Flags().DisableRemoteRegistryProxy,
 		BuildkitSkipper:                       skipDB,
+		VertexStateStore:                      vertexStateStore,
 		NoAutoSkip:                            b.cli.Flags().NoAutoSkip,
 	}
 

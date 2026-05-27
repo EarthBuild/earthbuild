@@ -12,6 +12,7 @@ import (
 type BuildkitSkipper interface {
 	Add(ctx context.Context, target string, key []byte) error
 	Exists(ctx context.Context, key []byte) (bool, error)
+	VertexStateStore() buildkitskipper.VertexStateStore
 }
 
 // NewBuildkitSkipper returns a local buildkitskipper when localSkipDB is specified.

@@ -25,6 +25,11 @@ func NewLocal(path string) (*LocalBuildkitSkipper, error) {
 			return fmt.Errorf("could not create builds bucket: %w", err)
 		}
 
+		_, err = tx.CreateBucketIfNotExists(vertexStateBucket)
+		if err != nil {
+			return fmt.Errorf("could not create vertex-state bucket: %w", err)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -32,13 +37,20 @@ func NewLocal(path string) (*LocalBuildkitSkipper, error) {
 	}
 
 	return &LocalBuildkitSkipper{
-		db: db,
+		db:               db,
+		vertexStateStore: &localVertexStateStore{db: db},
 	}, nil
 }
 
 // LocalBuildkitSkipper uses BoltDB to store & retrieve auto-skip hashes.
 type LocalBuildkitSkipper struct {
-	db *bolt.DB
+	db               *bolt.DB
+	vertexStateStore *localVertexStateStore
+}
+
+// VertexStateStore returns the VertexStateStore for persisting per-vertex cache state.
+func (l *LocalBuildkitSkipper) VertexStateStore() VertexStateStore {
+	return l.vertexStateStore
 }
 
 // Add a new hash value (org & target are ignored in this implementation).

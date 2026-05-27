@@ -8,6 +8,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
@@ -19,19 +20,71 @@ import (
 
 // SolverMonitor is a buildkit solver monitor.
 type SolverMonitor struct {
-	b        *logbus.Bus
-	digests  map[digest.Digest]string  // digest -> cmdID
-	vertices map[string]*vertexMonitor // cmdID -> vertexMonitor
-	mu       sync.Mutex
+	b          *logbus.Bus
+	digests    map[digest.Digest]string  // digest -> cmdID
+	vertices   map[string]*vertexMonitor // cmdID -> vertexMonitor
+	store      buildkitskipper.VertexStateStore
+	targetName string
+	prevState  map[string]buildkitskipper.VertexRecord // digest -> VertexRecord from last run
+	collected  []buildkitskipper.VertexRecord
+	mu         sync.Mutex
 }
 
 // New creates a new SolverMonitor.
-func New(b *logbus.Bus) *SolverMonitor {
-	return &SolverMonitor{
-		b:        b,
-		digests:  make(map[digest.Digest]string),
-		vertices: make(map[string]*vertexMonitor),
+// store and target are optional; pass nil and "" to disable vertex-state tracking.
+func New(ctx context.Context, b *logbus.Bus, store buildkitskipper.VertexStateStore, target string) *SolverMonitor {
+	sm := &SolverMonitor{
+		b:          b,
+		digests:    make(map[digest.Digest]string),
+		vertices:   make(map[string]*vertexMonitor),
+		store:      store,
+		targetName: target,
+		prevState:  make(map[string]buildkitskipper.VertexRecord),
 	}
+
+	if store != nil && target != "" {
+		records, err := store.LoadState(ctx, target)
+		if err == nil {
+			for _, r := range records {
+				sm.prevState[r.Digest] = r
+			}
+		}
+	}
+
+	return sm
+}
+
+// Configure sets the vertex state store and target for this monitor, and loads
+// the previous run's state. It is safe to call only before MonitorProgress.
+func (sm *SolverMonitor) Configure(ctx context.Context, store buildkitskipper.VertexStateStore, target string) {
+	if store == nil || target == "" {
+		return
+	}
+
+	sm.store = store
+	sm.targetName = target
+
+	records, err := store.LoadState(ctx, target)
+	if err == nil {
+		for _, r := range records {
+			sm.prevState[r.Digest] = r
+		}
+	}
+}
+
+// SaveState persists collected vertex records to the store for the current target.
+// It is a no-op when no store or target was configured.
+func (sm *SolverMonitor) SaveState(ctx context.Context) error {
+	if sm.store == nil || sm.targetName == "" {
+		return nil
+	}
+
+	sm.mu.Lock()
+	records := make([]buildkitskipper.VertexRecord, len(sm.collected))
+	copy(records, sm.collected)
+	sm.mu.Unlock()
+
+	return sm.store.SaveState(ctx, sm.targetName, records)
 }
 
 // MonitorProgress processes a channel of buildkit solve statuses.
@@ -69,6 +122,16 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 			}
 		}
 	}
+}
+
+// digestStrings converts a slice of digest.Digest to a slice of strings.
+func digestStrings(ds []digest.Digest) []string {
+	out := make([]string, len(ds))
+	for i, d := range ds {
+		out[i] = d.String()
+	}
+
+	return out
 }
 
 func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error {
@@ -155,7 +218,11 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 
 			if !vertex.Cached && !vm.cacheMissLogged && !vm.meta.Internal {
 				vm.cacheMissLogged = true
-				_, _ = vm.cp.Write([]byte("*cache miss*\n"), *vertex.Started, logbus.Stderr)
+
+				cacheMissMsg := sm.buildCacheMissMessage(vertex)
+				if cacheMissMsg != "" {
+					_, _ = vm.cp.Write([]byte(cacheMissMsg+"\n"), *vertex.Started, logbus.Stderr)
+				}
 			}
 		}
 
@@ -166,6 +233,14 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		if vertex.Completed == nil {
 			continue
 		}
+
+		// Collect the vertex record once the vertex is complete.
+		sm.collected = append(sm.collected, buildkitskipper.VertexRecord{
+			Digest:    vertex.Digest.String(),
+			Inputs:    digestStrings(vertex.Inputs),
+			Operation: vm.operation,
+			WasCached: vertex.Cached,
+		})
 
 		var status logstream.RunStatus
 
@@ -229,4 +304,47 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 	}
 
 	return nil
+}
+
+// buildCacheMissMessage decides whether to emit a cache-miss annotation and,
+// if so, returns the message string. It returns "" when the miss should be
+// silent (first run, or was already a miss last time).
+func (sm *SolverMonitor) buildCacheMissMessage(vertex *client.Vertex) string {
+	digestStr := vertex.Digest.String()
+	prev, found := sm.prevState[digestStr]
+
+	if !found {
+		// New operation (first run or graph changed) — don't log.
+		return ""
+	}
+
+	if !prev.WasCached {
+		// Was already a miss last time — don't log.
+		return ""
+	}
+
+	// Previously cached but now a miss: find which input changed.
+	changedInput := sm.findChangedInput(vertex.Inputs)
+
+	return "*cache miss* (previously cached; input changed: " + changedInput + ")"
+}
+
+// findChangedInput scans the given input digests and returns the Operation of
+// the first input that either (a) does not appear in prevState or (b) was not
+// cached last time. Returns "unknown" when no specific input can be identified.
+func (sm *SolverMonitor) findChangedInput(inputs []digest.Digest) string {
+	for _, inp := range inputs {
+		inpStr := inp.String()
+		prev, ok := sm.prevState[inpStr]
+
+		if !ok || !prev.WasCached {
+			if ok && prev.Operation != "" {
+				return prev.Operation
+			}
+
+			return "unknown"
+		}
+	}
+
+	return "unknown"
 }

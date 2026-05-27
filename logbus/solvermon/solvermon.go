@@ -216,7 +216,11 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		if vertex.Started != nil {
 			vm.cp.SetStart(*vertex.Started)
 
-			if !vertex.Cached && !vm.cacheMissLogged && !vm.meta.Internal {
+			// Only annotate vertices that earth's converter created ahead of
+			// time (identified by a non-empty CommandID). This excludes
+			// BuildKit-internal vertices (exporters, cache, context transfer)
+			// that are always re-executed and have no meaningful miss reason.
+			if !vertex.Cached && !vm.cacheMissLogged && meta.CommandID != "" {
 				vm.cacheMissLogged = true
 
 				cacheMissMsg := sm.buildCacheMissMessage(vertex)

@@ -34,10 +34,12 @@ func NewEarthlyApp(
 	earthlyApp.BaseCLI.SetAppUseShortOptionHandling(true)
 	earthlyApp.BaseCLI.SetAction(buildApp.Action)
 	earthlyApp.BaseCLI.SetVersion(
-		getVersionPlatform(earthlyApp.BaseCLI.Version(), earthlyApp.BaseCLI.GitSHA(), earthlyApp.BaseCLI.BuiltBy()))
+		getVersionPlatform(earthlyApp.BaseCLI.Version(), earthlyApp.BaseCLI.GitSHA(), earthlyApp.BaseCLI.BuiltBy()),
+	)
 
 	earthlyApp.BaseCLI.SetFlags(
-		cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()))
+		cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()),
+	)
 	earthlyApp.BaseCLI.SetFlags(append(earthlyApp.BaseCLI.App().Flags, buildApp.HiddenFlags()...))
 
 	earthlyApp.BaseCLI.SetCommands(rootApp.Cmds())

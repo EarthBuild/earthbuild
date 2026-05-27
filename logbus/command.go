@@ -14,8 +14,13 @@ import (
 )
 
 const (
-	stdout = 1
-	stderr = 2
+	// Stdout is the stream number for stdout.
+	Stdout = 1
+	// Stderr is the stream number for stderr.
+	Stderr = 2
+
+	stdout = Stdout
+	stderr = Stderr
 
 	tailErrorBufferSizeBytes = 80 * 1024 // About as much as 1024 lines of 80 chars each.
 )

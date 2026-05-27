@@ -248,6 +248,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	case strings.Contains(err.Error(), "security.insecure is not allowed"):
 		// Extract target info from error if available
 		targetInfo := ""
+
 		if ie != nil && isInterpreterError {
 			targetInfo = ie.TargetID
 		}
@@ -263,18 +264,20 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 		}
 
 		userMsg := "This build requires privileged mode."
+
 		if targetInfo != "" {
-			userMsg = fmt.Sprintf("Target %s requires privileged mode.", targetInfo)
+			userMsg = "Target " + targetInfo + " requires privileged mode."
 		}
 
 		// Create help message with actual target if available
 		flagExample := "earth -P +your-target"
+
 		if targetInfo != "" {
-			flagExample = fmt.Sprintf("earth -P %s", targetInfo)
+			flagExample = "earth -P " + targetInfo
 		}
 
 		helpMsg := "To fix this, use one of the following:\n" +
-			fmt.Sprintf("  • Run with the -P flag: %s\n", flagExample) +
+			"  • Run with the -P flag: " + flagExample + "\n" +
 			"  • Set environment variable: export EARTHLY_ALLOW_PRIVILEGED=true\n" +
 			"  • Add to config: earth config global.allow_privileged true"
 

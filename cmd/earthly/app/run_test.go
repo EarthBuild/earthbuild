@@ -50,8 +50,8 @@ func TestExtractTargetFromArgs(t *testing.T) {
 
 	for _, testCase := range []struct {
 		name     string
-		args     []string
 		expected string
+		args     []string
 	}{
 		{
 			name:     "single target",
@@ -95,6 +95,7 @@ func TestExtractTargetFromArgs(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			// Simulate the target extraction logic from handleError
 			var targetInfo string
 			if len(testCase.args) > 1 {
@@ -105,6 +106,7 @@ func TestExtractTargetFromArgs(t *testing.T) {
 					}
 				}
 			}
+
 			require.Equal(t, testCase.expected, targetInfo)
 		})
 	}

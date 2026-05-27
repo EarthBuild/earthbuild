@@ -104,3 +104,13 @@ The command `earth prune` will work on remote runners too, albeit without the `-
 The auto-skip cache is used to skip parts of a build when inputs have not changed, via the `earth --auto-skip` and `BUILD --auto-skip` flags.
 
 The skip-set is stored in a local database specified via `--auto-skip-db-path`. To clear or reset the auto-skip cache, delete the local database file directly. Note that the legacy cloud backend and `earth prune-auto-skip` command have been removed.
+
+### Local auto-skip database
+
+For local development, Earth can maintain a lightweight on-disk skip database instead of relying on the cloud. Pass a file path via `--auto-skip-db-path` (or the `EARTH_AUTO_SKIP_DB_PATH` environment variable):
+
+```bash
+earth --auto-skip-db-path ~/.earth/skip.db +my-target
+```
+
+This database also powers the [BuildKit cache miss annotations](./caching-in-earthfiles.md#buildkit-layer-cache-misses) feature, which identifies which operation caused a previously-cached layer to become a miss. The database is created automatically on first use. To reset it, simply delete the file.

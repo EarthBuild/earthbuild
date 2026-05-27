@@ -927,6 +927,16 @@ func (b *Build) initAutoSkip(
 		return nil, true, nil
 	}
 
+	// Cache miss: log the inputs that were hashed so the user can understand
+	// what will cause this target to be rebuilt.
+	if len(stats.HashLog) > 0 {
+		console.VerbosePrintf("cache miss for %s — hashed inputs:", targetStr)
+
+		for _, entry := range stats.HashLog {
+			console.VerbosePrintf("  %-16s %s", entry.Label, entry.Detail)
+		}
+	}
+
 	addHashFn := func() {
 		err := skipDB.Add(ctx, target.StringCanonical(), targetHash)
 		if err != nil {

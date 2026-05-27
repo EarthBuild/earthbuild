@@ -34,37 +34,57 @@ var (
 	errComplexCondition = errors.New("condition cannot be evaluated")
 )
 
+// HashInput records a single labelled input that contributed to a target's
+// cache hash. Collecting these allows callers to explain a cache miss.
+type HashInput struct {
+	// Label is a human-readable name for the kind of input (e.g. "ARG", "RUN",
+	// "COPY file", "FROM target").
+	Label string
+	// Detail is additional context (e.g. the expanded value, file path, or
+	// dependency target name).
+	Detail string
+}
+
 // Stats contains some statistics about the hashing process.
 type Stats struct {
-	StartTime       time.Time
+	StartTime time.Time
+	// HashLog records every input that contributed to the primary target's
+	// cache hash, in the order they were encountered. It is populated only for
+	// the outermost (primary) target; recursive dependency loaders share the
+	// same slice via the shared *Stats pointer.
+	HashLog         []HashInput
+	Duration        time.Duration
 	TargetsHashed   int
 	TargetCacheHits int
 	TargetsVisited  int
-	Duration        time.Duration
 }
 
 type loader struct {
-	visited        map[string]struct{}
-	hasher         *hasher.Hasher
 	hashCache      map[string][]byte
-	stats          *Stats
 	globalImports  map[string]domain.ImportTrackerVal
 	varCollection  *variables.Collection
 	features       *features.Features
 	overridingVars *variables.Scope
+	visited        map[string]struct{}
+	stats          *Stats
+	hasher         *hasher.Hasher
 	target         domain.Target
 	builtinArgs    variables.DefaultArgs
-	conslog        conslogging.ConsoleLogger
-	baseProcessed  bool
-	ci             bool
-	primaryTarget  bool
+	// logTarget is the canonical name of the outermost target whose hash log
+	// we are recording. Set on the primary loader; propagated to sub-loaders so
+	// they annotate entries with their own target name for clarity.
+	logTarget     string
+	conslog       conslogging.ConsoleLogger
+	baseProcessed bool
+	ci            bool
+	primaryTarget bool
 }
 
 func newLoader(opt HashOpt) *loader {
 	h := hasher.New()
 	h.HashJSONMarshalled(opt.BuiltinArgs)
 	// Other important values are set by load().
-	return &loader{
+	l := &loader{
 		conslog:        opt.Console,
 		target:         opt.Target,
 		visited:        map[string]struct{}{},
@@ -76,7 +96,31 @@ func newLoader(opt HashOpt) *loader {
 		hashCache:      map[string][]byte{},
 		stats:          &Stats{StartTime: time.Now()},
 		primaryTarget:  true,
+		logTarget:      opt.Target.StringCanonical(),
 	}
+	// Log the built-in args (platform, earthly version, etc.) that were just
+	// hashed above so they appear in the hash log.
+	l.logInput("builtin args", fmt.Sprintf("%+v", opt.BuiltinArgs))
+
+	return l
+}
+
+// logInput appends a HashInput to the shared Stats.HashLog. It is safe to call
+// from any loader in the dependency chain because all loaders share the same
+// *Stats pointer.
+func (l *loader) logInput(label, detail string) {
+	if l.stats == nil {
+		return
+	}
+
+	entry := HashInput{Label: label, Detail: detail}
+	if l.logTarget != "" && !l.primaryTarget {
+		// Prefix with the dependency target name so readers can tell which
+		// dependency contributed the entry.
+		entry.Detail = fmt.Sprintf("%s (dep: %s)", detail, l.logTarget)
+	}
+
+	l.stats.HashLog = append(l.stats.HashLog, entry)
 }
 
 func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
@@ -302,6 +346,8 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string
 
 			return wrapError(err, cmd.SourceLocation, "failed to hash file %s", path)
 		}
+
+		l.logInput("COPY file", file)
 	}
 
 	return nil
@@ -417,6 +463,10 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	// Some commands require more processing.
 	switch cmd.Name {
 	case command.From:
+		// Log the base image or target; handleFrom recurses into targets and
+		// logs them as "dep target".
+		l.logInput("FROM", strings.Join(cmd.Args, " "))
+
 		return l.handleFrom(ctx, cmd)
 	case command.Build:
 		return l.handleBuild(ctx, cmd)
@@ -429,12 +479,18 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	case command.Set:
 		return l.handleSet(cmd)
 	case command.FromDockerfile:
+		l.logInput("FROM DOCKERFILE", strings.Join(cmd.Args, " "))
+
 		return l.handleFromDockerfile(ctx, cmd)
 	case command.Import:
+		l.logInput("IMPORT", strings.Join(cmd.Args, " "))
+
 		return l.handleImport(cmd, false)
 	default:
 		// By default, no special handling is required. The raw command has been
 		// hashed above and all argument values have been hashed independently.
+		l.logInput(cmd.Name, strings.Join(cmd.Args, " "))
+
 		return nil
 	}
 }
@@ -500,6 +556,7 @@ func (l *loader) handleArg(cmd spec.Command, isBase bool) error {
 	}
 
 	l.hasher.HashString(fmt.Sprintf("ARG %s=%s", key, expanded))
+	l.logInput("ARG", fmt.Sprintf("%s=%s", key, expanded))
 
 	if opts.Global {
 		declOpts = append(declOpts, variables.AsGlobal())
@@ -536,6 +593,7 @@ func (l *loader) handleLet(cmd spec.Command) error {
 	}
 
 	l.hasher.HashString(fmt.Sprintf("LET %s=%s", key, val))
+	l.logInput("LET", fmt.Sprintf("%s=%s", key, val))
 
 	_, _, err = l.varCollection.DeclareVar(key, variables.WithValue(val))
 	if err != nil {
@@ -568,6 +626,7 @@ func (l *loader) handleSet(cmd spec.Command) error {
 	}
 
 	l.hasher.HashString(fmt.Sprintf("SET %s=%s", key, val))
+	l.logInput("SET", fmt.Sprintf("%s=%s", key, val))
 
 	err = l.varCollection.UpdateVar(key, val, nil)
 	if err != nil {
@@ -600,6 +659,7 @@ func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
 	}
 
 	l.hashCommand(cmd)
+	l.logInput("WITH DOCKER", strings.Join(cmd.Args, " "))
 
 	opts := commandflag.WithDockerOpts{}
 
@@ -747,6 +807,7 @@ func evalCondition(c []string) (bool, bool) {
 
 func (l *loader) handleIf(ctx context.Context, ifStmt spec.IfStatement) error {
 	l.hashIfStatement(ifStmt)
+	l.logInput("IF", strings.Join(ifStmt.Expression, " "))
 
 	err := l.handleIfEval(ctx, ifStmt)
 	if err != nil {
@@ -810,6 +871,7 @@ func (l *loader) handleIfDefault(ctx context.Context, ifStmt spec.IfStatement) e
 
 	for _, elseIf := range ifStmt.ElseIf {
 		l.hashElseIf(elseIf)
+		l.logInput("ELSE IF", strings.Join(elseIf.Expression, " "))
 
 		err = l.loadBlock(ctx, elseIf.Body)
 		if err != nil {
@@ -829,6 +891,7 @@ func (l *loader) handleIfDefault(ctx context.Context, ifStmt spec.IfStatement) e
 
 func (l *loader) handleFor(ctx context.Context, forStmt spec.ForStatement) error {
 	l.hashForStatement(forStmt)
+	l.logInput("FOR", strings.Join(forStmt.Args, " "))
 
 	opts := commandflag.NewForOpts()
 
@@ -849,6 +912,7 @@ func (l *loader) handleFor(ctx context.Context, forStmt spec.ForStatement) error
 
 	for _, val := range vals {
 		l.hasher.HashString(fmt.Sprintf("FOR %s=%s", name, val))
+		l.logInput("FOR iteration", fmt.Sprintf("%s=%s", name, val))
 		l.varCollection.SetArg(name, val)
 
 		err := l.loadBlock(ctx, forStmt.Body)
@@ -887,11 +951,14 @@ func flattenForArgs(args []string, seps string) []string {
 
 func (l *loader) handleWait(ctx context.Context, waitStmt spec.WaitStatement) error {
 	l.hashWaitStatement(waitStmt)
+	l.logInput("WAIT", fmt.Sprintf("%v", waitStmt.Args))
+
 	return l.handleStatements(ctx, waitStmt.Body)
 }
 
 func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
 	l.hashTryStatement()
+	l.logInput("TRY", "")
 
 	err := l.handleStatements(ctx, tryStmt.TryBody)
 	if err != nil {
@@ -991,6 +1058,7 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 		hashCache:      l.hashCache,
 		stats:          l.stats,
 		primaryTarget:  false,
+		logTarget:      target.StringCanonical(),
 	}
 
 	if target.IsLocalInternal() {
@@ -1028,6 +1096,8 @@ func (l *loader) loadTargetFromString(
 	if target.IsRemote() {
 		if supportedRemoteTarget(target) {
 			l.hasher.HashString(target.StringCanonical())
+			l.logInput("remote target", target.StringCanonical())
+
 			return nil
 		}
 
@@ -1056,6 +1126,7 @@ func (l *loader) loadTargetFromString(
 	}
 
 	l.hasher.HashBytes(hash)
+	l.logInput("dep target", fmt.Sprintf("%s (hash: %x)", target.StringCanonical(), hash))
 
 	return nil
 }
@@ -1115,12 +1186,14 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 	if l.overridingVars != nil {
 		for _, val := range l.overridingVars.BuildArgs() {
 			l.hasher.HashString("VAR " + val)
+			l.logInput("build arg", val)
 		}
 	}
 
 	ef := buildCtx.Earthfile
 	if ef.Version != nil {
 		l.hashVersion(*ef.Version)
+		l.logInput("VERSION", fmt.Sprintf("%v", ef.Version.Args))
 	}
 
 	// Ensure all "base" target commands are processed once.

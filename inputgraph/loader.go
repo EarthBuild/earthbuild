@@ -107,20 +107,14 @@ func newLoader(opt HashOpt) *loader {
 
 // logInput appends a HashInput to the shared Stats.HashLog. It is safe to call
 // from any loader in the dependency chain because all loaders share the same
-// *Stats pointer.
+// *Stats pointer. Only entries from the primary (top-level) target are logged;
+// sub-target entries are captured via their "dep target" entry instead.
 func (l *loader) logInput(label, detail string) {
-	if l.stats == nil {
+	if l.stats == nil || !l.primaryTarget {
 		return
 	}
 
-	entry := HashInput{Label: label, Detail: detail}
-	if l.logTarget != "" && !l.primaryTarget {
-		// Prefix with the dependency target name so readers can tell which
-		// dependency contributed the entry.
-		entry.Detail = fmt.Sprintf("%s (dep: %s)", detail, l.logTarget)
-	}
-
-	l.stats.HashLog = append(l.stats.HashLog, entry)
+	l.stats.HashLog = append(l.stats.HashLog, HashInput{Label: label, Detail: detail})
 }
 
 func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
@@ -1126,7 +1120,7 @@ func (l *loader) loadTargetFromString(
 	}
 
 	l.hasher.HashBytes(hash)
-	l.logInput("dep target", fmt.Sprintf("%s (hash: %x)", target.StringCanonical(), hash))
+	l.logInput("dep target", fmt.Sprintf("+%s (hash: %x)", target.Target, hash))
 
 	return nil
 }

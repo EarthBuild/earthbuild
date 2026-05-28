@@ -53,43 +53,59 @@ func makeMonitorWithState(records []buildkitskipper.VertexRecord) *SolverMonitor
 func TestBuildCacheMissMessage_NoHistory(t *testing.T) {
 	t.Parallel()
 
-	// Vertex never seen before → silent (first run)
 	sm := makeMonitorWithState(nil)
 	v := &client.Vertex{Digest: sha("new-op"), Inputs: nil}
-	require.Empty(t, sm.buildCacheMissMessage(v))
+	require.Empty(t, sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}))
 }
 
 func TestBuildCacheMissMessage_PreviouslyMiss(t *testing.T) {
 	t.Parallel()
 
-	// Vertex existed last run but was already a miss → silent
 	d := sha("op-a")
 	sm := makeMonitorWithState([]buildkitskipper.VertexRecord{
 		{Digest: d.String(), Operation: "RUN echo hello", WasCached: false},
 	})
 	v := &client.Vertex{Digest: d, Inputs: nil}
-	require.Empty(t, sm.buildCacheMissMessage(v))
+	require.Empty(t, sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}))
 }
 
 func TestBuildCacheMissMessage_PreviouslyCached_NoInputs(t *testing.T) {
 	t.Parallel()
 
-	// Vertex was cached before, no inputs → report miss with "unknown" reason
 	d := sha("op-b")
 	sm := makeMonitorWithState([]buildkitskipper.VertexRecord{
 		{Digest: d.String(), Operation: "RUN apt-get update", WasCached: true},
 	})
 	v := &client.Vertex{Digest: d, Inputs: nil}
-	msg := sm.buildCacheMissMessage(v)
-	require.Contains(t, msg, "*cache miss*")
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
 	require.Contains(t, msg, "previously cached")
-	require.Contains(t, msg, "unknown")
+}
+
+func TestBuildCacheMissMessage_PreviouslyCached_ArgChanged(t *testing.T) {
+	t.Parallel()
+
+	d := sha("op-arg")
+	sm := makeMonitorWithState([]buildkitskipper.VertexRecord{
+		{
+			Digest:     d.String(),
+			Operation:  "RUN go build",
+			WasCached:  true,
+			ActiveArgs: map[string]string{"GO_VERSION": "1.21"},
+		},
+	})
+	v := &client.Vertex{Digest: d, Inputs: nil}
+	meta := &vertexmeta.VertexMeta{ActiveArgs: map[string]string{"GO_VERSION": "1.22"}}
+	msg := sm.buildCacheMissReason(v, meta)
+	require.Contains(t, msg, "previously cached")
+	require.Contains(t, msg, "arg changed")
+	require.Contains(t, msg, "GO_VERSION")
+	require.Contains(t, msg, "1.21")
+	require.Contains(t, msg, "1.22")
 }
 
 func TestBuildCacheMissMessage_PreviouslyCached_InputChanged(t *testing.T) {
 	t.Parallel()
 
-	// Parent op was a miss last run → that's the changed input
 	parentDigest := sha("parent-op")
 	childDigest := sha("child-op")
 
@@ -98,12 +114,8 @@ func TestBuildCacheMissMessage_PreviouslyCached_InputChanged(t *testing.T) {
 		{Digest: childDigest.String(), Operation: "RUN go build", WasCached: true},
 	})
 
-	v := &client.Vertex{
-		Digest: childDigest,
-		Inputs: []digest.Digest{parentDigest},
-	}
-	msg := sm.buildCacheMissMessage(v)
-	require.Contains(t, msg, "*cache miss*")
+	v := &client.Vertex{Digest: childDigest, Inputs: []digest.Digest{parentDigest}}
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
 	require.Contains(t, msg, "previously cached")
 	require.Contains(t, msg, "COPY ./src /src")
 }
@@ -111,28 +123,19 @@ func TestBuildCacheMissMessage_PreviouslyCached_InputChanged(t *testing.T) {
 func TestBuildCacheMissMessage_PreviouslyCached_InputNewlyAdded(t *testing.T) {
 	t.Parallel()
 
-	// One input never seen before (newly added to graph)
-	newInputDigest := sha("new-input")
 	childDigest := sha("child-op2")
-
 	sm := makeMonitorWithState([]buildkitskipper.VertexRecord{
 		{Digest: childDigest.String(), Operation: "RUN make", WasCached: true},
-		// newInputDigest is absent from prevState
 	})
 
-	v := &client.Vertex{
-		Digest: childDigest,
-		Inputs: []digest.Digest{newInputDigest},
-	}
-	msg := sm.buildCacheMissMessage(v)
-	require.Contains(t, msg, "*cache miss*")
-	require.Contains(t, msg, "unknown")
+	v := &client.Vertex{Digest: childDigest, Inputs: []digest.Digest{sha("new-input")}}
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
+	require.Contains(t, msg, "previously cached")
 }
 
 func TestBuildCacheMissMessage_AllInputsPreviouslyCached(t *testing.T) {
 	t.Parallel()
 
-	// All inputs were cached → miss reason is "unknown" (command text itself changed)
 	inputDigest := sha("stable-input")
 	childDigest := sha("child-op3")
 
@@ -141,13 +144,9 @@ func TestBuildCacheMissMessage_AllInputsPreviouslyCached(t *testing.T) {
 		{Digest: childDigest.String(), Operation: "RUN echo old", WasCached: true},
 	})
 
-	v := &client.Vertex{
-		Digest: childDigest,
-		Inputs: []digest.Digest{inputDigest},
-	}
-	msg := sm.buildCacheMissMessage(v)
-	require.Contains(t, msg, "*cache miss*")
-	require.Contains(t, msg, "unknown")
+	v := &client.Vertex{Digest: childDigest, Inputs: []digest.Digest{inputDigest}}
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
+	require.Contains(t, msg, "previously cached")
 }
 
 // ---------------------------------------------------------------------------
@@ -236,7 +235,7 @@ func TestHandleBuildkitStatus_AnnotatesEarthVertex(t *testing.T) {
 
 	opDigest := sha("run-echo-hello")
 
-	// Seed: this vertex was previously cached
+	// Seed: this vertex was previously cached — verifies the regression suffix fires.
 	sm.prevState[opDigest.String()] = buildkitskipper.VertexRecord{
 		Digest:    opDigest.String(),
 		Operation: "RUN echo hello",
@@ -272,6 +271,65 @@ func TestHandleBuildkitStatus_AnnotatesEarthVertex(t *testing.T) {
 		if mon.meta.CommandID == cmdID {
 			require.True(t, mon.cacheMissLogged,
 				"earth-managed vertex should have cache miss logged")
+
+			return
+		}
+	}
+
+	t.Fatal("expected to find the earth-managed vertex monitor")
+}
+
+func TestHandleBuildkitStatus_AnnotatesEarthVertex_NoDB(t *testing.T) {
+	t.Parallel()
+
+	// Verifies that cache miss is annotated even without any prior DB state
+	// (first run, no --auto-skip-db-path).
+	b := newTestBus(t)
+	run := b.Run()
+
+	cmdID := "target-2/cmd-0"
+	targetID := "target-2"
+
+	_, err := run.NewTarget(targetID, domain.Target{}, nil, "", "")
+	require.NoError(t, err)
+
+	_, err = run.NewCommand(cmdID, "RUN echo world", targetID, "+my-target", "", false, false, false, nil, "", "", "")
+	require.NoError(t, err)
+
+	sm := &SolverMonitor{
+		b:         b,
+		digests:   make(map[digest.Digest]string),
+		vertices:  make(map[string]*vertexMonitor),
+		prevState: make(map[string]buildkitskipper.VertexRecord), // empty — no DB
+	}
+
+	opDigest := sha("run-echo-world")
+	now := time.Now()
+
+	vm := &vertexmeta.VertexMeta{
+		CommandID:  cmdID,
+		TargetID:   targetID,
+		TargetName: "+my-target",
+	}
+
+	status := &client.SolveStatus{
+		Vertexes: []*client.Vertex{
+			{
+				Name:    vertexMetaPrefix(vm, "RUN echo world"),
+				Digest:  opDigest,
+				Started: &now,
+				Cached:  false,
+			},
+		},
+	}
+
+	err = sm.handleBuildkitStatus(status)
+	require.NoError(t, err)
+
+	for _, mon := range sm.vertices {
+		if mon.meta.CommandID == cmdID {
+			require.True(t, mon.cacheMissLogged,
+				"earth-managed vertex must be annotated even without prior DB state")
 
 			return
 		}

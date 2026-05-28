@@ -229,7 +229,7 @@ When a `RUN`, `COPY`, or other BuildKit operation executes instead of being serv
 
 This annotation only appears when the operation **was cached on a previous run** but is no longer — i.e. a regression, not a first-ever execution. First runs and operations that were already a miss last time are silent.
 
-To activate this feature, provide a local state database via the `--auto-skip-db-path` flag (or `EARTH_AUTO_SKIP_DB_PATH` env var). Earth records the cache state of every operation after each successful build and compares it on the next run:
+To activate this feature, provide a local state database via the `--auto-skip-db-path` flag (or `EARTHLY_AUTO_SKIP_DB_PATH` env var). Earth records the cache state of every operation after each successful build and compares it on the next run:
 
 ```bash
 earth --auto-skip-db-path ~/.earth/skip.db +my-target

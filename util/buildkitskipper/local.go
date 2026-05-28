@@ -30,6 +30,11 @@ func NewLocal(path string) (*LocalBuildkitSkipper, error) {
 			return fmt.Errorf("could not create vertex-state bucket: %w", err)
 		}
 
+		_, err = tx.CreateBucketIfNotExists(hashLogBucket)
+		if err != nil {
+			return fmt.Errorf("could not create hash-log bucket: %w", err)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -39,6 +44,7 @@ func NewLocal(path string) (*LocalBuildkitSkipper, error) {
 	return &LocalBuildkitSkipper{
 		db:               db,
 		vertexStateStore: &localVertexStateStore{db: db},
+		hashLogStore:     &localHashLogStore{db: db},
 	}, nil
 }
 
@@ -46,11 +52,17 @@ func NewLocal(path string) (*LocalBuildkitSkipper, error) {
 type LocalBuildkitSkipper struct {
 	db               *bolt.DB
 	vertexStateStore *localVertexStateStore
+	hashLogStore     *localHashLogStore
 }
 
 // VertexStateStore returns the VertexStateStore for persisting per-vertex cache state.
 func (l *LocalBuildkitSkipper) VertexStateStore() VertexStateStore {
 	return l.vertexStateStore
+}
+
+// HashLogStore returns the HashLogStore for persisting Earthfile hash logs.
+func (l *LocalBuildkitSkipper) HashLogStore() HashLogStore {
+	return l.hashLogStore
 }
 
 // Add a new hash value (org & target are ignored in this implementation).

@@ -20,20 +20,23 @@ const targetInternal = "internal"
 type VertexMeta struct {
 	SourceLocation      *spec.SourceLocation `json:"sl,omitempty"`
 	OverridingArgs      map[string]string    `json:"args,omitempty"`
-	CommandID           string               `json:"cid,omitempty"`
-	RepoGitURL          string               `json:"rgu,omitempty"`
-	RepoGitHash         string               `json:"rgh,omitempty"`
+	ActiveArgs          map[string]string    `json:"aargs,omitempty"`
+	Platform            string               `json:"plt,omitempty"`
+	RepoFileRelToRepo   string               `json:"rfr,omitempty"`
 	TargetID            string               `json:"tid,omitempty"`
 	TargetName          string               `json:"tnm,omitempty"`
 	CanonicalTargetName string               `json:"ctnm,omitempty"`
-	Platform            string               `json:"plt,omitempty"`
+	RepoGitURL          string               `json:"rgu,omitempty"`
 	Runner              string               `json:"runner,omitempty"`
-	RepoFileRelToRepo   string               `json:"rfr,omitempty"`
+	RepoGitHash         string               `json:"rgh,omitempty"`
+	BaseImageRef        string               `json:"bimg,omitempty"`
+	CommandID           string               `json:"cid,omitempty"`
+	CopiedPaths         []string             `json:"cpaths,omitempty"`
 	Secrets             []string             `json:"secrets,omitempty"`
-	Interactive         bool                 `json:"itrctv,omitempty"`
 	Local               bool                 `json:"lcl,omitempty"`
 	Internal            bool                 `json:"itrnl,omitempty"`
 	NonDefaultPlatform  bool                 `json:"defplt,omitempty"`
+	Interactive         bool                 `json:"itrctv,omitempty"`
 }
 
 var vertexRegexp = regexp.MustCompile(`(?s)^\[([^\]]*)\] (.*)$`)

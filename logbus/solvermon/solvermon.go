@@ -3,6 +3,7 @@ package solvermon
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,7 +28,12 @@ type SolverMonitor struct {
 	targetName string
 	prevState  map[string]buildkitskipper.VertexRecord // digest -> VertexRecord from last run
 	collected  []buildkitskipper.VertexRecord
-	mu         sync.Mutex
+	// hashLogDiff contains human-readable lines describing what changed in the
+	// Earthfile inputs since the last run. Set via SetHashLogDiff before the
+	// build starts; shown on the first *cache miss* when no vertex-level reason
+	// is found. Cleared after first use to avoid repeating on every miss.
+	hashLogDiff []string
+	mu          sync.Mutex
 }
 
 // New creates a new SolverMonitor.
@@ -70,6 +76,15 @@ func (sm *SolverMonitor) Configure(ctx context.Context, store buildkitskipper.Ve
 			sm.prevState[r.Digest] = r
 		}
 	}
+}
+
+// SetHashLogDiff sets the Earthfile-level diff lines to show when a cache miss
+// has no vertex-level reason. Safe to call before MonitorProgress starts.
+func (sm *SolverMonitor) SetHashLogDiff(lines []string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	sm.hashLogDiff = lines
 }
 
 // SaveState persists collected vertex records to the store for the current target.
@@ -216,17 +231,16 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		if vertex.Started != nil {
 			vm.cp.SetStart(*vertex.Started)
 
-			// Only annotate vertices that earth's converter created ahead of
-			// time (identified by a non-empty CommandID). This excludes
-			// BuildKit-internal vertices (exporters, cache, context transfer)
-			// that are always re-executed and have no meaningful miss reason.
-			if !vertex.Cached && !vm.cacheMissLogged && meta.CommandID != "" {
+			// Only annotate RUN and COPY operations created by earth's converter
+			// (identified by a non-empty CommandID). FROM / image-pull vertices
+			// are always re-executed on a cold daemon and carry no actionable
+			// miss information.
+			if !vertex.Cached && !vm.cacheMissLogged &&
+				meta.CommandID != "" && isAnnotatableOp(vm.operation) {
 				vm.cacheMissLogged = true
 
-				cacheMissMsg := sm.buildCacheMissMessage(vertex)
-				if cacheMissMsg != "" {
-					_, _ = vm.cp.Write([]byte(cacheMissMsg+"\n"), *vertex.Started, logbus.Stderr)
-				}
+				cacheMissMsg := "*cache miss*" + sm.buildCacheMissReason(vertex, meta)
+				_, _ = vm.cp.Write([]byte(cacheMissMsg+"\n"), *vertex.Started, logbus.Stderr)
 			}
 		}
 
@@ -240,10 +254,13 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 
 		// Collect the vertex record once the vertex is complete.
 		sm.collected = append(sm.collected, buildkitskipper.VertexRecord{
-			Digest:    vertex.Digest.String(),
-			Inputs:    digestStrings(vertex.Inputs),
-			Operation: vm.operation,
-			WasCached: vertex.Cached,
+			Digest:       vertex.Digest.String(),
+			Inputs:       digestStrings(vertex.Inputs),
+			Operation:    vm.operation,
+			WasCached:    vertex.Cached,
+			ActiveArgs:   vm.meta.ActiveArgs,
+			CopiedPaths:  vm.meta.CopiedPaths,
+			BaseImageRef: vm.meta.BaseImageRef,
 		})
 
 		var status logstream.RunStatus
@@ -310,27 +327,135 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 	return nil
 }
 
-// buildCacheMissMessage decides whether to emit a cache-miss annotation and,
-// if so, returns the message string. It returns "" when the miss should be
-// silent (first run, or was already a miss last time).
-func (sm *SolverMonitor) buildCacheMissMessage(vertex *client.Vertex) string {
+// cacheMissReasonUnknown is returned when a cache miss regression is detected
+// but no specific input change can be identified.
+const cacheMissReasonUnknown = "unknown"
+
+// buildCacheMissReason returns an optional suffix to append to the base
+// "*cache miss*" annotation. It returns "" when no prior state is available
+// (first run or no DB configured). When the vertex was previously cached it
+// returns a human-readable explanation of what changed.
+func (sm *SolverMonitor) buildCacheMissReason(vertex *client.Vertex, meta *vertexmeta.VertexMeta) string {
 	digestStr := vertex.Digest.String()
 	prev, found := sm.prevState[digestStr]
 
 	if !found {
-		// New operation (first run or graph changed) — don't log.
+		// Vertex digest changed (command/inputs changed) or first run.
+		// Show the Earthfile diff once on the first miss, then clear it.
+		if len(sm.hashLogDiff) > 0 {
+			reason := " (Earthfile changed:\n" + strings.Join(sm.hashLogDiff, "\n") + ")"
+			sm.hashLogDiff = nil
+
+			return reason
+		}
+
 		return ""
 	}
 
 	if !prev.WasCached {
-		// Was already a miss last time — don't log.
+		// Was already a miss last time — no regression to report.
 		return ""
 	}
 
-	// Previously cached but now a miss: find which input changed.
-	changedInput := sm.findChangedInput(vertex.Inputs)
+	// Previously cached but now a miss. Try to explain why, in priority order.
 
-	return "*cache miss* (previously cached; input changed: " + changedInput + ")"
+	// 1. ARG value changed.
+	if reason := diffArgs(prev.ActiveArgs, meta.ActiveArgs); reason != "" {
+		return " (previously cached; " + reason + ")"
+	}
+
+	// 2. COPY source paths changed.
+	if reason := diffCopiedPaths(prev.CopiedPaths, meta.CopiedPaths); reason != "" {
+		return " (previously cached; " + reason + ")"
+	}
+
+	// 3. Base image reference changed.
+	if prev.BaseImageRef != "" && meta.BaseImageRef != "" && prev.BaseImageRef != meta.BaseImageRef {
+		return " (previously cached; base image changed: " + prev.BaseImageRef + " → " + meta.BaseImageRef + ")"
+	}
+
+	// 4. Command text changed (same digest, different operation string — shouldn't
+	// happen for structural ops, but handle it defensively).
+	if prev.Operation != "" && prev.Operation != sm.prevState[digestStr].Operation {
+		return " (previously cached; command changed)"
+	}
+
+	// 5. Fall back to input-chain analysis.
+	if changedInput := sm.findChangedInput(vertex.Inputs); changedInput != cacheMissReasonUnknown {
+		return " (previously cached; upstream changed: " + changedInput + ")"
+	}
+
+	// 6. Fall back to Earthfile-level diff if available.
+	if len(sm.hashLogDiff) > 0 {
+		return " (previously cached; Earthfile changed:\n" + strings.Join(sm.hashLogDiff, "\n") + ")"
+	}
+
+	return " (previously cached; reason " + cacheMissReasonUnknown + ")"
+}
+
+// diffArgs returns a human-readable description of the first arg that changed
+// between prev and current. Returns "" if no relevant change is found.
+func diffArgs(prev, current map[string]string) string {
+	for k, curVal := range current {
+		prevVal, existed := prev[k]
+		if !existed {
+			return "new arg: " + k + "=" + curVal
+		}
+
+		if prevVal != curVal {
+			return "arg changed: " + k + "=" + prevVal + " → " + curVal
+		}
+	}
+
+	for k, prevVal := range prev {
+		if _, exists := current[k]; !exists {
+			return "arg removed: " + k + "=" + prevVal
+		}
+	}
+
+	return ""
+}
+
+// diffCopiedPaths returns a human-readable description if the set of copied
+// paths changed between runs. Returns "" if unchanged.
+func diffCopiedPaths(prev, current []string) string {
+	if len(prev) == 0 && len(current) == 0 {
+		return ""
+	}
+
+	prevSet := make(map[string]struct{}, len(prev))
+	for _, p := range prev {
+		prevSet[p] = struct{}{}
+	}
+
+	for _, p := range current {
+		if _, ok := prevSet[p]; !ok {
+			return "file added to COPY: " + p
+		}
+	}
+
+	currSet := make(map[string]struct{}, len(current))
+	for _, p := range current {
+		currSet[p] = struct{}{}
+	}
+
+	for _, p := range prev {
+		if _, ok := currSet[p]; !ok {
+			return "file removed from COPY: " + p
+		}
+	}
+
+	return ""
+}
+
+// isAnnotatableOp returns true for operations where a cache miss is meaningful
+// and actionable — specifically RUN and COPY commands authored by the user.
+// FROM and image-pull operations are excluded because they depend on registry
+// state and are always non-cached on a cold daemon.
+func isAnnotatableOp(operation string) bool {
+	return strings.HasPrefix(operation, "RUN ") ||
+		strings.HasPrefix(operation, "COPY ") ||
+		strings.HasPrefix(operation, "GIT CLONE ")
 }
 
 // findChangedInput scans the given input digests and returns the Operation of
@@ -346,9 +471,9 @@ func (sm *SolverMonitor) findChangedInput(inputs []digest.Digest) string {
 				return prev.Operation
 			}
 
-			return "unknown"
+			return cacheMissReasonUnknown
 		}
 	}
 
-	return "unknown"
+	return cacheMissReasonUnknown
 }

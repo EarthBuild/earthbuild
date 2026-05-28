@@ -77,7 +77,7 @@ To clear the auto-skip cache for a specific target, you can use the command `ear
 
 ### Local auto-skip database
 
-For local development, Earth can maintain a lightweight on-disk skip database instead of relying on the cloud. Pass a file path via `--auto-skip-db-path` (or the `EARTH_AUTO_SKIP_DB_PATH` environment variable):
+For local development, Earth can maintain a lightweight on-disk skip database instead of relying on the cloud. Pass a file path via `--auto-skip-db-path` (or the `EARTHLY_AUTO_SKIP_DB_PATH` environment variable):
 
 ```bash
 earth --auto-skip-db-path ~/.earth/skip.db +my-target

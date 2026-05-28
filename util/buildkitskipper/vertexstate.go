@@ -12,14 +12,13 @@ var vertexStateBucket = []byte("vertex-state")
 
 // VertexRecord captures the cache state of one BuildKit vertex from a build run.
 type VertexRecord struct {
-	// Digest is the stable SHA256 identity of this LLB operation.
-	Digest string
-	// Operation is the human-readable command string (e.g. "RUN apt-get install curl").
-	Operation string
-	// Inputs holds the digests of predecessor vertices, in order.
-	Inputs []string
-	// WasCached is true if BuildKit served this vertex from cache.
-	WasCached bool
+	ActiveArgs   map[string]string `json:"activeArgs,omitempty"`
+	Digest       string
+	Operation    string
+	BaseImageRef string `json:"baseImageRef,omitempty"`
+	Inputs       []string
+	CopiedPaths  []string `json:"copiedPaths,omitempty"`
+	WasCached    bool
 }
 
 // VertexStateStore persists and retrieves the per-vertex cache state for a target across runs.

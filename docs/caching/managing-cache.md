@@ -107,7 +107,7 @@ The skip-set is stored in a local database specified via `--auto-skip-db-path`. 
 
 ### Local auto-skip database
 
-For local development, Earth can maintain a lightweight on-disk skip database instead of relying on the cloud. Pass a file path via `--auto-skip-db-path` (or the `EARTH_AUTO_SKIP_DB_PATH` environment variable):
+For local development, Earth can maintain a lightweight on-disk skip database instead of relying on the cloud. Pass a file path via `--auto-skip-db-path` (or the `EARTHLY_AUTO_SKIP_DB_PATH` environment variable):
 
 ```bash
 earth --auto-skip-db-path ~/.earth/skip.db +my-target

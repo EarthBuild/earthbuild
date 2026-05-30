@@ -1,4 +1,4 @@
-// Package builder orchestrates the top-level resolution and execution of EarthBuild targets and commands.
+// Package builder orchestrates the top-level resolution and execution of earth targets and commands.
 package builder
 
 import (
@@ -123,7 +123,7 @@ type BuildOpt struct {
 	AllowPrivileged            bool
 }
 
-// Builder executes EarthBuild builds.
+// Builder executes earth builds.
 type Builder struct {
 	outDir     string
 	s          *solver
@@ -133,7 +133,7 @@ type Builder struct {
 	builtMain  bool
 }
 
-// NewBuilder returns a new earthly Builder.
+// NewBuilder returns a new earth Builder.
 func NewBuilder(opt Opt) (*Builder, error) {
 	b := &Builder{
 		s: &solver{
@@ -156,7 +156,7 @@ func NewBuilder(opt Opt) (*Builder, error) {
 	return b, nil
 }
 
-// BuildTarget executes the build of a given Earthly target.
+// BuildTarget executes the build of a given earth target.
 func (b *Builder) BuildTarget(ctx context.Context, target domain.Target, opt BuildOpt) (*states.MultiTarget, error) {
 	mts, err := b.convertAndBuild(ctx, target, opt)
 	if err != nil {
@@ -326,7 +326,7 @@ func (b *Builder) convertAndBuild(
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,
-				TempEarthlyOutDir:                    b.tempEarthlyOutDir,
+				TempEarthOutDir:                      b.tempEarthOutDir,
 				GlobalWaitBlockFtr:                   opt.GlobalWaitBlockFtr,
 				LLBCaps:                              &caps,
 				InteractiveDebuggerEnabled:           b.opt.InteractiveDebugging,
@@ -655,7 +655,7 @@ func (b *Builder) convertAndBuild(
 			return "", err
 		}
 
-		outDir, err := b.tempEarthlyOutDir()
+		outDir, err := b.tempEarthOutDir()
 		if err != nil {
 			return "", err
 		}
@@ -670,7 +670,7 @@ func (b *Builder) convertAndBuild(
 		return artifactDir, nil
 	}
 	onFinalArtifact := func(context.Context) (string, error) {
-		return b.tempEarthlyOutDir()
+		return b.tempEarthOutDir()
 	}
 	onPull := func(childCtx context.Context, imagesToPull []string, _ map[string]string) error {
 		if b.opt.LocalRegistryAddr == "" {
@@ -768,7 +768,7 @@ func (b *Builder) convertAndBuild(
 
 			var outDir string
 
-			outDir, err = b.tempEarthlyOutDir()
+			outDir, err = b.tempEarthOutDir()
 			if err != nil {
 				return nil, err
 			}
@@ -834,7 +834,7 @@ func (b *Builder) convertAndBuild(
 				for _, saveLocal := range sts.SaveLocals {
 					var outDir string
 
-					outDir, err = b.tempEarthlyOutDir()
+					outDir, err = b.tempEarthOutDir()
 					if err != nil {
 						return nil, err
 					}
@@ -868,7 +868,7 @@ func (b *Builder) convertAndBuild(
 				for _, saveLocal := range sts.RunPush.SaveLocals {
 					var outDir string
 
-					outDir, err = b.tempEarthlyOutDir()
+					outDir, err = b.tempEarthOutDir()
 					if err != nil {
 						return nil, err
 					}
@@ -1017,11 +1017,11 @@ func (b *Builder) artifactStateToRef(
 		platr, b.opt.CacheImports.AsSlice())
 }
 
-func (b *Builder) tempEarthlyOutDir() (string, error) {
+func (b *Builder) tempEarthOutDir() (string, error) {
 	var err error
 
 	b.outDirOnce.Do(func() {
-		tmpParentDir := ".tmp-earthly-out"
+		tmpParentDir := ".tmp-earth-out"
 
 		err = os.MkdirAll(tmpParentDir, 0o755) // #nosec G301
 		if err != nil {

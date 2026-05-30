@@ -8,43 +8,43 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 )
 
-// EarthlyApp encapsulates the core earthly command-line application.
-type EarthlyApp struct {
+// EarthApp encapsulates the core earth command-line application.
+type EarthApp struct {
 	BaseCLI *base.CLI
 }
 
-// NewEarthlyApp creates a new EarthlyApp.
-func NewEarthlyApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.Build) *EarthlyApp {
-	earthly := common.GetBinaryName()
-	earthlyApp := &EarthlyApp{BaseCLI: cliInstance}
+// NewEarthApp creates a new [EarthApp].
+func NewEarthApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.Build) *EarthApp {
+	earth := common.GetBinaryName()
+	earthApp := &EarthApp{BaseCLI: cliInstance}
 
-	earthlyApp.BaseCLI.SetAppUsage("The CI/CD framework that runs anywhere!")
-	earthlyApp.BaseCLI.SetAppUsageText("\t" + earthly + " [options] <target-ref>\n" +
-		"   \t" + earthly + " [options] --image <target-ref>\n" +
-		"   \t" + earthly + " [options] --artifact <target-ref>/<artifact-path> [<dest-path>]\n" +
-		"   \t" + earthly + " [options] command [command options]\n" +
+	earthApp.BaseCLI.SetAppUsage("The CI/CD framework that runs anywhere!")
+	earthApp.BaseCLI.SetAppUsageText("\t" + earth + " [options] <target-ref>\n" +
+		"   \t" + earth + " [options] --image <target-ref>\n" +
+		"   \t" + earth + " [options] --artifact <target-ref>/<artifact-path> [<dest-path>]\n" +
+		"   \t" + earth + " [options] command [command options]\n" +
 		"\n" +
-		"Executes EarthBuild builds. For more information see https://docs.earthbuild.dev/docs/earthly-command.\n" +
-		"To get started with using EarthBuild check out the getting started guide at https://docs.earthbuild.dev/basics.\n" +
+		"Executes earth builds. For more information see https://docs.earthbuild.dev/docs/earthly-command.\n" +
+		"To get started with using earth check out the getting started guide at https://docs.earthbuild.dev/basics.\n" +
 		"\n" +
 		"For help on build-specific flags try \n" +
 		"\n" +
-		"\t" + earthly + " build --help")
-	earthlyApp.BaseCLI.SetAppUseShortOptionHandling(true)
-	earthlyApp.BaseCLI.SetAppStopOnNthArg(new(1))
-	earthlyApp.BaseCLI.SetAction(buildApp.Action)
-	earthlyApp.BaseCLI.SetVersion(
-		getVersionPlatform(earthlyApp.BaseCLI.Version(), earthlyApp.BaseCLI.GitSHA(), earthlyApp.BaseCLI.BuiltBy()))
+		"\t" + earth + " build --help")
+	earthApp.BaseCLI.SetAppUseShortOptionHandling(true)
+	earthApp.BaseCLI.SetAppStopOnNthArg(new(1))
+	earthApp.BaseCLI.SetAction(buildApp.Action)
+	earthApp.BaseCLI.SetVersion(
+		getVersionPlatform(earthApp.BaseCLI.Version(), earthApp.BaseCLI.GitSHA(), earthApp.BaseCLI.BuiltBy()))
 
-	earthlyApp.BaseCLI.SetFlags(
+	earthApp.BaseCLI.SetFlags(
 		cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()))
-	earthlyApp.BaseCLI.SetFlags(append(earthlyApp.BaseCLI.App().Flags, buildApp.HiddenFlags()...))
+	earthApp.BaseCLI.SetFlags(append(earthApp.BaseCLI.App().Flags, buildApp.HiddenFlags()...))
 
-	earthlyApp.BaseCLI.SetCommands(rootApp.Cmds())
+	earthApp.BaseCLI.SetCommands(rootApp.Cmds())
 
-	earthlyApp.BaseCLI.SetBefore(earthlyApp.before)
+	earthApp.BaseCLI.SetBefore(earthApp.before)
 
-	return earthlyApp
+	return earthApp
 }
 
 func getVersionPlatform(version string, gitSHA string, builtBy string) string {

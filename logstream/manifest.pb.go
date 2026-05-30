@@ -7,10 +7,11 @@
 package logstream
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -663,7 +664,7 @@ type CommandManifest struct {
 	TargetId string `protobuf:"bytes,12,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// category is a grouping separate from target. This is used for things
 	// like "context", "output", or Dockerfile stages, which would
-	// not be part of an Earthly target.
+	// not be part of an EarthBuild target.
 	Category           string    `protobuf:"bytes,14,opt,name=category,proto3" json:"category,omitempty"`
 	Platform           string    `protobuf:"bytes,13,opt,name=platform,proto3" json:"platform,omitempty"`
 	Status             RunStatus `protobuf:"varint,2,opt,name=status,proto3,enum=api.public.logstream.RunStatus" json:"status,omitempty"`
@@ -1144,20 +1145,22 @@ func file_manifest_proto_rawDescGZIP() []byte {
 	return file_manifest_proto_rawDescData
 }
 
-var file_manifest_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_manifest_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_manifest_proto_goTypes = []interface{}{
-	(RunStatus)(0),          // 0: api.public.logstream.RunStatus
-	(FailureType)(0),        // 1: api.public.logstream.FailureType
-	(*RunManifest)(nil),     // 2: api.public.logstream.RunManifest
-	(*Failure)(nil),         // 3: api.public.logstream.Failure
-	(*TargetManifest)(nil),  // 4: api.public.logstream.TargetManifest
-	(*CommandTarget)(nil),   // 5: api.public.logstream.CommandTarget
-	(*CommandManifest)(nil), // 6: api.public.logstream.CommandManifest
-	(*SourceLocation)(nil),  // 7: api.public.logstream.SourceLocation
-	nil,                     // 8: api.public.logstream.RunManifest.TargetsEntry
-	nil,                     // 9: api.public.logstream.RunManifest.CommandsEntry
-}
+var (
+	file_manifest_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+	file_manifest_proto_msgTypes  = make([]protoimpl.MessageInfo, 8)
+	file_manifest_proto_goTypes   = []interface{}{
+		(RunStatus)(0),          // 0: api.public.logstream.RunStatus
+		(FailureType)(0),        // 1: api.public.logstream.FailureType
+		(*RunManifest)(nil),     // 2: api.public.logstream.RunManifest
+		(*Failure)(nil),         // 3: api.public.logstream.Failure
+		(*TargetManifest)(nil),  // 4: api.public.logstream.TargetManifest
+		(*CommandTarget)(nil),   // 5: api.public.logstream.CommandTarget
+		(*CommandManifest)(nil), // 6: api.public.logstream.CommandManifest
+		(*SourceLocation)(nil),  // 7: api.public.logstream.SourceLocation
+		nil,                     // 8: api.public.logstream.RunManifest.TargetsEntry
+		nil,                     // 9: api.public.logstream.RunManifest.CommandsEntry
+	}
+)
 var file_manifest_proto_depIdxs = []int32{
 	0,  // 0: api.public.logstream.RunManifest.status:type_name -> api.public.logstream.RunStatus
 	8,  // 1: api.public.logstream.RunManifest.targets:type_name -> api.public.logstream.RunManifest.TargetsEntry

@@ -8,6 +8,6 @@
 .secret
 .vscode
 .idea
-.tmp-earthly-out*
+.tmp-earth-out*
 .DS_Store
 **/node_modules

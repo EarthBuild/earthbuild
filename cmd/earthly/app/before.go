@@ -23,7 +23,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func (app *EarthlyApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 	flags := app.BaseCLI.Flags()
 
 	if flags.EnableProfiler {
@@ -129,7 +129,7 @@ func (app *EarthlyApp) before(ctx context.Context, cmd *cli.Command) (context.Co
 	return ctx, nil
 }
 
-func (app *EarthlyApp) parseFrontend(ctx context.Context) error {
+func (app *EarthApp) parseFrontend(ctx context.Context) error {
 	console := app.BaseCLI.Console().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -174,7 +174,7 @@ func (app *EarthlyApp) parseFrontend(ctx context.Context) error {
 	return nil
 }
 
-func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) {
+func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	app.warnIfEarth()
 
 	if cfg.Global.CachePath != "" {
@@ -217,12 +217,12 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) {
 
 const cmdName = "earthly"
 
-func (app *EarthlyApp) warnIfEarth() {
+func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
 	}
 
-	// can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
 	binPath := os.Args[0]
 
 	baseName := path.Base(binPath)
@@ -235,10 +235,10 @@ func (app *EarthlyApp) warnIfEarth() {
 			return
 		}
 
-		earthlyPath := path.Join(path.Dir(absPath), cmdName)
+		earthPath := path.Join(path.Dir(absPath), cmdName)
 
-		earthlyPathExists, _ := fileutil.FileExists(earthlyPath)
-		if earthlyPathExists {
+		earthPathExists, _ := fileutil.FileExists(earthPath)
+		if earthPathExists {
 			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
 		}
 	}
@@ -259,9 +259,9 @@ func profhandler() {
 }
 
 func defaultConfigPath(installName string) string {
-	earthlyDir := cliutil.GetEarthlyDir(installName)
-	oldConfig := filepath.Join(earthlyDir, "config.yaml")
-	newConfig := filepath.Join(earthlyDir, "config.yml")
+	earthDir := cliutil.GetEarthDir(installName)
+	oldConfig := filepath.Join(earthDir, "config.yaml")
+	newConfig := filepath.Join(earthDir, "config.yml")
 	oldConfigExists, _ := fileutil.FileExists(oldConfig)
 
 	newConfigExists, _ := fileutil.FileExists(newConfig)

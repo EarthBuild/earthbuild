@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTempEarthlyOutDir tests that tempEarthlyOutDir always returns the same directory.
-func TestTempEarthlyOutDir(t *testing.T) {
+// TestTempEarthOutDir tests that tempEarthOutDir always returns the same directory.
+func TestTempEarthOutDir(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
@@ -17,10 +17,10 @@ func TestTempEarthlyOutDir(t *testing.T) {
 		CleanCollection: cleanup.NewCollection(),
 	})
 
-	outDir1, err := b.tempEarthlyOutDir()
+	outDir1, err := b.tempEarthOutDir()
 	r.NoError(err)
 
-	outDir2, err := b.tempEarthlyOutDir()
+	outDir2, err := b.tempEarthOutDir()
 	r.NoError(err)
 
 	b.opt.CleanCollection.Close()

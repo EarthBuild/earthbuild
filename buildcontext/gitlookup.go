@@ -393,14 +393,14 @@ func (gl *GitLookup) getGitMatcherByPath(path string) (string, *gitMatcher, erro
 	for _, m := range gl.matchers {
 		match := m.re.FindString(path)
 		if match != "" {
-			gl.console.VerbosePrintf("matched earthly reference %s with git config entry %s (regex %s)", path, m.name, m.re)
+			gl.console.VerbosePrintf("matched earth reference %s with git config entry %s (regex %s)", path, m.name, m.re)
 			return match, m, nil
 		}
 	}
 
 	match := gl.catchAll.re.FindString(path)
 	if match != "" {
-		gl.console.VerbosePrintf("matched earthly reference %s with pre-configured catch-all (regex %s)",
+		gl.console.VerbosePrintf("matched earth reference %s with pre-configured catch-all (regex %s)",
 			path, gl.catchAll.re)
 
 		return match, gl.catchAll, nil
@@ -682,7 +682,7 @@ func parseGitProtocol(remote string) (string, int) {
 
 // GetCloneURL returns the repo to clone, and a path relative to the repo
 //
-//	"github.com/earthly/earthly"             ---> ("git@github.com/earthly/earthly.git", "")
+//	"github.com/earthly/earthly"                   ---> ("git@github.com/earthly/earthly.git", "")
 //	"github.com/EarthBuild/earthbuild/examples"    ---> ("git@github.com/earthly/earthly.git", "examples")
 //	"github.com/EarthBuild/earthbuild/examples/go" ---> ("git@github.com/earthly/earthly.git", "examples/go")
 //
@@ -719,7 +719,7 @@ func (gl *GitLookup) GetCloneURL(
 			return "", "", nil, "", err
 		}
 
-		gl.console.VerbosePrintf("converted earthly reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
+		gl.console.VerbosePrintf("converted earth reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
 
 		return gitURL, subPath, keyScans, sshCommand, nil
 	}
@@ -729,7 +729,7 @@ func (gl *GitLookup) GetCloneURL(
 	}
 
 	gitURL = m.re.ReplaceAllString(path, m.sub)
-	gl.console.VerbosePrintf("converted earthly reference %s to git url %s (using regex substitution %s)",
+	gl.console.VerbosePrintf("converted earth reference %s to git url %s (using regex substitution %s)",
 		path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
 
 	remote, protocol := parseGitProtocol(gitURL)

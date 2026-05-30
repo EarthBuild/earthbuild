@@ -33,7 +33,7 @@ test:
     RUN zig test src/main.zig
 
 docker:
-    FROM alpine:3.18
+    FROM alpine:3.23
     WORKDIR /app
     COPY +build/fizzbuzz .
 

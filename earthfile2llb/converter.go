@@ -99,7 +99,7 @@ const (
 	letCmd                               // "LET"
 )
 
-// Converter turns earthly commands to buildkit LLB representation.
+// Converter turns earth commands to buildkit LLB representation.
 type Converter struct {
 	cacheContext        pllb.State
 	buildContextFactory llbfactory.Factory
@@ -121,7 +121,7 @@ type Converter struct {
 	ranSave             bool
 }
 
-// NewConverter constructs a new converter for a given earthly target.
+// NewConverter constructs a new converter for a given earth target.
 func NewConverter(
 	target domain.Target, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt,
 ) (*Converter, error) {
@@ -190,7 +190,7 @@ func NewConverter(
 	return c, nil
 }
 
-// From applies the earthly FROM command.
+// From applies the earth FROM command.
 func (c *Converter) From(
 	ctx context.Context,
 	imageName string,
@@ -561,7 +561,7 @@ func (c *Converter) FromDockerfile(
 	return nil
 }
 
-// Locally applies the earthly Locally command.
+// Locally applies the earth Locally command.
 func (c *Converter) Locally(ctx context.Context) error {
 	err := c.checkAllowed(locallyCmd)
 	if err != nil {
@@ -592,7 +592,7 @@ func (c *Converter) Locally(ctx context.Context) error {
 	return nil
 }
 
-// CopyArtifactLocal applies the earthly COPY artifact command which are invoked under a LOCALLY target.
+// CopyArtifactLocal applies the earth COPY artifact command which are invoked under a LOCALLY target.
 func (c *Converter) CopyArtifactLocal(
 	ctx context.Context,
 	artifactName, dest string,
@@ -659,7 +659,7 @@ func (c *Converter) CopyArtifactLocal(
 	return nil
 }
 
-// CopyArtifact applies the earthly COPY artifact command.
+// CopyArtifact applies the earth COPY artifact command.
 func (c *Converter) CopyArtifact(
 	ctx context.Context,
 	artifactName, dest string,
@@ -724,7 +724,7 @@ func (c *Converter) CopyArtifact(
 	return nil
 }
 
-// CopyClassical applies the earthly COPY command, with classical args.
+// CopyClassical applies the earth COPY command, with classical args.
 func (c *Converter) CopyClassical(
 	ctx context.Context,
 	srcs []string,
@@ -808,7 +808,7 @@ type ConvertRunOpts struct {
 	Locally            bool
 }
 
-// Run applies the earthly RUN command.
+// Run applies the earth RUN command.
 func (c *Converter) Run(ctx context.Context, opts ConvertRunOpts) error {
 	err := c.checkAllowed(runCmd)
 	if err != nil {
@@ -1035,7 +1035,7 @@ func (c *Converter) runCommand(
 	return string(outputDt), nil
 }
 
-// SaveArtifact applies the earthly SAVE ARTIFACT command.
+// SaveArtifact applies the earth SAVE ARTIFACT command.
 func (c *Converter) SaveArtifact(
 	ctx context.Context,
 	saveFrom, saveTo, saveAsLocalTo string,
@@ -1363,7 +1363,7 @@ func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.DoSaves)
 }
 
-// SaveImage applies the earthly SAVE IMAGE command.
+// SaveImage applies the earth SAVE IMAGE command.
 func (c *Converter) SaveImage(
 	ctx context.Context,
 	imageNames []string,
@@ -1480,7 +1480,7 @@ func (c *Converter) SaveImage(
 	return nil
 }
 
-// Build applies the earthly BUILD command.
+// Build applies the earth BUILD command.
 func (c *Converter) Build(
 	ctx context.Context,
 	fullTargetName string,
@@ -1511,7 +1511,7 @@ func (c *Converter) Build(
 
 type afterParallelFunc func(context.Context, *states.MultiTarget) error
 
-// BuildAsync applies the earthly BUILD command asynchronously.
+// BuildAsync applies the earth BUILD command asynchronously.
 func (c *Converter) BuildAsync(
 	ctx context.Context,
 	fullTargetName string,
@@ -2277,7 +2277,7 @@ func (c *Converter) absolutizeTarget(
 ) (domain.Target, domain.Target, bool, error) {
 	relTarget, err := domain.ParseTarget(fullTargetName)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earthly target parse %s", fullTargetName)
+		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earth target parse %s", fullTargetName)
 	}
 
 	derefedTarget, allowPrivilegedImport, isImport, err := c.varCollection.Imports().Deref(relTarget)

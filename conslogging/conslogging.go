@@ -1,5 +1,5 @@
 // Package conslogging provides specialized console logging implementations, including colorized output,
-// buffered logging, and progress reporting for EarthBuild builds.
+// buffered logging, and progress reporting for earth builds.
 package conslogging
 
 import (
@@ -254,7 +254,7 @@ func (cl ConsoleLogger) PrintPhaseFooter(phase string) {
 
 // PrintSuccess prints the success message.
 func (cl ConsoleLogger) PrintSuccess() {
-	cl.PrintBar(successColor, "🌍 Earthly Build  ✅ SUCCESS", "")
+	cl.PrintBar(successColor, "🌍 Earth Build  ✅ SUCCESS", "")
 }
 
 // PrintFailure prints the failure message.
@@ -375,7 +375,7 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 	_, _ = w.WriteTo(cl.errW)
 }
 
-// PrintBar prints an earthly message bar.
+// PrintBar prints an earth message bar.
 func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	w := new(bytes.Buffer)
 

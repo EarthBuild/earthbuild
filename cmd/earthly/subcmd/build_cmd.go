@@ -22,7 +22,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
-	"github.com/EarthBuild/earthbuild/docker2earthly"
+	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/states"
@@ -81,8 +81,8 @@ func (b *Build) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:         "build",
-			Usage:        "Build an EarthBuild target",
-			Description:  "Build an EarthBuild target.",
+			Usage:        "Build an earth target",
+			Description:  "Build an earth target.",
 			Action:       b.Action,
 			StopOnNthArg: new(1),
 			Flags:        b.buildFlags(),
@@ -593,8 +593,8 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	b.cli.Console().PrintPhaseFooter(builder.PhaseInit)
 
 	builtinArgs := variables.DefaultArgs{
-		EarthlyVersion:  b.cli.Version(),
-		EarthlyBuildSha: b.cli.GitSHA(),
+		EarthVersion:  b.cli.Version(),
+		EarthBuildSha: b.cli.GitSHA(),
 	}
 
 	buildOpts := builder.BuildOpt{
@@ -882,7 +882,7 @@ func (b *Build) initAutoSkip(
 		Target:         target,
 		Console:        b.cli.Console(),
 		CI:             b.cli.Flags().CI,
-		BuiltinArgs:    variables.DefaultArgs{EarthlyVersion: b.cli.Version(), EarthlyBuildSha: b.cli.GitSHA()},
+		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
 		OverridingVars: overridingVars,
 	})
 	if err != nil {
@@ -981,7 +981,7 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	platforms := flagutil.SplitFlagString(b.platformsStr)
 
-	content, err := docker2earthly.GenerateEarthfile(
+	content, err := docker2earth.GenerateEarthfile(
 		buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
 		buildArgs.Sorted(), platforms, b.dockerTarget)
 	if err != nil {

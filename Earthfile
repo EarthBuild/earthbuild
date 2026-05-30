@@ -70,7 +70,7 @@ code:
     END
     COPY ./ast/parser+parser/*.go ./ast/parser/
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earthly dockertar domain features internal logbus logstream regproxy states slog util variables ./
+        docker2earth dockertar domain features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
     COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
@@ -279,7 +279,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.0-slim@sha256:9813eecff3a08a6ac88aea5b43663c82a931fd9557f6aceaa847f0d8ce738978
+    FROM python:3.14.3-slim@sha256:6a27522252aef8432841f224d9baaa6e9fce07b07584154fa0b9a96603af7456
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -290,6 +290,8 @@ lint-changelog:
 debugger:
     FROM +code
     ENV CGO_ENABLED=0
+    ARG TARGETARCH
+    ARG GOARCH=$TARGETARCH
     ARG GO_EXTRA_LDFLAGS=""
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
@@ -500,7 +502,7 @@ earthly-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.18
+    FROM alpine:3.23
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -511,7 +513,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.18
+    FROM alpine:3.23
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -521,7 +523,7 @@ prerelease-script:
 ci-release:
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
-    FROM alpine:3.18
+    FROM alpine:3.23
     ARG BUILDKIT_PROJECT
     ARG EARTHLY_GIT_HASH
     ARG --required TAG_SUFFIX

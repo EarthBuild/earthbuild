@@ -73,12 +73,12 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 
 	cli.Flags().BuildkitdSettings.IPTables = cli.Cfg().Global.IPTables
 
-	earthlyDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
+	earthDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 	if err != nil {
-		return errors.Wrap(err, "failed to get earthly dir")
+		return errors.Wrap(err, "failed to get earth dir")
 	}
 
-	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthlyDir, "buildkitd-startup.lock")
+	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthDir, "buildkitd-startup.lock")
 
 	return nil
 }

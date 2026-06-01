@@ -7,5 +7,5 @@ subtest:
     RUN echo "$myvar" | grep "^BusyBox v1\\.37\\..*multi-call binary\\.$"
 
 test:
-    FROM busybox:1.37
+    FROM busybox:1.38
     BUILD +subtest --myvar="$(busybox | head -1)"

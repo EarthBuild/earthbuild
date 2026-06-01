@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM node:26.1.0-alpine3.23
+FROM node:26.2.0-alpine3.23
 WORKDIR /js-example
 
 build:

@@ -13,7 +13,7 @@ build:
   SAVE ARTIFACT build/go-example AS LOCAL build/go-example
 
 lint:
-  FROM golangci/golangci-lint:v2.10.1-alpine
+  FROM golangci/golangci-lint:v2.12.2-alpine
   COPY main.go .
   RUN golangci-lint run main.go
 

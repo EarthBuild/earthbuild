@@ -2,7 +2,7 @@ VERSION 0.8
 
 # TODO update to 3.18; however currently "podman login" (used under not-a-unit-test.sh) will error with
 # "Error: default OCI runtime "crun" not found: invalid argument".
-FROM alpine:3.18
+FROM alpine:3.23
 RUN apk add --update --no-cache \
     bash \
     bash-completion \
@@ -279,7 +279,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.3-slim@sha256:6a27522252aef8432841f224d9baaa6e9fce07b07584154fa0b9a96603af7456
+    FROM python:3.14.5-slim@sha256:c845af9399020c7e562969a13689e929074a10fd057acd1b1fad06a2fb068e97
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -843,7 +843,7 @@ license:
     SAVE ARTIFACT LICENSE
 
 node:
-    FROM node:26.1.0-alpine3.23
+    FROM node:26.3.0-alpine3.23
     # renovate: datasource=npm packageName=npm
     LET npm_version=11.14.1
     RUN \

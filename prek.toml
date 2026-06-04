@@ -1,0 +1,43 @@
+[[repos]]
+repo = "local"
+
+# Format Go code with gofumpt (matches the formatter used in golangci-lint config).
+[[repos.hooks]]
+id = "gofumpt"
+name = "gofumpt"
+language = "system"
+entry = "gofumpt -w"
+types = ["go"]
+
+# Run golangci-lint to catch lint issues on every commit.
+# The script installs the pinned version if needed — version defined in one
+# place: scripts/golangci-lint.sh.
+# pass_filenames = false so golangci-lint analyses full packages rather than
+# individual files, which is required for correct type-checking.
+[[repos.hooks]]
+id = "golangci-lint"
+name = "golangci-lint"
+language = "system"
+entry = "scripts/golangci-lint.sh"
+types = ["go"]
+pass_filenames = false
+
+# Run golangci-lint --fix to auto-correct fixable lint issues.
+# Runs manually only: prek run --hook-stage manual golangci-lint-fix
+[[repos.hooks]]
+id = "golangci-lint-fix"
+name = "golangci-lint (auto-fix)"
+language = "system"
+entry = "scripts/golangci-lint.sh --fix"
+types = ["go"]
+pass_filenames = false
+stages = ["manual"]
+
+# Lint shell scripts with shellcheck, mirroring the +lint-scripts Earthfile target.
+# -x allows shellcheck to follow `source` directives across files.
+[[repos.hooks]]
+id = "shellcheck"
+name = "shellcheck"
+language = "system"
+entry = "shellcheck -x"
+types = ["shell"]

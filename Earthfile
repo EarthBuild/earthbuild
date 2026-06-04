@@ -141,21 +141,34 @@ earthly-script-no-stdout:
     RUN test "$(cat earthly-version-output | wc -l)" = "1"
     RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthly project.
-lint:
-    # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.12.2
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+# lint-deps installs golangci-lint at the pinned version and copies the source
+# tree. Both +lint and +lint-fix build FROM this target so the version is
+# defined in exactly one place.
+lint-deps:
+    COPY ./scripts/golangci-lint.sh ./scripts/golangci-lint.sh
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
-    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
-        ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
-        RUN \
-            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-            --mount type=cache,target=/root/.cache/golangci_lint \
-            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
-    END
+
+# lint-fix runs golangci-lint --fix inside a container using the pinned version,
+# then saves the auto-corrected source tree back to the local working directory.
+# Intended for use in developer workflows: earth +lint-fix
+lint-fix:
+    FROM +lint-deps
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        --mount type=cache,target=/root/.cache/golangci_lint \
+        /earthly/scripts/golangci-lint.sh --fix --config=/earthly/.golangci.yaml
+    SAVE ARTIFACT ./* AS LOCAL ./
+
+# lint runs basic go linters against the earthly project.
+lint:
+    FROM +lint-deps
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        --mount type=cache,target=/root/.cache/golangci_lint \
+        /earthly/scripts/golangci-lint.sh --config=/earthly/.golangci.yaml
 
 fmt:
   BUILD +fmt-go

@@ -4,8 +4,8 @@ VERSION 0.8
 subtest:
     FROM alpine:3.23
     ARG myvar
-    RUN echo "$myvar" | grep "^BusyBox v1\\.37\\..*multi-call binary\\.$"
+    RUN echo "$myvar" | grep "^BusyBox v1\\.38\\..*multi-call binary\\.$"
 
 test:
-    FROM busybox:1.37
+    FROM busybox:1.38
     BUILD +subtest --myvar="$(busybox | head -1)"

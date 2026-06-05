@@ -30,6 +30,7 @@ linters:
     - gocyclo
     - godox
     - gomoddirectives
+    - gomodguard # deprecated
     - inamedparam
     - interfacebloat
     - ireturn
@@ -42,7 +43,6 @@ linters:
     - nlreturn
     - nonamedreturns
     - recvcheck
-    - revive
     - tagliatelle
     - testpackage
     - varnamelen

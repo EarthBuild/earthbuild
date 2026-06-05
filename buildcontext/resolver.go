@@ -23,14 +23,14 @@ import (
 )
 
 // DockerfileMetaTarget is a target name prefix which signals the resolver that the build file is a
-// dockerfile. The DockerfileMetaTarget is really not a valid Earthly target otherwise.
+// dockerfile. The DockerfileMetaTarget is really not a valid earth target otherwise.
 const DockerfileMetaTarget = "@dockerfile:"
 
 // Data represents a resolved target's build context data.
 type Data struct {
 	// BuildContext is the state to use for the build.
 	BuildContextFactory llbfactory.Factory
-	// Target is the earthly reference.
+	// Target is the earth reference.
 	Ref domain.Reference
 	// GitMetadata contains git metadata information.
 	GitMetadata *gitutil.GitMetadata
@@ -104,7 +104,7 @@ func (r *Resolver) ExpandWildcard(
 	}
 
 	// For local targets, we need to determine the full path relative to the
-	// working directory of Earthly in order to glob for matching paths. We can
+	// working directory of earth in order to glob for matching paths. We can
 	// get this path by joining the targets. The child target will likely still
 	// include *'s (expanded below), but that shouldn't be a problem.
 	ref, err := domain.JoinReferences(parentTarget, target)
@@ -138,7 +138,7 @@ func (r *Resolver) ExpandWildcard(
 	return ret, nil
 }
 
-// Resolve returns resolved context data for a given Earthly reference. If the reference is a target,
+// Resolve returns resolved context data for a given earth reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
 func (r *Resolver) Resolve(
 	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
@@ -188,7 +188,7 @@ func (r *Resolver) Resolve(
 func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
 	path = filepath.Clean(path)
 
-	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
+	efValue, err := r.parseCache.Do(ctx, path, func(_ context.Context, k any) (any, error) {
 		filePath, ok := k.(string)
 		if !ok {
 			return nil, fmt.Errorf("want string, got %T", k)

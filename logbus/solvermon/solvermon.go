@@ -1,3 +1,4 @@
+// Package solvermon monitors the progress of buildkit solvers, tracking operations and identifying fatal errors.
 package solvermon
 
 import (
@@ -88,7 +89,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			cmdID = operation
 		case meta.CommandID != "":
 			// If the command ID is set, the Logbus command is guaranteed to
-			// have been created by Earthly in the converter ahead of time.
+			// have been created by earth in the converter ahead of time.
 			cmdID = meta.CommandID
 			createCmd = false
 		default:
@@ -104,7 +105,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			}
 
 			var cp *logbus.Command
-			// Operations initiated from Earthly have created Logbus commands
+			// Operations initiated from earth have created Logbus commands
 			// ahead-of-time. Others may originate from BuildKit, so we'll have
 			// to create a command at this point.
 			if createCmd {
@@ -124,7 +125,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				if !ok {
 					// Note: if we receive a vertex with a full command ID that
 					// does not exist in this process, it may have originated
-					// from another Earthly process. It should be safe to
+					// from another earth process. It should be safe to
 					// ignore, in this case.
 					continue
 				}

@@ -59,7 +59,7 @@ func TestCollection(t *testing.T) {
 					Variant:      "bacon",
 				}),
 				BuiltinArgs: variables.DefaultArgs{
-					EarthlyVersion: "some version",
+					EarthVersion: "some version",
 				},
 				Features: tc.features,
 			})
@@ -92,7 +92,7 @@ func TestCollection(t *testing.T) {
 					Variant:      "bacon",
 				}),
 				BuiltinArgs: variables.DefaultArgs{
-					EarthlyVersion: "some version",
+					EarthVersion: "some version",
 				},
 				Features: tc.features,
 			})

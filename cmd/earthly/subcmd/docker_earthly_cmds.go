@@ -1,15 +1,16 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/docker2earthly"
-
-	"github.com/urfave/cli/v2"
+	"github.com/EarthBuild/earthbuild/docker2earth"
+	"github.com/urfave/cli/v3"
 )
 
+// Doc2Earth encapsulates the doc2earth command logic.
 type Doc2Earth struct {
 	cli CLI
 
@@ -17,12 +18,14 @@ type Doc2Earth struct {
 	earthfileFinalImage string
 }
 
+// NewDoc2Earth creates a new Doc2Earth command.
 func NewDoc2Earth(cli CLI) *Doc2Earth {
 	return &Doc2Earth{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the docker2earth command.
 func (a *Doc2Earth) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -54,15 +57,15 @@ func (a *Doc2Earth) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Doc2Earth) action(cliCtx *cli.Context) error {
+func (a *Doc2Earth) action(context.Context, *cli.Command) error {
 	a.cli.SetCommandName("docker2earthly")
 
-	err := docker2earthly.Docker2Earthly(a.cli.Flags().DockerfilePath, a.earthfilePath, a.earthfileFinalImage)
+	err := docker2earth.Docker2Earth(a.cli.Flags().DockerfilePath, a.earthfilePath, a.earthfileFinalImage)
 	if err != nil {
 		return err
 	}
 
-	format := "An Earthfile has been generated; to run it use: earthly +build; then run with docker run -ti %s\n"
+	format := "An Earthfile has been generated; to run it use: earth +build; then run with docker run -ti %s\n"
 	fmt.Fprintf(os.Stderr, format, a.earthfileFinalImage)
 
 	return nil

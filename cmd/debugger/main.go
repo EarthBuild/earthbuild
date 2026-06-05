@@ -1,3 +1,4 @@
+// Package main provides the standalone earth debugger executable.
 package main
 
 import (
@@ -121,7 +122,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(errors.Wrap(closeErr, "earthly debugger: error closing"))
+			log.Error(errors.Wrap(closeErr, "earth debugger: error closing"))
 		}
 	}()
 
@@ -182,7 +183,7 @@ func interactiveMode(
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(errors.Wrap(closeErr, "earthly debugger: error closing"))
+			log.Error(errors.Wrap(closeErr, "earth debugger: error closing"))
 		}
 	}()
 
@@ -340,7 +341,7 @@ func main() {
 	}
 
 	conslogger := conslogging.Current(conslogging.ForceColor, conslogging.NoPadding, conslogging.Info, false).
-		WithPrefix("earthly debugger")
+		WithPrefix("earth debugger")
 
 	color.NoColor = false
 
@@ -361,7 +362,7 @@ func main() {
 	if forceInteractive {
 		quotedCmd := shellescape.QuoteCommand(args)
 
-		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 Earthly Build Interactive Session", quotedCmd)
+		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 Earth Build Interactive Session", quotedCmd)
 
 		// Sometimes the interactive shell doesn't correctly get a newline
 		// Take a brief pause and issue a new line as a workaround.
@@ -471,7 +472,7 @@ func handleError(
 		}
 	}
 
-	// ensure that this always exits with an error status; otherwise it will be cached by earthly
+	// ensure that this always exits with an error status; otherwise it will be cached by earth
 	if exitCode == 0 {
 		exitCode = 1
 	}

@@ -72,7 +72,7 @@ func (c *cmdStore) secretNotFound(err error) error {
 		return err
 	}
 
-	// exit code of 2 indicates secret not found (and earthly should continue looking in other stores)
+	// exit code of 2 indicates secret not found (and earth should continue looking in other stores)
 	if status.ExitStatus() == 2 {
 		return secrets.ErrNotFound
 	}

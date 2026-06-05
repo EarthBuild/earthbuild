@@ -18,8 +18,8 @@ import (
 // DefaultArgs contains additional builtin ARG values which need
 // to be passed in from outside of the scope of this package.
 type DefaultArgs struct {
-	EarthlyVersion  string
-	EarthlyBuildSha string
+	EarthVersion  string
+	EarthBuildSha string
 }
 
 // BuiltinArgs returns a scope containing the builtin args.
@@ -55,8 +55,8 @@ func BuiltinArgs(
 	}
 
 	if ftrs.EarthlyVersionArg {
-		ret.Add(arg.EarthlyVersion, defaultArgs.EarthlyVersion)
-		ret.Add(arg.EarthlyBuildSha, defaultArgs.EarthlyBuildSha)
+		ret.Add(arg.EarthlyVersion, defaultArgs.EarthVersion)
+		ret.Add(arg.EarthlyBuildSha, defaultArgs.EarthBuildSha)
 	}
 
 	if ftrs.EarthlyCIArg {

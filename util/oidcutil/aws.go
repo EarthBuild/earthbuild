@@ -15,6 +15,7 @@ import (
 
 const iam = "iam"
 
+// AWSOIDCInfo contains AWS OIDC authentication information.
 type AWSOIDCInfo struct {
 	RoleARN         *arn.ARN       `mapstructure:"role-arn"`
 	SessionDuration *time.Duration `mapstructure:"session-duration"`
@@ -90,6 +91,7 @@ func (oi *AWSOIDCInfo) String() string {
 	return sb.String()
 }
 
+// RoleARNString returns the role ARN as a string.
 func (oi *AWSOIDCInfo) RoleARNString() string {
 	if oi != nil && oi.RoleARN != nil {
 		return oi.RoleARN.String()

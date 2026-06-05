@@ -1,3 +1,5 @@
+// Package conslogging provides specialized console logging implementations, including colorized output,
+// buffered logging, and progress reporting for earth builds.
 package conslogging
 
 import (
@@ -235,7 +237,7 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 }
 
 // PrintPhaseFooter prints the phase footer.
-func (cl ConsoleLogger) PrintPhaseFooter(phase string, disabled bool, special string) {
+func (cl ConsoleLogger) PrintPhaseFooter(phase string) {
 	w := new(bytes.Buffer)
 
 	cl.mu.Lock()
@@ -252,7 +254,7 @@ func (cl ConsoleLogger) PrintPhaseFooter(phase string, disabled bool, special st
 
 // PrintSuccess prints the success message.
 func (cl ConsoleLogger) PrintSuccess() {
-	cl.PrintBar(successColor, "🌍 Earthly Build  ✅ SUCCESS", "")
+	cl.PrintBar(successColor, "🌍 Earth Build  ✅ SUCCESS", "")
 }
 
 // PrintFailure prints the failure message.
@@ -300,6 +302,7 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 	_, _ = file.WriteString(message + "\n")
 }
 
+// GHAError represents a GitHub Actions error with formatted output.
 type GHAError struct {
 	message string
 	file    string
@@ -307,16 +310,19 @@ type GHAError struct {
 	col     int32
 }
 
+// FormattedMessage returns the formatted message for the GHAError.
 func (e *GHAError) FormattedMessage() string {
 	if e.file != "" {
 		return fmt.Sprintf("file=%s,line=%d,col=%d,title=Error::%s", e.file, e.line, e.col, e.message)
-	} else {
-		return "title=Error::" + e.message
 	}
+
+	return "title=Error::" + e.message
 }
 
+// GHAErrorOpt is a functional option for configuring a GHAError.
 type GHAErrorOpt func(*GHAError)
 
+// WithGHASourceLocation specifies the source location file, line, and column for a GHAError.
 func WithGHASourceLocation(file string, line, col int32) GHAErrorOpt {
 	return func(cfg *GHAError) {
 		cfg.file = file
@@ -369,7 +375,7 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 	_, _ = w.WriteTo(cl.errW)
 }
 
-// PrintBar prints an earthly message bar.
+// PrintBar prints an earth message bar.
 func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	w := new(bytes.Buffer)
 

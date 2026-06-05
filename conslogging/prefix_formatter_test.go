@@ -12,7 +12,7 @@ import (
 func getCacheSize(m *sync.Map) int {
 	size := 0
 
-	m.Range(func(key, value any) bool {
+	m.Range(func(_, _ any) bool {
 		size++
 		return true
 	})
@@ -51,7 +51,7 @@ func Test_prefixFormatter_Format(t *testing.T) {
 		expectedLen := len(prefix)
 
 		optFunc := func(add string) func(str string, padding int, curLen int) string {
-			return func(str string, padding int, curLen int) string {
+			return func(str string, _, curLen int) string {
 				optsCallNum++
 
 				assert.Equal(t, expectedLen, curLen)
@@ -73,7 +73,7 @@ func Test_prefixFormatter_Format(t *testing.T) {
 		expectedLen := len(prefix)
 
 		optFunc := func(add string) func(str string, padding int, curLen int) string {
-			return func(str string, padding int, curLen int) string {
+			return func(str string, _, curLen int) string {
 				optsCallNum++
 
 				assert.Equal(t, expectedLen, curLen)

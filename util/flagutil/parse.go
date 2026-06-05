@@ -1,7 +1,6 @@
 package flagutil
 
 import (
-	"context"
 	"os"
 	"reflect"
 	"strings"
@@ -9,10 +8,8 @@ import (
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/pkg/errors"
-
 	"github.com/jessevdk/go-flags"
-	"github.com/urfave/cli/v2"
+	"github.com/pkg/errors"
 )
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
@@ -29,11 +26,13 @@ func ParseArgs(command string, data any, args []string) ([]string, error) {
 	return ParseArgsWithValueModifier(command, data, args, nil)
 }
 
+// ParseArgsCleaned parses arguments properly handling quoting rules.
 func ParseArgsCleaned(cmdName string, opts any, args []string) ([]string, error) {
 	processed := stringutil.ProcessParamsAndQuotes(args)
 	return ParseArgs(cmdName, opts, processed)
 }
 
+// ParseArgsWithValueModifierCleaned parses args similarly, extracting a value modifier if applicable.
 func ParseArgsWithValueModifierCleaned(
 	cmdName string, opts any, args []string, argumentModFunc ArgumentModFunc,
 ) ([]string, error) {
@@ -273,14 +272,20 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 // multiple occuranced of the flag or with the values passed with a command. For example:
 //
 //	--platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64"
-func SplitFlagString(value cli.StringSlice) []string {
-	valueStr := strings.TrimLeft(strings.TrimRight(value.String(), "]"), "[")
+func SplitFlagString(values []string) []string {
+	var res []string
 
-	return strings.FieldsFunc(valueStr, func(r rune) bool {
-		return r == ' ' || r == ','
-	})
+	for _, val := range values {
+		parts := strings.FieldsFunc(val, func(r rune) bool {
+			return r == ' ' || r == ','
+		})
+		res = append(res, parts...)
+	}
+
+	return res
 }
 
+// These are errors that can be returned from [ParseArgArgs].
 var (
 	ErrInvalidSyntax         = errors.New("invalid syntax")
 	ErrRequiredArgHasDefault = errors.New("required ARG cannot have a default value")
@@ -290,7 +295,7 @@ var (
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(
-	ctx context.Context, cmd spec.Command, isBaseTarget bool, explicitGlobalFeature bool,
+	cmd spec.Command, isBaseTarget, explicitGlobalFeature bool,
 ) (commandflag.ArgOpts, string, *string, error) {
 	var opts commandflag.ArgOpts
 
@@ -332,6 +337,7 @@ func ParseArgArgs(
 	}
 }
 
+// GetArgsCopy returns a deep copy of parsed args.
 func GetArgsCopy(cmd spec.Command) []string {
 	argsCopy := make([]string, len(cmd.Args))
 	copy(argsCopy, cmd.Args)
@@ -339,6 +345,7 @@ func GetArgsCopy(cmd spec.Command) []string {
 	return argsCopy
 }
 
+// IsInParamsForm determines if the args slice uses params form representation.
 func IsInParamsForm(str string) bool {
 	return (strings.HasPrefix(str, "\"(") && strings.HasSuffix(str, "\")")) ||
 		(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")"))
@@ -374,16 +381,14 @@ func ParseParams(str string) (string, []string, error) {
 			nextEscaped = true
 		case ' ', '\t', '\n':
 			if !inQuotes && !nextEscaped {
+				nextEscaped = false
+
 				if len(part) > 0 {
 					parts = append(parts, string(part))
 					part = []rune{}
-					nextEscaped = false
-
-					continue
-				} else {
-					nextEscaped = false
-					continue
 				}
+
+				continue
 			}
 
 			nextEscaped = false

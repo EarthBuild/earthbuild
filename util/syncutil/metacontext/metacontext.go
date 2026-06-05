@@ -1,3 +1,4 @@
+// Package metacontext provides a context implementation enriched with earth-specific metadata and deadlines.
 package metacontext
 
 import (

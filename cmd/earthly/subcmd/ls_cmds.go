@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,10 +12,10 @@ import (
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
-
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
+// List encapsulates the ls command logic.
 type List struct {
 	cli CLI
 
@@ -22,12 +23,14 @@ type List struct {
 	showLong bool
 }
 
+// NewList creates a new List command.
 func NewList(cli CLI) *List {
 	return &List{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the list command.
 func (a *List) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
@@ -54,16 +57,16 @@ func (a *List) Cmds() []*cli.Command {
 	}
 }
 
-func (a *List) action(cliCtx *cli.Context) error {
+func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("listTargets")
 
-	if cliCtx.NArg() > 1 {
+	if cmd.NArg() > 1 {
 		return errors.New("invalid number of arguments provided")
 	}
 
 	var targetToParse string
-	if cliCtx.NArg() > 0 {
-		targetToParse = cliCtx.Args().Get(0)
+	if cmd.NArg() > 0 {
+		targetToParse = cmd.Args().Get(0)
 		if !strings.HasPrefix(targetToParse, "/") && !strings.HasPrefix(targetToParse, ".") {
 			return errors.New("remote-paths are not currently supported; local paths must start with \"/\" or \".\"")
 		}
@@ -99,7 +102,7 @@ func (a *List) action(cliCtx *cli.Context) error {
 		return err
 	}
 
-	targets, err := earthfile2llb.GetTargets(cliCtx.Context, resolver, gwClient, target)
+	targets, err := earthfile2llb.GetTargets(ctx, resolver, gwClient, target)
 	if err != nil {
 		if errors.As(errors.Cause(err), &notExistErr) {
 			return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
@@ -117,7 +120,7 @@ func (a *List) action(cliCtx *cli.Context) error {
 		if t != ast.TargetBase {
 			target.Target = t
 
-			args, err = earthfile2llb.GetTargetArgs(cliCtx.Context, resolver, gwClient, target)
+			args, err = earthfile2llb.GetTargetArgs(ctx, resolver, gwClient, target)
 			if err != nil {
 				return err
 			}

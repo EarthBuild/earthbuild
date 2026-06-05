@@ -27,7 +27,7 @@ func NewMutableMapStore(m map[string][]byte) *MutableMapStore {
 }
 
 // GetSecret gets a secret from the map store.
-func (m *MutableMapStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
+func (m *MutableMapStore) GetSecret(_ context.Context, id string) ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -40,7 +40,7 @@ func (m *MutableMapStore) GetSecret(ctx context.Context, id string) ([]byte, err
 }
 
 // SetSecret sets a secret in the map store.
-func (m *MutableMapStore) SetSecret(ctx context.Context, id string, data []byte) error {
+func (m *MutableMapStore) SetSecret(_ context.Context, id string, data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -50,7 +50,7 @@ func (m *MutableMapStore) SetSecret(ctx context.Context, id string, data []byte)
 }
 
 // DeleteSecret deletes a secret from the map store.
-func (m *MutableMapStore) DeleteSecret(ctx context.Context, id string) error {
+func (m *MutableMapStore) DeleteSecret(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

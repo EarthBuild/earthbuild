@@ -164,6 +164,7 @@ func formatErrorMessage(
 	}
 }
 
+// FormatError formats an error string with the operation name.
 func FormatError(operation string, errString string) string {
 	exitCode, err := getExitCode(errString)
 	fatalErrorType, _ := determineFatalErrorType(errString, exitCode, err)

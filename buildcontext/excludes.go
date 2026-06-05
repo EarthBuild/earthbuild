@@ -16,13 +16,15 @@ const (
 )
 
 const (
-	tmpOutputDir          = ".tmp-earthly-out"
+	tmpOutputDir          = ".tmp-earth-out"
 	tmpOutputDirWithSlash = tmpOutputDir + "/"
 )
 
 const (
 	buildEarthFile = "build.earth"
-	Earthfile      = "Earthfile"
+
+	// Earthfile is the default project configuration file.
+	Earthfile = "Earthfile"
 )
 
 var errDuplicateIgnoreFile = errors.New("both .earthignore and .earthlyignore exist - please remove one")

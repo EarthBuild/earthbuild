@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.18
+FROM alpine:3.23
 
 # globalArg is a documented global arg. earthly doc does not distinguish between
 # global and non-global args, because they work the same to end users.

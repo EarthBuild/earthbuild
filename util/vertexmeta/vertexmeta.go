@@ -1,3 +1,4 @@
+// Package vertexmeta parses and formats Buildkit vertex metadata prefixes, extracting execution contexts and secrets.
 package vertexmeta
 
 import (

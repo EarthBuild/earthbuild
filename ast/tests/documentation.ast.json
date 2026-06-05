@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "golang:1.25-alpine3.23"
+          "golang:1.26-alpine3.23"
         ],
         "name": "FROM"
       }

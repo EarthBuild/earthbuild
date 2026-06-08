@@ -1,6 +1,6 @@
 lazy val scalatest = "org.scalatest" %% "scalatest" % "3.2.20"
 
-scalaVersion := "3.8.3"
+scalaVersion := "3.8.4"
 name := "scala-example"
 organization := "earthly.dev"
 version := "1.0"

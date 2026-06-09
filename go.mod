@@ -42,7 +42,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
-	github.com/tonistiigi/fsutil v0.0.0-20230825212630-f09800878302
+	github.com/tonistiigi/fsutil v0.0.0-20260609091201-0257b3308df4
 	github.com/urfave/cli/v3 v3.8.0
 	go.etcd.io/bbolt v1.4.3
 	go.opentelemetry.io/contrib/exporters/autoexport v0.55.0

@@ -214,3 +214,41 @@ If you have already optimized your cache by maximizing its size, declaring argum
 ### Debugging tips
 
 If you are experiencing caching issues and have ruled out the above common situations, we would love to hear from you. Please open an issue in the [Earthly GitHub repository](https://github.com/earthbuild/earthbuild).
+
+### Cache miss reasons
+
+Earth provides two levels of cache miss visibility, one for each caching layer.
+
+#### BuildKit layer cache misses
+
+When a `RUN`, `COPY`, or other BuildKit operation executes instead of being served from cache, Earth annotates its output with:
+
+```
+*cache miss* (previously cached; input changed: COPY ./src /app/src)
+```
+
+This annotation only appears when the operation **was cached on a previous run** but is no longer — i.e. a regression, not a first-ever execution. First runs and operations that were already a miss last time are silent.
+
+To activate this feature, provide a local state database via the `--auto-skip-db-path` flag (or `EARTHLY_AUTO_SKIP_DB_PATH` env var). Earth records the cache state of every operation after each successful build and compares it on the next run:
+
+```bash
+earth --auto-skip-db-path ~/.earth/skip.db +my-target
+```
+
+The changed input shown in the annotation is identified by walking the operation's input chain and finding the first predecessor that was itself a miss. If no specific predecessor can be identified, the reason is reported as `unknown`.
+
+#### Auto-skip input log
+
+For targets using `--auto-skip`, Earth can explain which hashed inputs contributed to the target's cache key. When a cache miss occurs at the auto-skip level, running with `--verbose` prints the full ordered list of inputs:
+
+```
+auto-skip | cache miss for ./+my-target — hashed inputs:
+auto-skip |   builtin args      {EarthVersion:dev ...}
+auto-skip |   VERSION           [0.8]
+auto-skip |   FROM              alpine
+auto-skip |   ARG               MESSAGE=hello
+auto-skip |   RUN               echo "$MESSAGE"
+auto-skip |   dep target        ./+base (hash: 3f2a8b...)
+```
+
+Every input that contributes to the hash is listed — `ARG` values, `RUN` commands, `COPY` file contents, dependency target hashes, build arg overrides, and more. This makes it straightforward to understand exactly what would need to change for the target to be skipped on the next run.

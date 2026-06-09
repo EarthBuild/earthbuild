@@ -121,6 +121,9 @@ lint-scripts-auth-test:
 
 # lint-scripts runs the shellcheck package to detect potential errors in shell scripts
 lint-scripts:
+    ARG hello="jjhhjj"
+    RUN echo "vvvv"
+
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 

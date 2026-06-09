@@ -26,6 +26,7 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
@@ -333,7 +334,17 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return err
 	}
 
-	skipDB, err := bk.NewBuildkitSkipper(b.cli.Flags().LocalSkipDB)
+	skipDBPath := b.cli.Flags().LocalSkipDB
+	if skipDBPath == "" {
+		// Default to ~/.earth/vertex-state.db so cache miss reasons are always
+		// recorded and surfaced without requiring an explicit flag.
+		earthDir, dirErr := cliutil.GetOrCreateEarthDir(b.cli.Flags().InstallationName)
+		if dirErr == nil {
+			skipDBPath = filepath.Join(earthDir, "vertex-state.db")
+		}
+	}
+
+	skipDB, err := bk.NewBuildkitSkipper(skipDBPath)
 	if err != nil {
 		b.cli.Console().WithPrefix(autoSkipPrefix).Warnf("Failed to initialize auto-skip database: %v", err)
 	}
@@ -545,6 +556,16 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	logbusSM := b.cli.LogbusSetup().SolverMonitor
 
+	var vertexStateStore buildkitskipper.VertexStateStore
+	if skipDB != nil {
+		vertexStateStore = skipDB.VertexStateStore()
+		logbusSM.Configure(ctx, vertexStateStore, target.StringCanonical())
+	}
+
+	// Compute the Earthfile hash log unconditionally and diff against the
+	// previous run. This powers cache miss reasons without requiring --auto-skip.
+	saveHashLogFn := b.computeAndSetHashLogDiff(ctx, skipDB, target, overridingVars, logbusSM)
+
 	builderOpts := builder.Opt{
 		BkClient:                              bkClient,
 		LogBusSolverMonitor:                   logbusSM,
@@ -582,6 +603,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		GitLogLevel:                           b.gitLogLevel(),
 		DisableRemoteRegistryProxy:            b.cli.Flags().DisableRemoteRegistryProxy,
 		BuildkitSkipper:                       skipDB,
+		VertexStateStore:                      vertexStateStore,
 		NoAutoSkip:                            b.cli.Flags().NoAutoSkip,
 	}
 
@@ -634,6 +656,10 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	if b.cli.Flags().SkipBuildkit && addHashFn != nil {
 		addHashFn()
+	}
+
+	if saveHashLogFn != nil {
+		saveHashLogFn()
 	}
 
 	return nil
@@ -855,6 +881,60 @@ func (b *Build) platformResolver(
 	return platr, nil
 }
 
+// computeAndSetHashLogDiff hashes the target's Earthfile inputs, diffs them
+// against the stored log from the previous run, and calls SetHashLogDiff on
+// the solver monitor so cache miss annotations can show what changed.
+// Returns a save function that must be called after a successful build.
+func (b *Build) computeAndSetHashLogDiff(
+	ctx context.Context,
+	skipDB bk.BuildkitSkipper,
+	target domain.Target,
+	overridingVars *variables.Scope,
+	sm interface{ SetHashLogDiff([]string) },
+) func() {
+	if skipDB == nil || target.IsRemote() {
+		return nil
+	}
+
+	_, stats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
+		Target:         target,
+		Console:        b.cli.Console(),
+		CI:             b.cli.Flags().CI,
+		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
+		OverridingVars: overridingVars,
+	})
+	if err != nil {
+		// Non-fatal: hash log diff is best-effort.
+		return nil
+	}
+
+	if len(stats.HashLog) == 0 {
+		return nil
+	}
+
+	// Convert HashLog to HashInputRecords.
+	current := make([]buildkitskipper.HashInputRecord, len(stats.HashLog))
+	for i, e := range stats.HashLog {
+		current[i] = buildkitskipper.HashInputRecord{Label: e.Label, Detail: e.Detail}
+	}
+
+	// Load previous log and compute diff.
+	store := skipDB.HashLogStore()
+	key := target.StringCanonical()
+
+	prev, err := store.LoadHashLog(ctx, key)
+	if err == nil && len(prev) > 0 {
+		diff := buildkitskipper.DiffHashLog(prev, current)
+		if !diff.IsEmpty() {
+			sm.SetHashLogDiff(diff.Lines())
+		}
+	}
+
+	return func() {
+		_ = store.SaveHashLog(ctx, key, current)
+	}
+}
+
 func (b *Build) initAutoSkip(
 	ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope,
 ) (func(), bool, error) {
@@ -925,6 +1005,16 @@ func (b *Build) initAutoSkip(
 		consoleNoPrefix.PrintSuccess()
 
 		return nil, true, nil
+	}
+
+	// Cache miss: log the inputs that were hashed so the user can understand
+	// what will cause this target to be rebuilt.
+	if len(stats.HashLog) > 0 {
+		console.VerbosePrintf("cache miss for %s — hashed inputs:", targetStr)
+
+		for _, entry := range stats.HashLog {
+			console.VerbosePrintf("  %-16s %s", entry.Label, entry.Detail)
+		}
 	}
 
 	addHashFn := func() {

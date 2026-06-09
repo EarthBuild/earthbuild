@@ -613,7 +613,7 @@ func (c *Converter) CopyArtifactLocal(
 		return errors.Wrapf(err, "parse artifact name %s", artifactName)
 	}
 
-	prefix, cmdID, err := c.newVertexMeta(ctx, false, false, false, nil)
+	prefix, cmdID, err := c.newVertexMetaWithCopiedPaths(ctx, false, false, false, nil, []string{artifact.String()})
 	if err != nil {
 		return err
 	}
@@ -687,7 +687,7 @@ func (c *Converter) CopyArtifact(
 		return errors.Wrapf(err, "parse artifact name %s", artifactName)
 	}
 
-	prefix, cmdID, err := c.newVertexMeta(ctx, false, false, false, nil)
+	prefix, cmdID, err := c.newVertexMetaWithCopiedPaths(ctx, false, false, false, nil, []string{artifact.String()})
 	if err != nil {
 		return err
 	}
@@ -755,7 +755,7 @@ func (c *Converter) CopyClassical(
 
 	c.nonSaveCommand()
 
-	prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
+	prefix, _, err := c.newVertexMetaWithCopiedPaths(ctx, false, false, false, nil, srcs)
 	if err != nil {
 		return err
 	}
@@ -2333,7 +2333,7 @@ func (c *Converter) checkAutoSkip(
 		return false, nil, err
 	}
 
-	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
+	targetHash, hashStats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Console:        c.opt.Console,
 		CI:             c.opt.IsCI,
@@ -2355,6 +2355,16 @@ func (c *Converter) checkAutoSkip(
 	if exists {
 		console.Printf("Target %s (hash %x) has already been run. Skipping.", target.String(), targetHash)
 		return true, nil, nil
+	}
+
+	// Cache miss: log the inputs that were hashed so the user can understand
+	// what will cause this target to be rebuilt.
+	if len(hashStats.HashLog) > 0 {
+		console.VerbosePrintf("cache miss for %s — hashed inputs:", target.String())
+
+		for _, entry := range hashStats.HashLog {
+			console.VerbosePrintf("  %-16s %s", entry.Label, entry.Detail)
+		}
 	}
 
 	return exists, func() {
@@ -3237,6 +3247,26 @@ func (c *Converter) newVertexMeta(
 		}
 	}
 
+	// Collect all active (non-builtin) args for cache-miss diagnostics.
+	// Builtins (prefixed with EARTH_ or EARTHLY_) are excluded to keep the
+	// vertex name compact and focused on user-controlled values.
+	activeArgs := make(map[string]string)
+
+	for _, arg := range c.varCollection.SortedVariables(variables.WithActive()) {
+		if strings.HasPrefix(arg, "EARTH_") || strings.HasPrefix(arg, "EARTHLY_") {
+			continue
+		}
+
+		v, ok := c.varCollection.Get(arg, variables.WithActive())
+		if ok {
+			activeArgs[arg] = v
+		}
+	}
+
+	if len(activeArgs) == 0 {
+		activeArgs = nil
+	}
+
 	platform := c.platr.Materialize(c.platr.Current())
 	platformStr := platform.String()
 	isNativePlatform := c.platr.PlatformEquals(platform, platutil.NativePlatform)
@@ -3289,7 +3319,29 @@ func (c *Converter) newVertexMeta(
 		Secrets:             secrets,
 		Internal:            internal,
 		Runner:              c.opt.Runner,
+		ActiveArgs:          activeArgs,
 	}
+
+	return vm.ToVertexPrefix(), cmdID, nil
+}
+
+// newVertexMetaWithCopiedPaths is like newVertexMeta but also records the
+// source paths of a COPY operation for cache-miss diagnostics.
+func (c *Converter) newVertexMetaWithCopiedPaths(
+	ctx context.Context, local, interactive, internal bool, secrets []string, copiedPaths []string,
+) (string, string, error) {
+	prefix, cmdID, err := c.newVertexMeta(ctx, local, interactive, internal, secrets)
+	if err != nil {
+		return "", "", err
+	}
+
+	if len(copiedPaths) == 0 {
+		return prefix, cmdID, nil
+	}
+
+	// Re-parse the encoded prefix, add CopiedPaths, re-encode.
+	vm, _ := vertexmeta.ParseFromVertexPrefix(prefix + " _")
+	vm.CopiedPaths = copiedPaths
 
 	return vm.ToVertexPrefix(), cmdID, nil
 }

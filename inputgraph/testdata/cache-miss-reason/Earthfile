@@ -1,0 +1,25 @@
+VERSION 0.8
+
+FROM alpine
+
+# simple-arg: a target with ARG and RUN
+simple-arg:
+    ARG MESSAGE=hello
+    RUN echo "$MESSAGE"
+
+# with-let: a target using LET and SET
+with-let:
+    LET x = initial
+    SET x = updated
+    RUN echo "$x"
+
+# with-dep: a target that depends on another local target
+with-dep:
+    BUILD +simple-arg
+    RUN echo "done"
+
+# multi-arg: a target with multiple ARGs
+multi-arg:
+    ARG FIRST=one
+    ARG SECOND=two
+    RUN echo "$FIRST $SECOND"

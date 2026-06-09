@@ -396,14 +396,14 @@
     {
       groupName: 'x',
       matchPackageNames: [
-        'golang.org/x/{/,}**',
+        'golang.org/x/**',
       ],
     },
     // group all AWS SDK dependencies
     {
       groupName: 'AWS SDK',
       matchPackageNames: [
-        'github.com/aws/{/,}**',
+        'github.com/aws/**',
       ],
     },
     // group Go version updates
@@ -420,7 +420,7 @@
     {
       groupName: 'otel',
       matchPackageNames: [
-        'go.opentelemetry.io/{/,}**',
+        'go.opentelemetry.io/**',
       ],
     },
 

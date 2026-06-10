@@ -9,8 +9,8 @@ RUN apk add --no-cache ca-certificates curl openssl go && \
 WORKDIR /usr/local/lib
 # renovate: datasource=github-releases packageName=antlr/antlr4
 ARG --global ANTLR_VERSION=4.13.1
-RUN echo curl -O https://www.antlr.org/download/antlr-${ANTLR_VERSION}-complete.jar
-RUN curl -O https://www.antlr.org/download/antlr-${ANTLR_VERSION}-complete.jar
+RUN echo curl -fSLO --retry 7 --retry-all-errors https://www.antlr.org/download/antlr-${ANTLR_VERSION}-complete.jar
+RUN curl -fSLO --retry 7 --retry-all-errors https://www.antlr.org/download/antlr-${ANTLR_VERSION}-complete.jar
 WORKDIR /earthly
 
 parser:

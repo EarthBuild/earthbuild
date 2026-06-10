@@ -13,7 +13,14 @@ deps:
         ARG ZIG_ARCH="aarch64"
     END
     RUN echo "Installing Zig $ZIG_VERSION for $ZIG_ARCH with https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz"
-    RUN wget -O zig.tar.xz https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz && \
+    # ziglang.org throttles/drops CI downloads; resume and back off between
+    # attempts — rapid retries hit the same throttle and all fail.
+    RUN for i in 1 2 3 4 5; do \
+            wget -c -T 60 -O zig.tar.xz https://ziglang.org/download/$ZIG_VERSION/zig-linux-$ZIG_ARCH-$ZIG_VERSION.tar.xz && break; \
+            [ "$i" -lt 5 ] || exit 1; \
+            echo "Zig download attempt $i/5 failed; retrying" >&2; \
+            sleep $((i * 10)); \
+        done && \
         mkdir zig && \
         tar -xvf zig.tar.xz --strip-components 1 -C zig && \
         ln -sf /zig/zig /usr/bin/zig

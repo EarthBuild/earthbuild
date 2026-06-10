@@ -27,7 +27,14 @@ LET GO_VERSION=1.26.2
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
-RUN wget https://go.dev/dl/go${GO_VERSION}.linux-$USERARCH.tar.gz && \
+# dl.google.com drops connections mid-transfer often enough to be the top CI
+# flake; resume (-c) and retry with backoff instead of failing the whole graph.
+RUN for i in 1 2 3 4 5; do \
+        wget -c -T 60 https://go.dev/dl/go${GO_VERSION}.linux-$USERARCH.tar.gz && break; \
+        [ "$i" -lt 5 ] || exit 1; \
+        echo "Go toolchain download attempt $i/5 failed; retrying" >&2; \
+        sleep $((i * 5)); \
+    done && \
     tar -C /usr/local -xzf go${GO_VERSION}.linux-$USERARCH.tar.gz && \
     rm go${GO_VERSION}.linux-$USERARCH.tar.gz
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
@@ -146,7 +153,9 @@ earthly-script-no-stdout:
 lint:
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
     LET golangci_lint_version=2.11.4
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$golangci_lint_version
+    RUN curl -sSfL --retry 7 --retry-all-errors -o /tmp/golangci-install.sh https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh && \
+        sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
+        rm /tmp/golangci-install.sh
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -958,7 +967,7 @@ merge-main-to-docs:
     ARG TARGETARCH
     # renovate: datasource=github-releases packageName=cli/cli
     ENV gh_version=v2.89.0
-    RUN curl -Lo ghlinux.tar.gz \
+    RUN curl -fLo ghlinux.tar.gz --retry 7 --retry-all-errors \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh
@@ -1030,7 +1039,7 @@ open-pr-for-fork:
     ARG TARGETARCH
     # renovate: datasource=github-releases packageName=cli/cli
     ENV gh_version=v2.89.0
-    RUN curl -Lo ghlinux.tar.gz \
+    RUN curl -fLo ghlinux.tar.gz --retry 7 --retry-all-errors \
       https://github.com/cli/cli/releases/download/$gh_version/gh_${gh_version#v}_linux_${TARGETARCH}.tar.gz \
       && tar --strip-components=1 -xf ghlinux.tar.gz \
       && rm ghlinux.tar.gz && mv ./bin/gh /usr/local/bin/gh

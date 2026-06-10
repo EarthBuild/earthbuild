@@ -93,6 +93,11 @@ jobs:
             if [ "$rc" -eq 0 ]; then exit 0; fi
             if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
             echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
+            # Dump the daemon log before the reset destroys it — attempt-1
+            # session-loss failures are undiagnosable without it.
+            echo "::group::buildkitd logs from failed attempt $attempt"
+            ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd 2>&1 | tail -300 || true
+            echo "::endgroup::"
             ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
             ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
             ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true

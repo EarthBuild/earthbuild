@@ -208,3 +208,15 @@ PermitWithoutStream) without forking further.
 
 Next experiment: A/B a keepalive bump on the nested test groups; if
 session losses vanish, the class is closed.
+
+### Reproducibility (third occurrence, run 27298656262 / wait-block-quick)
+
+All three class-3 deaths interrupted the SAME vertex:
+`COPY +earthly/earthly /root/.earthly/earthly-prerelease`
+(`+earthly-script-no-stdout`, reached via `+test-misc`), immediately after
+the nested from-source `+earthly` go build/link saturates the runner.
+This is a reproducible chokepoint, not background noise — loop
+`+test-misc` on a 4-core VM for the keepalive A/B. A complementary
+mitigation: let the nested test reuse the staged earthly binary instead
+of compiling from source inside the container (removes the CPU spike and
+several minutes per job).

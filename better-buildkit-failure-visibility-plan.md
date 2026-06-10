@@ -177,3 +177,34 @@ session` + last-active/recent operations. What they revealed:
 
 Next debugging lever: reusable-test.yml now dumps buildkitd logs before
 the between-attempts reset, so attempt-1 daemon logs survive.
+
+## Update (2026-06-10 evening, run 27298656262 / docker-test-misc)
+
+The root-cause recorder now surfaces an original error for class-3 deaths:
+
+```text
+Original BuildKit error: failed to apply diffs: failed to handle changes:
+context canceled: context canceled
+```
+
+interrupting `COPY +earthly/earthly /root/.earthly/earthly-prerelease`
+(Earthfile:146, +earthly-script-no-stdout) inside the NESTED earth's own
+buildkitd (buildkitsandbox, BUILDKIT_MAX_PARALLELISM=1). Preserved
+attempt-1 daemon log confirms the cancel arrives from the client side
+("killing process because execution context was canceled").
+
+Pattern across occurrences: deaths always land in CPU-saturated phases
+(inner `go build`, large artifact COPY/diff-apply) on a 4-core runner
+running many sibling nested builds.
+
+### Leading hypothesis: gRPC keepalive starvation
+
+A CPU-starved inner earth misses keepalive pings to its buildkitd; the
+transport drops; the session closes; everything unwinds as `context
+canceled`. Earth sets no keepalive options (client lib defaults). The
+fork already has `WithGRPCDialOption` (e163acdbb), so earth can pass
+relaxed `keepalive.ClientParameters` (e.g. Time 30s / Timeout 60s /
+PermitWithoutStream) without forking further.
+
+Next experiment: A/B a keepalive bump on the nested test groups; if
+session losses vanish, the class is closed.

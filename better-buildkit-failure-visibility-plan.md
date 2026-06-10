@@ -220,3 +220,27 @@ This is a reproducible chokepoint, not background noise — loop
 mitigation: let the nested test reuse the staged earthly binary instead
 of compiling from source inside the container (removes the CPU spike and
 several minutes per job).
+
+### Root cause found (2026-06-10 late): scheduler dispatch diagnostics
+
+Writing a concurrent merged-edge discard regression test (-race) exposed
+the real defect chain in the fork's own diagnostics (`helpMe`,
+6d9a29f49): `dispatch()` reflection-formatted (`%+v`) the entire edge
+struct on EVERY dispatch, in the single-threaded scheduler hot loop,
+while other goroutines mutate edge/state under their own locks.
+
+- Data race (confirmed by -race via the new tests).
+- Reflective read of a map mid-write is a Go runtime FATAL — the nested
+  buildkitd dies instantly with no log flush, and the inner earth
+  reports exactly "BuildKit canceled or lost the solve session".
+- Per-dispatch reflection/alloc tax serializes the scheduler precisely
+  when builds are largest (the observed CPU-saturated death windows).
+
+The earlier keepalive hypothesis is retired: neither client nor daemon
+configures gRPC keepalive, so no pings exist to miss.
+
+Fixed in fork branch `giles-fix-merged-edge-discard` (32708f3f9857):
+race-free dispatchTrace formatted only on the error path, dgstTracker
+mutex, plus TestMergedEdgeDiscardWhileSiblingInFlight and
+TestSubBuildMergedEdgeDiscardWhileSiblingInFlight pinning discard
+behavior. Earth pin bumped in 59bc6dff; CI validating.

@@ -442,7 +442,7 @@ all-binaries:
 earthly-docker:
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     ARG EARTHLY_BUILDKIT_IMAGE_BASE
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
@@ -537,7 +537,7 @@ earthly-integration-test-base:
 # Tagged as prerelease
 prerelease:
     FROM alpine:3.23
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
@@ -558,7 +558,7 @@ ci-release:
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     FROM alpine:3.23
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     ARG EARTHLY_GIT_HASH
     ARG --required TAG_SUFFIX
     BUILD \
@@ -572,7 +572,7 @@ ci-release:
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
 for-own:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
     # the documentation on +earthly for extra detail about this option.
     ARG GO_GCFLAGS
@@ -596,7 +596,7 @@ build-ticktock:
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -607,7 +607,7 @@ for-linux:
 # for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux-arm64:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -619,7 +619,7 @@ for-linux-arm64:
 # and saves the final CLI binary locally in the ./build/darwin folder.
 # For arm64 use +for-darwin-m1
 for-darwin:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -630,7 +630,7 @@ for-darwin:
 # for-darwin-m1 builds earthly-buildkitd and the earthly CLI for the a darwin m1 system
 # and saves the final CLI binary locally.
 for-darwin-m1:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -649,7 +649,7 @@ for-windows:
 
 # all-buildkitd builds buildkitd for both linux amd64 and linux arm64
 all-buildkitd:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:85c7359612ef66b213a082a71ed589e66f0a7685
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:32708f3f985734b1a48b7e7316050e9516bec826
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \

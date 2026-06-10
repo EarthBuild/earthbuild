@@ -17,15 +17,19 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 	if got := env["OTEL_SERVICE_NAME"]; got != "EarthBuild-buildkitd" {
 		t.Fatalf("OTEL_SERVICE_NAME = %q, want EarthBuild-buildkitd", got)
 	}
+
 	if got := env["OTEL_METRICS_EXPORTER"]; got != "otlp" {
 		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want otlp", got)
 	}
+
 	if got := env["OTEL_EXPORTER_OTLP_ENDPOINT"]; got != "https://otel.example.test" {
 		t.Fatalf("OTEL_EXPORTER_OTLP_ENDPOINT = %q", got)
 	}
+
 	if got := env["OTEL_EXPORTER_OTLP_HEADERS"]; got != "authorization=Bearer token" {
 		t.Fatalf("OTEL_EXPORTER_OTLP_HEADERS = %q", got)
 	}
+
 	if got := env["OTEL_EXPORTER_OTLP_PROTOCOL"]; got != "http/protobuf" {
 		t.Fatalf("OTEL_EXPORTER_OTLP_PROTOCOL = %q", got)
 	}
@@ -39,6 +43,7 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 		"earthbuild.buildkit.container.name": "earthly-buildkitd",
 		"earthbuild.installation.name":       "earthly",
 	}
+
 	for key, want := range wantAttrs {
 		if got := attrs[key]; got != want {
 			t.Fatalf("resource attr %s = %q, want %q", key, got, want)
@@ -47,6 +52,8 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 }
 
 func TestAddBuildkitTelemetryEnvDoesNothingWithoutMetricsExporter(t *testing.T) {
+	t.Parallel()
+
 	env := map[string]string{}
 	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", false)
 
@@ -57,11 +64,13 @@ func TestAddBuildkitTelemetryEnvDoesNothingWithoutMetricsExporter(t *testing.T) 
 
 func parseResourceAttrs(value string) map[string]string {
 	attrs := map[string]string{}
-	for _, part := range strings.Split(value, ",") {
+
+	for part := range strings.SplitSeq(value, ",") {
 		key, value, ok := strings.Cut(part, "=")
 		if ok {
 			attrs[key] = value
 		}
 	}
+
 	return attrs
 }

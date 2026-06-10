@@ -1,7 +1,7 @@
 VERSION 0.8
 
 deps:
-    FROM alpine:3.18
+    FROM alpine:3.23
     RUN apk add curl jq
 
 check-tag-does-not-exist-in-registry:

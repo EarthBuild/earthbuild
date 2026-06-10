@@ -14,8 +14,7 @@ RUN curl -fSLO --retry 7 --retry-all-errors https://www.antlr.org/download/antlr
 WORKDIR /earthly
 
 parser:
-    COPY ./*.g4 ./ast/parser/
-    COPY ./export.go ./ast/parser/
+    COPY *.g4  export.go parser.go ./ast/parser/
     RUN java \
         -Xmx500M \
         -cp "/usr/local/lib/antlr-${ANTLR_VERSION}-complete.jar:$CLASSPATH" \

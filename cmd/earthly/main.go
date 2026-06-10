@@ -1,3 +1,4 @@
+// Package main is the primary entry point for the earth CLI executable.
 package main
 
 import (
@@ -27,6 +28,7 @@ import (
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	urfavecli "github.com/urfave/cli/v3"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
@@ -36,15 +38,15 @@ var (
 	Version string
 	// GitSha contains the git sha used to build this app.
 	GitSha string
-	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc).
+	// BuiltBy contains information on which build-system was used (e.g. official earth binaries, homebrew, etc).
 	BuiltBy string
 
 	// DefaultBuildkitdImage is the default buildkitd image to use.
 	DefaultBuildkitdImage string
 
-	// DefaultInstallationName is the name included in the various earthly global resources on the system,
+	// DefaultInstallationName is the name included in the various earth global resources on the system,
 	// such as the ~/.earthly dir name, the buildkitd container name, the docker volume name, etc.
-	// This should be set to "earthly" for official releases.
+	// This should be set to "earth" for official releases.
 	DefaultInstallationName string
 )
 
@@ -88,7 +90,6 @@ func run() (code int) {
 
 	setExportableVars()
 
-	startTime := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -127,7 +128,7 @@ func run() (code int) {
 	// Occasional spurious warnings show up - these are coming from imported libraries. Discard them.
 	logrus.StandardLogger().Out = io.Discard
 
-	// Load .env into current global env's. This is mainly for applying Earthly settings.
+	// Load .env into current global env's. This is mainly for applying earth settings.
 	// Separate call is made for build args and secrets.
 	envFile := eFlag.DefaultEnvFile
 	envFileOverride := false
@@ -152,20 +153,24 @@ func run() (code int) {
 	rootApp := subcmd.NewRoot(cli, buildApp)
 
 	for _, f := range cli.Flags().RootFlags(DefaultInstallationName, DefaultBuildkitdImage) {
-		err = f.Apply(flagSet)
-		if err != nil {
-			envFileFromArgOK = false
-			break
+		for _, name := range f.Names() {
+			if _, ok := f.(*urfavecli.BoolFlag); ok {
+				flagSet.Bool(name, false, "")
+			} else {
+				flagSet.String(name, "", "")
+			}
 		}
 	}
 
 	if envFileFromArgOK {
 		err = flagSet.Parse(os.Args[1:])
 		if err == nil {
-			if envFileFlag := flagSet.Lookup(eFlag.EnvFileFlag); envFileFlag != nil {
-				envFile = envFileFlag.Value.String()
-				envFileOverride = envFile != eFlag.DefaultEnvFile // flag lib doesn't expose if a value was set or not
-			}
+			flagSet.Visit(func(f *flag.Flag) {
+				if f.Name == eFlag.EnvFileFlag {
+					envFile = f.Value.String()
+					envFileOverride = true
+				}
+			})
 		}
 	}
 
@@ -206,7 +211,7 @@ func run() (code int) {
 	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
 	cli.SetConsole(logging)
-	earthly := app.NewEarthlyApp(cli, rootApp, buildApp, ctx)
+	earth := app.NewEarthApp(cli, rootApp, buildApp)
 
-	return earthly.Run(ctx, logging, startTime, lastSignal)
+	return earth.Run(ctx, lastSignal)
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
-
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
@@ -20,10 +20,10 @@ import (
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func (app *EarthlyApp) before(cliCtx *cli.Context) error {
+func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 	flags := app.BaseCLI.Flags()
 
 	if flags.EnableProfiler {
@@ -31,15 +31,15 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 
 	if flags.InstallationName != "" {
-		if !cliCtx.IsSet("config") {
+		if !cmd.IsSet("config") {
 			flags.ConfigPath = defaultConfigPath(flags.InstallationName)
 		}
 
-		if !cliCtx.IsSet("buildkit-container-name") {
+		if !cmd.IsSet("buildkit-container-name") {
 			flags.ContainerName = flags.InstallationName + "-buildkitd"
 		}
 
-		if !cliCtx.IsSet("buildkit-volume-name") {
+		if !cmd.IsSet("buildkit-volume-name") {
 			flags.BuildkitdSettings.VolumeName = flags.InstallationName + "-cache"
 		}
 	}
@@ -58,7 +58,7 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	}
 
 	busSetup, err := logbussetup.New(
-		cliCtx.Context,
+		ctx,
 		app.BaseCLI.Logbus(),
 		flags.Debug,
 		flags.Verbose,
@@ -72,12 +72,12 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 		flags.GithubAnnotations,
 	)
 	if err != nil {
-		return errors.Wrap(err, "logbus setup")
+		return ctx, errors.Wrap(err, "logbus setup")
 	}
 
 	app.BaseCLI.SetLogbusSetup(busSetup)
 
-	if cliCtx.IsSet("config") {
+	if cmd.IsSet("config") {
 		app.BaseCLI.Console().Printf("loading config values from %q\n", flags.ConfigPath)
 	}
 
@@ -86,32 +86,28 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 	if flags.ConfigPath != "" {
 		yamlData, err = config.ReadConfigFile(flags.ConfigPath)
 		if err != nil {
-			if cliCtx.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
-				return errors.Wrapf(err, "read config")
+			if cmd.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
+				return ctx, errors.Wrapf(err, "read config")
 			}
 		}
 	}
 
 	cfg, err := config.ParseYAML(yamlData, flags.InstallationName)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse %s", flags.ConfigPath)
+		return ctx, errors.Wrapf(err, "failed to parse %s", flags.ConfigPath)
 	}
 
 	app.BaseCLI.SetCfg(&cfg)
+	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
+	err = app.parseFrontend(ctx)
 	if err != nil {
-		return err
-	}
-
-	err = app.parseFrontend(cliCtx)
-	if err != nil {
-		return err
+		return ctx, err
 	}
 
 	// Make a small attempt to check if we are not bootstrapped. If not, then do that before we do anything else.
 	isBootstrapCmd := false
-	for _, f := range cliCtx.Args().Slice() {
+	for _, f := range cmd.Args().Slice() {
 		isBootstrapCmd = f == "bootstrap"
 
 		if isBootstrapCmd {
@@ -124,16 +120,16 @@ func (app *EarthlyApp) before(cliCtx *cli.Context) error {
 		app.BaseCLI.Flags().BootstrapNoBuildkit = true
 		newBootstrap := subcmd.NewBootstrap(app.BaseCLI)
 
-		err = newBootstrap.Action(cliCtx)
+		err = newBootstrap.Action(ctx, cmd)
 		if err != nil {
-			return errors.Wrap(err, "bootstrap unbootstrclied installation")
+			return ctx, errors.Wrap(err, "bootstrap unbootstrclied installation")
 		}
 	}
 
-	return nil
+	return ctx, nil
 }
 
-func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
+func (app *EarthApp) parseFrontend(ctx context.Context) error {
 	console := app.BaseCLI.Console().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -144,11 +140,11 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
 		Console:                    console,
 	}
 
-	fe, err := containerutil.FrontendForSetting(cliCtx.Context, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
+	fe, err := containerutil.FrontendForSetting(ctx, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
 	if err != nil {
 		origErr := err
 
-		stub, err := containerutil.NewStubFrontend(cliCtx.Context, feCfg)
+		stub, err := containerutil.NewStubFrontend(feCfg)
 		if err != nil {
 			return errors.Wrap(err, "failed stub frontend initialization")
 		}
@@ -178,7 +174,7 @@ func (app *EarthlyApp) parseFrontend(cliCtx *cli.Context) error {
 	return nil
 }
 
-func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error {
+func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	app.warnIfEarth()
 
 	if cfg.Global.CachePath != "" {
@@ -217,20 +213,20 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) error
 			cfg.Git[k] = v
 		}
 	}
-
-	return nil
 }
 
-func (app *EarthlyApp) warnIfEarth() {
+const cmdName = "earthly"
+
+func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
 	}
 
-	// can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
 	binPath := os.Args[0]
 
 	baseName := path.Base(binPath)
-	if baseName == "earthly" {
+	if baseName == cmdName {
 		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
 			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
 
@@ -239,10 +235,10 @@ func (app *EarthlyApp) warnIfEarth() {
 			return
 		}
 
-		earthlyPath := path.Join(path.Dir(absPath), "earthly")
+		earthPath := path.Join(path.Dir(absPath), cmdName)
 
-		earthlyPathExists, _ := fileutil.FileExists(earthlyPath)
-		if earthlyPathExists {
+		earthPathExists, _ := fileutil.FileExists(earthPath)
+		if earthPathExists {
 			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
 		}
 	}
@@ -263,9 +259,9 @@ func profhandler() {
 }
 
 func defaultConfigPath(installName string) string {
-	earthlyDir := cliutil.GetEarthlyDir(installName)
-	oldConfig := filepath.Join(earthlyDir, "config.yaml")
-	newConfig := filepath.Join(earthlyDir, "config.yml")
+	earthDir := cliutil.GetEarthDir(installName)
+	oldConfig := filepath.Join(earthDir, "config.yaml")
+	newConfig := filepath.Join(earthDir, "config.yml")
 	oldConfigExists, _ := fileutil.FileExists(oldConfig)
 
 	newConfigExists, _ := fileutil.FileExists(newConfig)

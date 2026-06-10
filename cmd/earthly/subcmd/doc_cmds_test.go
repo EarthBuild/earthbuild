@@ -11,7 +11,6 @@ import (
 	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
 )
 
 var captureStdoutMu sync.Mutex
@@ -20,7 +19,6 @@ func TestDocTargetFixtures(t *testing.T) {
 	t.Parallel()
 
 	ef, ftrs := parseDocFixture(t, "target-docs.earth")
-	cliCtx := cli.NewContext(cli.NewApp(), nil, nil)
 	doc := &Doc{}
 
 	t.Run("documented target", func(t *testing.T) {
@@ -28,7 +26,7 @@ func TestDocTargetFixtures(t *testing.T) {
 
 		tgt := mustFindDocTarget(t, ef, "documented-target")
 		out := captureStdout(t, func() error {
-			return doc.documentSingleTarget(cliCtx, "", ftrs, ef.BaseRecipe, tgt, false)
+			return doc.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
 		})
 
 		require.Contains(t, out, "+documented-target\n")
@@ -41,7 +39,7 @@ func TestDocTargetFixtures(t *testing.T) {
 		t.Parallel()
 
 		tgt := mustFindDocTarget(t, ef, "undocumented-target")
-		err := doc.documentSingleTarget(cliCtx, "", ftrs, ef.BaseRecipe, tgt, false)
+		err := doc.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "no doc comment found")
 	})
@@ -50,7 +48,7 @@ func TestDocTargetFixtures(t *testing.T) {
 		t.Parallel()
 
 		tgt := mustFindDocTarget(t, ef, "incorrectly-documented-target")
-		err := doc.documentSingleTarget(cliCtx, "", ftrs, ef.BaseRecipe, tgt, false)
+		err := doc.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "no doc comment found")
 	})
@@ -60,10 +58,9 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 	t.Parallel()
 
 	ef, ftrs := parseDocFixture(t, "doc-recipe-block.earth")
-	cliCtx := cli.NewContext(cli.NewApp(), nil, nil)
 	tgt := mustFindDocTarget(t, ef, "foo")
 
-	blockIO, err := parseDocSections(cliCtx, ftrs, ef.BaseRecipe, tgt.Recipe)
+	blockIO, err := parseDocSections(ftrs, ef.BaseRecipe, tgt.Recipe)
 	require.NoError(t, err)
 	require.Equal(t, []string{"--requiredArg"}, docIdentifiers(blockIO.requiredArgs))
 	require.Equal(
@@ -87,7 +84,7 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 	require.Empty(t, blockIO.images[1].body)
 
 	out := captureStdout(t, func() error {
-		return (&Doc{}).documentSingleTarget(cliCtx, "", ftrs, ef.BaseRecipe, tgt, true)
+		return (&Doc{}).documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, true)
 	})
 
 	require.Contains(t, out, "+foo --requiredArg")

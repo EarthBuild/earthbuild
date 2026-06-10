@@ -1,24 +1,25 @@
 package base
 
 import (
+	"context"
 	"net/url"
 	"path/filepath"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-
 	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
 )
 
-func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
+// InitFrontend initializes the frontend for the given command.
+func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
-	if !cliCtx.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
+	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
 	}
 
 	if cli.Flags().UseTickTockBuildkitImage {
-		if cliCtx.IsSet("buildkit-image") {
+		if cmd.IsSet("buildkit-image") {
 			return errors.New("the --buildkit-image and --ticktock flags are mutually exclusive")
 		}
 
@@ -72,12 +73,12 @@ func (cli *CLI) InitFrontend(cliCtx *cli.Context) error {
 
 	cli.Flags().BuildkitdSettings.IPTables = cli.Cfg().Global.IPTables
 
-	earthlyDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
+	earthDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 	if err != nil {
-		return errors.Wrap(err, "failed to get earthly dir")
+		return errors.Wrap(err, "failed to get earth dir")
 	}
 
-	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthlyDir, "buildkitd-startup.lock")
+	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthDir, "buildkitd-startup.lock")
 
 	return nil
 }

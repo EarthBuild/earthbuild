@@ -13,6 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testTargetID   = "target-id"
+	testTargetName = "+target"
+)
+
+func testVertexName(op string) string {
+	return (&vertexmeta.VertexMeta{TargetID: testTargetID, TargetName: testTargetName}).ToVertexPrefix() + op
+}
+
 func TestFirstFailureCapturesFirstFatalVertexError(t *testing.T) {
 	t.Parallel()
 
@@ -23,7 +32,7 @@ func TestFirstFailureCapturesFirstFatalVertexError(t *testing.T) {
 		Vertexes: []*client.Vertex{
 			{
 				Digest:    digest.FromString("fatal"),
-				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN bad",
+				Name:      testVertexName("RUN bad"),
 				Completed: &completed,
 				Error:     `process "bad" did not complete successfully: exit code: 42`,
 			},
@@ -39,7 +48,7 @@ func TestFirstFailureCapturesFirstFatalVertexError(t *testing.T) {
 
 	failure, ok := sm.FirstFailure()
 	require.True(t, ok)
-	require.Equal(t, "target-id", failure.TargetID)
+	require.Equal(t, testTargetID, failure.TargetID)
 	require.Equal(t, logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT, failure.FailureType)
 	require.Contains(t, failure.Error, "RUN bad")
 	require.Contains(t, failure.Error, "Exit code 42")
@@ -56,7 +65,7 @@ func TestFirstFailureIgnoresCancellationOnlyVertexError(t *testing.T) {
 		Vertexes: []*client.Vertex{
 			{
 				Digest:    digest.FromString("canceled"),
-				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN bad",
+				Name:      testVertexName("RUN bad"),
 				Completed: &completed,
 				Error:     `process "bad" did not complete successfully: exit code: 137: context canceled: context canceled`,
 			},
@@ -69,7 +78,7 @@ func TestFirstFailureIgnoresCancellationOnlyVertexError(t *testing.T) {
 
 	cancellation, ok := sm.FirstCancellation()
 	require.True(t, ok)
-	require.Equal(t, "target-id", cancellation.TargetID)
+	require.Equal(t, testTargetID, cancellation.TargetID)
 	require.Contains(t, cancellation.Error, "RUN bad")
 	require.Contains(t, cancellation.Error, "context canceled")
 }
@@ -85,7 +94,7 @@ func TestFirstCancellationCapturesSessionLossVertexError(t *testing.T) {
 			{
 				Digest: digest.FromString("session-loss"),
 				Name: (&vertexmeta.VertexMeta{
-					TargetID: "target-id", TargetName: "+target",
+					TargetID: testTargetID, TargetName: testTargetName,
 				}).ToVertexPrefix() + "local context .",
 				Completed: &completed,
 				Error:     "could not access local files without session",
@@ -99,7 +108,7 @@ func TestFirstCancellationCapturesSessionLossVertexError(t *testing.T) {
 
 	cancellation, ok := sm.FirstCancellation()
 	require.True(t, ok)
-	require.Equal(t, "target-id", cancellation.TargetID)
+	require.Equal(t, testTargetID, cancellation.TargetID)
 	require.Contains(t, cancellation.Error, "local context .")
 	require.Contains(t, cancellation.Error, "lost the solve session")
 	require.Contains(t, cancellation.Error, "could not access local files without session")
@@ -118,12 +127,12 @@ func TestCancellationDetailsTracksActiveRecentAndLogs(t *testing.T) {
 		Vertexes: []*client.Vertex{
 			{
 				Digest:  activeDigest,
-				Name:    (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN sleep",
+				Name:    testVertexName("RUN sleep"),
 				Started: &started,
 			},
 			{
 				Digest:    recentDigest,
-				Name:      (&vertexmeta.VertexMeta{TargetID: "target-id", TargetName: "+target"}).ToVertexPrefix() + "RUN done",
+				Name:      testVertexName("RUN done"),
 				Started:   &started,
 				Completed: &completed,
 			},

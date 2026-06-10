@@ -1,4 +1,4 @@
-package docker2earthly
+package docker2earth
 
 import (
 	"bufio"
@@ -20,7 +20,7 @@ import (
 
 // Ideally this would point to "the current version" rather than being hard-coded, but the single
 // "source of truth" (in ast/validator) isn't currently exported.
-const earthlyCurrentVersion = "0.7"
+const earthCurrentVersion = "0.7"
 
 func getArtifactName(s string) string {
 	split := strings.Split(s, "/")
@@ -29,9 +29,9 @@ func getArtifactName(s string) string {
 	return split[n-1]
 }
 
-// Docker2Earthly converts an existing Dockerfile in the current directory and writes out
+// Docker2Earth converts an existing Dockerfile in the current directory and writes out
 // an Earthfile in the current directory and error is returned if an Earthfile already exists.
-func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
+func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 	if exists, _ := fileutil.FileExists(earthfilePath); exists {
 		return errors.Errorf("earthfile already exists; please delete it if you wish to continue")
 	}
@@ -51,8 +51,8 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 
 	targets := [][]string{
 		{
-			fmt.Sprintf("VERSION %s\n", earthlyCurrentVersion),
-			"# This Earthfile was generated using docker2earthly",
+			fmt.Sprintf("VERSION %s\n", earthCurrentVersion),
+			"# This Earthfile was generated using docker2earth",
 			"# the conversion is done on a best-effort basis",
 			"# and might not follow best practices, please",
 			"# visit https://docs.earthbuild.dev for Earthfile guides",
@@ -112,7 +112,7 @@ func Docker2Earthly(dockerfilePath, earthfilePath, imageTag string) error {
 			}
 
 			if strings.HasPrefix(l, "ADD ") {
-				return errors.Errorf("earthly does not support ADD, please convert to COPY instead")
+				return errors.Errorf("earth does not support ADD, please convert to COPY instead")
 			}
 
 			targets[i+1] = append(targets[i+1], l)
@@ -216,7 +216,7 @@ func GenerateEarthfile(
 	}
 
 	err = t.Execute(buf, &earthfileTemplateArgs{
-		Version:      earthlyCurrentVersion,
+		Version:      earthCurrentVersion,
 		CommandName:  "docker-build",
 		BuildArgs:    buildArgs,
 		Target:       target,

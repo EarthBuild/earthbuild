@@ -41,7 +41,7 @@ func (vc *visitedUpfrontHashCollection) Add(
 	platr *platutil.Resolver,
 	allowPrivileged bool,
 	overridingVars *variables.Scope,
-	parentDepSub chan string,
+	_ chan string,
 ) (*SingleTarget, bool, error) {
 	// Constructing a new sts early to be able to compute its target input hash.
 	newSts, err := newSingleTarget(ctx, target, platr, allowPrivileged, overridingVars, nil)

@@ -1,3 +1,4 @@
+// Package telemetry implements OpenTelemetry tracing and metrics collection for EarthlBuild's internal operations.
 package telemetry
 
 import (
@@ -31,7 +32,7 @@ import (
 
 var tracer = otel.Tracer("go.earthbuild.dev/earthbuild")
 
-// Tracer returns the tracer for the EarthBuild CLI.
+// Tracer returns the tracer for the earth CLI.
 func Tracer() trace.Tracer {
 	return tracer
 }

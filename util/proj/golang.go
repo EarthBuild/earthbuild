@@ -21,7 +21,7 @@ const (
 {{- $indent := and .Prefix .Indent}}{{/* if .Prefix is empty string, empty string; otherwise .Indent */}}
 {{- if .Prefix }}{{.Prefix}}base:
 {{ end -}}
-{{$indent}}LET go_version = 1.25
+{{$indent}}LET go_version = 1.26
 {{$indent}}LET distro = alpine3.23
 
 {{$indent}}FROM golang:${go_version}-${distro}
@@ -162,7 +162,7 @@ func (g *Golang) ForDir(ctx context.Context, dir string) (Project, error) {
 	out, _, err := g.execer.Command("go", "list", "-f", "{{.Dir}}").Run(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, hint.Wrap(errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
-			"go must be installed for 'go list' so that earthly can read information about your go project",
+			"go must be installed for 'go list' so that earth can read information about your go project",
 		)
 	}
 
@@ -221,7 +221,7 @@ func (f *targetFormatter) SetPrefix(pfx string) {
 	f.prefix = pfx
 }
 
-func (f *targetFormatter) Format(w io.Writer, indent string, level int) error {
+func (f *targetFormatter) Format(w io.Writer, indent string) error {
 	t := strings.TrimSpace(f.template) + "\n"
 
 	tmpl, err := template.New("").Parse(t)

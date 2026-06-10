@@ -1,5 +1,6 @@
 package reserved
 
+// Git-related constants that are used in build manifests.
 const (
 	EarthGitAuthor                  = "EARTH_GIT_AUTHOR"
 	EarthGitAuthorEmail             = "EARTH_GIT_AUTHOR_EMAIL"

@@ -1,32 +1,35 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/pkg/errors"
-
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
+// Config encapsulates the config command logic.
 type Config struct {
 	cli CLI
 
 	dryRun bool
 }
 
+// NewConfig creates a new Config command.
 func NewConfig(cli CLI) *Config {
 	return &Config{
 		cli: cli,
 	}
 }
 
+// Cmds returns the list of commands for the config command.
 func (a *Config) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:   "config",
-			Usage:  "Edits your EarthBuild configuration file",
+			Usage:  "Edits your earth configuration file",
 			Action: a.action,
 			//nolint:lll
 			UsageText: `Examples of common settings:
@@ -48,7 +51,7 @@ func (a *Config) Cmds() []*cli.Command {
 							* allows access over ssh
 							* using port 2222
 							* sets the username to git
-							* is recognized to earthly as example.com/name-of-repo
+							* is recognized to earth as example.com/name-of-repo
 
 							config git "{example: {pattern: 'example.com/([^/]+)', substitute: 'ssh://git@example.com:2222/var/git/repos/\$1.git', auth: ssh}}`,
 			//nolint:lll
@@ -63,6 +66,7 @@ func (a *Config) Cmds() []*cli.Command {
 						Only one key/value can be set per invocation.
 
 						To get help with a specific key, do "config [key] --help". Or, visit https://docs.earthbuild.dev/earthly-config for more details.`,
+			StopOnNthArg: new(1),
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:        "dry-run",
@@ -74,18 +78,18 @@ func (a *Config) Cmds() []*cli.Command {
 	}
 }
 
-func (a *Config) action(cliCtx *cli.Context) error {
+func (a *Config) action(_ context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("config")
 
-	if cliCtx.NArg() != 2 {
+	if cmd.NArg() != 2 {
 		return errors.New("invalid number of arguments provided")
 	}
 
-	args := cliCtx.Args().Slice()
+	args := cmd.Args().Slice()
 
 	inConfig, err := config.ReadConfigFile(a.cli.Flags().ConfigPath)
 	if err != nil {
-		if cliCtx.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
+		if cmd.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
 			return errors.Wrapf(err, "read config")
 		}
 	}

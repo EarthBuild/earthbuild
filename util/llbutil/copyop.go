@@ -30,7 +30,7 @@ func CopyOp(
 ) (pllb.State, error) {
 	destAdjusted := dest
 	if dest == "." || dest == "" || len(srcs) > 1 {
-		// TODO: needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		// TODO: needs to be the containers platform, not the earth hosts platform. For now, this is always Linux.
 		destAdjusted += string("/")
 	}
 
@@ -110,7 +110,7 @@ func CopyWithRunOptions(
 	// The following executes the `copy` command, which is a custom executable
 	// contained in the Dockerfile COPY image above. The following .Run()
 	// operation executes in a state constructed from that Dockerfile COPY image,
-	// with the Earthly user's state mounted at /dest on that image.
+	// with the earth user's state mounted at /dest on that image.
 	opts = append(opts, []llb.RunOption{
 		llb.ReadonlyRootFS(),
 		llb.Shlexf("copy %s /dest/%s", src, dest),

@@ -2344,7 +2344,7 @@ For more information on the individual Earthfile feature flags see the [Earthfil
 
 - segfault when no output or error is displayed (fixes #798)
 - unable to run earthly in docker container with mounted host-docker socket (fixes #791)
-- `./.tmp-earthly-outXXXXXX` temp files are now stored under `./.tmp-earthly-out/tmpXXXXXX` and are correctly excluded from the build context
+- `./.tmp-earth-outXXXXXX` temp files are now stored under `./.tmp-earth-out/tmpXXXXXX` and are correctly excluded from the build context
 
 ## v0.5.2 - 2021-02-18
 

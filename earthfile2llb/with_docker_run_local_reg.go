@@ -40,14 +40,14 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 
 	w.c.nonSaveCommand()
 
-	_, cmd, err := w.c.newLogbusCommand(ctx, "WITH DOCKER RUN")
+	_, cmd, err := w.c.newLogbusCommand(ctx, commandName)
 	if err != nil {
 		return errors.Wrap(err, "failed to create command")
 	}
 
 	defer func() {
 		if retErr != nil {
-			message := solvermon.FormatError("WITH DOCKER RUN", retErr.Error())
+			message := solvermon.FormatError(commandName, retErr.Error())
 			cmd.SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_FAILURE, message)
 		}
 	}()
@@ -118,7 +118,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 	}
 
 	crOpts := ConvertRunOpts{
-		CommandName:          "WITH DOCKER RUN",
+		CommandName:          commandName,
 		Locally:              true,
 		Args:                 args,
 		Mounts:               opt.Mounts,
@@ -151,7 +151,7 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
 	}
 
-	afterFun := func(ctx context.Context, mts *states.MultiTarget) error {
+	afterFun := func(_ context.Context, mts *states.MultiTarget) error {
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {

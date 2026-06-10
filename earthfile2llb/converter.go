@@ -100,7 +100,7 @@ const (
 	letCmd                               // "LET"
 )
 
-// Converter turns earthly commands to buildkit LLB representation.
+// Converter turns earth commands to buildkit LLB representation.
 type Converter struct {
 	cacheContext        pllb.State
 	buildContextFactory llbfactory.Factory
@@ -122,7 +122,7 @@ type Converter struct {
 	ranSave             bool
 }
 
-// NewConverter constructs a new converter for a given earthly target.
+// NewConverter constructs a new converter for a given earth target.
 func NewConverter(
 	target domain.Target, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt,
 ) (*Converter, error) {
@@ -191,7 +191,7 @@ func NewConverter(
 	return c, nil
 }
 
-// From applies the earthly FROM command.
+// From applies the earth FROM command.
 func (c *Converter) From(
 	ctx context.Context,
 	imageName string,
@@ -564,7 +564,7 @@ func (c *Converter) FromDockerfile(
 	return nil
 }
 
-// Locally applies the earthly Locally command.
+// Locally applies the earth Locally command.
 func (c *Converter) Locally(ctx context.Context) error {
 	err := c.checkAllowed(locallyCmd)
 	if err != nil {
@@ -595,7 +595,7 @@ func (c *Converter) Locally(ctx context.Context) error {
 	return nil
 }
 
-// CopyArtifactLocal applies the earthly COPY artifact command which are invoked under a LOCALLY target.
+// CopyArtifactLocal applies the earth COPY artifact command which are invoked under a LOCALLY target.
 func (c *Converter) CopyArtifactLocal(
 	ctx context.Context,
 	artifactName, dest string,
@@ -662,7 +662,7 @@ func (c *Converter) CopyArtifactLocal(
 	return nil
 }
 
-// CopyArtifact applies the earthly COPY artifact command.
+// CopyArtifact applies the earth COPY artifact command.
 func (c *Converter) CopyArtifact(
 	ctx context.Context,
 	artifactName, dest string,
@@ -727,7 +727,7 @@ func (c *Converter) CopyArtifact(
 	return nil
 }
 
-// CopyClassical applies the earthly COPY command, with classical args.
+// CopyClassical applies the earth COPY command, with classical args.
 func (c *Converter) CopyClassical(
 	ctx context.Context,
 	srcs []string,
@@ -811,7 +811,7 @@ type ConvertRunOpts struct {
 	Locally            bool
 }
 
-// Run applies the earthly RUN command.
+// Run applies the earth RUN command.
 func (c *Converter) Run(ctx context.Context, opts ConvertRunOpts) error {
 	err := c.checkAllowed(runCmd)
 	if err != nil {
@@ -868,7 +868,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			return 0, err
 		}
 
-		opts.statePrep = func(ctx context.Context, state pllb.State) (pllb.State, error) {
+		opts.statePrep = func(_ context.Context, state pllb.State) (pllb.State, error) {
 			return state.File(
 				pllb.Mkdir("/run", 0o755, llb.WithParents(true)),
 				llb.WithCustomNamef(
@@ -991,7 +991,7 @@ func (c *Converter) runCommand(
 		}
 
 		outputFile = path.Join(srcBuildArgDir, outputFileName)
-		opts.statePrep = func(ctx context.Context, state pllb.State) (pllb.State, error) {
+		opts.statePrep = func(_ context.Context, state pllb.State) (pllb.State, error) {
 			return state.File(
 				// Mkdir is performed as root even when USER is set; we must use 0777
 				pllb.Mkdir(srcBuildArgDir, 0o777, llb.WithParents(true)),
@@ -1038,7 +1038,7 @@ func (c *Converter) runCommand(
 	return string(outputDt), nil
 }
 
-// SaveArtifact applies the earthly SAVE ARTIFACT command.
+// SaveArtifact applies the earth SAVE ARTIFACT command.
 func (c *Converter) SaveArtifact(
 	ctx context.Context,
 	saveFrom, saveTo, saveAsLocalTo string,
@@ -1337,7 +1337,7 @@ func (c *Converter) waitBlock() *waitBlock {
 }
 
 // PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block.
-func (c *Converter) PushWaitBlock(ctx context.Context) error {
+func (c *Converter) PushWaitBlock(_ context.Context) error {
 	waitBlock := newWaitBlock()
 	c.waitBlockStack = append(c.waitBlockStack, waitBlock)
 	c.mts.Final.AddWaitBlock(waitBlock)
@@ -1366,7 +1366,7 @@ func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.DoSaves)
 }
 
-// SaveImage applies the earthly SAVE IMAGE command.
+// SaveImage applies the earth SAVE IMAGE command.
 func (c *Converter) SaveImage(
 	ctx context.Context,
 	imageNames []string,
@@ -1483,7 +1483,7 @@ func (c *Converter) SaveImage(
 	return nil
 }
 
-// Build applies the earthly BUILD command.
+// Build applies the earth BUILD command.
 func (c *Converter) Build(
 	ctx context.Context,
 	fullTargetName string,
@@ -1514,7 +1514,7 @@ func (c *Converter) Build(
 
 type afterParallelFunc func(context.Context, *states.MultiTarget) error
 
-// BuildAsync applies the earthly BUILD command asynchronously.
+// BuildAsync applies the earth BUILD command asynchronously.
 func (c *Converter) BuildAsync(
 	ctx context.Context,
 	fullTargetName string,
@@ -1611,7 +1611,7 @@ func (c *Converter) Workdir(ctx context.Context, workdirPath string) error {
 }
 
 // User applies the USER command.
-func (c *Converter) User(ctx context.Context, user string) error {
+func (c *Converter) User(_ context.Context, user string) error {
 	err := c.checkAllowed(userCmd)
 	if err != nil {
 		return err
@@ -1625,7 +1625,7 @@ func (c *Converter) User(ctx context.Context, user string) error {
 }
 
 // Cmd applies the CMD command.
-func (c *Converter) Cmd(ctx context.Context, cmdArgs []string, isWithShell bool) error {
+func (c *Converter) Cmd(_ context.Context, cmdArgs []string, isWithShell bool) error {
 	err := c.checkAllowed(cmdCmd)
 	if err != nil {
 		return err
@@ -1639,7 +1639,7 @@ func (c *Converter) Cmd(ctx context.Context, cmdArgs []string, isWithShell bool)
 }
 
 // Entrypoint applies the ENTRYPOINT command.
-func (c *Converter) Entrypoint(ctx context.Context, entrypointArgs []string, isWithShell bool) error {
+func (c *Converter) Entrypoint(_ context.Context, entrypointArgs []string, isWithShell bool) error {
 	err := c.checkAllowed(entrypointCmd)
 	if err != nil {
 		return err
@@ -1656,7 +1656,7 @@ func (c *Converter) Entrypoint(ctx context.Context, entrypointArgs []string, isW
 }
 
 // Expose applies the EXPOSE command.
-func (c *Converter) Expose(ctx context.Context, ports []string) error {
+func (c *Converter) Expose(_ context.Context, ports []string) error {
 	err := c.checkAllowed(exposeCmd)
 	if err != nil {
 		return err
@@ -1672,7 +1672,7 @@ func (c *Converter) Expose(ctx context.Context, ports []string) error {
 }
 
 // Volume applies the VOLUME command.
-func (c *Converter) Volume(ctx context.Context, volumes []string) error {
+func (c *Converter) Volume(_ context.Context, volumes []string) error {
 	err := c.checkAllowed(volumeCmd)
 	if err != nil {
 		return err
@@ -1688,7 +1688,7 @@ func (c *Converter) Volume(ctx context.Context, volumes []string) error {
 }
 
 // Env applies the ENV command.
-func (c *Converter) Env(ctx context.Context, envKey string, envValue string) error {
+func (c *Converter) Env(_ context.Context, envKey string, envValue string) error {
 	err := c.checkAllowed(envCmd)
 	if err != nil {
 		return err
@@ -1751,7 +1751,7 @@ func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue stri
 }
 
 // Let applies the LET command.
-func (c *Converter) Let(ctx context.Context, key string, value string) error {
+func (c *Converter) Let(_ context.Context, key string, value string) error {
 	err := c.checkAllowed(letCmd)
 	if err != nil {
 		return err
@@ -1781,7 +1781,7 @@ func (c *Converter) Let(ctx context.Context, key string, value string) error {
 
 // UpdateArg updates an existing arg to a new value. It errors if the arg could
 // not be found.
-func (c *Converter) UpdateArg(ctx context.Context, argKey string, argValue string, isBase bool) error {
+func (c *Converter) UpdateArg(ctx context.Context, argKey string, argValue string) error {
 	err := c.checkAllowed(setCmd)
 	if err != nil {
 		return err
@@ -1803,7 +1803,7 @@ func (c *Converter) UpdateArg(ctx context.Context, argKey string, argValue strin
 }
 
 // SetArg sets an arg to a specific value.
-func (c *Converter) SetArg(ctx context.Context, argKey string, argValue string) error {
+func (c *Converter) SetArg(_ context.Context, argKey string, argValue string) error {
 	err := c.checkAllowed(argCmd)
 	if err != nil {
 		return err
@@ -1816,7 +1816,7 @@ func (c *Converter) SetArg(ctx context.Context, argKey string, argValue string) 
 }
 
 // UnsetArg unsets a previously declared arg. If the arg does not exist this operation is a no-op.
-func (c *Converter) UnsetArg(ctx context.Context, argKey string) error {
+func (c *Converter) UnsetArg(_ context.Context, argKey string) error {
 	err := c.checkAllowed(argCmd)
 	if err != nil {
 		return err
@@ -1829,7 +1829,7 @@ func (c *Converter) UnsetArg(ctx context.Context, argKey string) error {
 }
 
 // Label applies the LABEL command.
-func (c *Converter) Label(ctx context.Context, labels map[string]string) error {
+func (c *Converter) Label(_ context.Context, labels map[string]string) error {
 	err := c.checkAllowed(labelCmd)
 	if err != nil {
 		return err
@@ -1930,7 +1930,7 @@ func (c *Converter) WithDockerRunLocal(
 
 // Healthcheck applies the HEALTHCHECK command.
 func (c *Converter) Healthcheck(
-	ctx context.Context,
+	_ context.Context,
 	isNone bool,
 	cmdArgs []string,
 	interval, timeout, startPeriod time.Duration,
@@ -1965,7 +1965,7 @@ func (c *Converter) Healthcheck(
 
 // Import applies the IMPORT command.
 func (c *Converter) Import(
-	ctx context.Context, importStr, as string, isGlobal, currentlyPrivileged, allowPrivilegedFlag bool,
+	_ context.Context, importStr, as string, isGlobal, currentlyPrivileged, allowPrivilegedFlag bool,
 ) error {
 	err := c.checkAllowed(importCmd)
 	if err != nil {
@@ -1978,7 +1978,7 @@ func (c *Converter) Import(
 // Cache handles a `CACHE` command in a Target.
 // It appends run options to the Converter which will mount a cache volume in each successive `RUN` command,
 // and configures the `Converter` to persist the cache in the image at the end of the target.
-func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandflag.CacheOpts) error {
+func (c *Converter) Cache(_ context.Context, mountTarget string, opts commandflag.CacheOpts) error {
 	err := c.checkAllowed(cacheCmd)
 	if err != nil {
 		return err
@@ -2038,7 +2038,7 @@ func (c *Converter) Cache(ctx context.Context, mountTarget string, opts commandf
 }
 
 // Host handles a `HOST` command in a Target.
-func (c *Converter) Host(ctx context.Context, hostname string, ip net.IP) error {
+func (c *Converter) Host(_ context.Context, hostname string, ip net.IP) error {
 	err := c.checkAllowed(hostCmd)
 	if err != nil {
 		return err
@@ -2051,7 +2051,7 @@ func (c *Converter) Host(ctx context.Context, hostname string, ip net.IP) error 
 }
 
 // Project handles a "PROJECT" command in base target.
-func (c *Converter) Project(ctx context.Context, org, project string) error {
+func (c *Converter) Project(_ context.Context, org, project string) error {
 	err := c.checkAllowed(projectCmd)
 	if err != nil {
 		return err
@@ -2170,7 +2170,7 @@ func (c *Converter) EnterScopeDo(
 }
 
 // ExitScope exits the most recent variable scope.
-func (c *Converter) ExitScope(ctx context.Context) error {
+func (c *Converter) ExitScope(_ context.Context) error {
 	c.varCollection.ExitFrame()
 	return nil
 }
@@ -2240,7 +2240,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 }
 
 // RecordTargetFailure records a failure in a target.
-func (c *Converter) RecordTargetFailure(ctx context.Context, err error) {
+func (c *Converter) RecordTargetFailure(_ context.Context, err error) {
 	var st logstream.RunStatus
 
 	switch {
@@ -2280,7 +2280,7 @@ func (c *Converter) absolutizeTarget(
 ) (domain.Target, domain.Target, bool, error) {
 	relTarget, err := domain.ParseTarget(fullTargetName)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earthly target parse %s", fullTargetName)
+		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earth target parse %s", fullTargetName)
 	}
 
 	derefedTarget, allowPrivilegedImport, isImport, err := c.varCollection.Imports().Deref(relTarget)
@@ -3202,7 +3202,7 @@ func (c *Converter) newLogbusCommand(ctx context.Context, name string) (string, 
 	if c.gitMeta != nil {
 		gitURL = c.gitMeta.RemoteURL
 		gitHash = c.gitMeta.Hash
-		fileRelToRepo = path.Join(c.gitMeta.RelDir, "Earthfile")
+		fileRelToRepo = path.Join(c.gitMeta.RelDir, buildcontext.Earthfile)
 	}
 
 	platform := c.platr.Materialize(c.platr.Current())
@@ -3250,7 +3250,7 @@ func (c *Converter) newVertexMeta(
 	if c.gitMeta != nil {
 		gitURL = c.gitMeta.RemoteURL
 		gitHash = c.gitMeta.Hash
-		fileRelToRepo = path.Join(c.gitMeta.RelDir, "Earthfile")
+		fileRelToRepo = path.Join(c.gitMeta.RelDir, buildcontext.Earthfile)
 	}
 
 	var (

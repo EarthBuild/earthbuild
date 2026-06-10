@@ -54,6 +54,7 @@ type CancellationDetails struct {
 	Logs   []LogSnapshot
 }
 
+// Empty reports whether no progress context was captured.
 func (d CancellationDetails) Empty() bool {
 	return len(d.Active) == 0 && len(d.Recent) == 0 && len(d.Logs) == 0
 }
@@ -154,14 +155,18 @@ func (e *FirstFailureError) Unwrap() error {
 	return e.Cause
 }
 
+// Is matches against the wrapped cause so callers can keep using errors.Is.
 func (e *FirstFailureError) Is(target error) bool {
 	return errors.Is(e.Cause, target)
 }
 
+// UnwrapCause returns the original solve error.
 func (e *FirstFailureError) UnwrapCause() error {
 	return e.Cause
 }
 
+// NewFirstFailureError wraps cause with the first fatal vertex failure, or
+// returns cause unchanged when no failure was recorded.
 func NewFirstFailureError(cause error, failure FirstFailure) error {
 	if failure.Error == "" {
 		return cause
@@ -173,6 +178,7 @@ func NewFirstFailureError(cause error, failure FirstFailure) error {
 	}
 }
 
+// AsFirstFailureError extracts a FirstFailureError from err's chain.
 func AsFirstFailureError(err error) (*FirstFailureError, bool) {
 	var failureErr *FirstFailureError
 	if errors.As(err, &failureErr) {
@@ -209,10 +215,13 @@ func (e *FirstCancellationError) Unwrap() error {
 	return e.Cause
 }
 
+// Is matches against the wrapped cause so callers can keep using errors.Is.
 func (e *FirstCancellationError) Is(target error) bool {
 	return errors.Is(e.Cause, target)
 }
 
+// NewFirstCancellationError wraps cause with the first canceled vertex, or
+// returns cause unchanged when no cancellation context was recorded.
 func NewFirstCancellationError(cause error, cancellation FirstFailure) error {
 	if cancellation.Error == "" {
 		return cause
@@ -224,6 +233,7 @@ func NewFirstCancellationError(cause error, cancellation FirstFailure) error {
 	}
 }
 
+// AsFirstCancellationError extracts a FirstCancellationError from err's chain.
 func AsFirstCancellationError(err error) (*FirstCancellationError, bool) {
 	var cancelErr *FirstCancellationError
 	if errors.As(err, &cancelErr) {
@@ -252,10 +262,13 @@ func (e *CancellationDetailsError) Unwrap() error {
 	return e.Cause
 }
 
+// Is matches against the wrapped cause so callers can keep using errors.Is.
 func (e *CancellationDetailsError) Is(target error) bool {
 	return errors.Is(e.Cause, target)
 }
 
+// NewCancellationDetailsError wraps cause with recent progress context, or
+// returns cause unchanged when no context was captured.
 func NewCancellationDetailsError(cause error, details CancellationDetails) error {
 	if details.Empty() {
 		return cause
@@ -267,6 +280,7 @@ func NewCancellationDetailsError(cause error, details CancellationDetails) error
 	}
 }
 
+// AsCancellationDetailsError extracts a CancellationDetailsError from err's chain.
 func AsCancellationDetailsError(err error) (*CancellationDetailsError, bool) {
 	var detailsErr *CancellationDetailsError
 	if errors.As(err, &detailsErr) {

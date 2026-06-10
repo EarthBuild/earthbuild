@@ -1,3 +1,4 @@
+// Package setup provides initialization functions for creating and configuring the central logbus instance.
 package setup
 
 import (
@@ -63,8 +64,8 @@ func New(
 			return nil, errors.Wrapf(err, "failed to open bus debug file %s", busDebugFile)
 		}
 
-		useJson := strings.HasSuffix(busDebugFile, ".json")
-		bs.BusDebugWriter = writersub.NewRaw(f, useJson)
+		useJSON := strings.HasSuffix(busDebugFile, ".json")
+		bs.BusDebugWriter = writersub.NewRaw(f, useJSON)
 		bs.Bus.AddSubscriber(bs.BusDebugWriter)
 	}
 
@@ -97,11 +98,11 @@ func (bs *BusSetup) DumpManifestToFile(path string) error {
 		return errors.Wrapf(err, "failed to open bus manifest debug file %s", path)
 	}
 
-	useJson := strings.HasSuffix(path, ".json")
+	useJSON := strings.HasSuffix(path, ".json")
 
 	var dt []byte
 
-	if useJson {
+	if useJSON {
 		jsonOpts := protojson.MarshalOptions{
 			Multiline:       true,
 			Indent:          "  ",
@@ -126,11 +127,11 @@ func (bs *BusSetup) DumpManifestToFile(path string) error {
 }
 
 // Close the bus setup & gather all errors.
-func (bs *BusSetup) Close(ctx context.Context) error {
+func (bs *BusSetup) Close() error {
 	var ret error
 
 	if bs.execStatsTracker != nil {
-		err := bs.execStatsTracker.Close(ctx)
+		err := bs.execStatsTracker.Close()
 		if err != nil {
 			ret = multierror.Append(ret, errors.Wrap(err, "exec stats summary"))
 		}

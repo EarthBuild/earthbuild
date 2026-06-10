@@ -1,7 +1,7 @@
 VERSION --docker-cache 0.8
 
 img:
-  FROM alpine:3.18
+  FROM alpine:3.23
   RUN dd if=/dev/urandom of=large-file0 bs=16M count=2 # adjust as needed to test performance
   SAVE IMAGE img
 
@@ -26,7 +26,7 @@ wd:
   END
 
 test:
-  FROM alpine:3.18
+  FROM alpine:3.23
   RUN --no-cache date +%s > /cache-buster
   WAIT
     BUILD +wd --CHECK_CACHED_TAG_EXISTS=false --CACHE_BUSTER="$(cat /cache-buster)"

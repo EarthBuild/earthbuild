@@ -1,12 +1,13 @@
-package docker2earthly_test
+package docker2earth_test
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/docker2earthly"
+	"github.com/EarthBuild/earthbuild/docker2earth"
 )
 
+//nolint:goconst
 func TestGenerateEarthfile(t *testing.T) {
 	t.Parallel()
 
@@ -202,7 +203,7 @@ build:
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := docker2earthly.GenerateEarthfile(
+			got, err := docker2earth.GenerateEarthfile(
 				tt.args.buildContextPath, tt.args.dockerfilePath, tt.args.imageTags,
 				tt.args.buildArgs, tt.args.platforms, tt.args.target)
 			if !errors.Is(err, tt.wantErr) {

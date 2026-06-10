@@ -1,7 +1,6 @@
 package containerutil
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -27,6 +26,7 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
+	//nolint:goconst
 	tests := []struct {
 		testName string
 		args     parsedCLIVals
@@ -120,15 +120,13 @@ func TestBuildArgMatrix(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := context.Background()
-
 		var logs strings.Builder
 
 		logger := conslogging.Current(conslogging.NoColor, conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(ctx, &FrontendConfig{
-			LocalContainerName: "test-stub",
+		frontend, err := NewStubFrontend(&FrontendConfig{
+			LocalContainerName: "test-stub", //nolint:goconst
 		})
 		r.NoError(err)
 
@@ -139,7 +137,7 @@ func TestBuildArgMatrix(t *testing.T) {
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			LocalContainerName:         "test",
+			LocalContainerName:         "test", //nolint:goconst
 			DefaultPort:                8372,
 			Console:                    logger,
 		})
@@ -156,6 +154,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 
 	r := require.New(t)
 
+	//nolint:goconst
 	tests := []struct {
 		testName string
 		log      string
@@ -192,14 +191,12 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := context.Background()
-
 		var logs strings.Builder
 
 		logger := conslogging.Current(conslogging.NoColor, conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(ctx, &FrontendConfig{
+		frontend, err := NewStubFrontend(&FrontendConfig{
 			LocalContainerName: "test-stub",
 		})
 		r.NoError(err)
@@ -302,14 +299,12 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := context.Background()
-
 		var logs strings.Builder
 
 		logger := conslogging.Current(conslogging.NoColor, conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(ctx, &FrontendConfig{
+		frontend, err := NewStubFrontend(&FrontendConfig{
 			LocalContainerName: "test-stub",
 		})
 		r.NoError(err)

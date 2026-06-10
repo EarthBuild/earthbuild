@@ -1,7 +1,10 @@
+// Package states manages the resolution and execution states of Earthfile targets, maintaining caches,
+// tracking imports, and coordinating solvers.
 package states
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/moby/buildkit/client/llb"
@@ -16,7 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// MultiTarget holds LLB states representing multiple earthly targets,
+// MultiTarget holds LLB states representing multiple earth targets,
 // in the order in which they should be built.
 type MultiTarget struct {
 	// Visited represents the previously visited states, grouped by target
@@ -45,7 +48,7 @@ func (mts *MultiTarget) All() []*SingleTarget {
 	return mts.Visited.All()
 }
 
-// SingleTarget holds LLB states representing an earthly target.
+// SingleTarget holds LLB states representing an earth target.
 type SingleTarget struct {
 	MainState              pllb.State
 	ArtifactsState         pllb.State
@@ -214,8 +217,8 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 
-	for i := len(sts.WaitBlocks) - 1; i >= 0; i-- {
-		err := sts.WaitBlocks[i].Wait(ctx, sts.doPushes, sts.doSaves)
+	for _, v := range slices.Backward(sts.WaitBlocks) {
+		err := v.Wait(ctx, sts.doPushes, sts.doSaves)
 		if err != nil {
 			return err
 		}
@@ -225,7 +228,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 }
 
 // AttachTopLevelWaitItems adds pre-created wait items to a new waitblock.
-func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock waitutil.WaitBlock) {
+func (sts *SingleTarget) AttachTopLevelWaitItems(_ context.Context, waitBlock waitutil.WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 
@@ -352,8 +355,7 @@ type SaveImage struct {
 	Image               *image.Image
 	DockerTag           string
 	HasPushDependencies bool
-	// CacheHint instructs Earthly to save a separate ref for this image, even if no tag is
-	// provided.
+	// CacheHint instructs earth to save a separate ref for this image, even if no tag is provided.
 	CacheHint    bool
 	InsecurePush bool
 	// ForceSave indicates whether the image should be force-saved and (possibly pushed).

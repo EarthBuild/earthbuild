@@ -1,3 +1,5 @@
+// Package authprovider manages registry and token authentication for buildkit sessions, supporting multiple providers
+// and Podman.
 package authprovider
 
 import (
@@ -13,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ErrAuthProviderNoResponse signals that the auth server had no response to give.
 var ErrAuthProviderNoResponse = errors.New("AuthServerNoResponse")
 
 // ProjectAdder is an optional interface that auth servers may implement. If

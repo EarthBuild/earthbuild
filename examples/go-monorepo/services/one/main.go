@@ -4,12 +4,12 @@ import (
 	"net/http"
 
 	"github.com/EarthBuild/earthbuild/examples/go-monorepo/libs/hello"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func main() {
 	e := echo.New()
-	e.GET("/one/hello", func(c echo.Context) error {
+	e.GET("/one/hello", func(c *echo.Context) error {
 		return c.String(http.StatusOK, hello.Greet("World"))
 	})
 	_ = e.Start(":8080")

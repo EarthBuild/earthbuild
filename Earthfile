@@ -23,7 +23,7 @@ RUN apk add --update --no-cache \
     util-linux
 # install Golang
 # renovate: datasource=golang-version packageName=go
-LET GO_VERSION=1.26.3
+LET GO_VERSION=1.26.4
 ENV GOPATH=/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 ARG USERARCH
@@ -192,7 +192,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.14.1
+    ARG vale_version=3.14.2
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything

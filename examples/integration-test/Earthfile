@@ -8,7 +8,7 @@ sbt:
     # Defaults if not specified
 
     # renovate: datasource=github-releases packageName=sbt/sbt
-    ARG sbt_version=1.8.2
+    ARG sbt_version=1.12.11
     ARG sbt_home=/usr/local/sbt
 
     # Download and extract from archive

@@ -244,3 +244,25 @@ race-free dispatchTrace formatted only on the error path, dgstTracker
 mutex, plus TestMergedEdgeDiscardWhileSiblingInFlight and
 TestSubBuildMergedEdgeDiscardWhileSiblingInFlight pinning discard
 behavior. Earth pin bumped in 59bc6dff; CI validating.
+
+### ACTUAL root cause (2026-06-10 night): session healthcheck hair-trigger
+
+The scheduler-diagnostics fix was real but not the killer — class 3
+recurred on the patched daemon. The preserved attempt-1 daemon log
+showed a clean run until the cancel arrived from the monitor side, and
+the failing build is the OUTER earth's (never nested at all).
+
+The fork's configurable session healthcheck (configurabletimeout.go)
+runs with appdefaults allowedFailures=1, frequency=1s, timeout=10s:
+one missed 10s health round-trip and the session is killed. On a
+saturated 4-core runner the earth client is starved exactly that long
+during go build/link, so its session died mid-solve — surfacing as
+"BuildKit canceled or lost the solve session" with context-canceled
+fan-out (diffapply, LLBBridge). Fits every observation: CPU-correlated
+timing, both attempts dying, no daemon-side error, the message itself.
+
+Fixed in fork eb44e0f74a7a: allowedFailures=3, timeout=30s (dead
+clients still reaped in ~90s). Earth pin bumped in 96ffec4b. The
+healthcheck cancel cause ("session healthcheck failed too many times")
+should now also surface through the root-cause recorder if it ever
+fires again.

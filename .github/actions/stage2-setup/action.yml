@@ -56,6 +56,12 @@ runs:
       # the test path has the same headroom as the build path.
       shell: bash
       run: |
+        # The 12G swapfile alone nearly fills the runner's ~14G free root
+        # disk, causing "No space left on device" build failures. Reclaim
+        # ~25G of preinstalled toolchains we never use before allocating.
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+          /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+        df -h / | tail -1
         sudo fallocate -l 12G /extra-swapfile
         sudo chmod 600 /extra-swapfile
         sudo mkswap /extra-swapfile

@@ -140,6 +140,34 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 	return 0
 }
 
+// printCancellationOrigin reports which side of the client/daemon boundary a
+// canceled solve originated from: if earth's own build context is dead, the
+// cancellation began locally and context.Cause names the culprit; if it is
+// still alive, the daemon (or the session between them) canceled first.
+func (app *EarthApp) printCancellationOrigin(ctx context.Context, lastSignal *syncutil.Signal) {
+	console := app.BaseCLI.Console()
+
+	if sig := lastSignal.Get(); sig != nil {
+		console.Warnf("Local cancellation origin: signal %v received by earth\n", sig)
+		return
+	}
+
+	if ctx.Err() == nil {
+		console.Warnf("Local build context is still alive: " +
+			"the cancellation originated in BuildKit or the session layer, not in earth.\n")
+
+		return
+	}
+
+	cause := context.Cause(ctx)
+	if cause != nil && cause.Error() != context.Canceled.Error() {
+		console.Warnf("Local build context was canceled. Cause: %v\n", cause)
+	} else {
+		console.Warnf("Local build context was canceled with no recorded cause: " +
+			"an earth-side subsystem canceled the build without reporting an error.\n")
+	}
+}
+
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
@@ -429,6 +457,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 				"Earth did not receive a more specific root cause from BuildKit.\n",
 			cancelErr.Cancellation.String(),
 		)
+		app.printCancellationOrigin(ctx, lastSignal)
 
 		return true
 	}():
@@ -449,6 +478,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 				"Earth did not receive a more specific root cause from BuildKit.\n",
 			detailsErr.Details.String(),
 		)
+		app.printCancellationOrigin(ctx, lastSignal)
 
 		return true
 	}():
@@ -474,6 +504,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		} else {
 			app.BaseCLI.Console().Warn("Canceled\n")
 		}
+
+		app.printCancellationOrigin(ctx, lastSignal)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)

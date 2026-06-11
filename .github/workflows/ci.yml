@@ -21,7 +21,7 @@ concurrency:
 jobs:
   fast-checks:
     name: Fast Checks
-    uses: ./.github/workflows/fast-checks.yml
+    uses: ./.github/workflows/ci-fast-checks.yml
     secrets: inherit
 
   docker-ci:

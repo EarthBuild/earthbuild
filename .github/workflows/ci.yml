@@ -25,19 +25,19 @@ jobs:
     secrets: inherit
 
   docker-ci:
-    name: Docker CI Ubuntu
+    name: Docker
     needs: fast-checks
     uses: ./.github/workflows/ci-docker-ubuntu.yml
     secrets: inherit
 
   podman-ci:
-    name: Podman CI Ubuntu
+    name: Podman
     needs: fast-checks
     uses: ./.github/workflows/ci-podman-ubuntu.yml
     secrets: inherit
 
   earthly-next-docker-ci:
-    name: Earthly Next Docker CI Ubuntu
+    name: Next
     needs: fast-checks
     uses: ./.github/workflows/ci-earthly-next-docker-ubuntu.yml
     secrets: inherit

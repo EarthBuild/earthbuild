@@ -1,4 +1,4 @@
-name: Docker CI Ubuntu
+name: Docker
 
 on:
   workflow_call:

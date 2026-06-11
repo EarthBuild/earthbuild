@@ -1,4 +1,4 @@
-name: Earthly Next Docker CI Ubuntu
+name: Next
 
 on:
   workflow_call:

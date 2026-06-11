@@ -353,7 +353,7 @@ api-docker:
 # Run your app and api side by side
 app-with-api:
     FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
-    RUN apk add curl
+    RUN apk add --no-cache curl
     WITH DOCKER \
         --load app:latest=+app-docker \
         --load api:latest=+api-docker
@@ -412,7 +412,7 @@ with-postgresql:
     FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     COPY ./docker-compose.yml .
     RUN apk update
-    RUN apk add postgresql-client
+    RUN apk add --no-cache postgresql-client
     WITH DOCKER --compose docker-compose.yml --load app:latest=+docker
         RUN while ! pg_isready --host=localhost --port=5432; do sleep 1; done ;\
             docker run --network=default_java/part6_default app
@@ -548,7 +548,7 @@ run-tests:
     COPY ./docker-compose.yml .
     COPY ./tests ./tests
     RUN apk update
-    RUN apk add postgresql-client
+    RUN apk add --no-cache postgresql-client
     WITH DOCKER --compose docker-compose.yml --load app:latest=+docker
         RUN while ! pg_isready --host=localhost --port=5432; do sleep 1; done ;\
           docker run --network=default_python/part6_default app python3 ./tests/test_db_connection.py

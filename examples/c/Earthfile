@@ -19,7 +19,7 @@ docker:
 
 unit-test:
     FROM +deps
-    RUN apk add cunit-dev
+    RUN apk add --no-cache cunit-dev
     COPY src src
     COPY test test
     RUN cmake test

@@ -147,7 +147,7 @@ We start from an appropriate docker image and set up a working directory.
 VERSION 0.8
 FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 WORKDIR /scala-example
-RUN apk add openjdk11 bash wget postgresql-client
+RUN apk add --no-cache openjdk11 bash wget postgresql-client
 ```
 
 [Full file](https://github.com/EarthBuild/earthly-example-scala/blob/main/integration/Earthfile)

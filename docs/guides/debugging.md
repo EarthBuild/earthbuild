@@ -124,7 +124,7 @@ server:
 
 test:
   FROM docker:19.03.12-dind
-  RUN apk add curl
+  RUN apk add --no-cache curl
   WITH DOCKER --load server:latest=+server
     RUN docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep hello
   END
@@ -183,7 +183,7 @@ The good news is our server container is running; let's see what happens when we
 
 ```
 / # curl -s localhost:8000
-Hello, world!/ 
+Hello, world!/
 ```
 
 Ah ha! The problem is our test is expecting a lowercase `h`, so we can fix our grep to look for an uppercase `H`:
@@ -198,7 +198,7 @@ server:
 
 test:
   FROM docker:19.03.12-dind
-  RUN apk add curl
+  RUN apk add --no-cache curl
   WITH DOCKER --load server:latest=+server
     RUN docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep Hello
   END
@@ -217,7 +217,7 @@ Then when we re-run our test we get:
 =========================== SUCCESS ===========================
 ```
 
-With the use of the interactive debugger; we were able to examine the state of the embedded containerized 
+With the use of the interactive debugger; we were able to examine the state of the embedded containerized
 
 ## Demo
 

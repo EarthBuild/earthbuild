@@ -14,7 +14,7 @@ test-pull:
 
 test-connect:
     FROM alpine:3.24.0
-    RUN apk add openssl
+    RUN apk add --no-cache openssl
     WORKDIR /test
     COPY ./test.ca ./
     RUN timeout 10 /bin/sh -c 'echo "Q" | openssl s_client -connect '"$REGISTRY"':443 -CAfile ./test.ca'

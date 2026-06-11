@@ -348,7 +348,7 @@ Start an interactive python REPL:
 ```Dockerfile
 python:
     FROM alpine:3.18
-    RUN apk add python
+    RUN apk add --no-cache python
     RUN --interactive python
 ```
 
@@ -357,7 +357,7 @@ Start `bash` to tweak an image by hand. Changes made will be included:
 ```Dockerfile
 build:
     FROM alpine:3.18
-    RUN apk add bash
+    RUN apk add --no-cache bash
     RUN --interactive-keep bash
 ```
 
@@ -638,7 +638,7 @@ Parentheses are required when passing build-args:
 
 ```
 FROM alpine:3.18
-RUN apk add coreutils # required for base32 binary
+RUN apk add --no-cache coreutils # required for base32 binary
 dummy-target:
     ARG encoder="base64"
     RUN echo hello | $encoder > encoded-data

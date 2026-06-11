@@ -153,7 +153,7 @@ test-empty:
     RUN echo after
 
 test-complex:
-    RUN apk add curl jq
+    RUN apk add --no-cache curl jq
     IF curl https://pokeapi.co/api/v2/pokemon/pikachu | jq -r '.abilities[].ability.name' | grep imposter
         RUN false
     ELSE

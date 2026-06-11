@@ -90,7 +90,7 @@ buildkitd:
     SAVE IMAGE --push $IMAGE_REGISTRY/$CR_ORG/$CR_REPO:$DOCKERHUB_BUILDKIT_IMG-$TAG
 
 buildkit-sha:
-    RUN apk add git
+    RUN apk add --no-cache git
     ARG BUILDKIT_GIT_SHA
     ARG BUILDKIT_GIT_BRANCH=earthly-main
     ARG --required BUILDKIT_GIT_ORG

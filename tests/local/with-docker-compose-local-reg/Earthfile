@@ -7,7 +7,7 @@ all:
 
 fetch:
     FROM alpine:3.24.0
-    RUN apk add curl
+    RUN apk add --no-cache curl
     COPY fetch.sh /bin/fetch
     CMD ["/bin/fetch"]
 

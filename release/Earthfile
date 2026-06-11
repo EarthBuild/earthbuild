@@ -67,7 +67,7 @@ perform-release-buildkitd-dockerhub:
 signed-release:
     FROM alpine:3.24.0
 
-    RUN apk add file gpg gpg-agent
+    RUN apk add --no-cache file gpg gpg-agent
 
     ARG --required RELEASE_TAG
     ARG --required GITHUB_USER
@@ -239,7 +239,7 @@ skopeo:
     FROM alpine:3.24.0
 
     # https://github.com/containers/skopeo/blob/main/install.md#alpine
-    RUN apk add skopeo
+    RUN apk add --no-cache skopeo
 
 release-repo:
     ARG --required RELEASE_TAG

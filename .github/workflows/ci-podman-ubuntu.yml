@@ -3,9 +3,6 @@ name: Podman CI Ubuntu
 on:
   workflow_call:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}

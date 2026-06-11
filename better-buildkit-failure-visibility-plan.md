@@ -266,3 +266,24 @@ clients still reaped in ~90s). Earth pin bumped in 96ffec4b. The
 healthcheck cancel cause ("session healthcheck failed too many times")
 should now also surface through the root-cause recorder if it ever
 fires again.
+
+### Convicted (2026-06-11): flightcontrol waiter poisoning
+
+The cancellation-origin attribution (e692116e) fired on the next two
+class-3 failures and said, all four times: "Local build context is
+still alive" — earth innocent, daemon/session side guilty, healthcheck
+provably idle (its failures now log; zero logged).
+
+Mechanism: shared lazy merge refs (COPY +earthly/earthly) are unlazied
+under a package-global flightcontrol keyed by ref. The combined context
+keeps fn alive while any caller lives, but fn dies of cancellation
+anyway through resources tied to the WINNING caller — its session group
+closing / leases released when that solve ends. flightcontrol's wait()
+only retried late arrivals; a live waiter inherited the winner's
+"failed to apply diffs: context canceled" verdict verbatim, failing a
+healthy build because an unrelated sibling solve finished first.
+
+Fix (fork 79762ff4c, red test first): a waiter whose own context is
+alive retries instead of inheriting a canceled-error artifact.
+TestLiveWaiterRetriesWinnersCancellationArtifact pins it. Earth pin
+bumped in fa703f40.

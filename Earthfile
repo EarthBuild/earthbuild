@@ -347,7 +347,7 @@ earthly:
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
-    FROM alpine:3.24.0
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY --platform=linux/amd64 (+earthly/* \
         --GOARCH=amd64 \
@@ -358,7 +358,7 @@ earthly-linux-amd64:
 
 # earthly-linux-arm64 builds the earthly artifact  for linux arm64
 earthly-linux-arm64:
-    FROM alpine:3.24.0
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY (+earthly/* \
         --GOARCH=arm64 \
@@ -370,7 +370,7 @@ earthly-linux-arm64:
 
 # earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
 earthly-darwin-amd64:
-    FROM alpine:3.24.0
+    FROM +alpine
     ARG GO_GCFLAGS=""
     COPY --platform=linux/amd64 (+earthly/* \
         --GOOS=darwin \
@@ -383,7 +383,7 @@ earthly-darwin-amd64:
 
 # earthly-darwin-arm64 builds the earthly artifact for darwin arm64
 earthly-darwin-arm64:
-    FROM alpine:3.24.0
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY (+earthly/* \
         --GOOS=darwin \
@@ -396,7 +396,7 @@ earthly-darwin-arm64:
 
 # earthly-windows-arm64 builds the earthly artifact  for windows arm64
 earthly-windows-amd64:
-    FROM alpine:3.24.0
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY --platform=linux/amd64 (+earthly/* \
         --GOOS=windows \
@@ -414,7 +414,7 @@ earthly-windows-amd64:
 # Darwin amd64 and arm64
 # Windows amd64
 all-binaries:
-    FROM alpine:3.24.0
+    FROM +alpine
     COPY +earthly-linux-amd64/earthly ./earth-linux-amd64
     COPY +earthly-linux-arm64/earthly ./earth-linux-arm64
     COPY +earthly-darwin-amd64/earthly ./earth-darwin-amd64
@@ -496,7 +496,7 @@ earthly-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.24.0
+    FROM +alpine
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -507,7 +507,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.24.0
+    FROM +alpine
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -515,7 +515,7 @@ prerelease-script:
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
 # EARTHLY_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
-    FROM alpine:3.24.0
+    FROM +alpine
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
@@ -868,7 +868,7 @@ npm-update-all:
 
 # merge-main-to-docs merges the main branch into docs-0.8
 merge-main-to-docs:
-    FROM alpine:3.24.0
+    FROM +alpine
     RUN apk add --no-cache github-cli ca-certificates
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \

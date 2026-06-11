@@ -831,10 +831,7 @@ examples-5:
     BUILD ./examples/import+build
     BUILD ./examples/secrets+base
     BUILD ./examples/readme/proto+docker
-    IF [ "$TARGETARCH" = "amd64" ]
-        # This only works on amd64 for now.
-        BUILD ./examples/integration-test+integration-test
-    END
+    BUILD ./examples/integration-test+integration-test
 
 
 # license copies the license file and saves it as an artifact

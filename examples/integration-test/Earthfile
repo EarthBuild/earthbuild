@@ -1,7 +1,7 @@
 VERSION 0.8
 FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 WORKDIR /scala-example
-RUN apk add openjdk11 bash wget postgresql-client
+RUN apk add --no-cache openjdk17 bash wget postgresql-client
 
 sbt:
     #Scala
@@ -18,7 +18,7 @@ sbt:
     RUN ln -sv "$sbt_home"/bin/sbt /usr/bin/
 
     # This triggers a bunch of useful downloads.
-    RUN sbt sbtVersion
+    RUN sbt --allow-empty sbtVersion
 
 project-files:
     FROM +sbt
@@ -51,7 +51,8 @@ docker:
     FROM +project-files
     COPY src src
     RUN sbt 'set test in assembly := {}' assembly
-    ENTRYPOINT ["java","-cp","target/scala-3.8.2/scala-example-assembly-1.0.jar","Main"]
+    RUN cp target/scala-*/scala-example-assembly-*.jar app.jar
+    ENTRYPOINT ["java","-cp","app.jar","Main"]
     SAVE IMAGE --push earthbuild/examples:integration
 
 smoke-test:

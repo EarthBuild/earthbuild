@@ -1,9 +1,9 @@
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
-class DataVersionSpec extends FlatSpec {
+class DataVersionSpec extends AnyFlatSpec {
 
   val dv = new DataVersion()
   "Data Version " should " be positive" in {
-    assert(dv.version > 0)
+    assert(dv.version() > 0)
   }
 }

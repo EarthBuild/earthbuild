@@ -19,7 +19,7 @@ buildkitd:
 
     FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-    RUN apk add --update --no-cache \
+    RUN apk add --no-cache \
         cni-plugins@edge-community \
         gettext \
         git-lfs \

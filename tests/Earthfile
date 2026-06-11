@@ -904,7 +904,7 @@ escape-dir-test:
 
 eine-test-base:
     FROM docker:19.03.15-dind
-    RUN apk --update --no-cache add git
+    RUN apk --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
     WORKDIR /test

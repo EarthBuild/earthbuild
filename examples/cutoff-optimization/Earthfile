@@ -7,7 +7,7 @@
 VERSION 0.8
 FROM alpine
 WORKDIR /code
-RUN apk add --update --no-cache build-base
+RUN apk add --no-cache build-base
 
 build:
     COPY src .

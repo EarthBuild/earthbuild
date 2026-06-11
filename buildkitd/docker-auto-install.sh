@@ -71,9 +71,9 @@ install_docker_compose() {
     case "$distro" in
         alpine)
             if detect_alpine_3_18_or_newer; then
-                apk add --update --no-cache docker-cli-compose
+                apk add --no-cache docker-cli-compose
             else
-                apk add --update --no-cache docker-compose
+                apk add --no-cache docker-compose
             fi
             ;;
         *)
@@ -101,9 +101,9 @@ install_dockerd() {
     case "$distro" in
         alpine)
             if [ -n "$DOCKER_VERSION" ]; then
-              apk add --update --no-cache docker="$DOCKER_VERSION"
+              apk add --no-cache docker="$DOCKER_VERSION"
             else
-              apk add --update --no-cache docker
+              apk add --no-cache docker
             fi
             ;;
 
@@ -187,7 +187,7 @@ install_dockerd_amazon() {
 install_jq() {
     case "$distro" in
         alpine)
-            apk add --update --no-cache jq
+            apk add --no-cache jq
             ;;
 
         amzn)

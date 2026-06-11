@@ -1,6 +1,6 @@
 VERSION 0.8
 FROM golang:1.26-alpine3.23
-RUN apk --update --no-cache add git curl
+RUN apk --no-cache add git curl
 WORKDIR /go-example
 
 all:

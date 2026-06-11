@@ -53,7 +53,7 @@ const (
     FROM +{{.Prefix}}deps
 
     # gcc and g++ are required for -race.
-    RUN apk add --update gcc g++
+    RUN apk add gcc g++
 
     # This copies the whole project. If you want better caching, try
     # limiting this to _just_ files required by your go tests.

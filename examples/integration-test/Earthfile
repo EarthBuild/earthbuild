@@ -50,8 +50,9 @@ integration-test:
 docker:
     FROM +project-files
     COPY src src
-    RUN sbt 'set test in assembly := {}' assembly
-    RUN cp target/scala-*/scala-example-assembly-*.jar app.jar
+    RUN \
+        sbt 'set test in assembly := {}' assembly && \
+        mv target/scala-*/scala-example-assembly-*.jar app.jar
     ENTRYPOINT ["java","-cp","app.jar","Main"]
     SAVE IMAGE --push earthbuild/examples:integration
 

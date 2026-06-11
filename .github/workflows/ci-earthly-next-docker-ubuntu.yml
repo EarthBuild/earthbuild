@@ -1,20 +1,7 @@
 name: Earthly Next Docker CI Ubuntu
 
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.github/renovate.json5'
-      - '.github/CODEOWNERS'
-      - 'LICENSE'
-  pull_request:
-    branches: [ main ]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}

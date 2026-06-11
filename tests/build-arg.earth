@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.23
+FROM alpine:3.24.0
 WORKDIR /test
 
 ARG notaglobal=this-only-exists-in-base
@@ -43,7 +43,7 @@ test2:
     RUN test "$ALPINE" == "3.23"
 
 dummy:
-    FROM alpine:3.23
+    FROM alpine:3.24.0
 
 test3:
     ARG VAR1="test"

@@ -258,7 +258,7 @@ experimental:
     BUILD --pass-args ./dind-auto-install+all
 
 ast-test-input:
-    FROM alpine:3.23
+    FROM alpine:3.24.0
     COPY ./*.earth ./
     COPY ./with-docker/Earthfile ./with-docker.earth
     COPY ./with-docker-compose/Earthfile ./with-docker-compose.earth

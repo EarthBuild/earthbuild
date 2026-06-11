@@ -15,10 +15,10 @@ remote:
     RUN echo "hi"
 
 create-dockerfile:
-    FROM alpine:3.23
+    FROM alpine:3.24.0
     RUN mkdir dist
     RUN echo "
-FROM alpine:3.23
+FROM alpine:3.24.0
 ARG my_arg=default
 RUN echo \${my_arg}
 RUN echo \${my_arg} >/arg-value

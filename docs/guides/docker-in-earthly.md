@@ -40,7 +40,7 @@ smoke-test:
     FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     WITH DOCKER --load test:latest=+build
         RUN docker run test:latest
-    FROM earthbuild/dind:alpine
+    FROM earthbuild/dind:alpine:3.24.0
     WITH DOCKER --load +build
         RUN docker run my-image:latest
     END

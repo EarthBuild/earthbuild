@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "alpine"
+          "alpine:3.24.0"
         ],
         "name": "FROM"
       }

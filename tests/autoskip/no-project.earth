@@ -1,6 +1,6 @@
 VERSION 0.7
 
-FROM alpine
+FROM alpine:3.24.0
 
 no-project:
     RUN echo "I was run"

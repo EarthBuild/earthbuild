@@ -18,7 +18,7 @@ check-tag-does-not-exist-locally:
     RUN docker images "$REGISTRY/myuser/myimg:$tag" | grep -v "$tag"
 
 a-test-image:
-    FROM alpine
+    FROM alpine:3.24.0
     ARG --required REGISTRY
     ARG --required tag
     ARG --required value

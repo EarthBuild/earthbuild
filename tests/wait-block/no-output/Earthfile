@@ -8,7 +8,7 @@ myimg:
 
 copy:
     WAIT
-        FROM alpine
+        FROM alpine:3.24.0
         COPY +myimg/bar .
     END
     RUN ls -la bar

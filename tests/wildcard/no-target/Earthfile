@@ -1,5 +1,5 @@
 VERSION 0.8
 
 not-test:
-  FROM alpine
+  FROM alpine:3.24.0
   RUN echo "not-test run"

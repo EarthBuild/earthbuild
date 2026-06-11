@@ -1166,7 +1166,7 @@ Specify an alternative Dockerfile to use. The `<dockerfile-path>` can be either 
 It is possible to split the `Dockerfile` and the build context across two separate [artifact references](../guides/importing.md#artifact-reference):
 
 ```Dockerfile
-FROM alpine
+FROM alpine:3.24.0
 
 mybuildcontext:
     WORKDIR /mydata
@@ -1414,7 +1414,7 @@ For example, the following is NOT a valid Earthfile.
 
 ```Dockerfile
 # NOT A VALID EARTHFILE.
-ARG base=alpine
+ARG base=alpine:3.24.0
 IF [ "$base" = "alpine" ]
     FROM alpine:3.24
 ELSE
@@ -1427,7 +1427,7 @@ The reason this is invalid is because the `IF` condition is actually running the
 Here is how this might be fixed.
 
 ```Dockerfile
-ARG base=alpine
+ARG base=alpine:3.24.0
 FROM busybox
 IF [ "$base" = "alpine" ]
     FROM alpine:3.24

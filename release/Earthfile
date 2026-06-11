@@ -238,7 +238,7 @@ copy-img:
 skopeo:
     FROM alpine:3.24.0
 
-    # https://github.com/containers/skopeo/blob/main/install.md#alpine
+    # https://github.com/containers/skopeo/blob/main/install.md#alpine:3.24.0
     RUN apk add --no-cache skopeo
 
 release-repo:

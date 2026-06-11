@@ -1775,7 +1775,7 @@ test-ssh-command-config-via-git-clone-earthfile-command:
 
     RUN echo "VERSION 0.8
 test:
-    FROM alpine
+    FROM alpine:3.24.0
     GIT CLONE ssh://git@github.com/earthly/earthly.git ./earthly_repo # the command we are testing
 " > Earthfile
 

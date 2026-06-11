@@ -845,7 +845,7 @@ license:
 node:
     FROM node:26.3.0-alpine3.23
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.14.1
+    LET npm_version=11.16.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

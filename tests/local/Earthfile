@@ -2,7 +2,7 @@ VERSION 0.8
 # renovate: datasource=docker packageName=alpine
 ARG --global alpine_version=3.23.4
 # renovate: datasource=docker packageName=busybox
-ARG --global busybox_version=1.37.0
+ARG --global busybox_version=1.38.0
 FROM alpine:$alpine_version
 
 #################################################################################################################

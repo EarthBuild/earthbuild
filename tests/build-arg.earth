@@ -38,8 +38,8 @@ test1:
 
 test2:
     ARG ALPINE=3.24
-    FROM alpine:$alpine:3.24.0
-    RUN echo $alpine:3.24.0
+    FROM alpine:$ALPINE
+    RUN echo $ALPINE
     RUN test "$ALPINE" == "3.24"
 
 dummy:

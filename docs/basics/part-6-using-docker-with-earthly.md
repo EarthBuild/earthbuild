@@ -56,7 +56,7 @@ version: "3"
 services:
   redis:
     container_name: local-redis
-    image: redis:6.0-alpine:3.24.0
+    image: redis:6.0-alpine
     ports:
 - 127.0.0.1:6379:6379
     hostname: redis

@@ -11,7 +11,7 @@ build:
   SAVE ARTIFACT ./out prod
 
 docker:
-  FROM nginx:stable-alpine:3.24.0
+  FROM nginx:stable-alpine
   COPY +build/prod /usr/share/nginx/html
   SAVE IMAGE --push earthbuild/examples:react
 

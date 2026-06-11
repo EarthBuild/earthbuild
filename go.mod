@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0
-	git.sr.ht/~nelsam/correct v0.1.3
+	git.sr.ht/~nelsam/correct v0.1.5
 	git.sr.ht/~nelsam/hel v0.9.4
 	github.com/adrg/xdg v0.5.3
 	github.com/alexcb/binarystream v0.0.0-20231130184431-f2f7a7543c6d
@@ -30,7 +30,7 @@ require (
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/joho/godotenv v1.5.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/mattn/go-colorable v0.1.14
+	github.com/mattn/go-colorable v0.1.15
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/mitchellh/mapstructure v1.5.0
@@ -43,7 +43,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	github.com/tonistiigi/fsutil v0.0.0-20230825212630-f09800878302
-	github.com/urfave/cli/v3 v3.9.0
+	github.com/urfave/cli/v3 v3.9.1
 	go.etcd.io/bbolt v1.4.3
 	go.opentelemetry.io/contrib/exporters/autoexport v0.55.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0

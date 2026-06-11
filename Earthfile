@@ -75,7 +75,7 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM +alpine
+    FROM alpine:3.24.0
     RUN apk add --no-cache shellcheck
     WORKDIR /shell_scripts
 
@@ -496,18 +496,18 @@ earthly-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM +alpine
+    FROM alpine:3.24.0
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ./buildkitd+buildkitd --TAG=prerelease  --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    COPY (+all-binaries/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) ./
+    COPY (+all-binaries/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) /
     SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM +alpine
+    FROM alpine:3.24.0
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -515,7 +515,7 @@ prerelease-script:
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
 # EARTHLY_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
-    FROM +alpine
+    FROM alpine:3.24.0
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
@@ -524,7 +524,7 @@ ci-release:
     BUILD \
         --platform=linux/amd64 \
         ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) ./earthly-linux-amd64
+    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
     SAVE IMAGE --cache-from=docker.io/earthly/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
@@ -545,7 +545,7 @@ for-own:
 # build-ticktock is used for building the ticktock version of buildkit
 # it is only used when BUILDKIT_PROJECT is not overridden
 build-ticktock:
-    FROM +alpine
+    FROM alpine:3.24.0
     ARG BUILDKIT_PROJECT
     IF [ -z "$BUILDKIT_PROJECT" ]
         COPY earthly-next .
@@ -971,7 +971,7 @@ open-pr-for-fork:
     END
 
 check-broken-links-pr:
-    FROM +alpine
+    FROM alpine:3.24.0
     WORKDIR /tmp
     RUN apk add --no-cache ca-certificates git github-cli
     ARG BRANCH

@@ -1,12 +1,14 @@
 VERSION 0.8
-FROM alpine:3.24.0
-WORKDIR /earthly
 
 ARG CR_ORG="earthbuild"
 ARG CR_REPO="earthbuild"
 ARG REGISTRY_BASE="ghcr.io"
 
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
+
+alpine:
+    FROM alpine:3.24.0
+    WORKDIR /earthly
 
 go:
     FROM golang:1.26.4-alpine3.24
@@ -65,6 +67,7 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
+    FROM +alpine
     RUN apk add --update --no-cache shellcheck
     WORKDIR /shell_scripts
 
@@ -202,8 +205,9 @@ unit-test-parser:
 
 # unit-test runs unit tests (and some integration tests).
 unit-test:
-    FROM +code
+    FROM +go
     RUN apk add --no-cache --update podman fuse-overlayfs crun
+    COPY --dir +code/earthly /
     COPY +unit-test-parser/testparser .
     COPY not-a-unit-test.sh .
 
@@ -335,6 +339,7 @@ earthly:
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY --platform=linux/amd64 (+earthly/* \
         --GOARCH=amd64 \
@@ -345,6 +350,7 @@ earthly-linux-amd64:
 
 # earthly-linux-arm64 builds the earthly artifact  for linux arm64
 earthly-linux-arm64:
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY (+earthly/* \
         --GOARCH=arm64 \
@@ -356,6 +362,7 @@ earthly-linux-arm64:
 
 # earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
 earthly-darwin-amd64:
+    FROM +alpine
     ARG GO_GCFLAGS=""
     COPY --platform=linux/amd64 (+earthly/* \
         --GOOS=darwin \
@@ -368,6 +375,7 @@ earthly-darwin-amd64:
 
 # earthly-darwin-arm64 builds the earthly artifact for darwin arm64
 earthly-darwin-arm64:
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY (+earthly/* \
         --GOOS=darwin \
@@ -380,6 +388,7 @@ earthly-darwin-arm64:
 
 # earthly-windows-arm64 builds the earthly artifact  for windows arm64
 earthly-windows-amd64:
+    FROM +alpine
     ARG GO_GCFLAGS
     COPY --platform=linux/amd64 (+earthly/* \
         --GOOS=windows \
@@ -397,6 +406,7 @@ earthly-windows-amd64:
 # Darwin amd64 and arm64
 # Windows amd64
 all-binaries:
+    FROM +alpine
     COPY +earthly-linux-amd64/earthly ./earth-linux-amd64
     COPY +earthly-linux-arm64/earthly ./earth-linux-arm64
     COPY +earthly-darwin-amd64/earthly ./earth-darwin-amd64
@@ -488,6 +498,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
+    FROM +alpine
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -812,6 +823,7 @@ examples-5:
 
 # license copies the license file and saves it as an artifact
 license:
+    FROM +alpine
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
 
@@ -847,6 +859,7 @@ npm-update-all:
 
 # merge-main-to-docs merges the main branch into docs-0.8
 merge-main-to-docs:
+    FROM +alpine
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
         git config --global url."git@github.com:".insteadOf "https://github.com/"
@@ -919,6 +932,7 @@ check-broken-links:
 
 # open-pr-for-fork creates a new PR based on the given pr_number
 open-pr-for-fork:
+    FROM +alpine
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
         git config --global url."git@github.com:".insteadOf "https://github.com/"

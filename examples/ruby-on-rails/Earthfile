@@ -2,7 +2,7 @@ VERSION 0.8
 FROM ruby:3.4.9
 WORKDIR /ruby-on-rails-example
 # renovate: datasource=rubygems packageName=bundler
-ENV BUNDLER_VERSION=2.7.2
+ENV BUNDLER_VERSION=4.0.14
 
 deps:
     RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \

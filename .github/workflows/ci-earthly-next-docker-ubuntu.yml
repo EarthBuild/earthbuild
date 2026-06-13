@@ -12,7 +12,9 @@ env:
 
 jobs:
   build-earthly-with-next:
-    permissions: write-all
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"

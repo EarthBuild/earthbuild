@@ -429,6 +429,11 @@ all-binaries:
 
 # earthly-docker builds earthly as a docker image and pushes
 earthly-docker:
+    # Scaffold base so the IF condition has a shell to run in. main's refactor
+    # removed the file-level FROM that used to provide this implicitly; the
+    # in-IF FROM below replaces this image. (buildkitd/Earthfile keeps its
+    # file-level FROM, which is why the same pattern works there.)
+    FROM alpine:3.24.0
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
@@ -469,6 +474,9 @@ earthly-docker:
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
 earthly-integration-test-base:
+    # Scaffold base so the IF condition has a shell to run in (see note on
+    # +earthly-docker). The in-IF FROM below replaces this image.
+    FROM alpine:3.24.0
     ARG EARTHLY_BUILDKIT_IMAGE
     IF [ "$EARTHLY_BUILDKIT_IMAGE" != "" ]
         FROM --pass-args +earthly-docker --BUILDKIT_PROJECT="" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE"

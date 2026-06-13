@@ -287,3 +287,31 @@ Fix (fork 79762ff4c, red test first): a waiter whose own context is
 alive retries instead of inheriting a canceled-error artifact.
 TestLiveWaiterRetriesWinnersCancellationArtifact pins it. Earth pin
 bumped in fa703f40.
+
+### Reframe (2026-06-13, Opus): the masking is earth-side, at the errgroup
+
+Cancellation-origin attribution (e692116e) said "earth ctx alive" on all
+class-3 failures — but it checked the TOP-LEVEL ctx. earth solves under
+`errgroup.WithContext` (builder/solver.go); the derived ctx cancels when
+EITHER goroutine returns. MonitorProgress also returns earth's own
+status-processing errors (bp.NewCommand). When it aborts it cancels the
+errgroup, bkClient.Build returns bare "context canceled", and the old
+code preferred that buildErr — discarding the real monitor error.
+
+The exit-137 on the active vertex is buildkit's teardown SIGKILL of the
+canceled exec ("killing process because execution context was
+canceled"), not a direct OOM — confirmed in daemon logs. So 137 is a
+symptom; the cause is whatever cancelled first.
+
+Fixes shipped (earth-side, no fork rebuild — fast iteration):
+
+- A: chooseSolveError prefers a non-cancel monitor error over a canceled
+  build error (builder/solver.go + red test). Probe: a self-cancel will
+  now name its cause next run instead of "lost the session".
+- B: cap `go test -p` to 2 in not-a-unit-test.sh to flatten the RSS peak
+  that correlates with the kills.
+
+Open question the probe resolves: if class-3 now prints "earth progress
+monitor aborted the build: `cause`", it was earth-side all along; if it
+still prints "lost the session", the cancel is genuinely transport/
+daemon-side and memory (B) is the lever.

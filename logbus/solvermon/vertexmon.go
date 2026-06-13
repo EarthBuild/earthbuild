@@ -239,7 +239,15 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 	if stream == BuildkitStatsStream {
 		stats, err := vm.ssp.Parse(dt)
 		if err != nil {
-			return 0, errors.Wrap(err, "failed decoding stats stream")
+			// Stats are diagnostic telemetry. A decode failure — e.g. a raw
+			// or partial frame emitted after the daemon's runc stats
+			// collector hits EOF — must never abort the build. Returning an
+			// error here propagates up through MonitorProgress and cancels
+			// the whole solve, surfacing as a bogus "lost the solve session"
+			// with the running command killed (exit 137). Drop the bad batch
+			// and re-sync instead.
+			vm.ssp.Reset()
+			return len(dt), nil //nolint:nilerr // stats decode failures are intentionally non-fatal
 		}
 
 		for _, statsSample := range stats {

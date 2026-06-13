@@ -45,7 +45,7 @@ api-docker:
 
 integration-tests:
     FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
-    RUN apk add curl
+    RUN apk add --no-cache curl
     WITH DOCKER \
         --load app:latest=+app-docker \
         --load api:latest=+api-docker

@@ -11,11 +11,8 @@
     'docs-0.8',
   ],
   configMigration: true,
-  prHourlyLimit: 1,
-  prConcurrentLimit: 3,
-  schedule: [ // utc timezone
-    'after 4pm on monday',
-  ],
+  prHourlyLimit: 0,
+  prConcurrentLimit: 1,
   includePaths: [
     'Earthfile',
     '**/go.mod',

@@ -348,7 +348,7 @@ Start an interactive python REPL:
 ```Dockerfile
 python:
     FROM alpine:3.18
-    RUN apk add python
+    RUN apk add --no-cache python
     RUN --interactive python
 ```
 
@@ -357,7 +357,7 @@ Start `bash` to tweak an image by hand. Changes made will be included:
 ```Dockerfile
 build:
     FROM alpine:3.18
-    RUN apk add bash
+    RUN apk add --no-cache bash
     RUN --interactive-keep bash
 ```
 
@@ -638,7 +638,7 @@ Parentheses are required when passing build-args:
 
 ```
 FROM alpine:3.18
-RUN apk add coreutils # required for base32 binary
+RUN apk add --no-cache coreutils # required for base32 binary
 dummy-target:
     ARG encoder="base64"
     RUN echo hello | $encoder > encoded-data
@@ -1166,7 +1166,7 @@ Specify an alternative Dockerfile to use. The `<dockerfile-path>` can be either 
 It is possible to split the `Dockerfile` and the build context across two separate [artifact references](../guides/importing.md#artifact-reference):
 
 ```Dockerfile
-FROM alpine
+FROM alpine:3.24.0
 
 mybuildcontext:
     WORKDIR /mydata
@@ -1414,9 +1414,9 @@ For example, the following is NOT a valid Earthfile.
 
 ```Dockerfile
 # NOT A VALID EARTHFILE.
-ARG base=alpine
+ARG base=alpine:3.24.0
 IF [ "$base" = "alpine" ]
-    FROM alpine:3.23
+    FROM alpine:3.24.0
 ELSE
     FROM ubuntu:24.04
 END
@@ -1427,10 +1427,10 @@ The reason this is invalid is because the `IF` condition is actually running the
 Here is how this might be fixed.
 
 ```Dockerfile
-ARG base=alpine
+ARG base=alpine:3.24.0
 FROM busybox
 IF [ "$base" = "alpine" ]
-    FROM alpine:3.23
+    FROM alpine:3.24.0
 ELSE
     FROM ubuntu:24.04
 END

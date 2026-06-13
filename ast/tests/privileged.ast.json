@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "alpine:3.23"
+          "alpine:3.24.0"
         ],
         "name": "FROM"
       }
@@ -13,6 +13,7 @@
         "args": [
           "apk",
           "add",
+          "--no-cache",
           "libcap"
         ],
         "name": "RUN"

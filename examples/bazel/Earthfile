@@ -16,14 +16,14 @@ ELSE
 END
 
 # renovate: datasource=github-releases packageName=bazelbuild/bazel
-LET bazel_version=5.3.2
+LET bazel_version=9.1.1
 RUN wget -q https://github.com/bazelbuild/bazel/releases/download/$bazel_version/bazel-${bazel_version}-linux-$BAZELARCH -O /usr/local/bin/bazel && \
     chmod +x /usr/local/bin/bazel && \
     bazel && \ # Causes bazel to self-extract.
     bazel --version
 
 code:
-    COPY --dir BUILD WORKSPACE ./
+    COPY --dir BUILD MODULE.bazel ./
     COPY --dir src ./
 
 build:
@@ -32,7 +32,7 @@ build:
     # between runs.
     ARG bazel_cache = "/root/.cache/bazel"
     CACHE --persist "$bazel_cache"
-    RUN bazel build --@io_bazel_rules_docker//transitions:enable=false //:ProjectRunner
+    RUN bazel build //:ProjectRunner
     ARG bazel_out = "$(readlink -f ./bazel-out)"
     ARG bazel_bin = "$(readlink -f ./bazel-bin)"
     RUN chmod -R u+w "$bazel_out" # Some directories come out unwriteable.
@@ -46,9 +46,10 @@ image:
     FROM +code
     ARG bazel_cache = "/root/.cache/bazel"
     CACHE --persist "$bazel_cache"
-    RUN bazel build --@io_bazel_rules_docker//transitions:enable=false //:ProjectRunnerImage
-    ARG bazel_out_tar = $(bazel cquery --@io_bazel_rules_docker//transitions:enable=false ProjectRunnerImage-layer.tar --output starlark --starlark:expr=target.files.to_list\\(\\)[0].path)
+    RUN bazel build //:ProjectRunner_deploy.jar
+    ARG bazel_out_jar = $(bazel cquery //:ProjectRunner_deploy.jar --output starlark --starlark:expr=target.files.to_list\\(\\)[0].path)
     # TODO: Earthly has no way of loading an image from a tar currently.
     #       The tar's contents could be unpacked into a directory, however,
     #       and that directory could become an image.
-    SAVE ARTIFACT "$bazel_out_tar" /image.tar AS LOCAL ./earthly-bazel-tar/image.tar
+    # We export the fat jar as a substitute for an image tar in this example.
+    SAVE ARTIFACT "$bazel_out_jar" /ProjectRunner.jar AS LOCAL ./earthly-bazel-tar/ProjectRunner.jar

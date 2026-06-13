@@ -546,7 +546,7 @@ test:
 			earthfile: `VERSION 0.8
 
 thebug:
-    FROM alpine
+    FROM alpine:3.24.0
     ARG myarg=$(echo "a#b#c" | cut -f2 -d\#)
     RUN touch /some-file
     RUN echo "myarg is \"$myarg\""
@@ -563,7 +563,7 @@ thebug:
 		{
 			note: "regression test for single-quoted string in shell expression",
 			earthfile: `VERSION 0.8
-FROM alpine
+FROM alpine:3.24.0
 
 arg-plain:
     ARG val=$(echo run | tr -d '"')
@@ -580,7 +580,7 @@ arg-plain:
 		{
 			note: "regression test for single-quoted string in RUN",
 			earthfile: `VERSION 0.8
-FROM alpine
+FROM alpine:3.24.0
 
 run-plain:
     RUN echo run | tr -d '"'`,
@@ -594,7 +594,7 @@ run-plain:
 		{
 			note: "regression test for escaped double-quoted strings in shell expression",
 			earthfile: `VERSION 0.8
-FROM alpine
+FROM alpine:3.24.0
 
 arg-esc:
     ARG val=$(echo single | tr -d "\"")
@@ -611,7 +611,7 @@ arg-esc:
 		{
 			note: "regression test for escaped \\ & double-quotes in shell expression",
 			earthfile: `VERSION 0.8
-FROM alpine
+FROM alpine:3.24.0
 
 arg-esc:
     ARG val=$(echo single | tr -d "\\\"")
@@ -629,7 +629,7 @@ arg-esc:
 			note: "regression test for single-quoted commands",
 			earthfile: `VERSION 0.8
 
-FROM alpine
+FROM alpine:3.24.0
 
 test:
   RUN 'echo "message'

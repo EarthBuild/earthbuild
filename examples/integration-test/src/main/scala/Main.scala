@@ -15,7 +15,8 @@ object Main extends App {
       "org.postgresql.Driver",
       "jdbc:postgresql://localhost:5432/iso3166",
       "postgres",
-      "postgres"
+      "postgres",
+      None
     )
 
     val countries = dal.countries(5)

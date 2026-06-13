@@ -1,7 +1,7 @@
 VERSION 0.8
 FROM alpine:latest
 
-RUN apk add --update --no-cache bash
+RUN apk add --no-cache bash
 
 mytarget:
     RUN echo this wont be run by this test.

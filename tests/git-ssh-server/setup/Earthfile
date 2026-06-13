@@ -5,7 +5,7 @@ FROM --pass-args ../..+base
 # server creates a ssh-based git server; this repo can then be cloned by running
 # "git clone git@selfsigned.example.com:testuser/repo.git"
 server:
-    RUN apk add --update --no-cache openssh git
+    RUN apk add --no-cache openssh git
     RUN ssh-keygen -A
 
     # generate user keys

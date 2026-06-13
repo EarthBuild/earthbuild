@@ -5,7 +5,7 @@ all:
     # renovate: datasource=docker packageName=public.ecr.aws/amazonlinux/amazonlinux
     LET amazonlinux_2_version=2
     # renovate: datasource=docker packageName=public.ecr.aws/amazonlinux/amazonlinux
-    LET amazonlinux_2023_version=2023.12.20260608.0
+    LET amazonlinux_2023_version=2023.12.20260611.0
 
     # Alternatively, "earthbuild/dind" in the Docker Hub registry
     # renovate: datasource=docker packageName=ghcr.io/earthbuild/dind

@@ -315,3 +315,33 @@ Open question the probe resolves: if class-3 now prints "earth progress
 monitor aborted the build: `cause`", it was earth-side all along; if it
 still prints "lost the session", the cancel is genuinely transport/
 daemon-side and memory (B) is the lever.
+
+### SOLVED (2026-06-13, Opus): stats-stream decode aborted the build
+
+Fix A (chooseSolveError) did its job as a probe. On the first clean run
+(93043686), the class-3 failure printed its true cause instead of the
+veil:
+
+```text
+earth progress monitor aborted the build: failed decoding stats stream:
+unexpected stats stream protocol version 123
+```
+
+123 = 0x7B = '{'. The daemon's runc stats collector intermittently hits
+EOF ("runc stats collection error: EOF", visible in buildkitd logs the
+whole time) and emits a raw/partial frame where earth's parser expects
+versioned framing (`[0x01][uint32 len][JSON]`). The parser errors,
+vertexMonitor.Write returns it, MonitorProgress aborts, the errgroup
+cancels, the running exec is SIGKILLed (137), and it all surfaces as
+"BuildKit canceled or lost the solve session". Every prior theory
+(scheduler race, healthcheck, flightcontrol, OOM) was downstream of this
+single non-fatal-telemetry-treated-as-fatal bug.
+
+Fix (e4cfa2ad, earth-side, no fork rebuild): stats decode failures are
+now non-fatal — drop the bad batch and re-sync via Parser.Reset. Red
+test reproduces a raw '{' frame and the recovery.
+
+Optional deeper fix (fork): make the runc stats collector not emit a raw
+frame on EOF. Not required for green; the earth-side guard is the correct
+defensive design per this plan's own rule (reporting failures must remain
+non-fatal).

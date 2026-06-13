@@ -299,7 +299,7 @@ earthly:
     ARG GOOS=$TARGETOS
     ARG GOARCH=$TARGETARCH
     ARG GOARM64=v8.0
-    ARG GOAMD64=v3
+    ARG GOAMD64=v2
     ARG GO_EXTRA_LDFLAGS=""
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. This
     # is particularly useful for disabling optimizations to make the binary work

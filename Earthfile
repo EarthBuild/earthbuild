@@ -434,9 +434,9 @@ earthly-docker:
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
-    COPY (+earthly/earthly
-        --VERSION=$TAG
-        --DEFAULT_INSTALLATION_NAME="earthly"
+    COPY (+earthly/earthly \
+        --VERSION=$TAG \
+        --DEFAULT_INSTALLATION_NAME="earthly" \
         ) /usr/bin/earthly
     ARG DOCKERHUB_IMG="earthly"
 

@@ -24,6 +24,8 @@ on:
         type: boolean
         default: false
 
+permissions: {}
+
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
@@ -32,6 +34,7 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
+
   build-earthly:
     name: build (and push) earthly using ${{inputs.BINARY}} and earthly-next=${{inputs.USE_NEXT}}
     if: ${{!inputs.SKIP_JOB}}

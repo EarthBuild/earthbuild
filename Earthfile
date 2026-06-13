@@ -440,7 +440,8 @@ earthly-docker:
     ELSE
         FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
     END
-    RUN apk add --no-cache docker-cli libcap-ng-utils git    ENV EARTHLY_IMAGE=true
+    RUN apk add --no-cache docker-cli libcap-ng-utils git
+    ENV EARTHLY_IMAGE=true
     # When Earthly is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based

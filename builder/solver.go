@@ -91,15 +91,33 @@ func (s *solver) buildMainMulti(
 	})
 	err = eg.Wait()
 
-	if buildErr != nil {
-		return s.withBuildkitFailureContext(buildErr)
-	}
-
-	if err != nil {
-		return err
+	chosen := chooseSolveError(buildErr, err)
+	if chosen != nil {
+		return s.withBuildkitFailureContext(chosen)
 	}
 
 	return nil
+}
+
+// chooseSolveError picks the more informative of the two errgroup results.
+// buildErr is from bkClient.Build; monitorErr is from MonitorProgress (which
+// also returns errors from earth's own status processing, e.g. NewCommand).
+//
+// When MonitorProgress aborts the build it cancels the shared errgroup
+// context, so bkClient.Build then returns a bare "context canceled" that
+// masks the real cause. Prefer a non-cancellation monitorErr in that case —
+// otherwise an earth-side self-cancellation is misreported as "BuildKit lost
+// the session".
+func chooseSolveError(buildErr, monitorErr error) error {
+	if buildErr != nil && isCanceledErr(buildErr) && monitorErr != nil && !isCanceledErr(monitorErr) {
+		return errors.Wrap(monitorErr, "earth progress monitor aborted the build")
+	}
+
+	if buildErr != nil {
+		return buildErr
+	}
+
+	return monitorErr
 }
 
 func (s *solver) withBuildkitFailureContext(buildErr error) error {

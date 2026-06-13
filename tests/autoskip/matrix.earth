@@ -1,6 +1,6 @@
 VERSION 0.7
 
-FROM alpine
+FROM alpine:3.24.0
 
 foo:
     ARG NAME

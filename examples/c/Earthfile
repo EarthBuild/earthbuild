@@ -1,9 +1,9 @@
 VERSION 0.8
-FROM alpine:3.23.4
+FROM alpine:3.24.0
 WORKDIR /c-example
 
 deps:
-    RUN apk --update add build-base cmake
+    RUN apk --no-cache add build-base cmake
 
 build:
     FROM +deps
@@ -19,7 +19,7 @@ docker:
 
 unit-test:
     FROM +deps
-    RUN apk add cunit-dev
+    RUN apk add --no-cache cunit-dev
     COPY src src
     COPY test test
     RUN cmake test

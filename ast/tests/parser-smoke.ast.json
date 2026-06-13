@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "alpine:3.23"
+          "alpine:3.24.0"
         ],
         "docs": "This is a smoke test for parsing. We don't actually check that the config was\nset correctly.\n",
         "name": "FROM"

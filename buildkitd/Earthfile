@@ -19,7 +19,7 @@ buildkitd:
 
     FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-    RUN apk add --update --no-cache \
+    RUN apk add --no-cache \
         cni-plugins@edge-community \
         gettext \
         git-lfs \
@@ -90,7 +90,7 @@ buildkitd:
     SAVE IMAGE --push $IMAGE_REGISTRY/$CR_ORG/$CR_REPO:$DOCKERHUB_BUILDKIT_IMG-$TAG
 
 buildkit-sha:
-    RUN apk add git
+    RUN apk add --no-cache git
     ARG BUILDKIT_GIT_SHA
     ARG BUILDKIT_GIT_BRANCH=earthly-main
     ARG --required BUILDKIT_GIT_ORG
@@ -122,6 +122,6 @@ update-buildkit-earthfile:
 
 # export-docker-script is used to copy the dind install script remotely via another Earthly target
 export-docker-script:
-    FROM alpine
+    FROM alpine:3.24.0
     COPY docker-auto-install.sh .
     SAVE ARTIFACT docker-auto-install.sh

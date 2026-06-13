@@ -85,6 +85,7 @@
             "args": [
               "apk",
               "add",
+              "--no-cache",
               "postgresql-client"
             ],
             "name": "RUN"

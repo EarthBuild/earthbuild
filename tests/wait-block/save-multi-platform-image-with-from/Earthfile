@@ -26,7 +26,7 @@ check-tag-exists-locally:
 
 
 deps:
-    FROM alpine
+    FROM alpine:3.24.0
 
 fake:
     FROM +earthly-multiplatform-wait-test-with-from-arm64
@@ -37,7 +37,7 @@ indirect:
     RUN echo "this uses the same target which will be called directly under the main test"
 
 test:
-    FROM alpine
+    FROM alpine:3.24.0
     WAIT
         BUILD +indirect # indirectly builds arm64, which is also built directly inside the IF
         IF --no-cache sleep 5 # wait here in order for +indirect to be executed first

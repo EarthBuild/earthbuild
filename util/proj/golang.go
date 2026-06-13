@@ -53,7 +53,7 @@ const (
     FROM +{{.Prefix}}deps
 
     # gcc and g++ are required for -race.
-    RUN apk add --update gcc g++
+    RUN apk add --no-cache gcc g++
 
     # This copies the whole project. If you want better caching, try
     # limiting this to _just_ files required by your go tests.
@@ -161,7 +161,8 @@ func (g *Golang) ForDir(ctx context.Context, dir string) (Project, error) {
 
 	out, _, err := g.execer.Command("go", "list", "-f", "{{.Dir}}").Run(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, hint.Wrap(errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
+		return nil, hint.Wrap(
+			errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
 			"go must be installed for 'go list' so that earth can read information about your go project",
 		)
 	}

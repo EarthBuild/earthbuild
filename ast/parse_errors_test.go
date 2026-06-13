@@ -22,7 +22,7 @@ func TestParserErrors(t *testing.T) {
 VERSION 0.7
 
 test:
-    FROM alpine
+    FROM alpine:3.24.0
     IF $foo END
 `,
 			expectedHint: "Hint: I couldn't find a pattern that completes the current statement - " +
@@ -35,7 +35,7 @@ test:
 VERSION 0.7
 
 test:
-    FROM alpine
+    FROM alpine:3.24.0
     LABEL a
 `,
 			expectedHint: `Hint: I got lost looking for '=' - did you define a key/value pair without a value?`,

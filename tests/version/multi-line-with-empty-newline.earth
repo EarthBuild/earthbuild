@@ -3,6 +3,6 @@ VERSION \
 
     0.8
 
-FROM alpine:3.23
+FROM alpine:3.24.0
 test:
     RUN echo "pass"

@@ -295,7 +295,7 @@ experimental:
     BUILD --pass-args ./dind-auto-install+all
 
 ast-test-input:
-    FROM alpine:3.23
+    FROM alpine:3.24.0
     COPY ./*.earth ./
     COPY ./with-docker/Earthfile ./with-docker.earth
     COPY ./with-docker-compose/Earthfile ./with-docker-compose.earth
@@ -934,7 +934,7 @@ escape-dir-test:
 
 eine-test-base:
     FROM docker:19.03.15-dind
-    RUN apk --update --no-cache add git
+    RUN apk --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
     WORKDIR /test
@@ -1695,7 +1695,7 @@ test-ssh-command-config-via-git-clone-earthfile-command:
 
     RUN echo "VERSION 0.8
 test:
-    FROM alpine
+    FROM alpine:3.24.0
     GIT CLONE ssh://git@github.com/earthly/earthly.git ./earthly_repo # the command we are testing
 " > Earthfile
 

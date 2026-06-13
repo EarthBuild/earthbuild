@@ -35,7 +35,7 @@ You'll need to [create your own runner image](../build-an-earthly-ci-image.md). 
 
 ```docker
 ARG VERSION=4.9
-RUN apk add --update --no-cache curl bash git git-lfs openssh-client openssl procps \
+RUN apk add --no-cache curl bash git git-lfs openssh-client openssl procps \
   && curl --create-dirs -fsSLo /usr/share/jenkins/agent.jar https://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/${VERSION}/remoting-${VERSION}.jar \
   && chmod 755 /usr/share/jenkins \
   && chmod 644 /usr/share/jenkins/agent.jar \

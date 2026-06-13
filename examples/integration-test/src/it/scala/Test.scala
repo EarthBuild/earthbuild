@@ -12,7 +12,8 @@ class DatabaseIntegrationTest extends AnyFlatSpec {
     "org.postgresql.Driver",
     "jdbc:postgresql://localhost:5432/iso3166",
     "postgres",
-    "postgres"
+    "postgres",
+    None
   )
 
   "A table" should "have country data" in {

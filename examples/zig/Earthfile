@@ -1,7 +1,7 @@
 VERSION 0.8
 
 deps:
-    FROM alpine:3.23
+    FROM alpine:3.24.0
 
     # renovate: datasource=custom.zig packageName=ziglang/zig
     ARG ZIG_VERSION=0.16.0
@@ -48,7 +48,7 @@ test:
     RUN zig test src/main.zig
 
 docker:
-    FROM alpine:3.23
+    FROM alpine:3.24.0
     WORKDIR /app
     COPY +build/fizzbuzz .
 

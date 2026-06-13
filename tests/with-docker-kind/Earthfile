@@ -1,7 +1,7 @@
 VERSION 0.8
 
 # renovate: datasource=github-releases packageName=kubernetes-sigs/kind
-ARG --global KIND_VERSION=0.30.0
+ARG --global KIND_VERSION=0.32.0
 
 all:
     WAIT

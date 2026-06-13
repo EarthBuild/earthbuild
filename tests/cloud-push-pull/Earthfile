@@ -77,7 +77,7 @@ azure-container-registry:
 
 # TODO: Sort out a login for aws: AWS_ACCESS_KEY_ID and friends.
 amazon-elastic-container-registry:
-    RUN apk add go aws-cli docker-credential-ecr-login
+    RUN apk add --no-cache go aws-cli docker-credential-ecr-login
 
     COPY amazon-elastic-container-registry.earth ./Earthfile
 

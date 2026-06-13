@@ -1,4 +1,4 @@
 VERSION 0.8
 sleep:
-  FROM alpine
+  FROM alpine:3.24.0
   RUN sleep 3

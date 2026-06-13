@@ -112,7 +112,7 @@ jobs:
         run: |-
           set +e
           attempt=1
-          max_attempts=2
+          max_attempts=3
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
             ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
@@ -136,7 +136,7 @@ jobs:
         run: |-
           set +e
           attempt=1
-          max_attempts=2
+          max_attempts=3
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
             ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
@@ -178,7 +178,7 @@ jobs:
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           set +e
           attempt=1
-          max_attempts=2
+          max_attempts=3
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
             ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
@@ -205,7 +205,7 @@ jobs:
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           set +e
           attempt=1
-          max_attempts=2
+          max_attempts=3
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
             # Build ci-release (builds binary and buildkitd but doesn't push)

@@ -5,5 +5,5 @@ VERSION 0.8
 
 
 test:
-    FROM alpine:3.24.0
+    FROM alpine:3.18
     RUN echo "pass"

@@ -1,7 +1,0 @@
-VERSION \ # This is an example of a user that wants to comment out a single feature, lines with only comments should not count towards the continued line
-    #--try \
-    0.8
-
-FROM alpine:3.24.0
-test:
-    RUN echo "pass"

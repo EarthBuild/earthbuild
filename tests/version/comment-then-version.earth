@@ -1,6 +1,0 @@
-# test a comment before
-VERSION 0.8
-
-test:
-    FROM alpine:3.24.0
-    RUN echo "pass"

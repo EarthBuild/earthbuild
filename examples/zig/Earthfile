@@ -23,7 +23,7 @@ deps:
             export URL="https://ziglang.org/download/$ZIG_VERSION/zig-$ZIG_ARCH-linux-$ZIG_VERSION.tar.xz"; \
         fi && \
         for i in 1 2 3 4 5; do \
-            wget --tries=5 --timeout=300 --continue -O zig.tar.xz "$URL" && break; \
+            wget -t 5 -T 300 -c -O zig.tar.xz "$URL" && break; \
             [ "$i" -lt 5 ] || exit 1; \
             echo "Zig download attempt $i/5 failed; retrying" >&2; \
             sleep $((i * 10)); \

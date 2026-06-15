@@ -21,6 +21,7 @@ import (
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 )
 
 // statusChanSize is used to ensure we consume all BK status messages without
@@ -90,15 +91,65 @@ func (s *solver) buildMainMulti(
 	})
 	err = eg.Wait()
 
+	chosen := chooseSolveError(buildErr, err)
+	if chosen != nil {
+		return s.withBuildkitFailureContext(chosen)
+	}
+
+	return nil
+}
+
+// chooseSolveError picks the more informative of the two errgroup results.
+// buildErr is from bkClient.Build; monitorErr is from MonitorProgress (which
+// also returns errors from earth's own status processing, e.g. NewCommand).
+//
+// When MonitorProgress aborts the build it cancels the shared errgroup
+// context, so bkClient.Build then returns a bare "context canceled" that
+// masks the real cause. Prefer a non-cancellation monitorErr in that case —
+// otherwise an earth-side self-cancellation is misreported as "BuildKit lost
+// the session".
+func chooseSolveError(buildErr, monitorErr error) error {
+	if buildErr != nil && isCanceledErr(buildErr) && monitorErr != nil && !isCanceledErr(monitorErr) {
+		return errors.Wrap(monitorErr, "earth progress monitor aborted the build")
+	}
+
 	if buildErr != nil {
 		return buildErr
 	}
 
-	if err != nil {
-		return err
+	return monitorErr
+}
+
+func (s *solver) withBuildkitFailureContext(buildErr error) error {
+	if !isCanceledErr(buildErr) {
+		return buildErr
 	}
 
-	return nil
+	if failure, ok := s.logbusSM.FirstFailure(); ok {
+		return solvermon.NewFirstFailureError(buildErr, failure)
+	}
+
+	if cancellation, ok := s.logbusSM.FirstCancellation(); ok {
+		return solvermon.NewFirstCancellationError(buildErr, cancellation)
+	}
+
+	if details, ok := s.logbusSM.CancellationDetails(); ok {
+		return solvermon.NewCancellationDetailsError(buildErr, details)
+	}
+
+	return buildErr
+}
+
+func isCanceledErr(err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	if grpcErr, ok := grpcerrors.AsGRPCStatus(err); ok && grpcErr.Code() == codes.Canceled {
+		return true
+	}
+
+	return false
 }
 
 func (s *solver) newSolveOptMulti(

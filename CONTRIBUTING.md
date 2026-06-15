@@ -179,7 +179,7 @@ which will use the credentials which are stored in earthly's [cloud-hosted secre
 
 ## Updates to buildkit or fsutil
 
-Earthly is built against a fork of [buildkit](https://github.com/earthly/buildkit) and [fsutil](https://github.com/earthly/fsutil).
+Earthly is built against a fork of [buildkit](https://github.com/EarthBuild/buildkit) and [fsutil](https://github.com/EarthBuild/fsutil).
 
 To work with changes to this fork, you can use `earthly +for-linux --BUILDKIT_PROJECT=../buildkit`. This will use the local directory `../buildkit` for the buildkit code, when using buildkit in both `go.mod` and when building the buildkitd image.
 

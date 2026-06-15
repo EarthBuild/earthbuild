@@ -68,7 +68,8 @@ func NewClient(
 					settings.ClientTLSCert,
 				}
 				if containsAny(retErr.Error(), tlsPaths...) {
-					retErr = hint.Wrap(retErr,
+					retErr = hint.Wrap(
+						retErr,
 						"podman now requires TLS certs by default - "+
 							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
 						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
@@ -476,7 +477,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 func Start(
 	ctx context.Context,
 	console conslogging.ConsoleLogger,
-	image, containerName, _ string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	reset bool,
@@ -507,6 +508,9 @@ func Start(
 		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
 	}
 
+	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	addBuildkitTelemetryEnv(envOpts, containerName, installationName, withDocker)
+
 	labelOpts := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
 	}
@@ -531,8 +535,6 @@ func Start(
 	}
 
 	const localhost = "127.0.0.1"
-
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -684,6 +686,77 @@ func Start(
 	}
 
 	return nil
+}
+
+func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installationName string, withDocker bool) {
+	for _, key := range []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_HEADERS",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
+		"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+		"OTEL_EXPORTER_OTLP_PROTOCOL",
+		"OTEL_METRICS_EXPORTER",
+	} {
+		if value := os.Getenv(key); value != "" {
+			envOpts[key] = value
+		}
+	}
+
+	if _, ok := envOpts["OTEL_METRICS_EXPORTER"]; !ok {
+		if envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] != "" || envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] != "" {
+			envOpts["OTEL_METRICS_EXPORTER"] = "otlp"
+		}
+	}
+
+	if envOpts["OTEL_METRICS_EXPORTER"] == "" {
+		return
+	}
+
+	envOpts["OTEL_SERVICE_NAME"] = "EarthBuild-buildkitd"
+
+	nesting := "outer"
+	if withDocker {
+		nesting = "inner"
+	}
+
+	resourceAttrs := map[string]string{
+		"earthbuild.process.role":            "buildkitd",
+		"earthbuild.process.nesting":         nesting,
+		"earthbuild.buildkit.container.name": containerName,
+		"earthbuild.installation.name":       installationName,
+	}
+	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
+		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),
+		resourceAttrs,
+	)
+}
+
+func appendOTELResourceAttributes(base string, attrs map[string]string) string {
+	parts := make([]string, 0, len(attrs)+1)
+
+	for attr := range strings.SplitSeq(base, ",") {
+		attr = strings.TrimSpace(attr)
+		if attr == "" {
+			continue
+		}
+
+		if _, value, ok := strings.Cut(attr, "="); !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+
+		parts = append(parts, attr)
+	}
+
+	for key, value := range attrs {
+		if value == "" {
+			continue
+		}
+
+		parts = append(parts, key+"="+value)
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // Stop stops the buildkitd container.
@@ -1149,11 +1222,13 @@ func printBuildkitInfo(
 	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than earth Buildkit v0.6.20")
+				"it's from a version lower than earth Buildkit v0.6.20",
+		)
 	} else {
 		printFun(
 			"Version %s %s %s",
-			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
+			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision,
+		)
 
 		const buildkitPackage = "github.com/EarthBuild/buildkit"
 
@@ -1166,7 +1241,8 @@ func printBuildkitInfo(
 				// For local buildkits we expect perfect version match.
 				bkCons.Warnf(
 					"Warning: Buildkit version (%s) is different from earth version (%s)",
-					info.BuildkitVersion.Version, earthVersion)
+					info.BuildkitVersion.Version, earthVersion,
+				)
 			} else {
 				compatible := true
 
@@ -1228,7 +1304,8 @@ func printBuildkitInfo(
 		workerInfo.GCAnalytics.AvgDuration,
 		workerInfo.GCAnalytics.AllTimeDuration,
 		ld,
-		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared))
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared),
+	)
 
 	if workerInfo.GCAnalytics.CurrentStartTime != nil {
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)
@@ -1253,7 +1330,7 @@ func printBuildkitInfo(
 func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 	for _, p := range workerInfo.GCPolicy {
 		if p.All {
-			return p.KeepBytes, true
+			return p.ReservedSpace, true
 		}
 	}
 
@@ -1284,7 +1361,8 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 		return append(opts, client.WithServerConfigSystem("")), nil
 	}
 
-	opts = append(opts,
+	opts = append(
+		opts,
 		client.WithCredentials(settings.ClientTLSCert, settings.ClientTLSKey),
 		client.WithServerConfig(server.Hostname(), settings.TLSCA),
 	)

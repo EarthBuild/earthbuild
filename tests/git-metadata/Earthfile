@@ -19,8 +19,10 @@ eval \$(ssh-agent)
 ssh-add /root/self-hosted-rsa-key
 ssh-add -l
 
-# next validate ssh is working
-ssh git@git.example.com | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
+# next validate ssh is working. no-interactive-login exits 128 (git-shell convention),
+# so wrap in '|| true' to prevent set -e tripping; the real verification is the grep.
+ssh_out=\$(ssh -v -o StrictHostKeyChecking=no git@git.example.com 2>&1 || true)
+echo \"\$ssh_out\" | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
 # setup git email and user (needed to commit)
 git config --global user.email \"onlyspammersemailthis@earthly.dev\"

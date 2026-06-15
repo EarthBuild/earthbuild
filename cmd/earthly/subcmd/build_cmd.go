@@ -429,7 +429,11 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		attachable = authprovider.NewPodman(ctx, os.Stderr)
 	default:
 		// includes containerutil.FrontendDocker, containerutil.FrontendDockerShell:
-		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
+		attachable = dockerauthprovider.NewDockerAuthProvider(
+			dockerauthprovider.DockerAuthProviderConfig{
+				AuthConfigProvider: dockerauthprovider.LoadAuthConfig(cfg),
+			},
+		)
 	}
 
 	authSvr, ok := attachable.(auth.AuthServer)

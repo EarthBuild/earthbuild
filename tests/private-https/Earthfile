@@ -2,10 +2,18 @@ VERSION 0.8
 FROM --pass-args ..+base
 
 all:
-    BUILD +git-clone-private-https-set-by-args
-    BUILD +git-clone-private-https-set-by-config-command
-    BUILD +git-clone-private-https-set-by-config-file
-    BUILD +git-clone-private-https-set-by-netrc
+    WAIT
+        BUILD +git-clone-private-https-set-by-args
+    END
+    WAIT
+        BUILD +git-clone-private-https-set-by-config-command
+    END
+    WAIT
+        BUILD +git-clone-private-https-set-by-config-file
+    END
+    WAIT
+        BUILD +git-clone-private-https-set-by-netrc
+    END
 
 
 git-clone-private-https-base:

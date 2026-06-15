@@ -14,7 +14,7 @@ go:
 node:
     FROM node:26.3.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.16.0
+    LET npm_version=11.17.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -294,11 +294,12 @@ debugger:
 earthly:
     FROM +code
     ENV CGO_ENABLED=0
-    ARG GOOS=linux
+    ARG TARGETOS
     ARG TARGETARCH
-    ARG TARGETVARIANT
+    ARG GOOS=$TARGETOS
     ARG GOARCH=$TARGETARCH
-    ARG VARIANT=$TARGETVARIANT
+    ARG GOARM64=v8.0
+    ARG GOAMD64=v2
     ARG GO_EXTRA_LDFLAGS=""
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. This
     # is particularly useful for disabling optimizations to make the binary work
@@ -308,8 +309,6 @@ earthly:
     ARG GO_GCFLAGS
     ARG EXECUTABLE_NAME="earthly"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
-    RUN test -n "$GOOS" && test -n "$GOARCH"
-    RUN test "$GOARCH" != "arm" || test -n "$VARIANT"
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG EARTHLY_GIT_HASH
@@ -330,7 +329,7 @@ earthly:
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        GOARM=${VARIANT#v} go build \
+        go build \
             -tags "$(cat ./build/tags)" \
             -ldflags "$(cat ./build/ldflags)" \
             -gcflags="${GO_GCFLAGS}" \
@@ -346,9 +345,9 @@ earthly-linux-amd64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
-    COPY --platform=linux/amd64 (+earthly/* \
+    COPY (+earthly/* \
+        --GOOS=linux \
         --GOARCH=amd64 \
-        --VARIANT= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
         ) ./
     SAVE ARTIFACT ./*
@@ -359,9 +358,8 @@ earthly-linux-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     COPY (+earthly/* \
+        --GOOS=linux \
         --GOARCH=arm64 \
-        --VARIANT= \
-        --GO_EXTRA_LDFLAGS= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
         ) ./
     SAVE ARTIFACT ./*
@@ -370,12 +368,10 @@ earthly-linux-arm64:
 earthly-darwin-amd64:
     FROM alpine:3.24.0
     WORKDIR /earth
-    ARG GO_GCFLAGS=""
-    COPY --platform=linux/amd64 (+earthly/* \
+    ARG GO_GCFLAGS
+    COPY (+earthly/* \
         --GOOS=darwin \
         --GOARCH=amd64 \
-        --VARIANT= \
-        --GO_EXTRA_LDFLAGS= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
         ) ./
     SAVE ARTIFACT ./*
@@ -388,8 +384,6 @@ earthly-darwin-arm64:
     COPY (+earthly/* \
         --GOOS=darwin \
         --GOARCH=arm64 \
-        --VARIANT= \
-        --GO_EXTRA_LDFLAGS= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
         ) ./
     SAVE ARTIFACT ./*
@@ -399,11 +393,9 @@ earthly-windows-amd64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
-    COPY --platform=linux/amd64 (+earthly/* \
+    COPY (+earthly/* \
         --GOOS=windows \
         --GOARCH=amd64 \
-        --VARIANT= \
-        --GO_EXTRA_LDFLAGS= \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
         --EXECUTABLE_NAME=earthly.exe \
         ) ./
@@ -442,7 +434,10 @@ earthly-docker:
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
-    COPY (+earthly/earthly --VERSION=$TAG --DEFAULT_INSTALLATION_NAME="earthly") /usr/bin/earthly
+    COPY (+earthly/earthly \
+        --VERSION=$TAG \
+        --DEFAULT_INSTALLATION_NAME="earthly" \
+        ) /usr/bin/earthly
     ARG DOCKERHUB_IMG="earthly"
 
     # TODO update cache-from to use earthbuild/earthbuild:main

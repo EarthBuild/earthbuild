@@ -43,7 +43,8 @@ touch /var/lib/shared/vfs-images/images.lock
 mkdir -p /var/lib/shared/vfs-layers
 touch /var/lib/shared/vfs-layers/layers.lock
 
-# Writes the literal token $EARTHLY_DOCKERD_DATA_ROOT into storage.conf on purpose.
+# The single-quoted sed replacement is an intentional literal env-var token,
+# not a value to expand at this point.
 # shellcheck disable=SC2016
 sed -i 's/\/var\/lib\/containers\/storage/$EARTHLY_DOCKERD_DATA_ROOT/g' /etc/containers/storage.conf
 
@@ -73,13 +74,11 @@ then
 fi
 
 # then run the test
-if [ -n "$testname" ]
-then
-    testarg="-run $testname"
-fi
 # pkgname/testname come from the Earthfile env (ARG pkgname / ARG testname),
-# which the linter can't see. testarg and pkgname are left unquoted on purpose:
-# an empty testarg must contribute no argument, and pkgname may expand to
-# several space-separated package patterns.
+# which the linter can't see. Build the arg list with set -- so -run "$testname"
+# is quoted; pkgname is left unquoted on purpose as it may expand to several
+# space-separated package patterns.
+set -- -timeout 20m -json
+[ -n "$testname" ] && set -- "$@" -run "$testname"
 # shellcheck disable=SC2086,SC2154
-go test -timeout 20m -json $testarg $pkgname | ./testparser
+go test "$@" $pkgname | ./testparser

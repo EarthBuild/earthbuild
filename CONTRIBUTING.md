@@ -13,14 +13,19 @@ To build Earthly from source, you need the same requirements as Earthly. We reco
 To build Earthly from source for your target system, use
 
 - Linux and WSL
+
     ```bash
     ./earthly +for-linux
     ```
+
 - Mac
+
     ```bash
     ./earthly +for-darwin
     ```
+
 - Mac with M1 chip
+
     ```bash
     ./earthly +for-darwin-m1
     ```
@@ -37,17 +42,20 @@ The buildkitd image is tagged with your current branch name and also the built b
 
 For development purposes, you may use the built `earthly` binary to rebuild itself. It's usually faster than switching between the built binary and the prerelease binary because it avoids constant buildkitd restarts. After the first initial build, you'll end up using:
 
-
 - Linux and WSL
+
     ```bash
     ./build/linux/amd64/earthly +for-linux
     ```
+
 - Mac
+
     ```bash
     ./build/darwin/amd64/earthly +for-darwin
     ```
 
 - Mac with M1 chip
+
     ```bash
     ./build/darwin/amd64/earthly +for-darwin-m1
     ```
@@ -56,13 +64,13 @@ For development purposes, you may use the built `earthly` binary to rebuild itse
 
 To use the [delve debugger](https://github.com/go-delve/delve) with the earthly binary, you need to disable optimizations in the 'go build' command. This is done using the -GO_GCFLAGS arg:
 
-```
+```sh
 ./earthly +for-own -GO_GCFLAGS='all=-N -l'
 ```
 
 From there, you may use `dlv exec` against the binary, using `--` to separate dlv args from earthly args:
 
-```
+```sh
 dlv exec ./build/own/earthly -- +base
 Type 'help' for list of commands.
 
@@ -111,12 +119,12 @@ It is also possible to run tests without credentials. But running all of them, o
 If you don't want to specify these directly on the CLI, or don't want to type these each time, it's possible to store them in [.arg and .secret files](https://docs.earthly.dev/docs/earthly-command#build-args) instead.
 Here is a template to get you started:
 
-```shell
+```sh
 # .arg file
 DOCKERHUB_AUTH=true
 ```
 
-```shell
+```sh
 # .secret file
 DOCKERHUB_USER=<my-docker-username>
 DOCKERHUB_PASS=<my-docker-password-or-token>
@@ -153,13 +161,13 @@ To use a mirror that requires authentication, you can run:
 
 You can alternatively store these settings in the `.arg` and `.secret` files:
 
-```shell
+```sh
 # .arg file
 DOCKERHUB_MIRROR=<ip-address-or-hostname>:<port>
 DOCKERHUB_MIRROR_AUTH=true
 ```
 
-```shell
+```sh
 # .secret file
 DOCKERHUB_MIRROR_USER=<my-mirror-username>
 DOCKERHUB_MIRROR_PASS=<my-mirror-password>
@@ -176,10 +184,9 @@ If you have access to `earthly-technologies/core`, you can make use of the inter
 
 which will use the credentials which are stored in earthly's [cloud-hosted secrets](https://docs.earthly.dev/earthly-cloud/cloud-secrets).
 
-
 ## Updates to buildkit or fsutil
 
-Earthly is built against a fork of [buildkit](https://github.com/earthly/buildkit) and [fsutil](https://github.com/earthly/fsutil).
+Earthly is built against a fork of [buildkit](https://github.com/EarthBuild/buildkit) and [fsutil](https://github.com/EarthBuild/fsutil).
 
 To work with changes to this fork, you can use `earthly +for-linux --BUILDKIT_PROJECT=../buildkit`. This will use the local directory `../buildkit` for the buildkit code, when using buildkit in both `go.mod` and when building the buildkitd image.
 
@@ -202,7 +209,6 @@ To update earthly's reference to buildkit, you may run `earthly +update-buildkit
 
 Updates to fsutil must first be vendored into buildkit, then updated under `go.mod`; additional docs and scripts exist in the buildkit repo.
 
-
 ## Running buildkit under debug mode
 
 Buildkit's scheduler has a debug mode, which can be enabled with the following `~/.earthly/config.yml`[^dir] config:
@@ -216,7 +222,7 @@ then run `earthly --debug +target`.
 
 This will produce scheduler debug messages such as
 
-```
+```text
 time="2022-10-27T18:18:06Z" level=debug msg="<< unpark [eyJzbCI6eyJmaWxlIjoiRWFydGhmaWxlIiwic3RhcnRMaW5lIjoyMSwic3RhcnRDb2x1bW4iOjQsImVuZExpbmUiOjIxLCJlbmRDb2x1bW4iOjI1fSwidGlkIjoiOTEyMWZkNzYtYjI5MS00YmQyLTg2MGUtNTZhYzJjZDVhMmY3IiwidG5tIjoiK3NsZWVwIiwicGx0IjoibGludXgvYW1kNjQifQ==] RUN --no-cache sleep 123\n"
 time="2022-10-27T18:18:06Z" level=debug msg="> creating jzaxegge8eh5hjqe33jybv2ml [/bin/sh -c EARTHLY_LOCALLY=false PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /usr/bin/earth_debugger /bin/sh -c 'sleep 123']" span="[eyJzbCI6eyJmaWxlIjoiRWFydGhmaWxlIiwic3RhcnRMaW5lIjoyMSwic3RhcnRDb2x1bW4iOjQsImVuZExpbmUiOjIxLCJlbmRDb2x1bW4iOjI1fSwidGlkIjoiOTEyMWZkNzYtYjI5MS00YmQyLTg2MGUtNTZhYzJjZDVhMmY3IiwidG5tIjoiK3NsZWVwIiwicGx0IjoibGludXgvYW1kNjQifQ==] RUN --no-cache sleep 123"
 ```

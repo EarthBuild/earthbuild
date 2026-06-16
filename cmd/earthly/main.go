@@ -57,6 +57,10 @@ func setExportableVars() {
 }
 
 func main() {
+	// TODO(jhorsts): Temporarily disable GRPC ALPN enforcement until buildkit upgrade is finished.
+	// See: https://github.com/grpc/grpc-go/issues/434
+	_ = os.Setenv("GRPC_ENFORCE_ALPN_ENABLED", "false")
+
 	os.Exit(run())
 }
 
@@ -137,7 +141,8 @@ func run() (code int) {
 	flagSet := flag.NewFlagSet(common.GetBinaryName(), flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
-	cli := base.NewCLI(conslogging.ConsoleLogger{},
+	cli := base.NewCLI(
+		conslogging.ConsoleLogger{},
 		base.WithVersion(Version),
 		base.WithGitSHA(GitSha),
 		base.WithBuiltBy(BuiltBy),

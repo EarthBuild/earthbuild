@@ -218,7 +218,7 @@ unit-test:
     # pkgname determines the package name (or names) that will be tested. The go
     # submodules must be specified explicitly or they will not be run, as
     # "./..." does not match submodules.
-    ARG pkgname = ./...
+    ARG pkgname=./...
 
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
@@ -240,7 +240,7 @@ integration-test:
     # pkgname determines the package name (or names) that will be tested. The go
     # submodules must be specified explicitly or they will not be run, as
     # "./..." does not match submodules.
-    ARG pkgname = ./...
+    ARG pkgname=./...
 
     ARG DOCKERHUB_MIRROR
     ARG DOCKERHUB_MIRROR_INSECURE=false
@@ -775,6 +775,8 @@ smoke-test:
 
 # test runs examples, no-qemu, qemu, and experimental tests
 test-all:
+    BUILD +test-unit
+    BUILD +test-integration
     BUILD +examples
     BUILD --pass-args +test-no-qemu
     BUILD --pass-args +test-qemu

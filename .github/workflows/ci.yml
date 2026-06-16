@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/renovate.json5'
+      - '.github/CODEOWNERS'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main, get-ci-working ]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  fast-check:
+    name: Fast Check
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Lint
+        run: earth --ci +lint-all
+
+  docker:
+    name: Docker
+    needs: fast-check
+    uses: ./.github/workflows/ci-docker-ubuntu.yml
+    secrets: inherit
+
+  podman:
+    name: Podman
+    needs: fast-check
+    uses: ./.github/workflows/ci-podman-ubuntu.yml
+    secrets: inherit
+
+  next:
+    name: Next
+    needs: fast-check
+    uses: ./.github/workflows/ci-earthly-next-docker-ubuntu.yml
+    secrets: inherit

@@ -2292,8 +2292,10 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 			errorf(cmd.SourceLocation, "the DO --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
 	}
 
+	var fnNames []string
 	for _, uc := range bc.Earthfile.Functions {
-		if uc.Name == parse.CmdCommand {
+		fnNames = append(fnNames, uc.Name)
+		if uc.Name == command.Command {
 			sourceFilePath := bc.Ref.ProjectCanonical() + "/Earthfile"
 
 			return i.handleDoFunction(
@@ -2303,7 +2305,7 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 		}
 	}
 
-	return i.errorf(cmd.SourceLocation, "user command %s not found", ucName)
+	return i.errorf(cmd.SourceLocation, "user command %s not found (available functions: %v)", ucName, fnNames)
 }
 
 func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) error {

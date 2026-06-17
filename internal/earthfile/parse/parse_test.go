@@ -878,6 +878,31 @@ build:
 				},
 			},
 		},
+		{
+			name: "ARG with empty value",
+			input: `VERSION 0.8
+build:
+  ARG myarg=
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "build",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "ARG",
+									Args: []string{"myarg", "=", ""},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tests {

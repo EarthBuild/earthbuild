@@ -58,6 +58,8 @@ func ParseOpts(from FromOpt, opts ...Opt) (Earthfile, error) {
 	// Set file path on SourceLocations if they exist and are requested
 	if preferences.enableSourceMap {
 		setSourceLocationFile(&ef, preferences.reader.Name())
+	} else {
+		removeSourceLocations(&ef)
 	}
 
 	err = validateAst(ef)
@@ -168,6 +170,78 @@ func setBlockSourceLocationFile(block Block, filename string) {
 			}
 
 			setBlockSourceLocationFile(block[i].Wait.Body, filename)
+		}
+	}
+}
+
+func removeSourceLocations(ef *Earthfile) {
+	ef.SourceLocation = nil
+	if ef.Version != nil {
+		ef.Version.SourceLocation = nil
+	}
+
+	for i := range ef.Targets {
+		ef.Targets[i].SourceLocation = nil
+		removeBlockSourceLocations(ef.Targets[i].Recipe)
+	}
+
+	for i := range ef.Functions {
+		ef.Functions[i].SourceLocation = nil
+		removeBlockSourceLocations(ef.Functions[i].Recipe)
+	}
+
+	removeBlockSourceLocations(ef.BaseRecipe)
+}
+
+func removeBlockSourceLocations(block Block) {
+	for i := range block {
+		block[i].SourceLocation = nil
+
+		if block[i].Command != nil {
+			block[i].Command.SourceLocation = nil
+		}
+
+		if block[i].If != nil {
+			block[i].If.SourceLocation = nil
+			removeBlockSourceLocations(block[i].If.IfBody)
+
+			for j := range block[i].If.ElseIf {
+				block[i].If.ElseIf[j].SourceLocation = nil
+				removeBlockSourceLocations(block[i].If.ElseIf[j].Body)
+			}
+
+			if block[i].If.ElseBody != nil {
+				removeBlockSourceLocations(*block[i].If.ElseBody)
+			}
+		}
+
+		if block[i].For != nil {
+			block[i].For.SourceLocation = nil
+			removeBlockSourceLocations(block[i].For.Body)
+		}
+
+		if block[i].Try != nil {
+			block[i].Try.SourceLocation = nil
+			removeBlockSourceLocations(block[i].Try.TryBody)
+
+			if block[i].Try.CatchBody != nil {
+				removeBlockSourceLocations(*block[i].Try.CatchBody)
+			}
+
+			if block[i].Try.FinallyBody != nil {
+				removeBlockSourceLocations(*block[i].Try.FinallyBody)
+			}
+		}
+
+		if block[i].With != nil {
+			block[i].With.SourceLocation = nil
+			block[i].With.Command.SourceLocation = nil
+			removeBlockSourceLocations(block[i].With.Body)
+		}
+
+		if block[i].Wait != nil {
+			block[i].Wait.SourceLocation = nil
+			removeBlockSourceLocations(block[i].Wait.Body)
 		}
 	}
 }

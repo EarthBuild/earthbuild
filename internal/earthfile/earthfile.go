@@ -63,8 +63,11 @@ func (c Command) Clone() Command {
 	args := make([]string, len(c.Args))
 	copy(args, c.Args)
 	newCmd.Args = args
-	srcLoc := *c.SourceLocation
-	newCmd.SourceLocation = &srcLoc
+
+	if c.SourceLocation != nil {
+		srcLoc := *c.SourceLocation
+		newCmd.SourceLocation = &srcLoc
+	}
 
 	return newCmd
 }

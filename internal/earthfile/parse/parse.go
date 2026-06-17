@@ -764,10 +764,6 @@ func parseKeyValueItems(items []Item) []string {
 	}
 
 	// Everything else is the value!
-	if idx >= len(items) && valStart == "" {
-		return args
-	}
-
 	var valBuilder strings.Builder
 	if valStart != "" {
 		valBuilder.WriteString(valStart)
@@ -787,6 +783,8 @@ func parseKeyValueItems(items []Item) []string {
 		}
 
 		args = append(args, val)
+	} else if hasEquals {
+		args = append(args, "")
 	}
 
 	return args

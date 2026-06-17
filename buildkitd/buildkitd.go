@@ -68,7 +68,8 @@ func NewClient(
 					settings.ClientTLSCert,
 				}
 				if containsAny(retErr.Error(), tlsPaths...) {
-					retErr = hint.Wrap(retErr,
+					retErr = hint.Wrap(
+						retErr,
 						"podman now requires TLS certs by default - "+
 							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
 						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
@@ -1149,11 +1150,13 @@ func printBuildkitInfo(
 	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than earth Buildkit v0.6.20")
+				"it's from a version lower than earth Buildkit v0.6.20",
+		)
 	} else {
 		printFun(
 			"Version %s %s %s",
-			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
+			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision,
+		)
 
 		const buildkitPackage = "github.com/EarthBuild/buildkit"
 
@@ -1166,7 +1169,8 @@ func printBuildkitInfo(
 				// For local buildkits we expect perfect version match.
 				bkCons.Warnf(
 					"Warning: Buildkit version (%s) is different from earth version (%s)",
-					info.BuildkitVersion.Version, earthVersion)
+					info.BuildkitVersion.Version, earthVersion,
+				)
 			} else {
 				compatible := true
 
@@ -1228,7 +1232,8 @@ func printBuildkitInfo(
 		workerInfo.GCAnalytics.AvgDuration,
 		workerInfo.GCAnalytics.AllTimeDuration,
 		ld,
-		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared))
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared),
+	)
 
 	if workerInfo.GCAnalytics.CurrentStartTime != nil {
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)
@@ -1284,7 +1289,8 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 		return append(opts, client.WithServerConfigSystem("")), nil
 	}
 
-	opts = append(opts,
+	opts = append(
+		opts,
 		client.WithCredentials(settings.ClientTLSCert, settings.ClientTLSKey),
 		client.WithServerConfig(server.Hostname(), settings.TLSCA),
 	)

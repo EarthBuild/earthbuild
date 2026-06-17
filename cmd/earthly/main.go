@@ -137,7 +137,8 @@ func run() (code int) {
 	flagSet := flag.NewFlagSet(common.GetBinaryName(), flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
-	cli := base.NewCLI(conslogging.ConsoleLogger{},
+	cli := base.NewCLI(
+		conslogging.ConsoleLogger{},
 		base.WithVersion(Version),
 		base.WithGitSHA(GitSha),
 		base.WithBuiltBy(BuiltBy),

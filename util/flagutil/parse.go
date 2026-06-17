@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
@@ -295,7 +295,7 @@ var (
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(
-	cmd spec.Command, isBaseTarget, explicitGlobalFeature bool,
+	cmd earthfile.Command, isBaseTarget, explicitGlobalFeature bool,
 ) (commandflag.ArgOpts, string, *string, error) {
 	var opts commandflag.ArgOpts
 
@@ -338,7 +338,7 @@ func ParseArgArgs(
 }
 
 // GetArgsCopy returns a deep copy of parsed args.
-func GetArgsCopy(cmd spec.Command) []string {
+func GetArgsCopy(cmd earthfile.Command) []string {
 	argsCopy := make([]string, len(cmd.Args))
 	copy(argsCopy, cmd.Args)
 

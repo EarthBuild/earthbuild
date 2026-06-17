@@ -88,7 +88,8 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 
 		err = buildkitd.ResetCache(
 			ctx, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
-			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings)
+			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings,
+		)
 		if err != nil {
 			return errors.Wrap(err, "reset cache")
 		}

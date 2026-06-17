@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 
 	"github.com/pkg/errors"
 )
 
-// ParseVersion reads the VERSION command for an Earthfile and returns spec.Version.
-func ParseVersion(filePath string, enableSourceMap bool) (*spec.Version, error) {
+// ParseVersion reads the VERSION command for an Earthfile and returns earthfile.Version.
+func ParseVersion(filePath string, enableSourceMap bool) (*earthfile.Version, error) {
 	var opts []Opt
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
@@ -21,9 +21,9 @@ func ParseVersion(filePath string, enableSourceMap bool) (*spec.Version, error) 
 }
 
 // ParseVersionOpts reads the VERSION command for an Earthfile and returns a
-// spec.Version. This is the functional option version, which uses options to
+// earthfile.Version. This is the functional option version, which uses options to
 // change how a file is parsed.
-func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*spec.Version, error) {
+func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*earthfile.Version, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}
@@ -45,7 +45,7 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*spec.Version, error) {
 	file := prefs.reader
 	defer prefs.done()
 
-	var version spec.Version
+	var version earthfile.Version
 
 	foundVersion := false
 
@@ -132,7 +132,7 @@ outer:
 		version.Args = args
 
 		if prefs.enableSourceMap {
-			version.SourceLocation = &spec.SourceLocation{
+			version.SourceLocation = &earthfile.SourceLocation{
 				File:        file.Name(),
 				StartLine:   startLine,
 				StartColumn: 0,

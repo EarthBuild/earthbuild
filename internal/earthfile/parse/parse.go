@@ -1,9 +1,14 @@
 package parse
 
-import (
-	"fmt"
+//nolint:wsl
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+import (
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 // parser is the state representation of the Earthfile parser.
@@ -20,12 +25,8 @@ func (p *parser) next() Item {
 	} else {
 		p.token[0] = p.lex.nextItem()
 	}
-	return p.token[p.peekCount]
-}
 
-// backup backs the input stream up one token.
-func (p *parser) backup() {
-	p.peekCount++
+	return p.token[p.peekCount]
 }
 
 // peek returns but does not consume the next token.
@@ -33,102 +34,258 @@ func (p *parser) peek() Item {
 	if p.peekCount > 0 {
 		return p.token[p.peekCount-1]
 	}
+
 	p.peekCount = 1
 	p.token[0] = p.lex.nextItem()
+
 	return p.token[0]
 }
 
 // errorf formats an error and terminates processing.
-func (p *parser) errorf(pos Pos, format string, args ...interface{}) error {
+func (p *parser) errorf(pos Pos, format string, args ...any) error {
 	p.lex.drain()
 	return fmt.Errorf("parse error at pos %d: %s", pos, fmt.Sprintf(format, args...))
 }
 
-// expect consumes the next token and guarantees it has the required type.
-func (p *parser) expect(expected ItemType, context string) (Item, error) {
-	token := p.next()
-	if token.Typ != expected {
-		return token, p.errorf(token.Pos, "expected %v in %s, got %v", expected, context, token.Typ)
-	}
-	return token, nil
-}
-
 // Parse parses the Earthfile text and returns an AST.
-func Parse(name, text string) (spec.Earthfile, error) {
+func Parse(name, text string) (earthfile.Earthfile, error) {
 	p := &parser{
 		lex: lex(name, text),
 	}
+
 	return p.parseEarthfile()
 }
 
 // parseEarthfile is the top-level entry point for recursive descent.
-func (p *parser) parseEarthfile() (spec.Earthfile, error) {
-	var ef spec.Earthfile
-	
+func (p *parser) parseEarthfile() (earthfile.Earthfile, error) {
+	var (
+		ef                earthfile.Earthfile
+		pendingDocsTokens []string
+	)
+
+	sawNL := false
+
 	for {
 		token := p.peek()
 		switch token.Typ {
 		case ItemEOF:
 			p.next() // consume EOF
+
+			var targets []earthfile.Target
+
+			for _, t := range ef.Targets {
+				isFunction := false
+
+				if len(t.Recipe) > 0 && t.Recipe[0].Command != nil {
+					if t.Recipe[0].Command.Name == CmdCommand || t.Recipe[0].Command.Name == CmdFunction {
+						isFunction = true
+					}
+				}
+
+				if isFunction {
+					fn := earthfile.Function{
+						SourceLocation: t.SourceLocation,
+						Name:           t.Name,
+						Recipe:         t.Recipe,
+					}
+					ef.Functions = append(ef.Functions, fn)
+				} else {
+					targets = append(targets, t)
+				}
+			}
+
+			ef.Targets = targets
+
 			return ef, nil
-		case ItemNL, ItemWS, ItemComment:
-			p.next() // skip top-level whitespace and comments
+		case ItemNL, ItemWS, ItemEOLComment:
+			tok := p.next()
+			if tok.Typ == ItemNL {
+				if sawNL {
+					pendingDocsTokens = nil
+					sawNL = false
+				} else {
+					sawNL = true
+				}
+			}
+		case ItemComment:
+			tok := p.next()
+			pendingDocsTokens = append(pendingDocsTokens, tok.Val)
+			sawNL = false
 		case ItemVersion:
+			sawNL = false
+			pendingDocsTokens = nil
+
+			if token.Col > 1 {
+				return ef, p.errorf(token.Pos, "VERSION command must start at the beginning of the line")
+			}
+
 			version, err := p.parseVersion()
 			if err != nil {
 				return ef, err
 			}
+
 			ef.Version = &version
 		case ItemTarget:
+			sawNL = false
+
+			if token.Col > 1 {
+				return ef, p.errorf(token.Pos, "target must start at the beginning of the line")
+			}
+
 			target, err := p.parseTarget()
+			if err == nil && len(pendingDocsTokens) > 0 {
+				target.Docs = computeDocs(pendingDocsTokens)
+				pendingDocsTokens = nil
+			}
+
 			if err != nil {
 				return ef, err
 			}
+
 			ef.Targets = append(ef.Targets, target)
 		case ItemFunction, ItemUserCommand:
+			sawNL = false
+
+			if token.Col > 1 {
+				return ef, p.errorf(token.Pos, "function/command must start at the beginning of the line")
+			}
+
 			fn, err := p.parseFunction()
 			if err != nil {
 				return ef, err
 			}
+
 			ef.Functions = append(ef.Functions, fn)
+		case ItemIf:
+			sawNL = false
+
+			stmt, err := p.parseIf()
+			if err != nil {
+				return ef, err
+			}
+
+			ef.BaseRecipe = append(ef.BaseRecipe, earthfile.Statement{If: &stmt})
+		case ItemWith:
+			sawNL = false
+
+			stmt, err := p.parseWith()
+			if err != nil {
+				return ef, err
+			}
+
+			ef.BaseRecipe = append(ef.BaseRecipe, earthfile.Statement{With: &stmt})
+		case ItemFor:
+			sawNL = false
+
+			stmt, err := p.parseFor()
+			if err != nil {
+				return ef, err
+			}
+
+			ef.BaseRecipe = append(ef.BaseRecipe, earthfile.Statement{For: &stmt})
+		case ItemTry:
+			stmt, err := p.parseTry()
+			if err != nil {
+				return ef, err
+			}
+
+			ef.BaseRecipe = append(ef.BaseRecipe, earthfile.Statement{Try: &stmt})
+		case ItemWait:
+			stmt, err := p.parseWait()
+			if err != nil {
+				return ef, err
+			}
+
+			ef.BaseRecipe = append(ef.BaseRecipe, earthfile.Statement{Wait: &stmt})
 		default:
-			return ef, p.errorf(token.Pos, "unexpected token at top level: %s", token.Val)
+			if isCommandToken(token.Typ) {
+				if token.Col > 1 {
+					return ef, p.errorf(token.Pos, "command at top level must start at the beginning of the line")
+				}
+
+				cmd, err := p.parseCommand()
+				if err != nil {
+					return ef, err
+				}
+
+				if len(pendingDocsTokens) > 0 {
+					cmd.Docs = computeDocs(pendingDocsTokens)
+					pendingDocsTokens = nil
+				}
+
+				ef.BaseRecipe = append(ef.BaseRecipe, earthfile.Statement{Command: &cmd})
+			} else {
+				return ef, p.errorf(
+					token.Pos,
+					"unexpected token at top level: type %d (%s) at line %d",
+					token.Typ, token.Val, token.Line,
+				)
+			}
 		}
 	}
 }
 
+func isCommandToken(t ItemType) bool {
+	switch t {
+	case ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
+		ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
+		ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemUser,
+		ItemCmd, ItemEntrypoint, ItemGitClone, ItemAdd, ItemStopSignal,
+		ItemOnBuild, ItemHealthCheck, ItemShell, ItemDo, ItemCommand,
+		ItemFunctionKW, ItemImport, ItemCache, ItemHost, ItemProject,
+		ItemWith, ItemIf, ItemFor, ItemWait, ItemTry:
+		return true
+	}
+
+	return false
+}
+
 // parseVersion parses a VERSION command and its arguments.
-func (p *parser) parseVersion() (spec.Version, error) {
-	var v spec.Version
+func (p *parser) parseVersion() (earthfile.Version, error) {
+	var v earthfile.Version
+
 	token := p.next() // consume ItemVersion
-	v.SourceLocation = &spec.SourceLocation{
+	v.SourceLocation = &earthfile.SourceLocation{
 		StartLine:   token.Line,
 		StartColumn: token.Col,
 	}
 
 	for {
-		tok := p.next()
+		tok := p.peek()
 		switch tok.Typ {
 		case ItemAtom:
+			p.next()
+
 			v.Args = append(v.Args, tok.Val)
 		case ItemWS:
+			p.next()
 			// ignore whitespace between args
-		case ItemNL, ItemEOF:
+		case ItemNL, ItemComment, ItemEOLComment:
+			p.next()
+
 			v.SourceLocation.EndLine = tok.Line
 			v.SourceLocation.EndColumn = tok.Col
+
+			return v, nil
+		case ItemEOF:
+			v.SourceLocation.EndLine = tok.Line
+			v.SourceLocation.EndColumn = tok.Col
+
 			return v, nil
 		default:
+			p.next()
 			return v, p.errorf(tok.Pos, "unexpected token in VERSION command: %s", tok.Val)
 		}
 	}
 }
 
 // parseTarget parses a target and its recipe block.
-func (p *parser) parseTarget() (spec.Target, error) {
-	var target spec.Target
+func (p *parser) parseTarget() (earthfile.Target, error) {
+	var target earthfile.Target
+
 	tok := p.next() // consume ItemTarget
-	target.Name = tok.Val
-	target.SourceLocation = &spec.SourceLocation{
+	target.Name = strings.TrimSuffix(tok.Val, ":")
+	target.SourceLocation = &earthfile.SourceLocation{
 		StartLine:   tok.Line,
 		StartColumn: tok.Col,
 	}
@@ -138,18 +295,20 @@ func (p *parser) parseTarget() (spec.Target, error) {
 	if err != nil {
 		return target, err
 	}
+
 	target.Recipe = block
 
 	// The EndLine is the last item in the block or the target declaration itself
 	target.SourceLocation.EndLine = p.peek().Line
 	target.SourceLocation.EndColumn = p.peek().Col
+
 	return target, nil
 }
 
-func (p *parser) parseFunction() (spec.Function, error) {
-	fn := spec.Function{
+func (p *parser) parseFunction() (earthfile.Function, error) {
+	fn := earthfile.Function{
 		Name: p.peek().Val,
-		SourceLocation: &spec.SourceLocation{
+		SourceLocation: &earthfile.SourceLocation{
 			StartLine:   p.peek().Line,
 			StartColumn: p.peek().Col,
 		},
@@ -157,173 +316,522 @@ func (p *parser) parseFunction() (spec.Function, error) {
 	p.next() // consume
 	block, err := p.parseBlock()
 	fn.Recipe = block
+
 	return fn, err
 }
 
-func (p *parser) parseBlock() (spec.Block, error) {
-	var block spec.Block
-	// Expect optional NLs/Comments and then an Indent
+func (p *parser) parseStmts() (earthfile.Block, error) {
+	var block earthfile.Block
+
+	var pendingDocsTokens []string
+
 	for {
 		tok := p.peek()
-		if tok.Typ == ItemNL || tok.Typ == ItemWS || tok.Typ == ItemComment {
+		switch tok.Typ {
+		case ItemDedent, ItemEOF, ItemEnd, ItemElseIf, ItemElse, ItemCatch, ItemFinally:
+			return block, nil
+		case ItemNL, ItemWS, ItemEOLComment, ItemIndent:
+			p.next()
+			continue
+		case ItemComment:
+			tok = p.next()
+			pendingDocsTokens = append(pendingDocsTokens, tok.Val)
+
+			continue
+		case ItemIf:
+			pendingDocsTokens = nil
+
+			ifStmt, err := p.parseIf()
+			if err != nil {
+				return block, err
+			}
+
+			block = append(block, earthfile.Statement{If: &ifStmt})
+		case ItemFor:
+			pendingDocsTokens = nil
+
+			forStmt, err := p.parseFor()
+			if err != nil {
+				return block, err
+			}
+
+			block = append(block, earthfile.Statement{For: &forStmt})
+		case ItemWait:
+			pendingDocsTokens = nil
+
+			waitStmt, err := p.parseWait()
+			if err != nil {
+				return block, err
+			}
+
+			block = append(block, earthfile.Statement{Wait: &waitStmt})
+		case ItemTry:
+			pendingDocsTokens = nil
+
+			tryStmt, err := p.parseTry()
+			if err != nil {
+				return block, err
+			}
+
+			block = append(block, earthfile.Statement{Try: &tryStmt})
+		case ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
+			ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
+			ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemUser,
+			ItemCmd, ItemEntrypoint, ItemGitClone, ItemAdd, ItemStopSignal,
+			ItemOnBuild, ItemHealthCheck, ItemShell, ItemDo, ItemCommand,
+			ItemFunctionKW, ItemImport, ItemVersion, ItemCache, ItemHost,
+			ItemProject:
+			cmd, err := p.parseCommand()
+			if err != nil {
+				return block, err
+			}
+
+			if len(pendingDocsTokens) > 0 {
+				docs := strings.Join(pendingDocsTokens, "\n")
+				cmd.Docs = docs
+				pendingDocsTokens = nil
+			}
+
+			block = append(block, earthfile.Statement{Command: &cmd})
+		case ItemTarget, ItemUserCommand:
+			return block, p.errorf(tok.Pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
+		default:
+			return block, p.errorf(tok.Pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
+		}
+	}
+}
+
+func (p *parser) parseBlock() (earthfile.Block, error) {
+	var (
+		block             earthfile.Block
+		pendingDocsTokens []string
+	)
+
+	sawNL := false
+	// Expect optional NLs/Comments and then an Indent
+	for {
+		t := p.peek()
+		if t.Typ == ItemNL || t.Typ == ItemWS || t.Typ == ItemEOLComment {
 			p.next()
 			continue
 		}
-		if tok.Typ == ItemIndent {
+
+		if t.Typ == ItemComment {
+			t = p.next()
+			pendingDocsTokens = append(pendingDocsTokens, t.Val)
+
+			continue
+		}
+
+		if t.Typ == ItemIndent {
 			p.next() // consume indent
 			break
 		}
-		if tok.Typ == ItemEOF || tok.Typ == ItemTarget || tok.Typ == ItemUserCommand {
+
+		if t.Typ == ItemEOF || t.Typ == ItemTarget || t.Typ == ItemUserCommand {
 			// empty block
 			return block, nil
 		}
-		return block, p.errorf(tok.Pos, "expected block indentation, got %s", tok.Val)
+
+		return block, p.errorf(t.Pos, "expected block indentation, got %s", t.Val)
 	}
 
 	for {
 		tok := p.peek()
+		println("DEBUG parseBlock token:", tok.Typ, tok.Val)
+
 		switch tok.Typ {
 		case ItemDedent, ItemEOF:
 			if tok.Typ == ItemDedent {
 				p.next()
 			}
+
 			return block, nil
-		case ItemNL, ItemWS, ItemComment:
-			p.next()
+		case ItemNL, ItemWS, ItemEOLComment:
+			tok = p.next()
+			if tok.Typ == ItemNL {
+				if sawNL {
+					pendingDocsTokens = nil
+					sawNL = false
+				} else {
+					sawNL = true
+				}
+			}
+
+			continue
+		case ItemComment:
+			tok = p.next()
+			pendingDocsTokens = append(pendingDocsTokens, tok.Val)
+			sawNL = false
+
 			continue
 		case ItemIf:
+			sawNL = false
+			pendingDocsTokens = nil
+
 			ifStmt, err := p.parseIf()
 			if err != nil {
 				return block, err
 			}
-			block = append(block, spec.Statement{If: &ifStmt})
+
+			block = append(block, earthfile.Statement{If: &ifStmt})
 		case ItemFor:
+			sawNL = false
+			pendingDocsTokens = nil
+
 			forStmt, err := p.parseFor()
 			if err != nil {
 				return block, err
 			}
-			block = append(block, spec.Statement{For: &forStmt})
+
+			block = append(block, earthfile.Statement{For: &forStmt})
 		case ItemTry:
+			sawNL = false
+			pendingDocsTokens = nil
+
 			tryStmt, err := p.parseTry()
 			if err != nil {
 				return block, err
 			}
-			block = append(block, spec.Statement{Try: &tryStmt})
+
+			block = append(block, earthfile.Statement{Try: &tryStmt})
 		case ItemWith:
+			sawNL = false
+
 			withStmt, err := p.parseWith()
 			if err != nil {
 				return block, err
 			}
-			block = append(block, spec.Statement{With: &withStmt})
+
+			block = append(block, earthfile.Statement{With: &withStmt})
 		case ItemWait:
+			sawNL = false
+			pendingDocsTokens = nil
+
 			waitStmt, err := p.parseWait()
 			if err != nil {
 				return block, err
 			}
-			block = append(block, spec.Statement{Wait: &waitStmt})
-		case ItemRun, ItemFrom, ItemWorkdir, ItemCopy:
+
+			block = append(block, earthfile.Statement{Wait: &waitStmt})
+		case ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
+			ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
+			ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemUser,
+			ItemCmd, ItemEntrypoint, ItemGitClone, ItemAdd, ItemStopSignal,
+			ItemOnBuild, ItemHealthCheck, ItemShell, ItemDo, ItemCommand,
+			ItemFunctionKW, ItemImport, ItemVersion, ItemCache, ItemHost,
+			ItemProject:
+			sawNL = false
+
 			cmd, err := p.parseCommand()
 			if err != nil {
 				return block, err
 			}
-			block = append(block, spec.Statement{Command: &cmd})
+
+			if len(pendingDocsTokens) > 0 {
+				cmd.Docs = computeDocs(pendingDocsTokens)
+				pendingDocsTokens = nil
+			}
+
+			block = append(block, earthfile.Statement{Command: &cmd})
 		default:
-			return block, p.errorf(tok.Pos, "unexpected token in recipe block: %s", tok.Val)
+			return block, p.errorf(tok.Pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
 		}
 	}
 }
 
-func (p *parser) parseCommand() (spec.Command, error) {
-	var cmd spec.Command
+func (p *parser) parseCommand() (earthfile.Command, error) {
+	var cmd earthfile.Command
+
 	tok := p.next()
 	cmd.Name = tok.Val
-	cmd.SourceLocation = &spec.SourceLocation{
+	cmd.SourceLocation = &earthfile.SourceLocation{
 		StartLine:   tok.Line,
 		StartColumn: tok.Col,
 	}
 
-	args, endLoc, err := p.parseArgsUntilNL()
+	var args []string
+
+	var endLoc earthfile.SourceLocation
+
+	var err error
+
+	switch cmd.Name {
+	case CmdEnv, CmdArg, CmdSet, CmdLet:
+		args, endLoc, err = p.parseKeyValueCommandArgs()
+	default:
+		args, endLoc, err = p.parseArgsUntilNL()
+	}
+
 	if err != nil {
 		return cmd, err
 	}
+
+	for i := range args {
+		args[i] = replaceEscape(args[i])
+	}
+
 	cmd.Args = args
+
+	if len(cmd.Args) > 0 {
+		switch cmd.Name {
+		case CmdRun, CmdCmd, CmdEntrypoint, CmdVolume:
+			joined := strings.Join(cmd.Args, "")
+
+			var jsonArgs []string
+
+			err := json.Unmarshal([]byte(joined), &jsonArgs)
+			if err == nil {
+				cmd.Args = jsonArgs
+				cmd.ExecMode = true
+			}
+		case CmdEnv, CmdArg, CmdSet, CmdLet, CmdLabel:
+			var newArgs []string
+			for _, arg := range cmd.Args {
+				newArgs = append(newArgs, splitKeyValueArg(arg)...)
+			}
+
+			cmd.Args = newArgs
+		}
+	}
+
 	cmd.SourceLocation.EndLine = endLoc.EndLine
 	cmd.SourceLocation.EndColumn = endLoc.EndColumn
+
 	return cmd, nil
 }
 
-func (p *parser) parseArgsUntilNL() ([]string, spec.SourceLocation, error) {
-	var args []string
-	var endLoc spec.SourceLocation
+func (p *parser) parseArgsUntilNL() ([]string, earthfile.SourceLocation, error) {
+	args := []string{}
+
+	var endLoc earthfile.SourceLocation
+
 	for {
-		t := p.next()
+		t := p.peek()
 		switch t.Typ {
 		case ItemAtom:
+			p.next()
+
 			args = append(args, t.Val)
-		case ItemWS:
+		case ItemWS, ItemComment:
+			p.next()
 			// ignore
-		case ItemNL, ItemEOF, ItemDedent, ItemComment:
+		case ItemNL, ItemEOLComment:
+			p.next()
+
 			endLoc.EndLine = t.Line
 			endLoc.EndColumn = t.Col
+
+			return args, endLoc, nil
+		case ItemEOF, ItemDedent:
+			// DO NOT consume EOF or Dedent!
+			endLoc.EndLine = t.Line
+			endLoc.EndColumn = t.Col
+
 			return args, endLoc, nil
 		default:
+			p.next()
 			return nil, endLoc, p.errorf(t.Pos, "unexpected token in args: %s", t.Val)
 		}
 	}
 }
 
-func (p *parser) parseIf() (spec.IfStatement, error) {
-	ifStmt := spec.IfStatement{}
-	
+func (p *parser) parseKeyValueCommandArgs() ([]string, earthfile.SourceLocation, error) {
+	var args []string
+
+	var endLoc earthfile.SourceLocation
+
+	var items []Item
+
+	for {
+		t := p.peek()
+		if t.Typ == ItemNL || t.Typ == ItemEOLComment {
+			p.next() // consume NL or EOL comment
+
+			endLoc.EndLine = t.Line
+			endLoc.EndColumn = t.Col
+
+			break
+		}
+
+		if t.Typ == ItemEOF || t.Typ == ItemDedent {
+			// DO NOT consume EOF or Dedent!
+			endLoc.EndLine = t.Line
+			endLoc.EndColumn = t.Col
+
+			break
+		}
+
+		if t.Typ == ItemError {
+			p.next()
+
+			return nil, endLoc, p.errorf(t.Pos, "unexpected token: %s", t.Val)
+		}
+
+		p.next()
+
+		items = append(items, t)
+	}
+
+	args = parseKeyValueItems(items)
+
+	return args, endLoc, nil
+}
+
+func parseKeyValueItems(items []Item) []string {
+	var args []string
+
+	idx := 0
+	// Skip leading WS
+	for idx < len(items) && items[idx].Typ == ItemWS {
+		idx++
+	}
+
+	// Read flags
+	for idx < len(items) {
+		if items[idx].Typ == ItemAtom && strings.HasPrefix(items[idx].Val, "-") {
+			args = append(args, items[idx].Val)
+			idx++
+			// skip WS after flag
+			for idx < len(items) && items[idx].Typ == ItemWS {
+				idx++
+			}
+		} else {
+			break
+		}
+	}
+
+	// Now we expect the key. If key is missing, fallback:
+	if idx >= len(items) || items[idx].Typ != ItemAtom {
+		for _, item := range items {
+			if item.Typ == ItemAtom {
+				args = append(args, item.Val)
+			}
+		}
+
+		return args
+	}
+
+	key := items[idx].Val
+	args = append(args, key)
+	idx++
+
+	// skip WS after key
+	for idx < len(items) && items[idx].Typ == ItemWS {
+		idx++
+	}
+
+	// Check for '='
+	hasEquals := false
+
+	if idx < len(items) && items[idx].Typ == ItemAtom && items[idx].Val == "=" {
+		args = append(args, "=")
+		hasEquals = true
+		idx++
+		// skip WS after '='
+		for idx < len(items) && items[idx].Typ == ItemWS {
+			idx++
+		}
+	}
+
+	// Everything else is the value!
+	if idx >= len(items) {
+		return args
+	}
+
+	var valBuilder strings.Builder
+
+	for i := idx; i < len(items); i++ {
+		valBuilder.WriteString(items[i].Val)
+	}
+
+	val := valBuilder.String()
+
+	val = strings.TrimRight(val, " \t\r\n")
+
+	if val != "" {
+		if !hasEquals {
+			args = append(args, "=")
+		}
+
+		args = append(args, val)
+	}
+
+	return args
+}
+
+func (p *parser) parseIf() (earthfile.IfStatement, error) {
+	ifStmt := earthfile.IfStatement{}
+
 	t := p.next()
-	ifStmt.SourceLocation = &spec.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
-	
+	ifStmt.SourceLocation = &earthfile.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
+
 	args, endLoc, err := p.parseArgsUntilNL()
 	if err != nil {
 		return ifStmt, err
 	}
+
 	ifStmt.Expression = args
 	ifStmt.SourceLocation.EndLine = endLoc.EndLine
 	ifStmt.SourceLocation.EndColumn = endLoc.EndColumn
-	
-	block, err := p.parseBlock()
+
+	block, err := p.parseStmts()
 	if err != nil {
 		return ifStmt, err
 	}
+
 	ifStmt.IfBody = block
-	
+
 	for {
 		tok := p.peek()
 		switch tok.Typ {
+		case ItemDedent:
+			p.next() // consume dedent
 		case ItemElseIf:
 			p.next() // consume ItemElseIf
+
 			args, endLoc, err := p.parseArgsUntilNL()
 			if err != nil {
 				return ifStmt, err
 			}
-			eiBlock, err := p.parseBlock()
+
+			eiBlock, err := p.parseStmts()
 			if err != nil {
 				return ifStmt, err
 			}
-			ifStmt.ElseIf = append(ifStmt.ElseIf, spec.ElseIf{
-				SourceLocation: &spec.SourceLocation{StartLine: tok.Line, StartColumn: tok.Col, EndLine: endLoc.EndLine, EndColumn: endLoc.EndColumn},
-				Expression:     args,
-				Body:           eiBlock,
+
+			ifStmt.ElseIf = append(ifStmt.ElseIf, earthfile.ElseIf{
+				SourceLocation: &earthfile.SourceLocation{
+					StartLine:   tok.Line,
+					StartColumn: tok.Col,
+					EndLine:     endLoc.EndLine,
+					EndColumn:   endLoc.EndColumn,
+				},
+				Expression: args,
+				Body:       eiBlock,
 			})
 		case ItemElse:
 			p.next() // consume ItemElse
+
 			_, _, err := p.parseArgsUntilNL() // parse till NL
 			if err != nil {
 				return ifStmt, err
 			}
-			eBlock, err := p.parseBlock()
+
+			eBlock, err := p.parseStmts()
 			if err != nil {
 				return ifStmt, err
 			}
+
 			ifStmt.ElseBody = &eBlock
 		case ItemEnd:
 			p.next() // consume END
-			p.parseArgsUntilNL() // parse till NL
+
+			_, _, err := p.parseArgsUntilNL()
+			if err != nil {
+				return ifStmt, err
+			}
+
 			return ifStmt, nil
 		default:
 			// No more clauses. Return the IF statement.
@@ -332,67 +840,101 @@ func (p *parser) parseIf() (spec.IfStatement, error) {
 	}
 }
 
-func (p *parser) parseFor() (spec.ForStatement, error) {
-	forStmt := spec.ForStatement{}
-	
+func (p *parser) parseFor() (earthfile.ForStatement, error) {
+	forStmt := earthfile.ForStatement{}
+
 	t := p.next()
-	forStmt.SourceLocation = &spec.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
-	
+	forStmt.SourceLocation = &earthfile.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
+
 	args, _, err := p.parseArgsUntilNL()
 	if err != nil {
 		return forStmt, err
 	}
+
 	forStmt.Args = args
-	
-	block, err := p.parseBlock()
+
+	block, err := p.parseStmts()
 	if err != nil {
 		return forStmt, err
 	}
+
 	forStmt.Body = block
-	
+
+	if p.peek().Typ == ItemDedent {
+		p.next()
+	}
+
 	if tok := p.peek(); tok.Typ == ItemEnd {
 		p.next()
-		p.parseArgsUntilNL()
+
+		_, _, err := p.parseArgsUntilNL()
+		if err != nil {
+			return forStmt, err
+		}
 	}
-	
+
 	return forStmt, nil
 }
 
-func (p *parser) parseTry() (spec.TryStatement, error) {
-	tryStmt := spec.TryStatement{}
-	
+func (p *parser) parseTry() (earthfile.TryStatement, error) {
+	tryStmt := earthfile.TryStatement{}
+
 	t := p.next()
-	tryStmt.SourceLocation = &spec.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
-	p.parseArgsUntilNL()
-	
-	block, err := p.parseBlock()
+	tryStmt.SourceLocation = &earthfile.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
+
+	_, _, err := p.parseArgsUntilNL()
 	if err != nil {
 		return tryStmt, err
 	}
+
+	block, err := p.parseStmts()
+	if err != nil {
+		return tryStmt, err
+	}
+
 	tryStmt.TryBody = block
-	
+
 	for {
 		tok := p.peek()
 		switch tok.Typ {
+		case ItemDedent:
+			p.next()
 		case ItemCatch:
 			p.next()
-			p.parseArgsUntilNL()
-			catchBlock, err := p.parseBlock()
+
+			_, _, err := p.parseArgsUntilNL()
 			if err != nil {
 				return tryStmt, err
 			}
+
+			catchBlock, err := p.parseStmts()
+			if err != nil {
+				return tryStmt, err
+			}
+
 			tryStmt.CatchBody = &catchBlock
 		case ItemFinally:
 			p.next()
-			p.parseArgsUntilNL()
-			finallyBlock, err := p.parseBlock()
+
+			_, _, err := p.parseArgsUntilNL()
 			if err != nil {
 				return tryStmt, err
 			}
+
+			finallyBlock, err := p.parseStmts()
+			if err != nil {
+				return tryStmt, err
+			}
+
 			tryStmt.FinallyBody = &finallyBlock
 		case ItemEnd:
 			p.next()
-			p.parseArgsUntilNL()
+
+			_, _, err := p.parseArgsUntilNL()
+			if err != nil {
+				return tryStmt, err
+			}
+
 			return tryStmt, nil
 		default:
 			return tryStmt, nil
@@ -400,53 +942,195 @@ func (p *parser) parseTry() (spec.TryStatement, error) {
 	}
 }
 
-func (p *parser) parseWith() (spec.WithStatement, error) {
-	withStmt := spec.WithStatement{}
-	
+func (p *parser) parseWith() (earthfile.WithStatement, error) {
+	withStmt := earthfile.WithStatement{}
+
 	t := p.next()
-	withStmt.SourceLocation = &spec.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
-	
+	withStmt.SourceLocation = &earthfile.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
+
 	for p.peek().Typ == ItemWS {
 		p.next()
 	}
-	
+
 	cmd, err := p.parseCommand()
 	if err != nil {
 		return withStmt, err
 	}
+
 	withStmt.Command = cmd
-	
-	block, err := p.parseBlock()
+
+	block, err := p.parseStmts()
 	if err != nil {
 		return withStmt, err
 	}
+
 	withStmt.Body = block
-	
+
+	if p.peek().Typ == ItemDedent {
+		p.next()
+	}
+
 	if tok := p.peek(); tok.Typ == ItemEnd {
 		p.next()
-		p.parseArgsUntilNL()
+
+		_, _, err := p.parseArgsUntilNL()
+		if err != nil {
+			return withStmt, err
+		}
 	}
-	
+
 	return withStmt, nil
 }
 
-func (p *parser) parseWait() (spec.WaitStatement, error) {
-	waitStmt := spec.WaitStatement{}
-	
+func (p *parser) parseWait() (earthfile.WaitStatement, error) {
+	waitStmt := earthfile.WaitStatement{}
+
 	t := p.next()
-	waitStmt.SourceLocation = &spec.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
-	p.parseArgsUntilNL()
-	
-	block, err := p.parseBlock()
+	waitStmt.SourceLocation = &earthfile.SourceLocation{StartLine: t.Line, StartColumn: t.Col}
+
+	_, _, err := p.parseArgsUntilNL()
 	if err != nil {
 		return waitStmt, err
 	}
+
+	block, err := p.parseStmts()
+	if err != nil {
+		return waitStmt, err
+	}
+
 	waitStmt.Body = block
-	
+
+	if p.peek().Typ == ItemDedent {
+		p.next()
+	}
+
 	if tok := p.peek(); tok.Typ == ItemEnd {
 		p.next()
-		p.parseArgsUntilNL()
+
+		_, _, err := p.parseArgsUntilNL()
+		if err != nil {
+			return waitStmt, err
+		}
 	}
-	
+
 	return waitStmt, nil
+}
+
+func computeDocs(comments []string) string {
+	if len(comments) == 0 {
+		return ""
+	}
+
+	var (
+		docs        strings.Builder
+		leadingTrim string
+	)
+
+	for i, c := range comments {
+		line := strings.TrimSpace(c)
+		line = strings.TrimPrefix(line, "#")
+
+		if i == 0 {
+			var trimRunes []rune
+
+			for _, r := range line {
+				if r == ' ' || r == '\t' {
+					trimRunes = append(trimRunes, r)
+				} else {
+					break
+				}
+			}
+
+			leadingTrim = string(trimRunes)
+		}
+
+		line = strings.TrimPrefix(line, leadingTrim)
+		docs.WriteString(line)
+		docs.WriteByte('\n')
+	}
+
+	return docs.String()
+}
+
+func splitKeyValueArg(s string) []string {
+	var out []string
+
+	inSingle := false
+	inDouble := false
+	start := 0
+
+	for i := range len(s) {
+		c := s[i]
+		switch {
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case c == '=' && !inSingle && !inDouble:
+			if i > start {
+				out = append(out, s[start:i])
+			}
+
+			out = append(out, "=")
+			start = i + 1
+		}
+	}
+
+	if start < len(s) {
+		out = append(out, s[start:])
+	}
+
+	return out
+}
+
+var stripLineContinuationRegexp = regexp.MustCompile(
+	`^\\[ \t]*(#[^\n\r]*)?(\n|(\r\n))[\t ]*((#[^\n\r]*)?(\n|(\r\n))[\t ]*)*`,
+)
+
+func replaceEscape(str string) string {
+	var (
+		sb       strings.Builder
+		inDouble bool
+		inSingle bool
+		i        int
+	)
+
+	for i < len(str) {
+		c := str[i]
+
+		switch {
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+
+			sb.WriteByte(c)
+
+			i++
+
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+
+			sb.WriteByte(c)
+
+			i++
+
+		case !inDouble && !inSingle && c == '\\':
+			rem := str[i:]
+			loc := stripLineContinuationRegexp.FindStringIndex(rem)
+
+			if loc != nil && loc[0] == 0 {
+				i += loc[1]
+			} else {
+				sb.WriteByte(c)
+
+				i++
+			}
+
+		default:
+			sb.WriteByte(c)
+
+			i++
+		}
+	}
+
+	return sb.String()
 }

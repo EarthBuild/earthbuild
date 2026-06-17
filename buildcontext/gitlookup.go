@@ -801,7 +801,8 @@ func (gl *GitLookup) ConvertCloneURL(
 
 	m := gl.getGitMatcherByName(host)
 	if m.sub == "" {
-		return gl.makeCloneURL(ctx, m, host,
+		return gl.makeCloneURL(
+			ctx, m, host,
 			m.prefix+gitPath, // Note that inURL already contains the suffix
 		)
 	}

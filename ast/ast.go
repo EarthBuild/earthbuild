@@ -4,13 +4,9 @@ package ast
 
 import (
 	"io"
-	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/antlrhandler"
-	"github.com/EarthBuild/earthbuild/ast/parser"
-	"github.com/EarthBuild/earthbuild/ast/spec"
-	"github.com/EarthBuild/earthbuild/util/hint"
-	"github.com/antlr4-go/antlr/v4"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/pkg/errors"
 )
 
@@ -19,7 +15,7 @@ import (
 const TargetBase = "base"
 
 // Parse parses an earthfile into an AST.
-func Parse(filePath string, enableSourceMap bool) (ef spec.Earthfile, err error) {
+func Parse(filePath string, enableSourceMap bool) (ef earthfile.Earthfile, err error) {
 	var opts []Opt
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
@@ -30,121 +26,153 @@ func Parse(filePath string, enableSourceMap bool) (ef spec.Earthfile, err error)
 
 // ParseOpts parses an earthfile into an AST. This is the functional option
 // version, which uses option functions to change how a file is parsed.
-func ParseOpts(from FromOpt, opts ...Opt) (spec.Earthfile, error) {
+func ParseOpts(from FromOpt, opts ...Opt) (earthfile.Earthfile, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}
 
 	preferences, err := from(defaultPrefs)
 	if err != nil {
-		return spec.Earthfile{}, errors.Wrap(err, "ast: could not apply FromOpt")
+		return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not apply FromOpt")
 	}
 
 	for _, opt := range opts {
 		preferences, err = opt(preferences)
 		if err != nil {
-			return spec.Earthfile{}, errors.Wrap(err, "ast: could not apply options")
+			return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not apply options")
 		}
 	}
 
 	defer preferences.done()
 
-	var versionOpts []Opt
-	if preferences.enableSourceMap {
-		versionOpts = append(versionOpts, WithSourceMap())
-	}
-
-	version, err := ParseVersionOpts(FromReader(preferences.reader), versionOpts...)
-	if err != nil {
-		return spec.Earthfile{}, err
-	}
-
-	errorListener := antlrhandler.NewReturnErrorListener()
-	errorStrategy := antlrhandler.NewReturnErrorStrategy(parser.GetLexerLiteralNames(), parser.GetLexerSymbolicNames())
-
 	_, err = preferences.reader.Seek(0, 0)
 	if err != nil {
-		return spec.Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
+		return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
 	}
 
 	b, err := io.ReadAll(preferences.reader)
 	if err != nil {
-		return spec.Earthfile{}, errors.Wrap(err, "ast: could not read Earthfile for parsing")
+		return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not read Earthfile for parsing")
 	}
 
-	stream, tree, err := newEarthfileTree(string(b), errorListener, errorStrategy)
+	ef, err := parse.Parse(preferences.reader.Name(), string(b))
 	if err != nil {
-		return spec.Earthfile{}, err
+		return earthfile.Earthfile{}, err
 	}
 
-	ef, walkErr := walkTree(newListener(stream, preferences.reader.Name(), preferences.enableSourceMap), tree)
-	if len(errorListener.Errs) > 0 {
-		errString := []string{"lexer error: " + preferences.reader.Name()}
-		for _, err := range errorListener.Errs {
-			errString = append(errString, err.Error())
-		}
-
-		return spec.Earthfile{}, errors.New(strings.Join(errString, "\n"))
+	// Set file path on SourceLocations if they exist and are requested
+	if preferences.enableSourceMap {
+		setSourceLocationFile(&ef, preferences.reader.Name())
 	}
-
-	if errorStrategy.Err != nil {
-		err = errors.Wrapf(
-			errorStrategy.Err, "%s:%d:%d '%s'",
-			preferences.reader.Name(),
-			errorStrategy.RE.GetOffendingToken().GetLine(),
-			errorStrategy.RE.GetOffendingToken().GetColumn(),
-			errorStrategy.RE.GetOffendingToken().GetText())
-		if errorStrategy.Hint != "" {
-			err = hint.Wrap(err, errorStrategy.Hint)
-		}
-
-		return spec.Earthfile{}, err
-	}
-
-	if walkErr != nil {
-		return spec.Earthfile{}, walkErr
-	}
-
-	ef.Version = version
 
 	err = validateAst(ef)
 	if err != nil {
-		return spec.Earthfile{}, err
+		return earthfile.Earthfile{}, err
 	}
 
 	return ef, nil
 }
 
-func walkTree(l *listener, tree parser.IEarthFileContext) (spec.Earthfile, error) {
-	antlr.ParseTreeWalkerDefault.Walk(l, tree)
-
-	err := l.Err()
-	if err != nil {
-		return spec.Earthfile{}, err
+func setSourceLocationFile(ef *earthfile.Earthfile, filename string) {
+	if ef.SourceLocation != nil {
+		ef.SourceLocation.File = filename
 	}
 
-	return l.Earthfile(), nil
+	if ef.Version != nil && ef.Version.SourceLocation != nil {
+		ef.Version.SourceLocation.File = filename
+	}
+
+	for i := range ef.Targets {
+		if ef.Targets[i].SourceLocation != nil {
+			ef.Targets[i].SourceLocation.File = filename
+		}
+
+		setBlockSourceLocationFile(ef.Targets[i].Recipe, filename)
+	}
+
+	for i := range ef.Functions {
+		if ef.Functions[i].SourceLocation != nil {
+			ef.Functions[i].SourceLocation.File = filename
+		}
+
+		setBlockSourceLocationFile(ef.Functions[i].Recipe, filename)
+	}
+
+	setBlockSourceLocationFile(ef.BaseRecipe, filename)
 }
 
-func newEarthfileTree(
-	body string,
-	errorListener *antlrhandler.ReturnErrorListener,
-	errorStrategy antlr.ErrorStrategy,
-) (*antlr.CommonTokenStream, parser.IEarthFileContext, error) {
-	input := antlr.NewInputStream(body)
-	lexer := newLexer(input)
-	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(errorListener)
+func setBlockSourceLocationFile(block earthfile.Block, filename string) {
+	for i := range block {
+		if block[i].SourceLocation != nil {
+			block[i].SourceLocation.File = filename
+		}
 
-	stream := antlr.NewCommonTokenStream(lexer, 0)
-	if lexer.Err() != nil {
-		return nil, nil, lexer.Err()
+		if block[i].Command != nil && block[i].Command.SourceLocation != nil {
+			block[i].Command.SourceLocation.File = filename
+		}
+
+		if block[i].If != nil {
+			if block[i].If.SourceLocation != nil {
+				block[i].If.SourceLocation.File = filename
+			}
+
+			setBlockSourceLocationFile(block[i].If.IfBody, filename)
+
+			for j := range block[i].If.ElseIf {
+				if block[i].If.ElseIf[j].SourceLocation != nil {
+					block[i].If.ElseIf[j].SourceLocation.File = filename
+				}
+
+				setBlockSourceLocationFile(block[i].If.ElseIf[j].Body, filename)
+			}
+
+			if block[i].If.ElseBody != nil {
+				setBlockSourceLocationFile(*block[i].If.ElseBody, filename)
+			}
+		}
+
+		if block[i].For != nil {
+			if block[i].For.SourceLocation != nil {
+				block[i].For.SourceLocation.File = filename
+			}
+
+			setBlockSourceLocationFile(block[i].For.Body, filename)
+		}
+
+		if block[i].Try != nil {
+			if block[i].Try.SourceLocation != nil {
+				block[i].Try.SourceLocation.File = filename
+			}
+
+			setBlockSourceLocationFile(block[i].Try.TryBody, filename)
+
+			if block[i].Try.CatchBody != nil {
+				setBlockSourceLocationFile(*block[i].Try.CatchBody, filename)
+			}
+
+			if block[i].Try.FinallyBody != nil {
+				setBlockSourceLocationFile(*block[i].Try.FinallyBody, filename)
+			}
+		}
+
+		if block[i].With != nil {
+			if block[i].With.SourceLocation != nil {
+				block[i].With.SourceLocation.File = filename
+			}
+
+			if block[i].With.Command.SourceLocation != nil {
+				block[i].With.Command.SourceLocation.File = filename
+			}
+
+			setBlockSourceLocationFile(block[i].With.Body, filename)
+		}
+
+		if block[i].Wait != nil {
+			if block[i].Wait.SourceLocation != nil {
+				block[i].Wait.SourceLocation.File = filename
+			}
+
+			setBlockSourceLocationFile(block[i].Wait.Body, filename)
+		}
 	}
-
-	p := parser.NewEarthParser(stream)
-	p.AddErrorListener(errorListener)
-	p.SetErrorHandler(errorStrategy)
-	p.BuildParseTrees = true
-
-	return stream, p.EarthFile(), nil
 }

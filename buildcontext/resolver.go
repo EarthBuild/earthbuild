@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
@@ -41,7 +41,7 @@ type Data struct {
 	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
 	BuildFilePath string
 	// The parsed Earthfile AST.
-	Earthfile spec.Earthfile
+	Earthfile earthfile.Earthfile
 }
 
 // Resolver is a build context resolver.
@@ -185,7 +185,7 @@ func (r *Resolver) Resolve(
 	return d, nil
 }
 
-func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
+func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.Earthfile, error) {
 	path = filepath.Clean(path)
 
 	efValue, err := r.parseCache.Do(ctx, path, func(_ context.Context, k any) (any, error) {
@@ -197,12 +197,12 @@ func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthf
 		return ast.Parse(filePath, true)
 	})
 	if err != nil {
-		return spec.Earthfile{}, err
+		return earthfile.Earthfile{}, err
 	}
 
-	ef, ok := efValue.(spec.Earthfile)
+	ef, ok := efValue.(earthfile.Earthfile)
 	if !ok {
-		return spec.Earthfile{}, errors.Errorf("want spec.Earthfile, got %T", efValue)
+		return earthfile.Earthfile{}, errors.Errorf("want earthfile.Earthfile, got %T", efValue)
 	}
 
 	return ef, nil

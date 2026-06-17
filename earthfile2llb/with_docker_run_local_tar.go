@@ -129,13 +129,15 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {
 				return errors.New(
-					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement")
+					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement",
+				)
 			}
 
 			if len(mts.Final.SaveImages) > 1 {
 				return errors.New(
 					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement: " +
-						"multiple tags mentioned in SAVE IMAGE")
+						"multiple tags mentioned in SAVE IMAGE",
+				)
 			}
 
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
@@ -152,13 +154,15 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 	}
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+		)
 		if err != nil {
 			return nil, err
 		}

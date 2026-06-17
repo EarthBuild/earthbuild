@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	goflags "github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
 
@@ -197,14 +197,14 @@ var errUnexpectedArgs = errors.New("unexpected VERSION arguments; " +
 	"should be VERSION [flags] <major-version>.<minor-version>")
 
 // Get returns a features struct for a particular version.
-func Get(version *spec.Version) (*Features, bool, error) {
+func Get(version *earthfile.Version) (*Features, bool, error) {
 	var ftrs Features
 
 	hasVersion := (version != nil)
 	if !hasVersion {
 		// If no version is specified, we default to 0.5 (the Earthly version
 		// before the VERSION command was introduced).
-		version = &spec.Version{
+		version = &earthfile.Version{
 			Args: []string{"0.5"},
 		}
 	}
@@ -214,7 +214,8 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	parsedArgs, err := flagutil.ParseArgsWithValueModifierAndOptions(
-		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption)
+		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption,
+	)
 	if err != nil {
 		return nil, false, err
 	}

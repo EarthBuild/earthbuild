@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/moby/buildkit/util/sshutil"
 )
@@ -105,7 +105,7 @@ func (run *Run) Target(targetID string) (*Target, bool) {
 func (run *Run) NewCommand(
 	commandID, command, targetID, category, platform string,
 	cached, local, interactive bool,
-	sourceLocation *spec.SourceLocation,
+	sourceLocation *earthfile.SourceLocation,
 	repoURL, repoHash, fileRelToRepo string,
 ) (*Command, error) {
 	run.mu.Lock()
@@ -239,7 +239,10 @@ func gitSSHToURL(repoURL string) string {
 	return "https://" + strings.Join(parts, "/")
 }
 
-func sourceLocationToProto(repoURL, repoHash, fileRelToRepo string, sl *spec.SourceLocation) *logstream.SourceLocation {
+func sourceLocationToProto(
+	repoURL, repoHash, fileRelToRepo string,
+	sl *earthfile.SourceLocation,
+) *logstream.SourceLocation {
 	if sl == nil {
 		return nil
 	}

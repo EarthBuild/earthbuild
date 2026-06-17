@@ -6,11 +6,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -204,7 +204,7 @@ func (io blockIO) help(indent, scopeIndent string) string {
 		docSectionsOutput(indent, scopeIndent, "IMAGES", io.images...)
 }
 
-func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool) error {
+func addArg(io *blockIO, ft *features.Features, stmt earthfile.Statement, isBase, onlyGlobal bool) error {
 	if stmt.Command == nil {
 		return nil
 	}
@@ -243,7 +243,7 @@ func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onl
 	return nil
 }
 
-func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
+func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*blockIO, error) {
 	var io blockIO
 	for _, base := range baseRcp {
 		err := addArg(&io, ft, base, true, true)
@@ -313,8 +313,8 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 func (a *Doc) documentSingleTarget(
 	currIndent, scopeIndent string,
 	ft *features.Features,
-	baseRcp spec.Block,
-	tgt spec.Target,
+	baseRcp earthfile.Block,
+	tgt earthfile.Target,
 	includeBlockDocs bool,
 ) error {
 	if tgt.Docs == "" {
@@ -367,12 +367,12 @@ func indent(indent, s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func findTarget(ef spec.Earthfile, name string) (spec.Target, error) {
+func findTarget(ef earthfile.Earthfile, name string) (earthfile.Target, error) {
 	for _, tgt := range ef.Targets {
 		if tgt.Name == name {
 			return tgt, nil
 		}
 	}
 
-	return spec.Target{}, errors.Errorf("could not find target named %q", name)
+	return earthfile.Target{}, errors.Errorf("could not find target named %q", name)
 }

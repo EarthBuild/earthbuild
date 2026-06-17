@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/pkg/errors"
 )
 
@@ -29,7 +29,7 @@ func ParseProjectCommand(
 	ef := buildCtx.Earthfile
 
 	for _, stmt := range ef.BaseRecipe {
-		if stmt.Command != nil && stmt.Command.Name == command.Project {
+		if stmt.Command != nil && stmt.Command.Name == parse.CmdProject {
 			args := stmt.Command.Args
 			if len(args) != 1 {
 				return "", "", errors.New("failed to parse PROJECT command")

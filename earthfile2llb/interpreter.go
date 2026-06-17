@@ -12,13 +12,13 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -74,7 +74,7 @@ func newInterpreter(
 }
 
 // Run interprets the commands in the given Earthfile AST, for a specific target.
-func (i *Interpreter) Run(ctx context.Context, ef spec.Earthfile) (retErr error) {
+func (i *Interpreter) Run(ctx context.Context, ef earthfile.Earthfile) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			i.converter.RecordTargetFailure(ctx, retErr)
@@ -98,7 +98,7 @@ func (i *Interpreter) Run(ctx context.Context, ef spec.Earthfile) (retErr error)
 	return i.errorf(ef.SourceLocation, "target %s not found", i.target.Target)
 }
 
-func (i *Interpreter) handleTarget(ctx context.Context, t spec.Target) error {
+func (i *Interpreter) handleTarget(ctx context.Context, t earthfile.Target) error {
 	ctx = ContextWithSourceLocation(ctx, t.SourceLocation)
 	// Apply implicit FROM +base
 	err := i.converter.From(ctx, "+base", platutil.DefaultPlatform, i.allowPrivileged, false, nil)
@@ -109,7 +109,7 @@ func (i *Interpreter) handleTarget(ctx context.Context, t spec.Target) error {
 	return i.handleBlock(ctx, t.Recipe)
 }
 
-func (i *Interpreter) handleBlock(ctx context.Context, b spec.Block) error {
+func (i *Interpreter) handleBlock(ctx context.Context, b earthfile.Block) error {
 	prevWasArgLike := true // not exactly true, but makes the logic easier
 	for index, stmt := range b {
 		if i.parallelConversion && prevWasArgLike {
@@ -130,7 +130,7 @@ func (i *Interpreter) handleBlock(ctx context.Context, b spec.Block) error {
 	return nil
 }
 
-func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, startIndex int) error {
+func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block, startIndex int) error {
 	if i.local {
 		// Don't do any preemptive execution for LOCALLY targets.
 		return nil
@@ -143,12 +143,12 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 		switch {
 		case stmt.Command != nil:
 			switch stmt.Command.Name {
-			case command.Arg, command.Locally, command.From, command.FromDockerfile, command.Let, command.Set:
+			case parse.CmdArg, parse.CmdLocally, parse.CmdFrom, parse.CmdFromDockerfile, parse.CmdLet, parse.CmdSet:
 				// Cannot do any further parallel builds - these commands need to be
 				// executed to ensure that they don't impact the outcome. As such,
 				// commands following these cannot be executed preemptively.
 				return nil
-			case command.Build:
+			case parse.CmdBuild:
 				err := i.handleBuild(ctx, *stmt.Command, true)
 				if err != nil {
 					if errors.Is(err, errCannotAsync) {
@@ -157,7 +157,7 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 
 					return err
 				}
-			case command.Copy:
+			case parse.CmdCopy:
 				// TODO
 			}
 		case stmt.With != nil:
@@ -175,7 +175,7 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b spec.Block, sta
 	return nil
 }
 
-func (i *Interpreter) handleStatement(ctx context.Context, stmt spec.Statement) error {
+func (i *Interpreter) handleStatement(ctx context.Context, stmt earthfile.Statement) error {
 	ctx = ContextWithSourceLocation(ctx, stmt.SourceLocation)
 	if stmt.Command != nil {
 		return i.handleCommand(ctx, *stmt.Command)
@@ -204,7 +204,7 @@ func (i *Interpreter) handleStatement(ctx context.Context, stmt spec.Statement) 
 	return i.errorf(stmt.SourceLocation, "unexpected statement type")
 }
 
-func (i *Interpreter) handleCommand(ctx context.Context, cmd spec.Command) (err error) {
+func (i *Interpreter) handleCommand(ctx context.Context, cmd earthfile.Command) (err error) {
 	// The AST should not be modified by any operation. This is a consistency check.
 	argsCopy := flagutil.GetArgsCopy(cmd)
 
@@ -230,7 +230,7 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd spec.Command) (err 
 
 	if i.isWith {
 		switch cmd.Name {
-		case command.Docker:
+		case parse.CmdDocker:
 			return i.handleWithDocker(ctx, cmd)
 		default:
 			return i.errorf(cmd.SourceLocation, "unexpected WITH command %s", cmd.Name)
@@ -238,76 +238,76 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd spec.Command) (err 
 	}
 
 	switch cmd.Name {
-	case command.From:
+	case parse.CmdFrom:
 		return i.handleFrom(ctx, cmd)
-	case command.Run:
+	case parse.CmdRun:
 		return i.handleRun(ctx, cmd)
-	case command.FromDockerfile:
+	case parse.CmdFromDockerfile:
 		return i.handleFromDockerfile(ctx, cmd)
-	case command.Locally:
+	case parse.CmdLocally:
 		return i.handleLocally(ctx, cmd)
-	case command.Copy:
+	case parse.CmdCopy:
 		return i.handleCopy(ctx, cmd)
-	case command.SaveArtifact:
+	case parse.CmdSaveArtifact:
 		return i.handleSaveArtifact(ctx, cmd)
-	case command.SaveImage:
+	case parse.CmdSaveImage:
 		return i.handleSaveImage(ctx, cmd)
-	case command.Build:
+	case parse.CmdBuild:
 		return i.handleBuild(ctx, cmd, false)
-	case command.Workdir:
+	case parse.CmdWorkdir:
 		return i.handleWorkdir(ctx, cmd)
-	case command.User:
+	case parse.CmdUser:
 		return i.handleUser(ctx, cmd)
-	case command.Cmd:
+	case parse.CmdCmd:
 		return i.handleCmd(ctx, cmd)
-	case command.Entrypoint:
+	case parse.CmdEntrypoint:
 		return i.handleEntrypoint(ctx, cmd)
-	case command.Expose:
+	case parse.CmdExpose:
 		return i.handleExpose(ctx, cmd)
-	case command.Volume:
+	case parse.CmdVolume:
 		return i.handleVolume(ctx, cmd)
-	case command.Env:
+	case parse.CmdEnv:
 		return i.handleEnv(ctx, cmd)
-	case command.Arg:
+	case parse.CmdArg:
 		return i.handleArg(ctx, cmd)
-	case command.Let:
+	case parse.CmdLet:
 		return i.handleLet(ctx, cmd)
-	case command.Set:
+	case parse.CmdSet:
 		return i.handleSet(ctx, cmd)
-	case command.Label:
+	case parse.CmdLabel:
 		return i.handleLabel(ctx, cmd)
-	case command.GitClone:
+	case parse.CmdGitClone:
 		return i.handleGitClone(ctx, cmd)
-	case command.HealthCheck:
+	case parse.CmdHealthCheck:
 		return i.handleHealthcheck(ctx, cmd)
-	case command.Add:
+	case parse.CmdAdd:
 		return i.handleAdd(cmd)
-	case command.StopSignal:
+	case parse.CmdStopSignal:
 		return i.handleStopsignal(cmd)
-	case command.OnBuild:
+	case parse.CmdOnBuild:
 		return i.handleOnbuild(cmd)
-	case command.Shell:
+	case parse.CmdShell:
 		return i.handleShell(cmd)
-	case command.Command:
+	case parse.CmdCommand:
 		return i.handleUserCommand(cmd)
-	case command.Function:
+	case parse.CmdFunction:
 		return i.handleFunction(cmd)
-	case command.Do:
+	case parse.CmdDo:
 		return i.handleDo(ctx, cmd)
-	case command.Import:
+	case parse.CmdImport:
 		return i.handleImport(ctx, cmd)
-	case command.Cache:
+	case parse.CmdCache:
 		return i.handleCache(ctx, cmd)
-	case command.Host:
+	case parse.CmdHost:
 		return i.handleHost(ctx, cmd)
-	case command.Project:
+	case parse.CmdProject:
 		return i.handleProject(ctx, cmd)
 	default:
 		return i.errorf(cmd.SourceLocation, "unexpected command %q", cmd.Name)
 	}
 }
 
-func (i *Interpreter) handleWith(ctx context.Context, with spec.WithStatement) error {
+func (i *Interpreter) handleWith(ctx context.Context, with earthfile.WithStatement) error {
 	i.isWith = true
 	err := i.handleCommand(ctx, with.Command)
 	i.isWith = false
@@ -335,7 +335,7 @@ func (i *Interpreter) handleWith(ctx context.Context, with spec.WithStatement) e
 	return nil
 }
 
-func (i *Interpreter) handleIf(ctx context.Context, ifStmt spec.IfStatement) error {
+func (i *Interpreter) handleIf(ctx context.Context, ifStmt earthfile.IfStatement) error {
 	if i.pushOnlyAllowed {
 		return i.errorf(ifStmt.SourceLocation, "no non-push commands allowed after a --push")
 	}
@@ -368,7 +368,7 @@ func (i *Interpreter) handleIf(ctx context.Context, ifStmt spec.IfStatement) err
 }
 
 func (i *Interpreter) handleIfExpression(
-	ctx context.Context, expression []string, execMode bool, sl *spec.SourceLocation,
+	ctx context.Context, expression []string, execMode bool, sl *earthfile.SourceLocation,
 ) (bool, error) {
 	if len(expression) < 1 {
 		return false, i.errorf(sl, "not enough arguments for IF")
@@ -421,7 +421,7 @@ func (i *Interpreter) handleIfExpression(
 	return (exitCode == 0), nil
 }
 
-func (i *Interpreter) handleFor(ctx context.Context, forStmt spec.ForStatement) error {
+func (i *Interpreter) handleFor(ctx context.Context, forStmt earthfile.ForStatement) error {
 	if !i.converter.ftrs.ForIn {
 		return i.errorf(forStmt.SourceLocation, "the FOR command is not supported in this version")
 	}
@@ -452,7 +452,7 @@ func (i *Interpreter) handleFor(ctx context.Context, forStmt spec.ForStatement) 
 }
 
 func (i *Interpreter) handleForArgs(
-	ctx context.Context, forArgs []string, sl *spec.SourceLocation,
+	ctx context.Context, forArgs []string, sl *earthfile.SourceLocation,
 ) (string, []string, error) {
 	opts := commandflag.NewForOpts()
 
@@ -495,7 +495,7 @@ func (i *Interpreter) handleForArgs(
 	return variable, instances, nil
 }
 
-func (i *Interpreter) handleWait(ctx context.Context, waitStmt spec.WaitStatement) error {
+func (i *Interpreter) handleWait(ctx context.Context, waitStmt earthfile.WaitStatement) error {
 	if !i.converter.ftrs.WaitBlock {
 		return i.errorf(waitStmt.SourceLocation, "the WAIT command is not supported in this version")
 	}
@@ -521,7 +521,7 @@ func (i *Interpreter) handleWait(ctx context.Context, waitStmt spec.WaitStatemen
 	return i.converter.PopWaitBlock(ctx)
 }
 
-func (i *Interpreter) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
+func (i *Interpreter) handleTry(ctx context.Context, tryStmt earthfile.TryStatement) error {
 	if !i.converter.ftrs.TryFinally {
 		return i.errorf(tryStmt.SourceLocation, "the TRY/CATCH/FINALLY commands are not supported in this version")
 	}
@@ -626,7 +626,7 @@ func (i *Interpreter) handleTry(ctx context.Context, tryStmt spec.TryStatement) 
 
 // Commands -------------------------------------------------------------------
 
-func (i *Interpreter) handleFrom(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleFrom(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -752,7 +752,7 @@ func (i *Interpreter) flagValModifierFuncWithContext(
 	}
 }
 
-func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) error {
 	if len(cmd.Args) < 1 {
 		return i.errorf(cmd.SourceLocation, "not enough arguments for RUN")
 	}
@@ -913,7 +913,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd spec.Command) error {
 // handleOIDC parse the oidc string value into a struct
 // Returns error if the value cannot be parsed of if the feature flag is not set.
 func (i *Interpreter) handleOIDC(
-	ctx context.Context, cmd *spec.Command, opts *commandflag.RunOpts,
+	ctx context.Context, cmd *earthfile.Command, opts *commandflag.RunOpts,
 ) (*oidcutil.AWSOIDCInfo, error) {
 	if opts.OIDC == defaultZeroStringFlag {
 		// oidc is not in use, set it to empty string just in case
@@ -944,7 +944,7 @@ func (i *Interpreter) handleOIDC(
 	return awsInfo, nil
 }
 
-func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1028,7 +1028,7 @@ func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd spec.Command
 	return nil
 }
 
-func (i *Interpreter) handleLocally(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleLocally(ctx context.Context, cmd earthfile.Command) error {
 	if !i.allowPrivileged {
 		return i.errorf(cmd.SourceLocation, "Permission denied: unwilling to allow locally directive from remote Earthfile; "+
 			"did you reference a remote Earthfile without the --allow-privileged flag?")
@@ -1048,7 +1048,7 @@ func (i *Interpreter) handleLocally(ctx context.Context, cmd spec.Command) error
 	return nil
 }
 
-func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1204,7 +1204,8 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 		}
 
 		err = i.converter.CopyClassical(
-			ctx, srcs, dest, opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists)
+			ctx, srcs, dest, opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists,
+		)
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "copy classical")
 		}
@@ -1258,7 +1259,8 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 			expandedArtifacts, err = i.converter.ExpandWildcardArtifacts(ctx, srcArtifacts[index])
 			if err != nil {
 				return i.wrapError(
-					err, cmd.SourceLocation, "failed to expand wildcard COPY %q", srcArtifacts[index].Target.String())
+					err, cmd.SourceLocation, "failed to expand wildcard COPY %q", srcArtifacts[index].Target.String(),
+				)
 			}
 
 			expandedSrcs = make([]string, 0, len(expandedArtifacts))
@@ -1270,14 +1272,16 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd spec.Command) error {
 		for _, expandedSrc := range expandedSrcs {
 			if i.local {
 				err = i.converter.CopyArtifactLocal(
-					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs, opts.IsDirCopy)
+					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs, opts.IsDirCopy,
+				)
 				if err != nil {
 					return i.wrapError(err, cmd.SourceLocation, "copy artifact locally")
 				}
 			} else {
 				err = i.converter.CopyArtifact(
 					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs,
-					opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow)
+					opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow,
+				)
 				if err != nil {
 					return i.wrapError(err, cmd.SourceLocation, "copy artifact")
 				}
@@ -1314,7 +1318,7 @@ func parseSaveArtifactArgs(args []string) (from, to, asLocal string, _ bool) {
 	return saveFrom, saveTo, saveAsLocalTo, true
 }
 
-func (i *Interpreter) handleSaveArtifact(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleSaveArtifact(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.SaveArtifactOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("SAVE ARTIFACT", &opts, flagutil.GetArgsCopy(cmd))
@@ -1382,7 +1386,7 @@ func (i *Interpreter) handleSaveArtifact(ctx context.Context, cmd spec.Command) 
 	return nil
 }
 
-func (i *Interpreter) handleSaveImage(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleSaveImage(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.SaveImageOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))
@@ -1463,7 +1467,7 @@ func newOnExecutionSuccess(numSuccessRequired int, saveHashFn func()) func(conte
 	}
 }
 
-func (i *Interpreter) handleBuild(ctx context.Context, cmd spec.Command, async bool) error {
+func (i *Interpreter) handleBuild(ctx context.Context, cmd earthfile.Command, async bool) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1483,7 +1487,7 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd spec.Command, async b
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand BUILD target %s", args[0])
 	}
-	// Expand wildcards into a set of BUILD spec.Command's, one for each discovered Earthfile.
+	// Expand wildcards into a set of BUILD earthfile.Command's, one for each discovered Earthfile.
 	if strings.Contains(fullTargetName, "*") {
 		if !i.converter.ftrs.WildcardBuilds {
 			return i.errorf(cmd.SourceLocation, "wildcard BUILD commands are not enabled")
@@ -1604,7 +1608,7 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd spec.Command, async b
 }
 
 func (i *Interpreter) handleWildcardBuilds(
-	ctx context.Context, fullTargetName string, cmd spec.Command, async bool,
+	ctx context.Context, fullTargetName string, cmd earthfile.Command, async bool,
 ) error {
 	children, err := i.converter.ExpandWildcardCmds(ctx, fullTargetName, cmd)
 	if err != nil {
@@ -1621,7 +1625,7 @@ func (i *Interpreter) handleWildcardBuilds(
 	return nil
 }
 
-func (i *Interpreter) handleWorkdir(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleWorkdir(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1643,7 +1647,7 @@ func (i *Interpreter) handleWorkdir(ctx context.Context, cmd spec.Command) error
 	return nil
 }
 
-func (i *Interpreter) handleUser(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleUser(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1665,7 +1669,7 @@ func (i *Interpreter) handleUser(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (i *Interpreter) handleCmd(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleCmd(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1692,7 +1696,7 @@ func (i *Interpreter) handleCmd(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (i *Interpreter) handleEntrypoint(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleEntrypoint(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1719,7 +1723,7 @@ func (i *Interpreter) handleEntrypoint(ctx context.Context, cmd spec.Command) er
 	return nil
 }
 
-func (i *Interpreter) handleExpose(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleExpose(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1758,7 +1762,7 @@ func (i *Interpreter) handleExpose(ctx context.Context, cmd spec.Command) error 
 	return nil
 }
 
-func (i *Interpreter) handleVolume(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleVolume(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1785,7 +1789,7 @@ func (i *Interpreter) handleVolume(ctx context.Context, cmd spec.Command) error 
 	return nil
 }
 
-func (i *Interpreter) handleEnv(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleEnv(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1821,7 +1825,7 @@ func (i *Interpreter) handleEnv(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (i *Interpreter) handleArg(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleArg(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1847,7 +1851,7 @@ func (i *Interpreter) handleArg(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (i *Interpreter) handleLet(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleLet(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1881,7 +1885,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func parseSetArgs(cmd spec.Command) (name, value string, _ error) {
+func parseSetArgs(cmd earthfile.Command) (name, value string, _ error) {
 	var opts commandflag.SetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
@@ -1902,7 +1906,7 @@ func parseSetArgs(cmd spec.Command) (name, value string, _ error) {
 	return args[0], args[2], nil
 }
 
-func (i *Interpreter) handleSet(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleSet(ctx context.Context, cmd earthfile.Command) error {
 	if !i.converter.ftrs.ArgScopeSet {
 		return errors.New("unknown command SET")
 	}
@@ -1920,7 +1924,7 @@ func (i *Interpreter) handleSet(ctx context.Context, cmd spec.Command) error {
 	return i.converter.UpdateArg(ctx, key, newVal)
 }
 
-func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleLabel(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -1981,7 +1985,7 @@ func (i *Interpreter) handleLabel(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (i *Interpreter) handleGitClone(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleGitClone(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -2026,7 +2030,7 @@ func (i *Interpreter) handleGitClone(ctx context.Context, cmd spec.Command) erro
 	return nil
 }
 
-func (i *Interpreter) handleHealthcheck(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleHealthcheck(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -2083,7 +2087,7 @@ func (i *Interpreter) handleHealthcheck(ctx context.Context, cmd spec.Command) e
 	return nil
 }
 
-func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleWithDocker(ctx context.Context, cmd earthfile.Command) error {
 	if i.pushOnlyAllowed {
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
@@ -2208,31 +2212,31 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd spec.Command) er
 	return nil
 }
 
-func (i *Interpreter) handleAdd(cmd spec.Command) error {
+func (i *Interpreter) handleAdd(cmd earthfile.Command) error {
 	return i.errorf(cmd.SourceLocation, "command ADD not yet supported")
 }
 
-func (i *Interpreter) handleStopsignal(cmd spec.Command) error {
+func (i *Interpreter) handleStopsignal(cmd earthfile.Command) error {
 	return i.errorf(cmd.SourceLocation, "command STOPSIGNAL not yet supported")
 }
 
-func (i *Interpreter) handleOnbuild(cmd spec.Command) error {
+func (i *Interpreter) handleOnbuild(cmd earthfile.Command) error {
 	return i.errorf(cmd.SourceLocation, "command ONBUILD not supported")
 }
 
-func (i *Interpreter) handleShell(cmd spec.Command) error {
+func (i *Interpreter) handleShell(cmd earthfile.Command) error {
 	return i.errorf(cmd.SourceLocation, "command SHELL not yet supported")
 }
 
-func (i *Interpreter) handleUserCommand(cmd spec.Command) error {
+func (i *Interpreter) handleUserCommand(cmd earthfile.Command) error {
 	return i.errorf(cmd.SourceLocation, "command COMMAND not allowed in a target definition")
 }
 
-func (i *Interpreter) handleFunction(cmd spec.Command) error {
+func (i *Interpreter) handleFunction(cmd earthfile.Command) error {
 	return i.errorf(cmd.SourceLocation, "command FUNCTION not allowed in a target definition")
 }
 
-func (i *Interpreter) handleDo(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.DoOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("DO", &opts, flagutil.GetArgsCopy(cmd))
@@ -2291,19 +2295,20 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd spec.Command) error {
 	}
 
 	for _, uc := range bc.Earthfile.Functions {
-		if uc.Name == command.Command {
+		if uc.Name == parse.CmdCommand {
 			sourceFilePath := bc.Ref.ProjectCanonical() + "/Earthfile"
 
 			return i.handleDoFunction(
 				ctx, command, relCommand, uc, cmd, parsedFlagArgs, allowPrivileged,
-				opts.PassArgs, sourceFilePath, bc.Features.UseFunctionKeyword)
+				opts.PassArgs, sourceFilePath, bc.Features.UseFunctionKeyword,
+			)
 		}
 	}
 
 	return i.errorf(cmd.SourceLocation, "user command %s not found", ucName)
 }
 
-func (i *Interpreter) handleImport(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.ImportOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("IMPORT", &opts, flagutil.GetArgsCopy(cmd))
@@ -2342,7 +2347,7 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd spec.Command) error 
 	return nil
 }
 
-func (i *Interpreter) handleProject(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) error {
 	// Note: Expanding args for PROJECT is not allowed. The value needs to be
 	// lifted straight from the AST.
 	projectVal := cmd.Args[0]
@@ -2360,7 +2365,7 @@ func (i *Interpreter) handleProject(ctx context.Context, cmd spec.Command) error
 	return nil
 }
 
-func (i *Interpreter) handleCache(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleCache(ctx context.Context, cmd earthfile.Command) error {
 	if !i.converter.ftrs.UseCacheCommand {
 		return i.errorf(cmd.SourceLocation, "the CACHE command is not supported in this version")
 	}
@@ -2411,7 +2416,7 @@ func (i *Interpreter) handleCache(ctx context.Context, cmd spec.Command) error {
 	return nil
 }
 
-func (i *Interpreter) handleHost(ctx context.Context, cmd spec.Command) error {
+func (i *Interpreter) handleHost(ctx context.Context, cmd earthfile.Command) error {
 	if !i.converter.ftrs.UseHostCommand {
 		return i.errorf(cmd.SourceLocation, "the HOST command is not supported in this version")
 	}
@@ -2452,8 +2457,8 @@ func (i *Interpreter) handleHost(ctx context.Context, cmd spec.Command) error {
 func (i *Interpreter) handleDoFunction(
 	ctx context.Context,
 	command, relCommand domain.Command,
-	uc spec.Function,
-	do spec.Command,
+	uc earthfile.Function,
+	do earthfile.Command,
 	buildArgs []string,
 	allowPrivileged, passArgs bool,
 	sourceLocationFile string,
@@ -2480,7 +2485,8 @@ func (i *Interpreter) handleDoFunction(
 			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.
 Note that switching now may cause breakages for your colleagues if they are using older earth versions.
-`, sourceLocationFile)
+`, sourceLocationFile,
+		)
 		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = true
 	}
 
@@ -2490,7 +2496,8 @@ Note that switching now may cause breakages for your colleagues if they are usin
 
 	scopeName := fmt.Sprintf(
 		"%s (%s:%d:%d)",
-		command.StringCanonical(), do.SourceLocation.File, do.SourceLocation.StartLine, do.SourceLocation.StartColumn)
+		command.StringCanonical(), do.SourceLocation.File, do.SourceLocation.StartLine, do.SourceLocation.StartColumn,
+	)
 
 	err := i.converter.EnterScopeDo(ctx, command, baseTarget(relCommand), allowPrivileged, passArgs, scopeName, buildArgs)
 	if err != nil {
@@ -2535,19 +2542,19 @@ func (i *Interpreter) stack() string {
 	return i.converter.varCollection.StackString()
 }
 
-func (i *Interpreter) errorf(sl *spec.SourceLocation, format string, args ...any) *InterpreterError {
+func (i *Interpreter) errorf(sl *earthfile.SourceLocation, format string, args ...any) *InterpreterError {
 	targetID := i.converter.mts.Final.ID
 	return Errorf(sl, targetID, i.stack(), format, args...)
 }
 
 func (i *Interpreter) wrapError(
-	cause error, sl *spec.SourceLocation, format string, args ...any,
+	cause error, sl *earthfile.SourceLocation, format string, args ...any,
 ) *InterpreterError {
 	targetID := i.converter.mts.Final.ID
 	return WrapError(cause, sl, targetID, i.stack(), format, args...)
 }
 
-func (i *Interpreter) pushOnlyErr(sl *spec.SourceLocation) error {
+func (i *Interpreter) pushOnlyErr(sl *earthfile.SourceLocation) error {
 	return i.errorf(sl, "no non-push commands allowed after a --push")
 }
 
@@ -2577,13 +2584,13 @@ func (i *Interpreter) expandArgs(ctx context.Context, word string, keepPlusEscap
 }
 
 // isArgLike returns true if the command is ARG/LET/SET.
-func (i *Interpreter) isArgLike(cmd *spec.Command) bool {
+func (i *Interpreter) isArgLike(cmd *earthfile.Command) bool {
 	if cmd == nil {
 		return false
 	}
 
 	switch cmd.Name {
-	case command.Arg, command.Let, command.Set:
+	case parse.CmdArg, parse.CmdLet, parse.CmdSet:
 		return true
 	}
 

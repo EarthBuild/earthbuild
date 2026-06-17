@@ -6,9 +6,9 @@ import (
 
 	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -49,7 +49,7 @@ func GetTargetArgs(
 		return nil, errors.Wrapf(err, "resolve build context for target %s", target.String())
 	}
 
-	var t *spec.Target
+	var t *earthfile.Target
 
 	for _, tt := range bc.Earthfile.Targets {
 		if tt.Name == target.Target {
@@ -85,7 +85,7 @@ func GetTargetArgs(
 // ArgName returns the parsed name of an ARG command, the default value (if
 // any), and the state of the --required and --global flags.
 func ArgName(
-	cmd spec.Command, isBase, explicitGlobal bool,
+	cmd earthfile.Command, isBase, explicitGlobal bool,
 ) (_ string, _ *string, isRequired, isGlobal bool, _ error) {
 	if cmd.Name != "ARG" {
 		return "", nil, false, false, errors.Errorf("ArgName was called with non-arg command type '%v'", cmd.Name)
@@ -101,7 +101,7 @@ func ArgName(
 
 // ArtifactName returns the parsed name of a SAVE ARTIFACT command and its local
 // name (if any).
-func ArtifactName(cmd spec.Command) (string, *string, error) {
+func ArtifactName(cmd earthfile.Command) (string, *string, error) {
 	from, to, asLocal, ok := parseSaveArtifactArgs(cmd.Args)
 	if !ok {
 		return "", nil, errors.Errorf("could not parse opts for SAVE TARGET [%v]", cmd)
@@ -119,7 +119,7 @@ func ArtifactName(cmd spec.Command) (string, *string, error) {
 }
 
 // ImageNames returns the parsed names of a SAVE IMAGE command.
-func ImageNames(cmd spec.Command) ([]string, error) {
+func ImageNames(cmd earthfile.Command) ([]string, error) {
 	var opts commandflag.SaveImageOpts
 
 	args, err := flagutil.ParseArgs("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))

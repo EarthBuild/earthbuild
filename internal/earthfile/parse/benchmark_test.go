@@ -42,13 +42,15 @@ build:
 func BenchmarkANTLRParser(b *testing.B) {
 	tmpDir := b.TempDir()
 	filePath := filepath.Join(tmpDir, "Earthfile")
-	err := os.WriteFile(filePath, []byte(benchmarkInput), 0644)
+
+	err := os.WriteFile(filePath, []byte(benchmarkInput), 0o600)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for range b.N {
 		_, err := ast.Parse(filePath, true)
 		if err != nil {
 			b.Fatal(err)
@@ -58,7 +60,8 @@ func BenchmarkANTLRParser(b *testing.B) {
 
 func BenchmarkNewParser(b *testing.B) {
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for range b.N {
 		_, err := parse.Parse("Earthfile", benchmarkInput)
 		if err != nil {
 			b.Fatal(err)

@@ -113,7 +113,8 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 		}
 
 		s.console.Printf(
-			"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate)
+			"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate,
+		)
 	}
 
 	s.lastUpdate = now

@@ -68,7 +68,8 @@ func SaveArtifactLocally(
 			// Ignore err. Likely dest path does not exist.
 			if isWildcard && !destIsDir {
 				return errors.New(
-					"artifact is a wildcard, but AS LOCAL destination does not end with /")
+					"artifact is a wildcard, but AS LOCAL destination does not end with /",
+				)
 			}
 
 			destIsDir = fiSrc.IsDir()
@@ -80,7 +81,8 @@ func SaveArtifactLocally(
 		switch {
 		case !destIsDir && srcIsDir:
 			return errors.New(
-				"artifact is a directory, but existing AS LOCAL destination is a file")
+				"artifact is a directory, but existing AS LOCAL destination is a file",
+			)
 		case destExists && srcIsDir:
 			// Remove preexisting dest dir.
 			err = os.RemoveAll(to)

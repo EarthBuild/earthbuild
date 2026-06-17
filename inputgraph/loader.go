@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -30,7 +30,8 @@ import (
 var (
 	errCannotLoadRemoteTarget = errors.New("cannot load remote target")
 	errInvalidRemoteTarget    = errors.New(
-		"only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported")
+		"only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported",
+	)
 	errComplexCondition = errors.New("condition cannot be evaluated")
 )
 
@@ -79,10 +80,10 @@ func newLoader(opt HashOpt) *loader {
 	}
 }
 
-func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.FromOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(command.From, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(parse.CmdFrom, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
 	}
@@ -95,10 +96,10 @@ func (l *loader) handleFrom(ctx context.Context, cmd spec.Command) error {
 	return l.loadTargetFromString(ctx, fromTarget, args[1:], false, cmd.SourceLocation)
 }
 
-func (l *loader) handleBuild(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleBuild(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.BuildOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(command.Build, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(parse.CmdBuild, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
 	}
@@ -148,10 +149,10 @@ func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 	return target, nil
 }
 
-func (l *loader) handleCopy(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.CopyOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(command.Copy, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(parse.CmdCopy, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
 	}
@@ -207,7 +208,7 @@ func containsShellExpr(s string) bool {
 	return depth == 0 && hasExpr
 }
 
-func (l *loader) handleCopySrc(ctx context.Context, cmd spec.Command, src string, mustExist bool) error {
+func (l *loader) handleCopySrc(ctx context.Context, cmd earthfile.Command, src string, mustExist bool) error {
 	var (
 		classical   bool
 		artifactSrc domain.Artifact
@@ -410,27 +411,27 @@ func (l *loader) expandArgsSlice(args []string) ([]string, error) {
 	return ret, nil
 }
 
-func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleCommand(ctx context.Context, cmd earthfile.Command) error {
 	// Hash the raw command. Args will be expanded and hashed later.
 	l.hashCommand(cmd)
 
 	// Some commands require more processing.
 	switch cmd.Name {
-	case command.From:
+	case parse.CmdFrom:
 		return l.handleFrom(ctx, cmd)
-	case command.Build:
+	case parse.CmdBuild:
 		return l.handleBuild(ctx, cmd)
-	case command.Copy:
+	case parse.CmdCopy:
 		return l.handleCopy(ctx, cmd)
-	case command.Arg:
+	case parse.CmdArg:
 		return l.handleArg(cmd, false)
-	case command.Let:
+	case parse.CmdLet:
 		return l.handleLet(cmd)
-	case command.Set:
+	case parse.CmdSet:
 		return l.handleSet(cmd)
-	case command.FromDockerfile:
+	case parse.CmdFromDockerfile:
 		return l.handleFromDockerfile(ctx, cmd)
-	case command.Import:
+	case parse.CmdImport:
 		return l.handleImport(cmd, false)
 	default:
 		// By default, no special handling is required. The raw command has been
@@ -439,7 +440,7 @@ func (l *loader) handleCommand(ctx context.Context, cmd spec.Command) error {
 	}
 }
 
-func (l *loader) handleImport(cmd spec.Command, isBase bool) error {
+func (l *loader) handleImport(cmd earthfile.Command, isBase bool) error {
 	var alias string
 	if len(cmd.Args) == 3 {
 		alias = cmd.Args[2]
@@ -453,10 +454,10 @@ func (l *loader) handleImport(cmd spec.Command, isBase bool) error {
 	return nil
 }
 
-func (l *loader) handleFromDockerfile(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleFromDockerfile(ctx context.Context, cmd earthfile.Command) error {
 	opts := commandflag.FromDockerfileOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(command.FromDockerfile, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(parse.CmdFromDockerfile, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse args")
 	}
@@ -478,7 +479,7 @@ func (l *loader) handleFromDockerfile(ctx context.Context, cmd spec.Command) err
 	return nil
 }
 
-func (l *loader) handleArg(cmd spec.Command, isBase bool) error {
+func (l *loader) handleArg(cmd earthfile.Command, isBase bool) error {
 	opts, key, valueOrNil, err := flagutil.ParseArgArgs(cmd, isBase, l.features.ExplicitGlobal)
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse args")
@@ -513,7 +514,7 @@ func (l *loader) handleArg(cmd spec.Command, isBase bool) error {
 	return nil
 }
 
-func (l *loader) handleLet(cmd spec.Command) error {
+func (l *loader) handleLet(cmd earthfile.Command) error {
 	var opts commandflag.LetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
@@ -545,7 +546,7 @@ func (l *loader) handleLet(cmd spec.Command) error {
 	return nil
 }
 
-func (l *loader) handleSet(cmd spec.Command) error {
+func (l *loader) handleSet(cmd earthfile.Command) error {
 	var opts commandflag.SetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
@@ -577,8 +578,8 @@ func (l *loader) handleSet(cmd spec.Command) error {
 	return nil
 }
 
-func (l *loader) handleWith(ctx context.Context, with spec.WithStatement) error {
-	if with.Command.Name != command.Docker {
+func (l *loader) handleWith(ctx context.Context, with earthfile.WithStatement) error {
+	if with.Command.Name != parse.CmdDocker {
 		return newError(with.Command.SourceLocation, "expected WITH DOCKER")
 	}
 
@@ -590,7 +591,7 @@ func (l *loader) handleWith(ctx context.Context, with spec.WithStatement) error 
 	return l.loadBlock(ctx, with.Body)
 }
 
-func (l *loader) handleWithDocker(ctx context.Context, cmd spec.Command) error {
+func (l *loader) handleWithDocker(ctx context.Context, cmd earthfile.Command) error {
 	// Special case since handleWithDocker doesn't get called from handleCommand.
 	var err error
 
@@ -745,7 +746,7 @@ func evalCondition(c []string) (bool, bool) {
 	return false, false
 }
 
-func (l *loader) handleIf(ctx context.Context, ifStmt spec.IfStatement) error {
+func (l *loader) handleIf(ctx context.Context, ifStmt earthfile.IfStatement) error {
 	l.hashIfStatement(ifStmt)
 
 	err := l.handleIfEval(ctx, ifStmt)
@@ -774,7 +775,7 @@ func (l *loader) expandAndEval(expr []string) (bool, error) {
 	return result, nil
 }
 
-func (l *loader) handleIfEval(ctx context.Context, ifStmt spec.IfStatement) error {
+func (l *loader) handleIfEval(ctx context.Context, ifStmt earthfile.IfStatement) error {
 	result, err := l.expandAndEval(ifStmt.Expression)
 	if err != nil {
 		return err
@@ -802,7 +803,7 @@ func (l *loader) handleIfEval(ctx context.Context, ifStmt spec.IfStatement) erro
 	return nil
 }
 
-func (l *loader) handleIfDefault(ctx context.Context, ifStmt spec.IfStatement) error {
+func (l *loader) handleIfDefault(ctx context.Context, ifStmt earthfile.IfStatement) error {
 	err := l.loadBlock(ctx, ifStmt.IfBody)
 	if err != nil {
 		return err
@@ -827,7 +828,7 @@ func (l *loader) handleIfDefault(ctx context.Context, ifStmt spec.IfStatement) e
 	return nil
 }
 
-func (l *loader) handleFor(ctx context.Context, forStmt spec.ForStatement) error {
+func (l *loader) handleFor(ctx context.Context, forStmt earthfile.ForStatement) error {
 	l.hashForStatement(forStmt)
 
 	opts := commandflag.NewForOpts()
@@ -885,12 +886,12 @@ func flattenForArgs(args []string, seps string) []string {
 	return ret
 }
 
-func (l *loader) handleWait(ctx context.Context, waitStmt spec.WaitStatement) error {
+func (l *loader) handleWait(ctx context.Context, waitStmt earthfile.WaitStatement) error {
 	l.hashWaitStatement(waitStmt)
 	return l.handleStatements(ctx, waitStmt.Body)
 }
 
-func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error {
+func (l *loader) handleTry(ctx context.Context, tryStmt earthfile.TryStatement) error {
 	l.hashTryStatement()
 
 	err := l.handleStatements(ctx, tryStmt.TryBody)
@@ -915,7 +916,7 @@ func (l *loader) handleTry(ctx context.Context, tryStmt spec.TryStatement) error
 	return nil
 }
 
-func (l *loader) handleStatements(ctx context.Context, stmts []spec.Statement) error {
+func (l *loader) handleStatements(ctx context.Context, stmts []earthfile.Statement) error {
 	l.hasher.HashInt(len(stmts))
 
 	for _, stmt := range stmts {
@@ -928,7 +929,7 @@ func (l *loader) handleStatements(ctx context.Context, stmts []spec.Statement) e
 	return nil
 }
 
-func (l *loader) handleStatement(ctx context.Context, stmt spec.Statement) error {
+func (l *loader) handleStatement(ctx context.Context, stmt earthfile.Statement) error {
 	if stmt.Command != nil {
 		return l.handleCommand(ctx, *stmt.Command)
 	}
@@ -956,7 +957,7 @@ func (l *loader) handleStatement(ctx context.Context, stmt spec.Statement) error
 	return errors.New("unexpected statement type")
 }
 
-func (l *loader) loadBlock(ctx context.Context, b spec.Block) error {
+func (l *loader) loadBlock(ctx context.Context, b earthfile.Block) error {
 	return l.handleStatements(ctx, b)
 }
 
@@ -1002,7 +1003,7 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 }
 
 func (l *loader) loadTargetFromString(
-	ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *spec.SourceLocation,
+	ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *earthfile.SourceLocation,
 ) error {
 	targetName, err := l.expandArgs(targetName)
 	if err != nil {
@@ -1128,11 +1129,11 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		for _, stmt := range ef.BaseRecipe {
 			switch {
 			case stmt.Command == nil: // noop
-			case stmt.Command.Name == command.Import:
+			case stmt.Command.Name == parse.CmdImport:
 				err = l.handleImport(*stmt.Command, true)
-			case stmt.Command.Name == command.Arg:
+			case stmt.Command.Name == parse.CmdArg:
 				err = l.handleArg(*stmt.Command, true)
-			case stmt.Command.Name == command.From:
+			case stmt.Command.Name == parse.CmdFrom:
 				err = l.handleFrom(ctx, *stmt.Command)
 			}
 
@@ -1146,7 +1147,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 
 	// Since "base" is always processed above, there's not need to revisit it here.
 	if !isBase {
-		var block spec.Block
+		var block earthfile.Block
 
 		for _, t := range ef.Targets {
 			if t.Name == l.target.Target {

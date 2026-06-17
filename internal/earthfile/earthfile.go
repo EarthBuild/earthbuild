@@ -1,4 +1,5 @@
-package spec
+// Package earthfile defines the core Earthfile AST structure.
+package earthfile
 
 // Earthfile is the AST representation of an Earthfile.
 type Earthfile struct {

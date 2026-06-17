@@ -372,6 +372,15 @@ func (p *parser) parseStmts() (Block, error) {
 			}
 
 			block = append(block, Statement{Try: &tryStmt})
+		case ItemWith:
+			pendingDocsTokens = nil
+
+			withStmt, err := p.parseWith()
+			if err != nil {
+				return block, err
+			}
+
+			block = append(block, Statement{With: &withStmt})
 		case ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
 			ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
 			ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemUser,

@@ -807,6 +807,52 @@ test:
 				},
 			},
 		},
+		{
+			name: "nested WITH inside IF",
+			input: `VERSION 0.8
+build:
+  IF [ "$VAR" = "1" ]
+    WITH DOCKER --pull alpine:3.18
+      RUN echo "yes"
+    END
+  END
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "build",
+						Recipe: Block{
+							{
+								If: &IfStatement{
+									Expression: []string{"[", "\"$VAR\"", "=", "\"1\"", "]"},
+									IfBody: Block{
+										{
+											With: &WithStatement{
+												Command: Command{
+													Name: "DOCKER",
+													Args: []string{"--pull", "alpine:3.18"},
+												},
+												Body: Block{
+													{
+														Command: &Command{
+															Name: "RUN",
+															Args: []string{"echo", "\"yes\""},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tests {

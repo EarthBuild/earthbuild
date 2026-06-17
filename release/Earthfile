@@ -8,8 +8,12 @@ release-dockerhub:
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
+    # VERSION is the semver baked into the buildkitd binary so it matches the
+    # earthly client that ships it. Defaults to RELEASE_TAG for backwards compat.
+    ARG VERSION="$RELEASE_TAG"
     BUILD +perform-release-dockerhub \
           --RELEASE_TAG="$RELEASE_TAG" \
+          --VERSION="$VERSION" \
           --DOCKERHUB_USER="$DOCKERHUB_USER" \
           --DOCKERHUB_IMG="$DOCKERHUB_IMG" \
           --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
@@ -23,8 +27,9 @@ perform-release-dockerhub:
     ARG --required DOCKERHUB_USER
     ARG --required DOCKERHUB_IMG
     ARG --required DOCKERHUB_BUILDKIT_IMG
+    ARG VERSION="$RELEASE_TAG"
     BUILD +perform-release-earthly-dockerhub
-    BUILD +perform-release-buildkitd-dockerhub
+    BUILD +perform-release-buildkitd-dockerhub --VERSION="$VERSION"
 
 perform-release-earthly-dockerhub:
     ARG --required RELEASE_TAG
@@ -53,11 +58,16 @@ perform-release-buildkitd-dockerhub:
     ARG --required DOCKERHUB_IMG
     ARG --required DOCKERHUB_BUILDKIT_IMG
     ARG BUILDKIT_PROJECT
+    # The image tag stays keyed on RELEASE_TAG (so the copy-to-dockerhub step
+    # finds it), but the version baked into the binary is the semver VERSION so
+    # it matches the earthly client. Defaults to RELEASE_TAG for backwards compat.
+    ARG VERSION="$RELEASE_TAG"
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ../buildkitd+buildkitd \
         --TAG="$RELEASE_TAG" \
+        --RELEASE_VERSION="$VERSION" \
         --DOCKERHUB_USER="$DOCKERHUB_USER" \
         --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"

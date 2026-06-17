@@ -16,8 +16,14 @@ buildkitd:
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    # RELEASE_VERSION is the version string baked into the buildkitd binary and
+    # reported via `buildkitd --version`. It defaults to TAG (the image tag) but
+    # can be set independently so a released daemon reports the same semver as
+    # the earthly client that ships it -- otherwise the client warns that the
+    # "Buildkit version is different from earth version".
+    ARG RELEASE_VERSION="$TAG"
 
-    FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
+    FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$RELEASE_VERSION
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
     RUN apk add --no-cache \
         cni-plugins@edge-community \

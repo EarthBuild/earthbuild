@@ -144,6 +144,7 @@ jobs:
       - name: Release to DockerHub (main)
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
@@ -153,7 +154,8 @@ jobs:
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
             --PUSH_PRERELEASE_TAG="true" \
             --PUSH_LATEST_TAG="false" \
-            --RELEASE_TAG="${{ env.RELEASE_TAG }}"
+            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
+            --VERSION="${{ env.VERSION }}"
 
   release-ticktock-image:
     name: release dockerhub (ticktock)

@@ -676,9 +676,9 @@ test-misc:
     BUILD +earthly-script-no-stdout
 
 test-ast:
-    BUILD --pass-args ./ast/tests+group1
-    BUILD --pass-args ./ast/tests+group2
-    BUILD --pass-args ./ast/tests+group3
+    BUILD --pass-args ./internal/earthfile/tests+group1
+    BUILD --pass-args ./internal/earthfile/tests+group2
+    BUILD --pass-args ./internal/earthfile/tests+group3
 
 # test-no-qemu-group1 runs the tests from ./tests+ga-no-qemu-group1
 test-no-qemu-group1:

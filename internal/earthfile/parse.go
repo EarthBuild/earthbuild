@@ -1,5 +1,3 @@
-// Package earthfile provides the top-level functions for parsing Earthfiles from paths or readers
-// into an Abstract Syntax Tree.
 package earthfile
 
 import (

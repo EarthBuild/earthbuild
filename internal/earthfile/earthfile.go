@@ -1,4 +1,4 @@
-// Package earthfile defines the core Earthfile AST structure.
+// Package earthfile defines the core Earthfile AST structure and provides parsing entry points.
 package earthfile
 
 import "github.com/EarthBuild/earthbuild/internal/earthfile/parse"

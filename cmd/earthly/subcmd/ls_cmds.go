@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
@@ -114,10 +114,10 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 
 	targets = append(targets, earthfile.TargetBase)
 	sort.Strings(targets)
- 
+
 	for _, t := range targets {
 		var args []string
- 
+
 		if t != earthfile.TargetBase {
 			target.Target = t
 

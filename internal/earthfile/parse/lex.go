@@ -776,6 +776,12 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 
 			return lexRecipe
 		case r == '#':
+			if !isCommentStart(l) {
+				l.next()
+
+				continue
+			}
+
 			if isFullLineComment(l) {
 				l.next() // consume '#'
 
@@ -898,6 +904,12 @@ func lexGlobalCommandArgs(l *lexer) stateFn {
 
 			return lexNL
 		case r == '#':
+			if !isCommentStart(l) {
+				l.next()
+
+				continue
+			}
+
 			if isFullLineComment(l) {
 				l.next() // consume '#'
 
@@ -1019,6 +1031,20 @@ func isFullLineComment(l *lexer) bool {
 	}
 
 	return true
+}
+
+func isCommentStart(l *lexer) bool {
+	if l.peek() != '#' {
+		return false
+	}
+
+	if l.pos == 0 {
+		return true
+	}
+
+	prev := l.input[l.pos-1]
+
+	return prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r'
 }
 
 func lexConsumeEscapeOrContinuation(l *lexer) {

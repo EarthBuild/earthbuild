@@ -879,10 +879,10 @@ build:
 			},
 		},
 		{
-			name: "ARG with empty value",
+			name: "hash sign in middle of parameter expansion",
 			input: `VERSION 0.8
 build:
-  ARG myarg=
+  RUN GOARM=${VARIANT#v} go build -o main main.go
 `,
 			want: Tree{
 				Version: &Version{
@@ -894,8 +894,8 @@ build:
 						Recipe: Block{
 							{
 								Command: &Command{
-									Name: "ARG",
-									Args: []string{"myarg", "=", ""},
+									Name: "RUN",
+									Args: []string{"GOARM=${VARIANT#v}", "go", "build", "-o", "main", "main.go"},
 								},
 							},
 						},

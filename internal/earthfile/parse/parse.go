@@ -426,7 +426,7 @@ func (p *parser) parseBlock() (Block, error) {
 			break
 		}
 
-		if t.Typ == ItemEOF || t.Typ == ItemTarget || t.Typ == ItemUserCommand {
+		if t.Typ == ItemEOF || t.Typ == ItemTarget || t.Typ == ItemUserCommand || t.Typ == ItemFunction {
 			// empty block
 			return block, nil
 		}
@@ -436,7 +436,6 @@ func (p *parser) parseBlock() (Block, error) {
 
 	for {
 		tok := p.peek()
-		println("DEBUG parseBlock token:", tok.Typ, tok.Val)
 
 		switch tok.Typ {
 		case ItemDedent, ItemEOF:
@@ -832,8 +831,7 @@ func (p *parser) parseIf() (IfStatement, error) {
 
 			return ifStmt, nil
 		default:
-			// No more clauses. Return the IF statement.
-			return ifStmt, nil
+			return ifStmt, p.errorf(tok.Pos, "expected END to close IF statement, got %s", tok.Val)
 		}
 	}
 }
@@ -862,13 +860,16 @@ func (p *parser) parseFor() (ForStatement, error) {
 		p.next()
 	}
 
-	if tok := p.peek(); tok.Typ == ItemEnd {
-		p.next()
+	tok := p.peek()
+	if tok.Typ != ItemEnd {
+		return forStmt, p.errorf(tok.Pos, "expected END to close FOR statement, got %s", tok.Val)
+	}
 
-		_, _, err := p.parseArgsUntilNL()
-		if err != nil {
-			return forStmt, err
-		}
+	p.next()
+
+	_, _, err = p.parseArgsUntilNL()
+	if err != nil {
+		return forStmt, err
 	}
 
 	return forStmt, nil
@@ -935,7 +936,7 @@ func (p *parser) parseTry() (TryStatement, error) {
 
 			return tryStmt, nil
 		default:
-			return tryStmt, nil
+			return tryStmt, p.errorf(tok.Pos, "expected END to close TRY statement, got %s", tok.Val)
 		}
 	}
 }
@@ -968,13 +969,16 @@ func (p *parser) parseWith() (WithStatement, error) {
 		p.next()
 	}
 
-	if tok := p.peek(); tok.Typ == ItemEnd {
-		p.next()
+	tok := p.peek()
+	if tok.Typ != ItemEnd {
+		return withStmt, p.errorf(tok.Pos, "expected END to close WITH statement, got %s", tok.Val)
+	}
 
-		_, _, err := p.parseArgsUntilNL()
-		if err != nil {
-			return withStmt, err
-		}
+	p.next()
+
+	_, _, err = p.parseArgsUntilNL()
+	if err != nil {
+		return withStmt, err
 	}
 
 	return withStmt, nil
@@ -1002,13 +1006,16 @@ func (p *parser) parseWait() (WaitStatement, error) {
 		p.next()
 	}
 
-	if tok := p.peek(); tok.Typ == ItemEnd {
-		p.next()
+	tok := p.peek()
+	if tok.Typ != ItemEnd {
+		return waitStmt, p.errorf(tok.Pos, "expected END to close WAIT statement, got %s", tok.Val)
+	}
 
-		_, _, err := p.parseArgsUntilNL()
-		if err != nil {
-			return waitStmt, err
-		}
+	p.next()
+
+	_, _, err = p.parseArgsUntilNL()
+	if err != nil {
+		return waitStmt, err
 	}
 
 	return waitStmt, nil
@@ -1071,6 +1078,12 @@ func splitKeyValueArg(s string) []string {
 
 			out = append(out, "=")
 			start = i + 1
+
+			if start < len(s) {
+				out = append(out, s[start:])
+			}
+
+			return out
 		}
 	}
 
@@ -1097,6 +1110,49 @@ func replaceEscape(str string) string {
 		c := str[i]
 
 		switch {
+		case c == '\\':
+			switch {
+			case inDouble:
+				sb.WriteByte(c)
+
+				i++
+
+				if i < len(str) {
+					sb.WriteByte(str[i])
+
+					i++
+				}
+
+			case inSingle:
+				sb.WriteByte(c)
+
+				i++
+
+				if i < len(str) {
+					sb.WriteByte(str[i])
+
+					i++
+				}
+
+			default:
+				rem := str[i:]
+				loc := stripLineContinuationRegexp.FindStringIndex(rem)
+
+				if loc != nil && loc[0] == 0 {
+					i += loc[1]
+				} else {
+					sb.WriteByte(c)
+
+					i++
+
+					if i < len(str) {
+						sb.WriteByte(str[i])
+
+						i++
+					}
+				}
+			}
+
 		case c == '"' && !inSingle:
 			inDouble = !inDouble
 
@@ -1110,18 +1166,6 @@ func replaceEscape(str string) string {
 			sb.WriteByte(c)
 
 			i++
-
-		case !inDouble && !inSingle && c == '\\':
-			rem := str[i:]
-			loc := stripLineContinuationRegexp.FindStringIndex(rem)
-
-			if loc != nil && loc[0] == 0 {
-				i += loc[1]
-			} else {
-				sb.WriteByte(c)
-
-				i++
-			}
 
 		default:
 			sb.WriteByte(c)

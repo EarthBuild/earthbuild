@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -676,6 +677,31 @@ thebug:
 			},
 		},
 		{
+			name: "ARG with value containing equals sign",
+			input: `VERSION 0.8
+test:
+  ARG MY_URL=https://example.com?foo=bar
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "ARG",
+									Args: []string{"MY_URL", "=", "https://example.com?foo=bar"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "regression test for single-quoted commands",
 			input: `VERSION 0.8
 FROM alpine:3.24.0
@@ -709,6 +735,71 @@ test:
 								Command: &Command{
 									Name: "RUN",
 									Args: []string{"'echo \"message\"'"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "empty target followed by function definition",
+			input: `VERSION 0.8
+build:
+FUNCTION my-func
+  FROM alpine:3.18
+  RUN echo "func"
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name:   "build",
+						Recipe: nil,
+					},
+				},
+				Functions: []Function{
+					{
+						Name: "FUNCTION my-func",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "FROM",
+									Args: []string{"alpine:3.18"},
+								},
+							},
+							{
+								Command: &Command{
+									Name: "RUN",
+									Args: []string{"echo", "\"func\""},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "escaped quotes and line continuations",
+			input: `VERSION 0.8
+test:
+  RUN echo \"\
+    hello
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "RUN",
+									Args: []string{"echo", `\"hello`},
 								},
 							},
 						},
@@ -805,5 +896,76 @@ func zeroBlockSourceLocations(block Block) {
 			block[i].Wait.SourceLocation = nil
 			zeroBlockSourceLocations(block[i].Wait.Body)
 		}
+	}
+}
+
+func TestParseErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     string
+		wantError string
+	}{
+		{
+			name: "if block missing END",
+			input: `VERSION 0.8
+build:
+  IF [ "$VAR" = "1" ]
+    RUN echo "yes"
+`,
+			wantError: "expected END to close IF statement",
+		},
+		{
+			name: "for block missing END",
+			input: `VERSION 0.8
+build:
+  FOR arg IN foo bar
+    RUN echo $arg
+`,
+			wantError: "expected END to close FOR statement",
+		},
+		{
+			name: "try block missing END",
+			input: `VERSION 0.8
+build:
+  TRY
+    RUN echo "try"
+`,
+			wantError: "expected END to close TRY statement",
+		},
+		{
+			name: "with block missing END",
+			input: `VERSION 0.8
+build:
+  WITH DOCKER --pull alpine:3.18
+    RUN echo "with"
+`,
+			wantError: "expected END to close WITH statement",
+		},
+		{
+			name: "wait block missing END",
+			input: `VERSION 0.8
+build:
+  WAIT
+    RUN echo "wait"
+`,
+			wantError: "expected END to close WAIT statement",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := Parse("Earthfile", tc.input)
+			if err == nil {
+				t.Fatalf("expected parse error, got nil")
+			}
+
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Errorf("expected error containing %q, got %q", tc.wantError, err.Error())
+			}
+		})
 	}
 }

@@ -507,6 +507,8 @@ func lexIdentifier(l *lexer) stateFn {
 
 	// Fallback to command keyword since it's not a target
 	l.pos = l.start
+	l.col = l.startCol
+	l.line = l.startLine
 
 	return lexCommandKeyword
 }
@@ -548,7 +550,8 @@ func lexRecipe(l *lexer) stateFn {
 			l.ignore() // we don't emit WS for indentation, we emit ItemIndent/Dedent
 		}
 
-		if nextState := l.checkIndent(indent); nextState != nil {
+		nextState := l.checkIndent(indent)
+		if nextState != nil {
 			return nextState
 		}
 	}

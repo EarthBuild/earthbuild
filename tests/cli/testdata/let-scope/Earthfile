@@ -6,6 +6,11 @@ LET foo=baz
 
 RUN test "$foo" = "baz"
 
+all:
+    BUILD +base
+    BUILD +let-overrides-arg
+    BUILD +let-overrides-global-arg
+
 let-overrides-arg:
     ARG bar = baz
     LET bar = foo

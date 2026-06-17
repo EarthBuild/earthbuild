@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -194,7 +193,7 @@ func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.E
 			return nil, fmt.Errorf("want string, got %T", k)
 		}
 
-		return ast.Parse(filePath, true)
+		return earthfile.ParseFile(filePath, true)
 	})
 	if err != nil {
 		return earthfile.Earthfile{}, err

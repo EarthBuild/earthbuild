@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/jessevdk/go-flags"
@@ -296,23 +295,23 @@ var (
 // and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(
 	cmd earthfile.Command, isBaseTarget, explicitGlobalFeature bool,
-) (commandflag.ArgOpts, string, *string, error) {
-	var opts commandflag.ArgOpts
+) (earthfile.ArgOpts, string, *string, error) {
+	var opts earthfile.ArgOpts
 
 	args, err := ParseArgsCleaned("ARG", &opts, GetArgsCopy(cmd))
 	if err != nil {
-		return commandflag.ArgOpts{}, "", nil, err
+		return earthfile.ArgOpts{}, "", nil, err
 	}
 
 	if opts.Global {
 		// since the global flag is part of the struct, we need to manually return parsing error
 		// if it's used while the feature flag is off
 		if !explicitGlobalFeature {
-			return commandflag.ArgOpts{}, "", nil, errors.New("unknown flag --global")
+			return earthfile.ArgOpts{}, "", nil, errors.New("unknown flag --global")
 		}
 		// global flag can only bet set on base targets
 		if !isBaseTarget {
-			return commandflag.ArgOpts{}, "", nil, ErrGlobalArgNotInBase
+			return earthfile.ArgOpts{}, "", nil, ErrGlobalArgNotInBase
 		}
 	} else if !explicitGlobalFeature {
 		// if the feature flag is off, all base target args are considered global
@@ -322,18 +321,18 @@ func ParseArgArgs(
 	switch len(args) {
 	case 3:
 		if args[1] != "=" {
-			return commandflag.ArgOpts{}, "", nil, ErrInvalidSyntax
+			return earthfile.ArgOpts{}, "", nil, ErrInvalidSyntax
 		}
 
 		if opts.Required {
-			return commandflag.ArgOpts{}, "", nil, ErrRequiredArgHasDefault
+			return earthfile.ArgOpts{}, "", nil, ErrRequiredArgHasDefault
 		}
 
 		return opts, args[0], &args[2], nil
 	case 1:
 		return opts, args[0], nil, nil
 	default:
-		return commandflag.ArgOpts{}, "", nil, ErrInvalidSyntax
+		return earthfile.ArgOpts{}, "", nil, ErrInvalidSyntax
 	}
 }
 

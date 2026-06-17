@@ -1,18 +1,17 @@
-package ast
+package earthfile
 
 import (
 	"bufio"
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
-
 	"github.com/pkg/errors"
 )
 
-// ParseVersion reads the VERSION command for an Earthfile and returns earthfile.Version.
-func ParseVersion(filePath string, enableSourceMap bool) (*earthfile.Version, error) {
+// ParseVersion reads the VERSION command for an Earthfile and returns Version.
+func ParseVersion(filePath string, enableSourceMap bool) (*Version, error) {
 	var opts []Opt
+
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
 	}
@@ -21,22 +20,22 @@ func ParseVersion(filePath string, enableSourceMap bool) (*earthfile.Version, er
 }
 
 // ParseVersionOpts reads the VERSION command for an Earthfile and returns a
-// earthfile.Version. This is the functional option version, which uses options to
+// Version. This is the functional option version, which uses options to
 // change how a file is parsed.
-func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*earthfile.Version, error) {
+func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*Version, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}
 
 	prefs, err := fromOpt(defaultPrefs)
 	if err != nil {
-		return nil, errors.Wrap(err, "ast: could not apply ParseVersion from opt")
+		return nil, errors.Wrap(err, "earthfile: could not apply ParseVersion from opt")
 	}
 
 	for _, opt := range opts {
 		newPrefs, err := opt(prefs)
 		if err != nil {
-			return nil, errors.Wrap(err, "ast: could not apply ParseVersion opts")
+			return nil, errors.Wrap(err, "earthfile: could not apply ParseVersion opts")
 		}
 
 		prefs = newPrefs
@@ -45,10 +44,9 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*earthfile.Version, error) 
 	file := prefs.reader
 	defer prefs.done()
 
-	var version earthfile.Version
+	var version Version
 
 	foundVersion := false
-
 	scanner := bufio.NewScanner(file)
 	i := 0
 
@@ -75,7 +73,6 @@ outer:
 		}
 
 		fields := strings.Fields(l)
-
 		if len(fields) == 0 {
 			continue
 		}
@@ -128,11 +125,10 @@ outer:
 		}
 
 		endLine = i
-
 		version.Args = args
 
 		if prefs.enableSourceMap {
-			version.SourceLocation = &earthfile.SourceLocation{
+			version.SourceLocation = &SourceLocation{
 				File:        file.Name(),
 				StartLine:   startLine,
 				StartColumn: 0,

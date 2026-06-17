@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/builder"
@@ -322,7 +322,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	}
 
 	for secretKey := range secretsMap {
-		if !ast.IsValidEnvVarName(secretKey) {
+		if !earthfile.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
 			// see https://github.com/earthly/earthly/issues/2883
 			b.cli.Console().Warnf(

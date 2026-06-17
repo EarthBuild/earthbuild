@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 )
 
@@ -51,7 +51,7 @@ func BenchmarkANTLRParser(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		_, err := ast.Parse(filePath, true)
+		_, err := earthfile.ParseFile(filePath, true)
 		if err != nil {
 			b.Fatal(err)
 		}

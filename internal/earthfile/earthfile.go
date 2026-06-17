@@ -1,6 +1,8 @@
 // Package earthfile defines the core Earthfile AST structure.
 package earthfile
 
+import "github.com/EarthBuild/earthbuild/internal/earthfile/parse"
+
 // Earthfile is the AST representation of an Earthfile.
 type Earthfile struct {
 	Version        *Version        `json:"version,omitempty"`
@@ -121,4 +123,231 @@ type SourceLocation struct {
 	StartColumn int    `json:"startColumn"`
 	EndLine     int    `json:"endLine"`
 	EndColumn   int    `json:"endColumn"`
+}
+
+// Parse parses the Earthfile text and returns an Earthfile.
+func Parse(name, text string) (Earthfile, error) {
+	tree, err := parse.Parse(name, text)
+	if err != nil {
+		return Earthfile{}, err
+	}
+
+	return mapTree(tree), nil
+}
+
+func mapSourceLocation(src *parse.SourceLocation) *SourceLocation {
+	if src == nil {
+		return nil
+	}
+
+	return &SourceLocation{
+		File:        src.File,
+		StartLine:   src.StartLine,
+		StartColumn: src.StartColumn,
+		EndLine:     src.EndLine,
+		EndColumn:   src.EndColumn,
+	}
+}
+
+func mapVersion(v *parse.Version) *Version {
+	if v == nil {
+		return nil
+	}
+
+	return &Version{
+		SourceLocation: mapSourceLocation(v.SourceLocation),
+		Args:           v.Args,
+	}
+}
+
+func mapBlock(b parse.Block) Block {
+	if b == nil {
+		return nil
+	}
+
+	res := make(Block, len(b))
+
+	for i, stmt := range b {
+		res[i] = mapStatement(stmt)
+	}
+
+	return res
+}
+
+func mapStatement(s parse.Statement) Statement {
+	return Statement{
+		Command:        mapCommand(s.Command),
+		With:           mapWithStatement(s.With),
+		If:             mapIfStatement(s.If),
+		Try:            mapTryStatement(s.Try),
+		For:            mapForStatement(s.For),
+		Wait:           mapWaitStatement(s.Wait),
+		SourceLocation: mapSourceLocation(s.SourceLocation),
+	}
+}
+
+func mapCommand(c *parse.Command) *Command {
+	if c == nil {
+		return nil
+	}
+
+	return &Command{
+		Name:           c.Name,
+		Docs:           c.Docs,
+		SourceLocation: mapSourceLocation(c.SourceLocation),
+		Args:           c.Args,
+		ExecMode:       c.ExecMode,
+	}
+}
+
+func mapWithStatement(w *parse.WithStatement) *WithStatement {
+	if w == nil {
+		return nil
+	}
+
+	var cmd Command
+
+	if w.Command.SourceLocation != nil {
+		cmd = *mapCommand(&w.Command)
+	} else {
+		cmd = Command{
+			Name:     w.Command.Name,
+			Docs:     w.Command.Docs,
+			Args:     w.Command.Args,
+			ExecMode: w.Command.ExecMode,
+		}
+	}
+
+	return &WithStatement{
+		SourceLocation: mapSourceLocation(w.SourceLocation),
+		Body:           mapBlock(w.Body),
+		Command:        cmd,
+	}
+}
+
+func mapIfStatement(f *parse.IfStatement) *IfStatement {
+	if f == nil {
+		return nil
+	}
+
+	var elseBody *Block
+
+	if f.ElseBody != nil {
+		eb := mapBlock(*f.ElseBody)
+		elseBody = &eb
+	}
+
+	var elseIfs []ElseIf
+
+	if f.ElseIf != nil {
+		elseIfs = make([]ElseIf, len(f.ElseIf))
+
+		for i, ei := range f.ElseIf {
+			elseIfs[i] = ElseIf{
+				SourceLocation: mapSourceLocation(ei.SourceLocation),
+				Expression:     ei.Expression,
+				Body:           mapBlock(ei.Body),
+				ExecMode:       ei.ExecMode,
+			}
+		}
+	}
+
+	return &IfStatement{
+		ElseBody:       elseBody,
+		SourceLocation: mapSourceLocation(f.SourceLocation),
+		Expression:     f.Expression,
+		ElseIf:         elseIfs,
+		IfBody:         mapBlock(f.IfBody),
+		ExecMode:       f.ExecMode,
+	}
+}
+
+func mapTryStatement(t *parse.TryStatement) *TryStatement {
+	if t == nil {
+		return nil
+	}
+
+	var catchBody *Block
+
+	if t.CatchBody != nil {
+		cb := mapBlock(*t.CatchBody)
+		catchBody = &cb
+	}
+
+	var finallyBody *Block
+
+	if t.FinallyBody != nil {
+		fb := mapBlock(*t.FinallyBody)
+		finallyBody = &fb
+	}
+
+	return &TryStatement{
+		CatchBody:      catchBody,
+		FinallyBody:    finallyBody,
+		SourceLocation: mapSourceLocation(t.SourceLocation),
+		TryBody:        mapBlock(t.TryBody),
+	}
+}
+
+func mapForStatement(f *parse.ForStatement) *ForStatement {
+	if f == nil {
+		return nil
+	}
+
+	return &ForStatement{
+		SourceLocation: mapSourceLocation(f.SourceLocation),
+		Args:           f.Args,
+		Body:           mapBlock(f.Body),
+	}
+}
+
+func mapWaitStatement(w *parse.WaitStatement) *WaitStatement {
+	if w == nil {
+		return nil
+	}
+
+	return &WaitStatement{
+		SourceLocation: mapSourceLocation(w.SourceLocation),
+		Args:           w.Args,
+		Body:           mapBlock(w.Body),
+	}
+}
+
+func mapTree(tree parse.Tree) Earthfile {
+	var targets []Target
+
+	if tree.Targets != nil {
+		targets = make([]Target, len(tree.Targets))
+
+		for i, t := range tree.Targets {
+			targets[i] = Target{
+				SourceLocation: mapSourceLocation(t.SourceLocation),
+				Name:           t.Name,
+				Docs:           t.Docs,
+				Recipe:         mapBlock(t.Recipe),
+			}
+		}
+	}
+
+	var functions []Function
+
+	if tree.Functions != nil {
+		functions = make([]Function, len(tree.Functions))
+
+		for i, fn := range tree.Functions {
+			functions[i] = Function{
+				SourceLocation: mapSourceLocation(fn.SourceLocation),
+				Name:           fn.Name,
+				Recipe:         mapBlock(fn.Recipe),
+			}
+		}
+	}
+
+	return Earthfile{
+		Version:        mapVersion(tree.Version),
+		SourceLocation: mapSourceLocation(tree.SourceLocation),
+		Targets:        targets,
+		Functions:      functions,
+		BaseRecipe:     mapBlock(tree.BaseRecipe),
+	}
 }

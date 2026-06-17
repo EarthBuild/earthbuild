@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/containerd/platforms"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
@@ -107,7 +107,7 @@ func (a *Debug) actionAst(_ context.Context, cmd *cli.Command) error {
 		path = cmd.Args().First()
 	}
 
-	ef, err := ast.Parse(path, a.enableSourceMap)
+	ef, err := earthfile.ParseFile(path, a.enableSourceMap)
 	if err != nil {
 		return err
 	}

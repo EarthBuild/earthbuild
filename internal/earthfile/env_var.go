@@ -1,4 +1,4 @@
-package ast
+package earthfile
 
 import "regexp"
 

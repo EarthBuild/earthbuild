@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
@@ -66,7 +64,7 @@ func GetTargetArgs(
 
 	for _, stmt := range t.Recipe {
 		if stmt.Command != nil && stmt.Command.Name == "ARG" {
-			isBase := t.Name == ast.TargetBase
+			isBase := t.Name == earthfile.TargetBase
 			// since Arg opts are ignored (and feature flags are not available) we set explicitGlobalArgFlag as false
 			explicitGlobal := false
 
@@ -120,7 +118,7 @@ func ArtifactName(cmd earthfile.Command) (string, *string, error) {
 
 // ImageNames returns the parsed names of a SAVE IMAGE command.
 func ImageNames(cmd earthfile.Command) ([]string, error) {
-	var opts commandflag.SaveImageOpts
+	var opts earthfile.SaveImageOpts
 
 	args, err := flagutil.ParseArgs("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {

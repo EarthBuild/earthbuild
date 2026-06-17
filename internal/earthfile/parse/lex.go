@@ -11,6 +11,80 @@ import (
 // ItemType identifies the type of lex items.
 type ItemType int
 
+// String returns the canonical command string representation of the ItemType.
+func (t ItemType) String() string {
+	switch t {
+	case ItemAdd:
+		return CmdAdd
+	case ItemArg:
+		return CmdArg
+	case ItemBuild:
+		return CmdBuild
+	case ItemCache:
+		return CmdCache
+	case ItemCmd:
+		return CmdCmd
+	case ItemCommand:
+		return CmdCommand
+	case ItemFunctionKW:
+		return CmdFunction
+	case ItemCopy:
+		return CmdCopy
+	case ItemDo:
+		return CmdDo
+	case ItemDocker:
+		return CmdDocker
+	case ItemEntrypoint:
+		return CmdEntrypoint
+	case ItemEnv:
+		return CmdEnv
+	case ItemExpose:
+		return CmdExpose
+	case ItemFrom:
+		return CmdFrom
+	case ItemFromDockerfile:
+		return CmdFromDockerfile
+	case ItemGitClone:
+		return CmdGitClone
+	case ItemHealthCheck:
+		return CmdHealthCheck
+	case ItemHost:
+		return CmdHost
+	case ItemImport:
+		return CmdImport
+	case ItemLabel:
+		return CmdLabel
+	case ItemLet:
+		return CmdLet
+	case ItemLocally:
+		return CmdLocally
+	case ItemOnBuild:
+		return CmdOnBuild
+	case ItemProject:
+		return CmdProject
+	case ItemRun:
+		return CmdRun
+	case ItemSaveArtifact:
+		return CmdSaveArtifact
+	case ItemSaveImage:
+		return CmdSaveImage
+	case ItemSet:
+		return CmdSet
+	case ItemShell:
+		return CmdShell
+	case ItemStopSignal:
+		return CmdStopSignal
+	case ItemUser:
+		return CmdUser
+	case ItemVolume:
+		return CmdVolume
+	case ItemWorkdir:
+		return CmdWorkdir
+	}
+
+	return ""
+}
+
 // ItemType constants.
 const (
 	// ItemError represents an error.
@@ -119,80 +193,6 @@ const (
 	CmdVolume         = "VOLUME"
 	CmdWorkdir        = "WORKDIR"
 )
-
-// CommandString returns the canonical command string representation of the ItemType.
-func (t ItemType) CommandString() string {
-	switch t {
-	case ItemAdd:
-		return CmdAdd
-	case ItemArg:
-		return CmdArg
-	case ItemBuild:
-		return CmdBuild
-	case ItemCache:
-		return CmdCache
-	case ItemCmd:
-		return CmdCmd
-	case ItemCommand:
-		return CmdCommand
-	case ItemFunctionKW:
-		return CmdFunction
-	case ItemCopy:
-		return CmdCopy
-	case ItemDo:
-		return CmdDo
-	case ItemDocker:
-		return CmdDocker
-	case ItemEntrypoint:
-		return CmdEntrypoint
-	case ItemEnv:
-		return CmdEnv
-	case ItemExpose:
-		return CmdExpose
-	case ItemFrom:
-		return CmdFrom
-	case ItemFromDockerfile:
-		return CmdFromDockerfile
-	case ItemGitClone:
-		return CmdGitClone
-	case ItemHealthCheck:
-		return CmdHealthCheck
-	case ItemHost:
-		return CmdHost
-	case ItemImport:
-		return CmdImport
-	case ItemLabel:
-		return CmdLabel
-	case ItemLet:
-		return CmdLet
-	case ItemLocally:
-		return CmdLocally
-	case ItemOnBuild:
-		return CmdOnBuild
-	case ItemProject:
-		return CmdProject
-	case ItemRun:
-		return CmdRun
-	case ItemSaveArtifact:
-		return CmdSaveArtifact
-	case ItemSaveImage:
-		return CmdSaveImage
-	case ItemSet:
-		return CmdSet
-	case ItemShell:
-		return CmdShell
-	case ItemStopSignal:
-		return CmdStopSignal
-	case ItemUser:
-		return CmdUser
-	case ItemVolume:
-		return CmdVolume
-	case ItemWorkdir:
-		return CmdWorkdir
-	}
-
-	return ""
-}
 
 const eof = -1
 

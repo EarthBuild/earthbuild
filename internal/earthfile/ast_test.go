@@ -1,10 +1,9 @@
-package ast_test
+package earthfile_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +16,7 @@ func (n *namedStringReader) Name() string {
 	return "Earthfile"
 }
 
-var _ ast.NamedReader = &namedStringReader{}
+var _ earthfile.NamedReader = &namedStringReader{}
 
 func TestParse(t *testing.T) {
 	t.Parallel()
@@ -651,7 +650,7 @@ test:
 			t.Parallel()
 
 			r := namedStringReader{strings.NewReader(test.earthfile)}
-			s, err := ast.ParseOpts(ast.FromReader(&r))
+			s, err := earthfile.ParseOpts(earthfile.FromReader(&r))
 			test.check(require.New(t), s, err)
 		})
 	}

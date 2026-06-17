@@ -51,7 +51,7 @@ code:
         docker2earth dockertar domain features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
-    COPY --dir ast/commandflag ast/*.go ast/
+    COPY --dir ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 

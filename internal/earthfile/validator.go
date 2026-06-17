@@ -1,10 +1,9 @@
-package ast
+package earthfile
 
 import (
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/pkg/errors"
 )
 
@@ -23,7 +22,7 @@ var errUnexpectedVersionArgs = errors.New(
 	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
 )
 
-type astValidator func(earthfile.Earthfile) []error
+type astValidator func(Earthfile) []error
 
 var astValidations = []astValidator{
 	noTargetsWithSameName,
@@ -32,7 +31,7 @@ var astValidations = []astValidator{
 	// TODO other checks go here
 }
 
-func validateAst(ef earthfile.Earthfile) error {
+func validateAst(ef Earthfile) error {
 	var errs []error
 
 	for _, v := range astValidations {
@@ -70,7 +69,7 @@ func getValidVersionsFormatted() string {
 	return sb.String()
 }
 
-func validVersion(ef earthfile.Earthfile) []error {
+func validVersion(ef Earthfile) []error {
 	var errs []error
 
 	// VERSION is not required in Earthfile for now
@@ -97,7 +96,7 @@ func validVersion(ef earthfile.Earthfile) []error {
 	return errs
 }
 
-func noTargetsWithSameName(ef earthfile.Earthfile) []error {
+func noTargetsWithSameName(ef Earthfile) []error {
 	var errs []error
 
 	seenTargets := map[string]struct{}{}
@@ -115,7 +114,7 @@ func noTargetsWithSameName(ef earthfile.Earthfile) []error {
 	return errs
 }
 
-func noTargetsWithKeywords(ef earthfile.Earthfile) []error {
+func noTargetsWithKeywords(ef Earthfile) []error {
 	var errs []error
 
 	for _, t := range ef.Targets {

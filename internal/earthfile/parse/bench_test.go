@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	newast "github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 )
 
@@ -31,7 +31,7 @@ func BenchmarkParse_ANTLR(b *testing.B) {
 	for range b.N {
 		r := namedStringReader{strings.NewReader(benchmarkEarthfile)}
 
-		_, err := ast.ParseOpts(ast.FromReader(&r))
+		_, err := earthfile.ParseOpts(earthfile.FromReader(&r))
 		if err != nil {
 			b.Fatal(err)
 		}

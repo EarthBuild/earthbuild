@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -1723,7 +1722,7 @@ func (c *Converter) Env(_ context.Context, envKey string, envValue string) error
 }
 
 // Arg applies the ARG command.
-func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue string, opts commandflag.ArgOpts) error {
+func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue string, opts earthfile.ArgOpts) error {
 	err := c.checkAllowed(argCmd)
 	if err != nil {
 		return err
@@ -1999,7 +1998,7 @@ func (c *Converter) Import(
 // Cache handles a `CACHE` command in a Target.
 // It appends run options to the Converter which will mount a cache volume in each successive `RUN` command,
 // and configures the `Converter` to persist the cache in the image at the end of the target.
-func (c *Converter) Cache(_ context.Context, mountTarget string, opts commandflag.CacheOpts) error {
+func (c *Converter) Cache(_ context.Context, mountTarget string, opts earthfile.CacheOpts) error {
 	err := c.checkAllowed(cacheCmd)
 	if err != nil {
 		return err

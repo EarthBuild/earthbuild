@@ -11,8 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
@@ -81,7 +79,7 @@ func (i *Interpreter) Run(ctx context.Context, ef earthfile.Earthfile) (retErr e
 		}
 	}()
 
-	if i.target.Target == ast.TargetBase {
+	if i.target.Target == earthfile.TargetBase {
 		i.isBase = true
 		err := i.handleBlock(ctx, ef.BaseRecipe)
 		i.isBase = false
@@ -374,7 +372,7 @@ func (i *Interpreter) handleIfExpression(
 		return false, i.errorf(sl, "not enough arguments for IF")
 	}
 
-	opts := commandflag.IfOpts{}
+	opts := earthfile.IfOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("IF", &opts, expression)
 	if err != nil {
@@ -454,7 +452,7 @@ func (i *Interpreter) handleFor(ctx context.Context, forStmt earthfile.ForStatem
 func (i *Interpreter) handleForArgs(
 	ctx context.Context, forArgs []string, sl *earthfile.SourceLocation,
 ) (string, []string, error) {
-	opts := commandflag.NewForOpts()
+	opts := earthfile.NewForOpts()
 
 	args, err := flagutil.ParseArgsCleaned("FOR", &opts, forArgs)
 	if err != nil {
@@ -558,7 +556,7 @@ func (i *Interpreter) handleTry(ctx context.Context, tryStmt earthfile.TryStatem
 				"CATCH/FINALLY body only (currently) supports SAVE ARTIFACT ... AS LOCAL commands; got %s", cmd.Command.Name)
 		}
 
-		opts := commandflag.SaveArtifactOpts{}
+		opts := earthfile.SaveArtifactOpts{}
 
 		args, err := flagutil.ParseArgsCleaned("SAVE ARTIFACT", &opts, flagutil.GetArgsCopy(*cmd.Command))
 		if err != nil {
@@ -631,7 +629,7 @@ func (i *Interpreter) handleFrom(ctx context.Context, cmd earthfile.Command) err
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts := commandflag.FromOpts{}
+	opts := earthfile.FromOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("FROM", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -757,7 +755,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 		return i.errorf(cmd.SourceLocation, "not enough arguments for RUN")
 	}
 
-	opts := commandflag.RunOpts{OIDC: defaultZeroStringFlag}
+	opts := earthfile.RunOpts{OIDC: defaultZeroStringFlag}
 
 	args, err := flagutil.
 		ParseArgsWithValueModifierCleaned("RUN", &opts, flagutil.GetArgsCopy(cmd), i.flagValModifierFuncWithContext(ctx))
@@ -913,7 +911,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 // handleOIDC parse the oidc string value into a struct
 // Returns error if the value cannot be parsed of if the feature flag is not set.
 func (i *Interpreter) handleOIDC(
-	ctx context.Context, cmd *earthfile.Command, opts *commandflag.RunOpts,
+	ctx context.Context, cmd *earthfile.Command, opts *earthfile.RunOpts,
 ) (*oidcutil.AWSOIDCInfo, error) {
 	if opts.OIDC == defaultZeroStringFlag {
 		// oidc is not in use, set it to empty string just in case
@@ -949,7 +947,7 @@ func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd earthfile.Co
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts := commandflag.FromDockerfileOpts{}
+	opts := earthfile.FromDockerfileOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("FROM DOCKERFILE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -1053,7 +1051,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts := commandflag.CopyOpts{}
+	opts := earthfile.CopyOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("COPY", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -1319,7 +1317,7 @@ func parseSaveArtifactArgs(args []string) (from, to, asLocal string, _ bool) {
 }
 
 func (i *Interpreter) handleSaveArtifact(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.SaveArtifactOpts{}
+	opts := earthfile.SaveArtifactOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("SAVE ARTIFACT", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -1387,7 +1385,7 @@ func (i *Interpreter) handleSaveArtifact(ctx context.Context, cmd earthfile.Comm
 }
 
 func (i *Interpreter) handleSaveImage(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.SaveImageOpts{}
+	opts := earthfile.SaveImageOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -1472,7 +1470,7 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd earthfile.Command, as
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts := commandflag.BuildOpts{}
+	opts := earthfile.BuildOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("BUILD", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -1856,7 +1854,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd earthfile.Command) erro
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	var opts commandflag.LetOpts
+	var opts earthfile.LetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
 
@@ -1886,7 +1884,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd earthfile.Command) erro
 }
 
 func parseSetArgs(cmd earthfile.Command) (name, value string, _ error) {
-	var opts commandflag.SetOpts
+	var opts earthfile.SetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
 
@@ -1990,7 +1988,7 @@ func (i *Interpreter) handleGitClone(ctx context.Context, cmd earthfile.Command)
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts := commandflag.GitCloneOpts{}
+	opts := earthfile.GitCloneOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("GIT CLONE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -2035,7 +2033,7 @@ func (i *Interpreter) handleHealthcheck(ctx context.Context, cmd earthfile.Comma
 		return i.pushOnlyErr(cmd.SourceLocation)
 	}
 
-	opts := commandflag.HealthCheckOpts{}
+	opts := earthfile.HealthCheckOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("HEALTHCHECK", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -2096,7 +2094,7 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd earthfile.Comman
 		return i.errorf(cmd.SourceLocation, "cannot use WITH DOCKER within WITH DOCKER")
 	}
 
-	opts := commandflag.WithDockerOpts{}
+	opts := earthfile.WithDockerOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("WITH DOCKER", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -2237,7 +2235,7 @@ func (i *Interpreter) handleFunction(cmd earthfile.Command) error {
 }
 
 func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.DoOpts{}
+	opts := earthfile.DoOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("DO", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -2309,7 +2307,7 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 }
 
 func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.ImportOpts{}
+	opts := earthfile.ImportOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("IMPORT", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -2337,7 +2335,7 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) e
 		}
 	}
 
-	isGlobal := (i.target.Target == ast.TargetBase)
+	isGlobal := (i.target.Target == earthfile.TargetBase)
 
 	err = i.converter.Import(ctx, importStr, as, isGlobal, i.allowPrivileged, opts.AllowPrivileged)
 	if err != nil {
@@ -2370,7 +2368,7 @@ func (i *Interpreter) handleCache(ctx context.Context, cmd earthfile.Command) er
 		return i.errorf(cmd.SourceLocation, "the CACHE command is not supported in this version")
 	}
 
-	opts := commandflag.CacheOpts{}
+	opts := earthfile.CacheOpts{}
 
 	args, err := flagutil.ParseArgsCleaned("CACHE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -2678,6 +2676,6 @@ func baseTarget(ref domain.Reference) domain.Target {
 		Tag:       ref.GetTag(),
 		ImportRef: ref.GetImportRef(),
 		LocalPath: ref.GetLocalPath(),
-		Target:    ast.TargetBase,
+		Target:    earthfile.TargetBase,
 	}
 }

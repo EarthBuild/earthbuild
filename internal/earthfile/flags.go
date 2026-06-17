@@ -1,4 +1,4 @@
-package commandflag
+package earthfile
 
 import (
 	"time"

@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -81,7 +79,7 @@ func newLoader(opt HashOpt) *loader {
 }
 
 func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.FromOpts{}
+	opts := earthfile.FromOpts{}
 
 	args, err := flagutil.ParseArgsCleaned(parse.CmdFrom, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -97,7 +95,7 @@ func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
 }
 
 func (l *loader) handleBuild(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.BuildOpts{}
+	opts := earthfile.BuildOpts{}
 
 	args, err := flagutil.ParseArgsCleaned(parse.CmdBuild, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -150,7 +148,7 @@ func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 }
 
 func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.CopyOpts{}
+	opts := earthfile.CopyOpts{}
 
 	args, err := flagutil.ParseArgsCleaned(parse.CmdCopy, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -455,7 +453,7 @@ func (l *loader) handleImport(cmd earthfile.Command, isBase bool) error {
 }
 
 func (l *loader) handleFromDockerfile(ctx context.Context, cmd earthfile.Command) error {
-	opts := commandflag.FromDockerfileOpts{}
+	opts := earthfile.FromDockerfileOpts{}
 
 	args, err := flagutil.ParseArgsCleaned(parse.CmdFromDockerfile, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -515,7 +513,7 @@ func (l *loader) handleArg(cmd earthfile.Command, isBase bool) error {
 }
 
 func (l *loader) handleLet(cmd earthfile.Command) error {
-	var opts commandflag.LetOpts
+	var opts earthfile.LetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
 
@@ -547,7 +545,7 @@ func (l *loader) handleLet(cmd earthfile.Command) error {
 }
 
 func (l *loader) handleSet(cmd earthfile.Command) error {
-	var opts commandflag.SetOpts
+	var opts earthfile.SetOpts
 
 	argsCpy := flagutil.GetArgsCopy(cmd)
 
@@ -602,7 +600,7 @@ func (l *loader) handleWithDocker(ctx context.Context, cmd earthfile.Command) er
 
 	l.hashCommand(cmd)
 
-	opts := commandflag.WithDockerOpts{}
+	opts := earthfile.WithDockerOpts{}
 
 	_, err = flagutil.ParseArgsCleaned("WITH DOCKER", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -831,7 +829,7 @@ func (l *loader) handleIfDefault(ctx context.Context, ifStmt earthfile.IfStateme
 func (l *loader) handleFor(ctx context.Context, forStmt earthfile.ForStatement) error {
 	l.hashForStatement(forStmt)
 
-	opts := commandflag.NewForOpts()
+	opts := earthfile.NewForOpts()
 
 	args, err := flagutil.ParseArgsCleaned("FOR", &opts, forStmt.Args)
 	if err != nil {
@@ -1143,7 +1141,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		}
 	}
 
-	isBase := l.target.Target == ast.TargetBase
+	isBase := l.target.Target == earthfile.TargetBase
 
 	// Since "base" is always processed above, there's not need to revisit it here.
 	if !isBase {

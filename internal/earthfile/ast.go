@@ -1,12 +1,10 @@
-// Package ast provides the top-level functions for parsing Earthfiles from paths or readers
+// Package earthfile provides the top-level functions for parsing Earthfiles from paths or readers
 // into an Abstract Syntax Tree.
-package ast
+package earthfile
 
 import (
 	"io"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/pkg/errors"
 )
 
@@ -14,8 +12,8 @@ import (
 // Earthfile is parsed which does not have any targets.
 const TargetBase = "base"
 
-// Parse parses an earthfile into an AST.
-func Parse(filePath string, enableSourceMap bool) (ef earthfile.Earthfile, err error) {
+// ParseFile parses an earthfile into an AST.
+func ParseFile(filePath string, enableSourceMap bool) (ef Earthfile, err error) {
 	var opts []Opt
 	if enableSourceMap {
 		opts = append(opts, WithSourceMap())
@@ -26,20 +24,20 @@ func Parse(filePath string, enableSourceMap bool) (ef earthfile.Earthfile, err e
 
 // ParseOpts parses an earthfile into an AST. This is the functional option
 // version, which uses option functions to change how a file is parsed.
-func ParseOpts(from FromOpt, opts ...Opt) (earthfile.Earthfile, error) {
+func ParseOpts(from FromOpt, opts ...Opt) (Earthfile, error) {
 	defaultPrefs := prefs{
 		done: func() {},
 	}
 
 	preferences, err := from(defaultPrefs)
 	if err != nil {
-		return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not apply FromOpt")
+		return Earthfile{}, errors.Wrap(err, "ast: could not apply FromOpt")
 	}
 
 	for _, opt := range opts {
 		preferences, err = opt(preferences)
 		if err != nil {
-			return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not apply options")
+			return Earthfile{}, errors.Wrap(err, "ast: could not apply options")
 		}
 	}
 
@@ -47,17 +45,17 @@ func ParseOpts(from FromOpt, opts ...Opt) (earthfile.Earthfile, error) {
 
 	_, err = preferences.reader.Seek(0, 0)
 	if err != nil {
-		return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
+		return Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
 	}
 
 	b, err := io.ReadAll(preferences.reader)
 	if err != nil {
-		return earthfile.Earthfile{}, errors.Wrap(err, "ast: could not read Earthfile for parsing")
+		return Earthfile{}, errors.Wrap(err, "ast: could not read Earthfile for parsing")
 	}
 
-	ef, err := parse.Parse(preferences.reader.Name(), string(b))
+	ef, err := Parse(preferences.reader.Name(), string(b))
 	if err != nil {
-		return earthfile.Earthfile{}, err
+		return Earthfile{}, err
 	}
 
 	// Set file path on SourceLocations if they exist and are requested
@@ -67,13 +65,13 @@ func ParseOpts(from FromOpt, opts ...Opt) (earthfile.Earthfile, error) {
 
 	err = validateAst(ef)
 	if err != nil {
-		return earthfile.Earthfile{}, err
+		return Earthfile{}, err
 	}
 
 	return ef, nil
 }
 
-func setSourceLocationFile(ef *earthfile.Earthfile, filename string) {
+func setSourceLocationFile(ef *Earthfile, filename string) {
 	if ef.SourceLocation != nil {
 		ef.SourceLocation.File = filename
 	}
@@ -101,7 +99,7 @@ func setSourceLocationFile(ef *earthfile.Earthfile, filename string) {
 	setBlockSourceLocationFile(ef.BaseRecipe, filename)
 }
 
-func setBlockSourceLocationFile(block earthfile.Block, filename string) {
+func setBlockSourceLocationFile(block Block, filename string) {
 	for i := range block {
 		if block[i].SourceLocation != nil {
 			block[i].SourceLocation.File = filename

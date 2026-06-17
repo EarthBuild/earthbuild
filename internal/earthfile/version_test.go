@@ -1,10 +1,10 @@
-package ast_test
+package earthfile_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,7 +12,7 @@ func TestParseVersion(t *testing.T) {
 	t.Parallel()
 
 	namedReader := namedStringReader{strings.NewReader("VERSION 0.6")}
-	ver, err := ast.ParseVersionOpts(ast.FromReader(&namedReader))
+	ver, err := earthfile.ParseVersionOpts(earthfile.FromReader(&namedReader))
 	r := require.New(t)
 	r.NoError(err)
 	r.Len(ver.Args, 1)

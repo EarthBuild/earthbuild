@@ -289,6 +289,14 @@ jobs:
             --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
             --VERSION="${{ env.VERSION }}" \
             --PRERELEASE=false
+      # Upload before the smoke test so the built binaries are always available
+      # for download/debugging, even when the smoke test below fails.
+      - name: Upload Release Binaries Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ needs.prepare-release.outputs.release_tag }}
+          path: release/release/**
+
       - name: Smoke test binary default buildkit image
         env:
           VERSION: ${{ needs.prepare-release.outputs.version }}
@@ -310,9 +318,3 @@ jobs:
           fi
 
           echo "Smoke test passed: default buildkit image is ${EXPECTED_IMAGE}"
-
-      - name: Upload Release Binaries Artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: ${{ needs.prepare-release.outputs.release_tag }}
-          path: release/release/**

@@ -51,7 +51,6 @@ code:
         docker2earth dockertar domain features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir earthfile2llb/*.go earthfile2llb/
-    COPY --dir ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
@@ -672,13 +671,13 @@ test-ast:
     BUILD +test-ast-group3
 
 test-ast-group1:
-    BUILD --pass-args ./ast/tests+group1
+    BUILD --pass-args ./internal/earthfile/tests+group1
 
 test-ast-group2:
-    BUILD --pass-args ./ast/tests+group2
+    BUILD --pass-args ./internal/earthfile/tests+group2
 
 test-ast-group3:
-    BUILD --pass-args ./ast/tests+group3
+    BUILD --pass-args ./internal/earthfile/tests+group3
 
 # test-no-qemu-group1 runs the tests from ./tests+ga-no-qemu-group1
 test-no-qemu-group1:

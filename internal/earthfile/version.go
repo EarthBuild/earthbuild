@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // ParseVersion reads the VERSION command for an Earthfile and returns Version.
@@ -29,13 +27,13 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*Version, error) {
 
 	prefs, err := fromOpt(defaultPrefs)
 	if err != nil {
-		return nil, errors.Wrap(err, "earthfile: could not apply ParseVersion from opt")
+		return nil, fmt.Errorf("earthfile: could not apply ParseVersion from opt: %w", err)
 	}
 
 	for _, opt := range opts {
 		newPrefs, err := opt(prefs)
 		if err != nil {
-			return nil, errors.Wrap(err, "earthfile: could not apply ParseVersion opts")
+			return nil, fmt.Errorf("earthfile: could not apply ParseVersion opts: %w", err)
 		}
 
 		prefs = newPrefs

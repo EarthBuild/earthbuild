@@ -1,10 +1,10 @@
 package earthfile
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // List of valid Earthfile versions.
@@ -46,7 +46,7 @@ func validateAst(ef Earthfile) error {
 			errorStrings[i] = err.Error()
 		}
 
-		return errors.Errorf("%v validation issues.\n- %s", len(errs), strings.Join(errorStrings, "\n- "))
+		return fmt.Errorf("%d validation issues.\n- %s", len(errs), strings.Join(errorStrings, "\n- "))
 	}
 
 	return nil
@@ -89,7 +89,7 @@ func validVersion(ef Earthfile) []error {
 	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
-		err := errors.Errorf("Earthfile version is invalid, supported versions are %v", getValidVersionsFormatted())
+		err := fmt.Errorf("Earthfile version is invalid, supported versions are %s", getValidVersionsFormatted())
 		errs = append(errs, err)
 	}
 
@@ -103,7 +103,7 @@ func noTargetsWithSameName(ef Earthfile) []error {
 
 	for _, t := range ef.Targets {
 		if _, seen := seenTargets[t.Name]; seen {
-			err := errors.Errorf("%s line %v:%v duplicate target \"%s\"",
+			err := fmt.Errorf("%s line %v:%v duplicate target \"%s\"",
 				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name)
 			errs = append(errs, err)
 		}
@@ -119,7 +119,7 @@ func noTargetsWithKeywords(ef Earthfile) []error {
 
 	for _, t := range ef.Targets {
 		if t.Name == TargetBase {
-			err := errors.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
+			err := fmt.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
 				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name, t.Name)
 			errs = append(errs, err)
 		}

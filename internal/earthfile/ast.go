@@ -3,9 +3,8 @@
 package earthfile
 
 import (
+	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 // TargetBase is the name of the default target which is used when an
@@ -31,13 +30,13 @@ func ParseOpts(from FromOpt, opts ...Opt) (Earthfile, error) {
 
 	preferences, err := from(defaultPrefs)
 	if err != nil {
-		return Earthfile{}, errors.Wrap(err, "ast: could not apply FromOpt")
+		return Earthfile{}, fmt.Errorf("ast: could not apply FromOpt: %w", err)
 	}
 
 	for _, opt := range opts {
 		preferences, err = opt(preferences)
 		if err != nil {
-			return Earthfile{}, errors.Wrap(err, "ast: could not apply options")
+			return Earthfile{}, fmt.Errorf("ast: could not apply options: %w", err)
 		}
 	}
 
@@ -45,12 +44,12 @@ func ParseOpts(from FromOpt, opts ...Opt) (Earthfile, error) {
 
 	_, err = preferences.reader.Seek(0, 0)
 	if err != nil {
-		return Earthfile{}, errors.Wrap(err, "ast: could not seek to beginning of file")
+		return Earthfile{}, fmt.Errorf("ast: could not seek to beginning of file: %w", err)
 	}
 
 	b, err := io.ReadAll(preferences.reader)
 	if err != nil {
-		return Earthfile{}, errors.Wrap(err, "ast: could not read Earthfile for parsing")
+		return Earthfile{}, fmt.Errorf("ast: could not read Earthfile for parsing: %w", err)
 	}
 
 	ef, err := Parse(preferences.reader.Name(), string(b))

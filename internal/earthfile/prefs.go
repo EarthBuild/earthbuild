@@ -1,9 +1,8 @@
 package earthfile
 
 import (
+	"fmt"
 	"os"
-
-	"github.com/pkg/errors"
 )
 
 type prefs struct {
@@ -32,7 +31,7 @@ func FromPath(path string) FromOpt {
 	return func(p prefs) (prefs, error) {
 		f, err := os.Open(path) // #nosec G304
 		if err != nil {
-			return p, errors.Wrapf(err, "earthfile: unable to open file '%v'", path)
+			return p, fmt.Errorf("earthfile: unable to open file '%v': %w", path, err)
 		}
 
 		p.reader = f

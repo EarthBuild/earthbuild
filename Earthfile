@@ -205,20 +205,40 @@ unit-test-parser:
         go build -o testparser main.go
     SAVE ARTIFACT testparser
 
-# unit-test runs unit tests (and some integration tests).
+# unit-test runs unit tests
 unit-test:
     FROM +go
-    RUN apk add --no-cache podman fuse-overlayfs crun
     COPY --dir +code/earthly /
     COPY +unit-test-parser/testparser .
-    COPY not-a-unit-test.sh .
 
     ARG testname # when specified, only run specific unit-test, otherwise run all.
 
     # pkgname determines the package name (or names) that will be tested. The go
     # submodules must be specified explicitly or they will not be run, as
     # "./..." does not match submodules.
-    ARG pkgname = ./...
+    ARG pkgname=./...
+
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        testarg=""; \
+        if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
+        go test -timeout 5m -json $testarg $pkgname | ./testparser
+
+# integration-test runs integration tests (including unit tests).
+integration-test:
+    FROM +go
+    RUN apk add --no-cache podman fuse-overlayfs crun
+    COPY --dir +code/earthly /
+    COPY +unit-test-parser/testparser .
+    COPY run-integration-tests.sh .
+
+    ARG testname # when specified, only run specific unit-test, otherwise run all.
+
+    # pkgname determines the package name (or names) that will be tested. The go
+    # submodules must be specified explicitly or they will not be run, as
+    # "./..." does not match submodules.
+    ARG pkgname=./...
 
     ARG DOCKERHUB_MIRROR
     ARG DOCKERHUB_MIRROR_INSECURE=false
@@ -240,19 +260,16 @@ unit-test:
                 --secret DOCKERHUB_MIRROR_PASS \
                 --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
                 --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-                ./not-a-unit-test.sh
+                ./run-integration-tests.sh
         END
     ELSE
         WITH DOCKER
             RUN \
                 --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
                 --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-                ./not-a-unit-test.sh
+                ./run-integration-tests.sh
         END
     END
-
-    # The following are separate go modules and need to be tested separately.
-    # The not-a-unit-test.sh script above actually DOES run unit-tests as well
 
 # changelog saves the CHANGELOG.md as an artifact
 changelog:
@@ -655,29 +672,13 @@ test-no-qemu:
 
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
-    BUILD +test-misc-group1
-    BUILD +test-misc-group2
     BUILD +test-ast
-
-test-misc-group1:
-    BUILD +unit-test
-
-test-misc-group2:
     BUILD +earthly-script-no-stdout
 
 test-ast:
-    BUILD +test-ast-group1
-    BUILD +test-ast-group2
-    BUILD +test-ast-group3
-
-test-ast-group1:
-    BUILD --pass-args ./internal/earthfile/tests+group1
-
-test-ast-group2:
-    BUILD --pass-args ./internal/earthfile/tests+group2
-
-test-ast-group3:
-    BUILD --pass-args ./internal/earthfile/tests+group3
+    BUILD --pass-args ./ast/tests+group1
+    BUILD --pass-args ./ast/tests+group2
+    BUILD --pass-args ./ast/tests+group3
 
 # test-no-qemu-group1 runs the tests from ./tests+ga-no-qemu-group1
 test-no-qemu-group1:
@@ -767,6 +768,8 @@ smoke-test:
 
 # test runs examples, no-qemu, qemu, and experimental tests
 test-all:
+    BUILD +test-unit
+    BUILD +test-integration
     BUILD +examples
     BUILD --pass-args +test-no-qemu
     BUILD --pass-args +test-qemu

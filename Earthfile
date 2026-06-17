@@ -364,10 +364,22 @@ earthly-linux-amd64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
+    # Release metadata baked into the binary via ldflags in +earthly. These are
+    # declared here (mirroring +earthly's own defaults) and forwarded explicitly
+    # so that values passed by callers -- e.g. release+signed-release -- actually
+    # reach +earthly. Without forwarding, COPY-scoped --args stop at this target
+    # and the binary silently falls back to dev defaults, e.g. a buildkit image
+    # of $IMAGE_REGISTRY:buildkitd-$VERSION instead of the intended release image.
+    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=linux \
         --GOARCH=amd64 \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}" \
         ) ./
     SAVE ARTIFACT ./*
 
@@ -376,10 +388,17 @@ earthly-linux-arm64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
+    # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=linux \
         --GOARCH=arm64 \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}" \
         ) ./
     SAVE ARTIFACT ./*
 
@@ -388,10 +407,17 @@ earthly-darwin-amd64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
+    # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=darwin \
         --GOARCH=amd64 \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}" \
         ) ./
     SAVE ARTIFACT ./*
 
@@ -400,10 +426,17 @@ earthly-darwin-arm64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
+    # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=darwin \
         --GOARCH=arm64 \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}" \
         ) ./
     SAVE ARTIFACT ./*
 
@@ -412,10 +445,17 @@ earthly-windows-amd64:
     FROM alpine:3.24.0
     WORKDIR /earth
     ARG GO_GCFLAGS
+    # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=windows \
         --GOARCH=amd64 \
         --GO_GCFLAGS="${GO_GCFLAGS}" \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}" \
         --EXECUTABLE_NAME=earthly.exe \
         ) ./
     SAVE ARTIFACT ./*
@@ -428,11 +468,32 @@ earthly-windows-amd64:
 all-binaries:
     FROM alpine:3.24.0
     WORKDIR /earth
-    COPY +earthly-linux-amd64/earthly ./earth-linux-amd64
-    COPY +earthly-linux-arm64/earthly ./earth-linux-arm64
-    COPY +earthly-darwin-amd64/earthly ./earth-darwin-amd64
-    COPY +earthly-darwin-arm64/earthly ./earth-darwin-arm64
-    COPY +earthly-windows-amd64/earthly.exe ./earth-windows-amd64.exe
+    # Release metadata, forwarded to every per-platform target so that callers
+    # such as release+signed-release can set it once here and have it baked into
+    # all binaries. See earthly-linux-amd64 for details.
+    ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
+    COPY (+earthly-linux-amd64/earthly \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}") ./earth-linux-amd64
+    COPY (+earthly-linux-arm64/earthly \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}") ./earth-linux-arm64
+    COPY (+earthly-darwin-amd64/earthly \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}") ./earth-darwin-amd64
+    COPY (+earthly-darwin-arm64/earthly \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}") ./earth-darwin-arm64
+    COPY (+earthly-windows-amd64/earthly.exe \
+        --VERSION="${VERSION}" \
+        --DEFAULT_INSTALLATION_NAME="${DEFAULT_INSTALLATION_NAME}" \
+        --DEFAULT_BUILDKITD_IMAGE="${DEFAULT_BUILDKITD_IMAGE}") ./earth-windows-amd64.exe
     SAVE ARTIFACT ./*
 
 # earthly-docker builds earthly as a docker image and pushes

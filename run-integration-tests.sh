@@ -81,4 +81,4 @@ fi
 set -- -timeout 20m -json
 [ -n "$testname" ] && set -- "$@" -run "$testname"
 # shellcheck disable=SC2086,SC2154
-go test "$@" $pkgname | ./testparser
+go test  -tags integration "$@" $pkgname | ./testparser

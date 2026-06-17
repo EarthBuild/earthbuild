@@ -38,6 +38,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Lint
         run: earth --ci +lint-all
+      - name: Unit tests
+        run: earth --ci +unit-test
 
   docker:
     name: Docker

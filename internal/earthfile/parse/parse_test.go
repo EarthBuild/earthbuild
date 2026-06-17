@@ -702,6 +702,31 @@ test:
 			},
 		},
 		{
+			name: "ARG with value starting with no spaces and containing spaces",
+			input: `VERSION 0.8
+test:
+  ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "ARG",
+									Args: []string{"BUILD_TAGS", "=", "dfrunmount dfrunsecurity dfsecrets dfssh"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "regression test for single-quoted commands",
 			input: `VERSION 0.8
 FROM alpine:3.24.0

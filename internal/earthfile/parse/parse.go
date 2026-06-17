@@ -591,7 +591,7 @@ func (p *parser) parseCommand() (Command, error) {
 				cmd.Args = jsonArgs
 				cmd.ExecMode = true
 			}
-		case CmdEnv, CmdArg, CmdSet, CmdLet, CmdLabel:
+		case CmdLabel:
 			var newArgs []string
 			for _, arg := range cmd.Args {
 				newArgs = append(newArgs, splitKeyValueArg(arg)...)
@@ -718,34 +718,60 @@ func parseKeyValueItems(items []Item) []string {
 		return args
 	}
 
-	key := items[idx].Val
-	args = append(args, key)
+	keyToken := items[idx].Val
 	idx++
 
-	// skip WS after key
-	for idx < len(items) && items[idx].Typ == ItemWS {
-		idx++
+	var (
+		hasEquals bool
+		key       string
+		valStart  string
+	)
+
+	keyParts := splitKeyValueArg(keyToken)
+	if len(keyParts) > 1 {
+		key = keyParts[0]
+		hasEquals = true
+
+		if len(keyParts) > 2 {
+			valStart = keyParts[2]
+		}
+	} else {
+		key = keyToken
 	}
 
-	// Check for '='
-	hasEquals := false
-
-	if idx < len(items) && items[idx].Typ == ItemAtom && items[idx].Val == "=" {
-		args = append(args, "=")
-		hasEquals = true
-		idx++
-		// skip WS after '='
+	// skip WS after key only if we haven't found the equals sign in the key token
+	if !hasEquals {
 		for idx < len(items) && items[idx].Typ == ItemWS {
 			idx++
 		}
 	}
 
+	args = append(args, key)
+
+	// If there wasn't an equals sign in the key token itself, check the next token
+	if !hasEquals {
+		if idx < len(items) && items[idx].Typ == ItemAtom && items[idx].Val == "=" {
+			args = append(args, "=")
+			hasEquals = true
+			idx++
+			// skip WS after '='
+			for idx < len(items) && items[idx].Typ == ItemWS {
+				idx++
+			}
+		}
+	} else {
+		args = append(args, "=")
+	}
+
 	// Everything else is the value!
-	if idx >= len(items) {
+	if idx >= len(items) && valStart == "" {
 		return args
 	}
 
 	var valBuilder strings.Builder
+	if valStart != "" {
+		valBuilder.WriteString(valStart)
+	}
 
 	for i := idx; i < len(items); i++ {
 		valBuilder.WriteString(items[i].Val)

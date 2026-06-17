@@ -42,7 +42,7 @@ func (p *parser) peek() Item {
 // errorf formats an error and terminates processing.
 func (p *parser) errorf(pos Pos, format string, args ...any) error {
 	p.lex.drain()
-	return fmt.Errorf("parse error at pos %d: %s", pos, fmt.Sprintf(format, args...))
+	return fmt.Errorf("syntax error at pos %d: %s", pos, fmt.Sprintf(format, args...))
 }
 
 // Parse parses the Earthfile text and returns a Tree.

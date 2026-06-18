@@ -5,7 +5,6 @@ package parse
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -1141,9 +1140,75 @@ func splitKeyValueArg(s string) []string {
 	return out
 }
 
-var stripLineContinuationRegexp = regexp.MustCompile(
-	`^\\[ \t]*(#[^\n\r]*)?(\n|(\r\n))[\t ]*((#[^\n\r]*)?(\n|(\r\n))[\t ]*)*`,
-)
+// matchLineContinuationFrom matches a backslash line continuation starting at index i of the string s.
+// It returns the length of the matched line continuation sequence (including comments and nested continuations)
+// or 0 if it does not match.
+func matchLineContinuationFrom(s string, i int) int {
+	if i >= len(s) || s[i] != '\\' {
+		return 0
+	}
+
+	pos := i + 1
+
+	// Consume [ \t]*
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	// Consume optional comment (#[^\n\r]*)?
+	if pos < len(s) && s[pos] == '#' {
+		pos++
+		for pos < len(s) && s[pos] != '\n' && s[pos] != '\r' {
+			pos++
+		}
+	}
+
+	// Consume newline: (\n|(\r\n))
+	switch {
+	case pos < len(s) && s[pos] == '\n':
+		pos++
+	case pos+1 < len(s) && s[pos] == '\r' && s[pos+1] == '\n':
+		pos += 2
+	default:
+		return 0
+	}
+
+	// Consume [ \t]*
+	for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+		pos++
+	}
+
+	// Consume ((#[^\n\r]*)?(\n|(\r\n))[\t ]*)*
+loop:
+	for {
+		start := pos
+		// Optional comment
+		if pos < len(s) && s[pos] == '#' {
+			pos++
+			for pos < len(s) && s[pos] != '\n' && s[pos] != '\r' {
+				pos++
+			}
+		}
+
+		// Newline
+		switch {
+		case pos < len(s) && s[pos] == '\n':
+			pos++
+		case pos+1 < len(s) && s[pos] == '\r' && s[pos+1] == '\n':
+			pos += 2
+		default:
+			pos = start
+			break loop
+		}
+
+		// Spaces/tabs
+		for pos < len(s) && (s[pos] == ' ' || s[pos] == '\t') {
+			pos++
+		}
+	}
+
+	return pos - i
+}
 
 func replaceEscape(str string) string {
 	var (
@@ -1182,11 +1247,8 @@ func replaceEscape(str string) string {
 				}
 
 			default:
-				rem := str[i:]
-				loc := stripLineContinuationRegexp.FindStringIndex(rem)
-
-				if loc != nil && loc[0] == 0 {
-					i += loc[1]
+				if n := matchLineContinuationFrom(str, i); n > 0 {
+					i += n
 				} else {
 					sb.WriteByte(c)
 

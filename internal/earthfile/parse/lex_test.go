@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestLexKeyValueCommandArgs(t *testing.T) {
+func TestLex(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -13,6 +13,7 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 		input string
 		want  []Item
 	}{
+		// Key-Value Command Args
 		{
 			name:  "env key-value",
 			input: "ENV KEY=VALUE\n",
@@ -23,6 +24,7 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 				itemAtom("="),
 				itemAtom("VALUE"),
 				itemNL(),
+				itemEOF(),
 			},
 		},
 		{
@@ -36,6 +38,7 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 				itemAtom("="),
 				itemAtom("VALUE"),
 				itemNL(),
+				itemEOF(),
 			},
 		},
 		{
@@ -48,6 +51,7 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 				itemSpace(),
 				itemAtom("VALUE"),
 				itemNL(),
+				itemEOF(),
 			},
 		},
 		{
@@ -62,6 +66,7 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 				itemAtom("="),
 				itemAtom("VALUE"),
 				itemNL(),
+				itemEOF(),
 			},
 		},
 		{
@@ -91,6 +96,51 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 				itemError("invalid LET key definition KEY-NAME"),
 			},
 		},
+
+		// Line Continuations
+		{
+			name:  "basic line continuation",
+			input: "RUN echo hello \\\nworld\n",
+			want: []Item{
+				itemRun(),
+				itemSpace(),
+				itemAtom("echo"),
+				itemSpace(),
+				itemAtom("hello"),
+				itemSpace(),
+				itemAtom("world"),
+				itemNL(),
+				itemEOF(),
+			},
+		},
+		{
+			name:  "line continuation with spaces and comments",
+			input: "RUN echo hello \\  # comment\n   world\n",
+			want: []Item{
+				itemRun(),
+				itemSpace(),
+				itemAtom("echo"),
+				itemSpace(),
+				itemAtom("hello"),
+				itemSpace(),
+				itemAtom("world"),
+				itemNL(),
+				itemEOF(),
+			},
+		},
+		{
+			name:  "line continuation inside double quotes",
+			input: "RUN echo \"hello \\\nworld\"\n",
+			want: []Item{
+				itemRun(),
+				itemSpace(),
+				itemAtom("echo"),
+				itemSpace(),
+				itemAtom("\"hello \\\nworld\""),
+				itemNL(),
+				itemEOF(),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -103,6 +153,7 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 
 			for {
 				item := lexer.nextItem()
+
 				got = append(got, item)
 
 				if item.Typ == ItemEOF || item.Typ == ItemError {
@@ -110,14 +161,12 @@ func TestLexKeyValueCommandArgs(t *testing.T) {
 				}
 			}
 
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d items, want %d: got %v", len(got), len(tt.want), got)
+			}
+
 			for i, wantItem := range tt.want {
-				if i >= len(got) {
-					t.Errorf("got fewer items than expected at index %d: want %v", i, wantItem)
-					break
-				}
-
 				gotItem := got[i]
-
 				if gotItem.Typ != wantItem.Typ || gotItem.Val != wantItem.Val {
 					t.Errorf("item mismatch at index %d: got {Type:%d Val:%q}, want {Type:%d Val:%q}",
 						i, gotItem.Typ, gotItem.Val, wantItem.Typ, wantItem.Val)
@@ -162,4 +211,12 @@ func itemNL() Item {
 
 func itemError(val string) Item {
 	return Item{Typ: ItemError, Val: val}
+}
+
+func itemRun() Item {
+	return Item{Typ: ItemRun, Val: CmdRun}
+}
+
+func itemEOF() Item {
+	return Item{Typ: ItemEOF, Val: ""}
 }

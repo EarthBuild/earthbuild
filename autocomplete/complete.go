@@ -513,6 +513,10 @@ func GetPotentials(
 
 	var potentials []string
 
+	// missing cases in switch of type autocomplete.completeState: autocomplete.unknownState,
+	// autocomplete.endOfSuggestionsState
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch state {
 	case flagState:
 		if cmd != nil {

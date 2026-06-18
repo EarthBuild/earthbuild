@@ -3411,6 +3411,13 @@ func (c *Converter) checkAllowed(command cmdType) error {
 	}
 
 	if !c.mts.Final.RanFromLike {
+		// missing cases in switch of type earthfile2llb.cmdType: earthfile2llb.cmdCmd, earthfile2llb.copyCmd,
+		// earthfile2llb.enterScopeDoCmd, earthfile2llb.entrypointCmd, earthfile2llb.envCmd, earthfile2llb.exposeCmd,
+		// earthfile2llb.gitCloneCmd, earthfile2llb.healthcheckCmd, earthfile2llb.labelCmd, earthfile2llb.loadCmd,
+		// earthfile2llb.runCmd, earthfile2llb.saveArtifactCmd, earthfile2llb.saveImageCmd, earthfile2llb.userCmd,
+		// earthfile2llb.volumeCmd, earthfile2llb.workdirCmd, earthfile2llb.cacheCmd, earthfile2llb.hostCmd
+		// TODO(jhorsts): future proof by adding all the cases
+		//nolint:exhaustive
 		switch command {
 		case fromCmd, fromDockerfileCmd, locallyCmd, buildCmd, argCmd, letCmd, setCmd, importCmd, projectCmd:
 			return nil
@@ -3422,6 +3429,15 @@ func (c *Converter) checkAllowed(command cmdType) error {
 		}
 	}
 
+	// missing cases in switch of type earthfile2llb.cmdType: earthfile2llb.argCmd, earthfile2llb.buildCmd,
+	// earthfile2llb.cmdCmd, earthfile2llb.copyCmd, earthfile2llb.enterScopeDoCmd, earthfile2llb.entrypointCmd,
+	// earthfile2llb.envCmd, earthfile2llb.exposeCmd, earthfile2llb.fromCmd, earthfile2llb.fromDockerfileCmd,
+	// earthfile2llb.gitCloneCmd, earthfile2llb.healthcheckCmd, earthfile2llb.importCmd, earthfile2llb.labelCmd,
+	// earthfile2llb.loadCmd, earthfile2llb.locallyCmd, earthfile2llb.runCmd, earthfile2llb.saveArtifactCmd,
+	// earthfile2llb.saveImageCmd, earthfile2llb.userCmd, earthfile2llb.volumeCmd, earthfile2llb.workdirCmd,
+	// earthfile2llb.cacheCmd, earthfile2llb.hostCmd, earthfile2llb.projectCmd
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch command {
 	case setCmd, letCmd:
 		if !c.ftrs.ArgScopeSet {

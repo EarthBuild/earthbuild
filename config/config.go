@@ -183,8 +183,16 @@ func keyAndValueCompatible(key reflect.Type, value *yaml.Node) bool {
 	// add other types as needed as they are introduced in the config struct
 	case reflect.Map:
 		val = reflect.MakeMap(key).Interface()
-	default:
+	case reflect.Invalid, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Array, reflect.Slice, reflect.Chan, reflect.Func, reflect.Interface, reflect.String, reflect.Struct,
+		reflect.Pointer, reflect.UnsafePointer:
 		val = reflect.New(key).Interface()
+	default:
+		// Should never happen
+		panic(fmt.Errorf("unhandled key type: %v", key.Kind()))
 	}
 
 	err := value.Decode(val)
@@ -414,6 +422,9 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 }
 
 func setYamlValue(node *yaml.Node, path []string, value *yaml.Node) []string {
+	// missing cases in switch of type yaml.Kind: yaml.SequenceNode, yaml.ScalarNode, yaml.AliasNode
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch node.Kind {
 	case yaml.DocumentNode:
 		for _, c := range node.Content {
@@ -453,6 +464,9 @@ func setYamlValue(node *yaml.Node, path []string, value *yaml.Node) []string {
 }
 
 func deleteYamlValue(node *yaml.Node, path []string) []string {
+	// missing cases in switch of type yaml.Kind: yaml.SequenceNode, yaml.ScalarNode, yaml.AliasNode
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch node.Kind {
 	case yaml.DocumentNode:
 		for _, c := range node.Content {

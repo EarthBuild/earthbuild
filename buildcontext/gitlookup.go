@@ -554,6 +554,9 @@ func (gl *GitLookup) makeCloneURL(
 			return "", nil, "", err
 		}
 
+		// missing cases in switch of type buildcontext.gitProtocol: buildcontext.autoProtocol
+		// TODO(jhorsts): future proof by adding all the cases
+		//nolint:exhaustive
 		switch configuredProtocol {
 		case sshProtocol:
 			user = gitUser
@@ -563,6 +566,9 @@ func (gl *GitLookup) makeCloneURL(
 		}
 	}
 
+	// missing cases in switch of type buildcontext.gitProtocol: buildcontext.autoProtocol
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch configuredProtocol {
 	case sshProtocol:
 		if user == "" {

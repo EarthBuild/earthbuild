@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/errutil"
@@ -137,6 +138,34 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 	app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS)
 
 	return 0
+}
+
+// printCancellationOrigin reports which side of the client/daemon boundary a
+// canceled solve originated from: if earth's own build context is dead, the
+// cancellation began locally and context.Cause names the culprit; if it is
+// still alive, the daemon (or the session between them) canceled first.
+func (app *EarthApp) printCancellationOrigin(ctx context.Context, lastSignal *syncutil.Signal) {
+	console := app.BaseCLI.Console()
+
+	if sig := lastSignal.Get(); sig != nil {
+		console.Warnf("Local cancellation origin: signal %v received by earth\n", sig)
+		return
+	}
+
+	if ctx.Err() == nil {
+		console.Warnf("Local build context is still alive: " +
+			"the cancellation originated in BuildKit or the session layer, not in earth.\n")
+
+		return
+	}
+
+	cause := context.Cause(ctx)
+	if cause != nil && cause.Error() != context.Canceled.Error() {
+		console.Warnf("Local build context was canceled. Cause: %v\n", cause)
+	} else {
+		console.Warnf("Local build context was canceled with no recorded cause: " +
+			"an earth-side subsystem canceled the build without reporting an error.\n")
+	}
 }
 
 // handleError handles run error, logs it and returns appropriate exit code.
@@ -395,14 +424,88 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		}
 
 		return 6
+	case func() bool {
+		failureErr, ok := solvermon.AsFirstFailureError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetFatalError(
+			failureErr.Failure.End,
+			failureErr.Failure.TargetID,
+			failureErr.Failure.CommandID,
+			failureErr.Failure.FailureType,
+			"",
+			failureErr.Failure.Error,
+		)
+		app.BaseCLI.Console().Warnf("%s\n", failureErr.Failure.String())
+
+		return true
+	}():
+		return 1
+	case func() bool {
+		cancelErr, ok := solvermon.AsFirstCancellationError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetEnd(cancelErr.Cancellation.End, logstream.RunStatus_RUN_STATUS_CANCELED)
+		app.BaseCLI.Console().Warnf(
+			"BuildKit canceled or lost the solve session while running:\n%s\n"+
+				"This usually means the command above was interrupted after an earlier failure, resource event, "+
+				"or buildkit/session failure. "+
+				"Earth did not receive a more specific root cause from BuildKit.\n",
+			cancelErr.Cancellation.String(),
+		)
+		app.printCancellationOrigin(ctx, lastSignal)
+
+		return true
+	}():
+		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+			app.printCrashLogs(ctx)
+		}
+
+		return 2
+	case func() bool {
+		detailsErr, ok := solvermon.AsCancellationDetailsError(err)
+		if !ok {
+			return false
+		}
+
+		app.BaseCLI.Logbus().Run().SetEnd(detailsErr.Details.End, logstream.RunStatus_RUN_STATUS_CANCELED)
+		app.BaseCLI.Console().Warnf(
+			"BuildKit canceled or lost the solve session.\n%s\n"+
+				"Earth did not receive a more specific root cause from BuildKit.\n",
+			detailsErr.Details.String(),
+		)
+		app.printCancellationOrigin(ctx, lastSignal)
+
+		return true
+	}():
+		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+			app.printCrashLogs(ctx)
+		}
+
+		return 2
 	case errors.Is(err, context.Canceled), grpcErrOK && grpcErr.Code() == codes.Canceled:
 		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
 
-		if app.BaseCLI.Flags().Verbose {
+		showCanceledErr := app.BaseCLI.Flags().Verbose
+		if grpcErrOK && grpcErr.Message() != "" && grpcErr.Message() != context.Canceled.Error() {
+			showCanceledErr = true
+		}
+
+		if !grpcErrOK && err.Error() != context.Canceled.Error() {
+			showCanceledErr = true
+		}
+
+		if showCanceledErr {
 			app.BaseCLI.Console().Warnf("Canceled: %v\n", err)
 		} else {
 			app.BaseCLI.Console().Warn("Canceled\n")
 		}
+
+		app.printCancellationOrigin(ctx, lastSignal)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)

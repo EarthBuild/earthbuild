@@ -31,9 +31,9 @@ func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*Version, error) {
 	}
 
 	for _, opt := range opts {
-		newPrefs, err := opt(prefs)
-		if err != nil {
-			return nil, fmt.Errorf("earthfile: could not apply ParseVersion opts: %w", err)
+		newPrefs, optErr := opt(prefs)
+		if optErr != nil {
+			return nil, fmt.Errorf("earthfile: could not apply ParseVersion opts: %w", optErr)
 		}
 
 		prefs = newPrefs
@@ -136,6 +136,11 @@ outer:
 		}
 
 		return &version, nil
+	}
+
+	err = scanner.Err()
+	if err != nil {
+		return nil, fmt.Errorf("read earthfile %s: %w", file.Name(), err)
 	}
 
 	// No version was found

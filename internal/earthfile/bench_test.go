@@ -1,11 +1,8 @@
-package parse_test
+package earthfile
 
 import (
 	"strings"
 	"testing"
-
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	newast "github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 )
 
 var benchmarkEarthfile = `
@@ -19,19 +16,11 @@ build:
     SAVE ARTIFACT /app/output
 `
 
-type namedStringReader struct {
-	*strings.Reader
-}
-
-func (n *namedStringReader) Name() string {
-	return "Earthfile"
-}
-
 func BenchmarkParse_ANTLR(b *testing.B) {
 	for range b.N {
 		r := namedStringReader{strings.NewReader(benchmarkEarthfile)}
 
-		_, err := earthfile.ParseOpts(earthfile.FromReader(&r))
+		_, err := ParseOpts(FromReader(&r))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -40,7 +29,7 @@ func BenchmarkParse_ANTLR(b *testing.B) {
 
 func BenchmarkParse_Custom(b *testing.B) {
 	for range b.N {
-		_, err := newast.Parse("Earthfile", benchmarkEarthfile)
+		_, err := Parse("Earthfile", benchmarkEarthfile)
 		// For now we don't check err because the new parser is incomplete
 		_ = err
 	}

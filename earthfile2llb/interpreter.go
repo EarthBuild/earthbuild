@@ -16,7 +16,6 @@ import (
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -141,12 +140,13 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block
 		switch {
 		case stmt.Command != nil:
 			switch stmt.Command.Name {
-			case parse.CmdArg, parse.CmdLocally, parse.CmdFrom, parse.CmdFromDockerfile, parse.CmdLet, parse.CmdSet:
+			case earthfile.CmdArg, earthfile.CmdLocally, earthfile.CmdFrom,
+				earthfile.CmdFromDockerfile, earthfile.CmdLet, earthfile.CmdSet:
 				// Cannot do any further parallel builds - these commands need to be
 				// executed to ensure that they don't impact the outcome. As such,
 				// commands following these cannot be executed preemptively.
 				return nil
-			case parse.CmdBuild:
+			case earthfile.CmdBuild:
 				err := i.handleBuild(ctx, *stmt.Command, true)
 				if err != nil {
 					if errors.Is(err, errCannotAsync) {
@@ -155,7 +155,7 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block
 
 					return err
 				}
-			case parse.CmdCopy:
+			case earthfile.CmdCopy:
 				// TODO
 			}
 		case stmt.With != nil:
@@ -228,7 +228,7 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd earthfile.Command) 
 
 	if i.isWith {
 		switch cmd.Name {
-		case parse.CmdDocker:
+		case earthfile.CmdDocker:
 			return i.handleWithDocker(ctx, cmd)
 		default:
 			return i.errorf(cmd.SourceLocation, "unexpected WITH command %s", cmd.Name)
@@ -236,69 +236,69 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd earthfile.Command) 
 	}
 
 	switch cmd.Name {
-	case parse.CmdFrom:
+	case earthfile.CmdFrom:
 		return i.handleFrom(ctx, cmd)
-	case parse.CmdRun:
+	case earthfile.CmdRun:
 		return i.handleRun(ctx, cmd)
-	case parse.CmdFromDockerfile:
+	case earthfile.CmdFromDockerfile:
 		return i.handleFromDockerfile(ctx, cmd)
-	case parse.CmdLocally:
+	case earthfile.CmdLocally:
 		return i.handleLocally(ctx, cmd)
-	case parse.CmdCopy:
+	case earthfile.CmdCopy:
 		return i.handleCopy(ctx, cmd)
-	case parse.CmdSaveArtifact:
+	case earthfile.CmdSaveArtifact:
 		return i.handleSaveArtifact(ctx, cmd)
-	case parse.CmdSaveImage:
+	case earthfile.CmdSaveImage:
 		return i.handleSaveImage(ctx, cmd)
-	case parse.CmdBuild:
+	case earthfile.CmdBuild:
 		return i.handleBuild(ctx, cmd, false)
-	case parse.CmdWorkdir:
+	case earthfile.CmdWorkdir:
 		return i.handleWorkdir(ctx, cmd)
-	case parse.CmdUser:
+	case earthfile.CmdUser:
 		return i.handleUser(ctx, cmd)
-	case parse.CmdCmd:
+	case earthfile.CmdCmd:
 		return i.handleCmd(ctx, cmd)
-	case parse.CmdEntrypoint:
+	case earthfile.CmdEntrypoint:
 		return i.handleEntrypoint(ctx, cmd)
-	case parse.CmdExpose:
+	case earthfile.CmdExpose:
 		return i.handleExpose(ctx, cmd)
-	case parse.CmdVolume:
+	case earthfile.CmdVolume:
 		return i.handleVolume(ctx, cmd)
-	case parse.CmdEnv:
+	case earthfile.CmdEnv:
 		return i.handleEnv(ctx, cmd)
-	case parse.CmdArg:
+	case earthfile.CmdArg:
 		return i.handleArg(ctx, cmd)
-	case parse.CmdLet:
+	case earthfile.CmdLet:
 		return i.handleLet(ctx, cmd)
-	case parse.CmdSet:
+	case earthfile.CmdSet:
 		return i.handleSet(ctx, cmd)
-	case parse.CmdLabel:
+	case earthfile.CmdLabel:
 		return i.handleLabel(ctx, cmd)
-	case parse.CmdGitClone:
+	case earthfile.CmdGitClone:
 		return i.handleGitClone(ctx, cmd)
-	case parse.CmdHealthCheck:
+	case earthfile.CmdHealthCheck:
 		return i.handleHealthcheck(ctx, cmd)
-	case parse.CmdAdd:
+	case earthfile.CmdAdd:
 		return i.handleAdd(cmd)
-	case parse.CmdStopSignal:
+	case earthfile.CmdStopSignal:
 		return i.handleStopsignal(cmd)
-	case parse.CmdOnBuild:
+	case earthfile.CmdOnBuild:
 		return i.handleOnbuild(cmd)
-	case parse.CmdShell:
+	case earthfile.CmdShell:
 		return i.handleShell(cmd)
-	case parse.CmdCommand:
+	case earthfile.CmdCommand:
 		return i.handleUserCommand(cmd)
-	case parse.CmdFunction:
+	case earthfile.CmdFunction:
 		return i.handleFunction(cmd)
-	case parse.CmdDo:
+	case earthfile.CmdDo:
 		return i.handleDo(ctx, cmd)
-	case parse.CmdImport:
+	case earthfile.CmdImport:
 		return i.handleImport(ctx, cmd)
-	case parse.CmdCache:
+	case earthfile.CmdCache:
 		return i.handleCache(ctx, cmd)
-	case parse.CmdHost:
+	case earthfile.CmdHost:
 		return i.handleHost(ctx, cmd)
-	case parse.CmdProject:
+	case earthfile.CmdProject:
 		return i.handleProject(ctx, cmd)
 	default:
 		return i.errorf(cmd.SourceLocation, "unexpected command %q", cmd.Name)
@@ -2590,7 +2590,7 @@ func (i *Interpreter) isArgLike(cmd *earthfile.Command) bool {
 	}
 
 	switch cmd.Name {
-	case parse.CmdArg, parse.CmdLet, parse.CmdSet:
+	case earthfile.CmdArg, earthfile.CmdLet, earthfile.CmdSet:
 		return true
 	}
 

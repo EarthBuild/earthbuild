@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+const envVarNameFoo = "FOO"
+
 func TestIsValidEnvVarName(t *testing.T) {
 	t.Parallel()
 
@@ -13,7 +15,7 @@ func TestIsValidEnvVarName(t *testing.T) {
 		want bool
 	}{
 		{"empty", "", false},
-		{"valid_simple", "FOO", true},
+		{"valid_simple", envVarNameFoo, true},
 		{"valid_with_underscore", "FOO_BAR", true},
 		{"valid_starts_with_underscore", "_FOO", true},
 		{"invalid_starts_with_number", "1FOO", false},
@@ -35,7 +37,7 @@ func TestIsValidEnvVarName(t *testing.T) {
 
 func BenchmarkIsValidEnvVarName(b *testing.B) {
 	inputs := []string{
-		"FOO",
+		envVarNameFoo,
 		"FOO_BAR",
 		"_FOO",
 		"1FOO",

@@ -1,5 +1,4 @@
-// Package parse implements the native Earthfile parser.
-package parse
+package earthfile
 
 import (
 	"errors"
@@ -8,78 +7,78 @@ import (
 	"unicode/utf8"
 )
 
-// ItemType identifies the type of lex items.
-type ItemType int
+// itemType identifies the type of lex items.
+type itemType int
 
-// ItemType constants.
+// itemType constants.
 const (
-	// ItemError represents an error.
-	ItemError ItemType = iota // error occurred; value is text of error
-	ItemEOF
-	ItemNL      // newline
-	ItemIndent  // indentation increase
-	ItemDedent  // indentation decrease
-	ItemWS      // whitespace
-	ItemComment // comment
-	ItemEOLComment
+	// itemError represents an error.
+	itemError itemType = iota // error occurred; value is text of error
+	itemEOF
+	itemNL      // newline
+	itemIndent  // indentation increase
+	itemDedent  // indentation decrease
+	itemWS      // whitespace
+	itemComment // comment
+	itemEOLComment
 
 	// Keywords.
 
-	ItemFrom
-	ItemFromDockerfile
-	ItemLocally
-	ItemCopy
-	ItemSaveArtifact
-	ItemSaveImage
-	ItemRun
-	ItemExpose
-	ItemVolume
-	ItemEnv
-	ItemArg
-	ItemSet
-	ItemLet
-	ItemLabel
-	ItemBuild
-	ItemWorkdir
-	ItemIf
-	ItemElseIf
-	ItemElse
-	ItemEnd
-	ItemCmd
-	ItemEntrypoint
-	ItemGitClone
-	ItemAdd
-	ItemStopSignal
-	ItemOnBuild
-	ItemHealthCheck
-	ItemShell
-	ItemDo
-	ItemCommand
-	ItemFunctionKW
-	ItemImport
-	ItemVersion
-	ItemCache
-	ItemHost
-	ItemProject
-	ItemUser
+	itemFrom
+	itemFromDockerfile
+	itemLocally
+	itemCopy
+	itemSaveArtifact
+	itemSaveImage
+	itemRun
+	itemExpose
+	itemVolume
+	itemEnv
+	itemArg
+	itemSet
+	itemLet
+	itemLabel
+	itemBuild
+	itemWorkdir
+	itemIf
+	itemElseIf
+	itemElse
+	itemEnd
+	itemCmd
+	itemEntrypoint
+	itemGitClone
+	itemAdd
+	itemStopSignal
+	itemOnBuild
+	itemHealthCheck
+	itemShell
+	itemDo
+	itemCommand
+	itemFunctionKW
+	itemImport
+	itemVersion
+	itemCache
+	itemHost
+	itemProject
+	itemUser
 
 	// Block keywords.
 
-	ItemWith
-	ItemDocker
-	ItemTry
-	ItemCatch
-	ItemFinally
-	ItemFor
-	ItemWait
+	itemWith
+	itemDocker
+	itemTry
+	itemCatch
+	itemFinally
+	itemFor
+	itemWait
 
 	// Other structures.
 
-	ItemTarget
-	ItemUserCommand
-	ItemFunction
-	ItemAtom
-	ItemEquals
+	itemTarget
+	itemUserCommand
+	itemFunction
+	itemAtom
+	itemEquals
 )
 
 // Command name string constants.
@@ -133,34 +132,34 @@ const (
 
 const eof = -1
 
-// Pos represents a byte position in the original input text.
-type Pos int
+// pos represents a byte position in the original input text.
+type pos int
 
-// Item represents a token or text string returned from the scanner.
-type Item struct {
+// item represents a token or text string returned from the scanner.
+type item struct {
 	Val  string
-	Typ  ItemType
-	Pos  Pos
+	Typ  itemType
+	pos  pos
 	Line int
 	Col  int
 }
 
-func (i Item) String() string {
+func (i item) String() string {
 	switch i.Typ {
-	case ItemEOF:
+	case itemEOF:
 		return "EOF"
-	case ItemError:
+	case itemError:
 		return i.Val
-	case ItemNL, ItemIndent, ItemDedent, ItemWS, ItemComment, ItemEOLComment,
-		ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
-		ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
-		ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemIf,
-		ItemElseIf, ItemElse, ItemEnd, ItemCmd, ItemEntrypoint, ItemGitClone,
-		ItemAdd, ItemStopSignal, ItemOnBuild, ItemHealthCheck, ItemShell,
-		ItemDo, ItemCommand, ItemFunctionKW, ItemImport, ItemVersion, ItemCache,
-		ItemHost, ItemProject, ItemUser, ItemWith, ItemDocker, ItemTry,
-		ItemCatch, ItemFinally, ItemFor, ItemWait, ItemTarget, ItemUserCommand,
-		ItemFunction, ItemAtom, ItemEquals:
+	case itemNL, itemIndent, itemDedent, itemWS, itemComment, itemEOLComment,
+		itemFrom, itemFromDockerfile, itemLocally, itemCopy, itemSaveArtifact,
+		itemSaveImage, itemRun, itemExpose, itemVolume, itemEnv, itemArg,
+		itemSet, itemLet, itemLabel, itemBuild, itemWorkdir, itemIf,
+		itemElseIf, itemElse, itemEnd, itemCmd, itemEntrypoint, itemGitClone,
+		itemAdd, itemStopSignal, itemOnBuild, itemHealthCheck, itemShell,
+		itemDo, itemCommand, itemFunctionKW, itemImport, itemVersion, itemCache,
+		itemHost, itemProject, itemUser, itemWith, itemDocker, itemTry,
+		itemCatch, itemFinally, itemFor, itemWait, itemTarget, itemUserCommand,
+		itemFunction, itemAtom, itemEquals:
 		return fmt.Sprintf("%q", i.Val)
 	}
 
@@ -176,19 +175,19 @@ type lexer struct {
 	name            string
 	keyValueCmdType string
 	state           stateFn
-	itemsArr        [32]Item
+	itemsArr        [32]item
 	indentArr       [16]int
 	itemsStart      int
 	itemsEnd        int
 	indentLen       int
 	line            int
-	lastPos         Pos
-	width           Pos
-	start           Pos
+	lastPos         pos
+	width           pos
+	start           pos
 	col             int
 	startLine       int
 	startCol        int
-	pos             Pos
+	pos             pos
 	isStartOfLine   bool
 }
 
@@ -219,7 +218,7 @@ func (l *lexer) next() rune {
 
 func (l *lexer) nextUnicode() rune {
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
-	l.width = Pos(w)
+	l.width = pos(w)
 	l.pos += l.width
 
 	if r == '\n' {
@@ -249,11 +248,11 @@ func (l *lexer) peek() rune {
 }
 
 // emit passes an item back to the client.
-func (l *lexer) emit(t ItemType) {
+func (l *lexer) emit(t itemType) {
 	if l.itemsEnd < len(l.itemsArr) {
-		l.itemsArr[l.itemsEnd] = Item{
+		l.itemsArr[l.itemsEnd] = item{
 			Typ:  t,
-			Pos:  l.start,
+			pos:  l.start,
 			Val:  l.input[l.start:l.pos],
 			Line: l.startLine,
 			Col:  l.startCol,
@@ -265,9 +264,9 @@ func (l *lexer) emit(t ItemType) {
 	l.startLine = l.line
 	l.startCol = l.col
 
-	if t == ItemNL {
+	if t == itemNL {
 		l.isStartOfLine = true
-	} else if t != ItemWS && t != ItemComment {
+	} else if t != itemWS && t != itemComment {
 		l.isStartOfLine = false
 	}
 }
@@ -283,9 +282,9 @@ func (l *lexer) ignore() {
 // back a nil pointer that will be the next state, terminating l.nextItem.
 func (l *lexer) errorf(format string, args ...any) stateFn {
 	if l.itemsEnd < len(l.itemsArr) {
-		l.itemsArr[l.itemsEnd] = Item{
-			Typ:  ItemError,
-			Pos:  l.start,
+		l.itemsArr[l.itemsEnd] = item{
+			Typ:  itemError,
+			pos:  l.start,
 			Val:  fmt.Sprintf(format, args...),
 			Line: l.startLine,
 			Col:  l.startCol,
@@ -297,7 +296,7 @@ func (l *lexer) errorf(format string, args ...any) stateFn {
 }
 
 // nextItem returns the next item from the input.
-func (l *lexer) nextItem() Item {
+func (l *lexer) nextItem() item {
 	for l.itemsStart == l.itemsEnd && l.state != nil {
 		l.itemsStart = 0
 		l.itemsEnd = 0
@@ -305,16 +304,16 @@ func (l *lexer) nextItem() Item {
 	}
 
 	if l.itemsStart < l.itemsEnd {
-		item := l.itemsArr[l.itemsStart]
+		itm := l.itemsArr[l.itemsStart]
 		l.itemsStart++
-		l.lastPos = item.Pos
+		l.lastPos = itm.pos
 
-		return item
+		return itm
 	}
 
-	return Item{
-		Typ:  ItemEOF,
-		Pos:  l.pos,
+	return item{
+		Typ:  itemEOF,
+		pos:  l.pos,
 		Line: l.line,
 		Col:  l.col,
 	}
@@ -379,7 +378,7 @@ func lexDefault(l *lexer) stateFn {
 		r := l.peek()
 		switch {
 		case r == eof:
-			l.emit(ItemEOF)
+			l.emit(itemEOF)
 			return nil
 		case isSpace(r):
 			return lexSpace
@@ -395,30 +394,30 @@ func lexDefault(l *lexer) stateFn {
 	}
 }
 
-// lexSpace consumes consecutive space and tab characters and emits an ItemWS token.
+// lexSpace consumes consecutive space and tab characters and emits an itemWS token.
 func lexSpace(l *lexer) stateFn {
 	l.skipSpace()
 
-	l.emit(ItemWS)
+	l.emit(itemWS)
 
 	return lexDefault
 }
 
-// lexNL consumes a newline sequence (including Windows-style CRLF) and emits an ItemNL token.
+// lexNL consumes a newline sequence (including Windows-style CRLF) and emits an itemNL token.
 func lexNL(l *lexer) stateFn {
 	r := l.next()
 	if r == '\r' && l.peek() == '\n' {
 		l.next()
 	}
 
-	l.emit(ItemNL)
+	l.emit(itemNL)
 	// Indentation is tracked when we are in RECIPE mode.
 	// For now, return to default.
 	return lexDefault
 }
 
 // lexConsumeComment consumes characters until the end of the line
-// and emits either ItemComment (if the comment starts the line) or ItemEOLComment.
+// and emits either itemComment (if the comment starts the line) or itemEOLComment.
 func lexConsumeComment(l *lexer) {
 	l.next() // consume '#'
 
@@ -444,9 +443,9 @@ func lexConsumeComment(l *lexer) {
 		}
 	}
 
-	typ := ItemEOLComment
+	typ := itemEOLComment
 	if isOnlySpace {
-		typ = ItemComment
+		typ = itemComment
 	}
 
 	l.emit(typ)
@@ -472,11 +471,11 @@ func lexIdentifier(l *lexer) stateFn {
 	val := l.input[l.start:l.pos]
 	switch val {
 	case CmdVersion:
-		l.emit(ItemVersion)
+		l.emit(itemVersion)
 
 		return lexGlobalCommandArgs
 	case CmdProject:
-		l.emit(ItemProject)
+		l.emit(itemProject)
 
 		return lexGlobalCommandArgs
 	case CmdCommand, CmdFunction:
@@ -489,7 +488,7 @@ func lexIdentifier(l *lexer) stateFn {
 		// It's a target, user command, or function.
 		l.next() // consume ':'
 
-		l.emit(ItemTarget)
+		l.emit(itemTarget)
 		// Reset indent tracking for the new target
 		l.indentArr[0] = 0
 		l.indentLen = 1
@@ -517,9 +516,9 @@ func lexUserCommandOrFunction(l *lexer, val string) stateFn {
 		l.next()
 	}
 
-	typ := ItemFunction
+	typ := itemFunction
 	if val == CmdCommand {
-		typ = ItemUserCommand
+		typ = itemUserCommand
 	}
 
 	l.emit(typ)
@@ -537,7 +536,7 @@ func lexRecipe(l *lexer) stateFn {
 		indent := l.skipSpaceCount()
 
 		if l.pos > l.start {
-			l.ignore() // we don't emit WS for indentation, we emit ItemIndent/Dedent
+			l.ignore() // we don't emit WS for indentation, we emit itemIndent/Dedent
 		}
 
 		nextState := l.checkIndent(indent)
@@ -552,15 +551,15 @@ func lexRecipe(l *lexer) stateFn {
 		// Dedent everything
 		for l.indentLen > 1 {
 			l.indentLen--
-			l.emit(ItemDedent)
+			l.emit(itemDedent)
 		}
 
-		l.emit(ItemEOF)
+		l.emit(itemEOF)
 
 		return nil
 	case isSpace(r):
 		l.skipSpace()
-		l.emit(ItemWS)
+		l.emit(itemWS)
 
 		return lexRecipe
 	case isEndOfLine(r):
@@ -569,7 +568,7 @@ func lexRecipe(l *lexer) stateFn {
 			l.next()
 		}
 
-		l.emit(ItemNL)
+		l.emit(itemNL)
 
 		return lexRecipe
 	case r == '#':
@@ -581,7 +580,7 @@ func lexRecipe(l *lexer) stateFn {
 	}
 }
 
-// lexCommandKeyword consumes characters of a command keyword (like RUN or FROM) and emits the matching ItemType.
+// lexCommandKeyword consumes characters of a command keyword (like RUN or FROM) and emits the matching itemType.
 func lexCommandKeyword(l *lexer) stateFn {
 	for {
 		r := l.peek()
@@ -595,7 +594,7 @@ func lexCommandKeyword(l *lexer) stateFn {
 	val := l.input[l.start:l.pos]
 
 	var (
-		typ       ItemType
+		typ       itemType
 		nextState = lexRecipeCommandArgs
 	)
 
@@ -605,11 +604,11 @@ func lexCommandKeyword(l *lexer) stateFn {
 		case l.isWordBoundary(l.pos+9) && strings.HasPrefix(l.input[l.pos:], " ARTIFACT"):
 			l.pos += 9
 			l.col += 9
-			typ = ItemSaveArtifact
+			typ = itemSaveArtifact
 		case l.isWordBoundary(l.pos+6) && strings.HasPrefix(l.input[l.pos:], " IMAGE"):
 			l.pos += 6
 			l.col += 6
-			typ = ItemSaveImage
+			typ = itemSaveImage
 		default:
 			return l.errorf("unknown command keyword: %q", val)
 		}
@@ -617,7 +616,7 @@ func lexCommandKeyword(l *lexer) stateFn {
 		if l.isWordBoundary(l.pos+6) && strings.HasPrefix(l.input[l.pos:], " CLONE") {
 			l.pos += 6
 			l.col += 6
-			typ = ItemGitClone
+			typ = itemGitClone
 		} else {
 			return l.errorf("unknown command keyword: %q", val)
 		}
@@ -625,96 +624,96 @@ func lexCommandKeyword(l *lexer) stateFn {
 		if l.isWordBoundary(l.pos+11) && strings.HasPrefix(l.input[l.pos:], " DOCKERFILE") {
 			l.pos += 11
 			l.col += 11
-			typ = ItemFromDockerfile
+			typ = itemFromDockerfile
 		} else {
-			typ = ItemFrom
+			typ = itemFrom
 		}
 	case CmdElse:
 		if l.isWordBoundary(l.pos+3) && strings.HasPrefix(l.input[l.pos:], " IF") {
 			l.pos += 3
 			l.col += 3
-			typ = ItemElseIf
+			typ = itemElseIf
 		} else {
-			typ = ItemElse
+			typ = itemElse
 		}
 	case CmdLocally:
-		typ = ItemLocally
+		typ = itemLocally
 	case CmdExpose:
-		typ = ItemExpose
+		typ = itemExpose
 	case CmdVolume:
-		typ = ItemVolume
+		typ = itemVolume
 	case CmdEnv:
-		typ = ItemEnv
+		typ = itemEnv
 		l.keyValueCmdType = CmdEnv
 		nextState = lexKeyValueCommandArgs
 	case CmdArg:
-		typ = ItemArg
+		typ = itemArg
 		l.keyValueCmdType = CmdArg
 		nextState = lexKeyValueCommandArgs
 	case CmdSet:
-		typ = ItemSet
+		typ = itemSet
 		l.keyValueCmdType = CmdSet
 		nextState = lexKeyValueCommandArgs
 	case CmdLet:
-		typ = ItemLet
+		typ = itemLet
 		l.keyValueCmdType = CmdLet
 		nextState = lexKeyValueCommandArgs
 	case CmdLabel:
-		typ = ItemLabel
+		typ = itemLabel
 	case CmdBuild:
-		typ = ItemBuild
+		typ = itemBuild
 	case CmdUser:
-		typ = ItemUser
+		typ = itemUser
 	case CmdCmd:
-		typ = ItemCmd
+		typ = itemCmd
 	case CmdEntrypoint:
-		typ = ItemEntrypoint
+		typ = itemEntrypoint
 	case CmdAdd:
-		typ = ItemAdd
+		typ = itemAdd
 	case CmdStopSignal:
-		typ = ItemStopSignal
+		typ = itemStopSignal
 	case CmdOnBuild:
-		typ = ItemOnBuild
+		typ = itemOnBuild
 	case CmdHealthCheck:
-		typ = ItemHealthCheck
+		typ = itemHealthCheck
 	case CmdShell:
-		typ = ItemShell
+		typ = itemShell
 	case CmdDo:
-		typ = ItemDo
+		typ = itemDo
 	case CmdCommand:
-		typ = ItemCommand
+		typ = itemCommand
 	case CmdFunction:
-		typ = ItemFunctionKW
+		typ = itemFunctionKW
 	case CmdImport:
-		typ = ItemImport
+		typ = itemImport
 	case CmdCache:
-		typ = ItemCache
+		typ = itemCache
 	case CmdHost:
-		typ = ItemHost
+		typ = itemHost
 	case CmdProject:
-		typ = ItemProject
+		typ = itemProject
 	case CmdRun:
-		typ = ItemRun
+		typ = itemRun
 	case CmdWorkdir:
-		typ = ItemWorkdir
+		typ = itemWorkdir
 	case CmdCopy:
-		typ = ItemCopy
+		typ = itemCopy
 	case CmdIf:
-		typ = ItemIf
+		typ = itemIf
 	case CmdEnd:
-		typ = ItemEnd
+		typ = itemEnd
 	case CmdFor:
-		typ = ItemFor
+		typ = itemFor
 	case CmdTry:
-		typ = ItemTry
+		typ = itemTry
 	case CmdCatch:
-		typ = ItemCatch
+		typ = itemCatch
 	case CmdFinally:
-		typ = ItemFinally
+		typ = itemFinally
 	case CmdWith:
-		typ = ItemWith
+		typ = itemWith
 	case CmdWait:
-		typ = ItemWait
+		typ = itemWait
 	default:
 		return l.errorf("unknown command keyword: %q", val)
 	}
@@ -731,21 +730,21 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 		switch {
 		case r == eof:
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
-			l.emit(ItemEOF)
+			l.emit(itemEOF)
 
 			return nil
 		case isSpace(r):
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
 			return lexRecipeSpaceArgs
 		case isEndOfLine(r):
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
 			r = l.next()
@@ -753,7 +752,7 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 				l.next()
 			}
 
-			l.emit(ItemNL)
+			l.emit(itemNL)
 
 			return lexRecipe
 		case r == '#':
@@ -788,7 +787,7 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 			}
 
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
 			isOnlySpace := true
@@ -854,7 +853,7 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 func lexRecipeSpaceArgs(l *lexer) stateFn {
 	l.skipSpace()
 
-	l.emit(ItemWS)
+	l.emit(itemWS)
 
 	return lexRecipeCommandArgs
 }
@@ -865,12 +864,12 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 	l.skipSpace()
 
 	if l.pos > l.start {
-		l.emit(ItemWS)
+		l.emit(itemWS)
 	}
 
 	// 2. Check for flags (atoms starting with '-')
 	if l.peek() == '-' {
-		// Lex flag as ItemAtom
+		// Lex flag as itemAtom
 		for {
 			r := l.peek()
 			if isSpace(r) || isEndOfLine(r) || r == eof || r == '#' || r == '=' {
@@ -880,7 +879,7 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 			l.next()
 		}
 
-		l.emit(ItemAtom)
+		l.emit(itemAtom)
 
 		// After the flag, continue in lexKeyValueCommandArgs to expect more flags or the key
 		return lexKeyValueCommandArgs
@@ -938,12 +937,12 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 	}
 
 	// Key is valid! Emit it.
-	l.emit(ItemAtom)
+	l.emit(itemAtom)
 
-	// If the next character is '=', consume it and emit as ItemAtom
+	// If the next character is '=', consume it and emit as itemAtom
 	if l.peek() == '=' {
 		l.next()
-		l.emit(ItemAtom)
+		l.emit(itemAtom)
 	}
 
 	// Now that we have lexed the key and optional '=', transition to the standard lexRecipeCommandArgs for values
@@ -957,21 +956,21 @@ func lexGlobalCommandArgs(l *lexer) stateFn {
 		switch {
 		case r == eof:
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
-			l.emit(ItemEOF)
+			l.emit(itemEOF)
 
 			return nil
 		case isSpace(r):
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
 			return lexGlobalSpaceArgs
 		case isEndOfLine(r):
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
 			return lexNL
@@ -1007,7 +1006,7 @@ func lexGlobalCommandArgs(l *lexer) stateFn {
 			}
 
 			if l.pos > l.start {
-				l.emit(ItemAtom)
+				l.emit(itemAtom)
 			}
 
 			isOnlySpace := true
@@ -1072,7 +1071,7 @@ func lexGlobalCommandArgs(l *lexer) stateFn {
 // lexGlobalSpaceArgs consumes whitespace within global command arguments lists.
 func lexGlobalSpaceArgs(l *lexer) stateFn {
 	l.skipSpace()
-	l.emit(ItemWS)
+	l.emit(itemWS)
 
 	return lexGlobalCommandArgs
 }
@@ -1124,10 +1123,10 @@ func lexConsumeEscapeOrContinuation(l *lexer) {
 	idx := l.pos + 1
 	isContinuation := false
 
-	for idx < Pos(len(l.input)) {
+	for idx < pos(len(l.input)) {
 		r, w := utf8.DecodeRuneInString(l.input[idx:])
 		if r == ' ' || r == '\t' {
-			idx += Pos(w)
+			idx += pos(w)
 			continue
 		}
 
@@ -1144,7 +1143,7 @@ func lexConsumeEscapeOrContinuation(l *lexer) {
 		break
 	}
 
-	if idx >= Pos(len(l.input)) {
+	if idx >= pos(len(l.input)) {
 		isContinuation = true
 	}
 
@@ -1281,7 +1280,7 @@ func lexShellOutBody(l *lexer) error {
 	return nil
 }
 
-func (l *lexer) isWordBoundary(pos Pos) bool {
+func (l *lexer) isWordBoundary(pos pos) bool {
 	if int(pos) >= len(l.input) {
 		return true
 	}
@@ -1294,11 +1293,11 @@ func (l *lexer) isWordBoundary(pos Pos) bool {
 func (l *lexer) peekNextNonCommentIndent() int {
 	idx := l.pos
 	// Skip the current comment line
-	for idx < Pos(len(l.input)) {
+	for idx < pos(len(l.input)) {
 		c := l.input[idx]
 		if c == '\n' || c == '\r' {
 			idx++
-			if c == '\r' && idx < Pos(len(l.input)) && l.input[idx] == '\n' {
+			if c == '\r' && idx < pos(len(l.input)) && l.input[idx] == '\n' {
 				idx++
 			}
 
@@ -1309,17 +1308,17 @@ func (l *lexer) peekNextNonCommentIndent() int {
 	}
 
 	// Now scan lines until we find a non-comment, non-empty line
-	for idx < Pos(len(l.input)) {
+	for idx < pos(len(l.input)) {
 		isComment := false
 		isEmpty := true
 		indent := 0
 
 		// Scan the line
-		for idx < Pos(len(l.input)) {
+		for idx < pos(len(l.input)) {
 			c := l.input[idx]
 			if c == '\n' || c == '\r' {
 				idx++
-				if c == '\r' && idx < Pos(len(l.input)) && l.input[idx] == '\n' {
+				if c == '\r' && idx < pos(len(l.input)) && l.input[idx] == '\n' {
 					idx++
 				}
 
@@ -1356,8 +1355,8 @@ func (l *lexer) peekNextNonCommentIndent() int {
 // to 0 indentation), or nil if lexing should continue in the current recipe context.
 //
 // For non-comment lines:
-// - Transition from unindented to indented emits ItemIndent.
-// - Transition from indented to unindented emits ItemDedent and returns lexDefault.
+// - Transition from unindented to indented emits itemIndent.
+// - Transition from indented to unindented emits itemDedent and returns lexDefault.
 // - Unindented lines without previous indentation transition back to lexDefault.
 //
 // For comment lines starting with '#':
@@ -1379,11 +1378,11 @@ func (l *lexer) checkIndent(indent int) stateFn {
 					l.indentLen++
 				}
 
-				l.emit(ItemIndent)
+				l.emit(itemIndent)
 
 			case !isIndented && wasIndented:
 				l.indentLen = 1
-				l.emit(ItemDedent)
+				l.emit(itemDedent)
 
 				return lexDefault
 
@@ -1411,7 +1410,7 @@ func (l *lexer) checkIndent(indent int) stateFn {
 	wasIndented := l.indentLen > 1
 	if wasIndented {
 		l.indentLen = 1
-		l.emit(ItemDedent)
+		l.emit(itemDedent)
 
 		return lexDefault
 	}

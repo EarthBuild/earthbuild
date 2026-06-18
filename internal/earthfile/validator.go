@@ -7,15 +7,22 @@ import (
 	"strings"
 )
 
+const (
+	version00 = "0.0"
+	version06 = "0.6"
+	version07 = "0.7"
+	version08 = "0.8"
+)
+
 // List of valid Earthfile versions.
 // At some point we might want to break out Earthfile versioning
 // into it's own package with some helper functions that are
 // consumable from other packages.
 var validEarthfileVersions = []string{
-	"0.0", // Meant only for testing/debugging. Disables all feature flags.
-	"0.6",
-	"0.7",
-	"0.8",
+	version00, // Meant only for testing/debugging. Disables all feature flags.
+	version06,
+	version07,
+	version08,
 }
 
 var errUnexpectedVersionArgs = errors.New(
@@ -61,10 +68,12 @@ func getValidVersionsFormatted() string {
 
 	latestIndex := len(validEarthfileVersions) - 1
 	for i := 1; i < latestIndex; i++ {
-		sb.WriteString(validEarthfileVersions[i] + ", ")
+		sb.WriteString(validEarthfileVersions[i])
+		sb.WriteString(", ")
 	}
 
-	sb.WriteString("or " + validEarthfileVersions[latestIndex])
+	sb.WriteString("or ")
+	sb.WriteString(validEarthfileVersions[latestIndex])
 
 	return sb.String()
 }

@@ -1,12 +1,9 @@
-package parse_test
+package earthfile
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 )
 
 var benchmarkInput = `VERSION 0.8
@@ -51,7 +48,7 @@ func BenchmarkANTLRParser(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		_, err := earthfile.ParseFile(filePath, true)
+		_, err := ParseFile(filePath, true)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -62,7 +59,7 @@ func BenchmarkNewParser(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		_, err := parse.Parse("Earthfile", benchmarkInput)
+		_, err := Parse("Earthfile", benchmarkInput)
 		if err != nil {
 			b.Fatal(err)
 		}

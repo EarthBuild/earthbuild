@@ -18,7 +18,6 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -81,7 +80,7 @@ func newLoader(opt HashOpt) *loader {
 func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
 	opts := earthfile.FromOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(parse.CmdFrom, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(earthfile.CmdFrom, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
 	}
@@ -97,7 +96,7 @@ func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
 func (l *loader) handleBuild(ctx context.Context, cmd earthfile.Command) error {
 	opts := earthfile.BuildOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(parse.CmdBuild, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(earthfile.CmdBuild, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
 	}
@@ -150,7 +149,7 @@ func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
 	opts := earthfile.CopyOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(parse.CmdCopy, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(earthfile.CmdCopy, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return err
 	}
@@ -415,21 +414,21 @@ func (l *loader) handleCommand(ctx context.Context, cmd earthfile.Command) error
 
 	// Some commands require more processing.
 	switch cmd.Name {
-	case parse.CmdFrom:
+	case earthfile.CmdFrom:
 		return l.handleFrom(ctx, cmd)
-	case parse.CmdBuild:
+	case earthfile.CmdBuild:
 		return l.handleBuild(ctx, cmd)
-	case parse.CmdCopy:
+	case earthfile.CmdCopy:
 		return l.handleCopy(ctx, cmd)
-	case parse.CmdArg:
+	case earthfile.CmdArg:
 		return l.handleArg(cmd, false)
-	case parse.CmdLet:
+	case earthfile.CmdLet:
 		return l.handleLet(cmd)
-	case parse.CmdSet:
+	case earthfile.CmdSet:
 		return l.handleSet(cmd)
-	case parse.CmdFromDockerfile:
+	case earthfile.CmdFromDockerfile:
 		return l.handleFromDockerfile(ctx, cmd)
-	case parse.CmdImport:
+	case earthfile.CmdImport:
 		return l.handleImport(cmd, false)
 	default:
 		// By default, no special handling is required. The raw command has been
@@ -455,7 +454,7 @@ func (l *loader) handleImport(cmd earthfile.Command, isBase bool) error {
 func (l *loader) handleFromDockerfile(ctx context.Context, cmd earthfile.Command) error {
 	opts := earthfile.FromDockerfileOpts{}
 
-	args, err := flagutil.ParseArgsCleaned(parse.CmdFromDockerfile, &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgsCleaned(earthfile.CmdFromDockerfile, &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return wrapError(err, cmd.SourceLocation, "failed to parse args")
 	}
@@ -577,7 +576,7 @@ func (l *loader) handleSet(cmd earthfile.Command) error {
 }
 
 func (l *loader) handleWith(ctx context.Context, with earthfile.WithStatement) error {
-	if with.Command.Name != parse.CmdDocker {
+	if with.Command.Name != earthfile.CmdDocker {
 		return newError(with.Command.SourceLocation, "expected WITH DOCKER")
 	}
 
@@ -1127,11 +1126,11 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		for _, stmt := range ef.BaseRecipe {
 			switch {
 			case stmt.Command == nil: // noop
-			case stmt.Command.Name == parse.CmdImport:
+			case stmt.Command.Name == earthfile.CmdImport:
 				err = l.handleImport(*stmt.Command, true)
-			case stmt.Command.Name == parse.CmdArg:
+			case stmt.Command.Name == earthfile.CmdArg:
 				err = l.handleArg(*stmt.Command, true)
-			case stmt.Command.Name == parse.CmdFrom:
+			case stmt.Command.Name == earthfile.CmdFrom:
 				err = l.handleFrom(ctx, *stmt.Command)
 			}
 

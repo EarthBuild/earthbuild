@@ -1354,6 +1354,21 @@ func (l *lexer) peekNextNonCommentIndent() int {
 	return 0
 }
 
+// checkIndent evaluates changes in indentation for target recipes and emits indent/dedent tokens.
+// It returns a stateFn if a state transition is required (e.g., returning lexDefault when returning
+// to 0 indentation), or nil if lexing should continue in the current recipe context.
+//
+// For non-comment lines:
+// - Transition from unindented to indented emits ItemIndent.
+// - Transition from indented to unindented emits ItemDedent and returns lexDefault.
+// - Unindented lines without previous indentation transition back to lexDefault.
+//
+// For comment lines starting with '#':
+//   - If the comment is indented, it is ignored without emitting indent tokens.
+//   - If the comment is at 0 indentation but the next non-comment line is indented, the 0-indent
+//     comment is ignored to avoid premature dedenting.
+//   - If both the comment and the next non-comment line are at 0 indentation, it dedents (if
+//     previously indented) and returns lexDefault.
 func (l *lexer) checkIndent(indent int) stateFn {
 	if l.peek() != '#' {
 		if !isEndOfLine(l.peek()) && l.peek() != eof {

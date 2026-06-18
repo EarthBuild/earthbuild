@@ -3,6 +3,8 @@ package subcmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"slices"
 	"strings"
 
@@ -18,11 +20,32 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// docBaseTarget is the implicit target documented when no '+target' is given.
+const docBaseTarget = "+base"
+
+// errNoDocComment is the sentinel returned when a target has no usable doc
+// comment. When documenting all targets these are skipped, so the call site
+// distinguishes them (via [errors.Is]) from real parse/resolve failures.
+var errNoDocComment = errors.New("no doc comment found")
+
 // Doc encapsulates the doc command logic.
 type Doc struct {
 	cli CLI
 
+	// out is where rendered docs are written; nil means [os.Stdout]. Injectable
+	// so tests can capture output without hijacking the global stdout.
+	out io.Writer
+
 	docShowLong bool
+}
+
+// writer returns the output sink, defaulting to [os.Stdout] for the zero value.
+func (a *Doc) writer() io.Writer {
+	if a.out == nil {
+		return os.Stdout
+	}
+
+	return a.out
 }
 
 // NewDoc creates a new Doc command.
@@ -63,24 +86,11 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 	var tgtPath string
 	if cmd.NArg() > 0 {
 		tgtPath = cmd.Args().Get(0)
-		switch tgtPath[0] {
-		case '.', '/', '+':
-		default:
-			return errors.
-				New("remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
-		}
 	}
 
-	singleTgt := true
-
-	if !strings.ContainsRune(tgtPath, '+') {
-		tgtPath += "+base"
-		singleTgt = false
-	}
-
-	target, err := domain.ParseTarget(tgtPath)
+	target, singleTgt, err := parseDocTarget(tgtPath)
 	if err != nil {
-		return errors.Errorf("unable to parse target %q", tgtPath)
+		return err
 	}
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
@@ -107,14 +117,47 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 
 	tgts := bc.Earthfile.Targets
 
-	fmt.Println("TARGETS:")
+	fmt.Fprintln(a.writer(), "TARGETS:")
 
 	const tgtIndent = docsIndent
 	for _, tgt := range tgts {
-		_ = a.documentSingleTarget(tgtIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		// Targets without a doc comment are silently skipped; any other error
+		// (e.g. a malformed recipe body) is a real failure and propagates.
+		err := a.documentSingleTarget(tgtIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		if err != nil && !errors.Is(err, errNoDocComment) {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// parseDocTarget interprets the doc command's optional path argument. An empty
+// path (or no argument) documents every target in the local "+base" Earthfile;
+// a path containing '+' documents that single target. Remote paths are rejected.
+func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err error) {
+	if tgtPath != "" {
+		switch tgtPath[0] {
+		case '.', '/', '+':
+		default:
+			return domain.Target{}, false, errors.New(
+				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
+		}
+	}
+
+	singleTgt = true
+
+	if !strings.ContainsRune(tgtPath, '+') {
+		tgtPath += docBaseTarget
+		singleTgt = false
+	}
+
+	target, err = domain.ParseTarget(tgtPath)
+	if err != nil {
+		return domain.Target{}, false, errors.Errorf("unable to parse target %q", tgtPath)
+	}
+
+	return target, singleTgt, nil
 }
 
 func docString(body string, names ...string) (string, error) {
@@ -128,7 +171,7 @@ func docString(body string, names ...string) (string, error) {
 		return body, nil
 	}
 
-	return "", hint.Wrapf(errors.New("no doc comment found"),
+	return "", hint.Wrapf(errNoDocComment,
 		"a comment was found but the first word was not one of (%s)", strings.Join(names, ", "))
 }
 
@@ -172,10 +215,10 @@ type blockIO struct {
 	images         []docSection
 }
 
-func (io blockIO) options() string {
+func (b blockIO) options() string {
 	var sb strings.Builder
 
-	for _, arg := range io.requiredArgs {
+	for _, arg := range b.requiredArgs {
 		if sb.Len() > 0 {
 			sb.WriteByte(' ')
 		}
@@ -183,7 +226,7 @@ func (io blockIO) options() string {
 		sb.WriteString(arg.identifier)
 	}
 
-	for _, arg := range io.optionalArgs {
+	for _, arg := range b.optionalArgs {
 		if sb.Len() > 0 {
 			sb.WriteByte(' ')
 		}
@@ -196,15 +239,15 @@ func (io blockIO) options() string {
 	return sb.String()
 }
 
-func (io blockIO) help(indent, scopeIndent string) string {
-	return docSectionsOutput(indent, scopeIndent, "REQUIRED ARGS", io.requiredArgs...) +
-		docSectionsOutput(indent, scopeIndent, "OPTIONAL ARGS", io.optionalArgs...) +
-		docSectionsOutput(indent, scopeIndent, "ARTIFACTS", io.artifacts...) +
-		docSectionsOutput(indent, scopeIndent, "LOCAL ARTIFACTS", io.localArtifacts...) +
-		docSectionsOutput(indent, scopeIndent, "IMAGES", io.images...)
+func (b blockIO) help(indent, scopeIndent string) string {
+	return docSectionsOutput(indent, scopeIndent, "REQUIRED ARGS", b.requiredArgs...) +
+		docSectionsOutput(indent, scopeIndent, "OPTIONAL ARGS", b.optionalArgs...) +
+		docSectionsOutput(indent, scopeIndent, "ARTIFACTS", b.artifacts...) +
+		docSectionsOutput(indent, scopeIndent, "LOCAL ARTIFACTS", b.localArtifacts...) +
+		docSectionsOutput(indent, scopeIndent, "IMAGES", b.images...)
 }
 
-func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool) error {
+func addArg(b *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool) error {
 	if stmt.Command == nil {
 		return nil
 	}
@@ -234,19 +277,19 @@ func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onl
 	}
 
 	if isRequired {
-		io.requiredArgs = append(io.requiredArgs, doc)
+		b.requiredArgs = append(b.requiredArgs, doc)
 		return nil
 	}
 
-	io.optionalArgs = append(io.optionalArgs, doc)
+	b.optionalArgs = append(b.optionalArgs, doc)
 
 	return nil
 }
 
 func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
-	var io blockIO
+	var b blockIO
 	for _, base := range baseRcp {
-		err := addArg(&io, ft, base, true, true)
+		err := addArg(&b, ft, base, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse global ARG in base recipe")
 		}
@@ -260,7 +303,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 		cmd := *rb.Command
 		switch cmd.Name {
 		case "ARG":
-			err := addArg(&io, ft, rb, false, false)
+			err := addArg(&b, ft, rb, false, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse non-global ARG")
 			}
@@ -283,12 +326,12 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 			}
 			if localName != nil {
 				artDoc.identifier += " -> " + *localName
-				io.localArtifacts = append(io.localArtifacts, artDoc)
+				b.localArtifacts = append(b.localArtifacts, artDoc)
 
 				continue
 			}
 
-			io.artifacts = append(io.artifacts, artDoc)
+			b.artifacts = append(b.artifacts, artDoc)
 		case "SAVE IMAGE":
 			identifiers, err := earthfile2llb.ImageNames(cmd)
 			if err != nil {
@@ -300,14 +343,14 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 			}
 
 			docs, _ := docString(cmd.Docs, identifiers...)
-			io.images = append(io.images, docSection{
+			b.images = append(b.images, docSection{
 				identifier: strings.Join(identifiers, ", "),
 				body:       docs,
 			})
 		}
 	}
 
-	return &io, nil
+	return &b, nil
 }
 
 func (a *Doc) documentSingleTarget(
@@ -318,7 +361,7 @@ func (a *Doc) documentSingleTarget(
 	includeBlockDocs bool,
 ) error {
 	if tgt.Docs == "" {
-		return hint.Wrapf(errors.New("no doc comment found"),
+		return hint.Wrapf(errNoDocComment,
 			"add a comment starting with the word '%s' on the line immediately above this target", tgt.Name)
 	}
 
@@ -341,17 +384,18 @@ func (a *Doc) documentSingleTarget(
 		usage += " " + options
 	}
 
-	fmt.Println(usage)
+	w := a.writer()
+	fmt.Fprintln(w, usage)
 
 	docIndent := currIndent + scopeIndent + scopeIndent
 	indented := indent(docIndent, docs)
-	fmt.Println(strings.Trim(indented, "\n"))
+	fmt.Fprintln(w, strings.Trim(indented, "\n"))
 
 	if !includeBlockDocs {
 		return nil
 	}
 
-	fmt.Println(blockIO.help(currIndent+scopeIndent, scopeIndent))
+	fmt.Fprintln(w, blockIO.help(currIndent+scopeIndent, scopeIndent))
 
 	return nil
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var envVarNameRegexp = regexp.MustCompile("^[a-zA-Z_]+[a-zA-Z0-9_]*$")
+
 // parser is the state representation of the Earthfile parser.
 type parser struct {
 	lex       *lexer
@@ -677,6 +679,38 @@ func (p *parser) parseKeyValueCommandArgs() ([]string, SourceLocation, error) {
 		p.next()
 
 		items = append(items, t)
+	}
+
+	idx := 0
+	// Skip leading WS
+	for idx < len(items) && items[idx].Typ == ItemWS {
+		idx++
+	}
+	// Skip flags
+	for idx < len(items) {
+		if items[idx].Typ == ItemAtom && strings.HasPrefix(items[idx].Val, "-") {
+			idx++
+			// skip WS after flag
+			for idx < len(items) && items[idx].Typ == ItemWS {
+				idx++
+			}
+		} else {
+			break
+		}
+	}
+
+	if idx < len(items) && items[idx].Typ == ItemAtom {
+		keyToken := items[idx].Val
+		key := keyToken
+
+		keyParts := splitKeyValueArg(keyToken)
+		if len(keyParts) > 1 {
+			key = keyParts[0]
+		}
+
+		if !envVarNameRegexp.MatchString(key) {
+			return nil, endLoc, p.errorf(items[idx].Pos, "invalid env key definition %s", key)
+		}
 	}
 
 	args = parseKeyValueItems(items)

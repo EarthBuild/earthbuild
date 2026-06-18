@@ -5,9 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,10 +128,10 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 	require.Contains(t, out, "IMAGES:")
 }
 
-func parseDocFixture(t *testing.T, fixture string) (spec.Earthfile, *features.Features) {
+func parseDocFixture(t *testing.T, fixture string) (earthfile.Earthfile, *features.Features) {
 	t.Helper()
 
-	ef, err := ast.ParseOpts(ast.FromPath(filepath.Join("testdata", fixture)))
+	ef, err := earthfile.ParseOpts(earthfile.FromPath(filepath.Join("testdata", fixture)), earthfile.WithSourceMap())
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -143,7 +142,7 @@ func parseDocFixture(t *testing.T, fixture string) (spec.Earthfile, *features.Fe
 	return ef, ftrs
 }
 
-func mustFindDocTarget(t *testing.T, ef spec.Earthfile, name string) spec.Target {
+func mustFindDocTarget(t *testing.T, ef earthfile.Earthfile, name string) earthfile.Target {
 	t.Helper()
 
 	tgt, err := findTarget(ef, name)

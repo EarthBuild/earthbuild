@@ -11,80 +11,6 @@ import (
 // ItemType identifies the type of lex items.
 type ItemType int
 
-// String returns the canonical command string representation of the ItemType.
-func (t ItemType) String() string {
-	switch t {
-	case ItemAdd:
-		return CmdAdd
-	case ItemArg:
-		return CmdArg
-	case ItemBuild:
-		return CmdBuild
-	case ItemCache:
-		return CmdCache
-	case ItemCmd:
-		return CmdCmd
-	case ItemCommand:
-		return CmdCommand
-	case ItemFunctionKW:
-		return CmdFunction
-	case ItemCopy:
-		return CmdCopy
-	case ItemDo:
-		return CmdDo
-	case ItemDocker:
-		return CmdDocker
-	case ItemEntrypoint:
-		return CmdEntrypoint
-	case ItemEnv:
-		return CmdEnv
-	case ItemExpose:
-		return CmdExpose
-	case ItemFrom:
-		return CmdFrom
-	case ItemFromDockerfile:
-		return CmdFromDockerfile
-	case ItemGitClone:
-		return CmdGitClone
-	case ItemHealthCheck:
-		return CmdHealthCheck
-	case ItemHost:
-		return CmdHost
-	case ItemImport:
-		return CmdImport
-	case ItemLabel:
-		return CmdLabel
-	case ItemLet:
-		return CmdLet
-	case ItemLocally:
-		return CmdLocally
-	case ItemOnBuild:
-		return CmdOnBuild
-	case ItemProject:
-		return CmdProject
-	case ItemRun:
-		return CmdRun
-	case ItemSaveArtifact:
-		return CmdSaveArtifact
-	case ItemSaveImage:
-		return CmdSaveImage
-	case ItemSet:
-		return CmdSet
-	case ItemShell:
-		return CmdShell
-	case ItemStopSignal:
-		return CmdStopSignal
-	case ItemUser:
-		return CmdUser
-	case ItemVolume:
-		return CmdVolume
-	case ItemWorkdir:
-		return CmdWorkdir
-	}
-
-	return ""
-}
-
 // ItemType constants.
 const (
 	// ItemError represents an error.
@@ -190,6 +116,7 @@ const (
 	CmdShell          = "SHELL"
 	CmdStopSignal     = "STOPSIGNAL"
 	CmdUser           = "USER"
+	CmdVersion        = "VERSION"
 	CmdVolume         = "VOLUME"
 	CmdWorkdir        = "WORKDIR"
 )
@@ -209,16 +136,14 @@ type Item struct {
 }
 
 func (i Item) String() string {
-	switch {
-	case i.Typ == ItemEOF:
+	switch i.Typ {
+	case ItemEOF:
 		return "EOF"
-	case i.Typ == ItemError:
+	case ItemError:
 		return i.Val
-	case len(i.Val) > 10:
-		return fmt.Sprintf("%.10q...", i.Val)
+	default:
+		return fmt.Sprintf("%q", i.Val)
 	}
-
-	return fmt.Sprintf("%q", i.Val)
 }
 
 // stateFn represents the state of the scanner as a function that returns the next state.
@@ -242,8 +167,6 @@ type lexer struct {
 	col             int
 	startLine       int
 	startCol        int
-	prevLine        int
-	prevCol         int
 	pos             Pos
 	isStartOfLine   bool
 }
@@ -260,18 +183,14 @@ func (l *lexer) next() rune {
 		l.width = 1
 		l.pos++
 
-		l.prevLine = l.line
-		l.prevCol = l.col
-
-		r := rune(c)
-		if r == '\n' {
+		if c == '\n' {
 			l.line++
 			l.col = 1
 		} else {
 			l.col++
 		}
 
-		return r
+		return rune(c)
 	}
 
 	return l.nextUnicode()
@@ -281,9 +200,6 @@ func (l *lexer) nextUnicode() rune {
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
 	l.width = Pos(w)
 	l.pos += l.width
-
-	l.prevLine = l.line
-	l.prevCol = l.col
 
 	if r == '\n' {
 		l.line++
@@ -297,17 +213,18 @@ func (l *lexer) nextUnicode() rune {
 
 // peek returns but does not consume the next rune in the input.
 func (l *lexer) peek() rune {
-	r := l.next()
-	l.backup()
+	if int(l.pos) >= len(l.input) {
+		return eof
+	}
+
+	c := l.input[l.pos]
+	if c < utf8.RuneSelf {
+		return rune(c)
+	}
+
+	r, _ := utf8.DecodeRuneInString(l.input[l.pos:])
 
 	return r
-}
-
-// backup steps back one rune. Can only be called once per call of next.
-func (l *lexer) backup() {
-	l.pos -= l.width
-	l.line = l.prevLine
-	l.col = l.prevCol
 }
 
 // emit passes an item back to the client.
@@ -359,7 +276,6 @@ func (l *lexer) errorf(format string, args ...any) stateFn {
 }
 
 // nextItem returns the next item from the input.
-// Called by the parser, not in the lexing goroutine.
 func (l *lexer) nextItem() Item {
 	for l.itemsStart == l.itemsEnd && l.state != nil {
 		l.itemsStart = 0
@@ -390,15 +306,12 @@ func lex(name, input string) *lexer {
 		input:         input,
 		line:          1,
 		col:           1,
-		prevLine:      1,
-		prevCol:       1,
 		startLine:     1,
 		startCol:      1,
 		isStartOfLine: true,
 		state:         lexDefault,
+		indentLen:     1,
 	}
-	l.indentArr[0] = 0
-	l.indentLen = 1
 
 	return l
 }
@@ -408,6 +321,27 @@ func isSpace(r rune) bool {
 	return r == ' ' || r == '\t'
 }
 
+// skipSpace consumes consecutive space and tab characters.
+func (l *lexer) skipSpace() {
+	for int(l.pos) < len(l.input) {
+		c := l.input[l.pos]
+		if c != ' ' && c != '\t' {
+			break
+		}
+
+		l.pos++
+		l.col++
+	}
+}
+
+// skipSpaceCount consumes consecutive space and tab characters, returning the number of characters consumed.
+func (l *lexer) skipSpaceCount() int {
+	start := l.pos
+	l.skipSpace()
+
+	return int(l.pos - start)
+}
+
 // isEndOfLine reports whether r is an end-of-line character.
 func isEndOfLine(r rune) bool {
 	return r == '\r' || r == '\n'
@@ -415,7 +349,7 @@ func isEndOfLine(r rune) bool {
 
 // isAlphaNumeric reports whether r is an alphabetic, digit, or underscore.
 func isAlphaNumeric(r rune) bool {
-	return r == '_' || ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') || ('0' <= r && r <= '9')
+	return ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') || ('0' <= r && r <= '9') || r == '_'
 }
 
 // lexDefault is the starting state.
@@ -440,16 +374,16 @@ func lexDefault(l *lexer) stateFn {
 	}
 }
 
+// lexSpace consumes consecutive space and tab characters and emits an ItemWS token.
 func lexSpace(l *lexer) stateFn {
-	for isSpace(l.peek()) {
-		l.next()
-	}
+	l.skipSpace()
 
 	l.emit(ItemWS)
 
 	return lexDefault
 }
 
+// lexNL consumes a newline sequence (including Windows-style CRLF) and emits an ItemNL token.
 func lexNL(l *lexer) stateFn {
 	r := l.next()
 	if r == '\r' && l.peek() == '\n' {
@@ -462,6 +396,8 @@ func lexNL(l *lexer) stateFn {
 	return lexDefault
 }
 
+// lexConsumeComment consumes characters until the end of the line
+// and emits either ItemComment (if the comment starts the line) or ItemEOLComment.
 func lexConsumeComment(l *lexer) {
 	l.next() // consume '#'
 
@@ -494,6 +430,7 @@ func lexConsumeComment(l *lexer) {
 	}
 }
 
+// lexIdentifier parses target names, custom user commands, functions, or version keywords.
 func lexIdentifier(l *lexer) stateFn {
 	// A target starts with [a-z], user command/function with [A-Z].
 	r := l.next()
@@ -511,18 +448,19 @@ func lexIdentifier(l *lexer) stateFn {
 	}
 
 	val := l.input[l.start:l.pos]
-	if val == "VERSION" {
+	switch val {
+	case CmdVersion:
 		l.emit(ItemVersion)
-		return lexGlobalCommandArgs
-	}
 
-	if val == "PROJECT" {
+		return lexGlobalCommandArgs
+	case CmdProject:
 		l.emit(ItemProject)
-		return lexGlobalCommandArgs
-	}
 
-	if (val == CmdCommand || val == CmdFunction) && isSpace(l.peek()) {
-		return lexUserCommandOrFunction(l, val)
+		return lexGlobalCommandArgs
+	case CmdCommand, CmdFunction:
+		if isSpace(l.peek()) {
+			return lexUserCommandOrFunction(l, val)
+		}
 	}
 
 	if l.peek() == ':' {
@@ -545,6 +483,7 @@ func lexIdentifier(l *lexer) stateFn {
 	return lexCommandKeyword
 }
 
+// lexUserCommandOrFunction parses the name of a custom user command or function definition.
 func lexUserCommandOrFunction(l *lexer, val string) stateFn {
 	l.next()
 
@@ -568,16 +507,11 @@ func lexUserCommandOrFunction(l *lexer, val string) stateFn {
 	return lexRecipe
 }
 
+// lexRecipe processes tokens inside target recipes, handling indentation levels and keywords.
 func lexRecipe(l *lexer) stateFn {
 	// First, check for indentation changes at the start of a line
 	if l.col == 1 {
-		indent := 0
-
-		for isSpace(l.peek()) {
-			l.next()
-
-			indent++
-		}
+		indent := l.skipSpaceCount()
 
 		if l.pos > l.start {
 			l.ignore() // we don't emit WS for indentation, we emit ItemIndent/Dedent
@@ -602,9 +536,7 @@ func lexRecipe(l *lexer) stateFn {
 
 		return nil
 	case isSpace(r):
-		for isSpace(l.peek()) {
-			l.next()
-		}
+		l.skipSpace()
 
 		l.emit(ItemWS)
 
@@ -627,6 +559,7 @@ func lexRecipe(l *lexer) stateFn {
 	}
 }
 
+// lexCommandKeyword consumes characters of a command keyword (like RUN or FROM) and emits the matching ItemType.
 func lexCommandKeyword(l *lexer) stateFn {
 	for {
 		r := l.peek()
@@ -793,6 +726,7 @@ func lexCommandKeyword(l *lexer) stateFn {
 	return lexRecipeCommandArgs
 }
 
+// lexRecipeCommandArgs parses command arguments within a recipe, processing strings, shell outs, and continuations.
 func lexRecipeCommandArgs(l *lexer) stateFn {
 	for {
 		r := l.peek()
@@ -918,21 +852,19 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 	}
 }
 
+// lexRecipeSpaceArgs consumes whitespace within a recipe command's arguments list.
 func lexRecipeSpaceArgs(l *lexer) stateFn {
-	for isSpace(l.peek()) {
-		l.next()
-	}
+	l.skipSpace()
 
 	l.emit(ItemWS)
 
 	return lexRecipeCommandArgs
 }
 
+// lexKeyValueCommandArgs parses flag, key, and equals tokens for commands like ENV, ARG, SET, or LET.
 func lexKeyValueCommandArgs(l *lexer) stateFn {
 	// 1. Skip leading space
-	for isSpace(l.peek()) {
-		l.next()
-	}
+	l.skipSpace()
 
 	if l.pos > l.start {
 		l.emit(ItemWS)
@@ -1020,6 +952,7 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 	return lexRecipeCommandArgs
 }
 
+// lexGlobalCommandArgs parses arguments for global scope commands such as VERSION or PROJECT.
 func lexGlobalCommandArgs(l *lexer) stateFn {
 	for {
 		r := l.peek()
@@ -1138,16 +1071,16 @@ func lexGlobalCommandArgs(l *lexer) stateFn {
 	}
 }
 
+// lexGlobalSpaceArgs consumes whitespace within global command arguments lists.
 func lexGlobalSpaceArgs(l *lexer) stateFn {
-	for isSpace(l.peek()) {
-		l.next()
-	}
+	l.skipSpace()
 
 	l.emit(ItemWS)
 
 	return lexGlobalCommandArgs
 }
 
+// lexConsumeEscape consumes an escaped character, including windows-style line endings.
 func lexConsumeEscape(l *lexer) {
 	r := l.next()
 	if r == '\r' && l.peek() == '\n' {
@@ -1188,6 +1121,8 @@ func isCommentStart(l *lexer) bool {
 	return prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r'
 }
 
+// lexConsumeEscapeOrContinuation determines whether a backslash indicates
+// a line continuation or an escaped character, and consumes it accordingly.
 func lexConsumeEscapeOrContinuation(l *lexer) {
 	idx := l.pos + 1
 	isContinuation := false
@@ -1228,6 +1163,8 @@ func lexConsumeEscapeOrContinuation(l *lexer) {
 	}
 }
 
+// lexConsumeContinuation consumes a backslash line continuation,
+// optionally ignoring the whitespace and comments that follow.
 func lexConsumeContinuation(l *lexer, shouldIgnore bool) {
 	l.next() // consume \
 
@@ -1274,6 +1211,7 @@ func lexConsumeContinuation(l *lexer, shouldIgnore bool) {
 	}
 }
 
+// lexDoubleQuoteBody parses the contents inside double quotes, including nested shell substitutions.
 func lexDoubleQuoteBody(l *lexer) error {
 	for {
 		r := l.next()
@@ -1297,6 +1235,7 @@ func lexDoubleQuoteBody(l *lexer) error {
 	}
 }
 
+// lexSingleQuoteBody parses the contents inside single quotes.
 func lexSingleQuoteBody(l *lexer) error {
 	for {
 		r := l.next()
@@ -1311,6 +1250,7 @@ func lexSingleQuoteBody(l *lexer) error {
 	}
 }
 
+// lexShellOutBody parses the contents of a $(...) shell execution body, balancing parentheses and nested strings.
 func lexShellOutBody(l *lexer) error {
 	parenCount := 1
 	for parenCount > 0 {

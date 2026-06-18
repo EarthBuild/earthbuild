@@ -615,9 +615,9 @@ func (p *parser) parseCommand() (Command, error) {
 				}
 			}
 		case CmdLabel:
-			newArgs := make([]string, 0, len(cmd.Args)*3)
+			var newArgs []string
 			for _, arg := range cmd.Args {
-				newArgs = appendKeyValueArg(newArgs, arg)
+				newArgs = append(newArgs, splitKeyValueArg(arg)...)
 			}
 
 			cmd.Args = newArgs
@@ -1124,16 +1124,20 @@ func computeDocs(comments []string) string {
 		line = strings.TrimPrefix(line, "#")
 
 		if i == 0 {
-			idx := 0
-			for idx < len(line) && (line[idx] == ' ' || line[idx] == '\t') {
-				idx++
+			var trimRunes []rune
+
+			for _, r := range line {
+				if r == ' ' || r == '\t' {
+					trimRunes = append(trimRunes, r)
+				} else {
+					break
+				}
 			}
 
-			leadingTrim = line[:idx]
+			leadingTrim = string(trimRunes)
 		}
 
 		line = strings.TrimPrefix(line, leadingTrim)
-
 		docs.WriteString(line)
 		docs.WriteByte('\n')
 	}
@@ -1246,15 +1250,17 @@ func findKeyValueSeparator(s string) int {
 	return -1
 }
 
-func appendKeyValueArg(out []string, s string) []string {
+func splitKeyValueArg(s string) []string {
 	idx := findKeyValueSeparator(s)
 	if idx == -1 {
 		if s == "" {
-			return out
+			return nil
 		}
 
-		return append(out, s)
+		return []string{s}
 	}
+
+	out := make([]string, 0, 3)
 
 	if idx > 0 {
 		out = append(out, s[:idx])

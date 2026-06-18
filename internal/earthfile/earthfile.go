@@ -138,6 +138,14 @@ func Parse(name, text string) (Earthfile, error) {
 	return mapTree(tree), nil
 }
 
+func mapArgs(args []string) []string {
+	if args == nil {
+		return []string{}
+	}
+
+	return args
+}
+
 func mapSourceLocation(src *parse.SourceLocation) *SourceLocation {
 	if src == nil {
 		return nil
@@ -159,7 +167,7 @@ func mapVersion(v *parse.Version) *Version {
 
 	return &Version{
 		SourceLocation: mapSourceLocation(v.SourceLocation),
-		Args:           v.Args,
+		Args:           mapArgs(v.Args),
 	}
 }
 
@@ -198,7 +206,7 @@ func mapCommand(c *parse.Command) *Command {
 		Name:           c.Name,
 		Docs:           c.Docs,
 		SourceLocation: mapSourceLocation(c.SourceLocation),
-		Args:           c.Args,
+		Args:           mapArgs(c.Args),
 		ExecMode:       c.ExecMode,
 	}
 }
@@ -216,7 +224,7 @@ func mapWithStatement(w *parse.WithStatement) *WithStatement {
 		cmd = Command{
 			Name:     w.Command.Name,
 			Docs:     w.Command.Docs,
-			Args:     w.Command.Args,
+			Args:     mapArgs(w.Command.Args),
 			ExecMode: w.Command.ExecMode,
 		}
 	}
@@ -248,7 +256,7 @@ func mapIfStatement(f *parse.IfStatement) *IfStatement {
 		for i, ei := range f.ElseIf {
 			elseIfs[i] = ElseIf{
 				SourceLocation: mapSourceLocation(ei.SourceLocation),
-				Expression:     ei.Expression,
+				Expression:     mapArgs(ei.Expression),
 				Body:           mapBlock(ei.Body),
 				ExecMode:       ei.ExecMode,
 			}
@@ -258,7 +266,7 @@ func mapIfStatement(f *parse.IfStatement) *IfStatement {
 	return &IfStatement{
 		ElseBody:       elseBody,
 		SourceLocation: mapSourceLocation(f.SourceLocation),
-		Expression:     f.Expression,
+		Expression:     mapArgs(f.Expression),
 		ElseIf:         elseIfs,
 		IfBody:         mapBlock(f.IfBody),
 		ExecMode:       f.ExecMode,
@@ -299,7 +307,7 @@ func mapForStatement(f *parse.ForStatement) *ForStatement {
 
 	return &ForStatement{
 		SourceLocation: mapSourceLocation(f.SourceLocation),
-		Args:           f.Args,
+		Args:           mapArgs(f.Args),
 		Body:           mapBlock(f.Body),
 	}
 }
@@ -311,7 +319,7 @@ func mapWaitStatement(w *parse.WaitStatement) *WaitStatement {
 
 	return &WaitStatement{
 		SourceLocation: mapSourceLocation(w.SourceLocation),
-		Args:           w.Args,
+		Args:           mapArgs(w.Args),
 		Body:           mapBlock(w.Body),
 	}
 }

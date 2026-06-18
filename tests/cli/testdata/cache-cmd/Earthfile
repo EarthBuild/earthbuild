@@ -12,7 +12,7 @@ test-prev-prev:
 test-prev:
     FROM +test-prev-prev
     CACHE --persist ./my/other
-    CACHE --persist ./my/other # Should not affect results
+    CACHE --persist ./my/other
     CACHE --persist ./your/other
     RUN echo "hello again" >> ./my/other/hello
     RUN echo "hello to you!" >> ./your/other/hello
@@ -22,21 +22,18 @@ test-prev:
 test:
     FROM +test-prev
     RUN cat ./my/data/hello
-    # Persistent cache from previous targets should be accessible.
     RUN test "$(cat ./my/data/hello)" = "hello world"
     RUN test "$(cat ./my/other/hello)" = "hello again"
     RUN test "$(cat ./your/other/hello)" = "hello to you!"
-    # The persistent cache from the +base target should be accessible.
     RUN test "$(cat /base/persistent/hello)" = "hello, hello"
-    # The temporary backup directory should have been removed.
     RUN test -d /earthbuild-tmp-a8cb9b0e-f285-4851-b00e-cd5b1ac6a499; test $? = 1
 
 test-save-artifact:
     CACHE --persist ./my/artifacts
     RUN echo "artifact 1" >> ./my/artifacts/1
-    SAVE ARTIFACT ./my/artifacts AS LOCAL ./artifacts1
     RUN echo "artifact 2" >> ./my/artifacts/2
-    SAVE ARTIFACT ./my/artifacts AS LOCAL ./artifacts2
+    SAVE ARTIFACT ./my/artifacts AS LOCAL ./artifacts1
+    SAVE ARTIFACT ./my/artifacts/2 AS LOCAL ./artifacts2/2
 
 test-arg:
     CACHE --persist /foo
@@ -47,12 +44,11 @@ test-arg:
 test-no-sharing-prev:
     CACHE --persist /no-sharing
     RUN touch /no-sharing/should-not-see-me
-    # A hack to let +test-no-sharing have something to copy.
     RUN touch nothing
     SAVE ARTIFACT nothing
 
 test-no-sharing:
-    COPY +test-no-sharing-prev/nothing . # Only to make sure +test-no-sharing-prev runs first
+    COPY +test-no-sharing-prev/nothing .
     CACHE --persist /no-sharing
     RUN ! test -f /no-sharing/should-not-see-me
 

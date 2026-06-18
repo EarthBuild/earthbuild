@@ -88,20 +88,27 @@ const (
 	CmdArg            = "ARG"
 	CmdBuild          = "BUILD"
 	CmdCache          = "CACHE"
+	CmdCatch          = "CATCH"
 	CmdCmd            = "CMD"
 	CmdCommand        = "COMMAND"
-	CmdFunction       = "FUNCTION"
 	CmdCopy           = "COPY"
 	CmdDo             = "DO"
 	CmdDocker         = "DOCKER"
+	CmdElse           = "ELSE"
+	CmdElseIf         = "ELSE IF"
+	CmdEnd            = "END"
 	CmdEntrypoint     = "ENTRYPOINT"
 	CmdEnv            = "ENV"
 	CmdExpose         = "EXPOSE"
+	CmdFinally        = "FINALLY"
+	CmdFor            = "FOR"
 	CmdFrom           = "FROM"
 	CmdFromDockerfile = "FROM DOCKERFILE"
+	CmdFunction       = "FUNCTION"
 	CmdGitClone       = "GIT CLONE"
 	CmdHealthCheck    = "HEALTHCHECK"
 	CmdHost           = "HOST"
+	CmdIf             = "IF"
 	CmdImport         = "IMPORT"
 	CmdLabel          = "LABEL"
 	CmdLet            = "LET"
@@ -115,9 +122,12 @@ const (
 	CmdSet            = "SET"
 	CmdShell          = "SHELL"
 	CmdStopSignal     = "STOPSIGNAL"
+	CmdTry            = "TRY"
 	CmdUser           = "USER"
 	CmdVersion        = "VERSION"
 	CmdVolume         = "VOLUME"
+	CmdWait           = "WAIT"
+	CmdWith           = "WITH"
 	CmdWorkdir        = "WORKDIR"
 )
 
@@ -141,9 +151,20 @@ func (i Item) String() string {
 		return "EOF"
 	case ItemError:
 		return i.Val
-	default:
+	case ItemNL, ItemIndent, ItemDedent, ItemWS, ItemComment, ItemEOLComment,
+		ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
+		ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
+		ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemIf,
+		ItemElseIf, ItemElse, ItemEnd, ItemCmd, ItemEntrypoint, ItemGitClone,
+		ItemAdd, ItemStopSignal, ItemOnBuild, ItemHealthCheck, ItemShell,
+		ItemDo, ItemCommand, ItemFunctionKW, ItemImport, ItemVersion, ItemCache,
+		ItemHost, ItemProject, ItemUser, ItemWith, ItemDocker, ItemTry,
+		ItemCatch, ItemFinally, ItemFor, ItemWait, ItemTarget, ItemUserCommand,
+		ItemFunction, ItemAtom, ItemEquals:
 		return fmt.Sprintf("%q", i.Val)
 	}
+
+	return fmt.Sprintf("%q", i.Val)
 }
 
 // stateFn represents the state of the scanner as a function that returns the next state.
@@ -423,11 +444,12 @@ func lexConsumeComment(l *lexer) {
 		}
 	}
 
+	typ := ItemEOLComment
 	if isOnlySpace {
-		l.emit(ItemComment)
-	} else {
-		l.emit(ItemEOLComment)
+		typ = ItemComment
 	}
+
+	l.emit(typ)
 }
 
 // lexIdentifier parses target names, custom user commands, functions, or version keywords.
@@ -495,11 +517,12 @@ func lexUserCommandOrFunction(l *lexer, val string) stateFn {
 		l.next()
 	}
 
+	typ := ItemFunction
 	if val == CmdCommand {
-		l.emit(ItemUserCommand)
-	} else {
-		l.emit(ItemFunction)
+		typ = ItemUserCommand
 	}
+
+	l.emit(typ)
 
 	l.indentArr[0] = 0
 	l.indentLen = 1
@@ -537,7 +560,6 @@ func lexRecipe(l *lexer) stateFn {
 		return nil
 	case isSpace(r):
 		l.skipSpace()
-
 		l.emit(ItemWS)
 
 		return lexRecipe
@@ -572,158 +594,134 @@ func lexCommandKeyword(l *lexer) stateFn {
 
 	val := l.input[l.start:l.pos]
 
+	var (
+		typ       ItemType
+		nextState = lexRecipeCommandArgs
+	)
+
 	switch val {
 	case "SAVE":
-		if strings.HasPrefix(l.input[l.pos:], " ARTIFACT") {
-			nextCharPos := l.pos + 9
-			if l.isWordBoundary(nextCharPos) {
-				l.pos = nextCharPos
-				l.col += 9
-				val = "SAVE ARTIFACT"
-			}
-		} else if strings.HasPrefix(l.input[l.pos:], " IMAGE") {
-			nextCharPos := l.pos + 6
-			if l.isWordBoundary(nextCharPos) {
-				l.pos = nextCharPos
-				l.col += 6
-				val = "SAVE IMAGE"
-			}
+		switch {
+		case l.isWordBoundary(l.pos+9) && strings.HasPrefix(l.input[l.pos:], " ARTIFACT"):
+			l.pos += 9
+			l.col += 9
+			typ = ItemSaveArtifact
+		case l.isWordBoundary(l.pos+6) && strings.HasPrefix(l.input[l.pos:], " IMAGE"):
+			l.pos += 6
+			l.col += 6
+			typ = ItemSaveImage
+		default:
+			return l.errorf("unknown command keyword: %q", val)
 		}
 	case "GIT":
-		if strings.HasPrefix(l.input[l.pos:], " CLONE") {
-			nextCharPos := l.pos + 6
-			if l.isWordBoundary(nextCharPos) {
-				l.pos = nextCharPos
-				l.col += 6
-				val = "GIT CLONE"
-			}
+		if l.isWordBoundary(l.pos+6) && strings.HasPrefix(l.input[l.pos:], " CLONE") {
+			l.pos += 6
+			l.col += 6
+			typ = ItemGitClone
+		} else {
+			return l.errorf("unknown command keyword: %q", val)
 		}
 	case CmdFrom:
-		if strings.HasPrefix(l.input[l.pos:], " DOCKERFILE") {
-			nextCharPos := l.pos + 11
-			if l.isWordBoundary(nextCharPos) {
-				l.pos = nextCharPos
-				l.col += 11
-				val = CmdFromDockerfile
-			}
+		if l.isWordBoundary(l.pos+11) && strings.HasPrefix(l.input[l.pos:], " DOCKERFILE") {
+			l.pos += 11
+			l.col += 11
+			typ = ItemFromDockerfile
+		} else {
+			typ = ItemFrom
 		}
-	case "ELSE":
-		if strings.HasPrefix(l.input[l.pos:], " IF") {
-			nextCharPos := l.pos + 3
-			if l.isWordBoundary(nextCharPos) {
-				l.pos = nextCharPos
-				l.col += 3
-				val = "ELSE IF"
-			}
+	case CmdElse:
+		if l.isWordBoundary(l.pos+3) && strings.HasPrefix(l.input[l.pos:], " IF") {
+			l.pos += 3
+			l.col += 3
+			typ = ItemElseIf
+		} else {
+			typ = ItemElse
 		}
-	}
-
-	switch val {
-	case CmdFromDockerfile:
-		l.emit(ItemFromDockerfile)
 	case CmdLocally:
-		l.emit(ItemLocally)
-	case CmdSaveArtifact:
-		l.emit(ItemSaveArtifact)
-	case CmdSaveImage:
-		l.emit(ItemSaveImage)
+		typ = ItemLocally
 	case CmdExpose:
-		l.emit(ItemExpose)
+		typ = ItemExpose
 	case CmdVolume:
-		l.emit(ItemVolume)
+		typ = ItemVolume
 	case CmdEnv:
-		l.emit(ItemEnv)
-
+		typ = ItemEnv
 		l.keyValueCmdType = CmdEnv
-
-		return lexKeyValueCommandArgs
+		nextState = lexKeyValueCommandArgs
 	case CmdArg:
-		l.emit(ItemArg)
-
+		typ = ItemArg
 		l.keyValueCmdType = CmdArg
-
-		return lexKeyValueCommandArgs
+		nextState = lexKeyValueCommandArgs
 	case CmdSet:
-		l.emit(ItemSet)
-
+		typ = ItemSet
 		l.keyValueCmdType = CmdSet
-
-		return lexKeyValueCommandArgs
+		nextState = lexKeyValueCommandArgs
 	case CmdLet:
-		l.emit(ItemLet)
-
+		typ = ItemLet
 		l.keyValueCmdType = CmdLet
-
-		return lexKeyValueCommandArgs
+		nextState = lexKeyValueCommandArgs
 	case CmdLabel:
-		l.emit(ItemLabel)
+		typ = ItemLabel
 	case CmdBuild:
-		l.emit(ItemBuild)
+		typ = ItemBuild
 	case CmdUser:
-		l.emit(ItemUser)
+		typ = ItemUser
 	case CmdCmd:
-		l.emit(ItemCmd)
+		typ = ItemCmd
 	case CmdEntrypoint:
-		l.emit(ItemEntrypoint)
-	case CmdGitClone:
-		l.emit(ItemGitClone)
+		typ = ItemEntrypoint
 	case CmdAdd:
-		l.emit(ItemAdd)
+		typ = ItemAdd
 	case CmdStopSignal:
-		l.emit(ItemStopSignal)
+		typ = ItemStopSignal
 	case CmdOnBuild:
-		l.emit(ItemOnBuild)
+		typ = ItemOnBuild
 	case CmdHealthCheck:
-		l.emit(ItemHealthCheck)
+		typ = ItemHealthCheck
 	case CmdShell:
-		l.emit(ItemShell)
+		typ = ItemShell
 	case CmdDo:
-		l.emit(ItemDo)
+		typ = ItemDo
 	case CmdCommand:
-		l.emit(ItemCommand)
+		typ = ItemCommand
 	case CmdFunction:
-		l.emit(ItemFunctionKW)
+		typ = ItemFunctionKW
 	case CmdImport:
-		l.emit(ItemImport)
+		typ = ItemImport
 	case CmdCache:
-		l.emit(ItemCache)
+		typ = ItemCache
 	case CmdHost:
-		l.emit(ItemHost)
+		typ = ItemHost
 	case CmdProject:
-		l.emit(ItemProject)
+		typ = ItemProject
 	case CmdRun:
-		l.emit(ItemRun)
-	case CmdFrom:
-		l.emit(ItemFrom)
+		typ = ItemRun
 	case CmdWorkdir:
-		l.emit(ItemWorkdir)
+		typ = ItemWorkdir
 	case CmdCopy:
-		l.emit(ItemCopy)
-	case "IF":
-		l.emit(ItemIf)
-	case "ELSE IF":
-		l.emit(ItemElseIf)
-	case "ELSE":
-		l.emit(ItemElse)
-	case "END":
-		l.emit(ItemEnd)
-	case "FOR":
-		l.emit(ItemFor)
-	case "TRY":
-		l.emit(ItemTry)
-	case "CATCH":
-		l.emit(ItemCatch)
-	case "FINALLY":
-		l.emit(ItemFinally)
-	case "WITH":
-		l.emit(ItemWith)
-	case "WAIT":
-		l.emit(ItemWait)
+		typ = ItemCopy
+	case CmdIf:
+		typ = ItemIf
+	case CmdEnd:
+		typ = ItemEnd
+	case CmdFor:
+		typ = ItemFor
+	case CmdTry:
+		typ = ItemTry
+	case CmdCatch:
+		typ = ItemCatch
+	case CmdFinally:
+		typ = ItemFinally
+	case CmdWith:
+		typ = ItemWith
+	case CmdWait:
+		typ = ItemWait
 	default:
 		return l.errorf("unknown command keyword: %q", val)
 	}
 
-	return lexRecipeCommandArgs
+	l.emit(typ)
+
+	return nextState
 }
 
 // lexRecipeCommandArgs parses command arguments within a recipe, processing strings, shell outs, and continuations.
@@ -1074,7 +1072,6 @@ func lexGlobalCommandArgs(l *lexer) stateFn {
 // lexGlobalSpaceArgs consumes whitespace within global command arguments lists.
 func lexGlobalSpaceArgs(l *lexer) stateFn {
 	l.skipSpace()
-
 	l.emit(ItemWS)
 
 	return lexGlobalCommandArgs

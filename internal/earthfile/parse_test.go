@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/earthfile/parse"
 	"github.com/stretchr/testify/require"
 )
 
@@ -654,4 +655,65 @@ test:
 			test.check(require.New(t), s, err)
 		})
 	}
+}
+
+func FuzzParse(f *testing.F) {
+	f.Add(`VERSION 0.8
+FROM alpine:latest
+RUN echo hello
+`)
+
+	f.Add(`VERSION 0.8
+target:
+  FROM DOCKERFILE .
+  RUN echo 123
+  SAVE ARTIFACT ./file AS LOCAL ./dest
+  SAVE IMAGE img:latest
+  GIT CLONE repo dest
+`)
+
+	f.Add(`VERSION 0.8
+target:
+  IF [ "$foo" = "bar" ]
+    RUN echo bar
+  ELSE IF [ "$foo" = "baz" ]
+    RUN echo baz
+  ELSE
+    RUN echo else
+  END
+  FOR x IN a b c
+    RUN echo $x
+  END
+  TRY
+    RUN command
+  CATCH
+    RUN catch
+  FINALLY
+    RUN finally
+  END
+`)
+
+	f.Add(`# Standalone comment
+VERSION 0.8
+ARG --global global_arg = 1
+
+FUNCTION my-func:
+  ARG --required func_arg
+  RUN echo $func_arg
+
+target:
+  DO +my-func --func_arg=val # EOL comment
+`)
+
+	f.Add(`VERSION 0.8
+LET a = b
+SET a = c
+target:
+  ENV env_var = val
+  ARG arg_var = val
+`)
+
+	f.Fuzz(func(_ *testing.T, input string) {
+		_, _ = parse.Parse("Earthfile", input)
+	})
 }

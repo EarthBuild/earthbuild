@@ -225,6 +225,15 @@ unit-test:
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
 
+# fuzz-test runs fuzz tests
+fuzz-test:
+    FROM +go
+    COPY --dir +code/earthly /
+    RUN --push \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go test -run=^$ -fuzz=. -fuzztime=10s ./internal/earthfile
+
 # integration-test runs integration tests (including unit tests).
 integration-test:
     FROM +go
@@ -770,6 +779,7 @@ smoke-test:
 test-all:
     BUILD +test-unit
     BUILD +test-integration
+    BUILD +fuzz-test
     BUILD +examples
     BUILD --pass-args +test-no-qemu
     BUILD --pass-args +test-qemu

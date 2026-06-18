@@ -103,8 +103,18 @@ func noTargetsWithSameName(ef Earthfile) []error {
 
 	for _, t := range ef.Targets {
 		if _, seen := seenTargets[t.Name]; seen {
+			file := ""
+			line := 0
+			col := 0
+
+			if t.SourceLocation != nil {
+				file = t.SourceLocation.File
+				line = t.SourceLocation.StartLine
+				col = t.SourceLocation.StartColumn
+			}
+
 			err := fmt.Errorf("%s line %v:%v duplicate target \"%s\"",
-				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name)
+				file, line, col, t.Name)
 			errs = append(errs, err)
 		}
 
@@ -119,8 +129,18 @@ func noTargetsWithKeywords(ef Earthfile) []error {
 
 	for _, t := range ef.Targets {
 		if t.Name == TargetBase {
+			file := ""
+			line := 0
+			col := 0
+
+			if t.SourceLocation != nil {
+				file = t.SourceLocation.File
+				line = t.SourceLocation.StartLine
+				col = t.SourceLocation.StartColumn
+			}
+
 			err := fmt.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
-				t.SourceLocation.File, t.SourceLocation.StartLine, t.SourceLocation.StartColumn, t.Name, t.Name)
+				file, line, col, t.Name, t.Name)
 			errs = append(errs, err)
 		}
 	}

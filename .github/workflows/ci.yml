@@ -40,6 +40,8 @@ jobs:
         run: earth --ci +lint-all
       - name: Unit tests
         run: earth --ci +unit-test
+      - name: Fuzz tests
+        run: earth --ci +fuzz-test
 
   docker:
     name: Docker

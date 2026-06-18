@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-var envVarNameRegexp = regexp.MustCompile("^[a-zA-Z_]+[a-zA-Z0-9_]*$")
-
 // parser is the state representation of the Earthfile parser.
 type parser struct {
 	lex       *lexer
@@ -97,6 +95,9 @@ func (p *parser) parseEarthfile() (Tree, error) {
 			ef.Targets = targets
 
 			return ef, nil
+		case ItemError:
+			p.next()
+			return ef, p.errorf(token.Pos, "%s", token.Val)
 		case ItemNL, ItemWS, ItemEOLComment:
 			tok := p.next()
 			if tok.Typ == ItemNL {
@@ -328,6 +329,9 @@ func (p *parser) parseStmts() (Block, error) {
 	for {
 		tok := p.peek()
 		switch tok.Typ {
+		case ItemError:
+			p.next()
+			return block, p.errorf(tok.Pos, "%s", tok.Val)
 		case ItemDedent, ItemEOF, ItemEnd, ItemElseIf, ItemElse, ItemCatch, ItemFinally:
 			return block, nil
 		case ItemNL, ItemWS, ItemEOLComment, ItemIndent:
@@ -449,6 +453,9 @@ func (p *parser) parseBlock() (Block, error) {
 		tok := p.peek()
 
 		switch tok.Typ {
+		case ItemError:
+			p.next()
+			return block, p.errorf(tok.Pos, "%s", tok.Val)
 		case ItemDedent, ItemEOF:
 			if tok.Typ == ItemDedent {
 				p.next()
@@ -639,6 +646,11 @@ func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {
 			return args, endLoc, nil
 		default:
 			p.next()
+
+			if t.Typ == ItemError {
+				return nil, endLoc, p.errorf(t.Pos, "%s", t.Val)
+			}
+
 			return nil, endLoc, p.errorf(t.Pos, "unexpected token in args: %s", t.Val)
 		}
 	}
@@ -673,44 +685,12 @@ func (p *parser) parseKeyValueCommandArgs() ([]string, SourceLocation, error) {
 		if t.Typ == ItemError {
 			p.next()
 
-			return nil, endLoc, p.errorf(t.Pos, "unexpected token: %s", t.Val)
+			return nil, endLoc, p.errorf(t.Pos, "%s", t.Val)
 		}
 
 		p.next()
 
 		items = append(items, t)
-	}
-
-	idx := 0
-	// Skip leading WS
-	for idx < len(items) && items[idx].Typ == ItemWS {
-		idx++
-	}
-	// Skip flags
-	for idx < len(items) {
-		if items[idx].Typ == ItemAtom && strings.HasPrefix(items[idx].Val, "-") {
-			idx++
-			// skip WS after flag
-			for idx < len(items) && items[idx].Typ == ItemWS {
-				idx++
-			}
-		} else {
-			break
-		}
-	}
-
-	if idx < len(items) && items[idx].Typ == ItemAtom {
-		keyToken := items[idx].Val
-		key := keyToken
-
-		keyParts := splitKeyValueArg(keyToken)
-		if len(keyParts) > 1 {
-			key = keyParts[0]
-		}
-
-		if !envVarNameRegexp.MatchString(key) {
-			return nil, endLoc, p.errorf(items[idx].Pos, "invalid env key definition %s", key)
-		}
 	}
 
 	args = parseKeyValueItems(items)

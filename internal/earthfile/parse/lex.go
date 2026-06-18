@@ -667,12 +667,20 @@ func lexCommandKeyword(l *lexer) stateFn {
 		l.emit(ItemVolume)
 	case CmdEnv:
 		l.emit(ItemEnv)
+
+		return lexKeyValueCommandArgs(CmdEnv)
 	case CmdArg:
 		l.emit(ItemArg)
+
+		return lexKeyValueCommandArgs(CmdArg)
 	case CmdSet:
 		l.emit(ItemSet)
+
+		return lexKeyValueCommandArgs(CmdSet)
 	case CmdLet:
 		l.emit(ItemLet)
+
+		return lexKeyValueCommandArgs(CmdLet)
 	case CmdLabel:
 		l.emit(ItemLabel)
 	case CmdBuild:
@@ -877,6 +885,99 @@ func lexRecipeSpaceArgs(l *lexer) stateFn {
 	l.emit(ItemWS)
 
 	return lexRecipeCommandArgs
+}
+
+func lexKeyValueCommandArgs(cmdType string) stateFn {
+	return func(l *lexer) stateFn {
+		// 1. Skip leading space
+		for isSpace(l.peek()) {
+			l.next()
+		}
+
+		if l.pos > l.start {
+			l.emit(ItemWS)
+		}
+
+		// 2. Check for flags (atoms starting with '-')
+		if l.peek() == '-' {
+			// Lex flag as ItemAtom
+			for {
+				r := l.peek()
+				if isSpace(r) || isEndOfLine(r) || r == eof || r == '#' || r == '=' {
+					break
+				}
+
+				l.next()
+			}
+
+			l.emit(ItemAtom)
+			// After the flag, continue in lexKeyValueCommandArgs to expect more flags or the key
+			return lexKeyValueCommandArgs(cmdType)
+		}
+
+		// 3. We are now expecting the key (the env variable name)
+		r := l.peek()
+		if r == eof || isEndOfLine(r) || r == '#' {
+			// Empty key or comment/newline, let standard lexer handle EOF/newline/comment
+			return lexRecipeCommandArgs
+		}
+
+		// Ensure the first character is valid for variable name
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '_' {
+			// Consuming the rest of the invalid identifier for a better error message
+			for {
+				nextR := l.peek()
+				if isSpace(nextR) || nextR == '=' || isEndOfLine(nextR) || nextR == eof || nextR == '#' {
+					break
+				}
+
+				l.next()
+			}
+
+			return l.errorf("invalid %s key definition %s", cmdType, l.input[l.start:l.pos])
+		}
+
+		l.next() // consume first char
+
+		// Read subsequent valid characters
+		for {
+			r = l.peek()
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+				l.next()
+			} else {
+				break
+			}
+		}
+
+		// The key is complete. Let's inspect the next character to make sure it is a valid boundary.
+		// Valid boundaries after a key: space, '=', newline, comment, EOF.
+		nextR := l.peek()
+		if !isSpace(nextR) && nextR != '=' && !isEndOfLine(nextR) && nextR != eof && nextR != '#' {
+			// Consume the rest of the invalid identifier for error message
+			for {
+				nextR = l.peek()
+				if isSpace(nextR) || nextR == '=' || isEndOfLine(nextR) || nextR == eof || nextR == '#' {
+					break
+				}
+
+				l.next()
+			}
+
+			return l.errorf("invalid %s key definition %s", cmdType, l.input[l.start:l.pos])
+		}
+
+		// Key is valid! Emit it.
+		l.emit(ItemAtom)
+
+		// If the next character is '=', consume it and emit as ItemAtom
+		if l.peek() == '=' {
+			l.next()
+			l.emit(ItemAtom)
+		}
+
+		// Now that we have lexed the key and optional '=', transition to the standard lexRecipeCommandArgs for values
+		return lexRecipeCommandArgs
+	}
 }
 
 func lexGlobalCommandArgs(l *lexer) stateFn {

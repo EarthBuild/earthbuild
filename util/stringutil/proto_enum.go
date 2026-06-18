@@ -10,11 +10,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-var (
-	titleCaser = cases.Title(language.English)
-	lowerCaser = cases.Lower(language.English)
-)
-
 type caser interface {
 	String(s string) string
 }
@@ -30,12 +25,13 @@ type EnumToStringFunc func(item ProtoEnum) string
 
 // Title takes an enum and returns its string value in title mode.
 func Title(e ProtoEnum) string {
-	return pretty(titleCaser, e)
+	// Casers are stateful and not goroutine-safe; construct per call.
+	return pretty(cases.Title(language.English), e)
 }
 
 // Lower takes an enum and returns its string value in lower case mode.
 func Lower(e ProtoEnum) string {
-	return pretty(lowerCaser, e)
+	return pretty(cases.Lower(language.English), e)
 }
 
 // EnumToStringArray takes an array of enum values and returns an array of their

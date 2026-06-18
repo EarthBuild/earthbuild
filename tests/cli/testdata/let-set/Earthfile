@@ -10,6 +10,14 @@ SET foo = $foo car
 ARG topExpected = sports car
 RUN test "$foo" = "$topExpected"
 
+all:
+    BUILD +base
+    BUILD +test --expected=bazinga
+    BUILD +test --bar=eggs --expected=eggsinga
+    BUILD +test-global --foo=banana --topExpected="banana car" --expected="banana phone"
+    BUILD +test-if --expected="ifSwitch was true"
+    BUILD +test-if --ifSwitch=false --expected="ifSwitch was false"
+
 test:
     ARG bar = baz
     LET bar = ${bar}

@@ -214,7 +214,8 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	parsedArgs, err := flagutil.ParseArgsWithValueModifierAndOptions(
-		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption)
+		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption,
+	)
 	if err != nil {
 		return nil, false, err
 	}

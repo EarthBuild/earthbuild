@@ -43,7 +43,8 @@ touch /var/lib/shared/vfs-images/images.lock
 mkdir -p /var/lib/shared/vfs-layers
 touch /var/lib/shared/vfs-layers/layers.lock
 
-# Writes the literal token $EARTHLY_DOCKERD_DATA_ROOT into storage.conf on purpose.
+# The single-quoted sed replacement is an intentional literal env-var token,
+# not a value to expand at this point.
 # shellcheck disable=SC2016
 sed -i 's/\/var\/lib\/containers\/storage/$EARTHLY_DOCKERD_DATA_ROOT/g' /etc/containers/storage.conf
 
@@ -73,18 +74,17 @@ then
 fi
 
 # then run the test
-if [ -n "$testname" ]
-then
-    testarg="-run $testname"
-fi
-
 # Cap go's build/test parallelism. The default (-p = GOMAXPROCS = host CPUs)
 # compiles and links many test binaries at once; nested in an earthly build
 # on a 4-core/16G CI runner that RSS spike is what tips the box into memory
 # pressure, and the resulting kill cascades as a lost solve session.
 # Override with GO_TEST_PARALLELISM if a fatter host wants more.
 GO_TEST_PARALLELISM="${GO_TEST_PARALLELISM:-2}"
-# pkgname is supplied as an env var by the Earthfile; testarg is deliberately
-# left unquoted so an empty value contributes no argument.
+# pkgname/testname come from the Earthfile env (ARG pkgname / ARG testname),
+# which the linter can't see. Build the arg list with set -- so -run "$testname"
+# is quoted; pkgname is left unquoted on purpose as it may expand to several
+# space-separated package patterns.
+set -- -p "$GO_TEST_PARALLELISM" -timeout 20m -json -tags integration
+[ -n "$testname" ] && set -- "$@" -run "$testname"
 # shellcheck disable=SC2086,SC2154
-go test -p "$GO_TEST_PARALLELISM" -timeout 20m -json $testarg $pkgname | ./testparser
+go test "$@" $pkgname | ./testparser

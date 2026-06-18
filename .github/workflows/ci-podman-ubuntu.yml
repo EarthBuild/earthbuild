@@ -1,20 +1,8 @@
 name: Podman CI Ubuntu
 
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.github/renovate.json5'
-      - '.github/CODEOWNERS'
-      - 'LICENSE'
-  pull_request:
-    branches: [ main, get-ci-working ]
+  workflow_call:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -35,10 +23,11 @@ jobs:
 #      pull-requests: read
 #    secrets: inherit
   build-earthly:
-#    needs: check-essential-files
     # allow the job to execute even if check-essential-files is skipped
     if: ${{ !failure() }}
-    permissions: write-all
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
@@ -46,19 +35,6 @@ jobs:
       BINARY: "podman"
       SUDO: "sudo -E"
 #      SKIP_JOB: ${{ needs.check-essential-files.outputs.essential-files == 'false' }}
-    secrets: inherit
-
-  podman-lint:
-    needs: build-earthly
-    if: ${{ !failure() }}
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "+lint-all"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "podman"
-      SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
     secrets: inherit
 
   podman-tests-quick:

@@ -1,4 +1,4 @@
-name: Earthly Next Docker CI Ubuntu
+name: Next
 
 # Tick-Tock (earthly-next buildkit) is opt-in. Running it on every
 # push/PR roughly doubled CI load on the 16-GiB runners and amplified
@@ -6,6 +6,7 @@ name: Earthly Next Docker CI Ubuntu
 # (Actions tab → "Run workflow") when a next-buildkit bump needs
 # validating, and nightly via schedule so regressions still surface.
 on:
+  workflow_call:
   workflow_dispatch:
   schedule:
     - cron: '17 4 * * *'  # 04:17 UTC daily
@@ -23,7 +24,9 @@ env:
 
 jobs:
   build-earthly-with-next:
-    permissions: write-all
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"

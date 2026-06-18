@@ -226,22 +226,26 @@ type stateFn func(*lexer) stateFn
 
 // lexer holds the state of the scanner.
 type lexer struct {
-	items         chan Item
-	state         stateFn
-	input         string
-	name          string
-	indentStk     []int
-	line          int
-	lastPos       Pos
-	width         Pos
-	start         Pos
-	col           int
-	startLine     int
-	startCol      int
-	prevLine      int
-	prevCol       int
-	pos           Pos
-	isStartOfLine bool
+	input           string
+	name            string
+	keyValueCmdType string
+	state           stateFn
+	itemsArr        [32]Item
+	indentArr       [16]int
+	itemsStart      int
+	itemsEnd        int
+	indentLen       int
+	line            int
+	lastPos         Pos
+	width           Pos
+	start           Pos
+	col             int
+	startLine       int
+	startCol        int
+	prevLine        int
+	prevCol         int
+	pos             Pos
+	isStartOfLine   bool
 }
 
 // next returns the next rune in the input.
@@ -251,6 +255,29 @@ func (l *lexer) next() rune {
 		return eof
 	}
 
+	c := l.input[l.pos]
+	if c < utf8.RuneSelf {
+		l.width = 1
+		l.pos++
+
+		l.prevLine = l.line
+		l.prevCol = l.col
+
+		r := rune(c)
+		if r == '\n' {
+			l.line++
+			l.col = 1
+		} else {
+			l.col++
+		}
+
+		return r
+	}
+
+	return l.nextUnicode()
+}
+
+func (l *lexer) nextUnicode() rune {
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
 	l.width = Pos(w)
 	l.pos += l.width
@@ -285,12 +312,15 @@ func (l *lexer) backup() {
 
 // emit passes an item back to the client.
 func (l *lexer) emit(t ItemType) {
-	l.items <- Item{
-		Typ:  t,
-		Pos:  l.start,
-		Val:  l.input[l.start:l.pos],
-		Line: l.startLine,
-		Col:  l.startCol,
+	if l.itemsEnd < len(l.itemsArr) {
+		l.itemsArr[l.itemsEnd] = Item{
+			Typ:  t,
+			Pos:  l.start,
+			Val:  l.input[l.start:l.pos],
+			Line: l.startLine,
+			Col:  l.startCol,
+		}
+		l.itemsEnd++
 	}
 
 	l.start = l.pos
@@ -314,12 +344,15 @@ func (l *lexer) ignore() {
 // errorf returns an error token and terminates the scan by passing
 // back a nil pointer that will be the next state, terminating l.nextItem.
 func (l *lexer) errorf(format string, args ...any) stateFn {
-	l.items <- Item{
-		Typ:  ItemError,
-		Pos:  l.start,
-		Val:  fmt.Sprintf(format, args...),
-		Line: l.startLine,
-		Col:  l.startCol,
+	if l.itemsEnd < len(l.itemsArr) {
+		l.itemsArr[l.itemsEnd] = Item{
+			Typ:  ItemError,
+			Pos:  l.start,
+			Val:  fmt.Sprintf(format, args...),
+			Line: l.startLine,
+			Col:  l.startCol,
+		}
+		l.itemsEnd++
 	}
 
 	return nil
@@ -328,18 +361,25 @@ func (l *lexer) errorf(format string, args ...any) stateFn {
 // nextItem returns the next item from the input.
 // Called by the parser, not in the lexing goroutine.
 func (l *lexer) nextItem() Item {
-	item := <-l.items
-	l.lastPos = item.Pos
+	for l.itemsStart == l.itemsEnd && l.state != nil {
+		l.itemsStart = 0
+		l.itemsEnd = 0
+		l.state = l.state(l)
+	}
 
-	return item
-}
+	if l.itemsStart < l.itemsEnd {
+		item := l.itemsArr[l.itemsStart]
+		l.itemsStart++
+		l.lastPos = item.Pos
 
-// drain drains the output so the lexing goroutine will exit.
-// Called by the parser, not in the lexing goroutine.
-func (l *lexer) drain() {
-	for range l.items {
-		// Draining items channel to prevent deadlock.
-		_ = 0
+		return item
+	}
+
+	return Item{
+		Typ:  ItemEOF,
+		Pos:  l.pos,
+		Line: l.line,
+		Col:  l.col,
 	}
 }
 
@@ -348,28 +388,19 @@ func lex(name, input string) *lexer {
 	l := &lexer{
 		name:          name,
 		input:         input,
-		items:         make(chan Item, 2),
 		line:          1,
 		col:           1,
 		prevLine:      1,
 		prevCol:       1,
 		startLine:     1,
 		startCol:      1,
-		indentStk:     []int{0},
 		isStartOfLine: true,
+		state:         lexDefault,
 	}
-	go l.run()
+	l.indentArr[0] = 0
+	l.indentLen = 1
 
 	return l
-}
-
-// run runs the state machine for the lexer.
-func (l *lexer) run() {
-	for l.state = lexDefault; l.state != nil; {
-		l.state = l.state(l)
-	}
-
-	close(l.items)
 }
 
 // isSpace reports whether r is a space character.
@@ -500,7 +531,8 @@ func lexIdentifier(l *lexer) stateFn {
 
 		l.emit(ItemTarget)
 		// Reset indent tracking for the new target
-		l.indentStk = []int{0}
+		l.indentArr[0] = 0
+		l.indentLen = 1
 
 		return lexRecipe
 	}
@@ -530,7 +562,8 @@ func lexUserCommandOrFunction(l *lexer, val string) stateFn {
 		l.emit(ItemFunction)
 	}
 
-	l.indentStk = []int{0}
+	l.indentArr[0] = 0
+	l.indentLen = 1
 
 	return lexRecipe
 }
@@ -560,8 +593,8 @@ func lexRecipe(l *lexer) stateFn {
 	switch {
 	case r == eof:
 		// Dedent everything
-		for len(l.indentStk) > 1 {
-			l.indentStk = l.indentStk[:len(l.indentStk)-1]
+		for l.indentLen > 1 {
+			l.indentLen--
 			l.emit(ItemDedent)
 		}
 
@@ -668,19 +701,27 @@ func lexCommandKeyword(l *lexer) stateFn {
 	case CmdEnv:
 		l.emit(ItemEnv)
 
-		return lexKeyValueCommandArgs(CmdEnv)
+		l.keyValueCmdType = CmdEnv
+
+		return lexKeyValueCommandArgs
 	case CmdArg:
 		l.emit(ItemArg)
 
-		return lexKeyValueCommandArgs(CmdArg)
+		l.keyValueCmdType = CmdArg
+
+		return lexKeyValueCommandArgs
 	case CmdSet:
 		l.emit(ItemSet)
 
-		return lexKeyValueCommandArgs(CmdSet)
+		l.keyValueCmdType = CmdSet
+
+		return lexKeyValueCommandArgs
 	case CmdLet:
 		l.emit(ItemLet)
 
-		return lexKeyValueCommandArgs(CmdLet)
+		l.keyValueCmdType = CmdLet
+
+		return lexKeyValueCommandArgs
 	case CmdLabel:
 		l.emit(ItemLabel)
 	case CmdBuild:
@@ -887,97 +928,96 @@ func lexRecipeSpaceArgs(l *lexer) stateFn {
 	return lexRecipeCommandArgs
 }
 
-func lexKeyValueCommandArgs(cmdType string) stateFn {
-	return func(l *lexer) stateFn {
-		// 1. Skip leading space
-		for isSpace(l.peek()) {
-			l.next()
-		}
+func lexKeyValueCommandArgs(l *lexer) stateFn {
+	// 1. Skip leading space
+	for isSpace(l.peek()) {
+		l.next()
+	}
 
-		if l.pos > l.start {
-			l.emit(ItemWS)
-		}
+	if l.pos > l.start {
+		l.emit(ItemWS)
+	}
 
-		// 2. Check for flags (atoms starting with '-')
-		if l.peek() == '-' {
-			// Lex flag as ItemAtom
-			for {
-				r := l.peek()
-				if isSpace(r) || isEndOfLine(r) || r == eof || r == '#' || r == '=' {
-					break
-				}
-
-				l.next()
-			}
-
-			l.emit(ItemAtom)
-			// After the flag, continue in lexKeyValueCommandArgs to expect more flags or the key
-			return lexKeyValueCommandArgs(cmdType)
-		}
-
-		// 3. We are now expecting the key (the env variable name)
-		r := l.peek()
-		if r == eof || isEndOfLine(r) || r == '#' {
-			// Empty key or comment/newline, let standard lexer handle EOF/newline/comment
-			return lexRecipeCommandArgs
-		}
-
-		// Ensure the first character is valid for variable name
-		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '_' {
-			// Consuming the rest of the invalid identifier for a better error message
-			for {
-				nextR := l.peek()
-				if isSpace(nextR) || nextR == '=' || isEndOfLine(nextR) || nextR == eof || nextR == '#' {
-					break
-				}
-
-				l.next()
-			}
-
-			return l.errorf("invalid %s key definition %s", cmdType, l.input[l.start:l.pos])
-		}
-
-		l.next() // consume first char
-
-		// Read subsequent valid characters
+	// 2. Check for flags (atoms starting with '-')
+	if l.peek() == '-' {
+		// Lex flag as ItemAtom
 		for {
-			r = l.peek()
-			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-				l.next()
-			} else {
+			r := l.peek()
+			if isSpace(r) || isEndOfLine(r) || r == eof || r == '#' || r == '=' {
 				break
 			}
+
+			l.next()
 		}
 
-		// The key is complete. Let's inspect the next character to make sure it is a valid boundary.
-		// Valid boundaries after a key: space, '=', newline, comment, EOF.
-		nextR := l.peek()
-		if !isSpace(nextR) && nextR != '=' && !isEndOfLine(nextR) && nextR != eof && nextR != '#' {
-			// Consume the rest of the invalid identifier for error message
-			for {
-				nextR = l.peek()
-				if isSpace(nextR) || nextR == '=' || isEndOfLine(nextR) || nextR == eof || nextR == '#' {
-					break
-				}
-
-				l.next()
-			}
-
-			return l.errorf("invalid %s key definition %s", cmdType, l.input[l.start:l.pos])
-		}
-
-		// Key is valid! Emit it.
 		l.emit(ItemAtom)
 
-		// If the next character is '=', consume it and emit as ItemAtom
-		if l.peek() == '=' {
-			l.next()
-			l.emit(ItemAtom)
-		}
+		// After the flag, continue in lexKeyValueCommandArgs to expect more flags or the key
+		return lexKeyValueCommandArgs
+	}
 
-		// Now that we have lexed the key and optional '=', transition to the standard lexRecipeCommandArgs for values
+	// 3. We are now expecting the key (the env variable name)
+	r := l.peek()
+	if r == eof || isEndOfLine(r) || r == '#' {
+		// Empty key or comment/newline, let standard lexer handle EOF/newline/comment
 		return lexRecipeCommandArgs
 	}
+
+	// Ensure the first character is valid for variable name
+	if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '_' {
+		// Consuming the rest of the invalid identifier for a better error message
+		for {
+			nextR := l.peek()
+			if isSpace(nextR) || nextR == '=' || isEndOfLine(nextR) || nextR == eof || nextR == '#' {
+				break
+			}
+
+			l.next()
+		}
+
+		return l.errorf("invalid %s key definition %s", l.keyValueCmdType, l.input[l.start:l.pos])
+	}
+
+	l.next() // consume first char
+
+	// Read subsequent valid characters
+	for {
+		r = l.peek()
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			l.next()
+		} else {
+			break
+		}
+	}
+
+	// The key is complete. Let's inspect the next character to make sure it is a valid boundary.
+	// Valid boundaries after a key: space, '=', newline, comment, EOF.
+	nextR := l.peek()
+	if !isSpace(nextR) && nextR != '=' && !isEndOfLine(nextR) && nextR != eof && nextR != '#' {
+		// Consume the rest of the invalid identifier for error message
+		for {
+			nextR = l.peek()
+			if isSpace(nextR) || nextR == '=' || isEndOfLine(nextR) || nextR == eof || nextR == '#' {
+				break
+			}
+
+			l.next()
+		}
+
+		return l.errorf("invalid %s key definition %s", l.keyValueCmdType, l.input[l.start:l.pos])
+	}
+
+	// Key is valid! Emit it.
+	l.emit(ItemAtom)
+
+	// If the next character is '=', consume it and emit as ItemAtom
+	if l.peek() == '=' {
+		l.next()
+		l.emit(ItemAtom)
+	}
+
+	// Now that we have lexed the key and optional '=', transition to the standard lexRecipeCommandArgs for values
+	return lexRecipeCommandArgs
 }
 
 func lexGlobalCommandArgs(l *lexer) stateFn {
@@ -1378,15 +1418,19 @@ func (l *lexer) checkIndent(indent int) stateFn {
 	if l.peek() != '#' {
 		if !isEndOfLine(l.peek()) && l.peek() != eof {
 			isIndented := indent > 0
-			wasIndented := len(l.indentStk) > 1
+			wasIndented := l.indentLen > 1
 
 			switch {
 			case isIndented && !wasIndented:
-				l.indentStk = append(l.indentStk, 1)
+				if l.indentLen < len(l.indentArr) {
+					l.indentArr[l.indentLen] = 1
+					l.indentLen++
+				}
+
 				l.emit(ItemIndent)
 
 			case !isIndented && wasIndented:
-				l.indentStk = l.indentStk[:1]
+				l.indentLen = 1
 				l.emit(ItemDedent)
 
 				return lexDefault
@@ -1412,9 +1456,9 @@ func (l *lexer) checkIndent(indent int) stateFn {
 		return nil
 	}
 
-	wasIndented := len(l.indentStk) > 1
+	wasIndented := l.indentLen > 1
 	if wasIndented {
-		l.indentStk = l.indentStk[:1]
+		l.indentLen = 1
 		l.emit(ItemDedent)
 
 		return lexDefault

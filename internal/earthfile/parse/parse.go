@@ -3,7 +3,6 @@ package parse
 //nolint:wsl
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -11,6 +10,7 @@ import (
 // parser is the state representation of the Earthfile parser.
 type parser struct {
 	lex       *lexer
+	itemsBuf  []Item
 	token     [3]Item // 3-token lookahead for parser
 	peekCount int
 }
@@ -40,7 +40,6 @@ func (p *parser) peek() Item {
 
 // errorf formats an error and terminates processing.
 func (p *parser) errorf(pos Pos, format string, args ...any) error {
-	p.lex.drain()
 	return fmt.Errorf("syntax error at pos %d: %s", pos, fmt.Sprintf(format, args...))
 }
 
@@ -415,16 +414,18 @@ func (p *parser) parseStmts() (Block, error) {
 
 func (p *parser) parseBlock() (Block, error) {
 	var (
-		block             Block
+		block             = make(Block, 0, 8)
 		pendingDocsTokens []string
 	)
 
 	sawNL := false
+
 	// Expect optional NLs/Comments and then an Indent
 	for {
 		t := p.peek()
 		if t.Typ == ItemNL || t.Typ == ItemWS || t.Typ == ItemEOLComment {
 			p.next()
+
 			continue
 		}
 
@@ -437,15 +438,16 @@ func (p *parser) parseBlock() (Block, error) {
 
 		if t.Typ == ItemIndent {
 			p.next() // consume indent
+
 			break
 		}
 
 		if t.Typ == ItemEOF || t.Typ == ItemTarget || t.Typ == ItemUserCommand || t.Typ == ItemFunction {
 			// empty block
-			return block, nil
+			return nil, nil
 		}
 
-		return block, p.errorf(t.Pos, "expected block indentation, got %s", t.Val)
+		return nil, p.errorf(t.Pos, "expected block indentation, got %s", t.Val)
 	}
 
 	for {
@@ -454,13 +456,20 @@ func (p *parser) parseBlock() (Block, error) {
 		switch tok.Typ {
 		case ItemError:
 			p.next()
+
 			return block, p.errorf(tok.Pos, "%s", tok.Val)
+
 		case ItemDedent, ItemEOF:
 			if tok.Typ == ItemDedent {
 				p.next()
 			}
 
+			if len(block) == 0 {
+				return nil, nil
+			}
+
 			return block, nil
+
 		case ItemNL, ItemWS, ItemEOLComment:
 			tok = p.next()
 			if tok.Typ == ItemNL {
@@ -473,12 +482,14 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			continue
+
 		case ItemComment:
 			tok = p.next()
 			pendingDocsTokens = append(pendingDocsTokens, tok.Val)
 			sawNL = false
 
 			continue
+
 		case ItemIf:
 			sawNL = false
 			pendingDocsTokens = nil
@@ -489,6 +500,7 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			block = append(block, Statement{If: &ifStmt})
+
 		case ItemFor:
 			sawNL = false
 			pendingDocsTokens = nil
@@ -499,6 +511,7 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			block = append(block, Statement{For: &forStmt})
+
 		case ItemTry:
 			sawNL = false
 			pendingDocsTokens = nil
@@ -509,6 +522,7 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			block = append(block, Statement{Try: &tryStmt})
+
 		case ItemWith:
 			sawNL = false
 
@@ -518,6 +532,7 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			block = append(block, Statement{With: &withStmt})
+
 		case ItemWait:
 			sawNL = false
 			pendingDocsTokens = nil
@@ -528,6 +543,7 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			block = append(block, Statement{Wait: &waitStmt})
+
 		case ItemFrom, ItemFromDockerfile, ItemLocally, ItemCopy, ItemSaveArtifact,
 			ItemSaveImage, ItemRun, ItemExpose, ItemVolume, ItemEnv, ItemArg,
 			ItemSet, ItemLet, ItemLabel, ItemBuild, ItemWorkdir, ItemUser,
@@ -548,6 +564,7 @@ func (p *parser) parseBlock() (Block, error) {
 			}
 
 			block = append(block, Statement{Command: &cmd})
+
 		default:
 			return block, p.errorf(tok.Pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
 		}
@@ -590,19 +607,17 @@ func (p *parser) parseCommand() (Command, error) {
 	if len(cmd.Args) > 0 {
 		switch cmd.Name {
 		case CmdRun, CmdCmd, CmdEntrypoint, CmdVolume:
-			joined := strings.Join(cmd.Args, "")
-
-			var jsonArgs []string
-
-			err := json.Unmarshal([]byte(joined), &jsonArgs)
-			if err == nil {
-				cmd.Args = jsonArgs
-				cmd.ExecMode = true
+			if hasPrefixBracket(cmd.Args[0]) && hasSuffixBracket(cmd.Args[len(cmd.Args)-1]) {
+				joined := strings.Join(cmd.Args, "")
+				if execArgs, ok := parseExecForm(joined); ok {
+					cmd.Args = execArgs
+					cmd.ExecMode = true
+				}
 			}
 		case CmdLabel:
-			var newArgs []string
+			newArgs := make([]string, 0, len(cmd.Args)*3)
 			for _, arg := range cmd.Args {
-				newArgs = append(newArgs, splitKeyValueArg(arg)...)
+				newArgs = appendKeyValueArg(newArgs, arg)
 			}
 
 			cmd.Args = newArgs
@@ -616,7 +631,7 @@ func (p *parser) parseCommand() (Command, error) {
 }
 
 func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {
-	args := []string{}
+	var args []string
 
 	var endLoc SourceLocation
 
@@ -625,6 +640,10 @@ func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {
 		switch t.Typ {
 		case ItemAtom:
 			p.next()
+
+			if args == nil {
+				args = make([]string, 0, 4)
+			}
 
 			args = append(args, t.Val)
 		case ItemWS, ItemComment:
@@ -660,7 +679,7 @@ func (p *parser) parseKeyValueCommandArgs() ([]string, SourceLocation, error) {
 
 	var endLoc SourceLocation
 
-	var items []Item
+	p.itemsBuf = p.itemsBuf[:0]
 
 	for {
 		t := p.peek()
@@ -689,10 +708,10 @@ func (p *parser) parseKeyValueCommandArgs() ([]string, SourceLocation, error) {
 
 		p.next()
 
-		items = append(items, t)
+		p.itemsBuf = append(p.itemsBuf, t)
 	}
 
-	args = parseKeyValueItems(items)
+	args = parseKeyValueItems(p.itemsBuf)
 
 	return args, endLoc, nil
 }
@@ -709,6 +728,10 @@ func parseKeyValueItems(items []Item) []string {
 	// Read flags
 	for idx < len(items) {
 		if items[idx].Typ == ItemAtom && strings.HasPrefix(items[idx].Val, "-") {
+			if args == nil {
+				args = make([]string, 0, 4)
+			}
+
 			args = append(args, items[idx].Val)
 			idx++
 			// skip WS after flag
@@ -724,6 +747,10 @@ func parseKeyValueItems(items []Item) []string {
 	if idx >= len(items) || items[idx].Typ != ItemAtom {
 		for _, item := range items {
 			if item.Typ == ItemAtom {
+				if args == nil {
+					args = make([]string, 0, 4)
+				}
+
 				args = append(args, item.Val)
 			}
 		}
@@ -740,13 +767,13 @@ func parseKeyValueItems(items []Item) []string {
 		valStart  string
 	)
 
-	keyParts := splitKeyValueArg(keyToken)
-	if len(keyParts) > 1 {
-		key = keyParts[0]
+	eqIdx := findKeyValueSeparator(keyToken)
+	if eqIdx != -1 {
+		key = keyToken[:eqIdx]
 		hasEquals = true
 
-		if len(keyParts) > 2 {
-			valStart = keyParts[2]
+		if eqIdx+1 < len(keyToken) {
+			valStart = keyToken[eqIdx+1:]
 		}
 	} else {
 		key = keyToken
@@ -757,6 +784,10 @@ func parseKeyValueItems(items []Item) []string {
 		for idx < len(items) && items[idx].Typ == ItemWS {
 			idx++
 		}
+	}
+
+	if args == nil {
+		args = make([]string, 0, 4)
 	}
 
 	args = append(args, key)
@@ -777,16 +808,27 @@ func parseKeyValueItems(items []Item) []string {
 	}
 
 	// Everything else is the value!
-	var valBuilder strings.Builder
-	if valStart != "" {
-		valBuilder.WriteString(valStart)
-	}
+	var val string
 
-	for i := idx; i < len(items); i++ {
-		valBuilder.WriteString(items[i].Val)
-	}
+	switch {
+	case idx >= len(items):
+		val = valStart
 
-	val := valBuilder.String()
+	case valStart == "" && idx == len(items)-1:
+		val = items[idx].Val
+
+	default:
+		var valBuilder strings.Builder
+		if valStart != "" {
+			valBuilder.WriteString(valStart)
+		}
+
+		for i := idx; i < len(items); i++ {
+			valBuilder.WriteString(items[i].Val)
+		}
+
+		val = valBuilder.String()
+	}
 
 	val = strings.TrimRight(val, " \t\r\n")
 
@@ -1082,20 +1124,16 @@ func computeDocs(comments []string) string {
 		line = strings.TrimPrefix(line, "#")
 
 		if i == 0 {
-			var trimRunes []rune
-
-			for _, r := range line {
-				if r == ' ' || r == '\t' {
-					trimRunes = append(trimRunes, r)
-				} else {
-					break
-				}
+			idx := 0
+			for idx < len(line) && (line[idx] == ' ' || line[idx] == '\t') {
+				idx++
 			}
 
-			leadingTrim = string(trimRunes)
+			leadingTrim = line[:idx]
 		}
 
 		line = strings.TrimPrefix(line, leadingTrim)
+
 		docs.WriteString(line)
 		docs.WriteByte('\n')
 	}
@@ -1103,38 +1141,129 @@ func computeDocs(comments []string) string {
 	return docs.String()
 }
 
-func splitKeyValueArg(s string) []string {
-	var out []string
+func decodeJSONEscape(escaped byte, sb *strings.Builder) {
+	switch escaped {
+	case '"', '\\', '/':
+		sb.WriteByte(escaped)
 
+	case 'b':
+		sb.WriteByte('\b')
+
+	case 'f':
+		sb.WriteByte('\f')
+
+	case 'n':
+		sb.WriteByte('\n')
+
+	case 'r':
+		sb.WriteByte('\r')
+
+	case 't':
+		sb.WriteByte('\t')
+
+	default:
+		sb.WriteByte('\\')
+		sb.WriteByte(escaped)
+	}
+}
+
+func parseExecForm(s string) ([]string, bool) {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "[") || !strings.HasSuffix(s, "]") {
+		return nil, false
+	}
+
+	s = s[1 : len(s)-1]
+
+	var (
+		args    []string
+		current strings.Builder
+	)
+
+	inString := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		if inString {
+			switch c {
+			case '"':
+				inString = false
+
+				args = append(args, current.String())
+				current.Reset()
+
+			case '\\':
+				i++
+				if i >= len(s) {
+					return nil, false
+				}
+
+				decodeJSONEscape(s[i], &current)
+
+			default:
+				current.WriteByte(c)
+			}
+		} else {
+			switch c {
+			case '"':
+				inString = true
+
+			case ',', ' ', '\t', '\r', '\n':
+				continue
+
+			default:
+				return nil, false
+			}
+		}
+	}
+
+	if inString {
+		return nil, false
+	}
+
+	return args, true
+}
+
+func findKeyValueSeparator(s string) int {
 	inSingle := false
 	inDouble := false
-	start := 0
 
 	for i := range len(s) {
 		c := s[i]
 		switch {
 		case c == '\'' && !inDouble:
 			inSingle = !inSingle
+
 		case c == '"' && !inSingle:
 			inDouble = !inDouble
+
 		case c == '=' && !inSingle && !inDouble:
-			if i > start {
-				out = append(out, s[start:i])
-			}
-
-			out = append(out, "=")
-			start = i + 1
-
-			if start < len(s) {
-				out = append(out, s[start:])
-			}
-
-			return out
+			return i
 		}
 	}
 
-	if start < len(s) {
-		out = append(out, s[start:])
+	return -1
+}
+
+func appendKeyValueArg(out []string, s string) []string {
+	idx := findKeyValueSeparator(s)
+	if idx == -1 {
+		if s == "" {
+			return out
+		}
+
+		return append(out, s)
+	}
+
+	if idx > 0 {
+		out = append(out, s[:idx])
+	}
+
+	out = append(out, "=")
+
+	if idx+1 < len(s) {
+		out = append(out, s[idx+1:])
 	}
 
 	return out
@@ -1211,6 +1340,10 @@ loop:
 }
 
 func replaceEscape(str string) string {
+	if !strings.ContainsAny(str, "\\'\"") {
+		return str
+	}
+
 	var (
 		sb       strings.Builder
 		inDouble bool
@@ -1284,4 +1417,30 @@ func replaceEscape(str string) string {
 	}
 
 	return sb.String()
+}
+
+func hasPrefixBracket(s string) bool {
+	for i := range len(s) {
+		c := s[i]
+		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+			continue
+		}
+
+		return c == '['
+	}
+
+	return false
+}
+
+func hasSuffixBracket(s string) bool {
+	for i := len(s) - 1; i >= 0; i-- {
+		c := s[i]
+		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+			continue
+		}
+
+		return c == ']'
+	}
+
+	return false
 }

@@ -228,6 +228,7 @@ unit-test:
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         testarg=""; \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
+        EARTHLY_SKIP_BUILDKIT_CLI_TESTS=true \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
 
 # integration-test runs integration tests (including unit tests).

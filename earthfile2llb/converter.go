@@ -26,6 +26,7 @@ import (
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/interpreter/cmdopts"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
@@ -1722,7 +1723,7 @@ func (c *Converter) Env(_ context.Context, envKey string, envValue string) error
 }
 
 // Arg applies the ARG command.
-func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue string, opts earthfile.ArgOpts) error {
+func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue string, opts cmdopts.Arg) error {
 	err := c.checkAllowed(argCmd)
 	if err != nil {
 		return err
@@ -1998,7 +1999,7 @@ func (c *Converter) Import(
 // Cache handles a `CACHE` command in a Target.
 // It appends run options to the Converter which will mount a cache volume in each successive `RUN` command,
 // and configures the `Converter` to persist the cache in the image at the end of the target.
-func (c *Converter) Cache(_ context.Context, mountTarget string, opts earthfile.CacheOpts) error {
+func (c *Converter) Cache(_ context.Context, mountTarget string, opts cmdopts.Cache) error {
 	err := c.checkAllowed(cacheCmd)
 	if err != nil {
 		return err

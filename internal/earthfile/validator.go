@@ -29,7 +29,7 @@ var errUnexpectedVersionArgs = errors.New(
 	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
 )
 
-type astValidator func(Earthfile) []error
+type astValidator func(Tree) []error
 
 var astValidations = []astValidator{
 	noTargetsWithSameName,
@@ -38,7 +38,7 @@ var astValidations = []astValidator{
 	// TODO other checks go here
 }
 
-func validateAst(ef Earthfile) error {
+func validateAst(ef Tree) error {
 	var errs []error
 
 	for _, v := range astValidations {
@@ -78,7 +78,7 @@ func getValidVersionsFormatted() string {
 	return sb.String()
 }
 
-func validVersion(ef Earthfile) []error {
+func validVersion(ef Tree) []error {
 	var errs []error
 
 	// VERSION is not required in Earthfile for now
@@ -98,14 +98,14 @@ func validVersion(ef Earthfile) []error {
 	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
-		err := fmt.Errorf("Earthfile version is invalid, supported versions are %s", getValidVersionsFormatted())
+		err := fmt.Errorf("earthfile version is invalid, supported versions are %s", getValidVersionsFormatted())
 		errs = append(errs, err)
 	}
 
 	return errs
 }
 
-func noTargetsWithSameName(ef Earthfile) []error {
+func noTargetsWithSameName(ef Tree) []error {
 	var errs []error
 
 	seenTargets := map[string]struct{}{}
@@ -133,7 +133,7 @@ func noTargetsWithSameName(ef Earthfile) []error {
 	return errs
 }
 
-func noTargetsWithKeywords(ef Earthfile) []error {
+func noTargetsWithKeywords(ef Tree) []error {
 	var errs []error
 
 	for _, t := range ef.Targets {

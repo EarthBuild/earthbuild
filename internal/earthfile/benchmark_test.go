@@ -48,7 +48,7 @@ func BenchmarkANTLRParser(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		_, err := ParseFile(filePath, true)
+		_, err := ParseFile(filePath, WithSourceMap())
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -177,19 +177,19 @@ func TestLex(t *testing.T) {
 }
 
 func makeItemEnv() item {
-	return item{Typ: itemEnv, Val: CmdEnv}
+	return item{Typ: itemEnv, Val: string(CmdEnv)}
 }
 
 func makeItemArg() item {
-	return item{Typ: itemArg, Val: CmdArg}
+	return item{Typ: itemArg, Val: string(CmdArg)}
 }
 
 func makeItemSet() item {
-	return item{Typ: itemSet, Val: CmdSet}
+	return item{Typ: itemSet, Val: string(CmdSet)}
 }
 
 func makeItemLet() item {
-	return item{Typ: itemLet, Val: CmdLet}
+	return item{Typ: itemLet, Val: string(CmdLet)}
 }
 
 func makeItemSpace(n ...int) item {
@@ -214,7 +214,7 @@ func makeItemError(val string) item {
 }
 
 func makeItemRun() item {
-	return item{Typ: itemRun, Val: CmdRun}
+	return item{Typ: itemRun, Val: string(CmdRun)}
 }
 
 func makeItemEOF() item {

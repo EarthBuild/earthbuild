@@ -40,7 +40,7 @@ type Data struct {
 	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
 	BuildFilePath string
 	// The parsed Earthfile AST.
-	Earthfile earthfile.Earthfile
+	Earthfile earthfile.Tree
 }
 
 // Resolver is a build context resolver.
@@ -184,7 +184,7 @@ func (r *Resolver) Resolve(
 	return d, nil
 }
 
-func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.Earthfile, error) {
+func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.Tree, error) {
 	path = filepath.Clean(path)
 
 	efValue, err := r.parseCache.Do(ctx, path, func(_ context.Context, k any) (any, error) {
@@ -193,15 +193,15 @@ func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.E
 			return nil, fmt.Errorf("want string, got %T", k)
 		}
 
-		return earthfile.ParseFile(filePath, true)
+		return earthfile.ParseFile(filePath, earthfile.WithSourceMap())
 	})
 	if err != nil {
-		return earthfile.Earthfile{}, err
+		return earthfile.Tree{}, err
 	}
 
-	ef, ok := efValue.(earthfile.Earthfile)
+	ef, ok := efValue.(earthfile.Tree)
 	if !ok {
-		return earthfile.Earthfile{}, errors.Errorf("want earthfile.Earthfile, got %T", efValue)
+		return earthfile.Tree{}, errors.Errorf("want earthfile.Tree, got %T", efValue)
 	}
 
 	return ef, nil

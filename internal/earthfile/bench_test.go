@@ -1,7 +1,6 @@
 package earthfile
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -18,9 +17,7 @@ build:
 
 func BenchmarkParse_ANTLR(b *testing.B) {
 	for range b.N {
-		r := namedStringReader{strings.NewReader(benchmarkEarthfile)}
-
-		_, err := ParseOpts(FromReader(&r))
+		_, err := Parse("Earthfile", benchmarkEarthfile)
 		if err != nil {
 			b.Fatal(err)
 		}

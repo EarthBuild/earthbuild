@@ -107,7 +107,12 @@ func (a *Debug) actionAst(_ context.Context, cmd *cli.Command) error {
 		path = cmd.Args().First()
 	}
 
-	ef, err := earthfile.ParseFile(path, a.enableSourceMap)
+	var opts []earthfile.ParseOption
+	if a.enableSourceMap {
+		opts = append(opts, earthfile.WithSourceMap())
+	}
+
+	ef, err := earthfile.ParseFile(path, opts...)
 	if err != nil {
 		return err
 	}

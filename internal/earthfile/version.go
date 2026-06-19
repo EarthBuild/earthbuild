@@ -1,148 +1,75 @@
 package earthfile
 
 import (
-	"bufio"
 	"fmt"
-	"strings"
+	"os"
 )
 
-// ParseVersion reads the VERSION command for an Earthfile and returns Version.
-func ParseVersion(filePath string, enableSourceMap bool) (*Version, error) {
-	var opts []Opt
-
-	if enableSourceMap {
-		opts = append(opts, WithSourceMap())
+// ParseVersionFile reads the VERSION command for an Earthfile from the given file path and returns Version.
+func ParseVersionFile(filePath string, opts ...ParseOption) (*Version, error) {
+	b, err := os.ReadFile(filePath) // #nosec G304
+	if err != nil {
+		return nil, fmt.Errorf("earthfile: unable to open file '%v': %w", filePath, err)
 	}
 
-	return ParseVersionOpts(FromPath(filePath), opts...)
+	return parseVersion(string(b), filePath, opts...)
 }
 
-// ParseVersionOpts reads the VERSION command for an Earthfile and returns a
-// Version. This is the functional option version, which uses options to
-// change how a file is parsed.
-func ParseVersionOpts(fromOpt FromOpt, opts ...Opt) (*Version, error) {
-	defaultPrefs := prefs{
-		done: func() {},
-	}
-
-	prefs, err := fromOpt(defaultPrefs)
-	if err != nil {
-		return nil, fmt.Errorf("earthfile: could not apply ParseVersion from opt: %w", err)
-	}
-
+// parseVersion reads the VERSION command for an Earthfile from text and returns Version.
+func parseVersion(text string, name string, opts ...ParseOption) (*Version, error) {
+	var cfg parseConfig
 	for _, opt := range opts {
-		newPrefs, optErr := opt(prefs)
-		if optErr != nil {
-			return nil, fmt.Errorf("earthfile: could not apply ParseVersion opts: %w", optErr)
-		}
-
-		prefs = newPrefs
+		opt(&cfg)
 	}
 
-	file := prefs.reader
-	defer prefs.done()
+	l := lex(name, text)
 
 	var version Version
 
-	foundVersion := false
-	scanner := bufio.NewScanner(file)
-	i := 0
-
-	var (
-		startLine int
-		endLine   int
-	)
-
-	args := []string{}
-
-outer:
-	for scanner.Scan() {
-		i++
-		l := scanner.Text()
-		lineWidth := len(l)
-
-		l = strings.TrimSpace(l)
-		if len(l) == 0 {
+	for {
+		tok := l.nextItem()
+		// Since VERSION must be the first command, any other token means there is no version command
+		//nolint:exhaustive
+		switch tok.Typ {
+		case itemEOF:
+			return nil, nil
+		case itemError:
+			return nil, fmt.Errorf("read earthfile %s: %s", name, tok.Val)
+		case itemNL, itemWS, itemComment, itemEOLComment:
 			continue
-		}
-
-		if l[0] == '#' {
-			continue
-		}
-
-		fields := strings.Fields(l)
-		if len(fields) == 0 {
-			continue
-		}
-
-		foundComment := false
-		trailingLine := false
-
-		for _, f := range fields {
-			if foundComment {
-				continue // ignore rest of line
-			}
-
-			if trailingLine {
-				if strings.HasPrefix(f, "#") {
-					foundComment = true
-					continue
-				}
-				// found something other than a '#' after a '\'
-				// e.g. VERSION    \    UNEXPECTED
-				return nil, fmt.Errorf("malformed trailing line on %s:%d", file.Name(), i)
-			}
-
-			if f == "VERSION" && !foundVersion {
-				foundVersion = true
-				startLine = i
-
-				continue
-			}
-
-			if f == `\` {
-				trailingLine = true
-				continue
-			}
-
-			if strings.HasPrefix(f, "#") {
-				foundComment = true
-				continue
-			}
-
-			if !foundVersion {
-				// received a keyword other than VERSION
-				break outer
-			}
-
-			args = append(args, f)
-		}
-
-		if trailingLine {
-			continue
-		}
-
-		endLine = i
-		version.Args = args
-
-		if prefs.enableSourceMap {
+		case itemVersion:
 			version.SourceLocation = &SourceLocation{
-				File:        file.Name(),
-				StartLine:   startLine,
-				StartColumn: 0,
-				EndLine:     endLine,
-				EndColumn:   lineWidth,
+				File:        name,
+				StartLine:   tok.Line,
+				StartColumn: tok.Col,
 			}
+			// Parse version arguments
+			for {
+				argTok := l.nextItem()
+				// Since we only care about a tiny subset of lexical tokens within the VERSION command and treat all
+				// other tokens generically in the default case.
+				//nolint:exhaustive
+				switch argTok.Typ {
+				case itemAtom:
+					version.Args = append(version.Args, argTok.Val)
+				case itemWS:
+					// ignore whitespace
+				case itemNL, itemComment, itemEOLComment, itemEOF:
+					if cfg.enableSourceMap {
+						version.SourceLocation.EndLine = argTok.Line
+						version.SourceLocation.EndColumn = argTok.Col
+					} else {
+						version.SourceLocation = nil
+					}
+
+					return &version, nil
+				default:
+					return nil, fmt.Errorf("unexpected token in VERSION command: %s", argTok.Val)
+				}
+			}
+		default:
+			// Since VERSION must be the first command, any other token means there is no version command
+			return nil, nil
 		}
-
-		return &version, nil
 	}
-
-	err = scanner.Err()
-	if err != nil {
-		return nil, fmt.Errorf("read earthfile %s: %w", file.Name(), err)
-	}
-
-	// No version was found
-	return nil, nil
 }

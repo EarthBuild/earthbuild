@@ -5,8 +5,8 @@ package earthfile
 // Earthfile is parsed which does not have any targets.
 const TargetBase = "base"
 
-// Earthfile is the AST representation of an Earthfile.
-type Earthfile struct {
+// Tree is the AST representation of an Earthfile.
+type Tree struct {
 	Version        *Version        `json:"version,omitempty"`
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Targets        []Target        `json:"targets,omitempty"`
@@ -52,7 +52,7 @@ type Statement struct {
 
 // Command is the AST representation of an Earthfile command.
 type Command struct {
-	Name           string          `json:"name"`
+	Name           Cmd             `json:"name"`
 	Docs           string          `json:"docs,omitempty"`
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Args           []string        `json:"args,omitempty"`
@@ -74,14 +74,14 @@ func (c Command) Clone() Command {
 	return newCmd
 }
 
-// WithStatement is the AST representation of a with statement.
+// WithStatement is the AST representation of a "WITH" statement.
 type WithStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Body           Block           `json:"body"`
 	Command        Command         `json:"command"`
 }
 
-// IfStatement is the AST representation of an if statement.
+// IfStatement is the AST representation of an "IF" statement.
 type IfStatement struct {
 	ElseBody       *Block          `json:"elseBody,omitempty"`
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
@@ -91,7 +91,7 @@ type IfStatement struct {
 	ExecMode       bool            `json:"execMode,omitempty"`
 }
 
-// TryStatement is the AST representation of a try statement.
+// TryStatement is the AST representation of a "TRY" statement.
 type TryStatement struct {
 	CatchBody      *Block          `json:"catchBody,omitempty"`
 	FinallyBody    *Block          `json:"finallyBody,omitempty"`
@@ -99,7 +99,7 @@ type TryStatement struct {
 	TryBody        Block           `json:"tryBody"`
 }
 
-// ElseIf is the AST representation of an else if clause.
+// ElseIf is the AST representation of an "ELSE IF" clause.
 type ElseIf struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Expression     []string        `json:"expression"`
@@ -107,14 +107,14 @@ type ElseIf struct {
 	ExecMode       bool            `json:"execMode,omitempty"`
 }
 
-// ForStatement is the AST representation of a for statement.
+// ForStatement is the AST representation of a "FOR" statement.
 type ForStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Args           []string        `json:"args"`
 	Body           Block           `json:"body"`
 }
 
-// WaitStatement is the AST representation of a for statement.
+// WaitStatement is the AST representation of a "WAIT" statement.
 type WaitStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Args           []string        `json:"args"`
@@ -128,25 +128,4 @@ type SourceLocation struct {
 	StartColumn int    `json:"startColumn"`
 	EndLine     int    `json:"endLine"`
 	EndColumn   int    `json:"endColumn"`
-}
-
-// IsValidEnvVarName returns true if env name is valid.
-func IsValidEnvVarName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-
-	first := name[0]
-	if (first < 'a' || first > 'z') && (first < 'A' || first > 'Z') && first != '_' {
-		return false
-	}
-
-	for i := 1; i < len(name); i++ {
-		c := name[i]
-		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' {
-			return false
-		}
-	}
-
-	return true
 }

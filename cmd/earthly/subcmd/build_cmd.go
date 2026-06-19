@@ -24,7 +24,7 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
+
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -35,6 +35,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
 	"github.com/EarthBuild/earthbuild/util/params"
 	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -322,7 +323,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	}
 
 	for secretKey := range secretsMap {
-		if !earthfile.IsValidEnvVarName(secretKey) {
+		if !shell.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
 			// see https://github.com/earthly/earthly/issues/2883
 			b.cli.Console().Warnf(

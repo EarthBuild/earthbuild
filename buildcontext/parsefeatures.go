@@ -17,7 +17,7 @@ type buildFile struct {
 func parseFeatures(
 	buildFilePath string, featureFlagOverrides string, projectRef string, console conslogging.ConsoleLogger,
 ) (*features.Features, error) {
-	version, err := earthfile.ParseVersion(buildFilePath, false)
+	version, err := earthfile.ParseVersionFile(buildFilePath)
 	if err != nil {
 		return nil, err
 	}

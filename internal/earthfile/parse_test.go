@@ -8,22 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type namedStringReader struct {
-	*strings.Reader
-}
-
-func (n *namedStringReader) Name() string {
-	return "Earthfile"
-}
-
-var _ NamedReader = &namedStringReader{}
-
 func TestParseOpts(t *testing.T) {
 	t.Parallel()
 
 	//nolint:goconst
 	tests := []struct {
-		check     func(*require.Assertions, Earthfile, error)
+		check     func(*require.Assertions, Tree, error)
 		note      string
 		earthfile string
 	}{
@@ -36,14 +26,14 @@ foo:
     LET foo = bar
     SET foo = baz
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				foo := s.Targets[0]
 				r.Len(foo.Recipe, 2)
 				set := foo.Recipe[1]
 				r.NotNil(set.Command)
-				r.Equal("SET", set.Command.Name)
+				r.Equal(CmdSet, set.Command.Name)
 				r.Equal([]string{"foo", "=", "baz"}, set.Command.Args)
 			},
 		},
@@ -57,19 +47,19 @@ LET foo = bar
 foo:
     LET bacon = eggs
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.BaseRecipe, 1)
 				global := s.BaseRecipe[0]
 				r.NotNil(global.Command)
-				r.Equal("LET", global.Command.Name)
+				r.Equal(CmdLet, global.Command.Name)
 				r.Equal([]string{"foo", "=", "bar"}, global.Command.Args)
 				r.Len(s.Targets, 1)
 				foo := s.Targets[0]
 				r.Len(foo.Recipe, 1)
 				let := foo.Recipe[0]
 				r.NotNil(let.Command)
-				r.Equal("LET", let.Command.Name)
+				r.Equal(CmdLet, let.Command.Name)
 				r.Equal([]string{"bacon", "=", "eggs"}, let.Command.Args)
 			},
 		},
@@ -106,7 +96,7 @@ foo: # inline  comments do not consume newlines
     # targets should be ignored.
 
     # Even if they don't have a trailing newline.`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 3)
 				foo := s.Targets[2]
@@ -122,7 +112,7 @@ VERSION 0.6
   foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, _ Earthfile, err error) {
+			check: func(r *require.Assertions, _ Tree, err error) {
 				r.Error(err)
 				r.ErrorContains(err, "must start at the beginning of the line")
 			},
@@ -135,7 +125,7 @@ VERSION 0.6
 foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Version.Args, 1)
 				r.Equal("0.6", s.Version.Args[0])
@@ -145,7 +135,7 @@ foo:
 				r.Len(target.Recipe, 1)
 				recipe := target.Recipe[0]
 				r.NotNil(recipe.Command)
-				r.Equal("RUN", recipe.Command.Name)
+				r.Equal(CmdRun, recipe.Command.Name)
 				r.Equal([]string{"echo", "foo"}, recipe.Command.Args)
 			},
 		},
@@ -158,7 +148,7 @@ foo:
     RUN echo "$(echo "foo     bar")"
     ENV FOO="$(echo "foo     bar")"
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -166,11 +156,11 @@ foo:
 				r.Len(target.Recipe, 2)
 				run := target.Recipe[0]
 				r.NotNil(run.Command)
-				r.Equal("RUN", run.Command.Name)
+				r.Equal(CmdRun, run.Command.Name)
 				r.Equal([]string{"echo", `"$(echo "foo     bar")"`}, run.Command.Args)
 
 				env := target.Recipe[1]
-				r.Equal("ENV", env.Command.Name)
+				r.Equal(CmdEnv, env.Command.Name)
 				r.Equal([]string{"FOO", "=", `"$(echo "foo     bar")"`}, env.Command.Args)
 			},
 		},
@@ -183,7 +173,7 @@ foo:
     RUN echo $(echo $(echo -n foo) $(echo -n bar))
     ENV FOO=$(echo $(echo -n foo) $(echo -n bar))
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -191,11 +181,11 @@ foo:
 				r.Len(target.Recipe, 2)
 				run := target.Recipe[0]
 				r.NotNil(run.Command)
-				r.Equal("RUN", run.Command.Name)
+				r.Equal(CmdRun, run.Command.Name)
 				r.Equal([]string{"echo", "$(echo $(echo -n foo) $(echo -n bar))"}, run.Command.Args)
 
 				env := target.Recipe[1]
-				r.Equal("ENV", env.Command.Name)
+				r.Equal(CmdEnv, env.Command.Name)
 				r.Equal([]string{"FOO", "=", "$(echo $(echo -n foo) $(echo -n bar))"}, env.Command.Args)
 			},
 		},
@@ -207,7 +197,7 @@ VERSION 0.6
 foo:
     ARG foo = "$(echo "()")"
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -215,7 +205,7 @@ foo:
 				r.Len(target.Recipe, 1)
 				run := target.Recipe[0]
 				r.NotNil(run.Command)
-				r.Equal("ARG", run.Command.Name)
+				r.Equal(CmdArg, run.Command.Name)
 				r.Equal([]string{"foo", "=", `"$(echo "()")"`}, run.Command.Args)
 			},
 		},
@@ -228,7 +218,7 @@ foo:
     ARG foo = $ ( foo )
     ENV foo = $ ( foo )
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -236,11 +226,11 @@ foo:
 				r.Len(target.Recipe, 2)
 				arg := target.Recipe[0]
 				r.NotNil(arg.Command)
-				r.Equal("ARG", arg.Command.Name)
+				r.Equal(CmdArg, arg.Command.Name)
 				r.Equal([]string{"foo", "=", "$ ( foo )"}, arg.Command.Args)
 
 				env := target.Recipe[1]
-				r.Equal("ENV", env.Command.Name)
+				r.Equal(CmdEnv, env.Command.Name)
 				r.Equal([]string{"foo", "=", "$ ( foo )"}, env.Command.Args)
 			},
 		},
@@ -254,7 +244,7 @@ foo:
 # Comment regarding something
     SAVE ARTIFACT /stuff
 `,
-			check: func(r *require.Assertions, _ Earthfile, err error) {
+			check: func(r *require.Assertions, _ Tree, err error) {
 				r.NoError(err)
 			},
 		},
@@ -267,7 +257,7 @@ VERSION 0.6
 foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -293,7 +283,7 @@ foo:
     ARG json
     RUN echo $json | jq .
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -322,7 +312,7 @@ bar:
 foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 2)
 				target := s.Targets[1]
@@ -341,7 +331,7 @@ VERSION 0.6
 foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -359,7 +349,7 @@ VERSION 0.6
 foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -376,7 +366,7 @@ VERSION 0.6
 foo:
     RUN echo foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -396,7 +386,7 @@ foo:
 bar:
     RUN echo bar
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 2)
 				target := s.Targets[1]
@@ -416,7 +406,7 @@ foo:
 bar:
     RUN echo bar
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 2)
 				target := s.Targets[1]
@@ -434,14 +424,14 @@ foo:
     ARG foo = bar
     RUN echo $foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
 				r.Len(target.Recipe, 2)
 				arg := target.Recipe[0]
 				r.NotNil(arg.Command)
-				r.Equal("ARG", arg.Command.Name)
+				r.Equal(CmdArg, arg.Command.Name)
 				r.Equal("foo is the argument that will be echoed\n", arg.Command.Docs)
 			},
 		},
@@ -455,12 +445,12 @@ FROM alpine:3.18
 # with multiple lines.
 ARG --global globalArg
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.BaseRecipe, 2)
 				arg := s.BaseRecipe[1]
 				r.NotNil(arg.Command)
-				r.Equal("ARG", arg.Command.Name)
+				r.Equal(CmdArg, arg.Command.Name)
 				r.Equal("globalArg is a documented global arg\nwith multiple lines.\n", arg.Command.Docs)
 			},
 		},
@@ -474,14 +464,14 @@ foo:
     # bar.txt will contain the output of this target
     SAVE ARTIFACT bar.txt
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
 				r.Len(target.Recipe, 2)
 				arg := target.Recipe[1]
 				r.NotNil(arg.Command)
-				r.Equal("SAVE ARTIFACT", arg.Command.Name)
+				r.Equal(CmdSaveArtifact, arg.Command.Name)
 				r.Equal("bar.txt will contain the output of this target\n", arg.Command.Docs)
 			},
 		},
@@ -495,14 +485,14 @@ foo:
     # foo is an image that contains a bar.txt file
     SAVE IMAGE foo
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
 				r.Len(target.Recipe, 2)
 				arg := target.Recipe[1]
 				r.NotNil(arg.Command)
-				r.Equal("SAVE IMAGE", arg.Command.Name)
+				r.Equal(CmdSaveImage, arg.Command.Name)
 				r.Equal("foo is an image that contains a bar.txt file\n", arg.Command.Docs)
 			},
 		},
@@ -514,7 +504,7 @@ target:
   RUN find . -type f -iname '*.md' | xargs -n 1 sed -i 's/{[^}]*}//g'
   RUN find . -type f -iname '*.md' | xargs vale --config /etc/vale/vale.ini --output line --minAlertLevel error
 `,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				r.Len(s.Targets[0].Recipe, 2)
@@ -531,7 +521,7 @@ test:
             -e 's, universe multiverse, universe # multiverse,' \
             /etc/apt/sources.list
     SAVE IMAGE --push blah`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -550,7 +540,7 @@ thebug:
     RUN touch /some-file
     RUN echo "myarg is \"$myarg\""
     RUN test -f /some-file`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -567,7 +557,7 @@ FROM alpine:3.24.0
 arg-plain:
     ARG val=$(echo run | tr -d '"')
     RUN echo $val`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -583,7 +573,7 @@ FROM alpine:3.24.0
 
 run-plain:
     RUN echo run | tr -d '"'`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -598,7 +588,7 @@ FROM alpine:3.24.0
 arg-esc:
     ARG val=$(echo single | tr -d "\"")
     RUN echo $val`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -615,7 +605,7 @@ FROM alpine:3.24.0
 arg-esc:
     ARG val=$(echo single | tr -d "\\\"")
     RUN echo $val`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -633,7 +623,7 @@ FROM alpine:3.24.0
 test:
   RUN 'echo "message'
   RUN 'echo "message"'`,
-			check: func(r *require.Assertions, s Earthfile, err error) {
+			check: func(r *require.Assertions, s Tree, err error) {
 				r.NoError(err)
 				r.Len(s.Targets, 1)
 				target := s.Targets[0]
@@ -649,8 +639,7 @@ test:
 		t.Run(test.note, func(t *testing.T) {
 			t.Parallel()
 
-			r := namedStringReader{strings.NewReader(test.earthfile)}
-			s, err := ParseOpts(FromReader(&r))
+			s, err := Parse("Earthfile", test.earthfile)
 			test.check(require.New(t), s, err)
 		})
 	}
@@ -663,7 +652,7 @@ func TestParse(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  Earthfile
+		want  Tree
 	}{
 		{
 			name: "basic target",
@@ -672,7 +661,7 @@ build:
   FROM alpine:3.18
   RUN echo hello
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -709,7 +698,7 @@ build:
     RUN echo "maybe"
   END
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -764,7 +753,7 @@ build:
     RUN echo $arg
   END
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -802,7 +791,7 @@ build:
     RUN echo "finally"
   END
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -851,7 +840,7 @@ build:
     RUN echo "with"
   END
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -888,7 +877,7 @@ build:
     RUN echo "wait"
   END
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -924,7 +913,7 @@ FUNCTION my-func
   FROM alpine:3.18
   RUN echo "func"
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -974,7 +963,7 @@ build:
   RUN echo "hello \
     world $(echo 'nested') and $VAR" # inline comment
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1001,7 +990,7 @@ foo:
   LET foo = bar
   SET foo = baz
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.7"},
 				},
@@ -1033,7 +1022,7 @@ LET foo = bar
 foo:
   LET bacon = eggs
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.7"},
 				},
@@ -1067,7 +1056,7 @@ foo:
   RUN echo "$(echo "foo     bar")"
   ENV FOO="$(echo "foo     bar")"
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.6"},
 				},
@@ -1099,7 +1088,7 @@ foo:
   RUN echo $(echo $(echo -n foo) $(echo -n bar))
   ENV FOO=$(echo $(echo -n foo) $(echo -n bar))
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.6"},
 				},
@@ -1132,7 +1121,7 @@ foo:
   ARG foo = bar
   RUN echo $foo
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.6"},
 				},
@@ -1166,7 +1155,7 @@ FROM alpine:3.18
 # with multiple lines.
 ARG --global globalArg
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.7"},
 				},
@@ -1194,7 +1183,7 @@ target:
   RUN find . -type f -iname '*.md' | xargs -n 1 sed -i 's/{[^}]*}//g'
   RUN find . -type f -iname '*.md' | xargs vale --config /etc/vale/vale.ini --output line --minAlertLevel error
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1237,7 +1226,7 @@ test:
           /etc/apt/sources.list
   SAVE IMAGE --push blah
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1282,7 +1271,7 @@ thebug:
   RUN echo "myarg is \"$myarg\""
   RUN test -f /some-file
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1331,7 +1320,7 @@ thebug:
 test:
   ARG MY_URL=https://example.com?foo=bar
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1356,7 +1345,7 @@ test:
 test:
   ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1383,7 +1372,7 @@ test:
   RUN 'echo "message'
   RUN 'echo "message"'
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1424,7 +1413,7 @@ FUNCTION my-func
   FROM alpine:3.18
   RUN echo "func"
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1462,7 +1451,7 @@ test:
   RUN echo \"\
     hello
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1491,7 +1480,7 @@ build:
     END
   END
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1533,7 +1522,7 @@ build:
 build:
   RUN GOARM=${VARIANT#v} go build -o main main.go
 `,
-			want: Earthfile{
+			want: Tree{
 				Version: &Version{
 					Args: []string{"0.8"},
 				},
@@ -1573,7 +1562,7 @@ build:
 	}
 }
 
-func zeroSourceLocations(ef *Earthfile) {
+func zeroSourceLocations(ef *Tree) {
 	ef.SourceLocation = nil
 	if ef.Version != nil {
 		ef.Version.SourceLocation = nil

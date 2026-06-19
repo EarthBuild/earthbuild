@@ -8,129 +8,68 @@ import (
 	"strings"
 )
 
-type prefs struct {
-	reader          NamedReader
-	done            func()
+type parseConfig struct {
 	enableSourceMap bool
 }
 
-// Opt is an option function for customizing the behavior of ParseVersion.
-type Opt func(prefs) (prefs, error)
+// ParseOption is an option function for customizing the behavior of the parser.
+type ParseOption func(*parseConfig)
 
-// WithSourceMap tells ParseVersion to enable a source map when parsing.
-func WithSourceMap() Opt {
-	return func(p prefs) (prefs, error) {
-		p.enableSourceMap = true
-		return p, nil
+// WithSourceMap tells the parser to enable a source map when parsing.
+func WithSourceMap() ParseOption {
+	return func(c *parseConfig) {
+		c.enableSourceMap = true
 	}
 }
 
-// FromOpt is an option function for customizing the source reader of
-// ParseVersion.
-type FromOpt func(prefs) (prefs, error)
-
-// FromPath tells ParseVersion to open and read from a file at path.
-func FromPath(path string) FromOpt {
-	return func(p prefs) (prefs, error) {
-		f, err := os.Open(path) // #nosec G304
-		if err != nil {
-			return p, fmt.Errorf("earthfile: unable to open file '%v': %w", path, err)
-		}
-
-		p.reader = f
-		p.done = func() { f.Close() } // #nosec G104
-
-		return p, nil
-	}
-}
-
-// NamedReader is simply an io.Reader with a name. It matches os.File, but
-// allows non-file types to be passed in.
-type NamedReader interface {
-	Name() string
-	Seek(offset int64, whence int) (int64, error)
-	Read(buff []byte) (n int, err error)
-}
-
-// FromReader tells ParseVersion to read from reader.
-func FromReader(r NamedReader) FromOpt {
-	return func(p prefs) (prefs, error) {
-		p.reader = r
-		return p, nil
-	}
-}
-
-// ParseFile parses an earthfile into an AST.
-func ParseFile(filePath string, enableSourceMap bool) (Earthfile, error) {
-	var opts []Opt
-	if enableSourceMap {
-		opts = append(opts, WithSourceMap())
-	}
-
-	return ParseOpts(FromPath(filePath), opts...)
-}
-
-// ParseOpts parses an earthfile into an AST. This is the functional option
-// version, which uses option functions to change how a file is parsed.
-func ParseOpts(from FromOpt, opts ...Opt) (Earthfile, error) {
-	defaultPrefs := prefs{
-		done: func() {},
-	}
-
-	preferences, err := from(defaultPrefs)
+// ParseFile parses the Earthfile at the given path into an AST.
+func ParseFile(path string, opts ...ParseOption) (Tree, error) {
+	f, err := os.Open(path) // #nosec G304
 	if err != nil {
-		return Earthfile{}, fmt.Errorf("ast: could not apply FromOpt: %w", err)
+		return Tree{}, fmt.Errorf("earthfile: unable to open file '%v': %w", path, err)
+	}
+	defer f.Close() // #nosec G104
+
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return Tree{}, fmt.Errorf("ast: could not read Earthfile for parsing: %w", err)
 	}
 
+	return Parse(path, string(b), opts...)
+}
+
+// Parse parses the Earthfile text into an AST.
+func Parse(name, text string, opts ...ParseOption) (Tree, error) {
+	var cfg parseConfig
 	for _, opt := range opts {
-		preferences, err = opt(preferences)
-		if err != nil {
-			return Earthfile{}, fmt.Errorf("ast: could not apply options: %w", err)
-		}
+		opt(&cfg)
 	}
 
-	defer preferences.done()
-
-	_, err = preferences.reader.Seek(0, 0)
-	if err != nil {
-		return Earthfile{}, fmt.Errorf("ast: could not seek to beginning of file: %w", err)
+	p := &parser{
+		lex: lex(name, text),
 	}
 
-	b, err := io.ReadAll(preferences.reader)
+	ef, err := p.parseEarthfile()
 	if err != nil {
-		return Earthfile{}, fmt.Errorf("ast: could not read Earthfile for parsing: %w", err)
-	}
-
-	ef, err := Parse(preferences.reader.Name(), string(b))
-	if err != nil {
-		return Earthfile{}, err
+		return Tree{}, err
 	}
 
 	// Set file path on SourceLocations if they exist and are requested
-	if preferences.enableSourceMap {
-		setSourceLocationFile(&ef, preferences.reader.Name())
+	if cfg.enableSourceMap {
+		setSourceLocationFile(&ef, name)
 	} else {
 		removeSourceLocations(&ef)
 	}
 
 	err = validateAst(ef)
 	if err != nil {
-		return Earthfile{}, err
+		return Tree{}, err
 	}
 
 	return ef, nil
 }
 
-// Parse parses the Earthfile text and returns a Earthfile.
-func Parse(name, text string) (Earthfile, error) {
-	p := &parser{
-		lex: lex(name, text),
-	}
-
-	return p.parseEarthfile()
-}
-
-func setSourceLocationFile(ef *Earthfile, filename string) {
+func setSourceLocationFile(ef *Tree, filename string) {
 	if ef.SourceLocation != nil {
 		ef.SourceLocation.File = filename
 	}
@@ -234,7 +173,7 @@ func setBlockSourceLocationFile(block Block, filename string) {
 	}
 }
 
-func removeSourceLocations(ef *Earthfile) {
+func removeSourceLocations(ef *Tree) {
 	ef.SourceLocation = nil
 	if ef.Version != nil {
 		ef.Version.SourceLocation = nil
@@ -343,9 +282,9 @@ func (p *parser) errorf(pos pos, format string, args ...any) error {
 }
 
 // parseEarthfile is the top-level entry point for recursive descent.
-func (p *parser) parseEarthfile() (Earthfile, error) {
+func (p *parser) parseEarthfile() (Tree, error) {
 	var (
-		ef                Earthfile
+		ef                Tree
 		pendingDocsTokens []string
 	)
 
@@ -882,7 +821,7 @@ func (p *parser) parseCommand() (Command, error) {
 	var cmd Command
 
 	tok := p.next()
-	cmd.Name = tok.Val
+	cmd.Name = Cmd(tok.Val)
 	cmd.SourceLocation = &SourceLocation{
 		StartLine:   tok.Line,
 		StartColumn: tok.Col,
@@ -894,6 +833,7 @@ func (p *parser) parseCommand() (Command, error) {
 
 	var err error
 
+	//nolint:exhaustive // Only ENV/ARG/SET/LET are parsed specially; other commands parse until newline.
 	switch cmd.Name {
 	case CmdEnv, CmdArg, CmdSet, CmdLet:
 		args, endLoc, err = p.parseKeyValueCommandArgs()
@@ -912,6 +852,7 @@ func (p *parser) parseCommand() (Command, error) {
 	cmd.Args = args
 
 	if len(cmd.Args) > 0 {
+		//nolint:exhaustive // Only commands supporting list/exec form or split args (LABEL) require post-processing.
 		switch cmd.Name {
 		case CmdRun, CmdCmd, CmdEntrypoint, CmdVolume:
 			if hasPrefixBracket(cmd.Args[0]) && hasSuffixBracket(cmd.Args[len(cmd.Args)-1]) {

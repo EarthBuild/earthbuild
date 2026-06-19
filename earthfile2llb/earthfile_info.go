@@ -7,6 +7,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/interpreter/cmdopts"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -118,7 +119,7 @@ func ArtifactName(cmd earthfile.Command) (string, *string, error) {
 
 // ImageNames returns the parsed names of a SAVE IMAGE command.
 func ImageNames(cmd earthfile.Command) ([]string, error) {
-	var opts earthfile.SaveImageOpts
+	var opts cmdopts.SaveImage
 
 	args, err := flagutil.ParseArgs("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {

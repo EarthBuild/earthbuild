@@ -254,7 +254,7 @@ func addArg(b *blockIO, ft *features.Features, stmt earthfile.Statement, isBase,
 	}
 
 	cmd := *stmt.Command
-	if cmd.Name != "ARG" {
+	if cmd.Name != earthfile.CmdArg {
 		return nil
 	}
 
@@ -302,13 +302,14 @@ func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*bl
 		}
 
 		cmd := *rb.Command
+		//nolint:exhaustive // Only doc-extractable commands (ARG, SAVE ARTIFACT, SAVE IMAGE) are processed here.
 		switch cmd.Name {
-		case "ARG":
+		case earthfile.CmdArg:
 			err := addArg(&b, ft, rb, false, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse non-global ARG")
 			}
-		case "SAVE ARTIFACT":
+		case earthfile.CmdSaveArtifact:
 			name, localName, err := earthfile2llb.ArtifactName(cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
@@ -333,7 +334,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*bl
 			}
 
 			b.artifacts = append(b.artifacts, artDoc)
-		case "SAVE IMAGE":
+		case earthfile.CmdSaveImage:
 			identifiers, err := earthfile2llb.ImageNames(cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
@@ -414,7 +415,7 @@ func indent(indent, s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func findTarget(ef earthfile.Earthfile, name string) (earthfile.Target, error) {
+func findTarget(ef earthfile.Tree, name string) (earthfile.Target, error) {
 	for _, tgt := range ef.Targets {
 		if tgt.Name == name {
 			return tgt, nil

@@ -128,10 +128,10 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 	require.Contains(t, out, "IMAGES:")
 }
 
-func parseDocFixture(t *testing.T, fixture string) (earthfile.Earthfile, *features.Features) {
+func parseDocFixture(t *testing.T, fixture string) (earthfile.Tree, *features.Features) {
 	t.Helper()
 
-	ef, err := earthfile.ParseOpts(earthfile.FromPath(filepath.Join("testdata", fixture)), earthfile.WithSourceMap())
+	ef, err := earthfile.ParseFile(filepath.Join("testdata", fixture), earthfile.WithSourceMap())
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -142,7 +142,7 @@ func parseDocFixture(t *testing.T, fixture string) (earthfile.Earthfile, *featur
 	return ef, ftrs
 }
 
-func mustFindDocTarget(t *testing.T, ef earthfile.Earthfile, name string) earthfile.Target {
+func mustFindDocTarget(t *testing.T, ef earthfile.Tree, name string) earthfile.Target {
 	t.Helper()
 
 	tgt, err := findTarget(ef, name)

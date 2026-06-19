@@ -81,53 +81,56 @@ const (
 	itemEquals
 )
 
+// Cmd represents a custom string type for Earthfile command names.
+type Cmd string
+
 // Command name string constants.
 const (
-	CmdAdd            = "ADD"
-	CmdArg            = "ARG"
-	CmdBuild          = "BUILD"
-	CmdCache          = "CACHE"
-	CmdCatch          = "CATCH"
-	CmdCmd            = "CMD"
-	CmdCommand        = "COMMAND"
-	CmdCopy           = "COPY"
-	CmdDo             = "DO"
-	CmdDocker         = "DOCKER"
-	CmdElse           = "ELSE"
-	CmdElseIf         = "ELSE IF"
-	CmdEnd            = "END"
-	CmdEntrypoint     = "ENTRYPOINT"
-	CmdEnv            = "ENV"
-	CmdExpose         = "EXPOSE"
-	CmdFinally        = "FINALLY"
-	CmdFor            = "FOR"
-	CmdFrom           = "FROM"
-	CmdFromDockerfile = "FROM DOCKERFILE"
-	CmdFunction       = "FUNCTION"
-	CmdGitClone       = "GIT CLONE"
-	CmdHealthCheck    = "HEALTHCHECK"
-	CmdHost           = "HOST"
-	CmdIf             = "IF"
-	CmdImport         = "IMPORT"
-	CmdLabel          = "LABEL"
-	CmdLet            = "LET"
-	CmdLoad           = "LOAD"
-	CmdLocally        = "LOCALLY"
-	CmdOnBuild        = "ONBUILD"
-	CmdProject        = "PROJECT"
-	CmdRun            = "RUN"
-	CmdSaveArtifact   = "SAVE ARTIFACT"
-	CmdSaveImage      = "SAVE IMAGE"
-	CmdSet            = "SET"
-	CmdShell          = "SHELL"
-	CmdStopSignal     = "STOPSIGNAL"
-	CmdTry            = "TRY"
-	CmdUser           = "USER"
-	CmdVersion        = "VERSION"
-	CmdVolume         = "VOLUME"
-	CmdWait           = "WAIT"
-	CmdWith           = "WITH"
-	CmdWorkdir        = "WORKDIR"
+	CmdAdd            Cmd = "ADD"
+	CmdArg            Cmd = "ARG"
+	CmdBuild          Cmd = "BUILD"
+	CmdCache          Cmd = "CACHE"
+	CmdCatch          Cmd = "CATCH"
+	CmdCmd            Cmd = "CMD"
+	CmdCommand        Cmd = "COMMAND"
+	CmdCopy           Cmd = "COPY"
+	CmdDo             Cmd = "DO"
+	CmdDocker         Cmd = "DOCKER"
+	CmdElse           Cmd = "ELSE"
+	CmdElseIf         Cmd = "ELSE IF"
+	CmdEnd            Cmd = "END"
+	CmdEntrypoint     Cmd = "ENTRYPOINT"
+	CmdEnv            Cmd = "ENV"
+	CmdExpose         Cmd = "EXPOSE"
+	CmdFinally        Cmd = "FINALLY"
+	CmdFor            Cmd = "FOR"
+	CmdFrom           Cmd = "FROM"
+	CmdFromDockerfile Cmd = "FROM DOCKERFILE"
+	CmdFunction       Cmd = "FUNCTION"
+	CmdGitClone       Cmd = "GIT CLONE"
+	CmdHealthCheck    Cmd = "HEALTHCHECK"
+	CmdHost           Cmd = "HOST"
+	CmdIf             Cmd = "IF"
+	CmdImport         Cmd = "IMPORT"
+	CmdLabel          Cmd = "LABEL"
+	CmdLet            Cmd = "LET"
+	CmdLoad           Cmd = "LOAD"
+	CmdLocally        Cmd = "LOCALLY"
+	CmdOnBuild        Cmd = "ONBUILD"
+	CmdProject        Cmd = "PROJECT"
+	CmdRun            Cmd = "RUN"
+	CmdSaveArtifact   Cmd = "SAVE ARTIFACT"
+	CmdSaveImage      Cmd = "SAVE IMAGE"
+	CmdSet            Cmd = "SET"
+	CmdShell          Cmd = "SHELL"
+	CmdStopSignal     Cmd = "STOPSIGNAL"
+	CmdTry            Cmd = "TRY"
+	CmdUser           Cmd = "USER"
+	CmdVersion        Cmd = "VERSION"
+	CmdVolume         Cmd = "VOLUME"
+	CmdWait           Cmd = "WAIT"
+	CmdWith           Cmd = "WITH"
+	CmdWorkdir        Cmd = "WORKDIR"
 )
 
 const eof = -1
@@ -173,7 +176,7 @@ type stateFn func(*lexer) stateFn
 type lexer struct {
 	input           string
 	name            string
-	keyValueCmdType string
+	keyValueCmdType Cmd
 	state           stateFn
 	itemsArr        [32]item
 	indentArr       [16]int
@@ -468,7 +471,8 @@ func lexIdentifier(l *lexer) stateFn {
 		}
 	}
 
-	val := l.input[l.start:l.pos]
+	val := Cmd(l.input[l.start:l.pos])
+	//nolint:exhaustive // Only CmdVersion is lexed in global context; other command checks are deferred.
 	switch val {
 	case CmdVersion:
 		l.emit(itemVersion)
@@ -505,7 +509,7 @@ func lexIdentifier(l *lexer) stateFn {
 }
 
 // lexUserCommandOrFunction parses the name of a custom user command or function definition.
-func lexUserCommandOrFunction(l *lexer, val string) stateFn {
+func lexUserCommandOrFunction(l *lexer, val Cmd) stateFn {
 	l.next()
 
 	for isAlphaNumeric(l.peek()) || l.peek() == '-' || l.peek() == '_' {
@@ -591,13 +595,14 @@ func lexCommandKeyword(l *lexer) stateFn {
 		}
 	}
 
-	val := l.input[l.start:l.pos]
+	val := Cmd(l.input[l.start:l.pos])
 
 	var (
 		typ       itemType
 		nextState = lexRecipeCommandArgs
 	)
 
+	//nolint:exhaustive // Only specific command prefixes (SAVE, etc.) are checked here to identify keywords.
 	switch val {
 	case "SAVE":
 		switch {

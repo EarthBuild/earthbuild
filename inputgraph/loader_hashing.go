@@ -35,7 +35,7 @@ func (l *loader) hashVersion(v earthfile.Version) {
 }
 
 func (l *loader) hashCommand(c earthfile.Command) {
-	l.hasher.HashString(c.Name)
+	l.hasher.HashString(string(c.Name))
 	l.hasher.HashJSONMarshalled(c.Args)
 	l.hasher.HashBool(c.ExecMode)
 }

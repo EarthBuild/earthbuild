@@ -1,4 +1,4 @@
-package earthfile
+package shell
 
 import (
 	"testing"

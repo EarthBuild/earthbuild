@@ -777,8 +777,8 @@ smoke-test:
 
 # test runs examples, no-qemu, qemu, and experimental tests
 test-all:
-    BUILD +test-unit
-    BUILD +test-integration
+    BUILD +unit-test
+    BUILD +integration-test
     BUILD +fuzz-test
     BUILD +examples
     BUILD --pass-args +test-no-qemu

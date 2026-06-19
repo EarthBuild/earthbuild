@@ -1,10 +1,8 @@
 package subcmd
 
 import (
-	"io"
-	"os"
+	"bytes"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/ast"
@@ -13,21 +11,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var captureStdoutMu sync.Mutex
+func TestParseDocTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		path        string
+		wantTarget  string
+		wantErrLike string
+		wantSingle  bool
+	}{
+		{name: "empty documents all base targets", path: "", wantTarget: docBaseTarget, wantSingle: false},
+		{name: "local dir documents all base targets", path: ".", wantTarget: docBaseTarget, wantSingle: false},
+		{name: "explicit target is single", path: "+build", wantTarget: "+build", wantSingle: true},
+		{name: "pathed target is single", path: "./foo+build", wantTarget: "./foo+build", wantSingle: true},
+		{name: "remote path rejected", path: "github.com/foo/bar+x", wantErrLike: "remote-paths are not currently supported"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			target, single, err := parseDocTarget(tt.path)
+			if tt.wantErrLike != "" {
+				require.ErrorContains(t, err, tt.wantErrLike)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantTarget, target.String())
+			require.Equal(t, tt.wantSingle, single)
+		})
+	}
+}
 
 func TestDocTargetFixtures(t *testing.T) {
 	t.Parallel()
 
 	ef, ftrs := parseDocFixture(t, "target-docs.earth")
-	doc := &Doc{}
 
 	t.Run("documented target", func(t *testing.T) {
 		t.Parallel()
 
 		tgt := mustFindDocTarget(t, ef, "documented-target")
-		out := captureStdout(t, func() error {
-			return doc.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
+		out, err := captureDoc(func(d *Doc) error {
+			return d.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
 		})
+		require.NoError(t, err)
 
 		require.Contains(t, out, "+documented-target\n")
 		require.Contains(t, out, "documented-target is a target with documentation\n")
@@ -39,18 +69,20 @@ func TestDocTargetFixtures(t *testing.T) {
 		t.Parallel()
 
 		tgt := mustFindDocTarget(t, ef, "undocumented-target")
-		err := doc.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
+		err := (&Doc{}).documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "no doc comment found")
+		require.ErrorIs(t, err, errNoDocComment)
 	})
 
 	t.Run("incorrectly documented target fails", func(t *testing.T) {
 		t.Parallel()
 
 		tgt := mustFindDocTarget(t, ef, "incorrectly-documented-target")
-		err := doc.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
+		err := (&Doc{}).documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, false)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "no doc comment found")
+		require.ErrorIs(t, err, errNoDocComment)
 	})
 }
 
@@ -83,9 +115,10 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 	require.NotEmpty(t, blockIO.images[0].body)
 	require.Empty(t, blockIO.images[1].body)
 
-	out := captureStdout(t, func() error {
-		return (&Doc{}).documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, true)
+	out, err := captureDoc(func(d *Doc) error {
+		return d.documentSingleTarget("", ftrs, ef.BaseRecipe, tgt, true)
 	})
+	require.NoError(t, err)
 
 	require.Contains(t, out, "+foo --requiredArg")
 	require.Contains(t, out, "[--globalArg] [--withDefault=foo] [--withDocs] [--withoutDocs]\n")
@@ -128,32 +161,13 @@ func docIdentifiers(sections []docSection) []string {
 	return ids
 }
 
-func captureStdout(t *testing.T, fn func() error) string {
-	t.Helper()
+// captureDoc runs fn against a Doc that writes into an in-memory buffer,
+// returning the rendered output. No global stdout hijacking, so it is safe
+// under t.Parallel() and cannot deadlock on a full pipe.
+func captureDoc(fn func(*Doc) error) (string, error) {
+	var buf bytes.Buffer
 
-	captureStdoutMu.Lock()
-	defer captureStdoutMu.Unlock()
+	err := fn(&Doc{out: &buf})
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	os.Stdout = w
-
-	defer func() {
-		os.Stdout = oldStdout
-	}()
-
-	fnErr := fn()
-
-	require.NoError(t, w.Close())
-
-	require.NoError(t, fnErr)
-
-	out, err := io.ReadAll(r)
-	require.NoError(t, err)
-
-	require.NoError(t, r.Close())
-
-	return string(out)
+	return buf.String(), err
 }

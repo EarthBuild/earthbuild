@@ -143,18 +143,29 @@ func formatErrorMessage(
 
 	errString = fmt.Sprintf("%s%s", internalStr, errString)
 
+	// missing cases in switch of type logstream.FailureType: logstream.FailureType_FAILURE_TYPE_UNKNOWN,
+	// logstream.FailureType_FAILURE_TYPE_OTHER, logstream.FailureType_FAILURE_TYPE_SYNTAX,
+	// logstream.FailureType_FAILURE_TYPE_BUILDKIT_CRASHED,
+	// logstream.FailureType_FAILURE_TYPE_CONNECTION_FAILURE,
+	// logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
+	// logstream.FailureType_FAILURE_TYPE_RATE_LIMITED,
+	// logstream.FailureType_FAILURE_TYPE_INVALID_PARAM, logstream.FailureType_FAILURE_TYPE_AUTO_SKIP
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch fatalErrorType {
 	case logstream.FailureType_FAILURE_TYPE_OOM_KILLED:
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
 				"      was terminated because the build system ran out of memory. "+
-				"If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation)
+				"If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation,
+		)
 	case logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT:
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
-				"      did not complete successfully. %s", internalStr, operation, exitCodeDetail(exitCode))
+				"      did not complete successfully. %s", internalStr, operation, exitCodeDetail(exitCode),
+		)
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
 
@@ -166,20 +177,23 @@ func formatErrorMessage(
 		return fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
-				"      failed: %s", internalStr, operation, reason)
+				"      failed: %s", internalStr, operation, reason,
+		)
 	case logstream.FailureType_FAILURE_TYPE_GIT:
 		gitStdErr, shorterErr, ok := errutil.ExtractEarthlyGitStdErr(errString)
 		if ok {
 			return fmt.Sprintf(
 				"The%s command\n"+
 					"          %s\n"+
-					"failed: %s\n\n%s", internalStr, operation, shorterErr, gitStdErr)
+					"failed: %s\n\n%s", internalStr, operation, shorterErr, gitStdErr,
+			)
 		}
 
 		return fmt.Sprintf(
 			"The%s command\n"+
 				"          %s\n"+
-				"failed: %s", internalStr, operation, errString)
+				"failed: %s", internalStr, operation, errString,
+		)
 	default:
 		if isCancellationSymptom(errString) {
 			return fmt.Sprintf(
@@ -192,7 +206,8 @@ func formatErrorMessage(
 		return fmt.Sprintf(
 			"The%s command\n"+
 				"          %s\n"+
-				"failed: %s", internalStr, operation, errString)
+				"failed: %s", internalStr, operation, errString,
+		)
 	}
 }
 
@@ -220,7 +235,8 @@ func (vm *vertexMonitor) parseError() {
 		slString = fmt.Sprintf(
 			" %s:%d:%d",
 			vm.meta.SourceLocation.File, vm.meta.SourceLocation.StartLine,
-			vm.meta.SourceLocation.StartColumn)
+			vm.meta.SourceLocation.StartColumn,
+		)
 	}
 
 	// Set the error string and flags on the vertexMonitor

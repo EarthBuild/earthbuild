@@ -18,8 +18,7 @@ func ParseImageNameAndAttrs(s string) (string, map[string]string, error) {
 		pair := strings.Split(strings.TrimSpace(entry), "=")
 		if len(pair) != 2 {
 			return "", attrs, errors.Errorf(
-				"failed to parse remote cache attribute: expected a key=value pair while parsing %q", entry,
-			)
+				"failed to parse remote cache attribute: expected a key=value pair while parsing %q", entry)
 		}
 
 		attrs[strings.TrimSpace(pair[0])] = strings.TrimSpace(pair[1])

@@ -1150,13 +1150,11 @@ func printBuildkitInfo(
 	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than earth Buildkit v0.6.20",
-		)
+				"it's from a version lower than earth Buildkit v0.6.20")
 	} else {
 		printFun(
 			"Version %s %s %s",
-			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision,
-		)
+			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
 
 		const buildkitPackage = "github.com/EarthBuild/buildkit"
 
@@ -1169,8 +1167,7 @@ func printBuildkitInfo(
 				// For local buildkits we expect perfect version match.
 				bkCons.Warnf(
 					"Warning: Buildkit version (%s) is different from earth version (%s)",
-					info.BuildkitVersion.Version, earthVersion,
-				)
+					info.BuildkitVersion.Version, earthVersion)
 			} else {
 				compatible := true
 
@@ -1232,8 +1229,7 @@ func printBuildkitInfo(
 		workerInfo.GCAnalytics.AvgDuration,
 		workerInfo.GCAnalytics.AllTimeDuration,
 		ld,
-		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared),
-	)
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared))
 
 	if workerInfo.GCAnalytics.CurrentStartTime != nil {
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)

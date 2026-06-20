@@ -34,12 +34,10 @@ func NewEarthApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.B
 	earthApp.BaseCLI.SetAppStopOnNthArg(new(1))
 	earthApp.BaseCLI.SetAction(buildApp.Action)
 	earthApp.BaseCLI.SetVersion(
-		getVersionPlatform(earthApp.BaseCLI.Version(), earthApp.BaseCLI.GitSHA(), earthApp.BaseCLI.BuiltBy()),
-	)
+		getVersionPlatform(earthApp.BaseCLI.Version(), earthApp.BaseCLI.GitSHA(), earthApp.BaseCLI.BuiltBy()))
 
 	earthApp.BaseCLI.SetFlags(
-		cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()),
-	)
+		cliInstance.Flags().RootFlags(cliInstance.DefaultInstallationName(), cliInstance.DefaultBuildkitdImage()))
 	earthApp.BaseCLI.SetFlags(append(earthApp.BaseCLI.App().Flags, buildApp.HiddenFlags()...))
 
 	earthApp.BaseCLI.SetCommands(rootApp.Cmds())

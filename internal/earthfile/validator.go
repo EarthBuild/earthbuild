@@ -26,8 +26,7 @@ var validEarthfileVersions = []string{
 }
 
 var errUnexpectedVersionArgs = errors.New(
-	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
-)
+	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
 
 type astValidator func(Tree) []error
 

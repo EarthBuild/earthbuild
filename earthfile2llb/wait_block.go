@@ -178,8 +178,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 		ref, err := llbutil.StateToRef(
 			ctx, item.c.opt.GwClient, item.si.State, item.c.opt.NoCache,
-			item.c.platr, item.c.opt.CacheImports.AsSlice(),
-		)
+			item.c.platr, item.c.opt.CacheImports.AsSlice())
 		if err != nil {
 			return errors.Wrapf(err, "failed to solve image required for %s", item.si.DockerTag)
 		}
@@ -202,8 +201,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 				if _, found := platformImgNames[platformImgName]; found {
 					return errors.Errorf(
 						"image %s is defined multiple times for the same platform (%s)",
-						item.si.DockerTag, item.si.Platform.String(),
-					)
+						item.si.DockerTag, item.si.Platform.String())
 				}
 
 				platformImgNames[platformImgName] = true
@@ -212,16 +210,14 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			if _, found := singPlatImgNames[item.si.DockerTag]; found {
 				return errors.Errorf(
 					"image %s is defined multiple times for the same default platform",
-					item.si.DockerTag,
-				)
+					item.si.DockerTag)
 			}
 
 			singPlatImgNames[item.si.DockerTag] = true
 		}
 
 		refPrefix, err := gwCrafter.AddPushImageEntry(
-			ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes,
-		)
+			ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes)
 		if err != nil {
 			return err
 		}
@@ -375,8 +371,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		}
 
 		dirID, err := gwCrafter.AddSaveArtifactLocal(
-			ref, refID, artifact.String(), saveLocalItem.saveLocal.ArtifactPath, saveLocalItem.saveLocal.DestPath,
-		)
+			ref, refID, artifact.String(), saveLocalItem.saveLocal.ArtifactPath, saveLocalItem.saveLocal.DestPath)
 		if err != nil {
 			return err
 		}
@@ -416,8 +411,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 	for _, entry := range artifacts {
 		err = saveartifactlocally.SaveArtifactLocally(
-			exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists,
-		)
+			exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists)
 		if err != nil {
 			return err
 		}

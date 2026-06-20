@@ -53,8 +53,7 @@ func New(
 	}
 	bs.Formatter = formatter.New(
 		ctx, bs.Bus, debug, verbose, displayStats,
-		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions,
-	)
+		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)

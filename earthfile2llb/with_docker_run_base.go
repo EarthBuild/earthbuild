@@ -139,8 +139,7 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 			p, err := platforms.Parse(serviceInfo.Platform)
 			if err != nil {
 				return nil, errors.Wrapf(
-					err, "parse platform for image %s: %s", serviceInfo.Image, serviceInfo.Platform,
-				)
+					err, "parse platform for image %s: %s", serviceInfo.Image, serviceInfo.Platform)
 			}
 
 			platform = platutil.FromLLBPlatform(p)
@@ -192,8 +191,7 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 	ref, err := llbutil.StateToRef(
 		ctx, w.c.opt.GwClient, state, w.c.opt.NoCache,
-		w.c.platr, w.c.opt.CacheImports.AsSlice(),
-	)
+		w.c.platr, w.c.opt.CacheImports.AsSlice())
 	if err != nil {
 		return nil, errors.Wrap(err, "state to ref compose config")
 	}

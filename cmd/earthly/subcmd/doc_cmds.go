@@ -141,8 +141,7 @@ func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err e
 		case '.', '/', '+':
 		default:
 			return domain.Target{}, false, errors.New(
-				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']",
-			)
+				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
 		}
 	}
 

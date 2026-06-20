@@ -68,8 +68,7 @@ func (vc *legacyVisitedCollection) Add(
 			if dependents[sts.ID] {
 				// Infinite recursion. The previously visited sts is a dependent of us.
 				return nil, false, errors.Errorf(
-					"infinite recursion detected for target %s", target.String(),
-				)
+					"infinite recursion detected for target %s", target.String())
 			}
 			// If it's not a dependent, then it *has* to be done at this point.
 			// Sanity check.

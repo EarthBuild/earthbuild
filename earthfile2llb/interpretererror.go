@@ -65,8 +65,7 @@ func (ie InterpreterError) Error() string {
 	ret := fmt.Sprintf(
 		"%s:%d:%d %s",
 		ie.SourceLocation.File, ie.SourceLocation.StartLine, ie.SourceLocation.StartColumn,
-		err.Error(),
-	)
+		err.Error())
 	if ie.stack != "" {
 		ret = fmt.Sprintf("%s\nin\t\t%s", ret, ie.stack)
 	}

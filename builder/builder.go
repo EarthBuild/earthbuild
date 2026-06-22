@@ -23,6 +23,7 @@ import (
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
 	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
@@ -68,6 +69,7 @@ type Opt struct {
 	LocalRegistryAddr                     string
 	GitLFSInclude                         string
 	BuildkitSkipper                       bk.BuildkitSkipper
+	VertexStateStore                      buildkitskipper.VertexStateStore
 	Parallelism                           semutil.Semaphore
 	ContainerFrontend                     containerutil.ContainerFrontend
 	CleanCollection                       *cleanup.Collection

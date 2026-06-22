@@ -3,11 +3,13 @@ package solvermon
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
@@ -19,19 +21,85 @@ import (
 
 // SolverMonitor is a buildkit solver monitor.
 type SolverMonitor struct {
-	b        *logbus.Bus
-	digests  map[digest.Digest]string  // digest -> cmdID
-	vertices map[string]*vertexMonitor // cmdID -> vertexMonitor
-	mu       sync.Mutex
+	b          *logbus.Bus
+	digests    map[digest.Digest]string  // digest -> cmdID
+	vertices   map[string]*vertexMonitor // cmdID -> vertexMonitor
+	store      buildkitskipper.VertexStateStore
+	targetName string
+	prevState  map[string]buildkitskipper.VertexRecord // digest -> VertexRecord from last run
+	collected  []buildkitskipper.VertexRecord
+	// hashLogDiff contains human-readable lines describing what changed in the
+	// Earthfile inputs since the last run. Set via SetHashLogDiff before the
+	// build starts; shown on the first *cache miss* when no vertex-level reason
+	// is found. Cleared after first use to avoid repeating on every miss.
+	hashLogDiff []string
+	mu          sync.Mutex
 }
 
 // New creates a new SolverMonitor.
-func New(b *logbus.Bus) *SolverMonitor {
-	return &SolverMonitor{
-		b:        b,
-		digests:  make(map[digest.Digest]string),
-		vertices: make(map[string]*vertexMonitor),
+// store and target are optional; pass nil and "" to disable vertex-state tracking.
+func New(ctx context.Context, b *logbus.Bus, store buildkitskipper.VertexStateStore, target string) *SolverMonitor {
+	sm := &SolverMonitor{
+		b:          b,
+		digests:    make(map[digest.Digest]string),
+		vertices:   make(map[string]*vertexMonitor),
+		store:      store,
+		targetName: target,
+		prevState:  make(map[string]buildkitskipper.VertexRecord),
 	}
+
+	if store != nil && target != "" {
+		records, err := store.LoadState(ctx, target)
+		if err == nil {
+			for _, r := range records {
+				sm.prevState[r.Digest] = r
+			}
+		}
+	}
+
+	return sm
+}
+
+// Configure sets the vertex state store and target for this monitor, and loads
+// the previous run's state. It is safe to call only before MonitorProgress.
+func (sm *SolverMonitor) Configure(ctx context.Context, store buildkitskipper.VertexStateStore, target string) {
+	if store == nil || target == "" {
+		return
+	}
+
+	sm.store = store
+	sm.targetName = target
+
+	records, err := store.LoadState(ctx, target)
+	if err == nil {
+		for _, r := range records {
+			sm.prevState[r.Digest] = r
+		}
+	}
+}
+
+// SetHashLogDiff sets the Earthfile-level diff lines to show when a cache miss
+// has no vertex-level reason. Safe to call before MonitorProgress starts.
+func (sm *SolverMonitor) SetHashLogDiff(lines []string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	sm.hashLogDiff = lines
+}
+
+// SaveState persists collected vertex records to the store for the current target.
+// It is a no-op when no store or target was configured.
+func (sm *SolverMonitor) SaveState(ctx context.Context) error {
+	if sm.store == nil || sm.targetName == "" {
+		return nil
+	}
+
+	sm.mu.Lock()
+	records := make([]buildkitskipper.VertexRecord, len(sm.collected))
+	copy(records, sm.collected)
+	sm.mu.Unlock()
+
+	return sm.store.SaveState(ctx, sm.targetName, records)
 }
 
 // MonitorProgress processes a channel of buildkit solve statuses.
@@ -69,6 +137,16 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 			}
 		}
 	}
+}
+
+// digestStrings converts a slice of digest.Digest to a slice of strings.
+func digestStrings(ds []digest.Digest) []string {
+	out := make([]string, len(ds))
+	for i, d := range ds {
+		out[i] = d.String()
+	}
+
+	return out
 }
 
 func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error {
@@ -152,6 +230,18 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 
 		if vertex.Started != nil {
 			vm.cp.SetStart(*vertex.Started)
+
+			// Only annotate RUN and COPY operations created by earth's converter
+			// (identified by a non-empty CommandID). FROM / image-pull vertices
+			// are always re-executed on a cold daemon and carry no actionable
+			// miss information.
+			if !vertex.Cached && !vm.cacheMissLogged &&
+				meta.CommandID != "" && isAnnotatableOp(vm.operation) {
+				vm.cacheMissLogged = true
+
+				cacheMissMsg := "*cache miss*" + sm.buildCacheMissReason(vertex, meta)
+				_, _ = vm.cp.Write([]byte(cacheMissMsg+"\n"), *vertex.Started, logbus.Stderr)
+			}
 		}
 
 		if vertex.Error != "" {
@@ -161,6 +251,17 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		if vertex.Completed == nil {
 			continue
 		}
+
+		// Collect the vertex record once the vertex is complete.
+		sm.collected = append(sm.collected, buildkitskipper.VertexRecord{
+			Digest:       vertex.Digest.String(),
+			Inputs:       digestStrings(vertex.Inputs),
+			Operation:    vm.operation,
+			WasCached:    vertex.Cached,
+			ActiveArgs:   vm.meta.ActiveArgs,
+			CopiedPaths:  vm.meta.CopiedPaths,
+			BaseImageRef: vm.meta.BaseImageRef,
+		})
 
 		var status logstream.RunStatus
 
@@ -224,4 +325,155 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 	}
 
 	return nil
+}
+
+// cacheMissReasonUnknown is returned when a cache miss regression is detected
+// but no specific input change can be identified.
+const cacheMissReasonUnknown = "unknown"
+
+// buildCacheMissReason returns an optional suffix to append to the base
+// "*cache miss*" annotation. It returns "" when no prior state is available
+// (first run or no DB configured). When the vertex was previously cached it
+// returns a human-readable explanation of what changed.
+func (sm *SolverMonitor) buildCacheMissReason(vertex *client.Vertex, meta *vertexmeta.VertexMeta) string {
+	digestStr := vertex.Digest.String()
+	prev, found := sm.prevState[digestStr]
+
+	if !found {
+		// Vertex digest changed (command/inputs changed) or first run.
+		// Show the Earthfile diff once on the first miss, then clear it.
+		if len(sm.hashLogDiff) > 0 {
+			reason := " (Earthfile changed:\n" + strings.Join(sm.hashLogDiff, "\n") + ")"
+			sm.hashLogDiff = nil
+
+			return reason
+		}
+
+		return ""
+	}
+
+	if !prev.WasCached {
+		// Was already a miss last time — no regression to report.
+		return ""
+	}
+
+	// Previously cached but now a miss. Try to explain why, in priority order.
+
+	// 1. ARG value changed.
+	if reason := diffArgs(prev.ActiveArgs, meta.ActiveArgs); reason != "" {
+		return " (previously cached; " + reason + ")"
+	}
+
+	// 2. COPY source paths changed.
+	if reason := diffCopiedPaths(prev.CopiedPaths, meta.CopiedPaths); reason != "" {
+		return " (previously cached; " + reason + ")"
+	}
+
+	// 3. Base image reference changed.
+	if prev.BaseImageRef != "" && meta.BaseImageRef != "" && prev.BaseImageRef != meta.BaseImageRef {
+		return " (previously cached; base image changed: " + prev.BaseImageRef + " → " + meta.BaseImageRef + ")"
+	}
+
+	// 4. Command text changed (same digest, different operation string — shouldn't
+	// happen for structural ops, but handle it defensively).
+	if prev.Operation != "" && prev.Operation != sm.prevState[digestStr].Operation {
+		return " (previously cached; command changed)"
+	}
+
+	// 5. Fall back to input-chain analysis.
+	if changedInput := sm.findChangedInput(vertex.Inputs); changedInput != cacheMissReasonUnknown {
+		return " (previously cached; upstream changed: " + changedInput + ")"
+	}
+
+	// 6. Fall back to Earthfile-level diff if available.
+	if len(sm.hashLogDiff) > 0 {
+		return " (previously cached; Earthfile changed:\n" + strings.Join(sm.hashLogDiff, "\n") + ")"
+	}
+
+	return " (previously cached; reason " + cacheMissReasonUnknown + ")"
+}
+
+// diffArgs returns a human-readable description of the first arg that changed
+// between prev and current. Returns "" if no relevant change is found.
+func diffArgs(prev, current map[string]string) string {
+	for k, curVal := range current {
+		prevVal, existed := prev[k]
+		if !existed {
+			return "new arg: " + k + "=" + curVal
+		}
+
+		if prevVal != curVal {
+			return "arg changed: " + k + "=" + prevVal + " → " + curVal
+		}
+	}
+
+	for k, prevVal := range prev {
+		if _, exists := current[k]; !exists {
+			return "arg removed: " + k + "=" + prevVal
+		}
+	}
+
+	return ""
+}
+
+// diffCopiedPaths returns a human-readable description if the set of copied
+// paths changed between runs. Returns "" if unchanged.
+func diffCopiedPaths(prev, current []string) string {
+	if len(prev) == 0 && len(current) == 0 {
+		return ""
+	}
+
+	prevSet := make(map[string]struct{}, len(prev))
+	for _, p := range prev {
+		prevSet[p] = struct{}{}
+	}
+
+	for _, p := range current {
+		if _, ok := prevSet[p]; !ok {
+			return "file added to COPY: " + p
+		}
+	}
+
+	currSet := make(map[string]struct{}, len(current))
+	for _, p := range current {
+		currSet[p] = struct{}{}
+	}
+
+	for _, p := range prev {
+		if _, ok := currSet[p]; !ok {
+			return "file removed from COPY: " + p
+		}
+	}
+
+	return ""
+}
+
+// isAnnotatableOp returns true for operations where a cache miss is meaningful
+// and actionable — specifically RUN and COPY commands authored by the user.
+// FROM and image-pull operations are excluded because they depend on registry
+// state and are always non-cached on a cold daemon.
+func isAnnotatableOp(operation string) bool {
+	return strings.HasPrefix(operation, "RUN ") ||
+		strings.HasPrefix(operation, "COPY ") ||
+		strings.HasPrefix(operation, "GIT CLONE ")
+}
+
+// findChangedInput scans the given input digests and returns the Operation of
+// the first input that either (a) does not appear in prevState or (b) was not
+// cached last time. Returns "unknown" when no specific input can be identified.
+func (sm *SolverMonitor) findChangedInput(inputs []digest.Digest) string {
+	for _, inp := range inputs {
+		inpStr := inp.String()
+		prev, ok := sm.prevState[inpStr]
+
+		if !ok || !prev.WasCached {
+			if ok && prev.Operation != "" {
+				return prev.Operation
+			}
+
+			return cacheMissReasonUnknown
+		}
+	}
+
+	return cacheMissReasonUnknown
 }

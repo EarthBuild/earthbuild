@@ -65,7 +65,7 @@ To cause a satellite to restart with a fresh cache, you can use the command `ear
 
 ## Auto-skip cache
 
-The auto-skip cache is a cache that is used to skip large parts of a build in certain situations. It is used by the `earthly --auto-skip` and `BUILD --auto-skip` commands.
+The auto-skip cache is a cache that is used to skip large parts of a build in certain situations. It is used by the `earth --auto-skip` and `BUILD --auto-skip` commands.
 
 Unlike the layer cache and the cache mounts, the auto-skip cache is global and is stored in a cloud database.
 
@@ -74,3 +74,13 @@ To clear the entire auto-skip cache for your Earthly org, you can use the comman
 To clear the auto-skip cache for an entire repository, you can use the command `earthly prune-auto-skip --path github.com/foo/bar --deep`.
 
 To clear the auto-skip cache for a specific target, you can use the command `earthly prune-auto-skip --path github.com/foo/bar --target +my-target`.
+
+### Local auto-skip database
+
+For local development, Earth can maintain a lightweight on-disk skip database instead of relying on the cloud. Pass a file path via `--auto-skip-db-path` (or the `EARTHLY_AUTO_SKIP_DB_PATH` environment variable):
+
+```bash
+earth --auto-skip-db-path ~/.earth/skip.db +my-target
+```
+
+This database also powers the [BuildKit cache miss annotations](./caching-in-earthfiles.md#buildkit-layer-cache-misses) feature, which identifies which operation caused a previously-cached layer to become a miss. The database is created automatically on first use. To reset it, simply delete the file.

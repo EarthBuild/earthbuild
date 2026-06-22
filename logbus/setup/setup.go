@@ -56,7 +56,7 @@ func New(
 		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
-	bs.SolverMonitor = solvermon.New(bs.Bus)
+	bs.SolverMonitor = solvermon.New(ctx, bs.Bus, nil, "")
 
 	if busDebugFile != "" {
 		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304

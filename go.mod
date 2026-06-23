@@ -19,7 +19,7 @@ require (
 	github.com/docker/go-connections v0.7.0
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/elastic/go-sysinfo v1.15.4
+	github.com/elastic/go-sysinfo v1.15.5
 	github.com/fatih/color v1.19.0
 	github.com/go-logr/stdr v1.2.2
 	github.com/gofrs/flock v0.13.0

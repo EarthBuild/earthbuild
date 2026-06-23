@@ -108,12 +108,16 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 			return err
 		}
 
+		// Strip any `@sha256:…` before retagging — `docker tag` rejects
+		// digest-bearing targets. See stripImageDigest. Issue #512.
+		retagAs := stripImageDigest(result.FinalImageName)
+
 		err = w.c.containerFrontend.ImageTag(ctx, containerutil.ImageTag{
 			SourceRef: pullImage,
-			TargetRef: result.FinalImageName,
+			TargetRef: retagAs,
 		})
 		if err != nil {
-			return errors.Wrapf(err, "tag image %q", result.FinalImageName)
+			return errors.Wrapf(err, "tag image %q", retagAs)
 		}
 	}
 

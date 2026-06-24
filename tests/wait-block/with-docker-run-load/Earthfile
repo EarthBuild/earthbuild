@@ -1,7 +1,7 @@
 VERSION 0.8
 
 deps:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     RUN apk add --no-cache curl jq
 
 check-tag-does-not-exist-in-registry:
@@ -18,7 +18,7 @@ check-tag-does-not-exist-locally:
     RUN docker images "$REGISTRY/myuser/myimg:$tag" | grep -v "$tag"
 
 a-test-image:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     ARG --required REGISTRY
     ARG --required tag
     ARG --required value

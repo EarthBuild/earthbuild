@@ -10,7 +10,7 @@ test-ubuntu:
     RUN --no-cache earthly --version
 
 test-debian:
-    ARG version=trixie-20260610
+    ARG version=trixie-20260623
     FROM debian:$version
     RUN apt-get update && apt-get install -y \
         apt-transport-https \

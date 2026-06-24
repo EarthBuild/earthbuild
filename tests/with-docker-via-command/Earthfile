@@ -1,6 +1,6 @@
 VERSION 0.8
 my-image:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     SAVE IMAGE my/image:test
 
 MY_COMMAND_WITH_DOCKER:

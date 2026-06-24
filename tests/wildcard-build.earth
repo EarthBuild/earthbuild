@@ -1,6 +1,6 @@
 VERSION --wildcard-builds --build-auto-skip 0.8
 
-FROM alpine:3.24.0
+FROM alpine:3.24.1
 
 wildcard-build:
     BUILD ./wildcard/*+test

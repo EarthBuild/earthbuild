@@ -122,6 +122,6 @@ update-buildkit-earthfile:
 
 # export-docker-script is used to copy the dind install script remotely via another Earthly target
 export-docker-script:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     COPY docker-auto-install.sh .
     SAVE ARTIFACT docker-auto-install.sh

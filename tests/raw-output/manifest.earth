@@ -1,6 +1,6 @@
 VERSION --raw-output 0.8
 
-FROM alpine:3.24.0
+FROM alpine:3.24.1
 
 gha:
     RUN --no-cache --raw-output echo "::group:: build something group 1"

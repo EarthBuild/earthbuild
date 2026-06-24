@@ -9,7 +9,7 @@ ARG --global REGISTRY_CONFIG="
 "
 
 certs:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     RUN apk add --no-cache openssl
     RUN openssl version
     RUN mkdir -p certs

@@ -88,7 +88,7 @@ func validVersion(ef Tree) error {
 	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
-		return fmt.Errorf("earthfile version is invalid, supported versions are %s", getValidVersionsFormatted())
+		return fmt.Errorf("invalid VERSION in Earthfile, supported versions are %s", getValidVersionsFormatted())
 	}
 
 	return nil

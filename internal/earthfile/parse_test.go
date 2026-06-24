@@ -718,7 +718,7 @@ build:
 											},
 										},
 									},
-									ElseIf: []ElseIf{
+									ElseIf: []ElseIfStatement{
 										{
 											Expression: []string{"[", "\"$VAR\"", "=", "\"2\"", "]"},
 											Body: Block{

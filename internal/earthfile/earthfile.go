@@ -83,12 +83,12 @@ type WithStatement struct {
 
 // IfStatement is the AST representation of an "IF" statement.
 type IfStatement struct {
-	ElseBody       *Block          `json:"elseBody,omitempty"`
-	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
-	Expression     []string        `json:"expression"`
-	ElseIf         []ElseIf        `json:"elseIf,omitempty"`
-	IfBody         Block           `json:"ifBody"`
-	ExecMode       bool            `json:"execMode,omitempty"`
+	ElseBody       *Block            `json:"elseBody,omitempty"`
+	SourceLocation *SourceLocation   `json:"sourceLocation,omitempty"`
+	Expression     []string          `json:"expression"`
+	ElseIf         []ElseIfStatement `json:"elseIf,omitempty"`
+	IfBody         Block             `json:"ifBody"`
+	ExecMode       bool              `json:"execMode,omitempty"`
 }
 
 // TryStatement is the AST representation of a "TRY" statement.
@@ -99,8 +99,8 @@ type TryStatement struct {
 	TryBody        Block           `json:"tryBody"`
 }
 
-// ElseIf is the AST representation of an "ELSE IF" clause.
-type ElseIf struct {
+// ElseIfStatement is the AST representation of an "ELSE IF" clause.
+type ElseIfStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Expression     []string        `json:"expression"`
 	Body           Block           `json:"body"`

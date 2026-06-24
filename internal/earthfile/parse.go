@@ -1139,7 +1139,7 @@ func (p *parser) parseIf() (IfStatement, error) {
 				return ifStmt, err
 			}
 
-			ifStmt.ElseIf = append(ifStmt.ElseIf, ElseIf{
+			ifStmt.ElseIf = append(ifStmt.ElseIf, ElseIfStatement{
 				SourceLocation: &SourceLocation{
 					StartLine:   tok.Line,
 					StartColumn: tok.Col,

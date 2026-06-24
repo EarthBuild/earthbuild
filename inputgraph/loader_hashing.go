@@ -16,7 +16,7 @@ func (l *loader) hashIfStatement(s earthfile.IfStatement) {
 	}
 }
 
-func (l *loader) hashElseIf(e earthfile.ElseIf) {
+func (l *loader) hashElseIf(e earthfile.ElseIfStatement) {
 	l.hasher.HashString("ELSE IF")
 	l.hasher.HashJSONMarshalled(e.Expression)
 	l.hasher.HashBool(e.ExecMode)

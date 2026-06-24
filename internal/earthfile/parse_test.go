@@ -1,6 +1,7 @@
 package earthfile
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -1762,5 +1763,30 @@ target:
 
 	f.Fuzz(func(_ *testing.T, input string) {
 		_, _ = Parse("Earthfile", input)
+	})
+}
+
+func BenchmarkParse(b *testing.B) {
+	content, err := os.ReadFile("../../Earthfile") // root earthfile
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("WithoutSourceMap", func(b *testing.B) {
+		for range b.N {
+			_, err := Parse("Earthfile", string(content))
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("WithSourceMap", func(b *testing.B) {
+		for range b.N {
+			_, err := Parse("Earthfile", string(content), WithSourceMap())
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
 	})
 }

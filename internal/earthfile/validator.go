@@ -26,9 +26,10 @@ var validEarthfileVersions = []string{
 }
 
 var errUnexpectedVersionArgs = errors.New(
-	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>")
+	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
+)
 
-type astValidator func(Tree) []error
+type astValidator func(Tree) error
 
 var astValidations = []astValidator{
 	noTargetsWithSameName,
@@ -38,21 +39,14 @@ var astValidations = []astValidator{
 }
 
 func validateAst(ef Tree) error {
-	var errs []error
+	var err error
 
 	for _, v := range astValidations {
-		if err := v(ef); err != nil {
-			errs = append(errs, err...)
-		}
+		err = errors.Join(err, v(ef))
 	}
 
-	if len(errs) > 0 {
-		errorStrings := make([]string, len(errs))
-		for i, err := range errs {
-			errorStrings[i] = err.Error()
-		}
-
-		return fmt.Errorf("%d validation issues.\n- %s", len(errs), strings.Join(errorStrings, "\n- "))
+	if err != nil {
+		return fmt.Errorf("validation issues: %w", err)
 	}
 
 	return nil
@@ -77,9 +71,7 @@ func getValidVersionsFormatted() string {
 	return sb.String()
 }
 
-func validVersion(ef Tree) []error {
-	var errs []error
-
+func validVersion(ef Tree) error {
 	// VERSION is not required in Earthfile for now
 	if ef.Version == nil {
 		return nil
@@ -87,8 +79,7 @@ func validVersion(ef Tree) []error {
 
 	// if VERSION is specified, it's invalid to have no args
 	if len(ef.Version.Args) == 0 {
-		errs = append(errs, errUnexpectedVersionArgs)
-		return errs
+		return errUnexpectedVersionArgs
 	}
 
 	// version is always last in VERSION command
@@ -97,23 +88,23 @@ func validVersion(ef Tree) []error {
 	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
-		err := fmt.Errorf("earthfile version is invalid, supported versions are %s", getValidVersionsFormatted())
-		errs = append(errs, err)
+		return fmt.Errorf("earthfile version is invalid, supported versions are %s", getValidVersionsFormatted())
 	}
 
-	return errs
+	return nil
 }
 
-func noTargetsWithSameName(ef Tree) []error {
-	var errs []error
+func noTargetsWithSameName(ef Tree) error {
+	var err error
 
 	seenTargets := map[string]struct{}{}
 
 	for _, t := range ef.Targets {
 		if _, seen := seenTargets[t.Name]; seen {
-			file := ""
-			line := 0
-			col := 0
+			var (
+				file      string
+				line, col int
+			)
 
 			if t.SourceLocation != nil {
 				file = t.SourceLocation.File
@@ -121,25 +112,26 @@ func noTargetsWithSameName(ef Tree) []error {
 				col = t.SourceLocation.StartColumn
 			}
 
-			err := fmt.Errorf("%s line %v:%v duplicate target \"%s\"",
+			duplicateTargetErr := fmt.Errorf("%s line %v:%v duplicate target \"%s\"",
 				file, line, col, t.Name)
-			errs = append(errs, err)
+			err = errors.Join(err, duplicateTargetErr)
 		}
 
 		seenTargets[t.Name] = struct{}{}
 	}
 
-	return errs
+	return err
 }
 
-func noTargetsWithKeywords(ef Tree) []error {
-	var errs []error
+func noTargetsWithKeywords(ef Tree) error {
+	var err error
 
 	for _, t := range ef.Targets {
 		if t.Name == TargetBase {
-			file := ""
-			line := 0
-			col := 0
+			var (
+				file      string
+				line, col int
+			)
 
 			if t.SourceLocation != nil {
 				file = t.SourceLocation.File
@@ -147,11 +139,11 @@ func noTargetsWithKeywords(ef Tree) []error {
 				col = t.SourceLocation.StartColumn
 			}
 
-			err := fmt.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
+			reservedTargetErr := fmt.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
 				file, line, col, t.Name, t.Name)
-			errs = append(errs, err)
+			err = errors.Join(err, reservedTargetErr)
 		}
 	}
 
-	return errs
+	return err
 }

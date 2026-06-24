@@ -79,7 +79,7 @@ func newLoader(opt HashOpt) *loader {
 }
 
 func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
-	opts := cmdopts.From{}
+	var opts cmdopts.From
 
 	args, err := flagutil.ParseArgsCleaned(string(earthfile.CmdFrom), &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -95,7 +95,7 @@ func (l *loader) handleFrom(ctx context.Context, cmd earthfile.Command) error {
 }
 
 func (l *loader) handleBuild(ctx context.Context, cmd earthfile.Command) error {
-	opts := cmdopts.Build{}
+	var opts cmdopts.Build
 
 	args, err := flagutil.ParseArgsCleaned(string(earthfile.CmdBuild), &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -148,7 +148,7 @@ func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 }
 
 func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
-	opts := cmdopts.Copy{}
+	var opts cmdopts.Copy
 
 	args, err := flagutil.ParseArgsCleaned(string(earthfile.CmdCopy), &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -454,7 +454,7 @@ func (l *loader) handleImport(cmd earthfile.Command, isBase bool) error {
 }
 
 func (l *loader) handleFromDockerfile(ctx context.Context, cmd earthfile.Command) error {
-	opts := cmdopts.FromDockerfile{}
+	var opts cmdopts.FromDockerfile
 
 	args, err := flagutil.ParseArgsCleaned(string(earthfile.CmdFromDockerfile), &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
@@ -601,7 +601,7 @@ func (l *loader) handleWithDocker(ctx context.Context, cmd earthfile.Command) er
 
 	l.hashCommand(cmd)
 
-	opts := cmdopts.WithDocker{}
+	var opts cmdopts.WithDocker
 
 	_, err = flagutil.ParseArgsCleaned("WITH DOCKER", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {

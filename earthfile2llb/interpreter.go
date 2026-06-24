@@ -15,8 +15,8 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/EarthBuild/earthbuild/internal/interpreter/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -1204,7 +1204,8 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 		}
 
 		err = i.converter.CopyClassical(
-			ctx, srcs, dest, opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists)
+			ctx, srcs, dest, opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists,
+		)
 		if err != nil {
 			return i.wrapError(err, cmd.SourceLocation, "copy classical")
 		}
@@ -1258,7 +1259,8 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 			expandedArtifacts, err = i.converter.ExpandWildcardArtifacts(ctx, srcArtifacts[index])
 			if err != nil {
 				return i.wrapError(
-					err, cmd.SourceLocation, "failed to expand wildcard COPY %q", srcArtifacts[index].Target.String())
+					err, cmd.SourceLocation, "failed to expand wildcard COPY %q", srcArtifacts[index].Target.String(),
+				)
 			}
 
 			expandedSrcs = make([]string, 0, len(expandedArtifacts))
@@ -1270,14 +1272,16 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 		for _, expandedSrc := range expandedSrcs {
 			if i.local {
 				err = i.converter.CopyArtifactLocal(
-					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs, opts.IsDirCopy)
+					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs, opts.IsDirCopy,
+				)
 				if err != nil {
 					return i.wrapError(err, cmd.SourceLocation, "copy artifact locally")
 				}
 			} else {
 				err = i.converter.CopyArtifact(
 					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs,
-					opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow)
+					opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow,
+				)
 				if err != nil {
 					return i.wrapError(err, cmd.SourceLocation, "copy artifact")
 				}
@@ -2298,7 +2302,8 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 
 			return i.handleDoFunction(
 				ctx, command, relCommand, uc, cmd, parsedFlagArgs, allowPrivileged,
-				opts.PassArgs, sourceFilePath, bc.Features.UseFunctionKeyword)
+				opts.PassArgs, sourceFilePath, bc.Features.UseFunctionKeyword,
+			)
 		}
 	}
 
@@ -2482,7 +2487,8 @@ func (i *Interpreter) handleDoFunction(
 			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.
 Note that switching now may cause breakages for your colleagues if they are using older earth versions.
-`, sourceLocationFile)
+`, sourceLocationFile,
+		)
 		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = true
 	}
 
@@ -2492,7 +2498,8 @@ Note that switching now may cause breakages for your colleagues if they are usin
 
 	scopeName := fmt.Sprintf(
 		"%s (%s:%d:%d)",
-		command.StringCanonical(), do.SourceLocation.File, do.SourceLocation.StartLine, do.SourceLocation.StartColumn)
+		command.StringCanonical(), do.SourceLocation.File, do.SourceLocation.StartLine, do.SourceLocation.StartColumn,
+	)
 
 	err := i.converter.EnterScopeDo(ctx, command, baseTarget(relCommand), allowPrivileged, passArgs, scopeName, buildArgs)
 	if err != nil {

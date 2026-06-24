@@ -16,9 +16,9 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/EarthBuild/earthbuild/internal/interpreter/cmdopts"
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -28,7 +28,8 @@ import (
 var (
 	errCannotLoadRemoteTarget = errors.New("cannot load remote target")
 	errInvalidRemoteTarget    = errors.New(
-		"only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported")
+		"only remote targets referenced by a complete Git SHA or an explicit tag referenced as 'tags/...' are supported",
+	)
 	errComplexCondition = errors.New("condition cannot be evaluated")
 )
 

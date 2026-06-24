@@ -171,8 +171,8 @@ type Cache struct {
 }
 
 // NewFor creates and returns a For with default separators.
-func NewFor() For {
-	return For{
+func NewFor() *For {
+	return &For{
 		Separators: "\n\t ",
 	}
 }

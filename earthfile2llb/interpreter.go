@@ -456,7 +456,7 @@ func (i *Interpreter) handleForArgs(
 ) (string, []string, error) {
 	opts := cmdopts.NewFor()
 
-	args, err := flagutil.ParseArgsCleaned("FOR", &opts, forArgs)
+	args, err := flagutil.ParseArgsCleaned("FOR", opts, forArgs)
 	if err != nil {
 		return "", nil, i.wrapError(err, sl, "invalid FOR arguments %v", forArgs)
 	}

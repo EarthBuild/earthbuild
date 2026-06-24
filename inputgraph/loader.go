@@ -832,7 +832,7 @@ func (l *loader) handleFor(ctx context.Context, forStmt earthfile.ForStatement) 
 
 	opts := cmdopts.NewFor()
 
-	args, err := flagutil.ParseArgsCleaned("FOR", &opts, forStmt.Args)
+	args, err := flagutil.ParseArgsCleaned("FOR", opts, forStmt.Args)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse FOR args")
 	}

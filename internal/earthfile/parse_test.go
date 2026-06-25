@@ -747,6 +747,57 @@ build:
 			},
 		},
 		{
+			name: "if block exec mode",
+			input: `VERSION 0.8
+build:
+  IF ["test", "-f", "/foo"]
+    RUN echo "yes"
+  ELSE IF ["test", "-d", "/bar"]
+    RUN echo "no"
+  END
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "build",
+						Recipe: Block{
+							{
+								If: &IfStatement{
+									Expression: []string{"test", "-f", "/foo"},
+									ExecMode:   true,
+									IfBody: Block{
+										{
+											Command: &Command{
+												Name: "RUN",
+												Args: []string{"echo", "\"yes\""},
+											},
+										},
+									},
+									ElseIf: []ElseIfStatement{
+										{
+											Expression: []string{"test", "-d", "/bar"},
+											ExecMode:   true,
+											Body: Block{
+												{
+													Command: &Command{
+														Name: "RUN",
+														Args: []string{"echo", "\"no\""},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "for block",
 			input: `VERSION 0.8
 build:

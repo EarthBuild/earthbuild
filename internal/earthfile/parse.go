@@ -4,6 +4,7 @@ package earthfile
 import (
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"strings"
 )
@@ -855,12 +856,9 @@ func (p *parser) parseCommand() (Command, error) {
 		//nolint:exhaustive // Only commands supporting list/exec form or split args (LABEL) require post-processing.
 		switch cmd.Name {
 		case CmdRun, CmdCmd, CmdEntrypoint, CmdVolume:
-			if hasPrefixBracket(cmd.Args[0]) && hasSuffixBracket(cmd.Args[len(cmd.Args)-1]) {
-				joined := strings.Join(cmd.Args, "")
-				if execArgs, ok := parseExecForm(joined); ok {
-					cmd.Args = execArgs
-					cmd.ExecMode = true
-				}
+			if execArgs, ok := parseExecForm(cmd.Args); ok {
+				cmd.Args = execArgs
+				cmd.ExecMode = true
 			}
 		case CmdLabel:
 			var newArgs []string
@@ -1107,6 +1105,11 @@ func (p *parser) parseIf() (IfStatement, error) {
 		return ifStmt, err
 	}
 
+	if execArgs, ok := parseExecForm(args); ok {
+		args = execArgs
+		ifStmt.ExecMode = true
+	}
+
 	ifStmt.Expression = args
 	ifStmt.SourceLocation.EndLine = endLoc.EndLine
 	ifStmt.SourceLocation.EndColumn = endLoc.EndColumn
@@ -1139,16 +1142,23 @@ func (p *parser) parseIf() (IfStatement, error) {
 				return ifStmt, err
 			}
 
-			ifStmt.ElseIf = append(ifStmt.ElseIf, ElseIfStatement{
+			elseIf := ElseIfStatement{
+				Expression: args,
 				SourceLocation: &SourceLocation{
 					StartLine:   tok.Line,
 					StartColumn: tok.Col,
 					EndLine:     endLoc.EndLine,
 					EndColumn:   endLoc.EndColumn,
 				},
-				Expression: args,
-				Body:       eiBlock,
-			})
+				Body: eiBlock,
+			}
+
+			if execArgs, ok := parseExecForm(args); ok {
+				elseIf.Expression = execArgs
+				elseIf.ExecMode = true
+			}
+
+			ifStmt.ElseIf = append(ifStmt.ElseIf, elseIf)
 		case itemElse:
 			p.next() // consume itemElse
 
@@ -1429,39 +1439,76 @@ func decodeJSONEscape(escaped byte, sb *strings.Builder) {
 	}
 }
 
-func parseExecForm(s string) ([]string, bool) {
-	s = strings.TrimSpace(s)
-	if !strings.HasPrefix(s, "[") || !strings.HasSuffix(s, "]") {
+// execFormCharSeq returns an iterator over the characters of the arguments,
+// starting after the first '[' and ending before the last ']'.
+//
+// It yields raw bytes. This is safe for Unicode/UTF-8 strings because
+// all syntax-related JSON control characters (like '"', '\', ',', '[', ']',
+// and whitespaces) are ASCII characters (values < 128). Since UTF-8 encodes
+// non-ASCII Unicode characters using bytes with values >= 128, a byte from
+// a multi-byte Unicode sequence will never match a control character.
+// The bytes of any Unicode character inside quotes are thus processed
+// sequentially and reconstructed correctly without decoding overhead.
+func execFormCharSeq(args []string) iter.Seq[byte] {
+	return func(yield func(byte) bool) {
+		for i := range args {
+			arg := args[i]
+			start := 0
+			end := len(arg)
+
+			if i == 0 {
+				start = 1
+			}
+
+			if i == len(args)-1 {
+				end = len(arg) - 1
+			}
+
+			for j := start; j < end; j++ {
+				if !yield(arg[j]) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// parseExecForm attempts to parse the string slice as an exec-form expression (e.g., ["arg1", "arg2"]).
+// It returns the parsed arguments and a boolean indicating whether the input matches the exec-form syntax.
+// The boolean return value is used to distinguish between a syntax/parsing failure (where it is not exec-form)
+// and a successfully parsed empty exec-form expression (like []).
+func parseExecForm(args []string) ([]string, bool) {
+	if len(args) == 0 || !strings.HasPrefix(args[0], "[") || !strings.HasSuffix(args[len(args)-1], "]") {
 		return nil, false
 	}
 
-	s = s[1 : len(s)-1]
-
 	var (
-		args    []string
-		current strings.Builder
+		execArgs []string
+		current  strings.Builder
 	)
 
 	inString := false
+	escaped := false
 
-	for i := 0; i < len(s); i++ {
-		c := s[i]
+	for c := range execFormCharSeq(args) {
+		if escaped {
+			escaped = false
+
+			decodeJSONEscape(c, &current)
+
+			continue
+		}
 
 		if inString {
 			switch c {
 			case '"':
 				inString = false
 
-				args = append(args, current.String())
+				execArgs = append(execArgs, current.String())
 				current.Reset()
 
 			case '\\':
-				i++
-				if i >= len(s) {
-					return nil, false
-				}
-
-				decodeJSONEscape(s[i], &current)
+				escaped = true
 
 			default:
 				current.WriteByte(c)
@@ -1480,11 +1527,11 @@ func parseExecForm(s string) ([]string, bool) {
 		}
 	}
 
-	if inString {
+	if inString || escaped {
 		return nil, false
 	}
 
-	return args, true
+	return execArgs, true
 }
 
 func findKeyValueSeparator(s string) int {
@@ -1681,30 +1728,4 @@ func replaceEscape(str string) string {
 	}
 
 	return sb.String()
-}
-
-func hasPrefixBracket(s string) bool {
-	for i := range len(s) {
-		c := s[i]
-		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
-			continue
-		}
-
-		return c == '['
-	}
-
-	return false
-}
-
-func hasSuffixBracket(s string) bool {
-	for i := len(s) - 1; i >= 0; i-- {
-		c := s[i]
-		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
-			continue
-		}
-
-		return c == ']'
-	}
-
-	return false
 }

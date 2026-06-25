@@ -430,7 +430,7 @@ function _earthly {
 func renderEntryTemplate(template string) (string, error) {
 	earthPath, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("failed to determine earth path: %w: %w", err, err)
+		return "", fmt.Errorf("failed to determine earth path: %w", err)
 	}
 
 	return strings.ReplaceAll(template, "__earthly__", earthPath), nil

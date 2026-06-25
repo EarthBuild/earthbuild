@@ -36,7 +36,8 @@ func (oi *AWSOIDCInfo) String() string {
 		sb.WriteString(oi.SessionName)
 	}
 
-	if arnStr := oi.RoleARNString(); arnStr != "" {
+	arnStr := oi.RoleARNString()
+	if arnStr != "" {
 		if sb.Len() > 0 {
 			sb.WriteByte(',')
 		}
@@ -135,12 +136,14 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 	}
 
 	// 3. Assign session-name
-	if sessionNameVal, ok := m["session-name"]; ok {
+	sessionNameVal, ok := m["session-name"]
+	if ok {
 		info.SessionName = sessionNameVal
 	}
 
 	// 4. Assign region
-	if regionVal, ok := m["region"]; ok {
+	regionVal, ok := m["region"]
+	if ok {
 		info.Region = regionVal
 	}
 

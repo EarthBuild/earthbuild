@@ -3,13 +3,14 @@ package proj_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io/fs"
 	"testing"
 	"time"
 
 	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"github.com/EarthBuild/earthbuild/util/proj"
-	"github.com/pkg/errors"
+
 	"github.com/stretchr/testify/require"
 )
 

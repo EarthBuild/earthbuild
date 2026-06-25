@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/pkg/errors"
 )
 
 type withDockerRunRegistry struct {
@@ -72,7 +72,7 @@ func (w *withDockerRunRegistry) prepareImages(
 
 		imageDefChan, err := w.load(ctx, cmdID, loadOpt)
 		if err != nil {
-			return nil, errors.Wrap(err, "load")
+			return nil, fmt.Errorf("load: %w", err)
 		}
 
 		imageDefChans = append(imageDefChans, imageDefChan)
@@ -114,7 +114,7 @@ func (w *withDockerRunRegistry) prepareImages(
 	for _, pullOpt := range opt.Pulls {
 		imageDef, err := w.pull(ctx, pullOpt)
 		if err != nil {
-			return nil, errors.Wrap(err, "pull")
+			return nil, fmt.Errorf("pull: %w", err)
 		}
 
 		imagesToBuild = append(imagesToBuild, imageDef)
@@ -133,7 +133,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	cmdID, cmd, err := w.c.newLogbusCommand(ctx, commandName)
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	defer func() {
@@ -155,7 +155,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	res, err := w.c.opt.MultiImageSolver.SolveImages(ctx, imagesToBuild)
 	if err != nil {
-		return errors.Wrap(err, "solving images")
+		return fmt.Errorf("solving images: %w", err)
 	}
 	defer res.ReleaseFunc()
 
@@ -178,7 +178,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	// Wait for all images to build (channel will be closed when finished).
 	results, err := readImgResults(ctx, res.ResultChan)
 	if err != nil {
-		return errors.Wrap(err, "error while preparing WITH DOCKER images")
+		return fmt.Errorf("error while preparing WITH DOCKER images: %w", err)
 	}
 
 	// Sort the results for LLB consistency.
@@ -192,7 +192,8 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		// This will be decoded in the wrapper.
 		if result.NewInterImgFormat {
 			pullImages = append(
-				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName))
+				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName),
+			)
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)
 		}
@@ -230,7 +231,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	if opt.CacheID == "" {
 		dindID, err = w.c.mts.Final.TargetInput().Hash()
 		if err != nil {
-			return errors.Wrap(err, "make dind ID")
+			return fmt.Errorf("make dind ID: %w", err)
 		}
 	} else {
 		// Note that the "cache_" prefix here is used to prevent auto-cleanup
@@ -240,19 +241,22 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	// to prevent busting the cache, as the intermediate image names are
 	// different every time.
 	dockerLoadRegistrySecretID := fmt.Sprintf(
-		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID)
+		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID,
+	)
 	crOpts.extraRunOpts = append(
 		crOpts.extraRunOpts,
 		llb.AddSecret(
 			"EARTHLY_DOCKER_LOAD_REGISTRY",
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
-		))
+		),
+	)
 
 	err = w.c.opt.InternalSecretStore.SetSecret(
-		ctx, dockerLoadRegistrySecretID, []byte(strings.Join(pullImages, " ")))
+		ctx, dockerLoadRegistrySecretID, []byte(strings.Join(pullImages, " ")),
+	)
 	if err != nil {
-		return errors.Wrap(err, "set docker load registry secret")
+		return fmt.Errorf("set docker load registry secret: %w", err)
 	}
 
 	w.c.opt.CleanCollection.Add(func() error { //nolint:contextcheck
@@ -318,7 +322,7 @@ func (w *withDockerRunRegistry) load(
 
 	depTarget, err := domain.ParseTarget(opt.Target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
+		return nil, fmt.Errorf("parse target %s: %w", opt.Target, err)
 	}
 
 	afterFn := func(_ context.Context, mts *states.MultiTarget) error {
@@ -329,7 +333,7 @@ func (w *withDockerRunRegistry) load(
 			}
 
 			if len(mts.Final.SaveImages) > 1 {
-				return errors.Wrap(errNoImageTag, "multiple tags mentioned in SAVE IMAGE")
+				return fmt.Errorf("multiple tags mentioned in SAVE IMAGE: %w", errNoImageTag)
 			}
 
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
@@ -346,13 +350,15 @@ func (w *withDockerRunRegistry) load(
 
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+		)
 		if err != nil {
 			return nil, err
 		}

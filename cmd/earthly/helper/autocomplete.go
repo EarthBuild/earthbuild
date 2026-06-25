@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"strconv"
 
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 
@@ -73,7 +73,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Errorf("recovered panic in autocomplete %s: %s", r, debug.Stack())
+			err = fmt.Errorf("recovered panic in autocomplete %s: %s", r, debug.Stack())
 		}
 	}()
 
@@ -86,7 +86,7 @@ func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	}
 
 	if compPointInt == 0 || compPointInt >= math.MaxInt {
-		err = errors.Errorf("compPointInt is out of bounds")
+		err = errors.New("compPointInt is out of bounds")
 		return err
 	}
 

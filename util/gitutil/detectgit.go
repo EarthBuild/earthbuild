@@ -2,6 +2,8 @@ package gitutil
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -10,28 +12,27 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/pkg/errors"
 )
 
 var (
 	// ErrNoGitBinary is an error returned when no git binary is found.
-	ErrNoGitBinary = errors.New("No git binary found")
+	ErrNoGitBinary = errors.New("no git binary found")
 	// ErrNotAGitDir is an error returned when a given directory is not a git dir.
-	ErrNotAGitDir = errors.New("Not a git directory")
+	ErrNotAGitDir = errors.New("not a git directory")
 	// ErrCouldNotDetectRemote is an error returned when git remote could not be detected or parsed.
-	ErrCouldNotDetectRemote = errors.New("Could not auto-detect or parse Git remote URL")
+	ErrCouldNotDetectRemote = errors.New("could not auto-detect or parse Git remote URL")
 	// ErrCouldNotDetectGitHash is an error returned when git hash could not be detected.
-	ErrCouldNotDetectGitHash = errors.New("Could not auto-detect or parse Git hash")
+	ErrCouldNotDetectGitHash = errors.New("could not auto-detect or parse Git hash")
 	// ErrCouldNotDetectGitShortHash is an error returned when git short hash could not be detected.
-	ErrCouldNotDetectGitShortHash = errors.New("Could not auto-detect or parse Git short hash")
+	ErrCouldNotDetectGitShortHash = errors.New("could not auto-detect or parse Git short hash")
 	// ErrCouldNotDetectGitContentHash is an error returned when git tree hash could not be detected.
-	ErrCouldNotDetectGitContentHash = errors.New("Could not auto-detect or parse Git content hash")
+	ErrCouldNotDetectGitContentHash = errors.New("could not auto-detect or parse Git content hash")
 	// ErrCouldNotDetectGitBranch is an error returned when git branch could not be detected.
-	ErrCouldNotDetectGitBranch = errors.New("Could not auto-detect or parse Git branch")
+	ErrCouldNotDetectGitBranch = errors.New("could not auto-detect or parse Git branch")
 	// ErrCouldNotDetectGitTags is an error returned when git tags could not be detected.
-	ErrCouldNotDetectGitTags = errors.New("Could not auto-detect or parse Git tags")
+	ErrCouldNotDetectGitTags = errors.New("could not auto-detect or parse Git tags")
 	// ErrCouldNotDetectGitRefs is an error returned when git refs could not be detected.
-	ErrCouldNotDetectGitRefs = errors.New("Could not auto-detect or parse Git refs")
+	ErrCouldNotDetectGitRefs = errors.New("could not auto-detect or parse Git refs")
 )
 
 // GitMetadata is a collection of git information about a certain directory.
@@ -155,7 +156,7 @@ func Metadata(ctx context.Context, dir, gitBranchOverride string) (*GitMetadata,
 
 	relDir, isRel, err := gitRelDir(baseDir, dir)
 	if err != nil {
-		return nil, errors.Wrapf(err, "get rel dir for %s when base git path is %s", dir, baseDir)
+		return nil, fmt.Errorf("get rel dir for %s when base git path is %s: %w", dir, baseDir, err)
 	}
 
 	if !isRel {
@@ -245,13 +246,12 @@ func detectGitRemoteURL(ctx context.Context, dir string) (string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrapf(
-			ErrCouldNotDetectRemote, "returned error %s: %s", err.Error(), string(out))
+		return "", fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectRemote)
 	}
 
 	outStr := string(out)
 	if outStr == "" {
-		return "", errors.Wrapf(ErrCouldNotDetectRemote, "no remote origin url output")
+		return "", fmt.Errorf("no remote origin url output: %w", ErrCouldNotDetectRemote)
 	}
 
 	return strings.SplitN(outStr, "\n", 2)[0], nil
@@ -263,7 +263,7 @@ func detectGitBaseDir(ctx context.Context, dir string) (string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrap(err, "detect git directory")
+		return "", fmt.Errorf("detect git directory: %w", err)
 	}
 
 	outStr := string(out)
@@ -271,7 +271,7 @@ func detectGitBaseDir(ctx context.Context, dir string) (string, error) {
 	// E.g. This would convert `C:/my/path` to `C:\my\path`, but only when the platform is Windows.
 	outStr = strings.Join(strings.Split(outStr, "/"), string(filepath.Separator))
 	if outStr == "" {
-		return "", errors.New("No output returned for git base dir")
+		return "", errors.New("no output returned for git base dir")
 	}
 
 	return strings.SplitN(outStr, "\n", 2)[0], nil
@@ -284,12 +284,12 @@ func gitRevParse(ctx context.Context, dir string, sentinel error, args ...string
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrapf(sentinel, "returned error %s: %s", err.Error(), string(out))
+		return "", fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), sentinel)
 	}
 
 	outStr := string(out)
 	if outStr == "" {
-		return "", errors.Wrapf(sentinel, "no output")
+		return "", fmt.Errorf("no output: %w", sentinel)
 	}
 
 	return strings.SplitN(outStr, "\n", 2)[0], nil
@@ -317,7 +317,7 @@ func detectGitBranch(ctx context.Context, dir, gitBranchOverride string) ([]stri
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, errors.Wrapf(ErrCouldNotDetectGitBranch, "returned error %s: %s", err.Error(), string(out))
+		return nil, fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectGitBranch)
 	}
 
 	outStr := string(out)
@@ -334,7 +334,7 @@ func detectGitTags(ctx context.Context, dir string) ([]string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, errors.Wrapf(ErrCouldNotDetectGitTags, "returned error %s: %s", err.Error(), string(out))
+		return nil, fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectGitTags)
 	}
 
 	outStr := string(out)
@@ -351,7 +351,7 @@ func detectGitRefs(ctx context.Context, dir string) ([]string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, errors.Wrapf(ErrCouldNotDetectGitRefs, "returned error %s: %s", err.Error(), string(out))
+		return nil, fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectGitRefs)
 	}
 
 	outStr := string(out)
@@ -399,7 +399,7 @@ func detectGitTimestamp(ctx context.Context, dir string, tsType gitTimestampType
 			return "", nil
 		}
 
-		return "", errors.Wrap(err, "detect git timestamp")
+		return "", fmt.Errorf("detect git timestamp: %w", err)
 	}
 
 	outStr := string(out)
@@ -422,7 +422,7 @@ func detectGitAuthor(ctx context.Context, dir string, format string) (string, er
 			return "", nil
 		}
 
-		return "", errors.Wrap(err, "detect git author")
+		return "", fmt.Errorf("detect git author: %w", err)
 	}
 
 	outStr := string(out)
@@ -440,7 +440,7 @@ func ConfigEmail(ctx context.Context) (string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrap(err, "detect git global email")
+		return "", fmt.Errorf("detect git global email: %w", err)
 	}
 
 	return strings.TrimSpace(string(out)), nil
@@ -462,7 +462,7 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 			return nil, nil
 		}
 
-		return nil, errors.Wrap(err, "detect git co-authors")
+		return nil, fmt.Errorf("detect git co-authors: %w", err)
 	}
 
 	return ParseCoAuthorsFromBody(string(out)), nil
@@ -505,17 +505,17 @@ func ParseCoAuthorsFromBody(body string) []string {
 // This function validates the input data (basePath, path) as well.
 func gitRelDir(basePath string, path string) (string, bool, error) {
 	if !filepath.IsAbs(basePath) {
-		return "", false, errors.Errorf("git base path %s is not absolute", basePath)
+		return "", false, fmt.Errorf("git base path %s is not absolute", basePath)
 	}
 
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return "", false, errors.Wrapf(err, "get abs path for %s", path)
+		return "", false, fmt.Errorf("get abs path for %s: %w", path, err)
 	}
 
 	absPath2, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
-		return "", false, errors.Wrapf(err, "eval symlinks for %s", absPath)
+		return "", false, fmt.Errorf("eval symlinks for %s: %w", absPath, err)
 	}
 
 	basePathParts := strings.Split(basePath, string(filepath.Separator))
@@ -529,7 +529,7 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 
 	a, err := os.Stat(basePath)
 	if err != nil {
-		return "", false, errors.Wrapf(err, "stat for %s", basePath)
+		return "", false, fmt.Errorf("stat for %s: %w", basePath, err)
 	}
 
 	// Checking VolumeName determines if we have a fully-qualified Windows path like `C:\my\dir`.
@@ -545,7 +545,7 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 
 	b, err := os.Stat(filepath.Join(pathParts[:len(basePathParts)]...))
 	if err != nil {
-		return "", false, errors.Wrapf(err, "stat for %v", pathParts)
+		return "", false, fmt.Errorf("stat for %v: %w", pathParts, err)
 	}
 	// Here checks if `path` is included in `basePath` in filesystem agnostic way.
 	// Case-sensitivity difference (like HFS+ in OSX) is also covered by os.SameFile.

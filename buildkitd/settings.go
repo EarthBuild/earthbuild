@@ -1,12 +1,12 @@
 package buildkitd
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mitchellh/hashstructure/v2"
-	"github.com/pkg/errors"
 )
 
 // Settings represents the buildkitd settings used to start up the daemon with.
@@ -40,7 +40,7 @@ type Settings struct {
 func (s Settings) Hash() (string, error) {
 	hash, err := hashstructure.Hash(s, hashstructure.FormatV2, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "hash settings")
+		return "", fmt.Errorf("hash settings: %w", err)
 	}
 
 	return strconv.FormatUint(hash, 16), nil
@@ -50,12 +50,12 @@ func (s Settings) Hash() (string, error) {
 func (s Settings) VerifyHash(hash string) (bool, error) {
 	newHash, err := hashstructure.Hash(s, hashstructure.FormatV2, nil)
 	if err != nil {
-		return false, errors.Wrap(err, "hash settings")
+		return false, fmt.Errorf("hash settings: %w", err)
 	}
 
 	oldHash, err := strconv.ParseUint(strings.TrimSpace(hash), 16, 64)
 	if err != nil {
-		return false, errors.Wrap(err, "parse hash")
+		return false, fmt.Errorf("parse hash: %w", err)
 	}
 
 	return oldHash == newHash, nil

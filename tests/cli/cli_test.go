@@ -57,7 +57,8 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 			projectDir := copyFixtureDir(t, "builtin-args")
 			replaceVersionLine(t, filepath.Join(projectDir, "Earthfile"), versionLine)
 
-			out, err := runEarth(t, projectDir,
+			out, err := runEarth(
+				t, projectDir,
 				"--no-output",
 				"--build-arg", "EARTHLY_VERSION=123",
 				"+builtin-args-test",

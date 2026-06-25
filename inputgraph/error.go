@@ -1,11 +1,11 @@
 package inputgraph
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/pkg/errors"
 )
 
 // Error represents an auto-skip error that can include the source file name and

@@ -2,9 +2,9 @@ package bk
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
-	"github.com/pkg/errors"
 )
 
 // BuildkitSkipper adds new auto-skip hashes to the backing datastore & allows
@@ -22,7 +22,7 @@ func NewBuildkitSkipper(localSkipDB string) (BuildkitSkipper, error) {
 
 	skipDB, err := buildkitskipper.NewLocal(localSkipDB)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open buildkit skipper database %s", localSkipDB)
+		return nil, fmt.Errorf("failed to open buildkit skipper database %s: %w", localSkipDB, err)
 	}
 
 	return skipDB, nil

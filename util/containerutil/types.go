@@ -1,10 +1,9 @@
 package containerutil
 
 import (
+	"errors"
 	"net/url"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // ContainerInfo contains things we may care about from inspect output for a given container.
@@ -205,7 +204,7 @@ const (
 )
 
 var (
-	errURLParseFailure      = errors.New("Invalid URL")
+	errURLParseFailure      = errors.New("invalid URL")
 	errURLValidationFailure = errors.New("URL did not pass validation")
 )
 

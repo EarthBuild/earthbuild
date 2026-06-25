@@ -4,10 +4,10 @@ package synccache
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/util/syncutil/metacontext"
-	"github.com/pkg/errors"
 )
 
 // Constructor is a func that is used to construct a cache value, given a key.

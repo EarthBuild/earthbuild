@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -24,7 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -142,28 +142,6 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
-
-	if app.BaseCLI.Flags().Debug {
-		// Get the stack trace from the deepest error that has it and print it.
-		type stackTracer interface {
-			StackTrace() errors.StackTrace
-		}
-
-		errChain := []error{}
-		for it := err; it != nil; it = errors.Unwrap(it) {
-			errChain = append(errChain, it)
-		}
-
-		for index := len(errChain) - 1; index > 0; index-- {
-			it := errChain[index]
-
-			errWithStack, ok := it.(stackTracer)
-			if ok {
-				app.BaseCLI.Console().Warnf("Error stack trace:%+v\n", errWithStack.StackTrace())
-				break
-			}
-		}
-	}
 
 	grpcErr, grpcErrOK := grpcerrors.AsGRPCStatus(err)
 	hintErr := getHintErr(err, grpcErr)
@@ -356,7 +334,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -372,7 +351,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -390,7 +370,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.BaseCLI.Console().Warn(
 				"Error: It seems that buildkitd had an issue. " +
-					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+			)
 			app.printCrashLogs(ctx)
 		}
 

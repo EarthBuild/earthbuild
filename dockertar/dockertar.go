@@ -5,18 +5,17 @@ import (
 	"archive/tar"
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // GetID returns the docker sha256 ID of the image stored within the given .tar file.
 func GetID(tarFilePath string) (string, error) {
 	tarFile, err := os.Open(tarFilePath) // #nosec G304
 	if err != nil {
-		return "", errors.Wrapf(err, "open file %s for reading", tarFilePath)
+		return "", fmt.Errorf("open file %s for reading: %w", tarFilePath, err)
 	}
 	defer tarFile.Close()
 
@@ -30,13 +29,13 @@ func GetID(tarFilePath string) (string, error) {
 		}
 
 		if err != nil {
-			return "", errors.Wrapf(err, "reading tar %s", tarFilePath)
+			return "", fmt.Errorf("reading tar %s: %w", tarFilePath, err)
 		}
 
 		if header.Name == "manifest.json" && !header.FileInfo().IsDir() {
 			dt, err := io.ReadAll(tarR)
 			if err != nil {
-				return "", errors.Wrapf(err, "read manifest.json from tar %s", tarFilePath)
+				return "", fmt.Errorf("read manifest.json from tar %s: %w", tarFilePath, err)
 			}
 
 			var jsonData []struct {
@@ -45,16 +44,16 @@ func GetID(tarFilePath string) (string, error) {
 
 			err = json.Unmarshal(dt, &jsonData)
 			if err != nil {
-				return "", errors.Wrapf(err, "unmarshal json tar manifest for %s", tarFilePath)
+				return "", fmt.Errorf("unmarshal json tar manifest for %s: %w", tarFilePath, err)
 			}
 
 			if len(jsonData) != 1 {
-				return "", errors.Errorf("unexpected len != 1 docker manifest in %s", tarFilePath)
+				return "", fmt.Errorf("unexpected len != 1 docker manifest in %s", tarFilePath)
 			}
 
 			return strings.TrimSuffix(jsonData[0].Config, ".json"), nil
 		}
 	}
 
-	return "", errors.Errorf("docker tar manifest.json not found in tar %s", tarFilePath)
+	return "", fmt.Errorf("docker tar manifest.json not found in tar %s", tarFilePath)
 }

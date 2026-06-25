@@ -3,6 +3,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"fmt"
 	"maps"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -25,7 +26,6 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/util/apicaps"
-	"github.com/pkg/errors"
 )
 
 const commandName = "WITH DOCKER RUN "
@@ -237,7 +237,7 @@ func Earthfile2LLB(
 	// Resolve build context.
 	bc, err := opt.Resolver.Resolve(ctx, opt.GwClient, opt.PlatformResolver, target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "resolve build context for target %s", target.String())
+		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
 	if opt.Visited == nil {
@@ -262,7 +262,7 @@ func Earthfile2LLB(
 
 	targetWithMetadata, ok := bc.Ref.(domain.Target)
 	if !ok {
-		return nil, errors.Errorf("want domain.Target, got %T", bc.Ref)
+		return nil, fmt.Errorf("want domain.Target, got %T", bc.Ref)
 	}
 
 	sts, found, err := opt.Visited.
@@ -291,7 +291,7 @@ func Earthfile2LLB(
 	//nolint:nestif // TODO(jhorsts): simplify
 	if found {
 		if opt.TargetInputHashStackSet[tiHash] {
-			return nil, errors.Errorf("infinite cycle detected for target %s", target.String())
+			return nil, fmt.Errorf("infinite cycle detected for target %s", target.String())
 		}
 
 		// Wait for the existing sts to complete first.
@@ -315,7 +315,7 @@ func Earthfile2LLB(
 		if opt.DoSaves || opt.DoPushes {
 			err = sts.Wait(ctx)
 			if err != nil {
-				return nil, errors.Wrapf(err, "wait failed on target %s", target.String())
+				return nil, fmt.Errorf("wait failed on target %s: %w", target.String(), err)
 			}
 		}
 

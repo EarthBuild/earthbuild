@@ -10,8 +10,6 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/slog"
-
-	"github.com/pkg/errors"
 )
 
 // Server provides a debugger server.
@@ -39,7 +37,7 @@ func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {
 
 			n, err := conn.Read(buf)
 			if err != nil {
-				s.log.Error(errors.Wrap(err, "reading from connection failed"))
+				s.log.Error(fmt.Errorf("reading from connection failed: %w", err))
 				break
 			}
 
@@ -60,7 +58,7 @@ func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {
 			case data := <-readFrom:
 				_, err := conn.Write(data)
 				if err != nil {
-					s.log.Error(errors.Wrap(err, "writing to connection failed"))
+					s.log.Error(fmt.Errorf("writing to connection failed: %w", err))
 				}
 			}
 		}
@@ -86,7 +84,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 
 	_, err := conn.Read(buf)
 	if err != nil {
-		connLog.Error(errors.Wrap(err, "reading from connection failed"))
+		connLog.Error(fmt.Errorf("reading from connection failed: %w", err))
 		return
 	}
 

@@ -17,7 +17,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/adrg/xdg"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -112,7 +111,7 @@ func (b *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 	case "":
 		break
 	default:
-		return errors.Errorf("unhandled source %q", b.homebrewSource)
+		return fmt.Errorf("unhandled source %q", b.homebrewSource)
 	}
 
 	return b.bootstrap(ctx, cmd)
@@ -162,13 +161,13 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 	if !b.noBuildkit || b.genCerts {
 		bkURL, err := url.Parse(b.cli.Flags().BuildkitHost)
 		if err != nil {
-			return errors.Wrapf(err, "invalid buildkit_host: %s", b.cli.Flags().BuildkitHost)
+			return fmt.Errorf("invalid buildkit_host: %s: %w", b.cli.Flags().BuildkitHost, err)
 		}
 
 		if bkURL.Scheme == "tcp" && b.cli.Cfg().Global.TLSEnabled {
 			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName)
 			if err != nil {
-				return errors.Wrap(err, "failed to generate TLS certs")
+				return fmt.Errorf("failed to generate TLS certs: %w", err)
 			}
 		}
 	}
@@ -192,7 +191,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 func (b *Bootstrap) insertBashCompleteEntry() error {
 	u, err := user.Current()
 	if err != nil {
-		return errors.Wrapf(err, "could not get current user")
+		return fmt.Errorf("could not get current user: %w", err)
 	}
 
 	isRootUser := u.Uid == "0"
@@ -238,7 +237,7 @@ func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 
 	dirPathExists, err := fileutil.DirExists(dirPath)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed checking if %s exists", dirPath)
+		return false, fmt.Errorf("failed checking if %s exists: %w", dirPath, err)
 	}
 
 	if !dirPathExists {
@@ -247,7 +246,7 @@ func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 
 	pathExists, err := fileutil.FileExists(path)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed checking if %s exists", path)
+		return false, fmt.Errorf("failed checking if %s exists: %w", path, err)
 	}
 
 	if pathExists {
@@ -263,12 +262,12 @@ func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 
 	bashEntry, err := bashCompleteEntry()
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to add entry")
+		return false, fmt.Errorf("failed to add entry: %w", err)
 	}
 
 	_, err = f.WriteString(bashEntry)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed writing to %s", path)
+		return false, fmt.Errorf("failed writing to %s: %w", path, err)
 	}
 
 	return true, nil
@@ -283,7 +282,7 @@ func (b *Bootstrap) insertZSHCompleteEntry() error {
 	for _, dirPath := range potentialPaths {
 		dirPathExists, err := fileutil.DirExists(dirPath)
 		if err != nil {
-			return errors.Wrapf(err, "failed to check if %s exists", dirPath)
+			return fmt.Errorf("failed to check if %s exists: %w", dirPath, err)
 		}
 
 		if dirPathExists {
@@ -302,7 +301,7 @@ func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 
 	pathExists, err := fileutil.FileExists(path)
 	if err != nil {
-		return errors.Wrapf(err, "failed to check if %s exists", path)
+		return fmt.Errorf("failed to check if %s exists: %w", path, err)
 	}
 
 	if pathExists {
@@ -324,7 +323,7 @@ func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 
 	_, err = f.WriteString(compEntry)
 	if err != nil {
-		return errors.Wrapf(err, "failed writing to %s", path)
+		return fmt.Errorf("failed writing to %s: %w", path, err)
 	}
 
 	return b.deleteZcompdump()
@@ -339,12 +338,12 @@ func (b *Bootstrap) deleteZcompdump() error {
 
 		homeDir, err = os.UserHomeDir()
 		if err != nil {
-			return errors.Wrapf(err, "failed to lookup current user home dir")
+			return fmt.Errorf("failed to lookup current user home dir: %w", err)
 		}
 	} else {
 		currentUser, err := user.Lookup(sudoUser)
 		if err != nil {
-			return errors.Wrapf(err, "failed to lookup user %s", sudoUser)
+			return fmt.Errorf("failed to lookup user %s: %w", sudoUser, err)
 		}
 
 		homeDir = currentUser.HomeDir
@@ -352,7 +351,7 @@ func (b *Bootstrap) deleteZcompdump() error {
 
 	files, err := os.ReadDir(homeDir)
 	if err != nil {
-		return errors.Wrapf(err, "failed to read dir %s", homeDir)
+		return fmt.Errorf("failed to read dir %s: %w", homeDir, err)
 	}
 
 	for _, f := range files {
@@ -361,7 +360,7 @@ func (b *Bootstrap) deleteZcompdump() error {
 
 			err := os.Remove(path)
 			if err != nil {
-				return errors.Wrapf(err, "failed to remove %s", path)
+				return fmt.Errorf("failed to remove %s: %w", path, err)
 			}
 		}
 	}
@@ -372,7 +371,7 @@ func (b *Bootstrap) deleteZcompdump() error {
 func symlinkEarthlyToEarth() error {
 	binPath, err := os.Executable()
 	if err != nil {
-		return errors.Wrap(err, "failed to get current executable path")
+		return fmt.Errorf("failed to get current executable path: %w", err)
 	}
 
 	baseName := path.Base(binPath)
@@ -384,7 +383,7 @@ func symlinkEarthlyToEarth() error {
 
 	earthPathExists, err := fileutil.FileExists(earthPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to check if %q exists", earthPath)
+		return fmt.Errorf("failed to check if %q exists: %w", earthPath, err)
 	}
 
 	if !earthPathExists && termutil.IsTTY() {
@@ -399,12 +398,12 @@ func symlinkEarthlyToEarth() error {
 	// to the new earth command.
 	err = os.Remove(earthPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to remove old install at %s", earthPath)
+		return fmt.Errorf("failed to remove old install at %s: %w", earthPath, err)
 	}
 
 	err = os.Symlink(binPath, earthPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to symlink %s to %s", binPath, earthPath)
+		return fmt.Errorf("failed to symlink %s to %s: %w", binPath, earthPath, err)
 	}
 
 	return nil
@@ -431,7 +430,7 @@ function _earthly {
 func renderEntryTemplate(template string) (string, error) {
 	earthPath, err := os.Executable()
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to determine earth path: %s", err)
+		return "", fmt.Errorf("failed to determine earth path: %w: %w", err, err)
 	}
 
 	return strings.ReplaceAll(template, "__earthly__", earthPath), nil

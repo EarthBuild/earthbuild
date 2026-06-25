@@ -7,10 +7,11 @@
 package logstream
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
+	"reflect"
+	"sync"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -1154,24 +1155,27 @@ func file_delta_proto_rawDescGZIP() []byte {
 	return file_delta_proto_rawDescData
 }
 
-var file_delta_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
-var file_delta_proto_goTypes = []interface{}{
-	(*Delta)(nil),                     // 0: api.public.logstream.Delta
-	(*DeltaLog)(nil),                  // 1: api.public.logstream.DeltaLog
-	(*DeltaFormattedLog)(nil),         // 2: api.public.logstream.DeltaFormattedLog
-	(*DeltaManifest)(nil),             // 3: api.public.logstream.DeltaManifest
-	(*DeltaTargetManifest)(nil),       // 4: api.public.logstream.DeltaTargetManifest
-	(*DeltaCommandManifest)(nil),      // 5: api.public.logstream.DeltaCommandManifest
-	(*DeltaManifest_ResumeBuild)(nil), // 6: api.public.logstream.DeltaManifest.ResumeBuild
-	(*DeltaManifest_FieldsDelta)(nil), // 7: api.public.logstream.DeltaManifest.FieldsDelta
-	nil,                               // 8: api.public.logstream.DeltaManifest.FieldsDelta.TargetsEntry
-	nil,                               // 9: api.public.logstream.DeltaManifest.FieldsDelta.CommandsEntry
-	(*RunManifest)(nil),               // 10: api.public.logstream.RunManifest
-	(RunStatus)(0),                    // 11: api.public.logstream.RunStatus
-	(*SourceLocation)(nil),            // 12: api.public.logstream.SourceLocation
-	(*CommandTarget)(nil),             // 13: api.public.logstream.CommandTarget
-	(*Failure)(nil),                   // 14: api.public.logstream.Failure
-}
+var (
+	file_delta_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+	file_delta_proto_goTypes  = []interface{}{
+		(*Delta)(nil),                     // 0: api.public.logstream.Delta
+		(*DeltaLog)(nil),                  // 1: api.public.logstream.DeltaLog
+		(*DeltaFormattedLog)(nil),         // 2: api.public.logstream.DeltaFormattedLog
+		(*DeltaManifest)(nil),             // 3: api.public.logstream.DeltaManifest
+		(*DeltaTargetManifest)(nil),       // 4: api.public.logstream.DeltaTargetManifest
+		(*DeltaCommandManifest)(nil),      // 5: api.public.logstream.DeltaCommandManifest
+		(*DeltaManifest_ResumeBuild)(nil), // 6: api.public.logstream.DeltaManifest.ResumeBuild
+		(*DeltaManifest_FieldsDelta)(nil), // 7: api.public.logstream.DeltaManifest.FieldsDelta
+		nil,                               // 8: api.public.logstream.DeltaManifest.FieldsDelta.TargetsEntry
+		nil,                               // 9: api.public.logstream.DeltaManifest.FieldsDelta.CommandsEntry
+		(*RunManifest)(nil),               // 10: api.public.logstream.RunManifest
+		RunStatus(0),                      // 11: api.public.logstream.RunStatus
+		(*SourceLocation)(nil),            // 12: api.public.logstream.SourceLocation
+		(*CommandTarget)(nil),             // 13: api.public.logstream.CommandTarget
+		(*Failure)(nil),                   // 14: api.public.logstream.Failure
+	}
+)
+
 var file_delta_proto_depIdxs = []int32{
 	3,  // 0: api.public.logstream.Delta.delta_manifest:type_name -> api.public.logstream.DeltaManifest
 	1,  // 1: api.public.logstream.Delta.delta_log:type_name -> api.public.logstream.DeltaLog

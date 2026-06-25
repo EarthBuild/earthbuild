@@ -5,12 +5,12 @@ WORKDIR /scala-example
 deps:
     COPY build.sbt ./
     COPY project project
-    RUN sbt update
+    RUN sbt "; update; shutdown"
 
 build:
     FROM +deps
     COPY src src
-    RUN sbt assembly
+    RUN sbt "; assembly; shutdown"
     SAVE ARTIFACT target/assembly bin AS LOCAL build/bin
 
 docker:

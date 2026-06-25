@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -11,13 +11,13 @@ import (
 func TestFromError(t *testing.T) {
 	t.Parallel()
 
-	ieWithStack := Errorf(&spec.SourceLocation{
+	ieWithStack := Errorf(&earthfile.SourceLocation{
 		File:        "path/To/Earthfile",
 		StartLine:   90,
 		StartColumn: 8,
 	}, "", "some stack", "some error message")
 
-	ieWithoutStack := Errorf(&spec.SourceLocation{
+	ieWithoutStack := Errorf(&earthfile.SourceLocation{
 		File:        "path/To/Earthfile",
 		StartLine:   90,
 		StartColumn: 8,

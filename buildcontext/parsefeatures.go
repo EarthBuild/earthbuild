@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 type buildFile struct {
@@ -17,7 +17,7 @@ type buildFile struct {
 func parseFeatures(
 	buildFilePath string, featureFlagOverrides string, projectRef string, console conslogging.ConsoleLogger,
 ) (*features.Features, error) {
-	version, err := ast.ParseVersion(buildFilePath, false)
+	version, err := earthfile.ParseVersionFile(buildFilePath)
 	if err != nil {
 		return nil, err
 	}

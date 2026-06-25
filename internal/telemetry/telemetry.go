@@ -112,7 +112,8 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 
 	var otelResource *resource.Resource
 
-	otelResource, err = resource.New(ctx,
+	otelResource, err = resource.New(
+		ctx,
 		resource.WithAttributes(
 			semconv.ServiceName("EarthBuild"),
 			semconv.ProcessCommand(filepath.Base(executable)),

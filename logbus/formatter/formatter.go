@@ -453,7 +453,8 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	progressBar := progressbar.ProgressBar(int(cm.GetProgress()), 10)
 	builder = append(builder, fmt.Sprintf(
 		"[%s] %3d%% %s%s\n",
-		progressBar, cm.GetProgress(), cm.GetName(), string(ansiEraseRestLine)))
+		progressBar, cm.GetProgress(), cm.GetName(), string(ansiEraseRestLine),
+	))
 	c.PrintBytes([]byte(strings.Join(builder, "")))
 
 	f.lastOutputWasOngoingUpdate = false

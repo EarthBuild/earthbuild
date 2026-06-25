@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM alpine:3.24.0
+FROM alpine:3.24.1
 
 test:
   RUN echo "hello world 1"

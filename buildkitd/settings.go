@@ -116,7 +116,7 @@ func (s Settings) Hash() (string, error) {
 	sh.writeBool(s.Debug)
 
 	if sh.err != nil {
-		return "", fmt.Errorf("hash BuildKit setttings: %w", sh.err)
+		return "", fmt.Errorf("hash BuildKit settings: %w", sh.err)
 	}
 
 	return strconv.FormatUint(sh.h.Sum64(), 16), nil

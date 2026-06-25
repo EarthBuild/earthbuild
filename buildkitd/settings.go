@@ -40,7 +40,7 @@ type Settings struct {
 type settingsHasher struct {
 	h   hash.Hash64
 	err error
-	buf [64]byte // buf is used to format integers, booleans, and delimiters without heap allocations.
+	buf [16]byte // buf is used to format integers, booleans, and delimiters without heap allocations.
 }
 
 func (sh *settingsHasher) writeString(str string) {

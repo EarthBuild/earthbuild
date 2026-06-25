@@ -10,7 +10,6 @@ import (
 
 	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"github.com/EarthBuild/earthbuild/util/proj"
-
 	"github.com/stretchr/testify/require"
 )
 

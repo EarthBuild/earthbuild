@@ -2708,9 +2708,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		// Debugger.
 		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
 		if err != nil {
-			var capErr *apicaps.CapError
-
-			if errors.As(err, &capErr) {
+			if _, ok := errors.AsType[*apicaps.CapError](err); ok {
 				if c.opt.InteractiveDebuggerEnabled || isInteractive {
 					return pllb.State{}, fmt.Errorf("interactive debugger requires a newer version of buildkit: %w", err)
 				}
@@ -3508,8 +3506,7 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 
 		data, _, _, err := c.ResolveReference(ctx, childTarget)
 		if err != nil {
-			notExist := buildcontext.EarthfileNotExistError{}
-			if errors.As(err, &notExist) {
+			if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
 				continue
 			}
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/logstream"
-
 	"github.com/stretchr/testify/assert"
 )
 

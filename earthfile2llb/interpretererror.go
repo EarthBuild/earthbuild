@@ -90,17 +90,7 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 		return nil, false
 	}
 
-	var ie *InterpreterError
-	if errors.As(err, &ie) {
-		return ie, true
-	}
-
-	unwrapped := errors.Unwrap(err)
-	if unwrapped != nil {
-		return GetInterpreterError(unwrapped)
-	}
-
-	return nil, false
+	return errors.AsType[*InterpreterError](err)
 }
 
 // FromError attempts to parse the given error's string to an *InterpreterError.

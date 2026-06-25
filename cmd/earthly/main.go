@@ -27,7 +27,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-
 	"github.com/sirupsen/logrus"
 	urfavecli "github.com/urfave/cli/v3"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"

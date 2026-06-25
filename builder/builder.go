@@ -43,7 +43,6 @@ import (
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/moby/buildkit/util/entitlements"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-
 	"golang.org/x/sync/errgroup"
 )
 

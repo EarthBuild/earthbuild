@@ -246,7 +246,7 @@ func detectGitRemoteURL(ctx context.Context, dir string) (string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectRemote)
+		return "", fmt.Errorf("returned error %w: %s: %w", err, string(out), ErrCouldNotDetectRemote)
 	}
 
 	outStr := string(out)
@@ -284,7 +284,7 @@ func gitRevParse(ctx context.Context, dir string, sentinel error, args ...string
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), sentinel)
+		return "", fmt.Errorf("returned error %w: %s: %w", err, string(out), sentinel)
 	}
 
 	outStr := string(out)
@@ -317,7 +317,7 @@ func detectGitBranch(ctx context.Context, dir, gitBranchOverride string) ([]stri
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectGitBranch)
+		return nil, fmt.Errorf("returned error %w: %s: %w", err, string(out), ErrCouldNotDetectGitBranch)
 	}
 
 	outStr := string(out)
@@ -334,7 +334,7 @@ func detectGitTags(ctx context.Context, dir string) ([]string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectGitTags)
+		return nil, fmt.Errorf("returned error %w: %s: %w", err, string(out), ErrCouldNotDetectGitTags)
 	}
 
 	outStr := string(out)
@@ -351,7 +351,7 @@ func detectGitRefs(ctx context.Context, dir string) ([]string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("returned error %s: %s: %w", err.Error(), string(out), ErrCouldNotDetectGitRefs)
+		return nil, fmt.Errorf("returned error %w: %s: %w", err, string(out), ErrCouldNotDetectGitRefs)
 	}
 
 	outStr := string(out)
@@ -394,8 +394,8 @@ func detectGitTimestamp(ctx context.Context, dir string, tsType gitTimestampType
 
 	out, err := cmd.Output()
 	if err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
+		exitError, ok := errors.AsType[*exec.ExitError](err)
+		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return "", nil
 		}
 
@@ -417,8 +417,8 @@ func detectGitAuthor(ctx context.Context, dir string, format string) (string, er
 
 	out, err := cmd.Output()
 	if err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
+		exitError, ok := errors.AsType[*exec.ExitError](err)
+		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return "", nil
 		}
 
@@ -453,8 +453,8 @@ func detectGitCoAuthors(ctx context.Context, dir string) ([]string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
+		exitError, ok := errors.AsType[*exec.ExitError](err)
+		if ok && strings.Contains(string(exitError.Stderr), "does not have any commits yet") {
 			return nil, nil
 		}
 

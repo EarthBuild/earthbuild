@@ -385,9 +385,7 @@ func main() {
 
 			exitCode = 127
 
-			var exitErr *exec.ExitError
-
-			if errors.As(err, &exitErr) {
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 				exitCode = exitErr.ExitCode()
 			}
 		}
@@ -431,9 +429,7 @@ func handleError(
 
 	exitCode := 1
 
-	var exitErr *exec.ExitError
-
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		exitCode = exitErr.ExitCode()
 		if debuggerSettings.Enabled {
 			conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)

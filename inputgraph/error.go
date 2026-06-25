@@ -34,12 +34,11 @@ func (e *Error) Error() string {
 // is found, it will prefix the error message with source file information
 // associated with the error.
 func FormatError(err error) string {
-	e := &Error{}
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		return fmt.Sprintf("%s:%d:%d %s", e.srcLoc.File, e.srcLoc.StartLine, e.srcLoc.StartColumn, err)
 	}
 
-	return e.Error()
+	return err.Error()
 }
 
 func newError(srcLoc *earthfile.SourceLocation, format string, args ...any) error {

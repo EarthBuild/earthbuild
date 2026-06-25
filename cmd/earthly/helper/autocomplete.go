@@ -10,14 +10,12 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-
-	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
-
 	"github.com/EarthBuild/earthbuild/autocomplete"
 	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 // AutoComplete handles shell autocomplete requests.

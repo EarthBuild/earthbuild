@@ -12,10 +12,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fsutilprogress"
-
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
-
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"

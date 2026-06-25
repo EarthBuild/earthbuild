@@ -13,8 +13,7 @@ func detectGitBinary(ctx context.Context) error {
 
 	_, err := cmd.Output()
 
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if _, ok := errors.AsType[*exec.ExitError](err); ok {
 		return ErrNoGitBinary
 	}
 

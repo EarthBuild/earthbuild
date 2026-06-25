@@ -855,8 +855,8 @@ func waitForConnection(
 			info, workerInfo, err := checkConnection(ctx, address, attemptTimeout, opts...)
 			if err != nil {
 				// We give up.
-				return nil, nil, fmt.Errorf("timeout %s: could not connect to buildkit: %s: %w",
-					opTimeout, err.Error(), ErrBuildkitConnectionFailure)
+				return nil, nil, fmt.Errorf("timeout %s: could not connect to buildkit: %w: %w",
+					opTimeout, err, ErrBuildkitConnectionFailure)
 			}
 
 			return info, workerInfo, nil

@@ -453,8 +453,7 @@ func errorWithPrefix(err string) string {
 }
 
 func getHintErr(err error, grpcError *status.Status) *hint.Error {
-	res := new(hint.Error)
-	if errors.As(err, &res) {
+	if res, ok := errors.AsType[*hint.Error](err); ok {
 		return res
 	}
 

@@ -366,8 +366,8 @@ func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...strin
 
 	err := cmd.Run()
 	if err != nil {
-		format := "command failed: %s %s: %s: %s"
-		return output, fmt.Errorf(format+": %w", sf.binaryName, strings.Join(args, " "), err.Error(), output.string(), err)
+		return output, fmt.Errorf("command failed: %s %s: %w: %s: %w",
+			sf.binaryName, strings.Join(args, " "), err, output.string(), err)
 	}
 
 	return output, nil

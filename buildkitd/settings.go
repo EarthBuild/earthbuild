@@ -48,13 +48,15 @@ func (sh *settingsHasher) writeString(str string) {
 		return
 	}
 
-	_, sh.err = io.WriteString(sh.h, str)
+	// #nosec G115 -- safe conversion of length to uint32 for settings hashing
+	binary.BigEndian.PutUint32(sh.buf[:4], uint32(len(str)))
+
+	_, sh.err = sh.h.Write(sh.buf[:4])
 	if sh.err != nil {
 		return
 	}
 
-	sh.buf[0] = 0
-	_, sh.err = sh.h.Write(sh.buf[:1])
+	_, sh.err = io.WriteString(sh.h, str)
 }
 
 func (sh *settingsHasher) writeBool(b bool) {
@@ -78,8 +80,7 @@ func (sh *settingsHasher) writeInt(i int) {
 
 	// #nosec G115 -- safe conversion of int to uint64 for hashing purposes
 	binary.BigEndian.PutUint64(sh.buf[:8], uint64(i))
-	sh.buf[8] = 0
-	_, sh.err = sh.h.Write(sh.buf[:9])
+	_, sh.err = sh.h.Write(sh.buf[:8])
 }
 
 // Hash returns a secure hash of the settings.
@@ -96,6 +97,8 @@ func (s Settings) Hash() (string, error) {
 	sh.writeString(s.ClientTLSCert)
 	sh.writeString(s.VolumeName)
 	sh.writeString(s.AdditionalConfig)
+
+	sh.writeInt(len(s.AdditionalArgs))
 
 	for _, arg := range s.AdditionalArgs {
 		sh.writeString(arg)

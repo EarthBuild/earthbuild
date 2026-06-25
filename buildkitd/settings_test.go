@@ -40,7 +40,7 @@ func TestSettingsHash(t *testing.T) {
 	baseHash, err := base.Hash()
 	require.NoError(t, err, "unexpected error hashing base settings")
 
-	const wantBaseHash = "234f02355d6ed308"
+	const wantBaseHash = "90891425e8e43a1"
 	assert.Equal(t, wantBaseHash, baseHash, "base settings hash has changed")
 
 	tests := []struct {

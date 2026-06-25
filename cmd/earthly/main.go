@@ -6,12 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	_ "net/http/pprof" // #nosec G108 // enable pprof handlers on net/http listener
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
+	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
+	// to ensure it happens before other packages initialize.
+	_ "github.com/EarthBuild/earthbuild/cmd/earthly/disable_alpn"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
@@ -57,10 +61,6 @@ func setExportableVars() {
 }
 
 func main() {
-	// TODO(jhorsts): Temporarily disable GRPC ALPN enforcement until buildkit upgrade is finished.
-	// See: https://github.com/grpc/grpc-go/issues/434
-	_ = os.Setenv("GRPC_ENFORCE_ALPN_ENABLED", "false")
-
 	os.Exit(run())
 }
 

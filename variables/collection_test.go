@@ -3,8 +3,8 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -44,7 +44,7 @@ func TestCollection(t *testing.T) {
 		getCtx := func(t *testing.T) testCtx {
 			t.Helper()
 
-			f, _, err := features.Get(&spec.Version{Args: []string{"0.7"}})
+			f, _, err := features.Get(&earthfile.Version{Args: []string{"0.7"}})
 			require.NoError(t, err)
 			_, err = f.ProcessFlags()
 			require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestCollection(t *testing.T) {
 		getCtx := func(t *testing.T) testCtx {
 			t.Helper()
 
-			f, _, err := features.Get(&spec.Version{Args: []string{"0.7"}})
+			f, _, err := features.Get(&earthfile.Version{Args: []string{"0.7"}})
 			require.NoError(t, err)
 			_, err = f.ProcessFlags()
 			require.NoError(t, err)

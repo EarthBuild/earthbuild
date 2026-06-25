@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
@@ -1723,7 +1723,7 @@ func (c *Converter) Env(_ context.Context, envKey string, envValue string) error
 }
 
 // Arg applies the ARG command.
-func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue string, opts commandflag.ArgOpts) error {
+func (c *Converter) Arg(ctx context.Context, argKey string, defaultArgValue string, opts cmdopts.Arg) error {
 	err := c.checkAllowed(argCmd)
 	if err != nil {
 		return err
@@ -1999,7 +1999,7 @@ func (c *Converter) Import(
 // Cache handles a `CACHE` command in a Target.
 // It appends run options to the Converter which will mount a cache volume in each successive `RUN` command,
 // and configures the `Converter` to persist the cache in the image at the end of the target.
-func (c *Converter) Cache(_ context.Context, mountTarget string, opts commandflag.CacheOpts) error {
+func (c *Converter) Cache(_ context.Context, mountTarget string, opts cmdopts.Cache) error {
 	err := c.checkAllowed(cacheCmd)
 	if err != nil {
 		return err
@@ -2089,14 +2089,14 @@ func (c *Converter) Project(_ context.Context, org, project string) error {
 // ExpandWildcardCmds expands a glob expression in the specified fullTargetName and returns copies(clones) of
 // the specified cmd for each match of the expression.
 func (c *Converter) ExpandWildcardCmds(
-	ctx context.Context, fullTargetName string, cmd spec.Command,
-) ([]spec.Command, error) {
+	ctx context.Context, fullTargetName string, cmd earthfile.Command,
+) ([]earthfile.Command, error) {
 	targets, err := c.expandWildcardTargets(ctx, fullTargetName)
 	if err != nil {
 		return nil, err
 	}
 
-	return clonesWithExpandedTargets(targets, cmd, func(cmd *spec.Command, expandedTarget string) error {
+	return clonesWithExpandedTargets(targets, cmd, func(cmd *earthfile.Command, expandedTarget string) error {
 		for i := range cmd.Args {
 			cmd.Args[i] = strings.ReplaceAll(cmd.Args[i], fullTargetName, expandedTarget)
 		}

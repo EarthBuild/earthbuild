@@ -47,12 +47,9 @@ code:
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             go mod download
     END
-    COPY ./ast/parser+parser/*.go ./ast/parser/
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earth dockertar domain features internal logbus logstream regproxy states slog util variables ./
+        docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
-    COPY --dir earthfile2llb/*.go earthfile2llb/
-    COPY --dir ast/antlrhandler ast/spec ast/command ast/commandflag ast/*.go ast/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
@@ -228,6 +225,15 @@ unit-test:
         testarg=""; \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
+
+# fuzz-test runs fuzz tests
+fuzz-test:
+    FROM +go
+    COPY --dir +code/earthly /
+    RUN --push \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go test -run=^$ -fuzz=. -fuzztime=10s ./internal/earthfile
 
 # integration-test runs integration tests (including unit tests).
 integration-test:
@@ -642,7 +648,6 @@ for-linux:
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/amd64 +build-ticktock
-    BUILD ./ast/parser+parser
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
 
@@ -655,7 +660,6 @@ for-linux-arm64:
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/arm64 +build-ticktock
-    BUILD ./ast/parser+parser
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
 
@@ -669,7 +673,6 @@ for-darwin:
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/amd64 +build-ticktock
-    BUILD ./ast/parser+parser
     COPY (+earthly-darwin-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/amd64/earthly
 
@@ -682,7 +685,6 @@ for-darwin-m1:
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     BUILD --platform=linux/arm64 +build-ticktock
-    BUILD ./ast/parser+parser
     COPY (+earthly-darwin-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/arm64/earthly
 
@@ -693,7 +695,6 @@ for-windows:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # BUILD --platform=linux/amd64 ./buildkitd+buildkitd
-    BUILD ./ast/parser+parser
     COPY (+earthly-windows-amd64/earthly.exe --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly.exe AS LOCAL ./build/windows/amd64/earthly.exe
 
@@ -746,9 +747,9 @@ test-misc:
     BUILD +earthly-script-no-stdout
 
 test-ast:
-    BUILD --pass-args ./ast/tests+group1
-    BUILD --pass-args ./ast/tests+group2
-    BUILD --pass-args ./ast/tests+group3
+    BUILD --pass-args ./internal/earthfile/tests+group1
+    BUILD --pass-args ./internal/earthfile/tests+group2
+    BUILD --pass-args ./internal/earthfile/tests+group3
 
 # test-no-qemu-group1 runs the tests from ./tests+ga-no-qemu-group1
 test-no-qemu-group1:
@@ -838,8 +839,9 @@ smoke-test:
 
 # test runs examples, no-qemu, qemu, and experimental tests
 test-all:
-    BUILD +test-unit
-    BUILD +test-integration
+    BUILD +unit-test
+    BUILD +integration-test
+    BUILD +fuzz-test
     BUILD +examples
     BUILD --pass-args +test-no-qemu
     BUILD --pass-args +test-qemu

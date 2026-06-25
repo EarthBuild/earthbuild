@@ -147,7 +147,6 @@
               }
             ],
             "command": {
-              "args": [],
               "name": "DOCKER"
             }
           }
@@ -1023,7 +1022,6 @@
               }
             ],
             "command": {
-              "args": [],
               "name": "DOCKER"
             }
           }

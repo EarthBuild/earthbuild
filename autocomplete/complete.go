@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v3"
@@ -132,7 +132,7 @@ func getPotentialPaths(
 
 		targetToParse := prefix
 		if strings.HasSuffix(targetToParse, "+") {
-			targetToParse += ast.TargetBase
+			targetToParse += earthfile.TargetBase
 		}
 
 		var target domain.Target
@@ -248,7 +248,7 @@ func getPotentialTargets(prefix, dirPath string, replaceHomePrefix func(string) 
 
 	// only suggest when Earthfile has no other targets
 	if len(targets) == 0 {
-		targets = append(targets, ast.TargetBase)
+		targets = append(targets, earthfile.TargetBase)
 	}
 
 	for _, target := range targets {

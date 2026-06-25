@@ -34,7 +34,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -54,7 +53,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -73,7 +71,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -92,7 +89,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -122,7 +118,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -184,7 +179,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -239,7 +233,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -269,7 +262,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "COMMAND"
           }
         },
@@ -300,7 +292,6 @@
       "recipe": [
         {
           "command": {
-            "args": [],
             "name": "FUNCTION"
           }
         },

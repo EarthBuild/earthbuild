@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/pkg/errors"
 )
@@ -19,7 +19,7 @@ var regex = regexp.
 // InterpreterError is an error of the interpreter, which contains optional references to the original
 // source code location.
 type InterpreterError struct {
-	SourceLocation *spec.SourceLocation
+	SourceLocation *earthfile.SourceLocation
 	TargetID       string
 	text           string
 	cause          error
@@ -27,7 +27,7 @@ type InterpreterError struct {
 }
 
 // Errorf creates a new interpreter error.
-func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
+func Errorf(sl *earthfile.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
 	return &InterpreterError{
 		SourceLocation: sl,
 		TargetID:       targetID,
@@ -38,7 +38,7 @@ func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args
 
 // WrapError wraps another error into a new interpreter error.
 func WrapError(
-	cause error, sl *spec.SourceLocation, targetID, stack string, format string, args ...any,
+	cause error, sl *earthfile.SourceLocation, targetID, stack string, format string, args ...any,
 ) *InterpreterError {
 	return &InterpreterError{
 		cause:          cause,
@@ -144,7 +144,7 @@ func FromError(err error) *InterpreterError {
 	}
 
 	return Errorf(
-		&spec.SourceLocation{
+		&earthfile.SourceLocation{
 			File:        filePath,
 			StartLine:   line,
 			StartColumn: column,

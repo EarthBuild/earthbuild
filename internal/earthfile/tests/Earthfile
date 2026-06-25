@@ -3,7 +3,7 @@ FROM alpine:3.24.1
 RUN apk add --no-cache jq
 WORKDIR /test
 
-COPY ../..+earthly/earthly /usr/local/bin/earthly
+COPY ../../../+earthly/earthly /usr/local/bin/earthly
 
 # all runs all tests
 all:
@@ -129,7 +129,7 @@ update-all:
 #       carefully when committing to git.
 test:
     ARG --required TEST
-    ARG INPUT_FROM_DIR=../../tests
+    ARG INPUT_FROM_DIR=../../../tests
     ARG INPUT_FROM_TARGET=ast-test-input
     DO --pass-args +INPUT_COPY --TEST=$TEST --INPUT_FROM_DIR=$INPUT_FROM_DIR --INPUT_FROM_TARGET=$INPUT_FROM_TARGET
     COPY ${TEST}.ast.json ./expected.json
@@ -140,7 +140,7 @@ test:
 
 update-expected:
     ARG --required TEST
-    ARG INPUT_FROM_DIR=../../tests
+    ARG INPUT_FROM_DIR=../../../tests
     ARG INPUT_FROM_TARGET=ast-test-input
     DO --pass-args +INPUT_COPY --TEST=$TEST --INPUT_FROM_DIR=$INPUT_FROM_DIR --INPUT_FROM_TARGET=$INPUT_FROM_TARGET
     RUN earthly debug ast ${TEST}.earth >./expected.json

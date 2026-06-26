@@ -25,7 +25,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install apple/container
-        run: brew install --cask container
+        run: brew install container
       - name: Start apple/container service
         run: container system start
       - name: Verify apple/container status

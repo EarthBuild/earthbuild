@@ -59,7 +59,10 @@ func NewClient(
 
 		if errors.Is(retErr, os.ErrNotExist) {
 			switch fe.Config().Setting {
-			case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
+			case containerutil.FrontendPodman,
+				containerutil.FrontendPodmanShell,
+				containerutil.FrontendAppleContainer,
+				containerutil.FrontendAppleContainerShell:
 				tlsPaths := []string{
 					settings.TLSCA,
 					settings.ServerTLSKey,
@@ -127,8 +130,8 @@ func NewClient(
 
 	bkCons := console.WithPrefix("buildkitd")
 	if !isDockerAvailable(ctx, fe) {
-		bkCons.Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", fe.Config().Binary)
-		return nil, fmt.Errorf("%s not available", fe.Config().Binary)
+		bkCons.Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", frontendDisplayName(fe))
+		return nil, fmt.Errorf("%s not available", frontendDisplayName(fe))
 	}
 
 	info, workerInfo, err := maybeStart(ctx, console, image, containerName, installationName, fe, settings, opts...)
@@ -267,7 +270,7 @@ func maybeStart(
 	if isStarted {
 		console.
 			WithPrefix("buildkitd").
-			Printf("Found buildkit daemon as %s container (%s)\n", fe.Config().Binary, containerName)
+			Printf("Found buildkit daemon as %s (%s)\n", frontendContainerDesc(fe), containerName)
 
 		var (
 			info       *client.Info
@@ -284,7 +287,7 @@ func maybeStart(
 
 	console.
 		WithPrefix("buildkitd").
-		Printf("Starting buildkit daemon as a %s container (%s)...\n", fe.Config().Binary, containerName)
+		Printf("Starting buildkit daemon as %s (%s)...\n", frontendContainerDescWithArticle(fe), containerName)
 
 	err = Start(ctx, console, image, containerName, installationName, fe, settings, false)
 	if err != nil {
@@ -1316,4 +1319,44 @@ func humanizeBytes(v int64) string {
 	}
 
 	return humanize.Bytes(bytes)
+}
+
+func frontendDisplayName(fe containerutil.ContainerFrontend) string {
+	switch fe.Config().Setting {
+	case containerutil.FrontendAppleContainer, containerutil.FrontendAppleContainerShell:
+		return "Apple Container"
+	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
+		return "Podman"
+	case containerutil.FrontendDocker, containerutil.FrontendDockerShell:
+		return "Docker"
+	default:
+		return fe.Config().Binary
+	}
+}
+
+func frontendContainerDesc(fe containerutil.ContainerFrontend) string {
+	switch fe.Config().Setting {
+	case containerutil.FrontendAppleContainer, containerutil.FrontendAppleContainerShell:
+		return "Apple Container"
+	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
+		return "Podman container"
+	default:
+		return fe.Config().Binary + " container"
+	}
+}
+
+func frontendContainerDescWithArticle(fe containerutil.ContainerFrontend) string {
+	switch fe.Config().Setting {
+	case containerutil.FrontendAppleContainer, containerutil.FrontendAppleContainerShell:
+		return "an Apple Container"
+	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
+		return "a Podman container"
+	default:
+		desc := fe.Config().Binary + " container"
+		if len(desc) > 0 && (desc[0] == 'a' || desc[0] == 'e' || desc[0] == 'i' || desc[0] == 'o' || desc[0] == 'u') {
+			return "an " + desc
+		}
+
+		return "a " + desc
+	}
 }

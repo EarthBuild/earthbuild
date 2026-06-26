@@ -55,6 +55,12 @@ jobs:
     uses: ./.github/workflows/ci-podman-ubuntu.yml
     secrets: inherit
 
+  apple-container:
+    name: Apple Container
+    needs: fast-check
+    uses: ./.github/workflows/ci-apple-container-mac.yml
+    secrets: inherit
+
   next:
     name: Next
     needs: fast-check

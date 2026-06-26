@@ -1,0 +1,60 @@
+name: Apple Container CI macOs
+
+on:
+  workflow_call:
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  apple-container-macos-test:
+    name: +testing-gha-apple-container
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install apple/container
+        run: brew install --cask container
+      - name: Start apple/container service
+        run: container system start
+      - name: Verify apple/container status
+        run: |
+          container --version
+          container ls
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          earth config global.container_frontend apple-container-shell
+      - name: Bootstrap earth using released earth
+        run: earth bootstrap
+      - name: Build latest earth using released earth
+        run: earth -P --use-inline-cache +for-darwin-m1
+      - name: Re-bootstrap earth using latest earth build
+        run: ${{ env.BUILT_EARTHLY_PATH }} bootstrap
+      - name: Rebuild earth using latest earth build
+        run: ${{ env.BUILT_EARTHLY_PATH }} -P --use-inline-cache +for-darwin-m1
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute tests-no-qemu
+        run: ${{ env.BUILT_EARTHLY_PATH }} --ci -P +test-no-qemu
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! ${{ env.BUILT_EARTHLY_PATH }} --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}

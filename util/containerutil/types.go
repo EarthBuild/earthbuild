@@ -173,6 +173,13 @@ const (
 	// FrontendPodmanShell forces usage of the podman binary for container operations.
 	FrontendPodmanShell = "podman-shell"
 
+	// FrontendAppleContainer forces usage of the (future, currently unimplemented) apple-container API
+	// for container operations.
+	FrontendAppleContainer = "apple-container"
+
+	// FrontendAppleContainerShell forces usage of the container binary for container operations.
+	FrontendAppleContainerShell = "apple-container-shell"
+
 	// FrontendStub is for when there is no valid provider but attempting to run anyways is desired;
 	// like integration tests, or the earthbuild/earthbuild image when NO_DOCKER is set.
 	FrontendStub = "stub"
@@ -225,4 +232,7 @@ const (
 
 	// SchemePodmanContainer is the scheme used for podman-container addresses.
 	SchemePodmanContainer = "podman-container"
+
+	// SchemeAppleContainer is the scheme used for apple-container addresses.
+	SchemeAppleContainer = "apple-container"
 )

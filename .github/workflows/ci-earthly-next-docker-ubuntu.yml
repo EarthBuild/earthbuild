@@ -1,7 +1,19 @@
 name: Next
 
+# Tick-Tock (earthly-next buildkit) is opt-in. Running it on every
+# push/PR roughly doubled CI load on the 16-GiB runners and amplified
+# the "Canceled" / OOM flake rate. It now runs only on manual dispatch
+# (Actions tab → "Run workflow") when a next-buildkit bump needs
+# validating, and nightly via schedule so regressions still surface.
 on:
   workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'  # 04:17 UTC daily
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -94,6 +106,19 @@ jobs:
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
+  earthly-next-docker-tests-no-qemu-group14:
+    needs: build-earthly-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group14"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
+    secrets: inherit
+
   earthly-next-docker-tests-no-qemu-group6:
     needs: build-earthly-with-next
     uses: ./.github/workflows/reusable-test.yml
@@ -127,6 +152,20 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group8"
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      USE_NEXT: true
+      SUDO: ""
+      SKIP_JOB: ${{ needs.build-earthly-with-next.result != 'success' }}
+      # EXTRA_ARGS: "--auto-skip"
+    secrets: inherit
+
+  earthly-next-docker-tests-no-qemu-group15:
+    needs: build-earthly-with-next
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: "+test-no-qemu-group15"
       BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"

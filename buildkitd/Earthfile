@@ -3,7 +3,10 @@ VERSION 0.8
 FROM alpine:3.22
 
 buildkitd:
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
+    ARG EARTHLY_BUILDKIT_IMAGE_BASE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5
+    ARG EARTHLY_TARGET_TAG_DOCKER
+    ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
     IF [ "$BUILDKIT_PROJECT" != "" ]
         IF case "$BUILDKIT_PROJECT" in ../*) true;; *) false;; esac
             # Assuming this is coming from the main Earthly Earthfile.
@@ -11,19 +14,12 @@ buildkitd:
         ELSE
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
+        FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:51fe8fb974fd27cac120487c04948bd3295683c9+build
+        # Use a prebuilt buildkit image. Set EARTHLY_BUILDKIT_IMAGE_BASE to
+        # override, or use BUILDKIT_PROJECT to compile from source.
+        FROM $EARTHLY_BUILDKIT_IMAGE_BASE
     END
-    ARG EARTHLY_TARGET_TAG_DOCKER
-    ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    # RELEASE_VERSION is the version string baked into the buildkitd binary and
-    # reported via `buildkitd --version`. It defaults to TAG (the image tag) but
-    # can be set independently so a released daemon reports the same semver as
-    # the earthly client that ships it -- otherwise the client warns that the
-    # "Buildkit version is different from earth version".
-    ARG RELEASE_VERSION="$TAG"
-
-    FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$RELEASE_VERSION
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
     RUN apk add --no-cache \
         cni-plugins@edge-community \
@@ -108,7 +104,7 @@ buildkit-sha:
             test -z "$BUILDKIT_GIT_SHA"; \
             echo "looking up branch $BUILDKIT_GIT_BRANCH"; \
             buildkit_sha1=$(git ls-remote --refs -q https://github.com/$BUILDKIT_GIT_ORG/buildkit.git "$BUILDKIT_GIT_BRANCH" | awk 'BEGIN { FS = "[ \t]+" } {print $1}'); \
-            echo "pinning github.com/${BUILDKIT_GIT_ORG}/buildkit@${BUILDKIT_GIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
+            echo "pinning github.com/${BUILDKIT_GIT_ORG}/buildkit@${BUILDKIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
         fi && \
         test -n "$buildkit_sha1" && \
         echo "$buildkit_sha1" > buildkit_sha
@@ -128,6 +124,6 @@ update-buildkit-earthfile:
 
 # export-docker-script is used to copy the dind install script remotely via another Earthly target
 export-docker-script:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.0
     COPY docker-auto-install.sh .
     SAVE ARTIFACT docker-auto-install.sh

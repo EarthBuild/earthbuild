@@ -1,0 +1,90 @@
+name: Native Tests (x86 + ARM)
+
+# Runs the worst no-qemu flaky targets natively on x86 and ARM so we
+# catch arch-specific regressions without penalising every PR — the
+# ARM runner has been flaky enough that gating PRs on it adds noise
+# without signal. Same opt-in + nightly pattern as Tick-Tock.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 4 * * *'  # 04:43 UTC daily
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  build-earthly:
+    permissions: write-all
+    uses: ./.github/workflows/build-earthly.yml
+    with:
+      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-latest"
+      BINARY: "docker"
+      SUDO: ""
+    secrets: inherit
+
+  native-tests:
+    name: ${{ matrix.target }} native (${{ matrix.runs_on }})
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runs_on: [ubuntu-latest, ubuntu-24.04-arm]
+        target: ['+test-misc']
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # x86 uses the run's own staging buildkit (matches stage2-setup);
+      # ARM falls back to the multi-arch fix.5 image because +ci-release
+      # only builds linux/amd64.
+      EARTHLY_BUILDKIT_IMAGE: ${{ contains(matrix.runs_on, 'arm') && 'ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.5' || format('ghcr.io/earthbuild/earthbuild:buildkitd-staging-{0}-ubuntu-latest-docker', github.sha) }}
+    steps:
+      - uses: earthbuild/actions-setup@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Runner / tooling versions
+        run: |
+          uname -a
+          docker version
+          earth --version
+      - name: Earthly bootstrap
+        run: earth bootstrap
+      - name: Configure GCR mirror
+        run: |
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Limit buildkit parallelism to avoid OOM
+        run: earth config global.buildkit_max_parallelism 2
+      - name: Run ${{ matrix.target }} natively on ${{ matrix.runs_on }}
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            earth --ci -P ${{ matrix.target }}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd and retrying once."
+            docker rm -f earthly-buildkitd 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
+      - name: Buildkit logs (on failure)
+        if: ${{ failure() }}
+        run: docker logs earthly-buildkitd || true

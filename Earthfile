@@ -51,14 +51,15 @@ code:
         docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
+    COPY --dir tests/cli tests/
     SAVE ARTIFACT /earthly
 
 # update-buildkit updates earthly's buildkit dependency.
 update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
-    ARG BUILDKIT_GIT_ORG=earthly
+    ARG BUILDKIT_GIT_BRANCH=main
+    ARG BUILDKIT_GIT_ORG=earthbuild
     ARG BUILDKIT_GIT_REPO=buildkit
     COPY (./buildkitd+buildkit-sha/buildkit_sha --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$BUILDKIT_GIT_SHA" --BUILDKIT_GIT_BRANCH="$BUILDKIT_GIT_BRANCH") buildkit_sha
     BUILD  ./buildkitd+update-buildkit-earthfile --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$(cat buildkit_sha)" --BUILDKIT_GIT_REPO="$BUILDKIT_GIT_REPO"
@@ -147,7 +148,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.4.0
+    ENV govulncheck_version=1.5.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -224,6 +225,7 @@ unit-test:
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         testarg=""; \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
+        EARTHLY_SKIP_BUILDKIT_CLI_TESTS=true \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
 
 # fuzz-test runs fuzz tests
@@ -270,14 +272,14 @@ integration-test:
                 --secret DOCKERHUB_MIRROR_PASS \
                 --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
                 --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-                ./run-integration-tests.sh
+                EARTHLY_SKIP_BUILDKIT_CLI_TESTS=true ./run-integration-tests.sh
         END
     ELSE
         WITH DOCKER
             RUN \
                 --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
                 --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-                ./run-integration-tests.sh
+                EARTHLY_SKIP_BUILDKIT_CLI_TESTS=true ./run-integration-tests.sh
         END
     END
 
@@ -504,12 +506,22 @@ all-binaries:
 
 # earthly-docker builds earthly as a docker image and pushes
 earthly-docker:
+    # Scaffold base so the IF condition has a shell to run in. main's refactor
+    # removed the file-level FROM that used to provide this implicitly; the
+    # in-IF FROM below replaces this image. (buildkitd/Earthfile keeps its
+    # file-level FROM, which is why the same pattern works there.)
+    FROM alpine:3.24.0
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
+    ARG EARTHLY_BUILDKIT_IMAGE_BASE
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    IF [ "$EARTHLY_BUILDKIT_IMAGE_BASE" != "" ]
+        FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE_BASE" --TAG="$TAG"
+    ELSE
+        FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    END
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
     # When Earthly is run from a container, the registry proxy networking setup
@@ -542,12 +554,22 @@ earthly-docker:
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
 earthly-integration-test-base:
-    FROM --pass-args +earthly-docker
+    # Scaffold base so the IF condition has a shell to run in (see note on
+    # +earthly-docker). The in-IF FROM below replaces this image.
+    FROM alpine:3.24.0
+    ARG EARTHLY_BUILDKIT_IMAGE
+    IF [ "$EARTHLY_BUILDKIT_IMAGE" != "" ]
+        FROM --pass-args +earthly-docker --BUILDKIT_PROJECT="" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE"
+    ELSE
+        FROM --pass-args +earthly-docker --BUILDKIT_PROJECT=""
+    END
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
     ENV NO_DOCKER=1
     ENV NETWORK_MODE=host # Note that this breaks access to embedded registry in WITH DOCKER.
     ENV EARTHLY_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
+    ENV BUILDKIT_MAX_PARALLELISM=1
+    ENV CACHE_SIZE_MB=4096
     WORKDIR /test
 
     # The inner buildkit requires Docker hub creds to prevent rate-limiting issues.
@@ -570,6 +592,18 @@ earthly-integration-test-base:
     END
     RUN rm ./setup-registry.sh
 
+    # Trim nested buildkit memory footprint. In CI every integration test
+    # runs as earthly-in-earthly (RUN_EARTHLY is called ~320 times across
+    # tests/Earthfile), so peak concurrent memory on a 16 GiB runner is
+    # outer buildkitd + this nested buildkitd + runc children × 2 layers.
+    # Parallelism 1: halves nested concurrent runc children.
+    # cache_size_mb 4096: buildkit keeps its cache index in RAM; the default
+    # 20 GiB inflates index pressure — tests don't need that much nested cache.
+    # Set both config and env: the buildkit image has ENV defaults and the
+    # entrypoint passes env through to buildkitd.
+    RUN yq -i ".global.buildkit_max_parallelism = 1" /etc/.earthly/config.yml
+    RUN yq -i ".global.cache_size_mb = 4096" /etc/.earthly/config.yml
+
     # pull out buildkit_additional_config from the earthly config, for the special case of earthly-in-earthly testing
     # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
@@ -580,7 +614,7 @@ earthly-integration-test-base:
 # Tagged as prerelease
 prerelease:
     FROM alpine:3.24.1
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
@@ -601,7 +635,7 @@ ci-release:
     FROM alpine:3.24.1
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG EARTHLY_GIT_HASH
     ARG --required TAG_SUFFIX
     BUILD \
@@ -617,12 +651,12 @@ ci-release:
 for-own:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
     # the documentation on +earthly for extra detail about this option.
     ARG GO_GCFLAGS
     BUILD ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD +build-ticktock
+    # BUILD +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     COPY (+earthly/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/own/earthly
 
@@ -644,10 +678,10 @@ build-ticktock:
 for-linux:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
+    # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
 
@@ -656,10 +690,10 @@ for-linux:
 for-linux-arm64:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
+    # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
 
@@ -669,10 +703,10 @@ for-linux-arm64:
 for-darwin:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
+    # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     COPY (+earthly-darwin-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/amd64/earthly
 
@@ -681,10 +715,10 @@ for-darwin:
 for-darwin-m1:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
+    # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
     COPY (+earthly-darwin-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/arm64/earthly
 
@@ -700,7 +734,7 @@ for-windows:
 
 # all-buildkitd builds buildkitd for both linux amd64 and linux arm64
 all-buildkitd:
-    ARG BUILDKIT_PROJECT
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
@@ -739,12 +773,19 @@ test-no-qemu:
     BUILD --pass-args +test-no-qemu-group10
     BUILD --pass-args +test-no-qemu-group11
     BUILD --pass-args +test-no-qemu-group12
+    BUILD --pass-args +test-no-qemu-group13
+    BUILD --pass-args +test-no-qemu-group14
+    BUILD --pass-args +test-no-qemu-group15
     BUILD --pass-args +test-no-qemu-slow
 
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
-    BUILD +test-ast
-    BUILD +earthly-script-no-stdout
+    WAIT
+        BUILD +test-ast
+    END
+    WAIT
+        BUILD +earthly-script-no-stdout
+    END
 
 test-ast:
     BUILD --pass-args ./internal/earthfile/tests+group1
@@ -786,6 +827,12 @@ test-no-qemu-group7:
     BUILD --pass-args ./tests+ga-no-qemu-group7 \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
+# test-no-qemu-group15 carries the nested shell/dotenv/privileged tail of
+# the original group7 so the remaining group7 job has less buildkit pressure.
+test-no-qemu-group15:
+    BUILD --pass-args ./tests+ga-no-qemu-group15 \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
 # test-no-qemu-group8 runs the tests from ./tests+ga-no-qemu-group8
 test-no-qemu-group8:
     BUILD --pass-args ./tests+ga-no-qemu-group8 \
@@ -811,9 +858,42 @@ test-no-qemu-group12:
     BUILD --pass-args ./tests+ga-no-qemu-group12 \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
-# test-no-qemu-slow runs the tests from ./tests+ga-no-qemu-slow
+# test-no-qemu-group13 was split out of group4 to reduce per-job memory
+# pressure — group4 used to back-to-back Canceled even with buildkit trim.
+test-no-qemu-group13:
+    BUILD --pass-args ./tests+ga-no-qemu-group13 \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+# test-no-qemu-group14 carries the test-runner (earthly-in-earthly)
+# tail of the original group5 — pass-args/cache/aws-flag tests that
+# SIGKILL'd (exit 137) when bundled with group5's 40+ earlier BUILDs.
+test-no-qemu-group14:
+    BUILD --pass-args ./tests+ga-no-qemu-group14 \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+# test-no-qemu-slow runs the tests from ./tests+ga-no-qemu-slow.
+# Still works for local dev; CI splits into the four sub-targets below so
+# each slow sub-group lands on its own runner (original slow packed ~40
+# subtargets including 15 docker-in-docker scenarios, which pushed CI
+# jobs past their memory budget).
 test-no-qemu-slow:
     BUILD --pass-args ./tests+ga-no-qemu-slow \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-with-docker:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-with-docker \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-git-ssh:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-git-ssh \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-private-https:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-private-https \
+        --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
+
+test-no-qemu-slow-misc:
+    BUILD --pass-args ./tests+ga-no-qemu-slow-misc \
         --GLOBAL_WAIT_END="$GLOBAL_WAIT_END"
 
 # test-no-qemu-kind runs the tests from ./tests+ga-no-qemu-kind

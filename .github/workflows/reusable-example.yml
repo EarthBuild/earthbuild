@@ -84,11 +84,47 @@ jobs:
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+        # See reusable-test.yml — single retry mitigates transient earthly
+        # "Canceled" failures that are non-deterministic across runs.
+        # -P is --allow-privileged, required by examples that use
+        # WITH DOCKER RUN (e.g. +examples-4/grpc).
         if: github.event_name != 'push'
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
         if: github.event_name == 'push'
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=2
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying once."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Build and test multi-platform example
         run: |
           ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ./examples/multiplatform+all

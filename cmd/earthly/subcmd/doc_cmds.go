@@ -8,11 +8,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -247,13 +247,13 @@ func (b blockIO) help(indent, scopeIndent string) string {
 		docSectionsOutput(indent, scopeIndent, "IMAGES", b.images...)
 }
 
-func addArg(b *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool) error {
+func addArg(b *blockIO, ft *features.Features, stmt earthfile.Statement, isBase, onlyGlobal bool) error {
 	if stmt.Command == nil {
 		return nil
 	}
 
 	cmd := *stmt.Command
-	if cmd.Name != "ARG" {
+	if cmd.Name != earthfile.CmdArg {
 		return nil
 	}
 
@@ -286,7 +286,7 @@ func addArg(b *blockIO, ft *features.Features, stmt spec.Statement, isBase, only
 	return nil
 }
 
-func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
+func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*blockIO, error) {
 	var b blockIO
 	for _, base := range baseRcp {
 		err := addArg(&b, ft, base, true, true)
@@ -301,13 +301,14 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 		}
 
 		cmd := *rb.Command
+		//nolint:exhaustive // Only doc-extractable commands (ARG, SAVE ARTIFACT, SAVE IMAGE) are processed here.
 		switch cmd.Name {
-		case "ARG":
+		case earthfile.CmdArg:
 			err := addArg(&b, ft, rb, false, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse non-global ARG")
 			}
-		case "SAVE ARTIFACT":
+		case earthfile.CmdSaveArtifact:
 			name, localName, err := earthfile2llb.ArtifactName(cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
@@ -332,7 +333,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 			}
 
 			b.artifacts = append(b.artifacts, artDoc)
-		case "SAVE IMAGE":
+		case earthfile.CmdSaveImage:
 			identifiers, err := earthfile2llb.ImageNames(cmd)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
@@ -356,8 +357,8 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 func (a *Doc) documentSingleTarget(
 	currIndent string,
 	ft *features.Features,
-	baseRcp spec.Block,
-	tgt spec.Target,
+	baseRcp earthfile.Block,
+	tgt earthfile.Target,
 	includeBlockDocs bool,
 ) error {
 	if tgt.Docs == "" {
@@ -413,12 +414,12 @@ func indent(indent, s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func findTarget(ef spec.Earthfile, name string) (spec.Target, error) {
+func findTarget(ef earthfile.Tree, name string) (earthfile.Target, error) {
 	for _, tgt := range ef.Targets {
 		if tgt.Name == name {
 			return tgt, nil
 		}
 	}
 
-	return spec.Target{}, errors.Errorf("could not find target named %q", name)
+	return earthfile.Target{}, errors.Errorf("could not find target named %q", name)
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/pkg/errors"
 )
 
@@ -12,7 +12,7 @@ import (
 // associated line number.
 type Error struct {
 	err    error
-	srcLoc *spec.SourceLocation
+	srcLoc *earthfile.SourceLocation
 	msg    string
 }
 
@@ -42,14 +42,14 @@ func FormatError(err error) string {
 	return e.Error()
 }
 
-func newError(srcLoc *spec.SourceLocation, format string, args ...any) error {
+func newError(srcLoc *earthfile.SourceLocation, format string, args ...any) error {
 	return &Error{
 		srcLoc: srcLoc,
 		msg:    fmt.Sprintf(format, args...),
 	}
 }
 
-func wrapError(err error, srcLoc *spec.SourceLocation, format string, args ...any) error {
+func wrapError(err error, srcLoc *earthfile.SourceLocation, format string, args ...any) error {
 	e := &Error{
 		srcLoc: srcLoc,
 		err:    err,
@@ -61,6 +61,6 @@ func wrapError(err error, srcLoc *spec.SourceLocation, format string, args ...an
 	return e
 }
 
-func addErrorSrc(err error, srcLoc *spec.SourceLocation) error {
+func addErrorSrc(err error, srcLoc *earthfile.SourceLocation) error {
 	return wrapError(err, srcLoc, "")
 }

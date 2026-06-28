@@ -11,9 +11,14 @@ libraryDependencies ++= Seq(
   "org.tpolecat" %% "doobie-scalatest" % "1.0.0-RC12" % "test"
 )
 
+lazy val IntegrationTest = config("it") extend(Test)
+
 lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
-    Defaults.itSettings,
-    libraryDependencies += scalatest % "it,test"
+    inConfig(IntegrationTest)(Defaults.testSettings),
+    IntegrationTest / scalaSource := baseDirectory.value / "src" / "it" / "scala",
+    IntegrationTest / resourceDirectory := baseDirectory.value / "src" / "it" / "resources",
+    libraryDependencies += scalatest % "it,test",
+    assembly / assemblyOutputPath := Def.uncached { file("target/assembly/scala-example-assembly-1.0.jar") }
   )

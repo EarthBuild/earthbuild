@@ -281,7 +281,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		}
 
 		vm := sm.vertices[cmdID]
-		logLine.Data = []byte(stringutil.ScrubCredentialsAll((string(logLine.Data))))
+		logLine.Data = []byte(stringutil.ScrubCredentialsAll(string(logLine.Data)))
 
 		_, err := vm.Write(logLine.Data, logLine.Timestamp, logLine.Stream)
 		if err != nil {

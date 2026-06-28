@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/builder"
@@ -25,6 +24,7 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -35,6 +35,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
 	"github.com/EarthBuild/earthbuild/util/params"
 	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -101,7 +102,8 @@ func (b *Build) Cmds() []*cli.Command {
 			Description:  "*beta* Builds a Dockerfile without an Earthfile.",
 			Action:       b.actionDockerBuild,
 			StopOnNthArg: new(1),
-			Flags: append(b.buildFlags(),
+			Flags: append(
+				b.buildFlags(),
 				&cli.StringFlag{
 					Name:        "dockerfile",
 					Aliases:     []string{"f"},
@@ -318,7 +320,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	}
 
 	for secretKey := range secretsMap {
-		if !ast.IsValidEnvVarName(secretKey) {
+		if !shell.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
 			// see https://github.com/earthly/earthly/issues/2883
 			b.cli.Console().Warnf(

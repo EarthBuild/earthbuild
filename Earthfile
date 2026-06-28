@@ -513,7 +513,7 @@ earthly-docker:
     FROM alpine:3.24.0
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG EARTHLY_BUILDKIT_IMAGE_BASE
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
@@ -614,7 +614,7 @@ earthly-integration-test-base:
 # Tagged as prerelease
 prerelease:
     FROM alpine:3.24.1
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:e7083581a1cdd004a478b752dfa31f66d8cd462e
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
@@ -635,7 +635,7 @@ ci-release:
     FROM alpine:3.24.1
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG EARTHLY_GIT_HASH
     ARG --required TAG_SUFFIX
     BUILD \
@@ -651,7 +651,7 @@ ci-release:
 for-own:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
     # the documentation on +earthly for extra detail about this option.
     ARG GO_GCFLAGS
@@ -678,7 +678,7 @@ build-ticktock:
 for-linux:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -690,7 +690,7 @@ for-linux:
 for-linux-arm64:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -703,7 +703,7 @@ for-linux-arm64:
 for-darwin:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/amd64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -715,7 +715,7 @@ for-darwin:
 for-darwin-m1:
     FROM alpine:3.24.1
     WORKDIR /earth
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
     # BUILD --platform=linux/arm64 +build-ticktock # temporarily disabled to reduce memory pressure during CI builds
@@ -734,7 +734,7 @@ for-windows:
 
 # all-buildkitd builds buildkitd for both linux amd64 and linux arm64
 all-buildkitd:
-    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:79762ff4c7f49f525af26bd6bc7df6310df40b29
+    ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \

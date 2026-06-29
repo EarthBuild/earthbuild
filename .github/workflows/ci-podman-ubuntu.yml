@@ -23,7 +23,7 @@ jobs:
 #      pull-requests: read
 #    secrets: inherit
   podman-bootstrap-test:
-    name: Bootstrap Check (podman)
+    name: Bootstrap Test (podman)
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

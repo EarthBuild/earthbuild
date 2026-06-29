@@ -22,7 +22,7 @@ jobs:
 #      pull-requests: read
 #    secrets: inherit
   docker-bootstrap-test:
-    name: Bootstrap Check (docker)
+    name: Bootstrap Test (docker)
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

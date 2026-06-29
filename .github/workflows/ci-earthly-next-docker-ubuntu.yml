@@ -12,7 +12,7 @@ env:
 
 jobs:
   next-bootstrap-test:
-    name: Bootstrap Check (next)
+    name: Bootstrap Test (next)
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

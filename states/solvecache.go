@@ -6,7 +6,6 @@ import (
 
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
-	"github.com/pkg/errors"
 )
 
 // SolveCacheConstructor is func taking a StateKey and returning a state.
@@ -55,7 +54,7 @@ func (sc *SolveCache) Do(ctx context.Context, sk StateKey, constructor SolveCach
 func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error) {
 	hash, err := target.TargetInput().Hash()
 	if err != nil {
-		return StateKey(""), errors.Wrap(err, "target input hash")
+		return StateKey(""), fmt.Errorf("target input hash: %w", err)
 	}
 
 	key := fmt.Sprintf("%s-%s", dockerTag, hash)
@@ -67,7 +66,7 @@ func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error)
 func KeyFromState(target *SingleTarget) (StateKey, error) {
 	hash, err := target.TargetInput().Hash()
 	if err != nil {
-		return StateKey(""), errors.Wrap(err, "target input hash")
+		return StateKey(""), fmt.Errorf("target input hash: %w", err)
 	}
 
 	return StateKey(hash), nil

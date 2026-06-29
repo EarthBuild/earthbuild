@@ -3,6 +3,8 @@ package setup
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -13,8 +15,6 @@ import (
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/deltautil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -53,7 +53,8 @@ func New(
 	}
 	bs.Formatter = formatter.New(
 		ctx, bs.Bus, debug, verbose, displayStats,
-		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
+		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions,
+	)
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)
@@ -61,7 +62,7 @@ func New(
 	if busDebugFile != "" {
 		f, err := os.OpenFile(busDebugFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to open bus debug file %s", busDebugFile)
+			return nil, fmt.Errorf("failed to open bus debug file %s: %w", busDebugFile, err)
 		}
 
 		useJSON := strings.HasSuffix(busDebugFile, ".json")
@@ -95,7 +96,7 @@ func (bs *BusSetup) DumpManifestToFile(path string) error {
 
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) // #nosec G302, G304
 	if err != nil {
-		return errors.Wrapf(err, "failed to open bus manifest debug file %s", path)
+		return fmt.Errorf("failed to open bus manifest debug file %s: %w", path, err)
 	}
 
 	useJSON := strings.HasSuffix(path, ".json")
@@ -115,12 +116,12 @@ func (bs *BusSetup) DumpManifestToFile(path string) error {
 	}
 
 	if err != nil {
-		return errors.Wrapf(err, "failed to marshal manifest")
+		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
 	_, err = f.Write(dt)
 	if err != nil {
-		return errors.Wrapf(err, "failed to write manifest")
+		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 
 	return nil
@@ -128,31 +129,31 @@ func (bs *BusSetup) DumpManifestToFile(path string) error {
 
 // Close the bus setup & gather all errors.
 func (bs *BusSetup) Close() error {
-	var ret error
+	var err error
 
 	if bs.execStatsTracker != nil {
-		err := bs.execStatsTracker.Close()
-		if err != nil {
-			ret = multierror.Append(ret, errors.Wrap(err, "exec stats summary"))
+		trackerErr := bs.execStatsTracker.Close()
+		if trackerErr != nil {
+			err = errors.Join(err, fmt.Errorf("exec stats summary: %w", trackerErr))
 		}
 	}
 
-	if errs := bs.ConsoleWriter.Errors(); len(errs) > 0 {
-		multi := &multierror.Error{Errors: errs}
-		ret = multierror.Append(ret, errors.Wrap(multi, "console writer"))
+	consoleErr := bs.ConsoleWriter.Err()
+	if consoleErr != nil {
+		err = errors.Join(err, fmt.Errorf("console writer: %w", consoleErr))
 	}
 
-	err := bs.Formatter.Close()
-	if err != nil {
-		ret = multierror.Append(ret, errors.Wrap(err, "formatter"))
+	formatterErr := bs.Formatter.Close()
+	if formatterErr != nil {
+		err = errors.Join(err, fmt.Errorf("formatter: %w", formatterErr))
 	}
 
 	if bs.BusDebugWriter != nil {
-		if errs := bs.BusDebugWriter.Errors(); len(errs) > 0 {
-			multi := &multierror.Error{Errors: errs}
-			ret = multierror.Append(ret, errors.Wrap(multi, "bus debug writer"))
+		debugErr := bs.BusDebugWriter.Err()
+		if debugErr != nil {
+			err = errors.Join(err, fmt.Errorf("bus debug writer: %w", debugErr))
 		}
 	}
 
-	return ret
+	return err
 }

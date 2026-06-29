@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -60,7 +61,6 @@ import (
 	"github.com/moby/buildkit/session/localhost"
 	solverpb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/util/apicaps"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -161,7 +161,7 @@ func NewConverter(
 		opt.Runner,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "new logbus target")
+		return nil, fmt.Errorf("new logbus target: %w", err)
 	}
 
 	logbusTarget.SetStart(time.Now())
@@ -272,7 +272,7 @@ func (c *Converter) fromTarget(
 ) (retErr error) {
 	cmdID, cmd, err := c.newLogbusCommand(ctx, "FROM "+targetName)
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	defer func() {
@@ -281,13 +281,13 @@ func (c *Converter) fromTarget(
 
 	depTarget, err := domain.ParseTarget(targetName)
 	if err != nil {
-		return errors.Wrapf(err, "parse target name %s", targetName)
+		return fmt.Errorf("parse target name %s: %w", targetName, err)
 	}
 
 	mts, err := c.
 		buildTarget(ctx, depTarget.String(), platform, allowPrivileged, passArgs, buildArgs, false, fromCmd, cmdID, nil)
 	if err != nil {
-		return errors.Wrapf(err, "apply build %s", depTarget.String())
+		return fmt.Errorf("apply build %s: %w", depTarget.String(), err)
 	}
 
 	if mts.Final.RanInteractive {
@@ -325,7 +325,7 @@ func (c *Converter) FromDockerfile(
 
 	ctx, err = c.ftrs.WithContext(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to add feature flags to context")
+		return fmt.Errorf("failed to add feature flags to context: %w", err)
 	}
 
 	err = c.checkAllowed(fromDockerfileCmd)
@@ -344,7 +344,7 @@ func (c *Converter) FromDockerfile(
 
 	cmdID, cmd, err := c.newLogbusCommand(ctx, "FROM DOCKERFILE "+dfPath)
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	defer func() {
@@ -384,28 +384,28 @@ func (c *Converter) FromDockerfile(
 
 			dockerfileMetaTargetRef, err = c.joinRefs(dockerfileMetaTarget)
 			if err != nil {
-				return errors.Wrap(err, "join targets")
+				return fmt.Errorf("join targets: %w", err)
 			}
 
 			var ok bool
 
 			dockerfileMetaTarget, ok = dockerfileMetaTargetRef.(domain.Target)
 			if !ok {
-				return errors.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
+				return fmt.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
 			}
 
 			var data *buildcontext.Data
 
 			data, err = c.opt.Resolver.Resolve(ctx, c.opt.GwClient, c.platr, dockerfileMetaTarget)
 			if err != nil {
-				return errors.Wrap(err, "resolve build context for dockerfile")
+				return fmt.Errorf("resolve build context for dockerfile: %w", err)
 			}
 
 			c.opt.BuildContextProvider.AddDirs(data.LocalDirs)
 
 			dfData, err = os.ReadFile(data.BuildFilePath)
 			if err != nil {
-				return errors.Wrapf(err, "read file %s", data.BuildFilePath)
+				return fmt.Errorf("read file %s: %w", data.BuildFilePath, err)
 			}
 		}
 	}
@@ -457,7 +457,7 @@ func (c *Converter) FromDockerfile(
 				joinWrap(buildArgs, "(", " ", ") "), contextArtifact.String(),
 			))
 		if err != nil {
-			return errors.Wrapf(err, "copyOp FROM DOCKERFILE")
+			return fmt.Errorf("copyOp FROM DOCKERFILE: %w", err)
 		}
 
 		BuildContextFactory = llbfactory.PreconstructedState(copyState)
@@ -479,21 +479,21 @@ func (c *Converter) FromDockerfile(
 
 		dockerfileMetaTargetRef, err = c.joinRefs(dockerfileMetaTarget)
 		if err != nil {
-			return errors.Wrap(err, "join targets")
+			return fmt.Errorf("join targets: %w", err)
 		}
 
 		var ok bool
 
 		dockerfileMetaTarget, ok = dockerfileMetaTargetRef.(domain.Target)
 		if !ok {
-			return errors.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
+			return fmt.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
 		}
 
 		var data *buildcontext.Data
 
 		data, err = c.opt.Resolver.Resolve(ctx, c.opt.GwClient, c.platr, dockerfileMetaTarget)
 		if err != nil {
-			return errors.Wrap(err, "resolve build context for dockerfile")
+			return fmt.Errorf("resolve build context for dockerfile: %w", err)
 		}
 
 		c.opt.BuildContextProvider.AddDirs(data.LocalDirs)
@@ -502,7 +502,7 @@ func (c *Converter) FromDockerfile(
 			// Imply dockerfile as being ./Dockerfile in the root of the build context.
 			dfData, err = os.ReadFile(data.BuildFilePath)
 			if err != nil {
-				return errors.Wrapf(err, "read file %s", data.BuildFilePath)
+				return fmt.Errorf("read file %s: %w", data.BuildFilePath, err)
 			}
 		}
 
@@ -511,7 +511,7 @@ func (c *Converter) FromDockerfile(
 
 	bc, err := dockerui.NewClient(c.opt.GwClient)
 	if err != nil {
-		return errors.Wrap(err, "dockerui.NewClient")
+		return fmt.Errorf("dockerui.NewClient: %w", err)
 	}
 
 	var pncvf variables.ProcessNonConstantVariableFunc
@@ -541,19 +541,19 @@ func (c *Converter) FromDockerfile(
 	done()
 
 	if err != nil {
-		return errors.Wrapf(err, "dockerfile2llb %s", dfPath)
+		return fmt.Errorf("dockerfile2llb %s: %w", dfPath, err)
 	}
 	// Convert dockerfile2llb image into earthfile2llb image via JSON.
 	imgDt, err := json.Marshal(dfImg)
 	if err != nil {
-		return errors.Wrap(err, "marshal dockerfile image")
+		return fmt.Errorf("marshal dockerfile image: %w", err)
 	}
 
 	var img image.Image
 
 	err = json.Unmarshal(imgDt, &img)
 	if err != nil {
-		return errors.Wrap(err, "unmarshal dockerfile image")
+		return fmt.Errorf("unmarshal dockerfile image: %w", err)
 	}
 
 	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(*state), &img)
@@ -583,7 +583,7 @@ func (c *Converter) Locally(ctx context.Context) error {
 
 	workingDir, err := filepath.Abs(c.localWorkingDir)
 	if err != nil {
-		return errors.Wrapf(err, "unable to get abs path of %s", c.localWorkingDir)
+		return fmt.Errorf("unable to get abs path of %s: %w", c.localWorkingDir, err)
 	}
 
 	c.varCollection.SetLocally(true)
@@ -614,7 +614,7 @@ func (c *Converter) CopyArtifactLocal(
 
 	artifact, err := domain.ParseArtifact(artifactName)
 	if err != nil {
-		return errors.Wrapf(err, "parse artifact name %s", artifactName)
+		return fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
 
 	prefix, cmdID, err := c.newVertexMeta(ctx, false, false, false, nil)
@@ -626,7 +626,7 @@ func (c *Converter) CopyArtifactLocal(
 		ctx, artifact.Target.String(), platform, allowPrivileged, passArgs, buildArgs, false, copyCmd, cmdID, nil,
 	)
 	if err != nil {
-		return errors.Wrapf(err, "apply build %s", artifact.Target.String())
+		return fmt.Errorf("apply build %s: %w", artifact.Target.String(), err)
 	}
 
 	if artifact.Target.IsLocalInternal() {
@@ -690,7 +690,7 @@ func (c *Converter) CopyArtifact(
 
 	artifact, err := domain.ParseArtifact(artifactName)
 	if err != nil {
-		return errors.Wrapf(err, "parse artifact name %s", artifactName)
+		return fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
 
 	prefix, cmdID, err := c.newVertexMeta(ctx, false, false, false, nil)
@@ -702,7 +702,7 @@ func (c *Converter) CopyArtifact(
 		ctx, artifact.Target.String(), platform, allowPrivileged, passArgs, buildArgs, false, copyCmd, cmdID, nil,
 	)
 	if err != nil {
-		return errors.Wrapf(err, "apply build %s", artifact.Target.String())
+		return fmt.Errorf("apply build %s: %w", artifact.Target.String(), err)
 	}
 
 	if artifact.Target.IsLocalInternal() {
@@ -726,7 +726,7 @@ func (c *Converter) CopyArtifact(
 			dest,
 		))
 	if err != nil {
-		return errors.Wrapf(err, "copyOp CopyArtifact")
+		return fmt.Errorf("copyOp CopyArtifact: %w", err)
 	}
 
 	return nil
@@ -782,7 +782,7 @@ func (c *Converter) CopyClassical(
 			dest,
 		))
 	if err != nil {
-		return errors.Wrapf(err, "copyOp CopyClassical")
+		return fmt.Errorf("copyOp CopyClassical: %w", err)
 	}
 
 	return nil
@@ -856,7 +856,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 
 		exitCodeDir, err = os.MkdirTemp(os.TempDir(), "earthlyexitcode")
 		if err != nil {
-			return 0, errors.Wrap(err, "create temp dir")
+			return 0, fmt.Errorf("create temp dir: %w", err)
 		}
 
 		exitCodeFile = filepath.Join(exitCodeDir, "/exit_code")
@@ -899,7 +899,7 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 	if opts.Locally {
 		codeDt, err = os.ReadFile(exitCodeFile) // #nosec G304
 		if err != nil {
-			return 0, errors.Wrap(err, "read exit code file")
+			return 0, fmt.Errorf("read exit code file: %w", err)
 		}
 	} else {
 		var ref gwclient.Reference
@@ -909,20 +909,20 @@ func (c *Converter) RunExitCode(ctx context.Context, opts ConvertRunOpts) (int, 
 			c.platr, c.opt.CacheImports.AsSlice(),
 		)
 		if err != nil {
-			return 0, errors.Wrap(err, "run exit code state to ref")
+			return 0, fmt.Errorf("run exit code state to ref: %w", err)
 		}
 
 		codeDt, err = ref.ReadFile(ctx, gwclient.ReadRequest{
 			Filename: exitCodeFile,
 		})
 		if err != nil {
-			return 0, errors.Wrap(err, "read exit code")
+			return 0, fmt.Errorf("read exit code: %w", err)
 		}
 	}
 
 	exitCode, err := strconv.Atoi(string(bytes.TrimSpace(codeDt)))
 	if err != nil {
-		return 0, errors.Wrap(err, "parse exit code as int")
+		return 0, fmt.Errorf("parse exit code as int: %w", err)
 	}
 
 	return exitCode, err
@@ -980,7 +980,7 @@ func (c *Converter) runCommand(
 
 		outputDir, err = os.MkdirTemp(os.TempDir(), "earthlyexproutput")
 		if err != nil {
-			return "", errors.Wrap(err, "create temp dir")
+			return "", fmt.Errorf("create temp dir: %w", err)
 		}
 
 		outputFile = filepath.Join(outputDir, "/output")
@@ -1026,7 +1026,7 @@ func (c *Converter) runCommand(
 	if opts.Locally {
 		outputDt, err = os.ReadFile(outputFile) // #nosec G304
 		if err != nil {
-			return "", errors.Wrap(err, "read output file")
+			return "", fmt.Errorf("read output file: %w", err)
 		}
 	} else {
 		ref, err := llbutil.StateToRef(
@@ -1034,12 +1034,12 @@ func (c *Converter) runCommand(
 			c.platr, c.opt.CacheImports.AsSlice(),
 		)
 		if err != nil {
-			return "", errors.Wrapf(err, "build arg state to ref")
+			return "", fmt.Errorf("build arg state to ref: %w", err)
 		}
 
 		outputDt, err = ref.ReadFile(ctx, gwclient.ReadRequest{Filename: outputFile})
 		if err != nil {
-			return "", errors.Wrapf(err, "non constant build arg read request")
+			return "", fmt.Errorf("non constant build arg read request: %w", err)
 		}
 	}
 	// echo adds a trailing \n.
@@ -1129,7 +1129,7 @@ func (c *Converter) SaveArtifact(
 			artifact.String(),
 		))
 	if err != nil {
-		return errors.Wrapf(err, "copyOp save artifact")
+		return fmt.Errorf("copyOp save artifact: %w", err)
 	}
 
 	if saveAsLocalTo == "" {
@@ -1164,7 +1164,7 @@ func (c *Converter) SaveArtifact(
 				saveAsLocalTo,
 			))
 		if err != nil {
-			return errors.Wrapf(err, "copyOp save artifact as local")
+			return fmt.Errorf("copyOp save artifact as local: %w", err)
 		}
 	} else {
 		prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
@@ -1186,7 +1186,7 @@ func (c *Converter) SaveArtifact(
 				saveAsLocalTo,
 			))
 		if err != nil {
-			return errors.Wrapf(err, "copyOp save artifact as local")
+			return fmt.Errorf("copyOp save artifact as local: %w", err)
 		}
 	}
 
@@ -1243,12 +1243,12 @@ func (c *Converter) SaveArtifact(
 func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 	basepath, err := filepath.Abs(c.target.LocalPath)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to get absolute path of %s", basepath)
+		return false, fmt.Errorf("failed to get absolute path of %s: %w", basepath, err)
 	}
 
 	basePathExists, err := fileutil.DirExists(basepath)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to check if %s exists", basepath)
+		return false, fmt.Errorf("failed to check if %s exists: %w", basepath, err)
 	}
 
 	if !basePathExists {
@@ -1266,7 +1266,7 @@ func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 
 	saveAsLocalToAdj, err = filepath.Abs(saveAsLocalToAdj)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to get absolute path of %q", saveAsLocalTo)
+		return false, fmt.Errorf("failed to get absolute path of %q: %w", saveAsLocalTo, err)
 	}
 
 	if hasTrailingSlash {
@@ -1329,7 +1329,7 @@ func (c *Converter) SaveArtifactFromLocal(
 		c.ftrs.UseCopyLink,
 	)
 	if err != nil {
-		return errors.Wrapf(err, "copyOp save artifact from local")
+		return fmt.Errorf("copyOp save artifact from local: %w", err)
 	}
 
 	err = c.forceExecution(ctx, c.mts.Final.ArtifactsState, c.platr)
@@ -1401,7 +1401,7 @@ func (c *Converter) SaveImage(
 
 	_, cmd, err := c.newLogbusCommand(ctx, "SAVE IMAGE "+strings.Join(imageNames, " "))
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	defer func() {
@@ -1517,7 +1517,7 @@ func (c *Converter) Build(
 
 	cmdID, cmd, err := c.newLogbusCommand(ctx, "BUILD "+fullTargetName)
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	_, err = c.buildTarget(
@@ -1555,13 +1555,13 @@ func (c *Converter) BuildAsync(
 
 		rel, err := sem.Acquire(ctx, 1)
 		if err != nil {
-			return errors.Wrapf(err, "acquiring parallelism semaphore for %s", fullTargetName)
+			return fmt.Errorf("acquiring parallelism semaphore for %s: %w", fullTargetName, err)
 		}
 		defer rel()
 
 		mts, err := Earthfile2LLB(ctx, target, opt, false)
 		if err != nil {
-			return errors.Wrapf(err, "async earthfile2llb for %s", fullTargetName)
+			return fmt.Errorf("async earthfile2llb for %s: %w", fullTargetName, err)
 		}
 
 		if apf != nil {
@@ -1571,7 +1571,7 @@ func (c *Converter) BuildAsync(
 				//       synchronization (needs to be run after target has executed).
 				err := c.forceExecution(ctx, mts.Final.MainState, mts.Final.PlatformResolver)
 				if err != nil {
-					return errors.Wrapf(err, "async force execution for %s", fullTargetName)
+					return fmt.Errorf("async force execution for %s: %w", fullTargetName, err)
 				}
 			}
 
@@ -1896,7 +1896,7 @@ func (c *Converter) GitClone(ctx context.Context, gitURL, sshCommand, branch, de
 			branch, gitURLScrubbed, dest,
 		))
 	if err != nil {
-		return errors.Wrapf(err, "copyOp git clone")
+		return fmt.Errorf("copyOp git clone: %w", err)
 	}
 
 	return nil
@@ -2023,7 +2023,7 @@ func (c *Converter) Cache(_ context.Context, mountTarget string, opts cmdopts.Ca
 	case "locked", "":
 		shareMode = llb.CacheMountLocked
 	default:
-		return errors.Errorf("invalid cache sharing mode %q", opts.Sharing)
+		return fmt.Errorf("invalid cache sharing mode %q", opts.Sharing)
 	}
 
 	if _, exists := c.persistentCacheDirs[mountTarget]; exists {
@@ -2039,7 +2039,7 @@ func (c *Converter) Cache(_ context.Context, mountTarget string, opts cmdopts.Ca
 	if opts.Mode != "" {
 		mountMode, err = ParseMode(opts.Mode)
 		if err != nil {
-			return errors.Errorf("failed to parse mount mode %s", opts.Mode)
+			return fmt.Errorf("failed to parse mount mode %s", opts.Mode)
 		}
 	}
 
@@ -2047,7 +2047,7 @@ func (c *Converter) Cache(_ context.Context, mountTarget string, opts cmdopts.Ca
 	if c.ftrs.CachePersistOption {
 		persisted = opts.Persist
 	} else if opts.Persist {
-		return errors.Errorf("the --persist flag is only available when VERSION --cache-persist-option is enabled")
+		return errors.New("the --persist flag is only available when VERSION --cache-persist-option is enabled")
 	}
 
 	c.persistentCacheDirs[mountTarget] = states.CacheMount{
@@ -2239,7 +2239,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	c.opt.ErrorGroup.Go(func() error {
 		rel, err := c.opt.Parallelism.Acquire(ctx, 1)
 		if err != nil {
-			return errors.Wrapf(err, "acquiring parallelism semaphore for %s", c.mts.FinalTarget().String())
+			return fmt.Errorf("acquiring parallelism semaphore for %s: %w", c.mts.FinalTarget().String(), err)
 		}
 		defer rel()
 
@@ -2247,7 +2247,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 			err = c.forceExecution(ctx, c.mts.Final.MainState, c.mts.Final.PlatformResolver)
 			if err != nil {
 				c.RecordTargetFailure(ctx, err)
-				return errors.Wrapf(err, "async force execution for %s", c.mts.FinalTarget().String())
+				return fmt.Errorf("async force execution for %s: %w", c.mts.FinalTarget().String(), err)
 			}
 
 			if c.opt.OnExecutionSuccess != nil {
@@ -2268,7 +2268,7 @@ func (c *Converter) RecordTargetFailure(_ context.Context, err error) {
 	var st logstream.RunStatus
 
 	switch {
-	case errors.Is(err, context.Canceled) || status.Code(errors.Cause(err)) == codes.Canceled:
+	case errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled:
 		st = logstream.RunStatus_RUN_STATUS_CANCELED
 	default:
 		st = logstream.RunStatus_RUN_STATUS_FAILURE
@@ -2304,7 +2304,7 @@ func (c *Converter) absolutizeTarget(
 ) (domain.Target, domain.Target, bool, error) {
 	relTarget, err := domain.ParseTarget(fullTargetName)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, errors.Wrapf(err, "earth target parse %s", fullTargetName)
+		return domain.Target{}, domain.Target{}, false, fmt.Errorf("earth target parse %s: %w", fullTargetName, err)
 	}
 
 	derefedTarget, allowPrivilegedImport, isImport, err := c.varCollection.Imports().Deref(relTarget)
@@ -2318,12 +2318,12 @@ func (c *Converter) absolutizeTarget(
 
 	targetRef, err := c.joinRefs(derefedTarget)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, errors.Wrap(err, "join targets")
+		return domain.Target{}, domain.Target{}, false, fmt.Errorf("join targets: %w", err)
 	}
 
 	target, ok := targetRef.(domain.Target)
 	if !ok {
-		return domain.Target{}, domain.Target{}, false, errors.Errorf("want domain.Target, got %T", targetRef)
+		return domain.Target{}, domain.Target{}, false, fmt.Errorf("want domain.Target, got %T", targetRef)
 	}
 
 	return target, relTarget, allowPrivileged, nil
@@ -2368,7 +2368,7 @@ func (c *Converter) checkAutoSkip(
 		OverridingVars: overriding,
 	})
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "auto-skip is unable to calculate hash for %s", target)
+		return false, nil, fmt.Errorf("auto-skip is unable to calculate hash for %s: %w", target, err)
 	}
 
 	exists, err := c.opt.BuildkitSkipper.Exists(ctx, targetHash)
@@ -2403,7 +2403,7 @@ func (c *Converter) prepOverridingVars(
 
 	overriding, err := variables.ParseArgs(buildArgs, buildArgFunc, c.varCollection)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "parse build args")
+		return nil, false, fmt.Errorf("parse build args: %w", err)
 	}
 
 	// Don't allow transitive overriding variables to cross project boundaries (unless --pass-args is used).
@@ -2495,7 +2495,7 @@ func (c *Converter) buildTarget(
 
 	mts, err := Earthfile2LLB(ctx, target, opt, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "earthfile2llb for %s", fullTargetName)
+		return nil, fmt.Errorf("earthfile2llb for %s: %w", fullTargetName, err)
 	}
 
 	c.directDeps = append(c.directDeps, mts.Final)
@@ -2598,7 +2598,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		case opts.Push:
 			return pllb.State{}, errors.New("--push not supported with LOCALLY")
 		case opts.Transient:
-			return pllb.State{}, errors.New("Transient run not supported with LOCALLY")
+			return pllb.State{}, errors.New("transient run not supported with LOCALLY")
 		case opts.NoNetwork:
 			return pllb.State{}, errors.New("--network=none is not supported with LOCALLY")
 		}
@@ -2628,7 +2628,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 	mountRunOpts, err := c.parseMounts(opts.Mounts)
 	if err != nil {
-		return pllb.State{}, errors.Wrap(err, "parse mounts")
+		return pllb.State{}, fmt.Errorf("parse mounts: %w", err)
 	}
 
 	if opts.NoNetwork {
@@ -2708,11 +2708,9 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		// Debugger.
 		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
 		if err != nil {
-			var capErr *apicaps.CapError
-
-			if errors.As(err, &capErr) {
+			if _, ok := errors.AsType[*apicaps.CapError](err); ok {
 				if c.opt.InteractiveDebuggerEnabled || isInteractive {
-					return pllb.State{}, errors.Wrap(err, "interactive debugger requires a newer version of buildkit")
+					return pllb.State{}, fmt.Errorf("interactive debugger requires a newer version of buildkit: %w", err)
 				}
 			} else {
 				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
@@ -2729,7 +2727,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 		localPathAbs, err = filepath.Abs(c.target.LocalPath)
 		if err != nil {
-			return pllb.State{}, errors.Wrapf(err, "unable to determine absolute path of %s", c.target.LocalPath)
+			return pllb.State{}, fmt.Errorf("unable to determine absolute path of %s: %w", c.target.LocalPath, err)
 		}
 
 		saveFiles := []debuggercommon.SaveFilesSettings{}
@@ -2778,12 +2776,12 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 		debuggerSettingsData, err = json.Marshal(&debuggerSettings)
 		if err != nil {
-			return pllb.State{}, errors.Wrap(err, "debugger settings json marshal")
+			return pllb.State{}, fmt.Errorf("debugger settings json marshal: %w", err)
 		}
 
 		err = c.opt.InternalSecretStore.SetSecret(ctx, c.secretID(debuggerSettingsSecretsKey), debuggerSettingsData)
 		if err != nil {
-			return pllb.State{}, errors.Wrap(err, "InternalSecretStore.SetSecret")
+			return pllb.State{}, fmt.Errorf("InternalSecretStore.SetSecret: %w", err)
 		}
 
 		secretOpts := []llb.SecretOption{
@@ -3029,7 +3027,7 @@ func (c *Converter) parseSecretFlag(secretKeyValue string) (secretID string, env
 		return secretID, parts[0], nil
 	}
 
-	err = errors.Errorf(
+	err = fmt.Errorf(
 		"secret definition %s not supported. Format must be either <env-var>=+secrets/<secret-id> or <secret-id>",
 		secretKeyValue,
 	)
@@ -3048,7 +3046,7 @@ func (c *Converter) forceExecution(ctx context.Context, state pllb.State, platr 
 		platr, c.opt.CacheImports.AsSlice(),
 	)
 	if err != nil {
-		return errors.Wrap(err, "force execution state to ref")
+		return fmt.Errorf("force execution state to ref: %w", err)
 	}
 
 	if ref == nil {
@@ -3058,7 +3056,7 @@ func (c *Converter) forceExecution(ctx context.Context, state pllb.State, platr 
 	// want to un-lazy the ref so that the commands have executed.
 	_, err = ref.ReadDir(ctx, gwclient.ReadDirRequest{Path: "/"})
 	if err != nil {
-		return errors.Wrap(err, "unlazy force execution")
+		return fmt.Errorf("unlazy force execution: %w", err)
 	}
 
 	return nil
@@ -3069,7 +3067,7 @@ func (c *Converter) readArtifact(
 ) ([]byte, error) {
 	if mts.Final.ArtifactsState.Output() == nil {
 		// ArtifactsState is scratch - no artifact has been copied.
-		return nil, errors.Errorf(
+		return nil, fmt.Errorf(
 			"artifact %s not found; no SAVE ARTIFACT command was issued in %s", artifact.String(), artifact.Target.String(),
 		)
 	}
@@ -3079,14 +3077,14 @@ func (c *Converter) readArtifact(
 		mts.Final.PlatformResolver, c.opt.CacheImports.AsSlice(),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "state to ref solve artifact")
+		return nil, fmt.Errorf("state to ref solve artifact: %w", err)
 	}
 
 	artDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
 		Filename: artifact.Artifact,
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "read artifact %s", artifact.String())
+		return nil, fmt.Errorf("read artifact %s: %w", artifact.String(), err)
 	}
 
 	return artDt, nil
@@ -3108,7 +3106,7 @@ func (c *Converter) internalFromClassical(
 
 	sourceRef, err := reference.ParseNormalizedNamed(imageName)
 	if err != nil {
-		return pllb.State{}, nil, nil, errors.Wrapf(err, "parse normalized named %s", imageName)
+		return pllb.State{}, nil, nil, fmt.Errorf("parse normalized named %s: %w", imageName, err)
 	}
 
 	baseImageName := reference.TagNameOnly(sourceRef).String()
@@ -3126,25 +3124,25 @@ func (c *Converter) internalFromClassical(
 		},
 	)
 	if err != nil {
-		return pllb.State{}, nil, nil, errors.Wrapf(err, "resolve image config for %s", imageName)
+		return pllb.State{}, nil, nil, fmt.Errorf("resolve image config for %s: %w", imageName, err)
 	}
 
 	sourceRef, err = reference.ParseNormalizedNamed(ref)
 	if err != nil {
-		return pllb.State{}, nil, nil, errors.Wrapf(err, "parse normalized named %s", ref)
+		return pllb.State{}, nil, nil, fmt.Errorf("parse normalized named %s: %w", ref, err)
 	}
 
 	var img image.Image
 
 	err = json.Unmarshal(dt, &img)
 	if err != nil {
-		return pllb.State{}, nil, nil, errors.Wrapf(err, "unmarshal image config for %s", imageName)
+		return pllb.State{}, nil, nil, fmt.Errorf("unmarshal image config for %s: %w", imageName, err)
 	}
 
 	if dgst != "" {
 		sourceRef, err = reference.WithDigest(sourceRef, dgst)
 		if err != nil {
-			return pllb.State{}, nil, nil, errors.Wrapf(err, "reference add digest %v for %s", dgst, imageName)
+			return pllb.State{}, nil, nil, fmt.Errorf("reference add digest %v for %s: %w", dgst, imageName, err)
 		}
 	}
 
@@ -3165,7 +3163,7 @@ func (c *Converter) checkOldPlatformIncompatibility(platform platutil.Platform) 
 	}
 
 	if !c.platr.PlatformEquals(c.platr.Default(), platform) {
-		return errors.Errorf(
+		return fmt.Errorf(
 			"platform contradiction: \"%s\" vs \"%s\"",
 			platform.String(), c.platr.Default().String(),
 		)
@@ -3408,7 +3406,7 @@ func (c *Converter) checkAllowed(command cmdType) error {
 	}
 
 	if c.mts.Final.RanInteractive && command != saveImageCmd && command != saveArtifactCmd {
-		return errors.New("If present, a single --interactive command must be the last command in a target")
+		return errors.New("if present, a single --interactive command must be the last command in a target")
 	}
 
 	if !c.mts.Final.RanFromLike {
@@ -3503,17 +3501,16 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 
 		childTarget, err := domain.ParseTarget(childTargetName)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse target %q", childTargetName)
+			return nil, fmt.Errorf("failed to parse target %q: %w", childTargetName, err)
 		}
 
 		data, _, _, err := c.ResolveReference(ctx, childTarget)
 		if err != nil {
-			notExist := buildcontext.EarthfileNotExistError{}
-			if errors.As(err, &notExist) {
+			if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
 				continue
 			}
 
-			return nil, errors.Wrapf(err, "unable to resolve target %q", childTargetName)
+			return nil, fmt.Errorf("unable to resolve target %q: %w", childTargetName, err)
 		}
 
 		var found bool
@@ -3533,7 +3530,7 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 	}
 
 	if len(targets) == 0 {
-		return nil, errors.Errorf("no matching targets found for pattern %q", parsedTarget.GetLocalPath())
+		return nil, fmt.Errorf("no matching targets found for pattern %q", parsedTarget.GetLocalPath())
 	}
 
 	return targets, nil

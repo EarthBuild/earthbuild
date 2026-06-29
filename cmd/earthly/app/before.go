@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,7 +20,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -72,7 +72,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		flags.GithubAnnotations,
 	)
 	if err != nil {
-		return ctx, errors.Wrap(err, "logbus setup")
+		return ctx, fmt.Errorf("logbus setup: %w", err)
 	}
 
 	app.BaseCLI.SetLogbusSetup(busSetup)
@@ -87,14 +87,14 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		yamlData, err = config.ReadConfigFile(flags.ConfigPath)
 		if err != nil {
 			if cmd.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
-				return ctx, errors.Wrapf(err, "read config")
+				return ctx, fmt.Errorf("read config: %w", err)
 			}
 		}
 	}
 
 	cfg, err := config.ParseYAML(yamlData, flags.InstallationName)
 	if err != nil {
-		return ctx, errors.Wrapf(err, "failed to parse %s", flags.ConfigPath)
+		return ctx, fmt.Errorf("failed to parse %s: %w", flags.ConfigPath, err)
 	}
 
 	app.BaseCLI.SetCfg(&cfg)
@@ -122,7 +122,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 
 		err = newBootstrap.Action(ctx, cmd)
 		if err != nil {
-			return ctx, errors.Wrap(err, "bootstrap unbootstrclied installation")
+			return ctx, fmt.Errorf("bootstrap unbootstrclied installation: %w", err)
 		}
 	}
 
@@ -146,7 +146,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 
 		stub, err := containerutil.NewStubFrontend(feCfg)
 		if err != nil {
-			return errors.Wrap(err, "failed stub frontend initialization")
+			return fmt.Errorf("failed stub frontend initialization: %w", err)
 		}
 
 		app.BaseCLI.Flags().ContainerFrontend = stub

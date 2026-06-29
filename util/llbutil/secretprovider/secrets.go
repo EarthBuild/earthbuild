@@ -2,12 +2,14 @@ package secretprovider
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
 
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/secrets"
-	"github.com/pkg/errors"
+
 	"google.golang.org/grpc"
 )
 
@@ -47,7 +49,7 @@ func (sp *secretProvider) GetSecret(
 		}, nil
 	}
 
-	return nil, hint.Wrap(errors.WithStack(errors.Wrapf(secrets.ErrNotFound, "unable to lookup secret %q", v.Get("name"))),
+	return nil, hint.Wrap(fmt.Errorf("unable to lookup secret %q: %w", v.Get("name"), secrets.ErrNotFound),
 		"Make sure to set the project at the top of the Earthfile by using the PROJECT command.",
 		"Note, if this secret was called from a FUNCTION, "+
 			"the project needs to be set in the Earthfile that calls the FUNCTION.")

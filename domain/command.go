@@ -3,8 +3,6 @@ package domain
 import (
 	"fmt"
 	"regexp"
-
-	"github.com/pkg/errors"
 )
 
 var _ Reference = Command{}
@@ -113,7 +111,7 @@ func ParseCommand(fullCommandName string) (Command, error) {
 
 	ok := commandNameRegex.MatchString(command)
 	if !ok {
-		return Command{}, errors.Errorf("command name %s does not match %s", command, commandNamePattern)
+		return Command{}, fmt.Errorf("command name %s does not match %s", command, commandNamePattern)
 	}
 
 	return Command{

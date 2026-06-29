@@ -3,6 +3,7 @@ package solvermon
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/xcontext"
 	"github.com/moby/buildkit/client"
 	"github.com/opencontainers/go-digest"
-	"github.com/pkg/errors"
 )
 
 // SolverMonitor is a buildkit solver monitor.
@@ -57,7 +57,7 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 	for {
 		select {
 		case <-delayedCtx.Done():
-			return errors.Wrap(ctx.Err(), "timed out waiting for status channel to close")
+			return fmt.Errorf("timed out waiting for status channel to close: %w", ctx.Err())
 		case status, ok := <-ch:
 			if !ok {
 				return nil
@@ -114,7 +114,8 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp, err = bp.NewCommand(
 					cmdID, operation, meta.TargetID, category, meta.Platform,
 					vertex.Cached, meta.Local, meta.Interactive, meta.SourceLocation,
-					meta.RepoGitURL, meta.RepoGitHash, meta.RepoFileRelToRepo)
+					meta.RepoGitURL, meta.RepoGitHash, meta.RepoFileRelToRepo,
+				)
 				if err != nil {
 					return err
 				}

@@ -3,11 +3,10 @@
 package semverutil
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Version is a semantic version number.
@@ -30,7 +29,7 @@ func Parse(s string) (Version, error) {
 	}
 
 	if err != nil {
-		return Version{}, errors.Wrap(err, "parsing semantic version")
+		return Version{}, fmt.Errorf("parsing semantic version: %w", err)
 	}
 
 	return v, nil

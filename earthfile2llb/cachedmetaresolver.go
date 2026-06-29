@@ -2,12 +2,12 @@ package earthfile2llb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/opencontainers/go-digest"
-	"github.com/pkg/errors"
 )
 
 var _ llb.ImageMetaResolver = &CachedMetaResolver{}
@@ -70,7 +70,7 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 
 	entry, ok := value.(cachedMetaResolverEntry)
 	if !ok {
-		return "", "", nil, errors.Errorf("want cachedMetaResolverEntry, got %T", value)
+		return "", "", nil, fmt.Errorf("want cachedMetaResolverEntry, got %T", value)
 	}
 
 	return entry.ref, entry.dgst, entry.config, nil

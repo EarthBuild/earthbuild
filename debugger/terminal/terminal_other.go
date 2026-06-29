@@ -5,6 +5,8 @@ package terminal
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -13,16 +15,14 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/debugger/common"
-
 	"github.com/creack/pty"
-	"github.com/pkg/errors"
 	"golang.org/x/term"
 )
 
 func handlePtyData(data []byte) error {
 	_, err := os.Stdout.Write(data)
 	if err != nil {
-		return errors.Wrap(err, "failed to write data to stdout")
+		return fmt.Errorf("failed to write data to stdout: %w", err)
 	}
 
 	return nil
@@ -179,7 +179,7 @@ func (ts *termState) makeRaw() error {
 		// #nosec G115 - Fd() returns a small int
 		ts.oldState, err = term.MakeRaw(int(os.Stdin.Fd()))
 		if err != nil {
-			return errors.Wrap(err, "failed to initialize terminal in raw mode")
+			return fmt.Errorf("failed to initialize terminal in raw mode: %w", err)
 		}
 	}
 
@@ -194,7 +194,7 @@ func (ts *termState) restore() error {
 		// #nosec G115 - Fd() returns a small int
 		err := term.Restore(int(os.Stdin.Fd()), ts.oldState)
 		if err != nil {
-			return errors.Wrap(err, "failed to restore terminal mode")
+			return fmt.Errorf("failed to restore terminal mode: %w", err)
 		}
 
 		ts.oldState = nil

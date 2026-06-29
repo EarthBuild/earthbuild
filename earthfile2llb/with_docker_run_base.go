@@ -13,7 +13,6 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -116,7 +115,7 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 
 	err = yaml.Unmarshal(composeConfigDt, &config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse compose config for %v", opt.ComposeFiles)
+		return nil, fmt.Errorf("parse compose config for %v: %w", opt.ComposeFiles, err)
 	}
 
 	// Collect relevant images from the compose config.
@@ -138,8 +137,7 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 		if serviceInfo.Platform != "" {
 			p, err := platforms.Parse(serviceInfo.Platform)
 			if err != nil {
-				return nil, errors.Wrapf(
-					err, "parse platform for image %s: %s", serviceInfo.Image, serviceInfo.Platform)
+				return nil, fmt.Errorf("parse platform for image %s: %s: %w", serviceInfo.Image, serviceInfo.Platform, err)
 			}
 
 			platform = platutil.FromLLBPlatform(p)
@@ -191,16 +189,17 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 	ref, err := llbutil.StateToRef(
 		ctx, w.c.opt.GwClient, state, w.c.opt.NoCache,
-		w.c.platr, w.c.opt.CacheImports.AsSlice())
+		w.c.platr, w.c.opt.CacheImports.AsSlice(),
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "state to ref compose config")
+		return nil, fmt.Errorf("state to ref compose config: %w", err)
 	}
 
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
 		Filename: "/tmp/earthbuild/" + composeConfigFile,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "read compose config file")
+		return nil, fmt.Errorf("read compose config file: %w", err)
 	}
 
 	return composeConfigDt, nil

@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -27,7 +28,6 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
 )
 
 const maxCommandRenameWarnings = 3
@@ -707,7 +707,7 @@ func (i *Interpreter) getAllowPrivilegedTarget(targetName string, allowPrivilege
 
 	depTarget, err := domain.ParseTarget(targetName)
 	if err != nil {
-		return false, errors.Wrapf(err, "parse target name %s", targetName)
+		return false, fmt.Errorf("parse target name %s: %w", targetName, err)
 	}
 
 	return i.getAllowPrivileged(depTarget, allowPrivileged)
@@ -728,7 +728,7 @@ func (i *Interpreter) getAllowPrivileged(depTarget domain.Target, allowPrivilege
 func (i *Interpreter) getAllowPrivilegedArtifact(artifactName string, allowPrivileged bool) (bool, error) {
 	artifact, err := domain.ParseArtifact(artifactName)
 	if err != nil {
-		return false, errors.Wrapf(err, "parse artifact name %s", artifactName)
+		return false, fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
 
 	return i.getAllowPrivileged(artifact.Target, allowPrivileged)
@@ -1862,7 +1862,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd earthfile.Command) erro
 
 	args, err := flagutil.ParseArgsCleaned("LET", &opts, argsCpy)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse LET args")
+		return fmt.Errorf("failed to parse LET args: %w", err)
 	}
 
 	if len(args) != 3 || args[1] != "=" {
@@ -1892,7 +1892,7 @@ func parseSetArgs(cmd earthfile.Command) (name, value string, _ error) {
 
 	args, err := flagutil.ParseArgsCleaned("SET", &opts, argsCpy)
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to parse SET args")
+		return "", "", fmt.Errorf("failed to parse SET args: %w", err)
 	}
 
 	if len(args) != 3 {
@@ -1913,7 +1913,7 @@ func (i *Interpreter) handleSet(ctx context.Context, cmd earthfile.Command) erro
 
 	key, value, err := parseSetArgs(cmd)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse SET arguments")
+		return fmt.Errorf("failed to parse SET arguments: %w", err)
 	}
 
 	newVal, err := i.expandArgs(ctx, value, true, false)

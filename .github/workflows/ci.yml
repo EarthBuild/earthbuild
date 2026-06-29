@@ -28,8 +28,8 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  fast-check:
-    name: Fast Check
+  fast-check-and-build:
+    name: Fast Check & Build
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -170,18 +170,18 @@ jobs:
 
   docker:
     name: Docker
-    needs: fast-check
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-docker-ubuntu.yml
     secrets: inherit
 
   podman:
     name: Podman
-    needs: fast-check
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-podman-ubuntu.yml
     secrets: inherit
 
   next:
     name: Next
-    needs: fast-check
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-earthly-next-docker-ubuntu.yml
     secrets: inherit

@@ -32,7 +32,6 @@ require (
 	github.com/mattn/go-colorable v0.1.15
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mitchellh/hashstructure/v2 v2.0.2
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/moby/buildkit v0.31.1
 	github.com/moby/patternmatcher v0.6.1
 	github.com/opencontainers/go-digest v1.0.0

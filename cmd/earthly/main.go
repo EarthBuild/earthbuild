@@ -182,10 +182,7 @@ func run() (code int) {
 		}
 	}
 
-	colorMode, err := conslogging.ColorModeFromEnv()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	colorMode := conslogging.ColorModeFromEnv()
 
 	switch colorMode {
 	case conslogging.ForceColor:

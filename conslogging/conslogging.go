@@ -651,22 +651,23 @@ func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 }
 
 // ColorModeFromEnv returns the appropriate ColorMode based on FORCE_COLOR and NO_COLOR environment variables.
-func ColorModeFromEnv() (ColorMode, error) {
-	errorf := func(format string, args ...any) (ColorMode, error) {
-		return AutoColor, fmt.Errorf("read color mode from env: "+format, args...)
+func ColorModeFromEnv() ColorMode {
+	printErr := func(name, val string) {
+		fmt.Printf("read color mode from env: invalid boolean for %s, "+
+			"want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q\n",
+			name, val)
 	}
 
 	forceColor := os.Getenv("FORCE_COLOR")
 	if forceColor != "" {
 		v, err := parseBool(forceColor)
 		if err != nil {
-			return errorf(
-				"invalid boolean for FORCE_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q", forceColor,
-			)
+			printErr("FORCE_COLOR", forceColor)
+			return AutoColor
 		}
 
 		if v {
-			return ForceColor, nil
+			return ForceColor
 		}
 	}
 
@@ -674,17 +675,16 @@ func ColorModeFromEnv() (ColorMode, error) {
 	if noColor != "" {
 		v, err := parseBool(noColor)
 		if err != nil {
-			return errorf(
-				"invalid boolean for NO_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q", noColor,
-			)
+			printErr("NO_COLOR", noColor)
+			return AutoColor
 		}
 
 		if v {
-			return NoColor, nil
+			return NoColor
 		}
 	}
 
-	return AutoColor, nil
+	return AutoColor
 }
 
 func parseBool(val string) (bool, error) {

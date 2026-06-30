@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_prettyPrefix(t *testing.T) {
@@ -130,70 +129,60 @@ func TestColorModeFromEnv(t *testing.T) {
 		forceColor string
 		noColor    string
 		want       ColorMode
-		wantErr    bool
 	}{
 		{
 			name:       "neither set",
 			forceColor: "",
 			noColor:    "",
 			want:       AutoColor,
-			wantErr:    false,
 		},
 		{
 			name:       "FORCE_COLOR set to true",
 			forceColor: "1",
 			noColor:    "",
 			want:       ForceColor,
-			wantErr:    false,
 		},
 		{
 			name:       "FORCE_COLOR set to false",
 			forceColor: "0",
 			noColor:    "",
 			want:       AutoColor,
-			wantErr:    false,
 		},
 		{
 			name:       "FORCE_COLOR invalid",
 			forceColor: "invalid",
 			noColor:    "",
 			want:       AutoColor,
-			wantErr:    true,
 		},
 		{
 			name:       "NO_COLOR set to true",
 			forceColor: "",
 			noColor:    "1",
 			want:       NoColor,
-			wantErr:    false,
 		},
 		{
 			name:       "NO_COLOR set to false",
 			forceColor: "",
 			noColor:    "0",
 			want:       AutoColor,
-			wantErr:    false,
 		},
 		{
 			name:       "NO_COLOR invalid",
 			forceColor: "",
 			noColor:    "invalid",
 			want:       AutoColor,
-			wantErr:    true,
 		},
 		{
 			name:       "FORCE_COLOR takes precedence",
 			forceColor: "1",
 			noColor:    "1",
 			want:       ForceColor,
-			wantErr:    false,
 		},
 		{
 			name:       "FORCE_COLOR false allows NO_COLOR",
 			forceColor: "0",
 			noColor:    "1",
 			want:       NoColor,
-			wantErr:    false,
 		},
 	}
 
@@ -212,12 +201,7 @@ func TestColorModeFromEnv(t *testing.T) {
 				t.Setenv("NO_COLOR", "")
 			}
 
-			mode, err := ColorModeFromEnv()
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+			mode := ColorModeFromEnv()
 
 			assert.Equal(t, tc.want, mode)
 		})

@@ -35,7 +35,6 @@ jobs:
       contents: read
       packages: write
     env:
-      FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
@@ -49,7 +48,7 @@ jobs:
       - name: Fuzz tests
         run: earth --ci +fuzz-test
 
-      # --- Build Standard Earthly ---
+      # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
@@ -118,17 +117,17 @@ jobs:
           path: ./artifacts-standard/
           retention-days: 1
 
-      # --- Build Next Earthly ---
+      # --- Build Next EarthBuild ---
       - name: Update Buildkit to earthly-next
         run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earthly (next) using released earthly
         run: earth --use-inline-cache +for-linux
-      - name: Build and push +ci-release (next) using latest earthly build
+      - name: Build and push +ci-release (next) using latest earth build
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest-docker-ticktock"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
-      - name: Build +ci-release (next) using latest earthly build (fork - no push)
+      - name: Build +ci-release (next) using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest-docker-ticktock"

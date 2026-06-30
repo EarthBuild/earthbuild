@@ -40,7 +40,6 @@ require (
 	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.4
-	github.com/spf13/cast v1.3.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tonistiigi/fsutil v0.0.0-20260630114638-b1eb15549b43
 	github.com/urfave/cli/v3 v3.10.0

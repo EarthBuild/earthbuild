@@ -25,7 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
-	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
@@ -183,15 +182,19 @@ func run() (code int) {
 		}
 	}
 
-	colorMode := conslogging.AutoColor
-	if envutil.IsTrue("FORCE_COLOR") {
-		colorMode = conslogging.ForceColor
-		color.NoColor = false
+	colorMode, err := conslogging.ColorModeFromEnv()
+	if err != nil {
+		fmt.Println(err.Error())
+		return 1
 	}
 
-	if envutil.IsTrue("NO_COLOR") {
-		colorMode = conslogging.NoColor
+	switch colorMode {
+	case conslogging.ForceColor:
+		color.NoColor = false
+	case conslogging.NoColor:
 		color.NoColor = true
+	case conslogging.AutoColor:
+		// noop
 	}
 
 	padding := conslogging.DefaultPadding
@@ -204,7 +207,7 @@ func run() (code int) {
 		}
 	}
 
-	if envutil.IsTrue("EARTHLY_FULL_TARGET") {
+	if v, _ := strconv.ParseBool(os.Getenv("EARTHLY_FULL_TARGET")); v {
 		padding = conslogging.NoPadding
 	}
 

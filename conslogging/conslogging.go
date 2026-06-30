@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -647,4 +648,39 @@ func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 	ret.logLevel = logLevel
 
 	return ret
+}
+
+// ColorModeFromEnv returns the appropriate ColorMode based on FORCE_COLOR and NO_COLOR environment variables.
+func ColorModeFromEnv() (ColorMode, error) {
+	errorf := func(format string, args ...any) (ColorMode, error) {
+		return AutoColor, fmt.Errorf("read color mode from env: "+format, args...)
+	}
+
+	if val := os.Getenv("FORCE_COLOR"); val != "" {
+		forceColor, err := strconv.ParseBool(val)
+		if err != nil {
+			return errorf(
+				"invalid boolean for FORCE_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False): %q", val,
+			)
+		}
+
+		if forceColor {
+			return ForceColor, nil
+		}
+	}
+
+	if val := os.Getenv("NO_COLOR"); val != "" {
+		noColor, err := strconv.ParseBool(val)
+		if err != nil {
+			return errorf(
+				"invalid boolean for NO_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False): %q", val,
+			)
+		}
+
+		if noColor {
+			return NoColor, nil
+		}
+	}
+
+	return AutoColor, nil
 }

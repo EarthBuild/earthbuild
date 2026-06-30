@@ -208,6 +208,7 @@ func run() (code int) {
 		v, err := strconv.ParseBool(fullTarget)
 		if err != nil {
 			fmt.Printf("Invalid value for EARTHLY_FULL_TARGET (%q): %s.\n", fullTarget, err.Error())
+			return 1
 		}
 
 		if v {

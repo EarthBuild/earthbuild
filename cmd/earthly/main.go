@@ -203,9 +203,16 @@ func run() (code int) {
 		}
 	}
 
-	fullTarget, _ := strconv.ParseBool(os.Getenv("EARTHLY_FULL_TARGET"))
-	if fullTarget {
-		padding = conslogging.NoPadding
+	fullTarget, ok := os.LookupEnv("EARTHLY_FULL_TARGET")
+	if ok {
+		v, err := strconv.ParseBool(fullTarget)
+		if err != nil {
+			fmt.Printf("Invalid value for EARTHLY_FULL_TARGET (%q): %s.\n", fullTarget, err.Error())
+		}
+
+		if v {
+			padding = conslogging.NoPadding
+		}
 	}
 
 	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)

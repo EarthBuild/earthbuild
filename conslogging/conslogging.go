@@ -651,6 +651,8 @@ func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 }
 
 // ColorModeFromEnv returns the appropriate ColorMode based on FORCE_COLOR and NO_COLOR environment variables.
+// As these environment variables are not EarthBuild-specific, this function uses a permissive boolean
+// parser to support common truthy/falsy conventions across different toolchains.
 func ColorModeFromEnv() ColorMode {
 	printErr := func(name, val string) {
 		fmt.Printf("read color mode from env: invalid boolean for %s, "+

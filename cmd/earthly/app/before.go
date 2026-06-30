@@ -56,10 +56,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		execStatsTracker = execstatssummary.NewTracker(flags.ExecStatsSummary)
 	}
 
-	colorMode, err := conslogging.ColorModeFromEnv()
-	if err != nil {
-		return nil, err
-	}
+	colorMode := conslogging.ColorModeFromEnv()
 
 	busSetup, err := logbussetup.New(
 		ctx,

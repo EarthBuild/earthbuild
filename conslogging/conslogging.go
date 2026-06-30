@@ -656,31 +656,54 @@ func ColorModeFromEnv() (ColorMode, error) {
 		return AutoColor, fmt.Errorf("read color mode from env: "+format, args...)
 	}
 
-	if val := os.Getenv("FORCE_COLOR"); val != "" {
-		forceColor, err := strconv.ParseBool(val)
+	forceColor := os.Getenv("FORCE_COLOR")
+	if forceColor != "" {
+		v, err := parseBool(forceColor)
 		if err != nil {
 			return errorf(
-				"invalid boolean for FORCE_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False): %q", val,
+				"invalid boolean for FORCE_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q", forceColor,
 			)
 		}
 
-		if forceColor {
+		if v {
 			return ForceColor, nil
 		}
 	}
 
-	if val := os.Getenv("NO_COLOR"); val != "" {
-		noColor, err := strconv.ParseBool(val)
+	noColor := os.Getenv("NO_COLOR")
+	if noColor != "" {
+		v, err := parseBool(noColor)
 		if err != nil {
 			return errorf(
-				"invalid boolean for NO_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False): %q", val,
+				"invalid boolean for NO_COLOR, want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q", noColor,
 			)
 		}
 
-		if noColor {
+		if v {
 			return NoColor, nil
 		}
 	}
 
 	return AutoColor, nil
+}
+
+func parseBool(val string) (bool, error) {
+	b, err := strconv.ParseBool(val)
+	if err == nil {
+		return b, nil
+	}
+
+	i, err := strconv.Atoi(val)
+	if err == nil {
+		return i != 0, nil
+	}
+
+	switch strings.ToLower(val) {
+	case "yes", "y", "on":
+		return true, nil
+	case "no", "n", "off":
+		return false, nil
+	}
+
+	return false, fmt.Errorf("invalid boolean value: %q", val)
 }

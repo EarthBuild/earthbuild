@@ -185,7 +185,6 @@ func run() (code int) {
 	colorMode, err := conslogging.ColorModeFromEnv()
 	if err != nil {
 		fmt.Println(err.Error())
-		return 1
 	}
 
 	switch colorMode {
@@ -207,7 +206,8 @@ func run() (code int) {
 		}
 	}
 
-	if v, _ := strconv.ParseBool(os.Getenv("EARTHLY_FULL_TARGET")); v {
+	fullTarget, _ := strconv.ParseBool(os.Getenv("EARTHLY_FULL_TARGET"))
+	if fullTarget {
 		padding = conslogging.NoPadding
 	}
 

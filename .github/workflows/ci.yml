@@ -75,12 +75,12 @@ jobs:
       - name: Build and push +ci-release using latest earthly build
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
-          export TAG_SUFFIX="ubuntu-latest-docker"
+          export TAG_SUFFIX="ubuntu-latest"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release using latest earthly build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
-          export TAG_SUFFIX="ubuntu-latest-docker"
+          export TAG_SUFFIX="ubuntu-latest"
           # Build ci-release (builds binary and buildkitd but doesn't push)
           ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
@@ -89,7 +89,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="ubuntu-latest-docker"
+          export TAG_SUFFIX="ubuntu-latest"
 
           mkdir -p ./artifacts-standard
 
@@ -113,7 +113,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: earthly-build-ubuntu-latest-docker
+          name: earthly-build-ubuntu-latest
           path: ./artifacts-standard/
           retention-days: 1
 
@@ -125,12 +125,12 @@ jobs:
       - name: Build and push +ci-release (next) using latest earth build
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
-          export TAG_SUFFIX="ubuntu-latest-docker-ticktock"
+          export TAG_SUFFIX="ubuntu-latest-ticktock"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release (next) using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
-          export TAG_SUFFIX="ubuntu-latest-docker-ticktock"
+          export TAG_SUFFIX="ubuntu-latest-ticktock"
           # Build ci-release (builds binary and buildkitd but doesn't push)
           ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
@@ -139,7 +139,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="ubuntu-latest-docker-ticktock"
+          export TAG_SUFFIX="ubuntu-latest-ticktock"
 
           mkdir -p ./artifacts-next
 
@@ -163,7 +163,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: earthly-build-ubuntu-latest-docker-ticktock
+          name: earthly-build-ubuntu-latest-ticktock
           path: ./artifacts-next/
           retention-days: 1
 

@@ -163,17 +163,16 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	}
 
 	fs, err = fsutil.NewFilterFS(fs, &fsutil.FilterOpt{
-		ExcludePatterns:   excludes,
-		IncludePatterns:   includes,
-		FollowPaths:       followPaths,
-		Map:               dir.Map,
-		VerboseProgressCB: progressCB.Verbose,
+		ExcludePatterns: excludes,
+		IncludePatterns: includes,
+		FollowPaths:     followPaths,
+		Map:             progressCB.WrapMap(dir.Map),
 	})
 	if err != nil {
 		return err
 	}
 
-	err = pr.sendFn(stream, fs, progressCB.Info, progressCB.Verbose)
+	err = pr.sendFn(stream, fs, progressCB.Info)
 	if doneCh != nil {
 		if err != nil {
 			doneCh <- err
@@ -206,7 +205,7 @@ func (bcp *BuildContextProvider) SetNextProgressCallback(f func(int, bool), done
 type progressCb func(int, bool)
 
 type protocol struct {
-	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB) error
+	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb) error
 	recvFn func(
 		stream grpc.ClientStream,
 		destDir string,
@@ -234,8 +233,8 @@ var supportedProtocols = []protocol{
 	},
 }
 
-func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb, verbose fsutil.VerboseProgressCB) error {
-	return errors.WithStack(fsutil.Send(stream.Context(), stream, fs, progress, verbose))
+func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb) error {
+	return errors.WithStack(fsutil.Send(stream.Context(), stream, fs, progress))
 }
 
 func recvDiffCopy(

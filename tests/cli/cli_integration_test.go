@@ -1,3 +1,5 @@
+//go:build integration
+
 package cli_test
 
 import (
@@ -20,8 +22,6 @@ var (
 	earthCmdMu sync.Mutex
 	testBinary string
 )
-
-const skipBuildkitCLITestsValue = "true"
 
 const (
 	firstCommandFixture = "first-command"
@@ -57,7 +57,8 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 			projectDir := copyFixtureDir(t, "builtin-args")
 			replaceVersionLine(t, filepath.Join(projectDir, "Earthfile"), versionLine)
 
-			out, err := runEarth(t, projectDir,
+			out, err := runEarth(
+				t, projectDir,
 				"--no-output",
 				"--build-arg", "EARTHLY_VERSION=123",
 				"+builtin-args-test",
@@ -71,10 +72,6 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 
 func TestBuildArgRepeatArtifacts(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	for _, target := range []string{"+build-all-1", "+build-all-2"} {
 		t.Run(target, func(t *testing.T) {
@@ -92,10 +89,6 @@ func TestBuildArgRepeatArtifacts(t *testing.T) {
 
 func TestCacheCommand(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	projectDir := copyFixtureDir(t, "cache-cmd")
 
@@ -117,10 +110,6 @@ func TestCacheCommand(t *testing.T) {
 
 func TestInfiniteRecursionFailures(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	for _, target := range []string{
 		"+test1",
@@ -145,10 +134,6 @@ func TestInfiniteRecursionFailures(t *testing.T) {
 
 func TestLetSetAndScope(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	successCases := []struct {
 		name    string
@@ -209,10 +194,6 @@ func TestLetSetAndScope(t *testing.T) {
 
 func TestEarthfileValidationFailures(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	testCases := []struct {
 		name     string
@@ -309,10 +290,6 @@ func TestInitCommand(t *testing.T) {
 
 	t.Run("golang project", func(t *testing.T) {
 		t.Parallel()
-
-		if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-			t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-		}
 
 		projectDir := t.TempDir()
 		writeGoProject(t, projectDir)

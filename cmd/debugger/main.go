@@ -340,7 +340,7 @@ func main() {
 		forceInteractive = true
 	}
 
-	conslogger := conslogging.Current(conslogging.ForceColor, conslogging.NoPadding, conslogging.Info, false).
+	conslogger := conslogging.Current(conslogging.NoPadding, conslogging.Info, false).
 		WithPrefix("earth debugger")
 
 	color.NoColor = false

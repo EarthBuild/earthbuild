@@ -184,14 +184,8 @@ func run() (code int) {
 
 	colorMode := conslogging.ColorModeFromEnv()
 
-	switch colorMode {
-	case conslogging.ForceColor:
-		color.NoColor = false
-	case conslogging.NoColor:
-		color.NoColor = true
-	case conslogging.AutoColor:
-		// noop
-	}
+	// The color package handles NO_COLOR natively. Only unset it for FORCE_COLOR.
+	color.NoColor = colorMode != conslogging.ForceColor && color.NoColor
 
 	padding := conslogging.DefaultPadding
 

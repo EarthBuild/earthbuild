@@ -79,16 +79,17 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 | `satellite`, `satellites` | Managed remote runners (Buildkitd instances).  | You can run your own Buildkitd instances on any infrastructure and connect to them using `earth --buildkit-host <host>`. See [remote buildkit documentation](docs/ci-integration/remote-buildkit.md).                    |
 | `cloud`, `clouds`         | Configured Cloud Installations for BYOC plans. | See `satellite` alternative.                                                                                                                                                                                             |
 | `secret`, `secrets`       | Managed cloud secrets.                         | Use standard environment variables, `--secret` flags with local files (`--secret-file-path`), or integrate with your own secret management solution (e.g., HashiCorp Vault, AWS Secrets Manager) within your Earthfiles. |
+| `registry`, `registries`  | Managed registry access.                       | Removed as part of the cloud teardown in earthly `v0.8.16`. Use standard Docker authentication methods for registry access.                                                                                               |
 | `web`                     | Opened the Earthly Cloud web UI.               | Not applicable.                                                                                                                                                                                                          |
 | `billing`                 | Viewed Earthly billing information.            | Not applicable.                                                                                                                                                                                                          |
 | `gha`                     | Managed GitHub Actions integrations.           | The core GitHub Actions integration remains. See the CI section below. This command was for a specific, now-removed, part of that integration.                                                                           |
-| `prune-auto-skip`         | Pruned auto-skip data.                         | The auto-skip feature has been removed, so this command is no longer needed.                                                                                                                                             |
+| `prune-auto-skip`         | Pruned auto-skip data.                         | This maintenance command has been removed. The `auto-skip` feature itself is deprecated (see below) and will be removed in `v0.9.x`.                                                                                       |
 
 ### Removed & Changed CLI Options
 
 - `--satellite`, `--sat`, `--no-satellite`, `--no-sat`: Removed. Use `--buildkit-host` (or configuration) explicitly to connect to a remote Buildkitd instance.
-- `--auto-skip`, `--no-auto-skip`: The `auto-skip` feature, which depended on Earthly's cloud services, has
-  been removed. If you are interested in this feature being restored in the community edition see <https://github.com/EarthBuild/earthbuild/issues/3>
+- `--auto-skip`, `--no-auto-skip` (and `--auto-skip-db-path`): **Deprecated, not yet removed.** These
+  flags still function in `v0.8.x` but will log a deprecation warning and be removed in `v0.9.x`.
 - `--auth-token`: This flag has been removed since it was used for authenticating with Earthly Cloud. For registry authentication, use standard Docker authentication methods.
 - The binary name in help texts and other places is now `earth` instead of `earthly`.
 
@@ -101,10 +102,12 @@ All `EARTHLY_*` environment variables have been renamed to `EARTH_*` to reflect 
 The following environment variables have been removed along with their associated features:
 
 - `EARTHLY_TOKEN` - Used for Earthly Cloud authentication
-- `EARTHLY_AUTO_SKIP` - Controlled auto-skip functionality
-- `EARTHLY_NO_AUTO_SKIP` - Disabled auto-skip functionality
 - `EARTHLY_SATELLITE` - Selected satellite for builds
 - `EARTHLY_NO_SATELLITE` - Disabled satellite usage
+
+The `auto-skip` environment variables (`EARTHLY_AUTO_SKIP`, `EARTHLY_NO_AUTO_SKIP`,
+`EARTHLY_AUTO_SKIP_DB_PATH`) are **not** removed. Like the corresponding flags, they are deprecated in
+`v0.8.x` and will be removed in `v0.9.x`.
 
 #### Migration Strategy
 
@@ -123,7 +126,12 @@ The following environment variables have been removed along with their associate
 
 ## Detailed CLI Diff
 
-Here is a `diff` of the CLI help output to highlight the changes.
+Here is a `diff` of the CLI help output to highlight the changes. The `+` side below is captured from
+EarthBuild `v0.8.18`.
+
+> Note: environment-variable bindings are still shown with the `EARTHLY_*` prefix. The rename to
+> `EARTH_*` (with deprecation warnings) is tracked separately and lands ahead of the `v0.9.x` breaking
+> change — see the Environment Variable Changes section above.
 
 ```diff
 NAME:
@@ -142,18 +150,18 @@ USAGE:
 
 
 COMMANDS:
-   bootstrap                   Bootstraps installation including buildkit image download and optionally shell autocompletion
+   bootstrap                   Bootstraps earth installation including buildkit image download and optionally shell autocompletion
    docker-build                *beta* Build a Dockerfile without an Earthfile
 -   account                     Create or manage an Earthly account
-   config                      Edits your configuration file
+   config                      Edits your earth configuration file
    doc                         Document targets from an Earthfile
    init                        *experimental* Initialize an Earthfile for the current project
    ls                          List targets from an Earthfile
 -   org, orgs                   Create or manage your Earthly orgs
 -   project, projects           Manage Earthly projects
-   prune                       Prune build cache
+   prune                       Prune earth build cache
 -   prune-auto-skip             Prune Earthly auto-skip data
-   registry, registries        *beta* Manage registry access
+-   registry, registries        *beta* Manage registry access
 -   satellite, satellites, sat  Create and manage Earthly Satellites
 -   cloud, clouds               Configure Cloud Installations for BYOC plans
 -   secret, secrets             *beta* Manage cloud secrets
@@ -163,37 +171,39 @@ COMMANDS:
    help, h                     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --config value                   Path to config file [$EARTH_CONFIG]
-   --ssh-auth-sock value            The SSH auth socket to use for ssh-agent forwarding (default: "/private/tmp/com.apple.launchd.ZviWbhl8ar/Listeners") [$EARTH_SSH_AUTH_SOCK]
-   --git-username value             The git username to use for git HTTPS authentication [$GIT_USERNAME]
-   --git-password value             The git password to use for git HTTPS authentication [$GIT_PASSWORD]
-   --verbose, -V                    Enable verbose logging (default: false) [$EARTH_VERBOSE]
-   --buildkit-host value            The URL to use for connecting to a buildkit host
-                                      If empty, earthly will attempt to start a buildkitd instance via docker run [$EARTH_BUILDKIT_HOST]
-                                    Disable collection of analytics (default: false) [$EARTH_DISABLE_ANALYTICS, $DO_NOT_TRACK]
-   --env-file-path value            Use values from this file as earthly environment variables; values are no longer used as --build-arg's or --secret's (default: ".env") [$EARTH_ENV_FILE_PATH]
-   --arg-file-path value            Use values from this file as earthly buildargs (default: ".arg") [$EARTH_ARG_FILE_PATH]
-   --secret-file-path value         Use values from this file as earthly secrets (default: ".secret") [$EARTH_SECRET_FILE_PATH]
-   --artifact, -a                   Output specified artifact; a wildcard (*) can be used to output all artifacts (default: false)
-   --image                          Output only docker image of the specified target (default: false)
-   --push                           Push docker images and execute RUN --push commands (default: false) [$EARTH_PUSH]
+   --config string                  Path to config file [$EARTHLY_CONFIG]
+   --ssh-auth-sock string           The SSH auth socket to use for ssh-agent forwarding [$EARTHLY_SSH_AUTH_SOCK]
+   --git-username string            The git username to use for git HTTPS authentication [$GIT_USERNAME]
+   --git-password string            The git password to use for git HTTPS authentication [$GIT_PASSWORD]
+   --verbose, -V                    Enable verbose logging [$EARTHLY_VERBOSE]
+   --buildkit-host string           The URL to use for connecting to a buildkit host
+                                      If empty, earth will attempt to start a buildkitd instance via docker run [$EARTHLY_BUILDKIT_HOST]
+   --env-file-path string           Use values from this file as earth environment variables; values are no longer used as --build-arg's or --secret's (default: ".env") [$EARTHLY_ENV_FILE_PATH]
+   --arg-file-path string           Use values from this file as earth buildargs (default: ".arg") [$EARTHLY_ARG_FILE_PATH]
+   --secret-file-path string        Use values from this file as earth secrets (default: ".secret") [$EARTHLY_SECRET_FILE_PATH]
+   --artifact, -a                   Output specified artifact; a wildcard (*) can be used to output all artifacts
+   --image                          Output only docker image of the specified target
+   --push                           Push docker images and execute RUN --push commands [$EARTHLY_PUSH]
    --ci                             Execute in CI mode.
-                                    Implies --no-output --strict (default: false) [$EARTH_CI]
-   --output                         Allow artifacts or images to be output, even when running under --ci mode (default: false) [$EARTH_OUTPUT]
+                                    Implies --no-output --strict [$EARTHLY_CI]
+   --output                         Allow artifacts or images to be output, even when running under --ci mode [$EARTHLY_OUTPUT]
    --no-output                      Do not output artifacts or images
-                                    (using --push is still allowed) (default: false) [$EARTH_NO_OUTPUT]
-   --no-cache                       Do not use cache while building (default: false) [$EARTH_NO_CACHE]
-   --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands (default: false) [$EARTH_ALLOW_PRIVILEGED]
-   --max-remote-cache               Saves all intermediate images too in the remote cache (default: false) [$EARTH_MAX_REMOTE_CACHE]
-   --save-inline-cache              Enable cache inlining when pushing images (default: false) [$EARTH_SAVE_INLINE_CACHE]
+                                    (using --push is still allowed) [$EARTHLY_NO_OUTPUT]
+   --no-cache                       Do not use cache while building [$EARTHLY_NO_CACHE]
+   --auto-skip                      Skip buildkit if target has already been built [$EARTHLY_AUTO_SKIP]
+   --allow-privileged, -P           Allow build to use the --privileged flag in RUN commands [$EARTHLY_ALLOW_PRIVILEGED]
+   --max-remote-cache               Saves all intermediate images too in the remote cache [$EARTHLY_MAX_REMOTE_CACHE]
+   --save-inline-cache              Enable cache inlining when pushing images [$EARTHLY_SAVE_INLINE_CACHE]
    --use-inline-cache               Attempt to use any inline cache that may have been previously pushed
-                                    uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from (default: false) [$EARTH_USE_INLINE_CACHE]
-   --interactive, -i                Enable interactive debugging (default: false) [$EARTH_INTERACTIVE]
-   --strict                         Disallow usage of features that may create unrepeatable builds (default: false) [$EARTH_STRICT]
-   --buildkit-image value           The docker image to use for the buildkit daemon (default: "docker.io/earthly/buildkitd:v0.8.15") [$EARTH_BUILDKIT_IMAGE]
-   --remote-cache value             A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTH_REMOTE_CACHE]
-   --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images (default: false) [$EARTH_DISABLE_REMOTE_REGISTRY_PROXY]
-   --github-annotations             Enable GitHub Actions workflow specific output. When enabled, errors and warnings are reported as annotations in GitHub. (default: false) [$GITHUB_ACTIONS]
+                                    uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from [$EARTHLY_USE_INLINE_CACHE]
+   --interactive, -i                Enable interactive debugging [$EARTHLY_INTERACTIVE]
+   --strict                         Disallow usage of features that may create unrepeatable builds [$EARTHLY_STRICT]
+   --auto-skip-db-path string       use a local database for auto-skip [$EARTHLY_AUTO_SKIP_DB_PATH]
+   --buildkit-image string          The docker image to use for the buildkit daemon (default: "docker.io/earthbuild/buildkitd:v0.8.18") [$EARTHLY_BUILDKIT_IMAGE]
+   --remote-cache string            A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHLY_REMOTE_CACHE]
+   --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images [$EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY]
+   --no-auto-skip                   Disable auto-skip functionality [$EARTHLY_NO_AUTO_SKIP]
+   --github-annotations             Enable GitHub Actions workflow specific output [$GITHUB_ACTIONS]
    --help, -h                       show help
    --version, -v                    print the version
 ```
@@ -204,7 +214,8 @@ The core syntax of Earthfiles is largely unchanged.
 
 Again, this will be logged as a warning in `v0.8.x` and removed, treated as an error, in `v0.9.x`.
 
-The exception here is that the `PROJECT` command is removed entirely since it related to the cloud offering.
+The `PROJECT` command relates to the cloud offering. It is still accepted in `v0.8.x` where it will
+log a deprecation warning, and it will be removed and treated as an error in `v0.9.x`.
 
 Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`.
 

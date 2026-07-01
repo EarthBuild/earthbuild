@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
-	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
@@ -183,15 +183,9 @@ func run() (code int) {
 		}
 	}
 
-	colorMode := conslogging.AutoColor
-	if envutil.IsTrue("FORCE_COLOR") {
-		colorMode = conslogging.ForceColor
+	// The color package handles NO_COLOR natively. Only unset it for FORCE_COLOR.
+	if isForceColor() {
 		color.NoColor = false
-	}
-
-	if envutil.IsTrue("NO_COLOR") {
-		colorMode = conslogging.NoColor
-		color.NoColor = true
 	}
 
 	padding := conslogging.DefaultPadding
@@ -204,14 +198,65 @@ func run() (code int) {
 		}
 	}
 
-	if envutil.IsTrue("EARTHLY_FULL_TARGET") {
-		padding = conslogging.NoPadding
+	fullTarget, ok := os.LookupEnv("EARTHLY_FULL_TARGET")
+	if ok {
+		v, err := strconv.ParseBool(fullTarget)
+		if err != nil {
+			fmt.Printf("Invalid value for EARTHLY_FULL_TARGET (%q): %s.\n", fullTarget, err.Error())
+			return 1
+		}
+
+		if v {
+			padding = conslogging.NoPadding
+		}
 	}
 
-	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)
+	logging := conslogging.Current(padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
 	cli.SetConsole(logging)
 	earth := app.NewEarthApp(cli, rootApp, buildApp)
 
 	return earth.Run(ctx, lastSignal)
+}
+
+// isForceColor returns true if the FORCE_COLOR environment variable is set to a truthy value.
+// It uses a permissive boolean parser to support common truthy/falsy conventions.
+func isForceColor() bool {
+	forceColor := os.Getenv("FORCE_COLOR")
+	if forceColor == "" {
+		return false
+	}
+
+	v, err := parseBool(forceColor)
+	if err != nil {
+		fmt.Printf("read FORCE_COLOR from env: %q\n",
+			forceColor)
+
+		return false
+	}
+
+	return v
+}
+
+func parseBool(val string) (bool, error) {
+	b, err := strconv.ParseBool(val)
+	if err == nil {
+		return b, nil
+	}
+
+	i, err := strconv.Atoi(val)
+	if err == nil {
+		return i != 0, nil
+	}
+
+	switch strings.ToLower(val) {
+	case "yes", "y", "on":
+		return true, nil
+	case "no", "n", "off":
+		return false, nil
+	}
+
+	return false, fmt.Errorf("invalid boolean value, "+
+		"want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q",
+		val)
 }

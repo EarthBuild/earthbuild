@@ -14,19 +14,6 @@ import (
 	"github.com/fatih/color"
 )
 
-// ColorMode is the mode in which colors are represented in the output.
-type ColorMode int
-
-const (
-	// AutoColor automatically detects the presence of a TTY to decide if
-	// color should be used.
-	AutoColor ColorMode = iota
-	// NoColor disables use of color.
-	NoColor
-	// ForceColor forces use of color.
-	ForceColor
-)
-
 const (
 	// NoPadding means the old behavior of printing the full target only.
 	NoPadding int = -1
@@ -68,7 +55,6 @@ type ConsoleLogger struct {
 	saltColors        map[string]*color.Color
 	salt              string
 	prefix            string
-	colorMode         ColorMode
 	logLevel          LogLevel
 	prefixPadding     int
 	githubAnnotations bool
@@ -82,13 +68,13 @@ type ConsoleLogger struct {
 }
 
 // Current returns the current console.
-func Current(colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
-	return New(getCompatibleStderr(), &currentConsoleMutex, colorMode, prefixPadding, logLevel, githubAnnotations)
+func Current(prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
+	return New(getCompatibleStderr(), &currentConsoleMutex, prefixPadding, logLevel, githubAnnotations)
 }
 
 // New returns a new ConsoleLogger with a predefined target writer.
 func New(
-	w io.Writer, mu *sync.Mutex, colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
+	w io.Writer, mu *sync.Mutex, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
 ) ConsoleLogger {
 	if mu == nil {
 		mu = &sync.Mutex{}
@@ -97,7 +83,6 @@ func New(
 	return ConsoleLogger{
 		consoleErrW:       w,
 		errW:              w,
-		colorMode:         colorMode,
 		saltColors:        make(map[string]*color.Color),
 		nextColorIndex:    new(int),
 		prefixPadding:     prefixPadding,
@@ -121,7 +106,6 @@ func (cl ConsoleLogger) clone() ConsoleLogger {
 		isFailed:          cl.isFailed,
 		githubAnnotations: cl.githubAnnotations,
 		saltColors:        cl.saltColors,
-		colorMode:         cl.colorMode,
 		nextColorIndex:    cl.nextColorIndex,
 		prefixPadding:     cl.prefixPadding,
 		mu:                cl.mu,
@@ -621,20 +605,11 @@ func (cl ConsoleLogger) printPrefix(w io.Writer) {
 }
 
 func (cl ConsoleLogger) color(c *color.Color) *color.Color {
-	switch cl.colorMode {
-	case NoColor:
+	if color.NoColor {
 		return noColor
-	case ForceColor:
-		return c
-	case AutoColor:
-		if color.NoColor {
-			return noColor
-		}
-
-		return c
 	}
 
-	return noColor
+	return c
 }
 
 func prettyPrefix(prefixPadding int, prefix string) string {

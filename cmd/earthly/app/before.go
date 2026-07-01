@@ -15,7 +15,6 @@ import (
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
@@ -63,8 +62,6 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		flags.Debug,
 		flags.Verbose,
 		flags.DisplayExecStats,
-		envutil.IsTrue("FORCE_COLOR"),
-		envutil.IsTrue("NO_COLOR"),
 		app.BaseCLI.Flags().InteractiveDebugging,
 		flags.LogstreamDebugFile,
 		uuid.NewString(),

@@ -62,7 +62,7 @@ runs:
       if: steps.fork-check.outputs.is_fork == 'true'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earthly-build-ubuntu-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
     - name: Load buildkitd image from artifact (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
@@ -168,7 +168,7 @@ runs:
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
         echo "Extracting earthly binary from stage1 of build"
-        export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
+        export TAG=${GITHUB_SHA}-ubuntu-latest
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership

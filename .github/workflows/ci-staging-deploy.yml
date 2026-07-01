@@ -58,9 +58,9 @@ jobs:
           fetch-depth: 0
       - name: Retrieve earthbuild from build-earthly job
         run: |
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest-docker" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest" ./build/linux/amd64/earthly
       - name: Compute release tag
         id: compute-tag
         run: |-
@@ -138,9 +138,9 @@ jobs:
           fetch-depth: 0
       - name: Retrieve earthbuild from build-earthly job
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest-docker" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest" ./build/linux/amd64/earthly
       - name: Release to DockerHub (main)
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -189,9 +189,9 @@ jobs:
           fetch-depth: 0
       - name: Retrieve earthbuild from build-earthly job
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest-docker" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest" ./build/linux/amd64/earthly
       - name: Release to DockerHub (ticktock)
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -223,9 +223,9 @@ jobs:
           fetch-depth: 0
       - name: Retrieve earthbuild from build-earthly job
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest-docker" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest" ./build/linux/amd64/earthly
       - name: Copy buildkitd from GHCR to DockerHub
         env:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -268,9 +268,9 @@ jobs:
           fetch-depth: 0
       - name: Retrieve earthbuild from build-earthly job
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest-docker" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-ubuntu-latest" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest-docker" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-ubuntu-latest" ./build/linux/amd64/earthly
       # This step creates earthly binaries for all platforms plus signature files for them under
       # the ./release/release/ dir
       - name: Create Release Binaries

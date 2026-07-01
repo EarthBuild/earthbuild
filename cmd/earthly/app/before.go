@@ -223,7 +223,7 @@ const cmdName = "earthly"
 // be removed once EARTHLY_ support is officially dropped.
 func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
 	for _, warning := range env.DeprecatedWarnings() {
-		app.BaseCLI.Console().Warnf("%s", warning)
+		app.BaseCLI.Console().Warn(warning)
 	}
 }
 

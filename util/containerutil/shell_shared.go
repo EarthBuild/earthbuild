@@ -101,7 +101,7 @@ func parseContainerList(output string) ([]*ContainerInfo, error) {
 }
 
 func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerInfo, error) {
-	args := append([]string{"container", "inspect"}, namesOrIDs...)
+	args := append([]string{"container", "inspect"}, namesOrIDs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided names or IDs could be missing.
 	// This allows for Info to report that the container itself is missing.
@@ -276,7 +276,7 @@ func (sf *shellFrontend) ContainerRun(ctx context.Context, containers ...Contain
 }
 
 func (sf *shellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[string]*ImageInfo, error) {
-	args := append([]string{"image", "inspect"}, refs...)
+	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided refs could be missing.
 	// This allows for Info to report that the image itself is missing.
@@ -428,6 +428,10 @@ func DefaultAddressForSetting(setting string, localContainerName string, default
 		// Podman only works over TCP. There are weird errors when trying to use the provided helper from buildkit.
 		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
 
+	case FrontendAppleContainerShell:
+		// Apple container only works over TCP.
+		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
+
 	case FrontendStub:
 		return DockerSchemePrefix + localContainerName, nil // Maintain old behavior
 	}
@@ -441,9 +445,16 @@ func parseAndValidateURL(addr string) (*url.URL, error) {
 		return nil, fmt.Errorf("%s: %w", addr, errURLParseFailure)
 	}
 
-	if parsed.Scheme != "tcp" && parsed.Scheme != SchemeDockerContainer && parsed.Scheme != SchemePodmanContainer {
-		format := "%s is not a valid scheme. Only tcp or docker-container is allowed at this time: %w"
-		return nil, fmt.Errorf(format, parsed.Scheme, errURLValidationFailure)
+	if parsed.Scheme != "tcp" &&
+		parsed.Scheme != SchemeDockerContainer &&
+		parsed.Scheme != SchemePodmanContainer &&
+		parsed.Scheme != SchemeAppleContainer {
+		return nil, fmt.Errorf(
+			"%s is not a valid scheme. "+
+				"Only tcp, docker-container, podman-container, or apple-container is allowed at this time: %w",
+			parsed.Scheme,
+			errURLValidationFailure,
+		)
 	}
 
 	if parsed.Port() == "" && parsed.Scheme == "tcp" {
@@ -467,5 +478,6 @@ func IsLocal(addr string) bool {
 		hostname == net.IPv6loopback.String() ||
 		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
 		parsed.Scheme == SchemeDockerContainer || // Accommodate feature flagging during transition. Will have omitted TLS?
-		parsed.Scheme == SchemePodmanContainer
+		parsed.Scheme == SchemePodmanContainer ||
+		parsed.Scheme == SchemeAppleContainer
 }

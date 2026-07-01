@@ -295,6 +295,18 @@ lint-changelog:
     COPY CHANGELOG.md .
     RUN changelogparser --changelog CHANGELOG.md
 
+# lint-renovate lints the renovate configuration file.
+lint-renovate:
+    FROM +node
+    # renovate: datasource=npm packageName=renovate
+    LET renovate_version=43.243.2
+    RUN \
+        --mount type=cache,target=/root/.npm,id=npm \
+        npm install -g renovate@$renovate_version
+    WORKDIR /renovate
+    COPY .github/renovate.json5 .github/renovate.json5
+    RUN renovate-config-validator .github/renovate.json5
+
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
@@ -722,6 +734,7 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
+    BUILD +lint-renovate
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations

@@ -1,6 +1,6 @@
 VERSION --pass-args 0.7
 
-FROM alpine:3.24.0
+FROM alpine:3.24.1
 
 foo:
     RUN echo "dynamic target ok"

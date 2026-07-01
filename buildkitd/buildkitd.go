@@ -68,7 +68,8 @@ func NewClient(
 					settings.ClientTLSCert,
 				}
 				if containsAny(retErr.Error(), tlsPaths...) {
-					retErr = hint.Wrap(retErr,
+					retErr = hint.Wrap(
+						retErr,
 						"podman now requires TLS certs by default - "+
 							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
 						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
@@ -1284,7 +1285,8 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 		return append(opts, client.WithServerConfigSystem("")), nil
 	}
 
-	opts = append(opts,
+	opts = append(
+		opts,
 		client.WithCredentials(settings.ClientTLSCert, settings.ClientTLSKey),
 		client.WithServerConfig(server.Hostname(), settings.TLSCA),
 	)

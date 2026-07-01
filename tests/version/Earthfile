@@ -6,7 +6,7 @@ IMPORT .. AS tests
 WORKDIR /test
 
 test-cli-smoke:
-    # Detailed VERSION syntax coverage lives in ast/version_test.go. Keep one
+    # Detailed VERSION syntax coverage lives in internal/earthfile/version_test.go. Keep one
     # successful build, one version-only import, and one invalid-version CLI
     # smoke here so the full command path still gets exercised.
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile=single-line.earth --target=+test

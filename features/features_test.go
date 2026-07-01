@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,6 +35,21 @@ func TestMustParseVersion(t *testing.T) {
 			Equal(t, tc.expected[1], minor)
 		})
 	}
+}
+
+func TestGetRejectsFeatureFlagOverride(t *testing.T) {
+	t.Parallel()
+
+	// A bool feature flag given an explicit argument must be rejected. Mirrors
+	// the invalid-feature-flag-override.earth integration fixture end-to-end:
+	// the parser accepts the VERSION line (0.6 is a valid version), and Get
+	// rejects the malformed flag when it parses the VERSION arguments.
+	tree, err := earthfile.Parse("Earthfile", "VERSION --referenced-save-only=false 0.6")
+	require.NoError(t, err)
+
+	_, _, err = Get(tree.Version)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "bool flag `--referenced-save-only' cannot have an argument")
 }
 
 func TestFeaturesStringEnabled(t *testing.T) {

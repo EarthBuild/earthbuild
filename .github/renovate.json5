@@ -26,7 +26,7 @@
     'tests/**',
     'scripts/tests/interactive-debugger/**',
     'inputgraph/testdata/**',
-    'ast/tests/**',
+    'internal/earthfile/tests/**',
   ],
   ignorePaths: [
     '**/node_modules/**',
@@ -90,7 +90,7 @@
       customType: 'regex',
       managerFilePatterns: [
         '/buildcontext/git.go/',
-        '/ast/tests/git-clone.ast.json/',
+        '/internal/earthfile/tests/git-clone.ast.json/',
       ],
       matchStrings: [
         '"alpine/git:(?<currentValue>.+?)"',
@@ -113,7 +113,7 @@
       managerFilePatterns: [
         '/Earthfile$/',
         '/earthfile2llb/with_docker_run_base\\.go/',
-        '/ast/tests/.*?\\.ast\\.json/',
+        '/internal/earthfile/tests/.*?\\.ast\\.json/',
         '/.+.md/',
       ],
       matchStrings: [
@@ -216,7 +216,7 @@
         'tests/**',
         'scripts/tests/interactive-debugger/**',
         'inputgraph/testdata/**',
-        'ast/tests/**',
+        'internal/earthfile/tests/**',
       ],
       matchPackageNames: [
         'earthbuild/dind',

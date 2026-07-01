@@ -186,9 +186,11 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 	// TODO: /tmp/earthbuild should not be hard-coded here. It should match whatever
 	//       buildkit's image EARTHLY_TMP_DIR is set to.
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		"/var/earthbuild/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind")))
+		"/var/earthbuild/dind", pllb.Scratch(), llb.HostBind(), llb.SourcePath("/tmp/earthbuild/dind"),
+	))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, pllb.AddMount(
-		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)))
+		dockerdWrapperPath, pllb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath),
+	))
 	crOpts.extraRunOpts = append(crOpts.extraRunOpts, opt.extraRunOpts...)
 
 	tarPaths := make([]string, 0, len(w.tarLoads))

@@ -1,7 +1,7 @@
 VERSION 0.8
 
 deps:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
 
     # renovate: datasource=custom.zig packageName=ziglang/zig
     ARG ZIG_VERSION=0.16.0
@@ -13,13 +13,21 @@ deps:
         ARG ZIG_ARCH="aarch64"
     END
     RUN echo "Installing Zig $ZIG_VERSION for $ZIG_ARCH"
+    # ziglang.org throttles/drops CI downloads; on top of wget's own rapid
+    # retries, back off between attempts — rapid retries hit the same
+    # throttle and all fail.
     RUN \
         if echo "$ZIG_VERSION" | grep -q -- "-dev"; then \
             export URL="https://ziglang.org/builds/zig-$ZIG_ARCH-linux-$ZIG_VERSION.tar.xz"; \
         else \
             export URL="https://ziglang.org/download/$ZIG_VERSION/zig-$ZIG_ARCH-linux-$ZIG_VERSION.tar.xz"; \
         fi && \
-        wget --tries=5 --timeout=300 --continue -O zig.tar.xz "$URL" && \
+        for i in 1 2 3 4 5; do \
+            wget -t 5 -T 300 -c -O zig.tar.xz "$URL" && break; \
+            [ "$i" -lt 5 ] || exit 1; \
+            echo "Zig download attempt $i/5 failed; retrying" >&2; \
+            sleep $((i * 10)); \
+        done && \
         mkdir zig && \
         tar -xvf zig.tar.xz --strip-components 1 -C zig && \
         ln -sf /zig/zig /usr/bin/zig
@@ -40,7 +48,7 @@ test:
     RUN zig test src/main.zig
 
 docker:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     WORKDIR /app
     COPY +build/fizzbuzz .
 

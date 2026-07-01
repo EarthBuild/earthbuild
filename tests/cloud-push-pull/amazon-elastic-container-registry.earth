@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM earthbuild/dind:alpine-3.23-docker-29.5.2-r0
+FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
 
 push:
     ARG ACCT_ID

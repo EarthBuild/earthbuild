@@ -7,25 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
 
 	"github.com/fatih/color"
-)
-
-// ColorMode is the mode in which colors are represented in the output.
-type ColorMode int
-
-const (
-	// AutoColor automatically detects the presence of a TTY to decide if
-	// color should be used.
-	AutoColor ColorMode = iota
-	// NoColor disables use of color.
-	NoColor
-	// ForceColor forces use of color.
-	ForceColor
 )
 
 const (
@@ -69,7 +55,6 @@ type ConsoleLogger struct {
 	saltColors        map[string]*color.Color
 	salt              string
 	prefix            string
-	colorMode         ColorMode
 	logLevel          LogLevel
 	prefixPadding     int
 	githubAnnotations bool
@@ -83,13 +68,13 @@ type ConsoleLogger struct {
 }
 
 // Current returns the current console.
-func Current(colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
-	return New(getCompatibleStderr(), &currentConsoleMutex, colorMode, prefixPadding, logLevel, githubAnnotations)
+func Current(prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
+	return New(getCompatibleStderr(), &currentConsoleMutex, prefixPadding, logLevel, githubAnnotations)
 }
 
 // New returns a new ConsoleLogger with a predefined target writer.
 func New(
-	w io.Writer, mu *sync.Mutex, colorMode ColorMode, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
+	w io.Writer, mu *sync.Mutex, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
 ) ConsoleLogger {
 	if mu == nil {
 		mu = &sync.Mutex{}
@@ -98,7 +83,6 @@ func New(
 	return ConsoleLogger{
 		consoleErrW:       w,
 		errW:              w,
-		colorMode:         colorMode,
 		saltColors:        make(map[string]*color.Color),
 		nextColorIndex:    new(int),
 		prefixPadding:     prefixPadding,
@@ -122,7 +106,6 @@ func (cl ConsoleLogger) clone() ConsoleLogger {
 		isFailed:          cl.isFailed,
 		githubAnnotations: cl.githubAnnotations,
 		saltColors:        cl.saltColors,
-		colorMode:         cl.colorMode,
 		nextColorIndex:    cl.nextColorIndex,
 		prefixPadding:     cl.prefixPadding,
 		mu:                cl.mu,
@@ -622,20 +605,11 @@ func (cl ConsoleLogger) printPrefix(w io.Writer) {
 }
 
 func (cl ConsoleLogger) color(c *color.Color) *color.Color {
-	switch cl.colorMode {
-	case NoColor:
+	if color.NoColor {
 		return noColor
-	case ForceColor:
-		return c
-	case AutoColor:
-		if color.NoColor {
-			return noColor
-		}
-
-		return c
 	}
 
-	return noColor
+	return c
 }
 
 func prettyPrefix(prefixPadding int, prefix string) string {
@@ -648,64 +622,4 @@ func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
 	ret.logLevel = logLevel
 
 	return ret
-}
-
-// ColorModeFromEnv returns the appropriate ColorMode based on FORCE_COLOR and NO_COLOR environment variables.
-// As these environment variables are not EarthBuild-specific, this function uses a permissive boolean
-// parser to support common truthy/falsy conventions across different toolchains.
-func ColorModeFromEnv() ColorMode {
-	printErr := func(name, val string) {
-		fmt.Printf("read color mode from env: invalid boolean for %s, "+
-			"want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q\n",
-			name, val)
-	}
-
-	forceColor := os.Getenv("FORCE_COLOR")
-	if forceColor != "" {
-		v, err := parseBool(forceColor)
-		if err != nil {
-			printErr("FORCE_COLOR", forceColor)
-			return AutoColor
-		}
-
-		if v {
-			return ForceColor
-		}
-	}
-
-	noColor := os.Getenv("NO_COLOR")
-	if noColor != "" {
-		v, err := parseBool(noColor)
-		if err != nil {
-			printErr("NO_COLOR", noColor)
-			return AutoColor
-		}
-
-		if v {
-			return NoColor
-		}
-	}
-
-	return AutoColor
-}
-
-func parseBool(val string) (bool, error) {
-	b, err := strconv.ParseBool(val)
-	if err == nil {
-		return b, nil
-	}
-
-	i, err := strconv.Atoi(val)
-	if err == nil {
-		return i != 0, nil
-	}
-
-	switch strings.ToLower(val) {
-	case "yes", "y", "on":
-		return true, nil
-	case "no", "n", "off":
-		return false, nil
-	}
-
-	return false, fmt.Errorf("invalid boolean value: %q", val)
 }

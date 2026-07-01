@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/formatter"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
@@ -35,7 +34,7 @@ type BusSetup struct {
 func New(
 	ctx context.Context,
 	bus *logbus.Bus,
-	debug, verbose, displayStats bool, colorMode conslogging.ColorMode, disableOngoingUpdates bool,
+	debug, verbose, displayStats bool, disableOngoingUpdates bool,
 	busDebugFile, buildID string,
 	execStatsTracker *execstatssummary.Tracker,
 	isGitHubActions bool,
@@ -54,7 +53,7 @@ func New(
 	}
 	bs.Formatter = formatter.New(
 		ctx, bs.Bus, debug, verbose, displayStats,
-		colorMode, disableOngoingUpdates, execStatsTracker, isGitHubActions,
+		disableOngoingUpdates, execStatsTracker, isGitHubActions,
 	)
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)

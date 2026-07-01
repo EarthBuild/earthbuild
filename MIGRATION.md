@@ -117,7 +117,6 @@ The `auto-skip` environment variables (`EARTHLY_AUTO_SKIP`, `EARTHLY_NO_AUTO_SKI
 
 **Standard Variables Unchanged:** Some environment variables remain unchanged as they follow standard conventions:
 
-- `DO_NOT_TRACK` - Standard analytics opt-out variable
 - `GIT_USERNAME` - Git authentication username
 - `GIT_PASSWORD` - Git authentication password
 - `GITHUB_ACTIONS` - GitHub Actions environment detection
@@ -242,6 +241,39 @@ point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-s
 -         run: earthly --ci +all
 +         run: earth --ci +all
 ```
+
+## Container Image Registries
+
+The canonical container images have moved from the `docker.io/earthly/*` namespace to
+`docker.io/earthbuild/*`. If you reference any of these images directly — for example via
+`--buildkit-image`, the `global.buildkit_image` config value, a `WITH DOCKER --pull`, or a CI step
+that pulls the all-in-one image — update the registry path.
+
+| Image                          | Old (earthly)                  | New (EarthBuild)                  |
+| ------------------------------ | ------------------------------ | -------------------------------- |
+| All-in-one CLI image           | `docker.io/earthly/earthly`    | `docker.io/earthbuild/earthbuild` |
+| BuildKit daemon                | `docker.io/earthly/buildkitd`  | `docker.io/earthbuild/buildkitd`  |
+| Docker-in-Docker (`WITH DOCKER`) | `docker.io/earthly/dind`     | `docker.io/earthbuild/dind`       |
+
+Concrete examples as they apply to `v0.8.18`:
+
+```diff
+# Pinning the buildkit daemon image
+- earthly --buildkit-image docker.io/earthly/buildkitd:v0.8.15 +all
++ earth --buildkit-image docker.io/earthbuild/buildkitd:v0.8.18 +all
+
+# Pulling the all-in-one image in CI
+- docker pull docker.io/earthly/earthly:v0.8.16
++ docker pull docker.io/earthbuild/earthbuild:v0.8.18
+
+# A dind base image (WITH DOCKER)
+- FROM docker.io/earthly/dind:alpine
++ FROM docker.io/earthbuild/dind:alpine-3.23-docker-29.5.2-r0
+```
+
+For most users the BuildKit daemon image does not need to be set explicitly — `earth` defaults to the
+matching `docker.io/earthbuild/buildkitd` image for the release automatically. You only need to act if
+you have pinned an `earthly/*` image path somewhere.
 
 ## Other repositories
 

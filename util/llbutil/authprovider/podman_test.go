@@ -161,7 +161,8 @@ func TestPodmanProvider(t *testing.T) {
 			for _, env := range e.envs {
 				name, val, ok := strings.Cut(env, "=")
 				require.True(t, ok)
-				pers.MethodWasCalled(t, tc.os.method.Getenv,
+				pers.MethodWasCalled(
+					t, tc.os.method.Getenv,
 					pers.Within(timeout),
 					pers.WithArgs(name),
 					pers.Returning(val),
@@ -185,7 +186,8 @@ func TestPodmanProvider(t *testing.T) {
 
 			creds := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", e.auth.user, e.auth.secret))
 			authFile := io.NopCloser(bytes.NewBufferString(fmt.Sprintf(authFmt, e.auth.host, creds)))
-			pers.MethodWasCalled(t, tc.os.method.Open,
+			pers.MethodWasCalled(
+				t, tc.os.method.Open,
 				pers.Within(timeout),
 				pers.WithArgs(e.auth.path),
 				pers.Returning(authFile, nil),

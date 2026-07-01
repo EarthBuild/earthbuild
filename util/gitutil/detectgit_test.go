@@ -70,7 +70,8 @@ func TestDetectGitContentHash(t *testing.T) {
 		cmd := exec.CommandContext(context.Background(), args[0], args[1:]...) //nolint:gosec // test helper
 		cmd.Dir = dir
 
-		cmd.Env = append(os.Environ(),
+		cmd.Env = append(
+			os.Environ(),
 			"GIT_AUTHOR_NAME=test",
 			"GIT_AUTHOR_EMAIL=test@test.com",
 			"GIT_COMMITTER_NAME=test",

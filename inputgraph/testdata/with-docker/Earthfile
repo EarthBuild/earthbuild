@@ -2,7 +2,7 @@ VERSION 0.8
 
 load-target:
     ARG foo=1
-    FROM alpine
+    FROM alpine:3.24.1
     RUN echo "hi" > /tmp/x
     SAVE IMAGE saved:latest
 

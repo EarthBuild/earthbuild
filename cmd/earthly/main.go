@@ -6,12 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	_ "net/http/pprof" // #nosec G108 // enable pprof handlers on net/http listener
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
+	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
+	// to ensure it happens before other packages initialize.
+	_ "github.com/EarthBuild/earthbuild/cmd/earthly/disable_alpn"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
@@ -137,7 +141,8 @@ func run() (code int) {
 	flagSet := flag.NewFlagSet(common.GetBinaryName(), flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
-	cli := base.NewCLI(conslogging.ConsoleLogger{},
+	cli := base.NewCLI(
+		conslogging.ConsoleLogger{},
 		base.WithVersion(Version),
 		base.WithGitSHA(GitSha),
 		base.WithBuiltBy(BuiltBy),

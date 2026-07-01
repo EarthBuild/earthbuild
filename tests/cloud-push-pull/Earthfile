@@ -10,7 +10,7 @@ all:
     BUILD +amazon-elastic-container-registry
 
 google-base:
-    RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-420.0.0-linux-x86_64.tar.gz && \
+    RUN curl -fO --retry 7 --retry-all-errors https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-420.0.0-linux-x86_64.tar.gz && \
         tar -xvzf google-cloud-sdk-420.0.0-linux-x86_64.tar.gz && \
         ./google-cloud-sdk/install.sh -q && \
         ls -la /test/google-cloud-sdk
@@ -77,7 +77,7 @@ azure-container-registry:
 
 # TODO: Sort out a login for aws: AWS_ACCESS_KEY_ID and friends.
 amazon-elastic-container-registry:
-    RUN apk add go aws-cli docker-credential-ecr-login
+    RUN apk add --no-cache go aws-cli docker-credential-ecr-login
 
     COPY amazon-elastic-container-registry.earth ./Earthfile
 

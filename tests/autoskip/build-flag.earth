@@ -1,6 +1,6 @@
 VERSION --build-auto-skip 0.8
 
-FROM alpine
+FROM alpine:3.24.1
 
 a:
     RUN echo "hello from a"

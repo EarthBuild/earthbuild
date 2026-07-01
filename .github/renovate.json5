@@ -11,11 +11,8 @@
     'docs-0.8',
   ],
   configMigration: true,
-  prHourlyLimit: 1,
-  prConcurrentLimit: 3,
-  schedule: [ // utc timezone
-    'after 4pm on monday',
-  ],
+  prHourlyLimit: 0,
+  prConcurrentLimit: 1,
   includePaths: [
     'Earthfile',
     '**/go.mod',
@@ -29,7 +26,7 @@
     'tests/**',
     'scripts/tests/interactive-debugger/**',
     'inputgraph/testdata/**',
-    'ast/tests/**',
+    'internal/earthfile/tests/**',
   ],
   ignorePaths: [
     '**/node_modules/**',
@@ -61,6 +58,15 @@
       '/docker-compose*/',
     ],
   },
+  customDatasources: {
+    zig: {
+      defaultRegistryUrlTemplate: 'https://ziglang.org/download/index.json',
+      format: 'json',
+      transformTemplates: [
+        '{ "releases": $.*.version[$not($contains($, "-dev"))].{"version": $} }',
+      ],
+    },
+  },
   customManagers: [
     {
       customType: 'regex',
@@ -84,7 +90,7 @@
       customType: 'regex',
       managerFilePatterns: [
         '/buildcontext/git.go/',
-        '/ast/tests/git-clone.ast.json/',
+        '/internal/earthfile/tests/git-clone.ast.json/',
       ],
       matchStrings: [
         '"alpine/git:(?<currentValue>.+?)"',
@@ -96,10 +102,10 @@
       customType: 'regex',
       description: "Update _version LETs, ARGs and ENVs in Earthfile",
       managerFilePatterns: [
-        '/^Earthfile$/',
+        '/Earthfile$/',
       ],
       matchStrings: [
-        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG|LET)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-\\.]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG|LET)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
       ],
     },
     {
@@ -107,7 +113,7 @@
       managerFilePatterns: [
         '/Earthfile$/',
         '/earthfile2llb/with_docker_run_base\\.go/',
-        '/ast/tests/.*?\\.ast\\.json/',
+        '/internal/earthfile/tests/.*?\\.ast\\.json/',
         '/.+.md/',
       ],
       matchStrings: [
@@ -210,7 +216,7 @@
         'tests/**',
         'scripts/tests/interactive-debugger/**',
         'inputgraph/testdata/**',
-        'ast/tests/**',
+        'internal/earthfile/tests/**',
       ],
       matchPackageNames: [
         'earthbuild/dind',
@@ -387,14 +393,14 @@
     {
       groupName: 'x',
       matchPackageNames: [
-        '^golang\\.org/x/',
+        'golang.org/x/**',
       ],
     },
     // group all AWS SDK dependencies
     {
       groupName: 'AWS SDK',
       matchPackageNames: [
-        '^github\\.com/aws/',
+        'github.com/aws/**',
       ],
     },
     // group Go version updates
@@ -411,15 +417,9 @@
     {
       groupName: 'otel',
       matchPackageNames: [
-        '^go\\.opentelemetry\\.io/',
+        'go.opentelemetry.io/**',
       ],
     },
-    // group all Golang extended packages
-    {
-      groupName: 'x',
-      matchPackageNames: [
-        '^golang\\.org/x/',
-      ],
-    },
+
   ],
 }

@@ -18,6 +18,10 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
 	}
 
+	if cli.Flags().BuildkitdImage == "" {
+		cli.Flags().BuildkitdImage = "ghcr.io/earthbuild/earthbuild:buildkitd-dev-main"
+	}
+
 	if cli.Flags().UseTickTockBuildkitImage {
 		if cmd.IsSet("buildkit-image") {
 			return errors.New("the --buildkit-image and --ticktock flags are mutually exclusive")

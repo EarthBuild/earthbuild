@@ -3,7 +3,7 @@ VERSION --run-with-aws --run-with-aws-oidc 0.8
 PROJECT other-service+oidc-ci-test/my-project
 
 oidc:
-    FROM alpine
+    FROM alpine:3.24.1
     # set baseline - expects no envs with AWS_ prefix
     LET expected=0
     RUN export result=$(env |grep AWS_ |wc -l); \

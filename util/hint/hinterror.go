@@ -28,6 +28,12 @@ func (e *Error) Message() string {
 	return e.err.Error()
 }
 
+// Unwrap returns the wrapped error so [errors.Is] and [errors.As] can traverse
+// the hint wrapper.
+func (e *Error) Unwrap() error {
+	return e.err
+}
+
 // Hint returns all hints in a single string separated by a new line.
 func (e *Error) Hint() string {
 	if len(e.hints) == 0 {

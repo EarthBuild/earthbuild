@@ -2,11 +2,11 @@ VERSION 0.7
 PROJECT testorg/testproj
 
 valid-copy:
-    FROM alpine
+    FROM alpine:3.24.1
     COPY github.com/EarthBuild/test-remote:tags/v0.2+basic-file/file .
 
 valid-copy-sha:
-    FROM alpine
+    FROM alpine:3.24.1
     COPY github.com/EarthBuild/test-remote:6accddaba346aeda062ab47bae62e65dcdcc513f+basic-file/file .
 
 valid-from:
@@ -18,7 +18,7 @@ valid-from-sha:
     RUN echo "hello"
 
 invalid-copy-branch:
-    FROM alpine
+    FROM alpine:3.24.1
     COPY github.com/EarthBuild/test-remote:main+basic-file/file .
 
 valid-build:

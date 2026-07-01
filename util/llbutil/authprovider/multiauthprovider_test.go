@@ -87,7 +87,8 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range tc.children {
-			pers.MethodWasCalled(t, c.method.FetchToken,
+			pers.MethodWasCalled(
+				t, c.method.FetchToken,
 				pers.Within(timeout),
 				pers.WithArgs(pers.Any, req),
 				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),
@@ -148,7 +149,8 @@ func TestMultiAuth(t *testing.T) {
 				}
 			}
 
-			pers.MethodWasCalled(t, c.method.FetchToken,
+			pers.MethodWasCalled(
+				t, c.method.FetchToken,
 				pers.Within(timeout),
 				pers.WithArgs(pers.Any, req),
 				pers.Returning(ret...),
@@ -170,7 +172,8 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range tc.children {
-			pers.MethodWasCalled(t, c.method.FetchToken,
+			pers.MethodWasCalled(
+				t, c.method.FetchToken,
 				pers.Within(timeout),
 				pers.WithArgs(pers.Any, req),
 				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),

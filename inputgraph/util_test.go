@@ -27,7 +27,7 @@ func TestParseProjectCommand(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
 	org, project, err := ParseProjectCommand(ctx, target, cons)
 	r.NoError(err)
@@ -45,7 +45,7 @@ func TestParseProjectCommandNoProject(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
 	_, _, err := ParseProjectCommand(ctx, target, cons)
 	r.Error(err)

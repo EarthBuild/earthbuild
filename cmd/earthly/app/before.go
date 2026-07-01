@@ -12,6 +12,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -173,6 +174,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	app.warnIfEarth()
+	app.warnDeprecatedEarthlyEnvVars()
 
 	if cfg.Global.CachePath != "" {
 		app.BaseCLI.Console().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
@@ -213,6 +215,17 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 }
 
 const cmdName = "earthly"
+
+// warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
+// variables, which have been replaced by the EARTH_ prefix.
+//
+// NOTE: this is a temporary shim for the EARTHLY_ -> EARTH_ migration and should
+// be removed once EARTHLY_ support is officially dropped.
+func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
+	for _, warning := range env.DeprecatedWarnings() {
+		app.BaseCLI.Console().Warnf("%s", warning)
+	}
+}
 
 func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {

@@ -90,7 +90,7 @@ jobs:
           ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Login to GitHub Container Registry
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
@@ -105,7 +105,7 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build and push +ci-release using latest earthly build
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi

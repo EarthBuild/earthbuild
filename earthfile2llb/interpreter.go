@@ -2350,6 +2350,10 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) e
 }
 
 func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) error {
+	i.console.Warnf(
+		"Deprecation: the PROJECT command is deprecated and will be removed in v0.9.x. " +
+			"It no longer has any effect unless you use a custom secret command.")
+
 	// Note: Expanding args for PROJECT is not allowed. The value needs to be
 	// lifted straight from the AST.
 	projectVal := cmd.Args[0]

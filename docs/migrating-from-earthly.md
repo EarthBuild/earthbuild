@@ -213,8 +213,9 @@ The core syntax of Earthfiles is largely unchanged.
 
 Again, this will be logged as a warning in `v0.8.x` and removed, treated as an error, in `v0.9.x`.
 
-The `PROJECT` command relates to the cloud offering. It is still accepted in `v0.8.x` where it will
-log a deprecation warning, and it will be removed and treated as an error in `v0.9.x`.
+The `PROJECT` command relates to the cloud offering. It is still accepted in `v0.8.x`, where it logs
+a deprecation warning, and it will be removed and treated as an error in `v0.9.x`. With the cloud
+integration removed, it no longer has any effect unless you use a custom secret command.
 
 Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`.
 

@@ -48,11 +48,13 @@ func warningsFor(environ []string) []string {
 
 	for _, kv := range environ {
 		name, _, _ := strings.Cut(kv, "=")
-    replacement, found := strings.CutPrefix(name, DeprecatedPrefix)
-    if !found {
-      continue
-    }
-		warnings = append(warnings, fmt.Sprintf("WARNING: %s is deprecated. Use %s.", name, replacement))
+
+		suffix, found := strings.CutPrefix(name, DeprecatedPrefix)
+		if !found {
+			continue
+		}
+
+		warnings = append(warnings, fmt.Sprintf("WARNING: %s is deprecated. Use %s.", name, Prefix+suffix))
 	}
 
 	sort.Strings(warnings)

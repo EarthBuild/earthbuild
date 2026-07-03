@@ -175,6 +175,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	app.warnIfEarth()
 	app.warnDeprecatedEarthlyEnvVars()
+	app.warnDeprecatedAutoSkip()
 
 	if cfg.Global.CachePath != "" {
 		app.BaseCLI.Console().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
@@ -225,6 +226,30 @@ func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
 	for _, warning := range env.DeprecatedWarnings() {
 		app.BaseCLI.Console().Warn(warning)
 	}
+}
+
+// warnDeprecatedAutoSkip warns when any of the auto-skip flags or env vars are
+// used. The cloud backend that once powered auto-skip has been removed; only
+// the local database (--auto-skip-db-path) still functions. The flags and env
+// vars are deprecated in v0.8.x and will be removed in v0.9.x.
+func (app *EarthApp) warnDeprecatedAutoSkip() {
+	flags := app.BaseCLI.Flags()
+	if warning := autoSkipDeprecationWarning(flags.SkipBuildkit, flags.NoAutoSkip, flags.LocalSkipDB); warning != "" {
+		app.BaseCLI.Console().Warnf("%s", warning)
+	}
+}
+
+// autoSkipDeprecationWarning returns the auto-skip deprecation warning when any
+// auto-skip flag (or its env var) is set, or an empty string otherwise. It is
+// the testable core of warnDeprecatedAutoSkip.
+func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB string) string {
+	if !skipBuildkit && !noAutoSkip && localSkipDB == "" {
+		return ""
+	}
+
+	return "Deprecation: --auto-skip, --no-auto-skip and --auto-skip-db-path (and their " +
+		"EARTH_AUTO_SKIP* / EARTHLY_AUTO_SKIP* env vars) are deprecated and will be removed in v0.9.x. " +
+		"The cloud auto-skip backend has been removed; only the local database (--auto-skip-db-path) still functions."
 }
 
 func (app *EarthApp) warnIfEarth() {

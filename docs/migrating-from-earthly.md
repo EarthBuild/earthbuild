@@ -89,7 +89,9 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 
 - `--satellite`, `--sat`, `--no-satellite`, `--no-sat`: Removed. Use `--buildkit-host` (or configuration) explicitly to connect to a remote Buildkitd instance.
 - `--auto-skip`, `--no-auto-skip` (and `--auto-skip-db-path`): **Deprecated, not yet removed.** These
-  flags still function in `v0.8.x` but will log a deprecation warning and be removed in `v0.9.x`.
+  flags log a deprecation warning in `v0.8.x` and will be removed in `v0.9.x`. Note that the cloud
+  backend that once powered auto-skip has been removed; only the local database
+  (`--auto-skip-db-path`) still functions.
 - `--auth-token`: This flag has been removed since it was used for authenticating with Earthly Cloud. For registry authentication, use standard Docker authentication methods.
 - The binary name in help texts and other places is now `earth` instead of `earthly`.
 

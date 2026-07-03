@@ -17,7 +17,7 @@ import (
 )
 
 func newConsLogger() conslogging.ConsoleLogger {
-	return conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 
 func TestMultiAuth(t *testing.T) {

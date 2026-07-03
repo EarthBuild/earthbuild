@@ -31,7 +31,7 @@ jobs:
   export-test:
     name: Export tests
     runs-on: ${{inputs.RUNS_ON}}
-    if: ${{ !inputs.SKIP_JOB && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !inputs.SKIP_JOB && (github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository) }}
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"

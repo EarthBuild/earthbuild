@@ -24,6 +24,7 @@ import (
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
@@ -132,7 +133,7 @@ func run() (code int) {
 	envFile := eFlag.DefaultEnvFile
 	envFileOverride := false
 
-	if envFileFromEnv, ok := os.LookupEnv("EARTHLY_ENV_FILE"); ok {
+	if envFileFromEnv, ok := env.Lookup("ENV_FILE"); ok {
 		envFile = envFileFromEnv
 		envFileOverride = true
 	}
@@ -190,7 +191,7 @@ func run() (code int) {
 
 	padding := conslogging.DefaultPadding
 
-	customPadding, ok := os.LookupEnv("EARTHLY_TARGET_PADDING")
+	customPadding, ok := env.Lookup("TARGET_PADDING")
 	if ok {
 		targetPadding, err := strconv.Atoi(customPadding)
 		if err == nil {
@@ -198,11 +199,11 @@ func run() (code int) {
 		}
 	}
 
-	fullTarget, ok := os.LookupEnv("EARTHLY_FULL_TARGET")
+	fullTarget, ok := os.LookupEnv("EARTH_FULL_TARGET")
 	if ok {
 		v, err := strconv.ParseBool(fullTarget)
 		if err != nil {
-			fmt.Printf("Invalid value for EARTHLY_FULL_TARGET (%q): %s.\n", fullTarget, err.Error())
+			fmt.Printf("Invalid value for EARTH_FULL_TARGET (%q): %s.\n", fullTarget, err.Error())
 			return 1
 		}
 

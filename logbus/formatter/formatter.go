@@ -86,7 +86,7 @@ type Formatter struct {
 func New(
 	ctx context.Context,
 	b *logbus.Bus,
-	debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool,
+	debug, verbose, displayStats bool, disableOngoingUpdates bool,
 	execStatsTracker *execstatssummary.Tracker,
 	isGitHubActions bool,
 ) *Formatter {
@@ -109,20 +109,9 @@ func New(
 		logLevel = conslogging.Info
 	}
 
-	var colorMode conslogging.ColorMode
-
-	switch {
-	case forceColor:
-		colorMode = conslogging.ForceColor
-	case noColor:
-		colorMode = conslogging.NoColor
-	default:
-		colorMode = conslogging.AutoColor
-	}
-
 	f := &Formatter{
 		bus:              b,
-		console:          conslogging.New(nil, nil, colorMode, conslogging.DefaultPadding, logLevel, isGitHubActions),
+		console:          conslogging.New(nil, nil, conslogging.DefaultPadding, logLevel, isGitHubActions),
 		verbose:          verbose,
 		displayStats:     displayStats,
 		execStatsTracker: execStatsTracker,

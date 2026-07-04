@@ -451,7 +451,7 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 	out, err = runEarthWithEnv(
 		t,
 		projectDir,
-		[]string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig},
+		[]string{"HOME=" + home, "EARTH_CONFIG=" + otherConfig},
 		"config",
 		"global.cache_size_mb",
 		"10",
@@ -463,7 +463,7 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 	out, err = runEarthWithEnv(
 		t,
 		projectDir,
-		[]string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"},
+		[]string{"HOME=" + home, "EARTH_INSTALLATION_NAME=earthly-test2"},
 		"config",
 		"global.cache_size_mb",
 		"10",
@@ -543,8 +543,8 @@ func runEarthWithEnv(t *testing.T, dir string, env []string, args ...string) (st
 	cmd.Dir = dir
 
 	cmd.Env = envWithOverrides(os.Environ(), append([]string{
-		"EARTHLY_DISABLE_AUTO_UPDATE=true",
-		"EARTHLY_DISABLE_FRONTEND_DETECTION=true",
+		"EARTH_DISABLE_AUTO_UPDATE=true",
+		"EARTH_DISABLE_FRONTEND_DETECTION=true",
 		"OTEL_SDK_DISABLED=true",
 	}, env...)...)
 

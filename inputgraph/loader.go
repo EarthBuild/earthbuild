@@ -46,6 +46,7 @@ type loader struct {
 	visited        map[string]struct{}
 	hasher         *hasher.Hasher
 	hashCache      map[string][]byte
+	resolver       *buildcontext.Resolver
 	stats          *Stats
 	globalImports  map[string]domain.ImportTrackerVal
 	varCollection  *variables.Collection
@@ -73,8 +74,13 @@ func newLoader(opt HashOpt) *loader {
 		overridingVars: opt.OverridingVars,
 		globalImports:  map[string]domain.ImportTrackerVal{},
 		hashCache:      map[string][]byte{},
-		stats:          &Stats{StartTime: time.Now()},
-		primaryTarget:  true,
+		// One resolver shared across the whole recursive walk so its
+		// gitMetaCache dedups git metadata per local path. Creating it per
+		// target re-shells to git (~195ms/target, linear in graph size);
+		// shared, it's ~one git invocation per distinct local path.
+		resolver:      buildcontext.NewResolver(nil, nil, opt.Console, "", "", "", 0, ""),
+		stats:         &Stats{StartTime: time.Now()},
+		primaryTarget: true,
 	}
 }
 
@@ -989,6 +995,7 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 		builtinArgs:    l.builtinArgs,
 		overridingVars: overriding,
 		hashCache:      l.hashCache,
+		resolver:       l.resolver, // share so gitMetaCache dedups across the walk
 		stats:          l.stats,
 		primaryTarget:  false,
 	}
@@ -1089,9 +1096,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		return b, nil
 	}
 
-	resolver := buildcontext.NewResolver(nil, nil, l.conslog, "", "", "", 0, "")
-
-	buildCtx, err := resolver.Resolve(ctx, nil, nil, l.target)
+	buildCtx, err := l.resolver.Resolve(ctx, nil, nil, l.target)
 	if err != nil {
 		return nil, err
 	}

@@ -29,6 +29,8 @@ func saveGoldenFile(t *testing.T, path string, b []byte) {
 		return
 	}
 
+	// Golden files are tracked in version control and need to be readable by other processes/CI, so 0644 is appropriate.
+	// #nosec G306
 	err := os.WriteFile(path, b, 0o644)
 	if err != nil {
 		t.Fatalf("write golden file: %v", err)
@@ -65,7 +67,8 @@ func TestGolang_Targets_Base(t *testing.T) {
 
 	saveGoldenFile(t, "./testdata/golang_base.out", []byte(got))
 
-	if diff := cmp.Diff(goOutBase, got); diff != "" {
+	diff := cmp.Diff(goOutBase, got)
+	if diff != "" {
 		t.Fatal(diff)
 	}
 }

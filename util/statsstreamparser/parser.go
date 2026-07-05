@@ -30,44 +30,41 @@ func New() *Parser {
 }
 
 // Parse parses stream data containing execution statistics.
-func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
+func (p *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 	errorf := func(format string, args ...any) (stats []*runc.Stats, err error) {
 		return nil, fmt.Errorf("stats stream parser: "+format, args...)
 	}
 
-	_, err := ssp.buf.Write(b)
+	_, err := p.buf.Write(b)
 	if err != nil {
 		return errorf("write to buf: ", err)
 	}
 
 	var stats []*runc.Stats
 
+loop:
 	for {
-		if !ssp.hasReadVersion {
+		if !p.hasReadVersion {
 			var protocolVersion byte
 
-			protocolVersion, err = ssp.buf.ReadByte()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-
+			protocolVersion, err = p.buf.ReadByte()
+			switch {
+			case errors.Is(err, io.EOF):
+				break loop
+			case err != nil:
 				return errorf("read protocol version: ", err)
-			}
-
-			if protocolVersion != 1 {
+			case protocolVersion != 1:
 				return errorf("unexpected protocol version %d", protocolVersion)
 			}
 
-			ssp.hasReadVersion = true
+			p.hasReadVersion = true
 		}
 
-		lenBytes, err := ssp.buf.Peek(4)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
+		lenBytes, err := p.buf.Peek(4)
+		switch {
+		case errors.Is(err, io.EOF):
+			break loop
+		case err != nil:
 			return errorf("peek length: ", err)
 		}
 
@@ -76,16 +73,15 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 			return errorf("payload length exceeds %d bytes: %d", maxPayloadSize, n)
 		}
 
-		statsBytes, err := ssp.buf.Peek(4 + n)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
+		statsBytes, err := p.buf.Peek(4 + n)
+		switch {
+		case errors.Is(err, io.EOF):
+			break loop
+		case err != nil:
 			return errorf("peek payload: ", err)
 		}
 
-		ssp.buf.Next(4 + n)
+		p.buf.Next(4 + n)
 
 		var runcStat runc.Stats
 
@@ -95,7 +91,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 		}
 
 		stats = append(stats, &runcStat)
-		ssp.hasReadVersion = false
+		p.hasReadVersion = false
 	}
 
 	return stats, nil

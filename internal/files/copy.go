@@ -10,6 +10,8 @@ import (
 
 // Copy copies a file, directory, or symbolic link recursively from src to dst.
 // Permissions and executable bits are preserved.
+// This serves as the recursive fallback for local artifact saving (SAVE ARTIFACT ... AS LOCAL)
+// when hard linking by [os.Link] fails (e.g. cross-device mounts).
 func Copy(src, dst string) error {
 	errorf := func(format string, args ...any) error {
 		return fmt.Errorf("copy %s to %s: "+format, append([]any{src, dst}, args)...)

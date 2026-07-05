@@ -7,7 +7,6 @@ require (
 	git.sr.ht/~nelsam/correct v0.1.5
 	git.sr.ht/~nelsam/hel v0.9.4
 	github.com/adrg/xdg v0.5.3
-	github.com/alexcb/binarystream v0.0.0-20231130184431-f2f7a7543c6d
 	github.com/aws/aws-sdk-go-v2 v1.42.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.27
 	github.com/containerd/go-runc v1.1.0

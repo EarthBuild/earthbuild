@@ -4,27 +4,21 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 
-	"github.com/alexcb/binarystream"
 	"github.com/containerd/go-runc"
 )
 
 // Parser parses stream data containing execution statistics.
 type Parser struct {
 	buf                 *bytes.Buffer
-	bsr                 *binarystream.BinaryStream
 	readProtocolVersion bool
 }
 
 // New creates a new parser instance.
 func New() *Parser {
-	buf := bytes.NewBuffer(nil)
-
 	return &Parser{
-		buf: buf,
-		bsr: binarystream.NewReader(buf, binary.LittleEndian),
+		buf: bytes.NewBuffer(nil),
 	}
 }
 
@@ -39,15 +33,10 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 
 	for {
 		if !ssp.readProtocolVersion {
-			protocolVersion, err := ssp.bsr.ReadUint8()
-			if err != nil {
-				if errors.Is(err, binarystream.ErrBufferUnderflow) {
-					break
-				}
-
-				return nil, err
+			if ssp.buf.Len() < 1 {
+				break
 			}
-
+			protocolVersion, _ := ssp.buf.ReadByte()
 			if protocolVersion != 1 {
 				return nil, fmt.Errorf("unexpected stats stream protocol version %d", protocolVersion)
 			}
@@ -55,18 +44,20 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 			ssp.readProtocolVersion = true
 		}
 
-		statsStreamJSON, err := ssp.bsr.ReadUint32PrefixedString()
-		if err != nil {
-			if errors.Is(err, binarystream.ErrBufferUnderflow) {
-				break
-			}
-
-			return nil, err
+		if ssp.buf.Len() < 4 {
+			break
 		}
+		length := binary.LittleEndian.Uint32(ssp.buf.Bytes()[:4])
+		if ssp.buf.Len() < 4+int(length) {
+			break
+		}
+
+		ssp.buf.Next(4)
+		statsStreamBytes := ssp.buf.Next(int(length))
 
 		var runcStat runc.Stats
 
-		err = json.Unmarshal([]byte(statsStreamJSON), &runcStat)
+		err = json.Unmarshal(statsStreamBytes, &runcStat)
 		if err != nil {
 			return nil, err
 		}

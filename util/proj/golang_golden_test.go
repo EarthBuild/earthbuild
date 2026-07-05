@@ -106,7 +106,8 @@ func TestGolang_Targets_Named(t *testing.T) {
 
 	saveGoldenFile(t, "./testdata/golang_named.out", []byte(got))
 
-	if diff := cmp.Diff(goOutNamed, got); diff != "" {
+	diff := cmp.Diff(goOutNamed, got)
+	if diff != "" {
 		t.Fatal(diff)
 	}
 }

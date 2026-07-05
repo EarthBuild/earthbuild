@@ -68,9 +68,9 @@ func Copy(src, dst string) (err error) {
 
 	// Remove existing destination file or symlink to prevent permission errors
 	// and symlink overwrite redirection.
-	errRemove := os.Remove(dst)
-	if errRemove != nil && !os.IsNotExist(errRemove) {
-		return errorf("remove existing destination: %w", errRemove)
+	err = os.Remove(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return errorf("remove existing destination: %w", err)
 	}
 
 	// Open or create the destination file with the same permissions

@@ -108,6 +108,19 @@ func TestParser_Parse(t *testing.T) {
 			t.Fatal("expected error for invalid json, got nil")
 		}
 	})
+
+	t.Run("overly large payload size", func(t *testing.T) {
+		parser := New()
+		// Construct a packet with version 1, and length prefix of 11 MB (over the 10 MB limit)
+		packet := make([]byte, 5)
+		packet[0] = 1
+		binary.LittleEndian.PutUint32(packet[1:5], uint32(11*1024*1024))
+
+		_, err := parser.Parse(packet)
+		if err == nil {
+			t.Fatal("expected error for overly large payload size, got nil")
+		}
+	})
 }
 
 func BenchmarkParser_Parse(b *testing.B) {

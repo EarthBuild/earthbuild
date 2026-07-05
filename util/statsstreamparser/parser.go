@@ -11,6 +11,8 @@ import (
 	"github.com/containerd/go-runc"
 )
 
+const maxPayloadSize = 10 * 1024 * 1024 // 10 MB
+
 // Parser parses stream data containing execution statistics.
 type Parser struct {
 	// buf accumulates incoming stream data across multiple Parse calls.
@@ -29,9 +31,13 @@ func New() *Parser {
 
 // Parse parses stream data containing execution statistics.
 func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
+	errorf := func(format string, args ...any) (stats []*runc.Stats, err error) {
+		return nil, fmt.Errorf("stats stream parser: "+format, args...)
+	}
+
 	_, err := ssp.buf.Write(b)
 	if err != nil {
-		return nil, err
+		return errorf("write to buf: ", err)
 	}
 
 	var stats []*runc.Stats
@@ -46,11 +52,11 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 					break
 				}
 
-				return nil, err
+				return errorf("reading protocol version: ", err)
 			}
 
 			if protocolVersion != 1 {
-				return nil, fmt.Errorf("unexpected stats stream protocol version %d", protocolVersion)
+				return errorf("unexpected protocol version %d", protocolVersion)
 			}
 
 			ssp.hasReadVersion = true
@@ -62,10 +68,13 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 				break
 			}
 
-			return nil, err
+			return errorf("peeking length: ", err)
 		}
 
 		n := int(binary.LittleEndian.Uint32(lenBytes))
+		if n < 0 || n > maxPayloadSize {
+			return errorf("payload length exceeds %d bytes: %d", maxPayloadSize, n)
+		}
 
 		statsBytes, err := ssp.buf.Peek(4 + n)
 		if err != nil {
@@ -73,7 +82,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 				break
 			}
 
-			return nil, err
+			return errorf("peeking payload: ", err)
 		}
 
 		ssp.buf.Next(4 + n)
@@ -82,7 +91,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 
 		err = json.Unmarshal(statsBytes[4:], &runcStat)
 		if err != nil {
-			return nil, err
+			return errorf("unmarshalling stats: %w", err)
 		}
 
 		stats = append(stats, &runcStat)

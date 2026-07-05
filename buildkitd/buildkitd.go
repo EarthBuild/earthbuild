@@ -1067,7 +1067,7 @@ func GetSettingsHash(ctx context.Context, containerName string, fe containerutil
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
-		return containerInfo.Labels["dev.earthly.settingshash"], nil
+		return strings.TrimSpace(containerInfo.Labels["dev.earthly.settingshash"]), nil
 	}
 
 	return "", fmt.Errorf("settings hash for container %s was not found", containerName)

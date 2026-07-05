@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
@@ -37,7 +38,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 		return -1
 	}
 
-	_, debugEnabled := os.LookupEnv("EARTHLY_AUTOCOMPLETE_DEBUG")
+	_, debugEnabled := env.Lookup("AUTOCOMPLETE_DEBUG")
 	if debugEnabled {
 		logDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 		if err != nil {

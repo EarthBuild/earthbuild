@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
@@ -48,13 +49,13 @@ func (a *Prune) Cmds() []*cli.Command {
 				&cli.BoolFlag{
 					Name:        "all",
 					Aliases:     []string{"a"},
-					Sources:     cli.EnvVars("EARTHLY_PRUNE_ALL"),
+					Sources:     flag.EarthEnvVars("PRUNE_ALL"),
 					Usage:       "Prune all cache via BuildKit daemon",
 					Destination: &a.all,
 				},
 				&cli.BoolFlag{
 					Name:        "reset",
-					Sources:     cli.EnvVars("EARTHLY_PRUNE_RESET"),
+					Sources:     flag.EarthEnvVars("PRUNE_RESET"),
 					Usage:       `Reset cache entirely by restarting BuildKit daemon and wiping cache dir.`,
 					Destination: &a.reset,
 				},

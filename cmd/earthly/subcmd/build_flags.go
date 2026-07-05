@@ -3,6 +3,7 @@ package subcmd
 import (
 	"os"
 
+	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/urfave/cli/v3"
 )
 
@@ -10,13 +11,13 @@ func (b *Build) buildFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:        "platform",
-			Sources:     cli.EnvVars("EARTHLY_PLATFORMS"),
+			Sources:     flag.EarthEnvVars("PLATFORMS"),
 			Usage:       "Specify the target platform to build for or this can be read from ENV VAR",
 			Destination: &b.platformsStr,
 		},
 		&cli.StringSliceFlag{
 			Name:        "build-arg",
-			Sources:     cli.EnvVars("EARTHLY_BUILD_ARGS"),
+			Sources:     flag.EarthEnvVars("BUILD_ARGS"),
 			Usage:       "A build arg override, specified as <key>=[<value>]",
 			Destination: &b.buildArgs,
 			Hidden:      true, // Deprecated
@@ -24,19 +25,19 @@ func (b *Build) buildFlags() []cli.Flag {
 		&cli.StringSliceFlag{
 			Name:        "secret",
 			Aliases:     []string{"s"},
-			Sources:     cli.EnvVars("EARTHLY_SECRETS"),
+			Sources:     flag.EarthEnvVars("SECRETS"),
 			Usage:       "A secret override, specified as <key>=[<value>]",
 			Destination: &b.secrets,
 		},
 		&cli.StringSliceFlag{
 			Name:        "secret-file",
-			Sources:     cli.EnvVars("EARTHLY_SECRET_FILES"),
+			Sources:     flag.EarthEnvVars("SECRET_FILES"),
 			Usage:       "A secret override, specified as <key>=<path>",
 			Destination: &b.secretFiles,
 		},
 		&cli.StringSliceFlag{
 			Name:        "cache-from",
-			Sources:     cli.EnvVars("EARTHLY_CACHE_FROM"),
+			Sources:     flag.EarthEnvVars("CACHE_FROM"),
 			Usage:       "Remote docker image tags to use as readonly explicit cache (experimental)",
 			Destination: &b.cacheFrom,
 			Hidden:      true, // Experimental

@@ -14,7 +14,7 @@ go:
 node:
     FROM node:26.3.1-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.17.0
+    LET npm_version=11.18.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -103,7 +103,7 @@ lint-scripts:
 earthly-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r5
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     RUN apk add --no-cache bash
     COPY earthly .earthly_version_flag_overrides .
 
@@ -147,7 +147,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.4.0
+    ENV govulncheck_version=1.5.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)

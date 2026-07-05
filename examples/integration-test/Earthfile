@@ -8,7 +8,7 @@ sbt:
     # Defaults if not specified
 
     # renovate: datasource=github-releases packageName=sbt/sbt
-    ARG sbt_version=2.0.0
+    ARG sbt_version=2.0.1
     ARG sbt_home=/usr/local/sbt
 
     # Download and extract from archive
@@ -21,25 +21,25 @@ sbt:
 
     # This triggers a bunch of useful downloads.
     RUN mkdir -p ~/.config/sbt && echo "--allow-empty" > ~/.config/sbt/sbtopts
-    RUN sbt "; sbtVersion; shutdown"
+    RUN sbt --jvm-client "; sbtVersion; shutdown"
 
 project-files:
     FROM +sbt
     COPY build.sbt ./
     COPY project project
     # Run sbt for caching purposes.
-    RUN touch a.scala && sbt "; compile; shutdown" && rm a.scala
+    RUN touch a.scala && sbt --jvm-client "; compile; shutdown" && rm a.scala
     SAVE IMAGE --push earthbuild/examples:integration-project-files
 
 build:
     FROM +project-files
     COPY src src
-    RUN sbt "; compile; shutdown"
+    RUN sbt --jvm-client "; compile; shutdown"
 
 unit-test:
     FROM +project-files
     COPY src src
-    RUN sbt "; test; shutdown"
+    RUN sbt --jvm-client "; test; shutdown"
 
 integration-test:
     FROM +project-files
@@ -47,14 +47,14 @@ integration-test:
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
-            sbt "; IntegrationTest/test; shutdown"
+            sbt --jvm-client "; IntegrationTest/test; shutdown"
     END
 
 docker:
     FROM +project-files
     COPY src src
     RUN \
-        sbt "; set assembly / test := sbt.protocol.testing.TestResult.Passed; assembly; shutdown" && \
+        sbt --jvm-client "; set assembly / test := sbt.protocol.testing.TestResult.Passed; assembly; shutdown" && \
         mv target/assembly/scala-example-assembly-*.jar app.jar
     ENTRYPOINT ["java","-cp","app.jar","Main"]
     SAVE IMAGE --push earthbuild/examples:integration

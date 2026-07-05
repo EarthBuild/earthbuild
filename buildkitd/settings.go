@@ -1,12 +1,13 @@
 package buildkitd
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash"
+	"hash/fnv"
+	"io"
 	"strconv"
-	"strings"
 	"time"
-
-	"github.com/mitchellh/hashstructure/v2"
 )
 
 // Settings represents the buildkitd settings used to start up the daemon with.
@@ -14,7 +15,7 @@ type Settings struct {
 	TLSCA                string
 	ServerTLSCert        string
 	IPTables             string
-	StartUpLockPath      string `hash:"ignore"`
+	StartUpLockPath      string // StartUpLockPath is not included in hash.
 	BuildkitAddress      string
 	LocalRegistryAddress string
 	ServerTLSKey         string
@@ -25,40 +26,110 @@ type Settings struct {
 	AdditionalArgs       []string
 	CacheSizeMb          int
 	CacheSizePct         int
-	Timeout              time.Duration `hash:"ignore"`
+	Timeout              time.Duration // Timeout is not included in hash.
 	MaxParallelism       int
 	CacheKeepDuration    int
 	CniMtu               uint16
 	UseTLS               bool
 	UseTCP               bool
 	EnableProfiler       bool
-	NoUpdate             bool `hash:"ignore"`
+	NoUpdate             bool // NoUpdate is not included in hash.
 	Debug                bool
+}
+
+type settingsHasher struct {
+	h   hash.Hash64
+	err error
+	buf [16]byte // buf is used to format integers, booleans, and delimiters without heap allocations.
+}
+
+func (sh *settingsHasher) writeString(str string) {
+	if sh.err != nil {
+		return
+	}
+
+	// #nosec G115 -- safe conversion of length to uint32 for settings hashing
+	binary.BigEndian.PutUint32(sh.buf[:4], uint32(len(str)))
+
+	_, sh.err = sh.h.Write(sh.buf[:4])
+	if sh.err != nil {
+		return
+	}
+
+	_, sh.err = io.WriteString(sh.h, str)
+}
+
+func (sh *settingsHasher) writeBool(b bool) {
+	if sh.err != nil {
+		return
+	}
+
+	val := byte(0)
+	if b {
+		val = 1
+	}
+
+	sh.buf[0] = val
+	_, sh.err = sh.h.Write(sh.buf[:1])
+}
+
+func (sh *settingsHasher) writeInt(i int) {
+	if sh.err != nil {
+		return
+	}
+
+	// #nosec G115 -- safe conversion of int to uint64 for hashing purposes
+	binary.BigEndian.PutUint64(sh.buf[:8], uint64(i))
+	_, sh.err = sh.h.Write(sh.buf[:8])
 }
 
 // Hash returns a secure hash of the settings.
 func (s Settings) Hash() (string, error) {
-	hash, err := hashstructure.Hash(s, hashstructure.FormatV2, nil)
-	if err != nil {
-		return "", fmt.Errorf("hash settings: %w", err)
+	sh := &settingsHasher{h: fnv.New64a()}
+
+	sh.writeString(s.TLSCA)
+	sh.writeString(s.ServerTLSCert)
+	sh.writeString(s.IPTables)
+	sh.writeString(s.BuildkitAddress)
+	sh.writeString(s.LocalRegistryAddress)
+	sh.writeString(s.ServerTLSKey)
+	sh.writeString(s.ClientTLSKey)
+	sh.writeString(s.ClientTLSCert)
+	sh.writeString(s.VolumeName)
+	sh.writeString(s.AdditionalConfig)
+
+	sh.writeInt(len(s.AdditionalArgs))
+
+	for _, arg := range s.AdditionalArgs {
+		sh.writeString(arg)
 	}
 
-	return strconv.FormatUint(hash, 16), nil
+	sh.writeInt(s.CacheSizeMb)
+	sh.writeInt(s.CacheSizePct)
+	sh.writeInt(s.MaxParallelism)
+	sh.writeInt(s.CacheKeepDuration)
+	sh.writeInt(int(s.CniMtu))
+
+	sh.writeBool(s.UseTLS)
+	sh.writeBool(s.UseTCP)
+	sh.writeBool(s.EnableProfiler)
+	sh.writeBool(s.Debug)
+
+	if sh.err != nil {
+		return "", fmt.Errorf("hash BuildKit settings: %w", sh.err)
+	}
+
+	return strconv.FormatUint(sh.h.Sum64(), 16), nil
 }
 
 // VerifyHash checks whether a given hash matches the settings.
 func (s Settings) VerifyHash(hash string) (bool, error) {
-	newHash, err := hashstructure.Hash(s, hashstructure.FormatV2, nil)
+	newHash, err := s.Hash()
 	if err != nil {
-		return false, fmt.Errorf("hash settings: %w", err)
+		return false, err
 	}
 
-	oldHash, err := strconv.ParseUint(strings.TrimSpace(hash), 16, 64)
-	if err != nil {
-		return false, fmt.Errorf("parse hash: %w", err)
-	}
-
-	return oldHash == newHash, nil
+	return hash == newHash, nil
 }
 
 // HasConfiguredCacheSize returns if the buildkitd cache size was configured.

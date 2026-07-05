@@ -52,7 +52,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 					break
 				}
 
-				return errorf("reading protocol version: ", err)
+				return errorf("read protocol version: ", err)
 			}
 
 			if protocolVersion != 1 {
@@ -68,7 +68,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 				break
 			}
 
-			return errorf("peeking length: ", err)
+			return errorf("peek length: ", err)
 		}
 
 		n := int(binary.LittleEndian.Uint32(lenBytes))
@@ -82,7 +82,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 				break
 			}
 
-			return errorf("peeking payload: ", err)
+			return errorf("peek payload: ", err)
 		}
 
 		ssp.buf.Next(4 + n)
@@ -91,7 +91,7 @@ func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 
 		err = json.Unmarshal(statsBytes[4:], &runcStat)
 		if err != nil {
-			return errorf("unmarshalling stats: %w", err)
+			return errorf("unmarshal stats: %w", err)
 		}
 
 		stats = append(stats, &runcStat)

@@ -66,6 +66,13 @@ func Copy(src, dst string) (err error) {
 		}
 	}()
 
+	// Remove existing destination file or symlink to prevent permission errors
+	// and symlink overwrite redirection.
+	errRemove := os.Remove(dst)
+	if errRemove != nil && !os.IsNotExist(errRemove) {
+		return errorf("remove existing destination: %w", errRemove)
+	}
+
 	// Open or create the destination file with the same permissions
 	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode().Perm()) // #nosec G304
 	if err != nil {
@@ -250,6 +257,13 @@ func copyFileRoot(srcRoot, dstRoot *os.Root, name string, info os.FileInfo) (err
 			err = errors.Join(err, fmt.Errorf("close %s: %w", name, closeErr))
 		}
 	}()
+
+	// Remove existing destination file or symlink to prevent permission errors
+	// and symlink overwrite redirection.
+	errRemove := dstRoot.Remove(name)
+	if errRemove != nil && !os.IsNotExist(errRemove) {
+		return fmt.Errorf("remove existing destination %s: %w", name, errRemove)
+	}
 
 	dstFile, err := dstRoot.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
 	if err != nil {

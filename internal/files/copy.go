@@ -84,7 +84,9 @@ func Copy(src, dst string) (err error) {
 }
 
 func copyDir(src, dst string, mode os.FileMode) (err error) {
-	err = os.MkdirAll(dst, mode)
+	// Create destination directory with owner-write permissions to ensure files/dirs
+	// can be copied into it, even if the source directory is read-only.
+	err = os.MkdirAll(dst, mode|0o700)
 	if err != nil {
 		return fmt.Errorf("mkdir all %s: %w", dst, err)
 	}
@@ -111,7 +113,18 @@ func copyDir(src, dst string, mode os.FileMode) (err error) {
 		}
 	}()
 
-	return copyRoot(srcRoot, dstRoot)
+	err = copyRoot(srcRoot, dstRoot)
+	if err != nil {
+		return err
+	}
+
+	// Restore original permissions
+	err = dstRoot.Chmod(".", mode)
+	if err != nil {
+		return fmt.Errorf("chmod %s: %w", dst, err)
+	}
+
+	return nil
 }
 
 func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
@@ -184,7 +197,8 @@ func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
 }
 
 func copySubDirRoot(srcRoot, dstRoot *os.Root, name string, mode os.FileMode) (err error) {
-	err = dstRoot.Mkdir(name, mode.Perm())
+	// Create destination subdirectory with owner-write permissions
+	err = dstRoot.Mkdir(name, mode.Perm()|0o700)
 	if err != nil && !os.IsExist(err) {
 		return fmt.Errorf("mkdir %s: %w", name, err)
 	}
@@ -212,8 +226,17 @@ func copySubDirRoot(srcRoot, dstRoot *os.Root, name string, mode os.FileMode) (e
 	}()
 
 	err = copyRoot(subSrcRoot, subDstRoot)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Restore original permissions
+	err = subDstRoot.Chmod(".", mode.Perm())
+	if err != nil {
+		return fmt.Errorf("chmod sub-destination %s: %w", name, err)
+	}
+
+	return nil
 }
 
 func copyFileRoot(srcRoot, dstRoot *os.Root, name string, info os.FileInfo) (err error) {

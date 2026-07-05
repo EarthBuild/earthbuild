@@ -118,3 +118,51 @@ func TestCopySingleFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "single file content", string(content))
 }
+
+func TestCopyReadOnlyDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	srcDir := filepath.Join(tmpDir, "src")
+	dstDir := filepath.Join(tmpDir, "dst")
+
+	err := os.Mkdir(srcDir, 0o755) // #nosec G301
+	require.NoError(t, err)
+
+	// Create a subdirectory inside srcDir that is read-only (0555)
+	subDir := filepath.Join(srcDir, "sub")
+	err = os.Mkdir(subDir, 0o755) // #nosec G301
+	require.NoError(t, err)
+
+	fileInSub := filepath.Join(subDir, "file.txt")
+	err = os.WriteFile(fileInSub, []byte("content"), 0o644) // #nosec G306
+	require.NoError(t, err)
+
+	// Now make the subdirectory read-only
+	err = os.Chmod(subDir, 0o555) // #nosec G302
+	require.NoError(t, err)
+
+	dstSubDir := filepath.Join(dstDir, "sub")
+
+	defer func() {
+		// Restore permissions so Cleanup can remove it
+		_ = os.Chmod(subDir, 0o755)    // #nosec G302
+		_ = os.Chmod(dstSubDir, 0o755) // #nosec G302
+	}()
+
+	// Perform Copy
+	err = Copy(srcDir, dstDir)
+	require.NoError(t, err)
+
+	// Verify target subdirectory exists and is read-only (0555)
+	fi, err := os.Stat(dstSubDir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o555), fi.Mode().Perm())
+
+	// Verify file in subdirectory exists and was copied correctly
+	dstFileInSub := filepath.Join(dstSubDir, "file.txt")
+	content, err := os.ReadFile(dstFileInSub) // #nosec G304
+	require.NoError(t, err)
+	require.Equal(t, "content", string(content))
+}

@@ -31,14 +31,14 @@ git-clone-public-https-empty-netrc:
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-public-https.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-public-https.earth --exec_cmd=/tmp/test-earthly-script
 
-RUN_EARTHLY_ARGS:
+RUN_EARTH_ARGS:
     FUNCTION
     ARG earthfile
     ARG pre_command
     ARG exec_cmd
-    DO ..+RUN_EARTHLY \
+    DO ..+RUN_EARTH \
         --earthfile=$earthfile \
         --pre_command=$pre_command \
         --exec_cmd=$exec_cmd

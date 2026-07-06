@@ -46,7 +46,7 @@ test-version-only-import:
     RUN echo "VERSION 0.8" > subdir/Earthfile
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile=version-only-import.earth --target=+test
 
-# test-version-only-without-newline tests that earthly will still work with non-POSIX text files
+# test-version-only-without-newline tests that earthbuild will still work with non-POSIX text files
 test-version-only-without-newline:
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile=version-only.earth --target=+base
     RUN test "$(cat Earthfile | wc -l)" = "0" # check Earthfile doesn't contain a newline

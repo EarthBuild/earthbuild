@@ -25,7 +25,6 @@ func TestParseFlagArgs(t *testing.T) {
 		{[]string{"--flag\\=name=foo=bar"}, []string{"flag\\=name=foo=bar"}},
 		{[]string{"--flag=foo", "--another=bar"}, []string{"flag=foo", "another=bar"}},
 		{[]string{"--flag", "--foo", "--another", "--bar"}, []string{"flag=--foo", "another=--bar"}},
-		{[]string{"-flag", "--foo", "-another", "bar"}, []string{"flag=--foo", "another=bar"}},
 	}
 
 	for _, tt := range tests {
@@ -67,7 +66,6 @@ func TestParseFlagArgsWithNonFlags(t *testing.T) {
 		{[]string{"arg", "--flag=foo"}, []string{"flag=foo"}, []string{"arg"}},
 		{[]string{"arg", "--flag=foo", "arg2", "--flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
 		{[]string{"arg", "--flag", "foo", "arg2", "--flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
-		{[]string{"arg", "-flag", "foo", "arg2", "-flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
 		{[]string{"arg"}, nil, []string{"arg"}},
 		{[]string{"just", "args"}, nil, []string{"just", "args"}},
 	}
@@ -78,4 +76,25 @@ func TestParseFlagArgsWithNonFlags(t *testing.T) {
 		require.Equal(t, tt.flags, flags)
 		require.Equal(t, tt.nonFlags, nonFlags)
 	}
+}
+
+func TestInvalidFlagError(t *testing.T) {
+	t.Parallel()
+
+	var invalidFlagErr *variables.InvalidFlagError
+
+	// Single hyphen
+	_, _, err := variables.ParseFlagArgsWithNonFlags([]string{"+hello", "-foo=bar"})
+	require.Error(t, err)
+	require.ErrorAs(t, err, &invalidFlagErr)
+	require.Equal(t, "-foo", invalidFlagErr.Flag)
+	require.Equal(t, "--foo=bar", invalidFlagErr.Suggestion)
+
+	// Triple hyphen
+	_, _, err = variables.ParseFlagArgsWithNonFlags([]string{"+hello", "---foo=bar"})
+	require.Error(t, err)
+	require.ErrorAs(t, err, &invalidFlagErr)
+	require.Equal(t, "---foo", invalidFlagErr.Flag)
+	require.Equal(t, "--foo=bar", invalidFlagErr.Suggestion)
+	require.Equal(t, "Invalid flag '---foo'. Did you mean '--foo=bar'?", err.Error())
 }

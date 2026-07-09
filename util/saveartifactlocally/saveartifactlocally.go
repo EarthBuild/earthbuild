@@ -103,13 +103,9 @@ func SaveArtifactLocally(
 			return errors.Wrapf(err, "mkdir all for artifact %s", toDir)
 		}
 
-		err = os.Link(from, to)
+		err = files.Copy(from, to)
 		if err != nil {
-			// Hard linking did not work. Try recursive copy.
-			errCopy := files.Copy(from, to)
-			if errCopy != nil {
-				return errors.Wrapf(errCopy, "copy artifact %s", from)
-			}
+			return errors.Wrapf(err, "save artifact %s", from)
 		}
 
 		// Add summary data about this artifact (to be output to console in summary phase).

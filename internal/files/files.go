@@ -8,11 +8,9 @@ import (
 	"os"
 )
 
-// Copy copies a file, directory, or symbolic link recursively from src to dst.
+// copyFallback copies a file, directory, or symbolic link recursively from src to dst.
 // Permissions and executable bits are preserved.
-// This serves as the recursive fallback for local artifact saving (SAVE ARTIFACT ... AS LOCAL)
-// when hard linking by [os.Link] fails (e.g. cross-device mounts).
-func Copy(src, dst string) (err error) {
+func copyFallback(src, dst string) (err error) {
 	errorf := func(format string, args ...any) error {
 		return fmt.Errorf("copy %s to %s: "+format, append([]any{src, dst}, args...)...)
 	}
@@ -55,6 +53,11 @@ func Copy(src, dst string) (err error) {
 	}
 
 	// Handle regular file
+	cloneErr := nativeClone(src, dst)
+	if cloneErr == nil {
+		return nil
+	}
+
 	srcFile, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return errorf("open %s: %w", src, err)
@@ -88,6 +91,35 @@ func Copy(src, dst string) (err error) {
 	_, err = io.Copy(dstFile, srcFile)
 
 	return err
+}
+
+// nativeClone attempts to clone a file using OS-level copy-on-write mechanisms.
+// It returns an error if cloning fails.
+func nativeClone(src, dst string) error {
+	// Ensure destination doesn't exist, as clonefile/FICLONE fails if it does.
+	err := os.Remove(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return clone(src, dst)
+}
+
+// Copy copies a file or directory from src to dst.
+// It tries native Copy-on-Write cloning first, then falls back to hard linking,
+// and finally to recursive copying.
+func Copy(src, dst string) error {
+	err := nativeClone(src, dst)
+	if err == nil {
+		return nil
+	}
+
+	err = os.Link(src, dst)
+	if err == nil {
+		return nil
+	}
+
+	return copyFallback(src, dst)
 }
 
 func copyDir(src, dst string, mode os.FileMode) (err error) {

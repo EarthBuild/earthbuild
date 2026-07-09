@@ -229,3 +229,34 @@ func TestCopyOverSymlink(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "original target content", string(targetContent))
 }
+
+func TestClone(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	srcFile := filepath.Join(tmpDir, "src.txt")
+	dstFile := filepath.Join(tmpDir, "dst.txt")
+
+	origContent := []byte("original content")
+	err := os.WriteFile(srcFile, origContent, 0o644) // #nosec G306
+	require.NoError(t, err)
+
+	err = nativeClone(srcFile, dstFile)
+	if err != nil {
+		t.Logf("Cloning not supported: %v. Skipping verification.", err)
+		return
+	}
+
+	// Verify dst content is identical
+	content, err := os.ReadFile(dstFile) // #nosec G304
+	require.NoError(t, err)
+	require.Equal(t, origContent, content)
+
+	// Modify dst and verify src is unchanged (proving copy-on-write isolation, unlike hard links)
+	err = os.WriteFile(dstFile, []byte("modified content"), 0o644) // #nosec G306
+	require.NoError(t, err)
+
+	srcContent, err := os.ReadFile(srcFile) // #nosec G304
+	require.NoError(t, err)
+	require.Equal(t, origContent, srcContent)
+}

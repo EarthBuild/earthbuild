@@ -3,6 +3,7 @@
 package saveartifactlocally
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,12 +13,13 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/files"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
-	reccopy "github.com/otiai10/copy"
 )
 
 // SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock.
 func SaveArtifactLocally(
+	ctx context.Context,
 	exportCoordinator *gatewaycrafter.ExportCoordinator,
 	console conslogging.ConsoleLogger,
 	artifact domain.Artifact,
@@ -104,13 +106,9 @@ func SaveArtifactLocally(
 			return fmt.Errorf("mkdir all for artifact %s: %w", toDir, err)
 		}
 
-		err = os.Link(from, to)
+		err = files.Copy(ctx, from, to)
 		if err != nil {
-			// Hard linking did not work. Try recursive copy.
-			errCopy := reccopy.Copy(from, to)
-			if errCopy != nil {
-				return fmt.Errorf("copy artifact %s: %w", from, errCopy)
-			}
+			return fmt.Errorf("copy artifact: %w", err)
 		}
 
 		// Add summary data about this artifact (to be output to console in summary phase).

@@ -201,7 +201,7 @@ func Get(version *earthfile.Version) (*Features, bool, error) {
 
 	hasVersion := (version != nil)
 	if !hasVersion {
-		// If no version is specified, we default to 0.5 (the Earthly version
+		// If no version is specified, we default to 0.5 (the Earthbuild version
 		// before the VERSION command was introduced).
 		version = &earthfile.Version{
 			Args: []string{"0.5"},

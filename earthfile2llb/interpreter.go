@@ -1214,7 +1214,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 	}
 
 	if dest == "" || dest == "." || len(srcs) > 1 {
-		// TODO needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		// TODO needs to be the containers platform, not the earthbuild hosts platform. For now, this is always Linux.
 		dest += string("/")
 	}
 

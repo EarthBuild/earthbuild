@@ -151,7 +151,7 @@ type ConvertOpt struct {
 	// elevated privileges
 	AllowPrivileged bool
 	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are for a local or
-	// remote target; this is to support the legacy behaviour that was first introduced in earthly (up to 0.5)
+	// remote target; this is to support the legacy behaviour that was first introduced in earthbuild (up to 0.5)
 	// When this is set to false, SAVE IMAGE commands are only executed when DoSaves is true.
 	ForceSaveImage bool
 	// HasDangling represents whether the target has dangling instructions -

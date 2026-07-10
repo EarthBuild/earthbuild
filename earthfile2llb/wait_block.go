@@ -9,6 +9,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
@@ -338,15 +340,18 @@ type saveArtifactLocalEntry struct {
 }
 
 func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
+	ctx, span := telemetry.Tracer().Start(ctx, "SAVE ARTIFACT AS LOCAL")
+	defer span.End()
+
 	gwCrafter := gatewaycrafter.NewGatewayCrafter()
 
 	var (
 		gatewayClient     gwclient.Client
 		console           conslogging.ConsoleLogger
 		exportCoordinator *gatewaycrafter.ExportCoordinator
+		artifacts         []saveArtifactLocalEntry
+		localDestinations []string
 	)
-
-	artifacts := []saveArtifactLocalEntry{}
 
 	for refID, item := range wb.items {
 		saveLocalItem, ok := item.(*saveArtifactLocalWaitItem)
@@ -393,7 +398,11 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			ifExists:    saveLocalItem.saveLocal.IfExists,
 			salt:        c.mts.Final.ID,
 		})
+
+		localDestinations = append(localDestinations, saveLocalItem.saveLocal.DestPath)
 	}
+
+	span.SetAttributes(semconv.ArtifactLocalDestinations.StringSlice(localDestinations))
 
 	refs, metadata := gwCrafter.GetRefsAndMetadata()
 	if len(refs) == 0 {
@@ -414,7 +423,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 	for _, entry := range artifacts {
 		err = saveartifactlocally.SaveArtifactLocally(
-			exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists,
+			ctx, exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists,
 		)
 		if err != nil {
 			return err

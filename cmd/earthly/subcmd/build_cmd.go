@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"context"
+	stdErrors "errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -24,7 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -161,9 +161,8 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		var invalidFlagErr *variables.InvalidFlagError
-		if errors.As(err, &invalidFlagErr) {
-			return params.Errorf("%s", err.Error())
+		if invalidFlagErr, ok := stdErrors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
 		}
 
 		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
@@ -955,9 +954,8 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		var invalidFlagErr *variables.InvalidFlagError
-		if errors.As(err, &invalidFlagErr) {
-			return params.Errorf("%s", err.Error())
+		if invalidFlagErr, ok := stdErrors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
 		}
 
 		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))

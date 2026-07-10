@@ -87,14 +87,18 @@ func TestInvalidFlagError(t *testing.T) {
 	_, _, err := variables.ParseFlagArgsWithNonFlags([]string{"+hello", "-foo=bar"})
 	require.Error(t, err)
 	require.ErrorAs(t, err, &invalidFlagErr)
-	require.Equal(t, "-foo", invalidFlagErr.Flag)
-	require.Equal(t, "--foo=bar", invalidFlagErr.Suggestion)
+	require.Equal(t, &variables.InvalidFlagError{
+		Flag:       "-foo",
+		Suggestion: "--foo=bar",
+	}, invalidFlagErr)
 
 	// Triple hyphen
 	_, _, err = variables.ParseFlagArgsWithNonFlags([]string{"+hello", "---foo=bar"})
 	require.Error(t, err)
 	require.ErrorAs(t, err, &invalidFlagErr)
-	require.Equal(t, "---foo", invalidFlagErr.Flag)
-	require.Equal(t, "--foo=bar", invalidFlagErr.Suggestion)
-	require.Equal(t, "Invalid flag '---foo'. Did you mean '--foo=bar'?", err.Error())
+	require.Equal(t, &variables.InvalidFlagError{
+		Flag:       "---foo",
+		Suggestion: "--foo=bar",
+	}, invalidFlagErr)
+	require.Equal(t, `Invalid flag "---foo". Did you mean "--foo=bar"?`, err.Error())
 }

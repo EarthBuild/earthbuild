@@ -14,7 +14,7 @@ type InvalidFlagError struct {
 }
 
 func (e *InvalidFlagError) Error() string {
-	return fmt.Sprintf("Invalid flag '%s'. Did you mean '%s'?", e.Flag, e.Suggestion)
+	return fmt.Sprintf("Invalid flag %q. Did you mean %q?", e.Flag, e.Suggestion)
 }
 
 // ParseFlagArgs parses flag-form args.
@@ -67,7 +67,7 @@ func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err err
 		}
 
 		escK := strings.ReplaceAll(k, "=", "\\=")
-		flags = append(flags, fmt.Sprintf("%s=%s", escK, v))
+		flags = append(flags, escK+"="+v)
 	}
 
 	if keyFromPrev != "" {
@@ -80,19 +80,20 @@ func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err err
 // checkInvalidFlag checks if the argument is a single-hyphen or multi-hyphen invalid flag
 // and returns an InvalidFlagError if so.
 func checkInvalidFlag(arg string) error {
-	firstNonHyphenIdx := strings.IndexFunc(arg, func(r rune) bool {
-		return r != '-'
-	})
+	firstNonHyphenIdx := 0
+	for firstNonHyphenIdx < len(arg) && arg[firstNonHyphenIdx] == '-' {
+		firstNonHyphenIdx++
+	}
 
-	if firstNonHyphenIdx > 0 && firstNonHyphenIdx != 2 {
+	if firstNonHyphenIdx > 0 && firstNonHyphenIdx < len(arg) && firstNonHyphenIdx != 2 {
 		firstChar := arg[firstNonHyphenIdx]
 		isFlag := (firstChar >= 'a' && firstChar <= 'z') ||
 			(firstChar >= 'A' && firstChar <= 'Z') ||
 			firstChar == '_'
 
 		if isFlag {
-			parts := strings.SplitN(arg, "=", 2)
-			flagPart := parts[0]
+			flagPart, _, _ := strings.Cut(arg, "=")
+
 			suggestion := "--" + arg[firstNonHyphenIdx:]
 
 			return &InvalidFlagError{Flag: flagPart, Suggestion: suggestion}

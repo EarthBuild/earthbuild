@@ -24,6 +24,19 @@ var copyBufferPool = sync.Pool{
 	},
 }
 
+// copyStream copies from src to dst using a buffer from copyBufferPool.
+func copyStream(dst io.Writer, src io.Reader) error {
+	bufPtr, ok := copyBufferPool.Get().(*copyBuffer)
+	if !ok {
+		panic("files: copyBufferPool returned unexpected type")
+	}
+	defer copyBufferPool.Put(bufPtr)
+
+	_, err := io.CopyBuffer(dst, src, bufPtr[:])
+
+	return err
+}
+
 // copyFallback copies a single file or a root-level symbolic link from src to dst.
 // Permissions and executable bits are preserved.
 func copyFallback(src, dst string, srcInfo os.FileInfo) (err error) {
@@ -68,16 +81,7 @@ func copyFallback(src, dst string, srcInfo os.FileInfo) (err error) {
 		}
 	}()
 
-	bufPtr, ok := copyBufferPool.Get().(*copyBuffer)
-	if !ok {
-		panic("files: copyBufferPool returned unexpected type")
-	}
-
-	defer copyBufferPool.Put(bufPtr)
-
-	_, err = io.CopyBuffer(dstFile, srcFile, bufPtr[:])
-
-	return err
+	return copyStream(dstFile, srcFile)
 }
 
 // Copy copies a file or directory from src to dst.
@@ -343,14 +347,5 @@ func (c *copier) copyFileRoot(srcRoot, dstRoot *os.Root, name string, info os.Fi
 		}
 	}()
 
-	bufPtr, ok := copyBufferPool.Get().(*copyBuffer)
-	if !ok {
-		panic("files: copyBufferPool returned unexpected type")
-	}
-
-	defer copyBufferPool.Put(bufPtr)
-
-	_, err = io.CopyBuffer(dstFile, srcFile, bufPtr[:])
-
-	return err
+	return copyStream(dstFile, srcFile)
 }

@@ -1265,7 +1265,7 @@ func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 	return 0, false
 }
 
-// getCacheSize returns the size of the earthly cache in bytes.
+// getCacheSize returns the size of the earthbuild cache in bytes.
 func getCacheSize(ctx context.Context, volumeName string, fe containerutil.ContainerFrontend) (int, error) {
 	infos, err := fe.VolumeInfo(ctx, volumeName)
 	if err != nil {

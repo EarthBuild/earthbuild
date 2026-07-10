@@ -64,7 +64,7 @@ execute() {
         mkdir /sys/fs/cgroup/dockerd-wrapper
         echo $$ > /sys/fs/cgroup/dockerd-wrapper/cgroup.procs
 
-        # earthly wraps dockerd-wrapper.sh with a call via /bin/sh -c '....'
+        # earthbuild wraps dockerd-wrapper.sh with a call via /bin/sh -c '....'
         # so we also need to move the parent pid into this new group, which is weird
         # TODO: we should unwrap this so $$ is all we need to move
         echo 1 > /sys/fs/cgroup/dockerd-wrapper/cgroup.procs

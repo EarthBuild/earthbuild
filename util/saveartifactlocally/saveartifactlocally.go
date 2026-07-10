@@ -4,6 +4,7 @@ package saveartifactlocally
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -107,7 +108,7 @@ func SaveArtifactLocally(
 
 		err = files.Copy(ctx, from, to)
 		if err != nil {
-			return errors.Wrapf(err, "save artifact %s", from)
+			return fmt.Errorf("copy artifact: %w", err)
 		}
 
 		// Add summary data about this artifact (to be output to console in summary phase).

@@ -62,6 +62,8 @@ func SaveArtifactLocally(
 			to = path.Join(to, path.Base(from))
 		}
 
+		destExists := false
+
 		fiDest, err := os.Stat(to)
 		if err != nil {
 			// Ignore err. Likely dest path does not exist.
@@ -73,13 +75,27 @@ func SaveArtifactLocally(
 
 			destIsDir = fiSrc.IsDir()
 		} else {
+			destExists = true
 			destIsDir = fiDest.IsDir()
 		}
 
-		if !destIsDir && srcIsDir {
+		switch {
+		case !destIsDir && srcIsDir:
 			return errors.New(
 				"artifact is a directory, but existing AS LOCAL destination is a file",
 			)
+		case destExists && srcIsDir:
+			// Remove preexisting dest dir.
+			err = os.RemoveAll(to)
+			if err != nil {
+				return errors.Wrapf(err, "rm -rf %s", to)
+			}
+		case destExists && !srcIsDir:
+			// Remove preexisting dest file.
+			err = os.Remove(to)
+			if err != nil {
+				return errors.Wrapf(err, "rm %s", to)
+			}
 		}
 
 		toDir := path.Dir(to)

@@ -167,68 +167,6 @@ func TestCopyReadOnlyDir(t *testing.T) {
 	require.Equal(t, "content", string(content))
 }
 
-func TestCopyOverReadOnlyFile(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-
-	srcFile := filepath.Join(tmpDir, "src.txt")
-	dstFile := filepath.Join(tmpDir, "dst.txt")
-
-	err := os.WriteFile(srcFile, []byte("new content"), 0o644) // #nosec G306
-	require.NoError(t, err)
-
-	// Create pre-existing read-only destination file
-	err = os.WriteFile(dstFile, []byte("old content"), 0o444) // #nosec G306
-	require.NoError(t, err)
-
-	err = Copy(t.Context(), srcFile, dstFile)
-	require.NoError(t, err)
-
-	content, err := os.ReadFile(dstFile) // #nosec G304
-	require.NoError(t, err)
-	require.Equal(t, "new content", string(content))
-}
-
-func TestCopyOverSymlink(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-
-	srcFile := filepath.Join(tmpDir, "src.txt")
-	dstFile := filepath.Join(tmpDir, "dst.txt")
-	targetFile := filepath.Join(tmpDir, "target.txt")
-
-	err := os.WriteFile(srcFile, []byte("new content"), 0o644) // #nosec G306
-	require.NoError(t, err)
-
-	// Create target file for symlink
-	err = os.WriteFile(targetFile, []byte("original target content"), 0o644) // #nosec G306
-	require.NoError(t, err)
-
-	// Create pre-existing symlink at dst pointing to targetFile
-	err = os.Symlink(targetFile, dstFile)
-	require.NoError(t, err)
-
-	// Perform copy
-	err = Copy(t.Context(), srcFile, dstFile)
-	require.NoError(t, err)
-
-	// Verify symlink was replaced by a regular file
-	fi, err := os.Lstat(dstFile)
-	require.NoError(t, err)
-	require.True(t, fi.Mode().IsRegular())
-
-	// Verify dstFile content
-	content, err := os.ReadFile(dstFile) // #nosec G304
-	require.NoError(t, err)
-	require.Equal(t, "new content", string(content))
-
-	// Verify targetFile was NOT overwritten/modified
-	targetContent, err := os.ReadFile(targetFile) // #nosec G304
-	require.NoError(t, err)
-	require.Equal(t, "original target content", string(targetContent))
-}
 
 func TestClone(t *testing.T) {
 	t.Parallel()

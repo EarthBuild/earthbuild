@@ -101,11 +101,6 @@ func Copy(ctx context.Context, src, dst string) error {
 		return nil
 	}
 
-	err = os.RemoveAll(dst)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
 	if srcInfo.IsDir() {
 		err = copyOnWriteDir(src, dst)
 		if err == nil {

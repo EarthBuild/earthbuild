@@ -18,25 +18,17 @@ type duplicateExtentsData struct {
 	ByteCount        int64
 }
 
-func clone(src, dst string) (err error) {
-	errorf := func(format string, args ...any) error {
-		return fmt.Errorf("clone %q to %q: "+format, append([]any{src, dst}, args...)...)
-	}
-
+func copyOnWriteFile(src, dst string) (err error) {
 	// File paths are provided by the caller; file-utility libraries inherently operate on dynamic paths.
 	srcFile, err := os.Open(src) // #nosec G304
 	if err != nil {
-		return errorf("open src: %w", err)
+		return fmt.Errorf("copy on write file %q to %q: open src: %w", src, dst, err)
 	}
 	defer srcFile.Close()
 
 	srcInfo, err := srcFile.Stat()
 	if err != nil {
-		return errorf("stat src: %w", err)
-	}
-
-	if srcInfo.IsDir() {
-		return errorf("cannot clone a directory")
+		return fmt.Errorf("copy on write file %q to %q: stat src: %w", src, dst, err)
 	}
 
 	size := srcInfo.Size()
@@ -44,21 +36,26 @@ func clone(src, dst string) (err error) {
 	// File paths are provided by the caller; file-utility libraries inherently operate on dynamic paths.
 	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode().Perm()) // #nosec G304
 	if err != nil {
-		return errorf("open dst: %w", err)
+		return fmt.Errorf("copy on write file %q to %q: open dst: %w", src, dst, err)
 	}
 	defer func() {
 		closeErr := dstFile.Close()
-		if closeErr != nil {
-			err = errors.Join(err, errorf("close dst: %w", closeErr))
+		if closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
+			err = errors.Join(err, fmt.Errorf("copy on write file %q to %q: close dst: %w", src, dst, closeErr))
 		}
 	}()
 
 	err = dstFile.Truncate(size)
 	if err != nil {
-		err = errorf("truncate dst: %w", err)
+		err = fmt.Errorf("copy on write file %q to %q: truncate dst: %w", src, dst, err)
+		closeErr := dstFile.Close()
+		if closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("copy on write file %q to %q: close dst: %w", src, dst, closeErr))
+		}
+
 		removeErr := os.Remove(dst)
 		if removeErr != nil {
-			return errors.Join(err, errorf("remove dst: %w", removeErr))
+			return errors.Join(err, fmt.Errorf("copy on write file %q to %q: remove dst: %w", src, dst, removeErr))
 		}
 
 		return err
@@ -98,10 +95,15 @@ func clone(src, dst string) (err error) {
 			nil,
 		)
 		if err != nil {
-			err = errorf("DeviceIoControl: %w", err)
+			err = fmt.Errorf("copy on write file %q to %q: DeviceIoControl: %w", src, dst, err)
+			closeErr := dstFile.Close()
+			if closeErr != nil {
+				err = errors.Join(err, fmt.Errorf("copy on write file %q to %q: close dst: %w", src, dst, closeErr))
+			}
+
 			removeErr := os.Remove(dst)
 			if removeErr != nil {
-				return errors.Join(err, errorf("remove dst: %w", removeErr))
+				return errors.Join(err, fmt.Errorf("copy on write file %q to %q: remove dst: %w", src, dst, removeErr))
 			}
 
 			return err
@@ -109,4 +111,8 @@ func clone(src, dst string) (err error) {
 	}
 
 	return nil
+}
+
+func copyOnWriteDir(_, _ string) error {
+	return errors.New("copy-on-write directory cloning not supported on Windows")
 }

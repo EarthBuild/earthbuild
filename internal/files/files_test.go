@@ -43,7 +43,7 @@ func TestCopy(t *testing.T) {
 	require.NoError(t, err)
 
 	// 2. Perform the Copy
-	err = Copy(srcDir, dstDir)
+	err = Copy(t.Context(), srcDir, dstDir)
 	require.NoError(t, err)
 
 	// 3. Verify copy content and permissions
@@ -111,7 +111,7 @@ func TestCopySingleFile(t *testing.T) {
 	err := os.WriteFile(srcFile, []byte("single file content"), 0o644) // #nosec G306
 	require.NoError(t, err)
 
-	err = Copy(srcFile, dstFile)
+	err = Copy(t.Context(), srcFile, dstFile)
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(dstFile) // #nosec G304
@@ -152,7 +152,7 @@ func TestCopyReadOnlyDir(t *testing.T) {
 	}()
 
 	// Perform Copy
-	err = Copy(srcDir, dstDir)
+	err = Copy(t.Context(), srcDir, dstDir)
 	require.NoError(t, err)
 
 	// Verify target subdirectory exists and is read-only (0555)
@@ -182,7 +182,7 @@ func TestCopyOverReadOnlyFile(t *testing.T) {
 	err = os.WriteFile(dstFile, []byte("old content"), 0o444) // #nosec G306
 	require.NoError(t, err)
 
-	err = Copy(srcFile, dstFile)
+	err = Copy(t.Context(), srcFile, dstFile)
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(dstFile) // #nosec G304
@@ -211,7 +211,7 @@ func TestCopyOverSymlink(t *testing.T) {
 	require.NoError(t, err)
 
 	// Perform copy
-	err = Copy(srcFile, dstFile)
+	err = Copy(t.Context(), srcFile, dstFile)
 	require.NoError(t, err)
 
 	// Verify symlink was replaced by a regular file
@@ -241,7 +241,7 @@ func TestClone(t *testing.T) {
 	err := os.WriteFile(srcFile, origContent, 0o644) // #nosec G306
 	require.NoError(t, err)
 
-	err = nativeClone(srcFile, dstFile)
+	err = copyOnWriteFile(srcFile, dstFile)
 	if err != nil {
 		t.Logf("Cloning not supported: %v. Skipping verification.", err)
 		return

@@ -2,22 +2,22 @@
 package files
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // copyFallback copies a file, directory, or symbolic link recursively from src to dst.
 // Permissions and executable bits are preserved.
-func copyFallback(src, dst string) (err error) {
+func copyFallback(src, dst string, srcInfo os.FileInfo) (err error) {
 	errorf := func(format string, args ...any) error {
 		return fmt.Errorf("copy %s to %s: "+format, append([]any{src, dst}, args...)...)
-	}
-
-	srcInfo, err := os.Lstat(src)
-	if err != nil {
-		return errorf("lstat %s: %w", src, err)
 	}
 
 	// Handle symlink at the root level
@@ -28,11 +28,6 @@ func copyFallback(src, dst string) (err error) {
 		if err != nil {
 			return errorf("read symlink %s: %w", src, err)
 		}
-		// Remove existing file/symlink at dst if any, to avoid "file exists" error
-		err = os.Remove(dst)
-		if err != nil && !os.IsNotExist(err) {
-			return errorf("remove %s: %w", dst, err)
-		}
 
 		err = os.Symlink(link, dst)
 		if err != nil {
@@ -42,22 +37,7 @@ func copyFallback(src, dst string) (err error) {
 		return nil
 	}
 
-	// Handle directory
-	if srcInfo.IsDir() {
-		err = copyDir(src, dst, srcInfo.Mode())
-		if err != nil {
-			return errorf("%w", err)
-		}
-
-		return nil
-	}
-
 	// Handle regular file
-	cloneErr := nativeClone(src, dst)
-	if cloneErr == nil {
-		return nil
-	}
-
 	srcFile, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return errorf("open %s: %w", src, err)
@@ -68,13 +48,6 @@ func copyFallback(src, dst string) (err error) {
 			err = errors.Join(err, errorf("close source file: %w", closeErr))
 		}
 	}()
-
-	// Remove existing destination file or symlink to prevent permission errors
-	// and symlink overwrite redirection.
-	err = os.Remove(dst)
-	if err != nil && !os.IsNotExist(err) {
-		return errorf("remove existing destination: %w", err)
-	}
 
 	// Open or create the destination file with the same permissions
 	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode().Perm()) // #nosec G304
@@ -93,36 +66,70 @@ func copyFallback(src, dst string) (err error) {
 	return err
 }
 
-// nativeClone attempts to clone a file using OS-level copy-on-write mechanisms.
-// It returns an error if cloning fails.
-func nativeClone(src, dst string) error {
-	// Ensure destination doesn't exist, as clonefile/FICLONE fails if it does.
-	err := os.Remove(dst)
+// Copy copies a file or directory from src to dst.
+// It tries native Copy-on-Write cloning first, then falls back to hard linking,
+// and finally to recursive copying.
+func Copy(ctx context.Context, src, dst string) error {
+	span := trace.SpanFromContext(ctx)
+
+	srcInfo, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
+	// Check if src and dst are the same file/directory
+	dstInfo, err := os.Lstat(dst)
+	if err == nil && os.SameFile(srcInfo, dstInfo) {
+		return nil
+	}
+
+	err = os.RemoveAll(dst)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
-	return clone(src, dst)
-}
+	if srcInfo.IsDir() {
+		err = copyOnWriteDir(src, dst)
+		if err == nil {
+			span.SetAttributes(semconv.FileCopyMethodCopyOnWrite)
+			return nil
+		}
 
-// Copy copies a file or directory from src to dst.
-// It tries native Copy-on-Write cloning first, then falls back to hard linking,
-// and finally to recursive copying.
-func Copy(src, dst string) error {
-	err := nativeClone(src, dst)
+		c := &copier{allowCoW: true, allowLink: true}
+
+		return c.copyDir(src, dst, srcInfo.Mode())
+	}
+
+	err = copyOnWriteFile(src, dst)
 	if err == nil {
+		span.SetAttributes(semconv.FileCopyMethodCopyOnWrite)
 		return nil
 	}
 
-	err = os.Link(src, dst)
-	if err == nil {
-		return nil
+	if srcInfo.Mode().IsRegular() {
+		err = os.Link(src, dst)
+		if err == nil {
+			span.SetAttributes(semconv.FileCopyMethodHardlink)
+			return nil
+		}
 	}
 
-	return copyFallback(src, dst)
+	err = copyFallback(src, dst, srcInfo)
+	if err == nil {
+		span.SetAttributes(semconv.FileCopyMethodCopy)
+	}
+
+	return err
 }
 
-func copyDir(src, dst string, mode os.FileMode) (err error) {
+type copier struct {
+	// allowCoW indicates whether copy-on-write cloning is currently supported and should be attempted.
+	allowCoW bool
+	// allowLink indicates whether hard-linking is currently supported and should be attempted.
+	allowLink bool
+}
+
+func (c *copier) copyDir(src, dst string, mode os.FileMode) (err error) {
 	// Create destination directory with owner-write permissions to ensure files/dirs
 	// can be copied into it, even if the source directory is read-only.
 	err = os.MkdirAll(dst, mode|0o700)
@@ -152,7 +159,7 @@ func copyDir(src, dst string, mode os.FileMode) (err error) {
 		}
 	}()
 
-	err = copyRoot(srcRoot, dstRoot)
+	err = c.copyRoot(srcRoot, dstRoot)
 	if err != nil {
 		return err
 	}
@@ -166,7 +173,7 @@ func copyDir(src, dst string, mode os.FileMode) (err error) {
 	return nil
 }
 
-func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
+func (c *copier) copyRoot(srcRoot, dstRoot *os.Root) (err error) {
 	dirFile, err := srcRoot.Open(".")
 	if err != nil {
 		return fmt.Errorf("open directory: %w", err)
@@ -202,11 +209,6 @@ func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
 				return fmt.Errorf("read symlink %s: %w", name, err)
 			}
 
-			err = dstRoot.Remove(name)
-			if err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("remove %s: %w", name, err)
-			}
-
 			err = dstRoot.Symlink(link, name)
 			if err != nil {
 				return fmt.Errorf("symlink %s to %s: %w", link, name, err)
@@ -217,7 +219,7 @@ func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
 
 		// Handle directory recursively
 		if info.IsDir() {
-			err = copySubDirRoot(srcRoot, dstRoot, name, info.Mode())
+			err = c.copySubDirRoot(srcRoot, dstRoot, name, info.Mode())
 			if err != nil {
 				return err
 			}
@@ -226,7 +228,7 @@ func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
 		}
 
 		// Handle regular file
-		err = copyFileRoot(srcRoot, dstRoot, name, info)
+		err = c.copyFileRoot(srcRoot, dstRoot, name, info)
 		if err != nil {
 			return err
 		}
@@ -235,7 +237,7 @@ func copyRoot(srcRoot, dstRoot *os.Root) (err error) {
 	return nil
 }
 
-func copySubDirRoot(srcRoot, dstRoot *os.Root, name string, mode os.FileMode) (err error) {
+func (c *copier) copySubDirRoot(srcRoot, dstRoot *os.Root, name string, mode os.FileMode) (err error) {
 	// Create destination subdirectory with owner-write permissions
 	err = dstRoot.Mkdir(name, mode.Perm()|0o700)
 	if err != nil && !os.IsExist(err) {
@@ -264,7 +266,7 @@ func copySubDirRoot(srcRoot, dstRoot *os.Root, name string, mode os.FileMode) (e
 		}
 	}()
 
-	err = copyRoot(subSrcRoot, subDstRoot)
+	err = c.copyRoot(subSrcRoot, subDstRoot)
 	if err != nil {
 		return err
 	}
@@ -278,7 +280,30 @@ func copySubDirRoot(srcRoot, dstRoot *os.Root, name string, mode os.FileMode) (e
 	return nil
 }
 
-func copyFileRoot(srcRoot, dstRoot *os.Root, name string, info os.FileInfo) (err error) {
+func (c *copier) copyFileRoot(srcRoot, dstRoot *os.Root, name string, info os.FileInfo) (err error) {
+	srcPath := filepath.Join(srcRoot.Name(), name)
+	dstPath := filepath.Join(dstRoot.Name(), name)
+
+	// Try copy-on-write first
+	if c.allowCoW {
+		err = copyOnWriteFile(srcPath, dstPath)
+		if err == nil {
+			return nil
+		}
+
+		c.allowCoW = false
+	}
+
+	// Try hard link second
+	if c.allowLink && info.Mode().IsRegular() {
+		err = os.Link(srcPath, dstPath)
+		if err == nil {
+			return nil
+		}
+
+		c.allowLink = false
+	}
+
 	srcFile, err := srcRoot.Open(name)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", name, err)
@@ -289,13 +314,6 @@ func copyFileRoot(srcRoot, dstRoot *os.Root, name string, info os.FileInfo) (err
 			err = errors.Join(err, fmt.Errorf("close %s: %w", name, closeErr))
 		}
 	}()
-
-	// Remove existing destination file or symlink to prevent permission errors
-	// and symlink overwrite redirection.
-	errRemove := dstRoot.Remove(name)
-	if errRemove != nil && !os.IsNotExist(errRemove) {
-		return fmt.Errorf("remove existing destination %s: %w", name, errRemove)
-	}
 
 	dstFile, err := dstRoot.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
 	if err != nil {

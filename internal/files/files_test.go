@@ -167,7 +167,6 @@ func TestCopyReadOnlyDir(t *testing.T) {
 	require.Equal(t, "content", string(content))
 }
 
-
 func TestClone(t *testing.T) {
 	t.Parallel()
 

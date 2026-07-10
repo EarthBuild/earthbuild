@@ -2,7 +2,7 @@ package subcmd
 
 import (
 	"context"
-	stdErrors "errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -161,7 +161,7 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		if invalidFlagErr, ok := stdErrors.AsType[*variables.InvalidFlagError](err); ok {
+		if invalidFlagErr, ok := stderrors.AsType[*variables.InvalidFlagError](err); ok {
 			return params.Errorf("%s", invalidFlagErr.Error())
 		}
 
@@ -954,7 +954,7 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		if invalidFlagErr, ok := stdErrors.AsType[*variables.InvalidFlagError](err); ok {
+		if invalidFlagErr, ok := stderrors.AsType[*variables.InvalidFlagError](err); ok {
 			return params.Errorf("%s", invalidFlagErr.Error())
 		}
 

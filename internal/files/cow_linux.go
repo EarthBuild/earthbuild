@@ -28,8 +28,21 @@ func copyOnWriteFile(src, dst string) (err error) {
 	if err != nil {
 		return fmt.Errorf("copy on write file %q to %q: open dst: %w", src, dst, err)
 	}
+
+	var dstClosed bool
+
+	closeDst := func() error {
+		if dstClosed {
+			return nil
+		}
+
+		dstClosed = true
+
+		return dstFile.Close()
+	}
+
 	defer func() {
-		closeErr := dstFile.Close()
+		closeErr := closeDst()
 		if closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
 			err = errors.Join(err, fmt.Errorf("copy on write file %q to %q: close dst: %w", src, dst, closeErr))
 		}
@@ -39,7 +52,7 @@ func copyOnWriteFile(src, dst string) (err error) {
 	if err != nil {
 		err = fmt.Errorf("copy on write file %q to %q: ioctl: %w", src, dst, err)
 
-		closeErr := dstFile.Close()
+		closeErr := closeDst()
 		if closeErr != nil {
 			err = errors.Join(err, fmt.Errorf("copy on write file %q to %q: close dst: %w", src, dst, closeErr))
 		}

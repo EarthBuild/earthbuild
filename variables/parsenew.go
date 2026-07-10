@@ -46,7 +46,7 @@ func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err err
 			keyFromPrev = ""
 			v = arg
 		} else {
-			err := checkInvalidFlag(arg)
+			err = checkInvalidFlag(arg)
 			if err != nil {
 				return nil, nil, err
 			}

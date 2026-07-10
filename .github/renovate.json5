@@ -13,6 +13,9 @@
   configMigration: true,
   prHourlyLimit: 0,
   prConcurrentLimit: 1,
+  lockFileMaintenance: {
+    enabled: true,
+  },
   includePaths: [
     'Earthfile',
     '**/go.mod',

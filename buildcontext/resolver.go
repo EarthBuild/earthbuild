@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -16,6 +17,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
+	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 	"github.com/pkg/errors"
@@ -50,6 +52,9 @@ type Resolver struct {
 	parseCache           *synccache.SyncCache // local path -> AST
 	featureFlagOverrides string
 	console              conslogging.ConsoleLogger
+
+	inMemoryEarthfiles   map[string]earthfile.Tree
+	inMemoryMutex        sync.RWMutex
 }
 
 // NewResolver returns a new NewResolver.
@@ -82,6 +87,26 @@ func NewResolver(
 		parseCache:           synccache.New(),
 		console:              console,
 		featureFlagOverrides: featureFlagOverrides,
+		inMemoryEarthfiles:   make(map[string]earthfile.Tree),
+	}
+}
+
+// RegisterInMemoryEarthfile registers an in-memory Earthfile AST for a specific target reference.
+func (r *Resolver) RegisterInMemoryEarthfile(targetRef string, tree earthfile.Tree) {
+	r.inMemoryMutex.Lock()
+	defer r.inMemoryMutex.Unlock()
+	if r.inMemoryEarthfiles == nil {
+		r.inMemoryEarthfiles = make(map[string]earthfile.Tree)
+	}
+	r.inMemoryEarthfiles[targetRef] = tree
+
+	// Also register for all other targets defined in this tree
+	parts := strings.Split(targetRef, "+")
+	if len(parts) > 0 {
+		basePath := parts[0]
+		for _, target := range tree.Targets {
+			r.inMemoryEarthfiles[basePath+"+"+target.Name] = tree
+		}
 	}
 }
 
@@ -142,6 +167,53 @@ func (r *Resolver) ExpandWildcard(
 func (r *Resolver) Resolve(
 	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
 ) (*Data, error) {
+	r.inMemoryMutex.RLock()
+	inMemTree, isInMemory := r.inMemoryEarthfiles[ref.String()]
+	r.inMemoryMutex.RUnlock()
+
+	if isInMemory {
+		localDirs := make(map[string]string)
+		if _, isTarget := ref.(domain.Target); isTarget {
+			localDirs[ref.GetLocalPath()] = ref.GetLocalPath()
+		}
+
+		ftrs, _, err := features.Get(&earthfile.Version{Args: []string{"0.7"}})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get features for in-memory AST")
+		}
+
+		excludes, err := readExcludes(ref.GetLocalPath(), ftrs.NoImplicitIgnore, false)
+		if err != nil {
+			return nil, err
+		}
+
+		buildFilePath := ""
+		if inMemTree.SourceLocation != nil {
+			buildFilePath = inMemTree.SourceLocation.File
+		} else {
+			buildFilePath = filepath.Join(ref.GetLocalPath(), "Dockerfile")
+		}
+
+		data := &Data{
+			BuildFilePath: buildFilePath,
+			Earthfile:     inMemTree,
+			Features:      ftrs,
+			LocalDirs:     localDirs,
+			Ref:           ref,
+		}
+
+		if gwClient != nil {
+			data.BuildContextFactory = llbfactory.Local(
+				ref.GetLocalPath(),
+				llb.ExcludePatterns(excludes),
+				llb.Platform(platr.LLBNative()),
+				llb.WithCustomNamef("[context %s] local context %s", ref.GetLocalPath(), ref.GetLocalPath()),
+			)
+		}
+
+		return data, nil
+	}
+
 	if ref.IsUnresolvedImportReference() {
 		return nil, errors.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}

@@ -16,10 +16,6 @@
   lockFileMaintenance: {
     enabled: true,
   },
-  constraints: {
-    erlang: '^27.0',
-    elixir: '^1.20.0',
-  },
   includePaths: [
     'Earthfile',
     '**/go.mod',

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestMain(m *testing.M) {
+func runTests(m *testing.M) int {
 	go main()
 
 	// Wait until the http server is ready
@@ -27,12 +27,17 @@ func TestMain(m *testing.M) {
 		}
 		select {
 		case <-ctx.Done():
-			log.Fatal("timed out waiting for service to start")
+			log.Println("timed out waiting for service to start")
+			return 1
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
 
-	os.Exit(m.Run())
+	return m.Run()
+}
+
+func TestMain(m *testing.M) {
+	os.Exit(runTests(m))
 }
 
 func TestService(t *testing.T) {

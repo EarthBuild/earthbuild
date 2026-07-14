@@ -2,7 +2,6 @@ package fsutilprogress
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"sync"
 	"time"
@@ -18,8 +17,9 @@ import (
 type ProgressCallback interface {
 	// Info is the coarse aggregate progress callback (fsutil Send/Receive ProgressCb).
 	Info(numBytes int, last bool)
-	// OnReceiveFile is an fsutil.ChangeFunc for ReceiveOpt.NotifyHashed: one call per received file.
-	OnReceiveFile(kind fsutil.ChangeKind, relPath string, fi os.FileInfo, err error) error
+	// OnReceiveProgress is an fsutil ReceiveOpt.ProgressCb: cumulative received
+	// bytes, called per packet, `last` true on completion. Non-hashing.
+	OnReceiveProgress(numBytes int, last bool)
 	// WrapMap decorates an fsutil FilterOpt.Map func to report per-file send activity.
 	WrapMap(inner func(string, *fstypes.Stat) fsutil.MapResult) func(string, *fstypes.Stat) fsutil.MapResult
 }
@@ -30,7 +30,6 @@ type progressCallback struct {
 	console           conslogging.ConsoleLogger
 	numStats          int
 	numSent           int
-	numReceived       int
 	bytesSent         int
 	bytesReceived     int
 	lastBytesSent     int
@@ -56,23 +55,18 @@ func (s *progressCallback) Info(numBytes int, last bool) {
 	}
 }
 
-// OnReceiveFile reports each file as it is received (fsutil NotifyHashed).
-func (s *progressCallback) OnReceiveFile(kind fsutil.ChangeKind, relPath string, fi os.FileInfo, err error) error {
-	if err != nil || kind == fsutil.ChangeKindDelete {
-		return nil
-	}
+// OnReceiveProgress records cumulative received bytes and prints a throttled
+// summary. Byte-level, non-hashing (fsutil ProgressCb) - live transfer feedback
+// for output copies, which is what SAVE ARTIFACT ... AS LOCAL actually wants.
+func (s *progressCallback) OnReceiveProgress(numBytes int, last bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	var n int
-	if fi != nil && !fi.IsDir() {
-		n = int(fi.Size())
+	s.bytesReceived = numBytes // cumulative
+	if last {
+		s.console.VerbosePrintf("received %s\n", humanizeBytes(numBytes))
 	}
-	s.bytesReceived += n
-	s.numReceived++
-	s.console.VerbosePrintf("received data for %s (%s)\n", path.Join(s.pathPrefix, relPath), humanizeBytes(n))
 	s.displaySummaryLocked()
-	return nil
 }
 
 // WrapMap reports each file as it is walked for sending. Stock fsutil has no
@@ -116,15 +110,13 @@ func (s *progressCallback) displaySummaryLocked() {
 		s.console.Printf("sent %s\n", puralize(s.numStats, "file stat"))
 	}
 
-	if s.numReceived > 0 {
+	if s.bytesReceived > 0 {
 		var transferRate string
 		if !s.lastUpdate.IsZero() {
 			bytes := humanizeBytes(int(float64(s.bytesReceived-s.lastBytesReceived) / d.Seconds()))
 			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 		}
-		s.console.Printf(
-			"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate,
-		)
+		s.console.Printf("received %s%s\n", humanizeBytes(s.bytesReceived), transferRate)
 	}
 
 	s.lastUpdate = now

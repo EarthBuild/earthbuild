@@ -1,5 +1,0 @@
-VERSION 0.8 # make sure a comment here works
-
-FROM alpine:3.24.1
-test:
-    RUN echo "pass"

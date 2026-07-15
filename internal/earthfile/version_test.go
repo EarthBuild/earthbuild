@@ -1,6 +1,7 @@
 package earthfile
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -27,62 +28,111 @@ func TestParseVersionFile_Error(t *testing.T) {
 	r.ErrorContains(err, "earthfile: unable to open file")
 }
 
-func TestVersionFixtures(t *testing.T) {
+func TestParseFile_Version(t *testing.T) {
 	t.Parallel()
 
-	validFixtures := []string{
-		"single-line.earth",
-		"single-line-with-args.earth",
-		"single-line-with-comment.earth",
-		"multi-line.earth",
-		"multi-line-with-comment.earth",
-		"multi-line-with-comment2.earth",
-		"multi-line-with-comment3.earth",
-		"multi-line-with-comment4.earth",
-		"multi-line-with-args.earth",
-		"multi-line-with-args2.earth",
-		"multi-line-with-empty-newline.earth",
-		"version-only-import.earth",
-		"version-only.earth",
-		"comment-and-whitespace-before-version.earth",
-		"whitespace-then-version.earth",
-	}
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	require.NoError(t, os.WriteFile(path, []byte("VERSION 0.8\n"), 0o600))
 
-	for _, fixture := range validFixtures {
-		t.Run(fixture, func(t *testing.T) {
-			t.Parallel()
-
-			tree, err := ParseFile(filepath.Join("testdata", "version", fixture))
-			require.NoError(t, err)
-			require.NotNil(t, tree.Version)
-		})
-	}
+	tree, err := ParseFile(path)
+	r := require.New(t)
+	r.NoError(err)
+	r.NotNil(tree.Version)
+	r.Equal([]string{"0.8"}, tree.Version.Args)
 }
 
-func TestInvalidVersionFixtures(t *testing.T) {
+// TestVersionVariants covers the accepted spellings of the VERSION statement:
+// comments and blank lines before it, trailing comments, feature-flag args,
+// and line continuations (including continuation lines that hold only a
+// comment). Invalid VERSION values live in TestParseErrors.
+func TestVersionVariants(t *testing.T) {
 	t.Parallel()
 
-	// The parser's version validator funnels every unsupported VERSION value
-	// (bad major/minor/patch, or an unrecognised trailing token) to the same
-	// message. Feature-flag validation (e.g. invalid-feature-flag-override.earth)
-	// lives in the features package, not here, so it is exercised by the
-	// integration tests under tests/version, not by this unit test.
-	const wantErr = "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+	requireVersion := func(t *testing.T, input string, wantArgs ...string) {
+		t.Helper()
+		t.Parallel()
 
-	fixtures := []string{
-		"invalid-major-version.earth",
-		"invalid-minor-version.earth",
-		"invalid-patch-version.earth",
-		"invalid-format-version.earth",
+		tree, err := Parse("Earthfile", input)
+		r := require.New(t)
+		r.NoError(err)
+		r.NotNil(tree.Version)
+		r.Equal(wantArgs, tree.Version.Args)
 	}
 
-	for _, fixture := range fixtures {
-		t.Run(fixture, func(t *testing.T) {
-			t.Parallel()
+	// All of these parse to Version.Args == {"0.8"}.
+	plain := map[string]string{
+		"single line": `VERSION 0.8
 
-			_, err := ParseFile(filepath.Join("testdata", "version", fixture))
-			require.Error(t, err)
-			require.ErrorContains(t, err, wantErr)
-		})
+test:
+    FROM alpine:3.24.1
+`,
+		"single line with comment": `VERSION 0.8 # make sure a comment here works
+`,
+		"comment then version": `# test a comment before
+VERSION 0.8
+`,
+		"comments and whitespace before version": `
+
+
+# welcome to my
+
+# spacious
+
+
+
+# test
+VERSION 0.8
+`,
+		"whitespace then version": `
+
+
+VERSION 0.8
+`,
+		"version only": `VERSION 0.8
+`,
+		"version then import": `VERSION 0.8
+IMPORT ./subdir AS other
+`,
+		"multi line": `VERSION \
+    0.8
+`,
+		"multi line with comment no space after hash": `VERSION \ #with a comment that doesn't have a space after the hash.
+    0.8
+`,
+		"multi line with comment": `VERSION \ # with a comment
+    0.8
+`,
+		"multi line with hash run comment": `VERSION \       ##########################
+    0.8
+`,
+		"multi line with comment-only continuation": `VERSION \
+    # don't count this as the continued line
+    0.8
+`,
+		"multi line with commented-out arg": `VERSION \ # comment out a single feature
+    #--try \
+    0.8
+`,
+		"multi line with empty newline": `VERSION \
+
+
+    0.8
+`,
+	}
+	for name, input := range plain {
+		t.Run(name, func(t *testing.T) { requireVersion(t, input, "0.8") })
+	}
+
+	// Feature flags precede the version number and survive continuations.
+	withFlag := map[string]string{
+		"single line with args": `VERSION --try 0.8
+`,
+		"multi line with args": `VERSION \ #with a comment that doesn't have a space after the hash.
+    --try \
+    0.8
+`,
+	}
+	for name, input := range withFlag {
+		t.Run(name, func(t *testing.T) { requireVersion(t, input, "--try", "0.8") })
 	}
 }

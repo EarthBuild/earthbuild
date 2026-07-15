@@ -1738,6 +1738,30 @@ build:
 `,
 			wantError: "expected END to close WAIT statement",
 		},
+		// The version validator funnels every unsupported VERSION value (bad
+		// major/minor/patch, or an unrecognised trailing token) to the same
+		// message. Feature-flag validation (e.g. VERSION --referenced-save-only=false)
+		// lives in the features package and is unit-tested there.
+		{
+			name:      "invalid major version",
+			input:     "VERSION 1.0\n",
+			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+		},
+		{
+			name:      "invalid minor version",
+			input:     "VERSION 0.4\n", // versioning was only added since 0.5
+			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+		},
+		{
+			name:      "invalid patch version",
+			input:     "VERSION 0.5.1\n", // patch version is not supported
+			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+		},
+		{
+			name:      "flag after version number",
+			input:     "VERSION 0.8 --try\n", // flags must precede the version number
+			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+		},
 	}
 
 	for _, tc := range tests {

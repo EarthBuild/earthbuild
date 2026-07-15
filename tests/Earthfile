@@ -560,13 +560,13 @@ fail-test:
 
 allow-privileged-test:
     # test that privileged-tasks in remote repos dont run
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-from-locally
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-from-privileged
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-copy-locally
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-copy-privileged
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-build-locally
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-build-privileged
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-dedup
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-from-locally
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-from-privileged
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-copy-locally
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-copy-privileged
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-build-locally
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-build-privileged
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-dedup
     # test allowed-privileged tasks in remote repos work
     DO +RUN_EARTHLY --earthfile=allow-privileged.earth --extra_args="--allow-privileged" --target=+allow-all
 

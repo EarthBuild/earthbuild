@@ -3,4 +3,4 @@ module(
     version = "1.0",
 )
 
-bazel_dep(name = "rules_java", version = "9.6.1")
+bazel_dep(name = "rules_java", version = "9.7.0")

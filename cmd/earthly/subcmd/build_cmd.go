@@ -25,7 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -161,6 +160,10 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
+		if invalidFlagErr, ok := stderrors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
+		}
+
 		return fmt.Errorf("parse args %s: %w", strings.Join(cmd.Args().Slice(), " "), err)
 	}
 
@@ -950,6 +953,10 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
+		if invalidFlagErr, ok := errors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
+		}
+
 		return fmt.Errorf("parse args %s: %w", strings.Join(cmd.Args().Slice(), " "), err)
 	}
 

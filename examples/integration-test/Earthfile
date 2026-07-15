@@ -1,14 +1,14 @@
 VERSION 0.8
 FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
 WORKDIR /scala-example
-RUN apk add openjdk11 bash wget postgresql-client
+RUN apk add --no-cache openjdk17 bash wget postgresql-client gcompat
 
 sbt:
     #Scala
     # Defaults if not specified
 
     # renovate: datasource=github-releases packageName=sbt/sbt
-    ARG sbt_version=1.8.2
+    ARG sbt_version=2.0.2
     ARG sbt_home=/usr/local/sbt
 
     # Download and extract from archive
@@ -17,26 +17,29 @@ sbt:
     RUN tar xzf /tmp/sbt.tgz -C "$sbt_home" --strip-components=1
     RUN ln -sv "$sbt_home"/bin/sbt /usr/bin/
 
+    ENV OSTYPE=linux-gnu
+
     # This triggers a bunch of useful downloads.
-    RUN sbt sbtVersion
+    RUN mkdir -p ~/.config/sbt && echo "--allow-empty" > ~/.config/sbt/sbtopts
+    RUN sbt --jvm-client "; sbtVersion; shutdown"
 
 project-files:
     FROM +sbt
     COPY build.sbt ./
     COPY project project
     # Run sbt for caching purposes.
-    RUN touch a.scala && sbt compile && rm a.scala
+    RUN touch a.scala && sbt --jvm-client "; compile; shutdown" && rm a.scala
     SAVE IMAGE --push earthbuild/examples:integration-project-files
 
 build:
     FROM +project-files
     COPY src src
-    RUN sbt compile
+    RUN sbt --jvm-client "; compile; shutdown"
 
 unit-test:
     FROM +project-files
     COPY src src
-    RUN sbt test
+    RUN sbt --jvm-client "; test; shutdown"
 
 integration-test:
     FROM +project-files
@@ -44,14 +47,16 @@ integration-test:
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN while ! pg_isready --host=localhost --port=5432 --dbname=iso3166 --username=postgres; do sleep 1; done ;\
-            sbt it:test
+            sbt --jvm-client "; IntegrationTest/test; shutdown"
     END
 
 docker:
     FROM +project-files
     COPY src src
-    RUN sbt 'set test in assembly := {}' assembly
-    ENTRYPOINT ["java","-cp","target/scala-3.8.2/scala-example-assembly-1.0.jar","Main"]
+    RUN \
+        sbt --jvm-client "; set assembly / test := sbt.protocol.testing.TestResult.Passed; assembly; shutdown" && \
+        mv target/assembly/scala-example-assembly-*.jar app.jar
+    ENTRYPOINT ["java","-cp","app.jar","Main"]
     SAVE IMAGE --push earthbuild/examples:integration
 
 smoke-test:

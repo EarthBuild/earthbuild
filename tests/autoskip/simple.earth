@@ -2,7 +2,7 @@ VERSION 0.7
 PROJECT testorg/testproj
 
 deps:
-  FROM alpine:3.23
+  FROM alpine:3.24.1
   COPY my-file .
 
 mytarget:
@@ -10,13 +10,13 @@ mytarget:
   RUN echo SSB3YXMgcnVuCg== | base64 -d
 
 no-cache:
-  FROM alpine
+  FROM alpine:3.24.1
   RUN --no-cache echo "hello"
 
 simple:
-  FROM alpine
+  FROM alpine:3.24.1
   RUN echo "hello"
 
 copy-if-exists:
-  FROM alpine
+  FROM alpine:3.24.1
   COPY --if-exists my-file .

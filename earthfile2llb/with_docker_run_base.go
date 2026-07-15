@@ -21,7 +21,7 @@ const (
 	dockerdWrapperPath          = "/var/earthbuild/dockerd-wrapper.sh"
 	dockerAutoInstallScriptPath = "/var/earthbuild/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthbuild/dind:alpine-3.22-docker-28.3.3-r5"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.24-docker-29.5.3-r0"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -71,7 +71,8 @@ func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) 
 		fmt.Sprintf(
 			"%s %s",
 			strings.Join(params, " "),
-			dockerAutoInstallScriptPath),
+			dockerAutoInstallScriptPath,
+		),
 	)
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
@@ -81,7 +82,8 @@ func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) 
 
 	runOpts := []llb.RunOption{
 		llb.AddMount(
-			dockerAutoInstallScriptPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerAutoInstallScriptPath)),
+			dockerAutoInstallScriptPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerAutoInstallScriptPath),
+		),
 		llb.Args(args),
 		llb.WithCustomNamef("%sWITH DOCKER (install deps)", prefix),
 	}
@@ -169,7 +171,8 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 		fmt.Sprintf(
 			"%s %s get-compose-config",
 			strings.Join(params, " "),
-			dockerdWrapperPath),
+			dockerdWrapperPath,
+		),
 	)
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
@@ -179,7 +182,8 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 	runOpts := []llb.RunOption{
 		llb.AddMount(
-			dockerdWrapperPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)),
+			dockerdWrapperPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath),
+		),
 		llb.Args(args),
 		llb.WithCustomNamef("%sWITH DOCKER (docker-compose config)", prefix),
 	}
@@ -206,7 +210,8 @@ func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, o
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
 	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
 	params := make([]string, 0, 7)
-	params = append(params,
+	params = append(
+		params,
 		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
 		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),
 		fmt.Sprintf("EARTHLY_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),

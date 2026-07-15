@@ -53,7 +53,7 @@ jobs:
       EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/stage2-setup
@@ -74,7 +74,7 @@ jobs:
         run: ${{ inputs.BUILT_EARTHLY_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
       - name: Execute tests
         run: |-
-          GORACE="halt_on_error=1" go run -race ./cmd/earthly/*.go --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
+          GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
             ${{inputs.TEST_TARGET}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}

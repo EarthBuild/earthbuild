@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.23
+FROM alpine:3.24.1
 
 release-dockerhub:
     ARG --required RELEASE_TAG
@@ -8,8 +8,12 @@ release-dockerhub:
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
+    # VERSION is the semver baked into the buildkitd binary so it matches the
+    # earthly client that ships it. Defaults to RELEASE_TAG for backwards compat.
+    ARG VERSION="$RELEASE_TAG"
     BUILD +perform-release-dockerhub \
           --RELEASE_TAG="$RELEASE_TAG" \
+          --VERSION="$VERSION" \
           --DOCKERHUB_USER="$DOCKERHUB_USER" \
           --DOCKERHUB_IMG="$DOCKERHUB_IMG" \
           --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
@@ -23,8 +27,9 @@ perform-release-dockerhub:
     ARG --required DOCKERHUB_USER
     ARG --required DOCKERHUB_IMG
     ARG --required DOCKERHUB_BUILDKIT_IMG
+    ARG VERSION="$RELEASE_TAG"
     BUILD +perform-release-earthly-dockerhub
-    BUILD +perform-release-buildkitd-dockerhub
+    BUILD +perform-release-buildkitd-dockerhub --VERSION="$VERSION"
 
 perform-release-earthly-dockerhub:
     ARG --required RELEASE_TAG
@@ -53,11 +58,16 @@ perform-release-buildkitd-dockerhub:
     ARG --required DOCKERHUB_IMG
     ARG --required DOCKERHUB_BUILDKIT_IMG
     ARG BUILDKIT_PROJECT
+    # The image tag stays keyed on RELEASE_TAG (so the copy-to-dockerhub step
+    # finds it), but the version baked into the binary is the semver VERSION so
+    # it matches the earthbuild client. Defaults to RELEASE_TAG for backwards compat.
+    ARG VERSION="$RELEASE_TAG"
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ../buildkitd+buildkitd \
         --TAG="$RELEASE_TAG" \
+        --RELEASE_VERSION="$VERSION" \
         --DOCKERHUB_USER="$DOCKERHUB_USER" \
         --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
@@ -65,9 +75,9 @@ perform-release-buildkitd-dockerhub:
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
-    FROM alpine:3.23
+    FROM alpine:3.24.1
 
-    RUN apk add file gpg gpg-agent
+    RUN apk add --no-cache file gpg gpg-agent
 
     ARG --required RELEASE_TAG
     ARG --required GITHUB_USER
@@ -118,7 +128,7 @@ promote-release:
     BUILD +promote-to-dockerhub
 
 gh-cli:
-    FROM alpine:3.23
+    FROM alpine:3.24.1
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
 
@@ -236,10 +246,10 @@ copy-img:
     RUN --push --no-cache echo "Done copying image from '${SRC_REF}' to '${DEST_REF}'"
 
 skopeo:
-    FROM alpine:3.23
+    FROM alpine:3.24.1
 
     # https://github.com/containers/skopeo/blob/main/install.md#alpine
-    RUN apk add skopeo
+    RUN apk add --no-cache skopeo
 
 release-repo:
     ARG --required RELEASE_TAG

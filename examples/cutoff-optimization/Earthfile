@@ -5,9 +5,9 @@
 # Result: `build` will rerun, but `link` and `run` will be served from the cache as main.o is unchanged
 
 VERSION 0.8
-FROM alpine
+FROM alpine:3.24.1
 WORKDIR /code
-RUN apk add --update --no-cache build-base
+RUN apk add --no-cache build-base
 
 build:
     COPY src .

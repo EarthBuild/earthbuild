@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/builder"
@@ -22,7 +22,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
-	"github.com/EarthBuild/earthbuild/docker2earthly"
+	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/states"
@@ -35,6 +35,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
 	"github.com/EarthBuild/earthbuild/util/params"
 	"github.com/EarthBuild/earthbuild/util/platutil"
+	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -81,8 +82,8 @@ func (b *Build) Cmds() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:         "build",
-			Usage:        "Build an EarthBuild target",
-			Description:  "Build an EarthBuild target.",
+			Usage:        "Build an earth target",
+			Description:  "Build an earth target.",
 			Action:       b.Action,
 			StopOnNthArg: new(1),
 			Flags:        b.buildFlags(),
@@ -101,11 +102,12 @@ func (b *Build) Cmds() []*cli.Command {
 			Description:  "*beta* Builds a Dockerfile without an Earthfile.",
 			Action:       b.actionDockerBuild,
 			StopOnNthArg: new(1),
-			Flags: append(b.buildFlags(),
+			Flags: append(
+				b.buildFlags(),
 				&cli.StringFlag{
 					Name:        "dockerfile",
 					Aliases:     []string{"f"},
-					Sources:     cli.EnvVars("EARTHLY_DOCKER_FILE"),
+					Sources:     flag.EarthEnvVars("DOCKER_FILE"),
 					Usage:       "Path to dockerfile input",
 					Value:       "Dockerfile",
 					Destination: &b.cli.Flags().DockerfilePath,
@@ -113,13 +115,13 @@ func (b *Build) Cmds() []*cli.Command {
 				&cli.StringSliceFlag{
 					Name:        "tag",
 					Aliases:     []string{"t"},
-					Sources:     cli.EnvVars("EARTHLY_DOCKER_TAGS"),
+					Sources:     flag.EarthEnvVars("DOCKER_TAGS"),
 					Usage:       "Name and tag for the built image; formatted as 'name:tag'",
 					Destination: &b.dockerTags,
 				},
 				&cli.StringFlag{
 					Name:        "target",
-					Sources:     cli.EnvVars("EARTHLY_DOCKER_TARGET"),
+					Sources:     flag.EarthEnvVars("DOCKER_TARGET"),
 					Usage:       "The docker target to build in the specified dockerfile",
 					Destination: &b.dockerTarget,
 				},
@@ -159,6 +161,10 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
+		if invalidFlagErr, ok := stderrors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
+		}
+
 		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
 	}
 
@@ -200,7 +206,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no image reference provided. Try %s --image +<target-name>", common.GetBinaryName())
+				"no image reference provided. Try %s --image +<target-name>", common.GetBinaryName(),
+			)
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -219,7 +226,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName())
+				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName(),
+			)
 		} else if len(nonFlagArgs) > 2 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -243,7 +251,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no target reference provided. Try %s +<target-name>", common.GetBinaryName())
+				"no target reference provided. Try %s +<target-name>", common.GetBinaryName(),
+			)
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -318,13 +327,14 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	}
 
 	for secretKey := range secretsMap {
-		if !ast.IsValidEnvVarName(secretKey) {
+		if !shell.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
 			// see https://github.com/earthly/earthly/issues/2883
 			b.cli.Console().Warnf(
 				"Deprecation: secret key %q does not follow the recommended naming convention "+
 					"(a letter followed by alphanumeric characters or underscores); "+
-					"this will become an error in a future version of earthly.", secretKey)
+					"this will become an error in a future version of earthly.", secretKey,
+			)
 		}
 	}
 
@@ -593,8 +603,8 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	b.cli.Console().PrintPhaseFooter(builder.PhaseInit)
 
 	builtinArgs := variables.DefaultArgs{
-		EarthlyVersion:  b.cli.Version(),
-		EarthlyBuildSha: b.cli.GitSHA(),
+		EarthVersion:  b.cli.Version(),
+		EarthBuildSha: b.cli.GitSHA(),
 	}
 
 	buildOpts := builder.BuildOpt{
@@ -688,7 +698,8 @@ func (b *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 
 		err := gitLookup.AddMatcher(
 			k, pattern, v.Substitute, v.User, v.Password, v.Prefix, suffix, auth, v.ServerKey,
-			common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand)
+			common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand,
+		)
 		if err != nil {
 			return errors.Wrap(err, "gitlookup")
 		}
@@ -882,7 +893,7 @@ func (b *Build) initAutoSkip(
 		Target:         target,
 		Console:        b.cli.Console(),
 		CI:             b.cli.Flags().CI,
-		BuiltinArgs:    variables.DefaultArgs{EarthlyVersion: b.cli.Version(), EarthlyBuildSha: b.cli.GitSHA()},
+		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
 		OverridingVars: overridingVars,
 	})
 	if err != nil {
@@ -943,6 +954,10 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
+		if invalidFlagErr, ok := stderrors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
+		}
+
 		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
 	}
 
@@ -950,7 +965,8 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 		_ = cli.ShowAppHelp(cmd)
 
 		return errors.Errorf(
-			"no build context path provided. Try %s docker-build <path>", common.GetBinaryName())
+			"no build context path provided. Try %s docker-build <path>", common.GetBinaryName(),
+		)
 	}
 
 	if len(nonFlagArgs) != 1 {
@@ -981,9 +997,10 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	platforms := flagutil.SplitFlagString(b.platformsStr)
 
-	content, err := docker2earthly.GenerateEarthfile(
+	content, err := docker2earth.GenerateEarthfile(
 		buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
-		buildArgs.Sorted(), platforms, b.dockerTarget)
+		buildArgs.Sorted(), platforms, b.dockerTarget,
+	)
 	if err != nil {
 		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
 	}

@@ -6,7 +6,7 @@ VERSION --git-author-email-name-args 0.8
 #   - buildcontext/git.go: resolveGitProject    (remotely-referenced)
 
 test-git-metadata:
-    FROM alpine
+    FROM alpine:3.24.1
     ARG --required expected_sha
     ARG --required expected_committer_timestamp
     ARG --required expected_author_timestamp

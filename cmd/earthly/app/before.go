@@ -12,10 +12,10 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
@@ -23,7 +23,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func (app *EarthlyApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 	flags := app.BaseCLI.Flags()
 
 	if flags.EnableProfiler {
@@ -63,8 +63,6 @@ func (app *EarthlyApp) before(ctx context.Context, cmd *cli.Command) (context.Co
 		flags.Debug,
 		flags.Verbose,
 		flags.DisplayExecStats,
-		envutil.IsTrue("FORCE_COLOR"),
-		envutil.IsTrue("NO_COLOR"),
 		app.BaseCLI.Flags().InteractiveDebugging,
 		flags.LogstreamDebugFile,
 		uuid.NewString(),
@@ -129,7 +127,7 @@ func (app *EarthlyApp) before(ctx context.Context, cmd *cli.Command) (context.Co
 	return ctx, nil
 }
 
-func (app *EarthlyApp) parseFrontend(ctx context.Context) error {
+func (app *EarthApp) parseFrontend(ctx context.Context) error {
 	console := app.BaseCLI.Console().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -174,8 +172,9 @@ func (app *EarthlyApp) parseFrontend(ctx context.Context) error {
 	return nil
 }
 
-func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) {
+func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	app.warnIfEarth()
+	app.warnDeprecatedEarthlyEnvVars()
 
 	if cfg.Global.CachePath != "" {
 		app.BaseCLI.Console().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
@@ -217,12 +216,23 @@ func (app *EarthlyApp) processDeprecatedCommandOptions(cfg *config.Config) {
 
 const cmdName = "earthly"
 
-func (app *EarthlyApp) warnIfEarth() {
+// warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
+// variables, which have been replaced by the EARTH_ prefix.
+//
+// NOTE: this is a temporary shim for the EARTHLY_ -> EARTH_ migration and should
+// be removed once EARTHLY_ support is officially dropped.
+func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
+	for _, warning := range env.DeprecatedWarnings() {
+		app.BaseCLI.Console().Warn(warning)
+	}
+}
+
+func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
 	}
 
-	// can't use os.Executable() here; because it will give us earthly if executed via the earth symlink
+	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
 	binPath := os.Args[0]
 
 	baseName := path.Base(binPath)
@@ -235,10 +245,10 @@ func (app *EarthlyApp) warnIfEarth() {
 			return
 		}
 
-		earthlyPath := path.Join(path.Dir(absPath), cmdName)
+		earthPath := path.Join(path.Dir(absPath), cmdName)
 
-		earthlyPathExists, _ := fileutil.FileExists(earthlyPath)
-		if earthlyPathExists {
+		earthPathExists, _ := fileutil.FileExists(earthPath)
+		if earthPathExists {
 			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
 		}
 	}
@@ -259,9 +269,9 @@ func profhandler() {
 }
 
 func defaultConfigPath(installName string) string {
-	earthlyDir := cliutil.GetEarthlyDir(installName)
-	oldConfig := filepath.Join(earthlyDir, "config.yaml")
-	newConfig := filepath.Join(earthlyDir, "config.yml")
+	earthDir := cliutil.GetEarthDir(installName)
+	oldConfig := filepath.Join(earthDir, "config.yaml")
+	newConfig := filepath.Join(earthDir, "config.yml")
 	oldConfigExists, _ := fileutil.FileExists(oldConfig)
 
 	newConfigExists, _ := fileutil.FileExists(newConfig)

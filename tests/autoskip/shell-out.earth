@@ -2,7 +2,7 @@ VERSION 0.7
 
 PROJECT testorg/testproj
 
-FROM alpine:3.23
+FROM alpine:3.24.1
 
 shell-out:
   ARG result=$(echo "hi")

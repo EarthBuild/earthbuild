@@ -3,7 +3,7 @@ VERSION 0.8
 ARG --global REGISTRY
 
 test-push:
-    FROM alpine:3.23
+    FROM alpine:3.24.1
     WORKDIR /test
     RUN echo "content" >./content
     SAVE IMAGE --push $REGISTRY/test1:latest
@@ -13,8 +13,8 @@ test-pull:
     RUN test -f /test/content
 
 test-connect:
-    FROM alpine:3.23
-    RUN apk add openssl
+    FROM alpine:3.24.1
+    RUN apk add --no-cache openssl
     WORKDIR /test
     COPY ./test.ca ./
     RUN timeout 10 /bin/sh -c 'echo "Q" | openssl s_client -connect '"$REGISTRY"':443 -CAfile ./test.ca'

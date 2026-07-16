@@ -1,12 +1,12 @@
 VERSION 0.8
-FROM alpine
+FROM alpine:3.24.1
 
 dep:
     RUN touch hello.txt
     SAVE ARTIFACT hello.txt
 
 test:
-    FROM ubuntu:24.04
+    FROM ubuntu:26.04
     COPY +dep/hello.txt .
     EXPOSE 8080
     SAVE IMAGE hello-image

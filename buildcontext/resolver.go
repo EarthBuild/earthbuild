@@ -6,12 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
@@ -23,14 +22,14 @@ import (
 )
 
 // DockerfileMetaTarget is a target name prefix which signals the resolver that the build file is a
-// dockerfile. The DockerfileMetaTarget is really not a valid Earthly target otherwise.
+// dockerfile. The DockerfileMetaTarget is really not a valid earth target otherwise.
 const DockerfileMetaTarget = "@dockerfile:"
 
 // Data represents a resolved target's build context data.
 type Data struct {
 	// BuildContext is the state to use for the build.
 	BuildContextFactory llbfactory.Factory
-	// Target is the earthly reference.
+	// Target is the earth reference.
 	Ref domain.Reference
 	// GitMetadata contains git metadata information.
 	GitMetadata *gitutil.GitMetadata
@@ -41,7 +40,7 @@ type Data struct {
 	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
 	BuildFilePath string
 	// The parsed Earthfile AST.
-	Earthfile spec.Earthfile
+	Earthfile earthfile.Tree
 }
 
 // Resolver is a build context resolver.
@@ -104,7 +103,7 @@ func (r *Resolver) ExpandWildcard(
 	}
 
 	// For local targets, we need to determine the full path relative to the
-	// working directory of Earthly in order to glob for matching paths. We can
+	// working directory of earth in order to glob for matching paths. We can
 	// get this path by joining the targets. The child target will likely still
 	// include *'s (expanded below), but that shouldn't be a problem.
 	ref, err := domain.JoinReferences(parentTarget, target)
@@ -138,7 +137,7 @@ func (r *Resolver) ExpandWildcard(
 	return ret, nil
 }
 
-// Resolve returns resolved context data for a given Earthly reference. If the reference is a target,
+// Resolve returns resolved context data for a given earth reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
 func (r *Resolver) Resolve(
 	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
@@ -185,7 +184,7 @@ func (r *Resolver) Resolve(
 	return d, nil
 }
 
-func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
+func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.Tree, error) {
 	path = filepath.Clean(path)
 
 	efValue, err := r.parseCache.Do(ctx, path, func(_ context.Context, k any) (any, error) {
@@ -194,15 +193,15 @@ func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthf
 			return nil, fmt.Errorf("want string, got %T", k)
 		}
 
-		return ast.Parse(filePath, true)
+		return earthfile.ParseFile(filePath, earthfile.WithSourceMap())
 	})
 	if err != nil {
-		return spec.Earthfile{}, err
+		return earthfile.Tree{}, err
 	}
 
-	ef, ok := efValue.(spec.Earthfile)
+	ef, ok := efValue.(earthfile.Tree)
 	if !ok {
-		return spec.Earthfile{}, errors.Errorf("want spec.Earthfile, got %T", efValue)
+		return earthfile.Tree{}, errors.Errorf("want earthfile.Tree, got %T", efValue)
 	}
 
 	return ef, nil

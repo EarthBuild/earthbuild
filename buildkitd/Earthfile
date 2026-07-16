@@ -6,20 +6,26 @@ buildkitd:
     ARG BUILDKIT_PROJECT
     IF [ "$BUILDKIT_PROJECT" != "" ]
         IF case "$BUILDKIT_PROJECT" in ../*) true;; *) false;; esac
-            # Assuming this is coming from the main Earthly Earthfile.
+            # Assuming this is coming from the main Earthbuild Earthfile.
             ARG BUILDKIT_BASE_IMAGE=../$BUILDKIT_PROJECT+build
         ELSE
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:c40c767e201de9ad72c8c52e207dc8f4b5b51e9d+build
+        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:51fe8fb974fd27cac120487c04948bd3295683c9+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
+    # RELEASE_VERSION is the version string baked into the buildkitd binary and
+    # reported via `buildkitd --version`. It defaults to TAG (the image tag) but
+    # can be set independently so a released daemon reports the same semver as
+    # the earthbuild client that ships it -- otherwise the client warns that the
+    # "Buildkit version is different from earth version".
+    ARG RELEASE_VERSION="$TAG"
 
-    FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$TAG
+    FROM $BUILDKIT_BASE_IMAGE --RELEASE_VERSION=$RELEASE_VERSION
     RUN echo "@edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-    RUN apk add --update --no-cache \
+    RUN apk add --no-cache \
         cni-plugins@edge-community \
         gettext \
         git-lfs \
@@ -80,7 +86,7 @@ buildkitd:
     ENTRYPOINT ["/usr/bin/entrypoint.sh", "buildkitd", "--config=/etc/buildkitd.toml"]
 
     ARG CR_ORG="earthbuild"
-    # TODO: push this to buildkit repo or the main earthly repo under a specific tag?
+    # TODO: push this to buildkit repo or the main earthbuild repo under a specific tag?
     ARG CR_REPO="earthbuild"
     ARG IMAGE_REGISTRY="ghcr.io"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
@@ -90,19 +96,19 @@ buildkitd:
     SAVE IMAGE --push $IMAGE_REGISTRY/$CR_ORG/$CR_REPO:$DOCKERHUB_BUILDKIT_IMG-$TAG
 
 buildkit-sha:
-    RUN apk add git
+    RUN apk add --no-cache git
     ARG BUILDKIT_GIT_SHA
     ARG BUILDKIT_GIT_BRANCH=earthly-main
     ARG --required BUILDKIT_GIT_ORG
     RUN --no-cache set -e; \
         if [ "$(echo -n $BUILDKIT_GIT_SHA | wc -c)" = 40 ]; then \
-            echo "pinning github.com/earthly/buildkit to reference git sha1: $BUILDKIT_GIT_SHA"; \
+            echo "pinning github.com/${BUILDKIT_GIT_ORG}/buildkit to reference git sha1: $BUILDKIT_GIT_SHA"; \
             buildkit_sha1="$BUILDKIT_GIT_SHA"; \
         else \
             test -z "$BUILDKIT_GIT_SHA"; \
             echo "looking up branch $BUILDKIT_GIT_BRANCH"; \
             buildkit_sha1=$(git ls-remote --refs -q https://github.com/$BUILDKIT_GIT_ORG/buildkit.git "$BUILDKIT_GIT_BRANCH" | awk 'BEGIN { FS = "[ \t]+" } {print $1}'); \
-            echo "pinning github.com/earthly/buildkit@${BUILDKIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
+            echo "pinning github.com/${BUILDKIT_GIT_ORG}/buildkit@${BUILDKIT_GIT_BRANCH} to reference git sha1: $buildkit_sha1"; \
         fi && \
         test -n "$buildkit_sha1" && \
         echo "$buildkit_sha1" > buildkit_sha
@@ -120,8 +126,8 @@ update-buildkit-earthfile:
             sed -i 's/\(^[ \t]\+ARG BUILDKIT_BASE_IMAGE\)=github.com\/.*\/buildkit.*/\1=github.com\/'$BUILDKIT_GIT_ORG'\/buildkit:'$BUILDKIT_GIT_SHA'+build/g' Earthfile; \
         fi
 
-# export-docker-script is used to copy the dind install script remotely via another Earthly target
+# export-docker-script is used to copy the dind install script remotely via another Earthbuild target
 export-docker-script:
-    FROM alpine
+    FROM alpine:3.24.1
     COPY docker-auto-install.sh .
     SAVE ARTIFACT docker-auto-install.sh

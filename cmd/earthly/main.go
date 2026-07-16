@@ -1,4 +1,4 @@
-// Package main is the primary entry point for the EarthBuild CLI executable.
+// Package main is the primary entry point for the earth CLI executable.
 package main
 
 import (
@@ -6,12 +6,17 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	_ "net/http/pprof" // #nosec G108 // enable pprof handlers on net/http listener
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
+
+	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
+	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
+	// to ensure it happens before other packages initialize.
+	_ "github.com/EarthBuild/earthbuild/cmd/earthly/disable_alpn"
 
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
@@ -19,9 +24,9 @@ import (
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
-	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
@@ -38,15 +43,15 @@ var (
 	Version string
 	// GitSha contains the git sha used to build this app.
 	GitSha string
-	// BuiltBy contains information on which build-system was used (e.g. official earthly binaries, homebrew, etc).
+	// BuiltBy contains information on which build-system was used (e.g. official earth binaries, homebrew, etc).
 	BuiltBy string
 
 	// DefaultBuildkitdImage is the default buildkitd image to use.
 	DefaultBuildkitdImage string
 
-	// DefaultInstallationName is the name included in the various earthly global resources on the system,
+	// DefaultInstallationName is the name included in the various earth global resources on the system,
 	// such as the ~/.earthly dir name, the buildkitd container name, the docker volume name, etc.
-	// This should be set to "earthly" for official releases.
+	// This should be set to "earth" for official releases.
 	DefaultInstallationName string
 )
 
@@ -123,12 +128,12 @@ func run() (code int) {
 	// Occasional spurious warnings show up - these are coming from imported libraries. Discard them.
 	logrus.StandardLogger().Out = io.Discard
 
-	// Load .env into current global env's. This is mainly for applying Earthly settings.
+	// Load .env into current global env's. This is mainly for applying earth settings.
 	// Separate call is made for build args and secrets.
 	envFile := eFlag.DefaultEnvFile
 	envFileOverride := false
 
-	if envFileFromEnv, ok := os.LookupEnv("EARTHLY_ENV_FILE"); ok {
+	if envFileFromEnv, ok := env.Lookup("ENV_FILE"); ok {
 		envFile = envFileFromEnv
 		envFileOverride = true
 	}
@@ -137,7 +142,8 @@ func run() (code int) {
 	flagSet := flag.NewFlagSet(common.GetBinaryName(), flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
-	cli := base.NewCLI(conslogging.ConsoleLogger{},
+	cli := base.NewCLI(
+		conslogging.ConsoleLogger{},
 		base.WithVersion(Version),
 		base.WithGitSHA(GitSha),
 		base.WithBuiltBy(BuiltBy),
@@ -178,20 +184,14 @@ func run() (code int) {
 		}
 	}
 
-	colorMode := conslogging.AutoColor
-	if envutil.IsTrue("FORCE_COLOR") {
-		colorMode = conslogging.ForceColor
+	// The color package handles NO_COLOR natively. Only unset it for FORCE_COLOR.
+	if isForceColor() {
 		color.NoColor = false
-	}
-
-	if envutil.IsTrue("NO_COLOR") {
-		colorMode = conslogging.NoColor
-		color.NoColor = true
 	}
 
 	padding := conslogging.DefaultPadding
 
-	customPadding, ok := os.LookupEnv("EARTHLY_TARGET_PADDING")
+	customPadding, ok := env.Lookup("TARGET_PADDING")
 	if ok {
 		targetPadding, err := strconv.Atoi(customPadding)
 		if err == nil {
@@ -199,14 +199,65 @@ func run() (code int) {
 		}
 	}
 
-	if envutil.IsTrue("EARTHLY_FULL_TARGET") {
-		padding = conslogging.NoPadding
+	fullTarget, ok := os.LookupEnv("EARTH_FULL_TARGET")
+	if ok {
+		v, err := strconv.ParseBool(fullTarget)
+		if err != nil {
+			fmt.Printf("Invalid value for EARTH_FULL_TARGET (%q): %s.\n", fullTarget, err.Error())
+			return 1
+		}
+
+		if v {
+			padding = conslogging.NoPadding
+		}
 	}
 
-	logging := conslogging.Current(colorMode, padding, conslogging.Info, cli.Flags().GithubAnnotations)
+	logging := conslogging.Current(padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
 	cli.SetConsole(logging)
-	earthly := app.NewEarthlyApp(cli, rootApp, buildApp)
+	earth := app.NewEarthApp(cli, rootApp, buildApp)
 
-	return earthly.Run(ctx, lastSignal)
+	return earth.Run(ctx, lastSignal)
+}
+
+// isForceColor returns true if the FORCE_COLOR environment variable is set to a truthy value.
+// It uses a permissive boolean parser to support common truthy/falsy conventions.
+func isForceColor() bool {
+	forceColor := os.Getenv("FORCE_COLOR")
+	if forceColor == "" {
+		return false
+	}
+
+	v, err := parseBool(forceColor)
+	if err != nil {
+		fmt.Printf("read FORCE_COLOR from env: %q\n",
+			forceColor)
+
+		return false
+	}
+
+	return v
+}
+
+func parseBool(val string) (bool, error) {
+	b, err := strconv.ParseBool(val)
+	if err == nil {
+		return b, nil
+	}
+
+	i, err := strconv.Atoi(val)
+	if err == nil {
+		return i != 0, nil
+	}
+
+	switch strings.ToLower(val) {
+	case "yes", "y", "on":
+		return true, nil
+	case "no", "n", "off":
+		return false, nil
+	}
+
+	return false, fmt.Errorf("invalid boolean value, "+
+		"want (1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False, yes, y, on, no, n, off, or integer): %q",
+		val)
 }

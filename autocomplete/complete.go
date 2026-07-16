@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v3"
@@ -132,7 +132,7 @@ func getPotentialPaths(
 
 		targetToParse := prefix
 		if strings.HasSuffix(targetToParse, "+") {
-			targetToParse += ast.TargetBase
+			targetToParse += earthfile.TargetBase
 		}
 
 		var target domain.Target
@@ -248,7 +248,7 @@ func getPotentialTargets(prefix, dirPath string, replaceHomePrefix func(string) 
 
 	// only suggest when Earthfile has no other targets
 	if len(targets) == 0 {
-		targets = append(targets, ast.TargetBase)
+		targets = append(targets, earthfile.TargetBase)
 	}
 
 	for _, target := range targets {
@@ -389,9 +389,9 @@ const (
 type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 
 // GetPotentials returns a list of potential arguments for shell auto completion
-// NOTE: you can cause earthly to run this command with:
+// NOTE: you can cause earth to run this command with:
 //
-//	COMP_LINE="earthly -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
+//	COMP_LINE="earth -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
 func GetPotentials(
 	ctx context.Context,
 	resolver *buildcontext.Resolver,
@@ -412,7 +412,7 @@ func GetPotentials(
 
 	// getWord returns the next word and a boolean if it is valid
 	// TODO this function does not handle escaped space, e.g.
-	// earthly --build-arg key="value with space" +mytarget will fail
+	// earth --build-arg key="value with space" +mytarget will fail
 	hasNextWord := len(compLine) > 0
 	getWord := func() (string, bool) {
 		if !hasNextWord {
@@ -434,7 +434,7 @@ func GetPotentials(
 		return word, true
 	}
 
-	// remove first word which is most likely "earthly", or "/some/path/to/earthly", etc.
+	// remove first word which is most likely "earth", or "/some/path/to/earth", etc.
 	prevWord, _ := getWord()
 
 	state := rootState
@@ -513,6 +513,10 @@ func GetPotentials(
 
 	var potentials []string
 
+	// missing cases in switch of type autocomplete.completeState: autocomplete.unknownState,
+	// autocomplete.endOfSuggestionsState
+	// TODO(jhorsts): future proof by adding all the cases
+	//nolint:exhaustive
 	switch state {
 	case flagState:
 		if cmd != nil {

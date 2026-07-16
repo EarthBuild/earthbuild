@@ -34,7 +34,7 @@ type BusSetup struct {
 func New(
 	ctx context.Context,
 	bus *logbus.Bus,
-	debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool,
+	debug, verbose, displayStats bool, disableOngoingUpdates bool,
 	busDebugFile, buildID string,
 	execStatsTracker *execstatssummary.Tracker,
 	isGitHubActions bool,
@@ -53,7 +53,8 @@ func New(
 	}
 	bs.Formatter = formatter.New(
 		ctx, bs.Bus, debug, verbose, displayStats,
-		forceColor, noColor, disableOngoingUpdates, execStatsTracker, isGitHubActions)
+		disableOngoingUpdates, execStatsTracker, isGitHubActions,
+	)
 	bs.Bus.AddRawSubscriber(bs.Formatter)
 	bs.Bus.AddFormattedSubscriber(bs.ConsoleWriter)
 	bs.SolverMonitor = solvermon.New(bs.Bus)

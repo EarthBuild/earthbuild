@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/errutil"
@@ -40,7 +41,7 @@ var (
 )
 
 // Run runs the CLI and returns an exit code to pass to [os.Exit].
-func (app *EarthlyApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
+func (app *EarthApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
@@ -55,18 +56,19 @@ func (app *EarthlyApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (co
 	return app.run(ctx, os.Args, lastSignal)
 }
 
-func (app *EarthlyApp) unhideFlags() error {
+func (app *EarthApp) unhideFlags() error {
 	var err error
 
 	// TODO delete this check after 2022-03-01
-	if os.Getenv("EARTHLY_AUTOCOMPLETE_HIDDEN") != "" && os.Getenv("COMP_POINT") == "" {
+	autocompleteHidden, _ := env.Lookup("AUTOCOMPLETE_HIDDEN")
+	if autocompleteHidden != "" && os.Getenv("COMP_POINT") == "" {
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
-		app.BaseCLI.Console().Warn("Warning: EARTHLY_AUTOCOMPLETE_HIDDEN has been renamed to EARTHLY_SHOW_HIDDEN\n")
+		app.BaseCLI.Console().Warn("Warning: EARTH_AUTOCOMPLETE_HIDDEN has been renamed to EARTH_SHOW_HIDDEN\n")
 	}
 
 	showHidden := false
 
-	showHiddenStr := os.Getenv("EARTHLY_SHOW_HIDDEN")
+	showHiddenStr, _ := env.Lookup("SHOW_HIDDEN")
 	if showHiddenStr != "" {
 		showHidden, err = strconv.ParseBool(showHiddenStr)
 		if err != nil {
@@ -99,7 +101,7 @@ func unhideFlagsCommands(cmds []*cli.Command) {
 	}
 }
 
-func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncutil.Signal) int {
+func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncutil.Signal) int {
 	defer func() {
 		if app.BaseCLI.LogbusSetup() != nil {
 			err := app.BaseCLI.LogbusSetup().Close()
@@ -140,7 +142,7 @@ func (app *EarthlyApp) run(ctx context.Context, args []string, lastSignal *syncu
 }
 
 // handleError handles run error, logs it and returns appropriate exit code.
-func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
+func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
 
 	if app.BaseCLI.Flags().Debug {
@@ -443,7 +445,7 @@ func (app *EarthlyApp) handleError(ctx context.Context, err error, args []string
 	}
 }
 
-func (app *EarthlyApp) printCrashLogs(ctx context.Context) {
+func (app *EarthApp) printCrashLogs(ctx context.Context) {
 	app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "System Info", "")
 	fmt.Fprintf(os.Stderr, "version: %s\n", app.BaseCLI.Version())  // #nosec G705
 	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA()) // #nosec G705

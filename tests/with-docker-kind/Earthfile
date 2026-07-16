@@ -1,7 +1,7 @@
 VERSION 0.8
 
 # renovate: datasource=github-releases packageName=kubernetes-sigs/kind
-ARG --global KIND_VERSION=0.30.0
+ARG --global KIND_VERSION=0.32.0
 
 all:
     WAIT
@@ -12,9 +12,13 @@ all:
     END
 
 alpine-kind:
-    ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r5
+    ARG DIND_IMAGE=earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     FROM $DIND_IMAGE
-    RUN wget -O ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
+    RUN for i in 1 2 3 4 5; do \
+            wget -c -T 60 -O ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && break; \
+            [ "$i" -lt 5 ] || exit 1; \
+            sleep $((i * 5)); \
+        done && chmod +x kind
     WITH DOCKER
         RUN (update-alternatives --set iptables /usr/sbin/iptables-legacy || true) && ./kind create cluster --verbosity 99999 --retain || { \
                 ./kind export logs ./logs && \
@@ -26,7 +30,7 @@ alpine-kind:
 ubuntu-kind:
     ARG DIND_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.4.0-1
     FROM $DIND_IMAGE
-    RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
+    RUN curl -fLo ./kind --retry 7 --retry-all-errors https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
         RUN ./kind create cluster --verbosity 99999 --retain || { \
                 ./kind export logs ./logs && \

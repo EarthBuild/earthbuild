@@ -1,4 +1,4 @@
-// Package features manages version-specific feature flags and backward compatibility layers for EarthBuild.
+// Package features manages version-specific feature flags and backward compatibility layers for earth.
 package features
 
 import (
@@ -9,11 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
 	goflags "github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
-
-	"github.com/EarthBuild/earthbuild/util/flagutil"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
@@ -29,11 +28,11 @@ type Features struct {
 	UseRegistryForWithDocker bool `description:"use embedded Docker registry for WITH DOCKER load operations" enabled_in_version:"0.5" long:"use-registry-for-with-docker"` //nolint:lll
 
 	// VERSION 0.6
-	ForIn                      bool `description:"allow the use of the FOR command"                                                                                                                 enabled_in_version:"0.6" long:"for-in"`                         //nolint:lll
-	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earthly-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`             //nolint:lll
-	ReferencedSaveOnly         bool `description:"only save artifacts that are directly referenced"                                                                                                 enabled_in_version:"0.6" long:"referenced-save-only"`           //nolint:lll
-	RequireForceForUnsafeSaves bool `description:"require the --force flag when saving to path outside of current path"                                                                             enabled_in_version:"0.6" long:"require-force-for-unsafe-saves"` //nolint:lll
-	UseCopyIncludePatterns     bool `description:"specify an include pattern to buildkit when performing copies"                                                                                    enabled_in_version:"0.6" long:"use-copy-include-patterns"`      //nolint:lll
+	ForIn                      bool `description:"allow the use of the FOR command"                                                                                                               enabled_in_version:"0.6" long:"for-in"`                         //nolint:lll
+	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earth-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`             //nolint:lll
+	ReferencedSaveOnly         bool `description:"only save artifacts that are directly referenced"                                                                                               enabled_in_version:"0.6" long:"referenced-save-only"`           //nolint:lll
+	RequireForceForUnsafeSaves bool `description:"require the --force flag when saving to path outside of current path"                                                                           enabled_in_version:"0.6" long:"require-force-for-unsafe-saves"` //nolint:lll
+	UseCopyIncludePatterns     bool `description:"specify an include pattern to buildkit when performing copies"                                                                                  enabled_in_version:"0.6" long:"use-copy-include-patterns"`      //nolint:lll
 
 	// VERSION 0.7
 	CheckDuplicateImages     bool `description:"check for duplicate images during output"                                        enabled_in_version:"0.7" long:"check-duplicate-images"`      //nolint:lll
@@ -197,14 +196,14 @@ var errUnexpectedArgs = errors.New("unexpected VERSION arguments; " +
 	"should be VERSION [flags] <major-version>.<minor-version>")
 
 // Get returns a features struct for a particular version.
-func Get(version *spec.Version) (*Features, bool, error) {
+func Get(version *earthfile.Version) (*Features, bool, error) {
 	var ftrs Features
 
 	hasVersion := (version != nil)
 	if !hasVersion {
-		// If no version is specified, we default to 0.5 (the Earthly version
+		// If no version is specified, we default to 0.5 (the Earthbuild version
 		// before the VERSION command was introduced).
-		version = &spec.Version{
+		version = &earthfile.Version{
 			Args: []string{"0.5"},
 		}
 	}
@@ -214,7 +213,8 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	parsedArgs, err := flagutil.ParseArgsWithValueModifierAndOptions(
-		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption)
+		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption,
+	)
 	if err != nil {
 		return nil, false, err
 	}

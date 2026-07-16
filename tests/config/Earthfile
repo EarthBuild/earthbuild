@@ -8,7 +8,7 @@ WORKDIR /test
 test:
     COPY expected-*.yml .
 
-    # Ensure earthly doesn't create overridden config files when they don't exist
+    # Ensure earthbuild doesn't create overridden config files when they don't exist
     RUN earthly --config config.yml config global.cache_size_mb 10 2>&1 | grep 'failed to read from config.yml: open config.yml: no such file or directory'
 
     RUN touch config.yml
@@ -41,18 +41,18 @@ test:
     RUN earthly --config config.yml config global.conversion_parallelism ""; test $? = 1
     RUN earthly --config config.yml config global.buildkit_image ""
 
-    # test earthly runs when no default config is present
+    # test earthbuild runs when no default config is present
     RUN ! test -f /root/.earthly/config.yml
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
-    # test earthly can write to default config location
+    # test earthbuild can write to default config location
     RUN earthly config global.cache_size_mb 10
     RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-1.yml)"
 
-    # test earthly fails when explicitly set to use a different config that doesn't exist
+    # test earthbuild fails when explicitly set to use a different config that doesn't exist
     DO --pass-args +RUN_EARTHLY_ARGS --extra_args="--config=this-does-not-exist.yml" --earthfile="hello.earth" --target="+hello" --should_fail="true" --output_contains="failed to read from this-does-not-exist.yml"
 
-    # test earthly runs with new cache percentage setting
+    # test earthbuild runs with new cache percentage setting
     RUN earthly config global.cache_size_pct 50
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
@@ -99,7 +99,7 @@ test:
     RUN ! earthly --config=/tmp/config.yml --verbose +hello > output.txt 2>&1
     RUN cat output.txt | grep 'Error: read config: failed to read from /tmp/config.yml: open /tmp/config.yml: permission denied'
 
-    # check permission error is correctly returned even when earthly attempts to read from the default location
+    # check permission error is correctly returned even when earthbuild attempts to read from the default location
     # to make this test work, a symbolic link is required (chown root:root /home/testuser/.earthly/config.yml doesnt work)
     RUN rm /home/testuser/.earthly/config.yml
     RUN ln -s /tmp/config.yml /home/testuser/.earthly/config.yml

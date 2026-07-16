@@ -16,7 +16,8 @@ import (
 func TestRootCmdsHelp(t *testing.T) {
 	t.Parallel()
 
-	newCLI := base.NewCLI(conslogging.ConsoleLogger{},
+	newCLI := base.NewCLI(
+		conslogging.ConsoleLogger{},
 		base.WithVersion(""),
 		base.WithGitSHA(""),
 		base.WithBuiltBy(""),
@@ -25,7 +26,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	)
 	buildApp := subcmd.NewBuild(newCLI)
 	rootApp := subcmd.NewRoot(newCLI, buildApp)
-	app := app.NewEarthlyApp(newCLI, rootApp, buildApp)
+	app := app.NewEarthApp(newCLI, rootApp, buildApp)
 
 	rootCLI := app.BaseCLI.App().Commands
 

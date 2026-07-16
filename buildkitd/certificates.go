@@ -76,7 +76,8 @@ func GenCerts(cfg config.Config, hostname string) error {
 				}
 			}
 
-			return hint.Wrap(errors.New("cannot generate missing certificates"),
+			return hint.Wrap(
+				errors.New("cannot generate missing certificates"),
 				fmt.Sprintf("missing certificates: %v", missing),
 				fmt.Sprintf("found certificates: %v", found),
 				"you may want to stop earthly-buildkitd, delete your certificates, "+
@@ -227,7 +228,7 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2021),
 		Subject: pkix.Name{
-			Organization: []string{"Earthly Buildkit GRPC CA"},
+			Organization: []string{"earth Buildkit GRPC CA"},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),

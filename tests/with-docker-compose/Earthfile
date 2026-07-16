@@ -1,6 +1,6 @@
 VERSION 0.8
 
-ARG DIND_IMAGE=earthbuild/dind:alpine-3.22-docker-28.3.3-r5
+ARG DIND_IMAGE=earthbuild/dind:alpine-3.24-docker-29.5.3-r0
 FROM $DIND_IMAGE
 WORKDIR /test
 
@@ -18,7 +18,7 @@ print-countries:
     SAVE IMAGE print-countries:latest
 
 test:
-    RUN apk add postgresql-client
+    RUN apk add --no-cache postgresql-client
     COPY docker-compose.yml .
     # Index is used to create parallel tests.
     ARG INDEX=0

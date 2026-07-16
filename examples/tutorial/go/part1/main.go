@@ -1,4 +1,4 @@
-// Package main provides the foundational Go application for the EarthBuild tutorial series.
+// Package main provides the foundational Go application for the earth tutorial series.
 package main
 
 import "fmt"

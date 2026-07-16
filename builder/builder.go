@@ -1,4 +1,4 @@
-// Package builder orchestrates the top-level resolution and execution of EarthBuild targets and commands.
+// Package builder orchestrates the top-level resolution and execution of earth targets and commands.
 package builder
 
 import (
@@ -123,7 +123,7 @@ type BuildOpt struct {
 	AllowPrivileged            bool
 }
 
-// Builder executes EarthBuild builds.
+// Builder executes earth builds.
 type Builder struct {
 	outDir     string
 	s          *solver
@@ -133,7 +133,7 @@ type Builder struct {
 	builtMain  bool
 }
 
-// NewBuilder returns a new earthly Builder.
+// NewBuilder returns a new earth Builder.
 func NewBuilder(opt Opt) (*Builder, error) {
 	b := &Builder{
 		s: &solver{
@@ -151,12 +151,13 @@ func NewBuilder(opt Opt) (*Builder, error) {
 	}
 	b.resolver = buildcontext.NewResolver(
 		opt.CleanCollection, opt.GitLookup, opt.Console, opt.FeatureFlagOverrides, opt.GitBranchOverride,
-		opt.GitLFSInclude, opt.GitLogLevel, opt.GitImage)
+		opt.GitLFSInclude, opt.GitLogLevel, opt.GitImage,
+	)
 
 	return b, nil
 }
 
-// BuildTarget executes the build of a given Earthly target.
+// BuildTarget executes the build of a given earth target.
 func (b *Builder) BuildTarget(ctx context.Context, target domain.Target, opt BuildOpt) (*states.MultiTarget, error) {
 	mts, err := b.convertAndBuild(ctx, target, opt)
 	if err != nil {
@@ -326,7 +327,7 @@ func (b *Builder) convertAndBuild(
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,
-				TempEarthlyOutDir:                    b.tempEarthlyOutDir,
+				TempEarthOutDir:                      b.tempEarthOutDir,
 				GlobalWaitBlockFtr:                   opt.GlobalWaitBlockFtr,
 				LLBCaps:                              &caps,
 				InteractiveDebuggerEnabled:           b.opt.InteractiveDebugging,
@@ -408,7 +409,8 @@ func (b *Builder) convertAndBuild(
 					if isMultiPlatform[saveImage.DockerTag] && noManifestListImgs[saveImage.DockerTag] {
 						return nil, fmt.Errorf(
 							"cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list",
-							saveImage.DockerTag)
+							saveImage.DockerTag,
+						)
 					}
 				}
 			}
@@ -467,7 +469,8 @@ func (b *Builder) convertAndBuild(
 						if _, found := platformImgNames[platformImgName]; found {
 							return nil, errors.Errorf(
 								"image %s is defined multiple times for the same platform (%s)",
-								saveImage.DockerTag, platformImgName)
+								saveImage.DockerTag, platformImgName,
+							)
 						}
 
 						platformImgNames[platformImgName] = true
@@ -481,7 +484,8 @@ func (b *Builder) convertAndBuild(
 					if shouldPush {
 						_, err = gwCrafter.AddPushImageEntry(
 							ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush,
-							saveImage.Image, []byte(platformStr))
+							saveImage.Image, []byte(platformStr),
+						)
 						if err != nil {
 							return nil, err
 						}
@@ -510,14 +514,16 @@ func (b *Builder) convertAndBuild(
 							manifestLists[saveImage.DockerTag], dockerutil.Manifest{
 								ImageName: platformImgName,
 								Platform:  resolvedPlat,
-							})
+							},
+						)
 					}
 				} else {
 					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
 						if _, found := singPlatImgNames[saveImage.DockerTag]; found {
 							return nil, errors.Errorf(
 								"image %s is defined multiple times for the same default platform",
-								saveImage.DockerTag)
+								saveImage.DockerTag,
+							)
 						}
 
 						singPlatImgNames[saveImage.DockerTag] = true
@@ -526,7 +532,8 @@ func (b *Builder) convertAndBuild(
 					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
 
 					refPrefix, err := gwCrafter.AddPushImageEntry(
-						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil)
+						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil,
+					)
 					if err != nil {
 						return nil, err
 					}
@@ -551,7 +558,8 @@ func (b *Builder) convertAndBuild(
 				for _, saveLocal := range b.targetPhaseArtifacts(sts) {
 					ref, err := b.artifactStateToRef(
 						childCtx, gwClient, sts.SeparateArtifactsState[saveLocal.Index],
-						sts.PlatformResolver)
+						sts.PlatformResolver,
+					)
 					if err != nil {
 						return nil, err
 					}
@@ -619,7 +627,8 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err := dockerutil.LoadDockerManifest(
-				ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
+				ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver,
+			)
 			if err != nil {
 				return err
 			}
@@ -655,7 +664,7 @@ func (b *Builder) convertAndBuild(
 			return "", err
 		}
 
-		outDir, err := b.tempEarthlyOutDir()
+		outDir, err := b.tempEarthOutDir()
 		if err != nil {
 			return "", err
 		}
@@ -670,7 +679,7 @@ func (b *Builder) convertAndBuild(
 		return artifactDir, nil
 	}
 	onFinalArtifact := func(context.Context) (string, error) {
-		return b.tempEarthlyOutDir()
+		return b.tempEarthOutDir()
 	}
 	onPull := func(childCtx context.Context, imagesToPull []string, _ map[string]string) error {
 		if b.opt.LocalRegistryAddr == "" {
@@ -705,7 +714,8 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err = dockerutil.LoadDockerManifest(
-				ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
+				ctx, b.opt.Console, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver,
+			)
 			if err != nil {
 				return err
 			}
@@ -768,13 +778,14 @@ func (b *Builder) convertAndBuild(
 
 			var outDir string
 
-			outDir, err = b.tempEarthlyOutDir()
+			outDir, err = b.tempEarthOutDir()
 			if err != nil {
 				return nil, err
 			}
 
 			err = saveartifactlocally.SaveArtifactLocally(
-				exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false)
+				ctx, exportCoordinator, b.opt.Console, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -834,7 +845,7 @@ func (b *Builder) convertAndBuild(
 				for _, saveLocal := range sts.SaveLocals {
 					var outDir string
 
-					outDir, err = b.tempEarthlyOutDir()
+					outDir, err = b.tempEarthOutDir()
 					if err != nil {
 						return nil, err
 					}
@@ -851,7 +862,8 @@ func (b *Builder) convertAndBuild(
 					}
 
 					err = saveartifactlocally.SaveArtifactLocally(
-						exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
+						ctx, exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists,
+					)
 					if err != nil {
 						return nil, err
 					}
@@ -868,7 +880,7 @@ func (b *Builder) convertAndBuild(
 				for _, saveLocal := range sts.RunPush.SaveLocals {
 					var outDir string
 
-					outDir, err = b.tempEarthlyOutDir()
+					outDir, err = b.tempEarthOutDir()
 					if err != nil {
 						return nil, err
 					}
@@ -885,7 +897,8 @@ func (b *Builder) convertAndBuild(
 					}
 
 					err = saveartifactlocally.SaveArtifactLocally(
-						exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists)
+						ctx, exportCoordinator, b.opt.Console, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists,
+					)
 					if err != nil {
 						return nil, err
 					}
@@ -903,7 +916,8 @@ func (b *Builder) convertAndBuild(
 			for _, saveImage := range sts.RunPush.SaveImages {
 				pushConsole.Printf(
 					"Did not push image %s as evaluating the image would "+
-						"have caused a RUN --push to execute", saveImage.DockerTag)
+						"have caused a RUN --push to execute", saveImage.DockerTag,
+				)
 				outputConsole.Printf("Did not output image %s locally, "+
 					"as evaluating the image would have caused a "+
 					"RUN --push to execute", saveImage.DockerTag)
@@ -1004,7 +1018,8 @@ func (b *Builder) stateToRef(
 
 	return llbutil.StateToRef(
 		ctx, gwClient, state, noCache,
-		platr, b.opt.CacheImports.AsSlice())
+		platr, b.opt.CacheImports.AsSlice(),
+	)
 }
 
 func (b *Builder) artifactStateToRef(
@@ -1014,14 +1029,15 @@ func (b *Builder) artifactStateToRef(
 
 	return llbutil.StateToRef(
 		ctx, gwClient, state, noCache,
-		platr, b.opt.CacheImports.AsSlice())
+		platr, b.opt.CacheImports.AsSlice(),
+	)
 }
 
-func (b *Builder) tempEarthlyOutDir() (string, error) {
+func (b *Builder) tempEarthOutDir() (string, error) {
 	var err error
 
 	b.outDirOnce.Do(func() {
-		tmpParentDir := ".tmp-earthly-out"
+		tmpParentDir := ".tmp-earth-out"
 
 		err = os.MkdirAll(tmpParentDir, 0o755) // #nosec G301
 		if err != nil {

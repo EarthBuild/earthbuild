@@ -35,7 +35,7 @@ git clone ssh://git@git.example.com/testuser/repo.git therepo3
 ls -la therepo3
 rm -rf therepo3
 
-# finally perform earthly tests
+# finally perform earthbuild tests
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D git.example.com/testuser/repo:main+hello
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
@@ -62,7 +62,7 @@ ssh-add -l
 # next validate ssh is working
 ssh git@git.example.com | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
-# finally perform earthly tests
+# finally perform earthbuild tests
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D git.example.com/testuser/repo:main+hello
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
@@ -89,7 +89,7 @@ ssh-add -l
 # next validate ssh is working
 ssh git@git.example.com | grep \"Hi git! You've successfully authenticated, but you get no shellz\"
 
-# finally perform earthly tests
+# finally perform earthbuild tests
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D git.example.com/testuser/repo:main+hello
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
@@ -220,10 +220,10 @@ if earthly --config \$earthly_config --verbose -D git.example.com/testuser/repo:
     echo \"expected earthly failure, but got clean exit code instead\" && exit 1
 fi
 
-# Next configure earthly to allow unknown hosts (insecure!)
+# Next configure earthbuild to allow unknown hosts (insecure!)
 earthly --config \$earthly_config config 'git.\"git.example.com\"' '{\"auth\": \"ssh\", \"user\": \"git\", \"strict_host_key_checking\": false}'
 
-# earthly should now be able to clone these even though no known_hosts entry exists
+# earthbuild should now be able to clone these even though no known_hosts entry exists
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D git.example.com/testuser/repo:main+hello
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
@@ -297,7 +297,7 @@ fi
 # restore known_hosts
 mv /tmp/known_hosts.old ~/.ssh/known_hosts
 
-# earthly should now be able to clone these even though no known_hosts entry exists
+# earthbuild should now be able to clone these even though no known_hosts entry exists
 earthly --config \$earthly_config --verbose -D +test 2>&1 | tee output.txt
 cat output.txt | grep $(echo MTIzM2MwODQtNGNmNS00Nzk3LWE0YzUtZWI2NTM1NGVlN2Vl | base64 -d)
 

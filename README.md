@@ -156,7 +156,7 @@ Reference pages
 # Earthfile
 VERSION 0.8
 FROM golang:1.15-alpine3.13
-RUN apk --update --no-cache add git
+RUN apk --no-cache add git
 WORKDIR /go-example
 
 all:

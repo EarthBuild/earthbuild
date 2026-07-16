@@ -17,6 +17,7 @@ import (
 	"github.com/EarthBuild/earthbuild/autocomplete"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
@@ -39,11 +40,11 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 		return -1
 	}
 
-	_, debugEnabled := os.LookupEnv("EARTHLY_AUTOCOMPLETE_DEBUG")
+	_, debugEnabled := env.Lookup("AUTOCOMPLETE_DEBUG")
 	if debugEnabled {
-		logDir, err := cliutil.GetOrCreateEarthlyDir(cli.Flags().InstallationName)
+		logDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "GetOrCreateEarthlyDir failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "GetOrCreateEarthDir failed: %v\n", err)
 			return 1
 		}
 

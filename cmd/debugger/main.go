@@ -1,4 +1,4 @@
-// Package main provides the standalone EarthBuild debugger executable.
+// Package main provides the standalone earth debugger executable.
 package main
 
 import (
@@ -122,7 +122,7 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(errors.Wrap(closeErr, "earthly debugger: error closing"))
+			log.Error(errors.Wrap(closeErr, "earth debugger: error closing"))
 		}
 	}()
 
@@ -183,7 +183,7 @@ func interactiveMode(
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(errors.Wrap(closeErr, "earthly debugger: error closing"))
+			log.Error(errors.Wrap(closeErr, "earth debugger: error closing"))
 		}
 	}()
 
@@ -340,8 +340,8 @@ func main() {
 		forceInteractive = true
 	}
 
-	conslogger := conslogging.Current(conslogging.ForceColor, conslogging.NoPadding, conslogging.Info, false).
-		WithPrefix("earthly debugger")
+	conslogger := conslogging.Current(conslogging.NoPadding, conslogging.Info, false).
+		WithPrefix("earth debugger")
 
 	color.NoColor = false
 
@@ -362,7 +362,7 @@ func main() {
 	if forceInteractive {
 		quotedCmd := shellescape.QuoteCommand(args)
 
-		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 Earthly Build Interactive Session", quotedCmd)
+		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 Earth Build Interactive Session", quotedCmd)
 
 		// Sometimes the interactive shell doesn't correctly get a newline
 		// Take a brief pause and issue a new line as a workaround.
@@ -409,6 +409,17 @@ func main() {
 	}
 }
 
+func exitCodeDiagnostic(exitCode int) string {
+	switch exitCode {
+	case 126:
+		return "Exit code 126 conventionally means a command was found but could not be executed. " +
+			"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
+			"and container runtime or security restrictions."
+	default:
+		return ""
+	}
+}
+
 func handleError(
 	ctx context.Context,
 	err error,
@@ -426,6 +437,8 @@ func handleError(
 		exitCode = exitErr.ExitCode()
 		if debuggerSettings.Enabled {
 			conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)
+		} else if diagnostic := exitCodeDiagnostic(exitCode); diagnostic != "" {
+			conslogger.Warnf("Wrapped command failed with exit code %d. %s\n", exitCode, diagnostic)
 		}
 	} else {
 		conslogger.Warnf("Command %s failed with unexpected execution error %v\n", quotedCmd, err)
@@ -472,7 +485,7 @@ func handleError(
 		}
 	}
 
-	// ensure that this always exits with an error status; otherwise it will be cached by earthly
+	// ensure that this always exits with an error status; otherwise it will be cached by earth
 	if exitCode == 0 {
 		exitCode = 1
 	}

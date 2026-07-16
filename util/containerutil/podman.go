@@ -94,7 +94,19 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 	output, err = psf.commandContextOutput(ctx, args...)
 	if err != nil {
-		return nil, err
+		// Podman 5.x might return true for .Host.RemoteSocket.Exists but the socket isn't running.
+		// Fallback to local version.
+		if hasRemote {
+			hasRemote = false
+			args = []string{"version", "--format=json"}
+
+			output, err = psf.commandContextOutput(ctx, args...)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	type versionInfo struct {

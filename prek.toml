@@ -1,0 +1,55 @@
+[[repos]]
+repo = "local"
+
+# Format Go code with gofumpt (matches the formatter used in golangci-lint config).
+# Runs via `earth +fmt-go` so the tool is invoked the same way as the other
+# Go hooks, rather than depending on a locally installed gofumpt. +fmt-go
+# defaults to formatting the whole repo, so the staged filenames are passed
+# through --files (Earthly doesn't accept bare positional args after a
+# target, hence the bash -c wrapper to build that flag) -- otherwise every
+# commit would reformat any pre-existing drift across the whole repo, not
+# just the files being committed.
+[[repos.hooks]]
+id = "gofumpt"
+name = "gofumpt"
+language = "system"
+entry = "bash -c 'earth +fmt-go --files=\"$*\"' --"
+types = ["go"]
+
+# Run golangci-lint to catch lint issues on every commit.
+# Runs via `earth +lint` so the pinned version and install logic live in one
+# place (the Earthfile) and lint runs in the same containerized environment
+# as CI, rather than depending on a locally installed golangci-lint.
+# pass_filenames = false so golangci-lint analyses full packages rather than
+# individual files, which is required for correct type-checking.
+[[repos.hooks]]
+id = "golangci-lint"
+name = "golangci-lint"
+language = "system"
+entry = "earth +lint"
+types = ["go"]
+pass_filenames = false
+
+# Run golangci-lint --fix to auto-correct fixable lint issues.
+# Runs manually only: prek run --hook-stage manual golangci-lint-fix
+[[repos.hooks]]
+id = "golangci-lint-fix"
+name = "golangci-lint (auto-fix)"
+language = "system"
+entry = "earth +lint-fix"
+types = ["go"]
+pass_filenames = false
+stages = ["manual"]
+
+# Lint shell scripts with shellcheck.
+# Runs via `earth +lint-scripts` so shellcheck is invoked the same way as the
+# other hooks, rather than depending on a locally installed shellcheck.
+# pass_filenames = false since +lint-scripts checks every shell script in the
+# repo, not individual files, and doesn't accept file arguments.
+[[repos.hooks]]
+id = "shellcheck"
+name = "shellcheck"
+language = "system"
+entry = "earth +lint-scripts"
+types = ["shell"]
+pass_filenames = false

@@ -171,7 +171,8 @@ func (gr *gitResolver) resolveEarthProject(
 
 		gitState, inErr := llbutil.StateToRef(
 			ctx, gwClient, rgp.state, false,
-			platr.SubResolver(platutil.NativePlatform), nil)
+			platr.SubResolver(platutil.NativePlatform), nil,
+		)
 		if inErr != nil {
 			return nil, errors.Wrap(inErr, "state to ref git meta")
 		}
@@ -300,7 +301,8 @@ func (gr *gitResolver) resolveGitProject(
 
 		opImg := pllb.Image(
 			gitImage, llb.MarkImageInternal, llb.ResolveModePreferLocal,
-			llb.Platform(platr.LLBNative()))
+			llb.Platform(platr.LLBNative()),
+		)
 
 		// Get git hash.
 		gitHashOpts := []llb.RunOption{
@@ -338,7 +340,8 @@ func (gr *gitResolver) resolveGitProject(
 
 		gitMetaRef, err = llbutil.StateToRef(
 			ctx, gwClient, gitMetaState, noCache,
-			platr.SubResolver(platutil.NativePlatform), nil)
+			platr.SubResolver(platutil.NativePlatform), nil,
+		)
 		if err != nil {
 			return nil, errors.Wrap(err, "state to ref git meta")
 		}

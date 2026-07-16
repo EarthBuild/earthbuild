@@ -24,5 +24,5 @@ trap finish EXIT
 # Cleanup from previous tests
 rm -f data
 
-"$earthly" $@ +test
+"$earthly" "$@" +test
 test "$(cat data)" = "162948536bc2"

@@ -78,7 +78,8 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 		if r2.IsLocalExternal() {
 			if path.IsAbs(r2.GetLocalPath()) {
 				return Target{}, errors.Errorf(
-					"absolute path %s not supported as reference in external target context", r2.GetLocalPath())
+					"absolute path %s not supported as reference in external target context", r2.GetLocalPath(),
+				)
 			}
 
 			gitURL = path.Join(r1.GetGitURL(), localPath)

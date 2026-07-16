@@ -17,9 +17,9 @@ role_path="$(mktemp)"
 
 aws sts assume-role \
   --role-arn arn:aws:iam::404851345508:role/developer \
-  --role-session-name $(date +%s) \
+  --role-session-name "$(date +%s)" \
   --duration-seconds 3600 \
-  --serial-number $MFA_ARN \
+  --serial-number "$MFA_ARN" \
   --token-code "$tokencode" > "$role_path"
 
 AWS_ACCESS_KEY_ID=$(jq -r '.Credentials.AccessKeyId' "$role_path")

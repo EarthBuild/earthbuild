@@ -9,11 +9,12 @@ package authprovider_test
 
 import (
 	"context"
+	"io"
+	"time"
+
 	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"git.sr.ht/~nelsam/hel/vegr"
 	"github.com/moby/buildkit/session/auth"
-	"io"
-	"time"
 )
 
 var (
@@ -107,29 +108,32 @@ func newMockChild(cst pers.Constructor) *mockChild {
 	m.method.VerifyTokenAuthority.Method = vegr.NewMethod[mockChild_VerifyTokenAuthority_In, mockChild_VerifyTokenAuthority_Out]("mockChild", "VerifyTokenAuthority", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockChild) Credentials(arg0 context.Context, arg1 *auth.CredentialsRequest) (ret0 *auth.CredentialsResponse, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Credentials, mockChild_Credentials_In{Arg0: arg0, Arg1: arg1}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockChild) FetchToken(arg0 context.Context, arg1 *auth.FetchTokenRequest) (ret0 *auth.FetchTokenResponse, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.FetchToken, mockChild_FetchToken_In{Arg0: arg0, Arg1: arg1}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockChild) GetTokenAuthority(arg0 context.Context, arg1 *auth.GetTokenAuthorityRequest) (ret0 *auth.GetTokenAuthorityResponse, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.GetTokenAuthority, mockChild_GetTokenAuthority_In{Arg0: arg0, Arg1: arg1}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockChild) VerifyTokenAuthority(arg0 context.Context, arg1 *auth.VerifyTokenAuthorityRequest) (ret0 *auth.VerifyTokenAuthorityResponse, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.VerifyTokenAuthority, mockChild_VerifyTokenAuthority_In{Arg0: arg0, Arg1: arg1}, &ret0, &ret1)
 	return ret0, ret1
 }
 
-type mockContext_Deadline_In struct {
-}
+type mockContext_Deadline_In struct{}
 
 func (mockContext_Deadline_In) Variadic() bool {
 	return false
@@ -143,8 +147,7 @@ type mockContext_Deadline_Out struct {
 type mockContext_Deadline struct {
 	vegr.Method[mockContext_Deadline_In, mockContext_Deadline_Out]
 }
-type mockContext_Done_In struct {
-}
+type mockContext_Done_In struct{}
 
 func (mockContext_Done_In) Variadic() bool {
 	return false
@@ -157,8 +160,7 @@ type mockContext_Done_Out struct {
 type mockContext_Done struct {
 	vegr.Method[mockContext_Done_In, mockContext_Done_Out]
 }
-type mockContext_Err_In struct {
-}
+type mockContext_Err_In struct{}
 
 func (mockContext_Err_In) Variadic() bool {
 	return false
@@ -204,21 +206,25 @@ func newMockContext(cst pers.Constructor) *mockContext {
 	m.method.Value.Method = vegr.NewMethod[mockContext_Value_In, mockContext_Value_Out]("mockContext", "Value", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockContext) Deadline() (deadline time.Time, ok bool) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Deadline, mockContext_Deadline_In{}, &deadline, &ok)
 	return deadline, ok
 }
+
 func (m *mockContext) Done() (ret0 <-chan struct{}) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Done, mockContext_Done_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockContext) Err() (ret0 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Err, mockContext_Err_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockContext) Value(key any) (ret0 any) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Value, mockContext_Value_In{Key: key}, &ret0)
@@ -251,6 +257,7 @@ func newMockProjectAdder(cst pers.Constructor) *mockProjectAdder {
 	m.method.AddProject.Method = vegr.NewMethod[mockProjectAdder_AddProject_In, mockProjectAdder_AddProject_Out]("mockProjectAdder", "AddProject", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockProjectAdder) AddProject(org, project string) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.AddProject, mockProjectAdder_AddProject_In{Org: org, Project: project})
@@ -301,11 +308,13 @@ func newMockOS(cst pers.Constructor) *mockOS {
 	m.method.Getenv.Method = vegr.NewMethod[mockOS_Getenv_In, mockOS_Getenv_Out]("mockOS", "Getenv", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockOS) Open(arg0 string) (ret0 io.ReadCloser, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Open, mockOS_Open_In{Arg0: arg0}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockOS) Getenv(arg0 string) (ret0 string) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Getenv, mockOS_Getenv_In{Arg0: arg0}, &ret0)
@@ -328,8 +337,7 @@ type mockReadCloser_Read_Out struct {
 type mockReadCloser_Read struct {
 	vegr.Method[mockReadCloser_Read_In, mockReadCloser_Read_Out]
 }
-type mockReadCloser_Close_In struct {
-}
+type mockReadCloser_Close_In struct{}
 
 func (mockReadCloser_Close_In) Variadic() bool {
 	return false
@@ -356,11 +364,13 @@ func newMockReadCloser(cst pers.Constructor) *mockReadCloser {
 	m.method.Close.Method = vegr.NewMethod[mockReadCloser_Close_In, mockReadCloser_Close_Out]("mockReadCloser", "Close", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockReadCloser) Read(p []byte) (n int, err error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Read, mockReadCloser_Read_In{P: p}, &n, &err)
 	return n, err
 }
+
 func (m *mockReadCloser) Close() (ret0 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Close, mockReadCloser_Close_In{}, &ret0)
@@ -395,6 +405,7 @@ func newMockWriter(cst pers.Constructor) *mockWriter {
 	m.method.Write.Method = vegr.NewMethod[mockWriter_Write_In, mockWriter_Write_Out]("mockWriter", "Write", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockWriter) Write(p []byte) (n int, err error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Write, mockWriter_Write_In{P: p}, &n, &err)

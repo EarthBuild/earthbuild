@@ -139,8 +139,8 @@ fi
 
 echo "----"
 
-touch $HOME/.${default_install_name}/config.yml
-sudo chown -R 12345:12345 $HOME/.${default_install_name}
+touch "$HOME/.${default_install_name}/config.yml"
+sudo chown -R 12345:12345 "$HOME/.${default_install_name}"
 
 sudo "$earthly" bootstrap
 

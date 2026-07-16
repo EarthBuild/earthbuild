@@ -13,7 +13,9 @@
       "Bash(ls:*)",
       "Bash(git rev-parse:*)",
       "WebFetch(domain:earthly.dev)",
-      "Bash(gh issue view:*)"
+      "Bash(gh issue view:*)",
+      "Bash(gh run *)",
+      "Bash(gh pr *)"
     ]
   }
 }

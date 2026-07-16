@@ -214,7 +214,7 @@ assert_contain() {
     return 0;
   fi
 
-  if [ -z "${haystack##*$needle*}" ]; then
+  if [ -z "${haystack##*"$needle"*}" ]; then
     return 0
   else
     [ "${#msg}" -gt 0 ] && log_failure "$haystack doesn't contain $needle :: $msg" || true
@@ -235,7 +235,7 @@ assert_not_contain() {
     return 0;
   fi
 
-  if [ "${haystack##*$needle*}" ]; then
+  if [ "${haystack##*"$needle"*}" ]; then
     return 0
   else
     [ "${#msg}" -gt 0 ] && log_failure "$haystack contains $needle :: $msg" || true

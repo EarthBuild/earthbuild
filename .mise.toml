@@ -1,2 +1,6 @@
 [tools]
 go = "1.26.0"
+# renovate: datasource=github-releases packageName=j178/prek
+"aqua:j178/prek" = "0.4.9"
+# renovate: datasource=go packageName=mvdan.cc/gofumpt
+"go:mvdan.cc/gofumpt" = "0.10.0"

@@ -70,33 +70,22 @@ update-buildkit:
 lint-scripts-base:
     FROM alpine:3.24.1
     RUN apk add --no-cache shellcheck
-    WORKDIR /shell_scripts
+    WORKDIR /earthly
 
-lint-scripts-misc:
-    FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
-        ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
-        ./.buildkite/*.sh \
-        ./scripts/tests/*.sh \
-        ./scripts/tests/docker-build/*.sh \
-        ./scripts/*.sh \
-        ./shell_scripts/
-    # some scripts need to source /etc/os-release for operating system release information,
-    # so -x is needed to let shellcheck read that file.
-    RUN shellcheck -x shell_scripts/*
-
-lint-scripts-auth-test:
-    FROM +lint-scripts-base
-    COPY ./scripts/tests/auth/*.sh ./
-    # the auth test script make use of a common setup.sh which contain unused variables
-    # when run directly; so we must exclude checking this directly, and make use of the -x
-    # flag to source setup.sh during analysis.
-    RUN shellcheck -x test-*.sh
-
-# lint-scripts runs the shellcheck package to detect potential errors in shell scripts
+# lint-scripts runs shellcheck against every shell script in the repo.
+# Each script is checked with its own directory as the working directory
+# (rather than shellcheck'ing everything from the repo root) since shellcheck
+# resolves relative `source "$(dirname "$0")/foo.sh"` patterns and absolute
+# paths like /etc/os-release relative to the invoking cwd, not the checked
+# file's real location.
 lint-scripts:
-    BUILD +lint-scripts-auth-test
-    BUILD +lint-scripts-misc
+    FROM +lint-scripts-base
+    COPY . .
+    RUN find . -name '*.sh' -not -path './build/*' | sort | while IFS= read -r f; do \
+            d=$(dirname "$f"); b=$(basename "$f"); \
+            (cd "$d" && shellcheck -x "./$b") >> /tmp/shellcheck_output 2>&1 || touch /tmp/shellcheck_failed; \
+        done; \
+        if [ -f /tmp/shellcheck_failed ]; then cat /tmp/shellcheck_output; exit 1; fi
 
 # earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
@@ -115,33 +104,85 @@ earthly-script-no-stdout:
     RUN test "$(cat earthly-version-output | wc -l)" = "1"
     RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthbuild project.
-lint:
+# lint-deps installs golangci-lint at the pinned version and copies the source
+# tree. Both +lint and +lint-fix build FROM this target so the version is
+# defined in exactly one place.
+lint-deps:
     FROM +go
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.12.2
-    RUN curl -sSfL --retry 7 --retry-all-errors -o /tmp/golangci-install.sh https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh && \
-        sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
-        rm /tmp/golangci-install.sh
+    ENV golangci_lint_version=2.12.2
+    # install.sh is fetched from the `main` branch, not `master`: the `master`
+    # copy's checksum verification greps the checksums file without anchoring
+    # to end-of-line, so it also matches the `.tar.gz.sbom.json` entry and
+    # always fails.
+    RUN curl -sSfL --retry 7 --retry-all-errors https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh \
+        | sh -s -- -b "$(go env GOPATH)/bin" "v$golangci_lint_version"
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
-    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
-        ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
-        RUN \
-            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-            --mount type=cache,target=/root/.cache/golangci_lint \
-            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
-    END
+
+# lint-fix runs golangci-lint --fix inside a container using the pinned version,
+# then saves the auto-corrected source tree back to the local working directory.
+# Intended for use in developer workflows: earth +lint-fix
+# +lint-deps only copies the curated subset of Go source that +code needs for
+# caching (see +code's COPY --dir list). Each directory below is saved back
+# individually, mirroring that same list, rather than a wildcard
+# `SAVE ARTIFACT ./* AS LOCAL ./` — a wildcard would mirror the whole
+# workdir and delete local files that were never copied into the image (e.g.
+# buildkitd's non-Go templates and scripts, since only 3 of its .go files are
+# copied in).
+lint-fix:
+    FROM +lint-deps
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        --mount type=cache,target=/root/.cache/golangci_lint \
+        golangci-lint run --fix --config=/earthly/.golangci.yaml
+    SAVE ARTIFACT autocomplete AS LOCAL autocomplete
+    SAVE ARTIFACT buildcontext AS LOCAL buildcontext
+    SAVE ARTIFACT builder AS LOCAL builder
+    SAVE ARTIFACT cleanup AS LOCAL cleanup
+    SAVE ARTIFACT cmd AS LOCAL cmd
+    SAVE ARTIFACT config AS LOCAL config
+    SAVE ARTIFACT conslogging AS LOCAL conslogging
+    SAVE ARTIFACT debugger AS LOCAL debugger
+    SAVE ARTIFACT docker2earth AS LOCAL docker2earth
+    SAVE ARTIFACT dockertar AS LOCAL dockertar
+    SAVE ARTIFACT domain AS LOCAL domain
+    SAVE ARTIFACT earthfile2llb AS LOCAL earthfile2llb
+    SAVE ARTIFACT features AS LOCAL features
+    SAVE ARTIFACT internal AS LOCAL internal
+    SAVE ARTIFACT logbus AS LOCAL logbus
+    SAVE ARTIFACT logstream AS LOCAL logstream
+    SAVE ARTIFACT regproxy AS LOCAL regproxy
+    SAVE ARTIFACT states AS LOCAL states
+    SAVE ARTIFACT slog AS LOCAL slog
+    SAVE ARTIFACT util AS LOCAL util
+    SAVE ARTIFACT variables AS LOCAL variables
+    SAVE ARTIFACT buildkitd/buildkitd.go AS LOCAL buildkitd/buildkitd.go
+    SAVE ARTIFACT buildkitd/settings.go AS LOCAL buildkitd/settings.go
+    SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
+    SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
+
+# lint runs basic go linters against the earthly project.
+lint:
+    FROM +lint-deps
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        --mount type=cache,target=/root/.cache/golangci_lint \
+        golangci-lint run --config=/earthly/.golangci.yaml
 
 fmt:
   BUILD +fmt-go
 
 # format-go formats Go code using gofumpt. Run: earthly +fmt-go
+# Pass --files to format specific files instead of the whole repo, e.g. for
+# use from a pre-commit hook: earthly +fmt-go --files="a.go b.go"
 fmt-go:
     LOCALLY
-    RUN gofumpt -w .
+    ARG files="."
+    RUN gofumpt -w ${files}
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:

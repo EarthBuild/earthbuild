@@ -10,7 +10,7 @@ echo "using earthly=$(realpath "$earthly")"
 
 rm .testdata || true # cleanup
 
-"$earthly" $@ +test
+"$earthly" "$@" +test
 
 test -f .testdata
 test "$(cat .testdata)" = "pocus"

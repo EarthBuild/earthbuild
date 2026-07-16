@@ -20,7 +20,7 @@ execute() {
   cleanup
 
   set +e
-  "$earthly" $@ "$target"
+  "$earthly" "$@" "$target"
   exit_code="$?"
   set -e
 

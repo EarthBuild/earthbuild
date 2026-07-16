@@ -285,7 +285,8 @@ func (m *multiImageSolver) SolveImages(
 
 					result.ImageDigest = result.ImageDescriptor.Digest.String()
 					result.FinalImageNameWithDigest = fmt.Sprintf(
-						"%s@%s", result.FinalImageName, result.ImageDigest)
+						"%s@%s", result.FinalImageName, result.ImageDigest,
+					)
 				case exptypes.ExporterConfigDigestKey:
 					result.ConfigDigest = v
 				default:

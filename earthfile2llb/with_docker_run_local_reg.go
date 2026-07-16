@@ -176,13 +176,15 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil,
+		)
 		if err != nil {
 			return nil, err
 		}

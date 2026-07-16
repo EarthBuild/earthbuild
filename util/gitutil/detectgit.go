@@ -246,7 +246,8 @@ func detectGitRemoteURL(ctx context.Context, dir string) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		return "", errors.Wrapf(
-			ErrCouldNotDetectRemote, "returned error %s: %s", err.Error(), string(out))
+			ErrCouldNotDetectRemote, "returned error %s: %s", err.Error(), string(out),
+		)
 	}
 
 	outStr := string(out)

@@ -114,7 +114,8 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp, err = bp.NewCommand(
 					cmdID, operation, meta.TargetID, category, meta.Platform,
 					vertex.Cached, meta.Local, meta.Interactive, meta.SourceLocation,
-					meta.RepoGitURL, meta.RepoGitHash, meta.RepoFileRelToRepo)
+					meta.RepoGitURL, meta.RepoGitHash, meta.RepoFileRelToRepo,
+				)
 				if err != nil {
 					return err
 				}

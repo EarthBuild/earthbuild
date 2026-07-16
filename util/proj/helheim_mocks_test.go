@@ -9,12 +9,13 @@ package proj_test
 
 import (
 	"context"
-	"git.sr.ht/~nelsam/hel/pkg/pers"
-	"git.sr.ht/~nelsam/hel/vegr"
-	"github.com/EarthBuild/earthbuild/util/proj"
 	"io"
 	"io/fs"
 	"time"
+
+	"git.sr.ht/~nelsam/hel/pkg/pers"
+	"git.sr.ht/~nelsam/hel/vegr"
+	"github.com/EarthBuild/earthbuild/util/proj"
 )
 
 var (
@@ -68,19 +69,20 @@ func newMockFS(cst pers.Constructor) *mockFS {
 	m.method.Stat.Method = vegr.NewMethod[mockFS_Stat_In, mockFS_Stat_Out]("mockFS", "Stat", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockFS) Open(name string) (ret0 fs.File, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Open, mockFS_Open_In{Name: name}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockFS) Stat(name string) (ret0 fs.FileInfo, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Stat, mockFS_Stat_In{Name: name}, &ret0, &ret1)
 	return ret0, ret1
 }
 
-type mockFile_Stat_In struct {
-}
+type mockFile_Stat_In struct{}
 
 func (mockFile_Stat_In) Variadic() bool {
 	return false
@@ -110,8 +112,7 @@ type mockFile_Read_Out struct {
 type mockFile_Read struct {
 	vegr.Method[mockFile_Read_In, mockFile_Read_Out]
 }
-type mockFile_Close_In struct {
-}
+type mockFile_Close_In struct{}
 
 func (mockFile_Close_In) Variadic() bool {
 	return false
@@ -140,24 +141,26 @@ func newMockFile(cst pers.Constructor) *mockFile {
 	m.method.Close.Method = vegr.NewMethod[mockFile_Close_In, mockFile_Close_Out]("mockFile", "Close", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockFile) Stat() (ret0 fs.FileInfo, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Stat, mockFile_Stat_In{}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockFile) Read(arg0 []byte) (ret0 int, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Read, mockFile_Read_In{Arg0: arg0}, &ret0, &ret1)
 	return ret0, ret1
 }
+
 func (m *mockFile) Close() (ret0 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Close, mockFile_Close_In{}, &ret0)
 	return ret0
 }
 
-type mockFileInfo_Name_In struct {
-}
+type mockFileInfo_Name_In struct{}
 
 func (mockFileInfo_Name_In) Variadic() bool {
 	return false
@@ -170,8 +173,7 @@ type mockFileInfo_Name_Out struct {
 type mockFileInfo_Name struct {
 	vegr.Method[mockFileInfo_Name_In, mockFileInfo_Name_Out]
 }
-type mockFileInfo_Size_In struct {
-}
+type mockFileInfo_Size_In struct{}
 
 func (mockFileInfo_Size_In) Variadic() bool {
 	return false
@@ -184,8 +186,7 @@ type mockFileInfo_Size_Out struct {
 type mockFileInfo_Size struct {
 	vegr.Method[mockFileInfo_Size_In, mockFileInfo_Size_Out]
 }
-type mockFileInfo_Mode_In struct {
-}
+type mockFileInfo_Mode_In struct{}
 
 func (mockFileInfo_Mode_In) Variadic() bool {
 	return false
@@ -198,8 +199,7 @@ type mockFileInfo_Mode_Out struct {
 type mockFileInfo_Mode struct {
 	vegr.Method[mockFileInfo_Mode_In, mockFileInfo_Mode_Out]
 }
-type mockFileInfo_ModTime_In struct {
-}
+type mockFileInfo_ModTime_In struct{}
 
 func (mockFileInfo_ModTime_In) Variadic() bool {
 	return false
@@ -212,8 +212,7 @@ type mockFileInfo_ModTime_Out struct {
 type mockFileInfo_ModTime struct {
 	vegr.Method[mockFileInfo_ModTime_In, mockFileInfo_ModTime_Out]
 }
-type mockFileInfo_IsDir_In struct {
-}
+type mockFileInfo_IsDir_In struct{}
 
 func (mockFileInfo_IsDir_In) Variadic() bool {
 	return false
@@ -226,8 +225,7 @@ type mockFileInfo_IsDir_Out struct {
 type mockFileInfo_IsDir struct {
 	vegr.Method[mockFileInfo_IsDir_In, mockFileInfo_IsDir_Out]
 }
-type mockFileInfo_Sys_In struct {
-}
+type mockFileInfo_Sys_In struct{}
 
 func (mockFileInfo_Sys_In) Variadic() bool {
 	return false
@@ -262,31 +260,37 @@ func newMockFileInfo(cst pers.Constructor) *mockFileInfo {
 	m.method.Sys.Method = vegr.NewMethod[mockFileInfo_Sys_In, mockFileInfo_Sys_Out]("mockFileInfo", "Sys", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockFileInfo) Name() (ret0 string) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Name, mockFileInfo_Name_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockFileInfo) Size() (ret0 int64) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Size, mockFileInfo_Size_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockFileInfo) Mode() (ret0 fs.FileMode) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Mode, mockFileInfo_Mode_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockFileInfo) ModTime() (ret0 time.Time) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.ModTime, mockFileInfo_ModTime_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockFileInfo) IsDir() (ret0 bool) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.IsDir, mockFileInfo_IsDir_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockFileInfo) Sys() (ret0 any) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Sys, mockFileInfo_Sys_In{}, &ret0)
@@ -321,6 +325,7 @@ func newMockExecer(cst pers.Constructor) *mockExecer {
 	m.method.Command.Method = vegr.NewMethod[mockExecer_Command_In, mockExecer_Command_Out]("mockExecer", "Command", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockExecer) Command(name string, args ...string) (ret0 proj.Cmd) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Command, mockExecer_Command_In{Name: name, Args: args}, &ret0)
@@ -355,14 +360,14 @@ func newMockCmd(cst pers.Constructor) *mockCmd {
 	m.method.Run.Method = vegr.NewMethod[mockCmd_Run_In, mockCmd_Run_Out]("mockCmd", "Run", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockCmd) Run(ctx context.Context) (stdout, stderr io.Reader, ret1 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Run, mockCmd_Run_In{Ctx: ctx}, &stdout, &stderr, &ret1)
 	return stdout, stderr, ret1
 }
 
-type mockContext_Deadline_In struct {
-}
+type mockContext_Deadline_In struct{}
 
 func (mockContext_Deadline_In) Variadic() bool {
 	return false
@@ -376,8 +381,7 @@ type mockContext_Deadline_Out struct {
 type mockContext_Deadline struct {
 	vegr.Method[mockContext_Deadline_In, mockContext_Deadline_Out]
 }
-type mockContext_Done_In struct {
-}
+type mockContext_Done_In struct{}
 
 func (mockContext_Done_In) Variadic() bool {
 	return false
@@ -390,8 +394,7 @@ type mockContext_Done_Out struct {
 type mockContext_Done struct {
 	vegr.Method[mockContext_Done_In, mockContext_Done_Out]
 }
-type mockContext_Err_In struct {
-}
+type mockContext_Err_In struct{}
 
 func (mockContext_Err_In) Variadic() bool {
 	return false
@@ -437,21 +440,25 @@ func newMockContext(cst pers.Constructor) *mockContext {
 	m.method.Value.Method = vegr.NewMethod[mockContext_Value_In, mockContext_Value_Out]("mockContext", "Value", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockContext) Deadline() (deadline time.Time, ok bool) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Deadline, mockContext_Deadline_In{}, &deadline, &ok)
 	return deadline, ok
 }
+
 func (m *mockContext) Done() (ret0 <-chan struct{}) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Done, mockContext_Done_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockContext) Err() (ret0 error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Err, mockContext_Err_In{}, &ret0)
 	return ret0
 }
+
 func (m *mockContext) Value(key any) (ret0 any) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Value, mockContext_Value_In{Key: key}, &ret0)
@@ -486,6 +493,7 @@ func newMockReader(cst pers.Constructor) *mockReader {
 	m.method.Read.Method = vegr.NewMethod[mockReader_Read_In, mockReader_Read_Out]("mockReader", "Read", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockReader) Read(p []byte) (n int, err error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Read, mockReader_Read_In{P: p}, &n, &err)
@@ -520,6 +528,7 @@ func newMockWriter(cst pers.Constructor) *mockWriter {
 	m.method.Write.Method = vegr.NewMethod[mockWriter_Write_In, mockWriter_Write_Out]("mockWriter", "Write", 100, vegr.WithPrefs(m.prefs))
 	return m
 }
+
 func (m *mockWriter) Write(p []byte) (n int, err error) {
 	m.prefs.T().Helper()
 	vegr.Perform(m.prefs.T(), m.method.Write, mockWriter_Write_In{P: p}, &n, &err)

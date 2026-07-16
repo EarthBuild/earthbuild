@@ -1,7 +1,7 @@
 # Test for --without-earthly-labels feature
 VERSION --allow-without-earthly-labels 0.8
 
-ARG --global DIND_IMAGE="earthbuild/dind:ubuntu-26.04-docker-29.4.1-1"
+ARG --global DIND_IMAGE="earthbuild/dind:ubuntu-26.04-docker-29.4.0-1"
 
 all:
     BUILD +test-without-labels

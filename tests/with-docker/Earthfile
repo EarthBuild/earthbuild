@@ -163,7 +163,7 @@ if-after:
 cgroup-v2-test-all:
     BUILD +cgroup-v2-test \
         --DIND_IMG=$DIND_IMAGE \
-        --DIND_IMG=earthbuild/dind:ubuntu-26.04-docker-29.4.1-1
+        --DIND_IMG=earthbuild/dind:ubuntu-26.04-docker-29.4.0-1
 
 cgroup-v2-test:
     ARG --required DIND_IMG

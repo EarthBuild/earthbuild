@@ -358,7 +358,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -374,7 +375,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -392,7 +394,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.BaseCLI.Console().Warn(
 				"Error: It seems that buildkitd had an issue. " +
-					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+			)
 			app.printCrashLogs(ctx)
 		}
 

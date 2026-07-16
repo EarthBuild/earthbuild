@@ -50,7 +50,8 @@ func LoadDockerManifest(
 		// fall back to using first defined platform (and display a warning)
 		console.Warnf(
 			"Failed to find default platform (%s) of multi-platform image %s; defaulting to the first platform type: %s\n",
-			platr.Materialize(platutil.DefaultPlatform).String(), parentImageName, children[defaultChild].Platform)
+			platr.Materialize(platutil.DefaultPlatform).String(), parentImageName, children[defaultChild].Platform,
+		)
 	}
 
 	var childImgs []string
@@ -68,7 +69,8 @@ func LoadDockerManifest(
 		"Separate per-platform image tags are only available locally."
 	console.Printf(
 		"Image %s is a multi-platform image. The following per-platform images have been produced:\n\t%s\n%s\n",
-		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail)
+		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail,
+	)
 
 	err := fe.ImageTag(ctx, containerutil.ImageTag{
 		SourceRef: children[defaultChild].ImageName,

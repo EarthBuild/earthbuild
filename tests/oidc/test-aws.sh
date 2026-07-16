@@ -1,9 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 set -eo pipefail # DONT add a set -x or you will leak the key
 
 acbtest -n "$OIDC_USER_TOKEN"
 acbtest -n "$ROLE_ARN"
-acbtest -n "$earthly_config" # set by earthly-entrypoint.sh
+# shellcheck disable=SC2154 # set by earthly-entrypoint.sh
+acbtest -n "$earthly_config"
 
 
 echo "== it should login to user with token =="

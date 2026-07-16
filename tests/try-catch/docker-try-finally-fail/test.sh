@@ -15,7 +15,7 @@ echo "using frontend=$frontend"
 rm .testdata || true # cleanup
 
 set +e
-"$earthly" -P $@ +test --FRONTEND=$frontend
+"$earthly" -P "$@" +test --FRONTEND="$frontend"
 exit_code="$?"
 set -e
 

@@ -192,7 +192,8 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		// This will be decoded in the wrapper.
 		if result.NewInterImgFormat {
 			pullImages = append(
-				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName))
+				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName),
+			)
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)
 		}
@@ -240,17 +241,20 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	// to prevent busting the cache, as the intermediate image names are
 	// different every time.
 	dockerLoadRegistrySecretID := fmt.Sprintf(
-		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID)
+		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID,
+	)
 	crOpts.extraRunOpts = append(
 		crOpts.extraRunOpts,
 		llb.AddSecret(
 			"EARTHLY_DOCKER_LOAD_REGISTRY",
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
-		))
+		),
+	)
 
 	err = w.c.opt.InternalSecretStore.SetSecret(
-		ctx, dockerLoadRegistrySecretID, []byte(strings.Join(pullImages, " ")))
+		ctx, dockerLoadRegistrySecretID, []byte(strings.Join(pullImages, " ")),
+	)
 	if err != nil {
 		return errors.Wrap(err, "set docker load registry secret")
 	}
@@ -346,13 +350,15 @@ func (w *withDockerRunRegistry) load(
 
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+		)
 		if err != nil {
 			return nil, err
 		}

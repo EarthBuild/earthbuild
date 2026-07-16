@@ -5,17 +5,13 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
 # Function to count occurrences in a specific file pattern
 count_in_pattern() {
     local pattern="$1"
+    # shellcheck disable=SC2034 # kept for call-site self-documentation
     local description="$2"
-    local count=$(git grep -i "earthly" -- "$pattern" 2>/dev/null | wc -l || echo "0")
+    local count
+    count=$(git grep -i "earthly" -- "$pattern" 2>/dev/null | wc -l || echo "0")
     echo "$count"
 }
 
@@ -53,14 +49,15 @@ done || echo "  No files found"
 
 # Export metrics for GitHub Actions
 if [ -n "$GITHUB_OUTPUT" ]; then
-    echo "total_count=$total_count" >> $GITHUB_OUTPUT
-    
     # Additional metrics
     go_count=$(count_in_pattern "*.go" "Go files")
     md_count=$(count_in_pattern "*.md" "Markdown files")
     earthfile_count=$(($(count_in_pattern "Earthfile" "Earthfiles") + $(count_in_pattern "*.earth" "Earth files")))
-    
-    echo "go_count=$go_count" >> $GITHUB_OUTPUT
-    echo "md_count=$md_count" >> $GITHUB_OUTPUT
-    echo "earthfile_count=$earthfile_count" >> $GITHUB_OUTPUT
+
+    {
+        echo "total_count=$total_count"
+        echo "go_count=$go_count"
+        echo "md_count=$md_count"
+        echo "earthfile_count=$earthfile_count"
+    } >> "$GITHUB_OUTPUT"
 fi

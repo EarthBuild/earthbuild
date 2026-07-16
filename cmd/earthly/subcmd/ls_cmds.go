@@ -85,7 +85,8 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
 	resolver := buildcontext.NewResolver(
-		nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "")
+		nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "",
+	)
 
 	// TODO this is a nil pointer which causes a panic if we try to expand a remotelyreferenced earthfile
 	// it's expensive to create this gwclient, so we need to implement a lazy eval which returns it when required.

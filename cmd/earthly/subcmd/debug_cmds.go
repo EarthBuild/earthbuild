@@ -284,7 +284,8 @@ func (a *Debug) actionBuildkitWorkers(ctx context.Context, cmd *cli.Command) err
 			fmt.Printf("\tGC Last end time: %s\n", humanizeTime(info.GCAnalytics.LastEndTime))
 			fmt.Printf(
 				"\tGC Last duration: %s\n",
-				humanizeDuration(info.GCAnalytics.LastEndTime.Sub(*info.GCAnalytics.LastStartTime)))
+				humanizeDuration(info.GCAnalytics.LastEndTime.Sub(*info.GCAnalytics.LastStartTime)),
+			)
 			fmt.Printf("\tGC Last num records before: %d\n", info.GCAnalytics.LastNumRecordsBefore)
 			fmt.Printf("\tGC Last size before: %s\n", humanizeBytes(info.GCAnalytics.LastSizeBefore))
 			fmt.Printf("\tGC Last num records cleared: %d\n", info.GCAnalytics.LastNumRecordsCleared)

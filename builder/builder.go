@@ -181,9 +181,11 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 		return nil, false
 	}
 
-	// Podman does not support the insecure localhost
-	if b.opt.ContainerFrontend.Scheme() == containerutil.SchemePodmanContainer {
-		cons.Printf("Registry proxy not supported on Podman. Falling back to tar-based outputs.")
+	// Podman and Apple Container do not support the insecure localhost registry proxy
+	scheme := b.opt.ContainerFrontend.Scheme()
+	if scheme == containerutil.SchemePodmanContainer ||
+		scheme == containerutil.SchemeAppleContainer {
+		cons.Printf("Registry proxy not supported on Podman/Apple Container. Falling back to tar-based outputs.")
 		return nil, false
 	}
 

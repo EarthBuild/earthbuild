@@ -150,7 +150,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 		app.BaseCLI.Flags().ContainerFrontend = stub
 
 		if !app.BaseCLI.Flags().Verbose {
-			console.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
+			console.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
 		}
 
 		console.VerbosePrintf("%s frontend initialization failed due to %s",

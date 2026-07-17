@@ -239,6 +239,22 @@ func composeParams(opt WithDockerOpt) []string {
 	}
 }
 
+// stripImageDigest drops a trailing `@sha256:…` (or other algo) from an image
+// name so it's a valid `docker tag` target — dockerd refuses digest-bearing
+// tags. Digest-pinned compose services still get verified at `docker compose
+// up` time: compose re-fetches the manifest upstream (the pre-pull's retagged
+// image has no RepoDigest) and reuses local layers. So the pre-pull gives
+// layer-level dedup but no offline path for digest-pinned services.
+// See issue #512.
+func stripImageDigest(name string) string {
+i := strings.Index(name, "@")
+if i >= 0 {
+	return name[:i]
+}
+
+	return name
+}
+
 func platformIncompatMsg(platr *platutil.Resolver) string {
 	currentPlatStr := platr.Materialize(platr.Current()).String()
 	nativePlatStr := platr.Materialize(platutil.NativePlatform).String()

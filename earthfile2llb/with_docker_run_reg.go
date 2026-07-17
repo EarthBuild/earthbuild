@@ -189,10 +189,14 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	imgsWithDigests := make([]string, 0, len(results))
 	for _, result := range results {
+		// Strip any `@sha256:…` before handing the name to the wrapper's retag
+		// step — `docker tag` rejects digest-bearing targets. The pin is still
+		// enforced at compose-up time (see stripImageDigest). Issue #512.
+		retagAs := stripImageDigest(result.FinalImageName)
 		// This will be decoded in the wrapper.
 		if result.NewInterImgFormat {
 			pullImages = append(
-				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName))
+				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, retagAs))
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)
 		}

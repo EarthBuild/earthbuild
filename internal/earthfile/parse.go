@@ -1661,7 +1661,7 @@ func replaceEscape(str string) string {
 		inSingle bool
 		i        int
 	)
-
+	sb.Grow(len(str))
 	for i < len(str) {
 		c := str[i]
 

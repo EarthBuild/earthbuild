@@ -1672,7 +1672,8 @@ func replaceEscape(str string) string {
 			// sees the command (the pre-0.8.18 antlr parser behaved the
 			// same), so a trailing backslash inside quotes joins lines
 			// rather than surviving as a literal.
-			if n := matchLineContinuationFrom(str, i); n > 0 {
+			n := matchLineContinuationFrom(str, i)
+			if n > 0 {
 				i += n
 			} else {
 				sb.WriteByte(c)

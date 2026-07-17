@@ -28,6 +28,16 @@ func New() *Parser {
 	}
 }
 
+// Reset discards any buffered partial frame and returns the parser to its
+// initial state. Used to recover from a desynced or malformed stats stream
+// (e.g. when the daemon's runc stats collector hits EOF and emits a partial
+// or raw frame) without treating the decode failure as fatal.
+func (ssp *Parser) Reset() {
+	ssp.buf.Reset()
+	ssp.bsr = binarystream.NewReader(ssp.buf, binary.LittleEndian)
+	ssp.readProtocolVersion = false
+}
+
 // Parse parses stream data containing execution statistics.
 func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 	_, err := ssp.buf.Write(b)

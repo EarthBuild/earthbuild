@@ -1068,7 +1068,7 @@ func GetSettingsHash(ctx context.Context, containerName string, fe containerutil
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
-		return containerInfo.Labels["dev.earthly.settingshash"], nil
+		return strings.TrimSpace(containerInfo.Labels["dev.earthly.settingshash"]), nil
 	}
 
 	return "", fmt.Errorf("settings hash for container %s was not found", containerName)
@@ -1150,11 +1150,13 @@ func printBuildkitInfo(
 	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than earth Buildkit v0.6.20")
+				"it's from a version lower than earth Buildkit v0.6.20",
+		)
 	} else {
 		printFun(
 			"Version %s %s %s",
-			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
+			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision,
+		)
 
 		const buildkitPackage = "github.com/EarthBuild/buildkit"
 
@@ -1167,7 +1169,8 @@ func printBuildkitInfo(
 				// For local buildkits we expect perfect version match.
 				bkCons.Warnf(
 					"Warning: Buildkit version (%s) is different from earth version (%s)",
-					info.BuildkitVersion.Version, earthVersion)
+					info.BuildkitVersion.Version, earthVersion,
+				)
 			} else {
 				compatible := true
 
@@ -1229,7 +1232,8 @@ func printBuildkitInfo(
 		workerInfo.GCAnalytics.AvgDuration,
 		workerInfo.GCAnalytics.AllTimeDuration,
 		ld,
-		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared))
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared),
+	)
 
 	if workerInfo.GCAnalytics.CurrentStartTime != nil {
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)
@@ -1261,7 +1265,7 @@ func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 	return 0, false
 }
 
-// getCacheSize returns the size of the earthly cache in bytes.
+// getCacheSize returns the size of the earthbuild cache in bytes.
 func getCacheSize(ctx context.Context, volumeName string, fe containerutil.ContainerFrontend) (int, error) {
 	infos, err := fe.VolumeInfo(ctx, volumeName)
 	if err != nil {

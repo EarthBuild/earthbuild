@@ -2,6 +2,7 @@
 
 - [👋 Introduction](README.md)
 - [💻 Install Earthly](install/install.md)
+- [🔀 Migrating from Earthly](migrating-from-earthly.md)
 - [🎓 Learn the basics](basics/basics.md)
     - [Part 1: A simple Earthfile](basics/part-1-a-simple-earthfile.md)
     - [Part 2: Outputs](basics/part-2-outputs.md)

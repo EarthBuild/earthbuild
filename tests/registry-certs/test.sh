@@ -1,6 +1,6 @@
 #!/bin/bash
-# Note: Most of this test runs as Earthly-in-Earthly so that we can easily mess with the Earthly config
-#       without the host Earthly's config being affected.
+# Note: Most of this test runs as Earthbuild-in-Earthbuild so that we can easily mess with the Earthbuild config
+#       without the host Earthbuild's config being affected.
 
 set -uxe
 set -o pipefail

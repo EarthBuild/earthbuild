@@ -80,7 +80,7 @@ func IsBootstrapped(installName string) bool {
 	return exists
 }
 
-// EnsurePermissions changes the permissions of all earthly files to be owned by the user and their group.
+// EnsurePermissions changes the permissions of all earthbuild files to be owned by the user and their group.
 func EnsurePermissions(installName string) error {
 	earthDir, sudoUser := getEarthDirAndUser(installName)
 	if sudoUser != nil {

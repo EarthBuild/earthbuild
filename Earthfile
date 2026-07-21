@@ -14,12 +14,12 @@ go:
 node:
     FROM node:26.3.1-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.18.0
+    LET npm_version=12.0.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
 
-# deps downloads and caches all dependencies for earthly. When called directly,
+# deps downloads and caches all dependencies for earthbuild. When called directly,
 # go.mod and go.sum will be updated locally.
 deps:
     FROM +go
@@ -30,7 +30,7 @@ deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-# code downloads and caches all dependencies for earthly and then copies the go code
+# code downloads and caches all dependencies for earthbuild and then copies the go code
 # directories into the image.
 # If BUILDKIT_PROJECT environment variable is set it will also update the go mods
 # for the local versions
@@ -53,7 +53,7 @@ code:
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
-# update-buildkit updates earthly's buildkit dependency.
+# update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
@@ -98,9 +98,9 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
+# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-earthly-script-no-stdout:
+earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
     FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
@@ -115,7 +115,7 @@ earthly-script-no-stdout:
     RUN test "$(cat earthly-version-output | wc -l)" = "1"
     RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthly project.
+# lint runs basic go linters against the earthbuild project.
 lint:
     FROM +go
     RUN apk add --no-cache curl
@@ -147,7 +147,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.5.0
+    ENV govulncheck_version=1.6.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -512,7 +512,7 @@ earthly-docker:
     FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
-    # When Earthly is run from a container, the registry proxy networking setup
+    # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
@@ -538,10 +538,10 @@ earthly-docker:
        SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
-# earthly-integration-test-base builds earthly docker and then
+# earthbuild-integration-test-base builds earthly docker and then
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
-earthly-integration-test-base:
+earthbuild-integration-test-base:
     FROM --pass-args +earthly-docker
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
@@ -717,7 +717,7 @@ all:
     BUILD +earthly-docker
     BUILD +prerelease
 
-# lint-all runs all linting checks against the earthly project.
+# lint-all runs all linting checks against the earthbuild project.
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
@@ -744,7 +744,7 @@ test-no-qemu:
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
     BUILD +test-ast
-    BUILD +earthly-script-no-stdout
+    BUILD +earthbuild-script-no-stdout
 
 test-ast:
     BUILD --pass-args ./internal/earthfile/tests+group1

@@ -52,7 +52,7 @@ ga-no-qemu-group3:
     BUILD +lc-test
     BUILD +from-expose-test
     BUILD +scratch-test
-    BUILD +build-earthly-test
+    BUILD +build-earthbuild-test
     BUILD +host-bind-test
     BUILD +transitive-args-test
     BUILD +transitive-args-test2
@@ -128,7 +128,7 @@ ga-no-qemu-group5:
     BUILD +doc
     BUILD +doc-recipe-block
     BUILD +no-network
-    BUILD +test-works-without-earthly-server
+    BUILD +test-works-without-earthbuild-server
     BUILD +test-init-unsupported
     BUILD +test-init-golang
     BUILD +pass-args-test
@@ -148,7 +148,7 @@ ga-no-qemu-group5:
     # Forcing the implicit global wait/end block, causes some tests, which rely
     # on the ability to have two different targets issue the same SAVE IMAGE tag name
     # (with the last SAVE IMAGE command taking precedence)
-    # Earthly, when using the wait-end feature, will return an error for such cases.
+    # Earthbuild, when using the wait-end feature, will return an error for such cases.
     # As a result, the following tests are incompatible with WAIT/END block.
     # Once version 0.7 is released AND support for 0.6 has been dropped,
     # these tests can be removed, along with deprecated code from the builder.go's bf.
@@ -292,7 +292,7 @@ copy-test-verbose-output:
         echo -n "alpha" > alpha.txt && \
         echo -n "beta" > subdir/a.txt/beta.txt
 
-    # Setup a test that runs earthly twice; both instances of earthly must be run
+    # Setup a test that runs earthbuild twice; both instances of earthbuild must be run
     # back to back as the file caching logic references the directories inode ID while constructing
     # the shared cache key.
     RUN echo "#!/bin/sh
@@ -446,7 +446,7 @@ from-expose-test:
 scratch-test:
     DO +RUN_EARTHLY --earthfile=scratch-test.earth --extra_args="--no-output" --target=+test
 
-build-earthly-test:
+build-earthbuild-test:
     # Test that build.earth is supported.
     COPY parser-smoke.earth ./build.earth
     RUN --privileged \
@@ -560,13 +560,13 @@ fail-test:
 
 allow-privileged-test:
     # test that privileged-tasks in remote repos dont run
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-from-locally
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-from-privileged
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-copy-locally
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-copy-privileged
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-build-locally
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-privileged-in-remote-repo-triggered-by-build-privileged
-    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" -target=+reject-dedup
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-from-locally
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-from-privileged
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-copy-locally
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-copy-privileged
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-build-locally
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-privileged-in-remote-repo-triggered-by-build-privileged
+    DO +RUN_EARTHLY --earthfile=allow-privileged.earth --should_fail=true --extra_args="--allow-privileged" --target=+reject-dedup
     # test allowed-privileged tasks in remote repos work
     DO +RUN_EARTHLY --earthfile=allow-privileged.earth --extra_args="--allow-privileged" --target=+allow-all
 
@@ -826,7 +826,7 @@ dotenv-test:
     RUN mv .secret .some-other-secret
     DO +RUN_EARTHLY --earthfile=dotenv.earth --extra_args="--no-output --arg-file-path .some-other-arg --secret-file-path .some-other-secret" --target=+test
 
-    # test .env values still affect earthly cli
+    # test .env values still affect earthbuild cli
     RUN echo EARTHLY_PUSH=1 > .env
     DO +RUN_EARTHLY --earthfile=dotenv.earth --extra_args="--no-output" --target=+test-with-push
     RUN mv .env .some-other-env
@@ -1175,7 +1175,7 @@ push-build:
     RUN cat output | perl -pe 'BEGIN {$status=1} END {exit $status} $status=0 if /\+run1 \| 1\n/;'
     RUN cat output | perl -pe 'BEGIN {$status=1} END {exit $status} $status=0 if /\+run2 \| 2\n/;'
 
-test-earthly-mirror-was-setup:
+test-earthbuild-mirror-was-setup:
     DO +RUN_EARTHLY --verbose=false --earthfile=true.earth --target=+true --post_command="> /tmp/output 2>&1"
     RUN acbgrep mirror.gcr.io /etc/buildkitd.toml
 
@@ -1448,7 +1448,7 @@ build-after-from:
     DO +RUN_EARTHLY --earthfile=build-after-from.earth --target=+all
     RUN test -f ./hello.txt
 
-test-works-without-earthly-server:
+test-works-without-earthbuild-server:
     # first warm-up the cache
     DO +RUN_EARTHLY --verbose=false --earthfile=true.earth --target=+true
 

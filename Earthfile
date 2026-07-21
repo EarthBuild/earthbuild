@@ -14,7 +14,7 @@ go:
 node:
     FROM node:26.3.1-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.0.0
+    LET npm_version=12.0.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -98,9 +98,9 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
+# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-earthly-script-no-stdout:
+earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
     FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
@@ -147,7 +147,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.5.0
+    ENV govulncheck_version=1.6.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -538,10 +538,10 @@ earthly-docker:
        SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
-# earthly-integration-test-base builds earthly docker and then
+# earthbuild-integration-test-base builds earthly docker and then
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
-earthly-integration-test-base:
+earthbuild-integration-test-base:
     FROM --pass-args +earthly-docker
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
@@ -744,7 +744,7 @@ test-no-qemu:
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
     BUILD +test-ast
-    BUILD +earthly-script-no-stdout
+    BUILD +earthbuild-script-no-stdout
 
 test-ast:
     BUILD --pass-args ./internal/earthfile/tests+group1

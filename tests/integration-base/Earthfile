@@ -1,6 +1,6 @@
 VERSION 0.8
 
-# test-base exists as a way to prevent passing all args to the root earthly-integration-test-base target
+# test-base exists as a way to prevent passing all args to the root earthbuild-integration-test-base target
 test-base:
   ARG DOCKERHUB_MIRROR
   ARG DOCKERHUB_MIRROR_INSECURE=false
@@ -9,7 +9,7 @@ test-base:
   ARG DOCKERHUB_AUTH=false
   ARG BUILDKIT_PROJECT
 
-  FROM ../..+earthly-integration-test-base \
+  FROM ../..+earthbuild-integration-test-base \
     --DOCKERHUB_MIRROR=$DOCKERHUB_MIRROR \
     --DOCKERHUB_MIRROR_INSECURE=$DOCKERHUB_MIRROR_INSECURE \
     --DOCKERHUB_MIRROR_HTTP=$DOCKERHUB_MIRROR_HTTP \

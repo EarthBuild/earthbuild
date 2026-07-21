@@ -5,7 +5,7 @@ inputs:
     description: 'The earthly version to use'
     required: false
     default: 'latest'
-  BUILT_EARTHLY_PATH:
+  BUILT_EARTH_PATH:
     description: "Path to the built earthly binary"
     required: true
   BINARY:
@@ -75,11 +75,11 @@ runs:
       if: steps.fork-check.outputs.is_fork == 'true'
       shell: bash
       run: |
-        test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
-        mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
-        cp ./fork-artifacts/earthly "${{inputs.BUILT_EARTHLY_PATH}}"
-        chmod +x "${{inputs.BUILT_EARTHLY_PATH}}"
-        echo "Earthly binary installed from artifact to ${{inputs.BUILT_EARTHLY_PATH}}"
+        test -n "${{inputs.BUILT_EARTH_PATH}}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
+        mkdir -p "$(dirname "${{inputs.BUILT_EARTH_PATH}}")"
+        cp ./fork-artifacts/earthly "${{inputs.BUILT_EARTH_PATH}}"
+        chmod +x "${{inputs.BUILT_EARTH_PATH}}"
+        echo "Earthly binary installed from artifact to ${{inputs.BUILT_EARTH_PATH}}"
 
         # Read the tag suffix and set EARTHLY_BUILDKIT_IMAGE env var for subsequent steps
         TAG_SUFFIX=$(cat ./fork-artifacts/tag-suffix.txt)
@@ -172,26 +172,26 @@ runs:
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
-        test -n "${{inputs.BUILT_EARTHLY_PATH}}" || (echo "BUILT_EARTHLY_PATH is empty" && exit 1)
-        mkdir -p $(dirname "${{inputs.BUILT_EARTHLY_PATH}}")
+        test -n "${{inputs.BUILT_EARTH_PATH}}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
+        mkdir -p "$(dirname "${{inputs.BUILT_EARTH_PATH}}")"
         ${{inputs.SUDO}} ls "${HOME}/.earthly/"
-        ${{inputs.SUDO}} mv "${HOME}/.earthly/earthly-$TAG" "${{inputs.BUILT_EARTHLY_PATH}}"
-        echo "extracted ${{inputs.BUILT_EARTHLY_PATH}}"
+        ${{inputs.SUDO}} mv "${HOME}/.earthly/earthly-$TAG" "${{inputs.BUILT_EARTH_PATH}}"
+        echo "extracted ${{inputs.BUILT_EARTH_PATH}}"
       shell: bash
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
-        ${{inputs.BUILT_EARTHLY_PATH}} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+        "${{inputs.BUILT_EARTH_PATH}}" config global.buildkit_additional_config "'[registry.\"docker.io\"]
         mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
         export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings ${{inputs.BUILT_EARTHLY_PATH}} | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
+        (strings "${{inputs.BUILT_EARTH_PATH}}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
         echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
-      run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} bootstrap
+      run: ${{inputs.SUDO}} "${{inputs.BUILT_EARTH_PATH}}" bootstrap
       shell: bash
     - run: echo "stage2-setup action complete"
       shell: bash

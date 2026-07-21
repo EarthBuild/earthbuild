@@ -288,8 +288,6 @@ func BenchmarkSettingsHash(b *testing.B) {
 		Debug:                true,
 	}
 
-	b.ResetTimer()
-
 	for b.Loop() {
 		_, err := s.Hash()
 		if err != nil {

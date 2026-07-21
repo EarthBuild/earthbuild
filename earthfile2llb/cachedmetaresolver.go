@@ -3,11 +3,10 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/opencontainers/go-digest"
-	"github.com/pkg/errors"
 )
 
 var _ llb.ImageMetaResolver = &CachedMetaResolver{}
@@ -26,7 +25,7 @@ type cachedMetaResolverEntry struct {
 // CachedMetaResolver is an image meta resolver with a local cache.
 type CachedMetaResolver struct {
 	metaResolver llb.ImageMetaResolver
-	cache        *synccache.SyncCache // cachedMetaResolverKey -> cachedMetaResolverEntry
+	cache        *unbounded.Cache[cachedMetaResolverKey, cachedMetaResolverEntry]
 }
 
 // NewCachedMetaResolver creates a new cached meta resolver based on an underlying meta resolver
@@ -34,7 +33,7 @@ type CachedMetaResolver struct {
 func NewCachedMetaResolver(metaResolver llb.ImageMetaResolver) *CachedMetaResolver {
 	return &CachedMetaResolver{
 		metaResolver: metaResolver,
-		cache:        synccache.New(),
+		cache:        unbounded.NewCache[cachedMetaResolverKey, cachedMetaResolverEntry](),
 	}
 }
 
@@ -52,25 +51,22 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 		platform: platformStr,
 	}
 
-	value, err := cmr.cache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
-		reference, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, ref, opt)
-		if err != nil {
-			return nil, err
-		}
+	entry, err := cmr.cache.Do(
+		ctx, key, func(ctx context.Context, key cachedMetaResolverKey) (cachedMetaResolverEntry, error) {
+			reference, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, key.ref, opt)
+			if err != nil {
+				return cachedMetaResolverEntry{}, err
+			}
 
-		return cachedMetaResolverEntry{
-			ref:    reference,
-			dgst:   dgst,
-			config: config,
-		}, nil
-	})
+			return cachedMetaResolverEntry{
+				ref:    reference,
+				dgst:   dgst,
+				config: config,
+			}, nil
+		},
+	)
 	if err != nil {
 		return "", "", nil, err
-	}
-
-	entry, ok := value.(cachedMetaResolverEntry)
-	if !ok {
-		return "", "", nil, errors.Errorf("want cachedMetaResolverEntry, got %T", value)
 	}
 
 	return entry.ref, entry.dgst, entry.config, nil

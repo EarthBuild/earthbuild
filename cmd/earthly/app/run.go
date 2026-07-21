@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const flagCI = "--ci"
 
 var (
 	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
@@ -228,7 +231,9 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
 			args = append([]string{args[0], "-i"}, args[1:]...)
 			args = redactSecretsFromArgs(args)
-			args = stringutil.FilterElementsFromList(args, "--ci")
+			args = slices.DeleteFunc(args, func(arg string) bool {
+				return arg == flagCI
+			})
 			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
 			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
 			app.BaseCLI.Console().HelpPrint(helpMsg)
@@ -358,7 +363,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -374,7 +380,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -392,7 +399,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.BaseCLI.Console().Warn(
 				"Error: It seems that buildkitd had an issue. " +
-					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+			)
 			app.printCrashLogs(ctx)
 		}
 

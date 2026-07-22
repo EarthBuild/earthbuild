@@ -222,7 +222,11 @@ warning. With the cloud integration removed, it no longer has any effect unless 
 secret command. We may remove it in a future release and are collecting feedback to help decide — let
 us know how you use `PROJECT` in [this discussion](https://github.com/orgs/EarthBuild/discussions/708).
 
-Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`.
+Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`. The `EARTHLY_*` names still
+work in `v0.8.x`, but referencing one logs a deprecation warning pointing at the `EARTH_*` equivalent
+(for example, `ARG EARTHLY_GIT_PROJECT_NAME` warns and suggests `EARTH_GIT_PROJECT_NAME`). The
+`EARTHLY_*` built-in arguments will be removed in `v0.9.x`. See the [built-in args
+reference](earthfile/builtin-args.md) for the full list.
 
 ## CI
 

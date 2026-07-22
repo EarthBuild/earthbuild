@@ -37,8 +37,10 @@ EarthBuild on the `v0.8.x` minor version.
 
 We will publish a breaking change to these features in the first unique minor version for EarthBuild, `v0.9.x`.
 
-These changes include renaming of configuration variables from `EARTHLY_*` to `EARTH_*`, removal of Earthfile syntax related to cloud
-hosting like `PROJECT` and naming of built-in arguments like `ARG EARTHLY_GIT_PROJECT_NAME` to `ARG EARTH_GIT_PROJECT_NAME`.
+These changes include renaming of configuration variables from `EARTHLY_*` to `EARTH_*` and naming of
+built-in arguments like `ARG EARTHLY_GIT_PROJECT_NAME` to `ARG EARTH_GIT_PROJECT_NAME`. Some
+cloud-related syntax, such as the `PROJECT` command, is deprecated but not yet scheduled for removal —
+see the Syntax section below.
 
 ### Binary Name Change
 
@@ -83,13 +85,16 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 | `web`                     | Opened the Earthly Cloud web UI.               | Not applicable.                                                                                                                                                                                                          |
 | `billing`                 | Viewed Earthly billing information.            | Not applicable.                                                                                                                                                                                                          |
 | `gha`                     | Managed GitHub Actions integrations.           | The core GitHub Actions integration remains. See the CI section below. This command was for a specific, now-removed, part of that integration.                                                                           |
-| `prune-auto-skip`         | Pruned auto-skip data.                         | This maintenance command has been removed. The `auto-skip` feature itself is deprecated (see below) and will be removed in `v0.9.x`.                                                                                       |
+| `prune-auto-skip`         | Pruned auto-skip data.                         | This maintenance command has been removed. The `auto-skip` feature itself is deprecated (see below); we are collecting feedback on whether to remove it in the future.                                                     |
 
 ### Removed & Changed CLI Options
 
 - `--satellite`, `--sat`, `--no-satellite`, `--no-sat`: Removed. Use `--buildkit-host` (or configuration) explicitly to connect to a remote Buildkitd instance.
-- `--auto-skip`, `--no-auto-skip` (and `--auto-skip-db-path`): **Deprecated, not yet removed.** These
-  flags still function in `v0.8.x` but will log a deprecation warning and be removed in `v0.9.x`.
+- `--auto-skip`, `--no-auto-skip` (and `--auto-skip-db-path`): **Deprecated.** These flags log a
+  deprecation warning. Note that the cloud backend that once powered auto-skip has been removed; only
+  the local database (`--auto-skip-db-path`) still functions. We may remove these in a future release
+  and are collecting feedback to help decide — let us know how you use auto-skip in
+  [this discussion](https://github.com/orgs/EarthBuild/discussions/707).
 - `--auth-token`: This flag has been removed since it was used for authenticating with Earthly Cloud. For registry authentication, use standard Docker authentication methods.
 - The binary name in help texts and other places is now `earth` instead of `earthly`.
 
@@ -106,8 +111,9 @@ The following environment variables have been removed along with their associate
 - `EARTHLY_NO_SATELLITE` - Disabled satellite usage
 
 The `auto-skip` environment variables (`EARTHLY_AUTO_SKIP`, `EARTHLY_NO_AUTO_SKIP`,
-`EARTHLY_AUTO_SKIP_DB_PATH`) are **not** removed. Like the corresponding flags, they are deprecated in
-`v0.8.x` and will be removed in `v0.9.x`.
+`EARTHLY_AUTO_SKIP_DB_PATH`) are **not** removed. Like the corresponding flags, they are deprecated and
+log a warning; we are collecting feedback on whether to remove them in the future (see the
+[auto-skip discussion](https://github.com/orgs/EarthBuild/discussions/707)).
 
 #### Migration Strategy
 
@@ -211,10 +217,10 @@ GLOBAL OPTIONS:
 
 The core syntax of Earthfiles is largely unchanged.
 
-Again, this will be logged as a warning in `v0.8.x` and removed, treated as an error, in `v0.9.x`.
-
-The `PROJECT` command relates to the cloud offering. It is still accepted in `v0.8.x` where it will
-log a deprecation warning, and it will be removed and treated as an error in `v0.9.x`.
+The `PROJECT` command relates to the cloud offering. It is still accepted, but logs a deprecation
+warning. With the cloud integration removed, it no longer has any effect unless you use a custom
+secret command. We may remove it in a future release and are collecting feedback to help decide — let
+us know how you use `PROJECT` in [this discussion](https://github.com/orgs/EarthBuild/discussions/708).
 
 Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`. The `EARTHLY_*` names still
 work in `v0.8.x`, but referencing one logs a deprecation warning pointing at the `EARTH_*` equivalent

@@ -51,6 +51,9 @@ test-files:
     RUN echo hello > my-file
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile=simple.earth --target=+mytarget --output_contains="I was run"
     RUN if ! grep "SSB3YXMgcnVuCg" earthly.output >/dev/null; then echo "base64 encoded RUN echo command is missing from output" && exit 1; fi
+    # The auto-skip flags/env vars are deprecated and log a warning; we are collecting
+    # feedback on whether to remove them in the future.
+    RUN if ! grep "auto-skip.*deprecated" earthly.output >/dev/null; then echo "auto-skip deprecation warning is missing from output" && exit 1; fi
 
     DO --pass-args +RUN_EARTHLY_ARGS --earthfile=simple.earth --target=+mytarget --output_does_not_contain="I was run"
     RUN if grep "SSB3YXMgcnVuCg" earthly.output >/dev/null; then echo "base64 encoded RUN echo command should not have been displayed" && exit 1; fi

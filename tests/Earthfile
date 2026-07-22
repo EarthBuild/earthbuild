@@ -417,6 +417,13 @@ project-secrets-test:
         --target=+basic \
         --extra_args="--secret SECRET1=foo --secret SECRET2=bar" \
         --output_contains="my secrets are foo and bar"
+    # The PROJECT command is deprecated and logs a warning; we are collecting feedback
+    # on whether to remove it in the future.
+    DO +RUN_EARTHLY \
+        --earthfile=project-secrets.earth \
+        --target=+basic \
+        --extra_args="--secret SECRET1=foo --secret SECRET2=bar" \
+        --output_contains="the PROJECT command is deprecated"
 
 secrets-args-precedence-test:
     DO +RUN_EARTHLY --earthfile=secrets-args-precedence.earth --target=+test --extra_args="--secret foo=eggs"

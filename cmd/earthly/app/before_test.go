@@ -43,7 +43,7 @@ func TestAutoSkipDeprecationWarning(t *testing.T) {
 			warning := autoSkipDeprecationWarning(tc.skipBuildkit, tc.noAutoSkip, tc.localSkipDB)
 			if tc.wantWarning {
 				require.Contains(t, warning, "Deprecation:")
-				require.Contains(t, warning, "v0.9.x")
+				require.Contains(t, warning, "discussions/707")
 			} else {
 				require.Empty(t, warning)
 			}

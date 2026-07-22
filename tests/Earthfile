@@ -417,7 +417,8 @@ project-secrets-test:
         --target=+basic \
         --extra_args="--secret SECRET1=foo --secret SECRET2=bar" \
         --output_contains="my secrets are foo and bar"
-    # The PROJECT command is deprecated in v0.8.x and will be removed in v0.9.x.
+    # The PROJECT command is deprecated and logs a warning; we are collecting feedback
+    # on whether to remove it in the future.
     DO +RUN_EARTHLY \
         --earthfile=project-secrets.earth \
         --target=+basic \

@@ -231,7 +231,8 @@ func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
 // warnDeprecatedAutoSkip warns when any of the auto-skip flags or env vars are
 // used. The cloud backend that once powered auto-skip has been removed; only
 // the local database (--auto-skip-db-path) still functions. The flags and env
-// vars are deprecated in v0.8.x and will be removed in v0.9.x.
+// vars are deprecated, and we are collecting feedback to decide whether to
+// remove them in the future.
 func (app *EarthApp) warnDeprecatedAutoSkip() {
 	flags := app.BaseCLI.Flags()
 	if warning := autoSkipDeprecationWarning(flags.SkipBuildkit, flags.NoAutoSkip, flags.LocalSkipDB); warning != "" {
@@ -248,8 +249,10 @@ func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB strin
 	}
 
 	return "Deprecation: --auto-skip, --no-auto-skip and --auto-skip-db-path (and their " +
-		"EARTH_AUTO_SKIP* / EARTHLY_AUTO_SKIP* env vars) are deprecated and will be removed in v0.9.x. " +
-		"The cloud auto-skip backend has been removed; only the local database (--auto-skip-db-path) still functions."
+		"EARTH_AUTO_SKIP* / EARTHLY_AUTO_SKIP* env vars) are deprecated. " +
+		"The cloud auto-skip backend has been removed; only the local database (--auto-skip-db-path) still functions. " +
+		"We may remove these in a future release and are collecting feedback to help decide. " +
+		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
 }
 
 func (app *EarthApp) warnIfEarth() {

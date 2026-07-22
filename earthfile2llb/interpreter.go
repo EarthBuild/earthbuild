@@ -2351,8 +2351,10 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) e
 
 func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) error {
 	i.console.Warnf(
-		"Deprecation: the PROJECT command is deprecated and will be removed in v0.9.x. " +
-			"It no longer has any effect unless you use a custom secret command.")
+		"Deprecation: the PROJECT command is deprecated. " +
+			"With the cloud integration removed, it no longer has any effect unless you use a custom secret command. " +
+			"We may remove it in a future release and are collecting feedback to help decide. " +
+			"Let us know how you use PROJECT at https://github.com/orgs/EarthBuild/discussions/708")
 
 	// Note: Expanding args for PROJECT is not allowed. The value needs to be
 	// lifted straight from the AST.

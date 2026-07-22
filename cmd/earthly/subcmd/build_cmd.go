@@ -25,6 +25,7 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -60,14 +61,16 @@ const autoSkipPrefix = "auto-skip"
 
 // Build encapsulates the build command logic.
 type Build struct {
-	cli          CLI
-	dockerTarget string
-	buildArgs    []string
-	platformsStr []string
-	secrets      []string
-	secretFiles  []string
-	cacheFrom    []string
-	dockerTags   []string
+	cli               CLI
+	dockerTarget      string
+	buildArgs         []string
+	platformsStr      []string
+	secrets           []string
+	secretFiles       []string
+	cacheFrom         []string
+	dockerTags        []string
+	inMemoryTargetRef string
+	inMemoryAST       earthfile.Tree
 }
 
 // NewBuild creates a new Build command.
@@ -600,6 +603,10 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return errors.Wrap(err, "new builder")
 	}
 
+	if b.inMemoryTargetRef != "" {
+		build.RegisterInMemoryEarthfile(b.inMemoryTargetRef, b.inMemoryAST)
+	}
+
 	b.cli.Console().PrintPhaseFooter(builder.PhaseInit)
 
 	builtinArgs := variables.DefaultArgs{
@@ -997,36 +1004,77 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	platforms := flagutil.SplitFlagString(b.platformsStr)
 
-	content, err := docker2earth.GenerateEarthfile(
-		buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
-		buildArgs.Sorted(), platforms, b.dockerTarget,
-	)
-	if err != nil {
-		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
+	var nonFlagArgsTarget []string
+
+	if b.cli.Flags().InteractiveDebugging {
+		// Use in-memory translation for troubleshooting
+		dockerfilePath := b.cli.Flags().DockerfilePath
+		if dockerfilePath == "" {
+			dockerfilePath = "Dockerfile"
+		}
+		if !filepath.IsAbs(dockerfilePath) {
+			dockerfilePath = filepath.Join(buildContextPath, dockerfilePath)
+		}
+
+		tag := "tmpdebug:latest"
+		if len(b.dockerTags) > 0 {
+			tag = b.dockerTags[0]
+		}
+
+		ast, err := docker2earth.GenerateNativeEarthfileAST(dockerfilePath, tag)
+		if err != nil {
+			return errors.Wrap(err, "docker-build: failed to compile Dockerfile to in-memory AST")
+		}
+
+		targetRef := buildContextPath + "+build"
+		b.inMemoryTargetRef = targetRef
+		b.inMemoryAST = ast
+
+		b.cli.Flags().DockerfilePath = ""
+		b.cli.Flags().ImageMode = false
+		b.cli.Flags().ArtifactMode = false
+		b.dockerTarget = ""
+		b.dockerTags = []string{}
+		b.platformsStr = []string{}
+
+		nonFlagArgsTarget = []string{targetRef}
+	} else {
+		tempDir, err := os.MkdirTemp("", "docker-build")
+		if err != nil {
+			return errors.Wrap(err, "docker-build: failed to create temporary dir for Earthfile")
+		}
+		defer os.RemoveAll(tempDir)
+
+		content, err := docker2earth.GenerateEarthfile(
+			buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
+			buildArgs.Sorted(), platforms, b.dockerTarget,
+		)
+		if err != nil {
+			return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
+		}
+
+		earthfilePath := filepath.Join(tempDir, buildcontext.Earthfile)
+
+		out, err := os.Create(earthfilePath) // #nosec G304
+		if err != nil {
+			return errors.Wrapf(err, "docker-build: failed to create Earthfile %q", earthfilePath)
+		}
+		defer out.Close()
+
+		_, err = out.WriteString(content)
+		if err != nil {
+			return errors.Wrapf(err, "docker-build: failed to write to %q", earthfilePath)
+		}
+
+		b.cli.Flags().DockerfilePath = ""
+		b.cli.Flags().ImageMode = false
+		b.cli.Flags().ArtifactMode = false
+		b.dockerTarget = ""
+		b.dockerTags = []string{}
+		b.platformsStr = []string{}
+
+		nonFlagArgsTarget = []string{tempDir + "+build"}
 	}
 
-	earthfilePath := filepath.Join(tempDir, buildcontext.Earthfile)
-
-	out, err := os.Create(earthfilePath) // #nosec G304
-	if err != nil {
-		return errors.Wrapf(err, "docker-build: failed to create Earthfile %q", earthfilePath)
-	}
-	defer out.Close()
-
-	_, err = out.WriteString(content)
-	if err != nil {
-		return errors.Wrapf(err, "docker-build: failed to write to %q", earthfilePath)
-	}
-
-	// The following should not be set in the context of executing the build from the generated Earthfile:
-	b.cli.Flags().DockerfilePath = ""
-	b.cli.Flags().ImageMode = false
-	b.cli.Flags().ArtifactMode = false
-	b.dockerTarget = ""
-	b.dockerTags = []string{}
-	b.platformsStr = []string{}
-
-	nonFlagArgs = []string{tempDir + "+build"}
-
-	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
+	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgsTarget)
 }

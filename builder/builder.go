@@ -16,6 +16,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
@@ -155,6 +156,11 @@ func NewBuilder(opt Opt) (*Builder, error) {
 	)
 
 	return b, nil
+}
+
+// RegisterInMemoryEarthfile registers an in-memory Earthfile AST on the resolver.
+func (b *Builder) RegisterInMemoryEarthfile(targetRef string, tree earthfile.Tree) {
+	b.resolver.RegisterInMemoryEarthfile(targetRef, tree)
 }
 
 // BuildTarget executes the build of a given earth target.

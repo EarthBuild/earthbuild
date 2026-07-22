@@ -2,9 +2,11 @@ package execstatssummary
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 	"sync"
 	"text/tabwriter"
 	"time"
@@ -52,18 +54,14 @@ func (t *Tracker) Observe(target, command string, memory uint64, cpu time.Durati
 	}
 }
 
-// String returns a summarized table.
+// String implements [fmt.Stringer]. It returns a summarized table.
 func (t *Tracker) String() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	keys := make([]string, 0, len(t.stats))
-	for k := range t.stats {
-		keys = append(keys, k)
-	}
-
-	sort.Slice(keys, func(i, j int) bool {
-		return t.stats[keys[i]].memory < t.stats[keys[j]].memory
+	keys := slices.Collect(maps.Keys(t.stats))
+	slices.SortFunc(keys, func(i, j string) int {
+		return cmp.Compare(t.stats[i].memory, t.stats[j].memory)
 	})
 
 	var buf bytes.Buffer

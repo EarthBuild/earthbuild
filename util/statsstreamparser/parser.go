@@ -6,73 +6,92 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
-	"github.com/alexcb/binarystream"
 	"github.com/containerd/go-runc"
 )
 
+const maxPayloadSize = 10 * 1024 * 1024 // 10 MB
+
 // Parser parses stream data containing execution statistics.
 type Parser struct {
-	buf                 *bytes.Buffer
-	bsr                 *binarystream.BinaryStream
-	readProtocolVersion bool
+	// buf accumulates incoming stream data across multiple Parse calls.
+	buf *bytes.Buffer
+	// hasReadVersion is true if the protocol version byte for the current packet
+	// has been read and validated, but the stats payload is still pending.
+	hasReadVersion bool
 }
 
 // New creates a new parser instance.
 func New() *Parser {
-	buf := bytes.NewBuffer(nil)
-
 	return &Parser{
-		buf: buf,
-		bsr: binarystream.NewReader(buf, binary.LittleEndian),
+		buf: bytes.NewBuffer(nil),
 	}
 }
 
 // Parse parses stream data containing execution statistics.
-func (ssp *Parser) Parse(b []byte) ([]*runc.Stats, error) {
-	_, err := ssp.buf.Write(b)
+func (p *Parser) Parse(b []byte) ([]*runc.Stats, error) {
+	errorf := func(format string, args ...any) (stats []*runc.Stats, err error) {
+		return nil, fmt.Errorf("stats stream parser: "+format, args...)
+	}
+
+	_, err := p.buf.Write(b)
 	if err != nil {
-		return nil, err
+		return errorf("write to buf: ", err)
 	}
 
 	var stats []*runc.Stats
 
+loop:
 	for {
-		if !ssp.readProtocolVersion {
-			protocolVersion, err := ssp.bsr.ReadUint8()
-			if err != nil {
-				if errors.Is(err, binarystream.ErrBufferUnderflow) {
-					break
-				}
+		if !p.hasReadVersion {
+			var protocolVersion byte
 
-				return nil, err
+			protocolVersion, err = p.buf.ReadByte()
+			switch {
+			case errors.Is(err, io.EOF):
+				break loop
+			case err != nil:
+				return errorf("read protocol version: ", err)
+			case protocolVersion != 1:
+				return errorf("unexpected protocol version %d", protocolVersion)
 			}
 
-			if protocolVersion != 1 {
-				return nil, fmt.Errorf("unexpected stats stream protocol version %d", protocolVersion)
-			}
-
-			ssp.readProtocolVersion = true
+			p.hasReadVersion = true
 		}
 
-		statsStreamJSON, err := ssp.bsr.ReadUint32PrefixedString()
-		if err != nil {
-			if errors.Is(err, binarystream.ErrBufferUnderflow) {
-				break
-			}
-
-			return nil, err
+		lenBytes, err := p.buf.Peek(4)
+		switch {
+		case errors.Is(err, io.EOF):
+			break loop
+		case err != nil:
+			return errorf("peek length: ", err)
 		}
+
+		n := int(binary.LittleEndian.Uint32(lenBytes))
+		if n < 0 || n > maxPayloadSize {
+			return errorf("payload length exceeds %d bytes: %d", maxPayloadSize, n)
+		}
+
+		statsBytes, err := p.buf.Peek(4 + n)
+		switch {
+		case errors.Is(err, io.EOF):
+			break loop
+		case err != nil:
+			return errorf("peek payload: ", err)
+		}
+
+		p.buf.Next(4 + n)
 
 		var runcStat runc.Stats
 
-		err = json.Unmarshal([]byte(statsStreamJSON), &runcStat)
+		err = json.Unmarshal(statsBytes[4:], &runcStat)
 		if err != nil {
-			return nil, err
+			return errorf("unmarshal stats: %w", err)
 		}
 
 		stats = append(stats, &runcStat)
-		ssp.readProtocolVersion = false
+		p.hasReadVersion = false
 	}
 
 	return stats, nil

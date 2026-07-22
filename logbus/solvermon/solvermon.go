@@ -12,7 +12,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/EarthBuild/earthbuild/util/xcontext"
 	"github.com/moby/buildkit/client"
 	"github.com/opencontainers/go-digest"
 )
@@ -36,8 +35,8 @@ func New(b *logbus.Bus) *SolverMonitor {
 
 // MonitorProgress processes a channel of buildkit solve statuses.
 func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.SolveStatus) error {
-	delayedCtx, delayedCancel := context.WithCancel(xcontext.Detach(ctx))
-	defer delayedCancel()
+	cancelCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	defer cancel()
 
 	go func() {
 		<-ctx.Done()
@@ -47,16 +46,16 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 		// anyway. We should be waiting for the full 30 seconds only if there's
 		// a bug.
 		select {
-		case <-delayedCtx.Done():
+		case <-cancelCtx.Done():
 		case <-time.After(30 * time.Second):
 		}
 
-		delayedCancel()
+		cancel()
 	}()
 
 	for {
 		select {
-		case <-delayedCtx.Done():
+		case <-cancelCtx.Done():
 			return fmt.Errorf("timed out waiting for status channel to close: %w", ctx.Err())
 		case status, ok := <-ch:
 			if !ok {

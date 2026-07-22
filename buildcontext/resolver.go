@@ -3,6 +3,7 @@ package buildcontext
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -136,6 +137,71 @@ func (r *Resolver) ExpandWildcard(
 	return ret, nil
 }
 
+// resolveLocalRootEarthfile rewrites a Earthfile reference for the root of a project.
+func resolveLocalRootEarthfile(ref domain.Reference) domain.Reference {
+	if ref.IsRemote() ||
+		ref.IsImportReference() ||
+		filepath.Clean(ref.GetLocalPath()) != "." ||
+		strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
+		return ref
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ref
+	}
+
+	curr := cwd
+	for {
+		if !hasEarthfile(curr) {
+			parent := filepath.Dir(curr)
+			if parent == curr {
+				break
+			}
+
+			curr = parent
+
+			continue
+		}
+
+		relPath, err := filepath.Rel(cwd, curr)
+		if err != nil {
+			return withLocalPath(ref, curr)
+		}
+
+		relPath = filepath.ToSlash(relPath)
+		if !strings.HasPrefix(relPath, ".") && !filepath.IsAbs(relPath) {
+			relPath = "./" + relPath
+		}
+
+		return withLocalPath(ref, relPath)
+	}
+
+	return ref
+}
+
+func hasEarthfile(dir string) bool {
+	fi, err := os.Stat(filepath.Join(dir, Earthfile))
+	if err != nil {
+		return false
+	}
+
+	return !fi.IsDir()
+}
+
+func withLocalPath(ref domain.Reference, newLocalPath string) domain.Reference {
+	switch r := ref.(type) {
+	case domain.Target:
+		r.LocalPath = newLocalPath
+		return r
+	case domain.Command:
+		r.LocalPath = newLocalPath
+		return r
+	default:
+		return ref
+	}
+}
+
 // Resolve returns resolved context data for a given earth reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
 func (r *Resolver) Resolve(
@@ -144,6 +210,8 @@ func (r *Resolver) Resolve(
 	if ref.IsUnresolvedImportReference() {
 		return nil, fmt.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}
+
+	ref = resolveLocalRootEarthfile(ref)
 
 	var (
 		d   *Data

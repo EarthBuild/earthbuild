@@ -2,20 +2,30 @@ package statsstreamparser
 
 import (
 	"encoding/binary"
+	"math"
 	"testing"
 )
 
 func TestParser_Parse(t *testing.T) {
-	// A helper to serialize a packet
+	t.Parallel()
+
 	makePacket := func(version uint8, data string) []byte {
-		buf := make([]byte, 1+4+len(data))
+		n := len(data)
+		if n < 0 || int64(n) > math.MaxUint32 {
+			panic("data too large")
+		}
+
+		buf := make([]byte, 1+4+n)
 		buf[0] = version
-		binary.LittleEndian.PutUint32(buf[1:5], uint32(len(data)))
+		binary.LittleEndian.PutUint32(buf[1:5], uint32(n))
 		copy(buf[5:], data)
+
 		return buf
 	}
 
 	t.Run("valid stream", func(t *testing.T) {
+		t.Parallel()
+
 		parser := New()
 
 		// Serialize two stats payloads
@@ -30,6 +40,7 @@ func TestParser_Parse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if len(stats) != 1 {
 			t.Fatalf("expected 1 stat, got %d", len(stats))
 		}
@@ -39,12 +50,15 @@ func TestParser_Parse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if len(stats) != 1 {
 			t.Fatalf("expected 1 stat, got %d", len(stats))
 		}
 	})
 
 	t.Run("underflow and recovery", func(t *testing.T) {
+		t.Parallel()
+
 		parser := New()
 
 		payload := `{"cpu":{"usage":{"total":100}}}`
@@ -56,6 +70,7 @@ func TestParser_Parse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if len(stats) != 0 {
 			t.Fatalf("expected 0 stats on underflow, got %d", len(stats))
 		}
@@ -65,16 +80,19 @@ func TestParser_Parse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if len(stats) != 0 {
 			t.Fatalf("expected 0 stats on underflow, got %d", len(stats))
 		}
 
 		// Chunk 3: partial payload (half of the payload)
 		mid := 5 + len(payload)/2
+
 		stats, err = parser.Parse(packet[5:mid])
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if len(stats) != 0 {
 			t.Fatalf("expected 0 stats on underflow, got %d", len(stats))
 		}
@@ -84,12 +102,15 @@ func TestParser_Parse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if len(stats) != 1 {
 			t.Fatalf("expected 1 stat after complete read, got %d", len(stats))
 		}
 	})
 
 	t.Run("invalid protocol version", func(t *testing.T) {
+		t.Parallel()
+
 		parser := New()
 		packet := makePacket(2, `{"cpu":{"usage":{"total":100}}}`)
 
@@ -100,6 +121,8 @@ func TestParser_Parse(t *testing.T) {
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
+		t.Parallel()
+
 		parser := New()
 		packet := makePacket(1, `invalid-json`)
 
@@ -110,6 +133,8 @@ func TestParser_Parse(t *testing.T) {
 	})
 
 	t.Run("overly large payload size", func(t *testing.T) {
+		t.Parallel()
+
 		parser := New()
 		// Construct a packet with version 1, and length prefix of 11 MB (over the 10 MB limit)
 		packet := make([]byte, 5)
@@ -125,10 +150,16 @@ func TestParser_Parse(t *testing.T) {
 
 func BenchmarkParser_Parse(b *testing.B) {
 	makePacket := func(version uint8, data string) []byte {
-		buf := make([]byte, 1+4+len(data))
+		length := len(data)
+		if length < 0 || int64(length) > math.MaxUint32 {
+			panic("data too large")
+		}
+
+		buf := make([]byte, 1+4+length)
 		buf[0] = version
-		binary.LittleEndian.PutUint32(buf[1:5], uint32(len(data)))
+		binary.LittleEndian.PutUint32(buf[1:5], uint32(length))
 		copy(buf[5:], data)
+
 		return buf
 	}
 
@@ -136,12 +167,10 @@ func BenchmarkParser_Parse(b *testing.B) {
 	payload := `{"cpu":{"usage":{"total":100}},"memory":{"usage":{"limit":4000}}}`
 	packet := makePacket(1, payload)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := parser.Parse(packet)
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
 }
-

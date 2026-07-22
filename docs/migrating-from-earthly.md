@@ -216,7 +216,11 @@ Again, this will be logged as a warning in `v0.8.x` and removed, treated as an e
 The `PROJECT` command relates to the cloud offering. It is still accepted in `v0.8.x` where it will
 log a deprecation warning, and it will be removed and treated as an error in `v0.9.x`.
 
-Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`.
+Built-in arguments are renamed from `ARG EARTHLY_*` to `ARG EARTH_*`. The `EARTHLY_*` names still
+work in `v0.8.x`, but referencing one logs a deprecation warning pointing at the `EARTH_*` equivalent
+(for example, `ARG EARTHLY_GIT_PROJECT_NAME` warns and suggests `EARTH_GIT_PROJECT_NAME`). The
+`EARTHLY_*` built-in arguments will be removed in `v0.9.x`. See the [built-in args
+reference](earthfile/builtin-args.md) for the full list.
 
 ## CI
 

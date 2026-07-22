@@ -11,9 +11,9 @@ func TestAutoSkipDeprecationWarning(t *testing.T) {
 
 	for _, tc := range []struct {
 		name         string
+		localSkipDB  string
 		skipBuildkit bool
 		noAutoSkip   bool
-		localSkipDB  string
 		wantWarning  bool
 	}{
 		{
@@ -36,7 +36,6 @@ func TestAutoSkipDeprecationWarning(t *testing.T) {
 			wantWarning: true,
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

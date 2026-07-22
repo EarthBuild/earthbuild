@@ -24,6 +24,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
@@ -1833,6 +1834,10 @@ func (i *Interpreter) handleArg(ctx context.Context, cmd earthfile.Command) erro
 	opts, key, valueOrNil, err := flagutil.ParseArgArgs(cmd, i.isBase, i.converter.ftrs.ExplicitGlobal)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "invalid ARG arguments %v", cmd.Args)
+	}
+
+	if replacement, deprecated := reserved.DeprecatedBuiltin(key); deprecated {
+		i.console.Warnf("WARNING: the built-in ARG %s is deprecated. Use %s.", key, replacement)
 	}
 
 	var value string

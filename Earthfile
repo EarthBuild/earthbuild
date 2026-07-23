@@ -98,9 +98,9 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
+# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-earthly-script-no-stdout:
+earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
     FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
@@ -376,6 +376,12 @@ earthly-linux-amd64:
     # reach +earthly. Without forwarding, COPY-scoped --args stop at this target
     # and the binary silently falls back to dev defaults, e.g. a buildkit image
     # of $IMAGE_REGISTRY:buildkitd-$VERSION instead of the intended release image.
+    #
+    # EARTHLY_TARGET_TAG_DOCKER must be declared before it is referenced below,
+    # otherwise it expands to empty and the dev VERSION becomes "dev-" -- which
+    # bakes in a buildkitd image of buildkitd-dev- that does not match the
+    # buildkitd-dev-<tag> image the local +for-* targets actually build.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -395,6 +401,7 @@ earthly-linux-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -414,6 +421,7 @@ earthly-darwin-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -433,6 +441,7 @@ earthly-darwin-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -452,6 +461,7 @@ earthly-windows-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -477,6 +487,7 @@ all-binaries:
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
     # all binaries. See earthly-linux-amd64 for details.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -538,10 +549,10 @@ earthly-docker:
        SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
-# earthly-integration-test-base builds earthly docker and then
+# earthbuild-integration-test-base builds earthly docker and then
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
-earthly-integration-test-base:
+earthbuild-integration-test-base:
     FROM --pass-args +earthly-docker
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
@@ -744,7 +755,7 @@ test-no-qemu:
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
     BUILD +test-ast
-    BUILD +earthly-script-no-stdout
+    BUILD +earthbuild-script-no-stdout
 
 test-ast:
     BUILD --pass-args ./internal/earthfile/tests+group1

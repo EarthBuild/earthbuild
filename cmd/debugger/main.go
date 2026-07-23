@@ -88,25 +88,20 @@ func handleWinChangeData(ptmx *os.File, data []byte) error {
 }
 
 func populateShellHistory(cmd string) error {
-	var result error
+	var err error
 
-	for _, f := range []string{
+	for _, path := range []string{
 		"/root/.ash_history",
 		"/root/.bash_history",
 	} {
-		f, err := os.Create(f) // #nosec G304
-		if err != nil {
-			result = errors.Join(result, err)
-		}
-		defer f.Close()
-
-		_, err = f.WriteString(cmd + "\n")
-		if err != nil {
-			result = errors.Join(result, err)
+		// #nosec G703 -- path is hardcoded and cmd is intentionally written to shell history inside debugger container
+		writeErr := os.WriteFile(path, []byte(cmd+"\n"), 0o600)
+		if writeErr != nil {
+			err = errors.Join(err, writeErr)
 		}
 	}
 
-	return result
+	return err
 }
 
 func sendFile(ctx context.Context, sockAddr, src, dst string) error {
@@ -213,12 +208,12 @@ func interactiveMode(
 			return
 		}
 
-		conslogger.Warnf("%v\n", fmt.Errorf("failed to start pty: %w", err))
+		conslogger.Warnf("failed to start pty: %v\n", err)
 	}
 
 	ptmx, err := pty.Start(c)
 	if err != nil {
-		conslogger.Warnf("%v\n", fmt.Errorf("failed to start pty: %w", err))
+		conslogger.Warnf("failed to start pty: %v\n", err)
 		return err
 	}
 

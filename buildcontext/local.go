@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 type localResolver struct {
@@ -33,7 +33,7 @@ func (lr *localResolver) resolveLocal(
 	featureFlagOverrides string,
 ) (*Data, error) {
 	if ref.IsRemote() {
-		return nil, errors.Errorf("unexpected remote target %s", ref.String())
+		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
 	}
 
 	metadataValue, err := lr.gitMetaCache.Do(ctx, ref.GetLocalPath(), func(ctx context.Context, _ any) (any, error) {

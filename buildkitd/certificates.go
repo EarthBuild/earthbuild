@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -17,7 +18,6 @@ import (
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
-	"github.com/pkg/errors"
 )
 
 type certData struct {
@@ -37,7 +37,7 @@ const (
 func GenCerts(cfg config.Config, hostname string) error {
 	caKey, err := parseTLSKey(cfg.Global.TLSCAKey)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return errors.Wrap(err, "failed reading CA key")
+		return fmt.Errorf("failed reading CA key: %w", err)
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
@@ -63,7 +63,7 @@ func GenCerts(cfg config.Config, hostname string) error {
 		case len(all):
 			caKey, err = createTLSKey(cfg.Global.TLSCAKey)
 			if err != nil {
-				return errors.Wrap(err, "could not create CA")
+				return fmt.Errorf("could not create CA: %w", err)
 			}
 		default:
 			found := all
@@ -88,13 +88,13 @@ func GenCerts(cfg config.Config, hostname string) error {
 
 	caCert, err := parseTLSCert(cfg.Global.TLSCACert)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return errors.Wrap(err, "could not parse CA certificate")
+		return fmt.Errorf("could not parse CA certificate: %w", err)
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
 		caCert, err = createCACert(caKey, cfg.Global.TLSCACert)
 		if err != nil {
-			return errors.Wrap(err, "could not create CA certificate")
+			return fmt.Errorf("could not create CA certificate: %w", err)
 		}
 	}
 
@@ -105,12 +105,12 @@ func GenCerts(cfg config.Config, hostname string) error {
 
 	err = genCert(ca, buildkit, hostname, cfg.Global.ServerTLSKey, cfg.Global.ServerTLSCert)
 	if err != nil {
-		return errors.Wrapf(err, "could not generate server TLS key/cert pair for %v", buildkit)
+		return fmt.Errorf("could not generate server TLS key/cert pair for %v: %w", buildkit, err)
 	}
 
 	err = genCert(ca, earthly, hostname, cfg.Global.ClientTLSKey, cfg.Global.ClientTLSCert)
 	if err != nil {
-		return errors.Wrapf(err, "could not generate client TLS key/cert pair for %v", earthly)
+		return fmt.Errorf("could not generate client TLS key/cert pair for %v: %w", earthly, err)
 	}
 
 	return nil
@@ -121,24 +121,24 @@ func genCert(ca *certData, role, hostname, keyPath, certPath string) error {
 
 	key, err := parseTLSKey(keyPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return errors.Wrapf(err, "could not parse %v TLS key", role)
+		return fmt.Errorf("could not parse %v TLS key: %w", role, err)
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
 		if certExists {
-			return errors.Wrapf(err, "refusing to generate TLS key %q: TLS cert %q exists", keyPath, certPath)
+			return fmt.Errorf("refusing to generate TLS key %q: TLS cert %q exists: %w", keyPath, certPath, err)
 		}
 
 		key, err = createTLSKey(keyPath)
 		if err != nil {
-			return errors.Wrapf(err, "could not create %v TLS key", role)
+			return fmt.Errorf("could not create %v TLS key: %w", role, err)
 		}
 	}
 
 	if !certExists {
 		_, err = createTLSCert(ca, key, role, certPath, hostname)
 		if err != nil {
-			return errors.Wrapf(err, "could not create %v TLS cert", role)
+			return fmt.Errorf("could not create %v TLS cert: %w", role, err)
 		}
 	}
 
@@ -148,14 +148,14 @@ func genCert(ca *certData, role, hostname, keyPath, certPath string) error {
 func parseTLSKey(path string) (*rsa.PrivateKey, error) {
 	body, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read private key %q", path)
+		return nil, fmt.Errorf("could not read private key %q: %w", path, err)
 	}
 
 	dec, _ := pem.Decode(body)
 
 	key, err := x509.ParsePKCS1PrivateKey(dec.Bytes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not decode %q as RSA private key", path)
+		return nil, fmt.Errorf("could not decode %q as RSA private key: %w", path, err)
 	}
 
 	return key, nil
@@ -164,12 +164,12 @@ func parseTLSKey(path string) (*rsa.PrivateKey, error) {
 func createTLSKey(path string) (*rsa.PrivateKey, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not generate RSA key")
+		return nil, fmt.Errorf("could not generate RSA key: %w", err)
 	}
 
 	err = savePEM(path, typeRSAKey, x509.MarshalPKCS1PrivateKey(key))
 	if err != nil {
-		return nil, errors.Wrapf(err, "saving private key to %q failed", path)
+		return nil, fmt.Errorf("saving private key to %q failed: %w", path, err)
 	}
 
 	return key, nil
@@ -178,14 +178,14 @@ func createTLSKey(path string) (*rsa.PrivateKey, error) {
 func parseTLSCert(path string) (*x509.Certificate, error) {
 	body, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read public cert %q", path)
+		return nil, fmt.Errorf("could not read public cert %q: %w", path, err)
 	}
 
 	dec, _ := pem.Decode(body)
 
 	cert, err := x509.ParseCertificate(dec.Bytes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not decode %q as x509 certificate", path)
+		return nil, fmt.Errorf("could not decode %q as x509 certificate: %w", path, err)
 	}
 
 	return cert, nil
@@ -194,7 +194,7 @@ func parseTLSCert(path string) (*x509.Certificate, error) {
 func createTLSCert(ca *certData, key *rsa.PrivateKey, role, path, hostname string) (*x509.Certificate, error) {
 	serial, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not generate serial for role %q", role)
+		return nil, fmt.Errorf("could not generate serial for role %q: %w", role, err)
 	}
 
 	cert := &x509.Certificate{
@@ -213,12 +213,12 @@ func createTLSCert(ca *certData, key *rsa.PrivateKey, role, path, hostname strin
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, &key.PublicKey, ca.Key)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not generate certificate for role %q", role)
+		return nil, fmt.Errorf("could not generate certificate for role %q: %w", role, err)
 	}
 
 	err = savePEM(path, typeCert, certBytes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not save certificate for role %q to path %q", role, path)
+		return nil, fmt.Errorf("could not save certificate for role %q to path %q: %w", role, path, err)
 	}
 
 	return cert, nil
@@ -240,12 +240,12 @@ func createCACert(key *rsa.PrivateKey, path string) (*x509.Certificate, error) {
 
 	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &key.PublicKey, key)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating CA certificate failed")
+		return nil, fmt.Errorf("creating CA certificate failed: %w", err)
 	}
 
 	err = savePEM(path, typeCert, caBytes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "saving CA certificate to %q failed", path)
+		return nil, fmt.Errorf("saving CA certificate to %q failed: %w", path, err)
 	}
 
 	return ca, nil

@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,7 +17,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -101,7 +101,7 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
-		return errors.Wrap(err, "failed to resolve target")
+		return fmt.Errorf("failed to resolve target: %w", err)
 	}
 
 	const docsIndent = "  "
@@ -109,7 +109,7 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 	if singleTgt {
 		tgt, err := findTarget(bc.Earthfile, target.Target)
 		if err != nil {
-			return errors.Wrap(err, "failed to look up target")
+			return fmt.Errorf("failed to look up target: %w", err)
 		}
 
 		return a.documentSingleTarget("", bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
@@ -141,7 +141,8 @@ func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err e
 		case '.', '/', '+':
 		default:
 			return domain.Target{}, false, errors.New(
-				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
+				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']",
+			)
 		}
 	}
 
@@ -154,7 +155,7 @@ func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err e
 
 	target, err = domain.ParseTarget(tgtPath)
 	if err != nil {
-		return domain.Target{}, false, errors.Errorf("unable to parse target %q", tgtPath)
+		return domain.Target{}, false, fmt.Errorf("unable to parse target %q", tgtPath)
 	}
 
 	return target, singleTgt, nil
@@ -163,7 +164,7 @@ func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err e
 func docString(body string, names ...string) (string, error) {
 	firstWordEnd := strings.IndexRune(body, ' ')
 	if firstWordEnd == -1 {
-		return "", errors.Errorf("failed to parse first word of documentation comments")
+		return "", errors.New("failed to parse first word of documentation comments")
 	}
 
 	firstWord := body[:firstWordEnd]
@@ -259,7 +260,7 @@ func addArg(b *blockIO, ft *features.Features, stmt earthfile.Statement, isBase,
 
 	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(cmd, isBase, ft.ExplicitGlobal)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse ARG statement")
+		return fmt.Errorf("failed to parse ARG statement: %w", err)
 	}
 
 	if onlyGlobal && !isGlobal {
@@ -291,7 +292,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*bl
 	for _, base := range baseRcp {
 		err := addArg(&b, ft, base, true, true)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse global ARG in base recipe")
+			return nil, fmt.Errorf("failed to parse global ARG in base recipe: %w", err)
 		}
 	}
 
@@ -306,12 +307,12 @@ func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*bl
 		case earthfile.CmdArg:
 			err := addArg(&b, ft, rb, false, false)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse non-global ARG")
+				return nil, fmt.Errorf("failed to parse non-global ARG: %w", err)
 			}
 		case earthfile.CmdSaveArtifact:
 			name, localName, err := earthfile2llb.ArtifactName(cmd)
 			if err != nil {
-				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
+				return nil, fmt.Errorf("could not parse SAVE ARTIFACT name: %w", err)
 			}
 
 			idents := []string{name}
@@ -336,7 +337,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*bl
 		case earthfile.CmdSaveImage:
 			identifiers, err := earthfile2llb.ImageNames(cmd)
 			if err != nil {
-				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
+				return nil, fmt.Errorf("could not parse SAVE IMAGE name(s): %w", err)
 			}
 
 			if len(identifiers) == 0 {
@@ -373,7 +374,7 @@ func (a *Doc) documentSingleTarget(
 
 	blockIO, err := parseDocSections(ft, baseRcp, tgt.Recipe)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse body of recipe '%v'", tgt.Name)
+		return fmt.Errorf("failed to parse body of recipe '%v': %w", tgt.Name, err)
 	}
 
 	const scopeIndent = "  "
@@ -421,5 +422,5 @@ func findTarget(ef earthfile.Tree, name string) (earthfile.Target, error) {
 		}
 	}
 
-	return earthfile.Target{}, errors.Errorf("could not find target named %q", name)
+	return earthfile.Target{}, fmt.Errorf("could not find target named %q", name)
 }

@@ -2,6 +2,7 @@ package authprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,7 +15,6 @@ import (
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth/authprovider"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -129,14 +129,14 @@ func podmanAuth(o OS, path string) (*configfile.ConfigFile, error) {
 
 	cfg := configfile.New(path)
 	if err != nil {
-		return cfg, errors.Wrap(err, path)
+		return cfg, fmt.Errorf("%s: %w", path, err)
 	}
 
 	defer f.Close()
 
 	err = cfg.LoadFromReader(f)
 	if err != nil {
-		return cfg, errors.Wrap(err, path)
+		return cfg, fmt.Errorf("%s: %w", path, err)
 	}
 
 	return cfg, nil

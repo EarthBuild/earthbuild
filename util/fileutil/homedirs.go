@@ -2,6 +2,7 @@ package fileutil
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -9,8 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // GetUserHomeDirs returns a map of all users and their homedirs.
@@ -20,14 +19,14 @@ func GetUserHomeDirs() (map[string]string, error) {
 	if runtime.GOOS == "darwin" {
 		currentUser, err := user.Current()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get current user")
+			return nil, fmt.Errorf("failed to get current user: %w", err)
 		}
 
 		home := filepath.Dir(currentUser.HomeDir)
 
 		directoryList, err := os.ReadDir(home)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read dir")
+			return nil, fmt.Errorf("failed to read dir: %w", err)
 		}
 
 		for _, s := range directoryList {
@@ -48,7 +47,7 @@ func GetUserHomeDirs() (map[string]string, error) {
 
 	fp, err := os.Open("/etc/passwd")
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open /etc/passwd")
+		return nil, fmt.Errorf("failed to open /etc/passwd: %w", err)
 	}
 
 	reader := bufio.NewReader(fp)
@@ -59,7 +58,7 @@ func GetUserHomeDirs() (map[string]string, error) {
 				break
 			}
 
-			return nil, errors.Wrap(err, "failed to read line")
+			return nil, fmt.Errorf("failed to read line: %w", err)
 		}
 
 		line = strings.TrimSpace(line)

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -21,9 +22,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	runc "github.com/containerd/go-runc"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/hashicorp/go-multierror"
 	"github.com/mattn/go-isatty"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -72,7 +71,7 @@ type Formatter struct {
 	interactives               map[string]struct{}      // set of command IDs
 	timingTable                map[string]time.Duration // targetID -> duration
 	commands                   map[string]*command
-	errors                     []error
+	err                        error
 	console                    conslogging.ConsoleLogger
 	ongoingTick                time.Duration
 	mu                         sync.Mutex
@@ -138,7 +137,7 @@ func (f *Formatter) Write(delta *logstream.Delta) {
 
 	err := f.processDelta(delta)
 	if err != nil {
-		f.errors = append(f.errors, err)
+		f.err = errors.Join(f.err, err)
 	}
 }
 
@@ -158,12 +157,7 @@ func (f *Formatter) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	var retErr error
-	for _, err := range f.errors {
-		retErr = multierror.Append(retErr, err)
-	}
-
-	return retErr
+	return f.err
 }
 
 // Manifest returns a copy of the manifest.
@@ -179,14 +173,14 @@ func (f *Formatter) Manifest() *logstream.RunManifest {
 func (f *Formatter) processDelta(delta *logstream.Delta) error {
 	err := deltautil.ApplyDelta(f.manifest, delta)
 	if err != nil {
-		return errors.Wrap(err, "failed to apply delta")
+		return fmt.Errorf("failed to apply delta: %w", err)
 	}
 
 	switch d := delta.GetDeltaTypeOneof().(type) {
 	case *logstream.Delta_DeltaManifest:
 		err := f.handleDeltaManifest(d.DeltaManifest)
 		if err != nil {
-			return errors.Wrap(err, "failed to handle delta manifest")
+			return fmt.Errorf("failed to handle delta manifest: %w", err)
 		}
 	case *logstream.Delta_DeltaLog:
 		err := f.handleDeltaLog(d.DeltaLog)
@@ -215,7 +209,7 @@ func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 
 			err := f.processOngoingTick()
 			if err != nil {
-				f.errors = append(f.errors, err)
+				f.err = errors.Join(f.err, err)
 			}
 
 			f.mu.Unlock()
@@ -321,7 +315,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 		err := json.Unmarshal(output, &stats)
 		if err != nil {
-			return errors.Wrap(err, "failed to parse stats")
+			return fmt.Errorf("failed to parse stats: %w", err)
 		}
 
 		totalCPU := time.Duration(stats.Cpu.Usage.Total) // #nosec G115 // Total is reported in nanoseconds

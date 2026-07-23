@@ -205,7 +205,8 @@ build:
 
 			got, err := docker2earth.GenerateEarthfile(
 				tt.args.buildContextPath, tt.args.dockerfilePath, tt.args.imageTags,
-				tt.args.buildArgs, tt.args.platforms, tt.args.target)
+				tt.args.buildArgs, tt.args.platforms, tt.args.target,
+			)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("GenerateEarthfile() error = %v, wantErr %v", err, tt.wantErr)
 				return

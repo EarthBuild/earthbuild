@@ -19,7 +19,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/pkg/errors"
 )
 
 // DockerfileMetaTarget is a target name prefix which signals the resolver that the build file is a
@@ -97,7 +96,7 @@ func (r *Resolver) ExpandWildcard(
 	if parentTarget.IsRemote() {
 		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.GetLocalPath())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to expand remote BUILD target path")
+			return nil, fmt.Errorf("failed to expand remote BUILD target path: %w", err)
 		}
 
 		return matches, nil
@@ -109,7 +108,7 @@ func (r *Resolver) ExpandWildcard(
 	// include *'s (expanded below), but that shouldn't be a problem.
 	ref, err := domain.JoinReferences(parentTarget, target)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to join references")
+		return nil, fmt.Errorf("failed to join references: %w", err)
 	}
 
 	target, ok := ref.(domain.Target)
@@ -119,7 +118,7 @@ func (r *Resolver) ExpandWildcard(
 
 	matches, err := fileutil.GlobDirs(target.GetLocalPath())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to expand BUILD target path")
+		return nil, fmt.Errorf("failed to expand BUILD target path: %w", err)
 	}
 
 	// Here, the relative path is reconstructed from the glob results and the
@@ -129,7 +128,7 @@ func (r *Resolver) ExpandWildcard(
 	for _, match := range matches {
 		rel, err := filepath.Rel(parentTarget.GetLocalPath(), match)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to resolve relative path")
+			return nil, fmt.Errorf("failed to resolve relative path: %w", err)
 		}
 
 		ret = append(ret, rel)
@@ -209,7 +208,7 @@ func (r *Resolver) Resolve(
 	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
 ) (*Data, error) {
 	if ref.IsUnresolvedImportReference() {
-		return nil, errors.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
+		return nil, fmt.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}
 
 	ref = resolveLocalRootEarthfile(ref)
@@ -269,7 +268,7 @@ func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.T
 
 	ef, ok := efValue.(earthfile.Tree)
 	if !ok {
-		return earthfile.Tree{}, errors.Errorf("want earthfile.Tree, got %T", efValue)
+		return earthfile.Tree{}, fmt.Errorf("want earthfile.Tree, got %T", efValue)
 	}
 
 	return ef, nil

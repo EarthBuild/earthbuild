@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -26,7 +27,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -47,7 +47,7 @@ var (
 func (app *EarthApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
+		fmt.Fprintf(os.Stderr, "Error un-hiding flags: %v\n", err)
 		return 1
 	}
 
@@ -109,13 +109,13 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 		if app.BaseCLI.LogbusSetup() != nil {
 			err := app.BaseCLI.LogbusSetup().Close()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v", err)
+				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v\n", err)
 			}
 
 			if app.BaseCLI.Flags().LogstreamDebugManifestFile != "" {
 				err := app.BaseCLI.LogbusSetup().DumpManifestToFile(app.BaseCLI.Flags().LogstreamDebugManifestFile)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v", err)
+					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v\n", err)
 				}
 			}
 		}
@@ -147,28 +147,6 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
-
-	if app.BaseCLI.Flags().Debug {
-		// Get the stack trace from the deepest error that has it and print it.
-		type stackTracer interface {
-			StackTrace() errors.StackTrace
-		}
-
-		errChain := []error{}
-		for it := err; it != nil; it = errors.Unwrap(it) {
-			errChain = append(errChain, it)
-		}
-
-		for index := len(errChain) - 1; index > 0; index-- {
-			it := errChain[index]
-
-			errWithStack, ok := it.(stackTracer)
-			if ok {
-				app.BaseCLI.Console().Warnf("Error stack trace:%+v\n", errWithStack.StackTrace())
-				break
-			}
-		}
-	}
 
 	grpcErr, grpcErrOK := grpcerrors.AsGRPCStatus(err)
 	hintErr := getHintErr(err, grpcErr)
@@ -482,8 +460,7 @@ func errorWithPrefix(err string) string {
 }
 
 func getHintErr(err error, grpcError *status.Status) *hint.Error {
-	res := new(hint.Error)
-	if errors.As(err, &res) {
+	if res, ok := errors.AsType[*hint.Error](err); ok {
 		return res
 	}
 

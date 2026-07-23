@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const flagCI = "--ci"
 
 var (
 	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
@@ -206,7 +209,9 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
 			args = append([]string{args[0], "-i"}, args[1:]...)
 			args = redactSecretsFromArgs(args)
-			args = stringutil.FilterElementsFromList(args, "--ci")
+			args = slices.DeleteFunc(args, func(arg string) bool {
+				return arg == flagCI
+			})
 			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
 			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
 			app.BaseCLI.Console().HelpPrint(helpMsg)

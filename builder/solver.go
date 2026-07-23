@@ -2,6 +2,8 @@ package builder
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"maps"
 
@@ -19,12 +21,11 @@ import (
 	"github.com/moby/buildkit/session/pullping"
 	"github.com/moby/buildkit/util/entitlements"
 	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	// statusChanSize is used to ensure we consume all BK status messages without
+	// causing back-pressure that forces BK to cancel.
 )
 
-// statusChanSize is used to ensure we consume all BK status messages without
-// causing back-pressure that forces BK to cancel.
 const statusChanSize = 500
 
 type (
@@ -62,7 +63,7 @@ func (s *solver) buildMainMulti(
 
 	solveOpt, err := s.newSolveOptMulti(ctx, eg, onImage, onArtifact, onFinalArtifact, onPullCallback, console)
 	if err != nil {
-		return errors.Wrap(err, "new solve opt")
+		return fmt.Errorf("new solve opt: %w", err)
 	}
 
 	var buildErr error
@@ -122,7 +123,7 @@ func (s *solver) newSolveOptMulti(
 	if s.cacheExport != "" {
 		cacheExportName, attrs, err := flagutil.ParseImageNameAndAttrs(s.cacheExport)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse export cache error: %s", s.cacheExport)
+			return nil, fmt.Errorf("parse export cache error: %s: %w", s.cacheExport, err)
 		}
 
 		cacheExports = append(cacheExports, newCacheExportOpt(cacheExportName, attrs, false))
@@ -131,7 +132,7 @@ func (s *solver) newSolveOptMulti(
 	if s.maxCacheExport != "" {
 		maxCacheExportName, attrs, err := flagutil.ParseImageNameAndAttrs(s.maxCacheExport)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse max export cache error: %s", s.maxCacheExport)
+			return nil, fmt.Errorf("parse max export cache error: %s: %w", s.maxCacheExport, err)
 		}
 
 		cacheExports = append(cacheExports, newCacheExportOpt(maxCacheExportName, attrs, true))
@@ -180,7 +181,7 @@ func (s *solver) newSolveOptMulti(
 
 					artifact, err := domain.ParseArtifact(artifactStr)
 					if err != nil {
-						return "", errors.Wrapf(err, "parse artifact %s", artifactStr)
+						return "", fmt.Errorf("parse artifact %s: %w", artifactStr, err)
 					}
 
 					return onArtifact(ctx, indexStr, artifact, srcPath, destPath)

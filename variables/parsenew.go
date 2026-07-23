@@ -3,8 +3,6 @@ package variables
 import (
 	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // InvalidFlagError is returned when a flag is prefixed with a single hyphen instead of double.
@@ -27,7 +25,7 @@ func ParseFlagArgs(args []string) ([]string, error) {
 	}
 
 	if len(nonFlags) != 0 {
-		return nil, errors.Errorf("invalid argument %s", nonFlags[0])
+		return nil, fmt.Errorf("invalid argument %s", nonFlags[0])
 	}
 
 	return flags, nil
@@ -71,7 +69,7 @@ func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err err
 	}
 
 	if keyFromPrev != "" {
-		return nil, nil, errors.Errorf("no value provided for --%s", keyFromPrev)
+		return nil, nil, fmt.Errorf("no value provided for --%s", keyFromPrev)
 	}
 
 	return flags, nonFlags, nil

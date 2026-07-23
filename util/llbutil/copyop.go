@@ -12,7 +12,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/pkg/errors"
 )
 
 // CopyOp is a simplified llb copy operation.
@@ -127,7 +126,7 @@ func Abs(ctx context.Context, s pllb.State, p string) (string, error) {
 
 	dir, err := s.GetDir(ctx)
 	if err != nil {
-		return "", errors.Wrap(err, "get dir")
+		return "", fmt.Errorf("get dir: %w", err)
 	}
 
 	return path.Join(dir, p), nil

@@ -3,6 +3,7 @@ package builder
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,7 +43,6 @@ import (
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/moby/buildkit/util/entitlements"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -227,18 +227,18 @@ func useSecondaryProxy() (bool, error) {
 			return false, nil
 		}
 
-		return false, errors.Wrapf(err, "failed to stat %s", versionFile)
+		return false, fmt.Errorf("failed to stat %s: %w", versionFile, err)
 	}
 
 	f, err := os.Open(versionFile)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to open %s", versionFile)
+		return false, fmt.Errorf("failed to open %s: %w", versionFile, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to read %s", versionFile)
+		return false, fmt.Errorf("failed to read %s: %w", versionFile, err)
 	}
 
 	s := string(data)
@@ -467,7 +467,7 @@ func (b *Builder) convertAndBuild(
 
 					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
 						if _, found := platformImgNames[platformImgName]; found {
-							return nil, errors.Errorf(
+							return nil, fmt.Errorf(
 								"image %s is defined multiple times for the same platform (%s)",
 								saveImage.DockerTag, platformImgName,
 							)
@@ -520,7 +520,7 @@ func (b *Builder) convertAndBuild(
 				} else {
 					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
 						if _, found := singPlatImgNames[saveImage.DockerTag]; found {
-							return nil, errors.Errorf(
+							return nil, fmt.Errorf(
 								"image %s is defined multiple times for the same default platform",
 								saveImage.DockerTag,
 							)
@@ -646,7 +646,7 @@ func (b *Builder) convertAndBuild(
 
 			err := dockerutil.LoadDockerTar(childCtx, b.opt.ContainerFrontend, pipeR)
 			if err != nil {
-				return errors.Wrapf(err, "load docker tar")
+				return fmt.Errorf("load docker tar: %w", err)
 			}
 
 			if manifestKey == "" {
@@ -660,7 +660,7 @@ func (b *Builder) convertAndBuild(
 	}
 	onArtifact := func(_ context.Context, index string, _ domain.Artifact, _, destPath string) (string, error) {
 		if !opt.LocalArtifactWhiteList.Exists(destPath) {
-			err := errors.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
+			err := fmt.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
 			return "", err
 		}
 
@@ -673,7 +673,7 @@ func (b *Builder) convertAndBuild(
 
 		err = os.MkdirAll(artifactDir, 0o755) // #nosec G301
 		if err != nil {
-			return "", errors.Wrapf(err, "create dir %s", artifactDir)
+			return "", fmt.Errorf("create dir %s: %w", artifactDir, err)
 		}
 
 		return artifactDir, nil
@@ -692,7 +692,7 @@ func (b *Builder) convertAndBuild(
 		for _, imgToPull := range imagesToPull {
 			manifest, dockerTag, ok := exportCoordinator.GetImage(imgToPull)
 			if !ok {
-				return errors.Errorf("unrecognized image to pull %s", imgToPull)
+				return fmt.Errorf("unrecognized image to pull %s", imgToPull)
 			}
 
 			if manifest != nil {
@@ -730,7 +730,7 @@ func (b *Builder) convertAndBuild(
 
 	err := b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, b.opt.Console)
 	if err != nil {
-		return nil, errors.Wrapf(err, "build main")
+		return nil, fmt.Errorf("build main: %w", err)
 	}
 
 	if opt.PrintPhases {
@@ -760,7 +760,7 @@ func (b *Builder) convertAndBuild(
 		if hasRunPush {
 			err = b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, b.opt.Console)
 			if err != nil {
-				return nil, errors.Wrapf(err, "build push")
+				return nil, fmt.Errorf("build push: %w", err)
 			}
 		}
 	}
@@ -1041,13 +1041,13 @@ func (b *Builder) tempEarthOutDir() (string, error) {
 
 		err = os.MkdirAll(tmpParentDir, 0o755) // #nosec G301
 		if err != nil {
-			err = errors.Wrapf(err, "unable to create dir %s", tmpParentDir)
+			err = fmt.Errorf("unable to create dir %s: %w", tmpParentDir, err)
 			return
 		}
 
 		b.outDir, err = os.MkdirTemp(tmpParentDir, "tmp")
 		if err != nil {
-			err = errors.Wrap(err, "mk temp dir for artifacts")
+			err = fmt.Errorf("mk temp dir for artifacts: %w", err)
 			return
 		}
 

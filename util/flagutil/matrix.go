@@ -3,8 +3,6 @@ package flagutil
 import (
 	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type argGroup struct {
@@ -75,7 +73,7 @@ func parseKeyValue(arg string) (string, *string, error) {
 
 	splitArg := strings.SplitN(arg, "=", 2)
 	if len(splitArg) < 1 {
-		return "", nil, errors.Errorf("invalid build arg %s", splitArg)
+		return "", nil, fmt.Errorf("invalid build arg %s", splitArg)
 	}
 
 	name = splitArg[0]

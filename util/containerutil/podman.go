@@ -3,15 +3,15 @@ package containerutil
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/dustin/go-humanize"
-	"github.com/hashicorp/go-multierror"
 	_ "github.com/moby/buildkit/client/connhelper/podmancontainer" // Load "podman-container://" helper.
-	"github.com/pkg/errors"
 )
 
 type podmanShellFrontend struct {
@@ -50,14 +50,14 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 
 	isRootless, err := strconv.ParseBool(trimmedStdOut)
 	if err != nil {
-		return nil, errors.Wrapf(err, "info returned invalid value %s", output.string())
+		return nil, fmt.Errorf("info returned invalid value %s: %w", output.string(), err)
 	}
 
 	fe.rootless = isRootless
 
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendPodmanShell, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to calculate buildkit URLs")
+		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
 
 	return fe, nil
@@ -84,7 +84,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 	hasRemote, err := strconv.ParseBool(output.string())
 	if err != nil {
-		return nil, errors.Wrapf(err, "info returned invalid value %s", output.string())
+		return nil, fmt.Errorf("info returned invalid value %s: %w", output.string(), err)
 	}
 
 	args := []string{"version", "--format=json"}
@@ -124,7 +124,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 	err = json.Unmarshal([]byte(output.string()), &allInfo)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse version output %s", output.string())
+		return nil, fmt.Errorf("failed to parse version output %s: %w", output.string(), err)
 	}
 
 	host := "daemonless"
@@ -164,7 +164,7 @@ func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 
 		_, cmdErr := psf.commandContextOutput(ctx, args...)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -190,13 +190,13 @@ func (psf *podmanShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 		// here: https://github.com/earthly/earthly/issues/1285
 		file, tmpErr := os.CreateTemp("", "earthly-podman-load-*")
 		if tmpErr != nil {
-			err = multierror.Append(err, errors.Wrap(tmpErr, "failed to create temp tarball"))
+			err = errors.Join(err, fmt.Errorf("failed to create temp tarball: %w", tmpErr))
 			continue
 		}
 
 		_, copyErr := io.Copy(file, image)
 		if copyErr != nil {
-			err = multierror.Append(err, errors.Wrapf(tmpErr, "failed to write to %s", file.Name()))
+			err = errors.Join(err, fmt.Errorf("failed to write to %s: %w", file.Name(), copyErr))
 			continue
 		}
 		defer file.Close()
@@ -204,7 +204,7 @@ func (psf *podmanShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 
 		output, cmdErr := psf.commandContextOutput(ctx, "pull", "docker-archive:"+file.Name())
 		if cmdErr != nil {
-			err = multierror.Append(err, errors.Wrapf(cmdErr, "image load failed: %s", output.string()))
+			err = errors.Join(err, fmt.Errorf("image load failed: %s: %w", output.string(), cmdErr))
 		}
 	}
 
@@ -235,8 +235,8 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 				var bytes uint64
 
 				bytes, parseErr := humanize.ParseBytes(lineParts[2])
-				if err != nil {
-					err = multierror.Append(err, parseErr)
+				if parseErr != nil {
+					err = errors.Join(err, parseErr)
 					break
 				}
 
@@ -244,7 +244,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 				mountpoint, mountpointErr := psf.
 					commandContextOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
 				if mountpointErr != nil {
-					err = multierror.Append(err, mountpointErr)
+					err = errors.Join(err, mountpointErr)
 					break
 				}
 

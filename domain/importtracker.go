@@ -1,13 +1,12 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-
-	"github.com/pkg/errors"
 )
 
 // ImportTrackerVal is used to resolve imports.
@@ -56,7 +55,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 
 	parsedImport, err := ParseTarget(aTarget)
 	if err != nil {
-		return errors.Wrapf(err, "could not parse IMPORT %s", importStr)
+		return fmt.Errorf("could not parse IMPORT %s: %w", importStr, err)
 	}
 
 	importStr = parsedImport.ProjectCanonical() // normalize
@@ -67,7 +66,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 
 	switch {
 	case parsedImport.IsImportReference():
-		return errors.Errorf("IMPORT %s not supported", importStr)
+		return fmt.Errorf("IMPORT %s not supported", importStr)
 	case parsedImport.IsRemote():
 		path = parsedImport.GetGitURL()
 		allowPrivileged = allowPrivileged && allowPrivilegedFlag
@@ -78,17 +77,17 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
 	default:
-		return errors.Errorf("IMPORT %s not supported", importStr)
+		return fmt.Errorf("IMPORT %s not supported", importStr)
 	}
 
 	pathParts := strings.Split(path, "/")
 	if len(pathParts) < 1 {
-		return errors.Errorf("IMPORT %s not supported", importStr)
+		return fmt.Errorf("IMPORT %s not supported", importStr)
 	}
 
 	defaultAs := pathParts[len(pathParts)-1]
 	if defaultAs == "" {
-		return errors.Errorf("IMPORT %s not supported", importStr)
+		return fmt.Errorf("IMPORT %s not supported", importStr)
 	}
 
 	if (defaultAs == "." || defaultAs == "..") && as == "" {
@@ -100,13 +99,13 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	}
 
 	if strings.ContainsAny(as, "/:") {
-		return errors.Errorf("invalid IMPORT AS %s", as)
+		return fmt.Errorf("invalid IMPORT AS %s", as)
 	}
 
 	if global {
 		_, exists := ir.global[as]
 		if exists {
-			return errors.Errorf("import ref %s already exists in this scope", as)
+			return fmt.Errorf("import ref %s already exists in this scope", as)
 		}
 
 		ir.global[as] = ImportTrackerVal{
@@ -116,7 +115,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 	} else {
 		_, exists := ir.local[as]
 		if exists {
-			return errors.Errorf("import ref %s already exists in this scope", as)
+			return fmt.Errorf("import ref %s already exists in this scope", as)
 		}
 
 		ir.local[as] = ImportTrackerVal{
@@ -140,7 +139,7 @@ func (ir *ImportTracker) Deref(
 	if !ok {
 		resolvedImport, ok = ir.global[ref.GetImportRef()]
 		if !ok {
-			return nil, false, false, errors.Errorf("import reference %s could not be resolved", ref.GetImportRef())
+			return nil, false, false, fmt.Errorf("import reference %s could not be resolved", ref.GetImportRef())
 		}
 	}
 

@@ -70,6 +70,31 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 	}
 }
 
+func TestBuiltinArgEarthPrefix(t *testing.T) {
+	t.Parallel()
+
+	projectDir := copyFixtureDir(t, "builtin-args-earth")
+
+	out, err := runEarth(t, projectDir, "--no-output", "+builtin-args-test")
+	require.NoError(t, err, out)
+
+	// The EARTH_ prefixed built-in args are the current names and must not warn.
+	require.NotContains(t, out, "is deprecated")
+}
+
+func TestBuiltinArgEarthlyPrefixWarnsDeprecated(t *testing.T) {
+	t.Parallel()
+
+	projectDir := copyFixtureDir(t, "builtin-args")
+
+	out, err := runEarth(t, projectDir, "--no-output", "+builtin-args-test")
+	require.NoError(t, err, out)
+
+	// Referencing an EARTHLY_ built-in arg logs a deprecation warning pointing
+	// at the EARTH_ equivalent.
+	require.Contains(t, out, "the built-in ARG EARTHLY_TARGET is deprecated. Use EARTH_TARGET.")
+}
+
 func TestBuildArgRepeatArtifacts(t *testing.T) {
 	t.Parallel()
 

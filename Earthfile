@@ -376,6 +376,12 @@ earthly-linux-amd64:
     # reach +earthly. Without forwarding, COPY-scoped --args stop at this target
     # and the binary silently falls back to dev defaults, e.g. a buildkit image
     # of $IMAGE_REGISTRY:buildkitd-$VERSION instead of the intended release image.
+    #
+    # EARTHLY_TARGET_TAG_DOCKER must be declared before it is referenced below,
+    # otherwise it expands to empty and the dev VERSION becomes "dev-" -- which
+    # bakes in a buildkitd image of buildkitd-dev- that does not match the
+    # buildkitd-dev-<tag> image the local +for-* targets actually build.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -395,6 +401,7 @@ earthly-linux-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -414,6 +421,7 @@ earthly-darwin-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -433,6 +441,7 @@ earthly-darwin-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -452,6 +461,7 @@ earthly-windows-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -477,6 +487,7 @@ all-binaries:
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
     # all binaries. See earthly-linux-amd64 for details.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"

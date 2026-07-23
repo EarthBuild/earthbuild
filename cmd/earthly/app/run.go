@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,11 +27,12 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const flagCI = "--ci"
 
 var (
 	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
@@ -44,7 +47,7 @@ var (
 func (app *EarthApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
+		fmt.Fprintf(os.Stderr, "Error un-hiding flags: %v\n", err)
 		return 1
 	}
 
@@ -106,13 +109,13 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 		if app.BaseCLI.LogbusSetup() != nil {
 			err := app.BaseCLI.LogbusSetup().Close()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v", err)
+				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v\n", err)
 			}
 
 			if app.BaseCLI.Flags().LogstreamDebugManifestFile != "" {
 				err := app.BaseCLI.LogbusSetup().DumpManifestToFile(app.BaseCLI.Flags().LogstreamDebugManifestFile)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v", err)
+					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v\n", err)
 				}
 			}
 		}
@@ -144,28 +147,6 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
-
-	if app.BaseCLI.Flags().Debug {
-		// Get the stack trace from the deepest error that has it and print it.
-		type stackTracer interface {
-			StackTrace() errors.StackTrace
-		}
-
-		errChain := []error{}
-		for it := err; it != nil; it = errors.Unwrap(it) {
-			errChain = append(errChain, it)
-		}
-
-		for index := len(errChain) - 1; index > 0; index-- {
-			it := errChain[index]
-
-			errWithStack, ok := it.(stackTracer)
-			if ok {
-				app.BaseCLI.Console().Warnf("Error stack trace:%+v\n", errWithStack.StackTrace())
-				break
-			}
-		}
-	}
 
 	grpcErr, grpcErrOK := grpcerrors.AsGRPCStatus(err)
 	hintErr := getHintErr(err, grpcErr)
@@ -228,7 +209,9 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
 			args = append([]string{args[0], "-i"}, args[1:]...)
 			args = redactSecretsFromArgs(args)
-			args = stringutil.FilterElementsFromList(args, "--ci")
+			args = slices.DeleteFunc(args, func(arg string) bool {
+				return arg == flagCI
+			})
 			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
 			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
 			app.BaseCLI.Console().HelpPrint(helpMsg)
@@ -358,7 +341,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -374,7 +358,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 		app.BaseCLI.Console().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
-				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.printCrashLogs(ctx)
@@ -392,7 +377,8 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
 			app.BaseCLI.Console().Warn(
 				"Error: It seems that buildkitd had an issue. " +
-					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.")
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+			)
 			app.printCrashLogs(ctx)
 		}
 
@@ -474,8 +460,7 @@ func errorWithPrefix(err string) string {
 }
 
 func getHintErr(err error, grpcError *status.Status) *hint.Error {
-	res := new(hint.Error)
-	if errors.As(err, &res) {
+	if res, ok := errors.AsType[*hint.Error](err); ok {
 		return res
 	}
 

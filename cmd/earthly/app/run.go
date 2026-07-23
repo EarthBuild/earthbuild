@@ -44,7 +44,7 @@ var (
 func (app *EarthApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
 	err := app.unhideFlags()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error un-hiding flags %v", err)
+		fmt.Fprintf(os.Stderr, "Error un-hiding flags: %v\n", err)
 		return 1
 	}
 
@@ -106,13 +106,13 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 		if app.BaseCLI.LogbusSetup() != nil {
 			err := app.BaseCLI.LogbusSetup().Close()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v", err)
+				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v\n", err)
 			}
 
 			if app.BaseCLI.Flags().LogstreamDebugManifestFile != "" {
 				err := app.BaseCLI.LogbusSetup().DumpManifestToFile(app.BaseCLI.Flags().LogstreamDebugManifestFile)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v", err)
+					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v\n", err)
 				}
 			}
 		}

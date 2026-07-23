@@ -96,7 +96,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	case 0x02:
 		isShellConn = false
 	default:
-		fmt.Fprintf(os.Stderr, "unexpected data: %v", buf[0]) // #nosec G602
+		fmt.Fprintf(os.Stderr, "unexpected data: %v\n", buf[0]) // #nosec G602
 		return
 	}
 
@@ -149,7 +149,7 @@ func (s *Server) Start() error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error accepting: %v", err.Error())
+			fmt.Fprintf(os.Stderr, "Error accepting: %v\n", err)
 			break
 		}
 

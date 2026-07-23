@@ -46,8 +46,6 @@ func BenchmarkIsValidEnvVarName(b *testing.B) {
 		"Foo_Bar123",
 	}
 
-	b.ResetTimer()
-
 	for b.Loop() {
 		for _, input := range inputs {
 			_ = IsValidEnvVarName(input)

@@ -19,7 +19,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -33,8 +33,8 @@ const (
 
 type gitResolver struct {
 	cleanCollection   *cleanup.Collection
-	projectCache      *synccache.SyncCache
-	buildFileCache    *synccache.SyncCache
+	projectCache      *unbounded.Cache[string, *resolvedGitProject] // git URL#ref -> *resolvedGitProject
+	buildFileCache    *unbounded.Cache[string, *buildFile]          // canonical ref -> *buildFile
 	gitLookup         *GitLookup
 	gitBranchOverride string
 	lfsInclude        string
@@ -159,7 +159,7 @@ func (gr *gitResolver) resolveEarthProject(
 		key = ref.StringCanonical()
 	}
 
-	localBuildFileValue, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ any) (any, error) {
+	localBuildFile, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ string) (*buildFile, error) {
 		earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
 		if inErr != nil {
 			return nil, errors.Wrap(inErr, "create temp dir for Earthfile")
@@ -171,7 +171,8 @@ func (gr *gitResolver) resolveEarthProject(
 
 		gitState, inErr := llbutil.StateToRef(
 			ctx, gwClient, rgp.state, false,
-			platr.SubResolver(platutil.NativePlatform), nil)
+			platr.SubResolver(platutil.NativePlatform), nil,
+		)
 		if inErr != nil {
 			return nil, errors.Wrap(inErr, "state to ref git meta")
 		}
@@ -212,11 +213,6 @@ func (gr *gitResolver) resolveEarthProject(
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	localBuildFile, ok := localBuildFileValue.(*buildFile)
-	if !ok {
-		return nil, fmt.Errorf("want *buildFile, got %T", localBuildFileValue)
 	}
 
 	// TODO: Apply excludes / .earthignore.
@@ -264,7 +260,7 @@ func (gr *gitResolver) resolveGitProject(
 	scrubbedGITURL := stringutil.ScrubCredentials(gitURL)
 	cacheKey := fmt.Sprintf("%s#%s", scrubbedGITURL, gitRef)
 
-	rgpValue, err := gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, _ any) (any, error) {
+	rgp, err = gr.projectCache.Do(ctx, cacheKey, func(ctx context.Context, _ string) (*resolvedGitProject, error) {
 		// Copy all Earthfile, build.earth and Dockerfile files.
 		vm := &vertexmeta.VertexMeta{
 			TargetName: cacheKey,
@@ -300,7 +296,8 @@ func (gr *gitResolver) resolveGitProject(
 
 		opImg := pllb.Image(
 			gitImage, llb.MarkImageInternal, llb.ResolveModePreferLocal,
-			llb.Platform(platr.LLBNative()))
+			llb.Platform(platr.LLBNative()),
+		)
 
 		// Get git hash.
 		gitHashOpts := []llb.RunOption{
@@ -338,7 +335,8 @@ func (gr *gitResolver) resolveGitProject(
 
 		gitMetaRef, err = llbutil.StateToRef(
 			ctx, gwClient, gitMetaState, noCache,
-			platr.SubResolver(platutil.NativePlatform), nil)
+			platr.SubResolver(platutil.NativePlatform), nil,
+		)
 		if err != nil {
 			return nil, errors.Wrap(err, "state to ref git meta")
 		}
@@ -483,12 +481,12 @@ func (gr *gitResolver) resolveGitProject(
 			// Add cache entries for the branch and for the tag (if any).
 			if len(gitBranches2) > 0 {
 				cacheKey3 := fmt.Sprintf("%s#%s", scrubbedGITURL, gitBranches2[0])
-				_ = gr.projectCache.Add(ctx, cacheKey3, rgp, nil)
+				_ = gr.projectCache.Add(cacheKey3, rgp)
 			}
 
 			if len(gitTags2) > 0 {
 				cacheKey4 := fmt.Sprintf("%s#%s", scrubbedGITURL, gitTags2[0])
-				_ = gr.projectCache.Add(ctx, cacheKey4, rgp, nil)
+				_ = gr.projectCache.Add(cacheKey4, rgp)
 			}
 		}()
 
@@ -496,11 +494,6 @@ func (gr *gitResolver) resolveGitProject(
 	})
 	if err != nil {
 		return nil, "", "", err
-	}
-
-	rgp, ok := rgpValue.(*resolvedGitProject)
-	if !ok {
-		return nil, "", "", fmt.Errorf("want *resolvedGitProject, got %T", rgpValue)
 	}
 
 	return rgp, gitURL, subDir, nil

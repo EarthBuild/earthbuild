@@ -31,6 +31,7 @@ func New(ctx context.Context) *MetaContext {
 	mc := &MetaContext{
 		doneCh:    make(chan struct{}),
 		subDoneCh: make(chan int),
+		sub:       make([]context.Context, 0, 4),
 	}
 
 	_ = mc.Add(ctx)
@@ -100,7 +101,28 @@ func (mc *MetaContext) Add(ctx context.Context) error {
 // Deadline returns the earliest Deadline in the pool.
 func (mc *MetaContext) Deadline() (deadline time.Time, ok bool) {
 	mc.mu.Lock()
-	contexts := slices.Clone(mc.sub)
+
+	n := len(mc.sub)
+	if n == 0 {
+		mc.mu.Unlock()
+
+		return time.Time{}, false
+	}
+
+	// Copy contexts to evaluate deadlines without holding the lock.
+	// Use a stack-allocated buffer for typical sub-context counts to avoid heap allocation.
+	var (
+		stackBuf [8]context.Context
+		contexts []context.Context
+	)
+
+	if n <= len(stackBuf) {
+		copy(stackBuf[:], mc.sub)
+		contexts = stackBuf[:n]
+	} else {
+		contexts = slices.Clone(mc.sub)
+	}
+
 	mc.mu.Unlock()
 
 	for _, ctx := range contexts {

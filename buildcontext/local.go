@@ -2,7 +2,6 @@ package buildcontext
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -12,16 +11,16 @@ import (
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
+	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/pkg/errors"
 )
 
 type localResolver struct {
-	gitMetaCache      *synccache.SyncCache // local path -> *gitutil.GitMetadata
+	gitMetaCache      *unbounded.Cache[string, *gitutil.GitMetadata] // local path -> *gitutil.GitMetadata
 	gitBranchOverride string
-	buildFileCache    *synccache.SyncCache
+	buildFileCache    *unbounded.Cache[string, *buildFile] // canonical ref -> *buildFile
 	console           conslogging.ConsoleLogger
 }
 
@@ -36,36 +35,33 @@ func (lr *localResolver) resolveLocal(
 		return nil, errors.Errorf("unexpected remote target %s", ref.String())
 	}
 
-	metadataValue, err := lr.gitMetaCache.Do(ctx, ref.GetLocalPath(), func(ctx context.Context, _ any) (any, error) {
-		metadata, err := gitutil.Metadata(ctx, ref.GetLocalPath(), lr.gitBranchOverride)
-		if err != nil {
-			if errors.Is(err, gitutil.ErrNoGitBinary) ||
-				errors.Is(err, gitutil.ErrNotAGitDir) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectRemote) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitHash) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitShortHash) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitBranch) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitTags) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitRefs) {
-				// Keep going anyway. Either not a git dir, or git not installed, or
-				// remote not detected.
-				if errors.Is(err, gitutil.ErrNoGitBinary) {
-					lr.console.Warnf("Warning: %s\n", err.Error())
+	metadata, err := lr.gitMetaCache.Do(
+		ctx, ref.GetLocalPath(), func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
+			meta, err := gitutil.Metadata(ctx, localPath, lr.gitBranchOverride)
+			if err != nil {
+				if errors.Is(err, gitutil.ErrNoGitBinary) ||
+					errors.Is(err, gitutil.ErrNotAGitDir) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectRemote) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitHash) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitShortHash) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitBranch) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitTags) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitRefs) {
+					// Keep going anyway. Either not a git dir, or git not installed, or
+					// remote not detected.
+					if errors.Is(err, gitutil.ErrNoGitBinary) {
+						lr.console.Warnf("Warning: %s\n", err.Error())
+					}
+				} else {
+					return nil, err
 				}
-			} else {
-				return nil, err
 			}
-		}
 
-		return metadata, nil
-	})
+			return meta, nil
+		},
+	)
 	if err != nil {
 		return nil, err
-	}
-
-	metadata, ok := metadataValue.(*gitutil.GitMetadata)
-	if !ok {
-		return nil, fmt.Errorf("want *gitutil.GitMetadata, got %T", metadataValue)
 	}
 
 	localPath := filepath.FromSlash(ref.GetLocalPath())
@@ -77,7 +73,7 @@ func (lr *localResolver) resolveLocal(
 		key = ref.String()
 	}
 
-	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(context.Context, any) (any, error) {
+	bf, err := lr.buildFileCache.Do(ctx, key, func(context.Context, string) (*buildFile, error) {
 		var buildFilePath string
 
 		buildFilePath, err = detectBuildFile(ref, localPath)
@@ -102,11 +98,6 @@ func (lr *localResolver) resolveLocal(
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	bf, ok := buildFileValue.(*buildFile)
-	if !ok {
-		return nil, fmt.Errorf("want *buildFile, got %T", buildFileValue)
 	}
 
 	data := &Data{

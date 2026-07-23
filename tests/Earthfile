@@ -419,7 +419,7 @@ project-secrets-test:
         --output_contains="my secrets are foo and bar"
     # The PROJECT command is deprecated and logs a warning; we are collecting feedback
     # on whether to remove it in the future.
-    DO +RUN_EARTHLY \
+    DO +RUN_EARTH \
         --earthfile=project-secrets.earth \
         --target=+basic \
         --extra_args="--secret SECRET1=foo --secret SECRET2=bar" \

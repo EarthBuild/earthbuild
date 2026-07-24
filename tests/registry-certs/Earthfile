@@ -37,16 +37,16 @@ all:
 test-push-pull:
     FROM +test-base
     # Running with tmpfs mount = no local cache.
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test-push
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test-pull
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test-push
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test-pull
 
 test-connect:
     FROM +test-base
     COPY ./certs/domain.crt ./test.ca
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test-connect
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test-connect
 
 # Work around the lack of variable overriding, since the base image already includes EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
-DO_REMOTE_CACHE_EARTHLY:
+DO_REMOTE_CACHE_EARTH:
     FUNCTION
 
     ARG EARTHLY_ADDITIONAL_BUILDKIT_CONFIG

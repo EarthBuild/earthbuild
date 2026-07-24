@@ -35,7 +35,7 @@ earthly --config \$earthly_config  config git \"{selfsigned.example.com: {auth: 
 #earthly --config \$earthly_config -VD --git-username=testuser --git-password=keepitsecret +test
 earthly --config \$earthly_config -VD --git-username=testuser --git-password=keepitsecret selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
 
 git-clone-private-https-set-by-config-command:
@@ -45,7 +45,7 @@ earthly --config \$earthly_config  config git \"{selfsigned.example.com: {auth: 
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
 
 git-clone-private-https-set-by-config-file:
@@ -62,7 +62,7 @@ EOF
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
 
 git-clone-private-https-set-by-netrc:
@@ -75,7 +75,7 @@ password keepitsecret\" > ~/.netrc
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
 git-clone-private-https-with-pattern-substitute:
     FROM +git-clone-private-https-base
@@ -87,14 +87,14 @@ cat \$earthly_config
 earthly --config \$earthly_config --verbose -D +test
 earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello
 " >> /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https-nestedrepo.earth --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https-nestedrepo.earth --exec_cmd=/tmp/test-earthly-script
 
-RUN_EARTHLY_ARGS:
+RUN_EARTH_ARGS:
     FUNCTION
     ARG earthfile
     ARG pre_command
     ARG exec_cmd
-    DO ..+RUN_EARTHLY \
+    DO ..+RUN_EARTH \
         --earthfile=$earthfile \
         --pre_command=$pre_command \
         --exec_cmd=$exec_cmd

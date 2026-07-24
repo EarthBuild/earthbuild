@@ -137,14 +137,14 @@ EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --
   --build-arg flag_on=false \
   git.example.com/testuser/repo/flag_off:main+test-git-metadata
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
-    DO --pass-args +RUN_EARTHLY_ARGS --pre_command=start-sshd --exec_cmd=/tmp/test-earthly-script
+    DO --pass-args +RUN_EARTH_ARGS --pre_command=start-sshd --exec_cmd=/tmp/test-earthly-script
 
-RUN_EARTHLY_ARGS:
+RUN_EARTH_ARGS:
     FUNCTION
     ARG earthfile
     ARG pre_command
     ARG exec_cmd
-    DO ..+RUN_EARTHLY \
+    DO ..+RUN_EARTH \
         --earthfile=$earthfile \
         --pre_command=$pre_command \
         --exec_cmd=$exec_cmd

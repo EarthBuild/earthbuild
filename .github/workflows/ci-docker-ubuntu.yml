@@ -21,23 +21,23 @@ jobs:
 #    permissions:
 #      pull-requests: read
 #    secrets: inherit
-  build-earthly:
-    # allow the job to execute even if check-essential-files is skipped
-    if: ${{ !failure() }}
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/build-earthly.yml
-    with:
-      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "docker"
-      SUDO: ""
-#      SKIP_JOB: ${{ needs.check-essential-files.outputs.essential-files == 'false' }}
-    secrets: inherit
+  docker-bootstrap-test:
+    name: Bootstrap Test
+    runs-on: ubuntu-24.04
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/stage2-setup
+        with:
+          BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+          BINARY: "docker"
+          SUDO: ""
+      - name: Verify bootstrap works
+        run: ./build/linux/amd64/earthly bootstrap
 
   docker-test-misc:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -46,12 +46,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group1:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -60,12 +60,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group2:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -74,12 +74,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group3:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -88,12 +88,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group4:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -102,12 +102,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group5:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -116,12 +116,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group6:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -130,12 +130,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group7:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -144,12 +144,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group8:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -158,12 +158,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group9:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -172,12 +172,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group10:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -186,12 +186,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group11:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -200,12 +200,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-group12:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -214,12 +214,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-slow:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -228,12 +228,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-tests-no-qemu-kind:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -264,7 +264,7 @@ jobs:
   #   secrets: inherit
 
   docker-tests-qemu:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -274,12 +274,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-examples-1:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -288,11 +288,11 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-1"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-examples-2:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -301,11 +301,11 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-2"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-examples-3:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -314,11 +314,11 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-3"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-examples-4:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -327,12 +327,12 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-4"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       MORE_SPACE: false
     secrets: inherit
 
   docker-examples-5:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -341,11 +341,11 @@ jobs:
       BINARY: "docker"
       SUDO: ""
       EXAMPLE_NAME: "+examples-5"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-test-local:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test-local.yml
     with:
@@ -354,11 +354,11 @@ jobs:
       BINARY: "docker"
       BINARY_COMPOSE: "\"docker compose\""
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-push-integrations:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
@@ -366,11 +366,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-bootstrap-integrations:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
@@ -378,11 +378,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-repo-auth-tests:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
@@ -390,11 +390,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-export-test:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-export-test.yml
     with:
@@ -402,11 +402,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-docker-build-integrations:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
@@ -414,11 +414,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-earthbuild-image-test:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
@@ -426,11 +426,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-misc-test-1:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
@@ -438,11 +438,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-misc-test-2:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
@@ -450,11 +450,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-wait-block-main:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
@@ -462,11 +462,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   docker-wait-block-quick:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -474,13 +474,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-misc"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group1:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -488,13 +488,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group1"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group2:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -502,13 +502,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group2"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group3:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -516,13 +516,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group3"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-group4:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -530,13 +530,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-group4"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-no-qemu-slow:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -544,13 +544,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-no-qemu-slow"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-wait-block-qemu:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
@@ -558,13 +558,13 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       TARGET_NAME: "+test-qemu"
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   docker-git-metadata-test:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
@@ -572,11 +572,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   race-test-misc:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
@@ -586,12 +586,12 @@ jobs:
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group1:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
@@ -601,12 +601,12 @@ jobs:
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group2:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
@@ -616,12 +616,12 @@ jobs:
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group3:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
@@ -631,12 +631,12 @@ jobs:
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-group4:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
@@ -646,12 +646,12 @@ jobs:
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   race-tests-no-qemu-slow:
-    needs: build-earthly
+    needs: docker-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
@@ -661,6 +661,6 @@ jobs:
       USE_QEMU: false
       BINARY: "docker"
       SUDO: ""
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.docker-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit

@@ -643,8 +643,8 @@ build-ticktock:
     FROM alpine:3.24.1
     ARG BUILDKIT_PROJECT
     IF [ -z "$BUILDKIT_PROJECT" ]
-        COPY earthly-next .
-        LET ticktock="$(cat earthly-next)"
+        COPY earth-next .
+        LET ticktock="$(cat earth-next)"
         ARG EARTHLY_TARGET_TAG_DOCKER
         LET BUILDKIT_TAG="dev-$EARTHLY_TARGET_TAG_DOCKER-ticktock"
         BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/EarthBuild/buildkit:$ticktock" --TAG=$BUILDKIT_TAG

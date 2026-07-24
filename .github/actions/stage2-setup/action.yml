@@ -18,7 +18,7 @@ inputs:
     description: "Whether to set up QEMU"
     required: false
   USE_NEXT:
-    description: "Whether to use earthly-next"
+    description: "Whether to use earth-next"
     required: false
     default: 'false'
   GHCR_USERNAME:
@@ -62,7 +62,7 @@ runs:
       if: steps.fork-check.outputs.is_fork == 'true'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earthly-build-ubuntu-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
     - name: Load buildkitd image from artifact (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
@@ -168,7 +168,7 @@ runs:
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
         echo "Extracting earthly binary from stage1 of build"
-        export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
+        export TAG=${GITHUB_SHA}-ubuntu-latest
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
@@ -185,10 +185,10 @@ runs:
       shell: bash
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
-        export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
+        export expected_buildkit_client_sha="$(cat earth-next | head -c 12)"
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
         (strings "${{inputs.BUILT_EARTH_PATH}}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
-        echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
+        echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earth-next was used"
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${{inputs.SUDO}} "${{inputs.BUILT_EARTH_PATH}}" bootstrap

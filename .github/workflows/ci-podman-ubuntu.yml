@@ -22,23 +22,23 @@ jobs:
 #    permissions:
 #      pull-requests: read
 #    secrets: inherit
-  build-earthly:
-    # allow the job to execute even if check-essential-files is skipped
-    if: ${{ !failure() }}
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/build-earthly.yml
-    with:
-      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
-      BINARY: "podman"
-      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.check-essential-files.outputs.essential-files == 'false' }}
-    secrets: inherit
+  podman-bootstrap-test:
+    name: Bootstrap Test
+    runs-on: ubuntu-24.04
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/stage2-setup
+        with:
+          BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+          BINARY: "podman"
+          SUDO: "sudo -E"
+      - name: Verify bootstrap works
+        run: sudo -E ./build/linux/amd64/earthly bootstrap
 
   podman-tests-quick:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -47,11 +47,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group1:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -60,11 +60,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group2:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -73,11 +73,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group3:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -86,11 +86,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group4:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -99,11 +99,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group5:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -112,11 +112,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group6:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -125,11 +125,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group7:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -138,11 +138,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group8:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -151,11 +151,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group9:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -164,11 +164,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group10:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -177,11 +177,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group11:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -190,11 +190,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-group12:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -203,11 +203,11 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-tests-no-qemu-slow:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -216,7 +216,7 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   # TODO: Commented out until we have an AWS account to run tests in
@@ -234,7 +234,7 @@ jobs:
   # secrets: inherit
 
   podman-tests-qemu:
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test.yml
     with:
@@ -244,12 +244,12 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "podman"
       SUDO: "sudo -E"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-examples-1:
     # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -259,12 +259,12 @@ jobs:
       USE_QEMU: true
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-1"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-examples-2:
     # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -274,12 +274,12 @@ jobs:
       USE_QEMU: true
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-2"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-examples-3:
     # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -289,12 +289,12 @@ jobs:
       USE_QEMU: true
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-3"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
   podman-examples-4:
     # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -304,13 +304,13 @@ jobs:
       USE_QEMU: true
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-4"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
       MORE_SPACE: false
     secrets: inherit
 
   podman-examples-5:
     # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-    needs: build-earthly
+    needs: podman-bootstrap-test
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
@@ -320,12 +320,12 @@ jobs:
       USE_QEMU: true
       SUDO: "sudo -E"
       EXAMPLE_NAME: "+examples-5"
-      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
     secrets: inherit
 
 #  podman-test-local:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-test-local.yml
 #    with:
@@ -334,13 +334,13 @@ jobs:
 #      BINARY: "podman"
 #      BINARY_COMPOSE: "\"sudo -E podman-compose\""
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 # TODO: Fix and bring back the below tests
 #  podman-push-integrations:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-push-integrations.yml
 #    with:
@@ -348,12 +348,12 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 #  podman-bootstrap-integrations:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-bootstrap-integrations.yml
 #    with:
@@ -361,12 +361,12 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 #  podman-repo-auth-tests:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-repo-auth-tests.yml
 #    with:
@@ -374,12 +374,12 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 #  podman-export-tests:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-export-test.yml
 #    with:
@@ -387,12 +387,12 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 #  podman-earthbuild-image-tests:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
 #    with:
@@ -400,12 +400,12 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 #  podman-misc-tests-1:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-misc-tests-1.yml
 #    with:
@@ -413,12 +413,12 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit
 #
 #  podman-misc-tests-2:
 #    # TODO: Figure out how to run multiple Podman instances in parallel with different ports for buildkitd
-#    needs: build-earthly
+#    needs: podman-bootstrap-test
 #    if: ${{ !failure() }}
 #    uses: ./.github/workflows/reusable-misc-tests-2.yml
 #    with:
@@ -426,5 +426,5 @@ jobs:
 #      RUNS_ON: "ubuntu-latest"
 #      BINARY: "podman"
 #      SUDO: "sudo -E"
-#      SKIP_JOB: ${{ needs.build-earthly.result != 'success' }}
+#      SKIP_JOB: ${{ needs.podman-bootstrap-test.result != 'success' }}
 #    secrets: inherit

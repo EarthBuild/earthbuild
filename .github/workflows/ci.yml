@@ -30,11 +30,18 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  fast-check:
-    name: Fast Check
+  fast-check-and-build:
+    name: Fast Check & Build
     runs-on: ubuntu-24.04
+    outputs:
+      is_next_same: ${{ steps.check-next.outputs.is_same }}
     permissions:
       contents: read
+      packages: write
+    env:
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
     steps:
       - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
         with:
@@ -42,6 +49,22 @@ jobs:
           # shared runner IPs (unauthenticated is 60 req/hr/IP).
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Check if earth-next matches standard BuildKit
+        id: check-next
+        shell: bash
+        run: |-
+          NEXT_SHA="$(tr -d ' \n\r' < earth-next)"
+          STD_SHA="$(grep 'github.com/earthbuild/buildkit' go.mod | awk '{print $NF}' | cut -d'-' -f3)"
+          NEXT_SHORT="${NEXT_SHA:0:12}"
+          echo "earth-next SHA: $NEXT_SHA ($NEXT_SHORT)"
+          echo "go.mod BuildKit SHA: $STD_SHA"
+          if [ -n "$NEXT_SHORT" ] && [ "$NEXT_SHORT" = "$STD_SHA" ]; then
+            echo "is_same=true" >> "$GITHUB_OUTPUT"
+            echo "earth-next is identical to standard BuildKit"
+          else
+            echo "is_same=false" >> "$GITHUB_OUTPUT"
+            echo "earth-next differs from standard BuildKit"
+          fi
       - name: Lint
         run: earth --ci +lint-all
       - name: Unit tests
@@ -49,20 +72,142 @@ jobs:
       - name: Fuzz tests
         run: earth --ci +fuzz-test
 
+      # --- Build Standard EarthBuild ---
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: "Put back the git branch into git (EarthBuild uses it for tagging)"
+        run: |
+          branch=""
+          if [ -n "$GITHUB_HEAD_REF" ]; then
+            branch="$GITHUB_HEAD_REF"
+          else
+            branch="${GITHUB_REF##*/}"
+          fi
+          git checkout -b "$branch" || true
+      - name: Configure EarthBuild to use GCR mirror
+        run: |-
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Build latest earth using released earth
+        run: earth --use-inline-cache +for-linux
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Build and push +ci-release using latest earthly build
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |-
+          export TAG_SUFFIX="ubuntu-latest"
+          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+      - name: Build +ci-release using latest earthly build (fork - no push)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          export TAG_SUFFIX="ubuntu-latest"
+          # Build ci-release (builds binary and buildkitd but doesn't push)
+          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          # Explicitly output the buildkitd image to local docker daemon
+          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+      - name: Save artifacts for fork CI
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="ubuntu-latest"
+
+          mkdir -p ./artifacts-standard
+
+          # Build earthly CLI binary with correct installation name (earthly, not earthly-dev)
+          # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
+          ./build/linux/amd64/earthly --ci --artifact \
+            +earthly/earthly \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.18" \
+            --DEFAULT_INSTALLATION_NAME=earthly \
+            ./artifacts-standard/earthly
+
+          # Save the buildkitd image as tarball
+          docker save \
+            "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            -o ./artifacts-standard/buildkitd-image.tar
+
+          # Save the tag suffix for downstream jobs
+          echo "${TAG_SUFFIX}" > ./artifacts-standard/tag-suffix.txt
+      - name: Upload artifacts for fork CI
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: earthly-build-ubuntu-latest
+          path: ./artifacts-standard/
+          retention-days: 1
+
+      # --- Build Next EarthBuild ---
+      - name: Update Buildkit to earth-next
+        if: steps.check-next.outputs.is_same != 'true'
+        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earth-next)"
+      - name: Build latest earthly (next) using released earthly
+        if: steps.check-next.outputs.is_same != 'true'
+        run: earth --use-inline-cache +for-linux
+      - name: Build and push +ci-release (next) using latest earth build
+        if: steps.check-next.outputs.is_same != 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        run: |-
+          export TAG_SUFFIX="ubuntu-latest-ticktock"
+          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+      - name: Build +ci-release (next) using latest earth build (fork - no push)
+        if: steps.check-next.outputs.is_same != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          export TAG_SUFFIX="ubuntu-latest-ticktock"
+          # Build ci-release (builds binary and buildkitd but doesn't push)
+          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          # Explicitly output the buildkitd image to local docker daemon
+          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+      - name: Save artifacts (next) for fork CI
+        if: steps.check-next.outputs.is_same != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="ubuntu-latest-ticktock"
+
+          mkdir -p ./artifacts-next
+
+          # Build earthly CLI binary with correct installation name (earthly, not earthly-dev)
+          # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
+          ./build/linux/amd64/earthly --ci --artifact \
+            +earthly/earthly \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.18" \
+            --DEFAULT_INSTALLATION_NAME=earthly \
+            ./artifacts-next/earthly
+
+          # Save the buildkitd image as tarball
+          docker save \
+            "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            -o ./artifacts-next/buildkitd-image.tar
+
+          # Save the tag suffix for downstream jobs
+          echo "${TAG_SUFFIX}" > ./artifacts-next/tag-suffix.txt
+      - name: Upload artifacts (next) for fork CI
+        if: steps.check-next.outputs.is_same != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: earthly-build-ubuntu-latest-ticktock
+          path: ./artifacts-next/
+          retention-days: 1
+
   docker:
     name: Docker
-    needs: fast-check
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-docker-ubuntu.yml
     secrets: inherit
 
   podman:
     name: Podman
-    needs: fast-check
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-podman-ubuntu.yml
     secrets: inherit
 
   next:
     name: Next
-    needs: fast-check
+    needs: fast-check-and-build
+    if: needs.fast-check-and-build.outputs.is_next_same != 'true'
     uses: ./.github/workflows/ci-earthly-next-docker-ubuntu.yml
     secrets: inherit

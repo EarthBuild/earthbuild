@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -24,7 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -52,7 +52,6 @@ import (
 	"github.com/moby/buildkit/session/sshforward/sshprovider"
 	"github.com/moby/buildkit/util/entitlements"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -107,7 +106,7 @@ func (b *Build) Cmds() []*cli.Command {
 				&cli.StringFlag{
 					Name:        "dockerfile",
 					Aliases:     []string{"f"},
-					Sources:     cli.EnvVars("EARTHLY_DOCKER_FILE"),
+					Sources:     flag.EarthEnvVars("DOCKER_FILE"),
 					Usage:       "Path to dockerfile input",
 					Value:       "Dockerfile",
 					Destination: &b.cli.Flags().DockerfilePath,
@@ -115,13 +114,13 @@ func (b *Build) Cmds() []*cli.Command {
 				&cli.StringSliceFlag{
 					Name:        "tag",
 					Aliases:     []string{"t"},
-					Sources:     cli.EnvVars("EARTHLY_DOCKER_TAGS"),
+					Sources:     flag.EarthEnvVars("DOCKER_TAGS"),
 					Usage:       "Name and tag for the built image; formatted as 'name:tag'",
 					Destination: &b.dockerTags,
 				},
 				&cli.StringFlag{
 					Name:        "target",
-					Sources:     cli.EnvVars("EARTHLY_DOCKER_TARGET"),
+					Sources:     flag.EarthEnvVars("DOCKER_TARGET"),
 					Usage:       "The docker target to build in the specified dockerfile",
 					Destination: &b.dockerTarget,
 				},
@@ -161,7 +160,11 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
+		if invalidFlagErr, ok := errors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
+		}
+
+		return fmt.Errorf("parse args %s: %w", strings.Join(cmd.Args().Slice(), " "), err)
 	}
 
 	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
@@ -202,7 +205,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no image reference provided. Try %s --image +<target-name>", common.GetBinaryName())
+				"no image reference provided. Try %s --image +<target-name>", common.GetBinaryName(),
+			)
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -221,7 +225,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName())
+				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName(),
+			)
 		} else if len(nonFlagArgs) > 2 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -245,7 +250,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no target reference provided. Try %s +<target-name>", common.GetBinaryName())
+				"no target reference provided. Try %s +<target-name>", common.GetBinaryName(),
+			)
 		} else if len(nonFlagArgs) != 1 {
 			_ = cli.ShowAppHelp(cmd)
 			return target, artifact, "", params.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
@@ -283,7 +289,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	if err != nil {
 		// ignore ErrNotExist when using default .env file
 		if cmd.IsSet(flag.EnvFileFlag) || !errors.Is(err, os.ErrNotExist) {
-			return errors.Wrapf(err, "read %s", b.cli.Flags().EnvFile)
+			return fmt.Errorf("read %s: %w", b.cli.Flags().EnvFile, err)
 		}
 	}
 
@@ -292,7 +298,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		showUnexpectedEnvWarnings = false
 	} else if cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
-		return errors.Wrapf(err, "read %s", b.cli.Flags().ArgFile)
+		return fmt.Errorf("read %s: %w", b.cli.Flags().ArgFile, err)
 	}
 
 	secretsFileMap, err := godotenv.Read(b.cli.Flags().SecretFile)
@@ -300,7 +306,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		showUnexpectedEnvWarnings = false
 	} else if cmd.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist) {
 		// ignore ErrNotExist when using default .env file
-		return errors.Wrapf(err, "read %s", b.cli.Flags().SecretFile)
+		return fmt.Errorf("read %s: %w", b.cli.Flags().SecretFile, err)
 	}
 
 	if showUnexpectedEnvWarnings {
@@ -326,7 +332,8 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 			b.cli.Console().Warnf(
 				"Deprecation: secret key %q does not follow the recommended naming convention "+
 					"(a letter followed by alphanumeric characters or underscores); "+
-					"this will become an error in a future version of earthly.", secretKey)
+					"this will become an error in a future version of earthly.", secretKey,
+			)
 		}
 	}
 
@@ -352,7 +359,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	err = b.cli.InitFrontend(ctx, cmd)
 	if err != nil {
-		return errors.Wrapf(err, "could not init frontend")
+		return fmt.Errorf("could not init frontend: %w", err)
 	}
 
 	// After configuring frontend, buildkit address should not be empty.
@@ -372,7 +379,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		b.cli.Flags().BuildkitdSettings,
 	)
 	if err != nil {
-		return errors.Wrap(err, "build new buildkitd client")
+		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
@@ -388,12 +395,12 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	localhostProvider, err := localhostprovider.NewLocalhostProvider()
 	if err != nil {
-		return errors.Wrap(err, "failed to create localhostprovider")
+		return fmt.Errorf("failed to create localhostprovider: %w", err)
 	}
 
 	cacheLocalDir, err := os.MkdirTemp("", "earthly-cache")
 	if err != nil {
-		return errors.Wrap(err, "make temp dir for cache")
+		return fmt.Errorf("make temp dir for cache: %w", err)
 	}
 	defer os.RemoveAll(cacheLocalDir)
 
@@ -406,7 +413,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	customSecretProviderCmd, err := secretprovider.NewSecretProviderCmd(b.cli.Cfg().Global.SecretProvider)
 	if err != nil {
-		return errors.Wrap(err, "NewSecretProviderCmd")
+		return fmt.Errorf("NewSecretProviderCmd: %w", err)
 	}
 
 	secretProvider := secretprovider.New(
@@ -456,7 +463,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 			Paths: []string{b.cli.Flags().SSHAuthSock},
 		}})
 		if err != nil {
-			return errors.Wrap(err, "ssh agent provider")
+			return fmt.Errorf("ssh agent provider: %w", err)
 		}
 
 		attachables = append(attachables, ssh)
@@ -475,14 +482,14 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 			termErr := terminal.ConnectTerm(ctx, conn, debugTermConsole)
 			if termErr != nil {
-				return errors.Wrap(termErr, "interactive terminal")
+				return fmt.Errorf("interactive terminal: %w", termErr)
 			}
 
 			return nil
 		},
 	})
 	if err != nil {
-		return errors.Wrap(err, "ssh agent provider")
+		return fmt.Errorf("ssh agent provider: %w", err)
 	}
 
 	attachables = append(attachables, socketProvider)
@@ -503,7 +510,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	if b.cli.Flags().RemoteCache != "" {
 		cacheImportImageName, _, err = flagutil.ParseImageNameAndAttrs(b.cli.Flags().RemoteCache)
 		if err != nil {
-			return errors.Wrapf(err, "parse import cache error: %s", b.cli.Flags().RemoteCache)
+			return fmt.Errorf("parse import cache error: %s: %w", b.cli.Flags().RemoteCache, err)
 		}
 
 		cacheImports = append(cacheImports, cacheImportImageName)
@@ -539,7 +546,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 		u, err = url.Parse(b.cli.Flags().LocalRegistryHost)
 		if err != nil {
-			return errors.Wrapf(err, "parse local registry host %s", b.cli.Flags().LocalRegistryHost)
+			return fmt.Errorf("parse local registry host %s: %w", b.cli.Flags().LocalRegistryHost, err)
 		}
 
 		localRegistryAddr = u.Host
@@ -589,7 +596,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	build, err := builder.NewBuilder(builderOpts)
 	if err != nil {
-		return errors.Wrap(err, "new builder")
+		return fmt.Errorf("new builder: %w", err)
 	}
 
 	b.cli.Console().PrintPhaseFooter(builder.PhaseInit)
@@ -631,7 +638,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	_, err = build.BuildTarget(ctx, target, buildOpts)
 	if err != nil {
-		return errors.Wrap(err, "build target")
+		return fmt.Errorf("build target: %w", err)
 	}
 
 	if b.cli.Flags().SkipBuildkit && addHashFn != nil {
@@ -690,9 +697,10 @@ func (b *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 
 		err := gitLookup.AddMatcher(
 			k, pattern, v.Substitute, v.User, v.Password, v.Prefix, suffix, auth, v.ServerKey,
-			common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand)
+			common.IfNilBoolDefault(v.StrictHostKeyChecking, true), v.Port, v.SSHCommand,
+		)
 		if err != nil {
-			return errors.Wrap(err, "gitlookup")
+			return fmt.Errorf("gitlookup: %w", err)
 		}
 	}
 
@@ -817,7 +825,7 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	}
 
 	if isLocal && !b.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
-		return "", false, errors.New("Frontend is not available to perform the build. Is Docker installed and running?")
+		return "", false, errors.New("frontend is not available to perform the build; is Docker installed and running?")
 	}
 
 	return runnerName, isLocal, nil
@@ -828,7 +836,7 @@ func (b *Build) platformResolver(
 ) (*platutil.Resolver, error) {
 	nativePlatform, err := platutil.GetNativePlatformViaBkClient(ctx, bkClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "get native platform via buildkit client")
+		return nil, fmt.Errorf("get native platform via buildkit client: %w", err)
 	}
 
 	b.cli.LogbusSetup().SetDefaultPlatform(platforms.Format(nativePlatform))
@@ -839,7 +847,7 @@ func (b *Build) platformResolver(
 	for _, p := range b.platformsStr {
 		platform, err := platr.Parse(p)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse platform %s", p)
+			return nil, fmt.Errorf("parse platform %s: %w", p, err)
 		}
 
 		platformsSlice = append(platformsSlice, platform)
@@ -850,7 +858,7 @@ func (b *Build) platformResolver(
 	case 1:
 		platr.UpdatePlatform(platformsSlice[0])
 	default:
-		return nil, errors.Errorf("multi-platform builds are not yet supported on the command line. "+
+		return nil, fmt.Errorf("multi-platform builds are not yet supported on the command line. "+
 			"You may, however, create a target with the instruction BUILD --platform ... --platform ... %s", target)
 	}
 
@@ -888,7 +896,7 @@ func (b *Build) initAutoSkip(
 		OverridingVars: overridingVars,
 	})
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "auto-skip is unable to calculate hash for %s", target)
+		return nil, false, fmt.Errorf("auto-skip is unable to calculate hash for %s: %w", target, err)
 	}
 
 	console.VerbosePrintf("targets visited: %d; targets hashed: %d; target cache hits: %d",
@@ -907,7 +915,7 @@ func (b *Build) initAutoSkip(
 
 		target, ok = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
 		if !ok {
-			return nil, false, errors.Errorf("want domain.Target, got %T", target)
+			return nil, false, fmt.Errorf("want domain.Target, got %T", target)
 		}
 
 		target.Tag = ""
@@ -945,62 +953,68 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	flagArgs, nonFlagArgs, err := variables.ParseFlagArgsWithNonFlags(cmd.Args().Slice())
 	if err != nil {
-		return errors.Wrapf(err, "parse args %s", strings.Join(cmd.Args().Slice(), " "))
+		if invalidFlagErr, ok := errors.AsType[*variables.InvalidFlagError](err); ok {
+			return params.Errorf("%s", invalidFlagErr.Error())
+		}
+
+		return fmt.Errorf("parse args %s: %w", strings.Join(cmd.Args().Slice(), " "), err)
 	}
 
 	if len(nonFlagArgs) == 0 {
 		_ = cli.ShowAppHelp(cmd)
 
-		return errors.Errorf(
-			"no build context path provided. Try %s docker-build <path>", common.GetBinaryName())
+		return fmt.Errorf(
+			"no build context path provided. Try %s docker-build <path>", common.GetBinaryName(),
+		)
 	}
 
 	if len(nonFlagArgs) != 1 {
 		_ = cli.ShowAppHelp(cmd)
-		return errors.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
+		return fmt.Errorf("invalid arguments %s", strings.Join(nonFlagArgs, " "))
 	}
 
 	buildContextPath, err := filepath.Abs(nonFlagArgs[0])
 	if err != nil {
-		return errors.Wrapf(err, "failed to get absolute path for build context")
+		return fmt.Errorf("failed to get absolute path for build context: %w", err)
 	}
 
 	tempDir, err := os.MkdirTemp("", "docker-build")
 	if err != nil {
-		return errors.Wrap(err, "docker-build: failed to create temporary dir for Earthfile")
+		return fmt.Errorf("docker-build: failed to create temporary dir for Earthfile: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
 	argMap, err := godotenv.Read(b.cli.Flags().ArgFile)
 	if err != nil && (cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist)) {
-		return errors.Wrapf(err, "read %q", b.cli.Flags().ArgFile)
+		return fmt.Errorf("read %q: %w", b.cli.Flags().ArgFile, err)
 	}
 
 	buildArgs, err := common.CombineVariables(argMap, flagArgs, b.buildArgs)
 	if err != nil {
-		return errors.Wrapf(err, "combining build args")
+		return fmt.Errorf("combining build args: %w", err)
 	}
 
 	platforms := flagutil.SplitFlagString(b.platformsStr)
 
 	content, err := docker2earth.GenerateEarthfile(
 		buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
-		buildArgs.Sorted(), platforms, b.dockerTarget)
+		buildArgs.Sorted(), platforms, b.dockerTarget,
+	)
 	if err != nil {
-		return errors.Wrap(err, "docker-build: failed to wrap Dockerfile with an Earthfile")
+		return fmt.Errorf("docker-build: failed to wrap Dockerfile with an Earthfile: %w", err)
 	}
 
 	earthfilePath := filepath.Join(tempDir, buildcontext.Earthfile)
 
 	out, err := os.Create(earthfilePath) // #nosec G304
 	if err != nil {
-		return errors.Wrapf(err, "docker-build: failed to create Earthfile %q", earthfilePath)
+		return fmt.Errorf("docker-build: failed to create Earthfile %q: %w", earthfilePath, err)
 	}
 	defer out.Close()
 
 	_, err = out.WriteString(content)
 	if err != nil {
-		return errors.Wrapf(err, "docker-build: failed to write to %q", earthfilePath)
+		return fmt.Errorf("docker-build: failed to write to %q: %w", earthfilePath, err)
 	}
 
 	// The following should not be set in the context of executing the build from the generated Earthfile:

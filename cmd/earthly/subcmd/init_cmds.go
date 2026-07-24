@@ -2,6 +2,8 @@ package subcmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -10,7 +12,6 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/proj"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -43,12 +44,12 @@ func (a *Init) Cmds() []*cli.Command {
 func (a *Init) action(ctx context.Context, _ *cli.Command) error {
 	wd, err := os.Getwd()
 	if err != nil {
-		return errors.Wrap(err, "could not load current working directory")
+		return fmt.Errorf("could not load current working directory: %w", err)
 	}
 
 	absWd, err := filepath.Abs(wd)
 	if err != nil {
-		return errors.Wrapf(err, "could not get absolute path for %q", wd)
+		return fmt.Errorf("could not get absolute path for %q: %w", wd, err)
 	}
 
 	efPath := filepath.Join(absWd, buildcontext.Earthfile)
@@ -60,33 +61,33 @@ func (a *Init) action(ctx context.Context, _ *cli.Command) error {
 	}
 
 	if !errors.Is(err, fs.ErrNotExist) {
-		return errors.Wrap(err, "could not check for existing Earthfile")
+		return fmt.Errorf("could not check for existing Earthfile: %w", err)
 	}
 
 	projs, err := proj.All(ctx, absWd)
 	if err != nil {
-		return errors.Wrapf(err, "could not get projects for %q", absWd)
+		return fmt.Errorf("could not get projects for %q: %w", absWd, err)
 	}
 
 	if len(projs) == 0 {
-		return errors.Errorf("no supported projects found in directory %q", absWd)
+		return fmt.Errorf("no supported projects found in directory %q", absWd)
 	}
 
 	f, err := os.Create(efPath) // #nosec G304
 	if err != nil {
-		return errors.Wrapf(err, "could not create %q", efPath)
+		return fmt.Errorf("could not create %q: %w", efPath, err)
 	}
 	defer f.Close()
 
 	_, err = f.WriteString("VERSION --arg-scope-and-set 0.7\n\n")
 	if err != nil {
-		return errors.Wrapf(err, "could not write version string in %q", efPath)
+		return fmt.Errorf("could not write version string in %q: %w", efPath, err)
 	}
 
 	if len(projs) > 1 {
 		// This is easy enough to support when we have more than one project
 		// type, but for now there's no point.
-		return errors.Errorf("%d projects detected, but multiple project types are not supported by init yet", len(projs))
+		return fmt.Errorf("%d projects detected, but multiple project types are not supported by init yet", len(projs))
 	}
 
 	p := projs[0]
@@ -94,7 +95,7 @@ func (a *Init) action(ctx context.Context, _ *cli.Command) error {
 		// In the distant future, this may be used to generate multiple
 		// Earthfiles over multiple directories and call them from a main
 		// Earthfile target with BUILD.
-		return errors.Errorf("project type %T wants to generate an Earthfile in an unsupported directory: %q", p, p.Root(ctx))
+		return fmt.Errorf("project type %T wants to generate an Earthfile in an unsupported directory: %q", p, p.Root(ctx))
 	}
 
 	return initSingleProject(f, p)
@@ -103,7 +104,7 @@ func (a *Init) action(ctx context.Context, _ *cli.Command) error {
 func initSingleProject(w io.Writer, p proj.Project) error {
 	tgts, err := p.Targets()
 	if err != nil {
-		return errors.Wrapf(err, "could not generate targets for project type %T", p)
+		return fmt.Errorf("could not generate targets for project type %T: %w", p, err)
 	}
 
 	for i, tgt := range tgts {
@@ -112,13 +113,13 @@ func initSingleProject(w io.Writer, p proj.Project) error {
 		if i > 0 {
 			_, err = w.Write([]byte("\n"))
 			if err != nil {
-				return errors.Wrapf(err, "could not write newline separator between targets")
+				return fmt.Errorf("could not write newline separator between targets: %w", err)
 			}
 		}
 
 		err := tgt.Format(w, efIndent)
 		if err != nil {
-			return errors.Wrapf(err, "could not format target for project type %T", p)
+			return fmt.Errorf("could not format target for project type %T: %w", p, err)
 		}
 	}
 

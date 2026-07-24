@@ -1662,13 +1662,22 @@ func replaceEscape(str string) string {
 		i        int
 	)
 
+	sb.Grow(len(str))
+
 	for i < len(str) {
 		c := str[i]
 
 		switch {
 		case c == '\\':
-			switch {
-			case inDouble:
+			// Line continuations are stripped regardless of quote state:
+			// Earthfile continuations are resolved before the shell ever
+			// sees the command (the pre-0.8.18 antlr parser behaved the
+			// same), so a trailing backslash inside quotes joins lines
+			// rather than surviving as a literal.
+			n := matchLineContinuationFrom(str, i)
+			if n > 0 {
+				i += n
+			} else {
 				sb.WriteByte(c)
 
 				i++
@@ -1677,32 +1686,6 @@ func replaceEscape(str string) string {
 					sb.WriteByte(str[i])
 
 					i++
-				}
-
-			case inSingle:
-				sb.WriteByte(c)
-
-				i++
-
-				if i < len(str) {
-					sb.WriteByte(str[i])
-
-					i++
-				}
-
-			default:
-				if n := matchLineContinuationFrom(str, i); n > 0 {
-					i += n
-				} else {
-					sb.WriteByte(c)
-
-					i++
-
-					if i < len(str) {
-						sb.WriteByte(str[i])
-
-						i++
-					}
 				}
 			}
 

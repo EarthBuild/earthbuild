@@ -3,6 +3,8 @@ package earthfile2llb
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path"
@@ -12,7 +14,6 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/pkg/errors"
 )
 
 func (c *Converter) parseMounts(mounts []string) ([]llb.RunOption, error) {
@@ -21,7 +22,7 @@ func (c *Converter) parseMounts(mounts []string) ([]llb.RunOption, error) {
 	for _, mount := range mounts {
 		mountRunOpts, err := c.parseMount(mount)
 		if err != nil {
-			return nil, errors.Wrap(err, "parse mount")
+			return nil, fmt.Errorf("parse mount: %w", err)
 		}
 
 		runOpts = append(runOpts, mountRunOpts...)
@@ -47,42 +48,42 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 	for kvPair := range kvPairs {
 		kvSplit := strings.SplitN(kvPair, "=", 2)
 		if len(kvSplit) == 0 {
-			return nil, errors.Errorf("invalid mount arg %s", kvPair)
+			return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 		}
 
 		switch kvSplit[0] {
 		case "id":
 			if len(kvSplit) != 2 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			mountID = kvSplit[1]
 		case "type":
 			if len(kvSplit) != 2 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			mountType = kvSplit[1]
 		case "source":
 			if len(kvSplit) != 2 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			mountSource = kvSplit[1]
 		case "target":
 			if len(kvSplit) != 2 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			mountTarget = kvSplit[1]
 		case "ro", "readonly":
 			if len(kvSplit) != 1 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			mountOpts = append(mountOpts, llb.Readonly)
 		case "uid":
-			return nil, errors.Errorf("not yet supported %s", kvPair)
+			return nil, fmt.Errorf("not yet supported %s", kvPair)
 			// if len(kvSplit) != 2 {
 			// 	return nil, errors.Errorf("invalid mount arg %s", kvPair)
 			// }
@@ -92,7 +93,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			// 	return nil, errors.Errorf("invalid mount arg %s", kvPair)
 			// }
 		case "gid":
-			return nil, errors.Errorf("not yet supported %s", kvPair)
+			return nil, fmt.Errorf("not yet supported %s", kvPair)
 			// if len(kvSplit) != 2 {
 			// 	return nil, errors.Errorf("invalid mount arg %s", kvPair)
 			// }
@@ -103,18 +104,18 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			// }
 		case "mode", "chmod":
 			if len(kvSplit) != 2 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			var err error
 
 			mountMode, err = ParseMode(kvSplit[1])
 			if err != nil {
-				return nil, errors.Errorf("failed to parse mount %s %s", kvSplit[0], kvSplit[1])
+				return nil, fmt.Errorf("failed to parse mount %s %s", kvSplit[0], kvSplit[1])
 			}
 		case "sharing":
 			if len(kvSplit) != 2 {
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 
 			switch kvSplit[1] {
@@ -125,31 +126,31 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			case "locked":
 				sharingMode = llb.CacheMountLocked
 			default:
-				return nil, errors.Errorf("invalid mount arg %s", kvPair)
+				return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 			}
 		case "from":
-			return nil, errors.Errorf("not yet supported %s", kvPair)
+			return nil, fmt.Errorf("not yet supported %s", kvPair)
 		default:
-			return nil, errors.Errorf("invalid mount arg %s", kvPair)
+			return nil, fmt.Errorf("invalid mount arg %s", kvPair)
 		}
 	}
 
 	if mountType == "" {
-		return nil, errors.Errorf("mount type not specified")
+		return nil, errors.New("mount type not specified")
 	}
 
 	switch mountType {
 	case "bind-experimental":
 		if mountSource == "" {
-			return nil, errors.Errorf("mount source not specified")
+			return nil, errors.New("mount source not specified")
 		}
 
 		if mountTarget == "" {
-			return nil, errors.Errorf("mount target not specified")
+			return nil, errors.New("mount target not specified")
 		}
 
 		if mountMode != 0 {
-			return nil, errors.Errorf("mode is not supported for type=bind-experimental")
+			return nil, errors.New("mode is not supported for type=bind-experimental")
 		}
 
 		mountOpts = append(mountOpts, llb.HostBind(), llb.SourcePath(mountSource))
@@ -157,7 +158,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		return []llb.RunOption{llb.AddMount(mountTarget, llb.Scratch(), mountOpts...)}, nil
 	case "cache":
 		if mountTarget == "" {
-			return nil, errors.Errorf("mount target not specified")
+			return nil, errors.New("mount target not specified")
 		}
 
 		if mountMode == 0 {
@@ -180,11 +181,11 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		return []llb.RunOption{pllb.AddMount(mountTarget, state, mountOpts...)}, nil
 	case "tmpfs":
 		if mountTarget == "" {
-			return nil, errors.Errorf("mount target not specified")
+			return nil, errors.New("mount target not specified")
 		}
 
 		if mountMode != 0 {
-			return nil, errors.Errorf("mode is not supported for type=tmpfs")
+			return nil, errors.New("mode is not supported for type=tmpfs")
 		}
 
 		state = c.platr.Scratch()
@@ -204,13 +205,13 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		}
 
 		if mountMode != 0 {
-			return nil, errors.Errorf("mode is not supported for type=ssh-experimental")
+			return nil, errors.New("mode is not supported for type=ssh-experimental")
 		}
 
 		return []llb.RunOption{llb.AddSSHSocket(sshOpts...)}, nil
 	case "secret":
 		if mountTarget == "" {
-			return nil, errors.Errorf("mount target not specified")
+			return nil, errors.New("mount target not specified")
 		}
 
 		if mountMode == 0 {
@@ -225,7 +226,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 		if mountMode <= math.MaxInt32 {
 			mode = int(mountMode)
 		} else {
-			return nil, errors.Errorf("mode is too large: 0%o", mountMode)
+			return nil, fmt.Errorf("mode is too large: 0%o", mountMode)
 		}
 
 		secretID := mountID
@@ -241,7 +242,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 
 		return []llb.RunOption{llb.AddSecret(mountTarget, secretOpts...)}, nil
 	default:
-		return nil, errors.Errorf("invalid mount type %s", mountType)
+		return nil, fmt.Errorf("invalid mount type %s", mountType)
 	}
 }
 

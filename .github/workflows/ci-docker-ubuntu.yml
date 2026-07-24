@@ -42,7 +42,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-misc"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -56,7 +56,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group1"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -70,7 +70,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group2"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -84,7 +84,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group3"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -98,7 +98,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group4"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -112,7 +112,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group5"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -126,7 +126,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group6"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -140,7 +140,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group7"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -154,7 +154,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group8"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -168,7 +168,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group9"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -182,7 +182,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group10"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -196,7 +196,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group11"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -210,7 +210,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group12"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -224,7 +224,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-slow"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -238,7 +238,7 @@ jobs:
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-kind"
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: "docker"
       SUDO: ""
@@ -255,7 +255,7 @@ jobs:
   #   uses: ./.github/workflows/reusable-test.yml
   #   with:
   #     TEST_TARGET: "./tests/oidc+test"
-  #     BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+  #     BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
   #     RUNS_ON: "ubuntu-latest"
   #     BINARY: "docker"
   #     SUDO: ""
@@ -270,7 +270,7 @@ jobs:
     with:
       TEST_TARGET: "+test-qemu"
       USE_QEMU: true
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -283,7 +283,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -296,7 +296,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -309,7 +309,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -322,7 +322,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -336,7 +336,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-example.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -349,7 +349,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-test-local.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       BINARY_COMPOSE: "\"docker compose\""
@@ -362,7 +362,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -374,7 +374,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -386,7 +386,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -398,7 +398,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-export-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -410,7 +410,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -422,7 +422,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -434,7 +434,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -446,7 +446,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -458,7 +458,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -470,7 +470,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -484,7 +484,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -498,7 +498,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -512,7 +512,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -526,7 +526,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -540,7 +540,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -554,7 +554,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -568,7 +568,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
@@ -580,7 +580,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: "+test-misc"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
@@ -595,7 +595,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: "+test-no-qemu-group1"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
@@ -610,7 +610,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: "+test-no-qemu-group2"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
@@ -625,7 +625,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: "+test-no-qemu-group3"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
@@ -640,7 +640,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: "+test-no-qemu-group4"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false
@@ -655,7 +655,7 @@ jobs:
     if: ${{ !failure() }}
     uses: ./.github/workflows/reusable-race-test.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: "+test-no-qemu-slow"
       RUNS_ON: "ubuntu-latest"
       USE_QEMU: false

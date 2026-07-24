@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -11,10 +12,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fsutilprogress"
-
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
@@ -235,7 +234,7 @@ var supportedProtocols = []protocol{
 }
 
 func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb, verbose fsutil.VerboseProgressCB) error {
-	return errors.WithStack(fsutil.Send(stream.Context(), stream, fs, progress, verbose))
+	return fsutil.Send(stream.Context(), stream, fs, progress, verbose)
 }
 
 func recvDiffCopy(
@@ -262,10 +261,10 @@ func recvDiffCopy(
 		ch = cu.ContentHasher()
 	}
 
-	return errors.WithStack(fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
+	return fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
 		NotifyHashed:  cf,
 		ContentHasher: ch,
 		ProgressCb:    progress,
 		Filter:        fsutil.FilterFunc(filter),
-	}))
+	})
 }

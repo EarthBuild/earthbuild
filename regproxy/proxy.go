@@ -2,13 +2,13 @@ package regproxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"sync"
 	"sync/atomic"
 
 	registry "github.com/moby/buildkit/api/services/registry"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -48,7 +48,7 @@ func (r *registryProxy) serve(ctx context.Context) {
 			conn, err := r.ln.Accept()
 			if err != nil {
 				if !r.done.Load() {
-					r.errCh <- errors.Wrap(err, "failed to accept")
+					r.errCh <- fmt.Errorf("failed to accept: %w", err)
 				}
 
 				return
@@ -75,7 +75,7 @@ func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
 
 	stream, err := r.cl.Proxy(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to create proxy stream")
+		return fmt.Errorf("failed to create proxy stream: %w", err)
 	}
 
 	rw := registry.NewStreamRW(stream)
@@ -84,12 +84,12 @@ func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
 	eg.Go(func() error {
 		_, err = registry.CopyWithDeadline(conn, rw)
 		if err != nil {
-			return errors.Wrap(err, "failed to write to stream")
+			return fmt.Errorf("failed to write to stream: %w", err)
 		}
 
 		err = stream.CloseSend()
 		if err != nil {
-			return errors.Wrap(err, "failed to close stream")
+			return fmt.Errorf("failed to close stream: %w", err)
 		}
 
 		return nil
@@ -98,7 +98,7 @@ func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
 	eg.Go(func() error {
 		_, err = io.Copy(conn, rw)
 		if err != nil {
-			return errors.Wrap(err, "failed to read from stream")
+			return fmt.Errorf("failed to read from stream: %w", err)
 		}
 
 		return nil
@@ -106,7 +106,7 @@ func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
 
 	err = eg.Wait()
 	if err != nil {
-		return errors.Wrap(err, "failed to wait")
+		return fmt.Errorf("failed to wait: %w", err)
 	}
 
 	return nil

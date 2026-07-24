@@ -5,6 +5,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -19,8 +21,6 @@ import (
 	"github.com/EarthBuild/earthbuild/slog"
 	"github.com/creack/pty"
 	"github.com/fatih/color"
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -65,7 +65,7 @@ func getShellPath() (string, bool) {
 func handlePtyData(ptmx *os.File, data []byte) error {
 	_, err := ptmx.Write(data)
 	if err != nil {
-		return errors.Wrap(err, "failed to write to ptmx")
+		return fmt.Errorf("failed to write to ptmx: %w", err)
 	}
 
 	return nil
@@ -76,37 +76,32 @@ func handleWinChangeData(ptmx *os.File, data []byte) error {
 
 	err := json.Unmarshal(data, &size)
 	if err != nil {
-		return errors.Wrap(err, "failed unmarshal data")
+		return fmt.Errorf("failed unmarshal data: %w", err)
 	}
 
 	err = pty.Setsize(ptmx, &size)
 	if err != nil {
-		return errors.Wrap(err, "failed to set window size")
+		return fmt.Errorf("failed to set window size: %w", err)
 	}
 
 	return nil
 }
 
 func populateShellHistory(cmd string) error {
-	var result error
+	var err error
 
-	for _, f := range []string{
+	for _, path := range []string{
 		"/root/.ash_history",
 		"/root/.bash_history",
 	} {
-		f, err := os.Create(f) // #nosec G304
-		if err != nil {
-			result = multierror.Append(result, err)
-		}
-		defer f.Close()
-
-		_, err = f.WriteString(cmd + "\n")
-		if err != nil {
-			result = multierror.Append(result, err)
+		// #nosec G703 -- path is hardcoded and cmd is intentionally written to shell history inside debugger container
+		writeErr := os.WriteFile(path, []byte(cmd+"\n"), 0o600)
+		if writeErr != nil {
+			err = errors.Join(err, writeErr)
 		}
 	}
 
-	return result
+	return err
 }
 
 func sendFile(ctx context.Context, sockAddr, src, dst string) error {
@@ -116,13 +111,13 @@ func sendFile(ctx context.Context, sockAddr, src, dst string) error {
 
 	conn, err := d.DialContext(ctx, "unix", sockAddr)
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to remote debugger")
+		return fmt.Errorf("failed to connect to remote debugger: %w", err)
 	}
 
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(errors.Wrap(closeErr, "earth debugger: error closing"))
+			log.Error(fmt.Errorf("earth debugger: error closing: %w", closeErr))
 		}
 	}()
 
@@ -177,13 +172,13 @@ func interactiveMode(
 
 	conn, err := d.DialContext(ctx, "unix", remoteConsoleAddr)
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to remote debugger")
+		return fmt.Errorf("failed to connect to remote debugger: %w", err)
 	}
 
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(errors.Wrap(closeErr, "earth debugger: error closing"))
+			log.Error(fmt.Errorf("earth debugger: error closing: %w", closeErr))
 		}
 	}()
 
@@ -213,12 +208,12 @@ func interactiveMode(
 			return
 		}
 
-		conslogger.Warnf("%v\n", errors.Wrap(err, "failed to start pty"))
+		conslogger.Warnf("failed to start pty: %v\n", err)
 	}
 
 	ptmx, err := pty.Start(c)
 	if err != nil {
-		conslogger.Warnf("%v\n", errors.Wrap(err, "failed to start pty"))
+		conslogger.Warnf("failed to start pty: %v\n", err)
 		return err
 	}
 
@@ -237,7 +232,7 @@ func interactiveMode(
 
 			connDataType, data, err = common.ReadDataPacket(conn)
 			if err != nil {
-				logErrorIfNonCleanExit(errors.Wrap(err, "failed to read data from conn"))
+				logErrorIfNonCleanExit(fmt.Errorf("failed to read data from conn: %w", err))
 				return
 			}
 
@@ -245,13 +240,13 @@ func interactiveMode(
 			case common.PtyData:
 				err = handlePtyData(ptmx, data)
 				if err != nil {
-					logErrorIfNonCleanExit(errors.Wrap(err, "failed to handle pty data"))
+					logErrorIfNonCleanExit(fmt.Errorf("failed to handle pty data: %w", err))
 					return
 				}
 			case common.WinSizeData:
 				err = handleWinChangeData(ptmx, data)
 				if err != nil {
-					logErrorIfNonCleanExit(errors.Wrap(err, "failed to handle win change data"))
+					logErrorIfNonCleanExit(fmt.Errorf("failed to handle win change data: %w", err))
 					return
 				}
 			default:
@@ -272,7 +267,7 @@ func interactiveMode(
 
 			n, err = ptmx.Read(buf)
 			if err != nil {
-				logErrorIfNonCleanExit(errors.Wrap(err, "failed to read from ptmx"))
+				logErrorIfNonCleanExit(fmt.Errorf("failed to read from ptmx: %w", err))
 				return
 			}
 
@@ -284,7 +279,7 @@ func interactiveMode(
 
 			err = common.WriteDataPacket(conn, common.PtyData, buf)
 			if err != nil {
-				logErrorIfNonCleanExit(errors.Wrap(err, "failed to write data to conn"))
+				logErrorIfNonCleanExit(fmt.Errorf("failed to write data to conn: %w", err))
 				return
 			}
 		}
@@ -300,7 +295,7 @@ func interactiveMode(
 
 	err = common.WriteDataPacket(conn, common.EndShellSession, nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to send end shell session")
+		return fmt.Errorf("failed to send end shell session: %w", err)
 	}
 
 	if !waitErr.Load().set {
@@ -313,14 +308,14 @@ func interactiveMode(
 func getSettings(path string) (*common.DebuggerSettings, error) {
 	s, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read %s", path)
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
 	var data common.DebuggerSettings
 
 	err = json.Unmarshal(s, &data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal %s", path)
+		return nil, fmt.Errorf("failed to unmarshal %s: %w", path, err)
 	}
 
 	return &data, nil
@@ -340,7 +335,7 @@ func main() {
 		forceInteractive = true
 	}
 
-	conslogger := conslogging.Current(conslogging.ForceColor, conslogging.NoPadding, conslogging.Info, false).
+	conslogger := conslogging.Current(conslogging.NoPadding, conslogging.Info, false).
 		WithPrefix("earth debugger")
 
 	color.NoColor = false
@@ -385,9 +380,7 @@ func main() {
 
 			exitCode = 127
 
-			var exitErr *exec.ExitError
-
-			if errors.As(err, &exitErr) {
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 				exitCode = exitErr.ExitCode()
 			}
 		}
@@ -431,9 +424,7 @@ func handleError(
 
 	exitCode := 1
 
-	var exitErr *exec.ExitError
-
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		exitCode = exitErr.ExitCode()
 		if debuggerSettings.Enabled {
 			conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)

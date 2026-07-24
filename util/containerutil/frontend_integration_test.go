@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,9 +17,6 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
-
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 )
 
 func TestFrontendNew(t *testing.T) {
@@ -717,7 +715,7 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 
 			if createErr != nil {
 				// the frontend exists but is non-functional. This is... not likely to work at all.
-				err = multierror.Append(err, errors.Wrap(createErr, string(output)))
+				err = errors.Join(err, fmt.Errorf("%s: %w", string(output), createErr))
 			}
 		}(name)
 	}
@@ -767,7 +765,7 @@ func removeContainers(ctx context.Context, feBinary string, names ...string) err
 			defer m.Unlock()
 
 			if removeErr != nil {
-				err = multierror.Append(err, fmt.Errorf("failed to remove container %s", name))
+				err = errors.Join(err, fmt.Errorf("failed to remove container %s", name))
 			}
 		}(name)
 	}
@@ -801,7 +799,7 @@ func waitForContainers(ctx context.Context, feBinary string, names ...string) er
 				if inspectErr != nil {
 					m.Lock()
 
-					err = multierror.Append(err, inspectErr)
+					err = errors.Join(err, inspectErr)
 
 					m.Unlock()
 
@@ -818,7 +816,7 @@ func waitForContainers(ctx context.Context, feBinary string, names ...string) er
 			m.Lock()
 			defer m.Unlock()
 
-			err = multierror.Append(err, fmt.Errorf("failed to wait for container %s to start", name))
+			err = errors.Join(err, fmt.Errorf("failed to wait for container %s to start", name))
 		}(name)
 	}
 
@@ -836,7 +834,7 @@ func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func
 		output, createErr := cmd.CombinedOutput()
 		if createErr != nil {
 			// the frontend exists but is non-functional. This is... not likely to work at all.
-			err = multierror.Append(err, errors.Wrap(createErr, string(output)))
+			err = errors.Join(err, fmt.Errorf("%s: %w", string(output), createErr))
 			break
 		}
 
@@ -845,7 +843,7 @@ func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func
 		output, tagErr := cmd.CombinedOutput()
 		if tagErr != nil {
 			// the frontend exists but is non-functional. This is... not likely to work at all.
-			err = multierror.Append(err, errors.Wrap(tagErr, string(output)))
+			err = errors.Join(err, fmt.Errorf("%s: %w", string(output), tagErr))
 			break
 		}
 	}
@@ -867,7 +865,7 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 		output, createErr := cmd.CombinedOutput()
 		if createErr != nil {
 			// the frontend exists but is non-functional. This is... not likely to work at all.
-			err = multierror.Append(err, errors.Wrapf(createErr, "%s: %s", string(output), name))
+			err = errors.Join(err, fmt.Errorf("%s: %s: %w", string(output), name, createErr))
 		}
 	}
 
@@ -882,7 +880,7 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 func testLogger() conslogging.ConsoleLogger {
 	var logs strings.Builder
 
-	logger := conslogging.Current(conslogging.NoColor, conslogging.DefaultPadding, conslogging.Info, false)
+	logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 
 	return logger.WithWriter(&logs)
 }

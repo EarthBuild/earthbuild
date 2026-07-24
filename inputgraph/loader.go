@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,7 +23,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -46,6 +46,7 @@ type loader struct {
 	visited        map[string]struct{}
 	hasher         *hasher.Hasher
 	hashCache      map[string][]byte
+	resolver       *buildcontext.Resolver
 	stats          *Stats
 	globalImports  map[string]domain.ImportTrackerVal
 	varCollection  *variables.Collection
@@ -73,8 +74,13 @@ func newLoader(opt HashOpt) *loader {
 		overridingVars: opt.OverridingVars,
 		globalImports:  map[string]domain.ImportTrackerVal{},
 		hashCache:      map[string][]byte{},
-		stats:          &Stats{StartTime: time.Now()},
-		primaryTarget:  true,
+		// One resolver shared across the whole recursive walk so its
+		// gitMetaCache dedups git metadata per local path. Creating it per
+		// target re-shells to git (~195ms/target, linear in graph size);
+		// shared, it's ~one git invocation per distinct local path.
+		resolver:      buildcontext.NewResolver(nil, nil, opt.Console, "", "", "", 0, ""),
+		stats:         &Stats{StartTime: time.Now()},
+		primaryTarget: true,
 	}
 }
 
@@ -126,22 +132,22 @@ func (l *loader) handleBuild(ctx context.Context, cmd earthfile.Command) error {
 func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
 	target, err := domain.ParseTarget(targetName)
 	if err != nil {
-		return domain.Target{}, errors.Wrapf(err, "failed to parse target %s", targetName)
+		return domain.Target{}, fmt.Errorf("failed to parse target %s: %w", targetName, err)
 	}
 
 	derefed, _, _, err := l.varCollection.Imports().Deref(target)
 	if err != nil {
-		return domain.Target{}, errors.Wrapf(err, "failed to deref target %s", target)
+		return domain.Target{}, fmt.Errorf("failed to deref target %s: %w", target, err)
 	}
 
 	targetRef, err := domain.JoinReferences(l.varCollection.AbsRef(), derefed)
 	if err != nil {
-		return domain.Target{}, errors.Wrapf(err, "failed to join %s and %s", l.target, target)
+		return domain.Target{}, fmt.Errorf("failed to join %s and %s: %w", l.target, target, err)
 	}
 
 	target, ok := targetRef.(domain.Target)
 	if !ok {
-		return domain.Target{}, errors.Errorf("want domain.Target, got %T", targetRef)
+		return domain.Target{}, fmt.Errorf("want domain.Target, got %T", targetRef)
 	}
 
 	return target, nil
@@ -322,7 +328,7 @@ func (l *loader) expandCopyFiles(src string, mustExist bool) ([]string, error) {
 	if strings.Contains(src, "*") {
 		matches, err := filepath.Glob(src)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to expand glob pattern")
+			return nil, fmt.Errorf("unable to expand glob pattern: %w", err)
 		}
 
 		return l.expandDirs(matches...)
@@ -334,7 +340,7 @@ func (l *loader) expandCopyFiles(src string, mustExist bool) ([]string, error) {
 			return []string{src}, nil
 		}
 
-		return nil, errors.Wrap(err, "failed to stat file")
+		return nil, fmt.Errorf("failed to stat file: %w", err)
 	}
 
 	if stat.IsDir() {
@@ -353,13 +359,13 @@ func (l *loader) expandDirs(dirs ...string) ([]string, error) {
 	for _, dir := range dirs {
 		stat, err := os.Stat(dir)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to stat file")
+			return nil, fmt.Errorf("failed to stat file: %w", err)
 		}
 
 		if stat.IsDir() {
 			entries, err := os.ReadDir(dir)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to read dir")
+				return nil, fmt.Errorf("failed to read dir: %w", err)
 			}
 
 			children := []string{}
@@ -834,7 +840,7 @@ func (l *loader) handleFor(ctx context.Context, forStmt earthfile.ForStatement) 
 
 	args, err := flagutil.ParseArgsCleaned("FOR", opts, forStmt.Args)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse FOR args")
+		return fmt.Errorf("failed to parse FOR args: %w", err)
 	}
 
 	expandedArgs, err := l.expandArgsSlice(args)
@@ -989,6 +995,7 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 		builtinArgs:    l.builtinArgs,
 		overridingVars: overriding,
 		hashCache:      l.hashCache,
+		resolver:       l.resolver, // share so gitMetaCache dedups across the walk
 		stats:          l.stats,
 		primaryTarget:  false,
 	}
@@ -1089,9 +1096,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 		return b, nil
 	}
 
-	resolver := buildcontext.NewResolver(nil, nil, l.conslog, "", "", "", 0, "")
-
-	buildCtx, err := resolver.Resolve(ctx, nil, nil, l.target)
+	buildCtx, err := l.resolver.Resolve(ctx, nil, nil, l.target)
 	if err != nil {
 		return nil, err
 	}

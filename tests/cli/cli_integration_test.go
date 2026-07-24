@@ -70,6 +70,31 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 	}
 }
 
+func TestBuiltinArgEarthPrefix(t *testing.T) {
+	t.Parallel()
+
+	projectDir := copyFixtureDir(t, "builtin-args-earth")
+
+	out, err := runEarth(t, projectDir, "--no-output", "+builtin-args-test")
+	require.NoError(t, err, out)
+
+	// The EARTH_ prefixed built-in args are the current names and must not warn.
+	require.NotContains(t, out, "is deprecated")
+}
+
+func TestBuiltinArgEarthlyPrefixWarnsDeprecated(t *testing.T) {
+	t.Parallel()
+
+	projectDir := copyFixtureDir(t, "builtin-args")
+
+	out, err := runEarth(t, projectDir, "--no-output", "+builtin-args-test")
+	require.NoError(t, err, out)
+
+	// Referencing an EARTHLY_ built-in arg logs a deprecation warning pointing
+	// at the EARTH_ equivalent.
+	require.Contains(t, out, "the built-in ARG EARTHLY_TARGET is deprecated. Use EARTH_TARGET.")
+}
+
 func TestBuildArgRepeatArtifacts(t *testing.T) {
 	t.Parallel()
 
@@ -451,7 +476,7 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 	out, err = runEarthWithEnv(
 		t,
 		projectDir,
-		[]string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig},
+		[]string{"HOME=" + home, "EARTH_CONFIG=" + otherConfig},
 		"config",
 		"global.cache_size_mb",
 		"10",
@@ -463,7 +488,7 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 	out, err = runEarthWithEnv(
 		t,
 		projectDir,
-		[]string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"},
+		[]string{"HOME=" + home, "EARTH_INSTALLATION_NAME=earthly-test2"},
 		"config",
 		"global.cache_size_mb",
 		"10",
@@ -543,8 +568,8 @@ func runEarthWithEnv(t *testing.T, dir string, env []string, args ...string) (st
 	cmd.Dir = dir
 
 	cmd.Env = envWithOverrides(os.Environ(), append([]string{
-		"EARTHLY_DISABLE_AUTO_UPDATE=true",
-		"EARTHLY_DISABLE_FRONTEND_DETECTION=true",
+		"EARTH_DISABLE_AUTO_UPDATE=true",
+		"EARTH_DISABLE_FRONTEND_DETECTION=true",
 		"OTEL_SDK_DISABLED=true",
 	}, env...)...)
 

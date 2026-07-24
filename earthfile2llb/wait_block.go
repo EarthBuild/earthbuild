@@ -9,6 +9,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
@@ -16,9 +18,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
 	"github.com/EarthBuild/earthbuild/util/waitutil"
-
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 type waitBlock struct {
@@ -178,9 +178,10 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 		ref, err := llbutil.StateToRef(
 			ctx, item.c.opt.GwClient, item.si.State, item.c.opt.NoCache,
-			item.c.platr, item.c.opt.CacheImports.AsSlice())
+			item.c.platr, item.c.opt.CacheImports.AsSlice(),
+		)
 		if err != nil {
-			return errors.Wrapf(err, "failed to solve image required for %s", item.si.DockerTag)
+			return fmt.Errorf("failed to solve image required for %s: %w", item.si.DockerTag, err)
 		}
 
 		var (
@@ -199,25 +200,28 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 			if item.si.CheckDuplicate && item.si.DockerTag != "" {
 				if _, found := platformImgNames[platformImgName]; found {
-					return errors.Errorf(
+					return fmt.Errorf(
 						"image %s is defined multiple times for the same platform (%s)",
-						item.si.DockerTag, item.si.Platform.String())
+						item.si.DockerTag, item.si.Platform.String(),
+					)
 				}
 
 				platformImgNames[platformImgName] = true
 			}
 		} else if item.si.CheckDuplicate && item.si.DockerTag != "" {
 			if _, found := singPlatImgNames[item.si.DockerTag]; found {
-				return errors.Errorf(
+				return fmt.Errorf(
 					"image %s is defined multiple times for the same default platform",
-					item.si.DockerTag)
+					item.si.DockerTag,
+				)
 			}
 
 			singPlatImgNames[item.si.DockerTag] = true
 		}
 
 		refPrefix, err := gwCrafter.AddPushImageEntry(
-			ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes)
+			ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes,
+		)
 		if err != nil {
 			return err
 		}
@@ -282,7 +286,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		Metadata: metadata,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to SAVE IMAGE")
+		return fmt.Errorf("failed to SAVE IMAGE: %w", err)
 	}
 
 	return nil
@@ -316,7 +320,7 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)
 			if err != nil {
-				return errors.Wrapf(err, "acquiring parallelism semaphore during waitStates for %s", item.c.target.String())
+				return fmt.Errorf("acquiring parallelism semaphore during waitStates for %s: %w", item.c.target.String(), err)
 			}
 			defer rel()
 
@@ -336,15 +340,18 @@ type saveArtifactLocalEntry struct {
 }
 
 func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
+	ctx, span := telemetry.Tracer().Start(ctx, "SAVE ARTIFACT AS LOCAL")
+	defer span.End()
+
 	gwCrafter := gatewaycrafter.NewGatewayCrafter()
 
 	var (
 		gatewayClient     gwclient.Client
 		console           conslogging.ConsoleLogger
 		exportCoordinator *gatewaycrafter.ExportCoordinator
+		artifacts         []saveArtifactLocalEntry
+		localDestinations []string
 	)
-
-	artifacts := []saveArtifactLocalEntry{}
 
 	for refID, item := range wb.items {
 		saveLocalItem, ok := item.(*saveArtifactLocalWaitItem)
@@ -371,7 +378,8 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		}
 
 		dirID, err := gwCrafter.AddSaveArtifactLocal(
-			ref, refID, artifact.String(), saveLocalItem.saveLocal.ArtifactPath, saveLocalItem.saveLocal.DestPath)
+			ref, refID, artifact.String(), saveLocalItem.saveLocal.ArtifactPath, saveLocalItem.saveLocal.DestPath,
+		)
 		if err != nil {
 			return err
 		}
@@ -390,7 +398,11 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			ifExists:    saveLocalItem.saveLocal.IfExists,
 			salt:        c.mts.Final.ID,
 		})
+
+		localDestinations = append(localDestinations, saveLocalItem.saveLocal.DestPath)
 	}
+
+	span.SetAttributes(semconv.ArtifactLocalDestinations.StringSlice(localDestinations))
 
 	refs, metadata := gwCrafter.GetRefsAndMetadata()
 	if len(refs) == 0 {
@@ -411,7 +423,8 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 	for _, entry := range artifacts {
 		err = saveartifactlocally.SaveArtifactLocally(
-			exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists)
+			ctx, exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists,
+		)
 		if err != nil {
 			return err
 		}

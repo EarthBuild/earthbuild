@@ -38,3 +38,19 @@ func TestParseEscapedKeyValue(t *testing.T) {
 		require.Equal(t, tt.ok, ok)
 	}
 }
+
+func BenchmarkParseKeyValue(b *testing.B) {
+	inputs := []string{
+		"key",
+		"key=",
+		"key=val",
+		"key=val=value=VALUE",
+		`color\=red=yes!`,
+	}
+
+	for b.Loop() {
+		for _, in := range inputs {
+			_, _, _ = variables.ParseKeyValue(in)
+		}
+	}
+}

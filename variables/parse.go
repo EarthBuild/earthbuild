@@ -1,12 +1,11 @@
 package variables
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/variables/reserved"
-
-	"github.com/pkg/errors"
 )
 
 // ProcessNonConstantVariableFunc is a function which takes in an expression and
@@ -21,7 +20,7 @@ func ParseCommandLineArgs(args []string) (*Scope, error) {
 	for _, arg := range args {
 		splitArg := strings.SplitN(arg, "=", 2)
 		if len(splitArg) < 1 {
-			return nil, errors.Errorf("invalid build arg %s", splitArg)
+			return nil, fmt.Errorf("invalid build arg %s", splitArg)
 		}
 
 		key := splitArg[0]
@@ -34,7 +33,7 @@ func ParseCommandLineArgs(args []string) (*Scope, error) {
 		}
 
 		if reserved.IsBuiltIn(key) {
-			return nil, errors.Errorf("built-in arg %s cannot be passed on the command line", key)
+			return nil, fmt.Errorf("built-in arg %s cannot be passed on the command line", key)
 		}
 
 		if !hasValue {
@@ -42,7 +41,7 @@ func ParseCommandLineArgs(args []string) (*Scope, error) {
 
 			value, found = os.LookupEnv(key)
 			if !found {
-				return nil, errors.Errorf("env var %s not set", key)
+				return nil, fmt.Errorf("env var %s not set", key)
 			}
 		}
 
@@ -59,7 +58,7 @@ func ParseArgs(args []string, pncvf ProcessNonConstantVariableFunc, current *Col
 	for _, arg := range args {
 		name, variable, err := parseArg(arg, pncvf, current)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse build arg %s", arg)
+			return nil, fmt.Errorf("parse build arg %s: %w", arg, err)
 		}
 
 		ret.Add(name, variable)
@@ -73,7 +72,7 @@ func parseArg(arg string, pncvf ProcessNonConstantVariableFunc, current *Collect
 
 	splitArg := strings.SplitN(arg, "=", 2)
 	if len(splitArg) < 1 {
-		return "", "", errors.Errorf("invalid build arg %s", splitArg)
+		return "", "", fmt.Errorf("invalid build arg %s", splitArg)
 	}
 
 	name = splitArg[0]
@@ -87,7 +86,7 @@ func parseArg(arg string, pncvf ProcessNonConstantVariableFunc, current *Collect
 
 	if hasValue {
 		if reserved.IsBuiltIn(name) {
-			return "", "", errors.Errorf("value cannot be specified for built-in build arg %s", name)
+			return "", "", fmt.Errorf("value cannot be specified for built-in build arg %s", name)
 		}
 
 		v, err := parseArgValue(name, value, pncvf)
@@ -100,7 +99,7 @@ func parseArg(arg string, pncvf ProcessNonConstantVariableFunc, current *Collect
 
 	v, ok := current.Get(name, WithActive())
 	if !ok {
-		return "", "", errors.Errorf("value not specified for build arg %s and no value can be inferred", name)
+		return "", "", fmt.Errorf("value not specified for build arg %s and no value can be inferred", name)
 	}
 
 	return name, v, nil

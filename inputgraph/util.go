@@ -2,13 +2,13 @@ package inputgraph
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/pkg/errors"
 )
 
 // ParseProjectCommand parses a project command from arguments.

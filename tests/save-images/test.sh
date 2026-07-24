@@ -13,7 +13,7 @@ earthly=${earthly-"../../build/linux/amd64/earthly"}
 frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 
-# NOTE: the "old behaviour" tests were removed when earthly v0.8 was released
+# NOTE: the "old behaviour" tests were removed when earthbuild v0.8 was released
 # which obsoleted VERSION 0.5 functionality. TODO: rename "new behaviour to current behaviour"
 
 echo "=== ($LINENO): Test New Behaviour ==="

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,14 +13,13 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/envutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -63,8 +63,6 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		flags.Debug,
 		flags.Verbose,
 		flags.DisplayExecStats,
-		envutil.IsTrue("FORCE_COLOR"),
-		envutil.IsTrue("NO_COLOR"),
 		app.BaseCLI.Flags().InteractiveDebugging,
 		flags.LogstreamDebugFile,
 		uuid.NewString(),
@@ -72,7 +70,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		flags.GithubAnnotations,
 	)
 	if err != nil {
-		return ctx, errors.Wrap(err, "logbus setup")
+		return ctx, fmt.Errorf("logbus setup: %w", err)
 	}
 
 	app.BaseCLI.SetLogbusSetup(busSetup)
@@ -87,14 +85,14 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		yamlData, err = config.ReadConfigFile(flags.ConfigPath)
 		if err != nil {
 			if cmd.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
-				return ctx, errors.Wrapf(err, "read config")
+				return ctx, fmt.Errorf("read config: %w", err)
 			}
 		}
 	}
 
 	cfg, err := config.ParseYAML(yamlData, flags.InstallationName)
 	if err != nil {
-		return ctx, errors.Wrapf(err, "failed to parse %s", flags.ConfigPath)
+		return ctx, fmt.Errorf("failed to parse %s: %w", flags.ConfigPath, err)
 	}
 
 	app.BaseCLI.SetCfg(&cfg)
@@ -122,7 +120,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 
 		err = newBootstrap.Action(ctx, cmd)
 		if err != nil {
-			return ctx, errors.Wrap(err, "bootstrap unbootstrclied installation")
+			return ctx, fmt.Errorf("bootstrap unbootstrclied installation: %w", err)
 		}
 	}
 
@@ -146,7 +144,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 
 		stub, err := containerutil.NewStubFrontend(feCfg)
 		if err != nil {
-			return errors.Wrap(err, "failed stub frontend initialization")
+			return fmt.Errorf("failed stub frontend initialization: %w", err)
 		}
 
 		app.BaseCLI.Flags().ContainerFrontend = stub
@@ -176,6 +174,8 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	app.warnIfEarth()
+	app.warnDeprecatedEarthlyEnvVars()
+	app.warnDeprecatedAutoSkip()
 
 	if cfg.Global.CachePath != "" {
 		app.BaseCLI.Console().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
@@ -216,6 +216,44 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 }
 
 const cmdName = "earthly"
+
+// warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
+// variables, which have been replaced by the EARTH_ prefix.
+//
+// NOTE: this is a temporary shim for the EARTHLY_ -> EARTH_ migration and should
+// be removed once EARTHLY_ support is officially dropped.
+func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
+	for _, warning := range env.DeprecatedWarnings() {
+		app.BaseCLI.Console().Warn(warning)
+	}
+}
+
+// warnDeprecatedAutoSkip warns when any of the auto-skip flags or env vars are
+// used. The cloud backend that once powered auto-skip has been removed; only
+// the local database (--auto-skip-db-path) still functions. The flags and env
+// vars are deprecated, and we are collecting feedback to decide whether to
+// remove them in the future.
+func (app *EarthApp) warnDeprecatedAutoSkip() {
+	flags := app.BaseCLI.Flags()
+	if warning := autoSkipDeprecationWarning(flags.SkipBuildkit, flags.NoAutoSkip, flags.LocalSkipDB); warning != "" {
+		app.BaseCLI.Console().Warnf("%s", warning)
+	}
+}
+
+// autoSkipDeprecationWarning returns the auto-skip deprecation warning when any
+// auto-skip flag (or its env var) is set, or an empty string otherwise. It is
+// the testable core of warnDeprecatedAutoSkip.
+func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB string) string {
+	if !skipBuildkit && !noAutoSkip && localSkipDB == "" {
+		return ""
+	}
+
+	return "Deprecation: --auto-skip, --no-auto-skip and --auto-skip-db-path (and their " +
+		"EARTH_AUTO_SKIP* / EARTHLY_AUTO_SKIP* env vars) are deprecated. " +
+		"The cloud auto-skip backend has been removed; only the local database (--auto-skip-db-path) still functions. " +
+		"We may remove these in a future release and are collecting feedback to help decide. " +
+		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
+}
 
 func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {

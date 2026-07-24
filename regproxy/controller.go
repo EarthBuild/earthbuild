@@ -2,6 +2,7 @@ package regproxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	registry "github.com/moby/buildkit/api/services/registry"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -56,7 +56,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to create proxy listener")
+		return "", nil, fmt.Errorf("failed to create proxy listener: %w", err)
 	}
 
 	p := newRegistryProxy(ln, c.registryClient)
@@ -107,7 +107,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 		port, err := c.startDarwinProxy(ctx, containerName, registry.Port)
 		if err != nil {
 			stopFn(ctx)
-			return "", nil, errors.Wrap(err, "failed to start Darwin support container")
+			return "", nil, fmt.Errorf("failed to start Darwin support container: %w", err)
 		}
 
 		addr = fmt.Sprintf("127.0.0.1:%d", port)
@@ -138,7 +138,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 
 	containerPort, err := acquireFreePort(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to acquire free port")
+		return 0, fmt.Errorf("failed to acquire free port: %w", err)
 	}
 
 	runCfg := containerutil.ContainerRun{
@@ -160,7 +160,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 
 	err = c.containerFrontend.ContainerRun(ctx, runCfg)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to start support container")
+		return 0, fmt.Errorf("failed to start support container: %w", err)
 	}
 
 	childCtx, cancel := context.WithTimeout(ctx, c.darwinProxyWait)
@@ -233,7 +233,7 @@ func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) err
 
 	err := c.containerFrontend.ContainerRemove(detachedCtx, true, containerName)
 	if err != nil {
-		return errors.Wrap(err, "failed to stop support container")
+		return fmt.Errorf("failed to stop support container: %w", err)
 	}
 
 	return nil
@@ -244,7 +244,7 @@ func acquireFreePort(ctx context.Context) (int, error) {
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
-		return 0, errors.Wrap(err, "listen on open port")
+		return 0, fmt.Errorf("listen on open port: %w", err)
 	}
 	defer ln.Close() // Immediately close the listener
 

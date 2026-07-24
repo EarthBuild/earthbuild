@@ -3,13 +3,12 @@
 package fileutil
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
-
-	"github.com/pkg/errors"
 )
 
 // FileExists returns true if the file exists.
@@ -20,7 +19,7 @@ func FileExists(filename string) (bool, error) {
 			return false, nil
 		}
 
-		return false, errors.Wrapf(err, "unable to stat %s", filename)
+		return false, fmt.Errorf("unable to stat %s: %w", filename, err)
 	}
 
 	return !info.IsDir(), nil
@@ -40,7 +39,7 @@ func DirExists(filename string) (bool, error) {
 			return false, nil
 		}
 
-		return false, errors.Wrapf(err, "unable to stat %s", filename)
+		return false, fmt.Errorf("unable to stat %s: %w", filename, err)
 	}
 
 	return info.IsDir(), nil
@@ -57,7 +56,7 @@ func DirExistsBestEffort(filename string) bool {
 func EnsureUserOwned(dir string, owner *user.User) error {
 	uid, err := strconv.Atoi(owner.Uid)
 	if err != nil {
-		return errors.Wrapf(err, "convert uid %s to int", owner.Uid)
+		return fmt.Errorf("convert uid %s to int: %w", owner.Uid, err)
 	}
 
 	gid := 0
@@ -68,7 +67,7 @@ func EnsureUserOwned(dir string, owner *user.User) error {
 
 	root, err := os.OpenRoot(dir)
 	if err != nil {
-		return errors.Wrapf(err, "open root %s", dir)
+		return fmt.Errorf("open root %s: %w", dir, err)
 	}
 	defer root.Close()
 
@@ -79,7 +78,7 @@ func EnsureUserOwned(dir string, owner *user.User) error {
 
 		rel, err := filepath.Rel(dir, path)
 		if err != nil {
-			return errors.Wrapf(err, "get relative path for %s to %s", path, dir)
+			return fmt.Errorf("get relative path for %s to %s: %w", path, dir, err)
 		}
 
 		return root.Chown(rel, uid, gid)
@@ -91,14 +90,14 @@ func EnsureUserOwned(dir string, owner *user.User) error {
 func GlobDirs(pattern string) ([]string, error) {
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to expand glob path %q", pattern)
+		return nil, fmt.Errorf("failed to expand glob path %q: %w", pattern, err)
 	}
 
 	ret := make([]string, 0, len(matches))
 	for _, match := range matches {
 		st, err := os.Stat(match)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to stat expanded path %q", match)
+			return nil, fmt.Errorf("failed to stat expanded path %q: %w", match, err)
 		}
 
 		if !st.IsDir() {

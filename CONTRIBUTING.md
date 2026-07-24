@@ -207,6 +207,18 @@ If on the otherhand, you are pulling in upstream changes from moby, they should 
 
 To update earthly's reference to buildkit, you may run `earthly +update-buildkit --BUILDKIT_GIT_ORG=<git-user-or-org> --BUILDKIT_GIT_SHA=<40-char-git-reference-here>`.
 
+### Testing Next BuildKit Builds (`earth-next`)
+
+The `earth-next` file in the root of the repository contains a 40-character Git commit SHA pointing to an experimental or upcoming commit in the [`github.com/earthbuild/buildkit`](https://github.com/earthbuild/buildkit) fork (often referred to as the `ticktock` build).
+
+* **Purpose**: CI uses `earth-next` in the `next` job to build and run test matrices against the specified BuildKit commit.
+* **CI Skip Optimization**: If the SHA in `earth-next` matches the standard BuildKit commit pinned in `go.mod`, CI automatically skips the duplicate Next build and test matrix.
+* **Updating `earth-next`**: To test a new BuildKit commit in CI before updating standard EarthBuild, update the commit SHA in `earth-next`.
+* **Testing Locally**: You can test locally against the `earth-next` BuildKit build using the `--ticktock` flag:
+  ```bash
+  earth --ticktock +target
+  ```
+
 Updates to fsutil must first be vendored into buildkit, then updated under `go.mod`; additional docs and scripts exist in the buildkit repo.
 
 ## Running buildkit under debug mode

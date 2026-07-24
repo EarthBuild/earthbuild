@@ -33,6 +33,8 @@ jobs:
   fast-check-and-build:
     name: Fast Check & Build
     runs-on: ubuntu-24.04
+    outputs:
+      is_next_same: ${{ steps.check-next.outputs.is_same }}
     permissions:
       contents: read
       packages: write
@@ -47,6 +49,22 @@ jobs:
           # shared runner IPs (unauthenticated is 60 req/hr/IP).
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Check if earth-next matches standard BuildKit
+        id: check-next
+        shell: bash
+        run: |-
+          NEXT_SHA="$(tr -d ' \n\r' < earth-next)"
+          STD_SHA="$(grep 'github.com/earthbuild/buildkit' go.mod | awk '{print $NF}' | cut -d'-' -f3)"
+          NEXT_SHORT="${NEXT_SHA:0:12}"
+          echo "earth-next SHA: $NEXT_SHA ($NEXT_SHORT)"
+          echo "go.mod BuildKit SHA: $STD_SHA"
+          if [ -n "$NEXT_SHORT" ] && [ "$NEXT_SHORT" = "$STD_SHA" ]; then
+            echo "is_same=true" >> "$GITHUB_OUTPUT"
+            echo "earth-next is identical to standard BuildKit"
+          else
+            echo "is_same=false" >> "$GITHUB_OUTPUT"
+            echo "earth-next differs from standard BuildKit"
+          fi
       - name: Lint
         run: earth --ci +lint-all
       - name: Unit tests
@@ -124,17 +142,19 @@ jobs:
           retention-days: 1
 
       # --- Build Next EarthBuild ---
-      - name: Update Buildkit to earthly-next
-        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+      - name: Update Buildkit to earth-next
+        if: steps.check-next.outputs.is_same != 'true'
+        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earth-next)"
       - name: Build latest earthly (next) using released earthly
+        if: steps.check-next.outputs.is_same != 'true'
         run: earth --use-inline-cache +for-linux
       - name: Build and push +ci-release (next) using latest earth build
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: steps.check-next.outputs.is_same != 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         run: |-
           export TAG_SUFFIX="ubuntu-latest-ticktock"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release (next) using latest earth build (fork - no push)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: steps.check-next.outputs.is_same != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest-ticktock"
           # Build ci-release (builds binary and buildkitd but doesn't push)
@@ -142,7 +162,7 @@ jobs:
           # Explicitly output the buildkitd image to local docker daemon
           ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
       - name: Save artifacts (next) for fork CI
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: steps.check-next.outputs.is_same != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
           export TAG_SUFFIX="ubuntu-latest-ticktock"
@@ -166,7 +186,7 @@ jobs:
           # Save the tag suffix for downstream jobs
           echo "${TAG_SUFFIX}" > ./artifacts-next/tag-suffix.txt
       - name: Upload artifacts (next) for fork CI
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: steps.check-next.outputs.is_same != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: earthly-build-ubuntu-latest-ticktock
@@ -188,5 +208,6 @@ jobs:
   next:
     name: Next
     needs: fast-check-and-build
+    if: needs.fast-check-and-build.outputs.is_next_same != 'true'
     uses: ./.github/workflows/ci-earthly-next-docker-ubuntu.yml
     secrets: inherit

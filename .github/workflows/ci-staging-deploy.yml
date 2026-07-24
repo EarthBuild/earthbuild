@@ -101,11 +101,11 @@ jobs:
 
           echo "Computed version: $VERSION (highest base: ${highest_base_version:-none})"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      - name: Read earthly-next sha
+      - name: Read earth-next sha
         id: read-next
         run: |-
           set -euo pipefail
-          echo "earthly_next=$(cat earthly-next)" >> "$GITHUB_OUTPUT"
+          echo "earthly_next=$(cat earth-next)" >> "$GITHUB_OUTPUT"
 
   release-image:
     name: release dockerhub (main)

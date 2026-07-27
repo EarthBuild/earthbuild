@@ -113,24 +113,9 @@ func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V,
 		if !found {
 			// We need to load this.
 			go c.load(e, key, callOpts.loader)
-
-			<-e.loaded
-
+		} else if e.done.Load() {
 			return e.value, e.err
-		}
-
-		if e.done.Load() {
-			return e.value, e.err
-		}
-
-		select {
-		case <-e.loaded:
-			// Already loaded — fast path!
-			return e.value, e.err
-		default:
-		}
-
-		if mc := e.metaCtx.Load(); mc != nil && mc.Add(ctx) != nil {
+		} else if mc := e.metaCtx.Load(); mc != nil && mc.Add(ctx) != nil {
 			// The in-flight load is already doomed — every context sharing it
 			// has been canceled, so it will fail with context.Canceled and evict itself.
 			// Attaching would hand our still-live caller someone else's cancellation.

@@ -24,7 +24,6 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -72,13 +71,13 @@ func (gr *gitResolver) expandWildcard(
 	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target domain.Target, pattern string,
 ) ([]string, error) {
 	if !target.IsRemote() {
-		return nil, errors.Errorf("unexpected local reference %s", target.String())
+		return nil, fmt.Errorf("unexpected local reference %s", target.String())
 	}
 
 	rgp, _, subDir, err := gr.resolveGitProject(ctx, gwClient, platr, target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed resolving git project [platform: %s/%s]",
-			platr.LLBNative().OS, platr.LLBNative().Architecture)
+		return nil, fmt.Errorf("failed resolving git project [platform: %s/%s]: %w",
+			platr.LLBNative().OS, platr.LLBNative().Architecture, err)
 	}
 
 	fullPattern := filepath.Join(subDir, pattern)
@@ -114,13 +113,13 @@ func (gr *gitResolver) resolveEarthProject(
 	featureFlagOverrides string,
 ) (*Data, error) {
 	if !ref.IsRemote() {
-		return nil, errors.Errorf("unexpected local reference %s", ref.String())
+		return nil, fmt.Errorf("unexpected local reference %s", ref.String())
 	}
 
 	rgp, gitURL, subDir, err := gr.resolveGitProject(ctx, gwClient, platr, ref)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed resolving git project [platform: %s/%s]",
-			platr.LLBNative().OS, platr.LLBNative().Architecture)
+		return nil, fmt.Errorf("failed resolving git project [platform: %s/%s]: %w",
+			platr.LLBNative().OS, platr.LLBNative().Architecture, err)
 	}
 
 	var buildContextFactory llbfactory.Factory
@@ -143,7 +142,7 @@ func (gr *gitResolver) resolveEarthProject(
 				rgp.state, []string{subDir}, platr.Scratch(), "./", false, false, false, "root:root", nil, false, false, false,
 				llb.WithCustomNamef("%sCOPY git context %s", vm.ToVertexPrefix(), ref.String()))
 			if err != nil {
-				return nil, errors.Wrap(err, "copyOp failed in resolveEarthProject")
+				return nil, fmt.Errorf("copyOp failed in resolveEarthProject: %w", err)
 			}
 
 			buildContextFactory = llbfactory.PreconstructedState(copyState)
@@ -162,7 +161,7 @@ func (gr *gitResolver) resolveEarthProject(
 	localBuildFile, err := gr.buildFileCache.Do(ctx, key, func(ctx context.Context, _ string) (*buildFile, error) {
 		earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
 		if inErr != nil {
-			return nil, errors.Wrap(inErr, "create temp dir for Earthfile")
+			return nil, fmt.Errorf("create temp dir for Earthfile: %w", inErr)
 		}
 
 		gr.cleanCollection.Add(func() error {
@@ -174,7 +173,7 @@ func (gr *gitResolver) resolveEarthProject(
 			platr.SubResolver(platutil.NativePlatform), nil,
 		)
 		if inErr != nil {
-			return nil, errors.Wrap(inErr, "state to ref git meta")
+			return nil, fmt.Errorf("state to ref git meta: %w", inErr)
 		}
 
 		bf, inErr := detectBuildFileInRef(ctx, ref, gitState, subDir)
@@ -186,14 +185,14 @@ func (gr *gitResolver) resolveEarthProject(
 			Filename: bf,
 		})
 		if inErr != nil {
-			return nil, errors.Wrap(inErr, "read build file")
+			return nil, fmt.Errorf("read build file: %w", inErr)
 		}
 
 		localBuildFilePath := filepath.Join(earthfileTmpDir, path.Base(bf))
 
 		inErr = os.WriteFile(localBuildFilePath, bfBytes, 0o700) // #nosec G306
 		if inErr != nil {
-			return nil, errors.Wrapf(inErr, "write build file to tmp dir at %s", localBuildFilePath)
+			return nil, fmt.Errorf("write build file to tmp dir at %s: %w", localBuildFilePath, inErr)
 		}
 
 		var ftrs *features.Features
@@ -253,7 +252,7 @@ func (gr *gitResolver) resolveGitProject(
 
 	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ctx, ref.GetGitURL())
 	if err != nil {
-		return nil, "", "", errors.Wrap(err, "failed to get url for cloning")
+		return nil, "", "", fmt.Errorf("failed to get url for cloning: %w", err)
 	}
 
 	// Check the cache first.
@@ -338,7 +337,7 @@ func (gr *gitResolver) resolveGitProject(
 			platr.SubResolver(platutil.NativePlatform), nil,
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "state to ref git meta")
+			return nil, fmt.Errorf("state to ref git meta: %w", err)
 		}
 
 		var unameM []byte
@@ -347,7 +346,7 @@ func (gr *gitResolver) resolveGitProject(
 			Filename: "uname-m",
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "read uname-m")
+			return nil, fmt.Errorf("read uname-m: %w", err)
 		}
 
 		var imgArch string
@@ -379,7 +378,7 @@ func (gr *gitResolver) resolveGitProject(
 				Filename: name,
 			})
 			if err != nil {
-				return nil, errors.Wrap(err, "read "+name)
+				return nil, fmt.Errorf("%s: %w", "read "+name, err)
 			}
 		}
 
@@ -387,7 +386,7 @@ func (gr *gitResolver) resolveGitProject(
 
 		gitBranch, err = gr.readGitBranch(ctx, gitMetaRef)
 		if err != nil {
-			return nil, errors.Wrap(err, "read git-branch")
+			return nil, fmt.Errorf("read git-branch: %w", err)
 		}
 
 		isNotHead := func(s string) bool {

@@ -4,11 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
-
-	"github.com/pkg/errors"
 )
 
 // TargetInput represents the conditions in which a target is invoked.
@@ -99,7 +98,7 @@ func (ti TargetInput) cloneNoTag() (TargetInput, error) {
 func (ti TargetInput) Hash() (string, error) {
 	tiBytes, err := json.Marshal(&ti)
 	if err != nil {
-		return "", errors.Wrap(err, "serialize TargetInput when creating hash")
+		return "", fmt.Errorf("serialize TargetInput when creating hash: %w", err)
 	}
 
 	digest := sha256.Sum256(tiBytes)
@@ -116,7 +115,7 @@ func (ti TargetInput) HashNoTag() (string, error) {
 
 	tiBytes, err := json.Marshal(&tiNoTag)
 	if err != nil {
-		return "", errors.Wrap(err, "serialize TargetInput when creating hash no tag")
+		return "", fmt.Errorf("serialize TargetInput when creating hash no tag: %w", err)
 	}
 
 	digest := sha256.Sum256(tiBytes)

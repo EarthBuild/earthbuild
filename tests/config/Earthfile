@@ -43,23 +43,23 @@ test:
 
     # test earthbuild runs when no default config is present
     RUN ! test -f /root/.earthly/config.yml
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     # test earthbuild can write to default config location
     RUN earthly config global.cache_size_mb 10
     RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-1.yml)"
 
     # test earthbuild fails when explicitly set to use a different config that doesn't exist
-    DO --pass-args +RUN_EARTHLY_ARGS --extra_args="--config=this-does-not-exist.yml" --earthfile="hello.earth" --target="+hello" --should_fail="true" --output_contains="failed to read from this-does-not-exist.yml"
+    DO --pass-args +RUN_EARTH_ARGS --extra_args="--config=this-does-not-exist.yml" --earthfile="hello.earth" --target="+hello" --should_fail="true" --output_contains="failed to read from this-does-not-exist.yml"
 
     # test earthbuild runs with new cache percentage setting
     RUN earthly config global.cache_size_pct 50
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     # test that it still runs alongside a size settings
     RUN earthly config global.cache_size_mb 100
     RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-6.yml)"
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     RUN touch /tmp/config.yml
     RUN chmod 400 /tmp/config.yml
@@ -68,10 +68,10 @@ test:
     RUN addgroup -S testgroup
     RUN adduser -S -G testgroup testuser
 
-    # required to allow testuser to call +RUN_EARTHLY_ARGS
+    # required to allow testuser to call +RUN_EARTH_ARGS
     RUN chmod 0777 /tmp/earthbuild-script
 
-    # required to allow testuser to call +RUN_EARTHLY_ARGS
+    # required to allow testuser to call +RUN_EARTH_ARGS
 
     USER testuser
     WORKDIR /home/testuser
@@ -111,7 +111,7 @@ test:
     RUN echo "config test passed"
 
 
-RUN_EARTHLY_ARGS:
+RUN_EARTH_ARGS:
     FUNCTION
     ARG earthfile
     ARG target="+all"
@@ -119,7 +119,7 @@ RUN_EARTHLY_ARGS:
     ARG exec_cmd
     ARG should_fail=false
     ARG output_contains
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_EARTH \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail \

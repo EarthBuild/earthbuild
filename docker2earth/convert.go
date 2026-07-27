@@ -3,6 +3,7 @@ package docker2earth
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
-	"github.com/pkg/errors"
 )
 
 // Ideally this would point to "the current version" rather than being hard-coded, but the single
@@ -33,7 +33,7 @@ func getArtifactName(s string) string {
 // an Earthfile in the current directory and error is returned if an Earthfile already exists.
 func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 	if exists, _ := fileutil.FileExists(earthfilePath); exists {
-		return errors.Errorf("earthfile already exists; please delete it if you wish to continue")
+		return errors.New("earthfile already exists; please delete it if you wish to continue")
 	}
 
 	var in io.Reader
@@ -42,7 +42,7 @@ func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 	} else {
 		in2, err := os.Open(dockerfilePath) // #nosec G304
 		if err != nil {
-			return errors.Wrapf(err, "failed to open %q", dockerfilePath)
+			return fmt.Errorf("failed to open %q: %w", dockerfilePath, err)
 		}
 		defer in2.Close()
 
@@ -61,12 +61,12 @@ func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 
 	dockerfile, err := parser.Parse(in)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse Dockerfile located at %q", dockerfilePath)
+		return fmt.Errorf("failed to parse Dockerfile located at %q: %w", dockerfilePath, err)
 	}
 
 	stages, initialArgs, err := instructions.Parse(dockerfile.AST)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse Dockerfile located at %q", dockerfilePath)
+		return fmt.Errorf("failed to parse Dockerfile located at %q: %w", dockerfilePath, err)
 	}
 
 	names := map[string]int{}
@@ -96,12 +96,12 @@ func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 			if strings.HasPrefix(l, "COPY ") && strings.Contains(l, "--from") {
 				parts := strings.Split(l, " ")
 				if len(parts) != 4 {
-					return errors.Errorf("failed to parse %q", l)
+					return fmt.Errorf("failed to parse %q", l)
 				}
 
 				kv := strings.Split(parts[1], "=")
 				if len(kv) != 2 {
-					return errors.Errorf("failed to parse %q", l)
+					return fmt.Errorf("failed to parse %q", l)
 				}
 
 				fromStageName := kv[1]
@@ -112,7 +112,7 @@ func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 			}
 
 			if strings.HasPrefix(l, "ADD ") {
-				return errors.Errorf("earth does not support ADD, please convert to COPY instead")
+				return errors.New("earth does not support ADD, please convert to COPY instead")
 			}
 
 			targets[i+1] = append(targets[i+1], l)
@@ -132,7 +132,7 @@ func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 	} else {
 		out2, err := os.Create(earthfilePath) // #nosec G304
 		if err != nil {
-			return errors.Wrapf(err, "failed to create Earthfile under %q", earthfilePath)
+			return fmt.Errorf("failed to create Earthfile under %q: %w", earthfilePath, err)
 		}
 		defer out2.Close()
 
@@ -203,7 +203,7 @@ func GenerateEarthfile(
 ) (string, error) {
 	t, err := template.New("earthfile").Parse(earthfileTemplate)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to parse Earthfile template")
+		return "", fmt.Errorf("failed to parse Earthfile template: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
@@ -211,7 +211,7 @@ func GenerateEarthfile(
 	if !filepath.IsAbs(dockerfilePath) {
 		dockerfilePath, err = filepath.Abs(filepath.Join(buildContextPath, dockerfilePath))
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to get get absolute path for dockerfile")
+			return "", fmt.Errorf("failed to get get absolute path for dockerfile: %w", err)
 		}
 	}
 
@@ -226,7 +226,7 @@ func GenerateEarthfile(
 		Platforms:    platforms,
 	})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to create Earthfile content from template")
+		return "", fmt.Errorf("failed to create Earthfile content from template: %w", err)
 	}
 
 	return buf.String(), nil

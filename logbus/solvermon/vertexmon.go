@@ -2,6 +2,7 @@ package solvermon
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -16,7 +17,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/moby/buildkit/client"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -221,18 +221,18 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 	if stream == BuildkitStatsStream {
 		stats, err := vm.ssp.Parse(dt)
 		if err != nil {
-			return 0, errors.Wrap(err, "failed decoding stats stream")
+			return 0, fmt.Errorf("failed decoding stats stream: %w", err)
 		}
 
 		for _, statsSample := range stats {
 			statsJSON, err := json.Marshal(statsSample)
 			if err != nil {
-				return 0, errors.Wrap(err, "stats json encode failed")
+				return 0, fmt.Errorf("stats json encode failed: %w", err)
 			}
 
 			_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
 			if err != nil {
-				return 0, errors.Wrap(err, "write stats")
+				return 0, fmt.Errorf("write stats: %w", err)
 			}
 		}
 
@@ -241,7 +241,7 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 
 	_, err := vm.cp.Write(dt, ts, int32(stream)) // #nosec G115
 	if err != nil {
-		return 0, errors.Wrap(err, "write log line")
+		return 0, fmt.Errorf("write log line: %w", err)
 	}
 
 	return len(dt), nil

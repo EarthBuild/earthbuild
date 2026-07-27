@@ -4,14 +4,13 @@ package gatewaycrafter
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 // NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref
@@ -42,7 +41,7 @@ func (gc *GatewayCrafter) AddPushImageEntry(
 ) (string, error) {
 	config, err := json.Marshal(imageConfig)
 	if err != nil {
-		return "", errors.Wrapf(err, "marshal save image config")
+		return "", fmt.Errorf("marshal save image config: %w", err)
 	}
 
 	refKey := "image-" + strconv.Itoa(refID)

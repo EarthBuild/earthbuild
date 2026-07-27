@@ -2,6 +2,7 @@
 package writersub
 
 import (
+	"errors"
 	"io"
 	"sync"
 
@@ -11,8 +12,8 @@ import (
 // WriterSub is a bus subscriber that can print formatted logs to a writer.
 type WriterSub struct {
 	w              io.Writer
+	err            error
 	targetIDFilter string
-	errors         []error
 	mu             sync.Mutex
 }
 
@@ -37,17 +38,17 @@ func (ws *WriterSub) Write(delta *logstream.Delta) {
 
 		_, err := ws.w.Write(d.DeltaFormattedLog.GetData())
 		if err != nil {
-			ws.errors = append(ws.errors, err)
+			ws.err = errors.Join(ws.err, err)
 			return
 		}
 	default:
 	}
 }
 
-// Errors returns any errors that occurred while writing to the writer.
-func (ws *WriterSub) Errors() []error {
+// Err returns any error that occurred while writing to the writer.
+func (ws *WriterSub) Err() error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 
-	return ws.errors
+	return ws.err
 }

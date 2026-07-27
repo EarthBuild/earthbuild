@@ -5,7 +5,6 @@ import (
 
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
-	"github.com/pkg/errors"
 )
 
 // SolveCache is a formal version of the cache we keep mapping targets to their LLB state.
@@ -27,7 +26,7 @@ func NewSolveCache() *SolveCache {
 func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error) {
 	hash, err := target.TargetInput().Hash()
 	if err != nil {
-		return StateKey(""), errors.Wrap(err, "target input hash")
+		return StateKey(""), fmt.Errorf("target input hash: %w", err)
 	}
 
 	key := fmt.Sprintf("%s-%s", dockerTag, hash)
@@ -39,7 +38,7 @@ func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error)
 func KeyFromState(target *SingleTarget) (StateKey, error) {
 	hash, err := target.TargetInput().Hash()
 	if err != nil {
-		return StateKey(""), errors.Wrap(err, "target input hash")
+		return StateKey(""), fmt.Errorf("target input hash: %w", err)
 	}
 
 	return StateKey(hash), nil

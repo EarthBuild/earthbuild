@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -85,27 +85,27 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
 	resolver := buildcontext.NewResolver(
-		nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "")
+		nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "",
+	)
 
 	// TODO this is a nil pointer which causes a panic if we try to expand a remotelyreferenced earthfile
 	// it's expensive to create this gwclient, so we need to implement a lazy eval which returns it when required.
 	var (
-		gwClient    gwclient.Client
-		notExistErr buildcontext.EarthfileNotExistError
+		gwClient gwclient.Client
 	)
 
 	// the +base is required to make ParseTarget work; however is ignored by GetTargets
 	target, err := domain.ParseTarget(targetToParse + "+base")
-	if errors.As(err, &notExistErr) {
-		return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
+	if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
+		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	} else if err != nil {
 		return err
 	}
 
 	targets, err := earthfile2llb.GetTargets(ctx, resolver, gwClient, target)
 	if err != nil {
-		if errors.As(errors.Cause(err), &notExistErr) {
-			return errors.Errorf("unable to locate Earthfile under %s", targetToDisplay)
+		if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
+			return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 		}
 
 		return err

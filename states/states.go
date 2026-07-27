@@ -332,7 +332,8 @@ func (sts *SingleTarget) addOverridingVarsAsBuildArgInputs(overridingVars *varia
 	for _, key := range overridingVars.Sorted() {
 		ovVar, _ := overridingVars.Get(key)
 		sts.targetInput = sts.targetInput.WithBuildArgInput(
-			dedup.BuildArgInput{ConstantValue: ovVar, Name: key})
+			dedup.BuildArgInput{ConstantValue: ovVar, Name: key},
+		)
 	}
 }
 

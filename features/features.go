@@ -3,6 +3,7 @@ package features
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -12,7 +13,6 @@ import (
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	goflags "github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
@@ -232,12 +232,12 @@ func Get(version *earthfile.Version) (*Features, bool, error) {
 
 	ftrs.Major, err = strconv.Atoi(majorAndMinor[0])
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed to parse major version %q", majorAndMinor[0])
+		return nil, false, fmt.Errorf("failed to parse major version %q: %w", majorAndMinor[0], err)
 	}
 
 	ftrs.Minor, err = strconv.Atoi(majorAndMinor[1])
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed to parse minor version %q", majorAndMinor[1])
+		return nil, false, fmt.Errorf("failed to parse minor version %q: %w", majorAndMinor[1], err)
 	}
 
 	return &ftrs, hasVersion, nil

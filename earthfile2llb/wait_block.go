@@ -18,9 +18,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
 	"github.com/EarthBuild/earthbuild/util/waitutil"
-
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 type waitBlock struct {
@@ -183,7 +181,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			item.c.platr, item.c.opt.CacheImports.AsSlice(),
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed to solve image required for %s", item.si.DockerTag)
+			return fmt.Errorf("failed to solve image required for %s: %w", item.si.DockerTag, err)
 		}
 
 		var (
@@ -202,7 +200,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 			if item.si.CheckDuplicate && item.si.DockerTag != "" {
 				if _, found := platformImgNames[platformImgName]; found {
-					return errors.Errorf(
+					return fmt.Errorf(
 						"image %s is defined multiple times for the same platform (%s)",
 						item.si.DockerTag, item.si.Platform.String(),
 					)
@@ -212,7 +210,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			}
 		} else if item.si.CheckDuplicate && item.si.DockerTag != "" {
 			if _, found := singPlatImgNames[item.si.DockerTag]; found {
-				return errors.Errorf(
+				return fmt.Errorf(
 					"image %s is defined multiple times for the same default platform",
 					item.si.DockerTag,
 				)
@@ -288,7 +286,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		Metadata: metadata,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to SAVE IMAGE")
+		return fmt.Errorf("failed to SAVE IMAGE: %w", err)
 	}
 
 	return nil
@@ -322,7 +320,7 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)
 			if err != nil {
-				return errors.Wrapf(err, "acquiring parallelism semaphore during waitStates for %s", item.c.target.String())
+				return fmt.Errorf("acquiring parallelism semaphore during waitStates for %s: %w", item.c.target.String(), err)
 			}
 			defer rel()
 

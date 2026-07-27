@@ -3,7 +3,7 @@ name: Wait-block-override
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTH_PATH:
         required: true
         type: string
       BINARY:
@@ -60,7 +60,7 @@ jobs:
           DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
           DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_TOKEN }}"
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
@@ -70,7 +70,7 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{inputs.TARGET_NAME}} using wait-block override
         run: |-
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ${{inputs.EXTRA_ARGS}} --ci -P --global-wait-end \
+          ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ${{inputs.EXTRA_ARGS}} --ci -P --global-wait-end \
            ${{inputs.TARGET_NAME}} --GLOBAL_WAIT_END=true
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}

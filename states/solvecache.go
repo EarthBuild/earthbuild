@@ -3,12 +3,12 @@ package states
 import (
 	"fmt"
 
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 )
 
 // SolveCache is a formal version of the cache we keep mapping targets to their LLB state.
-type SolveCache = unbounded.Cache[StateKey, pllb.State]
+type SolveCache = synccache.Cache[StateKey, pllb.State]
 
 // StateKey is a type for a key in SolveCache. These keys seem to be highly convention based,
 // and used elsewhere too (LocalFolders?). so this is a step at formalizing that convention,
@@ -18,7 +18,7 @@ type StateKey string
 
 // NewSolveCache gives a new SolveCache instance.
 func NewSolveCache() *SolveCache {
-	return unbounded.NewCache[StateKey, pllb.State]()
+	return synccache.NewCache[StateKey, pllb.State]()
 }
 
 // KeyFromHashAndTag builds a state key from a given target state and a docker tag.

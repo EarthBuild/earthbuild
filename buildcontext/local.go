@@ -10,30 +10,45 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 type localResolver struct {
-	gitMetaCache      *unbounded.Cache[string, *gitutil.GitMetadata] // local path -> *gitutil.GitMetadata
+	gitMetaCache      *synccache.Cache[string, *gitutil.GitMetadata] // local path -> *gitutil.GitMetadata
 	gitBranchOverride string
-	buildFileCache    *unbounded.Cache[string, *buildFile] // canonical ref -> *buildFile
+	buildFileCache    *synccache.Cache[string, *buildFile] // canonical ref -> *buildFile
 	console           conslogging.ConsoleLogger
 }
 
 func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogger) *localResolver {
-	lr := &localResolver{
-		buildFileCache:    unbounded.NewCache[string, *buildFile](),
+	return &localResolver{
+		buildFileCache:    synccache.NewCache[string, *buildFile](),
+		gitMetaCache:      synccache.NewCache[string, *gitutil.GitMetadata](),
 		gitBranchOverride: gitBranchOverride,
 		console:           console,
 	}
-	lr.gitMetaCache = unbounded.NewCache(
-		func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
-			meta, err := gitutil.Metadata(ctx, localPath, lr.gitBranchOverride)
+}
+
+func (lr *localResolver) resolveLocal(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	platr *platutil.Resolver,
+	ref domain.Reference,
+	featureFlagOverrides string,
+) (*Data, error) {
+	if ref.IsRemote() {
+		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
+	}
+
+	metadata, err := lr.gitMetaCache.Load(
+		ctx, ref.GetLocalPath(),
+		func(ctx context.Context) (*gitutil.GitMetadata, error) {
+			meta, err := gitutil.Metadata(ctx, ref.GetLocalPath(), lr.gitBranchOverride)
 			if err != nil {
 				if errors.Is(err, gitutil.ErrNoGitBinary) ||
 					errors.Is(err, gitutil.ErrNotAGitDir) ||
@@ -56,22 +71,6 @@ func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogge
 			return meta, nil
 		},
 	)
-
-	return lr
-}
-
-func (lr *localResolver) resolveLocal(
-	ctx context.Context,
-	gwClient gwclient.Client,
-	platr *platutil.Resolver,
-	ref domain.Reference,
-	featureFlagOverrides string,
-) (*Data, error) {
-	if ref.IsRemote() {
-		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
-	}
-
-	metadata, err := lr.gitMetaCache.Load(ctx, ref.GetLocalPath())
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +84,7 @@ func (lr *localResolver) resolveLocal(
 		key = ref.String()
 	}
 
-	bf, err := lr.buildFileCache.Load(ctx, key, func(context.Context, string) (*buildFile, error) {
+	bf, err := lr.buildFileCache.Load(ctx, key, func(context.Context) (*buildFile, error) {
 		var buildFilePath string
 
 		buildFilePath, err = detectBuildFile(ref, localPath)

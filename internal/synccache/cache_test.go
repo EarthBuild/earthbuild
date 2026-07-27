@@ -1,4 +1,4 @@
-package unbounded
+package synccache
 
 import (
 	"context"
@@ -14,15 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func mustNotLoad[K comparable, V any](t *testing.T) Loader[K, V] {
+func mustNotLoad[V any](t *testing.T) Loader[V] {
 	t.Helper()
 
-	return func(_ context.Context, key K) (V, error) {
-		t.Errorf("loader unexpectedly ran for key %v", key)
+	return func(_ context.Context) (V, error) {
+		t.Errorf("loader unexpectedly ran")
 
 		var zero V
 
-		return zero, fmt.Errorf("loader unexpectedly ran for key %v", key)
+		return zero, errors.New("loader unexpectedly ran")
 	}
 }
 
@@ -32,42 +32,9 @@ func TestCache_Loader(t *testing.T) {
 	t.Run("nil loader returns error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := NewCache[string, string]().Load(t.Context(), "missing")
+		_, err := NewCache[string, string]().Load(t.Context(), "missing", nil)
 		require.Error(t, err)
 		require.Equal(t, "cache: load key missing: loader is required", err.Error())
-	})
-
-	t.Run("sets default loader on NewCache", func(t *testing.T) {
-		t.Parallel()
-
-		defaultLoader := func(_ context.Context, key string) (string, error) {
-			return "loaded-" + key, nil
-		}
-
-		cache := NewCache(defaultLoader)
-
-		val, err := cache.Load(t.Context(), "hello")
-		require.NoError(t, err)
-		require.Equal(t, "loaded-hello", val)
-	})
-
-	t.Run("allows call-site loader override", func(t *testing.T) {
-		t.Parallel()
-
-		defaultLoader := func(_ context.Context, key string) (string, error) {
-			return "default-" + key, nil
-		}
-
-		overrideLoader := func(_ context.Context, key string) (string, error) {
-			return "override-" + key, nil
-		}
-
-		cache := NewCache(defaultLoader)
-		ctx := t.Context()
-
-		val, err := cache.Load(ctx, "hello", overrideLoader)
-		require.NoError(t, err)
-		require.Equal(t, "override-hello", val)
 	})
 }
 
@@ -88,20 +55,20 @@ func TestCache_Load(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			release := make(chan struct{})
 
-			loader := func(_ context.Context, key string) (int, error) {
+			loader := func(context.Context) (int, error) { //nolint:unparam
 				callCount.Add(1)
 				<-release
 
-				return len(key), nil
+				return 5, nil
 			}
 
-			cache := NewCache(loader)
+			cache := NewCache[string, int]()
 
 			var wg sync.WaitGroup
 
 			for i := range numGoroutines {
 				wg.Go(func() {
-					results[i], errs[i] = cache.Load(t.Context(), "hello")
+					results[i], errs[i] = cache.Load(t.Context(), "hello", loader)
 				})
 			}
 
@@ -140,16 +107,16 @@ func TestCache_Load(t *testing.T) {
 
 			entered.Add(keys)
 
-			cache := NewCache(func(_ context.Context, key int) (int, error) {
-				entered.Done()
-				<-release
-
-				return key * 3, nil
-			})
+			cache := NewCache[int, int]()
 
 			for i := range keys {
 				wg.Go(func() {
-					results[i], errs[i] = cache.Load(ctx, i)
+					results[i], errs[i] = cache.Load(ctx, i, func(context.Context) (int, error) {
+						entered.Done()
+						<-release
+
+						return i * 3, nil
+					})
 				})
 			}
 
@@ -172,17 +139,17 @@ func TestCache_Load(t *testing.T) {
 
 		var calls atomic.Int32
 
-		loader := func(_ context.Context, _ string) (int, error) {
+		loader := func(_ context.Context) (int, error) {
 			calls.Add(1)
 
 			return 7, wantErr
 		}
 
-		cache := NewCache(loader)
+		cache := NewCache[string, int]()
 		ctx := t.Context()
 
-		v1, err1 := cache.Load(ctx, "k")
-		v2, err2 := cache.Load(ctx, "k")
+		v1, err1 := cache.Load(ctx, "k", loader)
+		v2, err2 := cache.Load(ctx, "k", loader)
 
 		require.ErrorIs(t, err1, wantErr)
 		require.ErrorIs(t, err2, wantErr)
@@ -195,7 +162,7 @@ func TestCache_Load(t *testing.T) {
 		t.Parallel()
 
 		cache := NewCache[string, string]()
-		_, err := cache.Load(t.Context(), "k", func(_ context.Context, _ string) (string, error) {
+		_, err := cache.Load(t.Context(), "k", func(_ context.Context) (string, error) {
 			return "", context.Canceled
 		})
 		require.ErrorIs(t, err, context.Canceled)
@@ -205,6 +172,119 @@ func TestCache_Load(t *testing.T) {
 
 func TestCache_Load_ContextCanceled(t *testing.T) {
 	t.Parallel()
+
+	t.Run("caller with already canceled context while load in flight returns error", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			firstErr, secondErr error
+			secondFinished      atomic.Bool
+		)
+
+		synctest.Test(t, func(t *testing.T) {
+			firstCtx, cancelFirst := context.WithCancel(t.Context())
+			defer cancelFirst()
+
+			cancCtx, cancelSecond := context.WithCancel(t.Context())
+			cancelSecond() // pre-cancel second context
+
+			loaderEntered := make(chan struct{})
+			releaseLoader := make(chan struct{})
+
+			//nolint:unparam
+			loader := func(_ context.Context) (string, error) {
+				close(loaderEntered)
+				<-releaseLoader
+
+				return "val", nil
+			}
+
+			cache := NewCache[string, string]()
+
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				_, firstErr = cache.Load(firstCtx, "k", loader)
+			})
+
+			<-loaderEntered
+
+			wg.Go(func() {
+				_, secondErr = cache.Load(cancCtx, "k", mustNotLoad[string](t))
+
+				secondFinished.Store(true)
+			})
+
+			synctest.Wait()
+
+			require.True(t, secondFinished.Load(), "already-canceled caller must not block on in-flight load")
+			require.ErrorIs(t, secondErr, context.Canceled)
+
+			close(releaseLoader)
+			wg.Wait()
+			synctest.Wait()
+		})
+
+		require.NoError(t, firstErr)
+	})
+
+	t.Run("caller context cancellation while waiting unblocks promptly", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			firstErr, secondErr error
+			secondUnblocked     atomic.Bool
+		)
+
+		synctest.Test(t, func(t *testing.T) {
+			firstCtx, cancelFirst := context.WithCancel(t.Context())
+			defer cancelFirst()
+
+			secondCtx, cancelSecond := context.WithCancel(t.Context())
+
+			loaderEntered := make(chan struct{})
+			releaseLoader := make(chan struct{})
+
+			//nolint:unparam
+			loader := func(_ context.Context) (string, error) {
+				close(loaderEntered)
+				<-releaseLoader
+
+				return "val", nil
+			}
+
+			cache := NewCache[string, string]()
+
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				_, firstErr = cache.Load(firstCtx, "k", loader)
+			})
+
+			<-loaderEntered
+
+			wg.Go(func() {
+				_, secondErr = cache.Load(secondCtx, "k", mustNotLoad[string](t))
+
+				secondUnblocked.Store(true)
+			})
+
+			synctest.Wait()
+
+			cancelSecond()
+
+			synctest.Wait()
+
+			require.True(t, secondUnblocked.Load(), "canceled caller must unblock promptly without waiting for loader")
+			require.ErrorIs(t, secondErr, context.Canceled)
+
+			close(releaseLoader)
+			wg.Wait()
+			synctest.Wait()
+		})
+
+		require.NoError(t, firstErr)
+	})
 
 	t.Run("partial context cancellation does not abort load", func(t *testing.T) {
 		t.Parallel()
@@ -226,13 +306,16 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 
 			loadCanFinish := make(chan struct{})
 
-			cache := NewCache(func(ctx context.Context, key string) (string, error) {
+			//nolint:unparam
+			loader := func(ctx context.Context) (string, error) {
 				<-loadCanFinish
 
 				sharedCtxErr = ctx.Err()
 
-				return "loaded-" + key, nil
-			})
+				return "loaded-key1", nil
+			}
+
+			cache := NewCache[string, string]()
 
 			var (
 				wg   sync.WaitGroup
@@ -240,14 +323,14 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 			)
 
 			wg.Go(func() {
-				results[0], errs[0] = cache.Load(ctx1, "key1")
+				results[0], errs[0] = cache.Load(ctx1, "key1", loader)
 			})
 
 			synctest.Wait()
 
 			for i := 1; i < 3; i++ {
 				wg.Go(func() {
-					results[i], errs[i] = cache.Load(ctxs[i], "key1", mustNotLoad[string, string](t))
+					results[i], errs[i] = cache.Load(ctxs[i], "key1", mustNotLoad[string](t))
 				})
 			}
 
@@ -264,11 +347,10 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 		})
 
 		require.NoError(t, sharedCtxErr, "ctx3 is still live, so the shared context must not be done")
-
-		for i := range 3 {
-			require.NoError(t, errs[i])
-			require.Equal(t, want, results[i])
-		}
+		require.ErrorIs(t, errs[0], context.Canceled)
+		require.ErrorIs(t, errs[1], context.Canceled)
+		require.NoError(t, errs[2])
+		require.Equal(t, want, results[2])
 	})
 
 	t.Run("all contexts canceled aborts load", func(t *testing.T) {
@@ -280,22 +362,24 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 			ctx1, cancel1 := context.WithCancel(t.Context())
 			ctx2, cancel2 := context.WithCancel(t.Context())
 
-			cache := NewCache(func(ctx context.Context, _ string) (string, error) {
+			loader := func(ctx context.Context) (string, error) {
 				<-ctx.Done()
 
 				return "", ctx.Err()
-			})
+			}
+
+			cache := NewCache[string, string]()
 
 			var wg sync.WaitGroup
 
 			wg.Go(func() {
-				_, errs[0] = cache.Load(ctx1, "key1")
+				_, errs[0] = cache.Load(ctx1, "key1", loader)
 			})
 
 			synctest.Wait()
 
 			wg.Go(func() {
-				_, errs[1] = cache.Load(ctx2, "key1", mustNotLoad[string, string](t))
+				_, errs[1] = cache.Load(ctx2, "key1", mustNotLoad[string](t))
 			})
 
 			synctest.Wait()
@@ -318,7 +402,7 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 		cache := NewCache[string, string]()
 		ctx := t.Context()
 
-		_, err := cache.Load(ctx, "k1", func(_ context.Context, _ string) (string, error) {
+		_, err := cache.Load(ctx, "k1", func(_ context.Context) (string, error) {
 			return "", context.Canceled
 		})
 
@@ -328,7 +412,7 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 
 		var called bool
 
-		val, err := cache.Load(ctx, "k1", func(_ context.Context, _ string) (string, error) {
+		val, err := cache.Load(ctx, "k1", func(_ context.Context) (string, error) {
 			called = true
 
 			return want, nil
@@ -345,12 +429,12 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 		cache := NewCache[string, string]()
 		ctx := t.Context()
 
-		_, err := cache.Load(ctx, "k", func(_ context.Context, _ string) (string, error) {
+		_, err := cache.Load(ctx, "k", func(_ context.Context) (string, error) {
 			return "", fmt.Errorf("resolve git project: %w", context.Canceled)
 		})
 		require.ErrorIs(t, err, context.Canceled)
 
-		got, err := cache.Load(ctx, "k", func(_ context.Context, _ string) (string, error) {
+		got, err := cache.Load(ctx, "k", func(_ context.Context) (string, error) {
 			return "second chance", nil
 		})
 		require.NoError(t, err)
@@ -376,16 +460,18 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 				releaseFirst = make(chan struct{})
 			)
 
-			cache := NewCache(func(ctx context.Context, _ string) (string, error) {
+			loader := func(ctx context.Context) (string, error) {
 				<-ctx.Done()
 				close(sawCancel)
 				<-releaseFirst
 
 				return "", ctx.Err()
-			})
+			}
+
+			cache := NewCache[string, string]()
 
 			wg.Go(func() {
-				_, firstErr = cache.Load(firstCtx, "k")
+				_, firstErr = cache.Load(firstCtx, "k", loader)
 			})
 
 			synctest.Wait()
@@ -394,10 +480,10 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 			<-sawCancel
 
 			wg.Go(func() {
-				lateVal, lateErr = cache.Load(lateCtx, "k", func(_ context.Context, key string) (string, error) {
+				lateVal, lateErr = cache.Load(lateCtx, "k", func(_ context.Context) (string, error) {
 					lateConstructed.Store(true)
 
-					return "late-" + key, nil
+					return "late-k", nil
 				})
 			})
 
@@ -435,7 +521,7 @@ func TestCache_Store(t *testing.T) {
 		require.ErrorIs(t, err, ErrAlreadyExists)
 		require.EqualError(t, err, "cache: store key k1: already exists")
 
-		val, err := cache.Load(ctx, "k1", mustNotLoad[string, string](t))
+		val, err := cache.Load(ctx, "k1", mustNotLoad[string](t))
 
 		require.NoError(t, err)
 		require.Equal(t, want, val)
@@ -460,14 +546,16 @@ func TestCache_Store(t *testing.T) {
 				release = make(chan struct{})
 			)
 
-			cache := NewCache(func(context.Context, string) (string, error) {
+			loader := func(context.Context) (string, error) {
 				<-release
 
 				return "", context.Canceled
-			})
+			}
+
+			cache := NewCache[string, string]()
 
 			wg.Go(func() {
-				_, loadErr = cache.Load(ctx, "k")
+				_, loadErr = cache.Load(ctx, "k", loader)
 			})
 
 			synctest.Wait()
@@ -479,7 +567,7 @@ func TestCache_Store(t *testing.T) {
 
 			addAfterEviction = cache.Store("k", "survivor")
 
-			got, getErr = cache.Load(ctx, "k", mustNotLoad[string, string](t))
+			got, getErr = cache.Load(ctx, "k", mustNotLoad[string](t))
 
 			synctest.Wait()
 		})
@@ -498,16 +586,16 @@ func TestCache_CompletedEntriesDoNotRetainGoroutines(t *testing.T) {
 
 	baseline := settledGoroutines()
 
-	cache := NewCache(func(_ context.Context, key int) (int, error) {
-		return key * 2, nil
-	})
+	cache := NewCache[int, int]()
 	ctx := t.Context()
 
 	var wg sync.WaitGroup
 
 	for i := range entries {
 		wg.Go(func() {
-			_, err := cache.Load(ctx, i)
+			_, err := cache.Load(ctx, i, func(_ context.Context) (int, error) {
+				return i * 2, nil
+			})
 			require.NoError(t, err)
 		})
 	}
@@ -517,7 +605,7 @@ func TestCache_CompletedEntriesDoNotRetainGoroutines(t *testing.T) {
 	retained := settledGoroutines() - baseline
 
 	require.Less(t, retained, entries/10,
-		"%d completed entries retained %d goroutines; a finished load must release its MetaContext",
+		"%d completed entries retained %d goroutines; a finished load must release its context",
 		entries, retained)
 }
 
@@ -542,32 +630,32 @@ func settledGoroutines() int {
 	return count
 }
 
-var benchLoader Loader[string, int] = func(_ context.Context, _ string) (int, error) {
+var benchLoader Loader[int] = func(_ context.Context) (int, error) {
 	return 42, nil
 }
 
 func BenchmarkCache_Load_Hit(b *testing.B) {
-	cache := NewCache(benchLoader)
+	cache := NewCache[string, int]()
 	ctx := b.Context()
-	_, _ = cache.Load(ctx, "key")
+	_, _ = cache.Load(ctx, "key", benchLoader)
 
 	b.ReportAllocs()
 
 	for b.Loop() {
-		_, _ = cache.Load(ctx, "key")
+		_, _ = cache.Load(ctx, "key", benchLoader)
 	}
 }
 
 func BenchmarkCache_Load_ConcurrentHits(b *testing.B) {
-	cache := NewCache(benchLoader)
+	cache := NewCache[string, int]()
 	ctx := b.Context()
-	_, _ = cache.Load(ctx, "key")
+	_, _ = cache.Load(ctx, "key", benchLoader)
 
 	b.ReportAllocs()
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_, _ = cache.Load(ctx, "key")
+			_, _ = cache.Load(ctx, "key", benchLoader)
 		}
 	})
 }

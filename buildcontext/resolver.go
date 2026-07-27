@@ -12,11 +12,11 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 )
@@ -47,7 +47,7 @@ type Data struct {
 type Resolver struct {
 	gr                   *gitResolver
 	lr                   *localResolver
-	parseCache           *unbounded.Cache[string, earthfile.Tree] // local path -> AST
+	parseCache           *synccache.Cache[string, earthfile.Tree] // local path -> AST
 	featureFlagOverrides string
 	console              conslogging.ConsoleLogger
 }
@@ -68,17 +68,13 @@ func NewResolver(
 			lfsInclude:        gitLFSInclude,
 			logLevel:          gitLogLevel,
 			cleanCollection:   cleanCollection,
-			projectCache:      unbounded.NewCache[string, *resolvedGitProject](),
-			buildFileCache:    unbounded.NewCache[string, *buildFile](),
+			projectCache:      synccache.NewCache[string, *resolvedGitProject](),
+			buildFileCache:    synccache.NewCache[string, *buildFile](),
 			gitLookup:         gitLookup,
 			console:           console,
 		},
-		lr: newLocalResolver(gitBranchOverride, console),
-		parseCache: unbounded.NewCache(
-			func(_ context.Context, earthfilePath string) (earthfile.Tree, error) {
-				return earthfile.ParseFile(earthfilePath, earthfile.WithSourceMap())
-			},
-		),
+		lr:                   newLocalResolver(gitBranchOverride, console),
+		parseCache:           synccache.NewCache[string, earthfile.Tree](),
 		console:              console,
 		featureFlagOverrides: featureFlagOverrides,
 	}
@@ -243,7 +239,12 @@ func (r *Resolver) Resolve(
 	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
 		path := filepath.Clean(d.BuildFilePath)
 
-		d.Earthfile, err = r.parseCache.Load(ctx, path)
+		d.Earthfile, err = r.parseCache.Load(
+			ctx, path,
+			func(_ context.Context) (earthfile.Tree, error) {
+				return earthfile.ParseFile(path, earthfile.WithSourceMap())
+			},
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/opencontainers/go-digest"
@@ -25,7 +25,7 @@ type cachedMetaResolverEntry struct {
 // CachedMetaResolver is an image meta resolver with a local cache.
 type CachedMetaResolver struct {
 	metaResolver llb.ImageMetaResolver
-	cache        *unbounded.Cache[cachedMetaResolverKey, cachedMetaResolverEntry]
+	cache        *synccache.Cache[cachedMetaResolverKey, cachedMetaResolverEntry]
 }
 
 // NewCachedMetaResolver creates a new cached meta resolver based on an underlying meta resolver
@@ -33,7 +33,7 @@ type CachedMetaResolver struct {
 func NewCachedMetaResolver(metaResolver llb.ImageMetaResolver) *CachedMetaResolver {
 	return &CachedMetaResolver{
 		metaResolver: metaResolver,
-		cache:        unbounded.NewCache[cachedMetaResolverKey, cachedMetaResolverEntry](),
+		cache:        synccache.NewCache[cachedMetaResolverKey, cachedMetaResolverEntry](),
 	}
 }
 
@@ -52,7 +52,7 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 	}
 
 	entry, err := cmr.cache.Load(
-		ctx, key, func(ctx context.Context, key cachedMetaResolverKey) (cachedMetaResolverEntry, error) {
+		ctx, key, func(ctx context.Context) (cachedMetaResolverEntry, error) {
 			reference, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, key.ref, opt)
 			if err != nil {
 				return cachedMetaResolverEntry{}, err

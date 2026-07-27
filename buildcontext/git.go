@@ -13,13 +13,13 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -32,8 +32,8 @@ const (
 
 type gitResolver struct {
 	cleanCollection   *cleanup.Collection
-	projectCache      *unbounded.Cache[string, *resolvedGitProject] // git URL#ref -> *resolvedGitProject
-	buildFileCache    *unbounded.Cache[string, *buildFile]          // canonical ref -> *buildFile
+	projectCache      *synccache.Cache[string, *resolvedGitProject] // git URL#ref -> *resolvedGitProject
+	buildFileCache    *synccache.Cache[string, *buildFile]          // canonical ref -> *buildFile
 	gitLookup         *GitLookup
 	gitBranchOverride string
 	lfsInclude        string
@@ -160,7 +160,7 @@ func (gr *gitResolver) resolveEarthProject(
 
 	localBuildFile, err := gr.buildFileCache.Load(
 		ctx, key,
-		func(ctx context.Context, _ string) (*buildFile, error) {
+		func(ctx context.Context) (*buildFile, error) {
 			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
 			if inErr != nil {
 				return nil, fmt.Errorf("create temp dir for Earthfile: %w", inErr)
@@ -264,7 +264,7 @@ func (gr *gitResolver) resolveGitProject(
 
 	rgp, err = gr.projectCache.Load(
 		ctx, cacheKey,
-		func(ctx context.Context, cacheKey string) (*resolvedGitProject, error) {
+		func(ctx context.Context) (*resolvedGitProject, error) {
 			// Copy all Earthfile, build.earth and Dockerfile files.
 			vm := &vertexmeta.VertexMeta{
 				TargetName: cacheKey,

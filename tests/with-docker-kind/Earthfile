@@ -28,7 +28,7 @@ alpine-kind:
     END
 
 ubuntu-kind:
-    ARG DIND_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.4.0-1
+    ARG DIND_IMAGE=earthbuild/dind:ubuntu-24.04-docker-28.5.2-1
     FROM $DIND_IMAGE
     RUN curl -fLo ./kind --retry 7 --retry-all-errors https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER

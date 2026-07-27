@@ -5,11 +5,15 @@ package unbounded
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/EarthBuild/earthbuild/util/syncutil/metacontext"
 )
+
+// ErrAlreadyExists is returned by [Cache.Store] when a key is already present in the cache.
+var ErrAlreadyExists = errors.New("already exists")
 
 // Loader is a func that is used to load a cache value for a given key.
 type Loader[K comparable, V any] func(ctx context.Context, key K) (V, error)
@@ -90,7 +94,7 @@ func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V,
 		// loader would be an unrecoverable panic rather than an error the caller
 		// could handle. Reject deterministically, whether or not the key happens to be
 		// cached right now.
-		return zero, errors.New("loader is required")
+		return zero, fmt.Errorf("cache: load key %v: loader is required", key)
 	}
 
 	for retry := false; ; retry = true {
@@ -101,7 +105,7 @@ func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V,
 		if retry {
 			err := ctx.Err()
 			if err != nil {
-				return zero, err
+				return zero, fmt.Errorf("cache: load key %v: %w", key, err)
 			}
 		}
 
@@ -153,6 +157,9 @@ func (c *Cache[K, V]) load(e *entry[V], key K, loader Loader[K, V]) {
 	if errors.Is(e.err, context.Canceled) {
 		c.deleteEntry(key)
 	}
+	if e.err != nil {
+		e.err = fmt.Errorf("cache: load key %v: %w", key, e.err)
+	}
 
 	e.done.Store(true)
 	close(e.loaded)
@@ -171,7 +178,7 @@ func (c *Cache[K, V]) Store(key K, value V) error {
 	if _, ok := c.store[key]; ok {
 		c.mu.Unlock()
 
-		return errors.New("already exists")
+		return fmt.Errorf("cache: store key %v: %w", key, ErrAlreadyExists)
 	}
 
 	e := &entry[V]{
@@ -231,7 +238,7 @@ func (c *Cache[K, V]) getEntry(ctx context.Context, key K) (*entry[V], bool) {
 //
 //	if c.store[key] == e { delete(c.store, key) }
 //
-// TestCache_DeleteEntryIdentity pins the invariant.
+// TestCache_Store pins the invariant.
 func (c *Cache[K, V]) deleteEntry(key K) {
 	c.mu.Lock()
 	delete(c.store, key)

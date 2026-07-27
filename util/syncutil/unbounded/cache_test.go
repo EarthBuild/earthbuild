@@ -34,7 +34,7 @@ func TestCache_WithLoader(t *testing.T) {
 
 		_, err := NewCache[string, string]().Load(t.Context(), "missing")
 		require.Error(t, err)
-		require.Equal(t, "loader is required", err.Error())
+		require.Equal(t, "cache: load key missing: loader is required", err.Error())
 	})
 
 	t.Run("sets default loader on NewCache", func(t *testing.T) {
@@ -189,6 +189,17 @@ func TestCache_Load(t *testing.T) {
 		require.Equal(t, 7, v1)
 		require.Equal(t, 7, v2, "the failed value is cached verbatim, zero or not")
 		require.Equal(t, int32(1), calls.Load(), "a non-cancellation error must be cached")
+	})
+
+	t.Run("error returns are prefixed with cache:", func(t *testing.T) {
+		t.Parallel()
+
+		cache := NewCache[string, string]()
+		_, err := cache.Load(t.Context(), "k", WithLoader(func(_ context.Context, _ string) (string, error) {
+			return "", context.Canceled
+		}))
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, "cache: load key k: context canceled", err.Error())
 	})
 }
 
@@ -421,7 +432,8 @@ func TestCache_Store(t *testing.T) {
 		require.NoError(t, err)
 
 		err = cache.Store("k1", "v2")
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrAlreadyExists)
+		require.EqualError(t, err, "cache: store key k1: already exists")
 
 		val, err := cache.Load(ctx, "k1", WithLoader(mustNotLoad[string, string](t)))
 
@@ -473,7 +485,7 @@ func TestCache_Store(t *testing.T) {
 		})
 
 		require.ErrorIs(t, loadErr, context.Canceled)
-		require.Error(t, addDuringBuild, "Store must refuse while load is in flight")
+		require.ErrorIs(t, addDuringBuild, ErrAlreadyExists, "Store must refuse while load is in flight")
 		require.NoError(t, addAfterEviction)
 		require.NoError(t, getErr)
 		require.Equal(t, "survivor", got)

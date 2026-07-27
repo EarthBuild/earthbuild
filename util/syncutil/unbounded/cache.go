@@ -157,6 +157,7 @@ func (c *Cache[K, V]) load(e *entry[V], key K, loader Loader[K, V]) {
 	if errors.Is(e.err, context.Canceled) {
 		c.deleteEntry(key)
 	}
+
 	if e.err != nil {
 		e.err = fmt.Errorf("cache: load key %v: %w", key, e.err)
 	}

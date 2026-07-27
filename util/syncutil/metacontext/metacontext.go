@@ -3,6 +3,7 @@ package metacontext
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -10,27 +11,41 @@ import (
 
 var _ context.Context = &MetaContext{}
 
+// ErrClosed is returned by [MetaContext.Add] once the MetaContext has been closed.
+var ErrClosed = errors.New("metacontext is closed")
+
 // MetaContext is an object which implements context.Context and which holds multiple
 // contexts within it. The MetaContext is considered canceled only when ALL of the
 // underlying contexts have been canceled.
 //
 // Once canceled, it cannot be uncancelled, so it is an error to keep adding contexts
 // once the meta context is considered cancelled.
+//
+// A MetaContext owns goroutines — one monitor, plus one watcher per [MetaContext.Add] —
+// and they live until either every sub-context is canceled or [MetaContext.Close] is
+// called. They hold the MetaContext and every sub-context, so dropping your pointer to a
+// MetaContext does not make it collectable. Whoever creates one is responsible for
+// closing it.
 type MetaContext struct {
 	firstDoneErr error
 	subDoneCh    chan int // index
 	doneCh       chan struct{}
+	stopCh       chan struct{} // closed by Close; releases monitor and all watchers
 	sub          []context.Context
 	numDone      int
 	mu           sync.Mutex
 	firstDoneMu  sync.Mutex
+	closeOnce    sync.Once
 }
 
-// New returns a new metacontext.
+// New returns a new metacontext. The caller must [MetaContext.Close] it once the work it
+// is keeping alive has finished, or its goroutines are retained for the life of the
+// process.
 func New(ctx context.Context) *MetaContext {
 	mc := &MetaContext{
 		doneCh:    make(chan struct{}),
 		subDoneCh: make(chan int),
+		stopCh:    make(chan struct{}),
 		sub:       make([]context.Context, 0, 4),
 	}
 
@@ -40,8 +55,28 @@ func New(ctx context.Context) *MetaContext {
 	return mc
 }
 
+// Close releases the goroutines watching this MetaContext. It is idempotent and safe to
+// call concurrently with Add.
+//
+// After Close the MetaContext stops tracking cancellation: Done will not fire, Err will
+// not change, and Add returns [ErrClosed]. Deadline and Value keep working. Close only
+// once nothing is still relying on the MetaContext to observe cancellation.
+func (mc *MetaContext) Close() {
+	mc.closeOnce.Do(func() {
+		close(mc.stopCh)
+	})
+}
+
 func (mc *MetaContext) monitor() {
-	for index := range mc.subDoneCh {
+	for {
+		var index int
+
+		select {
+		case <-mc.stopCh:
+			return
+		case index = <-mc.subDoneCh:
+		}
+
 		mc.mu.Lock()
 
 		mc.numDone++
@@ -70,9 +105,19 @@ func (mc *MetaContext) monitor() {
 	}
 }
 
-// Add adds a new context to the metacontext.
+// Add adds a new context to the metacontext. It returns a non-nil error if the
+// MetaContext is already done (the first sub-context's error) or closed ([ErrClosed]); in
+// both cases ctx has NOT been added and its cancellation will not be observed.
 func (mc *MetaContext) Add(ctx context.Context) error {
 	mc.mu.Lock()
+
+	select {
+	case <-mc.stopCh:
+		mc.mu.Unlock()
+
+		return ErrClosed
+	default:
+	}
 
 	select {
 	case <-mc.doneCh:
@@ -81,7 +126,13 @@ func (mc *MetaContext) Add(ctx context.Context) error {
 		mc.firstDoneMu.Lock()
 		defer mc.firstDoneMu.Unlock()
 
-		return mc.firstDoneErr
+		if mc.firstDoneErr != nil {
+			return mc.firstDoneErr
+		}
+
+		// Mirror Err: done always means something, never a nil error, so callers can
+		// rely on "Add returned non-nil" meaning "not added".
+		return context.Canceled
 	default:
 	}
 
@@ -90,9 +141,16 @@ func (mc *MetaContext) Add(ctx context.Context) error {
 	mc.mu.Unlock()
 
 	go func() {
-		<-ctx.Done()
+		select {
+		case <-ctx.Done():
+		case <-mc.stopCh:
+			return
+		}
 
-		mc.subDoneCh <- index
+		select {
+		case mc.subDoneCh <- index:
+		case <-mc.stopCh:
+		}
 	}()
 
 	return nil

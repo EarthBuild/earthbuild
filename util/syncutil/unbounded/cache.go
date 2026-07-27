@@ -15,6 +15,13 @@ import (
 type Constructor[K comparable, V any] func(ctx context.Context, key K) (V, error)
 
 // entry is a cached value, which may be computed in a background thread.
+//
+// Lifecycle invariant: value and err are written exactly once, by whoever owns
+// construction (the construct goroutine, or Add for a pre-built value), and always
+// before both done.Store(true) and close(constructed). Readers reach them only after
+// observing done == true or a receive from constructed, either of which establishes the
+// happens-before edge. Nothing writes value or err after that point, so no lock is
+// needed on the read path.
 type entry[V any] struct {
 	metaCtx     atomic.Pointer[metacontext.MetaContext]
 	constructed chan struct{}
@@ -39,9 +46,44 @@ func NewCache[K comparable, V any]() *Cache[K, V] {
 }
 
 // Do executes the constructor, if a value for key hasn't already been constructed.
+//
+// Construction is shared: concurrent callers for the same key wait on a single
+// constructor call, and the construction survives any individual caller's cancellation —
+// it is abandoned only once every caller sharing it has gone away. A caller whose own
+// context is still live is never handed someone else's cancellation; it starts a fresh
+// construction instead.
 func (c *Cache[K, V]) Do(ctx context.Context, key K, constructor Constructor[K, V]) (V, error) {
-	e, found := c.getEntry(ctx, key)
-	if found {
+	var zero V
+
+	if constructor == nil {
+		// Not merely unhelpful: construct runs on a goroutine, so calling a nil
+		// constructor would be an unrecoverable panic rather than an error the caller
+		// could handle. Reject deterministically, whether or not the key happens to be
+		// cached right now.
+		return zero, errors.New("nil constructor")
+	}
+
+	for retry := false; ; retry = true {
+		// Only on a retry: a cache hit is still served to a caller whose context has since
+		// been canceled, as it always was. But there is no point starting construction
+		// over on behalf of a caller that has itself gone away, and this is what bounds
+		// the loop.
+		if retry {
+			if err := ctx.Err(); err != nil {
+				return zero, err
+			}
+		}
+
+		e, found := c.getEntry(ctx, key)
+		if !found {
+			// We need to construct this.
+			go c.construct(e, key, constructor)
+
+			<-e.constructed
+
+			return e.value, e.err
+		}
+
 		if e.done.Load() {
 			return e.value, e.err
 		}
@@ -49,20 +91,24 @@ func (c *Cache[K, V]) Do(ctx context.Context, key K, constructor Constructor[K, 
 		select {
 		case <-e.constructed:
 			// Already constructed — fast path!
+			return e.value, e.err
 		default:
-			mc := e.metaCtx.Load()
-			if mc != nil {
-				_ = mc.Add(ctx)
-			}
 		}
-	} else {
-		// We need to construct this.
-		go c.construct(e, key, constructor)
+
+		if mc := e.metaCtx.Load(); mc != nil && mc.Add(ctx) != nil {
+			// The in-flight construction is already doomed — every context sharing it
+			// has been canceled, so it will fail with context.Canceled and evict itself.
+			// Attaching would hand our still-live caller someone else's cancellation.
+			// Wait for it to clear the way, then start over.
+			<-e.constructed
+
+			continue
+		}
+
+		<-e.constructed
+
+		return e.value, e.err
 	}
-
-	<-e.constructed
-
-	return e.value, e.err
 }
 
 func (c *Cache[K, V]) construct(e *entry[V], key K, constructor Constructor[K, V]) {
@@ -79,7 +125,12 @@ func (c *Cache[K, V]) construct(e *entry[V], key K, constructor Constructor[K, V
 
 	e.done.Store(true)
 	close(e.constructed)
-	e.metaCtx.Store(nil) // Clear metaCtx to allow GC of underlying sub-contexts.
+	e.metaCtx.Store(nil)
+
+	// Dropping the pointer above is not enough: the MetaContext's own monitor and watcher
+	// goroutines hold it, and block until every sub-context is canceled — which for a
+	// whole-build context is never. Close releases them, and with them the sub-contexts.
+	mc.Close()
 }
 
 // Add adds a readily constructed value for a given key.
@@ -130,8 +181,27 @@ func (c *Cache[K, V]) getEntry(ctx context.Context, key K) (*entry[V], bool) {
 	return e, ok
 }
 
+// deleteEntry removes the entry for key. Note: this does not cancel any ongoing
+// construction.
+//
+// INVARIANT (single-deleter): deleting by key rather than by entry identity is safe only
+// because an entry can never be evicted by anyone other than the construct goroutine that
+// owns it. Concretely:
+//
+//   - construct is the only caller, and calls this at most once, immediately after its
+//     constructor returns;
+//   - an entry is present in the store for the whole of its construction, and both
+//     getEntry and Add refuse to insert over a present entry;
+//   - therefore no replacement entry for that key can exist until this delete has already
+//     happened, and a stale construct cannot evict a newer entry.
+//
+// Any second deletion path — eviction, Clear, a TTL, a bounded variant of this cache —
+// breaks the third bullet, at which point this must become an identity check:
+//
+//	if c.store[key] == e { delete(c.store, key) }
+//
+// TestCache_DeleteEntryIdentity pins the invariant.
 func (c *Cache[K, V]) deleteEntry(key K) {
-	// note; this does not cancel any ongoing construction.
 	c.mu.Lock()
 	delete(c.store, key)
 	c.mu.Unlock()

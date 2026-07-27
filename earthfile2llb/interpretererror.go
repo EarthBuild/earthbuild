@@ -1,13 +1,13 @@
 package earthfile2llb
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/pkg/errors"
 )
 
 var _ error = &InterpreterError{}
@@ -53,7 +53,7 @@ func WrapError(
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {
-		err = errors.Wrap(ie.cause, ie.text)
+		err = fmt.Errorf("%s: %w", ie.text, ie.cause)
 	} else {
 		err = errors.New(ie.text)
 	}
@@ -65,17 +65,13 @@ func (ie InterpreterError) Error() string {
 	ret := fmt.Sprintf(
 		"%s:%d:%d %s",
 		ie.SourceLocation.File, ie.SourceLocation.StartLine, ie.SourceLocation.StartColumn,
-		err.Error())
+		err.Error(),
+	)
 	if ie.stack != "" {
 		ret = fmt.Sprintf("%s\nin\t\t%s", ret, ie.stack)
 	}
 
 	return ret
-}
-
-// Cause returns the cause of the error (if any).
-func (ie InterpreterError) Cause() error {
-	return errors.Cause(ie.cause)
 }
 
 // Unwrap unwraps the error.
@@ -94,17 +90,7 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 		return nil, false
 	}
 
-	var ie *InterpreterError
-	if errors.As(err, &ie) {
-		return ie, true
-	}
-
-	unwrapped := errors.Unwrap(err)
-	if unwrapped != nil {
-		return GetInterpreterError(unwrapped)
-	}
-
-	return nil, false
+	return errors.AsType[*InterpreterError](err)
 }
 
 // FromError attempts to parse the given error's string to an *InterpreterError.

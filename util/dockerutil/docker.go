@@ -11,8 +11,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/pkg/errors"
 )
 
 // Manifest contains docker manifest data.
@@ -31,7 +29,7 @@ func LoadDockerManifest(
 	platr *platutil.Resolver,
 ) error {
 	if len(children) == 0 {
-		return errors.Errorf("no images in manifest list for %s", parentImageName)
+		return fmt.Errorf("no images in manifest list for %s", parentImageName)
 	}
 	// Check if any child has the platform as the default platform
 	defaultChild := 0
@@ -50,7 +48,8 @@ func LoadDockerManifest(
 		// fall back to using first defined platform (and display a warning)
 		console.Warnf(
 			"Failed to find default platform (%s) of multi-platform image %s; defaulting to the first platform type: %s\n",
-			platr.Materialize(platutil.DefaultPlatform).String(), parentImageName, children[defaultChild].Platform)
+			platr.Materialize(platutil.DefaultPlatform).String(), parentImageName, children[defaultChild].Platform,
+		)
 	}
 
 	var childImgs []string
@@ -68,14 +67,15 @@ func LoadDockerManifest(
 		"Separate per-platform image tags are only available locally."
 	console.Printf(
 		"Image %s is a multi-platform image. The following per-platform images have been produced:\n\t%s\n%s\n",
-		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail)
+		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail,
+	)
 
 	err := fe.ImageTag(ctx, containerutil.ImageTag{
 		SourceRef: children[defaultChild].ImageName,
 		TargetRef: parentImageName,
 	})
 	if err != nil {
-		return errors.Wrap(err, "docker tag default platform image")
+		return fmt.Errorf("docker tag default platform image: %w", err)
 	}
 
 	return nil
@@ -85,7 +85,7 @@ func LoadDockerManifest(
 func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io.ReadCloser) error {
 	err := fe.ImageLoad(ctx, r)
 	if err != nil {
-		return errors.Wrapf(err, "load tar")
+		return fmt.Errorf("load tar: %w", err)
 	}
 
 	return nil
@@ -119,7 +119,7 @@ func dockerPullLocalImage(
 
 	err := fe.ImagePull(ctx, fullPullName)
 	if err != nil {
-		return errors.Wrap(err, "image pull")
+		return fmt.Errorf("image pull: %w", err)
 	}
 
 	// Fix for #2471 where Podman pulls seem exit before the image is available
@@ -134,14 +134,14 @@ func dockerPullLocalImage(
 		TargetRef: finalName,
 	})
 	if err != nil {
-		return errors.Wrap(err, "image tag after pull")
+		return fmt.Errorf("image tag after pull: %w", err)
 	}
 
 	force := true // Sometimes Docker GCs images automatically (force prevents an error).
 
 	err = fe.ImageRemove(ctx, force, fullPullName)
 	if err != nil {
-		return errors.Wrap(err, "image rmi after pull and retag")
+		return fmt.Errorf("image rmi after pull and retag: %w", err)
 	}
 
 	return nil

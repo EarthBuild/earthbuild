@@ -2,12 +2,13 @@ package platutil
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/pkg/errors"
 )
 
 // GetNativePlatform returns the native platform for a given gwClient.
@@ -29,7 +30,7 @@ func GetNativePlatform(gwClient gwclient.Client) (specs.Platform, error) {
 func GetNativePlatformViaBkClient(ctx context.Context, bkClient *client.Client) (specs.Platform, error) {
 	ws, err := bkClient.ListWorkers(ctx)
 	if err != nil {
-		return specs.Platform{}, errors.Wrap(err, "failed to list workers")
+		return specs.Platform{}, fmt.Errorf("failed to list workers: %w", err)
 	}
 
 	if len(ws) == 0 {

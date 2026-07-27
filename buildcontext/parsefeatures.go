@@ -40,7 +40,8 @@ func parseFeatures(
 		console.Printf(
 			"NOTE: The %s feature is enabled by default under VERSION %s, "+
 				"and can be safely removed from the VERSION command",
-			strings.Join(warningStrs, ", "), ftrs.Version())
+			strings.Join(warningStrs, ", "), ftrs.Version(),
+		)
 	}
 
 	err = features.ApplyFlagOverrides(ftrs, featureFlagOverrides)

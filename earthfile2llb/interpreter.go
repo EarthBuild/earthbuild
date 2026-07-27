@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -24,10 +25,10 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
 )
 
 const maxCommandRenameWarnings = 3
@@ -707,7 +708,7 @@ func (i *Interpreter) getAllowPrivilegedTarget(targetName string, allowPrivilege
 
 	depTarget, err := domain.ParseTarget(targetName)
 	if err != nil {
-		return false, errors.Wrapf(err, "parse target name %s", targetName)
+		return false, fmt.Errorf("parse target name %s: %w", targetName, err)
 	}
 
 	return i.getAllowPrivileged(depTarget, allowPrivileged)
@@ -728,7 +729,7 @@ func (i *Interpreter) getAllowPrivileged(depTarget domain.Target, allowPrivilege
 func (i *Interpreter) getAllowPrivilegedArtifact(artifactName string, allowPrivileged bool) (bool, error) {
 	artifact, err := domain.ParseArtifact(artifactName)
 	if err != nil {
-		return false, errors.Wrapf(err, "parse artifact name %s", artifactName)
+		return false, fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
 
 	return i.getAllowPrivileged(artifact.Target, allowPrivileged)
@@ -1835,6 +1836,10 @@ func (i *Interpreter) handleArg(ctx context.Context, cmd earthfile.Command) erro
 		return i.wrapError(err, cmd.SourceLocation, "invalid ARG arguments %v", cmd.Args)
 	}
 
+	if replacement, deprecated := reserved.DeprecatedBuiltin(key); deprecated {
+		i.console.Warnf("WARNING: the built-in ARG %s is deprecated. Use %s.", key, replacement)
+	}
+
 	var value string
 	if valueOrNil != nil {
 		value, err = i.expandArgs(ctx, *valueOrNil, true, false)
@@ -1862,7 +1867,7 @@ func (i *Interpreter) handleLet(ctx context.Context, cmd earthfile.Command) erro
 
 	args, err := flagutil.ParseArgsCleaned("LET", &opts, argsCpy)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse LET args")
+		return fmt.Errorf("failed to parse LET args: %w", err)
 	}
 
 	if len(args) != 3 || args[1] != "=" {
@@ -1892,7 +1897,7 @@ func parseSetArgs(cmd earthfile.Command) (name, value string, _ error) {
 
 	args, err := flagutil.ParseArgsCleaned("SET", &opts, argsCpy)
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to parse SET args")
+		return "", "", fmt.Errorf("failed to parse SET args: %w", err)
 	}
 
 	if len(args) != 3 {
@@ -1913,7 +1918,7 @@ func (i *Interpreter) handleSet(ctx context.Context, cmd earthfile.Command) erro
 
 	key, value, err := parseSetArgs(cmd)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse SET arguments")
+		return fmt.Errorf("failed to parse SET arguments: %w", err)
 	}
 
 	newVal, err := i.expandArgs(ctx, value, true, false)
@@ -2350,6 +2355,12 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) e
 }
 
 func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) error {
+	i.console.Warnf(
+		"Deprecation: the PROJECT command is deprecated. " +
+			"With the cloud integration removed, it no longer has any effect unless you use a custom secret command. " +
+			"We may remove it in a future release and are collecting feedback to help decide. " +
+			"Let us know how you use PROJECT at https://github.com/orgs/EarthBuild/discussions/708")
+
 	// Note: Expanding args for PROJECT is not allowed. The value needs to be
 	// lifted straight from the AST.
 	projectVal := cmd.Args[0]

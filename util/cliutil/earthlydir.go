@@ -1,13 +1,13 @@
 package cliutil
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -51,21 +51,21 @@ func GetOrCreateEarthDir(installName string) (string, error) {
 	earthDirCreateOnce.Do(func() {
 		earthDirExists, err := fileutil.DirExists(earthDir)
 		if err != nil {
-			errEarthDirCreate = errors.Wrapf(err, "unable to create dir %s", earthDir)
+			errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
 			return
 		}
 
 		if !earthDirExists {
 			err := os.MkdirAll(earthDir, 0o755) // #nosec G301
 			if err != nil {
-				errEarthDirCreate = errors.Wrapf(err, "unable to create dir %s", earthDir)
+				errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
 				return
 			}
 
 			if earthDirSudoUser != nil {
 				err := fileutil.EnsureUserOwned(earthDir, earthDirSudoUser)
 				if err != nil {
-					errEarthDirCreate = errors.Wrapf(err, "failed to ensure %s is owned by %s", earthDir, earthDirSudoUser)
+					errEarthDirCreate = fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, earthDirSudoUser, err)
 				}
 			}
 		}
@@ -86,7 +86,7 @@ func EnsurePermissions(installName string) error {
 	if sudoUser != nil {
 		err := fileutil.EnsureUserOwned(earthDir, sudoUser)
 		if err != nil {
-			return errors.Wrapf(err, "failed to ensure %s is owned by %s", earthDir, sudoUser)
+			return fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, sudoUser, err)
 		}
 	}
 

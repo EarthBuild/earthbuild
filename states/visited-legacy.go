@@ -2,13 +2,13 @@ package states
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/states/dedup"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/pkg/errors"
 )
 
 // legacyVisitedCollection is a collection of visited targets.
@@ -67,8 +67,9 @@ func (vc *legacyVisitedCollection) Add(
 			// Existing sts.
 			if dependents[sts.ID] {
 				// Infinite recursion. The previously visited sts is a dependent of us.
-				return nil, false, errors.Errorf(
-					"infinite recursion detected for target %s", target.String())
+				return nil, false, fmt.Errorf(
+					"infinite recursion detected for target %s", target.String(),
+				)
 			}
 			// If it's not a dependent, then it *has* to be done at this point.
 			// Sanity check.

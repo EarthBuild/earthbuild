@@ -18,7 +18,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/variables"
 	gsysinfo "github.com/elastic/go-sysinfo"
-	"github.com/pkg/errors"
 )
 
 // Wrap formats strings by joining them with newlines and tabs.
@@ -37,7 +36,7 @@ func CombineVariables(dotEnvMap map[string]string, flagArgs, buildFlagArgs []str
 
 	overridingVars, err := variables.ParseCommandLineArgs(buildArgs)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse build args")
+		return nil, fmt.Errorf("parse build args: %w", err)
 	}
 
 	return variables.CombineScopes(overridingVars, dotEnvVars), nil
@@ -64,7 +63,7 @@ func ProcessSecrets(
 			// Not set. Use environment to fetch it.
 			value, found := os.LookupEnv(secret)
 			if !found {
-				err := errors.Errorf("failed to set secret %q via --secret flag without a value", secret)
+				err := fmt.Errorf("failed to set secret %q via --secret flag without a value", secret)
 
 				return nil, hint.Wrapf(err,
 					"Try to set an env var by the name %q with the secret value or pass the value as part of the --secret flag",
@@ -75,7 +74,9 @@ func ProcessSecrets(
 		}
 
 		if _, ok := finalSecrets[key]; ok {
-			return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret flag", key),
+			err := fmt.Errorf("failed to set secret %q via --secret flag", key)
+
+			return nil, hint.Wrapf(err,
 				"Check the secret %q has not already been set in the file %q or passed more than once to the command",
 				key, secretsFilePath)
 		}
@@ -86,7 +87,7 @@ func ProcessSecrets(
 	for _, secret := range secretFiles {
 		parts := strings.SplitN(secret, "=", 2)
 		if len(parts) != 2 {
-			return nil, errors.Errorf("unable to parse --secret-file argument: %q", secret)
+			return nil, fmt.Errorf("unable to parse --secret-file argument: %q", secret)
 		}
 
 		k := parts[0]
@@ -94,12 +95,15 @@ func ProcessSecrets(
 
 		data, err := os.ReadFile(path) // #nosec G304
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to open %q", path)
+			return nil, fmt.Errorf("failed to open %q: %w", path, err)
 		}
 
 		if _, ok := finalSecrets[k]; ok {
-			return nil, hint.Wrapf(errors.Errorf("failed to set secret %q via --secret-file flag", k),
-				"Check the secret %q has not already been set in the file %q, or passed via --secret flag", k, secretsFilePath)
+			err := fmt.Errorf("failed to set secret %q via --secret-file flag", k)
+
+			return nil, hint.Wrapf(err,
+				"Check the secret %q has not already been set in the file %q, or passed via --secret flag",
+				k, secretsFilePath)
 		}
 
 		finalSecrets[k] = data

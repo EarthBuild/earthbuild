@@ -233,7 +233,7 @@ time="2022-10-27T18:18:06Z" level=debug msg="> creating jzaxegge8eh5hjqe33jybv2m
 
 If you have issues with git-related features or with private docker registries, make sure you have configured auth correctly. See the [auth page](https://docs.earthly.dev/guides/auth) for more details.
 
-You may need to adjust the docker login command in the `earthly-integration-test-base:` target by removing the Earthly repository and adjusting for your login credentials provider.
+You may need to adjust the docker login command in the `earthbuild-integration-test-base:` target by removing the Earthly repository and adjusting for your login credentials provider.
 
 ### Documentation
 

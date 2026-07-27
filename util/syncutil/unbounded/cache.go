@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/EarthBuild/earthbuild/util/syncutil/metacontext"
 )
@@ -36,18 +35,28 @@ func WithLoader[K comparable, V any](loader Loader[K, V]) Option[K, V] {
 //
 // Lifecycle invariant: value and err are written exactly once, by whoever owns
 // loading (the load goroutine, or Store for a pre-built value), and always
-// before both done.Store(true) and close(loaded). Readers reach them only after
-// observing done == true or a receive from loaded, either of which establishes the
-// happens-before edge. Nothing writes value or err after that point, so no lock is
-// needed on the read path.
+// before close(loaded). Readers reach them only after observing a receive from
+// loaded (via select or <-loaded), which establishes the happens-before edge.
+// Nothing writes value or err after that point, so no lock is needed on the read path.
 type entry[V any] struct {
-	metaCtx atomic.Pointer[metacontext.MetaContext]
+	value   V
+	metaCtx *metacontext.MetaContext
 	loaded  chan struct{}
 	err     error
-	value   V
+	mu      sync.Mutex
+}
 
-	// done indicates whether loading is complete, enabling zero-allocation fast-path hits.
-	done atomic.Bool
+func (e *entry[V]) getMetaCtx() *metacontext.MetaContext {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.metaCtx
+}
+
+func (e *entry[V]) clearMetaCtx() {
+	e.mu.Lock()
+	e.metaCtx = nil
+	e.mu.Unlock()
 }
 
 // Cache is an object which can be used to create singletons stored in a key-value store.
@@ -97,32 +106,32 @@ func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V,
 		return zero, fmt.Errorf("cache: load key %v: loader is required", key)
 	}
 
-	for retry := false; ; retry = true {
-		// Only on a retry: a cache hit is still served to a caller whose context has since
-		// been canceled, as it always was. But there is no point starting loading
-		// over on behalf of a caller that has itself gone away, and this is what bounds
-		// the loop.
-		if retry {
-			err := ctx.Err()
-			if err != nil {
-				return zero, fmt.Errorf("cache: load key %v: %w", key, err)
-			}
-		}
-
+	for {
 		e, found := c.getEntry(ctx, key)
 		if !found {
 			// We need to load this.
 			go c.load(e, key, callOpts.loader)
-		} else if e.done.Load() {
-			return e.value, e.err
-		} else if mc := e.metaCtx.Load(); mc != nil && mc.Add(ctx) != nil {
-			// The in-flight load is already doomed — every context sharing it
-			// has been canceled, so it will fail with context.Canceled and evict itself.
-			// Attaching would hand our still-live caller someone else's cancellation.
-			// Wait for it to clear the way, then start over.
-			<-e.loaded
+		} else {
+			select {
+			case <-e.loaded:
+				return e.value, e.err
+			default:
+				mc := e.getMetaCtx()
+				if mc != nil && mc.Add(ctx) != nil {
+					// The in-flight load is already doomed — every context sharing it
+					// has been canceled, so it will fail with context.Canceled and evict itself.
+					// Attaching would hand our still-live caller someone else's cancellation.
+					// Wait for it to clear the way, then check context status before retrying.
+					<-e.loaded
 
-			continue
+					err := ctx.Err()
+					if err != nil {
+						return zero, fmt.Errorf("cache: load key %v: %w", key, err)
+					}
+
+					continue
+				}
+			}
 		}
 
 		<-e.loaded
@@ -135,7 +144,7 @@ func (c *Cache[K, V]) load(e *entry[V], key K, loader Loader[K, V]) {
 	// The metaCtx will ensure that this stays alive even if the original Load has
 	// been canceled, thanks to the metaCtx. This is canceled only when ALL of
 	// the Loads are canceled.
-	mc := e.metaCtx.Load()
+	mc := e.getMetaCtx()
 	e.value, e.err = loader(mc, key)
 	// Don't cache context canceled. Whoever is currently waiting will still get this,
 	// but no future callers to Load will.
@@ -147,14 +156,15 @@ func (c *Cache[K, V]) load(e *entry[V], key K, loader Loader[K, V]) {
 		e.err = fmt.Errorf("cache: load key %v: %w", key, e.err)
 	}
 
-	e.done.Store(true)
 	close(e.loaded)
-	e.metaCtx.Store(nil)
+	e.clearMetaCtx()
 
 	// Dropping the pointer above is not enough: the MetaContext's own monitor and watcher
 	// goroutines hold it, and block until every sub-context is canceled — which for a
 	// whole-build context is never. Close releases them, and with them the sub-contexts.
-	mc.Close()
+	if mc != nil {
+		mc.Close()
+	}
 }
 
 // Store stores a value for a given key.
@@ -171,7 +181,6 @@ func (c *Cache[K, V]) Store(key K, value V) error {
 		loaded: make(chan struct{}),
 		value:  value,
 	}
-	e.done.Store(true)
 	close(e.loaded)
 
 	c.store[key] = e
@@ -194,9 +203,9 @@ func (c *Cache[K, V]) getEntry(ctx context.Context, key K) (*entry[V], bool) {
 	e, ok = c.store[key]
 	if !ok {
 		e = &entry[V]{
-			loaded: make(chan struct{}),
+			metaCtx: metacontext.New(ctx),
+			loaded:  make(chan struct{}),
 		}
-		e.metaCtx.Store(metacontext.New(ctx))
 		c.store[key] = e
 	}
 

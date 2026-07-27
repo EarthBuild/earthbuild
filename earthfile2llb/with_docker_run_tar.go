@@ -17,7 +17,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/unbounded"
 	"github.com/moby/buildkit/client/llb"
 )
 
@@ -344,7 +343,7 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		return fmt.Errorf("state key func: %w", err)
 	}
 
-	tarContext, err := w.c.opt.SolveCache.Load(ctx, solveID, unbounded.WithLoader(func(
+	tarContext, err := w.c.opt.SolveCache.Load(ctx, solveID, func(
 		ctx context.Context, _ states.StateKey,
 	) (pllb.State, error) {
 		// Use a builder to create docker .tar file, mount it via a local build
@@ -403,7 +402,7 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		w.c.opt.BuildContextProvider.AddDir(string(solveID), outDir)
 
 		return tarContext, nil
-	}))
+	})
 	if err != nil {
 		return err
 	}

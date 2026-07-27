@@ -17,20 +17,6 @@ var ErrAlreadyExists = errors.New("already exists")
 // Loader is a func that is used to load a cache value for a given key.
 type Loader[K comparable, V any] func(ctx context.Context, key K) (V, error)
 
-// Option configures cache behavior for [NewCache] or [Load] calls.
-type Option[K comparable, V any] func(*options[K, V])
-
-type options[K comparable, V any] struct {
-	loader Loader[K, V]
-}
-
-// WithLoader returns an [Option] that sets the loader function for building cache values.
-func WithLoader[K comparable, V any](loader Loader[K, V]) Option[K, V] {
-	return func(opts *options[K, V]) {
-		opts.loader = loader
-	}
-}
-
 // entry is a cached value, which may be computed in a background thread.
 //
 // Lifecycle invariant: value and err are written exactly once, by whoever owns
@@ -61,21 +47,20 @@ func (e *entry[V]) clearMetaCtx() {
 
 // Cache is an object which can be used to create singletons stored in a key-value store.
 type Cache[K comparable, V any] struct {
-	store map[K]*entry[V]
-	opts  options[K, V]
-	mu    sync.RWMutex
+	store  map[K]*entry[V]
+	loader Loader[K, V]
+	mu     sync.RWMutex
 }
 
-// NewCache creates an empty unbounded [Cache].
-func NewCache[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
+// NewCache creates an empty unbounded [Cache]. An optional default loader function
+// may be provided.
+func NewCache[K comparable, V any](loader ...Loader[K, V]) *Cache[K, V] {
 	c := &Cache[K, V]{
 		store: make(map[K]*entry[V]),
 	}
 
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&c.opts)
-		}
+	if len(loader) > 0 {
+		c.loader = loader[0]
 	}
 
 	return c
@@ -88,17 +73,15 @@ func NewCache[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
 // it is abandoned only once every caller sharing it has gone away. A caller whose own
 // context is still live is never handed someone else's cancellation; it starts a fresh
 // loader instead.
-func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V, error) {
+func (c *Cache[K, V]) Load(ctx context.Context, key K, loader ...Loader[K, V]) (V, error) {
 	var zero V
 
-	callOpts := c.opts
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&callOpts)
-		}
+	l := c.loader
+	if len(loader) > 0 && loader[0] != nil {
+		l = loader[0]
 	}
 
-	if callOpts.loader == nil {
+	if l == nil {
 		// Not merely unhelpful: load runs on a goroutine, so calling a nil
 		// loader would be an unrecoverable panic rather than an error the caller
 		// could handle. Reject deterministically, whether or not the key happens to be
@@ -110,7 +93,7 @@ func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V,
 		e, found := c.getEntry(ctx, key)
 		if !found {
 			// We need to load this.
-			go c.load(e, key, callOpts.loader)
+			go c.load(e, key, l)
 		} else {
 			select {
 			case <-e.loaded:

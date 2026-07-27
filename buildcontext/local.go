@@ -32,7 +32,7 @@ func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogge
 		console:           console,
 	}
 	lr.gitMetaCache = unbounded.NewCache(
-		unbounded.WithLoader(func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
+		func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
 			meta, err := gitutil.Metadata(ctx, localPath, lr.gitBranchOverride)
 			if err != nil {
 				if errors.Is(err, gitutil.ErrNoGitBinary) ||
@@ -54,7 +54,7 @@ func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogge
 			}
 
 			return meta, nil
-		}),
+		},
 	)
 
 	return lr
@@ -85,7 +85,7 @@ func (lr *localResolver) resolveLocal(
 		key = ref.String()
 	}
 
-	bf, err := lr.buildFileCache.Load(ctx, key, unbounded.WithLoader(func(context.Context, string) (*buildFile, error) {
+	bf, err := lr.buildFileCache.Load(ctx, key, func(context.Context, string) (*buildFile, error) {
 		var buildFilePath string
 
 		buildFilePath, err = detectBuildFile(ref, localPath)
@@ -107,7 +107,7 @@ func (lr *localResolver) resolveLocal(
 			path: buildFilePath,
 			ftrs: ftrs,
 		}, nil
-	}))
+	})
 	if err != nil {
 		return nil, err
 	}

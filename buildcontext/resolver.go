@@ -75,9 +75,9 @@ func NewResolver(
 		},
 		lr: newLocalResolver(gitBranchOverride, console),
 		parseCache: unbounded.NewCache(
-			unbounded.WithLoader(func(_ context.Context, earthfilePath string) (earthfile.Tree, error) {
+			func(_ context.Context, earthfilePath string) (earthfile.Tree, error) {
 				return earthfile.ParseFile(earthfilePath, earthfile.WithSourceMap())
-			}),
+			},
 		),
 		console:              console,
 		featureFlagOverrides: featureFlagOverrides,

@@ -160,7 +160,7 @@ func (gr *gitResolver) resolveEarthProject(
 
 	localBuildFile, err := gr.buildFileCache.Load(
 		ctx, key,
-		unbounded.WithLoader(func(ctx context.Context, _ string) (*buildFile, error) {
+		func(ctx context.Context, _ string) (*buildFile, error) {
 			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
 			if inErr != nil {
 				return nil, fmt.Errorf("create temp dir for Earthfile: %w", inErr)
@@ -211,7 +211,7 @@ func (gr *gitResolver) resolveEarthProject(
 				path: localBuildFilePath,
 				ftrs: ftrs,
 			}, nil
-		}),
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -264,7 +264,7 @@ func (gr *gitResolver) resolveGitProject(
 
 	rgp, err = gr.projectCache.Load(
 		ctx, cacheKey,
-		unbounded.WithLoader(func(ctx context.Context, cacheKey string) (*resolvedGitProject, error) {
+		func(ctx context.Context, cacheKey string) (*resolvedGitProject, error) {
 			// Copy all Earthfile, build.earth and Dockerfile files.
 			vm := &vertexmeta.VertexMeta{
 				TargetName: cacheKey,
@@ -495,7 +495,7 @@ func (gr *gitResolver) resolveGitProject(
 			}()
 
 			return rgp, nil
-		}),
+		},
 	)
 	if err != nil {
 		return nil, "", "", err

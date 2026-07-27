@@ -31,7 +31,7 @@ func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogge
 		gitBranchOverride: gitBranchOverride,
 		console:           console,
 	}
-	lr.gitMetaCache = unbounded.NewCache[string, *gitutil.GitMetadata](
+	lr.gitMetaCache = unbounded.NewCache(
 		unbounded.WithLoader(func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
 			meta, err := gitutil.Metadata(ctx, localPath, lr.gitBranchOverride)
 			if err != nil {

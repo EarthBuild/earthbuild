@@ -25,19 +25,14 @@ type localResolver struct {
 	console           conslogging.ConsoleLogger
 }
 
-func (lr *localResolver) resolveLocal(
-	ctx context.Context,
-	gwClient gwclient.Client,
-	platr *platutil.Resolver,
-	ref domain.Reference,
-	featureFlagOverrides string,
-) (*Data, error) {
-	if ref.IsRemote() {
-		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
+func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogger) *localResolver {
+	lr := &localResolver{
+		buildFileCache:    unbounded.NewCache[string, *buildFile](),
+		gitBranchOverride: gitBranchOverride,
+		console:           console,
 	}
-
-	metadata, err := lr.gitMetaCache.Do(
-		ctx, ref.GetLocalPath(), func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
+	lr.gitMetaCache = unbounded.NewCache[string, *gitutil.GitMetadata](
+		unbounded.WithLoader(func(ctx context.Context, localPath string) (*gitutil.GitMetadata, error) {
 			meta, err := gitutil.Metadata(ctx, localPath, lr.gitBranchOverride)
 			if err != nil {
 				if errors.Is(err, gitutil.ErrNoGitBinary) ||
@@ -59,8 +54,24 @@ func (lr *localResolver) resolveLocal(
 			}
 
 			return meta, nil
-		},
+		}),
 	)
+
+	return lr
+}
+
+func (lr *localResolver) resolveLocal(
+	ctx context.Context,
+	gwClient gwclient.Client,
+	platr *platutil.Resolver,
+	ref domain.Reference,
+	featureFlagOverrides string,
+) (*Data, error) {
+	if ref.IsRemote() {
+		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
+	}
+
+	metadata, err := lr.gitMetaCache.Load(ctx, ref.GetLocalPath())
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +85,7 @@ func (lr *localResolver) resolveLocal(
 		key = ref.String()
 	}
 
-	bf, err := lr.buildFileCache.Do(ctx, key, func(context.Context, string) (*buildFile, error) {
+	bf, err := lr.buildFileCache.Load(ctx, key, unbounded.WithLoader(func(context.Context, string) (*buildFile, error) {
 		var buildFilePath string
 
 		buildFilePath, err = detectBuildFile(ref, localPath)
@@ -96,7 +107,7 @@ func (lr *localResolver) resolveLocal(
 			path: buildFilePath,
 			ftrs: ftrs,
 		}, nil
-	})
+	}))
 	if err != nil {
 		return nil, err
 	}

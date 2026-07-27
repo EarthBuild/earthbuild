@@ -51,8 +51,8 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 		platform: platformStr,
 	}
 
-	entry, err := cmr.cache.Do(
-		ctx, key, func(ctx context.Context, key cachedMetaResolverKey) (cachedMetaResolverEntry, error) {
+	entry, err := cmr.cache.Load(
+		ctx, key, unbounded.WithLoader(func(ctx context.Context, key cachedMetaResolverKey) (cachedMetaResolverEntry, error) {
 			reference, dgst, config, err := cmr.metaResolver.ResolveImageConfig(ctx, key.ref, opt)
 			if err != nil {
 				return cachedMetaResolverEntry{}, err
@@ -63,7 +63,7 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 				dgst:   dgst,
 				config: config,
 			}, nil
-		},
+		}),
 	)
 	if err != nil {
 		return "", "", nil, err

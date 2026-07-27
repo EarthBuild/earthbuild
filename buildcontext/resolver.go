@@ -73,13 +73,12 @@ func NewResolver(
 			gitLookup:         gitLookup,
 			console:           console,
 		},
-		lr: &localResolver{
-			buildFileCache:    unbounded.NewCache[string, *buildFile](),
-			gitMetaCache:      unbounded.NewCache[string, *gitutil.GitMetadata](),
-			gitBranchOverride: gitBranchOverride,
-			console:           console,
-		},
-		parseCache:           unbounded.NewCache[string, earthfile.Tree](),
+		lr: newLocalResolver(gitBranchOverride, console),
+		parseCache: unbounded.NewCache(
+			unbounded.WithLoader(func(_ context.Context, earthfilePath string) (earthfile.Tree, error) {
+				return earthfile.ParseFile(earthfilePath, earthfile.WithSourceMap())
+			}),
+		),
 		console:              console,
 		featureFlagOverrides: featureFlagOverrides,
 	}
@@ -244,9 +243,7 @@ func (r *Resolver) Resolve(
 	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
 		path := filepath.Clean(d.BuildFilePath)
 
-		d.Earthfile, err = r.parseCache.Do(ctx, path, func(_ context.Context, earthfilePath string) (earthfile.Tree, error) {
-			return earthfile.ParseFile(earthfilePath, earthfile.WithSourceMap())
-		})
+		d.Earthfile, err = r.parseCache.Load(ctx, path)
 		if err != nil {
 			return nil, err
 		}

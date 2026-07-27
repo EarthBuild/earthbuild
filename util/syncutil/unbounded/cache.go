@@ -1,5 +1,5 @@
 // Package unbounded implements a concurrent-safe unbounded cache that evaluates and
-// stores the result of a functional constructor.
+// stores the result of a value loader.
 package unbounded
 
 import (
@@ -11,75 +11,106 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/metacontext"
 )
 
-// Constructor is a func that is used to construct a cache value, given a key.
-type Constructor[K comparable, V any] func(ctx context.Context, key K) (V, error)
+// Loader is a func that is used to load a cache value for a given key.
+type Loader[K comparable, V any] func(ctx context.Context, key K) (V, error)
+
+// Option configures cache behavior for [NewCache] or [Load] calls.
+type Option[K comparable, V any] func(*options[K, V])
+
+type options[K comparable, V any] struct {
+	loader Loader[K, V]
+}
+
+// WithLoader returns an [Option] that sets the loader function for building cache values.
+func WithLoader[K comparable, V any](loader Loader[K, V]) Option[K, V] {
+	return func(opts *options[K, V]) {
+		opts.loader = loader
+	}
+}
 
 // entry is a cached value, which may be computed in a background thread.
 //
 // Lifecycle invariant: value and err are written exactly once, by whoever owns
-// construction (the construct goroutine, or Add for a pre-built value), and always
-// before both done.Store(true) and close(constructed). Readers reach them only after
-// observing done == true or a receive from constructed, either of which establishes the
+// loading (the load goroutine, or Store for a pre-built value), and always
+// before both done.Store(true) and close(loaded). Readers reach them only after
+// observing done == true or a receive from loaded, either of which establishes the
 // happens-before edge. Nothing writes value or err after that point, so no lock is
 // needed on the read path.
 type entry[V any] struct {
-	metaCtx     atomic.Pointer[metacontext.MetaContext]
-	constructed chan struct{}
-	err         error
-	value       V
+	metaCtx atomic.Pointer[metacontext.MetaContext]
+	loaded  chan struct{}
+	err     error
+	value   V
 
-	// done indicates whether construction is complete, enabling zero-allocation fast-path hits.
+	// done indicates whether loading is complete, enabling zero-allocation fast-path hits.
 	done atomic.Bool
 }
 
 // Cache is an object which can be used to create singletons stored in a key-value store.
 type Cache[K comparable, V any] struct {
 	store map[K]*entry[V]
+	opts  options[K, V]
 	mu    sync.RWMutex
 }
 
 // NewCache creates an empty unbounded [Cache].
-func NewCache[K comparable, V any]() *Cache[K, V] {
-	return &Cache[K, V]{
+func NewCache[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
+	c := &Cache[K, V]{
 		store: make(map[K]*entry[V]),
 	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&c.opts)
+		}
+	}
+
+	return c
 }
 
-// Do executes the constructor, if a value for key hasn't already been constructed.
+// Load executes the loader, if a value for key hasn't already been loaded.
 //
-// Construction is shared: concurrent callers for the same key wait on a single
-// constructor call, and the construction survives any individual caller's cancellation —
+// Loader is shared: concurrent callers for the same key wait on a single
+// loader call, and the loader survives any individual caller's cancellation —
 // it is abandoned only once every caller sharing it has gone away. A caller whose own
 // context is still live is never handed someone else's cancellation; it starts a fresh
-// construction instead.
-func (c *Cache[K, V]) Do(ctx context.Context, key K, constructor Constructor[K, V]) (V, error) {
+// loader instead.
+func (c *Cache[K, V]) Load(ctx context.Context, key K, opts ...Option[K, V]) (V, error) {
 	var zero V
 
-	if constructor == nil {
-		// Not merely unhelpful: construct runs on a goroutine, so calling a nil
-		// constructor would be an unrecoverable panic rather than an error the caller
+	callOpts := c.opts
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&callOpts)
+		}
+	}
+
+	if callOpts.loader == nil {
+		// Not merely unhelpful: load runs on a goroutine, so calling a nil
+		// loader would be an unrecoverable panic rather than an error the caller
 		// could handle. Reject deterministically, whether or not the key happens to be
 		// cached right now.
-		return zero, errors.New("nil constructor")
+		return zero, errors.New("loader is required")
 	}
 
 	for retry := false; ; retry = true {
 		// Only on a retry: a cache hit is still served to a caller whose context has since
-		// been canceled, as it always was. But there is no point starting construction
+		// been canceled, as it always was. But there is no point starting loading
 		// over on behalf of a caller that has itself gone away, and this is what bounds
 		// the loop.
 		if retry {
-			if err := ctx.Err(); err != nil {
+			err := ctx.Err()
+			if err != nil {
 				return zero, err
 			}
 		}
 
 		e, found := c.getEntry(ctx, key)
 		if !found {
-			// We need to construct this.
-			go c.construct(e, key, constructor)
+			// We need to load this.
+			go c.load(e, key, callOpts.loader)
 
-			<-e.constructed
+			<-e.loaded
 
 			return e.value, e.err
 		}
@@ -89,42 +120,42 @@ func (c *Cache[K, V]) Do(ctx context.Context, key K, constructor Constructor[K, 
 		}
 
 		select {
-		case <-e.constructed:
-			// Already constructed — fast path!
+		case <-e.loaded:
+			// Already loaded — fast path!
 			return e.value, e.err
 		default:
 		}
 
 		if mc := e.metaCtx.Load(); mc != nil && mc.Add(ctx) != nil {
-			// The in-flight construction is already doomed — every context sharing it
+			// The in-flight load is already doomed — every context sharing it
 			// has been canceled, so it will fail with context.Canceled and evict itself.
 			// Attaching would hand our still-live caller someone else's cancellation.
 			// Wait for it to clear the way, then start over.
-			<-e.constructed
+			<-e.loaded
 
 			continue
 		}
 
-		<-e.constructed
+		<-e.loaded
 
 		return e.value, e.err
 	}
 }
 
-func (c *Cache[K, V]) construct(e *entry[V], key K, constructor Constructor[K, V]) {
-	// The metaCtx will ensure that this stays alive even if the original Do has
+func (c *Cache[K, V]) load(e *entry[V], key K, loader Loader[K, V]) {
+	// The metaCtx will ensure that this stays alive even if the original Load has
 	// been canceled, thanks to the metaCtx. This is canceled only when ALL of
-	// the Do's are canceled.
+	// the Loads are canceled.
 	mc := e.metaCtx.Load()
-	e.value, e.err = constructor(mc, key)
+	e.value, e.err = loader(mc, key)
 	// Don't cache context canceled. Whoever is currently waiting will still get this,
-	// but no future callers to Do will.
+	// but no future callers to Load will.
 	if errors.Is(e.err, context.Canceled) {
 		c.deleteEntry(key)
 	}
 
 	e.done.Store(true)
-	close(e.constructed)
+	close(e.loaded)
 	e.metaCtx.Store(nil)
 
 	// Dropping the pointer above is not enough: the MetaContext's own monitor and watcher
@@ -133,8 +164,8 @@ func (c *Cache[K, V]) construct(e *entry[V], key K, constructor Constructor[K, V
 	mc.Close()
 }
 
-// Add adds a readily constructed value for a given key.
-func (c *Cache[K, V]) Add(key K, value V) error {
+// Store stores a value for a given key.
+func (c *Cache[K, V]) Store(key K, value V) error {
 	c.mu.Lock()
 
 	if _, ok := c.store[key]; ok {
@@ -144,11 +175,11 @@ func (c *Cache[K, V]) Add(key K, value V) error {
 	}
 
 	e := &entry[V]{
-		constructed: make(chan struct{}),
-		value:       value,
+		loaded: make(chan struct{}),
+		value:  value,
 	}
 	e.done.Store(true)
-	close(e.constructed)
+	close(e.loaded)
 
 	c.store[key] = e
 	c.mu.Unlock()
@@ -170,7 +201,7 @@ func (c *Cache[K, V]) getEntry(ctx context.Context, key K) (*entry[V], bool) {
 	e, ok = c.store[key]
 	if !ok {
 		e = &entry[V]{
-			constructed: make(chan struct{}),
+			loaded: make(chan struct{}),
 		}
 		e.metaCtx.Store(metacontext.New(ctx))
 		c.store[key] = e
@@ -182,18 +213,18 @@ func (c *Cache[K, V]) getEntry(ctx context.Context, key K) (*entry[V], bool) {
 }
 
 // deleteEntry removes the entry for key. Note: this does not cancel any ongoing
-// construction.
+// load.
 //
 // INVARIANT (single-deleter): deleting by key rather than by entry identity is safe only
-// because an entry can never be evicted by anyone other than the construct goroutine that
+// because an entry can never be evicted by anyone other than the load goroutine that
 // owns it. Concretely:
 //
-//   - construct is the only caller, and calls this at most once, immediately after its
-//     constructor returns;
-//   - an entry is present in the store for the whole of its construction, and both
-//     getEntry and Add refuse to insert over a present entry;
+//   - load is the only caller, and calls this at most once, immediately after its
+//     loader returns;
+//   - an entry is present in the store for the whole of its load, and both
+//     getEntry and Store refuse to insert over a present entry;
 //   - therefore no replacement entry for that key can exist until this delete has already
-//     happened, and a stale construct cannot evict a newer entry.
+//     happened, and a stale load cannot evict a newer entry.
 //
 // Any second deletion path — eviction, Clear, a TTL, a bounded variant of this cache —
 // breaks the third bullet, at which point this must become an identity check:

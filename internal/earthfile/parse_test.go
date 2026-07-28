@@ -9,6 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// errUnsupportedVersion is what the version validator emits for every
+// unsupported VERSION value. Spelled out rather than derived from
+// getValidVersionsFormatted so these tests pin the user-facing wording.
+const errUnsupportedVersion = "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+
 func TestParseOpts(t *testing.T) {
 	t.Parallel()
 
@@ -1799,22 +1804,22 @@ build:
 		{
 			name:      "invalid major version",
 			input:     "VERSION 1.0\n",
-			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+			wantError: errUnsupportedVersion,
 		},
 		{
 			name:      "invalid minor version",
 			input:     "VERSION 0.4\n", // versioning was only added since 0.5
-			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+			wantError: errUnsupportedVersion,
 		},
 		{
 			name:      "invalid patch version",
 			input:     "VERSION 0.5.1\n", // patch version is not supported
-			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+			wantError: errUnsupportedVersion,
 		},
 		{
 			name:      "flag after version number",
 			input:     "VERSION 0.8 --try\n", // flags must precede the version number
-			wantError: "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
+			wantError: errUnsupportedVersion,
 		},
 	}
 

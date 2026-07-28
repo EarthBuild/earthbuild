@@ -38,7 +38,7 @@ func TestParseFile_Version(t *testing.T) {
 	r := require.New(t)
 	r.NoError(err)
 	r.NotNil(tree.Version)
-	r.Equal([]string{"0.8"}, tree.Version.Args)
+	r.Equal([]string{version08}, tree.Version.Args)
 }
 
 // TestVersionVariants covers the accepted spellings of the VERSION statement:
@@ -50,7 +50,6 @@ func TestVersionVariants(t *testing.T) {
 
 	requireVersion := func(t *testing.T, input string, wantArgs ...string) {
 		t.Helper()
-		t.Parallel()
 
 		tree, err := Parse("Earthfile", input)
 		r := require.New(t)
@@ -90,6 +89,8 @@ VERSION 0.8
 `,
 		"version only": `VERSION 0.8
 `,
+		// Non-POSIX text file: no trailing newline at EOF.
+		"version only without trailing newline": `VERSION 0.8`,
 		"version then import": `VERSION 0.8
 IMPORT ./subdir AS other
 `,
@@ -120,7 +121,10 @@ IMPORT ./subdir AS other
 `,
 	}
 	for name, input := range plain {
-		t.Run(name, func(t *testing.T) { requireVersion(t, input, "0.8") })
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			requireVersion(t, input, version08)
+		})
 	}
 
 	// Feature flags precede the version number and survive continuations.
@@ -133,6 +137,9 @@ IMPORT ./subdir AS other
 `,
 	}
 	for name, input := range withFlag {
-		t.Run(name, func(t *testing.T) { requireVersion(t, input, "--try", "0.8") })
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			requireVersion(t, input, "--try", version08)
+		})
 	}
 }

@@ -11,24 +11,7 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  next-bootstrap-test:
-    name: Bootstrap Test
-    runs-on: ubuntu-24.04
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: ./.github/actions/stage2-setup
-        with:
-          BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-          BINARY: "docker"
-          USE_NEXT: true
-          SUDO: ""
-      - name: Verify bootstrap works
-        run: ./build/linux/amd64/earthly bootstrap
-
   earthly-next-docker-tests-no-qemu-group1:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group1"
@@ -37,12 +20,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group2:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group2"
@@ -51,12 +32,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group3:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group3"
@@ -65,12 +44,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group4:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group4"
@@ -79,12 +56,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group5:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group5"
@@ -93,12 +68,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group6:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group6"
@@ -107,12 +80,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group7:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group7"
@@ -121,12 +92,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group8:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group8"
@@ -135,12 +104,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group9:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group9"
@@ -149,12 +116,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group10:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group10"
@@ -163,12 +128,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group11:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group11"
@@ -177,12 +140,10 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit
 
   earthly-next-docker-tests-no-qemu-group12:
-    needs: next-bootstrap-test
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-no-qemu-group12"
@@ -191,6 +152,5 @@ jobs:
       BINARY: "docker"
       USE_NEXT: true
       SUDO: ""
-      SKIP_JOB: ${{ needs.next-bootstrap-test.result != 'success' }}
       # EXTRA_ARGS: "--auto-skip"
     secrets: inherit

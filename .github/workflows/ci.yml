@@ -173,40 +173,41 @@ jobs:
           path: ./artifacts-next/
           retention-days: 1
 
-  frontends:
-    name: ${{ matrix.name }}
+  docker:
+    name: Docker
     needs: fast-check-and-build
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Docker
-            frontend: "docker"
-            sudo: ""
-            use_next: false
-            run_integrations: true
-            run_examples: true
-            run_qemu: true
-          - name: Podman
-            frontend: "podman"
-            sudo: "sudo -E"
-            use_next: false
-            run_integrations: false
-            run_examples: true
-            run_qemu: true
-          - name: Next
-            frontend: "docker"
-            sudo: ""
-            use_next: true
-            run_integrations: false
-            run_examples: false
-            run_qemu: false
     uses: ./.github/workflows/ci-frontend-suite.yml
     with:
-      FRONTEND: ${{ matrix.frontend }}
-      SUDO: ${{ matrix.sudo }}
-      USE_NEXT: ${{ matrix.use_next }}
-      RUN_INTEGRATION_TESTS: ${{ matrix.run_integrations }}
-      RUN_EXAMPLES: ${{ matrix.run_examples }}
-      RUN_QEMU: ${{ matrix.run_qemu }}
+      FRONTEND: "docker"
+      SUDO: ""
+      USE_NEXT: false
+      RUN_INTEGRATION_TESTS: true
+      RUN_EXAMPLES: true
+      RUN_QEMU: true
+    secrets: inherit
+
+  podman:
+    name: Podman
+    needs: fast-check-and-build
+    uses: ./.github/workflows/ci-frontend-suite.yml
+    with:
+      FRONTEND: "podman"
+      SUDO: "sudo -E"
+      USE_NEXT: false
+      RUN_INTEGRATION_TESTS: false
+      RUN_EXAMPLES: true
+      RUN_QEMU: true
+    secrets: inherit
+
+  next:
+    name: Next
+    needs: fast-check-and-build
+    uses: ./.github/workflows/ci-frontend-suite.yml
+    with:
+      FRONTEND: "docker"
+      SUDO: ""
+      USE_NEXT: true
+      RUN_INTEGRATION_TESTS: false
+      RUN_EXAMPLES: false
+      RUN_QEMU: false
     secrets: inherit

@@ -6,6 +6,12 @@
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
 
+## Naming & Terminology
+
+* The `earthly` naming is deprecated and being systematically eliminated.
+* Use `earth` when referring to the CLI command.
+* Use `EarthBuild` when referring to organization or project context.
+
 ## Earthfile Parser
 
 * When making changes to the parser, it is critical to keep [earthfile.abnf](file:///Users/jhorsts/projects/earthbuild/earthbuild/internal/earthfile/earthfile.abnf) up to date. And ensure the parser's implementation matches the ABNF grammar.

@@ -136,7 +136,9 @@ func (c *Cache[K, V]) load(execCtx context.Context, e *entry[V], key K, loader L
 	// returning — a panic, or a runtime.Goexit from a testing helper — would otherwise
 	// leave loaded unclosed and every waiter on it blocked for good.
 	defer func() {
-		if !returned && e.err == nil {
+		if r := recover(); r != nil && e.err == nil {
+			e.err = fmt.Errorf("cache: load key %v: loader panicked: %v", key, r)
+		} else if !returned && e.err == nil {
 			e.err = fmt.Errorf("cache: load key %v: loader exited without returning a value", key)
 		}
 

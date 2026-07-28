@@ -36,6 +36,82 @@ func TestCache_Loader(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "cache: load key missing: loader is required", err.Error())
 	})
+
+	t.Run("loader that exits prematurely unblocks waiters with error", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			waiterErr error
+			waiterVal string
+		)
+
+		synctest.Test(t, func(t *testing.T) {
+			cache := NewCache[string, string]()
+			loaderStarted := make(chan struct{})
+
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				_, _ = cache.Load(t.Context(), "k", func(context.Context) (string, error) {
+					close(loaderStarted)
+					runtime.Goexit()
+
+					return "never", nil
+				})
+			})
+
+			<-loaderStarted
+
+			wg.Go(func() {
+				waiterVal, waiterErr = cache.Load(t.Context(), "k", mustNotLoad[string](t))
+			})
+
+			synctest.Wait()
+			wg.Wait()
+			synctest.Wait()
+		})
+
+		require.Error(t, waiterErr)
+		require.Equal(t, "cache: load key k: loader exited without returning a value", waiterErr.Error())
+		require.Empty(t, waiterVal)
+	})
+
+	t.Run("loader that panics converts panic to error", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			waiterErr error
+			waiterVal string
+		)
+
+		synctest.Test(t, func(t *testing.T) {
+			cache := NewCache[string, string]()
+			loaderStarted := make(chan struct{})
+
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				_, _ = cache.Load(t.Context(), "k", func(context.Context) (string, error) {
+					close(loaderStarted)
+					panic("boom")
+				})
+			})
+
+			<-loaderStarted
+
+			wg.Go(func() {
+				waiterVal, waiterErr = cache.Load(t.Context(), "k", mustNotLoad[string](t))
+			})
+
+			synctest.Wait()
+			wg.Wait()
+			synctest.Wait()
+		})
+
+		require.Error(t, waiterErr)
+		require.Equal(t, "cache: load key k: loader panicked: boom", waiterErr.Error())
+		require.Empty(t, waiterVal)
+	})
 }
 
 func TestCache_Load(t *testing.T) {

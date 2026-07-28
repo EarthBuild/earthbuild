@@ -56,7 +56,7 @@ jobs:
 
       # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: "Put back the git branch into git (EarthBuild uses it for tagging)"
         run: |
@@ -79,7 +79,7 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build and push +ci-release using latest earthly build
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
@@ -129,7 +129,7 @@ jobs:
       - name: Build latest earthly (next) using released earthly
         run: earth --use-inline-cache +for-linux
       - name: Build and push +ci-release (next) using latest earth build
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest-ticktock"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release

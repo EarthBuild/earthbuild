@@ -54,65 +54,65 @@ func newInflight(firstCtx context.Context) (context.Context, *inflight) {
 
 // close unregisters cancellation listeners, releases the shared load context, and
 // prevents further context additions.
-func (inf *inflight) close() {
-	inf.mu.Lock()
+func (i *inflight) close() {
+	i.mu.Lock()
 
-	if inf.closed {
-		inf.mu.Unlock()
+	if i.closed {
+		i.mu.Unlock()
 
 		return
 	}
 
-	inf.closed = true
+	i.closed = true
 
-	for _, stop := range inf.stops {
+	for _, stop := range i.stops {
 		stop()
 	}
 
-	inf.stops = nil
-	inf.mu.Unlock()
+	i.stops = nil
+	i.mu.Unlock()
 
 	// The load is over, so release the load context rather than leave it live for the
 	// rest of the process — its parent is WithoutCancel, so nothing else ever will.
 	// Outside the lock: cancel runs whatever the loader registered on it, synchronously.
-	inf.cancel(errClosed)
+	i.cancel(errClosed)
 }
 
-func (inf *inflight) onSubDone(ctx context.Context) {
-	inf.mu.Lock()
-	defer inf.mu.Unlock()
+func (i *inflight) onSubDone(ctx context.Context) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 
-	if inf.closed {
+	if i.closed {
 		return
 	}
 
-	inf.numDone++
-	if inf.numDone == 1 {
-		inf.firstDoneErr = ctx.Err()
+	i.numDone++
+	if i.numDone == 1 {
+		i.firstDoneErr = ctx.Err()
 	}
 
-	if inf.numDone == len(inf.stops) {
-		inf.closed = true
+	if i.numDone == len(i.stops) {
+		i.closed = true
 
-		err := inf.firstDoneErr
+		err := i.firstDoneErr
 		if err == nil {
 			err = context.Canceled
 		}
 
-		inf.cancel(err)
+		i.cancel(err)
 	}
 }
 
 // add adds a new context to the in-flight load. It returns a non-nil error if the
 // context is already done or closed ([errClosed]); in both cases ctx has NOT
 // been added and its cancellation will not be observed.
-func (inf *inflight) add(ctx context.Context) error {
-	inf.mu.Lock()
-	defer inf.mu.Unlock()
+func (i *inflight) add(ctx context.Context) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 
-	if inf.closed {
-		if inf.firstDoneErr != nil {
-			return inf.firstDoneErr
+	if i.closed {
+		if i.firstDoneErr != nil {
+			return i.firstDoneErr
 		}
 
 		return errClosed
@@ -124,10 +124,10 @@ func (inf *inflight) add(ctx context.Context) error {
 	}
 
 	stop := context.AfterFunc(ctx, func() {
-		inf.onSubDone(ctx)
+		i.onSubDone(ctx)
 	})
 
-	inf.stops = append(inf.stops, stop)
+	i.stops = append(i.stops, stop)
 
 	return nil
 }

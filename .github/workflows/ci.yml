@@ -173,41 +173,59 @@ jobs:
           path: ./artifacts-next/
           retention-days: 1
 
-  docker:
+  # --- Docker Suite ---
+  docker-tests:
     name: Docker
     needs: fast-check-and-build
-    uses: ./.github/workflows/ci-frontend-suite.yml
+    uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "docker"
-      SUDO: ""
-      USE_NEXT: false
-      RUN_INTEGRATION_TESTS: true
-      RUN_EXAMPLES: true
       RUN_QEMU: true
     secrets: inherit
 
-  podman:
+  docker-examples:
+    name: Docker Examples
+    needs: docker-tests
+    uses: ./.github/workflows/ci-examples-suite.yml
+    with:
+      FRONTEND: "docker"
+    secrets: inherit
+
+  docker-integrations:
+    name: Docker Integrations
+    needs: docker-tests
+    uses: ./.github/workflows/ci-integration-suite.yml
+    with:
+      FRONTEND: "docker"
+    secrets: inherit
+
+  # --- Podman Suite ---
+  podman-tests:
     name: Podman
     needs: fast-check-and-build
-    uses: ./.github/workflows/ci-frontend-suite.yml
+    uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "podman"
       SUDO: "sudo -E"
-      USE_NEXT: false
-      RUN_INTEGRATION_TESTS: false
-      RUN_EXAMPLES: true
       RUN_QEMU: true
     secrets: inherit
 
-  next:
+  podman-examples:
+    name: Podman Examples
+    needs: podman-tests
+    uses: ./.github/workflows/ci-examples-suite.yml
+    with:
+      FRONTEND: "podman"
+      SUDO: "sudo -E"
+    secrets: inherit
+
+  # --- Next Suite ---
+  next-tests:
     name: Next
     needs: fast-check-and-build
-    uses: ./.github/workflows/ci-frontend-suite.yml
+    uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "docker"
-      SUDO: ""
       USE_NEXT: true
-      RUN_INTEGRATION_TESTS: false
-      RUN_EXAMPLES: false
       RUN_QEMU: false
     secrets: inherit

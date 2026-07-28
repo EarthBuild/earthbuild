@@ -1,4 +1,4 @@
-name: Frontend Suite
+name: Integration Suite
 
 on:
   workflow_call:
@@ -14,18 +14,6 @@ on:
         required: false
         type: boolean
         default: false
-      RUN_INTEGRATION_TESTS:
-        required: false
-        type: boolean
-        default: false
-      RUN_EXAMPLES:
-        required: false
-        type: boolean
-        default: true
-      RUN_QEMU:
-        required: false
-        type: boolean
-        default: true
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -35,124 +23,8 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  bootstrap-test:
-    name: Bootstrap Test
-    runs-on: ubuntu-24.04
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: ./.github/actions/stage2-setup
-        with:
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-          BINARY: "${{ inputs.FRONTEND }}"
-          SUDO: "${{ inputs.SUDO }}"
-          USE_NEXT: "${{ inputs.USE_NEXT }}"
-      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
-        run: |-
-          set -euo pipefail
-          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Run earth bootstrap
-        if: ${{ inputs.FRONTEND != 'podman' }}
-        run: ${{ inputs.SUDO }} ./build/linux/amd64/earthly bootstrap
-
-  tests:
-    name: ${{ matrix.name }}
-    needs: bootstrap-test
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: "+test-misc"
-            name: "Misc (AST & Parser)"
-          - target: "+test-no-qemu-group1"
-            name: "Group 1 (Autocompletion, Dockerfile & Imports)"
-          - target: "+test-no-qemu-group2"
-            name: "Group 2 (COPY & Git Clone Operations)"
-          - target: "+test-no-qemu-group3"
-            name: "Group 3 (Secrets, Build ARGs & Host Bind)"
-          - target: "+test-no-qemu-group4"
-            name: "Group 4 (Dockerfile, Artifact Saves & Env)"
-          - target: "+test-no-qemu-group5"
-            name: "Group 5 (Control Flow, Cache Mounts & AWS)"
-          - target: "+test-no-qemu-group6"
-            name: "Group 6 (Cache & Credential Scrubbing)"
-          - target: "+test-no-qemu-group7"
-            name: "Group 7 (Selective Save, Compose & Dotenv)"
-          - target: "+test-no-qemu-group8"
-            name: "Group 8 (Docker Registry & SSH Config)"
-          - target: "+test-no-qemu-group9"
-            name: "Group 9 (Config & ARG Redeclare Validation)"
-          - target: "+test-no-qemu-group10"
-            name: "Group 10 (SSH & Remote Resolution)"
-          - target: "+test-no-qemu-group11"
-            name: "Group 11 (Expose, Artifacts & Logbus)"
-          - target: "+test-no-qemu-group12"
-            name: "Group 12 (Label Validation & Run Cache)"
-          - target: "+test-no-qemu-slow"
-            name: "Slow (Server Daemon & WITH DOCKER)"
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: ${{ matrix.target }}
-      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
-      BINARY: ${{ inputs.FRONTEND }}
-      USE_NEXT: ${{ inputs.USE_NEXT }}
-      SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
-
-  tests-qemu:
-    name: QEMU Multi-Arch Tests
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_QEMU }}
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "+test-qemu"
-      USE_QEMU: true
-      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
-      BINARY: ${{ inputs.FRONTEND }}
-      USE_NEXT: ${{ inputs.USE_NEXT }}
-      SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
-
-  examples:
-    name: ${{ matrix.name }}
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_EXAMPLES }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - example: "+examples-1"
-            name: "Examples 1 (C, C++, Go, Elixir, Multi-repo)"
-          - example: "+examples-2"
-            name: "Examples 2 (Ruby, Rust, Scala, Multi-platform)"
-          - example: "+examples-3"
-            name: "Examples 3 (Python, Bazel, MkDocs, Zig)"
-          - example: "+examples-4"
-            name: "Examples 4 (gRPC)"
-          - example: "+examples-5"
-            name: "Examples 5 (Java, JS & Node)"
-    uses: ./.github/workflows/reusable-example.yml
-    with:
-      EXAMPLE_NAME: ${{ matrix.example }}
-      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
-      BINARY: ${{ inputs.FRONTEND }}
-      USE_QEMU: ${{ inputs.FRONTEND == 'podman' }}
-      SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
-
   test-local:
     name: Test Local
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-test-local.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -164,8 +36,6 @@ jobs:
 
   push-integrations:
     name: Push Integrations
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -176,8 +46,6 @@ jobs:
 
   bootstrap-integrations:
     name: Bootstrap Integrations
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -188,8 +56,6 @@ jobs:
 
   repo-auth-tests:
     name: Repo Auth Tests
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -200,8 +66,6 @@ jobs:
 
   export-test:
     name: Export Test
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-export-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -212,8 +76,6 @@ jobs:
 
   docker-build-integrations:
     name: Docker Build Integrations
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -224,8 +86,6 @@ jobs:
 
   earthbuild-image-test:
     name: EarthBuild Image Test
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -236,8 +96,6 @@ jobs:
 
   misc-test-1:
     name: Misc Test 1
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -248,8 +106,6 @@ jobs:
 
   misc-test-2:
     name: Misc Test 2
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -260,8 +116,6 @@ jobs:
 
   wait-block-main:
     name: Wait Block Main
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -272,8 +126,6 @@ jobs:
 
   wait-block-targets:
     name: ${{ matrix.name }}
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     strategy:
       fail-fast: false
       matrix:
@@ -303,8 +155,6 @@ jobs:
 
   git-metadata-test:
     name: Git Metadata Test
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -315,8 +165,6 @@ jobs:
 
   race-tests:
     name: ${{ matrix.name }}
-    needs: bootstrap-test
-    if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     strategy:
       fail-fast: false
       matrix:

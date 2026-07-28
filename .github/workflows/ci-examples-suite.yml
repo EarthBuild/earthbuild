@@ -1,0 +1,50 @@
+name: Examples Suite
+
+on:
+  workflow_call:
+    inputs:
+      FRONTEND:
+        required: true
+        type: string
+      SUDO:
+        required: false
+        type: string
+        default: ""
+      USE_NEXT:
+        required: false
+        type: boolean
+        default: false
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  examples:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - example: "+examples-1"
+            name: "Examples 1 (C, C++, Go, Elixir, Multi-repo)"
+          - example: "+examples-2"
+            name: "Examples 2 (Ruby, Rust, Scala, Multi-platform)"
+          - example: "+examples-3"
+            name: "Examples 3 (Python, Bazel, MkDocs, Zig)"
+          - example: "+examples-4"
+            name: "Examples 4 (gRPC)"
+          - example: "+examples-5"
+            name: "Examples 5 (Java, JS & Node)"
+    uses: ./.github/workflows/reusable-example.yml
+    with:
+      EXAMPLE_NAME: ${{ matrix.example }}
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      USE_QEMU: ${{ inputs.FRONTEND == 'podman' }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit

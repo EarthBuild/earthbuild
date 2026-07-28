@@ -49,6 +49,7 @@ jobs:
           BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
           BINARY: "${{ inputs.FRONTEND }}"
           SUDO: "${{ inputs.SUDO }}"
+          USE_NEXT: "${{ inputs.USE_NEXT }}"
       - name: Run earth bootstrap
         run: ${{ inputs.SUDO }} ./build/linux/amd64/earthly bootstrap
 

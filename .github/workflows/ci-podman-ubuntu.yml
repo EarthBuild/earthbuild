@@ -11,15 +11,8 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  init:
-    name: Init
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "Initializing Podman test suite"
-
   tests:
     name: Tests
-    needs: init
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +42,6 @@ jobs:
 
   tests-qemu:
     name: Tests (QEMU)
-    needs: init
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-qemu"
@@ -62,7 +54,6 @@ jobs:
 
   examples:
     name: Examples
-    needs: init
     strategy:
       fail-fast: false
       matrix:

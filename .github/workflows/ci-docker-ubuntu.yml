@@ -11,15 +11,8 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  init:
-    name: Init
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "Initializing Docker test suite"
-
   tests:
     name: Tests
-    needs: init
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +42,6 @@ jobs:
 
   tests-qemu:
     name: Tests (QEMU)
-    needs: init
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-qemu"
@@ -62,7 +54,6 @@ jobs:
 
   examples:
     name: Examples
-    needs: init
     strategy:
       fail-fast: false
       matrix:
@@ -83,7 +74,6 @@ jobs:
 
   test-local:
     name: Test Local
-    needs: init
     uses: ./.github/workflows/reusable-test-local.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -95,7 +85,6 @@ jobs:
 
   push-integrations:
     name: Push Integrations
-    needs: init
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -106,7 +95,6 @@ jobs:
 
   bootstrap-integrations:
     name: Bootstrap Integrations
-    needs: init
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -117,7 +105,6 @@ jobs:
 
   repo-auth-tests:
     name: Repo Auth Tests
-    needs: init
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -128,7 +115,6 @@ jobs:
 
   export-test:
     name: Export Test
-    needs: init
     uses: ./.github/workflows/reusable-export-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -139,7 +125,6 @@ jobs:
 
   docker-build-integrations:
     name: Docker Build Integrations
-    needs: init
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -150,7 +135,6 @@ jobs:
 
   earthbuild-image-test:
     name: EarthBuild Image Test
-    needs: init
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -161,7 +145,6 @@ jobs:
 
   misc-test-1:
     name: Misc Test 1
-    needs: init
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -172,7 +155,6 @@ jobs:
 
   misc-test-2:
     name: Misc Test 2
-    needs: init
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -183,7 +165,6 @@ jobs:
 
   wait-block-main:
     name: Wait Block Main
-    needs: init
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -194,7 +175,6 @@ jobs:
 
   wait-block-targets:
     name: Wait Block Targets
-    needs: init
     strategy:
       fail-fast: false
       matrix:
@@ -217,7 +197,6 @@ jobs:
 
   git-metadata-test:
     name: Git Metadata Test
-    needs: init
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -228,7 +207,6 @@ jobs:
 
   race-tests:
     name: Race Tests
-    needs: init
     strategy:
       fail-fast: false
       matrix:

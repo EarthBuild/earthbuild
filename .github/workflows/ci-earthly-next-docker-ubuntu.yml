@@ -11,15 +11,8 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  init:
-    name: Init
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "Initializing Next test suite"
-
   tests:
     name: Tests
-    needs: init
     strategy:
       fail-fast: false
       matrix:

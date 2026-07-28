@@ -94,52 +94,73 @@ func (c *Cache[K, V]) Load(ctx context.Context, key K, loader Loader[V]) (V, err
 		if !found {
 			// We need to load this.
 			go c.load(execCtx, e, key, loader)
-		} else if inf := e.getInflight(); inf != nil && inf.add(ctx) != nil {
-			// The in-flight load is already doomed — every context sharing it
-			// has been canceled, so it will fail with context.Canceled and evict itself.
-			// Attaching would hand our still-live caller someone else's cancellation.
-			// Wait for it to clear the way, then check context status before retrying.
-			val, err := e.await(ctx)
-			if err == nil {
-				return val, nil
-			}
+		} else if inf := e.getInflight(); inf != nil {
+			// Attach, so the load outlives any single caller — unless it is already
+			// doomed, in which case add refuses us. Every context sharing a doomed load
+			// has been canceled, so it will fail with a context error and evict itself;
+			// attaching would hand our still-live caller someone else's cancellation.
+			_ = inf.add(ctx)
+		}
 
+		val, err := e.await(ctx)
+		if err != nil {
 			ctxErr := ctx.Err()
 			if ctxErr != nil {
 				return zero, fmt.Errorf("cache: load key %v: %w", key, ctxErr)
 			}
 
-			continue
-		}
-
-		val, err := e.await(ctx)
-		if err != nil && ctx.Err() != nil {
-			return zero, fmt.Errorf("cache: load key %v: %w", key, ctx.Err())
+			// Our own context is live, so a context failure is someone else's — either a
+			// doomed load we declined to attach to, or one abandoned in the window
+			// between getEntry and getInflight above. Either way it has evicted itself,
+			// so a retry starts a fresh load rather than spinning on the same entry.
+			if found && isContextErr(err) {
+				continue
+			}
 		}
 
 		return val, err
 	}
 }
 
+// isContextErr reports whether err is a load failing because its callers went away or ran
+// out of time, rather than because the key itself is unloadable.
+func isContextErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
 func (c *Cache[K, V]) load(execCtx context.Context, e *entry[V], key K, loader Loader[V]) {
 	inf := e.getInflight()
+	returned := false
+
+	// Unwinding must publish something, whatever happens: a loader that leaves without
+	// returning — a panic, or a runtime.Goexit from a testing helper — would otherwise
+	// leave loaded unclosed and every waiter on it blocked for good.
+	defer func() {
+		if !returned && e.err == nil {
+			e.err = fmt.Errorf("cache: load key %v: loader exited without returning a value", key)
+		}
+
+		close(e.loaded)
+		e.clearInflight()
+
+		// Close unregisters listeners and releases the shared load context.
+		if inf != nil {
+			inf.close()
+		}
+	}()
+
 	e.value, e.err = loader(execCtx)
-	// Don't cache context canceled. Whoever is currently waiting will still get this,
+	returned = true
+
+	// Don't cache a context failure: it says the callers went away or ran out of time,
+	// not that this key is unloadable. Whoever is currently waiting will still get this,
 	// but no future callers to Load will.
-	if errors.Is(e.err, context.Canceled) {
+	if isContextErr(e.err) {
 		c.deleteEntry(key)
 	}
 
 	if e.err != nil {
 		e.err = fmt.Errorf("cache: load key %v: %w", key, e.err)
-	}
-
-	close(e.loaded)
-	e.clearInflight()
-
-	// Close unregisters listeners and releases sub-contexts.
-	if inf != nil {
-		inf.close()
 	}
 }
 

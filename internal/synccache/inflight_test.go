@@ -51,6 +51,23 @@ func TestInflight(t *testing.T) {
 		require.ErrorIs(t, execCtx.Err(), context.Canceled)
 	})
 
+	t.Run("already-done first context cancels the shared load immediately", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		execCtx, _ := newInflight(ctx)
+
+		select {
+		case <-execCtx.Done():
+		case <-time.After(time.Second):
+			t.Fatal("shared load context was never canceled, yet its only caller was already done")
+		}
+
+		require.ErrorIs(t, context.Cause(execCtx), context.Canceled)
+	})
+
 	t.Run("add to done context fails", func(t *testing.T) {
 		t.Parallel()
 

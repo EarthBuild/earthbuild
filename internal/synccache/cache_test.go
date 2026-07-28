@@ -441,6 +441,59 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 		require.Equal(t, "second chance", got, "a wrapped cancellation must be evicted just like a bare one")
 	})
 
+	t.Run("context.DeadlineExceeded is evicted", func(t *testing.T) {
+		t.Parallel()
+
+		cache := NewCache[string, string]()
+		ctx := t.Context()
+
+		_, err := cache.Load(ctx, "k", func(_ context.Context) (string, error) {
+			return "", fmt.Errorf("get git meta: %w", context.DeadlineExceeded)
+		})
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+
+		got, err := cache.Load(ctx, "k", func(_ context.Context) (string, error) {
+			return "second chance", nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, "second chance", got,
+			"a timed-out load must be retryable, not cached for the life of the build")
+	})
+
+	t.Run("already canceled caller does not orphan an uncancellable load", func(t *testing.T) {
+		t.Parallel()
+
+		var orphaned atomic.Bool
+
+		synctest.Test(t, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel()
+
+			loaderDone := make(chan struct{})
+
+			cache := NewCache[string, string]()
+
+			_, err := cache.Load(ctx, "k", func(execCtx context.Context) (string, error) {
+				defer close(loaderDone)
+
+				select {
+				case <-execCtx.Done():
+					return "", execCtx.Err()
+				case <-time.After(time.Minute):
+					orphaned.Store(true)
+
+					return "orphan", nil
+				}
+			})
+			require.ErrorIs(t, err, context.Canceled)
+
+			<-loaderDone
+		})
+
+		require.False(t, orphaned.Load(),
+			"a load whose only caller was already gone must still be cancelable")
+	})
+
 	t.Run("live context does not inherit cancellation", func(t *testing.T) {
 		t.Parallel()
 

@@ -20,6 +20,15 @@ type inflight struct {
 	closed       bool
 }
 
+// newInflight begins tracking a load shared on behalf of firstCtx, and returns the
+// context that load should run under.
+//
+// That context deliberately does not inherit firstCtx's cancellation — the load has to
+// outlive any single caller. Two further consequences of WithoutCancel are worth knowing:
+// the load context carries no deadline (a caller's timeout still reaches the load, but as
+// a cancellation, not as a Deadline a callee can read and forward — gRPC, for one, derives
+// its timeout header from that), and its values are firstCtx's for the whole load, even
+// once firstCtx itself is gone.
 func newInflight(firstCtx context.Context) (context.Context, *inflight) {
 	execCtx, cancel := context.WithCancelCause(context.WithoutCancel(firstCtx))
 
@@ -27,17 +36,30 @@ func newInflight(firstCtx context.Context) (context.Context, *inflight) {
 		cancel: cancel,
 	}
 
-	_ = inf.add(firstCtx)
+	// A first caller that is already gone leaves nothing to watch: add registers no stop,
+	// so onSubDone can never fire and the load would run to completion — uncancellable,
+	// on behalf of nobody. Treat it as doomed from the outset instead.
+	err := inf.add(firstCtx)
+	if err != nil {
+		inf.mu.Lock()
+		inf.closed = true
+		inf.firstDoneErr = err
+		inf.mu.Unlock()
+
+		cancel(err)
+	}
 
 	return execCtx, inf
 }
 
-// close unregisters cancellation listeners and prevents further context additions.
+// close unregisters cancellation listeners, releases the shared load context, and
+// prevents further context additions.
 func (inf *inflight) close() {
 	inf.mu.Lock()
-	defer inf.mu.Unlock()
 
 	if inf.closed {
+		inf.mu.Unlock()
+
 		return
 	}
 
@@ -48,6 +70,12 @@ func (inf *inflight) close() {
 	}
 
 	inf.stops = nil
+	inf.mu.Unlock()
+
+	// The load is over, so release the load context rather than leave it live for the
+	// rest of the process — its parent is WithoutCancel, so nothing else ever will.
+	// Outside the lock: cancel runs whatever the loader registered on it, synchronously.
+	inf.cancel(errClosed)
 }
 
 func (inf *inflight) onSubDone(ctx context.Context) {

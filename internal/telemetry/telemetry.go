@@ -311,7 +311,8 @@ func processMemoryMetricAttributes() []attribute.KeyValue {
 		}
 	}
 
-	if target := earthbuildTargetFromArgs(os.Args); target != "" {
+	target := earthbuildTargetFromArgs(os.Args)
+	if target != "" {
 		attrs = append(attrs, attribute.String("earthbuild.target", target))
 	}
 

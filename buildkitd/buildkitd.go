@@ -5,9 +5,11 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +34,17 @@ import (
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB
+
+// OTEL resource attributes describing the buildkitd process, so metrics from an
+// inner (earth-in-earth) daemon can be told apart from an outer one.
+const (
+	otelAttrProcessRole    = "earthbuild.process.role"
+	otelAttrProcessNesting = "earthbuild.process.nesting"
+
+	otelRoleBuildkitd = "buildkitd"
+	otelNestingInner  = "inner"
+	otelNestingOuter  = "outer"
+)
 
 var (
 	// ErrBuildkitCrashed is an error returned when buildkit has terminated unexpectedly.
@@ -507,7 +520,16 @@ func Start(
 		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
 	}
 
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	withDocker, err := parseBoolEnv("EARTHLY_WITH_DOCKER")
+	if err != nil {
+		// Not fatal: an unparsable value only mis-labels the build as outer,
+		// which costs the earth-in-earth cgroup mounts, not correctness of the
+		// build itself.
+		console.
+			WithPrefix("buildkitd").
+			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
+	}
+
 	addBuildkitTelemetryEnv(envOpts, containerName, installationName, withDocker)
 
 	labelOpts := map[string]string{
@@ -715,14 +737,14 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 
 	envOpts["OTEL_SERVICE_NAME"] = "EarthBuild-buildkitd"
 
-	nesting := "outer"
+	nesting := otelNestingOuter
 	if withDocker {
-		nesting = "inner"
+		nesting = otelNestingInner
 	}
 
 	resourceAttrs := map[string]string{
-		"earthbuild.process.role":            "buildkitd",
-		"earthbuild.process.nesting":         nesting,
+		otelAttrProcessRole:                  otelRoleBuildkitd,
+		otelAttrProcessNesting:               nesting,
 		"earthbuild.buildkit.container.name": containerName,
 		"earthbuild.installation.name":       installationName,
 	}
@@ -732,6 +754,11 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 	)
 }
 
+// appendOTELResourceAttributes merges attrs into an inherited
+// OTEL_RESOURCE_ATTRIBUTES string, dropping malformed entries. attrs wins on a
+// key collision: the inherited value describes the process that spawned
+// buildkitd, ours describes buildkitd itself. Emitting the key twice is not an
+// option - collectors disagree on which duplicate survives.
 func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 	parts := make([]string, 0, len(attrs)+1)
 
@@ -741,19 +768,26 @@ func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 			continue
 		}
 
-		if _, value, ok := strings.Cut(attr, "="); !ok || strings.TrimSpace(value) == "" {
+		key, value, ok := strings.Cut(attr, "=")
+		if !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+
+		override, ok := attrs[strings.TrimSpace(key)]
+		if ok && override != "" {
 			continue
 		}
 
 		parts = append(parts, attr)
 	}
 
-	for key, value := range attrs {
-		if value == "" {
+	// Sorted so the same inputs always produce the same env var.
+	for _, key := range slices.Sorted(maps.Keys(attrs)) {
+		if attrs[key] == "" {
 			continue
 		}
 
-		parts = append(parts, key+"="+value)
+		parts = append(parts, key+"="+attrs[key])
 	}
 
 	return strings.Join(parts, ",")

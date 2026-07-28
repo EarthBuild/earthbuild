@@ -180,7 +180,6 @@ jobs:
     uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "docker"
-      RUN_QEMU: true
     secrets: inherit
 
   docker-examples:
@@ -207,7 +206,6 @@ jobs:
     with:
       FRONTEND: "podman"
       SUDO: "sudo -E"
-      RUN_QEMU: true
     secrets: inherit
 
   podman-examples:
@@ -227,5 +225,4 @@ jobs:
     with:
       FRONTEND: "docker"
       USE_NEXT: true
-      RUN_QEMU: false
     secrets: inherit

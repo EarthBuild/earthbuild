@@ -14,10 +14,6 @@ on:
         required: false
         type: boolean
         default: false
-      RUN_QEMU:
-        required: false
-        type: boolean
-        default: true
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -61,24 +57,13 @@ jobs:
             name: "Group 12 (Label Validation & Run Cache)"
           - target: "+test-no-qemu-slow"
             name: "Slow (Server Daemon & WITH DOCKER)"
+          - target: "+test-qemu"
+            name: "QEMU Multi-Arch Tests"
+            use_qemu: true
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: ${{ matrix.target }}
-      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
-      BINARY: ${{ inputs.FRONTEND }}
-      USE_NEXT: ${{ inputs.USE_NEXT }}
-      SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
-
-  tests-qemu:
-    name: QEMU Multi-Arch Tests
-    needs: tests
-    if: ${{ inputs.RUN_QEMU }}
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      TEST_TARGET: "+test-qemu"
-      USE_QEMU: true
+      USE_QEMU: ${{ matrix.use_qemu || false }}
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}

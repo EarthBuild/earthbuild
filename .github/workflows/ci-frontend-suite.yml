@@ -38,6 +38,8 @@ jobs:
   bootstrap-test:
     name: Bootstrap Test
     runs-on: ubuntu-24.04
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: ./.github/actions/stage2-setup
@@ -50,7 +52,13 @@ jobs:
           BINARY: "${{ inputs.FRONTEND }}"
           SUDO: "${{ inputs.SUDO }}"
           USE_NEXT: "${{ inputs.USE_NEXT }}"
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run earth bootstrap
+        if: ${{ inputs.FRONTEND != 'podman' }}
         run: ${{ inputs.SUDO }} ./build/linux/amd64/earthly bootstrap
 
   tests:

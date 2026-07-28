@@ -103,7 +103,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "installation-name",
 			Value:   defaultInstallationName,
-			Sources: cli.EnvVars("EARTHLY_INSTALLATION_NAME"),
+			Sources: EarthEnvVars("INSTALLATION_NAME"),
 			Usage: "The earth installation name to use when naming the buildkit container, " +
 				"the docker volume and the ~/.earthly directory",
 			Destination: &global.InstallationName,
@@ -112,14 +112,14 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:        "config",
 			Value:       "", // the default value will be applied in the "Before" fn, after flag.installationName is set.
-			Sources:     cli.EnvVars("EARTHLY_CONFIG"),
+			Sources:     EarthEnvVars("CONFIG"),
 			Usage:       "Path to config file",
 			Destination: &global.ConfigPath,
 		},
 		&cli.StringFlag{
 			Name:        "ssh-auth-sock",
 			Value:       os.Getenv("SSH_AUTH_SOCK"),
-			Sources:     cli.EnvVars("EARTHLY_SSH_AUTH_SOCK"),
+			Sources:     EarthEnvVars("SSH_AUTH_SOCK"),
 			Usage:       "The SSH auth socket to use for ssh-agent forwarding",
 			Destination: &global.SSHAuthSock,
 		},
@@ -137,7 +137,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "git-branch",
-			Sources:     cli.EnvVars("EARTHLY_GIT_BRANCH_OVERRIDE"),
+			Sources:     EarthEnvVars("GIT_BRANCH_OVERRIDE"),
 			Usage:       "The git branch the build should be considered running in",
 			Destination: &global.GitBranchOverride,
 			Hidden:      true, // primarily used by CI to pass branch context
@@ -145,14 +145,14 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.BoolFlag{
 			Name:        "verbose",
 			Aliases:     []string{"V"},
-			Sources:     cli.EnvVars("EARTHLY_VERBOSE"),
+			Sources:     EarthEnvVars("VERBOSE"),
 			Usage:       "Enable verbose logging",
 			Destination: &global.Verbose,
 		},
 		&cli.BoolFlag{
 			Name:    "debug",
 			Aliases: []string{"D"},
-			Sources: cli.EnvVars("EARTHLY_DEBUG"),
+			Sources: EarthEnvVars("DEBUG"),
 			Usage: "Enable debug mode. This flag also turns on the debug mode of buildkitd, " +
 				"which may cause it to restart",
 			Destination: &global.Debug,
@@ -160,21 +160,21 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:        "exec-stats",
-			Sources:     cli.EnvVars("EARTHLY_EXEC_STATS"),
+			Sources:     EarthEnvVars("EXEC_STATS"),
 			Usage:       "Display container stats (e.g. cpu and memory usage)",
 			Destination: &global.DisplayExecStats,
 			Hidden:      true, // Experimental
 		},
 		&cli.StringFlag{
 			Name:        "exec-stats-summary",
-			Sources:     cli.EnvVars("EARTHLY_EXEC_STATS_SUMMARY"),
+			Sources:     EarthEnvVars("EXEC_STATS_SUMMARY"),
 			Usage:       "Output summarized container stats (e.g. cpu and memory usage) to the specified file",
 			Destination: &global.ExecStatsSummary,
 			Hidden:      true, // Experimental
 		},
 		&cli.BoolFlag{
 			Name:        "profiler",
-			Sources:     cli.EnvVars("EARTHLY_PROFILER"),
+			Sources:     EarthEnvVars("PROFILER"),
 			Usage:       "Enable the profiler",
 			Destination: &global.EnableProfiler,
 			Hidden:      true, // Dev purposes only.
@@ -182,21 +182,21 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "buildkit-host",
 			Value:   "",
-			Sources: cli.EnvVars("EARTHLY_BUILDKIT_HOST"),
+			Sources: EarthEnvVars("BUILDKIT_HOST"),
 			Usage: `The URL to use for connecting to a buildkit host
 		If empty, earth will attempt to start a buildkitd instance via docker run`,
 			Destination: &global.BuildkitHost,
 		},
 		&cli.BoolFlag{
 			Name:        "no-buildkit-update",
-			Sources:     cli.EnvVars("EARTHLY_NO_BUILDKIT_UPDATE"),
+			Sources:     EarthEnvVars("NO_BUILDKIT_UPDATE"),
 			Usage:       "Disable the automatic update of buildkitd",
 			Destination: &global.NoBuildkitUpdate,
 			Hidden:      true, // Internal.
 		},
 		&cli.StringFlag{
 			Name:    "version-flag-overrides",
-			Sources: cli.EnvVars("EARTHLY_VERSION_FLAG_OVERRIDES"),
+			Sources: EarthEnvVars("VERSION_FLAG_OVERRIDES"),
 			Usage: "Apply additional flags after each VERSION command across all Earthfiles, " +
 				"multiple flags can be separated by commas",
 			Destination: &global.FeatureFlagOverrides,
@@ -204,7 +204,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:    EnvFileFlag,
-			Sources: cli.EnvVars("EARTHLY_ENV_FILE_PATH"),
+			Sources: EarthEnvVars("ENV_FILE_PATH"),
 			Usage: "Use values from this file as earth environment variables; " +
 				"values are no longer used as --build-arg's or --secret's",
 			Value:       DefaultEnvFile,
@@ -212,28 +212,28 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        ArgFileFlag,
-			Sources:     cli.EnvVars("EARTHLY_ARG_FILE_PATH"),
+			Sources:     EarthEnvVars("ARG_FILE_PATH"),
 			Usage:       "Use values from this file as earth buildargs",
 			Value:       DefaultArgFile,
 			Destination: &global.ArgFile,
 		},
 		&cli.StringFlag{
 			Name:        SecretFileFlag,
-			Sources:     cli.EnvVars("EARTHLY_SECRET_FILE_PATH"),
+			Sources:     EarthEnvVars("SECRET_FILE_PATH"),
 			Usage:       "Use values from this file as earth secrets",
 			Value:       DefaultSecretFile,
 			Destination: &global.SecretFile,
 		},
 		&cli.StringFlag{
 			Name:        "logstream-debug-file",
-			Sources:     cli.EnvVars("EARTHLY_LOGSTREAM_DEBUG_FILE"),
+			Sources:     EarthEnvVars("LOGSTREAM_DEBUG_FILE"),
 			Usage:       "Enable log streaming debugging output to a file",
 			Destination: &global.LogstreamDebugFile,
 			Hidden:      true, // Internal.
 		},
 		&cli.StringFlag{
 			Name:        "logstream-debug-manifest-file",
-			Sources:     cli.EnvVars("EARTHLY_LOGSTREAM_DEBUG_MANIFEST_FILE"),
+			Sources:     EarthEnvVars("LOGSTREAM_DEBUG_MANIFEST_FILE"),
 			Usage:       "Enable log streaming manifest debugging output to a file",
 			Destination: &global.LogstreamDebugManifestFile,
 			Hidden:      true, // Internal.
@@ -241,7 +241,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.DurationFlag{
 			Name:        "server-conn-timeout",
 			Usage:       "EarthBuild API server connection timeout value",
-			Sources:     cli.EnvVars("EARTHLY_SERVER_CONN_TIMEOUT"),
+			Sources:     EarthEnvVars("SERVER_CONN_TIMEOUT"),
 			Hidden:      true, // Internal.
 			Value:       5 * time.Second,
 			Destination: &global.ServerConnTimeout,
@@ -259,76 +259,76 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:        "pull",
-			Sources:     cli.EnvVars("EARTHLY_PULL"),
+			Sources:     EarthEnvVars("PULL"),
 			Usage:       "Force pull any referenced Docker images",
 			Destination: &global.Pull,
 			Hidden:      true, // Experimental
 		},
 		&cli.BoolFlag{
 			Name:        "push",
-			Sources:     cli.EnvVars("EARTHLY_PUSH"),
+			Sources:     EarthEnvVars("PUSH"),
 			Usage:       "Push docker images and execute RUN --push commands",
 			Destination: &global.Push,
 		},
 		&cli.BoolFlag{
 			Name:        "ci",
-			Sources:     cli.EnvVars("EARTHLY_CI"),
+			Sources:     EarthEnvVars("CI"),
 			Usage:       common.Wrap("Execute in CI mode. ", "Implies --no-output --strict"),
 			Destination: &global.CI,
 		},
 		&cli.BoolFlag{
 			Name:        "ticktock",
-			Sources:     cli.EnvVars("EARTHLY_TICKTOCK"),
+			Sources:     EarthEnvVars("TICKTOCK"),
 			Usage:       "Use earthbuild's experimental buildkit ticktock codebase",
 			Destination: &global.UseTickTockBuildkitImage,
 			Hidden:      true, // Experimental
 		},
 		&cli.BoolFlag{
 			Name:        "output",
-			Sources:     cli.EnvVars("EARTHLY_OUTPUT"),
+			Sources:     EarthEnvVars("OUTPUT"),
 			Usage:       "Allow artifacts or images to be output, even when running under --ci mode",
 			Destination: &global.Output,
 		},
 		&cli.BoolFlag{
 			Name:        "no-output",
-			Sources:     cli.EnvVars("EARTHLY_NO_OUTPUT"),
+			Sources:     EarthEnvVars("NO_OUTPUT"),
 			Usage:       common.Wrap("Do not output artifacts or images", "(using --push is still allowed)"),
 			Destination: &global.NoOutput,
 		},
 		&cli.BoolFlag{
 			Name:        "no-cache",
-			Sources:     cli.EnvVars("EARTHLY_NO_CACHE"),
+			Sources:     EarthEnvVars("NO_CACHE"),
 			Usage:       "Do not use cache while building",
 			Destination: &global.NoCache,
 		},
 		&cli.BoolFlag{
 			Name:        "auto-skip",
-			Sources:     cli.EnvVars("EARTHLY_AUTO_SKIP"),
+			Sources:     EarthEnvVars("AUTO_SKIP"),
 			Usage:       "Skip buildkit if target has already been built",
 			Destination: &global.SkipBuildkit,
 		},
 		&cli.BoolFlag{
 			Name:        "allow-privileged",
 			Aliases:     []string{"P"},
-			Sources:     cli.EnvVars("EARTHLY_ALLOW_PRIVILEGED"),
+			Sources:     EarthEnvVars("ALLOW_PRIVILEGED"),
 			Usage:       "Allow build to use the --privileged flag in RUN commands",
 			Destination: &global.AllowPrivileged,
 		},
 		&cli.BoolFlag{
 			Name:        "max-remote-cache",
-			Sources:     cli.EnvVars("EARTHLY_MAX_REMOTE_CACHE"),
+			Sources:     EarthEnvVars("MAX_REMOTE_CACHE"),
 			Usage:       "Saves all intermediate images too in the remote cache",
 			Destination: &global.MaxRemoteCache,
 		},
 		&cli.BoolFlag{
 			Name:        "save-inline-cache",
-			Sources:     cli.EnvVars("EARTHLY_SAVE_INLINE_CACHE"),
+			Sources:     EarthEnvVars("SAVE_INLINE_CACHE"),
 			Usage:       "Enable cache inlining when pushing images",
 			Destination: &global.SaveInlineCache,
 		},
 		&cli.BoolFlag{
 			Name:    "use-inline-cache",
-			Sources: cli.EnvVars("EARTHLY_USE_INLINE_CACHE"),
+			Sources: EarthEnvVars("USE_INLINE_CACHE"),
 			Usage: common.Wrap("Attempt to use any inline cache that may have been previously pushed ",
 				"uses image tags referenced by SAVE IMAGE --push or SAVE IMAGE --cache-from"),
 			Destination: &global.UseInlineCache,
@@ -336,33 +336,33 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.BoolFlag{
 			Name:        "interactive",
 			Aliases:     []string{"i"},
-			Sources:     cli.EnvVars("EARTHLY_INTERACTIVE"),
+			Sources:     EarthEnvVars("INTERACTIVE"),
 			Usage:       "Enable interactive debugging",
 			Destination: &global.InteractiveDebugging,
 		},
 		&cli.BoolFlag{
 			Name:        "no-fake-dep",
-			Sources:     cli.EnvVars("EARTHLY_NO_FAKE_DEP"),
+			Sources:     EarthEnvVars("NO_FAKE_DEP"),
 			Usage:       "Internal feature flag for fake-dep",
 			Destination: &global.NoFakeDep,
 			Hidden:      true, // Internal.
 		},
 		&cli.BoolFlag{
 			Name:        "strict",
-			Sources:     cli.EnvVars("EARTHLY_STRICT"),
+			Sources:     EarthEnvVars("STRICT"),
 			Usage:       "Disallow usage of features that may create unrepeatable builds",
 			Destination: &global.Strict,
 		},
 		&cli.BoolFlag{
 			Name:        "global-wait-end",
-			Sources:     cli.EnvVars("EARTHLY_GLOBAL_WAIT_END"),
+			Sources:     EarthEnvVars("GLOBAL_WAIT_END"),
 			Usage:       "enables global wait-end code in place of builder code",
 			Destination: &global.GlobalWaitEnd,
 			Hidden:      true, // used to force code-coverage of future builder.go refactor (once we remove support for 0.6)
 		},
 		&cli.StringFlag{
 			Name:    "git-lfs-pull-include",
-			Sources: cli.EnvVars("EARTHLY_GIT_LFS_PULL_INCLUDE"),
+			Sources: EarthEnvVars("GIT_LFS_PULL_INCLUDE"),
 			Usage: "When referencing a remote target, perform a git lfs pull include prior to running the target. " +
 				"Note that this flag is (hopefully) temporary, " +
 				"see https://github.com/earthly/earthly/issues/2921 for details.",
@@ -371,21 +371,21 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "auto-skip-db-path",
-			Sources:     cli.EnvVars("EARTHLY_AUTO_SKIP_DB_PATH"),
+			Sources:     EarthEnvVars("AUTO_SKIP_DB_PATH"),
 			Usage:       "use a local database for auto-skip",
 			Destination: &global.LocalSkipDB,
 		},
 		&cli.StringFlag{
 			Name:        "buildkit-image",
 			Value:       bkImage,
-			Sources:     cli.EnvVars("EARTHLY_BUILDKIT_IMAGE"),
+			Sources:     EarthEnvVars("BUILDKIT_IMAGE"),
 			Usage:       "The docker image to use for the buildkit daemon",
 			Destination: &global.BuildkitdImage,
 		},
 		&cli.StringFlag{
 			Name:        "buildkit-container-name",
 			Value:       defaultInstallationName + DefaultBuildkitdContainerSuffix,
-			Sources:     cli.EnvVars("EARTHLY_CONTAINER_NAME"),
+			Sources:     EarthEnvVars("CONTAINER_NAME"),
 			Usage:       "The docker container name to use for the buildkit daemon",
 			Destination: &global.ContainerName,
 			Hidden:      true,
@@ -393,28 +393,28 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.StringFlag{
 			Name:        "buildkit-volume-name",
 			Value:       defaultInstallationName + DefaultBuildkitdVolumeSuffix,
-			Sources:     cli.EnvVars("EARTHLY_VOLUME_NAME"),
+			Sources:     EarthEnvVars("VOLUME_NAME"),
 			Usage:       "The docker volume name to use for the buildkit daemon cache",
 			Destination: &global.BuildkitdSettings.VolumeName,
 			Hidden:      true,
 		},
 		&cli.StringFlag{
 			Name:    "remote-cache",
-			Sources: cli.EnvVars("EARTHLY_REMOTE_CACHE"),
+			Sources: EarthEnvVars("REMOTE_CACHE"),
 			Usage: "A remote docker image tag use as explicit cache and optionally additional attributes " +
 				"to set in the image (Format: \"<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]\")",
 			Destination: &global.RemoteCache,
 		},
 		&cli.BoolFlag{
 			Name:        "disable-remote-registry-proxy",
-			Sources:     cli.EnvVars("EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY"),
+			Sources:     EarthEnvVars("DISABLE_REMOTE_REGISTRY_PROXY"),
 			Usage:       "Don't use the Docker registry proxy when transferring images",
 			Destination: &global.DisableRemoteRegistryProxy,
 			Value:       false,
 		},
 		&cli.BoolFlag{
 			Name:        "no-auto-skip",
-			Sources:     cli.EnvVars("EARTHLY_NO_AUTO_SKIP"),
+			Sources:     EarthEnvVars("NO_AUTO_SKIP"),
 			Usage:       "Disable auto-skip functionality",
 			Destination: &global.NoAutoSkip,
 			Value:       false,

@@ -1,7 +1,6 @@
-import config from "./jest.config.ts";
-
 export default {
-  ...config,
+  preset: "ts-jest",
+  testEnvironment: "node",
   rootDir: ".",
   testMatch: ["<rootDir>/integration/**/*.spec.ts"],
 };

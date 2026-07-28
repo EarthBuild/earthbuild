@@ -1,8 +1,8 @@
 VERSION 0.8
-FROM alpine:3.24.0
+FROM alpine:3.24.1
 
 deps:
-    FROM ubuntu:24.04
+    FROM ubuntu:26.04
     # for apt to be noninteractive
     ENV DEBIAN_FRONTEND noninteractive
     ENV DEBCONF_NONINTERACTIVE_SEEN true

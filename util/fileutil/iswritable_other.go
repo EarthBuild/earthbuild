@@ -3,12 +3,11 @@
 package fileutil
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"strconv"
 	"syscall"
-
-	"github.com/pkg/errors"
 )
 
 // IsDirWritable returns if the path is a directory that the user can write to.
@@ -23,7 +22,7 @@ func IsDirWritable(path string) (bool, error) {
 	}
 
 	// Check if the user bit is enabled in file permission
-	if info.Mode().Perm()&(1<<(uint(7))) == 0 {
+	if info.Mode().Perm()&(1<<uint(7)) == 0 {
 		return false, nil
 	}
 
@@ -41,7 +40,7 @@ func IsDirWritable(path string) (bool, error) {
 
 	uid, err := strconv.Atoi(u.Uid)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to convert uid %s to int", u.Uid)
+		return false, fmt.Errorf("failed to convert uid %s to int: %w", u.Uid, err)
 	}
 
 	if int(stat.Uid) != uid && uid != 0 {

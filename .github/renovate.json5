@@ -13,6 +13,9 @@
   configMigration: true,
   prHourlyLimit: 0,
   prConcurrentLimit: 1,
+  lockFileMaintenance: {
+    enabled: true,
+  },
   includePaths: [
     'Earthfile',
     '**/go.mod',
@@ -26,7 +29,7 @@
     'tests/**',
     'scripts/tests/interactive-debugger/**',
     'inputgraph/testdata/**',
-    'ast/tests/**',
+    'internal/earthfile/tests/**',
   ],
   ignorePaths: [
     '**/node_modules/**',
@@ -90,7 +93,7 @@
       customType: 'regex',
       managerFilePatterns: [
         '/buildcontext/git.go/',
-        '/ast/tests/git-clone.ast.json/',
+        '/internal/earthfile/tests/git-clone.ast.json/',
       ],
       matchStrings: [
         '"alpine/git:(?<currentValue>.+?)"',
@@ -113,7 +116,7 @@
       managerFilePatterns: [
         '/Earthfile$/',
         '/earthfile2llb/with_docker_run_base\\.go/',
-        '/ast/tests/.*?\\.ast\\.json/',
+        '/internal/earthfile/tests/.*?\\.ast\\.json/',
         '/.+.md/',
       ],
       matchStrings: [
@@ -216,7 +219,7 @@
         'tests/**',
         'scripts/tests/interactive-debugger/**',
         'inputgraph/testdata/**',
-        'ast/tests/**',
+        'internal/earthfile/tests/**',
       ],
       matchPackageNames: [
         'earthbuild/dind',
@@ -283,13 +286,23 @@
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     {
-      // rule to update earthbuild/dind:ubuntu:23.04-* images
+      // rule to update earthbuild/dind:ubuntu:24.04-* images
       groupName: 'dind-images',
       matchPackageNames: [
         'earthbuild/dind',
       ],
-      matchCurrentVersion: '/^ubuntu-23\\.04-.*/',
-      allowedVersions: '/^ubuntu-23\\.04-.*/',
+      matchCurrentVersion: '/^ubuntu-24\\.04-.*/',
+      allowedVersions: '/^ubuntu-24\\.04-.*/',
+      versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
+    },
+    {
+      // rule to update earthbuild/dind:ubuntu:26.04-* images
+      groupName: 'dind-images',
+      matchPackageNames: [
+        'earthbuild/dind',
+      ],
+      matchCurrentVersion: '/^ubuntu-26\\.04-.*/',
+      allowedVersions: '/^ubuntu-26\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     // group all examples and docs dependency updates together (except earthly/earthly and earthbuild/dind)

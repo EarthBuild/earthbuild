@@ -4,6 +4,7 @@ package buildkitd
 import (
 	"context"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"maps"
 	"net/url"
@@ -28,7 +29,6 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -81,7 +81,8 @@ func NewClient(
 					settings.ClientTLSCert,
 				}
 				if containsAny(retErr.Error(), tlsPaths...) {
-					retErr = hint.Wrap(retErr,
+					retErr = hint.Wrap(
+						retErr,
 						"podman now requires TLS certs by default - "+
 							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
 						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
@@ -106,7 +107,7 @@ func NewClient(
 
 	opts, err := addRequiredOpts(settings, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "add required client opts")
+		return nil, fmt.Errorf("add required client opts: %w", err)
 	}
 
 	isLocal := isLocalBuildkit(settings)
@@ -121,7 +122,7 @@ func NewClient(
 
 		info, workerInfo, err = waitForConnection(ctx, containerName, settings, fe, opts...)
 		if err != nil {
-			return nil, errors.Wrap(err, "connect provided buildkit")
+			return nil, fmt.Errorf("connect provided buildkit: %w", err)
 		}
 
 		remoteConsole.Printf("...Done")
@@ -131,7 +132,7 @@ func NewClient(
 
 		bkClient, err = client.New(ctx, settings.BuildkitAddress, opts...)
 		if err != nil {
-			return nil, errors.Wrap(err, "start provided buildkit")
+			return nil, fmt.Errorf("start provided buildkit: %w", err)
 		}
 
 		return bkClient, nil
@@ -145,14 +146,14 @@ func NewClient(
 
 	info, workerInfo, err := maybeStart(ctx, console, image, containerName, installationName, fe, settings, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "maybe start buildkitd")
+		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 	}
 
 	printBuildkitInfo(bkCons, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
 
 	bkClient, err := client.New(ctx, settings.BuildkitAddress, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "new buildkit client")
+		return nil, fmt.Errorf("new buildkit client: %w", err)
 	}
 
 	return bkClient, nil
@@ -174,7 +175,7 @@ func ResetCache(
 
 	opts, err := addRequiredOpts(settings, opts...)
 	if err != nil {
-		return errors.Wrap(err, "add required client opts")
+		return fmt.Errorf("add required client opts: %w", err)
 	}
 
 	console.
@@ -187,7 +188,7 @@ func ResetCache(
 
 	isStarted, err := IsStarted(ctx, containerName, fe)
 	if err != nil {
-		return errors.Wrap(err, "check is started buildkitd")
+		return fmt.Errorf("check is started buildkitd: %w", err)
 	}
 
 	if isStarted {
@@ -252,9 +253,9 @@ func maybeStart(
 
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return nil, nil, errors.Errorf("timeout waiting for other instance of earth to start buildkitd")
+			return nil, nil, errors.New("timeout waiting for other instance of earth to start buildkitd")
 		case err != nil:
-			return nil, nil, errors.Wrapf(err, "try flock context %s", settings.StartUpLockPath)
+			return nil, nil, fmt.Errorf("try flock context %s: %w", settings.StartUpLockPath, err)
 		default:
 			defer func() {
 				inErr := startLock.Unlock()
@@ -273,7 +274,7 @@ func maybeStart(
 
 	isStarted, err := IsStarted(ctx, containerName, fe)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "check is started buildkitd")
+		return nil, nil, fmt.Errorf("check is started buildkitd: %w", err)
 	}
 
 	if isStarted {
@@ -288,7 +289,7 @@ func maybeStart(
 
 		info, workerInfo, err = maybeRestart(ctx, console, image, containerName, installationName, fe, settings, opts...)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "maybe restart")
+			return nil, nil, fmt.Errorf("maybe restart: %w", err)
 		}
 
 		return info, workerInfo, nil
@@ -300,23 +301,23 @@ func maybeStart(
 
 	err = Start(ctx, console, image, containerName, installationName, fe, settings, false)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "start")
+		return nil, nil, fmt.Errorf("start: %w", err)
 	}
 
 	info, workerInfo, err := WaitUntilStarted(ctx, console, containerName, settings.VolumeName, settings, fe, opts...)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "wait until started")
+		return nil, nil, fmt.Errorf("wait until started: %w", err)
 	}
 
 	// check arch is correct
 	runningContainerInfo, err := GetContainerInfo(ctx, containerName, fe)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "GetContainerInfo %s", containerName)
+		return nil, nil, fmt.Errorf("GetContainerInfo %s: %w", containerName, err)
 	}
 
 	currentImageInfo, err := GetImageInfo(ctx, runningContainerInfo.Image, fe)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "GetImageInfo %s", runningContainerInfo.Image)
+		return nil, nil, fmt.Errorf("GetImageInfo %s: %w", runningContainerInfo.Image, err)
 	}
 
 	if currentImageInfo.Architecture != runtime.GOARCH {
@@ -348,12 +349,12 @@ func maybeRestart(
 
 	runningContainerInfo, err := GetContainerInfo(ctx, containerName, fe)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get container info")
+		return nil, nil, fmt.Errorf("could not get container info: %w", err)
 	}
 
 	currentImageInfo, err := GetImageInfo(ctx, runningContainerInfo.Image, fe)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get image info")
+		return nil, nil, fmt.Errorf("could not get image info: %w", err)
 	}
 
 	if currentImageInfo.Architecture != runtime.GOARCH {
@@ -383,14 +384,14 @@ func maybeRestart(
 
 		hash, err = GetSettingsHash(ctx, containerName, fe)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not get settings hash")
+			return nil, nil, fmt.Errorf("could not get settings hash: %w", err)
 		}
 
 		var hashOK bool
 
 		hashOK, err = settings.VerifyHash(hash)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "verify hash")
+			return nil, nil, fmt.Errorf("verify hash: %w", err)
 		}
 
 		useExistingContainer := false
@@ -414,7 +415,7 @@ func maybeRestart(
 
 			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
 			if err != nil {
-				return nil, nil, errors.Wrap(err, "could not connect to buildkitd to shut down container")
+				return nil, nil, fmt.Errorf("could not connect to buildkitd to shut down container: %w", err)
 			}
 
 			return info, workerInfo, nil
@@ -431,7 +432,7 @@ func maybeRestart(
 
 		info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not verify connection to buildkitd container")
+			return nil, nil, fmt.Errorf("could not verify connection to buildkitd container: %w", err)
 		}
 
 		return info, workerInfo, nil
@@ -442,22 +443,22 @@ func maybeRestart(
 	// Replace.
 	err = Stop(ctx, containerName, fe)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "could not shut down container %q", containerName)
+		return nil, nil, fmt.Errorf("could not shut down container %q: %w", containerName, err)
 	}
 
 	err = WaitUntilStopped(ctx, containerName, settings.Timeout, fe)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "could not wait for container %q to stop", containerName)
+		return nil, nil, fmt.Errorf("could not wait for container %q to stop: %w", containerName, err)
 	}
 
 	err = Start(ctx, console, image, containerName, installationName, fe, settings, false)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "could not start container %q", containerName)
+		return nil, nil, fmt.Errorf("could not start container %q: %w", containerName, err)
 	}
 
 	info, workerInfo, err := WaitUntilStarted(ctx, console, containerName, settings.VolumeName, settings, fe, opts...)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "could not wait for container %q to start", containerName)
+		return nil, nil, fmt.Errorf("could not wait for container %q to start: %w", containerName, err)
 	}
 
 	bkCons.Printf("...Done\n")
@@ -469,7 +470,7 @@ func maybeRestart(
 func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, containerName string) error {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
-		return errors.Wrapf(err, "get info to remove exited %s", containerName)
+		return fmt.Errorf("get info to remove exited %s: %w", containerName, err)
 	}
 
 	containerInfo, ok := infos[containerName]
@@ -479,7 +480,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 
 	err = fe.ContainerRemove(ctx, false, containerName)
 	if err != nil {
-		return errors.Wrapf(err, "remove exited %s", containerName)
+		return fmt.Errorf("remove exited %s: %w", containerName, err)
 	}
 
 	return nil
@@ -496,7 +497,7 @@ func Start(
 ) error {
 	settingsHash, err := settings.Hash()
 	if err != nil {
-		return errors.Wrap(err, "settings hash")
+		return fmt.Errorf("settings hash: %w", err)
 	}
 
 	err = RemoveExited(ctx, fe, containerName)
@@ -593,7 +594,7 @@ func Start(
 
 		bkURL, err = url.Parse(settings.BuildkitAddress)
 		if err != nil {
-			return errors.Wrap(err, "error parsing buildkit address url")
+			return fmt.Errorf("error parsing buildkit address url: %w", err)
 		}
 
 		if settings.UseTCP {
@@ -622,7 +623,7 @@ func Start(
 			if settings.UseTLS {
 				if settings.TLSCA != "" {
 					if exists, _ := fileutil.FileExists(settings.TLSCA); !exists {
-						return errors.Wrapf(os.ErrNotExist, "TLS CA file %q is missing", settings.TLSCA)
+						return fmt.Errorf("TLS CA file %q is missing: %w", settings.TLSCA, os.ErrNotExist)
 					}
 
 					volumeOpts = append(volumeOpts, containerutil.Mount{
@@ -635,7 +636,7 @@ func Start(
 
 				if settings.ServerTLSCert != "" {
 					if exists, _ := fileutil.FileExists(settings.ServerTLSCert); !exists {
-						return errors.Wrapf(os.ErrNotExist, "TLS certificate %q is missing", settings.ServerTLSCert)
+						return fmt.Errorf("TLS certificate %q is missing: %w", settings.ServerTLSCert, os.ErrNotExist)
 					}
 
 					volumeOpts = append(volumeOpts, containerutil.Mount{
@@ -648,7 +649,7 @@ func Start(
 
 				if settings.ServerTLSKey != "" {
 					if exists, _ := fileutil.FileExists(settings.ServerTLSKey); !exists {
-						return errors.Wrapf(os.ErrNotExist, "TLS private key %q is missing", settings.ServerTLSKey)
+						return fmt.Errorf("TLS private key %q is missing: %w", settings.ServerTLSKey, os.ErrNotExist)
 					}
 
 					volumeOpts = append(volumeOpts, containerutil.Mount{
@@ -703,7 +704,7 @@ func Start(
 		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
-		return errors.Wrap(err, "could not start buildkit")
+		return fmt.Errorf("could not start buildkit: %w", err)
 	}
 
 	return nil
@@ -829,7 +830,7 @@ func WaitUntilStarted(
 		expectedAddress := containerutil.DockerSchemePrefix + containerName
 		if address != expectedAddress {
 			// This shouldn't happen unless there's a programming error
-			return nil, nil, errors.Errorf("expected address to be %s, but got %s", expectedAddress, address)
+			return nil, nil, fmt.Errorf("expected address to be %s, but got %s", expectedAddress, address)
 		}
 	}
 	// First, wait for the container to be marked as started.
@@ -855,7 +856,7 @@ ContainerRunningLoop:
 			}
 
 		case <-ctxTimeout.Done():
-			return nil, nil, errors.Errorf("timeout %s: buildkitd container did not start", opTimeout)
+			return nil, nil, fmt.Errorf("timeout %s: buildkitd container did not start", opTimeout)
 		}
 	}
 
@@ -958,12 +959,11 @@ func waitForConnection(
 
 			return info, workerInfo, nil
 		case <-ctxTimeout.Done():
-			// Try one last time.
 			info, workerInfo, err := checkConnection(ctx, address, attemptTimeout, opts...)
 			if err != nil {
 				// We give up.
-				return nil, nil, errors.Wrapf(ErrBuildkitConnectionFailure,
-					"timeout %s: could not connect to buildkit: %s", opTimeout, err.Error())
+				return nil, nil, fmt.Errorf("timeout %s: could not connect to buildkit: %w: %w",
+					opTimeout, err, ErrBuildkitConnectionFailure)
 			}
 
 			return info, workerInfo, nil
@@ -1032,7 +1032,7 @@ func checkConnection(
 
 		info, err = bkClient.Info(ctxTimeout)
 		if err != nil {
-			s, ok := status.FromError(errors.Cause(err))
+			s, ok := status.FromError(err)
 			if ok && s.Code() == codes.Unimplemented {
 				// Degrade gracefully.
 				info = &client.Info{
@@ -1067,7 +1067,7 @@ func MaybePull(
 ) error {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {
-		return errors.Wrap(err, "could not get container info")
+		return fmt.Errorf("could not get container info: %w", err)
 	}
 
 	if len(infos) > 0 { // the presence of an item implies its local
@@ -1080,7 +1080,7 @@ func MaybePull(
 
 	err = fe.ImagePull(ctx, image)
 	if err != nil {
-		return errors.Wrapf(err, "could not pull %s", image)
+		return fmt.Errorf("could not pull %s: %w", image, err)
 	}
 
 	console.
@@ -1094,7 +1094,7 @@ func MaybePull(
 func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (string, error) {
 	info, err := fe.Information(ctx)
 	if err != nil {
-		return "", errors.Wrap(err, "get info from frontend")
+		return "", fmt.Errorf("get info from frontend: %w", err)
 	}
 
 	return fmt.Sprintf("%#v", info), nil
@@ -1110,7 +1110,7 @@ func GetLogs(
 
 	logs, err := fe.ContainerLogs(ctx, containerName)
 	if err != nil {
-		return "", errors.Wrap(err, "")
+		return "", fmt.Errorf(": %w", err)
 	}
 
 	if containerLogs, ok := logs[containerName]; ok {
@@ -1130,7 +1130,7 @@ func GetContainerIP(
 
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
-		return "", errors.Wrap(err, "could not get container info to determine ip")
+		return "", fmt.Errorf("could not get container info to determine ip: %w", err)
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
@@ -1161,7 +1161,7 @@ func WaitUntilStopped(
 				return nil
 			}
 		case <-ctxTimeout.Done():
-			return errors.Errorf("timeout %s: buildkitd did not stop", opTimeout)
+			return fmt.Errorf("timeout %s: buildkitd did not stop", opTimeout)
 		}
 	}
 }
@@ -1170,11 +1170,11 @@ func WaitUntilStopped(
 func GetSettingsHash(ctx context.Context, containerName string, fe containerutil.ContainerFrontend) (string, error) {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
-		return "", errors.Wrap(err, "get container info for settings")
+		return "", fmt.Errorf("get container info for settings: %w", err)
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
-		return containerInfo.Labels["dev.earthly.settingshash"], nil
+		return strings.TrimSpace(containerInfo.Labels["dev.earthly.settingshash"]), nil
 	}
 
 	return "", fmt.Errorf("settings hash for container %s was not found", containerName)
@@ -1186,7 +1186,7 @@ func GetContainerInfo(
 ) (*containerutil.ContainerInfo, error) {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
-		return nil, errors.Wrap(err, "get container info for current container image ID")
+		return nil, fmt.Errorf("get container info for current container image ID: %w", err)
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
@@ -1202,7 +1202,7 @@ func GetImageInfo(
 ) (*containerutil.ImageInfo, error) {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {
-		return nil, errors.Wrapf(err, "get image info %s", image)
+		return nil, fmt.Errorf("get image info %s: %w", image, err)
 	}
 
 	if info, ok := infos[image]; ok {
@@ -1216,7 +1216,7 @@ func GetImageInfo(
 func GetAvailableImageID(ctx context.Context, image string, fe containerutil.ContainerFrontend) (string, error) {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {
-		return "", errors.Wrap(err, "get output for available image ID")
+		return "", fmt.Errorf("get output for available image ID: %w", err)
 	}
 
 	return infos[image].ID, nil
@@ -1225,7 +1225,7 @@ func GetAvailableImageID(ctx context.Context, image string, fe containerutil.Con
 func isContainerRunning(ctx context.Context, containerName string, fe containerutil.ContainerFrontend) (bool, error) {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to get container info while checking if running")
+		return false, fmt.Errorf("failed to get container info while checking if running: %w", err)
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
@@ -1256,11 +1256,13 @@ func printBuildkitInfo(
 	if info.BuildkitVersion.Version == unknown {
 		bkCons.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
-				"it's from a version lower than earth Buildkit v0.6.20")
+				"it's from a version lower than earth Buildkit v0.6.20",
+		)
 	} else {
 		printFun(
 			"Version %s %s %s",
-			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision)
+			info.BuildkitVersion.Package, info.BuildkitVersion.Version, info.BuildkitVersion.Revision,
+		)
 
 		const buildkitPackage = "github.com/EarthBuild/buildkit"
 
@@ -1273,7 +1275,8 @@ func printBuildkitInfo(
 				// For local buildkits we expect perfect version match.
 				bkCons.Warnf(
 					"Warning: Buildkit version (%s) is different from earth version (%s)",
-					info.BuildkitVersion.Version, earthVersion)
+					info.BuildkitVersion.Version, earthVersion,
+				)
 			} else {
 				compatible := true
 
@@ -1335,7 +1338,8 @@ func printBuildkitInfo(
 		workerInfo.GCAnalytics.AvgDuration,
 		workerInfo.GCAnalytics.AllTimeDuration,
 		ld,
-		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared))
+		humanizeBytes(workerInfo.GCAnalytics.LastSizeCleared),
+	)
 
 	if workerInfo.GCAnalytics.CurrentStartTime != nil {
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)
@@ -1367,11 +1371,11 @@ func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 	return 0, false
 }
 
-// getCacheSize returns the size of the earthly cache in bytes.
+// getCacheSize returns the size of the earthbuild cache in bytes.
 func getCacheSize(ctx context.Context, volumeName string, fe containerutil.ContainerFrontend) (int, error) {
 	infos, err := fe.VolumeInfo(ctx, volumeName)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to get volume info for cache size %s", volumeName)
+		return 0, fmt.Errorf("failed to get volume info for cache size %s: %w", volumeName, err)
 	}
 
 	return int(infos[volumeName].SizeBytes), nil // #nosec G115
@@ -1380,7 +1384,7 @@ func getCacheSize(ctx context.Context, volumeName string, fe containerutil.Conta
 func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
 	server, err := url.Parse(settings.BuildkitAddress)
 	if err != nil {
-		return []client.ClientOpt{}, errors.Wrapf(err, "failed to parse buildkit url %s", settings.BuildkitAddress)
+		return []client.ClientOpt{}, fmt.Errorf("failed to parse buildkit url %s: %w", settings.BuildkitAddress, err)
 	}
 
 	if !settings.UseTCP || !settings.UseTLS {
@@ -1391,7 +1395,8 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 		return append(opts, client.WithServerConfigSystem("")), nil
 	}
 
-	opts = append(opts,
+	opts = append(
+		opts,
 		client.WithCredentials(settings.ClientTLSCert, settings.ClientTLSKey),
 		client.WithServerConfig(server.Hostname(), settings.TLSCA),
 	)

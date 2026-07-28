@@ -3,7 +3,7 @@ VERSION 0.8
 ARG --global MY_ARG=this-is-the-one
 
 test:
-  FROM alpine:3.24.0
+  FROM alpine:3.24.1
   DO --pass-args +FUNC1
 
 FUNC1:

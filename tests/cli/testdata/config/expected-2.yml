@@ -1,0 +1,5 @@
+global:
+    cache_size_mb: 10
+git:
+    example.com:
+        password: hunter2

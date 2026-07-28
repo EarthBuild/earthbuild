@@ -3,6 +3,7 @@ package containerutil
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,9 +12,7 @@ import (
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/dustin/go-humanize"
-	"github.com/hashicorp/go-multierror"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-	"github.com/pkg/errors"
 )
 
 type dockerShellFrontend struct {
@@ -58,7 +57,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendDockerShell, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to calculate buildkit URLs")
+		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
 
 	output, err = fe.commandContextOutput(ctx, "info", "--format={{.DockerRootDir}}")
@@ -69,7 +68,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 
 		output, err2 = fe.commandContextOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to get docker root dir")
+			return nil, fmt.Errorf("failed to get docker root dir: %w", err)
 		}
 	}
 
@@ -119,7 +118,7 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 	err = json.Unmarshal([]byte(output.string()), &allInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse docker version output")
+		return nil, fmt.Errorf("failed to parse docker version output: %w", err)
 	}
 
 	host, exists := os.LookupEnv("DOCKER_HOST")
@@ -163,7 +162,7 @@ func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 	for _, ref := range refs {
 		_, cmdErr := dsf.commandContextOutput(ctx, "pull", ref)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -189,7 +188,7 @@ func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 
 		output, cmdErr := cmd.CombinedOutput()
 		if cmdErr != nil {
-			err = multierror.Append(err, errors.Wrapf(cmdErr, "image load failed: %s", string(output)))
+			err = errors.Join(err, fmt.Errorf("image load failed: %s: %w", string(output), cmdErr))
 		}
 	}
 
@@ -218,7 +217,7 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 
 	err := json.Unmarshal([]byte(output.stdout.String()), &volumeInfos)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode docker volume info for %v", volumeNames)
+		return nil, fmt.Errorf("failed to decode docker volume info for %v: %w", volumeNames, err)
 	}
 
 	for _, name := range volumeNames {
@@ -226,7 +225,7 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 			if name == volumeInfo.Name {
 				bytes, parseErr := humanize.ParseBytes(volumeInfo.Size)
 				if parseErr != nil {
-					err = multierror.Append(err, parseErr)
+					err = errors.Join(err, parseErr)
 				} else {
 					results[name] = &VolumeInfo{
 						Name:       volumeInfo.Name,

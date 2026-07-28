@@ -2,27 +2,50 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
+
+// docBaseTarget is the implicit target documented when no '+target' is given.
+const docBaseTarget = "+base"
+
+// errNoDocComment is the sentinel returned when a target has no usable doc
+// comment. When documenting all targets these are skipped, so the call site
+// distinguishes them (via [errors.Is]) from real parse/resolve failures.
+var errNoDocComment = errors.New("no doc comment found")
 
 // Doc encapsulates the doc command logic.
 type Doc struct {
 	cli CLI
 
+	// out is where rendered docs are written; nil means [os.Stdout]. Injectable
+	// so tests can capture output without hijacking the global stdout.
+	out io.Writer
+
 	docShowLong bool
+}
+
+// writer returns the output sink, defaulting to [os.Stdout] for the zero value.
+func (a *Doc) writer() io.Writer {
+	if a.out == nil {
+		return os.Stdout
+	}
+
+	return a.out
 }
 
 // NewDoc creates a new Doc command.
@@ -63,24 +86,11 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 	var tgtPath string
 	if cmd.NArg() > 0 {
 		tgtPath = cmd.Args().Get(0)
-		switch tgtPath[0] {
-		case '.', '/', '+':
-		default:
-			return errors.
-				New("remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']")
-		}
 	}
 
-	singleTgt := true
-
-	if !strings.ContainsRune(tgtPath, '+') {
-		tgtPath += "+base"
-		singleTgt = false
-	}
-
-	target, err := domain.ParseTarget(tgtPath)
+	target, singleTgt, err := parseDocTarget(tgtPath)
 	if err != nil {
-		return errors.Errorf("unable to parse target %q", tgtPath)
+		return err
 	}
 
 	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
@@ -91,7 +101,7 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
-		return errors.Wrap(err, "failed to resolve target")
+		return fmt.Errorf("failed to resolve target: %w", err)
 	}
 
 	const docsIndent = "  "
@@ -99,28 +109,62 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 	if singleTgt {
 		tgt, err := findTarget(bc.Earthfile, target.Target)
 		if err != nil {
-			return errors.Wrap(err, "failed to look up target")
+			return fmt.Errorf("failed to look up target: %w", err)
 		}
 
-		return a.documentSingleTarget("", docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
+		return a.documentSingleTarget("", bc.Features, bc.Earthfile.BaseRecipe, tgt, true)
 	}
 
 	tgts := bc.Earthfile.Targets
 
-	fmt.Println("TARGETS:")
+	fmt.Fprintln(a.writer(), "TARGETS:")
 
 	const tgtIndent = docsIndent
 	for _, tgt := range tgts {
-		_ = a.documentSingleTarget(tgtIndent, docsIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		// Targets without a doc comment are silently skipped; any other error
+		// (e.g. a malformed recipe body) is a real failure and propagates.
+		err := a.documentSingleTarget(tgtIndent, bc.Features, bc.Earthfile.BaseRecipe, tgt, a.docShowLong)
+		if err != nil && !errors.Is(err, errNoDocComment) {
+			return err
+		}
 	}
 
 	return nil
 }
 
+// parseDocTarget interprets the doc command's optional path argument. An empty
+// path (or no argument) documents every target in the local "+base" Earthfile;
+// a path containing '+' documents that single target. Remote paths are rejected.
+func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err error) {
+	if tgtPath != "" {
+		switch tgtPath[0] {
+		case '.', '/', '+':
+		default:
+			return domain.Target{}, false, errors.New(
+				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']",
+			)
+		}
+	}
+
+	singleTgt = true
+
+	if !strings.ContainsRune(tgtPath, '+') {
+		tgtPath += docBaseTarget
+		singleTgt = false
+	}
+
+	target, err = domain.ParseTarget(tgtPath)
+	if err != nil {
+		return domain.Target{}, false, fmt.Errorf("unable to parse target %q", tgtPath)
+	}
+
+	return target, singleTgt, nil
+}
+
 func docString(body string, names ...string) (string, error) {
 	firstWordEnd := strings.IndexRune(body, ' ')
 	if firstWordEnd == -1 {
-		return "", errors.Errorf("failed to parse first word of documentation comments")
+		return "", errors.New("failed to parse first word of documentation comments")
 	}
 
 	firstWord := body[:firstWordEnd]
@@ -128,7 +172,7 @@ func docString(body string, names ...string) (string, error) {
 		return body, nil
 	}
 
-	return "", hint.Wrapf(errors.New("no doc comment found"),
+	return "", hint.Wrapf(errNoDocComment,
 		"a comment was found but the first word was not one of (%s)", strings.Join(names, ", "))
 }
 
@@ -172,10 +216,10 @@ type blockIO struct {
 	images         []docSection
 }
 
-func (io blockIO) options() string {
+func (b blockIO) options() string {
 	var sb strings.Builder
 
-	for _, arg := range io.requiredArgs {
+	for _, arg := range b.requiredArgs {
 		if sb.Len() > 0 {
 			sb.WriteByte(' ')
 		}
@@ -183,7 +227,7 @@ func (io blockIO) options() string {
 		sb.WriteString(arg.identifier)
 	}
 
-	for _, arg := range io.optionalArgs {
+	for _, arg := range b.optionalArgs {
 		if sb.Len() > 0 {
 			sb.WriteByte(' ')
 		}
@@ -196,27 +240,27 @@ func (io blockIO) options() string {
 	return sb.String()
 }
 
-func (io blockIO) help(indent, scopeIndent string) string {
-	return docSectionsOutput(indent, scopeIndent, "REQUIRED ARGS", io.requiredArgs...) +
-		docSectionsOutput(indent, scopeIndent, "OPTIONAL ARGS", io.optionalArgs...) +
-		docSectionsOutput(indent, scopeIndent, "ARTIFACTS", io.artifacts...) +
-		docSectionsOutput(indent, scopeIndent, "LOCAL ARTIFACTS", io.localArtifacts...) +
-		docSectionsOutput(indent, scopeIndent, "IMAGES", io.images...)
+func (b blockIO) help(indent, scopeIndent string) string {
+	return docSectionsOutput(indent, scopeIndent, "REQUIRED ARGS", b.requiredArgs...) +
+		docSectionsOutput(indent, scopeIndent, "OPTIONAL ARGS", b.optionalArgs...) +
+		docSectionsOutput(indent, scopeIndent, "ARTIFACTS", b.artifacts...) +
+		docSectionsOutput(indent, scopeIndent, "LOCAL ARTIFACTS", b.localArtifacts...) +
+		docSectionsOutput(indent, scopeIndent, "IMAGES", b.images...)
 }
 
-func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onlyGlobal bool) error {
+func addArg(b *blockIO, ft *features.Features, stmt earthfile.Statement, isBase, onlyGlobal bool) error {
 	if stmt.Command == nil {
 		return nil
 	}
 
 	cmd := *stmt.Command
-	if cmd.Name != "ARG" {
+	if cmd.Name != earthfile.CmdArg {
 		return nil
 	}
 
 	ident, dflt, isRequired, isGlobal, err := earthfile2llb.ArgName(cmd, isBase, ft.ExplicitGlobal)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse ARG statement")
+		return fmt.Errorf("failed to parse ARG statement: %w", err)
 	}
 
 	if onlyGlobal && !isGlobal {
@@ -234,21 +278,21 @@ func addArg(io *blockIO, ft *features.Features, stmt spec.Statement, isBase, onl
 	}
 
 	if isRequired {
-		io.requiredArgs = append(io.requiredArgs, doc)
+		b.requiredArgs = append(b.requiredArgs, doc)
 		return nil
 	}
 
-	io.optionalArgs = append(io.optionalArgs, doc)
+	b.optionalArgs = append(b.optionalArgs, doc)
 
 	return nil
 }
 
-func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO, error) {
-	var io blockIO
+func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block) (*blockIO, error) {
+	var b blockIO
 	for _, base := range baseRcp {
-		err := addArg(&io, ft, base, true, true)
+		err := addArg(&b, ft, base, true, true)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse global ARG in base recipe")
+			return nil, fmt.Errorf("failed to parse global ARG in base recipe: %w", err)
 		}
 	}
 
@@ -258,16 +302,17 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 		}
 
 		cmd := *rb.Command
+		//nolint:exhaustive // Only doc-extractable commands (ARG, SAVE ARTIFACT, SAVE IMAGE) are processed here.
 		switch cmd.Name {
-		case "ARG":
-			err := addArg(&io, ft, rb, false, false)
+		case earthfile.CmdArg:
+			err := addArg(&b, ft, rb, false, false)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse non-global ARG")
+				return nil, fmt.Errorf("failed to parse non-global ARG: %w", err)
 			}
-		case "SAVE ARTIFACT":
+		case earthfile.CmdSaveArtifact:
 			name, localName, err := earthfile2llb.ArtifactName(cmd)
 			if err != nil {
-				return nil, errors.Wrap(err, "could not parse SAVE ARTIFACT name")
+				return nil, fmt.Errorf("could not parse SAVE ARTIFACT name: %w", err)
 			}
 
 			idents := []string{name}
@@ -283,16 +328,16 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 			}
 			if localName != nil {
 				artDoc.identifier += " -> " + *localName
-				io.localArtifacts = append(io.localArtifacts, artDoc)
+				b.localArtifacts = append(b.localArtifacts, artDoc)
 
 				continue
 			}
 
-			io.artifacts = append(io.artifacts, artDoc)
-		case "SAVE IMAGE":
+			b.artifacts = append(b.artifacts, artDoc)
+		case earthfile.CmdSaveImage:
 			identifiers, err := earthfile2llb.ImageNames(cmd)
 			if err != nil {
-				return nil, errors.Wrap(err, "could not parse SAVE IMAGE name(s)")
+				return nil, fmt.Errorf("could not parse SAVE IMAGE name(s): %w", err)
 			}
 
 			if len(identifiers) == 0 {
@@ -300,25 +345,25 @@ func parseDocSections(ft *features.Features, baseRcp, cmds spec.Block) (*blockIO
 			}
 
 			docs, _ := docString(cmd.Docs, identifiers...)
-			io.images = append(io.images, docSection{
+			b.images = append(b.images, docSection{
 				identifier: strings.Join(identifiers, ", "),
 				body:       docs,
 			})
 		}
 	}
 
-	return &io, nil
+	return &b, nil
 }
 
 func (a *Doc) documentSingleTarget(
-	currIndent, scopeIndent string,
+	currIndent string,
 	ft *features.Features,
-	baseRcp spec.Block,
-	tgt spec.Target,
+	baseRcp earthfile.Block,
+	tgt earthfile.Target,
 	includeBlockDocs bool,
 ) error {
 	if tgt.Docs == "" {
-		return hint.Wrapf(errors.New("no doc comment found"),
+		return hint.Wrapf(errNoDocComment,
 			"add a comment starting with the word '%s' on the line immediately above this target", tgt.Name)
 	}
 
@@ -329,8 +374,10 @@ func (a *Doc) documentSingleTarget(
 
 	blockIO, err := parseDocSections(ft, baseRcp, tgt.Recipe)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse body of recipe '%v'", tgt.Name)
+		return fmt.Errorf("failed to parse body of recipe '%v': %w", tgt.Name, err)
 	}
+
+	const scopeIndent = "  "
 
 	usage := indent(currIndent, "+"+tgt.Name)
 
@@ -339,17 +386,18 @@ func (a *Doc) documentSingleTarget(
 		usage += " " + options
 	}
 
-	fmt.Println(usage)
+	w := a.writer()
+	fmt.Fprintln(w, usage)
 
 	docIndent := currIndent + scopeIndent + scopeIndent
 	indented := indent(docIndent, docs)
-	fmt.Println(strings.Trim(indented, "\n"))
+	fmt.Fprintln(w, strings.Trim(indented, "\n"))
 
 	if !includeBlockDocs {
 		return nil
 	}
 
-	fmt.Println(blockIO.help(currIndent+scopeIndent, scopeIndent))
+	fmt.Fprintln(w, blockIO.help(currIndent+scopeIndent, scopeIndent))
 
 	return nil
 }
@@ -367,12 +415,12 @@ func indent(indent, s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func findTarget(ef spec.Earthfile, name string) (spec.Target, error) {
+func findTarget(ef earthfile.Tree, name string) (earthfile.Target, error) {
 	for _, tgt := range ef.Targets {
 		if tgt.Name == name {
 			return tgt, nil
 		}
 	}
 
-	return spec.Target{}, errors.Errorf("could not find target named %q", name)
+	return earthfile.Target{}, fmt.Errorf("could not find target named %q", name)
 }

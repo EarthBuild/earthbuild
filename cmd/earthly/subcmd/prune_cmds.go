@@ -2,13 +2,15 @@ package subcmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
 )
@@ -47,13 +49,13 @@ func (a *Prune) Cmds() []*cli.Command {
 				&cli.BoolFlag{
 					Name:        "all",
 					Aliases:     []string{"a"},
-					Sources:     cli.EnvVars("EARTHLY_PRUNE_ALL"),
+					Sources:     flag.EarthEnvVars("PRUNE_ALL"),
 					Usage:       "Prune all cache via BuildKit daemon",
 					Destination: &a.all,
 				},
 				&cli.BoolFlag{
 					Name:        "reset",
-					Sources:     cli.EnvVars("EARTHLY_PRUNE_RESET"),
+					Sources:     flag.EarthEnvVars("PRUNE_RESET"),
 					Usage:       `Reset cache entirely by restarting BuildKit daemon and wiping cache dir.`,
 					Destination: &a.reset,
 				},
@@ -88,9 +90,10 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 
 		err = buildkitd.ResetCache(
 			ctx, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
-			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings)
+			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings,
+		)
 		if err != nil {
-			return errors.Wrap(err, "reset cache")
+			return fmt.Errorf("reset cache: %w", err)
 		}
 
 		return nil
@@ -98,7 +101,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 
 	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "prune new buildkitd client")
+		return fmt.Errorf("prune new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
@@ -117,7 +120,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 	eg.Go(func() error {
 		err = bkClient.Prune(ctx, ch, opts...)
 		if err != nil {
-			return errors.Wrap(err, "buildkit prune")
+			return fmt.Errorf("buildkit prune: %w", err)
 		}
 
 		close(ch)
@@ -145,7 +148,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 
 	err = eg.Wait()
 	if err != nil {
-		return errors.Wrap(err, "err group")
+		return fmt.Errorf("err group: %w", err)
 	}
 
 	a.cli.Console().Printf("Freed %s\n", humanize.Bytes(total))

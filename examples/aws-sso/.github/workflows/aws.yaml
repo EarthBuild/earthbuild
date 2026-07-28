@@ -12,7 +12,7 @@ jobs:
   aws:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: earthly/actions-setup@v1.0.13
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

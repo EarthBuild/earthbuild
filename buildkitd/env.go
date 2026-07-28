@@ -1,10 +1,9 @@
 package buildkitd
 
 import (
+	"fmt"
 	"os"
 	"strconv"
-
-	"github.com/pkg/errors"
 )
 
 // parseBoolEnv reports whether the named environment variable holds a truthy
@@ -19,7 +18,7 @@ func parseBoolEnv(key string) (bool, error) {
 
 	value, err := strconv.ParseBool(raw)
 	if err != nil {
-		return false, errors.Errorf(
+		return false, fmt.Errorf(
 			"%s is set to %q, which is not a boolean: expected one of 1, t, T, true, TRUE, True, 0, f, F, false, FALSE, False",
 			key, raw)
 	}

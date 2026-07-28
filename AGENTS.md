@@ -6,6 +6,10 @@
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
 
+## Earthfile Parser
+
+* When making changes to the parser, it is critical to keep [earthfile.abnf](file:///Users/jhorsts/projects/earthbuild/earthbuild/internal/earthfile/earthfile.abnf) up to date. And ensure the parser's implementation matches the ABNF grammar.
+
 ## Definition of Done
 
 After making changes to the codebase, verify the following and rectify any issues reported:

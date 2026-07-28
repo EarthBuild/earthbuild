@@ -1,18 +1,18 @@
 package inputgraph
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
-	"github.com/pkg/errors"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 // Error represents an auto-skip error that can include the source file name and
 // associated line number.
 type Error struct {
 	err    error
-	srcLoc *spec.SourceLocation
+	srcLoc *earthfile.SourceLocation
 	msg    string
 }
 
@@ -34,22 +34,21 @@ func (e *Error) Error() string {
 // is found, it will prefix the error message with source file information
 // associated with the error.
 func FormatError(err error) string {
-	e := &Error{}
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		return fmt.Sprintf("%s:%d:%d %s", e.srcLoc.File, e.srcLoc.StartLine, e.srcLoc.StartColumn, err)
 	}
 
-	return e.Error()
+	return err.Error()
 }
 
-func newError(srcLoc *spec.SourceLocation, format string, args ...any) error {
+func newError(srcLoc *earthfile.SourceLocation, format string, args ...any) error {
 	return &Error{
 		srcLoc: srcLoc,
 		msg:    fmt.Sprintf(format, args...),
 	}
 }
 
-func wrapError(err error, srcLoc *spec.SourceLocation, format string, args ...any) error {
+func wrapError(err error, srcLoc *earthfile.SourceLocation, format string, args ...any) error {
 	e := &Error{
 		srcLoc: srcLoc,
 		err:    err,
@@ -61,6 +60,6 @@ func wrapError(err error, srcLoc *spec.SourceLocation, format string, args ...an
 	return e
 }
 
-func addErrorSrc(err error, srcLoc *spec.SourceLocation) error {
+func addErrorSrc(err error, srcLoc *earthfile.SourceLocation) error {
 	return wrapError(err, srcLoc, "")
 }

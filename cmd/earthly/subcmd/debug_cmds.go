@@ -3,17 +3,17 @@ package subcmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/ast"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/containerd/platforms"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -107,14 +107,19 @@ func (a *Debug) actionAst(_ context.Context, cmd *cli.Command) error {
 		path = cmd.Args().First()
 	}
 
-	ef, err := ast.Parse(path, a.enableSourceMap)
+	var opts []earthfile.ParseOption
+	if a.enableSourceMap {
+		opts = append(opts, earthfile.WithSourceMap())
+	}
+
+	ef, err := earthfile.ParseFile(path, opts...)
 	if err != nil {
 		return err
 	}
 
 	efDt, err := json.Marshal(ef)
 	if err != nil {
-		return errors.Wrap(err, "marshal ast")
+		return fmt.Errorf("marshal ast: %w", err)
 	}
 
 	fmt.Print(string(efDt))
@@ -127,13 +132,13 @@ func (a *Debug) actionBuildkitSessionHistory(ctx context.Context, cmd *cli.Comma
 
 	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "build new buildkitd client")
+		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
 	history, err := bkClient.SessionHistory(ctx)
 	if err != nil {
-		return errors.Wrap(err, "get buildkit session history")
+		return fmt.Errorf("get buildkit session history: %w", err)
 	}
 
 	byt, _ := json.MarshalIndent(history, "", "  ")
@@ -147,13 +152,13 @@ func (a *Debug) actionBuildkitInfo(ctx context.Context, cmd *cli.Command) error 
 
 	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "build new buildkitd client")
+		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
 	info, err := bkClient.Info(ctx)
 	if err != nil {
-		return errors.Wrap(err, "get buildkit info")
+		return fmt.Errorf("get buildkit info: %w", err)
 	}
 
 	fmt.Printf("Buildkit version: %s\n", info.BuildkitVersion.Version)
@@ -169,13 +174,13 @@ func (a *Debug) actionBuildkitDiskUsage(ctx context.Context, cmd *cli.Command) e
 
 	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "build new buildkitd client")
+		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
 	infos, err := bkClient.DiskUsage(ctx)
 	if err != nil {
-		return errors.Wrap(err, "get buildkit disk usage")
+		return fmt.Errorf("get buildkit disk usage: %w", err)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -224,13 +229,13 @@ func (a *Debug) actionBuildkitWorkers(ctx context.Context, cmd *cli.Command) err
 
 	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "build new buildkitd client")
+		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
 	workers, err := bkClient.ListWorkers(ctx)
 	if err != nil {
-		return errors.Wrap(err, "get buildkit workers")
+		return fmt.Errorf("get buildkit workers: %w", err)
 	}
 
 	for _, info := range workers {
@@ -279,7 +284,8 @@ func (a *Debug) actionBuildkitWorkers(ctx context.Context, cmd *cli.Command) err
 			fmt.Printf("\tGC Last end time: %s\n", humanizeTime(info.GCAnalytics.LastEndTime))
 			fmt.Printf(
 				"\tGC Last duration: %s\n",
-				humanizeDuration(info.GCAnalytics.LastEndTime.Sub(*info.GCAnalytics.LastStartTime)))
+				humanizeDuration(info.GCAnalytics.LastEndTime.Sub(*info.GCAnalytics.LastStartTime)),
+			)
 			fmt.Printf("\tGC Last num records before: %d\n", info.GCAnalytics.LastNumRecordsBefore)
 			fmt.Printf("\tGC Last size before: %s\n", humanizeBytes(info.GCAnalytics.LastSizeBefore))
 			fmt.Printf("\tGC Last num records cleared: %d\n", info.GCAnalytics.LastNumRecordsCleared)
@@ -298,13 +304,13 @@ func (a *Debug) actionBuildkitShutdownIfIdle(ctx context.Context, cmd *cli.Comma
 
 	bkClient, err := a.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "build new buildkitd client")
+		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
 
 	ok, numSessions, err := bkClient.ShutdownIfIdle(ctx)
 	if err != nil {
-		return errors.Wrap(err, "shutdown buildkit if idle")
+		return fmt.Errorf("shutdown buildkit if idle: %w", err)
 	}
 
 	fmt.Printf("Shutting down: %t\n", ok)

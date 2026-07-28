@@ -12,7 +12,7 @@ type Duration time.Duration
 
 // String implements the [fmt.Stringer].
 func (d *Duration) String() string {
-	return (time.Duration(*d)).String()
+	return time.Duration(*d).String()
 }
 
 // Set implements the [cli.GenericFlag].Set method.

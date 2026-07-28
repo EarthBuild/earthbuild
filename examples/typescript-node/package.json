@@ -13,14 +13,14 @@
   "dependencies": {
     "axios": "^1.15.2",
     "express": "^5.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^6.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
     "jest": "^30.0.0",
-    "ts-jest": "^29.0.0",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.1"
   }
 }

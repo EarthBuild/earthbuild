@@ -3,17 +3,16 @@ package features
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
-	goflags "github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
-
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
+	goflags "github.com/jessevdk/go-flags"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
@@ -197,14 +196,14 @@ var errUnexpectedArgs = errors.New("unexpected VERSION arguments; " +
 	"should be VERSION [flags] <major-version>.<minor-version>")
 
 // Get returns a features struct for a particular version.
-func Get(version *spec.Version) (*Features, bool, error) {
+func Get(version *earthfile.Version) (*Features, bool, error) {
 	var ftrs Features
 
 	hasVersion := (version != nil)
 	if !hasVersion {
-		// If no version is specified, we default to 0.5 (the Earthly version
+		// If no version is specified, we default to 0.5 (the Earthbuild version
 		// before the VERSION command was introduced).
-		version = &spec.Version{
+		version = &earthfile.Version{
 			Args: []string{"0.5"},
 		}
 	}
@@ -214,7 +213,8 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	parsedArgs, err := flagutil.ParseArgsWithValueModifierAndOptions(
-		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption)
+		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -232,12 +232,12 @@ func Get(version *spec.Version) (*Features, bool, error) {
 
 	ftrs.Major, err = strconv.Atoi(majorAndMinor[0])
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed to parse major version %q", majorAndMinor[0])
+		return nil, false, fmt.Errorf("failed to parse major version %q: %w", majorAndMinor[0], err)
 	}
 
 	ftrs.Minor, err = strconv.Atoi(majorAndMinor[1])
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed to parse minor version %q", majorAndMinor[1])
+		return nil, false, fmt.Errorf("failed to parse minor version %q: %w", majorAndMinor[1], err)
 	}
 
 	return &ftrs, hasVersion, nil

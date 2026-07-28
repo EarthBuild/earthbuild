@@ -1,0 +1,9 @@
+global:
+    cache_size_mb: 10
+    buildkit_additional_args:
+        - userns
+        - --host
+    conversion_parallelism: 5
+git:
+    example.com:
+        password: hunter2

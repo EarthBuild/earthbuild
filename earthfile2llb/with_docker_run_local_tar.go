@@ -2,6 +2,8 @@ package earthfile2llb
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path"
 	"sort"
@@ -12,7 +14,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/session/localhost"
-	"github.com/pkg/errors"
 )
 
 type withDockerRunLocalTar struct {
@@ -50,7 +51,7 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 
 	cmdID, cmd, err := w.c.newLogbusCommand(ctx, commandName)
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	defer func() {
@@ -64,7 +65,7 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 
 		lp, err = w.load(ctx, cmdID, loadOpt)
 		if err != nil {
-			return errors.Wrap(err, "load")
+			return fmt.Errorf("load: %w", err)
 		}
 
 		loadPromises = append(loadPromises, lp)
@@ -121,7 +122,7 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 
 	depTarget, err := domain.ParseTarget(opt.Target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
+		return nil, fmt.Errorf("parse target %s: %w", opt.Target, err)
 	}
 
 	afterFun := func(ctx context.Context, mts *states.MultiTarget) error {
@@ -129,13 +130,15 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {
 				return errors.New(
-					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement")
+					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement",
+				)
 			}
 
 			if len(mts.Final.SaveImages) > 1 {
 				return errors.New(
 					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement: " +
-						"multiple tags mentioned in SAVE IMAGE")
+						"multiple tags mentioned in SAVE IMAGE",
+				)
 			}
 
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
@@ -152,13 +155,15 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 	}
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +182,7 @@ func (w *withDockerRunLocalTar) solveImage(
 ) error {
 	outDir, err := os.MkdirTemp(os.TempDir(), "earthly-docker-load")
 	if err != nil {
-		return errors.Wrap(err, "mk temp dir for docker load")
+		return fmt.Errorf("mk temp dir for docker load: %w", err)
 	}
 
 	w.c.opt.CleanCollection.Add(func() error {
@@ -188,7 +193,7 @@ func (w *withDockerRunLocalTar) solveImage(
 
 	err = w.c.opt.DockerImageSolverTar.SolveImage(ctx, mts, dockerTag, outFile, !w.c.ftrs.NoTarBuildOutput)
 	if err != nil {
-		return errors.Wrapf(err, "build target %s for docker load", opName)
+		return fmt.Errorf("build target %s for docker load: %w", opName, err)
 	}
 
 	w.mu.Lock()

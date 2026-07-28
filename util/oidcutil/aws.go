@@ -3,62 +3,25 @@ package oidcutil
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/util/parseutil"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
-	"github.com/mitchellh/mapstructure"
 )
 
 const iam = "iam"
 
 // AWSOIDCInfo contains AWS OIDC authentication information.
 type AWSOIDCInfo struct {
-	RoleARN         *arn.ARN       `mapstructure:"role-arn"`
-	SessionDuration *time.Duration `mapstructure:"session-duration"`
-	SessionName     string         `mapstructure:"session-name"`
-	Region          string         `mapstructure:"region"`
+	RoleARN         *arn.ARN
+	SessionDuration *time.Duration
+	SessionName     string
+	Region          string
 }
 
-var (
-	requiredFields    = []string{"role-arn", "session-name"}
-	decodeCFGTemplate = mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			timeDurationValidationsHookFunc(func(input time.Duration) error {
-				if input.Seconds() < 900 || input.Seconds() > 43200 {
-					return errors.New("duration must be between 900s and 43200s")
-				}
-
-				return nil
-			}),
-			stringToARN(func(input *arn.ARN) error {
-				if input.Service != iam {
-					return fmt.Errorf(`aws service ("%s") must be "%s"`, input.Service, iam)
-				}
-
-				if !strings.HasPrefix(input.Resource, "role/") {
-					return fmt.Errorf(`resource ("%s") must be an aws role"`, input.Resource)
-				}
-
-				return nil
-			}),
-		),
-		WeaklyTypedInput: true,
-	}
-)
-
-func newDecodeCFG(
-	result any, metadata *mapstructure.Metadata, template mapstructure.DecoderConfig,
-) *mapstructure.DecoderConfig {
-	res := template
-	res.Result = result
-	res.Metadata = metadata
-
-	return &res
-}
+var requiredFields = []string{"role-arn", "session-name"}
 
 func (oi *AWSOIDCInfo) String() string {
 	if oi == nil {
@@ -66,26 +29,39 @@ func (oi *AWSOIDCInfo) String() string {
 	}
 
 	var sb strings.Builder
+	sb.Grow(128)
 
-	write := func(prefix, value string) {
-		if value == "" {
-			return
-		}
-
-		if sb.Len() > 0 {
-			sb.WriteString(",")
-		}
-
-		sb.WriteString(prefix)
-		sb.WriteString(value)
+	if oi.SessionName != "" {
+		sb.WriteString("session-name=")
+		sb.WriteString(oi.SessionName)
 	}
 
-	write("session-name=", oi.SessionName)
-	write("role-arn=", oi.RoleARNString())
-	write("region=", oi.Region)
+	arnStr := oi.RoleARNString()
+	if arnStr != "" {
+		if sb.Len() > 0 {
+			sb.WriteByte(',')
+		}
+
+		sb.WriteString("role-arn=")
+		sb.WriteString(arnStr)
+	}
+
+	if oi.Region != "" {
+		if sb.Len() > 0 {
+			sb.WriteByte(',')
+		}
+
+		sb.WriteString("region=")
+		sb.WriteString(oi.Region)
+	}
 
 	if oi.SessionDuration != nil {
-		write("session-duration=", oi.SessionDuration.String())
+		if sb.Len() > 0 {
+			sb.WriteByte(',')
+		}
+
+		sb.WriteString("session-duration=")
+		sb.WriteString(oi.SessionDuration.String())
 	}
 
 	return sb.String()
@@ -109,89 +85,93 @@ func ParseAWSOIDCInfo(oidcInfo string) (*AWSOIDCInfo, error) {
 	}
 
 	info := &AWSOIDCInfo{}
-	metadata := &mapstructure.Metadata{}
-	decodeCFG := newDecodeCFG(info, metadata, decodeCFGTemplate)
-	decoder, _ := mapstructure.NewDecoder(decodeCFG)
 
-	err = decoder.Decode(m)
-	if err != nil {
-		return nil, err
+	// 1. Parse/validate role-arn
+	roleARNVal, ok := m["role-arn"]
+	if ok && strings.TrimSpace(roleARNVal) != "" {
+		parsedARN, err := arn.Parse(roleARNVal)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding 'role-arn': %w", err)
+		}
+
+		if parsedARN.Service != iam {
+			err := fmt.Errorf(
+				`error decoding 'role-arn': aws service ("%s") must be "%s"`,
+				parsedARN.Service,
+				iam,
+			)
+
+			return nil, err
+		}
+
+		if !strings.HasPrefix(parsedARN.Resource, "role/") {
+			err := fmt.Errorf(
+				`error decoding 'role-arn': resource ("%s") must be a role`,
+				parsedARN.Resource,
+			)
+
+			return nil, err
+		}
+
+		info.RoleARN = &parsedARN
 	}
 
-	if len(metadata.Unused) > 0 {
-		return nil, &mapstructure.Error{
-			Errors: []string{fmt.Sprintf("key(s) [%s] are invalid", strings.Join(metadata.Unused, ","))},
+	// 2. Parse/validate session-duration
+	sessionDurationVal, ok := m["session-duration"]
+	if ok && strings.TrimSpace(sessionDurationVal) != "" {
+		parsedDur, err := time.ParseDuration(sessionDurationVal)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding 'session-duration': %w", err)
+		}
+
+		if parsedDur.Seconds() < 900 || parsedDur.Seconds() > 43200 {
+			err := errors.New(
+				"error decoding 'session-duration': duration must be between 900s and 43200s",
+			)
+
+			return nil, err
+		}
+
+		info.SessionDuration = &parsedDur
+	}
+
+	// 3. Assign session-name
+	sessionNameVal, ok := m["session-name"]
+	if ok {
+		info.SessionName = sessionNameVal
+	}
+
+	// 4. Assign region
+	regionVal, ok := m["region"]
+	if ok {
+		info.Region = regionVal
+	}
+
+	// 5. Check for unrecognized keys
+	var invalidKeys []string
+
+	for k := range m {
+		switch k {
+		case "role-arn", "session-duration", "session-name", "region":
+			// valid keys
+		default:
+			invalidKeys = append(invalidKeys, k)
 		}
 	}
 
+	if len(invalidKeys) > 0 {
+		slices.Sort(invalidKeys)
+
+		return nil, fmt.Errorf("key(s) [%s] are invalid", strings.Join(invalidKeys, ","))
+	}
+
+	// 6. Check required fields
 	for _, f := range requiredFields {
-		if slices.Contains(metadata.Unset, f) {
-			return nil, &mapstructure.Error{Errors: []string{f + " must be specified"}}
+		val, ok := m[f]
+		if !ok || strings.TrimSpace(val) == "" {
+			return nil, errors.New(f + " must be specified")
 		}
 	}
 
 	return info, nil
-}
-
-func stringToARN(validators ...func(input *arn.ARN) error) mapstructure.DecodeHookFunc {
-	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-
-		if t != reflect.TypeFor[arn.ARN]() {
-			return data, nil
-		}
-
-		s, ok := data.(string)
-		if !ok {
-			return nil, fmt.Errorf("want string, got %T", data)
-		}
-
-		res, err := arn.Parse(s)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, validator := range validators {
-			err = validator(&res)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return &res, nil
-	}
-}
-
-func timeDurationValidationsHookFunc(validators ...func(input time.Duration) error) mapstructure.DecodeHookFunc {
-	return func(f reflect.Type, t reflect.Type, data any) (any, error) {
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-
-		if t != reflect.TypeFor[time.Duration]() {
-			return data, nil
-		}
-
-		s, ok := data.(string)
-		if !ok {
-			return nil, fmt.Errorf("want string, got %T", data)
-		}
-
-		// Convert it by parsing
-		parsed, err := time.ParseDuration(s)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, validator := range validators {
-			err := validator(parsed)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return parsed, nil
-	}
 }

@@ -4,15 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 // These are functions that are used for getting information about an Earthfile,
@@ -27,7 +25,7 @@ func GetTargets(
 
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "resolve build context for target %s", target.String())
+		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
 	targets := make([]string, 0, len(bc.Earthfile.Targets))
@@ -46,10 +44,10 @@ func GetTargetArgs(
 
 	bc, err := resolver.Resolve(ctx, gwClient, platr, target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "resolve build context for target %s", target.String())
+		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
-	var t *spec.Target
+	var t *earthfile.Target
 
 	for _, tt := range bc.Earthfile.Targets {
 		if tt.Name == target.Target {
@@ -66,13 +64,13 @@ func GetTargetArgs(
 
 	for _, stmt := range t.Recipe {
 		if stmt.Command != nil && stmt.Command.Name == "ARG" {
-			isBase := t.Name == ast.TargetBase
+			isBase := t.Name == earthfile.TargetBase
 			// since Arg opts are ignored (and feature flags are not available) we set explicitGlobalArgFlag as false
 			explicitGlobal := false
 
 			_, argName, _, err := flagutil.ParseArgArgs(*stmt.Command, isBase, explicitGlobal)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to parse ARG arguments %v", stmt.Command.Args)
+				return nil, fmt.Errorf("failed to parse ARG arguments %v: %w", stmt.Command.Args, err)
 			}
 
 			args = append(args, argName)
@@ -85,15 +83,15 @@ func GetTargetArgs(
 // ArgName returns the parsed name of an ARG command, the default value (if
 // any), and the state of the --required and --global flags.
 func ArgName(
-	cmd spec.Command, isBase, explicitGlobal bool,
+	cmd earthfile.Command, isBase, explicitGlobal bool,
 ) (_ string, _ *string, isRequired, isGlobal bool, _ error) {
 	if cmd.Name != "ARG" {
-		return "", nil, false, false, errors.Errorf("ArgName was called with non-arg command type '%v'", cmd.Name)
+		return "", nil, false, false, fmt.Errorf("ArgName was called with non-arg command type '%v'", cmd.Name)
 	}
 
 	opts, argName, dflt, err := flagutil.ParseArgArgs(cmd, isBase, explicitGlobal)
 	if err != nil {
-		return "", nil, false, false, errors.Wrapf(err, "could not parse opts for ARG [%v]", cmd)
+		return "", nil, false, false, fmt.Errorf("could not parse opts for ARG [%v]: %w", cmd, err)
 	}
 
 	return argName, dflt, opts.Required, opts.Global, nil
@@ -101,10 +99,10 @@ func ArgName(
 
 // ArtifactName returns the parsed name of a SAVE ARTIFACT command and its local
 // name (if any).
-func ArtifactName(cmd spec.Command) (string, *string, error) {
+func ArtifactName(cmd earthfile.Command) (string, *string, error) {
 	from, to, asLocal, ok := parseSaveArtifactArgs(cmd.Args)
 	if !ok {
-		return "", nil, errors.Errorf("could not parse opts for SAVE TARGET [%v]", cmd)
+		return "", nil, fmt.Errorf("could not parse opts for SAVE TARGET [%v]", cmd)
 	}
 
 	if to == "./" {
@@ -119,12 +117,12 @@ func ArtifactName(cmd spec.Command) (string, *string, error) {
 }
 
 // ImageNames returns the parsed names of a SAVE IMAGE command.
-func ImageNames(cmd spec.Command) ([]string, error) {
-	var opts commandflag.SaveImageOpts
+func ImageNames(cmd earthfile.Command) ([]string, error) {
+	var opts cmdopts.SaveImage
 
 	args, err := flagutil.ParseArgs("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid SAVE IMAGE arguments %v", cmd.Args)
+		return nil, fmt.Errorf("invalid SAVE IMAGE arguments %v: %w", cmd.Args, err)
 	}
 
 	return args, nil

@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test-ubuntu:
-    ARG version=24.04
+    ARG version=26.04
     FROM ubuntu:$version
     RUN apt-get update && apt-get install -y dpkg-dev wget dpkg-sig curl
     RUN --no-cache curl https://pkg.earthly.dev/earthly.pgp | apt-key add -
@@ -10,7 +10,7 @@ test-ubuntu:
     RUN --no-cache earthly --version
 
 test-debian:
-    ARG version=stretch-20220622
+    ARG version=trixie-20260623
     FROM debian:$version
     RUN apt-get update && apt-get install -y \
         apt-transport-https \

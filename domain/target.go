@@ -3,8 +3,6 @@ package domain
 import (
 	"fmt"
 	"regexp"
-
-	"github.com/pkg/errors"
 )
 
 var _ Reference = Target{}
@@ -113,7 +111,7 @@ func ParseTarget(fullTargetName string) (Target, error) {
 
 	ok := targetNameRegex.MatchString(target)
 	if !ok {
-		return Target{}, errors.Errorf("target name %s does not match %s", target, targetNamePattern)
+		return Target{}, fmt.Errorf("target name %s does not match %s", target, targetNamePattern)
 	}
 
 	return Target{

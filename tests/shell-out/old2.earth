@@ -1,12 +1,12 @@
 VERSION 0.6 # do not change to 0.7; this test is for old functionality
 
 target:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     ARG foo
     RUN test "$foo" = "value"
 
 test:
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     ARG val="=value"
     ARG a1="oo$val"
     ARG buildthis="+target"

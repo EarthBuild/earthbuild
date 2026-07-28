@@ -2,12 +2,13 @@ package base
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/util/cliutil"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -16,6 +17,10 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
 	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
+	}
+
+	if cli.Flags().BuildkitdImage == "" {
+		cli.Flags().BuildkitdImage = "ghcr.io/earthbuild/earthbuild:buildkitd-dev-main"
 	}
 
 	if cli.Flags().UseTickTockBuildkitImage {
@@ -32,7 +37,7 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 
 	bkURL, err := url.Parse(cli.Flags().BuildkitHost) // Not validated because we already did that when we calculated it.
 	if err != nil {
-		return errors.Wrap(err, "failed to parse generated buildkit URL")
+		return fmt.Errorf("failed to parse generated buildkit URL: %w", err)
 	}
 
 	if bkURL.Scheme == "tcp" && cli.Cfg().Global.TLSEnabled {
@@ -75,7 +80,7 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 
 	earthDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 	if err != nil {
-		return errors.Wrap(err, "failed to get earth dir")
+		return fmt.Errorf("failed to get earth dir: %w", err)
 	}
 
 	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthDir, "buildkitd-startup.lock")

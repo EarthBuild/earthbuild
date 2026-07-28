@@ -1,13 +1,13 @@
 package earthfile2llb
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/pkg/errors"
 )
 
 var _ error = &InterpreterError{}
@@ -19,7 +19,7 @@ var regex = regexp.
 // InterpreterError is an error of the interpreter, which contains optional references to the original
 // source code location.
 type InterpreterError struct {
-	SourceLocation *spec.SourceLocation
+	SourceLocation *earthfile.SourceLocation
 	TargetID       string
 	text           string
 	cause          error
@@ -27,7 +27,7 @@ type InterpreterError struct {
 }
 
 // Errorf creates a new interpreter error.
-func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
+func Errorf(sl *earthfile.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
 	return &InterpreterError{
 		SourceLocation: sl,
 		TargetID:       targetID,
@@ -38,7 +38,7 @@ func Errorf(sl *spec.SourceLocation, targetID, stack string, format string, args
 
 // WrapError wraps another error into a new interpreter error.
 func WrapError(
-	cause error, sl *spec.SourceLocation, targetID, stack string, format string, args ...any,
+	cause error, sl *earthfile.SourceLocation, targetID, stack string, format string, args ...any,
 ) *InterpreterError {
 	return &InterpreterError{
 		cause:          cause,
@@ -53,7 +53,7 @@ func WrapError(
 func (ie InterpreterError) Error() string {
 	var err error
 	if ie.cause != nil {
-		err = errors.Wrap(ie.cause, ie.text)
+		err = fmt.Errorf("%s: %w", ie.text, ie.cause)
 	} else {
 		err = errors.New(ie.text)
 	}
@@ -65,17 +65,13 @@ func (ie InterpreterError) Error() string {
 	ret := fmt.Sprintf(
 		"%s:%d:%d %s",
 		ie.SourceLocation.File, ie.SourceLocation.StartLine, ie.SourceLocation.StartColumn,
-		err.Error())
+		err.Error(),
+	)
 	if ie.stack != "" {
 		ret = fmt.Sprintf("%s\nin\t\t%s", ret, ie.stack)
 	}
 
 	return ret
-}
-
-// Cause returns the cause of the error (if any).
-func (ie InterpreterError) Cause() error {
-	return errors.Cause(ie.cause)
 }
 
 // Unwrap unwraps the error.
@@ -94,17 +90,7 @@ func GetInterpreterError(err error) (*InterpreterError, bool) {
 		return nil, false
 	}
 
-	var ie *InterpreterError
-	if errors.As(err, &ie) {
-		return ie, true
-	}
-
-	unwrapped := errors.Unwrap(err)
-	if unwrapped != nil {
-		return GetInterpreterError(unwrapped)
-	}
-
-	return nil, false
+	return errors.AsType[*InterpreterError](err)
 }
 
 // FromError attempts to parse the given error's string to an *InterpreterError.
@@ -144,7 +130,7 @@ func FromError(err error) *InterpreterError {
 	}
 
 	return Errorf(
-		&spec.SourceLocation{
+		&earthfile.SourceLocation{
 			File:        filePath,
 			StartLine:   line,
 			StartColumn: column,

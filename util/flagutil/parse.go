@@ -1,15 +1,16 @@
 package flagutil
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
 )
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
@@ -76,7 +77,7 @@ func ParseArgsWithValueModifierAndOptions(
 
 	_, err := p.AddGroup(command+" [options] args", "", data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to initiate parser.AddGroup for %s", command)
+		return nil, fmt.Errorf("failed to initiate parser.AddGroup for %s: %w", command, err)
 	}
 
 	res, err := p.ParseArgs(args)
@@ -295,24 +296,24 @@ var (
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(
-	cmd spec.Command, isBaseTarget, explicitGlobalFeature bool,
-) (commandflag.ArgOpts, string, *string, error) {
-	var opts commandflag.ArgOpts
+	cmd earthfile.Command, isBaseTarget, explicitGlobalFeature bool,
+) (cmdopts.Arg, string, *string, error) {
+	var opts cmdopts.Arg
 
 	args, err := ParseArgsCleaned("ARG", &opts, GetArgsCopy(cmd))
 	if err != nil {
-		return commandflag.ArgOpts{}, "", nil, err
+		return cmdopts.Arg{}, "", nil, err
 	}
 
 	if opts.Global {
 		// since the global flag is part of the struct, we need to manually return parsing error
 		// if it's used while the feature flag is off
 		if !explicitGlobalFeature {
-			return commandflag.ArgOpts{}, "", nil, errors.New("unknown flag --global")
+			return cmdopts.Arg{}, "", nil, errors.New("unknown flag --global")
 		}
 		// global flag can only bet set on base targets
 		if !isBaseTarget {
-			return commandflag.ArgOpts{}, "", nil, ErrGlobalArgNotInBase
+			return cmdopts.Arg{}, "", nil, ErrGlobalArgNotInBase
 		}
 	} else if !explicitGlobalFeature {
 		// if the feature flag is off, all base target args are considered global
@@ -322,23 +323,23 @@ func ParseArgArgs(
 	switch len(args) {
 	case 3:
 		if args[1] != "=" {
-			return commandflag.ArgOpts{}, "", nil, ErrInvalidSyntax
+			return cmdopts.Arg{}, "", nil, ErrInvalidSyntax
 		}
 
 		if opts.Required {
-			return commandflag.ArgOpts{}, "", nil, ErrRequiredArgHasDefault
+			return cmdopts.Arg{}, "", nil, ErrRequiredArgHasDefault
 		}
 
 		return opts, args[0], &args[2], nil
 	case 1:
 		return opts, args[0], nil, nil
 	default:
-		return commandflag.ArgOpts{}, "", nil, ErrInvalidSyntax
+		return cmdopts.Arg{}, "", nil, ErrInvalidSyntax
 	}
 }
 
 // GetArgsCopy returns a deep copy of parsed args.
-func GetArgsCopy(cmd spec.Command) []string {
+func GetArgsCopy(cmd earthfile.Command) []string {
 	argsCopy := make([]string, len(cmd.Args))
 	copy(argsCopy, cmd.Args)
 

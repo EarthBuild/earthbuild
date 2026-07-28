@@ -17,7 +17,7 @@ import (
 )
 
 func newConsLogger() conslogging.ConsoleLogger {
-	return conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 
 func TestMultiAuth(t *testing.T) {
@@ -87,7 +87,8 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range tc.children {
-			pers.MethodWasCalled(t, c.method.FetchToken,
+			pers.MethodWasCalled(
+				t, c.method.FetchToken,
 				pers.Within(timeout),
 				pers.WithArgs(pers.Any, req),
 				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),
@@ -108,7 +109,7 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range tc.children {
-			pers.MethodWasNotCalled(t, c.method.FetchToken, "FetchToken", pers.Within(10*time.Millisecond))
+			pers.MethodWasNotCalled(t, c.method.FetchToken, pers.Within(10*time.Millisecond))
 		}
 
 		select {
@@ -148,7 +149,8 @@ func TestMultiAuth(t *testing.T) {
 				}
 			}
 
-			pers.MethodWasCalled(t, c.method.FetchToken,
+			pers.MethodWasCalled(
+				t, c.method.FetchToken,
 				pers.Within(timeout),
 				pers.WithArgs(pers.Any, req),
 				pers.Returning(ret...),
@@ -170,7 +172,8 @@ func TestMultiAuth(t *testing.T) {
 		}()
 
 		for _, c := range tc.children {
-			pers.MethodWasCalled(t, c.method.FetchToken,
+			pers.MethodWasCalled(
+				t, c.method.FetchToken,
 				pers.Within(timeout),
 				pers.WithArgs(pers.Any, req),
 				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),

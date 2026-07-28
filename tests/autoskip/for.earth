@@ -1,6 +1,6 @@
 VERSION 0.7
 
-FROM alpine:3.24.0
+FROM alpine:3.24.1
 
 test:
     FOR idx IN "1 2 3"

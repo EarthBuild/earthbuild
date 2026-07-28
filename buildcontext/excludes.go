@@ -1,12 +1,13 @@
 package buildcontext
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/moby/patternmatcher/ignorefile"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -46,7 +47,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	earthExists, err := fileutil.FileExists(earthIgnoreFilePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to check if %s exists", earthIgnoreFilePath)
+		return nil, fmt.Errorf("failed to check if %s exists: %w", earthIgnoreFilePath, err)
 	}
 
 	// earthlyIgnoreFile
@@ -54,7 +55,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	earthlyExists, err := fileutil.FileExists(earthlyIgnoreFilePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to check if %s exists", earthlyIgnoreFilePath)
+		return nil, fmt.Errorf("failed to check if %s exists: %w", earthlyIgnoreFilePath, err)
 	}
 
 	// dockerIgnoreFile
@@ -64,7 +65,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 	if useDockerIgnore {
 		dockerExists, err = fileutil.FileExists(dockerIgnoreFilePath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to check if %s exists", dockerIgnoreFilePath)
+			return nil, fmt.Errorf("failed to check if %s exists: %w", dockerIgnoreFilePath, err)
 		}
 	}
 
@@ -94,13 +95,13 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	f, err := os.Open(filePath) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrapf(err, "read %s", filePath)
+		return nil, fmt.Errorf("read %s: %w", filePath, err)
 	}
 	defer f.Close()
 
 	excludes, err := ignorefile.ReadAll(f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse %s", filePath)
+		return nil, fmt.Errorf("parse %s: %w", filePath, err)
 	}
 
 	return append(excludes, defaultExcludes...), nil

@@ -12,7 +12,7 @@ repositories {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -21,7 +21,7 @@ application {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.14.2'
+    implementation 'joda-time:joda-time:2.14.3'
     testImplementation 'junit:junit:5.11'
 }
 

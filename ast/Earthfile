@@ -1,5 +1,0 @@
-VERSION 0.8
-
-# generate (re-)generates generated code in this module.
-generate:
-    BUILD ./parser+parser

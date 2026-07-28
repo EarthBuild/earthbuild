@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test-fedora:
-    ARG version=34
+    ARG version=45
     FROM fedora:$version
     RUN dnf -y install dnf-plugins-core
     RUN --no-cache dnf config-manager \
@@ -11,7 +11,7 @@ test-fedora:
     RUN --no-cache earthly --version
 
 test-centos:
-    ARG version=7
+    ARG version=8
     FROM centos:$version
     RUN yum install -y yum-utils
     RUN --no-cache yum-config-manager \

@@ -29,31 +29,37 @@ func WithDependency(state, depState pllb.State, stateStr, depStr string, platr *
 	// Copy a wildcard that could never exist.
 	// (And allow for the wildcard to match nothing).
 	intermediate := platr.Scratch()
-	intermediate = intermediate.File(pllb.Copy(
-		depState, "/fake-745cb405-fbfb-4ea7-83b0-a85c26b4aff0-*", "/tmp/",
-		&llb.CopyInfo{
-			CreateDestPath:      true,
-			AllowWildcard:       true,
-			AllowEmptyWildcard:  true,
-			CopyDirContentsOnly: true,
-		}),
+	intermediate = intermediate.File(
+		pllb.Copy(
+			depState, "/fake-745cb405-fbfb-4ea7-83b0-a85c26b4aff0-*", "/tmp/",
+			&llb.CopyInfo{
+				CreateDestPath:      true,
+				AllowWildcard:       true,
+				AllowEmptyWildcard:  true,
+				CopyDirContentsOnly: true,
+			},
+		),
 		llb.WithCustomNamef(
 			"%s(fakecopy1) %s depends on %s",
-			vm.ToVertexPrefix(), stateStr, depStr),
+			vm.ToVertexPrefix(), stateStr, depStr,
+		),
 	)
 
 	// Do this again. The extra step is needed to prevent the need for BuildKit
 	// to re-hash the input in certain cases (can be slow if depState is large).
-	return state.File(pllb.Copy(
-		intermediate, "/fake-5fa01e05-ca9e-45c9-8721-05b9183a2914-*", "/tmp/",
-		&llb.CopyInfo{
-			CreateDestPath:      true,
-			AllowWildcard:       true,
-			AllowEmptyWildcard:  true,
-			CopyDirContentsOnly: true,
-		}),
+	return state.File(
+		pllb.Copy(
+			intermediate, "/fake-5fa01e05-ca9e-45c9-8721-05b9183a2914-*", "/tmp/",
+			&llb.CopyInfo{
+				CreateDestPath:      true,
+				AllowWildcard:       true,
+				AllowEmptyWildcard:  true,
+				CopyDirContentsOnly: true,
+			},
+		),
 		llb.WithCustomNamef(
 			"%s(fakecopy2) %s depends on %s",
-			vm.ToVertexPrefix(), stateStr, depStr),
+			vm.ToVertexPrefix(), stateStr, depStr,
+		),
 	)
 }

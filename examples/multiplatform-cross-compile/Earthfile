@@ -21,7 +21,7 @@ build-image:
     ARG TARGETPLATFORM
     ARG TARGETARCH
     ARG TARGETVARIANT
-    FROM --platform=$TARGETPLATFORM alpine:3.24.0
+    FROM --platform=$TARGETPLATFORM alpine:3.24.1
     COPY \
         --platform=linux/amd64 \
         (+build/main --GOARCH=$TARGETARCH --VARIANT=$TARGETVARIANT) ./example/main

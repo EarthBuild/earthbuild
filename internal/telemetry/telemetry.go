@@ -320,7 +320,8 @@ func processMemoryMetricAttributes() []attribute.KeyValue {
 }
 
 func earthbuildProcessNesting() string {
-	if value, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER")); value {
+	value, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	if value {
 		return "inner"
 	}
 

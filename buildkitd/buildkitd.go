@@ -702,7 +702,8 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 		}
 	}
 
-	if _, ok := envOpts["OTEL_METRICS_EXPORTER"]; !ok {
+	_, ok := envOpts["OTEL_METRICS_EXPORTER"]
+	if !ok {
 		if envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] != "" || envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] != "" {
 			envOpts["OTEL_METRICS_EXPORTER"] = "otlp"
 		}

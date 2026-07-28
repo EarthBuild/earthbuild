@@ -35,8 +35,26 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
+  bootstrap-test:
+    name: Bootstrap Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: ./.github/actions/stage2-setup
+        with:
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+          BINARY: "${{ inputs.FRONTEND }}"
+          SUDO: "${{ inputs.SUDO }}"
+      - name: Run earth bootstrap
+        run: ${{ inputs.SUDO }} ./build/linux/amd64/earthly bootstrap
+
   tests:
     name: ${{ matrix.name }}
+    needs: bootstrap-test
     strategy:
       fail-fast: false
       matrix:
@@ -73,7 +91,7 @@ jobs:
     with:
       TEST_TARGET: ${{ matrix.target }}
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       USE_NEXT: ${{ inputs.USE_NEXT }}
       SUDO: ${{ inputs.SUDO }}
@@ -81,13 +99,14 @@ jobs:
 
   tests-qemu:
     name: QEMU Multi-Arch Tests
+    needs: bootstrap-test
     if: ${{ inputs.RUN_QEMU }}
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: "+test-qemu"
       USE_QEMU: true
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       USE_NEXT: ${{ inputs.USE_NEXT }}
       SUDO: ${{ inputs.SUDO }}
@@ -95,6 +114,7 @@ jobs:
 
   examples:
     name: ${{ matrix.name }}
+    needs: bootstrap-test
     if: ${{ inputs.RUN_EXAMPLES }}
     strategy:
       fail-fast: false
@@ -114,7 +134,7 @@ jobs:
     with:
       EXAMPLE_NAME: ${{ matrix.example }}
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       USE_QEMU: ${{ inputs.FRONTEND == 'podman' }}
       SUDO: ${{ inputs.SUDO }}
@@ -122,11 +142,12 @@ jobs:
 
   test-local:
     name: Test Local
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-test-local.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       BINARY_COMPOSE: "\"docker compose\""
       SUDO: ${{ inputs.SUDO }}
@@ -134,105 +155,115 @@ jobs:
 
   push-integrations:
     name: Push Integrations
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   bootstrap-integrations:
     name: Bootstrap Integrations
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   repo-auth-tests:
     name: Repo Auth Tests
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   export-test:
     name: Export Test
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-export-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   docker-build-integrations:
     name: Docker Build Integrations
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   earthbuild-image-test:
     name: EarthBuild Image Test
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   misc-test-1:
     name: Misc Test 1
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   misc-test-2:
     name: Misc Test 2
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   wait-block-main:
     name: Wait Block Main
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   wait-block-targets:
     name: ${{ matrix.name }}
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     strategy:
       fail-fast: false
@@ -255,7 +286,7 @@ jobs:
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
       TARGET_NAME: ${{ matrix.target }}
@@ -263,17 +294,19 @@ jobs:
 
   git-metadata-test:
     name: Git Metadata Test
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
   race-tests:
     name: ${{ matrix.name }}
+    needs: bootstrap-test
     if: ${{ inputs.RUN_INTEGRATION_TESTS }}
     strategy:
       fail-fast: false
@@ -295,7 +328,7 @@ jobs:
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: ${{ matrix.target }}
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-24.04"
       USE_QEMU: false
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}

@@ -78,12 +78,12 @@ jobs:
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Build and push +ci-release using latest earthly build
+      - name: Build and push +ci-release using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
-      - name: Build +ci-release using latest earthly build (fork - no push)
+      - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="ubuntu-latest"
@@ -99,7 +99,7 @@ jobs:
 
           mkdir -p ./artifacts-standard
 
-          # Build earthly CLI binary with correct installation name (earthly, not earthly-dev)
+          # Build earth CLI binary with correct installation name (earthly, not earthly-dev)
           # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
           ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
@@ -126,7 +126,7 @@ jobs:
       # --- Build Next EarthBuild ---
       - name: Update Buildkit to earthly-next
         run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
-      - name: Build latest earthly (next) using released earthly
+      - name: Build latest earth (next) using released earth
         run: earth --use-inline-cache +for-linux
       - name: Build and push +ci-release (next) using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
@@ -149,7 +149,7 @@ jobs:
 
           mkdir -p ./artifacts-next
 
-          # Build earthly CLI binary with correct installation name (earthly, not earthly-dev)
+          # Build earth CLI binary with correct installation name (earthly, not earthly-dev)
           # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
           ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \

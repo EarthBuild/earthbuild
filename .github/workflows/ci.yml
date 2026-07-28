@@ -173,20 +173,40 @@ jobs:
           path: ./artifacts-next/
           retention-days: 1
 
-  docker:
-    name: Docker
+  frontends:
+    name: ${{ matrix.name }}
     needs: fast-check-and-build
-    uses: ./.github/workflows/ci-docker-ubuntu.yml
-    secrets: inherit
-
-  podman:
-    name: Podman
-    needs: fast-check-and-build
-    uses: ./.github/workflows/ci-podman-ubuntu.yml
-    secrets: inherit
-
-  next:
-    name: Next
-    needs: fast-check-and-build
-    uses: ./.github/workflows/ci-earthly-next-docker-ubuntu.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Docker
+            frontend: "docker"
+            sudo: ""
+            use_next: false
+            run_integrations: true
+            run_examples: true
+            run_qemu: true
+          - name: Podman
+            frontend: "podman"
+            sudo: "sudo -E"
+            use_next: false
+            run_integrations: false
+            run_examples: true
+            run_qemu: true
+          - name: Next
+            frontend: "docker"
+            sudo: ""
+            use_next: true
+            run_integrations: false
+            run_examples: false
+            run_qemu: false
+    uses: ./.github/workflows/ci-frontend-suite.yml
+    with:
+      FRONTEND: ${{ matrix.frontend }}
+      SUDO: ${{ matrix.sudo }}
+      USE_NEXT: ${{ matrix.use_next }}
+      RUN_INTEGRATION_TESTS: ${{ matrix.run_integrations }}
+      RUN_EXAMPLES: ${{ matrix.run_examples }}
+      RUN_QEMU: ${{ matrix.run_qemu }}
     secrets: inherit

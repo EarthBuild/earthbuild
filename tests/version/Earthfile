@@ -9,24 +9,24 @@ test-cli-smoke:
     # Detailed VERSION syntax coverage lives in internal/earthfile/version_test.go. Keep one
     # successful build, one version-only import, and one invalid-version CLI
     # smoke here so the full command path still gets exercised.
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=single-line.earth --target=+test
+    DO --pass-args +RUN_EARTH_ARGS --earthfile=single-line.earth --target=+test
 
     RUN mkdir subdir
     RUN echo "VERSION 0.8" > subdir/Earthfile
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile=version-only-import.earth --target=+test
+    DO --pass-args +RUN_EARTH_ARGS --earthfile=version-only-import.earth --target=+test
 
-    DO --pass-args +RUN_EARTHLY_ARGS --should_fail=true --earthfile=invalid-format-version.earth --target=+base
+    DO --pass-args +RUN_EARTH_ARGS --should_fail=true --earthfile=invalid-format-version.earth --target=+base
     RUN acbgrep 'unexpected VERSION arguments; should be VERSION \[flags\] <major-version>.<minor-version>' earthly.output
 
 test-all:
     BUILD +test-cli-smoke
 
-RUN_EARTHLY_ARGS:
+RUN_EARTH_ARGS:
     FUNCTION
     ARG earthfile
     ARG target
     ARG should_fail=false
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_EARTH \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail

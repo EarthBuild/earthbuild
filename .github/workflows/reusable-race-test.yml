@@ -3,7 +3,7 @@ name: Test Earthly (-race)
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTH_PATH:
         required: true
         type: string
       BINARY:
@@ -62,7 +62,7 @@ jobs:
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
@@ -71,7 +71,7 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
-        run: ${{ inputs.BUILT_EARTHLY_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        run: ${{ inputs.BUILT_EARTH_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
       - name: Execute tests
         run: |-
           GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \

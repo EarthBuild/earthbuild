@@ -1027,7 +1027,7 @@ build:
 							{
 								Command: &Command{
 									Name: "RUN",
-									Args: []string{"echo", "\"hello \\\n    world $(echo 'nested') and $VAR\""},
+									Args: []string{"echo", "\"hello world $(echo 'nested') and $VAR\""},
 								},
 							},
 						},
@@ -1489,6 +1489,60 @@ FUNCTION my-func
 								Command: &Command{
 									Name: "RUN",
 									Args: []string{"echo", "\"func\""},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "line continuations inside single-quoted strings",
+			input: `VERSION 0.8
+test:
+  RUN echo '{ \
+      "a": "1", \
+      "b": "2" \
+  }' > /x.json
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "RUN",
+									Args: []string{"echo", `'{ "a": "1", "b": "2" }'`, ">", "/x.json"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "line continuations inside double-quoted strings",
+			input: `VERSION 0.8
+test:
+  RUN echo "one \
+    two"
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "RUN",
+									Args: []string{"echo", `"one two"`},
 								},
 							},
 						},

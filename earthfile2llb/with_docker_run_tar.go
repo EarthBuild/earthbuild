@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -17,7 +18,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/pkg/errors"
 )
 
 type withDockerRunTar struct {
@@ -79,7 +79,7 @@ func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt
 
 		optPromise, err := w.load(ctx, loadOpt)
 		if err != nil {
-			return errors.Wrap(err, "load")
+			return fmt.Errorf("load: %w", err)
 		}
 
 		loadOptPromises = append(loadOptPromises, optPromise)
@@ -122,7 +122,7 @@ func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt
 	for _, pullImageName := range opt.Pulls {
 		pullPromise, err := w.pull(ctx, pullImageName)
 		if err != nil {
-			return errors.Wrap(err, "pull")
+			return fmt.Errorf("pull: %w", err)
 		}
 
 		pullPromises = append(pullPromises, pullPromise)
@@ -202,7 +202,7 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 
 	dindID, err := w.c.mts.Final.TargetInput().Hash()
 	if err != nil {
-		return errors.Wrap(err, "make dind ID")
+		return fmt.Errorf("make dind ID: %w", err)
 	}
 
 	crOpts.shellWrap = makeWithDockerdWrapFun(dindID, tarPaths, nil, opt)
@@ -261,7 +261,7 @@ func (w *withDockerRunTar) pull(ctx context.Context, opt DockerPullOpt) (chan st
 		w.c.opt.ErrorGroup.Go(func() error {
 			release, acquireErr := w.sem.Acquire(ctx, 1)
 			if acquireErr != nil {
-				return errors.Wrapf(acquireErr, "acquiring parallelism semaphore for pull load %s", opt.ImageName)
+				return fmt.Errorf("acquiring parallelism semaphore for pull load %s: %w", opt.ImageName, acquireErr)
 			}
 			defer release()
 
@@ -282,7 +282,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 
 	depTarget, err := domain.ParseTarget(opt.Target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
+		return nil, fmt.Errorf("parse target %s: %w", opt.Target, err)
 	}
 
 	afterFun := func(ctx context.Context, mts *states.MultiTarget) error {
@@ -290,13 +290,15 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {
 				return errors.New(
-					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement")
+					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement",
+				)
 			}
 
 			if len(mts.Final.SaveImages) > 1 {
 				return errors.New(
 					"no docker image tag specified in load and it cannot be inferred from the SAVE IMAGE statement: " +
-						"multiple tags mentioned in SAVE IMAGE")
+						"multiple tags mentioned in SAVE IMAGE",
+				)
 			}
 
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
@@ -313,13 +315,15 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 	}
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -336,7 +340,7 @@ func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan Do
 func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarget, opName, dockerTag string) error {
 	solveID, err := states.KeyFromHashAndTag(mts.Final, dockerTag)
 	if err != nil {
-		return errors.Wrap(err, "state key func")
+		return fmt.Errorf("state key func: %w", err)
 	}
 
 	tarContext, err := w.c.opt.SolveCache.Do(ctx, solveID, func(
@@ -348,7 +352,7 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 
 		outDir, err = os.MkdirTemp(os.TempDir(), "earthly-docker-load")
 		if err != nil {
-			return pllb.State{}, errors.Wrap(err, "mk temp dir for docker load")
+			return pllb.State{}, fmt.Errorf("mk temp dir for docker load: %w", err)
 		}
 
 		w.c.opt.CleanCollection.Add(func() error {
@@ -359,14 +363,14 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 
 		err = w.c.opt.DockerImageSolverTar.SolveImage(ctx, mts, dockerTag, outFile, !w.c.ftrs.NoTarBuildOutput)
 		if err != nil {
-			return pllb.State{}, errors.Wrapf(err, "build target %s for docker load", opName)
+			return pllb.State{}, fmt.Errorf("build target %s for docker load: %w", opName, err)
 		}
 
 		var dockerImageID string
 
 		dockerImageID, err = dockertar.GetID(outFile)
 		if err != nil {
-			return pllb.State{}, errors.Wrap(err, "inspect docker tar after build")
+			return pllb.State{}, fmt.Errorf("inspect docker tar after build: %w", err)
 		}
 		// Use the docker image ID + dockerTag as sessionID. This will cause
 		// buildkit to use cache when these are the same as before (eg a docker image

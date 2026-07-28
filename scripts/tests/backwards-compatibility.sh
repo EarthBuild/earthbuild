@@ -32,7 +32,7 @@ echo "using frontend=$frontend"
 
 PATH="$(realpath ../acbtest):$PATH"
 
-# prevent the self-update of earthly from running (this ensures no bogus data is printed to stdout,
+# prevent the self-update of earthbuild from running (this ensures no bogus data is printed to stdout,
 # which would mess with the secrets data being fetched)
 date +%s > /tmp/last-earthly-prerelease-check
 
@@ -45,7 +45,7 @@ echo "$earthly"
 # start buildkitd container
 "$earthly" bootstrap
 
-# start a build using an older version of the earthly cli
+# start a build using an older version of the earthbuild cli
 "$crustly" --no-buildkit-update -P ../../tests/with-docker+all
 
 # validate buildkitd container was compiled using the current branch

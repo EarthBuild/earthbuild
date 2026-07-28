@@ -9,11 +9,12 @@ package authprovider_test
 
 import (
 	"context"
+	"io"
+	"time"
+
 	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"git.sr.ht/~nelsam/hel/vegr"
 	"github.com/moby/buildkit/session/auth"
-	"io"
-	"time"
 )
 
 var (

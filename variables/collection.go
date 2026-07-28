@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -12,8 +13,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
-	"github.com/pkg/errors"
-
 	dfShell "github.com/moby/buildkit/frontend/dockerfile/shell"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -372,7 +371,7 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 
 	if prefs.global {
 		if _, ok := c.args().Get(name); ok {
-			baseErr := errors.Wrap(ErrRedeclared, "could not override non-global ARG with global ARG")
+			baseErr := fmt.Errorf("could not override non-global ARG with global ARG: %w", ErrRedeclared)
 
 			return "", "", hint.Wrapf(baseErr, "'%[1]v' was already declared as a non-global ARG in this scope - "+
 				"did you mean to add '--global' to the original declaration?", name)
@@ -437,7 +436,7 @@ func (c *Collection) UpdateVar(name, value string, pncvf ProcessNonConstantVaria
 
 	v, err := parseArgValue(name, value, pncvf)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse SET value")
+		return fmt.Errorf("failed to parse SET value: %w", err)
 	}
 
 	c.vars().Add(name, v, WithActive())

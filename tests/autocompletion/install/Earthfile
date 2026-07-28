@@ -11,7 +11,7 @@ test-bash-non-root-fallback-dir:
     ARG path="/home/bambi/.local/share/bash-completion/completions"
     RUN mkdir -p "$path"
     USER bambi
-    DO --pass-args +RUN_EARTHLY
+    DO --pass-args +RUN_EARTH
     RUN grep '^complete' "$path/earthly" && \
         grep -i 'successfully enabled bash-completion' out.txt
 
@@ -22,7 +22,7 @@ test-bash-non-root-no-overwrite:
         echo "can't touch this" > "$path/earthly" && \
         md5sum "$path/earthly" > /tmp/sum
     USER bambi
-    DO --pass-args +RUN_EARTHLY
+    DO --pass-args +RUN_EARTH
     RUN md5sum /tmp/sum && \
         grep -i 'bash-completion already present' out.txt
 
@@ -33,7 +33,7 @@ test-bash-non-root-custom-dir:
     ARG path="$BASH_COMPLETION_USER_DIR/bash-completion/completions"
     RUN mkdir -p "$path"
     USER bambi
-    DO --pass-args +RUN_EARTHLY
+    DO --pass-args +RUN_EARTH
     RUN grep '^complete' "$path/earthly" && grep -i 'successfully enabled bash-completion' out.txt
 
 test-bash-non-root-xdg-dir:
@@ -41,7 +41,7 @@ test-bash-non-root-xdg-dir:
     ARG path="$XDG_DATA_HOME/bash-completion/completions"
     RUN mkdir -p "$path"
     USER bambi
-    DO --pass-args +RUN_EARTHLY
+    DO --pass-args +RUN_EARTH
     RUN grep '^complete' "$path/earthly" && grep -i 'successfully enabled bash-completion' out.txt
 
 test-bash-root-no-home-entries:
@@ -53,7 +53,7 @@ test-bash-root-no-home-entries:
         mkdir -p /root/.local/share/bash-completion/completions
     # for clarity
     USER root
-    DO --pass-args +RUN_EARTHLY
+    DO --pass-args +RUN_EARTH
     RUN test -z "$(find /root -name earthly -type f)"
 
 test-all:
@@ -62,9 +62,9 @@ test-all:
     BUILD +test-bash-non-root-xdg-dir
     BUILD +test-bash-root-no-home-entries
 
-RUN_EARTHLY:
+RUN_EARTH:
     FUNCTION
     ARG exec_cmd=/tmp/bootstrap-script
-    DO ../../+RUN_EARTHLY \
+    DO ../../+RUN_EARTH \
         --should_fail=false \
         --exec_cmd=$exec_cmd

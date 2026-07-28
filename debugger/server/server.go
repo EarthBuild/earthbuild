@@ -10,8 +10,6 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/slog"
-
-	"github.com/pkg/errors"
 )
 
 // Server provides a debugger server.
@@ -39,7 +37,7 @@ func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {
 
 			n, err := conn.Read(buf)
 			if err != nil {
-				s.log.Error(errors.Wrap(err, "reading from connection failed"))
+				s.log.Error(fmt.Errorf("reading from connection failed: %w", err))
 				break
 			}
 
@@ -60,7 +58,7 @@ func (s *Server) handleConn(conn net.Conn, readFrom, writeTo chan []byte) {
 			case data := <-readFrom:
 				_, err := conn.Write(data)
 				if err != nil {
-					s.log.Error(errors.Wrap(err, "writing to connection failed"))
+					s.log.Error(fmt.Errorf("writing to connection failed: %w", err))
 				}
 			}
 		}
@@ -86,7 +84,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 
 	_, err := conn.Read(buf)
 	if err != nil {
-		connLog.Error(errors.Wrap(err, "reading from connection failed"))
+		connLog.Error(fmt.Errorf("reading from connection failed: %w", err))
 		return
 	}
 
@@ -98,7 +96,7 @@ func (s *Server) handleRequest(conn net.Conn) {
 	case 0x02:
 		isShellConn = false
 	default:
-		fmt.Fprintf(os.Stderr, "unexpected data: %v", buf[0]) // #nosec G602
+		fmt.Fprintf(os.Stderr, "unexpected data: %v\n", buf[0]) // #nosec G602
 		return
 	}
 
@@ -151,7 +149,7 @@ func (s *Server) Start() error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error accepting: %v", err.Error())
+			fmt.Fprintf(os.Stderr, "Error accepting: %v\n", err)
 			break
 		}
 

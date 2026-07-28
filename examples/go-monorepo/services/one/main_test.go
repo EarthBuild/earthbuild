@@ -1,18 +1,47 @@
 package main
 
 import (
+	"context"
 	"io"
+	"log"
+	"net"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 )
 
-func TestService(t *testing.T) {
-	t.Parallel()
-
+func runTests(m *testing.M) int {
 	go main()
 
-	time.Sleep(time.Second) // Leave time for service to start
+	// Wait until the http server is ready
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dialer := net.Dialer{}
+	for {
+		conn, err := dialer.DialContext(ctx, "tcp", "localhost:8080")
+		if err == nil {
+			conn.Close()
+			break
+		}
+		select {
+		case <-ctx.Done():
+			log.Println("timed out waiting for service to start")
+			return 1
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	return m.Run()
+}
+
+func TestMain(m *testing.M) {
+	os.Exit(runTests(m))
+}
+
+func TestService(t *testing.T) {
+	t.Parallel()
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://localhost:8080/one/hello", nil)
 	if err != nil {

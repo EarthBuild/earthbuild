@@ -2,13 +2,14 @@ package logbus
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/circbuf"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -35,7 +36,7 @@ type Command struct {
 func newCommand(b *Bus, commandID string, targetID string) *Command {
 	to, err := circbuf.NewBuffer(tailErrorBufferSizeBytes)
 	if err != nil {
-		panic(errors.Wrap(err, "failed to create tail buffer"))
+		panic(fmt.Errorf("failed to create tail buffer: %w", err))
 	}
 
 	return &Command{
@@ -60,7 +61,7 @@ func (c *Command) Write(dt []byte, ts time.Time, stream int32) (int, error) {
 	c.mu.Unlock()
 
 	if err != nil {
-		return 0, errors.Wrap(err, "write to tail output")
+		return 0, fmt.Errorf("write to tail output: %w", err)
 	}
 
 	c.b.WriteRawLog(&logstream.DeltaLog{

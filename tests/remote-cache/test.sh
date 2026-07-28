@@ -1,6 +1,6 @@
 #!/bin/bash
-# Note: Most of this test runs as Earthly-in-Earthly so that we can easily send local cache to a tmpfs; however it
-# must be started outside of earthly.
+# Note: Most of this test runs as Earthbuild-in-Earthbuild so that we can easily send local cache to a tmpfs; however it
+# must be started outside of earthbuild.
 
 set -uxe
 set -o pipefail

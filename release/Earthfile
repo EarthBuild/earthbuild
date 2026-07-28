@@ -60,7 +60,7 @@ perform-release-buildkitd-dockerhub:
     ARG BUILDKIT_PROJECT
     # The image tag stays keyed on RELEASE_TAG (so the copy-to-dockerhub step
     # finds it), but the version baked into the binary is the semver VERSION so
-    # it matches the earthly client. Defaults to RELEASE_TAG for backwards compat.
+    # it matches the earthbuild client. Defaults to RELEASE_TAG for backwards compat.
     ARG VERSION="$RELEASE_TAG"
     BUILD \
         --platform=linux/amd64 \

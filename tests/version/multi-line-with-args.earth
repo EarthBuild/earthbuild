@@ -1,7 +1,0 @@
-VERSION \ #with a comment that doesn't have a space after the hash.
-    --try \
-    0.8
-
-FROM alpine:3.24.1
-test:
-    RUN echo "pass"

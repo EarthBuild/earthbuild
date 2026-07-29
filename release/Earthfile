@@ -6,12 +6,12 @@ release-dockerhub:
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    # VERSION is the semver baked into the earthly and buildkitd binaries so
+    # VERSION is the semver baked into the earth and buildkitd binaries so
     # the daemon reports the same version as the client that ships it.
     # Defaults to RELEASE_TAG for backwards compat.
     ARG VERSION="$RELEASE_TAG"
     # DEFAULT_BUILDKITD_IMAGE is the fully-qualified buildkitd image reference
-    # compiled into the earthly CLI shipped inside the published docker image;
+    # compiled into the earth CLI shipped inside the published docker image;
     # it is what that CLI pulls when it needs to start its own buildkitd. It
     # must point at an image the release pipeline actually publishes, the same
     # way +signed-release bakes the published image into the release binaries.

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Usage: assert-default-buildkit-image.sh <expected-image> <command> [args...]
 #
-# Asserts that the earthly CLI invoked via "<command> [args...]" was compiled
+# Asserts that the earth CLI invoked via "<command> [args...]" was compiled
 # with <expected-image> as its default --buildkit-image. This is the image the
 # CLI pulls when it needs to start a local buildkitd, so it must point at an
 # image the release pipeline actually publishes (see issue #715).

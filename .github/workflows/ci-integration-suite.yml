@@ -44,6 +44,16 @@ jobs:
       SUDO: ${{ inputs.SUDO }}
     secrets: inherit
 
+  secrets-integrations:
+    name: Secrets Integrations
+    uses: ./.github/workflows/reusable-secrets-integrations.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
   bootstrap-integrations:
     name: Bootstrap Integrations
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml

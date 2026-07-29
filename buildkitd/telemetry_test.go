@@ -3,6 +3,8 @@ package buildkitd
 import (
 	"strings"
 	"testing"
+
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 )
 
 func TestAddBuildkitTelemetryEnv(t *testing.T) {
@@ -36,12 +38,12 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 
 	attrs := parseResourceAttrs(env["OTEL_RESOURCE_ATTRIBUTES"])
 	wantAttrs := map[string]string{
-		"cicd.pipeline.run.id":               "123",
-		"vcs.revision.id":                    "abc",
-		otelAttrProcessRole:                  otelRoleBuildkitd,
-		otelAttrProcessNesting:               otelNestingInner,
-		"earthbuild.buildkit.container.name": "earthly-buildkitd",
-		"earthbuild.installation.name":       "earthly",
+		"cicd.pipeline.run.id":                "123",
+		"vcs.revision.id":                     "abc",
+		string(semconv.ProcessRole):           semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting):        semconv.ProcessNestingInner.Value.AsString(),
+		string(semconv.BuildkitContainerName): "earthly-buildkitd",
+		string(semconv.InstallationName):      "earthly",
 	}
 
 	for key, want := range wantAttrs {
@@ -59,8 +61,8 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", strings.Join([]string{
-		otelAttrProcessRole + "=earthbuild-cli",
-		otelAttrProcessNesting + "=" + otelNestingOuter,
+		string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
+		string(semconv.ProcessNesting) + "=" + semconv.ProcessNestingOuter.Value.AsString(),
 		"cicd.pipeline.run.id=123",
 	}, ","))
 
@@ -68,7 +70,7 @@ func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.
 	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", true)
 
 	raw := env["OTEL_RESOURCE_ATTRIBUTES"]
-	for _, key := range []string{otelAttrProcessRole, otelAttrProcessNesting} {
+	for _, key := range []string{string(semconv.ProcessRole), string(semconv.ProcessNesting)} {
 		if got := strings.Count(raw, key+"="); got != 1 {
 			t.Fatalf("attr %s appears %d times in %q, want 1", key, got, raw)
 		}
@@ -76,9 +78,9 @@ func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.
 
 	attrs := parseResourceAttrs(raw)
 	wantAttrs := map[string]string{
-		otelAttrProcessRole:    otelRoleBuildkitd,
-		otelAttrProcessNesting: otelNestingInner,
-		"cicd.pipeline.run.id": "123",
+		string(semconv.ProcessRole):    semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting): semconv.ProcessNestingInner.Value.AsString(),
+		"cicd.pipeline.run.id":         "123",
 	}
 
 	for key, want := range wantAttrs {

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
@@ -34,17 +35,6 @@ import (
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB
-
-// OTEL resource attributes describing the buildkitd process, so metrics from an
-// inner (earth-in-earth) daemon can be told apart from an outer one.
-const (
-	otelAttrProcessRole    = "earthbuild.process.role"
-	otelAttrProcessNesting = "earthbuild.process.nesting"
-
-	otelRoleBuildkitd = "buildkitd"
-	otelNestingInner  = "inner"
-	otelNestingOuter  = "outer"
-)
 
 var (
 	// ErrBuildkitCrashed is an error returned when buildkit has terminated unexpectedly.
@@ -738,16 +728,18 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 
 	envOpts["OTEL_SERVICE_NAME"] = "EarthBuild-buildkitd"
 
-	nesting := otelNestingOuter
+	// buildkitd is a separate process, so it takes its attributes as env rather than
+	// as attribute.KeyValue - hence the string forms of the shared semconv keys.
+	nesting := semconv.ProcessNestingOuter
 	if withDocker {
-		nesting = otelNestingInner
+		nesting = semconv.ProcessNestingInner
 	}
 
 	resourceAttrs := map[string]string{
-		otelAttrProcessRole:                  otelRoleBuildkitd,
-		otelAttrProcessNesting:               nesting,
-		"earthbuild.buildkit.container.name": containerName,
-		"earthbuild.installation.name":       installationName,
+		string(semconv.ProcessRole):           semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting):        nesting.Value.AsString(),
+		string(semconv.BuildkitContainerName): containerName,
+		string(semconv.InstallationName):      installationName,
 	}
 	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
 		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),

@@ -13,7 +13,19 @@
       "Bash(ls:*)",
       "Bash(git rev-parse:*)",
       "WebFetch(domain:earthly.dev)",
-      "Bash(gh issue view:*)"
+      "Bash(gh issue view:*)",
+      "Bash(go get:*)",
+      "Bash(go mod:*)",
+      "Bash(go build:*)",
+      "Bash(go doc:*)",
+      "Bash(earth +build)",
+      "Bash(gh api:*)",
+      "Bash(cd:*)",
+      "Read(//private/tmp/**)",
+      "Bash(unzip -o ci-logs-435.zip -d ci-logs-435)",
+      "Bash(gh pr:*)",
+      "Bash(awk -F'\\\\t' '$2==\"fail\"')",
+      "Bash(earthly --version)"
     ]
   }
 }

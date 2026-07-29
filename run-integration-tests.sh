@@ -74,11 +74,17 @@ then
 fi
 
 # then run the test
+# Cap go's build/test parallelism. The default (-p = GOMAXPROCS = host CPUs)
+# compiles and links many test binaries at once; nested in an earthly build
+# on a 4-core/16G CI runner that RSS spike is what tips the box into memory
+# pressure, and the resulting kill cascades as a lost solve session.
+# Override with GO_TEST_PARALLELISM if a fatter host wants more.
+GO_TEST_PARALLELISM="${GO_TEST_PARALLELISM:-2}"
 # pkgname/testname come from the Earthfile env (ARG pkgname / ARG testname),
 # which the linter can't see. Build the arg list with set -- so -run "$testname"
 # is quoted; pkgname is left unquoted on purpose as it may expand to several
 # space-separated package patterns.
-set -- -timeout 20m -json
+set -- -p "$GO_TEST_PARALLELISM" -timeout 20m -json -tags integration
 [ -n "$testname" ] && set -- "$@" -run "$testname"
 # shellcheck disable=SC2086,SC2154
-go test  -tags integration "$@" $pkgname | ./testparser
+go test "$@" $pkgname | ./testparser

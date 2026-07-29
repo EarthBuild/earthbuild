@@ -2,6 +2,7 @@ package fsutilprogress
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"sync"
 	"time"
@@ -9,17 +10,22 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/dustin/go-humanize"
 	"github.com/tonistiigi/fsutil"
+	fstypes "github.com/tonistiigi/fsutil/types"
 )
 
-// ProgressCallback exposes two different levels of callbacks for displaying status on files being sent or received.
+// ProgressCallback exposes callbacks for displaying status on files being sent
+// or received. It is implemented entirely on top of stock fsutil hooks (no fork).
 type ProgressCallback interface {
+	// Info is the coarse aggregate progress callback (fsutil Send/Receive ProgressCb).
 	Info(numBytes int, last bool)
-	Verbose(relPath string, status fsutil.VerboseProgressStatus, numBytes int)
+	// OnReceiveFile is an fsutil.ChangeFunc for ReceiveOpt.NotifyHashed: one call per received file.
+	OnReceiveFile(kind fsutil.ChangeKind, relPath string, fi os.FileInfo, err error) error
+	// WrapMap decorates an fsutil FilterOpt.Map func to report per-file send activity.
+	WrapMap(inner func(string, *fstypes.Stat) fsutil.MapResult) func(string, *fstypes.Stat) fsutil.MapResult
 }
 
 type progressCallback struct {
 	lastUpdate        time.Time
-	filesize          map[string]int
 	pathPrefix        string
 	console           conslogging.ConsoleLogger
 	numStats          int
@@ -32,12 +38,11 @@ type progressCallback struct {
 	mutex             sync.Mutex
 }
 
-// New returns a new verbose progress callback for use with fsutil.
+// New returns a new progress callback for use with fsutil.
 func New(pathPrefix string, console conslogging.ConsoleLogger) ProgressCallback {
 	return &progressCallback{
 		console:    console,
 		pathPrefix: pathPrefix,
-		filesize:   map[string]int{},
 	}
 }
 
@@ -51,42 +56,48 @@ func (s *progressCallback) Info(numBytes int, last bool) {
 	}
 }
 
-func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgressStatus, numBytes int) {
+// OnReceiveFile reports each file as it is received (fsutil NotifyHashed).
+func (s *progressCallback) OnReceiveFile(kind fsutil.ChangeKind, relPath string, fi os.FileInfo, err error) error {
+	if err != nil || kind == fsutil.ChangeKindDelete {
+		return nil
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	fullPath := path.Join(s.pathPrefix, relPath)
-
-	// missing cases in switch of type fsutil.VerboseProgressStatus: fsutil.StatusSending
-	// TODO(jhorsts): future proof by adding all the cases
-	//nolint:exhaustive
-	switch status {
-	case fsutil.StatusStat:
-		s.numStats++
-		s.console.DebugPrintf("sent file stat for %s\n", fullPath)
-	case fsutil.StatusSent:
-		s.console.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanizeBytes(numBytes))
-		s.numSent++
-		s.bytesSent += numBytes
-	case fsutil.StatusReceiving:
-		s.filesize[fullPath] += numBytes
-		s.bytesReceived += numBytes
-	case fsutil.StatusReceived:
-		if numBytes == 0 {
-			numBytes = s.filesize[fullPath]
-		}
-
-		s.console.VerbosePrintf("received data for %s (%s)\n", fullPath, humanizeBytes(numBytes))
-		s.numReceived++
-	case fsutil.StatusFailed:
-		s.console.VerbosePrintf("sent data for %s failed\n", fullPath)
-	case fsutil.StatusSkipped:
-		s.console.VerbosePrintf("ignoring %s\n", fullPath)
-	default:
-		s.console.Warnf("unhandled progress status %v (path=%s, numBytes=%d)\n", status, fullPath, numBytes)
+	var n int
+	if fi != nil && !fi.IsDir() {
+		n = int(fi.Size())
 	}
+	s.bytesReceived += n
+	s.numReceived++
+	s.console.VerbosePrintf("received data for %s (%s)\n", path.Join(s.pathPrefix, relPath), humanizeBytes(n))
+	s.displaySummaryLocked()
+	return nil
+}
 
-	// display a summary every 15 seconds
+// WrapMap reports each file as it is walked for sending. Stock fsutil has no
+// per-file send-progress hook, so we observe via FilterOpt.Map and delegate to
+// the wrapped map func.
+func (s *progressCallback) WrapMap(inner func(string, *fstypes.Stat) fsutil.MapResult) func(string, *fstypes.Stat) fsutil.MapResult {
+	return func(p string, st *fstypes.Stat) fsutil.MapResult {
+		s.mutex.Lock()
+		s.numStats++
+		s.numSent++
+		if st != nil {
+			s.bytesSent += int(st.Size)
+		}
+		s.console.VerbosePrintf("sending %s\n", path.Join(s.pathPrefix, p))
+		s.displaySummaryLocked()
+		s.mutex.Unlock()
+		if inner != nil {
+			return inner(p, st)
+		}
+		return fsutil.MapResultKeep
+	}
+}
+
+// displaySummaryLocked prints a periodic transfer summary; caller must hold s.mutex.
+func (s *progressCallback) displaySummaryLocked() {
 	now := time.Now()
 
 	d := now.Sub(s.lastUpdate)
@@ -96,12 +107,10 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 
 	if s.numSent > 0 {
 		var transferRate string
-
 		if !s.lastUpdate.IsZero() {
 			bytes := humanize.Bytes(uint64(float64(s.bytesSent-s.lastBytesSent) / d.Seconds()))
 			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 		}
-
 		s.console.Printf("sent %s (%s)%s\n", humanizeBytes(s.bytesSent), puralize(s.numSent, "file"), transferRate)
 	} else {
 		s.console.Printf("sent %s\n", puralize(s.numStats, "file stat"))
@@ -109,12 +118,10 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 
 	if s.numReceived > 0 {
 		var transferRate string
-
 		if !s.lastUpdate.IsZero() {
 			bytes := humanizeBytes(int(float64(s.bytesReceived-s.lastBytesReceived) / d.Seconds()))
 			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 		}
-
 		s.console.Printf(
 			"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate,
 		)

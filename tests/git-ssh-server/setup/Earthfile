@@ -22,18 +22,34 @@ server:
 
     ARG SSH_PORT="22"
 
+    # Force-command wrapper: newer git-shell exits silently for interactive
+    # login (empty SSH_ORIGINAL_COMMAND) instead of running
+    # ~/git-shell-commands/no-interactive-login. Work around by forcing every
+    # SSH connection through ssh-handler, which dispatches based on whether
+    # the client sent a command (git clone → git-shell -c) or not (→ greeting).
     RUN adduser --disabled-password --gecos "" git && \
         mkdir ~git/.ssh && \
-        > ~git/.ssh/authorized_keys && \
-        if [ "$USER_RSA" = "true" ]; then cat /root/self-hosted-rsa-key.pub >> ~git/.ssh/authorized_keys; fi && \
-        if [ "$USER_ED25519" = "true" ]; then cat /root/self-hosted-ed25519-key.pub >> ~git/.ssh/authorized_keys; fi && \
+        > ~git/.ssh/authorized_keys
+    COPY no-interactive-login /home/git/git-shell-commands/no-interactive-login
+    RUN printf '%s\n' \
+            '#!/bin/sh' \
+            'if [ -z "$SSH_ORIGINAL_COMMAND" ]; then' \
+            '    exec /home/git/git-shell-commands/no-interactive-login' \
+            'else' \
+            '    exec /usr/bin/git-shell -c "$SSH_ORIGINAL_COMMAND"' \
+            'fi' \
+            > /home/git/ssh-handler && \
+        chmod 755 /home/git/ssh-handler && \
+        chown git:git /home/git/ssh-handler
+    RUN KEY_OPTS='command="/home/git/ssh-handler",no-agent-forwarding,no-port-forwarding,no-user-rc,no-X11-forwarding,no-pty' && \
+        if [ "$USER_RSA" = "true" ]; then echo "$KEY_OPTS $(cat /root/self-hosted-rsa-key.pub)" >> ~git/.ssh/authorized_keys; fi && \
+        if [ "$USER_ED25519" = "true" ]; then echo "$KEY_OPTS $(cat /root/self-hosted-ed25519-key.pub)" >> ~git/.ssh/authorized_keys; fi && \
         chmod 600 ~git/.ssh/authorized_keys && \
         chown git:git ~git/.ssh/authorized_keys && \
         cat /etc/passwd | grep git && \
         sed -i 's/\(git:.*\):\/bin\/ash/\1:\/usr\/bin\/git-shell/g' /etc/passwd && \
         cat /etc/passwd | grep git && \
         passwd git -u
-    COPY no-interactive-login /home/git/git-shell-commands/no-interactive-login
     RUN mkdir /home/git/testuser && \
         git init --bare /home/git/testuser/repo.git && \
         git -C /home/git/testuser/repo.git symbolic-ref HEAD refs/heads/main && \

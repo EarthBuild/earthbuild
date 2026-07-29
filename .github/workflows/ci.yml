@@ -72,7 +72,7 @@ jobs:
           earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Build latest earth using released earth
-        run: earth --use-inline-cache +for-linux
+        run: earth +for-linux
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -127,7 +127,7 @@ jobs:
       - name: Update Buildkit to earthly-next
         run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earth (next) using released earth
-        run: earth --use-inline-cache +for-linux
+        run: earth +for-linux
       - name: Build and push +ci-release (next) using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-

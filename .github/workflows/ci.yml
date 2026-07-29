@@ -10,7 +10,10 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
   pull_request:
-    branches: [ main, get-ci-working ]
+    # ci-speed-up-build is a long-lived working branch that CI-performance work
+    # is stacked onto. PRs targeting it need CI to run in order to be measured
+    # against it. REVERT this entry once that work lands on main.
+    branches: [ main, get-ci-working, ci-speed-up-build ]
   merge_group:
 
 

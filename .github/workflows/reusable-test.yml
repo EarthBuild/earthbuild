@@ -45,7 +45,7 @@ env:
 
 jobs:
   test:
-    name: +testing-gha-${{inputs.RUNS_ON}}-${{inputs.BINARY}}
+    name: ${{ inputs.TEST_TARGET }}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
     env:

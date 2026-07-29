@@ -29,6 +29,9 @@ deps:
         go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
+    # Consumed only via artifact COPY, so registry cache export (mode=min)
+    # would otherwise skip this target entirely. See the note above +earthly.
+    SAVE IMAGE --cache-hint
 
 # code downloads and caches all dependencies for earthbuild and then copies the go code
 # directories into the image.
@@ -52,6 +55,7 @@ code:
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
+    SAVE IMAGE --cache-hint
 
 # update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
@@ -298,6 +302,7 @@ debugger:
             -o build/earth_debugger \
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
+    SAVE IMAGE --cache-hint
 
 # earthly builds the EarthBuild CLI and docker image.
 earthly:
@@ -347,6 +352,13 @@ earthly:
     SAVE ARTIFACT ./build/tags
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"
+    # The registry cache exporter runs in mode=min: it only writes layers that
+    # belong to an output ref (an image that is SAVE IMAGE'd, or an artifact
+    # that is actually exported) plus targets explicitly marked --cache-hint.
+    # This target is consumed via artifact COPY by +earthly-linux-amd64 and
+    # friends, so without a hint the Go build below is invisible to the
+    # exporter and re-runs cold on every daemon that has no local cache.
+    SAVE IMAGE --cache-hint
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
@@ -579,6 +591,12 @@ earthbuild-integration-test-base:
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
     # cause buildkit to crash -- this is why we first assign it to a tmp variable, followed by an if.
     ENV EARTHLY_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
+    # Every ./tests+* target is FROM this image, and each CI test job builds it
+    # from scratch in a fresh buildkitd (which includes compiling buildkit
+    # itself, via +earthly-docker -> ./buildkitd+buildkitd). A FROM'd target is
+    # not an output ref, so the hint is what puts this whole chain into the
+    # registry cache for the test jobs to import.
+    SAVE IMAGE --cache-hint
 
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease

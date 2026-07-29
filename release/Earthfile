@@ -3,19 +3,25 @@ FROM alpine:3.24.1
 
 release-dockerhub:
     ARG --required RELEASE_TAG
-    ARG DOCKERHUB_USER="earthly"
-    ARG DOCKERHUB_IMG="earthly"
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    # VERSION is the semver baked into the buildkitd binary so it matches the
-    # earthly client that ships it. Defaults to RELEASE_TAG for backwards compat.
+    # VERSION is the semver baked into the earthly and buildkitd binaries so
+    # the daemon reports the same version as the client that ships it.
+    # Defaults to RELEASE_TAG for backwards compat.
     ARG VERSION="$RELEASE_TAG"
+    # DEFAULT_BUILDKITD_IMAGE is the fully-qualified buildkitd image reference
+    # compiled into the earthly CLI shipped inside the published docker image;
+    # it is what that CLI pulls when it needs to start its own buildkitd. It
+    # must point at an image the release pipeline actually publishes, the same
+    # way +signed-release bakes the published image into the release binaries.
+    # Required (no default) because a silently-wrong dev default here is what
+    # shipped the broken pointer in issue #715.
+    ARG --required DEFAULT_BUILDKITD_IMAGE
     BUILD +perform-release-dockerhub \
           --RELEASE_TAG="$RELEASE_TAG" \
           --VERSION="$VERSION" \
-          --DOCKERHUB_USER="$DOCKERHUB_USER" \
-          --DOCKERHUB_IMG="$DOCKERHUB_IMG" \
+          --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
           --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
           --PUSH_LATEST_TAG="$PUSH_LATEST_TAG" \
           --PUSH_PRERELEASE_TAG="$PUSH_PRERELEASE_TAG"
@@ -24,28 +30,28 @@ perform-release-dockerhub:
     ARG --required RELEASE_TAG
     ARG --required PUSH_LATEST_TAG
     ARG --required PUSH_PRERELEASE_TAG
-    ARG --required DOCKERHUB_USER
-    ARG --required DOCKERHUB_IMG
     ARG --required DOCKERHUB_BUILDKIT_IMG
+    ARG --required DEFAULT_BUILDKITD_IMAGE
     ARG VERSION="$RELEASE_TAG"
-    BUILD +perform-release-earthly-dockerhub
+    BUILD +perform-release-earthly-dockerhub \
+          --VERSION="$VERSION" \
+          --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE"
     BUILD +perform-release-buildkitd-dockerhub --VERSION="$VERSION"
 
 perform-release-earthly-dockerhub:
     ARG --required RELEASE_TAG
     ARG --required PUSH_LATEST_TAG
     ARG --required PUSH_PRERELEASE_TAG
-    ARG --required DOCKERHUB_USER
-    ARG --required DOCKERHUB_IMG
-    ARG --required DOCKERHUB_BUILDKIT_IMG
+    ARG --required DEFAULT_BUILDKITD_IMAGE
+    ARG VERSION="$RELEASE_TAG"
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
         --platform=linux/arm64 \
         ../+earthly-docker \
         --TAG="$RELEASE_TAG" \
-        --DOCKERHUB_USER="$DOCKERHUB_USER" \
-        --DOCKERHUB_IMG="$DOCKERHUB_IMG" \
+        --VERSION="$VERSION" \
+        --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
         --PUSH_LATEST_TAG="$PUSH_LATEST_TAG" \
         --PUSH_PRERELEASE_TAG="$PUSH_PRERELEASE_TAG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
@@ -54,8 +60,6 @@ perform-release-buildkitd-dockerhub:
     ARG --required RELEASE_TAG
     ARG --required PUSH_LATEST_TAG
     ARG --required PUSH_PRERELEASE_TAG
-    ARG --required DOCKERHUB_USER
-    ARG --required DOCKERHUB_IMG
     ARG --required DOCKERHUB_BUILDKIT_IMG
     ARG BUILDKIT_PROJECT
     # The image tag stays keyed on RELEASE_TAG (so the copy-to-dockerhub step
@@ -68,7 +72,6 @@ perform-release-buildkitd-dockerhub:
         ../buildkitd+buildkitd \
         --TAG="$RELEASE_TAG" \
         --RELEASE_VERSION="$VERSION" \
-        --DOCKERHUB_USER="$DOCKERHUB_USER" \
         --DOCKERHUB_BUILDKIT_IMG="$DOCKERHUB_BUILDKIT_IMG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
 

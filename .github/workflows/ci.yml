@@ -244,7 +244,19 @@ jobs:
           # pushes are on). It does not push any image here:
           # +earthbuild-integration-test-base has no SAVE IMAGE of its own, and
           # a target reached via FROM never runs its SAVE IMAGE --push.
-          earth --ci --push \
+          # --max-remote-cache exports intermediate stages too, not just the
+          # layers of the output ref. That is required here rather than a
+          # nicety: buildkit's own Earthfile compiles buildkitd, buildctl and
+          # runc in separate stages and COPYs the binaries into the final
+          # image, so under the default mode=min those compile stages are COPY
+          # sources and are excluded from the export. They live in a remote
+          # Earthfile, so they cannot be annotated with SAVE IMAGE --cache-hint
+          # the way this repo's own targets are.
+          #
+          # Measured without it (run 30478664264): the buildkitd image layers
+          # hit, but the two buildkit compile stages still ran, leaving the
+          # test-job prelude at 151s against a 155s baseline.
+          earth --ci --push --max-remote-cache \
             --remote-cache="ghcr.io/earthbuild/earthbuild-cache:${GITHUB_SHA}-${LANE},image-manifest=true,oci-mediatypes=true" \
             +earthbuild-integration-test-base
         env:

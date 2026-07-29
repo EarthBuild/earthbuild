@@ -1,6 +1,8 @@
 package flagutil
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -9,7 +11,6 @@ import (
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
 )
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
@@ -76,7 +77,7 @@ func ParseArgsWithValueModifierAndOptions(
 
 	_, err := p.AddGroup(command+" [options] args", "", data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to initiate parser.AddGroup for %s", command)
+		return nil, fmt.Errorf("failed to initiate parser.AddGroup for %s: %w", command, err)
 	}
 
 	res, err := p.ParseArgs(args)

@@ -2,11 +2,11 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/EarthBuild/earthbuild/config"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -90,7 +90,7 @@ func (a *Config) action(_ context.Context, cmd *cli.Command) error {
 	inConfig, err := config.ReadConfigFile(a.cli.Flags().ConfigPath)
 	if err != nil {
 		if cmd.IsSet("config") || !errors.Is(err, os.ErrNotExist) {
-			return errors.Wrapf(err, "read config")
+			return fmt.Errorf("read config: %w", err)
 		}
 	}
 
@@ -100,20 +100,20 @@ func (a *Config) action(_ context.Context, cmd *cli.Command) error {
 	case "-h", "--help":
 		err = config.PrintHelp(args[0])
 		if err != nil {
-			return errors.Wrap(err, "help")
+			return fmt.Errorf("help: %w", err)
 		}
 
 		return nil // exit now without writing any changes to config
 	case "--delete":
 		outConfig, err = config.Delete(inConfig, args[0])
 		if err != nil {
-			return errors.Wrap(err, "delete config")
+			return fmt.Errorf("delete config: %w", err)
 		}
 	default:
 		// args are key/value pairs, e.g. ["global.conversion_parallelism","5"]
 		outConfig, err = config.Upsert(inConfig, args[0], args[1])
 		if err != nil {
-			return errors.Wrap(err, "upsert config")
+			return fmt.Errorf("upsert config: %w", err)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (a *Config) action(_ context.Context, cmd *cli.Command) error {
 
 	err = config.WriteConfigFile(a.cli.Flags().ConfigPath, outConfig)
 	if err != nil {
-		return errors.Wrap(err, "write config")
+		return fmt.Errorf("write config: %w", err)
 	}
 
 	a.cli.Console().Printf("Updated config file %s", a.cli.Flags().ConfigPath)

@@ -3,6 +3,7 @@ package containerutil
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -13,9 +14,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/hashicorp/go-multierror"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-	"github.com/pkg/errors"
 )
 
 type containerInfo struct {
@@ -85,7 +84,7 @@ func parseContainerList(output string) ([]*ContainerInfo, error) {
 
 		createdAt, err := time.Parse(containerDateFormat, parts[4])
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse container date")
+			return nil, fmt.Errorf("failed to parse container date: %w", err)
 		}
 
 		ret = append(ret, &ContainerInfo{
@@ -120,7 +119,7 @@ func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string
 
 	err := json.Unmarshal([]byte(output.stdout.String()), &containers)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal container inspect output %s", output.stdout.String())
+		return nil, fmt.Errorf("failed to unmarshal container inspect output %s: %w", output.stdout.String(), err)
 	}
 
 	for i, container := range containers {
@@ -196,7 +195,7 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 
 		cmdErr := cmd.Run()
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 			continue
 		}
 
@@ -268,7 +267,7 @@ func (sf *shellFrontend) ContainerRun(ctx context.Context, containers ...Contain
 
 		_, cmdErr := sf.commandContextOutput(ctx, args...)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -298,7 +297,7 @@ func (sf *shellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[str
 
 	err := json.Unmarshal([]byte(output.stdout.String()), &images)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse image info")
+		return nil, fmt.Errorf("failed to parse image info: %w", err)
 	}
 
 	for i, image := range images {
@@ -332,7 +331,7 @@ func (sf *shellFrontend) ImageTag(ctx context.Context, tags ...ImageTag) error {
 	for _, tag := range tags {
 		_, cmdErr := sf.commandContextOutput(ctx, "tag", tag.SourceRef, tag.TargetRef)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -367,8 +366,8 @@ func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...strin
 
 	err := cmd.Run()
 	if err != nil {
-		format := "command failed: %s %s: %s: %s"
-		return output, errors.Wrapf(err, format, sf.binaryName, strings.Join(args, " "), err.Error(), output.string())
+		return output, fmt.Errorf("command failed: %s %s: %w: %s: %w",
+			sf.binaryName, strings.Join(args, " "), err, output.string(), err)
 	}
 
 	return output, nil
@@ -384,7 +383,7 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 
 			calculatedBuildkitHost, err = DefaultAddressForSetting(feType, cfg.LocalContainerName, cfg.DefaultPort)
 			if err != nil {
-				return nil, errors.Wrap(err, "could not validate default address")
+				return nil, fmt.Errorf("could not validate default address: %w", err)
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -9,15 +10,13 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
-
-	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
-
 	"github.com/EarthBuild/earthbuild/autocomplete"
 	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 // AutoComplete handles shell autocomplete requests.
@@ -39,7 +38,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 		return -1
 	}
 
-	_, debugEnabled := os.LookupEnv("EARTHLY_AUTOCOMPLETE_DEBUG")
+	_, debugEnabled := env.Lookup("AUTOCOMPLETE_DEBUG")
 	if debugEnabled {
 		logDir, err := cliutil.GetOrCreateEarthDir(cli.Flags().InstallationName)
 		if err != nil {
@@ -73,7 +72,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Errorf("recovered panic in autocomplete %s: %s", r, debug.Stack())
+			err = fmt.Errorf("recovered panic in autocomplete %s: %s", r, debug.Stack())
 		}
 	}()
 
@@ -86,7 +85,7 @@ func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 	}
 
 	if compPointInt == 0 || compPointInt >= math.MaxInt {
-		err = errors.Errorf("compPointInt is out of bounds")
+		err = errors.New("compPointInt is out of bounds")
 		return err
 	}
 

@@ -25,7 +25,7 @@ jobs:
     permissions: write-all
     uses: ./.github/workflows/build-earthly.yml
     with:
-      BUILT_EARTHLY_PATH: "./build/linux/amd64/earthly"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""

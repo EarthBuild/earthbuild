@@ -16,7 +16,7 @@ func TestParseProjectCommand(t *testing.T) {
 
 	// TODO(jhorsts): Do we have any plans for this command?
 	// The PROJECT command is redundant, and I removed it from the file.
-	// It was useful with the Earthly Cloud.
+	// It was useful with the Earthbuild Cloud.
 	t.Skip()
 
 	r := require.New(t)
@@ -27,7 +27,7 @@ func TestParseProjectCommand(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
 	org, project, err := ParseProjectCommand(ctx, target, cons)
 	r.NoError(err)
@@ -45,7 +45,7 @@ func TestParseProjectCommandNoProject(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
 	_, _, err := ParseProjectCommand(ctx, target, cons)
 	r.Error(err)

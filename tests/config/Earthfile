@@ -10,13 +10,13 @@ test:
 
     # test earthly runs when no default config is present
     RUN ! test -f /root/.earthly/config.yml
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     # test earthly runs with cache size and percentage settings
     RUN earthly config global.cache_size_pct 50
     RUN earthly config global.cache_size_mb 100
     RUN yq '.global.cache_size_pct == 50 and .global.cache_size_mb == 100' /root/.earthly/config.yml | grep true
-    DO --pass-args +RUN_EARTHLY_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
+    DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     RUN touch /tmp/config.yml
     RUN chmod 400 /tmp/config.yml
@@ -25,10 +25,10 @@ test:
     RUN addgroup -S testgroup
     RUN adduser -S -G testgroup testuser
 
-    # required to allow testuser to call +RUN_EARTHLY_ARGS
+    # required to allow testuser to call +RUN_EARTH_ARGS
     RUN chmod 0777 /tmp/earthbuild-script
 
-    # required to allow testuser to call +RUN_EARTHLY_ARGS
+    # required to allow testuser to call +RUN_EARTH_ARGS
 
     USER testuser
     WORKDIR /home/testuser
@@ -56,7 +56,7 @@ test:
     RUN ! earthly --config=/tmp/config.yml --verbose +hello > output.txt 2>&1
     RUN cat output.txt | grep 'Error: read config: failed to read from /tmp/config.yml: open /tmp/config.yml: permission denied'
 
-    # check permission error is correctly returned even when earthly attempts to read from the default location
+    # check permission error is correctly returned even when earthbuild attempts to read from the default location
     # to make this test work, a symbolic link is required (chown root:root /home/testuser/.earthly/config.yml doesnt work)
     RUN rm /home/testuser/.earthly/config.yml
     RUN ln -s /tmp/config.yml /home/testuser/.earthly/config.yml
@@ -68,7 +68,7 @@ test:
     RUN echo "config test passed"
 
 
-RUN_EARTHLY_ARGS:
+RUN_EARTH_ARGS:
     FUNCTION
     ARG earthfile
     ARG target="+all"
@@ -76,7 +76,7 @@ RUN_EARTHLY_ARGS:
     ARG exec_cmd
     ARG should_fail=false
     ARG output_contains
-    DO --pass-args tests+RUN_EARTHLY \
+    DO --pass-args tests+RUN_EARTH \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail \

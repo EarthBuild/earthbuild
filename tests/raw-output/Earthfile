@@ -6,7 +6,7 @@ IMPORT .. AS tests
 WORKDIR /test
 
 test-all:
-    DO tests+RUN_EARTHLY --earthfile=manifest.earth --target=+gha
+    DO tests+RUN_EARTH --earthfile=manifest.earth --target=+gha
     RUN acbgrep '^::group::' earthly.output
     RUN acbgrep -v '^should have prefix' earthly.output
     RUN acbgrep '^::endgroup::' earthly.output

@@ -2,8 +2,6 @@ package params
 
 import (
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
 // Error represents an error with an associated parent error and cause.
@@ -36,9 +34,9 @@ func (e *Error) Error() string {
 	return e.msg
 }
 
-// Cause returns the underlying error.
-func (e *Error) Cause() error {
-	return errors.Cause(e.cause)
+// Unwrap returns the underlying error.
+func (e *Error) Unwrap() error {
+	return e.cause
 }
 
 // Is checks if the err is an Error.

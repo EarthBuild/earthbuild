@@ -9,12 +9,13 @@ package proj_test
 
 import (
 	"context"
-	"git.sr.ht/~nelsam/hel/pkg/pers"
-	"git.sr.ht/~nelsam/hel/vegr"
-	"github.com/EarthBuild/earthbuild/util/proj"
 	"io"
 	"io/fs"
 	"time"
+
+	"git.sr.ht/~nelsam/hel/pkg/pers"
+	"git.sr.ht/~nelsam/hel/vegr"
+	"github.com/EarthBuild/earthbuild/util/proj"
 )
 
 var (

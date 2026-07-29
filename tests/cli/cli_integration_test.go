@@ -1,3 +1,5 @@
+//go:build integration
+
 package cli_test
 
 import (
@@ -20,8 +22,6 @@ var (
 	earthCmdMu sync.Mutex
 	testBinary string
 )
-
-const skipBuildkitCLITestsValue = "true"
 
 const (
 	firstCommandFixture = "first-command"
@@ -57,7 +57,8 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 			projectDir := copyFixtureDir(t, "builtin-args")
 			replaceVersionLine(t, filepath.Join(projectDir, "Earthfile"), versionLine)
 
-			out, err := runEarth(t, projectDir,
+			out, err := runEarth(
+				t, projectDir,
 				"--no-output",
 				"--build-arg", "EARTHLY_VERSION=123",
 				"+builtin-args-test",
@@ -69,12 +70,33 @@ func TestBuiltinArgCannotBePassedOnCommandLine(t *testing.T) {
 	}
 }
 
-func TestBuildArgRepeatArtifacts(t *testing.T) {
+func TestBuiltinArgEarthPrefix(t *testing.T) {
 	t.Parallel()
 
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
+	projectDir := copyFixtureDir(t, "builtin-args-earth")
+
+	out, err := runEarth(t, projectDir, "--no-output", "+builtin-args-test")
+	require.NoError(t, err, out)
+
+	// The EARTH_ prefixed built-in args are the current names and must not warn.
+	require.NotContains(t, out, "is deprecated")
+}
+
+func TestBuiltinArgEarthlyPrefixWarnsDeprecated(t *testing.T) {
+	t.Parallel()
+
+	projectDir := copyFixtureDir(t, "builtin-args")
+
+	out, err := runEarth(t, projectDir, "--no-output", "+builtin-args-test")
+	require.NoError(t, err, out)
+
+	// Referencing an EARTHLY_ built-in arg logs a deprecation warning pointing
+	// at the EARTH_ equivalent.
+	require.Contains(t, out, "the built-in ARG EARTHLY_TARGET is deprecated. Use EARTH_TARGET.")
+}
+
+func TestBuildArgRepeatArtifacts(t *testing.T) {
+	t.Parallel()
 
 	for _, target := range []string{"+build-all-1", "+build-all-2"} {
 		t.Run(target, func(t *testing.T) {
@@ -92,10 +114,6 @@ func TestBuildArgRepeatArtifacts(t *testing.T) {
 
 func TestCacheCommand(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	projectDir := copyFixtureDir(t, "cache-cmd")
 
@@ -117,10 +135,6 @@ func TestCacheCommand(t *testing.T) {
 
 func TestInfiniteRecursionFailures(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	for _, target := range []string{
 		"+test1",
@@ -145,10 +159,6 @@ func TestInfiniteRecursionFailures(t *testing.T) {
 
 func TestLetSetAndScope(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	successCases := []struct {
 		name    string
@@ -209,10 +219,6 @@ func TestLetSetAndScope(t *testing.T) {
 
 func TestEarthfileValidationFailures(t *testing.T) {
 	t.Parallel()
-
-	if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-		t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-	}
 
 	testCases := []struct {
 		name     string
@@ -309,10 +315,6 @@ func TestInitCommand(t *testing.T) {
 
 	t.Run("golang project", func(t *testing.T) {
 		t.Parallel()
-
-		if os.Getenv("EARTHLY_SKIP_BUILDKIT_CLI_TESTS") == skipBuildkitCLITestsValue {
-			t.Skip("requires a usable BuildKit endpoint for the outer earth binary")
-		}
 
 		projectDir := t.TempDir()
 		writeGoProject(t, projectDir)
@@ -474,7 +476,7 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 	out, err = runEarthWithEnv(
 		t,
 		projectDir,
-		[]string{"HOME=" + home, "EARTHLY_CONFIG=" + otherConfig},
+		[]string{"HOME=" + home, "EARTH_CONFIG=" + otherConfig},
 		"config",
 		"global.cache_size_mb",
 		"10",
@@ -486,7 +488,7 @@ func TestConfigCommandDefaultAndEnvLocations(t *testing.T) {
 	out, err = runEarthWithEnv(
 		t,
 		projectDir,
-		[]string{"HOME=" + home, "EARTHLY_INSTALLATION_NAME=earthly-test2"},
+		[]string{"HOME=" + home, "EARTH_INSTALLATION_NAME=earthly-test2"},
 		"config",
 		"global.cache_size_mb",
 		"10",
@@ -566,8 +568,8 @@ func runEarthWithEnv(t *testing.T, dir string, env []string, args ...string) (st
 	cmd.Dir = dir
 
 	cmd.Env = envWithOverrides(os.Environ(), append([]string{
-		"EARTHLY_DISABLE_AUTO_UPDATE=true",
-		"EARTHLY_DISABLE_FRONTEND_DETECTION=true",
+		"EARTH_DISABLE_AUTO_UPDATE=true",
+		"EARTH_DISABLE_FRONTEND_DETECTION=true",
 		"OTEL_SDK_DISABLED=true",
 	}, env...)...)
 

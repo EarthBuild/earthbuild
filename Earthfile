@@ -14,12 +14,12 @@ go:
 node:
     FROM node:26.3.1-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.17.0
+    LET npm_version=12.0.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
 
-# deps downloads and caches all dependencies for earthly. When called directly,
+# deps downloads and caches all dependencies for earthbuild. When called directly,
 # go.mod and go.sum will be updated locally.
 deps:
     FROM +go
@@ -30,7 +30,7 @@ deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-# code downloads and caches all dependencies for earthly and then copies the go code
+# code downloads and caches all dependencies for earthbuild and then copies the go code
 # directories into the image.
 # If BUILDKIT_PROJECT environment variable is set it will also update the go mods
 # for the local versions
@@ -54,7 +54,7 @@ code:
     COPY --dir tests/cli tests/
     SAVE ARTIFACT /earthly
 
-# update-buildkit updates earthly's buildkit dependency.
+# update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
@@ -99,12 +99,12 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
+# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-earthly-script-no-stdout:
+earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r5
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     RUN apk add --no-cache bash
     COPY earthly .earthly_version_flag_overrides .
 
@@ -116,7 +116,7 @@ earthly-script-no-stdout:
     RUN test "$(cat earthly-version-output | wc -l)" = "1"
     RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthly project.
+# lint runs basic go linters against the earthbuild project.
 lint:
     FROM +go
     RUN apk add --no-cache curl
@@ -172,7 +172,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.15.1
+    ARG vale_version=3.15.2
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything
@@ -378,6 +378,12 @@ earthly-linux-amd64:
     # reach +earthly. Without forwarding, COPY-scoped --args stop at this target
     # and the binary silently falls back to dev defaults, e.g. a buildkit image
     # of $IMAGE_REGISTRY:buildkitd-$VERSION instead of the intended release image.
+    #
+    # EARTHLY_TARGET_TAG_DOCKER must be declared before it is referenced below,
+    # otherwise it expands to empty and the dev VERSION becomes "dev-" -- which
+    # bakes in a buildkitd image of buildkitd-dev- that does not match the
+    # buildkitd-dev-<tag> image the local +for-* targets actually build.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -397,6 +403,7 @@ earthly-linux-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -416,6 +423,7 @@ earthly-darwin-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -435,6 +443,7 @@ earthly-darwin-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -454,6 +463,7 @@ earthly-windows-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -479,6 +489,7 @@ all-binaries:
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
     # all binaries. See earthly-linux-amd64 for details.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -510,7 +521,7 @@ earthly-docker:
     # removed the file-level FROM that used to provide this implicitly; the
     # in-IF FROM below replaces this image. (buildkitd/Earthfile keeps its
     # file-level FROM, which is why the same pattern works there.)
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG BUILDKIT_PROJECT=github.com/EarthBuild/buildkit:c41dbafd92a06877003cab8679a3108520f42c5f
@@ -524,7 +535,7 @@ earthly-docker:
     END
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
-    # When Earthly is run from a container, the registry proxy networking setup
+    # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
@@ -550,13 +561,13 @@ earthly-docker:
        SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
-# earthly-integration-test-base builds earthly docker and then
+# earthbuild-integration-test-base builds earthly docker and then
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
-earthly-integration-test-base:
+earthbuild-integration-test-base:
     # Scaffold base so the IF condition has a shell to run in (see note on
     # +earthly-docker). The in-IF FROM below replaces this image.
-    FROM alpine:3.24.0
+    FROM alpine:3.24.1
     ARG EARTHLY_BUILDKIT_IMAGE
     IF [ "$EARTHLY_BUILDKIT_IMAGE" != "" ]
         FROM --pass-args +earthly-docker --BUILDKIT_PROJECT="" --EARTHLY_BUILDKIT_IMAGE_BASE="$EARTHLY_BUILDKIT_IMAGE"
@@ -593,7 +604,7 @@ earthly-integration-test-base:
     RUN rm ./setup-registry.sh
 
     # Trim nested buildkit memory footprint. In CI every integration test
-    # runs as earthly-in-earthly (RUN_EARTHLY is called ~320 times across
+    # runs as earthly-in-earthly (RUN_EARTH is called ~320 times across
     # tests/Earthfile), so peak concurrent memory on a 16 GiB runner is
     # outer buildkitd + this nested buildkitd + runc children × 2 layers.
     # Parallelism 1: halves nested concurrent runc children.
@@ -751,7 +762,7 @@ all:
     BUILD +earthly-docker
     BUILD +prerelease
 
-# lint-all runs all linting checks against the earthly project.
+# lint-all runs all linting checks against the earthbuild project.
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
@@ -784,7 +795,7 @@ test-misc:
         BUILD +test-ast
     END
     WAIT
-        BUILD +earthly-script-no-stdout
+        BUILD +earthbuild-script-no-stdout
     END
 
 test-ast:

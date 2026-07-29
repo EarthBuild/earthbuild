@@ -3,7 +3,7 @@ name: Runs examples1
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTH_PATH:
         required: true
         type: string
       BINARY:
@@ -66,7 +66,7 @@ jobs:
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           SUDO: "${{ inputs.SUDO }}"
@@ -95,7 +95,7 @@ jobs:
           max_attempts=2
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
             rc=$?
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
@@ -114,7 +114,7 @@ jobs:
           max_attempts=2
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+            ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
             rc=$?
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
@@ -127,7 +127,7 @@ jobs:
           done
       - name: Build and test multi-platform example
         run: |
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTHLY_PATH}} ./examples/multiplatform+all
+          ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ./examples/multiplatform+all
           ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}

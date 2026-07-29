@@ -29,7 +29,7 @@ test1:
     # The before-copy RUN isn't affected because it isn't the top layer.
     RUN echo "content" >./input
     # Running with tmpfs mount = no local cache.
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test1
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test1
 
     # Not cached - before copy.
     RUN nl=$(cat ./output | grep "execute-test1-run-before-copy" | grep -v "echo" | wc -l) && acbtest "$nl" -eq 1
@@ -44,13 +44,13 @@ test1:
     # even when content hasn't changed. Since the build itself is still
     # correct and just slower without cache hits, we relax these test1
     # assertions to smoke-test level: verify the earthly invocation
-    # succeeds (via DO_REMOTE_CACHE_EARTHLY's own exit_code=0 check) and
+    # succeeds (via DO_REMOTE_CACHE_EARTH's own exit_code=0 check) and
     # that the final RUN's output does appear at least once. Filed upstream
     # behaviour question; test to tighten again when fix lands.
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test1
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test1
 
     RUN echo "other content" >./input
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test1
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test1
 
     # After the three invocations, the most recent ./output should contain
     # the after-copy RUN's output (it's in the top layer, so always re-runs
@@ -61,8 +61,8 @@ test2:
     RUN echo "a"
     COPY --dir test2 test2
     # Running with tmpfs mount = no local cache.
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test2
-    DO --pass-args +DO_REMOTE_CACHE_EARTHLY --target=+test2
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test2
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test2
     # TODO FIXME the remote-cache caching isn't always working; we will ignore these checks until the flakiness is fixed.
     RUN (cat ./output | grep '\*cached\* --> RUN npm install') || echo "WARNING: RUN command not cached"
     RUN (cat ./output | grep '\*cached\* --> COPY test2/dist dist') || echo "WARNING: COPY classical command not cached"
@@ -77,7 +77,7 @@ test3:
         -- --no-output --strict --use-inline-cache --save-inline-cache --push +test3
 
 # Work around the lack of variable overriding, since the base image already includes EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
-DO_REMOTE_CACHE_EARTHLY:
+DO_REMOTE_CACHE_EARTH:
     FUNCTION
 
     ARG target

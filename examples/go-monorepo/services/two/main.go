@@ -1,16 +1,20 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/EarthBuild/earthbuild/examples/go-monorepo/libs/hello"
-	"github.com/labstack/echo/v5"
 )
 
 func main() {
-	e := echo.New()
-	e.GET("/two/hello", func(c *echo.Context) error {
-		return c.String(http.StatusOK, hello.Greet("Friend"))
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /two/hello", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(hello.Greet("Friend")))
 	})
-	_ = e.Start(":8080")
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }

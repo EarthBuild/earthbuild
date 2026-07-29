@@ -6,7 +6,7 @@ on:
       TEST_TARGET:
         required: true
         type: string
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTH_PATH:
         required: true
         type: string
       BINARY:
@@ -64,7 +64,7 @@ jobs:
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
           USE_NEXT: "${{ inputs.USE_NEXT }}"
@@ -87,7 +87,7 @@ jobs:
           max_attempts=2
           while [ "$attempt" -le "$max_attempts" ]; do
             echo "::group::attempt $attempt of $max_attempts"
-            ${{inputs.SUDO}} ${{ inputs.BUILT_EARTHLY_PATH }} ${{inputs.EXTRA_ARGS}} --ci -P ${{inputs.TEST_TARGET}}
+            ${{inputs.SUDO}} ${{ inputs.BUILT_EARTH_PATH }} ${{inputs.EXTRA_ARGS}} --ci -P ${{inputs.TEST_TARGET}}
             rc=$?
             echo "::endgroup::"
             if [ "$rc" -eq 0 ]; then exit 0; fi
@@ -110,7 +110,7 @@ jobs:
         shell: bash
       - name: Execute fail test
         run: |
-          ! ${{inputs.SUDO}} GITHUB_ACTIONS="" ${{ inputs.BUILT_EARTHLY_PATH }} ${{inputs.EXTRA_ARGS}} --ci ./tests/fail+test-fail
+          ! ${{inputs.SUDO}} GITHUB_ACTIONS="" ${{ inputs.BUILT_EARTH_PATH }} ${{inputs.EXTRA_ARGS}} --ci ./tests/fail+test-fail
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true

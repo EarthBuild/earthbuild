@@ -184,7 +184,7 @@ jobs:
 
   docker-examples:
     name: Docker Examples
-    needs: docker-tests
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: "docker"
@@ -192,7 +192,7 @@ jobs:
 
   docker-integrations:
     name: Docker Integrations
-    needs: docker-tests
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-integration-suite.yml
     with:
       FRONTEND: "docker"
@@ -210,7 +210,7 @@ jobs:
 
   podman-examples:
     name: Podman Examples
-    needs: podman-tests
+    needs: fast-check-and-build
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: "podman"

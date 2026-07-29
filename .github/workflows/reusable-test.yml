@@ -53,6 +53,15 @@ jobs:
       EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Import the layer cache published by ci.yml's warm-test-cache job for
+      # this commit, so this job does not recompile buildkit and the earthly
+      # binary before it can run a test.
+      #
+      # Import-only: earthly exports to a remote cache only when --push is set,
+      # and these jobs never push, so no test job can evict the cache the others
+      # are reading. An empty value disables the feature, which is the case for
+      # fork PRs -- they cannot read the cache and build cold, as today.
+      EARTHLY_REMOTE_CACHE: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('ghcr.io/earthbuild/earthbuild-cache:{0}-{1}', github.sha, inputs.USE_NEXT && 'next' || 'standard') || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         if: ${{ !inputs.SKIP_JOB }}

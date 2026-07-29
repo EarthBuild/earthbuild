@@ -343,8 +343,8 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		return fmt.Errorf("state key func: %w", err)
 	}
 
-	tarContext, err := w.c.opt.SolveCache.Do(ctx, solveID, func(
-		ctx context.Context, _ states.StateKey,
+	tarContext, err := w.c.opt.SolveCache.Load(ctx, solveID, func(
+		ctx context.Context,
 	) (pllb.State, error) {
 		// Use a builder to create docker .tar file, mount it via a local build
 		// context, then docker load it within the current side effects state.

@@ -347,7 +347,6 @@ earthly:
     SAVE ARTIFACT ./build/tags
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"
-    SAVE IMAGE --cache-from=earthly/earthly:main
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
@@ -532,16 +531,15 @@ earthly-docker:
         --DEFAULT_INSTALLATION_NAME="earthly" \
         ) /usr/bin/earthly
 
-    # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
     # arguments to the save SAVE IMAGE do not. Using variables here doesn't work
     # either, unfortunately, as the names are quoted and treated as a single arg.
     IF [ "$PUSH_LATEST_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
+       SAVE IMAGE --push $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:latest
     ELSE IF [ "$PUSH_PRERELEASE_TAG" == "true" ]
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
+       SAVE IMAGE --push $IMAGE_REGISTRY:$TAG $IMAGE_REGISTRY:prerelease
     ELSE
-       SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
+       SAVE IMAGE --push $IMAGE_REGISTRY:$TAG
     END
 
 # earthbuild-integration-test-base builds earthly docker and then
@@ -615,8 +613,7 @@ ci-release:
         ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
     COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
 
-    # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
-    SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
+    SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
 
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly

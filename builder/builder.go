@@ -408,6 +408,7 @@ func (b *Builder) convertAndBuild(
 
 					_, isMulti := isMultiPlatform[saveImage.DockerTag]
 					_, noManifest := noManifestListImgs[saveImage.DockerTag]
+
 					if isMulti && noManifest {
 						return nil, fmt.Errorf(
 							"cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list",

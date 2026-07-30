@@ -2491,16 +2491,17 @@ func (i *Interpreter) handleDoFunction(
 		return i.errorf(uc.SourceLocation, "%s recipes must start with %s", strings.ToLower(string(cmdName)), cmdName)
 	}
 
+	_, seenWarning := i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile]
 	if !useFunctionCmd &&
 		len(i.converter.opt.FilesWithCommandRenameWarning) < maxCommandRenameWarnings &&
-		!i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] {
+		!seenWarning {
 		i.console.Printf(
 			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.
 Note that switching now may cause breakages for your colleagues if they are using older earth versions.
 `, sourceLocationFile,
 		)
-		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = true
+		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = struct{}{}
 	}
 
 	if len(uc.Recipe[0].Command.Args) > 0 {

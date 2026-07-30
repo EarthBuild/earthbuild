@@ -119,9 +119,9 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 	}
 
 	// Collect relevant images from the compose config.
-	composeServicesSet := make(map[string]bool)
+	composeServicesSet := make(map[string]struct{})
 	for _, composeService := range opt.ComposeServices {
-		composeServicesSet[composeService] = true
+		composeServicesSet[composeService] = struct{}{}
 	}
 
 	var pulls []DockerPullOpt
@@ -144,7 +144,7 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 		}
 
 		if len(opt.ComposeServices) > 0 {
-			if composeServicesSet[serviceName] {
+			if _, ok := composeServicesSet[serviceName]; ok {
 				pulls = append(pulls, DockerPullOpt{
 					ImageName: serviceInfo.Image,
 					Platform:  platform,

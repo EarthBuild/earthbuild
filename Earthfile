@@ -520,7 +520,18 @@ earthly-docker:
     ARG BUILDKIT_PROJECT
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    # Release metadata baked into the embedded CLI. These mirror the dev
+    # defaults of +earthly and must be forwarded explicitly (see
+    # earthly-linux-amd64 for details). Release builds override them via
+    # release+release-dockerhub so the CLI inside the published image points at
+    # the buildkitd image the release actually publishes, keeping it in sync
+    # with the released binaries (+all-binaries).
+    ARG VERSION="$TAG"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$TAG"
+    # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
+    # with the CLI version, and makes this the same buildkitd build as
+    # release+perform-release-buildkitd-dockerhub pushes.
+    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
     # When Earthbuild is run from a container, the registry proxy networking setup
@@ -532,10 +543,10 @@ earthly-docker:
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
-        --VERSION=$TAG \
+        --VERSION="$VERSION" \
+        --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
         --DEFAULT_INSTALLATION_NAME="earthly" \
         ) /usr/bin/earthly
-    ARG DOCKERHUB_IMG="earthly"
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple

@@ -29,23 +29,23 @@ func NewBuffer(size int) (*Buffer, error) {
 // Write implements io.Writer.
 func (b *Buffer) Write(p []byte) (int, error) {
 	n := len(p)
-	max := cap(b.buf)
+	size := cap(b.buf)
 
-	if max <= 0 {
+	if size <= 0 {
 		return n, nil
 	}
 
 	// 1. Fast-path: Write exceeds or equals total buffer size.
-	if n >= max {
-		b.buf = b.buf[:max]
+	if n >= size {
+		b.buf = b.buf[:size]
 		b.off = 0
-		copy(b.buf, p[n-max:])
+		copy(b.buf, p[n-size:])
 
 		return n, nil
 	}
 
 	// 2. Growing phase: Buffer has not yet reached capacity.
-	if free := max - len(b.buf); free > 0 {
+	if free := size - len(b.buf); free > 0 {
 		if n <= free {
 			m := len(b.buf)
 			b.buf = b.buf[:m+n]
@@ -55,7 +55,7 @@ func (b *Buffer) Write(p []byte) (int, error) {
 		}
 
 		m := len(b.buf)
-		b.buf = b.buf[:max]
+		b.buf = b.buf[:size]
 		copy(b.buf[m:], p[:free])
 		p = p[free:]
 		b.off = 0
@@ -63,7 +63,7 @@ func (b *Buffer) Write(p []byte) (int, error) {
 	}
 
 	// 3. Full ring phase: Copy incoming data in circular fashion.
-	rem := max - b.off
+	rem := size - b.off
 	copy(b.buf[b.off:], p)
 
 	if len(p) > rem {
@@ -71,8 +71,8 @@ func (b *Buffer) Write(p []byte) (int, error) {
 	}
 
 	b.off += len(p)
-	if b.off >= max {
-		b.off -= max
+	if b.off >= size {
+		b.off -= size
 	}
 
 	return n, nil
@@ -81,16 +81,14 @@ func (b *Buffer) Write(p []byte) (int, error) {
 // Bytes returns a copy of the buffer contents, with the oldest contents at the
 // beginning.
 func (b *Buffer) Bytes() []byte {
-	max := cap(b.buf)
-	if max == 0 || len(b.buf) < max {
+	size := cap(b.buf)
+	if size == 0 || len(b.buf) < size {
 		return slices.Clone(b.buf)
 	}
 
-	out := make([]byte, max)
+	out := make([]byte, size)
 	copy(out, b.buf[b.off:])
-	copy(out[max-b.off:], b.buf[:b.off])
+	copy(out[size-b.off:], b.buf[:b.off])
 
 	return out
 }
-
-

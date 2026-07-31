@@ -47,9 +47,9 @@ func TestWrite(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		bufSize   int
-		steps     []step
 		wantBytes string
+		steps     []step
+		bufSize   int
 	}{
 		{
 			name:    "grow without filling",

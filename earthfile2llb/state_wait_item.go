@@ -1,8 +1,8 @@
 package earthfile2llb
 
 import (
+	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 )
 
 type stateWaitItem struct {
@@ -18,7 +18,7 @@ func (swi *stateWaitItem) SetDoPush() {
 func (swi *stateWaitItem) SetDoSave() {
 }
 
-func newStateWaitItem(state *pllb.State, c *Converter) waitutil.WaitItem {
+func newStateWaitItem(state *pllb.State, c *Converter) states.WaitItem {
 	return &stateWaitItem{
 		c:     c,
 		state: state,

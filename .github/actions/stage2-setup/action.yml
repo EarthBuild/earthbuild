@@ -89,23 +89,13 @@ runs:
     - name: Set up Docker Hub Mirrors, data-root, and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
-        echo "=== Available disk space before Docker setup ==="
-        df -h / || true
         sudo systemctl stop docker.socket docker.service || true
         sudo mkdir -p /mnt/docker
         if [ -d /var/lib/docker ] && [ "$(sudo ls -A /var/lib/docker 2>/dev/null)" ]; then
           sudo cp -a /var/lib/docker/. /mnt/docker/
         fi
         sudo mkdir -p /etc/docker
-        cat <<EOF | sudo tee /etc/docker/daemon.json
-        {
-          "data-root": "/mnt/docker",
-          "registry-mirrors": [
-            "https://mirror.gcr.io",
-            "https://public.ecr.aws"
-          ]
-        }
-        EOF
+        printf '{\n  "data-root": "/mnt/docker",\n  "registry-mirrors": [\n    "https://mirror.gcr.io",\n    "https://public.ecr.aws"\n  ]\n}\n' | sudo tee /etc/docker/daemon.json > /dev/null
         for svc in docker containerd; do
           sudo mkdir -p /etc/systemd/system/${svc}.service.d
           printf '[Service]\nLimitNOFILE=1048576\n' | sudo tee /etc/systemd/system/${svc}.service.d/override.conf
@@ -113,8 +103,6 @@ runs:
         sudo systemctl daemon-reload
         sudo systemctl restart containerd
         sudo systemctl restart docker
-        echo "=== Available disk space after Docker setup ==="
-        df -h / || true
       shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
@@ -140,9 +128,6 @@ runs:
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |
-        echo "=== Available disk space before Podman setup ==="
-        df -h / || true
-
         # Remove pre-installed Docker to avoid conflicts
         ${{inputs.SUDO}} apt-get purge -y docker-engine docker docker.io docker-ce docker-ce-cli
         ${{inputs.SUDO}} rm -f /usr/bin/docker
@@ -155,29 +140,10 @@ runs:
         ${{inputs.SUDO}} mkdir -p /mnt/containers/storage
 
         # Configure Podman storage to use /mnt
-        cat <<EOF | ${{inputs.SUDO}} tee /etc/containers/storage.conf
-        [storage]
-        driver = "overlay"
-        graphroot = "/mnt/containers/storage"
-        EOF
+        printf '[storage]\ndriver = "overlay"\ngraphroot = "/mnt/containers/storage"\n' | ${{inputs.SUDO}} tee /etc/containers/storage.conf > /dev/null
 
         # Write the config using 'tee' to handle sudo permissions
-        cat <<EOF | ${{inputs.SUDO}} tee /etc/containers/registries.conf
-        unqualified-search-registries = ["docker.io"]
-
-        [[registry]]
-        prefix = "docker.io"
-        location = "docker.io"
-
-        [[registry.mirror]]
-        location = "mirror.gcr.io"
-
-        [[registry.mirror]]
-        location = "public.ecr.aws"
-        EOF
-
-        echo "=== Available disk space after Podman setup ==="
-        df -h / || true
+        printf 'unqualified-search-registries = ["docker.io"]\n\n[[registry]]\nprefix = "docker.io"\nlocation = "docker.io"\n\n[[registry.mirror]]\nlocation = "mirror.gcr.io"\n\n[[registry.mirror]]\nlocation = "public.ecr.aws"\n' | ${{inputs.SUDO}} tee /etc/containers/registries.conf > /dev/null
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets

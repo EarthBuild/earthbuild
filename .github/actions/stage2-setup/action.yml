@@ -137,10 +137,6 @@ runs:
 
         # Create the config directory (system-wide)
         ${{inputs.SUDO}} mkdir -p /etc/containers/
-        ${{inputs.SUDO}} mkdir -p /mnt/containers/storage
-
-        # Configure Podman storage to use /mnt
-        printf '[storage]\ndriver = "overlay"\ngraphroot = "/mnt/containers/storage"\n' | ${{inputs.SUDO}} tee /etc/containers/storage.conf > /dev/null
 
         # Write the config using 'tee' to handle sudo permissions
         printf 'unqualified-search-registries = ["docker.io"]\n\n[[registry]]\nprefix = "docker.io"\nlocation = "docker.io"\n\n[[registry.mirror]]\nlocation = "mirror.gcr.io"\n\n[[registry.mirror]]\nlocation = "public.ecr.aws"\n' | ${{inputs.SUDO}} tee /etc/containers/registries.conf > /dev/null

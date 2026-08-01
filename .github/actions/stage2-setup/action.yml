@@ -90,10 +90,10 @@ runs:
       if: inputs.BINARY == 'docker'
       run: |
         echo "=== Available disk space before Docker setup ==="
-        df -h / /mnt || true
+        df -h / || true
         sudo systemctl stop docker.socket docker.service || true
         sudo mkdir -p /mnt/docker
-        if [ -d /var/lib/docker ] && [ "$(ls -A /var/lib/docker)" ]; then
+        if [ -d /var/lib/docker ] && [ "$(sudo ls -A /var/lib/docker 2>/dev/null)" ]; then
           sudo cp -a /var/lib/docker/. /mnt/docker/
         fi
         sudo mkdir -p /etc/docker
@@ -114,7 +114,7 @@ runs:
         sudo systemctl restart containerd
         sudo systemctl restart docker
         echo "=== Available disk space after Docker setup ==="
-        df -h / /mnt /mnt/docker || true
+        df -h / || true
       shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
@@ -141,7 +141,7 @@ runs:
       name: Set up Podman
       run: |
         echo "=== Available disk space before Podman setup ==="
-        df -h / /mnt || true
+        df -h / || true
 
         # Remove pre-installed Docker to avoid conflicts
         ${{inputs.SUDO}} apt-get purge -y docker-engine docker docker.io docker-ce docker-ce-cli
@@ -177,7 +177,7 @@ runs:
         EOF
 
         echo "=== Available disk space after Podman setup ==="
-        df -h / /mnt /mnt/containers/storage || true
+        df -h / || true
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets

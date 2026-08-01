@@ -85,4 +85,4 @@ jobs:
         run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
       - name: Print available disk space post-build
         if: ${{ always() }}
-        run: df -h / || true
+        run: df -h || true

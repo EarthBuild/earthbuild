@@ -1,6 +1,7 @@
 package buildcontext
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -292,11 +293,7 @@ func (gr *gitResolver) resolveGitProject(
 			}
 
 			gitState := llb.Git(gitURL, gitRef, gitOpts...)
-
-			gitImage := gr.gitImage
-			if gitImage == "" {
-				gitImage = defaultGitImage
-			}
+			gitImage := cmp.Or(gr.gitImage, defaultGitImage)
 
 			opImg := pllb.Image(
 				gitImage, llb.MarkImageInternal, llb.ResolveModePreferLocal,

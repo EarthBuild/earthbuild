@@ -1,6 +1,7 @@
 package earthfile2llb
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -161,9 +162,7 @@ func (c *Converter) parseMount(mount string) ([]llb.RunOption, error) {
 			return nil, errors.New("mount target not specified")
 		}
 
-		if mountMode == 0 {
-			mountMode = 0o644
-		}
+		mountMode = cmp.Or(mountMode, 0o644)
 
 		key := cacheKey(c.target)
 

@@ -95,7 +95,15 @@ runs:
           sudo cp -a /var/lib/docker/. /mnt/docker/
         fi
         sudo mkdir -p /etc/docker
-        printf '{\n  "data-root": "/mnt/docker",\n  "registry-mirrors": [\n    "https://mirror.gcr.io",\n    "https://public.ecr.aws"\n  ]\n}\n' | sudo tee /etc/docker/daemon.json > /dev/null
+        cat <<EOF | sudo tee /etc/docker/daemon.json
+        {
+          "data-root": "/mnt/docker",
+          "registry-mirrors": [
+            "https://mirror.gcr.io",
+            "https://public.ecr.aws"
+          ]
+        }
+        EOF
         for svc in docker containerd; do
           sudo mkdir -p /etc/systemd/system/${svc}.service.d
           printf '[Service]\nLimitNOFILE=1048576\n' | sudo tee /etc/systemd/system/${svc}.service.d/override.conf
@@ -139,7 +147,19 @@ runs:
         ${{inputs.SUDO}} mkdir -p /etc/containers/
 
         # Write the config using 'tee' to handle sudo permissions
-        printf 'unqualified-search-registries = ["docker.io"]\n\n[[registry]]\nprefix = "docker.io"\nlocation = "docker.io"\n\n[[registry.mirror]]\nlocation = "mirror.gcr.io"\n\n[[registry.mirror]]\nlocation = "public.ecr.aws"\n' | ${{inputs.SUDO}} tee /etc/containers/registries.conf > /dev/null
+        cat <<EOF | ${{inputs.SUDO}} tee /etc/containers/registries.conf
+        unqualified-search-registries = ["docker.io"]
+
+        [[registry]]
+        prefix = "docker.io"
+        location = "docker.io"
+
+        [[registry.mirror]]
+        location = "mirror.gcr.io"
+
+        [[registry.mirror]]
+        location = "public.ecr.aws"
+        EOF
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets

@@ -86,12 +86,20 @@ runs:
         BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
         echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
         echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
-    - name: Set up Docker Hub Mirrors and ulimits for Docker 29+
+    - name: Set up Docker Hub Mirrors, data-root, and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
+        echo "=== Available disk space before Docker setup ==="
+        df -h / /mnt || true
+        sudo systemctl stop docker.socket docker.service || true
+        sudo mkdir -p /mnt/docker
+        if [ -d /var/lib/docker ] && [ "$(ls -A /var/lib/docker)" ]; then
+          sudo cp -a /var/lib/docker/. /mnt/docker/
+        fi
         sudo mkdir -p /etc/docker
         cat <<EOF | sudo tee /etc/docker/daemon.json
         {
+          "data-root": "/mnt/docker",
           "registry-mirrors": [
             "https://mirror.gcr.io",
             "https://public.ecr.aws"
@@ -105,6 +113,8 @@ runs:
         sudo systemctl daemon-reload
         sudo systemctl restart containerd
         sudo systemctl restart docker
+        echo "=== Available disk space after Docker setup ==="
+        df -h / /mnt /mnt/docker || true
       shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
@@ -130,6 +140,9 @@ runs:
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |
+        echo "=== Available disk space before Podman setup ==="
+        df -h / /mnt || true
+
         # Remove pre-installed Docker to avoid conflicts
         ${{inputs.SUDO}} apt-get purge -y docker-engine docker docker.io docker-ce docker-ce-cli
         ${{inputs.SUDO}} rm -f /usr/bin/docker
@@ -139,6 +152,14 @@ runs:
 
         # Create the config directory (system-wide)
         ${{inputs.SUDO}} mkdir -p /etc/containers/
+        ${{inputs.SUDO}} mkdir -p /mnt/containers/storage
+
+        # Configure Podman storage to use /mnt
+        cat <<EOF | ${{inputs.SUDO}} tee /etc/containers/storage.conf
+        [storage]
+        driver = "overlay"
+        graphroot = "/mnt/containers/storage"
+        EOF
 
         # Write the config using 'tee' to handle sudo permissions
         cat <<EOF | ${{inputs.SUDO}} tee /etc/containers/registries.conf
@@ -154,6 +175,9 @@ runs:
         [[registry.mirror]]
         location = "public.ecr.aws"
         EOF
+
+        echo "=== Available disk space after Podman setup ==="
+        df -h / /mnt /mnt/containers/storage || true
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
       # qemu-user-static needed for cross-compilation (--platform) targets

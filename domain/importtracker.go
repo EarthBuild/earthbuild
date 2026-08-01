@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"maps"
@@ -94,9 +95,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		return errors.New("IMPORT requires AS if the import path ends with \".\" or \"..\"")
 	}
 
-	if as == "" {
-		as = defaultAs
-	}
+	as = cmp.Or(as, defaultAs)
 
 	if strings.ContainsAny(as, "/:") {
 		return fmt.Errorf("invalid IMPORT AS %s", as)

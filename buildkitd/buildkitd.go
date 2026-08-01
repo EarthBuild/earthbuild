@@ -20,13 +20,13 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
-	"github.com/EarthBuild/earthbuild/util/semverutil"
 	"github.com/containerd/platforms"
 	"github.com/docker/go-units"
 	"github.com/dustin/go-humanize"
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -1173,21 +1173,19 @@ func printBuildkitInfo(
 			} else {
 				compatible := true
 
-				bkVersion, err := semverutil.Parse(info.BuildkitVersion.Version)
-				if err != nil {
-					bkCons.VerbosePrintf("Warning: could not parse buildkit version: %v", err)
+				if !semver.IsValid(info.BuildkitVersion.Version) {
+					bkCons.VerbosePrintf("Warning: could not parse buildkit version: %s", info.BuildkitVersion.Version)
 
 					compatible = false
 				}
 
-				earthVersion, err := semverutil.Parse(earthVersion)
-				if err != nil {
-					bkCons.VerbosePrintf("Warning: could not parse earth version: %v", err)
+				if !semver.IsValid(earthVersion) {
+					bkCons.VerbosePrintf("Warning: could not parse earth version: %s", earthVersion)
 
 					compatible = false
 				}
 
-				compatible = compatible && semverutil.IsCompatible(bkVersion, earthVersion)
+				compatible = compatible && semver.MajorMinor(info.BuildkitVersion.Version) == semver.MajorMinor(earthVersion)
 				if compatible {
 					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with earth version (%s)",
 						info.BuildkitVersion.Version, earthVersion)

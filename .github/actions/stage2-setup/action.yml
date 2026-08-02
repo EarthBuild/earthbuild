@@ -89,21 +89,52 @@ runs:
     - name: Set up Docker Hub Mirrors, data-root, and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
-        sudo systemctl stop docker.socket docker.service || true
-        sudo mkdir -p /mnt/docker
-        if [ -d /var/lib/docker ] && [ "$(sudo ls -A /var/lib/docker 2>/dev/null)" ]; then
-          sudo cp -a /var/lib/docker/. /mnt/docker/
+        ROOT_AVAIL_MB=$(df -m / | awk 'NR==2 {print $4}')
+        DATA_ROOT_PARAM=""
+
+        if [ "$ROOT_AVAIL_MB" -lt 14000 ]; then
+          echo "Root mount has only ${ROOT_AVAIL_MB}MB free (<14GB). Searching for mount with largest free space..."
+          TARGET_MOUNT=$(df -m -x tmpfs -x devtmpfs -x overlay -x squashfs -x proc -x sysfs 2>/dev/null | awk 'NR>1 {print $4, $6}' | sort -nr | head -n1 | awk '{print $2}')
+          TARGET_AVAIL_MB=$(df -m "$TARGET_MOUNT" 2>/dev/null | awk 'NR==2 {print $4}')
+
+          if [ -n "$TARGET_MOUNT" ] && [ "$TARGET_MOUNT" != "/" ] && [ "$TARGET_AVAIL_MB" -gt "$ROOT_AVAIL_MB" ]; then
+            DOCKER_DIR="${TARGET_MOUNT}/docker"
+            echo "Relocating Docker storage to $DOCKER_DIR (${TARGET_AVAIL_MB}MB available)..."
+            sudo systemctl stop docker.socket docker.service || true
+            sudo mkdir -p "$DOCKER_DIR"
+            if [ -d /var/lib/docker ] && [ "$(sudo ls -A /var/lib/docker 2>/dev/null)" ]; then
+              sudo cp -a /var/lib/docker/. "$DOCKER_DIR"/
+            fi
+            DATA_ROOT_PARAM="\"data-root\": \"$DOCKER_DIR\","
+          else
+            echo "No larger mount found than root (largest: ${TARGET_MOUNT:-/} with ${TARGET_AVAIL_MB:-$ROOT_AVAIL_MB}MB). Keeping default Docker storage."
+          fi
+        else
+          echo "Root mount has sufficient free space (${ROOT_AVAIL_MB}MB >= 14GB). Keeping default Docker storage."
         fi
+
         sudo mkdir -p /etc/docker
-        cat <<EOF | sudo tee /etc/docker/daemon.json
+        if [ -n "$DATA_ROOT_PARAM" ]; then
+          cat <<EOF | sudo tee /etc/docker/daemon.json
         {
-          "data-root": "/mnt/docker",
+          ${DATA_ROOT_PARAM}
           "registry-mirrors": [
             "https://mirror.gcr.io",
             "https://public.ecr.aws"
           ]
         }
         EOF
+        else
+          cat <<EOF | sudo tee /etc/docker/daemon.json
+        {
+          "registry-mirrors": [
+            "https://mirror.gcr.io",
+            "https://public.ecr.aws"
+          ]
+        }
+        EOF
+        fi
+
         for svc in docker containerd; do
           sudo mkdir -p /etc/systemd/system/${svc}.service.d
           printf '[Service]\nLimitNOFILE=1048576\n' | sudo tee /etc/systemd/system/${svc}.service.d/override.conf

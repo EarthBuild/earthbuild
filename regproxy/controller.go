@@ -25,8 +25,8 @@ const (
 type Controller struct {
 	registryClient    registry.RegistryClient
 	containerFrontend containerutil.ContainerFrontend
+	log               *conslog.ConsoleLogger
 	darwinProxyImage  string
-	cons              conslog.ConsoleLogger
 	darwinProxyWait   time.Duration
 	darwinProxy       bool
 }
@@ -38,7 +38,7 @@ func NewController(
 	darwinProxy bool,
 	darwinProxyImage string,
 	darwinProxyWait time.Duration,
-	cons conslog.ConsoleLogger,
+	log *conslog.ConsoleLogger,
 ) *Controller {
 	return &Controller{
 		registryClient:    registryClient,
@@ -46,7 +46,7 @@ func NewController(
 		darwinProxy:       darwinProxy,
 		darwinProxyImage:  darwinProxyImage,
 		darwinProxyWait:   darwinProxyWait,
-		cons:              cons,
+		log:               log,
 	}
 }
 
@@ -70,14 +70,14 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 
 	addr = fmt.Sprintf("127.0.0.1:%d", registry.Port)
 
-	c.cons.VerbosePrintf("Starting registry proxy on %s", addr)
+	c.log.VerbosePrintf("Starting registry proxy on %s", addr)
 
 	doneCh := make(chan struct{})
 
 	go func() {
 		for err := range p.err() {
 			if err != nil && !errors.Is(err, context.Canceled) {
-				c.cons.VerbosePrintf("Failed to serve registry proxy: %v", err)
+				c.log.VerbosePrintf("Failed to serve registry proxy: %v", err)
 			}
 		}
 
@@ -100,7 +100,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 		stopFn := func(_ context.Context) {
 			err := c.stopDarwinProxy(containerName, true) //nolint:contextcheck
 			if err != nil {
-				c.cons.VerbosePrintf("Failed to stop registry proxy support container: %v", err)
+				c.log.VerbosePrintf("Failed to stop registry proxy support container: %v", err)
 			}
 		}
 
@@ -111,7 +111,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 		}
 
 		addr = fmt.Sprintf("127.0.0.1:%d", port)
-		c.cons.VerbosePrintf("Starting Darwin proxy on %s", addr)
+		c.log.VerbosePrintf("Starting Darwin proxy on %s", addr)
 
 		closers = append(closers, stopFn)
 	}
@@ -132,7 +132,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	go func() {
 		err := c.stopOldDarwinProxies(ctx)
 		if err != nil {
-			c.cons.VerbosePrintf("Failed to stop old Darwin proxy support container: %s", err)
+			c.log.VerbosePrintf("Failed to stop old Darwin proxy support container: %s", err)
 		}
 	}()
 

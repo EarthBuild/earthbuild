@@ -58,18 +58,18 @@ const gitUser = "git"
 
 // GitLookup looksup gits.
 type GitLookup struct {
+	catchAll      *gitMatcher
+	log           *conslogging.ConsoleLogger
+	autoProtocols map[string]gitProtocol
 	sshAuthSock   string
 	matchers      []*gitMatcher
 	keyScans      []string
-	catchAll      *gitMatcher
-	autoProtocols map[string]gitProtocol // host -> detected protocol type
-	console       conslogging.ConsoleLogger
 	mu            sync.Mutex
 }
 
 var defaultKeyScans = []string{
 	// github.com
-	"|1|+wkzm0y4RAEaLjnuB3lvMyNmqto=|A97DLdg1fwTjawL47CHJqEeE2lw= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=", //nolint:lll
+	"|1|+wkzm0y4RAEaLjnuB3lvMyNmqto=|A97DLdg1fwTjawL47CHJqEeE2lw= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=", //nolint:lll
 	"|1|tNJE6wQBmC1c4lJm0wtToe8IHxY=|I7K0Cre2i8VXpAKTS2P6Y7bIdqg= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=", //nolint:lll
 	"|1|z0g6bpSrCXjh1vZdfzQP634n7SQ=|Xf+7/COPFwsdLXxWptK2/jRP2k0= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",                                                                                 //nolint:lll
 
@@ -83,7 +83,7 @@ var defaultKeyScans = []string{
 }
 
 // NewGitLookup creates new lookuper.
-func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLookup {
+func NewGitLookup(log *conslogging.ConsoleLogger, sshAuthSock string) *GitLookup {
 	gl := &GitLookup{
 		catchAll: &gitMatcher{
 			name:     "",
@@ -94,7 +94,7 @@ func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLoo
 		},
 		autoProtocols: map[string]gitProtocol{},
 		sshAuthSock:   sshAuthSock,
-		console:       console,
+		log:           log,
 	}
 
 	return gl
@@ -325,10 +325,10 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 
 	knownHostsKeyScans, err := loadKnownHosts()
 	if err != nil {
-		gl.console.Warnf("failed to load ~/.ssh/known_hosts: %s", err)
+		gl.log.Warnf("failed to load ~/.ssh/known_hosts: %s", err)
 	}
 
-	gl.console.VerbosePrintf("loaded %d key(s) from known_hosts and %d default key(s)",
+	gl.log.VerbosePrintf("loaded %d key(s) from known_hosts and %d default key(s)",
 		len(knownHostsKeyScans), len(defaultKeyScans))
 
 	foundKeys := make(map[string]bool)
@@ -341,10 +341,10 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 			keyAlg, keyData, err := parseKeyScanIfHostMatches(keyScan, hostname)
 			switch {
 			case errors.Is(err, errKeyScanNoMatch):
-				gl.console.VerbosePrintf("ignoring key scan %q: due to host mismatch", keyScan)
+				gl.log.VerbosePrintf("ignoring key scan %q: due to host mismatch", keyScan)
 				continue
 			case err != nil:
-				gl.console.Warnf("failed to parse key scan %q: %s", keyScan, err)
+				gl.log.Warnf("failed to parse key scan %q: %s", keyScan, err)
 				continue
 			}
 
@@ -352,7 +352,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 
 			key := fmt.Sprintf("%s %s %s", knownhosts.Normalize(hostname), keyAlg, keyData)
 			if !foundKeys[key] {
-				gl.console.VerbosePrintf("found (normalized) key %s", key)
+				gl.log.VerbosePrintf("found (normalized) key %s", key)
 				foundKeys[key] = true
 			}
 		}
@@ -378,7 +378,7 @@ func (gl *GitLookup) newHostKeyCallback(keys []string) ssh.HostKeyCallback {
 		for _, keyScan := range keys {
 			k, _, _, _, err := ssh.ParseAuthorizedKey([]byte(keyScan))
 			if err != nil {
-				gl.console.Warnf("failed to parse authorized key %q", keyScan)
+				gl.log.Warnf("failed to parse authorized key %q", keyScan)
 				continue
 			}
 
@@ -395,20 +395,20 @@ func (gl *GitLookup) getGitMatcherByPath(path string) (string, *gitMatcher, erro
 	for _, m := range gl.matchers {
 		match := m.re.FindString(path)
 		if match != "" {
-			gl.console.VerbosePrintf("matched earth reference %s with git config entry %s (regex %s)", path, m.name, m.re)
+			gl.log.VerbosePrintf("matched earth reference %s with git config entry %s (regex %s)", path, m.name, m.re)
 			return match, m, nil
 		}
 	}
 
 	match := gl.catchAll.re.FindString(path)
 	if match != "" {
-		gl.console.VerbosePrintf("matched earth reference %s with pre-configured catch-all (regex %s)",
+		gl.log.VerbosePrintf("matched earth reference %s with pre-configured catch-all (regex %s)",
 			path, gl.catchAll.re)
 
 		return match, gl.catchAll, nil
 	}
 
-	gl.console.VerbosePrintf("failed to match earthly reference %s with any git matchers", path)
+	gl.log.VerbosePrintf("failed to match earthly reference %s with any git matchers", path)
 
 	return "", nil, ErrNoMatch
 }
@@ -416,12 +416,12 @@ func (gl *GitLookup) getGitMatcherByPath(path string) (string, *gitMatcher, erro
 func (gl *GitLookup) getGitMatcherByName(name string) *gitMatcher {
 	for _, m := range gl.matchers {
 		if m.name == name {
-			gl.console.VerbosePrintf("found git config specific for %s", name)
+			gl.log.VerbosePrintf("found git config specific for %s", name)
 			return m
 		}
 	}
 
-	gl.console.VerbosePrintf("no host-specific git config found for %s, using global git settings", name)
+	gl.log.VerbosePrintf("no host-specific git config found for %s, using global git settings", name)
 
 	return gl.catchAll
 }
@@ -445,7 +445,7 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	sshAgent, err := d.DialContext(ctx, "unix", gl.sshAuthSock)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https",
+		gl.log.VerbosePrintf("failed to connect to ssh-agent (using %s) due to %s; falling back to https",
 			gl.sshAuthSock, err.Error())
 
 		return httpsProtocol, nil
@@ -453,14 +453,14 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	algs, keys, err := gl.getHostKeyAlgorithms(host)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to get accepted host key algorithms for %s: %s; falling back to https",
+		gl.log.VerbosePrintf("failed to get accepted host key algorithms for %s: %s; falling back to https",
 			host, err.Error())
 
 		return httpsProtocol, nil
 	}
 
 	if len(keys) == 0 {
-		gl.console.VerbosePrintf("no known_hosts entries found for %s; falling back to https", host)
+		gl.log.VerbosePrintf("no known_hosts entries found for %s; falling back to https", host)
 		return httpsProtocol, nil
 	}
 
@@ -476,12 +476,12 @@ func (gl *GitLookup) detectProtocol(ctx context.Context, host string) (protocol 
 
 	client, err := ssh.Dial("tcp", net.JoinHostPort(host, "22"), config)
 	if err != nil {
-		gl.console.VerbosePrintf("failed to connect to '%s' over ssh due to '%s'; falling back to https", host, err.Error())
+		gl.log.VerbosePrintf("failed to connect to '%s' over ssh due to '%s'; falling back to https", host, err.Error())
 		return httpsProtocol, nil
 	}
 	defer client.Close()
 
-	gl.console.VerbosePrintf("defaulting to ssh protocol for %s", host)
+	gl.log.VerbosePrintf("defaulting to ssh protocol for %s", host)
 
 	return sshProtocol, nil
 }
@@ -580,9 +580,9 @@ func (gl *GitLookup) makeCloneURL(
 			if !ok {
 				user = gitUser
 
-				gl.console.VerbosePrintf("ssh auth configured without a user; failed to get current user, defaulting to git")
+				gl.log.VerbosePrintf("ssh auth configured without a user; failed to get current user, defaulting to git")
 			} else {
-				gl.console.VerbosePrintf("ssh auth configured without a user; defaulting to current user")
+				gl.log.VerbosePrintf("ssh auth configured without a user; defaulting to current user")
 			}
 		}
 
@@ -618,7 +618,7 @@ func (gl *GitLookup) makeCloneURL(
 		}
 	case httpProtocol:
 		if user != "" || password != "" {
-			gl.console.Warnf("%s has been configured to use basic access authentication with http; "+
+			gl.log.Warnf("%s has been configured to use basic access authentication with http; "+
 				"this is insecure and will be ignored; use https or ssh authentication instead", host)
 		}
 
@@ -724,7 +724,7 @@ func (gl *GitLookup) GetCloneURL(
 			return "", "", nil, "", err
 		}
 
-		gl.console.VerbosePrintf("converted earth reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
+		gl.log.VerbosePrintf("converted earth reference %s to git url %s", path, stringutil.ScrubCredentials(gitURL))
 
 		return gitURL, subPath, keyScans, sshCommand, nil
 	}
@@ -734,7 +734,7 @@ func (gl *GitLookup) GetCloneURL(
 	}
 
 	gitURL = m.re.ReplaceAllString(path, m.sub)
-	gl.console.VerbosePrintf("converted earth reference %s to git url %s (using regex substitution %s)",
+	gl.log.VerbosePrintf("converted earth reference %s to git url %s (using regex substitution %s)",
 		path, stringutil.ScrubCredentials(gitURL), stringutil.ScrubCredentials(m.sub))
 
 	remote, protocol := parseGitProtocol(gitURL)

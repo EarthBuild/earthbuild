@@ -50,15 +50,13 @@ type stackFrame struct {
 
 // Collection is a collection of variable scopes used within a single target.
 type Collection struct {
-	// These scopes are always present, regardless of the stack position.
-	builtin *Scope // inactive
-	envs    *Scope // active
-	// A scope containing all scopes above, combined.
+	builtin          *Scope
+	envs             *Scope
 	effectiveCache   *Scope
-	stack            []*stackFrame
+	log              *conslogging.ConsoleLogger
 	project          string
 	org              string
-	console          conslogging.ConsoleLogger
+	stack            []*stackFrame
 	errorOnRedeclare bool
 	shelloutAnywhere bool
 }
@@ -72,10 +70,10 @@ type NewCollectionOpt struct {
 	AssignedVars     *Scope
 	Features         *features.Features
 	GlobalImports    map[string]domain.ImportTrackerVal
+	Log              *conslogging.ConsoleLogger
 	NativePlatform   specs.Platform
 	Target           domain.Target
 	BuiltinArgs      DefaultArgs
-	Console          conslogging.ConsoleLogger
 	Push             bool
 	CI               bool
 }
@@ -84,7 +82,7 @@ type NewCollectionOpt struct {
 func NewCollection(opts NewCollectionOpt) *Collection {
 	target := opts.Target
 
-	console := opts.Console
+	log := opts.Log
 	if opts.OverridingVars == nil {
 		opts.OverridingVars = NewScope()
 	}
@@ -99,13 +97,13 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 		stack: []*stackFrame{{
 			frameName:  target.StringCanonical(),
 			absRef:     target,
-			imports:    domain.NewImportTracker(console, opts.GlobalImports),
+			imports:    domain.NewImportTracker(log, opts.GlobalImports),
 			overriding: opts.OverridingVars,
 			args:       NewScope(),
 			globals:    NewScope(),
 			vars:       NewScope(),
 		}},
-		console: console,
+		log: log,
 	}
 }
 
@@ -460,7 +458,7 @@ func (c *Collection) EnterFrame(
 	c.stack = append(c.stack, &stackFrame{
 		frameName:  frameName,
 		absRef:     absRef,
-		imports:    domain.NewImportTracker(c.console, globalImports),
+		imports:    domain.NewImportTracker(c.log, globalImports),
 		overriding: overriding,
 		globals:    globals,
 		vars:       NewScope(),

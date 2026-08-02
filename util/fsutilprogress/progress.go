@@ -20,8 +20,8 @@ type ProgressCallback interface {
 type progressCallback struct {
 	lastUpdate        time.Time
 	filesize          map[string]int
+	log               *conslogging.ConsoleLogger
 	pathPrefix        string
-	console           conslogging.ConsoleLogger
 	numStats          int
 	numSent           int
 	numReceived       int
@@ -33,9 +33,9 @@ type progressCallback struct {
 }
 
 // New returns a new verbose progress callback for use with fsutil.
-func New(pathPrefix string, console conslogging.ConsoleLogger) ProgressCallback {
+func New(pathPrefix string, log *conslogging.ConsoleLogger) ProgressCallback {
 	return &progressCallback{
-		console:    console,
+		log:        log,
 		pathPrefix: pathPrefix,
 		filesize:   map[string]int{},
 	}
@@ -47,7 +47,7 @@ func (s *progressCallback) Info(numBytes int, last bool) {
 
 	if last {
 		format := "transferred %d file(s) for context %s (%s, %d file/dir stats)"
-		s.console.Printf(format, s.numSent, s.pathPrefix, humanizeBytes(numBytes), s.numStats)
+		s.log.Printf(format, s.numSent, s.pathPrefix, humanizeBytes(numBytes), s.numStats)
 	}
 }
 
@@ -63,9 +63,9 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 	switch status {
 	case fsutil.StatusStat:
 		s.numStats++
-		s.console.DebugPrintf("sent file stat for %s\n", fullPath)
+		s.log.DebugPrintf("sent file stat for %s\n", fullPath)
 	case fsutil.StatusSent:
-		s.console.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanizeBytes(numBytes))
+		s.log.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanizeBytes(numBytes))
 		s.numSent++
 		s.bytesSent += numBytes
 	case fsutil.StatusReceiving:
@@ -76,14 +76,14 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 			numBytes = s.filesize[fullPath]
 		}
 
-		s.console.VerbosePrintf("received data for %s (%s)\n", fullPath, humanizeBytes(numBytes))
+		s.log.VerbosePrintf("received data for %s (%s)\n", fullPath, humanizeBytes(numBytes))
 		s.numReceived++
 	case fsutil.StatusFailed:
-		s.console.VerbosePrintf("sent data for %s failed\n", fullPath)
+		s.log.VerbosePrintf("sent data for %s failed\n", fullPath)
 	case fsutil.StatusSkipped:
-		s.console.VerbosePrintf("ignoring %s\n", fullPath)
+		s.log.VerbosePrintf("ignoring %s\n", fullPath)
 	default:
-		s.console.Warnf("unhandled progress status %v (path=%s, numBytes=%d)\n", status, fullPath, numBytes)
+		s.log.Warnf("unhandled progress status %v (path=%s, numBytes=%d)\n", status, fullPath, numBytes)
 	}
 
 	// display a summary every 15 seconds
@@ -102,9 +102,9 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 		}
 
-		s.console.Printf("sent %s (%s)%s\n", humanizeBytes(s.bytesSent), puralize(s.numSent, "file"), transferRate)
+		s.log.Printf("sent %s (%s)%s\n", humanizeBytes(s.bytesSent), puralize(s.numSent, "file"), transferRate)
 	} else {
-		s.console.Printf("sent %s\n", puralize(s.numStats, "file stat"))
+		s.log.Printf("sent %s\n", puralize(s.numStats, "file stat"))
 	}
 
 	if s.numReceived > 0 {
@@ -115,7 +115,7 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 			transferRate = fmt.Sprintf("; transfer rate: %s/s", bytes)
 		}
 
-		s.console.Printf(
+		s.log.Printf(
 			"received %s (%s)%s\n", humanizeBytes(s.bytesReceived), puralize(s.numReceived, "file"), transferRate,
 		)
 	}

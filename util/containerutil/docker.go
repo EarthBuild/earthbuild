@@ -29,7 +29,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 			binaryName:              FrontendDocker,
 			runCompatibilityArgs:    make([]string, 0),
 			globalCompatibilityArgs: make([]string, 0),
-			Console:                 cfg.Console,
+			Log:                     cfg.Log,
 		},
 	}
 

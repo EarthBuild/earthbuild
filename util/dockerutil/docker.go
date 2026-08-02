@@ -22,7 +22,7 @@ type Manifest struct {
 // LoadDockerManifest loads docker manifests.
 func LoadDockerManifest(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	fe containerutil.ContainerFrontend,
 	parentImageName string,
 	children []Manifest,
@@ -46,7 +46,7 @@ func LoadDockerManifest(
 
 	if !foundPlatform {
 		// fall back to using first defined platform (and display a warning)
-		console.Warnf(
+		log.Warnf(
 			"Failed to find default platform (%s) of multi-platform image %s; defaulting to the first platform type: %s\n",
 			platr.Materialize(platutil.DefaultPlatform).String(), parentImageName, children[defaultChild].Platform,
 		)
@@ -65,7 +65,7 @@ func LoadDockerManifest(
 	const noteDetail = "Note that when pushing a multi-platform image, " +
 		"it is pushed as a single multi-manifest image. " +
 		"Separate per-platform image tags are only available locally."
-	console.Printf(
+	log.Printf(
 		"Image %s is a multi-platform image. The following per-platform images have been produced:\n\t%s\n%s\n",
 		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail,
 	)

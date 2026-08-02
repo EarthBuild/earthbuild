@@ -164,7 +164,7 @@ func interactiveMode(
 	ctx context.Context,
 	remoteConsoleAddr string,
 	cmdBuilder func() (*exec.Cmd, error),
-	conslogger conslogging.ConsoleLogger,
+	conslogger *conslogging.ConsoleLogger,
 ) error {
 	log := slog.GetLogger(ctx)
 
@@ -418,7 +418,7 @@ func handleError(
 	err error,
 	debuggerSettings *common.DebuggerSettings,
 	args []string,
-	conslogger conslogging.ConsoleLogger,
+	conslogger *conslogging.ConsoleLogger,
 ) {
 	quotedCmd := shellescape.QuoteCommand(args)
 

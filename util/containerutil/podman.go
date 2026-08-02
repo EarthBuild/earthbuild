@@ -26,7 +26,7 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 			binaryName:              "podman",
 			runCompatibilityArgs:    []string{"--security-opt", "unmask=/sys/fs/cgroup"},
 			globalCompatibilityArgs: make([]string, 0),
-			Console:                 cfg.Console,
+			Log:                     cfg.Log,
 		},
 	}
 
@@ -38,9 +38,9 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 	if output.stderr.Len() > 0 {
 		// Only check stdout; since some podman versions less than 3.4 will report warnings about no systemd session,
 		// and falling back to cgroupfs. These errors land on stderr. https://github.com/containers/podman/pull/12834
-		cfg.Console.VerbosePrintf("Podman logged additional information to stderr:")
-		cfg.Console.VerbosePrint(output.stderr.String())
-		cfg.Console.VerbosePrintf("Adding log level compatibility flag for all additional operations.")
+		cfg.Log.VerbosePrintf("Podman logged additional information to stderr:")
+		cfg.Log.VerbosePrint(output.stderr.String())
+		cfg.Log.VerbosePrintf("Adding log level compatibility flag for all additional operations.")
 
 		fe.globalCompatibilityArgs = append(fe.globalCompatibilityArgs, "--log-level", "error")
 	}

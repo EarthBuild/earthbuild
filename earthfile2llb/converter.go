@@ -132,7 +132,7 @@ func NewConverter(
 		Visited: opt.Visited,
 	}
 	newCollOpt := variables.NewCollectionOpt{
-		Console:          opt.Console,
+		Log:              opt.Log,
 		Target:           target,
 		Push:             opt.DoPushes,
 		CI:               opt.IsCI,
@@ -1208,7 +1208,7 @@ func (c *Converter) SaveArtifact(
 				return fmt.Errorf("unable to save to %s; path must be located under %s", saveAsLocalTo, c.target.LocalPath)
 			}
 
-			c.opt.Console.Warnf(
+			c.opt.Log.Warnf(
 				"saving to path (%s) outside of current directory (%s) will require a --force flag in a future version",
 				saveAsLocalTo, c.target.LocalPath,
 			)
@@ -2332,7 +2332,7 @@ func (c *Converter) absolutizeTarget(
 func (c *Converter) checkAutoSkip(
 	ctx context.Context, fullTargetName string, allowPrivileged, passArgs bool, buildArgs []string,
 ) (bool, func(), error) {
-	console := c.opt.Console.WithPrefix("auto-skip")
+	console := c.opt.Log.WithPrefix("auto-skip")
 
 	nopFn := func() {}
 
@@ -2362,7 +2362,7 @@ func (c *Converter) checkAutoSkip(
 
 	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
-		Console:        c.opt.Console,
+		Log:            c.opt.Log,
 		CI:             c.opt.IsCI,
 		BuiltinArgs:    c.opt.BuiltinArgs,
 		OverridingVars: overriding,
@@ -2713,7 +2713,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 					return pllb.State{}, fmt.Errorf("interactive debugger requires a newer version of buildkit: %w", err)
 				}
 			} else {
-				c.opt.Console.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
+				c.opt.Log.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
 			}
 		} else {
 			runOpts = append(
@@ -3014,7 +3014,7 @@ func (c *Converter) parseSecretFlag(secretKeyValue string) (secretID string, env
 		if after, ok := strings.CutPrefix(secretID, "+secrets/"); ok {
 			secretID = after
 
-			c.opt.Console.Printf(
+			c.opt.Log.Printf(
 				"Deprecation: the '+secrets/' prefix is not required and support for it will be removed in an upcoming release",
 			)
 		}

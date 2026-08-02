@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func newConsLogger() conslogging.ConsoleLogger {
+func newConsLogger() *conslogging.ConsoleLogger {
 	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 

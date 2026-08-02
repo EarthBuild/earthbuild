@@ -12,7 +12,9 @@ import (
 )
 
 // ParseProjectCommand parses a project command from arguments.
-func ParseProjectCommand(ctx context.Context, target domain.Target, log *conslogging.ConsoleLogger) (string, string, error) {
+func ParseProjectCommand(
+	ctx context.Context, target domain.Target, log *conslogging.ConsoleLogger,
+) (string, string, error) {
 	if target.IsRemote() {
 		return "", "", errCannotLoadRemoteTarget
 	}

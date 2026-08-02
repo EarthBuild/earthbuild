@@ -164,9 +164,9 @@ func interactiveMode(
 	ctx context.Context,
 	remoteConsoleAddr string,
 	cmdBuilder func() (*exec.Cmd, error),
-	conslogger *conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 ) error {
-	log := slog.GetLogger(ctx)
+	slogger := slog.GetLogger(ctx)
 
 	var d net.Dialer
 
@@ -178,7 +178,7 @@ func interactiveMode(
 	defer func() {
 		closeErr := conn.Close()
 		if closeErr != nil {
-			log.Error(fmt.Errorf("earth debugger: error closing: %w", closeErr))
+			slogger.Error(fmt.Errorf("earth debugger: error closing: %w", closeErr))
 		}
 	}()
 
@@ -208,12 +208,12 @@ func interactiveMode(
 			return
 		}
 
-		conslogger.Warnf("failed to start pty: %v\n", err)
+		log.Warnf("failed to start pty: %v\n", err)
 	}
 
 	ptmx, err := pty.Start(c)
 	if err != nil {
-		conslogger.Warnf("failed to start pty: %v\n", err)
+		log.Warnf("failed to start pty: %v\n", err)
 		return err
 	}
 
@@ -250,7 +250,7 @@ func interactiveMode(
 					return
 				}
 			default:
-				conslogger.Warnf("unhandled data type (%v)\n", connDataType)
+				log.Warnf("unhandled data type (%v)\n", connDataType)
 			}
 		}
 	}()
@@ -335,21 +335,21 @@ func main() {
 		forceInteractive = true
 	}
 
-	conslogger := conslogging.Current(conslogging.NoPadding, conslogging.Info, false).
+	log := conslogging.Current(conslogging.NoPadding, conslogging.Info, false).
 		WithPrefix("earth debugger")
 
 	color.NoColor = false
 
 	debuggerSettings, err := getSettings("/run/secrets/" + common.DebuggerSettingsSecretsKey)
 	if err != nil {
-		conslogger.Warnf("failed to read settings: %v\n", debuggerSettings)
+		log.Warnf("failed to read settings: %v\n", debuggerSettings)
 		os.Exit(1)
 	}
 
 	if debuggerSettings.DebugLevelLogging {
 		logrus.SetLevel(logrus.DebugLevel)
 
-		conslogger = conslogger.WithLogLevel(conslogging.Verbose)
+		log = log.WithLogLevel(conslogging.Verbose)
 	}
 
 	ctx := context.Background()
@@ -357,7 +357,7 @@ func main() {
 	if forceInteractive {
 		quotedCmd := shellescape.QuoteCommand(args)
 
-		conslogger.PrintBar(color.New(color.FgHiMagenta), "🌍 Earth Build Interactive Session", quotedCmd)
+		log.PrintBar(color.New(color.FgHiMagenta), "🌍 Earth Build Interactive Session", quotedCmd)
 
 		// Sometimes the interactive shell doesn't correctly get a newline
 		// Take a brief pause and issue a new line as a workaround.
@@ -365,7 +365,7 @@ func main() {
 
 		err = os.Setenv("TERM", debuggerSettings.Term)
 		if err != nil {
-			conslogger.Warnf("Failed to set term: %v\n", err)
+			log.Warnf("Failed to set term: %v\n", err)
 		}
 
 		cmdBuilder := func() (*exec.Cmd, error) {
@@ -374,9 +374,9 @@ func main() {
 
 		exitCode := 0
 
-		err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)
+		err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, log)
 		if err != nil {
-			conslogger.Warnf("%v\n", err)
+			log.Warnf("%v\n", err)
 
 			exitCode = 127
 
@@ -385,12 +385,12 @@ func main() {
 			}
 		}
 
-		conslogger.PrintBar(color.New(color.FgHiMagenta), " End Interactive Session ", "")
+		log.PrintBar(color.New(color.FgHiMagenta), " End Interactive Session ", "")
 
 		os.Exit(exitCode)
 	}
 
-	conslogger.VerbosePrintf("running command: (%s); version: %s\n", args, Version)
+	log.VerbosePrintf("running command: (%s); version: %s\n", args, Version)
 
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...) // #nosec G204,G702
 	cmd.Stdout = os.Stdout
@@ -398,7 +398,7 @@ func main() {
 
 	err = cmd.Run()
 	if err != nil {
-		handleError(ctx, err, debuggerSettings, args, conslogger)
+		handleError(ctx, err, debuggerSettings, args, log)
 	}
 }
 
@@ -418,7 +418,7 @@ func handleError(
 	err error,
 	debuggerSettings *common.DebuggerSettings,
 	args []string,
-	conslogger *conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 ) {
 	quotedCmd := shellescape.QuoteCommand(args)
 
@@ -427,12 +427,12 @@ func handleError(
 	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		exitCode = exitErr.ExitCode()
 		if debuggerSettings.Enabled {
-			conslogger.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)
+			log.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)
 		} else if diagnostic := exitCodeDiagnostic(exitCode); diagnostic != "" {
-			conslogger.Warnf("Wrapped command failed with exit code %d. %s\n", exitCode, diagnostic)
+			log.Warnf("Wrapped command failed with exit code %d. %s\n", exitCode, diagnostic)
 		}
 	} else {
-		conslogger.Warnf("Command %s failed with unexpected execution error %v\n", quotedCmd, err)
+		log.Warnf("Command %s failed with unexpected execution error %v\n", quotedCmd, err)
 	}
 
 	if debuggerSettings.Enabled {
@@ -444,7 +444,7 @@ func handleError(
 
 		err = os.Setenv("TERM", debuggerSettings.Term)
 		if err != nil {
-			conslogger.Warnf("Failed to set term: %v\n", err)
+			log.Warnf("Failed to set term: %v\n", err)
 		}
 
 		cmdBuilder := func() (*exec.Cmd, error) {
@@ -455,14 +455,14 @@ func handleError(
 				return nil, ErrNoShellFound
 			}
 
-			conslogger.VerbosePrintf("found shell: (%s)\n", shellPath)
+			log.VerbosePrintf("found shell: (%s)\n", shellPath)
 
 			return exec.CommandContext(ctx, shellPath), nil // #nosec G204
 		}
 
-		err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, conslogger)
+		err = interactiveMode(ctx, debuggerSettings.SocketPath, cmdBuilder, log)
 		if err != nil {
-			conslogger.Warnf("%v\n", err)
+			log.Warnf("%v\n", err)
 		}
 	}
 
@@ -471,7 +471,7 @@ func handleError(
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) || !saveFile.IfExists {
 				// treat it as a warning (we will exit due to RUN failure)
-				conslogger.Warnf("failed to save %s: %s\n", saveFile.Src, err)
+				log.Warnf("failed to save %s: %s\n", saveFile.Src, err)
 			}
 		}
 	}

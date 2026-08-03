@@ -3,9 +3,7 @@ package common
 // Only functions that do NOT touch the app CLI should go here!
 
 import (
-	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path"
@@ -135,36 +133,6 @@ func GetBinaryName() string {
 	baseName := path.Base(binPath)
 
 	return baseName
-}
-
-// PromptInput requests input from the user.
-func PromptInput(ctx context.Context, question string) (string, error) {
-	fmt.Print(question)
-
-	var (
-		line    string
-		readErr error
-	)
-
-	ch := make(chan struct{})
-
-	go func() {
-		rbuf := bufio.NewReader(os.Stdin)
-		line, readErr = rbuf.ReadString('\n')
-
-		close(ch)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case <-ch:
-		if readErr != nil {
-			return "", readErr
-		}
-
-		return strings.TrimRight(line, "\n"), nil
-	}
 }
 
 // IfNilBoolDefault returns the boolean value if ptr is set, or the default value otherwise.

@@ -1,0 +1,1006 @@
+name: Apple Container CI macOs
+
+on:
+  workflow_call:
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  build-earthly:
+    name: Build Earthly for macOS
+    runs-on: ubuntu-24.04
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure earth to use GCR mirror
+        run: |-
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Bootstrap earth using released earth
+        run: earth bootstrap
+      - name: Build latest earth using released earth
+        run: earth -P --use-inline-cache +for-darwin-m1
+      - name: Upload earthly binary artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64/earthly
+          retention-days: 1
+      - name: Buildkit logs (runs on failure)
+        run: docker logs earth-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-quick:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Rebuild earth using latest earthly build
+        run: build/darwin/arm64/earthly -P --use-inline-cache +for-darwin-m1
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-misc
+        run: build/darwin/arm64/earthly --ci -P +test-misc
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  # Add group jobs 1 to 12
+  apple-container-tests-no-qemu-group1:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group1
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group1
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group2:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group2
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group2
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group3:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group3
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group3
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group4:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group4
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group4
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group5:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group5
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group5
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group6:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group6
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group6
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group7:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group7
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group7
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group8:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group8
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group8
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group9:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group9
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group9
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group10:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group10
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group10
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group11:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group11
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group11
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-group12:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-group12
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-group12
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-no-qemu-slow:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-no-qemu-slow
+        run: build/darwin/arm64/earthly --ci -P +test-no-qemu-slow
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-tests-qemu:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute +test-qemu
+        run: build/darwin/arm64/earthly --ci -P +test-qemu
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: "! build/darwin/arm64/earthly --ci ./tests/fail+test-fail"
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-examples-1:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Link Earthly dir to Earthly dev dir
+        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+      - name: Build +examples-1 (PR build)
+        run: build/darwin/arm64/earthly --ci -P +examples-1
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name != 'push'
+      - name: Build +examples-1 (main build)
+        run: build/darwin/arm64/earthly --ci --push -P +examples-1
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'push'
+      - name: Build and test multi-platform example
+        run: |
+          build/darwin/arm64/earthly ./examples/multiplatform+all
+          container run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-examples-2:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Link Earthly dir to Earthly dev dir
+        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+      - name: Build +examples-2 (PR build)
+        run: build/darwin/arm64/earthly --ci -P +examples-2
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name != 'push'
+      - name: Build +examples-2 (main build)
+        run: build/darwin/arm64/earthly --ci --push -P +examples-2
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'push'
+      - name: Build and test multi-platform example
+        run: |
+          build/darwin/arm64/earthly ./examples/multiplatform+all
+          container run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-examples-3:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Link Earthly dir to Earthly dev dir
+        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+      - name: Build +examples-3 (PR build)
+        run: build/darwin/arm64/earthly --ci -P +examples-3
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name != 'push'
+      - name: Build +examples-3 (main build)
+        run: build/darwin/arm64/earthly --ci --push -P +examples-3
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'push'
+      - name: Build and test multi-platform example
+        run: |
+          build/darwin/arm64/earthly ./examples/multiplatform+all
+          container run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-examples-4:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Link Earthly dir to Earthly dev dir
+        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+      - name: Build +examples-4 (PR build)
+        run: build/darwin/arm64/earthly --ci -P +examples-4
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name != 'push'
+      - name: Build +examples-4 (main build)
+        run: build/darwin/arm64/earthly --ci --push -P +examples-4
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'push'
+      - name: Build and test multi-platform example
+        run: |
+          build/darwin/arm64/earthly ./examples/multiplatform+all
+          container run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}
+
+  apple-container-examples-5:
+    needs: build-earthly
+    if: ${{ !failure() }}
+    runs-on: macos-26
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      BUILT_EARTHLY_PATH: build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download built earthly binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          name: earthly-binary-mac
+          path: build/darwin/arm64
+      - name: Make earthly binary executable
+        run: chmod +x build/darwin/arm64/earthly
+      - name: Install apple/container
+        run: brew install container
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          build/darwin/arm64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          build/darwin/arm64/earthly config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: build/darwin/arm64/earthly bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Link Earthly dir to Earthly dev dir
+        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+      - name: Build +examples-5 (PR build)
+        run: build/darwin/arm64/earthly --ci -P +examples-5
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name != 'push'
+      - name: Build +examples-5 (main build)
+        run: build/darwin/arm64/earthly --ci --push -P +examples-5
+        if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'push'
+      - name: Build and test multi-platform example
+        run: |
+          build/darwin/arm64/earthly ./examples/multiplatform+all
+          container run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd
+        if: ${{ failure() }}

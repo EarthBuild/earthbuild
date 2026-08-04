@@ -29,6 +29,15 @@ func New() *Parser {
 	}
 }
 
+// Reset discards any buffered partial frame and returns the parser to its
+// initial state. Used to recover from a desynced or malformed stats stream
+// (e.g. when the daemon's runc stats collector hits EOF and emits a partial
+// or raw frame) without treating the decode failure as fatal.
+func (p *Parser) Reset() {
+	p.buf.Reset()
+	p.hasReadVersion = false
+}
+
 // Parse parses stream data containing execution statistics.
 func (p *Parser) Parse(b []byte) ([]*runc.Stats, error) {
 	errorf := func(format string, args ...any) (stats []*runc.Stats, err error) {

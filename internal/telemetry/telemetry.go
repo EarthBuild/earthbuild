@@ -9,20 +9,25 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
+	"strconv"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log/global"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -51,6 +56,10 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		}
 
 		shutdowns = nil
+
+		if shutdownErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: OpenTelemetry shutdown failed; continuing: %s\n", shutdownErr)
+		}
 
 		return shutdownErr
 	}
@@ -115,11 +124,11 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 	otelResource, err = resource.New(
 		ctx,
 		resource.WithAttributes(
-			semconv.ServiceName("EarthBuild"),
-			semconv.ProcessCommand(filepath.Base(executable)),
-			semconv.ProcessPID(os.Getpid()),
-			semconv.ProcessCommandArgs(os.Args...),
-			semconv.ProcessExecutablePath(executable),
+			otelsemconv.ServiceName("EarthBuild"),
+			otelsemconv.ProcessCommand(filepath.Base(executable)),
+			otelsemconv.ProcessPID(os.Getpid()),
+			otelsemconv.ProcessCommandArgs(os.Args...),
+			otelsemconv.ProcessExecutablePath(executable),
 		),
 	)
 	if err != nil {
@@ -184,12 +193,144 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	)
 	otel.SetMeterProvider(mp)
 
-	err = runtime.Start()
+	err = otelruntime.Start()
 	if err != nil {
 		return errorf("initialize runtime metrics: %w", err)
 	}
 
+	err = setupProcessMemoryMetrics()
+	if err != nil {
+		return errorf("initialize process memory metrics: %w", err)
+	}
+
 	return mp.Shutdown, nil
+}
+
+// Instrument names are dotted and unit-free, per OTel convention and to match the
+// go.* names otelruntime already emits - the unit lives in WithUnit, and exporters
+// derive earth_process_memory_alloc_bytes from it for Prometheus themselves.
+func setupProcessMemoryMetrics() error {
+	meter := otel.Meter("go.earthbuild.dev/earthbuild/process")
+	attrs := processMemoryMetricAttributes()
+
+	err := registerProcessMemoryGauge(
+		meter,
+		attrs,
+		"earth.process.memory.alloc",
+		"Bytes allocated and still in use by this EarthBuild process.",
+		func(stats goruntime.MemStats) uint64 { return stats.Alloc },
+	)
+	if err != nil {
+		return err
+	}
+
+	err = registerProcessMemoryGauge(
+		meter,
+		attrs,
+		"earth.process.memory.heap.alloc",
+		"Heap bytes allocated and still in use by this EarthBuild process.",
+		func(stats goruntime.MemStats) uint64 { return stats.HeapAlloc },
+	)
+	if err != nil {
+		return err
+	}
+
+	err = registerProcessMemoryGauge(
+		meter,
+		attrs,
+		"earth.process.memory.heap.sys",
+		"Heap bytes obtained from the OS by this EarthBuild process.",
+		func(stats goruntime.MemStats) uint64 { return stats.HeapSys },
+	)
+	if err != nil {
+		return err
+	}
+
+	return registerProcessMemoryGauge(
+		meter,
+		attrs,
+		"earth.process.memory.sys",
+		"Total bytes obtained from the OS by this EarthBuild process.",
+		func(stats goruntime.MemStats) uint64 { return stats.Sys },
+	)
+}
+
+func registerProcessMemoryGauge(
+	meter otelmetric.Meter,
+	attrs []attribute.KeyValue,
+	name string,
+	description string,
+	value func(goruntime.MemStats) uint64,
+) error {
+	_, err := meter.Int64ObservableGauge(
+		name,
+		otelmetric.WithUnit("By"),
+		otelmetric.WithDescription(description),
+		otelmetric.WithInt64Callback(func(_ context.Context, observer otelmetric.Int64Observer) error {
+			var stats goruntime.MemStats
+			goruntime.ReadMemStats(&stats)
+
+			observer.Observe(clampUint64ToInt64(value(stats)), otelmetric.WithAttributes(attrs...))
+
+			return nil
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("create %s gauge: %w", name, err)
+	}
+
+	return nil
+}
+
+func clampUint64ToInt64(value uint64) int64 {
+	const maxInt64 = uint64(1<<63 - 1)
+
+	if value > maxInt64 {
+		return int64(maxInt64)
+	}
+
+	return int64(value)
+}
+
+// processMemoryMetricAttributes returns only what identifies *this* process. The CI and VCS
+// attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are deliberately absent: resource.Default()
+// includes the fromEnv detector, so they are already on the resource these metrics are exported
+// with, and copying them per datapoint would only add cardinality and a second place to rot.
+func processMemoryMetricAttributes() []attribute.KeyValue {
+	attrs := []attribute.KeyValue{
+		semconv.ProcessRoleCLI,
+		earthbuildProcessNesting(),
+	}
+
+	target := earthbuildTargetFromArgs(os.Args)
+	if target != "" {
+		attrs = append(attrs, semconv.Target.String(target))
+	}
+
+	return attrs
+}
+
+func earthbuildProcessNesting() attribute.KeyValue {
+	value, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	if value {
+		return semconv.ProcessNestingInner
+	}
+
+	return semconv.ProcessNestingOuter
+}
+
+func earthbuildTargetFromArgs(args []string) string {
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+
+		if strings.Contains(arg, "+") {
+			return arg
+		}
+	}
+
+	return ""
 }
 
 func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {

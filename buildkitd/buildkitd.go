@@ -6,9 +6,11 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +18,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
@@ -477,7 +480,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 func Start(
 	ctx context.Context,
 	console conslogging.ConsoleLogger,
-	image, containerName, _ string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	reset bool,
@@ -508,6 +511,18 @@ func Start(
 		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
 	}
 
+	withDocker, err := parseBoolEnv("EARTHLY_WITH_DOCKER")
+	if err != nil {
+		// Not fatal: an unparsable value only mis-labels the build as outer,
+		// which costs the earth-in-earth cgroup mounts, not correctness of the
+		// build itself.
+		console.
+			WithPrefix("buildkitd").
+			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
+	}
+
+	addBuildkitTelemetryEnv(envOpts, containerName, installationName, withDocker)
+
 	labelOpts := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
 	}
@@ -532,8 +547,6 @@ func Start(
 	}
 
 	const localhost = "127.0.0.1"
-
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -685,6 +698,92 @@ func Start(
 	}
 
 	return nil
+}
+
+func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installationName string, withDocker bool) {
+	for _, key := range []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_HEADERS",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
+		"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+		"OTEL_EXPORTER_OTLP_PROTOCOL",
+		"OTEL_METRICS_EXPORTER",
+	} {
+		if value := os.Getenv(key); value != "" {
+			envOpts[key] = value
+		}
+	}
+
+	_, ok := envOpts["OTEL_METRICS_EXPORTER"]
+	if !ok {
+		if envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] != "" || envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] != "" {
+			envOpts["OTEL_METRICS_EXPORTER"] = "otlp"
+		}
+	}
+
+	if envOpts["OTEL_METRICS_EXPORTER"] == "" {
+		return
+	}
+
+	envOpts["OTEL_SERVICE_NAME"] = "EarthBuild-buildkitd"
+
+	// buildkitd is a separate process, so it takes its attributes as env rather than
+	// as attribute.KeyValue - hence the string forms of the shared semconv keys.
+	nesting := semconv.ProcessNestingOuter
+	if withDocker {
+		nesting = semconv.ProcessNestingInner
+	}
+
+	resourceAttrs := map[string]string{
+		string(semconv.ProcessRole):           semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting):        nesting.Value.AsString(),
+		string(semconv.BuildkitContainerName): containerName,
+		string(semconv.InstallationName):      installationName,
+	}
+	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
+		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),
+		resourceAttrs,
+	)
+}
+
+// appendOTELResourceAttributes merges attrs into an inherited
+// OTEL_RESOURCE_ATTRIBUTES string, dropping malformed entries. attrs wins on a
+// key collision: the inherited value describes the process that spawned
+// buildkitd, ours describes buildkitd itself. Emitting the key twice is not an
+// option - collectors disagree on which duplicate survives.
+func appendOTELResourceAttributes(base string, attrs map[string]string) string {
+	parts := make([]string, 0, len(attrs)+1)
+
+	for attr := range strings.SplitSeq(base, ",") {
+		attr = strings.TrimSpace(attr)
+		if attr == "" {
+			continue
+		}
+
+		key, value, ok := strings.Cut(attr, "=")
+		if !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+
+		override, ok := attrs[strings.TrimSpace(key)]
+		if ok && override != "" {
+			continue
+		}
+
+		parts = append(parts, attr)
+	}
+
+	// Sorted so the same inputs always produce the same env var.
+	for _, key := range slices.Sorted(maps.Keys(attrs)) {
+		if attrs[key] == "" {
+			continue
+		}
+
+		parts = append(parts, key+"="+attrs[key])
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // Stop stops the buildkitd container.

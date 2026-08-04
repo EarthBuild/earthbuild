@@ -71,10 +71,23 @@ jobs:
         if: inputs.BINARY != 'docker'
       - name: Install Podman (with apt-get)
         run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y podman && ${{inputs.SUDO}} rm -f /etc/containers/registries.conf
-        if: inputs.binary == 'podman'
+        if: inputs.BINARY == 'podman'
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
+      - name: Add swap for extra memory headroom
+        run: |
+          # The 12G swapfile alone nearly fills the runner's ~14G free root
+          # disk, causing "No space left on device" build failures. Reclaim
+          # ~25G of preinstalled toolchains we never use before allocating.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h / | tail -1
+          sudo fallocate -l 12G /extra-swapfile
+          sudo chmod 600 /extra-swapfile
+          sudo mkswap /extra-swapfile
+          sudo swapon /extra-swapfile
+          echo "Swap added: $(swapon --show)"
       - name: Set Docker default ulimits for Docker 29+ compatibility
         if: inputs.BINARY == 'docker'
         run: |
@@ -85,22 +98,66 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl restart containerd
           sudo systemctl restart docker
-      - name: Earthly bootstrap
-        run: ${{inputs.SUDO}} "$(which earth)" bootstrap
       - name: Configure Earthly to use GCR mirror
         run: |-
           ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      # bootstrap AFTER the mirror config above, so the daemon starts with
+      # the registry mirror already in place.
+      - name: Earthly bootstrap
+        run: ${{inputs.SUDO}} "$(which earth)" bootstrap
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
-        run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=3
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} "$(which earth)" bootstrap 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Build latest earthly using released earthly
-        run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
-      - name: Earthly bootstrap using latest earthly build
-        run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
+        # Non-deterministic earthly "Canceled" failures (different targets
+        # each run, no signal received) force a retry. Every downstream job
+        # depends on this step, so retrying here avoids cascading skips.
+        run: |-
+          set +e
+          attempt=1
+          max_attempts=3
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} "$(which earth)" bootstrap 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
+      - name: Configure and bootstrap using latest earthly build
+        run: |-
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -111,16 +168,49 @@ jobs:
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          set +e
+          attempt=1
+          max_attempts=3
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Build +ci-release using latest earthly build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-          # Build ci-release (builds binary and buildkitd but doesn't push)
-          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
-          # Explicitly output the buildkitd image to local docker daemon
-          ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          set +e
+          attempt=1
+          max_attempts=3
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::attempt $attempt of $max_attempts"
+            # Build ci-release (builds binary and buildkitd but doesn't push)
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release && \
+              ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq "$max_attempts" ]; then exit "$rc"; fi
+            echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying."
+            ${{inputs.SUDO}} ${{inputs.BINARY}} rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+            ${{inputs.SUDO}} ${{inputs.BINARY}} volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+            ${{inputs.SUDO}} rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+            sleep 3
+            ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap 2>/dev/null || true
+            attempt=$((attempt + 1))
+          done
       - name: Save artifacts for fork CI
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
@@ -154,5 +244,10 @@ jobs:
           path: ./artifacts/
           retention-days: 1
       - name: Buildkit logs (runs on failure)
-        run: ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earth-buildkitd
+        # The released earth names its daemon earthly-buildkitd; the
+        # source-built one earthly-dev-buildkitd. "earth-buildkitd" never
+        # existed, so this step has been silently logging nothing.
+        run: |-
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-buildkitd || true
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-dev-buildkitd || true
         if: ${{ failure() }}

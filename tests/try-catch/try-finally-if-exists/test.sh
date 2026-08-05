@@ -10,10 +10,10 @@ echo "using earthly=$(realpath "$earthly")"
 
 rm .testdata || true # cleanup
 
-"$earthly" $@ +test
-! test -f .testdata
+"$earthly" "$@" +test
+test -f .testdata && exit 1
 test -f .otherdata
 
-! "$earthly" $@ +test --fail=yes
-! test -f .testdata
+"$earthly" "$@" +test --fail=yes && exit 1
+test -f .testdata && exit 1
 test -f .otherdata

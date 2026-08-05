@@ -12,7 +12,7 @@ echo "running test part a"
 rm .testbean || true # cleanup
 rm .testpea || true # cleanup
 
-"$earthly" $@ +test
+"$earthly" "$@" +test
 
 test -f .testbean
 test -f .testpea
@@ -26,8 +26,7 @@ rm .testbean || true # cleanup
 rm .testpea || true # cleanup
 
 set +e
-"$earthly" $@ +test --fail=yesplease
-exit_code="$?"
+"$earthly" "$@" +test --fail=yesplease
 
 test -f .testbean
 test -f .testpea

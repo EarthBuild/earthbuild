@@ -338,7 +338,9 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 
 ### How is EarthBuild different from Bazel?
 
-[Bazel](https://bazel.build) is a build tool developed by Google to optimize the speed, correctness, and reproducibility of their internal monorepo codebase. The main difference between Bazel and EarthBuild is that Bazel is a **build system**, whereas EarthBuild is a **general-purpose CI/CD framework**. For a more in-depth explanation see [our FAQ](https://earthbuild.dev/faq#bazel).
+[Bazel](https://bazel.build) is a build tool developed by Google to optimize the speed, correctness, and reproducibility of their internal monorepo codebase. The main difference between Bazel and EarthBuild is that Bazel is a **build system**, whereas EarthBuild is a **general-purpose CI/CD framework**.
+
+Bazel requires that you describe your build in its own language, and gives you strong hermeticity and fine-grained caching in exchange. EarthBuild wraps the build tooling you already use (maven, gradle, npm, pip, go build) in containers, so adoption is incremental and you keep your existing build logic.
 
 ## Contributing
 

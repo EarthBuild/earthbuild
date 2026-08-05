@@ -6,7 +6,7 @@ There are three main ways in which Earthly performs caching of builds:
 
 1. **Layer-based caching**. If an Earthfile command is run again, and the inputs to that command are the same, then the cache layer is reused. This allows Earthly to skip re-executing parts of the build that have not changed.
 2. **Cache mounts**. Earthly allows you to mount directories into the build environment - either via [`RUN --mount type=cache`](../earthfile/earthfile.md#run), or via the [`CACHE`](../earthfile/earthfile.md#cache) command. These directories are persisted between runs, and can be used to store intermediate build files for incremental compilers, or dependencies that are downloaded from the internet.
-3. **Auto-skip**. Earthly allows you to skip large parts of a build in certain situations via `earthly --auto-skip` or `BUILD --auto-skip`. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
+3. **Auto-skip** (*experimental, deprecated*). EarthBuild allows you to skip large parts of a build in certain situations via `earth --auto-skip` or `BUILD --auto-skip`. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
 
 ## 1. Layer-based caching
 
@@ -91,9 +91,65 @@ Finally, another important limitation is the fact that cache mounts can grow in 
 
 Auto-skip is a feature that allows Earthly to skip large parts of a build in certain situations. This is especially useful in monorepo setups, where you are building multiple projects at once, and only one of them has changed.
 
-Unlike layer caching and cache mounts (which store cache local to the runner), auto-skip is a global cache stored in a cloud database. In order to use auto-skip, you will need an [Earthly Cloud](../cloud/overview.md) account.
+{% hint style='danger' %}
 
-Auto-skip can be enabled for either an entire run, via `earthly --auto-skip` (*experimental*), or for a specific target, via `BUILD --auto-skip` (*coming soon*).
+##### Experimental, and deprecated
+
+Auto-skip originally stored its skip-set in a hosted cloud database. That backend was removed with
+the rest of Earthly Cloud, so only the **local database** remains. It is experimental, and the
+flags are deprecated — using them logs a deprecation warning.
+
+We may remove auto-skip in a future release, and are collecting feedback to help decide. If you
+rely on it, let us know in
+[this discussion](https://github.com/orgs/EarthBuild/discussions/707).
+
+{% endhint %}
+
+Unlike layer caching and cache mounts, auto-skip records which target/input combinations have
+already been built and skips them wholesale on subsequent runs. The skip-set is stored in a local
+database file rather than shared through a hosted service, so it is not shared between machines or
+CI runners.
+
+Auto-skip is enabled for an entire run, and **both** flags are required — there is no default
+database location, and `--auto-skip` on its own is silently a no-op:
+
+```bash
+earth --auto-skip --auto-skip-db-path ./auto-skip.db +my-target
+```
+
+On a subsequent run with the same database and unchanged inputs, the target is skipped:
+
+```
+auto-skip | Target +my-target (hash 35eb4d0d...) has already been run. Skipping.
+```
+
+Because the database is an ordinary file, sharing skip state between machines or CI runners means
+sharing that file yourself — for example via a CI cache.
+
+| Flag                  | Environment variable                          | Description                                                     |
+| --------------------- | --------------------------------------------- | --------------------------------------------------------------- |
+| `--auto-skip`         | `EARTH_AUTO_SKIP` / `EARTHLY_AUTO_SKIP`       | Skip targets whose inputs have not changed since the last build. |
+| `--no-auto-skip`      | `EARTH_NO_AUTO_SKIP` / `EARTHLY_NO_AUTO_SKIP` | Disable auto-skip, overriding configuration.                     |
+| `--auto-skip-db-path` | `EARTH_AUTO_SKIP_DB_PATH` / `EARTHLY_AUTO_SKIP_DB_PATH` | Path to the local auto-skip database.                  |
+
+### Per-target auto-skip
+
+Auto-skip can also be applied to an individual `BUILD` command, rather than the whole run. This is
+gated behind a `VERSION` feature flag:
+
+```Dockerfile
+VERSION --build-auto-skip 0.8
+
+all:
+    BUILD --auto-skip +dep
+```
+
+`--auto-skip-db-path` is still required — it is what supplies the database — but the global
+`--auto-skip` flag is not needed in this form:
+
+```bash
+earth --auto-skip-db-path ./auto-skip.db +all
+```
 
 Unlike layer caching, auto-skip is an all-or-nothing type of cache. Either the entire target is skipped, or none of it is. This is because Earthly does not know which parts of the target are affected by the change. If auto-skip does not deem the run to be skipped, then Earthly will fallback to the other forms of caching to run the build as efficiently as possible.
 
@@ -193,7 +249,7 @@ Debugging caching issues can be tricky. Here are some common issues that you mig
 
 ### Cache size
 
-If the configured cache size is too small, then Earthly might garbage-collect cached layers more often than you might expect. This can manifest in builds randomly not using cache for certain layers. Usually it is the biggest layers that suffer from this (and oftentimes the biggest layers are the most expensive to recreate). This problem is most common on Mac and Windows, where Docker uses a VM with limited disk size. To resolve this, either configure a larger cache size if you are running local builds, or launch a larger Satellite if you are using remote builds via Earthly Satellites. For more information see the [managing cache page](./managing-cache.md).
+If the configured cache size is too small, then Earthly might garbage-collect cached layers more often than you might expect. This can manifest in builds randomly not using cache for certain layers. Usually it is the biggest layers that suffer from this (and oftentimes the biggest layers are the most expensive to recreate). This problem is most common on Mac and Windows, where Docker uses a VM with limited disk size. To resolve this, configure a larger cache size, or give your remote runner more disk if you are building via a remote BuildKit instance. For more information see the [managing cache page](./managing-cache.md).
 
 ### ARGs
 

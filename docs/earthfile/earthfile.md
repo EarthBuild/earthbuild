@@ -392,7 +392,18 @@ The `<oidc-spec>` is defined as a series of comma-separated list of key-values. 
 | `region`           | The AWS region to connect to in order to get the credentials. This will also be the region used by the executed AWS command (though the region may be overridden in the command). If the region is not specified, the global AWS endpoint will be used | `region=us-east-1`                                  |
 | `session-duration` | The time the credentials will be valid for before they expire. Default (AWS minimum): 15 minutes.                                                                                                                                                      | `session-duration=20m`                              |
 
-Click [here](../cloud/oidc.md#openid-connect-oidc-authentication) for more information on how to configure OIDC in AWS for Earthly.
+{% hint style='danger' %}
+
+##### The hosted OIDC provider is unavailable
+
+Configuring this required registering Earthly's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with Earthly Cloud and no longer
+resolves, so the flow cannot be set up as previously documented. The option is still accepted by
+the parser, but there is no working issuer behind it unless you run your own.
+
+Progress is tracked in [issue #750](https://github.com/EarthBuild/earthbuild/issues/750).
+
+{% endhint %}
 
 ##### `--raw-output` (experimental)
 
@@ -1088,7 +1099,17 @@ All features are described in [the version-specific features reference](./featur
 
 #### Description
 
-The command `PROJECT` marks the current Earthfile as being part of the project belonging to the [Earthly organization](https://docs.earthly.dev/earthly-cloud/overview) `<org-name>` and the project `<project-name>`. The project is used by Earthly to retrieve [cloud-based secrets](../cloud/cloud-secrets.md) and build logs belonging to the project.
+The command `PROJECT` marks the current Earthfile as belonging to the organization `<org-name>` and the project `<project-name>`.
+
+{% hint style='danger' %}
+
+##### Deprecated
+
+`PROJECT` identified which Earthly Cloud project to fetch cloud-based secrets and build logs from. With the cloud integration removed, it **no longer has any effect** unless you use a custom secret command, and referencing it logs a deprecation warning.
+
+We may remove it in a future release and are collecting feedback to help decide. Let us know how you use `PROJECT` in [this discussion](https://github.com/orgs/EarthBuild/discussions/708).
+
+{% endhint %}
 
 The `PROJECT` command can only be used in the `base` recipe and it applies to the entire Earthfile. The `PROJECT` command can never contain any `ARG`s that need expanding.
 

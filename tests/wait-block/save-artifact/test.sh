@@ -24,12 +24,12 @@ trap finish EXIT
 # Cleanup from previous tests
 rm -f data
 
-"$earthly" $@ +test
+"$earthly" "$@" +test
 test "$(cat data)" = "foo"
 
 # next, check for an expected failure
 set +e
-("$earthly" $@ +test-fail; echo $? > earthly.exitcode) 2>&1 | tee earthly.log
+("$earthly" "$@" +test-fail; echo $? > earthly.exitcode) 2>&1 | tee earthly.log
 set -e
 test "$(cat earthly.exitcode)" = "1"
 grep 'unable to copy file data, which has is outputted elsewhere' earthly.log

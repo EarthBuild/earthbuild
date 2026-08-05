@@ -3,7 +3,6 @@
 set -ue
 set -o pipefail
 
-initialwd="$(pwd)"
 cd "$(dirname "$0")"
 
 # display a pass/fail message at the end
@@ -13,9 +12,9 @@ function finish {
   GREEN='\033[0;32m'
   NC='\033[0m' # No Color
   if [ "$status" = "0" ]; then
-    printf "${GREEN}try-catch tests passed${NC}\n"
+    printf '%stry-catch tests passed%s\n' "$GREEN" "$NC"
   else
-    printf "${RED}try-catch tests failed with ${status}${NC}\n"
+    printf '%stry-catch tests failed with %s%s\n' "$RED" "$status" "$NC"
   fi
 }
 trap finish EXIT
@@ -23,7 +22,7 @@ trap finish EXIT
 # TODO: add back docker-try-finally-fail
 for test_path in try-catch-not-currently-implemented try-finally-fail try-finally-pass try-finally-if-exists try-finally-two-files
 do
-    printf "=== running $test_path ===\n\n"
+    printf '=== running %s ===\n\n' "$test_path"
     "${test_path}/test.sh"
-    printf "${test_path} passed\n\n"
+    printf '%s passed\n\n' "$test_path"
 done

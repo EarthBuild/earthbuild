@@ -11,6 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/moby/buildkit/util/grpcerrors"
+	"github.com/urfave/cli/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
@@ -25,17 +31,14 @@ import (
 	"github.com/EarthBuild/earthbuild/util/reflectutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
-	"github.com/fatih/color"
-	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/urfave/cli/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const flagCI = "--ci"
 
 var (
-	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
+	runExitCodeRegex = regexp.MustCompile(
+		`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`,
+	)
 	notFoundRegex     = regexp.MustCompile(`("[^"]*"): not found`)
 	maxExecTimeRegex  = regexp.MustCompile(`max execution time of .+ exceeded`)
 	requestIDRegex    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
@@ -306,7 +309,9 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		}
 
 		app.BaseCLI.Console().VerboseWarn(err.Error())
-		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
+		app.BaseCLI.Logbus().
+			Run().
+			SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
 
 		return 1
 	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):

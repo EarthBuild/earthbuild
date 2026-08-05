@@ -2,5 +2,6 @@
 set -e
 insidecode="$(base64 -w0 test-cgroup-v2-inside-container.sh)"
 test -n "$insidecode"
+# shellcheck disable=SC2154 # set by the Earthfile's ubuntu_img_tag ARG
 test -n "$ubuntu_img_tag"
 docker run --privileged -t --name foo "ubuntu:$ubuntu_img_tag" /bin/sh -c "echo $insidecode | base64 -d > test-cgroup && chmod +x test-cgroup && ./test-cgroup"

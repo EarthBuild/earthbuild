@@ -53,3 +53,11 @@ linters:
 formatters:
   enable:
     - gofumpt
+    - goimports
+    - golines
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/EarthBuild/earthbuild
+    golines:
+      max-len: 120

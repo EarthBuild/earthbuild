@@ -12,16 +12,16 @@ If you're interested in understanding why the community fork is happening, [this
 ----------------------------------
 
 <div align="center">
-  <a href="https://earthbuild.dev"><img src="img/logo-earthbuild.svg" alt="EarthBuild" width="320" /></a>
+  <a href="https://www.earthbuild.dev"><img src="img/logo-earthbuild.svg" alt="EarthBuild" width="320" /></a>
 
 *It's like Docker for builds*
 
 </div>
 
 [![GitHub Actions CI](https://github.com/earthbuild/earthbuild/workflows/staging%20release/badge.svg)](https://github.com/earthbuild/earthbuild/actions?query=workflow%3A%22staging%20release%22+branch%3Amain)
-[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthbuild.dev/slack)
+[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://www.earthbuild.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
-[![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://earthbuild.dev)
+[![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)
 [![Install EarthBuild](https://img.shields.io/github/v/release/earthbuild/earthbuild.svg?label=install&color=1f626c)](https://www.earthbuild.dev/install.html)
 [![Docker Hub](https://img.shields.io/badge/docker%20hub-earthbuild-blue)](https://hub.docker.com/u/earthbuild)
 [![License MPL-2](https://img.shields.io/badge/license-MPL-blue.svg)](./LICENSE)
@@ -42,7 +42,7 @@ If you're interested in understanding why the community fork is happening, [this
 
 ----------------------------------
 
-🌎 [EarthBuild](https://earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
+🌎 [EarthBuild](https://www.earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
 
 <div align="center"><a href="https://www.earthbuild.dev/install.html"><img width="260" src="docs/img/get-earthbuild-button.svg" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
 
@@ -97,7 +97,7 @@ Never have to write the same code in multiple builds again. With EarthBuild, you
 
 <div align="center"><img src="docs/img/integration-diagram.svg" alt="EarthBuild fits between language-specific tooling and the CI" width="700px" /></div>
 
-EarthBuild is meant to be used both on your development machine and in CI. It runs on top of your CI/CD platform (such as [Jenkins](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/jenkins), [Circle CI](https://docs.earthbuild.dev/examples/circle-integration), [GitHub Actions](https://docs.earthbuild.dev/examples/gh-actions-integration), and [GitLab CI/CD](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/gitlab-integration)). EarthBuild provides the benefits of a modern build automation system wherever it runs – such as caching and parallelism. It is a glue layer between language-specific build tooling (like maven, gradle, npm, pip, go build) and CI, working like a wrapper around your build tooling and build logic that isolates build execution from the environments they run in.
+EarthBuild is meant to be used both on your development machine and in CI. It runs on top of your CI/CD platform (such as [Jenkins](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/jenkins), [Circle CI](https://docs.earthbuild.dev/ci-integration/guides/circle-integration), [GitHub Actions](https://docs.earthbuild.dev/ci-integration/guides/gh-actions-integration), and [GitLab CI/CD](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/gitlab-integration)). EarthBuild provides the benefits of a modern build automation system wherever it runs – such as caching and parallelism. It is a glue layer between language-specific build tooling (like maven, gradle, npm, pip, go build) and CI, working like a wrapper around your build tooling and build logic that isolates build execution from the environments they run in.
 
 ## How Does It Work?
 
@@ -140,15 +140,15 @@ Here are some resources to get you started with EarthBuild
 - [Multiplatform Builds](./examples/multiplatform)
 - [Integration Tests](./examples/integration-test)
 - 🔍 Explore [EarthBuild's own build](https://docs.earthbuild.dev/docs/examples#earthbuilds-own-build)
-- ✔️ [Best practices](https://docs.earthbuild.dev/best-practices)
+- ✔️ [Best practices](https://docs.earthbuild.dev/guides/best-practices)
 
 See also the [full documentation](https://docs.earthbuild.dev).
 
 Reference pages
 
 - 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
-- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earthbuild-command)
-- ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earthbuild-config)
+- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/earthly-command/earthly-command)
+- ⚙️ [Configuration reference](https://docs.earthbuild.dev/earthly-config/earthly-config)
 
 ### A simple example (for Go)
 
@@ -318,7 +318,7 @@ release:
 
 It is possible to use Dockerfiles in combination with other technologies (e.g., Makefiles or bash files) to solve such use cases. However, these combinations are difficult to parallelize, challenging to scale across repositories as they lack a robust import system, and often vary in style from one team to another. EarthBuild does not have these limitations as it was designed as a general-purpose build system.
 
-For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/docs/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
+For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
 
 ### How do I know if a command is a classic Dockerfile command or an EarthBuild command?
 
@@ -343,7 +343,7 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 ## Contributing
 
 - Please report bugs as [GitHub issues](https://github.com/EarthBuild/earthbuild/issues).
-- Join us on [Slack](https://earthbuild.dev/slack)!
+- Join us on [Slack](https://www.earthbuild.dev/slack)!
 - Questions via GitHub issues are welcome!
 - PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.
 - To build from source, check the [contributing page](./CONTRIBUTING.md).

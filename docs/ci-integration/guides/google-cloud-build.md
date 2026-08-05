@@ -107,7 +107,7 @@ Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/c
 
 ```yaml
   - id: 'build'
-    name: 'earthbuild/earthbuild:v0.8.16'
+    name: 'earthbuild/earthbuild:v0.8.17'
     args:
       - --ci
       - --push

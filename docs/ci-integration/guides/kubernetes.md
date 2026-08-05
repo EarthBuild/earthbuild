@@ -15,9 +15,9 @@ Kubernetes isn't a CI per-se, but it _can_ serve as the underpinning for many mo
 
 `earthly` has been tested with the all-in-one `earthbuild/earthbuild` mode, and works as long as the pod runs in a `privileged` mode.
 
-It has also been tested with a _single_ remote `earthly/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
+It has also been tested with a _single_ remote `earthbuild/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
 
-Multi-node `earthly/buildkitd` configurations are currently unsupported.
+Multi-node `earthbuild/buildkitd` configurations are currently unsupported.
 
 ### Resources
 
@@ -63,7 +63,7 @@ The location within the container for this temporary folder is configurable with
 
 The `earthbuild/earthbuild` image will expect to find the source code (with `Earthfile`) rooted in the default working directory, which is set to `/workspace`.
 
-## Setup (Remote `earthly/buildkitd`)
+## Setup (Remote `earthbuild/buildkitd`)
 
 {% hint style='danger' %}
 
@@ -73,7 +73,7 @@ This an _experimental_ configuration.
 
 {% endhint %}
 
-It is possible to run multiple `earthly/buildkitd` instances in Kubernetes, for larger deployments. Follow the configuration instructions for using the `earthbuild/earthbuild` image above.
+It is possible to run multiple `earthbuild/buildkitd` instances in Kubernetes, for larger deployments. Follow the configuration instructions for using the `earthbuild/earthbuild` image above.
 
 There are some caveats that come with this kind of a setup, though:
 

@@ -15,7 +15,7 @@ variables:
   FORCE_COLOR: 1
   EARTHLY_EXEC_CMD: "/bin/sh"
 
-image: earthbuild/earthbuild:v0.8.16
+image: earthbuild/earthbuild:v0.8.17
 
 before_script:
 - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY

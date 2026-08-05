@@ -27,9 +27,9 @@ Once you have ensured that the dependencies are available, you'll need to instal
 This is the simplest method for adding `earthly` to your CI. It will work best on dedicated computers, or in scripted/auto-provisioned build environments. You can pin it to a specific version like so:
 
 ```shell
-wget https://github.com/earthly/earthly/releases/download/v0.8.13/earthly-linux-amd64 -O /usr/local/bin/earthly && \
-chmod +x /usr/local/bin/earthly && \
-/usr/local/bin/earthly bootstrap
+wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/earth-linux-amd64 -O /usr/local/bin/earth && \
+chmod +x /usr/local/bin/earth && \
+/usr/local/bin/earth bootstrap
 ```
 
 It is recommended to install `earthly` as part of the new host's configuration, and not as part of your build. This will speed up your builds, since you do not need to download `earthly` each time; and it will also provide stability in case a future version of `earthly` changes the behavior of a command.

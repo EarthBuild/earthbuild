@@ -18,7 +18,7 @@ This guide will cover both approaches to constructing your image.
 This is the recommended approach when adopting Earthly into your containerized CI. Start by basing your custom image on ours:
 
 ```docker
-FROM earthbuild/earthbuild:v0.8.13
+FROM earthbuild/earthbuild:v0.8.17
 RUN ... # Add your agent, certificates, tools...
 ```
 
@@ -39,20 +39,20 @@ Also, you should embed any configuration that your Earthly image might need (to 
 This section will cover adding Earthly to an existing image when:
 
 - Docker-In-Docker is configured for the base image
-- Earthly will be connecting to a remote `earthly/buildkitd` instance
+- Earthly will be connecting to a remote `earthbuild/buildkitd` instance
 
-While it is possible to configure a locally-ran `earthly/buildkitd` instance within an image (it's how `earthbuild/earthbuild` works), the steps and tweaks are beyond the scope of this guide.
+While it is possible to configure a locally-ran `earthbuild/buildkitd` instance within an image (it's how `earthbuild/earthbuild` works), the steps and tweaks are beyond the scope of this guide.
 
 #### Docker-In-Docker
 
-In this setup, Earthly will be allowed to manage an instance of its `earthly/buildkitd` daemon over a live Docker socket.
+In this setup, Earthly will be allowed to manage an instance of its `earthbuild/buildkitd` daemon over a live Docker socket.
 
 To enable this, simply follow the installation instructions within your Dockerfile/Earthfile as you would on any other host. An example of installing this can be found below.
 
 ```docker
-RUN wget https://github.com/earthly/earthly/releases/download/v0.8.13/earthly-linux-amd64 -O /usr/local/bin/earthly && \
-    chmod +x /usr/local/bin/earthly && \
-    /usr/local/bin/earthly bootstrap
+RUN wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/earth-linux-amd64 -O /usr/local/bin/earth && \
+    chmod +x /usr/local/bin/earth && \
+    /usr/local/bin/earth bootstrap
 ```
 
 As with the Docker containers, be sure to pin the version in the download URL to avoid any accidental future breakage. Assuming Docker is also installed and available, you should be able to invoke Earthly without any additional configuration.

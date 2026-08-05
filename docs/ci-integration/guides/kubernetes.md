@@ -13,7 +13,7 @@ Kubernetes isn't a CI per-se, but it _can_ serve as the underpinning for many mo
 
 ### Compatibility
 
-`earthly` has been tested with the all-in-one `earthbuild/earthbuild` mode, and works as long as the pod runs in a `privileged` mode.
+`earth` has been tested with the all-in-one `earthbuild/earthbuild` mode, and works as long as the pod runs in a `privileged` mode.
 
 It has also been tested with a _single_ remote `earthbuild/buildkitd` running in `privileged` mode, and an `earthbuild/earthbuild` pod running without any additional security concerns. This configuration is considered experimental. See [these additional instructions](../remote-buildkit.md).
 
@@ -26,7 +26,7 @@ Multi-node `earthbuild/buildkitd` configurations are currently unsupported.
 
 ## Setup (`earthbuild/earthbuild` Only)
 
-This is the recommended approach when using Earthly within Kubernetes. Assuming you are following the steps outlined in the [overview](../overview.md), here are the additional things you need to configure:
+This is the recommended approach when using EarthBuild within Kubernetes. Assuming you are following the steps outlined in the [overview](../overview.md), here are the additional things you need to configure:
 
 ### Dependencies
 
@@ -99,7 +99,7 @@ sessionAffinityConfig:
 
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get EarthBuild off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
@@ -113,16 +113,16 @@ To run it yourself, first you will need to install some prerequisites on your ma
 When you are ready, clone the [`ci-examples` repository](https://github.com/earthly/ci-examples), and then run (from the root of the repository):
 
 ```go
-earthly ./kubernetes+start
+earth ./kubernetes+start
 ```
 
 Running this target will:
 
-- Create a `kind` cluster named `earthlydemo-aio`
-- Create & watch a `job` that runs an `earthly` build
+- Create a `kind` cluster named `earthdemo-aio`
+- Create & watch a `job` that runs an `earth` build
 
 When the example is complete, the cluster is left up and intact for exploration and experimentation. If you would like to clean up the cluster when complete, run (again from the root of the repository):
 
 ```go
-earthly ./kubernetes+clean
+earth ./kubernetes+clean
 ```

@@ -8,7 +8,7 @@ This example assumes an [Earthfile](../../earthfile/earthfile.md) exists with a 
 ```yml
 # .github/workflows/ci.yml
 
-name: Earthly +build
+name: EarthBuild +build
 
 on:
   push:
@@ -40,7 +40,7 @@ a step to download `earth` instead:
 ```yml
 # .github/workflows/ci.yml
 
-name: Earthly +build
+name: EarthBuild +build
 
 on:
   push:

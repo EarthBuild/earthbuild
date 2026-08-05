@@ -67,7 +67,7 @@ This is the address of the remote daemon. It should look something like this: `t
 
 **`tlsca` / `tlscert` / `tlskey`**
 
-These are the paths to the certificates and keys used by the client when communicating with an mTLS-enabled daemon. These paths are relative to the EarthBuild config (usually `~/.earthly/config.yaml`, unless absolute paths are specified.
+These are the paths to the certificates and keys used by the client when communicating with an mTLS-enabled daemon. These paths are relative to the EarthBuild config (usually `~/.earth/config.yaml`, unless absolute paths are specified.
 
 **`tls_enabled`**
 

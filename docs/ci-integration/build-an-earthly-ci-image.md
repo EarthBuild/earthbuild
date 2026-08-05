@@ -1,28 +1,28 @@
-# Building An Earthly CI Image
+# Building An EarthBuild CI Image
 
 ## Introduction
 
-This guide is intended to help you create your own Docker image with Earthly inside it for your containerized CI workflows.
+This guide is intended to help you create your own Docker image with EarthBuild inside it for your containerized CI workflows.
 
 ## Getting Started
 
-There are two ways to build a containerized CI image with Earthly:
+There are two ways to build a containerized CI image with EarthBuild:
 
 - Extending the `earthbuild/earthbuild` image with an external runner/agent
-- Adding Earthly to an existing image
+- Adding EarthBuild to an existing image
 
 This guide will cover both approaches to constructing your image.
 
 ### Extending The `earthbuild/earthbuild` Image
 
-This is the recommended approach when adopting Earthly into your containerized CI. Start by basing your custom image on ours:
+This is the recommended approach when adopting EarthBuild into your containerized CI. Start by basing your custom image on ours:
 
 ```docker
 FROM earthbuild/earthbuild:v0.8.17
 RUN ... # Add your agent, certificates, tools...
 ```
 
-When extending our image, be sure to pin to a specific version to avoid accidental future breakage as `earthly` evolves.
+When extending our image, be sure to pin to a specific version to avoid accidental future breakage as `earth` evolves.
 
 The `earthbuild/earthbuild` image is Alpine Linux based. To add tools to the image, you can use `apk`:
 
@@ -32,20 +32,20 @@ apk add --no-cache my-cool-tool
 
 If you are adding a tool from outside the Alpine Linux repositories, test it to ensure it is compatible. Alpine uses `musl`, which _can_ create incompatibilities with some software.
 
-Also, you should embed any configuration that your Earthly image might need (to avoid having it in your build scripts, or mounted from a host somewhere). You can do this in-line with the [`earthly config` command](../earthly-command/earthly-command.md#earthly-config).
+Also, you should embed any configuration that your EarthBuild image might need (to avoid having it in your build scripts, or mounted from a host somewhere). You can do this in-line with the [`earth config` command](../earthly-command/earthly-command.md#earthly-config).
 
-### Adding Earthly To An Existing Image
+### Adding EarthBuild To An Existing Image
 
-This section will cover adding Earthly to an existing image when:
+This section will cover adding EarthBuild to an existing image when:
 
 - Docker-In-Docker is configured for the base image
-- Earthly will be connecting to a remote `earthbuild/buildkitd` instance
+- EarthBuild will be connecting to a remote `earthbuild/buildkitd` instance
 
 While it is possible to configure a locally-ran `earthbuild/buildkitd` instance within an image (it's how `earthbuild/earthbuild` works), the steps and tweaks are beyond the scope of this guide.
 
 #### Docker-In-Docker
 
-In this setup, Earthly will be allowed to manage an instance of its `earthbuild/buildkitd` daemon over a live Docker socket.
+In this setup, EarthBuild will be allowed to manage an instance of its `earthbuild/buildkitd` daemon over a live Docker socket.
 
 To enable this, simply follow the installation instructions within your Dockerfile/Earthfile as you would on any other host. An example of installing this can be found below.
 
@@ -55,14 +55,14 @@ RUN wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/eart
     /usr/local/bin/earth bootstrap
 ```
 
-As with the Docker containers, be sure to pin the version in the download URL to avoid any accidental future breakage. Assuming Docker is also installed and available, you should be able to invoke Earthly without any additional configuration.
+As with the Docker containers, be sure to pin the version in the download URL to avoid any accidental future breakage. Assuming Docker is also installed and available, you should be able to invoke EarthBuild without any additional configuration.
 
 #### Remote Daemon
 
-When connecting to a remote daemon, follow the Docker-In-Docker installation instructions above to get the binary. Then you'll need to issue a few `earthly config` commands to ensure the container is set up to automatically use the remote daemon. It might look something like this:
+When connecting to a remote daemon, follow the Docker-In-Docker installation instructions above to get the binary. Then you'll need to issue a few `earth config` commands to ensure the container is set up to automatically use the remote daemon. It might look something like this:
 
 ```docker
-RUN earthly config global.buildkit_host buildkit_host: 'tcp://myhost:8372'
+RUN earth config global.buildkit_host buildkit_host: 'tcp://myhost:8372'
 ```
 
 For more details on using a remote BuildKit daemon, [see our guide](./remote-buildkit.md).
@@ -89,7 +89,7 @@ fail with the error: `sh: write error: Resource busy`.
 
 ## An important note about running the image
 
-When running the built image in your CI of choice, if you're not using a remote daemon, Earthly will start BuildKit within the same container. In this case, it is important to ensure that the directory used by BuildKit to cache the builds is mounted as a Docker volume. Failing to do so may result in excessive disk usage, slow builds, or Earthly not functioning properly.
+When running the built image in your CI of choice, if you're not using a remote daemon, EarthBuild will start BuildKit within the same container. In this case, it is important to ensure that the directory used by BuildKit to cache the builds is mounted as a Docker volume. Failing to do so may result in excessive disk usage, slow builds, or EarthBuild not functioning properly.
 
 {% hint style='danger' %}
 

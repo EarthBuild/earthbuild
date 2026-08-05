@@ -1,13 +1,13 @@
 
 # AWS CodeBuild integration
 
-Here is an example of an AWS CodeBuild build, where we build the Earthly target `+build`.
+Here is an example of an AWS CodeBuild build, where we build the EarthBuild target `+build`.
 
 {% hint style='info' %}
 ##### Note
 
 Ensure when you're creating your CodeBuild Project that you enable the `Privileged` flag
-in order to allow Earthly build Docker images.
+in order to allow EarthBuild build Docker images.
 
 {% endhint %}
 

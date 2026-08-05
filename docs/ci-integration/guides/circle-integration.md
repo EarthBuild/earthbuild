@@ -1,7 +1,7 @@
 
 # Circle CI integration
 
-Here is an example of a Circle CI build, where we build the Earthly target `+build`.
+Here is an example of a Circle CI build, where we build the EarthBuild target `+build`.
 
 ```yml
 # .circleci/config.yml

@@ -1,5 +1,3 @@
-//go:generate hel --output helheim_mocks_test.go
-
 // Package proj contains types and functions for managing a project's
 // Earthfile(s).
 package proj

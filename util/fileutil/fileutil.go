@@ -45,12 +45,6 @@ func DirExists(filename string) (bool, error) {
 	return info.IsDir(), nil
 }
 
-// DirExistsBestEffort returns true if the directory exists and ignores errors.
-func DirExistsBestEffort(filename string) bool {
-	ok, _ := DirExists(filename)
-	return ok
-}
-
 // EnsureUserOwned changes the files in the directory to be owned by the use and their group,
 // as specified by the provided user.
 func EnsureUserOwned(dir string, owner *user.User) error {

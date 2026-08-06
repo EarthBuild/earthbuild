@@ -397,7 +397,7 @@ RUN --push --secret GITHUB_TOKEN github-release upload ...
 
 ### Use `--secret`, not `ARG`s to pass secrets to the build
 
-If a build requires the usage of secrets, it is strongly recommended that you use the builtin secrets constructs, such as `earthly --secret`, [Earthly Cloud Secrets](../cloud/cloud-secrets.md), `RUN --secret`.
+If a build requires the usage of secrets, it is strongly recommended that you use the builtin secrets constructs, such as `earth --secret`, `earth --secret-file-path`, and `RUN --secret`. See the [secrets guide](secrets.md).
 
 Using `ARG`s for passing secrets is strongly discouraged, as the secrets will be leaked in build logs, the build cache and the possibly in published images.
 

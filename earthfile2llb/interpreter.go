@@ -2359,7 +2359,8 @@ func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) 
 		"Deprecation: the PROJECT command is deprecated. " +
 			"With the cloud integration removed, it no longer has any effect unless you use a custom secret command. " +
 			"We may remove it in a future release and are collecting feedback to help decide. " +
-			"Let us know how you use PROJECT at https://github.com/orgs/EarthBuild/discussions/708")
+			"Let us know how you use PROJECT at https://github.com/orgs/EarthBuild/discussions/708",
+	)
 
 	// Note: Expanding args for PROJECT is not allowed. The value needs to be
 	// lifted straight from the AST.
@@ -2658,26 +2659,6 @@ func isSafeAsyncBuildArgs(args []string) bool {
 	}
 
 	return true
-}
-
-// StringSliceFlag is a flag backed by a string slice.
-type StringSliceFlag struct {
-	Args []string
-}
-
-// String returns a string representation of the flag.
-func (ssf *StringSliceFlag) String() string {
-	if ssf == nil {
-		return ""
-	}
-
-	return strings.Join(ssf.Args, ",")
-}
-
-// Set adds a flag value to the string slice.
-func (ssf *StringSliceFlag) Set(arg string) error {
-	ssf.Args = append(ssf.Args, arg)
-	return nil
 }
 
 func baseTarget(ref domain.Reference) domain.Target {

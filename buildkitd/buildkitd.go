@@ -20,13 +20,13 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
-	"github.com/EarthBuild/earthbuild/util/semverutil"
 	"github.com/containerd/platforms"
 	"github.com/docker/go-units"
 	"github.com/dustin/go-humanize"
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -1013,27 +1013,6 @@ func GetLogs(
 	return "", fmt.Errorf("logs for container %s were not found", containerName)
 }
 
-// GetContainerIP returns the IP of the buildkit container.
-func GetContainerIP(
-	ctx context.Context, containerName string, fe containerutil.ContainerFrontend, settings Settings,
-) (string, error) {
-	if !containerutil.IsLocal(settings.BuildkitAddress) {
-		return "", nil // Remote buildkitd is not an error,  but we don't know its IP
-	}
-
-	infos, err := fe.ContainerInfo(ctx, containerName)
-	if err != nil {
-		return "", fmt.Errorf("could not get container info to determine ip: %w", err)
-	}
-
-	if containerInfo, ok := infos[containerName]; ok {
-		// default is bridge. If someone has a weirdo setup this should be able to handle it with some config option.
-		return containerInfo.IPs["bridge"], nil
-	}
-
-	return "", fmt.Errorf("ip for container %s was not found", containerName)
-}
-
 // WaitUntilStopped waits until the buildkitd daemon has stopped.
 func WaitUntilStopped(
 	ctx context.Context, containerName string, opTimeout time.Duration, fe containerutil.ContainerFrontend,
@@ -1173,21 +1152,19 @@ func printBuildkitInfo(
 			} else {
 				compatible := true
 
-				bkVersion, err := semverutil.Parse(info.BuildkitVersion.Version)
-				if err != nil {
-					bkCons.VerbosePrintf("Warning: could not parse buildkit version: %v", err)
+				if !semver.IsValid(info.BuildkitVersion.Version) {
+					bkCons.VerbosePrintf("Warning: could not parse buildkit version: %s", info.BuildkitVersion.Version)
 
 					compatible = false
 				}
 
-				earthVersion, err := semverutil.Parse(earthVersion)
-				if err != nil {
-					bkCons.VerbosePrintf("Warning: could not parse earth version: %v", err)
+				if !semver.IsValid(earthVersion) {
+					bkCons.VerbosePrintf("Warning: could not parse earth version: %s", earthVersion)
 
 					compatible = false
 				}
 
-				compatible = compatible && semverutil.IsCompatible(bkVersion, earthVersion)
+				compatible = compatible && semver.MajorMinor(info.BuildkitVersion.Version) == semver.MajorMinor(earthVersion)
 				if compatible {
 					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with earth version (%s)",
 						info.BuildkitVersion.Version, earthVersion)

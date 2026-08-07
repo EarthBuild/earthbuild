@@ -17,7 +17,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	t.Parallel()
 
 	newCLI := base.NewCLI(
-		conslogging.ConsoleLogger{},
+		new(conslogging.ConsoleLogger),
 		base.WithVersion(""),
 		base.WithGitSHA(""),
 		base.WithBuiltBy(""),

@@ -40,12 +40,12 @@ var defaultZeroStringFlag = uuid.NewString()
 
 // Interpreter interprets earth AST's into calls to the converter.
 type Interpreter struct {
-	target               domain.Target
-	interactiveSaveFiles []debuggercommon.SaveFilesSettings
 	converter            *Converter
 	gitLookup            *buildcontext.GitLookup
 	withDocker           *WithDockerOpt
-	console              conslogging.ConsoleLogger
+	log                  *conslogging.ConsoleLogger
+	target               domain.Target
+	interactiveSaveFiles []debuggercommon.SaveFilesSettings
 	allowPrivileged      bool
 	local                bool
 	withDockerRan        bool
@@ -59,7 +59,7 @@ func newInterpreter(
 	c *Converter,
 	t domain.Target,
 	allowPrivileged, parallelConversion bool,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	gitLookup *buildcontext.GitLookup,
 ) *Interpreter {
 	return &Interpreter{
@@ -67,7 +67,7 @@ func newInterpreter(
 		target:             t,
 		allowPrivileged:    allowPrivileged,
 		parallelConversion: parallelConversion,
-		console:            console,
+		log:                log,
 		gitLookup:          gitLookup,
 	}
 }
@@ -720,7 +720,7 @@ func (i *Interpreter) getAllowPrivileged(depTarget domain.Target, allowPrivilege
 	}
 
 	if allowPrivileged {
-		i.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
+		i.log.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 	}
 
 	return i.allowPrivileged, nil
@@ -1192,7 +1192,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 	if slices.ContainsFunc(strings.Split(dest, "/"), func(s string) bool {
 		return s == "~" || strings.HasPrefix(s, "~")
 	}) {
-		i.console.Warnf(`destination path %q contains a "~" which does not expand to a home directory`, dest)
+		i.log.Warnf(`destination path %q contains a "~" which does not expand to a home directory`, dest)
 	}
 
 	if !allArtifacts {
@@ -1837,7 +1837,7 @@ func (i *Interpreter) handleArg(ctx context.Context, cmd earthfile.Command) erro
 	}
 
 	if replacement, deprecated := reserved.DeprecatedBuiltin(key); deprecated {
-		i.console.Warnf("WARNING: the built-in ARG %s is deprecated. Use %s.", key, replacement)
+		i.log.Warnf("WARNING: the built-in ARG %s is deprecated. Use %s.", key, replacement)
 	}
 
 	var value string
@@ -2277,7 +2277,7 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 	if relCommand.IsRemote() {
 		allowPrivileged = i.allowPrivileged && opts.AllowPrivileged
 	} else if opts.AllowPrivileged {
-		i.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
+		i.log.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 	}
 
 	bc, resolvedAllowPrivileged, resolvedAllowPrivilegedSet, err := i.converter.ResolveReference(ctx, relCommand)
@@ -2355,7 +2355,7 @@ func (i *Interpreter) handleImport(ctx context.Context, cmd earthfile.Command) e
 }
 
 func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) error {
-	i.console.Warnf(
+	i.log.Warnf(
 		"Deprecation: the PROJECT command is deprecated. " +
 			"With the cloud integration removed, it no longer has any effect unless you use a custom secret command. " +
 			"We may remove it in a future release and are collecting feedback to help decide. " +
@@ -2495,7 +2495,7 @@ func (i *Interpreter) handleDoFunction(
 	if !useFunctionCmd &&
 		len(i.converter.opt.FilesWithCommandRenameWarning) < maxCommandRenameWarnings &&
 		!i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] {
-		i.console.Printf(
+		i.log.Printf(
 			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.
 Note that switching now may cause breakages for your colleagues if they are using older earth versions.

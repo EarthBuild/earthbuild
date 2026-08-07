@@ -37,7 +37,7 @@ func TestFrontendNew(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 			NotNil(t, fe)
 		})
@@ -62,7 +62,7 @@ func TestFrontendScheme(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			scheme := fe.Scheme()
@@ -88,7 +88,7 @@ func TestFrontendIsAvailable(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			available := fe.IsAvailable(ctx)
@@ -114,7 +114,7 @@ func TestFrontendInformation(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.Information(ctx)
@@ -148,7 +148,7 @@ func TestFrontendContainerInfo(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
@@ -192,7 +192,7 @@ func TestFrontendContainerRemove(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.ContainerInfo(ctx, testContainers...)
@@ -232,7 +232,7 @@ func TestFrontendContainerStop(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.ContainerInfo(ctx, testContainers...)
@@ -271,7 +271,7 @@ func TestFrontendContainerLogs(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			logs, err := fe.ContainerLogs(ctx, testContainers...)
@@ -304,7 +304,7 @@ func TestFrontendContainerRun(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
@@ -388,7 +388,7 @@ func TestFrontendImagePull(t *testing.T) {
 			// podman pull needs some potentially valid address to check against, otherwise panic
 			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{
 				LocalRegistryHostFileValue: "tcp://some-host:5309",
-				Console:                    testLogger(),
+				Log:                        testLogger(),
 			})
 			NoError(t, err)
 
@@ -427,7 +427,7 @@ func TestFrontendImageInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.ImageInfo(ctx, tC.refList...)
@@ -463,7 +463,7 @@ func TestFrontendImageRemove(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.ImageInfo(ctx, refList...)
@@ -504,7 +504,7 @@ func TestFrontendImageTag(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.ImageInfo(ctx, ref)
@@ -561,7 +561,7 @@ func TestFrontendImageLoad(t *testing.T) {
 
 			cleanup()
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			err = fe.ImageLoad(ctx, bufio.NewReader(imgBuffer))
@@ -597,7 +597,7 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			data, err := os.ReadFile("./testdata/hybrid.tar")
@@ -642,7 +642,7 @@ func TestFrontendVolumeInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := fe.VolumeInfo(ctx, volList...)
@@ -877,7 +877,7 @@ func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (fu
 	}, err
 }
 
-func testLogger() conslogging.ConsoleLogger {
+func testLogger() *conslogging.ConsoleLogger {
 	var logs strings.Builder
 
 	logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)

@@ -41,11 +41,11 @@ type containerInfo struct {
 }
 
 type shellFrontend struct {
+	urls                    *FrontendURLs
+	Log                     *conslogging.ConsoleLogger
+	binaryName              string
 	runCompatibilityArgs    []string
 	globalCompatibilityArgs []string
-	urls                    *FrontendURLs
-	binaryName              string
-	Console                 conslogging.ConsoleLogger
 	rootless                bool
 	likelyPodman            bool
 }
@@ -355,7 +355,7 @@ func (sf *shellFrontend) commandContextStrings(args ...string) (string, []string
 func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...string) (*commandContextOutput, error) {
 	output := &commandContextOutput{}
 	binary, args := sf.commandContextStrings(args...)
-	sf.Console.VerbosePrintf("Running command: %s %s\n", binary, strings.Join(args, " "))
+	sf.Log.VerbosePrintf("Running command: %s %s\n", binary, strings.Join(args, " "))
 
 	cmd := exec.CommandContext(ctx, binary, args...) // #nosec G204
 	// Ensure all shellouts are using the current environment, picks up DOCKER_/PODMAN_ env vars
@@ -403,10 +403,10 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 
 		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
 			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
-			cfg.Console.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
+			cfg.Log.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
 		}
 	} else if cfg.LocalRegistryHostFileValue != "" {
-		cfg.Console.
+		cfg.Log.
 			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
 	}
 

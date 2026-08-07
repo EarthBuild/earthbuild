@@ -60,19 +60,19 @@ type command struct {
 
 // Formatter is a delta to console logger.
 type Formatter struct {
-	defaultPlatform            string
 	startTime                  time.Time
+	err                        error
+	interactives               map[string]struct{}
 	bus                        *logbus.Bus
-	execStatsTracker           *execstatssummary.Tracker
 	ongoingTicker              *time.Ticker
 	lastCommandOutput          *command
 	manifest                   *logstream.RunManifest
 	closedCh                   chan struct{}
-	interactives               map[string]struct{}      // set of command IDs
-	timingTable                map[string]time.Duration // targetID -> duration
+	log                        *conslogging.ConsoleLogger
+	timingTable                map[string]time.Duration
 	commands                   map[string]*command
-	err                        error
-	console                    conslogging.ConsoleLogger
+	execStatsTracker           *execstatssummary.Tracker
+	defaultPlatform            string
 	ongoingTick                time.Duration
 	mu                         sync.Mutex
 	displayStats               bool
@@ -110,7 +110,7 @@ func New(
 
 	f := &Formatter{
 		bus:              b,
-		console:          conslogging.New(nil, nil, conslogging.DefaultPadding, logLevel, isGitHubActions),
+		log:              conslogging.New(nil, nil, conslogging.DefaultPadding, logLevel, isGitHubActions),
 		verbose:          verbose,
 		displayStats:     displayStats,
 		execStatsTracker: execStatsTracker,
@@ -375,7 +375,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 //nolint:unparam // error return kept for future use
 func (f *Formatter) processOngoingTick() error {
-	c := f.console.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
+	c := f.log.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
 	// Print their targets on the console.
@@ -605,7 +605,9 @@ func (f *Formatter) commandName(commandID string) string {
 	return "unknown"
 }
 
-func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput bool) (conslogging.ConsoleLogger, bool) {
+func (f *Formatter) targetConsole(
+	targetID, commandID string, rawOutput bool,
+) (*conslogging.ConsoleLogger, bool) {
 	var (
 		targetName     string
 		writerTargetID string
@@ -660,11 +662,11 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 	}
 
 	if rawOutput {
-		return f.console.
+		return f.log.
 			WithWriter(f.bus.FormattedWriter(writerTargetID, commandID)), verboseOnly
 	}
 
-	return f.console.
+	return f.log.
 		WithWriter(f.bus.FormattedWriter(writerTargetID, commandID)).
 		WithPrefixAndSalt(targetName, writerTargetID), verboseOnly
 }

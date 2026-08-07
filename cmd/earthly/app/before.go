@@ -45,12 +45,12 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	}
 
 	if flags.Debug {
-		app.BaseCLI.SetConsole(app.BaseCLI.Console().WithLogLevel(conslogging.Debug))
+		app.BaseCLI.SetLog(app.BaseCLI.Log().WithLogLevel(conslogging.Debug))
 	} else if flags.Verbose {
-		app.BaseCLI.SetConsole(app.BaseCLI.Console().WithLogLevel(conslogging.Verbose))
+		app.BaseCLI.SetLog(app.BaseCLI.Log().WithLogLevel(conslogging.Verbose))
 	}
 
-	app.BaseCLI.SetConsole(app.BaseCLI.Console().WithPrefixWriter(app.BaseCLI.Logbus().Run().Generic()))
+	app.BaseCLI.SetLog(app.BaseCLI.Log().WithPrefixWriter(app.BaseCLI.Logbus().Run().Generic()))
 
 	var execStatsTracker *execstatssummary.Tracker
 	if flags.ExecStatsSummary != "" {
@@ -75,8 +75,8 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 
 	app.BaseCLI.SetLogbusSetup(busSetup)
 
-	if cmd.IsSet("config") {
-		app.BaseCLI.Console().Printf("loading config values from %q\n", flags.ConfigPath)
+	if flags.ConfigPath != "" {
+		app.BaseCLI.Log().Printf("loading config values from %q\n", flags.ConfigPath)
 	}
 
 	var yamlData []byte
@@ -128,14 +128,14 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 }
 
 func (app *EarthApp) parseFrontend(ctx context.Context) error {
-	console := app.BaseCLI.Console().WithPrefix("frontend")
+	log := app.BaseCLI.Log().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
 		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
 		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
 		LocalContainerName:         app.BaseCLI.Flags().ContainerName,
 		DefaultPort:                8372 + config.PortOffset(app.BaseCLI.Flags().InstallationName),
-		Console:                    console,
+		Log:                        log,
 	}
 
 	fe, err := containerutil.FrontendForSetting(ctx, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
@@ -150,16 +150,16 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 		app.BaseCLI.Flags().ContainerFrontend = stub
 
 		if !app.BaseCLI.Flags().Verbose {
-			console.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
+			app.BaseCLI.Log().Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
 		}
 
-		console.VerbosePrintf("%s frontend initialization failed due to %s",
+		app.BaseCLI.Log().VerbosePrintf("%s frontend initialization failed due to %s",
 			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
 
 		return nil
 	}
 
-	console.VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
+	app.BaseCLI.Log().VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
 	app.BaseCLI.Flags().ContainerFrontend = fe
 
 	// These URLs were calculated relative to the configured frontend. In the
@@ -173,49 +173,28 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 }
 
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
-	app.warnIfEarth()
 	app.warnDeprecatedEarthlyEnvVars()
 	app.warnDeprecatedAutoSkip()
 
+	flags := app.BaseCLI.Flags()
+
 	if cfg.Global.CachePath != "" {
-		app.BaseCLI.Console().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
+		app.BaseCLI.Log().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
 	}
 
-	if app.BaseCLI.Flags().ConversionParallelism != 0 {
-		app.BaseCLI.Console().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, " +
-			"please use 'earth config global.conversion_parallelism <parallelism>' instead")
+	if flags.ConversionParallelism != 0 {
+		app.BaseCLI.Log().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, " +
+			"use --parallel-conversion and EARTHLY_PARALLEL_CONVERSION instead")
 	}
 
-	// command line overrides the config file
-	if app.BaseCLI.Flags().GitUsernameOverride != "" || app.BaseCLI.Flags().GitPasswordOverride != "" {
-		app.BaseCLI.Console().Warnf("Warning: the --git-username and --git-password command flags " +
-			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
-			"see https://docs.earthbuild.dev/earthly-config for reference.\n")
-
-		if _, ok := cfg.Git["github.com"]; !ok {
-			cfg.Git["github.com"] = config.GitConfig{}
-		}
-
-		if _, ok := cfg.Git["gitlab.com"]; !ok {
-			cfg.Git["gitlab.com"] = config.GitConfig{}
-		}
-
-		for k, v := range cfg.Git {
-			v.Auth = "https"
-			if app.BaseCLI.Flags().GitUsernameOverride != "" {
-				v.User = app.BaseCLI.Flags().GitUsernameOverride
-			}
-
-			if app.BaseCLI.Flags().GitPasswordOverride != "" {
-				v.Password = app.BaseCLI.Flags().GitPasswordOverride
-			}
-
-			cfg.Git[k] = v
-		}
+	if flags.GitUsernameOverride != "" || flags.GitPasswordOverride != "" {
+		app.BaseCLI.Log().Warnf("Warning: the --git-username and --git-password command flags " +
+			"have been deprecated in favor of git authentication configuration.\n" +
+			"For more information see https://docs.earthbuild.dev/docs/earthly-config#git-authentication")
 	}
+
+	app.warnIfEarth()
 }
-
-const cmdName = "earthly"
 
 // warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
 // variables, which have been replaced by the EARTH_ prefix.
@@ -224,7 +203,7 @@ const cmdName = "earthly"
 // be removed once EARTHLY_ support is officially dropped.
 func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
 	for _, warning := range env.DeprecatedWarnings() {
-		app.BaseCLI.Console().Warn(warning)
+		app.BaseCLI.Log().Warn(warning)
 	}
 }
 
@@ -236,7 +215,7 @@ func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
 func (app *EarthApp) warnDeprecatedAutoSkip() {
 	flags := app.BaseCLI.Flags()
 	if warning := autoSkipDeprecationWarning(flags.SkipBuildkit, flags.NoAutoSkip, flags.LocalSkipDB); warning != "" {
-		app.BaseCLI.Console().Warnf("%s", warning)
+		app.BaseCLI.Log().Warnf("%s", warning)
 	}
 }
 
@@ -255,6 +234,8 @@ func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB strin
 		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
 }
 
+const cmdName = "earthly"
+
 func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
@@ -265,7 +246,7 @@ func (app *EarthApp) warnIfEarth() {
 
 	baseName := path.Base(binPath)
 	if baseName == cmdName {
-		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
+		app.BaseCLI.Log().Warnf("Warning: the earthly binary has been renamed to earth; " +
 			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
 
 		absPath, err := filepath.Abs(binPath)
@@ -273,11 +254,11 @@ func (app *EarthApp) warnIfEarth() {
 			return
 		}
 
-		earthPath := path.Join(path.Dir(absPath), cmdName)
+		earthPath := path.Join(path.Dir(absPath), "earth")
 
 		earthPathExists, _ := fileutil.FileExists(earthPath)
 		if earthPathExists {
-			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
+			app.BaseCLI.Log().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
 		}
 	}
 }

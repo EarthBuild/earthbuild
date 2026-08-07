@@ -19,18 +19,18 @@ import (
 )
 
 type localResolver struct {
-	gitMetaCache      *synccache.Cache[string, *gitutil.GitMetadata] // local path -> *gitutil.GitMetadata
+	gitMetaCache      *synccache.Cache[string, *gitutil.GitMetadata]
+	buildFileCache    *synccache.Cache[string, *buildFile]
+	log               *conslogging.ConsoleLogger
 	gitBranchOverride string
-	buildFileCache    *synccache.Cache[string, *buildFile] // canonical ref -> *buildFile
-	console           conslogging.ConsoleLogger
 }
 
-func newLocalResolver(gitBranchOverride string, console conslogging.ConsoleLogger) *localResolver {
+func newLocalResolver(gitBranchOverride string, log *conslogging.ConsoleLogger) *localResolver {
 	return &localResolver{
 		buildFileCache:    synccache.NewCache[string, *buildFile](),
 		gitMetaCache:      synccache.NewCache[string, *gitutil.GitMetadata](),
 		gitBranchOverride: gitBranchOverride,
-		console:           console,
+		log:               log,
 	}
 }
 
@@ -61,7 +61,7 @@ func (lr *localResolver) resolveLocal(
 					// Keep going anyway. Either not a git dir, or git not installed, or
 					// remote not detected.
 					if errors.Is(err, gitutil.ErrNoGitBinary) {
-						lr.console.Warnf("Warning: %s\n", err.Error())
+						lr.log.Warnf("Warning: %s\n", err.Error())
 					}
 				} else {
 					return nil, err
@@ -96,7 +96,7 @@ func (lr *localResolver) resolveLocal(
 		if isDockerfile {
 			ftrs = new(features.Features)
 		} else {
-			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.GetLocalPath(), lr.console)
+			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.GetLocalPath(), lr.log)
 			if err != nil {
 				return nil, err
 			}

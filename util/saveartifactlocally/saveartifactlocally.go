@@ -21,7 +21,7 @@ import (
 func SaveArtifactLocally(
 	ctx context.Context,
 	exportCoordinator *gatewaycrafter.ExportCoordinator,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	artifact domain.Artifact,
 	indexOutDir, destPath, salt string,
 	ifExists bool,
@@ -112,7 +112,7 @@ func SaveArtifactLocally(
 		}
 
 		// Add summary data about this artifact (to be output to console in summary phase).
-		artifactPath := trimFilePathPrefix(indexOutDir, from, console)
+		artifactPath := trimFilePathPrefix(indexOutDir, from, log)
 		artifact2 := domain.Artifact{
 			Target:   artifact.Target,
 			Artifact: artifactPath,
@@ -129,10 +129,10 @@ func SaveArtifactLocally(
 	return nil
 }
 
-func trimFilePathPrefix(prefix string, thePath string, console conslogging.ConsoleLogger) string {
+func trimFilePathPrefix(prefix string, thePath string, log *conslogging.ConsoleLogger) string {
 	ret, err := filepath.Rel(prefix, thePath)
 	if err != nil {
-		console.Warnf("Warning: Could not compute relative path for %s "+
+		log.Warnf("Warning: Could not compute relative path for %s "+
 			"as being relative to %s: %s\n", thePath, prefix, err.Error())
 
 		return thePath

@@ -35,9 +35,9 @@ type Child interface {
 }
 
 // New returns a new MultiAuthProvider, wrapping up multiple child auth providers.
-func New(console conslogging.ConsoleLogger, authServers []Child) *MultiAuthProvider {
+func New(log *conslogging.ConsoleLogger, authServers []Child) *MultiAuthProvider {
 	return &MultiAuthProvider{
-		console:         console,
+		log:             log,
 		authServers:     authServers,
 		foundAuthServer: map[string]Child{},
 		skipAuthServer:  map[string][]Child{},
@@ -47,16 +47,11 @@ func New(console conslogging.ConsoleLogger, authServers []Child) *MultiAuthProvi
 // MultiAuthProvider is an auth provider that delegates authentication to
 // multiple child auth providers.
 type MultiAuthProvider struct {
-	authServers []Child
-	// once an authServer has responded successfully, only that auth server
-	// will be used for all subsequent calls -- this is to prevent accidentally
-	// mixing credentials and using them inconsistently
 	foundAuthServer map[string]Child
-	// if an authServer returns an ErrAuthProviderNoResponse, dont call it again
-	// for this host unless AddProject is called.
-	skipAuthServer map[string][]Child
-	console        conslogging.ConsoleLogger
-	mu             sync.Mutex
+	skipAuthServer  map[string][]Child
+	log             *conslogging.ConsoleLogger
+	authServers     []Child
+	mu              sync.Mutex
 }
 
 // Register registers ap against server.
@@ -82,7 +77,7 @@ func (ap *MultiAuthProvider) getAuthServers(host string) []Child {
 }
 
 func (ap *MultiAuthProvider) setAuthServer(host string, as Child) {
-	ap.console.VerbosePrintf("using %T for %s", as, host)
+	ap.log.VerbosePrintf("using %T for %s", as, host)
 	ap.foundAuthServer[host] = as
 }
 
@@ -137,7 +132,7 @@ func (ap *MultiAuthProvider) FetchToken(
 		}
 
 		if a.Anonymous {
-			ap.console.
+			ap.log.
 				Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
 		}
 

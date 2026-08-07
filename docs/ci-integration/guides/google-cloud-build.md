@@ -130,7 +130,7 @@ The first step simply uses the [all-in-one EarthBuild image](https://hub.docker.
 
 ```yaml
   - id: 'build'
-    name: 'earthbuild/earthbuild:v0.8.17'
+    name: 'earthbuild/earthbuild:v0.8.18'
     args:
       - --ci
       - --push

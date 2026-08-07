@@ -20,6 +20,7 @@
 
 - Guides
     - [Importing](guides/importing.md)
+    - [Target and artifact references](guides/target-ref.md)
     - [Build arguments and variables](guides/build-args.md)
     - [Secrets](guides/secrets.md)
     - [Functions](guides/functions.md)
@@ -34,9 +35,9 @@
         - [GCP Artifact Registry](guides/registries/gcp-artifact-registry.md)
         - [Azure ACR](guides/registries/azure-acr.md)
         - [Self-signed certificates](guides/registries/self-signed.md)
-    - Using the Earthly Docker Images
-        - [earthly/earthly](docker-images/all-in-one.md)
-        - [earthly/buildkitd](docker-images/buildkit-standalone.md)
+    - Using the EarthBuild Docker Images
+        - [earthbuild/earthbuild](docker-images/all-in-one.md)
+        - [earthbuild/buildkitd](docker-images/buildkit-standalone.md)
     - [Best practices](guides/best-practices.md)
 - [Caching](./caching/caching.md)
     - [Caching in Earthfiles](./caching/caching-in-earthfiles.md)

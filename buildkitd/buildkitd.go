@@ -1013,27 +1013,6 @@ func GetLogs(
 	return "", fmt.Errorf("logs for container %s were not found", containerName)
 }
 
-// GetContainerIP returns the IP of the buildkit container.
-func GetContainerIP(
-	ctx context.Context, containerName string, fe containerutil.ContainerFrontend, settings Settings,
-) (string, error) {
-	if !containerutil.IsLocal(settings.BuildkitAddress) {
-		return "", nil // Remote buildkitd is not an error,  but we don't know its IP
-	}
-
-	infos, err := fe.ContainerInfo(ctx, containerName)
-	if err != nil {
-		return "", fmt.Errorf("could not get container info to determine ip: %w", err)
-	}
-
-	if containerInfo, ok := infos[containerName]; ok {
-		// default is bridge. If someone has a weirdo setup this should be able to handle it with some config option.
-		return containerInfo.IPs["bridge"], nil
-	}
-
-	return "", fmt.Errorf("ip for container %s was not found", containerName)
-}
-
 // WaitUntilStopped waits until the buildkitd daemon has stopped.
 func WaitUntilStopped(
 	ctx context.Context, containerName string, opTimeout time.Duration, fe containerutil.ContainerFrontend,

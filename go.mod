@@ -4,8 +4,6 @@ go 1.26.0
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0
-	git.sr.ht/~nelsam/correct v0.1.6
-	git.sr.ht/~nelsam/hel v0.10.0
 	github.com/adrg/xdg v0.5.3
 	github.com/aws/aws-sdk-go-v2 v1.43.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.32
@@ -28,7 +26,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-colorable v0.1.15
 	github.com/mattn/go-isatty v0.0.24
-	github.com/moby/buildkit v0.31.2
+	github.com/moby/buildkit v0.32.2
 	github.com/moby/patternmatcher v0.6.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
@@ -110,7 +108,6 @@ require (
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/poy/onpar v1.1.2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.69.0 // indirect

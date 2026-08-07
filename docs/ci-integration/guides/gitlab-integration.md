@@ -1,7 +1,7 @@
 
 # GitLab CI/CD integration
 
-This example uses [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) to build the Earthly target `+build`.
+This example uses [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) to build the EarthBuild target `+build`.
 
 
 ```yml
@@ -15,21 +15,21 @@ variables:
   FORCE_COLOR: 1
   EARTHLY_EXEC_CMD: "/bin/sh"
 
-image: earthbuild/earthbuild:v0.8.16
+image: earthbuild/earthbuild:v0.8.17
 
 before_script:
 - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
-earthly:
+earth:
   stage: build
   script:
-- earthly --ci --push -P +build
+- earth --ci --push -P +build
 ```
 
 Note that in this particular configuration, the `earthbuild/earthbuild` image will first
 start BuildKit under the same container via the image's entrypoint script; however
 by setting `EARTHLY_EXEC_CMD=/bin/sh`, the `/usr/bin/earthly-entrypoint.sh` script
-will present a shell rather than call the earthly binary. This bootstrapping occurs
+will present a shell rather than call the earth binary. This bootstrapping occurs
 before the `before_script` portion of the gitlab job executes.
 
 In order to configure a registry mirror, users will need to configure a multi-line

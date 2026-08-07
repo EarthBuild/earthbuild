@@ -8,36 +8,36 @@ Podman also works on Mac using a [podman machine](https://docs.podman.io/en/late
  - Mac: ensure a [podman machine](https://docs.podman.io/en/latest/markdown/podman-machine.1.html) is running.
  - Linux: for [multi-platform builds](https://docs.earthly.dev/docs/guides/multi-platform), install [qemu-user-static](https://github.com/multiarch/qemu-user-static).
  - [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker) requires rootful mode.
-   - Linux: run with `sudo` (i.e., `sudo earthly -P +with-docker-target`)
+   - Linux: run with `sudo` (i.e., `sudo earth -P +with-docker-target`)
    - Mac: run a [rootful machine](https://docs.podman.io/en/latest/markdown/podman-machine-set.1.html#rootful).
 
 ## Getting started
-When earthly starts a check is done to determine what frontend is available.
-By default, earthly will attempt to use docker and then fall back to podman.
+When earth starts a check is done to determine what frontend is available.
+By default, earth will attempt to use docker and then fall back to podman.
 If you wish to change the behavior of the startup check, run the following command:
 
 ```bash
-# Configure earthly to use podman
-earthly config global.container_frontend podman-shell
+# Configure earth to use podman
+earth config global.container_frontend podman-shell
 
-# Configure earthly to use docker
-earthly config global.container_frontend docker-shell
+# Configure earth to use docker
+earth config global.container_frontend docker-shell
 ```
 
-You can verify the command worked by checking the `~/.earthly/config.yml` file and verifying it contains a `container_frontend` entry.
+You can verify the command worked by checking the `~/.earth/config.yml` file and verifying it contains a `container_frontend` entry.
 ```bash
-> cat ~/.earthly/config.yml
+> cat ~/.earth/config.yml
 global:
     container_frontend: podman-shell
 ```
 
-Then, you can run a basic hello world example to see earthly using the appropriate container frontend.
+Then, you can run a basic hello world example to see earth using the appropriate container frontend.
 ```bash
-> earthly github.com/EarthBuild/hello-world:main+hello
+> earth github.com/EarthBuild/hello-world:main+hello
  1. Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
 
-           buildkitd | Starting buildkit daemon as a podman container (earthly-buildkitd)...
+           buildkitd | Starting buildkit daemon as a podman container (earth-buildkitd)...
            buildkitd | ...Done
 ```
 
@@ -103,10 +103,10 @@ There may be a lingering configuration file that will be read by the attachable 
 
 To fix this issue, try removing or renaming the `~/.docker/config.json` file.
 
-### Earthly CLI - no frontend initialized
+### EarthBuild CLI - no frontend initialized
 Seeing the error on startup means the check for podman has failed.
 ```bash
-> earthly github.com/EarthBuild/hello-world:main+hello
+> earth github.com/EarthBuild/hello-world:main+hello
  1. Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
 
@@ -120,7 +120,7 @@ Ensure you have correctly installed podman and, if you are using a Mac, the podm
 
 ### Rootless podman
 Running podman in rootless mode is not supported due to the [earthbuild/dind](https://hub.docker.com/r/earthbuild/dind) and 
-[earthly/buildkit](https://hub.docker.com/r/earthly/buildkitd) because they [require privileged access](https://docs.earthly.dev/docs/guides/using-the-earthly-docker-images/buildkit-standalone#requirements).
+[earthbuild/buildkitd](https://hub.docker.com/r/earthbuild/buildkitd) because they [require privileged access](https://docs.earthly.dev/docs/guides/using-the-earth-docker-images/buildkit-standalone#requirements).
 Specifically, [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker) will fail.
 You must use `sudo` on Linux or [set your podman machine to rootful mode on Mac](https://docs.podman.io/en/latest/markdown/podman-machine-set.1.html#rootful) to use [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker).
 
@@ -148,7 +148,7 @@ docker:
 You need to configure QEMU if you are running a cross-platform target.
 If you haven't properly configured QEMU you will receive an error message containing the following message:
 ```bash
-> earthly +cross-platform
+> earth +cross-platform
 ...
 exec /bin/sh: exec format error
 ...

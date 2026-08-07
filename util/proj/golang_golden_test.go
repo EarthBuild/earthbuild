@@ -2,7 +2,6 @@ package proj_test
 
 import (
 	"bytes"
-	"context"
 	_ "embed"
 	"flag"
 	"os"
@@ -79,10 +78,7 @@ func TestGolang_Targets_Named(t *testing.T) {
 	buf := bytes.NewBufferString(version)
 	g := proj.NewGolang(proj.StdFS(), proj.StdExecer())
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	pfx := g.Type(ctx)
+	pfx := g.Type(t.Context())
 
 	tgts, err := g.Targets()
 	if err != nil {

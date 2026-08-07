@@ -33,13 +33,3 @@ func KeyFromHashAndTag(target *SingleTarget, dockerTag string) (StateKey, error)
 
 	return StateKey(key), nil
 }
-
-// KeyFromState is a simple wrapper to get a key from a given state using the hash of its target.
-func KeyFromState(target *SingleTarget) (StateKey, error) {
-	hash, err := target.TargetInput().Hash()
-	if err != nil {
-		return StateKey(""), fmt.Errorf("target input hash: %w", err)
-	}
-
-	return StateKey(hash), nil
-}

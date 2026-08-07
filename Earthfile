@@ -181,22 +181,6 @@ markdown-spellcheck:
     # TODO remove the greps once the corresponding markdown files have spelling fixed (or techterms added to .vale/styles/HouseStyle/tech-terms/...
     RUN find . -type f -iname '*.md' | xargs vale --config /etc/vale/vale.ini --output line --minAlertLevel error
 
-# mocks runs 'go generate' against this module and saves generated mock files
-# locally.
-mocks:
-    FROM +go
-    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
-    ENV hel_version=0.6.6
-    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
-    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
-    ENV goimports_version=0.24.1
-    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
-    COPY --dir +code/earthly /
-    RUN go generate ./...
-    FOR mockfile IN $(find . -name 'helheim*_test.go')
-        SAVE ARTIFACT $mockfile AS LOCAL $mockfile
-    END
-
 unit-test-parser:
     FROM +deps
     COPY scripts/unit-test-parser/main.go .

@@ -58,14 +58,16 @@ runs:
           echo "is_fork=false" >> $GITHUB_OUTPUT
           echo "Running on main repo - will use GHCR"
         fi
-    - name: Download artifacts (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Download build-earthly artifacts
+      # Always download. The artifact carries the buildkitd image tarball on
+      # every run, and on fork PRs also the earthly binary + tag-suffix.txt.
+      # Loading the local tarball avoids a per-job ghcr pull of the staging
+      # image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
         name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
-    - name: Load buildkitd image from artifact (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Load buildkitd image from artifact
       shell: bash
       run: |
         echo "Loading buildkitd image from artifact..."
@@ -159,11 +161,19 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - name: Set fixed buildkitd image for Docker 29+ (non-fork)
+    - name: Point outer buildkit at the PR's own staging image (non-fork)
+      # Previously hardcoded to the stable pinned buildkitd image. That meant
+      # the outer layer ran the PR's earthly CLI against the *old* buildkit,
+      # and the PR's own buildkit was only exercised inside earthly-in-earthly
+      # tests -- so an outer-daemon regression could pass CI. Use the staging
+      # tag build-earthly pushed for this SHA, matching what the fork path
+      # above already does.
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1" >> $GITHUB_ENV
+        TAG_SUFFIX="ubuntu-latest-${{inputs.BINARY}}"
+        if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

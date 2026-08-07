@@ -92,7 +92,7 @@ jobs:
           ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Login to GitHub Container Registry
-        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
@@ -107,7 +107,7 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build and push +ci-release using latest earthly build
-        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
@@ -121,33 +121,48 @@ jobs:
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
-      - name: Save artifacts for fork CI
+      - name: Save buildkitd image tarball (all runs)
+        # Shipping the buildkitd image as a GHA artifact -- rather than having
+        # every downstream test job pull it from ghcr -- moves ~67 in-run image
+        # fetches off ghcr and onto in-run artifact storage, which does not
+        # rate-limit. Fork PRs already relied on this path; it is now always on.
+        #
+        # Earthly pushes straight from buildkit's internal store to ghcr
+        # without tagging the image in the host daemon, so a pull is needed
+        # before `save` can find the tag. We pay that pull once here instead of
+        # once per test job. On fork PRs the image was built locally via
+        # --image in the step above, so `image inspect` hits and no pull runs.
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
+          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
+          IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
+
+          mkdir -p ./artifacts
+          echo "${TAG_SUFFIX}" > ./artifacts/tag-suffix.txt
+          if ! ${{inputs.SUDO}} "${{inputs.BINARY}}" image inspect "$IMG" >/dev/null 2>&1; then
+            ${{inputs.SUDO}} "${{inputs.BINARY}}" pull "$IMG"
+          fi
+          ${{inputs.SUDO}} "${{inputs.BINARY}}" save "$IMG" -o ./artifacts/buildkitd-image.tar
+      - name: Build earthly binary artifact (fork only)
+        # Fork PRs cannot read the earthly binary from ghcr, so it ships in the
+        # artifact. Non-fork jobs fetch it from ghcr instead -- rebuilding it
+        # here would be minutes of redundant work on every run.
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
           export TAG_SUFFIX="${{inputs.RUNS_ON}}-${{inputs.BINARY}}"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
 
-          mkdir -p ./artifacts
-
-          # Build earthly CLI binary with correct installation name (earthly, not earthly-dev)
-          # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
+          # DEFAULT_INSTALLATION_NAME=earthly ensures the buildkitd container
+          # is named "earthly-buildkitd" as tests expect.
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
             --DEFAULT_INSTALLATION_NAME=earthly \
             ./artifacts/earthly
-
-          # Save the buildkitd image as tarball
-          ${{inputs.SUDO}} "${{inputs.BINARY}}" save \
-            "ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
-            -o ./artifacts/buildkitd-image.tar
-
-          # Save the tag suffix for downstream jobs
-          echo "${TAG_SUFFIX}" > ./artifacts/tag-suffix.txt
-      - name: Upload artifacts for fork CI
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+      - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: earthly-build-${{inputs.RUNS_ON}}-${{inputs.BINARY}}${{ inputs.USE_NEXT && '-ticktock' || '' }}

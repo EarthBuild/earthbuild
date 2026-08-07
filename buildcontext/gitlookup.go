@@ -121,12 +121,12 @@ func (gl *GitLookup) DisableSSH() {
 
 func knownHostsToKeyScans(knownHosts string) []string {
 	knownHosts = strings.ReplaceAll(knownHosts, "\r\n", "\n")
-	foundKeyScans := make(map[string]bool)
+	foundKeyScans := make(map[string]struct{})
 
 	for s := range strings.SplitSeq(knownHosts, "\n") {
 		s = strings.TrimSpace(s)
-		if s != "" && !strings.HasPrefix(s, "#") && !foundKeyScans[s] {
-			foundKeyScans[s] = true
+		if s != "" && !strings.HasPrefix(s, "#") {
+			foundKeyScans[s] = struct{}{}
 		}
 	}
 
@@ -321,7 +321,7 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 
 //nolint:unparam // error return kept for future use
 func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, error) {
-	foundAlgs := map[string]bool{}
+	foundAlgs := map[string]struct{}{}
 
 	knownHostsKeyScans, err := loadKnownHosts()
 	if err != nil {
@@ -331,7 +331,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 	gl.console.VerbosePrintf("loaded %d key(s) from known_hosts and %d default key(s)",
 		len(knownHostsKeyScans), len(defaultKeyScans))
 
-	foundKeys := make(map[string]bool)
+	foundKeys := make(map[string]struct{})
 
 	for _, keyScans := range [][]string{
 		knownHostsKeyScans,
@@ -348,12 +348,12 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 				continue
 			}
 
-			foundAlgs[keyAlg] = true
+			foundAlgs[keyAlg] = struct{}{}
 
 			key := fmt.Sprintf("%s %s %s", knownhosts.Normalize(hostname), keyAlg, keyData)
-			if !foundKeys[key] {
+			if _, seen := foundKeys[key]; !seen {
 				gl.console.VerbosePrintf("found (normalized) key %s", key)
-				foundKeys[key] = true
+				foundKeys[key] = struct{}{}
 			}
 		}
 	}

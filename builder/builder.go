@@ -253,8 +253,8 @@ func (b *Builder) convertAndBuild(
 		sharedLocalStateCache = earthfile2llb.NewSharedLocalStateCache()
 		featureFlagOverrides  = b.opt.FeatureFlagOverrides
 		manifestLists         = make(map[string][]dockerutil.Manifest) // parent image -> child images
-		platformImgNames      = make(map[string]bool)                  // ensure that these are unique
-		singPlatImgNames      = make(map[string]bool)                  // ensure that these are unique
+		platformImgNames      = make(map[string]struct{})              // ensure that these are unique
+		singPlatImgNames      = make(map[string]struct{})              // ensure that these are unique
 		exportCoordinator     = gatewaycrafter.NewExportCoordinator()
 
 		// dirIDs maps a dirIndex to a dirID; the "dir-id" field was introduced
@@ -335,7 +335,7 @@ func (b *Builder) convertAndBuild(
 				Logbus:                               opt.Logbus,
 				Runner:                               opt.Runner,
 				ProjectAdder:                         opt.ProjectAdder,
-				FilesWithCommandRenameWarning:        make(map[string]bool),
+				FilesWithCommandRenameWarning:        make(map[string]struct{}),
 				BuildkitSkipper:                      b.opt.BuildkitSkipper,
 				NoAutoSkip:                           b.opt.NoAutoSkip,
 			}
@@ -389,8 +389,8 @@ func (b *Builder) convertAndBuild(
 			gwCrafter.AddMeta(refPrefix+"/final-artifact", []byte("true"))
 		}
 
-		isMultiPlatform := make(map[string]bool)    // DockerTag -> bool
-		noManifestListImgs := make(map[string]bool) // DockerTag -> bool
+		isMultiPlatform := make(map[string]struct{})    // DockerTag -> struct{}
+		noManifestListImgs := make(map[string]struct{}) // DockerTag -> struct{}
 
 		for _, sts := range mts.All() {
 			if sts.PlatformResolver.Current() == platutil.DefaultPlatform {
@@ -401,12 +401,15 @@ func (b *Builder) convertAndBuild(
 				doSaveOrPush := (sts.GetDoSaves() || sts.GetDoPushes() || saveImage.ForceSave)
 				if !saveImage.SkipBuilder && saveImage.DockerTag != "" && doSaveOrPush {
 					if saveImage.NoManifestList {
-						noManifestListImgs[saveImage.DockerTag] = true
+						noManifestListImgs[saveImage.DockerTag] = struct{}{}
 					} else {
-						isMultiPlatform[saveImage.DockerTag] = true
+						isMultiPlatform[saveImage.DockerTag] = struct{}{}
 					}
 
-					if isMultiPlatform[saveImage.DockerTag] && noManifestListImgs[saveImage.DockerTag] {
+					_, isMulti := isMultiPlatform[saveImage.DockerTag]
+					_, noManifest := noManifestListImgs[saveImage.DockerTag]
+
+					if isMulti && noManifest {
 						return nil, fmt.Errorf(
 							"cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list",
 							saveImage.DockerTag,
@@ -456,7 +459,7 @@ func (b *Builder) convertAndBuild(
 				}
 
 				//nolint:nestif // TODO(jhorsts): simplify
-				if isMultiPlatform[saveImage.DockerTag] {
+				if _, isMulti := isMultiPlatform[saveImage.DockerTag]; isMulti {
 					resolvedPlat := sts.PlatformResolver.Materialize(sts.PlatformResolver.Current())
 					platformStr := resolvedPlat.String()
 
@@ -473,7 +476,7 @@ func (b *Builder) convertAndBuild(
 							)
 						}
 
-						platformImgNames[platformImgName] = true
+						platformImgNames[platformImgName] = struct{}{}
 					}
 					// Image has platform set - need to use manifest lists.
 					// Need to push as a single multi-manifest image, but output locally as
@@ -526,7 +529,7 @@ func (b *Builder) convertAndBuild(
 							)
 						}
 
-						singPlatImgNames[saveImage.DockerTag] = true
+						singPlatImgNames[saveImage.DockerTag] = struct{}{}
 					}
 
 					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)

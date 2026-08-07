@@ -12,7 +12,14 @@ buildkitd:
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:51fe8fb974fd27cac120487c04948bd3295683c9+build
+        # TEMPORARY -- DO NOT MERGE.
+        # Points at EarthBuild/buildkit#21 (branch
+        # registry-cache-buildkit-version) to measure whether excluding .git
+        # from the buildkit build context makes the buildctl/buildkitd compile
+        # stages cacheable across machines. Revert to
+        # 51fe8fb974fd27cac120487c04948bd3295683c9 (current main) before merge,
+        # or bump to the squashed sha once that PR lands.
+        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:375fce686b40f31b841c1f85e7d23f9583898d68+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"

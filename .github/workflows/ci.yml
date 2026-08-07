@@ -10,7 +10,10 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
   pull_request:
-    branches: [ main, get-ci-working ]
+    # ci-speed-up-build is a long-lived working branch that CI-performance work
+    # is stacked onto. PRs targeting it need CI to run in order to be measured
+    # against it. REVERT this entry once that work lands on main.
+    branches: [ main, get-ci-working, ci-speed-up-build ]
   merge_group:
 
 
@@ -72,7 +75,7 @@ jobs:
           earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       - name: Build latest earth using released earth
-        run: earth --use-inline-cache +for-linux
+        run: earth +for-linux
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
@@ -127,7 +130,7 @@ jobs:
       - name: Update Buildkit to earthly-next
         run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earth (next) using released earth
-        run: earth --use-inline-cache +for-linux
+        run: earth +for-linux
       - name: Build and push +ci-release (next) using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
@@ -172,6 +175,92 @@ jobs:
           name: earthly-build-ubuntu-latest-ticktock
           path: ./artifacts-next/
           retention-days: 1
+
+  # --- Test layer cache ---
+  #
+  # Every ./tests+* target is FROM +earthbuild-integration-test-base, which is
+  # FROM +earthly-docker, which is FROM ./buildkitd+buildkitd. Each test job
+  # runs against a freshly started buildkitd with an empty cache, so all ~45 of
+  # them compile buildkit and the earthly binary from scratch before running a
+  # single test -- roughly 160s of identical work per job.
+  #
+  # This job builds that chain once and exports it to a registry cache the test
+  # jobs import. It cannot reuse what fast-check-and-build already produced:
+  # buildkitd/Earthfile threads TAG into RELEASE_VERSION and on into the
+  # buildkit compile's ldflags, so the buildkitd image +ci-release pushes
+  # (TAG=<sha>-ubuntu-latest) has a different layer chain from the one the tests
+  # build (the default dev tag). Because it needs nothing from
+  # fast-check-and-build, it runs alongside it and adds nothing to the critical
+  # path.
+  #
+  # Deliberately absent from every `needs:` and marked continue-on-error: this
+  # is a cache, not a dependency. If it fails, is slow, or is skipped, test jobs
+  # build cold exactly as they do today.
+  warm-test-cache:
+    name: Warm Test Cache (${{ matrix.lane }})
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    # Fork PRs cannot push to GHCR. They already take the upload-artifact path
+    # for the binary, and simply build cold here.
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: standard
+            use_next: false
+          - lane: next
+            use_next: true
+    env:
+      EARTHLY_INSTALL_ID: "earthly-githubactions"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # NOTE: a plain checkout with no branch restored, matching what
+      # reusable-test.yml does. The git state feeds EARTHLY_TARGET_TAG_DOCKER
+      # and so the image tag, and the tag feeds the buildkit compile -- if this
+      # job and the test jobs disagree on it, every layer key differs and the
+      # cache silently never hits.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Configure EarthBuild to use GCR mirror
+        run: |-
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Update Buildkit to earthly-next
+        if: matrix.use_next
+        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+      - name: Build and export test-base layer cache
+        run: |-
+          set -euo pipefail
+          # --push is what enables the cache *export* (earthly only exports when
+          # pushes are on). It does not push any image here:
+          # +earthbuild-integration-test-base has no SAVE IMAGE of its own, and
+          # a target reached via FROM never runs its SAVE IMAGE --push.
+          # --max-remote-cache exports intermediate stages too, not just the
+          # layers of the output ref. That is required here rather than a
+          # nicety: buildkit's own Earthfile compiles buildkitd, buildctl and
+          # runc in separate stages and COPYs the binaries into the final
+          # image, so under the default mode=min those compile stages are COPY
+          # sources and are excluded from the export. They live in a remote
+          # Earthfile, so they cannot be annotated with SAVE IMAGE --cache-hint
+          # the way this repo's own targets are.
+          #
+          # Measured without it (run 30478664264): the buildkitd image layers
+          # hit, but the two buildkit compile stages still ran, leaving the
+          # test-job prelude at 151s against a 155s baseline.
+          earth --ci --push --max-remote-cache \
+            --remote-cache="ghcr.io/earthbuild/earthbuild-cache:${GITHUB_SHA}-${LANE},image-manifest=true,oci-mediatypes=true" \
+            +earthbuild-integration-test-base
+        env:
+          LANE: ${{ matrix.lane }}
 
   # --- Docker Suite ---
   docker-tests:

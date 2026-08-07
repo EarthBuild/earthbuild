@@ -18,7 +18,7 @@ This guide will cover both approaches to constructing your image.
 This is the recommended approach when adopting EarthBuild into your containerized CI. Start by basing your custom image on ours:
 
 ```docker
-FROM earthbuild/earthbuild:v0.8.17
+FROM earthbuild/earthbuild:v0.8.18
 RUN ... # Add your agent, certificates, tools...
 ```
 
@@ -50,7 +50,7 @@ In this setup, EarthBuild will be allowed to manage an instance of its `earthbui
 To enable this, simply follow the installation instructions within your Dockerfile/Earthfile as you would on any other host. An example of installing this can be found below.
 
 ```docker
-RUN wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/earth-linux-amd64 -O /usr/local/bin/earth && \
+RUN wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.18/earth-linux-amd64 -O /usr/local/bin/earth && \
     chmod +x /usr/local/bin/earth && \
     /usr/local/bin/earth bootstrap
 ```

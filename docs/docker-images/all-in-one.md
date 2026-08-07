@@ -2,7 +2,7 @@ This image contains `earth`, `buildkit`, and some extra configuration to enable 
 
 ## Tags
 
-Currently, the `latest` tag is `v0.8.17`.
+Currently, the `latest` tag is `v0.8.18`.
 For other available tags, please check out https://hub.docker.com/r/earthbuild/earthbuild/tags
 
 ## Quickstart
@@ -14,7 +14,7 @@ Want to get started? Here are a couple sample `docker run` commands that cover t
 This example shows how to use the EarthBuild container in conjunction with a Docker socket that EarthBuild can use to start up the BuildKit daemon.
 
 ```bash
-docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock -e NO_BUILDKIT=1 earthbuild/earthbuild:v0.8.17 +for-linux
+docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock -e NO_BUILDKIT=1 earthbuild/earthbuild:v0.8.18 +for-linux
 ```
 
 Here's a quick breakdown:
@@ -30,7 +30,7 @@ Here's a quick breakdown:
 This example shows how the EarthBuild image can start a BuildKit daemon within the same container. A Docker socket is not needed in this case, however the container will need to be run with the `--privileged` flag.
 
 ```bash
-docker run --privileged -t -v $(pwd):/workspace -v earthbuild-tmp:/tmp/earthbuild:rw earthbuild/earthbuild:v0.8.17 +for-linux
+docker run --privileged -t -v $(pwd):/workspace -v earthbuild-tmp:/tmp/earthbuild:rw earthbuild/earthbuild:v0.8.18 +for-linux
 ```
 
 Here's a quick breakdown:

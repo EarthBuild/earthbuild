@@ -4,7 +4,7 @@ _Note that versions of this container have only ever been tested with their corr
 
 ## Tags
 
-Currently, the `latest` tag is `v0.8.17`.
+Currently, the `latest` tag is `v0.8.18`.
 For other available tags, please check out https://hub.docker.com/r/earthbuild/buildkitd/tags
 
 ## Quickstart

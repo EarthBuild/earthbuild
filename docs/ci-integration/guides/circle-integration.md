@@ -14,7 +14,7 @@ jobs:
     steps:
       - checkout
       - run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
-      - run: "sudo /bin/sh -c 'wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/earth-linux-amd64 -O /usr/local/bin/earth && chmod +x /usr/local/bin/earth'"
+      - run: "sudo /bin/sh -c 'wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.18/earth-linux-amd64 -O /usr/local/bin/earth && chmod +x /usr/local/bin/earth'"
       - run: earth --ci --push +build
 ```
 

@@ -18,7 +18,7 @@ version: 0.2
 phases:
   install:
     commands:
-      - wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/earth-linux-amd64 -O /usr/local/bin/earth && chmod +x /usr/local/bin/earth
+      - wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.18/earth-linux-amd64 -O /usr/local/bin/earth && chmod +x /usr/local/bin/earth
   pre_build:
     commands:
       - echo Logging into Docker

@@ -27,7 +27,7 @@ Once you have ensured that the dependencies are available, you'll need to instal
 This is the simplest method for adding `earth` to your CI. It will work best on dedicated computers, or in scripted/auto-provisioned build environments. You can pin it to a specific version like so:
 
 ```shell
-wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.17/earth-linux-amd64 -O /usr/local/bin/earth && \
+wget https://github.com/EarthBuild/earthbuild/releases/download/v0.8.18/earth-linux-amd64 -O /usr/local/bin/earth && \
 chmod +x /usr/local/bin/earth && \
 /usr/local/bin/earth bootstrap
 ```

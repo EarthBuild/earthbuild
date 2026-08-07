@@ -2,11 +2,15 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/docker2earth"
+	"github.com/EarthBuild/earthbuild/internal/dockerfile"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/urfave/cli/v3"
 )
 
@@ -60,7 +64,43 @@ func (a *Doc2Earth) Cmds() []*cli.Command {
 func (a *Doc2Earth) action(context.Context, *cli.Command) error {
 	a.cli.SetCommandName("docker2earthly")
 
-	err := docker2earth.Docker2Earth(a.cli.Flags().DockerfilePath, a.earthfilePath, a.earthfileFinalImage)
+	var in io.Reader
+	if a.cli.Flags().DockerfilePath == "-" {
+		in = os.Stdin
+	} else {
+		path := filepath.Clean(a.cli.Flags().DockerfilePath)
+
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open %q: %w", path, err)
+		}
+
+		defer f.Close()
+
+		in = f
+	}
+
+	var out io.Writer
+	if a.earthfilePath == "-" {
+		out = os.Stdout
+	} else {
+		path := filepath.Clean(a.earthfilePath)
+
+		if exists, _ := fileutil.FileExists(path); exists {
+			return errors.New("earthfile already exists; please delete it if you wish to continue")
+		}
+
+		f, err := os.Create(path)
+		if err != nil {
+			return fmt.Errorf("create Earthfile %q: %w", path, err)
+		}
+
+		defer f.Close()
+
+		out = f
+	}
+
+	_, err := dockerfile.Convert(out, in, "earth docker2earth", a.earthfileFinalImage, a.cli.Flags().DockerfilePath)
 	if err != nil {
 		return err
 	}

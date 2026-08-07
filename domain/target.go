@@ -21,6 +21,9 @@ type Target struct {
 	// Import representation. E.g. in "foo+bar" this is "foo".
 	ImportRef string `json:"importRef"`
 
+	// SourcePath is an optional source path override for the target path (e.g. relative Dockerfile path).
+	SourcePath string `json:"sourcePath"`
+
 	// Target name. E.g. in "+something" this is "something".
 	Target string `json:"target"`
 }
@@ -38,6 +41,11 @@ func (et Target) GetTag() string {
 // GetLocalPath returns the Path portion of the target.
 func (et Target) GetLocalPath() string {
 	return et.LocalPath
+}
+
+// GetSourcePath returns the SourcePath portion of the target.
+func (et Target) GetSourcePath() string {
+	return et.SourcePath
 }
 
 // GetImportRef returns the ImportRef portion of the target.

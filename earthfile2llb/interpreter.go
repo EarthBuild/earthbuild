@@ -177,7 +177,14 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block
 }
 
 func (i *Interpreter) handleStatement(ctx context.Context, stmt earthfile.Statement) error {
-	ctx = ContextWithSourceLocation(ctx, stmt.SourceLocation)
+	sl := stmt.SourceLocation
+	if sl != nil && i.target.SourcePath != "" {
+		copySl := *sl
+		copySl.File = i.target.SourcePath
+		sl = &copySl
+	}
+
+	ctx = ContextWithSourceLocation(ctx, sl)
 	if stmt.Command != nil {
 		return i.handleCommand(ctx, *stmt.Command)
 	}

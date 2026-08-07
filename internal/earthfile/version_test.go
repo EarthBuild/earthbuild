@@ -38,7 +38,7 @@ func TestParseFile_Version(t *testing.T) {
 	r := require.New(t)
 	r.NoError(err)
 	r.NotNil(tree.Version)
-	r.Equal([]string{version08}, tree.Version.Args)
+	r.Equal([]string{Version08}, tree.Version.Args)
 }
 
 // TestVersionVariants covers the accepted spellings of the VERSION statement:
@@ -123,7 +123,7 @@ IMPORT ./subdir AS other
 	for name, input := range plain {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			requireVersion(t, input, version08)
+			requireVersion(t, input, Version08)
 		})
 	}
 
@@ -139,7 +139,7 @@ IMPORT ./subdir AS other
 	for name, input := range withFlag {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			requireVersion(t, input, "--try", version08)
+			requireVersion(t, input, "--try", Version08)
 		})
 	}
 }

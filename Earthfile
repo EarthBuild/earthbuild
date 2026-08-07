@@ -48,7 +48,7 @@ code:
             go mod download
     END
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
+        dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly

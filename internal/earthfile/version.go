@@ -5,6 +5,25 @@ import (
 	"os"
 )
 
+// Supported Earthfile version constants.
+const (
+	Version00 = "0.0"
+	Version06 = "0.6"
+	Version07 = "0.7"
+	Version08 = "0.8"
+
+	// CurrentVersion is the default/latest version for new Earthfiles.
+	CurrentVersion = Version08
+)
+
+// List of valid Earthfile versions.
+var validEarthfileVersions = []string{
+	Version00, // Meant only for testing/debugging. Disables all feature flags.
+	Version06,
+	Version07,
+	Version08,
+}
+
 // ParseVersionFile reads the VERSION command for an Earthfile from the given file path and returns Version.
 func ParseVersionFile(filePath string, opts ...ParseOption) (*Version, error) {
 	b, err := os.ReadFile(filePath) // #nosec G304

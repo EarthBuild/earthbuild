@@ -40,6 +40,11 @@ func (ec Command) GetLocalPath() string {
 	return ec.LocalPath
 }
 
+// GetSourcePath returns the source path override for the command.
+func (ec Command) GetSourcePath() string {
+	return ""
+}
+
 // GetImportRef returns the ImportRef portion of the command.
 func (ec Command) GetImportRef() string {
 	return ec.ImportRef

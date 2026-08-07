@@ -7,24 +7,6 @@ import (
 	"strings"
 )
 
-const (
-	version00 = "0.0"
-	version06 = "0.6"
-	version07 = "0.7"
-	version08 = "0.8"
-)
-
-// List of valid Earthfile versions.
-// At some point we might want to break out Earthfile versioning
-// into it's own package with some helper functions that are
-// consumable from other packages.
-var validEarthfileVersions = []string{
-	version00, // Meant only for testing/debugging. Disables all feature flags.
-	version06,
-	version07,
-	version08,
-}
-
 var errUnexpectedVersionArgs = errors.New(
 	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
 )

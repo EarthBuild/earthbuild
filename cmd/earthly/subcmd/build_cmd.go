@@ -22,9 +22,9 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
-	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/dockerfile"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -59,14 +59,15 @@ const autoSkipPrefix = "auto-skip"
 
 // Build encapsulates the build command logic.
 type Build struct {
-	cli          CLI
-	dockerTarget string
-	buildArgs    []string
-	platformsStr []string
-	secrets      []string
-	secretFiles  []string
-	cacheFrom    []string
-	dockerTags   []string
+	cli              CLI
+	dockerTarget     string
+	dockerSourcePath string
+	buildArgs        []string
+	platformsStr     []string
+	secrets          []string
+	secretFiles      []string
+	cacheFrom        []string
+	dockerTags       []string
 }
 
 // NewBuild creates a new Build command.
@@ -264,6 +265,11 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 		target, err = domain.ParseTarget(targetName)
 		if err != nil {
 			return target, artifact, "", params.Errorf("invalid target %s", targetName)
+		}
+
+		if b.dockerSourcePath != "" {
+			target.SourcePath = b.dockerSourcePath
+			b.dockerSourcePath = ""
 		}
 	}
 
@@ -975,46 +981,74 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 
 	buildContextPath, err := filepath.Abs(nonFlagArgs[0])
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for build context: %w", err)
+		return fmt.Errorf("get absolute path for build context: %w", err)
 	}
+
+	dockerfilePath := b.cli.Flags().DockerfilePath
+	if !filepath.IsAbs(dockerfilePath) {
+		dockerfilePath = filepath.Join(buildContextPath, dockerfilePath)
+	}
+
+	dockerfilePath = filepath.Clean(dockerfilePath)
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = buildContextPath
+	}
+
+	relDockerPath, err := filepath.Rel(cwd, dockerfilePath)
+	if err != nil || strings.HasPrefix(relDockerPath, "..") {
+		relDockerPath = dockerfilePath
+	}
+
+	b.dockerSourcePath = relDockerPath
+
+	in, err := os.Open(dockerfilePath)
+	if err != nil {
+		return fmt.Errorf("docker-build: open Dockerfile %q: %w", dockerfilePath, err)
+	}
+
+	defer in.Close()
 
 	tempDir, err := os.MkdirTemp("", "docker-build")
 	if err != nil {
-		return fmt.Errorf("docker-build: failed to create temporary dir for Earthfile: %w", err)
+		return fmt.Errorf("docker-build: create temporary dir for Earthfile: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	argMap, err := godotenv.Read(b.cli.Flags().ArgFile)
-	if err != nil && (cmd.IsSet(flag.ArgFileFlag) || !errors.Is(err, os.ErrNotExist)) {
-		return fmt.Errorf("read %q: %w", b.cli.Flags().ArgFile, err)
-	}
+	earthfilePath := filepath.Clean(filepath.Join(tempDir, buildcontext.Earthfile))
 
-	buildArgs, err := common.CombineVariables(argMap, flagArgs, b.buildArgs)
+	out, err := os.Create(earthfilePath)
 	if err != nil {
-		return fmt.Errorf("combining build args: %w", err)
+		return fmt.Errorf("docker-build: create Earthfile %q: %w", earthfilePath, err)
 	}
 
-	platforms := flagutil.SplitFlagString(b.platformsStr)
-
-	content, err := docker2earth.GenerateEarthfile(
-		buildContextPath, b.cli.Flags().DockerfilePath, b.dockerTags,
-		buildArgs.Sorted(), platforms, b.dockerTarget,
-	)
-	if err != nil {
-		return fmt.Errorf("docker-build: failed to wrap Dockerfile with an Earthfile: %w", err)
-	}
-
-	earthfilePath := filepath.Join(tempDir, buildcontext.Earthfile)
-
-	out, err := os.Create(earthfilePath) // #nosec G304
-	if err != nil {
-		return fmt.Errorf("docker-build: failed to create Earthfile %q: %w", earthfilePath, err)
-	}
 	defer out.Close()
 
-	_, err = out.WriteString(content)
+	tag := ""
+	if len(b.dockerTags) > 0 {
+		tag = b.dockerTags[0]
+	}
+
+	b.cli.Console().VerbosePrintf("Converting %s to Earthfile...\n", relDockerPath)
+
+	targetNames, err := dockerfile.Convert(out, in, "earth docker-build", tag, relDockerPath)
 	if err != nil {
-		return fmt.Errorf("docker-build: failed to write to %q: %w", earthfilePath, err)
+		return fmt.Errorf("docker-build: convert Dockerfile to Earthfile: %w", err)
+	}
+
+	err = out.Close()
+	if err != nil {
+		return fmt.Errorf("docker-build: close generated Earthfile %q: %w", earthfilePath, err)
+	}
+
+	targetName := b.dockerTarget
+	if targetName == "" && len(targetNames) > 0 {
+		targetName = targetNames[len(targetNames)-1]
+	}
+
+	if targetName == "" {
+		targetName = dockerfile.DefaultTargetName
 	}
 
 	// The following should not be set in the context of executing the build from the generated Earthfile:
@@ -1025,7 +1059,7 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 	b.dockerTags = []string{}
 	b.platformsStr = []string{}
 
-	nonFlagArgs = []string{tempDir + "+build"}
+	nonFlagArgs = []string{fmt.Sprintf("%s+%s", tempDir, targetName)}
 
 	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
 }

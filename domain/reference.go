@@ -18,6 +18,8 @@ type Reference interface {
 	// GetLocalPath is the local path representation of the reference.
 	// E.g. in "./some/path+something" this is "./some/path".
 	GetLocalPath() string
+	// GetSourcePath is an optional source path override for the reference path.
+	GetSourcePath() string
 	// GetImportRef is the import identifier. E.g. in "foo+bar" this is "foo".
 	GetImportRef() string
 	// GetName is the target name or the command name of the reference. E.g. in "+something" this is "something".
@@ -124,6 +126,10 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 }
 
 func referenceString(r Reference) string {
+	if srcPath := r.GetSourcePath(); srcPath != "" {
+		return DockerfileTarget{SourcePath: srcPath, Target: r.GetName()}.String()
+	}
+
 	if r.IsImportReference() {
 		return fmt.Sprintf("%s+%s", escapePlus(r.GetImportRef()), r.GetName())
 	}
@@ -147,6 +153,10 @@ func referenceString(r Reference) string {
 }
 
 func referenceStringCanonical(r Reference) string {
+	if srcPath := r.GetSourcePath(); srcPath != "" {
+		return DockerfileTarget{SourcePath: srcPath, Target: r.GetName()}.StringCanonical()
+	}
+
 	if r.GetGitURL() != "" {
 		s := escapePlus(r.GetGitURL())
 		if r.GetTag() != "" {

@@ -335,7 +335,7 @@ func (b *Builder) convertAndBuild(
 				Logbus:                               opt.Logbus,
 				Runner:                               opt.Runner,
 				ProjectAdder:                         opt.ProjectAdder,
-				FilesWithCommandRenameWarning:        make(map[string]bool),
+				FilesWithCommandRenameWarning:        earthfile2llb.NewCommandRenameWarningSet(),
 				BuildkitSkipper:                      b.opt.BuildkitSkipper,
 				NoAutoSkip:                           b.opt.NoAutoSkip,
 			}

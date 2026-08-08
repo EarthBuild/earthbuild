@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"sync"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
@@ -33,6 +34,35 @@ const commandName = "WITH DOCKER RUN "
 // ProjectAdder provides an interface for adding projects.
 type ProjectAdder interface {
 	AddProject(org, proj string)
+}
+
+// CommandRenameWarningSet keeps track of the files for which the COMMAND => FUNCTION warning was displayed.
+type CommandRenameWarningSet struct {
+	files map[string]struct{}
+	mu    sync.Mutex
+}
+
+// NewCommandRenameWarningSet creates a new CommandRenameWarningSet.
+func NewCommandRenameWarningSet() *CommandRenameWarningSet {
+	return &CommandRenameWarningSet{
+		files: make(map[string]struct{}),
+	}
+}
+
+// Add attempts to record a warning for file. It returns true if the warning should be displayed
+// (i.e. file was not previously warned about and total warned files is less than maxWarnings).
+func (s *CommandRenameWarningSet) Add(file string, maxWarnings int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, exists := s.files[file]
+	if len(s.files) >= maxWarnings || exists {
+		return false
+	}
+
+	s.files[file] = struct{}{}
+
+	return true
 }
 
 // ConvertOpt holds conversion parameters.
@@ -78,7 +108,7 @@ type ConvertOpt struct {
 	Resolver *buildcontext.Resolver
 	// FilesWithCommandRenameWarning keeps track of the files for which the COMMAND => FUNCTION warning was displayed
 	// this can be removed in VERSION 0.8
-	FilesWithCommandRenameWarning map[string]bool
+	FilesWithCommandRenameWarning *CommandRenameWarningSet
 	// GlobalImports is a map of imports used to dereference import ref targets, commands, etc.
 	GlobalImports map[string]domain.ImportTrackerVal
 	// Logbus is the bus used for logging and metadata reporting.
@@ -191,6 +221,10 @@ func Earthfile2LLB(
 
 	if opt.SolveCache == nil {
 		opt.SolveCache = states.NewSolveCache()
+	}
+
+	if opt.FilesWithCommandRenameWarning == nil {
+		opt.FilesWithCommandRenameWarning = NewCommandRenameWarningSet()
 	}
 
 	if opt.MetaResolver == nil {

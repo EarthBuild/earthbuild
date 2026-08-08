@@ -31,8 +31,6 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const maxCommandRenameWarnings = 3
-
 var errCannotAsync = errors.New("cannot run async operation")
 
 // use as default to differentiate between an un specified string flag and a specified flag with empty value.
@@ -2492,16 +2490,15 @@ func (i *Interpreter) handleDoFunction(
 		return i.errorf(uc.SourceLocation, "%s recipes must start with %s", strings.ToLower(string(cmdName)), cmdName)
 	}
 
-	if !useFunctionCmd &&
-		len(i.converter.opt.FilesWithCommandRenameWarning) < maxCommandRenameWarnings &&
-		!i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] {
-		i.console.Printf(
-			`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
+	if !useFunctionCmd && i.converter.opt.FilesWithCommandRenameWarning != nil {
+		if i.converter.opt.FilesWithCommandRenameWarning.Add(sourceLocationFile) {
+			i.console.Printf(
+				`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.
 Note that switching now may cause breakages for your colleagues if they are using older earth versions.
 `, sourceLocationFile,
-		)
-		i.converter.opt.FilesWithCommandRenameWarning[sourceLocationFile] = true
+			)
+		}
 	}
 
 	if len(uc.Recipe[0].Command.Args) > 0 {

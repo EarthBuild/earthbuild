@@ -231,11 +231,11 @@ WORKDIR my-proj
 RUN ls
 ```
 
-Alternatively, an optimal deep clone can be achieved by calling the `FUNCTION` [DEEP_CLONE](https://github.com/earthly/lib/blob/3.0.1/utils/git/Earthfile#L4):
+Alternatively, an optimal deep clone can be achieved by calling the `FUNCTION` [DEEP_CLONE](https://github.com/EarthBuild/lib/blob/3.0.4/utils/git/Earthfile#L4):
 
 ```Dockerfile
 ARG git_url="git@github.com/my-co/my-proj"
-DO github.com/earthly/lib/utils/git:3.0.1+DEEP_CLONE --GIT_URL=$git_url
+DO github.com/EarthBuild/lib/utils/git:3.0.4+DEEP_CLONE --GIT_URL=$git_url
 RUN ls
 ```
 
@@ -1051,7 +1051,7 @@ A simple way to fix this is to use an earthly-provided [function](../guides/func
 # Better
 integration-test:
     FROM some-other-image:latest
-    DO github.com/earthly/lib+INSTALL_DIND
+    DO github.com/EarthBuild/lib:3.0.4+INSTALL_DIND
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN ...

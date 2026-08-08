@@ -75,7 +75,7 @@ Another option is to use the Earthly UDC `INSTALL_DIND`. This will install Docke
 
 ```Dockerfile
 FROM my-image:latest
-DO github.com/earthly/lib+INSTALL_DIND
+DO github.com/EarthBuild/lib:3.0.4+INSTALL_DIND
 COPY ./docker-compose.yml ./
 WITH DOCKER ...
     ...

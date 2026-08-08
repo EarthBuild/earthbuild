@@ -5,36 +5,41 @@ import (
 	"testing"
 )
 
-func TestCommandRenameWarningSet(t *testing.T) {
+func TestCommandRenameWarnings(t *testing.T) {
 	t.Parallel()
 
-	set := NewCommandRenameWarningSet()
+	set := NewCommandRenameWarnings()
 
 	// First time for file1 -> true
-	if !set.Add("file1", 2) {
+	if !set.Add("file1") {
 		t.Errorf("expected Add(file1) to return true")
 	}
 
 	// Duplicate for file1 -> false
-	if set.Add("file1", 2) {
+	if set.Add("file1") {
 		t.Errorf("expected duplicate Add(file1) to return false")
 	}
 
-	// Second unique file -> true (limit is 2)
-	if !set.Add("file2", 2) {
+	// Second unique file -> true
+	if !set.Add("file2") {
 		t.Errorf("expected Add(file2) to return true")
 	}
 
-	// Third unique file -> false (limit 2 reached)
-	if set.Add("file3", 2) {
-		t.Errorf("expected Add(file3) to return false when maxWarnings limit reached")
+	// Third unique file -> true (limit is 3)
+	if !set.Add("file3") {
+		t.Errorf("expected Add(file3) to return true")
+	}
+
+	// Fourth unique file -> false (limit 3 reached)
+	if set.Add("file4") {
+		t.Errorf("expected Add(file4) to return false when maxWarnings limit reached")
 	}
 }
 
-func TestCommandRenameWarningSet_Concurrent(t *testing.T) {
+func TestCommandRenameWarnings_Concurrent(t *testing.T) {
 	t.Parallel()
 
-	set := NewCommandRenameWarningSet()
+	set := NewCommandRenameWarnings()
 
 	var wg sync.WaitGroup
 
@@ -42,8 +47,8 @@ func TestCommandRenameWarningSet_Concurrent(t *testing.T) {
 
 	for range workers {
 		wg.Go(func() {
-			set.Add("file1", 50)
-			set.Add("file2", 50)
+			set.Add("file1")
+			set.Add("file2")
 		})
 	}
 

@@ -31,8 +31,6 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const maxCommandRenameWarnings = 3
-
 var errCannotAsync = errors.New("cannot run async operation")
 
 // use as default to differentiate between an un specified string flag and a specified flag with empty value.
@@ -2493,7 +2491,7 @@ func (i *Interpreter) handleDoFunction(
 	}
 
 	if !useFunctionCmd && i.converter.opt.FilesWithCommandRenameWarning != nil {
-		if i.converter.opt.FilesWithCommandRenameWarning.Add(sourceLocationFile, maxCommandRenameWarnings) {
+		if i.converter.opt.FilesWithCommandRenameWarning.Add(sourceLocationFile) {
 			i.console.Printf(
 				`Note that the COMMAND keyword will be replaced by FUNCTION starting with VERSION 0.8.
 To start using the FUNCTION keyword now (experimental) please use VERSION --use-function-keyword 0.7 in %s.

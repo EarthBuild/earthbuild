@@ -126,7 +126,7 @@ jobs:
         # fetches off ghcr and onto in-run artifact storage, which does not
         # rate-limit. Fork PRs already relied on this path; it is now always on.
         #
-        # Earthly pushes straight from buildkit's internal store to ghcr
+        # EarthBuild pushes straight from buildkit's internal store to ghcr
         # without tagging the image in the host daemon, so a pull is needed
         # before `save` can find the tag. We pay that pull once here instead of
         # once per test job. On fork PRs the image was built locally via
@@ -143,8 +143,8 @@ jobs:
             ${{inputs.SUDO}} "${{inputs.BINARY}}" pull "$IMG"
           fi
           ${{inputs.SUDO}} "${{inputs.BINARY}}" save "$IMG" -o ./artifacts/buildkitd-image.tar
-      - name: Build earthly binary artifact (fork only)
-        # Fork PRs cannot read the earthly binary from ghcr, so it ships in the
+      - name: Build earth binary artifact (fork only)
+        # Fork PRs cannot read the earth binary from ghcr, so it ships in the
         # artifact. Non-fork jobs fetch it from ghcr instead -- rebuilding it
         # here would be minutes of redundant work on every run.
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository

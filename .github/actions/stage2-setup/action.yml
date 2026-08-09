@@ -60,7 +60,7 @@ runs:
         fi
     - name: Download build-earth artifacts
       # Always download. The artifact carries the buildkitd image tarball on
-      # every run, and on fork PRs also the earthly binary + tag-suffix.txt.
+      # every run, and on fork PRs also the earth binary + tag-suffix.txt.
       # Loading the local tarball avoids a per-job ghcr pull of the staging
       # image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
@@ -163,10 +163,10 @@ runs:
       shell: bash
     - name: Point outer buildkit at the PR's own staging image (non-fork)
       # Previously hardcoded to the stable pinned buildkitd image. That meant
-      # the outer layer ran the PR's earthly CLI against the *old* buildkit,
-      # and the PR's own buildkit was only exercised inside earthly-in-earthly
+      # the outer layer ran the PR's earth CLI against the *old* buildkit,
+      # and the PR's own buildkit was only exercised inside earth-in-earth
       # tests -- so an outer-daemon regression could pass CI. Use the staging
-      # tag build-earthly pushed for this SHA, matching what the fork path
+      # tag the build job pushed for this SHA, matching what the fork path
       # above already does.
       #
       # Deliberately not gated on BINARY == 'docker': main's docker-only guard

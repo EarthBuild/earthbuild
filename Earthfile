@@ -953,10 +953,10 @@ merge-main-to-docs:
 
     ARG git_repo="earthly/earthly"
     ARG git_url="git@github.com:$git_repo"
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.3
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG to_branch="docs-0.8"
@@ -1019,12 +1019,12 @@ open-pr-for-fork:
 
     ARG TARGETARCH
 
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.3
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
     ARG git_repo="earthly/earthly"
     LET git_url="git@github.com:$git_repo"
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG --required pr_number

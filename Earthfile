@@ -7,14 +7,14 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.26.4-alpine3.24
+    FROM golang:1.26.5-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 
 node:
-    FROM node:26.3.1-alpine3.24
+    FROM node:26.7.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.0.1
+    LET npm_version=12.0.2
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -171,7 +171,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.15.2
+    ARG vale_version=3.17.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything
@@ -180,22 +180,6 @@ markdown-spellcheck:
     RUN find . -type f -iname '*.md' | xargs -n 1 sed -i 's/{[^}]*}//g'
     # TODO remove the greps once the corresponding markdown files have spelling fixed (or techterms added to .vale/styles/HouseStyle/tech-terms/...
     RUN find . -type f -iname '*.md' | xargs vale --config /etc/vale/vale.ini --output line --minAlertLevel error
-
-# mocks runs 'go generate' against this module and saves generated mock files
-# locally.
-mocks:
-    FROM +go
-    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
-    ENV hel_version=0.6.6
-    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
-    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
-    ENV goimports_version=0.24.1
-    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
-    COPY --dir +code/earthly /
-    RUN go generate ./...
-    FOR mockfile IN $(find . -name 'helheim*_test.go')
-        SAVE ARTIFACT $mockfile AS LOCAL $mockfile
-    END
 
 unit-test-parser:
     FROM +deps
@@ -288,7 +272,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.6-slim@sha256:63a4c7f612a00f92042cbdcc7cdc6a306f38485af0a200b9c89de7d9b1607d15
+    FROM python:3.14.7-slim@sha256:83c1cebb322d099ac9e3a3a532ba74b0146d702838b25e4c75c02fa81ffeb910
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -520,7 +504,18 @@ earthly-docker:
     ARG BUILDKIT_PROJECT
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    # Release metadata baked into the embedded CLI. These mirror the dev
+    # defaults of +earthly and must be forwarded explicitly (see
+    # earthly-linux-amd64 for details). Release builds override them via
+    # release+release-dockerhub so the CLI inside the published image points at
+    # the buildkitd image the release actually publishes, keeping it in sync
+    # with the released binaries (+all-binaries).
+    ARG VERSION="$TAG"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$TAG"
+    # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
+    # with the CLI version, and makes this the same buildkitd build as
+    # release+perform-release-buildkitd-dockerhub pushes.
+    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
     # When Earthbuild is run from a container, the registry proxy networking setup
@@ -532,10 +527,10 @@ earthly-docker:
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
-        --VERSION=$TAG \
+        --VERSION="$VERSION" \
+        --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
         --DEFAULT_INSTALLATION_NAME="earthly" \
         ) /usr/bin/earthly
-    ARG DOCKERHUB_IMG="earthly"
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
@@ -958,10 +953,10 @@ merge-main-to-docs:
 
     ARG git_repo="earthly/earthly"
     ARG git_url="git@github.com:$git_repo"
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.1
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG to_branch="docs-0.8"
@@ -1024,12 +1019,12 @@ open-pr-for-fork:
 
     ARG TARGETARCH
 
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.1
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
     ARG git_repo="earthly/earthly"
     LET git_url="git@github.com:$git_repo"
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG --required pr_number

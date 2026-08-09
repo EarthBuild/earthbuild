@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/hmac"
 	"crypto/sha1" // #nosec G505
@@ -585,10 +586,7 @@ func (gl *GitLookup) makeCloneURL(
 			}
 		}
 
-		port := m.port
-		if port == 0 {
-			port = 22
-		}
+		port := cmp.Or(m.port, 22)
 
 		// careful about changing all clone paths to the explicit ssh://user@host:port/user/repo.git form.
 		// as the implicit form assumes the repo is relative to the user's home directory.

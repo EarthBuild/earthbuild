@@ -77,7 +77,9 @@ This is possible in a few ways:
    earthly +hello
    ```
 
-5. Via cloud-based secrets. This option helps share secrets within a wider team. To read more about this see the [cloud-based secrets guide](../cloud/cloud-secrets.md).
+5. Via your own secret manager. To share secrets across a team, fetch them from a system you
+   control (for example HashiCorp Vault, AWS Secrets Manager, or your CI provider's secret store)
+   and pass them in using one of the approaches above.
 
 Regardless of the approach chosen from above, once earthly is invoked, in our example, it will output:
 
@@ -104,9 +106,16 @@ daemon will request the secret from the earthly command-line process and will te
 Once the command finishes the secret is unmounted. It will not persist as an environment variable within the saved container snapshot. Secrets will be kept in-memory
 until the earthly command exits.
 
-Earthly also supports cloud-based shared secrets which can be stored in the cloud. Secrets are never stored in the cloud unless a user creates an earthly account and
-explicitly calls the `earthly secrets set ...` command to transmit the secret to the earthly cloud-based secrets server.
+Secrets are never written to disk by EarthBuild, and never leave the machine running the build.
 
-The benefit of storing secrets in the cloud is that they can be shared in CI and across the team, which helps to reproduce CI builds that much more easily.
+{% hint style='info' %}
 
-For more information about cloud-based secrets, check out our [cloud-based secrets management guide](../cloud/cloud-secrets.md).
+##### Cloud-based secrets have been removed
+
+Earthly offered a hosted secret store, managed with `earthly secret set ...`. That service and the
+`secret`/`secrets` commands were removed as part of the cloud teardown and are not part of
+EarthBuild. To share secrets across a team, fetch them from a secret manager you control and pass
+them in via `--secret`, `--secret-file-path`, or the environment. See
+[Migrating from earthly](../migrating-from-earthly.md) for the full list of removed commands.
+
+{% endhint %}

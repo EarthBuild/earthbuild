@@ -9,7 +9,7 @@ To get started, import the rust library as shown below. Note that the `--global-
 ```Dockerfile
 VERSION 0.8
 
-IMPORT github.com/earthly/lib/rust:2.2.11 AS rust
+IMPORT github.com/EarthBuild/lib/rust:3.0.4 AS rust
 ```
 
 ## Step 2: Initialize the Rust toolchain
@@ -52,4 +52,4 @@ Additionally, because cargo does not make a good distinction between intermediat
 
 For a complete Earthfile example on how to use Rust in Earthly, visit the [rust example directory on GitHub](https://github.com/earthbuild/earthbuild/tree/main/examples/rust).
 
-See also the reference documentation for [lib/rust](https://github.com/earthly/lib/tree/main/rust), to understand the different parameters used with `rust+INIT` and `rust+CARGO`.
+See also the reference documentation for [lib/rust](https://github.com/EarthBuild/lib/tree/main/rust), to understand the different parameters used with `rust+INIT` and `rust+CARGO`.

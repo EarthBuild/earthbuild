@@ -65,7 +65,7 @@ runs:
       # image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earthly-build-ubuntu-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earthly-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
     - name: Load buildkitd image from artifact
       shell: bash
@@ -175,14 +175,14 @@ runs:
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        TAG_SUFFIX="ubuntu-latest"
+        TAG_SUFFIX="latest"
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
         echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
         echo "Extracting earthly binary from stage1 of build"
-        export TAG=${GITHUB_SHA}-ubuntu-latest
+        export TAG=${GITHUB_SHA}-latest
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership

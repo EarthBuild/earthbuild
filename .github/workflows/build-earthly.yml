@@ -108,13 +108,13 @@ jobs:
       - name: Build and push +ci-release using latest earthly build
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
-          export TAG_SUFFIX="${{inputs.RUNS_ON}}"
+          export TAG_SUFFIX="latest"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release using latest earthly build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
-          export TAG_SUFFIX="${{inputs.RUNS_ON}}"
+          export TAG_SUFFIX="latest"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           # Build ci-release (builds binary and buildkitd but doesn't push)
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
@@ -133,7 +133,7 @@ jobs:
         # --image in the step above, so `image inspect` hits and no pull runs.
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="${{inputs.RUNS_ON}}"
+          export TAG_SUFFIX="latest"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
 
@@ -150,7 +150,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="${{inputs.RUNS_ON}}"
+          export TAG_SUFFIX="latest"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
 
           # DEFAULT_INSTALLATION_NAME=earthly ensures the buildkitd container
@@ -164,7 +164,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: earthly-build-${{inputs.RUNS_ON}}${{ inputs.USE_NEXT && '-ticktock' || '' }}
+          name: earthly-build-latest${{ inputs.USE_NEXT && '-ticktock' || '' }}
           path: ./artifacts/
           retention-days: 1
       - name: Buildkit logs (runs on failure)

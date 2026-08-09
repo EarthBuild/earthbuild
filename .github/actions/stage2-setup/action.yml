@@ -171,7 +171,7 @@ runs:
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        TAG_SUFFIX="ubuntu-latest-${{inputs.BINARY}}"
+        TAG_SUFFIX="ubuntu-latest"
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
         echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)

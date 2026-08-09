@@ -226,3 +226,38 @@ jobs:
       FRONTEND: "docker"
       USE_NEXT: true
     secrets: inherit
+
+  # --- Merge Gate ---
+  # The ONLY check that branch protection should require. Every other job's
+  # context name is free to churn (renamed suites, re-grouped tests, new
+  # frontends) without an admin having to re-point the ruleset - a mismatch
+  # there leaves a PR waiting forever on a context nothing will ever report.
+  # Add new suites to `needs` and they are gated automatically.
+  ci-success:
+    name: CI Success
+    if: always()
+    needs:
+      - fast-check-and-build
+      - docker-tests
+      - docker-examples
+      - docker-integrations
+      - podman-tests
+      - podman-examples
+      - next-tests
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Check suite results
+        env:
+          # Anything other than success - failure, cancelled, or skipped
+          # (a suite is skipped only when something it needed failed) - is a
+          # red gate.
+          NEEDS: ${{ toJSON(needs) }}
+        run: |-
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.value.result)\t\(.key)"' <<< "$NEEDS" | sort
+          if jq -e 'any(.[]; .result != "success")' >/dev/null <<< "$NEEDS"; then
+            echo "::error::One or more CI suites did not succeed"
+            exit 1
+          fi
+          echo "All CI suites succeeded"

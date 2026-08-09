@@ -1,11 +1,11 @@
-This image contains `buildkit` with some Earthly-specific setup. This is what Earthly will start when using a local daemon. You can also start it up yourself and use it as a remote/shared BuildKit daemon.
+This image contains `buildkit` with some EarthBuild-specific setup. This is what EarthBuild will start when using a local daemon. You can also start it up yourself and use it as a remote/shared BuildKit daemon.
 
-_Note that versions of this container have only ever been tested with their corresponding version of `earthly`._ Mismatched versions are unsupported.
+_Note that versions of this container have only ever been tested with their corresponding version of `earth`._ Mismatched versions are unsupported.
 
 ## Tags
 
-Currently, the `latest` tag is `v0.8.16`.
-For other available tags, please check out https://hub.docker.com/r/earthly/buildkitd/tags
+Currently, the `latest` tag is `v0.8.18`.
+For other available tags, please check out https://hub.docker.com/r/earthbuild/buildkitd/tags
 
 ## Quickstart
 
@@ -14,12 +14,12 @@ Want to just get started? Here are a couple sample `docker run` commands that co
 ### Simple Usage (Use Locally)
 
 ```bash
-docker run --privileged -t -v earthbuild-tmp:/tmp/earthbuild:rw earthly/buildkitd:v0.7.19
+docker run --privileged -t -v earthbuild-tmp:/tmp/earthbuild:rw earthbuild/buildkitd:v0.8.17
 ```
 
 Heres a quick breakdown:
 
-- `--privileged` is required. This is because `earthly` needs some privileged `buildkit` functionality.
+- `--privileged` is required. This is because `earth` needs some privileged `buildkit` functionality.
 - `-t` tells Docker to emulate a TTY. This makes the `buildkit` log output colorized.
 - `-v earthbuild-tmp:/tmp/earthbuild:rw` mounts (and creates, if necessary) the `earthbuild-tmp` Docker volume into the containers `/tmp/earthbuild`. This is used as a temporary/working directory for `buildkitd` during builds.
 
@@ -28,7 +28,7 @@ Assuming you are running this on your machine, you could use this `buildkitd` by
 ### Usage (Use As Remote)
 
 ```bash
-docker run --privileged -t -v earthbuild-tmp:/tmp/earthbuild:rw -e BUILDKIT_TCP_TRANSPORT_ENABLED=true -p 8372:8372 earthly/buildkitd:v0.7.19
+docker run --privileged -t -v earthbuild-tmp:/tmp/earthbuild:rw -e BUILDKIT_TCP_TRANSPORT_ENABLED=true -p 8372:8372 earthbuild/buildkitd:v0.8.17
 ```
 
 Omitting the options already discussed from the simple example:
@@ -62,7 +62,7 @@ rm: can't remove '/var/earthbuild/dind/...': Resource busy
 
 To use this image externally, it requires you to forward a port on your machine to the containers port 8372. You will need to ensure that external access to the machine on the port you chose is possible as well.
 
-When using this container locally with `earthly`, please note that setting `EARTHLY_BUILDKIT_HOST` values with hosts `127.0.0.1`, ` ::1/128`, or `localhost` are considered local and will result in Earthly attempting to manage the BuildKit container itself. Consider using your hostname, or another alternative name in these cases.
+When using this container locally with `earth`, please note that setting `EARTHLY_BUILDKIT_HOST` values with hosts `127.0.0.1`, ` ::1/128`, or `localhost` are considered local and will result in EarthBuild attempting to manage the BuildKit container itself. Consider using your hostname, or another alternative name in these cases.
 
 ### Supported Environment Variables
 

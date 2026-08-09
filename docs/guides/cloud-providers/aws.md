@@ -30,4 +30,14 @@ For more information, see [here](../../earthfile/earthfile.md#--aws-experimental
 OIDC in useful in cases where credentials are not available in the host (e.g. CI system)
 and/or when authentication requires MFA (multi-factor authentication).
 
-For more information on how to set up & authenticate to AWS via OIDC, see [here](../../cloud/oidc.md). 
+{% hint style='danger' %}
+
+##### The hosted OIDC provider is unavailable
+
+Setting this up required registering Earthly's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with Earthly Cloud and no longer
+resolves. Use `RUN --aws` with credentials supplied by your CI provider instead.
+
+Progress is tracked in [issue #750](https://github.com/EarthBuild/earthbuild/issues/750).
+
+{% endhint %}

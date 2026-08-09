@@ -1,6 +1,7 @@
 package cliutil
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"os/user"
@@ -25,10 +26,8 @@ var (
 // This function will not attempt to create the directory if missing,
 // for that functionality use to the [GetOrCreateEarthDir] function.
 func GetEarthDir(installName string) string {
-	if installName == "" {
-		// if GetEarthDir is called by the autocomplete code, this may not be set
-		installName = "earthly"
-	}
+	// if GetEarthDir is called by the autocomplete code, this may not be set
+	installName = cmp.Or(installName, "earthly")
 
 	earthDirOnce.Do(func() {
 		earthDir, earthDirSudoUser = getEarthDirAndUser(installName)

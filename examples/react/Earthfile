@@ -1,7 +1,7 @@
 VERSION 0.8
 
 build:
-  FROM node:26.3.1-alpine3.23
+  FROM node:26.7.0-alpine3.23
   WORKDIR /app
   COPY package.json package-lock.json .
   RUN npm ci
@@ -16,7 +16,7 @@ docker:
   SAVE IMAGE --push earthbuild/examples:react
 
 run:
-  FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+  FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
   WITH DOCKER --load app:test=+docker
     RUN docker run --rm -p 3000:80 app:test
   END

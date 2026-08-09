@@ -7,14 +7,14 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.26.4-alpine3.24
+    FROM golang:1.26.5-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 
 node:
-    FROM node:26.3.1-alpine3.24
+    FROM node:26.7.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.0.1
+    LET npm_version=12.0.2
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -272,7 +272,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.6-slim@sha256:63a4c7f612a00f92042cbdcc7cdc6a306f38485af0a200b9c89de7d9b1607d15
+    FROM python:3.14.7-slim@sha256:83c1cebb322d099ac9e3a3a532ba74b0146d702838b25e4c75c02fa81ffeb910
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser

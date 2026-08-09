@@ -1,7 +1,7 @@
 
 # Woodpecker CI integration
 
-This example uses [Woodpecker CI](https://woodpecker-ci.org/) to build the Earthly target `+build`.
+This example uses [Woodpecker CI](https://woodpecker-ci.org/) to build the EarthBuild target `+build`.
 
 
 ## Configuration
@@ -13,8 +13,8 @@ The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-s
 ```yml
 #.woodpecker.yml
 pipeline:
-  earthly:
-    image: earthbuild/earthbuild:v0.8.16
+  earth:
+    image: earthbuild/earthbuild:v0.8.18
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -23,7 +23,7 @@ pipeline:
     secrets: [REGISTRY, REGISTRY_USER, REGISTRY_PASSWORD]
     commands:
      - docker login -u $${REGISTRY_USER} -p $${REGISTRY_PASSWORD} $${REGISTRY}
-     - earthly --ci --push +build
+     - earth --ci --push +build
 ```
 
 For a complete guide on CI integration see the [CI integration guide](../overview.md).

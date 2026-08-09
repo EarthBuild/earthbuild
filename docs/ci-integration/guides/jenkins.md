@@ -2,14 +2,14 @@
 
 ## Overview
 
-Jenkins has multiple modes of operation, and each of them require some consideration when installing Earthly. These modes include:
+Jenkins has multiple modes of operation, and each of them require some consideration when installing EarthBuild. These modes include:
 
 - Standalone, dedicated runners
 - Ephemeral cloud runners
 
 ### Compatibility
 
-Earthly has been tested with Jenkins in a standalone runner configuration, and using the Docker Cloud provider.
+EarthBuild has been tested with Jenkins in a standalone runner configuration, and using the Docker Cloud provider.
 
 ### Resources
 
@@ -51,7 +51,7 @@ Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through
 
 ## Additional Notes
 
-`earthly` misinterprets the Jenkins environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
+`earth` misinterprets the Jenkins environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
 
 ## Example
 
@@ -59,23 +59,67 @@ Set `DOCKER_HOST` to point at a Docker daemon. This can easily be passed through
 
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get EarthBuild off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
-You can find our [Jenkins example on GitHub](https://github.com/earthly/ci-examples/tree/main/jenkins).
+To try this locally you need a Jenkins server, a Docker daemon for the Docker Cloud
+plugin to schedule agents on, and a repository containing an `Earthfile` and a `Jenkinsfile`.
 
-To run it yourself, clone the [`ci-examples` repository](https://github.com/earthly/ci-examples), and then run (from the root of the repository):
+### A local Jenkins server
 
-```go
-earthly ./jenkins+start
+Create a network, start a Docker-in-Docker daemon on it, then start Jenkins:
+
+```bash
+docker network create jenkins
+
+docker run --detach --rm --privileged \
+  --name jenkins-docker --network jenkins --network-alias docker \
+  --env DOCKER_TLS_CERTDIR= \
+  --publish 2375:2375 \
+  docker:dind --storage-driver overlay2
+
+docker run --detach --rm \
+  --name jenkins-server --network jenkins \
+  --env DOCKER_HOST=tcp://docker:2375 \
+  --publish 8080:8080 --publish 50000:50000 \
+  --volume jenkins-data:/var/jenkins_home \
+  jenkins/jenkins:lts-jdk21
 ```
 
-This will start a local Jenkins server, minimally configured to spawn `earthly` builds using the Docker cloud plugin.
+Then get the unlock password, and install the `docker-plugin` and `docker-workflow`
+plugins through the setup wizard:
 
-To run a build in this demo, you will need to configure a build pipeline. To do that, we have an [example project with a Jenkinsfile](https://github.com/earthly/ci-example-project). To configure the build pipeline for the example project:
+```bash
+docker exec jenkins-server cat /var/jenkins_home/secrets/initialAdminPassword
+```
 
-- Open the Jenkins demo by going to [`http://localhost:8000`](http://localhost:8080/)
+Configure the Docker Cloud to point at `tcp://docker:2375`, using the runner image from
+[Installation](#installation) above as the agent template.
+
+### A pipeline to run
+
+Add a `Jenkinsfile` alongside your `Earthfile`. A minimal starting point:
+
+```groovy
+pipeline {
+    agent { label 'earth' }   // the label given to your Docker Cloud agent template
+    environment {
+        NO_COLOR = '1'        // see Additional Notes above
+    }
+    stages {
+        stage('build') {
+            steps {
+                sh 'earth --ci +build'
+            }
+        }
+    }
+}
+```
+
+### Configuring the build
+
+- Open Jenkins at [`http://localhost:8080`](http://localhost:8080/)
 - Click "New Item", on the left
 
 ![Jenkins Dashboard with "New Item" highlighted](img/Jenkins1.png)
@@ -88,7 +132,7 @@ To run a build in this demo, you will need to configure a build pipeline. To do 
 - Make the following changes:
 - Choose "Pipeline script from SCM" for the Definition
 - Choose "Git" as the SCM, once the option appears
-- Set the repository URL to [`https://github.com/earthly/ci-example-project`](https://github.com/earthly/ci-example-project)
+- Set the repository URL to your own repository, the one containing the `Earthfile` and `Jenkinsfile`
 - Set the branch specifier to `*/main`
 
 ![Configuring all the SCM options for the build](img/Jenkins3.png)
@@ -103,7 +147,13 @@ To run a build in this demo, you will need to configure a build pipeline. To do 
 
 ### Notes
 
-If you broke the example environment, you can run `earthly ./jenkins+cleanup` to clean up before trying to run again from scratch.
+To tear the environment down and start over:
+
+```bash
+docker rm -f jenkins-server jenkins-docker
+docker volume rm jenkins-data
+docker network rm jenkins
+```
 
 #### TLS
 
@@ -115,4 +165,4 @@ To allow the `docker` client to access a daemon protected with TLS, you will nee
 
 Also, ensure that you are using the correct port for TLS. In this image of our example cloud, we are using port `2375`, which is traditionally the insecure port for a `docker` daemon. In a TLS environment, `docker` expects port `2376`.
 
-If you are using an external `earthly-buildkitd` with Jenkins, [you should be using mTLS](../remote-buildkit.md). You will need to add the keys and certificates used there as credentials too.
+If you are using an external `earth-buildkitd` with Jenkins, [you should be using mTLS](../remote-buildkit.md). You will need to add the keys and certificates used there as credentials too.

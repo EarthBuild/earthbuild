@@ -2,7 +2,7 @@
 
 ## Examples of CI integration
 
-Examples of integrating Earthly into various CI systems can be found on the following pages:
+Examples of integrating EarthBuild into various CI systems can be found on the following pages:
 
 - [Circle CI](../ci-integration/guides/circle-integration.md)
 - [GitHub Actions](../ci-integration/guides/gh-actions-integration.md)
@@ -14,13 +14,13 @@ For more general information on CI systems not listed above, see the [CI integra
 
 ## Examples by dev environments
 
-Examples of how Earthly can be integrated into different dev environments
+Examples of how EarthBuild can be integrated into different dev environments
 
-- [GitHub Codespaces](https://github.com/earthly/codespaces-example) - shows how Earthly can be used in GitHub Codespaces and Devcontainers
+- [GitHub Codespaces](https://github.com/earthly/codespaces-example) - shows how Earthfiles can be used in GitHub Codespaces and Devcontainers
 
 ## Example Earthfiles
 
-In this section, you will find some examples of Earthfiles to familiarize yourself with Earthly.
+In this section, you will find some examples of Earthfiles to familiarize yourself with EarthBuild.
 
 The code for all the examples is available in the [examples GitHub directory](https://github.com/earthbuild/earthbuild/tree/main/examples).
 
@@ -28,7 +28,7 @@ The code for all the examples is available in the [examples GitHub directory](ht
 
 ### Examples from the Basics tutorial
 
-If you are new to Earthly, you may find the [Basics tutorial](../basics/basics.md) helpful.
+If you are new to EarthBuild, you may find the [Basics tutorial](../basics/basics.md) helpful.
 
 - [tutorial](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial)
 - [go](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go)
@@ -65,41 +65,46 @@ Please note that these examples, although similar, are distinct from the ones us
 - [monorepo](https://github.com/earthbuild/earthbuild/tree/main/examples/monorepo) - shows how multiple sub-projects can be co-located in a single repository and how the build can be fragmented across these.
 - [multirepo](https://github.com/earthbuild/earthbuild/tree/main/examples/multirepo) - shows how artifacts from multiple repositories can be referenced in a single build. See also the `grpc` example for a more extensive use-case.
 
-### Examples by Earthly features
+### Examples by EarthBuild features
 
 - [import](https://github.com/earthbuild/earthbuild/tree/main/examples/import) - shows how to use the `IMPORT` command to alias Earthfile references.
 - [cutoff-optimization](https://github.com/earthbuild/earthbuild/tree/main/examples/cutoff-optimization) - shows that if an intermediate artifact does not change, then the rest of the build will use the cache, even if the source has changed.
-- [multiplatform](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform) - shows how Earthly can execute builds and create images for multiple platforms, using QEMU emulation.
+- [multiplatform](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform) - shows how EarthBuild can execute builds and create images for multiple platforms, using QEMU emulation.
 - [multiplatform-cross-compile](https://github.com/earthbuild/earthbuild/tree/main/examples/multiplatform-cross-compile) - shows has through the use of cross-compilation, you can create images for multiple platforms, without using QEMU emulation.
 
 ### Examples by use of other technologies
 
-- [grpc](https://github.com/earthbuild/earthbuild/tree/main/examples/grpc) - shows how to use Earthly to compile a protobuf grpc definition into protobuf code for both a Go-based server, and a python-based client, in a multirepo setup.
-- [terraform](https://github.com/earthbuild/earthbuild/tree/main/examples/terraform) - shows how Terraform could be used from Earthly.
+- [grpc](https://github.com/earthbuild/earthbuild/tree/main/examples/grpc) - shows how to use EarthBuild to compile a protobuf grpc definition into protobuf code for both a Go-based server, and a python-based client, in a multirepo setup.
+- [terraform](https://github.com/earthbuild/earthbuild/tree/main/examples/terraform) - shows how Terraform could be used from EarthBuild.
 
 ### Other
 
 - [readme](https://github.com/earthbuild/earthbuild/tree/main/examples/readme) - some sample code we used in our README.
-- [tests](https://github.com/earthbuild/earthbuild/tree/main/tests) - a suite of tests Earthly uses to ensure that its features are working correctly.
+- [tests](https://github.com/earthbuild/earthbuild/tree/main/tests) - a suite of tests EarthBuild uses to ensure that its features are working correctly.
 
 ### Larger Examples And Community Examples
 
-- [Earthly, Rust, GoLang, NodeJS and GitHub Actions Example](https://github.com/earthbuild/earthbuild-vs-gha)
+The repositories below predate the EarthBuild fork and are maintained under the `earth`
+organization, so they invoke the CLI as `earth` rather than `earth`. The Earthfile syntax they
+demonstrate applies unchanged to EarthBuild -- treat them as examples of Earthfile usage rather than
+as current installation or invocation guidance.
+
+- [EarthBuild, Rust, GoLang, NodeJS and GitHub Actions Example](https://github.com/earthly/earth-vs-gha)
 - [Cloud Services In GoLang](https://github.com/earthly/cloud-services-example)
 - [Earthfile workshop Repo](https://github.com/earthly/workshop-2023-09-18)
 - [Python & C Example](https://github.com/earthly/pymerge)
 - [Python Docker Example](https://github.com/earthly/build-transpose/blob/main/Earthfile)
-- [Awesome Earthly - Community Examples](https://github.com/earthly/awesome-earthly)
+- [Awesome EarthBuild - Community Examples](https://github.com/earthly/awesome-earth)
 
-### Earthly's own build
+### EarthBuild's own build
 
-As a distinct example of a complete build, you can take a look at Earthly's own build. Earthly builds itself, and the build files are available on GitHub:
+As a distinct example of a complete build, you can take a look at EarthBuild's own build. EarthBuild builds itself, and the build files are available on GitHub:
 
 <!--
 
 GitBook currently has a bug where any references to an "Earthfile" gets confused with "docs/Earthfile" and somehow appends a /README.md
 
-e.g. https://github.com/earthbuild/earthbuild/blob/main/Earthfile is changed to https://github.com/EarthBuild/earthbuidl/blob/main/Earthfile/README.md
+e.g. https://github.com/earthbuild/earthbuild/blob/main/Earthfile is changed to https://github.com/EarthBuild/earthbuild/blob/main/Earthfile/README.md
 
 Here's a snip from an support request with gitbook:
 
@@ -139,10 +144,10 @@ Here's a snip from an support request with gitbook:
 - [tests/Earthfile](https://tinyurl.com/2p8ws579) - system and smoke tests
 - [earthfile-grammar/Earthfile](https://tinyurl.com/2vyjprt6) - the build of the VS Code extension
 
-To invoke Earthly's build, check out the code and then run the following in the root of the repository
+To invoke EarthBuild's build, check out the code and then run the following in the root of the repository
 
 ```bash
-earthly +all
+earth +all
 ```
 
 [![asciicast](https://asciinema.org/a/313845.svg)](https://asciinema.org/a/313845)

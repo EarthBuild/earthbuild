@@ -65,7 +65,7 @@ runs:
       # image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earthly-build-ubuntu-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
     - name: Load buildkitd image from artifact
       shell: bash
@@ -110,25 +110,25 @@ runs:
       shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
-      uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ env.GITHUB_TOKEN }}
     - name: Login to Docker Hub
       if: inputs.BINARY == 'docker' && inputs.DOCKERHUB_PASSWORD != '' && steps.fork-check.outputs.is_fork != 'true'
-      uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         username: ${{ inputs.DOCKERHUB_USERNAME }}
         password: ${{ inputs.DOCKERHUB_PASSWORD }}
     - if: inputs.BINARY == 'docker'
-      uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
       with:
-        go-version: '1.26.4'
+        go-version: '1.26.5'
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |
@@ -168,6 +168,10 @@ runs:
       # tests -- so an outer-daemon regression could pass CI. Use the staging
       # tag build-earthly pushed for this SHA, matching what the fork path
       # above already does.
+      #
+      # Deliberately not gated on BINARY == 'docker': main's docker-only guard
+      # belonged to the Docker-29 pinned-image workaround this step replaces.
+      # Podman jobs must exercise the PR's buildkitd too.
       if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
@@ -178,7 +182,7 @@ runs:
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
         echo "Extracting earthly binary from stage1 of build"
-        export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
+        export TAG=${GITHUB_SHA}-ubuntu-latest
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership

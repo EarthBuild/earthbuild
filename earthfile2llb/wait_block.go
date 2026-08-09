@@ -11,19 +11,19 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
+	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 type waitBlock struct {
-	seenItems map[waitutil.WaitItem]struct{}
-	items     []waitutil.WaitItem
+	seenItems map[states.WaitItem]struct{}
+	items     []states.WaitItem
 	mu        sync.Mutex
 	// used for short-circuiting
 	called            bool
@@ -33,7 +33,7 @@ type waitBlock struct {
 
 func newWaitBlock() *waitBlock {
 	return &waitBlock{
-		seenItems: map[waitutil.WaitItem]struct{}{},
+		seenItems: map[states.WaitItem]struct{}{},
 	}
 }
 
@@ -55,7 +55,7 @@ func (wb *waitBlock) SetDoPushes() {
 	}
 }
 
-func (wb *waitBlock) AddItem(item waitutil.WaitItem) {
+func (wb *waitBlock) AddItem(item states.WaitItem) {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
 

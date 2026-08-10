@@ -77,16 +77,10 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
-        # Non-deterministic earthly "Canceled" failures (different targets each
-        # run, no signal received) are retried; genuine test failures still
-        # fail and are not hidden. See .github/actions/earth-retry.
         if: ${{ !inputs.SKIP_JOB }}
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
-            ${{inputs.SUDO}} ${{ inputs.BUILT_EARTH_PATH }} ${{inputs.EXTRA_ARGS}} --ci -P ${{inputs.TEST_TARGET}}
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
+            -- ${{inputs.SUDO}} ${{ inputs.BUILT_EARTH_PATH }} ${{inputs.EXTRA_ARGS}} --ci -P ${{inputs.TEST_TARGET}}
       - name: Display buildkit version
         if: ${{ !inputs.SKIP_JOB }}
         run: |-

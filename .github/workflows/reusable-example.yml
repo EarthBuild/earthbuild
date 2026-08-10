@@ -84,24 +84,17 @@ jobs:
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        # Retried: see .github/actions/earth-retry for the rationale.
         # -P is --allow-privileged, required by examples that use
         # WITH DOCKER RUN (e.g. +examples-4/grpc).
         if: github.event_name != 'push'
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
+            -- ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
         if: github.event_name == 'push'
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
+            -- ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
       - name: Build and test multi-platform example
         run: |
           ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ./examples/multiplatform+all

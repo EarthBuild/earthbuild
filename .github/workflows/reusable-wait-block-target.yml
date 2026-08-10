@@ -69,14 +69,11 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{inputs.TARGET_NAME}} using wait-block override
-        # Retried: see .github/actions/earth-retry for the rationale.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" -c '
             ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ${{inputs.EXTRA_ARGS}} --ci -P --global-wait-end \
              ${{inputs.TARGET_NAME}} --GLOBAL_WAIT_END=true
+          '
       - name: Failure diagnostics
         if: ${{ failure() }}
         uses: ./.github/actions/failure-diagnostics

@@ -62,14 +62,11 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Push and Pull Cloud Images
-        # Retried: see .github/actions/earth-retry for the rationale.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" -c '
             ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci -P \
               ./tests/cloud-push-pull+all
+          '
       - name: Push Images after RUN --push
         run: ${{inputs.SUDO}} frontend=${{inputs.BINARY}} ./tests/push-images/test.sh
       - name: Failure diagnostics

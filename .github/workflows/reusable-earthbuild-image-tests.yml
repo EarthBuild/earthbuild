@@ -63,13 +63,9 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build the earthbuild docker image
-        # Retried: see .github/actions/earth-retry for the rationale.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
-            ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} +earthly-docker --TAG=image-test
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
+            -- ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} +earthly-docker --TAG=image-test
       - name: "Run the earthbuild image tests"
         run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
       - name: Failure diagnostics

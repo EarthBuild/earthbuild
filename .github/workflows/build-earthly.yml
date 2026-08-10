@@ -105,26 +105,15 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${{inputs.SUDO}} "${{inputs.BINARY}}" login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          SLEEP: "3"
-          BOOTSTRAP_CMD: '${{inputs.SUDO}} "$(which earth)" bootstrap'
-          RUN: |
-            ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" --sleep 3 --bootstrap "${{inputs.SUDO}} $(which earth) bootstrap" \
+            -- ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
       - name: Build latest earthly using released earthly
-        # Non-deterministic earthly "Canceled" failures (different targets
-        # each run, no signal received) force a retry. Every downstream job
-        # depends on this step, so retrying here avoids cascading skips.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          SLEEP: "3"
-          BOOTSTRAP_CMD: '${{inputs.SUDO}} "$(which earth)" bootstrap'
-          RUN: |
-            ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
+        # Every downstream job depends on this step, so a failure here cascades
+        # into skips across the whole run.
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" --sleep 3 --bootstrap "${{inputs.SUDO}} $(which earth) bootstrap" \
+            -- ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
       - name: Configure and bootstrap using latest earthly build
         run: |-
           ${{inputs.SUDO}} ./build/linux/amd64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
@@ -135,38 +124,34 @@ jobs:
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      # Computed once: three later steps need it, and it is a pure function of
+      # the workflow inputs.
+      - name: Set TAG_SUFFIX env
+        run: |-
+          set -euo pipefail
+          suffix="${{inputs.RUNS_ON}}"
+          if [ "${{inputs.USE_NEXT}}" = "true" ]; then suffix="$suffix-ticktock"; fi
+          echo "TAG_SUFFIX=$suffix" >> "$GITHUB_ENV"
       - name: Build and push +ci-release using latest earthly build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          SLEEP: "3"
-          BOOTSTRAP_CMD: '${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap'
-          RUN: |
-            export TAG_SUFFIX="${{inputs.RUNS_ON}}"
-            if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-            ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" --sleep 3 --bootstrap '${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap' \
+            -- ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release using latest earthly build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          SLEEP: "3"
-          BOOTSTRAP_CMD: '${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap'
-          RUN: |
-            export TAG_SUFFIX="${{inputs.RUNS_ON}}"
-            if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-            # Build ci-release (builds binary and buildkitd but doesn't push)
+        # Builds the binary and buildkitd, then loads the image locally - no push.
+        # Note: earth-retry.sh -c takes a single-quoted snippet, so keep
+        # apostrophes out of it. Comments belong here, not in the snippet.
+        run: |
+          # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" --sleep 3 --bootstrap '${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap' -c '
             ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release && \
               ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          '
       - name: Save artifacts for fork CI
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="${{inputs.RUNS_ON}}"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
 
           mkdir -p ./artifacts
 

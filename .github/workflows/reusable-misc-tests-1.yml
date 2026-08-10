@@ -85,12 +85,9 @@ jobs:
         # back-to-back Canceled flakes even with the standard 2-attempt
         # retry applied to other steps. Third attempt gets us over the
         # line without masking a genuine repeated failure.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "${{ inputs.BINARY }}"
-          SUDO: "${{ inputs.SUDO }}"
-          RUN: |
-            frontend="${{inputs.BINARY}}" ./tests/remote-cache/test.sh
+        run: |
+          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
+            -- frontend="${{inputs.BINARY}}" ./tests/remote-cache/test.sh
       - name: Execute registry-certs test
         run: frontend=${{inputs.BINARY}} ./tests/registry-certs/test.sh
       - name: Execute try-catch test

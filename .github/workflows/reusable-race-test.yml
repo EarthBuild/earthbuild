@@ -71,20 +71,15 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
-        # Retried: see .github/actions/earth-retry for the rationale.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "docker"
-          RUN: |
-            ${{ inputs.BUILT_EARTH_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        run: |
+          scripts/ci/earth-retry.sh \
+            -- ${{ inputs.BUILT_EARTH_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
       - name: Execute tests
-        # Retried: see .github/actions/earth-retry for the rationale.
-        uses: ./.github/actions/earth-retry
-        with:
-          BINARY: "docker"
-          RUN: |
+        run: |
+          scripts/ci/earth-retry.sh -c '
             GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
               ${{inputs.TEST_TARGET}}
+          '
       - name: Failure diagnostics
         if: ${{ failure() }}
         uses: ./.github/actions/failure-diagnostics

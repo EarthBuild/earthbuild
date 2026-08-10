@@ -4,7 +4,7 @@ import "sync"
 
 // CacheImports is a synchronized set of cache imports.
 type CacheImports struct {
-	store map[string]bool
+	store map[string]struct{}
 	slice []string
 	mu    sync.RWMutex
 }
@@ -12,14 +12,14 @@ type CacheImports struct {
 // NewCacheImports creates a new cache imports structure.
 func NewCacheImports(imports []string) *CacheImports {
 	slice := make([]string, 0, len(imports))
-	store := make(map[string]bool)
+	store := make(map[string]struct{})
 
 	for _, tag := range imports {
 		if _, exists := store[tag]; exists {
 			continue
 		}
 
-		store[tag] = true
+		store[tag] = struct{}{}
 		slice = append(slice, tag)
 	}
 
@@ -38,7 +38,7 @@ func (ci *CacheImports) Add(tag string) {
 		return
 	}
 
-	ci.store[tag] = true
+	ci.store[tag] = struct{}{}
 	ci.slice = append(ci.slice, tag)
 }
 

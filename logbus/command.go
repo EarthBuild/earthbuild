@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/internal/circbuf"
 	"github.com/EarthBuild/earthbuild/logstream"
-	"github.com/EarthBuild/earthbuild/util/circbuf"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

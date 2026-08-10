@@ -14,7 +14,6 @@ import (
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/google/uuid"
 )
@@ -48,6 +47,20 @@ func (mts *MultiTarget) All() []*SingleTarget {
 	return mts.Visited.All()
 }
 
+// WaitItem is an item to wait for.
+type WaitItem interface {
+	SetDoPush()
+	SetDoSave()
+}
+
+// WaitBlock stores items within a WAIT / END block.
+type WaitBlock interface {
+	Wait(ctx context.Context, push, save bool) error
+	AddItem(item WaitItem)
+	SetDoSaves()
+	SetDoPushes()
+}
+
 // SingleTarget holds LLB states representing an earth target.
 type SingleTarget struct {
 	MainState              pllb.State
@@ -59,10 +72,10 @@ type SingleTarget struct {
 	// outgoingNewSubscriptions is a list of channels to update when new dependentIDs are added.
 	outgoingNewSubscriptions []chan string
 	// WaitBlocks contains the caller's waitblock plus any additional waitblocks defined in the target
-	WaitBlocks []waitutil.WaitBlock
+	WaitBlocks []WaitBlock
 	// WaitItems contains all wait items which are created by the target
 	// it exists for tracking items in the target vs a caller's wait block that is shared between multiple targets
-	WaitItems                []waitutil.WaitItem
+	WaitItems                []WaitItem
 	SaveImages               []SaveImage
 	incomingNewSubscriptions chan string
 	// ID is a random unique string.
@@ -205,7 +218,7 @@ func (sts *SingleTarget) SetDoPushes() {
 }
 
 // AddWaitBlock adds a wait block to the state.
-func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
+func (sts *SingleTarget) AddWaitBlock(waitBlock WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 
@@ -228,7 +241,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 }
 
 // AttachTopLevelWaitItems adds pre-created wait items to a new waitblock.
-func (sts *SingleTarget) AttachTopLevelWaitItems(_ context.Context, waitBlock waitutil.WaitBlock) {
+func (sts *SingleTarget) AttachTopLevelWaitItems(_ context.Context, waitBlock WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 

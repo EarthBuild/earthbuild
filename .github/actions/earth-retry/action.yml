@@ -1,0 +1,96 @@
+name: Retry an earth build step
+description: >-
+  Run a command, and on failure reset buildkitd state and try again. Replaces
+  the hand-copied retry loops that had drifted apart across the workflows.
+inputs:
+  RUN:
+    description: "Shell to run. Multi-line is fine; runs without `set -e`, so the exit code is the last command's."
+    required: true
+  ATTEMPTS:
+    description: "Total attempts, including the first."
+    required: false
+    default: "3"
+  BINARY:
+    description: "Container engine holding the buildkitd container."
+    required: false
+    default: "docker"
+  SUDO:
+    description: "Prefix for engine and rm commands, e.g. `sudo -E`."
+    required: false
+    default: ""
+  SLEEP:
+    description: "Seconds to wait after resetting, before the next attempt."
+    required: false
+    default: "0"
+  BOOTSTRAP_CMD:
+    description: "Command run after the reset, e.g. `sudo earth bootstrap`. Empty to skip."
+    required: false
+    default: ""
+  LOG_TAIL:
+    description: "Lines of buildkitd log to dump before the reset destroys it. 0 to skip."
+    required: false
+    default: "300"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RUN: ${{ inputs.RUN }}
+        ATTEMPTS: ${{ inputs.ATTEMPTS }}
+        BINARY: ${{ inputs.BINARY }}
+        SUDO: ${{ inputs.SUDO }}
+        SLEEP: ${{ inputs.SLEEP }}
+        BOOTSTRAP_CMD: ${{ inputs.BOOTSTRAP_CMD }}
+        LOG_TAIL: ${{ inputs.LOG_TAIL }}
+      run: |
+        set +e
+
+        # Via a file, not `bash -c "$RUN"`: RUN is frequently multi-line and
+        # quoting it through another shell mangles it. No `set -e` inside, so
+        # the exit code is the last command's - matching the inline loops this
+        # replaces.
+        script="$(mktemp "${RUNNER_TEMP:-/tmp}/earth-retry.XXXXXX.sh")"
+        printf '%s\n' "$RUN" > "$script"
+
+        attempt=1
+        while [ "$attempt" -le "$ATTEMPTS" ]; do
+          echo "::group::attempt $attempt of $ATTEMPTS"
+          bash "$script"
+          rc=$?
+          echo "::endgroup::"
+
+          if [ "$rc" -eq 0 ]; then
+            rm -f "$script"
+            exit 0
+          fi
+          if [ "$attempt" -eq "$ATTEMPTS" ]; then
+            rm -f "$script"
+            exit "$rc"
+          fi
+
+          echo "Attempt $attempt exited $rc; resetting buildkitd state and retrying."
+
+          # Before the reset, which destroys it. Only one of the loops this
+          # replaces did this, and it is the difference between a diagnosable
+          # session-loss failure and a mystery.
+          if [ "$LOG_TAIL" -gt 0 ] 2>/dev/null; then
+            echo "::group::buildkitd logs from failed attempt $attempt"
+            $SUDO "$BINARY" logs earthly-buildkitd 2>&1 | tail -n "$LOG_TAIL" || true
+            echo "::endgroup::"
+          fi
+
+          # The daemon must be recreated, not reused: a retry against the old
+          # container fails immediately with "no active sessions".
+          $SUDO "$BINARY" rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+          $SUDO "$BINARY" volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
+          $SUDO rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+
+          if [ "$SLEEP" -gt 0 ] 2>/dev/null; then
+            sleep "$SLEEP"
+          fi
+          if [ -n "$BOOTSTRAP_CMD" ]; then
+            bash -c "$BOOTSTRAP_CMD" 2>/dev/null || true
+          fi
+
+          attempt=$((attempt + 1))
+        done

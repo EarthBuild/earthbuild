@@ -38,6 +38,13 @@ runs:
         run_shell 'test -r /proc/pressure/io && cat /proc/pressure/io || true'
         echo "::endgroup::"
 
+        echo "::group::swap"
+        # add-swap.sh runs detached, so a failure to allocate swap is otherwise
+        # invisible - and no swap is a prime suspect for an OOM-shaped failure.
+        run_cmd swapon --show
+        run_shell 'cat "${RUNNER_TEMP:-/tmp}/add-swap.log" 2>/dev/null || echo "no add-swap log"'
+        echo "::endgroup::"
+
         echo "::group::top processes"
         run_shell 'ps -eo pid,ppid,stat,pcpu,pmem,rss,vsz,comm,args --sort=-rss | head -80'
         run_shell 'for pid in $(ps -eo pid= --sort=-rss | head -80); do printf "%s oom_score=%s oom_score_adj=%s\n" "$pid" "$(cat /proc/$pid/oom_score 2>/dev/null || echo unknown)" "$(cat /proc/$pid/oom_score_adj 2>/dev/null || echo unknown)"; done'

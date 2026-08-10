@@ -79,6 +79,7 @@ lint-scripts-misc:
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
         ./scripts/tests/docker-build/*.sh \
+        ./scripts/ci/*.sh \
         ./scripts/*.sh \
         ./shell_scripts/
     # some scripts need to source /etc/os-release for operating system release information,

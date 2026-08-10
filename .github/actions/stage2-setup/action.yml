@@ -44,25 +44,15 @@ runs:
   using: "composite"
   steps:
     - name: Add swap for extra memory headroom
-      # build-earthly always adds 12G swap; stage2-setup previously only did
-      # so for podman / MORE_MEMORY. Tests on docker runners fail with
-      # earthly "Canceled" mid-build and runc "file already closed" errors,
-      # consistent with silent OOM-killed buildkit-runc children on the
-      # 16 GiB runner. Mirror build-earthly and add swap unconditionally so
-      # the test path has the same headroom as the build path.
+      # build-earthly always adds swap; stage2-setup previously only did so for
+      # podman / MORE_MEMORY. Tests on docker runners fail with earthly
+      # "Canceled" mid-build and runc "file already closed" errors, consistent
+      # with silent OOM-killed buildkit-runc children on the 16 GiB runner.
+      # Mirror build-earthly so the test path has the same headroom as the
+      # build path. Detached - nothing downstream blocks on it.
       shell: bash
       run: |
-        # The 12G swapfile alone nearly fills the runner's ~14G free root
-        # disk, causing "No space left on device" build failures. Reclaim
-        # ~25G of preinstalled toolchains we never use before allocating.
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-          /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-        df -h / | tail -1
-        sudo fallocate -l 12G /extra-swapfile
-        sudo chmod 600 /extra-swapfile
-        sudo mkswap /extra-swapfile
-        sudo swapon /extra-swapfile
-        echo "Swap added: $(swapon --show)"
+        "$GITHUB_WORKSPACE/scripts/ci/add-swap.sh" --detach
     - name: Unset CI
       shell: bash
       run: |

@@ -75,18 +75,13 @@ jobs:
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
       - name: Add swap for extra memory headroom
+        # Detached: mkswap plus ~25G of toolchain deletion costs a minute and
+        # nothing downstream needs to block on it. The script picks the largest
+        # non-root disk (/mnt on GitHub images) so the swapfile does not eat the
+        # root disk that docker and buildkit layers need. Log is dumped by
+        # the failure-diagnostics action.
         run: |
-          # The 12G swapfile alone nearly fills the runner's ~14G free root
-          # disk, causing "No space left on device" build failures. Reclaim
-          # ~25G of preinstalled toolchains we never use before allocating.
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-          df -h / | tail -1
-          sudo fallocate -l 12G /extra-swapfile
-          sudo chmod 600 /extra-swapfile
-          sudo mkswap /extra-swapfile
-          sudo swapon /extra-swapfile
-          echo "Swap added: $(swapon --show)"
+          "$GITHUB_WORKSPACE/scripts/ci/add-swap.sh" --detach
       - name: Set Docker default ulimits for Docker 29+ compatibility
         if: inputs.BINARY == 'docker'
         run: |

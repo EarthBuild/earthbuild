@@ -80,6 +80,8 @@ jobs:
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute fail test
         run: "! ${{ env.BUILT_EARTH_PATH }} --ci ./tests/fail+test-fail"
-      - name: Buildkit logs (runs on failure)
-        run: podman logs earthly-buildkitd
+      - name: Failure diagnostics
         if: ${{ failure() }}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "podman"

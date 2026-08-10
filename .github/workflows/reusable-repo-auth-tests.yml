@@ -77,6 +77,9 @@ jobs:
         run: env earthly=${{inputs.BUILT_EARTH_PATH}} frontend=${{inputs.BINARY}} scripts/tests/auth/test-self-hosted.sh
         timeout-minutes: 10
 # auto-generated-entries end
-      - name: Buildkit logs (runs on failure)
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

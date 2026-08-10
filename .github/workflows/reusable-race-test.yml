@@ -111,6 +111,9 @@ jobs:
             rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
             attempt=$((attempt + 1))
           done
-      - name: Buildkit logs (runs on failure)
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: docker logs earthly-buildkitd || true
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

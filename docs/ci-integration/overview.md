@@ -93,15 +93,27 @@ If `earth` is running on a dedicated host, the only consideration to take is the
 
 If `earth` is connecting to a remote `earth-buildkitd`, then you will need to take additional steps. See this article for [running a remote BuildKit instance](remote-buildkit.md).
 
+## Diagnosing failures
+
+Builds that die with `Canceled`, `file already closed`, or a lost solve session
+are usually out of memory rather than wrong: the host's OOM killer takes a
+`buildkit-runc` child, and nothing about the kill reaches the build log. Before
+blaming the build, check the host's free memory and swap, the kernel log for
+OOM messages, and the `earth-buildkitd` daemon log.
+
+On GitHub Actions the [failure diagnostics
+action](guides/gh-actions-integration.md#diagnosing-failures) collects all of
+that for you in one step.
+
 ## Examples
 
 Below are links to CI systems that we have more specific information for. If you run into anything in your CI that wasn't covered here, we would love to add it to our documentation. Pull requests are welcome!
 
- - [GitHub Actions](guides/gh-actions-integration.md)
- - [Circle CI](guides/circle-integration.md)
- - [GitLab CI/CD](guides/gitlab-integration.md)
- - [Jenkins](guides/jenkins.md)
- - [AWS CodeBuild](guides/codebuild-integration.md)
- - [Google Cloud Build](guides/google-cloud-build.md)
- - [Woodpecker CI](guides/woodpecker-integration.md)
- - [Kubernetes](guides/kubernetes.md)
+- [GitHub Actions](guides/gh-actions-integration.md)
+- [Circle CI](guides/circle-integration.md)
+- [GitLab CI/CD](guides/gitlab-integration.md)
+- [Jenkins](guides/jenkins.md)
+- [AWS CodeBuild](guides/codebuild-integration.md)
+- [Google Cloud Build](guides/google-cloud-build.md)
+- [Woodpecker CI](guides/woodpecker-integration.md)
+- [Kubernetes](guides/kubernetes.md)

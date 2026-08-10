@@ -237,11 +237,9 @@ jobs:
           name: earthly-build-${{inputs.RUNS_ON}}${{ inputs.USE_NEXT && '-ticktock' || '' }}
           path: ./artifacts/
           retention-days: 1
-      - name: Buildkit logs (runs on failure)
-        # The released earth names its daemon earthly-buildkitd; the
-        # source-built one earthly-dev-buildkitd. "earth-buildkitd" never
-        # existed, so this step has been silently logging nothing.
-        run: |-
-          ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-buildkitd || true
-          ${{inputs.SUDO}} "${{inputs.BINARY}}" logs earthly-dev-buildkitd || true
+      - name: Failure diagnostics
         if: ${{ failure() }}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

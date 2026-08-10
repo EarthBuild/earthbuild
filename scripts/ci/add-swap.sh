@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Add swap, then reclaim unused toolchains, on a CI runner.
 #
-# Why: the 16 GiB GitHub runners silently OOM-kill buildkit-runc children.
-# That surfaces as earthly "Canceled" mid-build and runc "file already closed"
-# - the kill itself never reaches the job log.
+# Why: headroom, not a diagnosis. Memory exhaustion on the 16 GiB runners is
+# one candidate behind earthly "Canceled" and runc "file already closed"; in
+# this repo's history the same signatures have also been a wget flake and a
+# fatal stats decode, so the mix is workload-specific and says nothing about
+# anyone else's. What makes memory worth pre-empting is that an OOM kill
+# leaves no trace in the job log, so it cannot be ruled out after the fact.
+# Swap takes it off the list cheaply; failure-diagnostics tells you the rest.
 #
 # Where: the swapfile lands on the largest suitable non-root disk. On GitHub's
 # ubuntu images that is /mnt, the ~70 GiB Azure ephemeral disk, which keeps a

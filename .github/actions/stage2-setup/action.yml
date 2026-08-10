@@ -45,11 +45,10 @@ runs:
   steps:
     - name: Add swap for extra memory headroom
       # build-earthly always adds swap; stage2-setup previously only did so for
-      # podman / MORE_MEMORY. Tests on docker runners fail with earthly
-      # "Canceled" mid-build and runc "file already closed" errors, consistent
-      # with silent OOM-killed buildkit-runc children on the 16 GiB runner.
-      # Mirror build-earthly so the test path has the same headroom as the
-      # build path. Detached - nothing downstream blocks on it.
+      # podman / MORE_MEMORY, leaving the test path with less headroom than the
+      # build path for no stated reason. Mirror build-earthly so the two match.
+      # This rules memory out as a cause of "Canceled" failures; it does not
+      # assume memory was the cause. Detached - nothing downstream blocks on it.
       shell: bash
       run: |
         "$GITHUB_WORKSPACE/scripts/ci/add-swap.sh" --detach

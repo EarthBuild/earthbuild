@@ -1,7 +1,7 @@
 name: EarthBuild failure diagnostics
 description: >-
   Dump host, memory, swap and buildkit daemon state after a failed EarthBuild
-  step, so an OOM kill can be told apart from a genuine test failure. Every
+  step, so a cancelled build can be attributed to its actual cause. Every
   input has a working default - drop it in behind `if: failure()` and it works.
 author: EarthBuild
 inputs:

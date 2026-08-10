@@ -95,11 +95,17 @@ If `earth` is connecting to a remote `earth-buildkitd`, then you will need to ta
 
 ## Diagnosing failures
 
-Builds that die with `Canceled`, `file already closed`, or a lost solve session
-are usually out of memory rather than wrong: the host's OOM killer takes a
-`buildkit-runc` child, and nothing about the kill reaches the build log. Before
-blaming the build, check the host's free memory and swap, the kernel log for
-OOM messages, and the `earth-buildkitd` daemon log.
+`Canceled`, `context canceled`, `file already closed` and a lost solve session
+all report that the build stopped, not why it stopped. A download dying
+mid-transfer, one target failing and cancelling its siblings, a daemon crash,
+and the host's OOM killer taking a `buildkit-runc` child can all end in the
+same message; which one it is depends on your build, your runner and your
+network, so treat the message as a starting point rather than a diagnosis.
+
+What tells them apart is the `earth-buildkitd` daemon log, the host's free
+memory and swap, and the kernel log. Check memory early despite that ordering:
+an OOM kill leaves no trace in the build output at all, so it is the one cause
+you cannot rule out by reading the log.
 
 On GitHub Actions the [failure diagnostics
 action](guides/gh-actions-integration.md#diagnosing-failures) collects all of

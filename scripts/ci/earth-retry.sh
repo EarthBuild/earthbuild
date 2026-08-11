@@ -11,7 +11,8 @@
 # ~/.earthly/buildkit go too.
 #
 # Usage:
-#   earth-retry.sh [opts] -- CMD [ARG...]   run CMD directly
+#   earth-retry.sh [opts] -- CMD [ARG...]   run CMD directly; leading VAR=value
+#                                           words are applied as env assignments
 #   earth-retry.sh [opts] -c 'SHELL'        run a shell snippet (use for `&&`,
 #                                           pipelines, or multi-line blocks)
 #
@@ -60,15 +61,10 @@ if [ -z "$snippet" ] && [ $# -eq 0 ]; then
   die "nothing to run; pass -c 'SHELL' or -- CMD [ARG...]"
 fi
 
-# No `set -e` around the attempt: a -c snippet may be multi-line, and its exit
-# code is the last command's, matching the inline loops this replaces.
-run_once() {
-  if [ -n "$snippet" ]; then
-    bash -c "$snippet"
-  else
-    "$@"
-  fi
-}
+# Both forms become one arg vector, so the attempt loop has a single code path.
+if [ -n "$snippet" ]; then
+  set -- bash -c "$snippet"
+fi
 
 reset_buildkit() {
   if [ "$log_tail" -gt 0 ] 2>/dev/null; then
@@ -92,7 +88,12 @@ reset_buildkit() {
 attempt=1
 while [ "$attempt" -le "$attempts" ]; do
   echo "::group::attempt $attempt of $attempts"
-  run_once "$@"
+  # Via env(1), not plain "$@": bash honours `VAR=value` prefixes only on literal
+  # command words, so `-- frontend=docker ./test.sh` would try to exec
+  # `frontend=docker` and exit 127 on every attempt. env execs in place, so this
+  # costs no process and keeps 126/127 exit semantics. No `set -e` either: a -c
+  # snippet's exit code is its last command's, matching the loops this replaces.
+  env -- "$@"
   rc=$?
   echo "::endgroup::"
 

@@ -134,7 +134,7 @@ type ConvertOpt struct {
 	CleanCollection *cleanup.Collection
 	// TargetInputHashStackSet is a set of target input hashes that are currently in the call stack.
 	// This is used to detect infinite cycles.
-	TargetInputHashStackSet map[string]bool
+	TargetInputHashStackSet map[string]struct{}
 	// parentDepSub is a channel informing of any new dependencies from the parent.
 	parentDepSub chan string
 	// ErrorGroup is a serrgroup used to submit parallel conversion jobs.
@@ -235,10 +235,10 @@ func Earthfile2LLB(
 	}
 
 	if opt.TargetInputHashStackSet == nil {
-		opt.TargetInputHashStackSet = make(map[string]bool)
+		opt.TargetInputHashStackSet = make(map[string]struct{})
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		newMap := make(map[string]struct{}, len(opt.TargetInputHashStackSet))
 		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
@@ -327,7 +327,7 @@ func Earthfile2LLB(
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if found {
-		if opt.TargetInputHashStackSet[tiHash] {
+		if _, ok := opt.TargetInputHashStackSet[tiHash]; ok {
 			return nil, fmt.Errorf("infinite cycle detected for target %s", target.String())
 		}
 
@@ -365,7 +365,7 @@ func Earthfile2LLB(
 		}, nil
 	}
 
-	opt.TargetInputHashStackSet[tiHash] = true
+	opt.TargetInputHashStackSet[tiHash] = struct{}{}
 	opt.Console.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
 

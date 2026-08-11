@@ -76,12 +76,6 @@ runs:
         cp ./build-artifacts/earthly "${{inputs.BUILT_EARTH_PATH}}"
         chmod +x "${{inputs.BUILT_EARTH_PATH}}"
         echo "Earth binary installed from artifact to ${{inputs.BUILT_EARTH_PATH}}"
-
-        # Read the tag suffix and set EARTHLY_BUILDKIT_IMAGE env var for subsequent steps
-        TAG_SUFFIX=$(cat ./build-artifacts/tag-suffix.txt)
-        BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
-        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
-        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Set up Docker Hub Mirrors and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
@@ -164,23 +158,29 @@ runs:
         echo "Loading buildkitd image from artifact..."
         ${{inputs.SUDO}} ${{inputs.BINARY}} load -i ./build-artifacts/buildkitd-image.tar
         echo "Buildkitd image loaded successfully"
-    - name: Point outer buildkit at the PR's own staging image (non-fork)
-      # Previously hardcoded to the stable pinned buildkitd image. That meant
-      # the outer layer ran the PR's earth CLI against the *old* buildkit,
-      # and the PR's own buildkit was only exercised inside earth-in-earth
-      # tests -- so an outer-daemon regression could pass CI. Use the staging
-      # tag the build job pushed for this SHA, matching what the fork path
-      # above already does.
+    - name: Point outer buildkit at the PR's own staging image
+      # Non-fork runs previously hardcoded the stable pinned buildkitd image.
+      # That meant the outer layer ran the PR's earth CLI against the *old*
+      # buildkit, and the PR's own buildkit was only exercised inside
+      # earth-in-earth tests -- so an outer-daemon regression could pass CI.
+      # Both paths now use the staging tag built for this SHA, which is the
+      # tag `Load buildkitd image from artifact` just loaded, so MaybePull
+      # finds it locally and skips the ghcr fetch.
+      #
+      # tag-suffix.txt is the single source of truth for the suffix: the build
+      # job writes it alongside the tarball on every run, so this cannot drift
+      # from the tag the tarball actually carries.
       #
       # Deliberately not gated on BINARY == 'docker': main's docker-only guard
       # belonged to the Docker-29 pinned-image workaround this step replaces.
       # Podman jobs must exercise the PR's buildkitd too.
-      if: steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        TAG_SUFFIX="latest"
-        if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
+        set -euo pipefail
+        TAG_SUFFIX=$(cat ./build-artifacts/tag-suffix.txt)
+        BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
+        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> "$GITHUB_ENV"
+        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

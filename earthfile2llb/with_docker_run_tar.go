@@ -61,7 +61,7 @@ func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt
 		platformStr string
 	}
 
-	composeImagesSet := make(map[setKey]bool)
+	composeImagesSet := make(map[setKey]struct{}, len(composePulls))
 
 	for _, pull := range composePulls {
 		pull.Platform = w.c.platr.SubPlatform(pull.Platform)
@@ -69,7 +69,7 @@ func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt
 		composeImagesSet[setKey{
 			imageName:   pull.ImageName,
 			platformStr: platformStr,
-		}] = true
+		}] = struct{}{}
 	}
 
 	// Loads.
@@ -95,9 +95,7 @@ func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt
 				imageName:   loadOpt.ImageName, // may have changed
 				platformStr: platformStr,
 			}
-			if composeImagesSet[key] {
-				delete(composeImagesSet, key)
-			}
+			delete(composeImagesSet, key)
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -112,7 +110,7 @@ func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt
 			imageName:   pull.ImageName,
 			platformStr: platformStr,
 		}
-		if composeImagesSet[key] {
+		if _, ok := composeImagesSet[key]; ok {
 			opt.Pulls = append(opt.Pulls, pull)
 		}
 	}
@@ -343,8 +341,8 @@ func (w *withDockerRunTar) solveImage(ctx context.Context, mts *states.MultiTarg
 		return fmt.Errorf("state key func: %w", err)
 	}
 
-	tarContext, err := w.c.opt.SolveCache.Do(ctx, solveID, func(
-		ctx context.Context, _ states.StateKey,
+	tarContext, err := w.c.opt.SolveCache.Load(ctx, solveID, func(
+		ctx context.Context,
 	) (pllb.State, error) {
 		// Use a builder to create docker .tar file, mount it via a local build
 		// context, then docker load it within the current side effects state.

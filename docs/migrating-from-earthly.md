@@ -67,6 +67,30 @@ To switch to EarthBuild, you will need to use [the new installation scripts](htt
 
 You should remove the old `earthly` binary from your systems to avoid confusion.
 
+### Release Signing Key Change
+
+EarthBuild signs its releases with a **new PGP key**. If you verify release checksums, you must import it:
+
+|             | Earthly (old)                             | EarthBuild (new)                          |
+| ----------- | ----------------------------------------- | ----------------------------------------- |
+| Fingerprint | `5816 B221 3DD1 CEB6 1FC9 52BA B118 5ECA 33F8 EB64` | `0890 0479 B981 AF7C 32C8 B918 604C 8879 FF83 C260` |
+| Identity    | `earthly <...>`                           | `earthbuild <webmaster@earthbuild.dev>`   |
+| Key file    | `https://pkg.earthly.dev/earthly.pgp`     | [`earthbuild-pgp-public.pgp`](https://raw.githubusercontent.com/EarthBuild/earthbuild/main/release/apt-repo/earthbuild-pgp-public.pgp) |
+
+The old key will not verify EarthBuild releases, and `pkg.earthly.dev` no longer resolves — any
+automation that fetched the key from that host needs updating. See
+[Checksum Verification](alt-installation/alt-installation.md#checksum-verification) for the full
+procedure.
+
+Relatedly, the deb and rpm repositories that were hosted on `pkg.earthly.dev` are gone; EarthBuild
+has not yet published replacements. Install the binary directly or via Homebrew in the meantime.
+
+### Release Artifact Name Change
+
+Release assets are now named `earth-<os>-<arch>` rather than `earthly-<os>-<arch>` (for example
+`earth-linux-amd64`). Scripts that download a pinned asset URL — including
+`releases/latest/download/earthly-...` links — need updating.
+
 ## Removed Features and Alternatives
 
 The following commands and flags, mostly related to Earthly Cloud, have been removed.

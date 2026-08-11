@@ -12,11 +12,11 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 )
@@ -47,7 +47,7 @@ type Data struct {
 type Resolver struct {
 	gr                   *gitResolver
 	lr                   *localResolver
-	parseCache           *synccache.SyncCache // local path -> AST
+	parseCache           *synccache.Cache[string, earthfile.Tree] // local path -> AST
 	featureFlagOverrides string
 	console              conslogging.ConsoleLogger
 }
@@ -68,18 +68,13 @@ func NewResolver(
 			lfsInclude:        gitLFSInclude,
 			logLevel:          gitLogLevel,
 			cleanCollection:   cleanCollection,
-			projectCache:      synccache.New(),
-			buildFileCache:    synccache.New(),
+			projectCache:      synccache.NewCache[string, *resolvedGitProject](),
+			buildFileCache:    synccache.NewCache[string, *buildFile](),
 			gitLookup:         gitLookup,
 			console:           console,
 		},
-		lr: &localResolver{
-			buildFileCache:    synccache.New(),
-			gitMetaCache:      synccache.New(),
-			gitBranchOverride: gitBranchOverride,
-			console:           console,
-		},
-		parseCache:           synccache.New(),
+		lr:                   newLocalResolver(gitBranchOverride, console),
+		parseCache:           synccache.NewCache[string, earthfile.Tree](),
 		console:              console,
 		featureFlagOverrides: featureFlagOverrides,
 	}
@@ -242,34 +237,18 @@ func (r *Resolver) Resolve(
 
 	d.LocalDirs = localDirs
 	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
-		d.Earthfile, err = r.parseEarthfile(ctx, d.BuildFilePath)
+		path := filepath.Clean(d.BuildFilePath)
+
+		d.Earthfile, err = r.parseCache.Load(
+			ctx, path,
+			func(_ context.Context) (earthfile.Tree, error) {
+				return earthfile.ParseFile(path, earthfile.WithSourceMap())
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return d, nil
-}
-
-func (r *Resolver) parseEarthfile(ctx context.Context, path string) (earthfile.Tree, error) {
-	path = filepath.Clean(path)
-
-	efValue, err := r.parseCache.Do(ctx, path, func(_ context.Context, k any) (any, error) {
-		filePath, ok := k.(string)
-		if !ok {
-			return nil, fmt.Errorf("want string, got %T", k)
-		}
-
-		return earthfile.ParseFile(filePath, earthfile.WithSourceMap())
-	})
-	if err != nil {
-		return earthfile.Tree{}, err
-	}
-
-	ef, ok := efValue.(earthfile.Tree)
-	if !ok {
-		return earthfile.Tree{}, fmt.Errorf("want earthfile.Tree, got %T", efValue)
-	}
-
-	return ef, nil
 }

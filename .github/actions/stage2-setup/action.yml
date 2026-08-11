@@ -89,7 +89,7 @@ runs:
       # avoids a per-job ghcr pull of the ~300 MB staging image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earthly-build-ubuntu-latest-${{ inputs.BINARY }}${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earthly-build-ubuntu-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
         path: ./fork-artifacts
     - name: Load buildkitd image from artifact
       shell: bash
@@ -134,7 +134,7 @@ runs:
       shell: bash
     - name: Login to GHCR
       if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
-      uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -145,18 +145,18 @@ runs:
       # pulls); a transient registry-1.docker.io timeout must not fail the
       # whole job.
       continue-on-error: true
-      uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         username: ${{ inputs.DOCKERHUB_USERNAME }}
         password: ${{ inputs.DOCKERHUB_PASSWORD }}
     - if: inputs.BINARY == 'docker'
-      uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
       with:
-        go-version: '1.26.4'
+        go-version: '1.26.5'
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |
@@ -194,19 +194,20 @@ runs:
       # image). That meant CI was testing the PR's earthly CLI against the
       # *old* buildkit on the outer layer, and only exercising the PR's
       # buildkit inside earthly-in-earthly tests. Use the staging tag that
-      # build-earthly pushed for this SHA so the outer layer covers the
-      # PR's buildkit too — matches what the fork path already does above.
-      if: steps.fork-check.outputs.is_fork != 'true'
+      # the fast-check-and-build job pushed for this SHA so the outer layer
+      # covers the PR's buildkit too - same tag the fork path reads from
+      # tag-suffix.txt above.
+      if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
       shell: bash
       run: |
-        TAG_SUFFIX="ubuntu-latest-${{inputs.BINARY}}"
+        TAG_SUFFIX="ubuntu-latest"
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
         echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}" >> $GITHUB_ENV
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
         echo "Extracting earthly binary from stage1 of build"
-        export TAG=${GITHUB_SHA}-ubuntu-latest-${{inputs.BINARY}}
+        export TAG=${GITHUB_SHA}-ubuntu-latest
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership

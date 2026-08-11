@@ -134,7 +134,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: earthly-build-latest
+          name: earth-build-latest
           path: ./artifacts-standard/
           retention-days: 1
 
@@ -186,7 +186,7 @@ jobs:
       - name: Upload artifacts (next)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: earthly-build-latest-ticktock
+          name: earth-build-latest-ticktock
           path: ./artifacts-next/
           retention-days: 1
 

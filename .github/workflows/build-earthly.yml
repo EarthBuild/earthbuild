@@ -1,4 +1,4 @@
-name: Earthly Build
+name: Earth Build
 
 on:
   workflow_call:
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: "Put back the git branch into git (Earthly uses it for tagging)"
+      - name: "Put back the git branch into git (EarthBuild uses it for tagging)"
         run: |
           branch=""
           if [ -n "$GITHUB_HEAD_REF" ]; then
@@ -84,9 +84,9 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl restart containerd
           sudo systemctl restart docker
-      - name: Earthly bootstrap
+      - name: Earth bootstrap
         run: ${{inputs.SUDO}} "$(which earth)" bootstrap
-      - name: Configure Earthly to use GCR mirror
+      - name: Configure EarthBuild to use GCR mirror
         run: |-
           ${{inputs.SUDO}} "$(which earth)" config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
@@ -96,22 +96,22 @@ jobs:
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
         run: ${{inputs.SUDO}} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
-      - name: Build latest earthly using released earthly
+      - name: Build latest earth using released earth
         run: ${{inputs.SUDO}} "$(which earth)" --use-inline-cache +for-linux
-      - name: Earthly bootstrap using latest earthly build
+      - name: Earth bootstrap using latest earth build
         run: ${{inputs.SUDO}} ./build/linux/amd64/earthly bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Build and push +ci-release using latest earthly build
+      - name: Build and push +ci-release using latest earth build
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
-      - name: Build +ci-release using latest earthly build (fork - no push)
+      - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="latest"
@@ -164,7 +164,11 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          name: earthly-build-latest${{ inputs.USE_NEXT && '-ticktock' || '' }}
+          # `== true` not bare truthiness: this is a typed boolean here, but a
+          # string in stage2-setup's composite action (where the matching
+          # download uses `== 'true'`). Truthiness would make the string 'false'
+          # append -ticktock and silently break the name match.
+          name: earth-build-latest${{ inputs.USE_NEXT == true && '-ticktock' || '' }}
           path: ./artifacts/
           retention-days: 1
       - name: Buildkit logs (runs on failure)

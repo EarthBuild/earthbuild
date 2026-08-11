@@ -13,7 +13,6 @@ import (
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
@@ -159,7 +158,7 @@ func (gr *gitResolver) resolveEarthProject(
 		key = ref.StringCanonical()
 	}
 
-	localBuildFile, err := gr.buildFileCache.Load(
+	bf, err := gr.buildFileCache.Load(
 		ctx, key,
 		func(ctx context.Context) (*buildFile, error) {
 			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
@@ -179,39 +178,30 @@ func (gr *gitResolver) resolveEarthProject(
 				return nil, fmt.Errorf("state to ref git meta: %w", inErr)
 			}
 
-			bf, inErr := detectBuildFileInRef(ctx, ref, gitState, subDir)
+			buildFileRelPath, inErr := detectBuildFileInRef(ctx, ref, gitState, subDir)
 			if inErr != nil {
 				return nil, inErr
 			}
 
 			bfBytes, inErr := gitState.ReadFile(ctx, gwclient.ReadRequest{
-				Filename: bf,
+				Filename: buildFileRelPath,
 			})
 			if inErr != nil {
 				return nil, fmt.Errorf("read build file: %w", inErr)
 			}
 
-			localBuildFilePath := filepath.Join(earthfileTmpDir, path.Base(bf))
+			localBuildFilePath := filepath.Join(earthfileTmpDir, path.Base(buildFileRelPath))
 
 			inErr = os.WriteFile(localBuildFilePath, bfBytes, 0o700) // #nosec G306
 			if inErr != nil {
 				return nil, fmt.Errorf("write build file to tmp dir at %s: %w", localBuildFilePath, inErr)
 			}
 
-			var ftrs *features.Features
 			if isDockerfile {
-				ftrs = new(features.Features)
-			} else {
-				ftrs, inErr = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.console)
-				if inErr != nil {
-					return nil, inErr
-				}
+				return newDockerfileBuild(localBuildFilePath), nil
 			}
 
-			return &buildFile{
-				path: localBuildFilePath,
-				ftrs: ftrs,
-			}, nil
+			return newEarthfileBuild(localBuildFilePath, featureFlagOverrides, gr.console)
 		},
 	)
 	if err != nil {
@@ -220,7 +210,7 @@ func (gr *gitResolver) resolveEarthProject(
 
 	// TODO: Apply excludes / .earthignore.
 	return &Data{
-		BuildFilePath:       localBuildFile.path,
+		BuildFilePath:       bf.path,
 		BuildContextFactory: buildContextFactory,
 		GitMetadata: &gitutil.GitMetadata{
 			BaseDir:              "",
@@ -239,7 +229,8 @@ func (gr *gitResolver) resolveEarthProject(
 			CoAuthors:            rgp.coAuthors,
 			Refs:                 rgp.refs,
 		},
-		Features: localBuildFile.ftrs,
+		Features:  bf.features,
+		Earthfile: bf.tree,
 	}, nil
 }
 

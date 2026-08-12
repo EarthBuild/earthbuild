@@ -11,16 +11,14 @@ if [ "$EARTH_DEBUG" = "true" ]; then
     export EARTH_DEBUG
 fi
 
-# The installation name the CLI in this image was built with. It determines
-# where the CLI writes the certificates linked below (~/.<name>/certs). Baked in
-# by the +earthly-docker target so this script does not have to repeat the
-# Earthfile's value; the default matches that target's default.
+# The CLI writes its generated certificates to ~/.<installation name>/certs.
+# +earthly-docker bakes the name it built the CLI with into the environment.
 EARTH_INSTALLATION_NAME="$(earth_env INSTALLATION_NAME earth)"
 earth_certs_dir="${HOME:-/root}/.${EARTH_INSTALLATION_NAME}/certs"
 
-# NOTE: this stays /etc/.earthly regardless of the installation name -- it is a
-# documented mount point for callers supplying their own config, not a path the
-# CLI derives, and it is passed explicitly via --config below.
+# A documented mount point for callers supplying their own config, rather than a
+# path the CLI derives, so it is independent of the installation name and is
+# passed explicitly via --config below.
 earthly_config="/etc/.earthly/config.yml"
 if [ ! -f "$earthly_config" ]; then
   # Missing config, generate it and use the env vars

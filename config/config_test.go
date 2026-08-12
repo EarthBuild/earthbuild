@@ -23,8 +23,8 @@ func TestPortOffset(t *testing.T) {
 			want:             0,
 		},
 		{
-			// Held at zero for the deprecation cycle so an installation predating
-			// the earthly -> earth rename keeps reaching its existing daemon.
+			// "earthly" is also an official installation name and must map to the
+			// same zero offset as "earth".
 			name:             "deprecated official name is not offset",
 			installationName: "earthly",
 			want:             0,

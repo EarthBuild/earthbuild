@@ -53,10 +53,8 @@ acbgrep "Executes earth builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 
 echo "Test the CLI is on PATH under its released name."
-# The published image shipped only 'earthly' through v0.8.18 while the release
-# assets were all named 'earth', so anything following the release notes into the
-# image hit "earth: not found".
-# See https://github.com/EarthBuild/earthbuild/issues/796.
+# The image must expose the CLI as 'earth' on PATH, matching the name the
+# release binaries are published under.
 "$FRONTEND" run --rm --entrypoint sh "${EARTHLY_IMAGE}" -c 'command -v earth' 2>&1 | tee output.txt
 acbgrep "/earth$" output.txt
 "$FRONTEND" run --rm -e NO_BUILDKIT=1 --entrypoint earth "${EARTHLY_IMAGE}" --version 2>&1 | tee output.txt

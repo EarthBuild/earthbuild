@@ -8,8 +8,6 @@ FROM alpine:3.24.1
 #
 # It is global so the release binaries (+signed-release) and the published
 # docker image (+perform-release-earthly-dockerhub) cannot disagree about it.
-# They did disagree in v0.8.18 -- the image build path hardcoded "earthly" --
-# which is issue #796.
 ARG --global DEFAULT_INSTALLATION_NAME="earth"
 
 release-dockerhub:

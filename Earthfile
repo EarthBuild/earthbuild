@@ -535,14 +535,12 @@ earthly-docker:
     # DEFAULT_INSTALLATION_NAME must match what the release binaries bake in
     # (release+signed-release passes "earth"), otherwise the CLI inside the
     # published image disagrees with the released binaries about its own name,
-    # its config dir, its buildkitd container and its cache volume. It was
-    # hardcoded to "earthly" here, which is what shipped issue #796.
+    # its config dir, its buildkitd container and its cache volume.
     #
     # Unlike the +earthly-* binary targets this does not default to
     # "earthly-dev": that default exists to keep a dev binary's config dir and
     # buildkitd container off a developer's real ones, which is moot inside a
-    # container. The pre-#796 value here was the undecorated "earthly" for the
-    # same reason, so the dev image tracks the release name.
+    # container, so the image build uses the release name instead.
     ARG DEFAULT_INSTALLATION_NAME="earth"
     # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
     # with the CLI version, and makes this the same buildkitd build as
@@ -556,8 +554,6 @@ earthly-docker:
     ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
     # Exported so earthly-entrypoint.sh can locate the certificates the CLI
     # generates under ~/.<installation name>/certs without duplicating the name.
-    # This is the same value the CLI already has baked in, so setting it changes
-    # no behaviour.
     ENV EARTH_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
@@ -567,9 +563,8 @@ earthly-docker:
         --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
         --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
         ) /usr/bin/earth
-    # earthly is kept as a symlink for one deprecation cycle, matching how the
-    # EARTHLY_ env prefix is being retired rather than removed outright. The CLI
-    # warns when invoked under this name (see warnRenamedFromEarthly).
+    # earthly remains a symlink for one deprecation cycle; the CLI warns when
+    # invoked under that name (see warnRenamedFromEarthly).
     RUN ln -s earth /usr/bin/earthly
 
     # TODO update cache-from to use earthbuild/earthbuild:main

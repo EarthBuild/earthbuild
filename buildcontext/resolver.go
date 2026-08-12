@@ -47,7 +47,6 @@ type Data struct {
 type Resolver struct {
 	gr                   *gitResolver
 	lr                   *localResolver
-	parseCache           *synccache.Cache[string, earthfile.Tree] // local path -> AST
 	featureFlagOverrides string
 	console              conslogging.ConsoleLogger
 }
@@ -74,7 +73,6 @@ func NewResolver(
 			console:           console,
 		},
 		lr:                   newLocalResolver(gitBranchOverride, console),
-		parseCache:           synccache.NewCache[string, earthfile.Tree](),
 		console:              console,
 		featureFlagOverrides: featureFlagOverrides,
 	}
@@ -234,21 +232,7 @@ func (r *Resolver) Resolve(
 	}
 
 	d.Ref = gitutil.ReferenceWithGitMeta(ref, d.GitMetadata)
-
 	d.LocalDirs = localDirs
-	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
-		path := filepath.Clean(d.BuildFilePath)
-
-		d.Earthfile, err = r.parseCache.Load(
-			ctx, path,
-			func(_ context.Context) (earthfile.Tree, error) {
-				return earthfile.ParseFile(path, earthfile.WithSourceMap())
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return d, nil
 }

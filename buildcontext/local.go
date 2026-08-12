@@ -92,20 +92,11 @@ func (lr *localResolver) resolveLocal(
 			return nil, err
 		}
 
-		var ftrs *features.Features
 		if isDockerfile {
-			ftrs = new(features.Features)
-		} else {
-			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.GetLocalPath(), lr.console)
-			if err != nil {
-				return nil, err
-			}
+			return newDockerfileBuild(buildFilePath), nil
 		}
 
-		return &buildFile{
-			path: buildFilePath,
-			ftrs: ftrs,
-		}, nil
+		return newEarthfileBuild(buildFilePath, featureFlagOverrides, lr.console)
 	})
 	if err != nil {
 		return nil, err
@@ -114,7 +105,8 @@ func (lr *localResolver) resolveLocal(
 	data := &Data{
 		BuildFilePath: bf.path,
 		GitMetadata:   metadata,
-		Features:      bf.ftrs,
+		Features:      bf.features,
+		Earthfile:     bf.tree,
 	}
 
 	if gwClient == nil {
@@ -127,7 +119,7 @@ func (lr *localResolver) resolveLocal(
 		return data, nil
 	}
 
-	noImplicitIgnore := bf.ftrs != nil && bf.ftrs.NoImplicitIgnore
+	noImplicitIgnore := bf.features != nil && bf.features.NoImplicitIgnore
 	useDockerIgnore := isDockerfile
 
 	ftrs := features.FromContext(ctx)

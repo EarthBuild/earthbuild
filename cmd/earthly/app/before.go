@@ -173,7 +173,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 }
 
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
-	app.warnIfEarth()
+	app.warnRenamedFromEarthly()
 	app.warnDeprecatedEarthlyEnvVars()
 	app.warnDeprecatedAutoSkip()
 
@@ -215,7 +215,13 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	}
 }
 
-const cmdName = "earthly"
+const (
+	// cmdName is the current name of the CLI binary.
+	cmdName = "earth"
+	// deprecatedCmdName is the pre-rename name, still shipped as a symlink to
+	// cmdName for one deprecation cycle.
+	deprecatedCmdName = "earthly"
+)
 
 // warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
 // variables, which have been replaced by the EARTH_ prefix.
@@ -255,31 +261,47 @@ func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB strin
 		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
 }
 
-func (app *EarthApp) warnIfEarth() {
+// warnRenamedFromEarthly warns when the CLI is invoked under its deprecated
+// name, and points at the replacement when one is installed alongside it.
+func (app *EarthApp) warnRenamedFromEarthly() {
 	if len(os.Args) == 0 {
 		return
 	}
 
-	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
-	binPath := os.Args[0]
-
-	baseName := path.Base(binPath)
-	if baseName == cmdName {
-		app.BaseCLI.Console().Warnf("Warning: the earthly binary has been renamed to earth; " +
-			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
-
-		absPath, err := filepath.Abs(binPath)
-		if err != nil {
-			return
-		}
-
-		earthPath := path.Join(path.Dir(absPath), cmdName)
-
-		earthPathExists, _ := fileutil.FileExists(earthPath)
-		if earthPathExists {
-			app.BaseCLI.Console().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
-		}
+	// Detect the invoked name from argv[0] rather than os.Executable(): the
+	// latter resolves the symlink and would always report cmdName.
+	if path.Base(os.Args[0]) != deprecatedCmdName {
+		return
 	}
+
+	app.BaseCLI.Console().Warnf(
+		"Warning: the %s binary has been renamed to %s; %s is deprecated and will one day be removed.",
+		deprecatedCmdName, cmdName, deprecatedCmdName)
+
+	// Locate the replacement next to the real binary. os.Executable() is the
+	// right source here (and argv[0] is not): argv[0] is a bare name when the
+	// CLI was found on PATH, which filepath.Abs would resolve against the
+	// working directory instead of the install dir.
+	exePath, err := os.Executable()
+	if err != nil {
+		return
+	}
+
+	binDir := filepath.Dir(exePath)
+
+	// Only claim the rename has happened locally if it actually has. Before
+	// #796 this suggestion was gated on a path built from the deprecated name,
+	// so it tested for the invoked binary itself rather than its replacement.
+	if exists, _ := fileutil.FileExists(filepath.Join(binDir, cmdName)); !exists {
+		return
+	}
+
+	deprecatedPath := filepath.Join(binDir, deprecatedCmdName)
+	if exists, _ := fileutil.FileExists(deprecatedPath); !exists {
+		return
+	}
+
+	app.BaseCLI.Console().Warnf("Once you are ready to switch over to %s, you can `rm %s`", cmdName, deprecatedPath)
 }
 
 func profhandler() {

@@ -150,6 +150,25 @@ log a warning; we are collecting feedback on whether to remove them in the futur
 - `GIT_USERNAME` - Git authentication username
 - `GIT_PASSWORD` - Git authentication password
 - `GITHUB_ACTIONS` - GitHub Actions environment detection
+- `BUILDKIT_HOST` - Read by the all-in-one image to point at an external BuildKit daemon.
+  This is upstream BuildKit's own variable name, not an Earthly one, so it keeps its
+  unprefixed spelling. Note that the `earth` CLI flag binding is separate and *is* renamed,
+  to `EARTH_BUILDKIT_HOST`.
+
+#### Container and Image Variables
+
+The variables consumed by the published images — `EARTH_ADDITIONAL_BUILDKIT_CONFIG`,
+`EARTH_EXEC_CMD`, `EARTH_TMP_DIR`, `EARTH_RESET_TMP_DIR`, `EARTH_DEBUG` and
+`EARTH_BUILDKIT_HOST` — follow the same rule: the `EARTH_` name is current, and the
+`EARTHLY_` spelling still works but logs a deprecation warning.
+
+The variables that the `earth` CLI previously used to configure `WITH DOCKER`
+(`EARTHLY_DOCKERD_DATA_ROOT`, `EARTHLY_START_COMPOSE`, `EARTHLY_COMPOSE_FILES` and
+friends) are gone entirely rather than renamed. They were an internal protocol between
+the CLI and the buildkitd image and are now passed as command-line flags, so there is
+nothing to set. `EARTHLY_DOCKER_WRAPPER_DEBUG`, `EARTHLY_DOCKER_WRAPPER_DEBUG_CMD` and
+`EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT` remain environment variables, renamed to `EARTH_*`
+with the usual deprecation fallback.
 
 ---
 
@@ -158,9 +177,9 @@ log a warning; we are collecting feedback on whether to remove them in the futur
 Here is a `diff` of the CLI help output to highlight the changes. The `+` side below is captured from
 EarthBuild `v0.8.18`.
 
-> Note: environment-variable bindings are still shown with the `EARTHLY_*` prefix. The rename to
-> `EARTH_*` (with deprecation warnings) is tracked separately and lands ahead of the `v0.9.x` breaking
-> change — see the Environment Variable Changes section above.
+> Note: this diff is a verbatim capture, so environment-variable bindings still appear with the
+> `EARTHLY_*` prefix. Every binding shown also accepts the `EARTH_*` spelling, which is the one to
+> use — see the Environment Variable Changes section above.
 
 ```diff
 NAME:

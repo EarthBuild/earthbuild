@@ -78,7 +78,7 @@ jobs:
         run: |-
           ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci -P ./tests+experimental
       - name: Test buildkit info-level logging
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd 2>&1 | grep 'running server on'
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earth-buildkitd 2>&1 | grep 'running server on'
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earth-buildkitd || true

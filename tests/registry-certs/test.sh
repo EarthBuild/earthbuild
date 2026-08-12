@@ -15,7 +15,7 @@ test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 # Cleanup previous run.
 "$frontend" stop registry || true
 "$frontend" rm registry || true
-"$frontend" network disconnect registry-certs earthly-buildkitd || true
+"$frontend" network disconnect registry-certs earth-buildkitd || true
 "$frontend" network rm registry-certs || true
 rm -rf "$testdir/certs" || true
 
@@ -47,7 +47,7 @@ SUBNET="172.29.0.0/16"
 
 # Ensure buildkitd can connect to the registry-certs network so that
 # build containers can communicate with the registry.
-"$frontend" network connect registry-certs earthly-buildkitd
+"$frontend" network connect registry-certs earth-buildkitd
 
 # Test.
 set +e

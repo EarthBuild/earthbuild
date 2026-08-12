@@ -68,4 +68,4 @@ jobs:
         run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earth-buildkitd

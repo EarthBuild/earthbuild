@@ -10,7 +10,7 @@ echo "== it should login to user with token =="
 EARTHLY_TOKEN="$OIDC_USER_TOKEN" earthly account login 2>&1 | acbgrep 'Logged in as "other-service+oidc-ci-test@earthly.dev" using token auth'
 
 echo "== it should access aws via oidc =="
-earthly --config "$earthly_config" +oidc --ROLE_ARN="$ROLE_ARN"
+earth --config "$earthly_config" +oidc --ROLE_ARN="$ROLE_ARN"
 
 echo "== it should access aws via oidc-with-docker =="
-earthly --config "$earthly_config" --allow-privileged +oidc-with-docker --ROLE_ARN="$ROLE_ARN"
+earth --config "$earthly_config" --allow-privileged +oidc-with-docker --ROLE_ARN="$ROLE_ARN"

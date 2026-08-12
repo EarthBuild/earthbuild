@@ -28,7 +28,7 @@ body:
     id: buildkit-logs
     attributes:
       label: Buildkit Logs
-      description: If buildkit crashed, please include the output of `docker logs earthly-buildkitd`
+      description: If buildkit crashed, please include the output of `docker logs earth-buildkitd`
     validations:
       required: false
   - type: textarea

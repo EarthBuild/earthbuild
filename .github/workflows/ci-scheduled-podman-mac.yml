@@ -15,6 +15,8 @@ jobs:
   podman-macos-test:
     name: +testing-gha-podman
     runs-on: macos-26 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
+    permissions:
+      contents: read
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -37,6 +39,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - name: Install podman
         run: brew install podman
       - name: Podman Mac Helper

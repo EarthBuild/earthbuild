@@ -20,6 +20,8 @@ jobs:
   test:
     name: +lint-changelog
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -37,5 +39,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - name: Execute lint
         run: earth --ci -P +lint-changelog

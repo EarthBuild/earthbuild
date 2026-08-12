@@ -14,9 +14,9 @@ on:
   merge_group:
 
 
+# Workflow-wide floor only; every job narrows or widens this for itself.
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -47,6 +47,8 @@ jobs:
           # shared runner IPs (unauthenticated is 60 req/hr/IP).
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
       - name: Lint
         run: earth --ci +lint-all
       - name: Unit tests
@@ -57,7 +59,7 @@ jobs:
       # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
       - name: "Put back the git branch into git (EarthBuild uses it for tagging)"
         run: |
           branch=""
@@ -194,55 +196,91 @@ jobs:
   docker-tests:
     name: Docker
     needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "docker"
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   docker-examples:
     name: Docker Examples
     needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: "docker"
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   docker-integrations:
     name: Docker Integrations
     needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/ci-integration-suite.yml
     with:
       FRONTEND: "docker"
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   # --- Podman Suite ---
   podman-tests:
     name: Podman
     needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "podman"
       SUDO: "sudo -E"
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   podman-examples:
     name: Podman Examples
     needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: "podman"
       SUDO: "sudo -E"
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   # --- Next Suite ---
   next-tests:
     name: Next
     needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "docker"
       USE_NEXT: true
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   # --- Merge Gate ---
   # The ONLY check that branch protection should require. Every other job's

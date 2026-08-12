@@ -20,6 +20,8 @@ env:
 jobs:
   check-broken-links:
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
     env:
       FORCE_COLOR: 1
       EARTHLY_INSTALL_ID: "earthly-githubactions"
@@ -38,6 +40,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref }}
+          persist-credentials: false
       - name: Check Broken Links
         run: |
           earthly --ci --secret littleredcorvette-github-token=${{ secrets.GITHUB_TOKEN }} +check-broken-links-pr --VERBOSE=true

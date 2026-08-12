@@ -42,12 +42,12 @@ test:
     RUN earthly --config config.yml config global.buildkit_image ""
 
     # test earthbuild runs when no default config is present
-    RUN ! test -f /root/.earthly/config.yml
+    RUN ! test -f /root/.earth/config.yml
     DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     # test earthbuild can write to default config location
     RUN earthly config global.cache_size_mb 10
-    RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-1.yml)"
+    RUN test "$(cat /root/.earth/config.yml)" = "$(cat expected-1.yml)"
 
     # test earthbuild fails when explicitly set to use a different config that doesn't exist
     DO --pass-args +RUN_EARTH_ARGS --extra_args="--config=this-does-not-exist.yml" --earthfile="hello.earth" --target="+hello" --should_fail="true" --output_contains="failed to read from this-does-not-exist.yml"
@@ -58,7 +58,7 @@ test:
 
     # test that it still runs alongside a size settings
     RUN earthly config global.cache_size_mb 100
-    RUN test "$(cat /root/.earthly/config.yml)" = "$(cat expected-6.yml)"
+    RUN test "$(cat /root/.earth/config.yml)" = "$(cat expected-6.yml)"
     DO --pass-args +RUN_EARTH_ARGS --earthfile="hello.earth" --target="+hello" --output_contains="greetings"
 
     RUN touch /tmp/config.yml
@@ -78,12 +78,12 @@ test:
 
     # test correct user location is used by default
     RUN earthly config global.cache_size_mb 10
-    RUN test "$(cat /home/testuser/.earthly/config.yml)" = "$(cat /test/expected-1.yml)"
+    RUN test "$(cat /home/testuser/.earth/config.yml)" = "$(cat /test/expected-1.yml)"
 
     # test correct user location is used when set elsewhere
-    RUN touch ~/.earthly/other-config.yml
-    RUN EARTHLY_CONFIG=~/.earthly/other-config.yml earthly config global.cache_size_mb 10
-    RUN test "$(cat /home/testuser/.earthly/other-config.yml)" = "$(cat /test/expected-1.yml)"
+    RUN touch ~/.earth/other-config.yml
+    RUN EARTHLY_CONFIG=~/.earth/other-config.yml earthly config global.cache_size_mb 10
+    RUN test "$(cat /home/testuser/.earth/other-config.yml)" = "$(cat /test/expected-1.yml)"
 
     # test correct user location is used when set elsewhere with different installation dir
     RUN mkdir ~/.earthly-not-test && touch ~/.earthly-not-test/other-config.yml
@@ -100,12 +100,12 @@ test:
     RUN cat output.txt | grep 'Error: read config: failed to read from /tmp/config.yml: open /tmp/config.yml: permission denied'
 
     # check permission error is correctly returned even when earthbuild attempts to read from the default location
-    # to make this test work, a symbolic link is required (chown root:root /home/testuser/.earthly/config.yml doesnt work)
-    RUN rm /home/testuser/.earthly/config.yml
-    RUN ln -s /tmp/config.yml /home/testuser/.earthly/config.yml
+    # to make this test work, a symbolic link is required (chown root:root /home/testuser/.earth/config.yml doesnt work)
+    RUN rm /home/testuser/.earth/config.yml
+    RUN ln -s /tmp/config.yml /home/testuser/.earth/config.yml
 
     RUN ! earthly --verbose +hello > output.txt 2>&1
-    RUN cat output.txt | grep 'Error: read config: failed to read from /home/testuser/.earthly/config.yml: open /home/testuser/.earthly/config.yml: permission denied'
+    RUN cat output.txt | grep 'Error: read config: failed to read from /home/testuser/.earth/config.yml: open /home/testuser/.earth/config.yml: permission denied'
 
     # make it obvious that this test passed, due to the previous grep displaying "Error: ..." when it passes
     RUN echo "config test passed"

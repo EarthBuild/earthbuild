@@ -45,7 +45,7 @@ func TestWarningsFor(t *testing.T) {
 		{
 			// The scan cannot tell a user-set variable from one earthbuild set
 			// on itself, so the published images must only ever set EARTH_
-			// names. See https://github.com/EarthBuild/earthbuild/issues/751.
+			// names.
 			name: "environment of the published image is silent",
 			environ: []string{
 				"EARTH_CACHE_VERSION=2",

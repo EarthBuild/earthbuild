@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// NOTE: covers the temporary EARTHLY_ -> EARTH_ environment variable migration.
-// Drop the deprecated cases once EARTHLY_ support is officially removed.
+// Also covers the deprecated EARTHLY_WITH_DOCKER fallback in isEarthInEarth;
+// drop those cases once EARTHLY_ support is officially removed.
 func TestIsEarthInEarth(t *testing.T) {
 	const (
 		current    = "EARTH_WITH_DOCKER"

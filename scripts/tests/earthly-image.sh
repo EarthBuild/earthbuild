@@ -59,7 +59,6 @@ deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Ea
 echo "Test the image does not emit deprecation warnings for its own configuration."
 # The deprecation scan cannot tell a user-set EARTHLY_* variable from one
 # earthbuild set on itself, so the image must only ever set EARTH_* names.
-# See https://github.com/EarthBuild/earthbuild/issues/751.
 "$FRONTEND" run --rm --entrypoint sh "${EARTHLY_IMAGE}" -c "$deprecation_probe" 2>&1 | tee output.txt
 acbgrep "+foo" output.txt # the probe really ran
 # Match the env-var warning shape specifically, so the unrelated

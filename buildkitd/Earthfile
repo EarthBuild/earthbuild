@@ -53,6 +53,7 @@ buildkitd:
     RUN echo "bitbucket.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==" >> ~/.ssh/known_hosts
 
     # Add the config templates and our own wrapper script.
+    COPY ./earth-env.sh /usr/bin/earth-env.sh
     COPY ./entrypoint.sh /usr/bin/entrypoint.sh
     COPY ./buildkitd.toml.template /etc/buildkitd.toml.template
     COPY ./buildkitd.cache.template /etc/buildkitd.cache.template
@@ -69,8 +70,8 @@ buildkitd:
     COPY ./oom-adjust.sh.template /bin/oom-adjust.sh.template
     COPY ./runc-ps /bin/runc-ps
 
-    ENV EARTHLY_RESET_TMP_DIR=false
-    ENV EARTHLY_TMP_DIR=/tmp/earthbuild
+    ENV EARTH_RESET_TMP_DIR=false
+    ENV EARTH_TMP_DIR=/tmp/earthbuild
     ENV BUILDKIT_DEBUG=false
     ENV BUILDKIT_MAX_PARALLELISM=20
     ENV BUILDKIT_LOCAL_REGISTRY_LISTEN_PORT=8371
@@ -78,10 +79,10 @@ buildkitd:
     ENV CACHE_SIZE_MB=0
     ENV CACHE_SIZE_PCT=0
     ENV NETWORK_MODE=cni
-    ARG EARTHLY_GIT_HASH
-    ENV EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
+    ENV EARTH_GIT_HASH=$EARTH_GIT_HASH
     ENV BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE
-    ENV EARTHLY_CACHE_VERSION="2" # whenever this value changes, a forced cache reset is performed
+    ENV EARTH_CACHE_VERSION="2" # whenever this value changes, a forced cache reset is performed
     VOLUME /tmp/earthbuild
     ENTRYPOINT ["/usr/bin/entrypoint.sh", "buildkitd", "--config=/etc/buildkitd.toml"]
 

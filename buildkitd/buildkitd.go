@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
@@ -473,6 +474,24 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 	return nil
 }
 
+// isEarthInEarth reports whether this CLI is itself running inside a WITH
+// DOCKER, which buildkitd/dockerd-wrapper.sh signals by exporting
+// EARTH_WITH_DOCKER. When it is, buildkitd needs /sys/fs/cgroup bind-mounted.
+//
+// NOTE: the deprecated EARTHLY_WITH_DOCKER spelling is still accepted, so that
+// an older buildkitd image keeps working; drop it along with the rest of the
+// EARTHLY_ support.
+func isEarthInEarth() bool {
+	v, ok := env.Lookup("WITH_DOCKER")
+	if !ok {
+		return false
+	}
+
+	withDocker, err := strconv.ParseBool(v)
+
+	return err == nil && withDocker
+}
+
 // Start starts the buildkitd daemon.
 func Start(
 	ctx context.Context,
@@ -524,7 +543,7 @@ func Start(
 	portOpts := containerutil.PortOpt{}
 
 	if settings.AdditionalConfig != "" {
-		envOpts["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
+		envOpts["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
 	}
 
 	if settings.IPTables != "" {
@@ -533,7 +552,7 @@ func Start(
 
 	const localhost = "127.0.0.1"
 
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	withDocker := isEarthInEarth()
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -662,7 +681,7 @@ func Start(
 
 	// Apply reset.
 	if reset {
-		envOpts["EARTHLY_RESET_TMP_DIR"] = "true"
+		envOpts["EARTH_RESET_TMP_DIR"] = "true"
 	}
 
 	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)

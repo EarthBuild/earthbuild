@@ -13,7 +13,7 @@ services:
 variables:
   DOCKER_HOST: tcp://docker:2375
   FORCE_COLOR: 1
-  EARTHLY_EXEC_CMD: "/bin/sh"
+  EARTH_EXEC_CMD: "/bin/sh"
 
 image: earthbuild/earthbuild:v0.8.18
 
@@ -28,16 +28,16 @@ earth:
 
 Note that in this particular configuration, the `earthbuild/earthbuild` image will first
 start BuildKit under the same container via the image's entrypoint script; however
-by setting `EARTHLY_EXEC_CMD=/bin/sh`, the `/usr/bin/earthly-entrypoint.sh` script
+by setting `EARTH_EXEC_CMD=/bin/sh`, the `/usr/bin/earthly-entrypoint.sh` script
 will present a shell rather than call the earth binary. This bootstrapping occurs
 before the `before_script` portion of the gitlab job executes.
 
 In order to configure a registry mirror, users will need to configure a multi-line
-string for `EARTHLY_ADDITIONAL_BUILDKIT_CONFIG` under the `variables` section. For example:
+string for `EARTH_ADDITIONAL_BUILDKIT_CONFIG` under the `variables` section. For example:
 
 ```yml
 variables:
-  EARTHLY_ADDITIONAL_BUILDKIT_CONFIG: |-
+  EARTH_ADDITIONAL_BUILDKIT_CONFIG: |-
     [registry."docker.io"]
       mirrors = ["registry-mirror.example.com"]
 ```

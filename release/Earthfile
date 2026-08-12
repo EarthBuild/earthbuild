@@ -1,6 +1,17 @@
 VERSION 0.8
 FROM alpine:3.24.1
 
+# DEFAULT_INSTALLATION_NAME is the CLI's own name, baked in via
+# -X main.DefaultInstallationName. It also determines the config dir
+# (~/.<name>), the local buildkitd container (<name>-buildkitd), the cache
+# volume (<name>-cache) and the default buildkit port offset.
+#
+# It is global so the release binaries (+signed-release) and the published
+# docker image (+perform-release-earthly-dockerhub) cannot disagree about it.
+# They did disagree in v0.8.18 -- the image build path hardcoded "earthly" --
+# which is issue #796.
+ARG --global DEFAULT_INSTALLATION_NAME="earth"
+
 release-dockerhub:
     ARG --required RELEASE_TAG
     ARG DOCKERHUB_BUILDKIT_IMG="buildkitd"
@@ -52,6 +63,7 @@ perform-release-earthly-dockerhub:
         --TAG="$RELEASE_TAG" \
         --VERSION="$VERSION" \
         --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
+        --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
         --PUSH_LATEST_TAG="$PUSH_LATEST_TAG" \
         --PUSH_PRERELEASE_TAG="$PUSH_PRERELEASE_TAG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
@@ -99,7 +111,7 @@ signed-release:
     COPY (../+all-binaries/* \
          --VERSION=$VERSION \
          --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$VERSION" \
-         --DEFAULT_INSTALLATION_NAME="earth" \
+         --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
          ) ./release/
 
 

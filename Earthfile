@@ -520,6 +520,18 @@ earthly-docker:
     # with the released binaries (+all-binaries).
     ARG VERSION="$TAG"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$TAG"
+    # DEFAULT_INSTALLATION_NAME must match what the release binaries bake in
+    # (release+signed-release passes "earth"), otherwise the CLI inside the
+    # published image disagrees with the released binaries about its own name,
+    # its config dir, its buildkitd container and its cache volume. It was
+    # hardcoded to "earthly" here, which is what shipped issue #796.
+    #
+    # Unlike the +earthly-* binary targets this does not default to
+    # "earthly-dev": that default exists to keep a dev binary's config dir and
+    # buildkitd container off a developer's real ones, which is moot inside a
+    # container. The pre-#796 value here was the undecorated "earthly" for the
+    # same reason, so the dev image tracks the release name.
+    ARG DEFAULT_INSTALLATION_NAME="earth"
     # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
     # with the CLI version, and makes this the same buildkitd build as
     # release+perform-release-buildkitd-dockerhub pushes.
@@ -530,14 +542,23 @@ earthly-docker:
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
     ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
+    # Exported so earthly-entrypoint.sh can locate the certificates the CLI
+    # generates under ~/.<installation name>/certs without duplicating the name.
+    # This is the same value the CLI already has baked in, so setting it changes
+    # no behaviour.
+    ENV EARTH_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
         --VERSION="$VERSION" \
         --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
-        --DEFAULT_INSTALLATION_NAME="earthly" \
-        ) /usr/bin/earthly
+        --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
+        ) /usr/bin/earth
+    # earthly is kept as a symlink for one deprecation cycle, matching how the
+    # EARTHLY_ env prefix is being retired rather than removed outright. The CLI
+    # warns when invoked under this name (see warnRenamedFromEarthly).
+    RUN ln -s earth /usr/bin/earthly
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple

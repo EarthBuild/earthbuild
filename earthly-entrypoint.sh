@@ -13,8 +13,10 @@ fi
 
 # The CLI writes its generated certificates to ~/.<installation name>/certs.
 # +earthly-docker bakes the name it built the CLI with into the environment.
-EARTH_INSTALLATION_NAME="$(earth_env INSTALLATION_NAME earth)"
-earth_certs_dir="${HOME:-/root}/.${EARTH_INSTALLATION_NAME}/certs"
+# A caller overriding the installation name moves that directory, so resolve it
+# the same way the CLI does, falling back to the name the image was built with.
+earth_installation_name="$(earth_env INSTALLATION_NAME "${EARTH_IMAGE_INSTALLATION_NAME:-earth}")"
+earth_certs_dir="${HOME:-/root}/.${earth_installation_name}/certs"
 
 # A documented mount point for callers supplying their own config, rather than a
 # path the CLI derives, so it is independent of the installation name and is

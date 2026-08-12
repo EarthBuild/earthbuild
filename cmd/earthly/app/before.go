@@ -289,9 +289,8 @@ func (app *EarthApp) warnRenamedFromEarthly() {
 
 	binDir := filepath.Dir(exePath)
 
-	// Only claim the rename has happened locally if it actually has. Before
-	// #796 this suggestion was gated on a path built from the deprecated name,
-	// so it tested for the invoked binary itself rather than its replacement.
+	// Only suggest removing the deprecated binary if its replacement actually
+	// exists alongside it.
 	if exists, _ := fileutil.FileExists(filepath.Join(binDir, cmdName)); !exists {
 		return
 	}

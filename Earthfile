@@ -540,9 +540,13 @@ earthly-docker:
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
     ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
-    # Exported so earthly-entrypoint.sh can locate the certificates the CLI
-    # generates under ~/.<installation name>/certs without duplicating the name.
-    ENV EARTH_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
+    # Tells earthly-entrypoint.sh which installation name the CLI was built with,
+    # so it can find the certificates generated under ~/.<name>/certs.
+    #
+    # Deliberately not EARTH_INSTALLATION_NAME: that is the CLI's own variable,
+    # and setting it here would take precedence over a caller's
+    # EARTHLY_INSTALLATION_NAME, silently ignoring the deprecated spelling.
+    ENV EARTH_IMAGE_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace

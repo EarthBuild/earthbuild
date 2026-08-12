@@ -1,12 +1,12 @@
 name: 'Stage 2 Setup'
-description: 'Setup for self-hosted earthly runners'
+description: 'Setup for self-hosted earth runners'
 inputs:
   earthly_version:
     description: 'The earthly version to use'
     required: false
     default: 'latest'
   BUILT_EARTH_PATH:
-    description: "Path to the built earthly binary"
+    description: "Path to the built earth binary"
     required: true
   BINARY:
     description: "The container engine to use (e.g., 'docker' or 'podman')"
@@ -58,34 +58,24 @@ runs:
           echo "is_fork=false" >> $GITHUB_OUTPUT
           echo "Running on main repo - will use GHCR"
         fi
-    - name: Download artifacts (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
+    - name: Download build-earth artifacts
+      # Always download. The artifact carries the buildkitd image tarball on
+      # every run, and on fork PRs also the earth binary + tag-suffix.txt.
+      # Loading the local tarball avoids a per-job ghcr pull of the staging
+      # image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earthly-build-ubuntu-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
-        path: ./fork-artifacts
-    - name: Load buildkitd image from artifact (fork)
-      if: steps.fork-check.outputs.is_fork == 'true'
-      shell: bash
-      run: |
-        echo "Loading buildkitd image from artifact..."
-        ${{inputs.SUDO}} ${{inputs.BINARY}} load -i ./fork-artifacts/buildkitd-image.tar
-        echo "Buildkitd image loaded successfully"
-    - name: Setup earthly binary from artifact (fork)
+        name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        path: ./build-artifacts
+    - name: Setup earth binary from artifact (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
       shell: bash
       run: |
         test -n "${{inputs.BUILT_EARTH_PATH}}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${{inputs.BUILT_EARTH_PATH}}")"
-        cp ./fork-artifacts/earthly "${{inputs.BUILT_EARTH_PATH}}"
+        cp ./build-artifacts/earthly "${{inputs.BUILT_EARTH_PATH}}"
         chmod +x "${{inputs.BUILT_EARTH_PATH}}"
-        echo "Earthly binary installed from artifact to ${{inputs.BUILT_EARTH_PATH}}"
-
-        # Read the tag suffix and set EARTHLY_BUILDKIT_IMAGE env var for subsequent steps
-        TAG_SUFFIX=$(cat ./fork-artifacts/tag-suffix.txt)
-        BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
-        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> $GITHUB_ENV
-        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
+        echo "Earth binary installed from artifact to ${{inputs.BUILT_EARTH_PATH}}"
     - name: Set up Docker Hub Mirrors and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
@@ -159,16 +149,43 @@ runs:
       # qemu-user-static needed for cross-compilation (--platform) targets
       run: ${{inputs.SUDO}} apt-get update && ${{inputs.SUDO}} apt-get install -y qemu-user-static
       shell: bash
-    - name: Set fixed buildkitd image for Docker 29+ (non-fork)
-      if: inputs.BINARY == 'docker' && steps.fork-check.outputs.is_fork != 'true'
+    - name: Load buildkitd image from artifact
+      # Must run AFTER the Docker and Podman setup steps above: on podman jobs
+      # the engine is apt-installed there (and docker is purged), so loading any
+      # earlier fails with `podman: command not found`.
       shell: bash
       run: |
-        echo "EARTHLY_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1" >> $GITHUB_ENV
+        echo "Loading buildkitd image from artifact..."
+        ${{inputs.SUDO}} ${{inputs.BINARY}} load -i ./build-artifacts/buildkitd-image.tar
+        echo "Buildkitd image loaded successfully"
+    - name: Point outer buildkit at the PR's own staging image
+      # Non-fork runs previously hardcoded the stable pinned buildkitd image.
+      # That meant the outer layer ran the PR's earth CLI against the *old*
+      # buildkit, and the PR's own buildkit was only exercised inside
+      # earth-in-earth tests -- so an outer-daemon regression could pass CI.
+      # Both paths now use the staging tag built for this SHA, which is the
+      # tag `Load buildkitd image from artifact` just loaded, so MaybePull
+      # finds it locally and skips the ghcr fetch.
+      #
+      # tag-suffix.txt is the single source of truth for the suffix: the build
+      # job writes it alongside the tarball on every run, so this cannot drift
+      # from the tag the tarball actually carries.
+      #
+      # Deliberately not gated on BINARY == 'docker': main's docker-only guard
+      # belonged to the Docker-29 pinned-image workaround this step replaces.
+      # Podman jobs must exercise the PR's buildkitd too.
+      shell: bash
+      run: |
+        set -euo pipefail
+        TAG_SUFFIX=$(cat ./build-artifacts/tag-suffix.txt)
+        BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${{ github.sha }}-${TAG_SUFFIX}"
+        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> "$GITHUB_ENV"
+        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
-        echo "Extracting earthly binary from stage1 of build"
-        export TAG=${GITHUB_SHA}-ubuntu-latest
+        echo "Extracting earth binary from stage1 of build"
+        export TAG=${GITHUB_SHA}-latest
         if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${{inputs.SUDO}} ./earthly upgrade
         ${{inputs.SUDO}} chown -R $USER ~/.earthly # restore non-sudo user ownership
@@ -187,8 +204,8 @@ runs:
       run: |-
         export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
         test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings "${{inputs.BUILT_EARTH_PATH}}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earthly binary" && exit 1)
-        echo "correctly found $expected_buildkit_client_sha in earthly binary; this confirms earthly-next was used"
+        (strings "${{inputs.BUILT_EARTH_PATH}}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earth binary" && exit 1)
+        echo "correctly found $expected_buildkit_client_sha in earth binary; this confirms earthly-next was used"
       shell: bash
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${{inputs.SUDO}} "${{inputs.BUILT_EARTH_PATH}}" bootstrap

@@ -153,13 +153,14 @@ jobs:
           export TAG_SUFFIX="latest"
           if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
 
-          # DEFAULT_INSTALLATION_NAME=earthly ensures the buildkitd container
-          # is named "earthly-buildkitd" as tests expect.
+          # DEFAULT_INSTALLATION_NAME sets the buildkitd container name the
+          # test suites address directly, so it must not be left at its dev
+          # default.
           ${{inputs.SUDO}} ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
-            --DEFAULT_INSTALLATION_NAME=earthly \
+            --DEFAULT_INSTALLATION_NAME=earth \
             ./artifacts/earthly
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7

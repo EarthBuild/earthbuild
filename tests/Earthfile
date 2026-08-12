@@ -117,6 +117,7 @@ ga-no-qemu-group5:
     BUILD +dont-save-indirect-remote-artifact
     BUILD +remote-earthfile-must-have-version
     BUILD +version-flag-test
+    BUILD +deprecated-name-test
     BUILD +implicit-ignores
     BUILD +help
     BUILD +ls
@@ -297,8 +298,8 @@ copy-test-verbose-output:
     # the shared cache key.
     RUN echo "#!/bin/sh
 set -ex
-earthly --config \$earthly_config --verbose +copy 2>&1 | tee output.txt;
-earthly --config \$earthly_config --verbose +copy 2>&1 | tee output2.txt;
+earth --config \$earthly_config --verbose +copy 2>&1 | tee output.txt;
+earth --config \$earthly_config --verbose +copy 2>&1 | tee output2.txt;
 " >/tmp/multiple-earthly-script && chmod +x /tmp/multiple-earthly-script
 
     DO +RUN_EARTH --earthfile=copy-verbose.earth --exec_cmd=/tmp/multiple-earthly-script
@@ -900,7 +901,7 @@ escape-dir-test:
 eine-test-base:
     FROM docker:29.7.1-dind
     RUN apk --no-cache add git
-    COPY ../..+earthly/earthly /usr/local/bin/
+    COPY ../..+earthly/earthly /usr/local/bin/earth
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
     WORKDIR /test
 
@@ -908,14 +909,14 @@ eine-smoke-test:
     FROM +eine-test-base
     COPY parser-smoke.earth ./Earthfile
     WITH DOCKER --load earthly/buildkitd:dind-test=../../buildkitd+buildkitd
-        RUN earthly +test
+        RUN earth +test
     END
 
 eine-privileged-test:
     FROM +eine-test-base
     COPY privileged.earth ./Earthfile
     WITH DOCKER --load earthly/buildkitd:dind-test=../../buildkitd+buildkitd
-        RUN earthly --allow-privileged +test
+        RUN earth --allow-privileged +test
     END
 
 target-first-line:
@@ -1058,7 +1059,7 @@ run-no-cache-save-artifact:
     RUN echo "#!/bin/sh
 set -ex
 for x in \$(seq 1 $numruns); do
-  earthly --config \$earthly_config --artifact '+build/*' test/\$x/
+  earth --config \$earthly_config --artifact '+build/*' test/\$x/
 done
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
     ENV EARTH_EXEC_CMD="/tmp/test-earthly-script"
@@ -1358,8 +1359,18 @@ true-false-flag-invalid:
 version-flag-test:
     # In addition to testing the --version flag works; this flag is critical for the homebrew deployment test, which
     # performs an assert in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
+    RUN earth --version | grep '^earth version'
+    RUN test "$(earth --version | wc -l)" = "1"
+
+deprecated-name-test:
+    # The image keeps an earthly symlink alongside earth for one deprecation
+    # cycle. The rest of the suite drives earth directly, so this is the only
+    # coverage that the deprecated name still reaches the CLI, and warns.
+    COPY ls.earth Earthfile
     RUN earthly --version | grep '^earthly version'
-    RUN test "$(earthly --version | wc -l)" = "1"
+    RUN earthly ls 2>&1 | tee output.txt
+    RUN cat output.txt | grep '+alpha'
+    RUN cat output.txt | grep 'the earthly binary has been renamed to earth'
 
 implicit-ignores:
     RUN mkdir -p ignored notignored && \
@@ -1371,9 +1382,9 @@ implicit-ignores:
 help:
     # tests the hidden `--buildkit-volume-name` flag is only displayed when EARTHLY_SHOW_HIDDEN is enabled
     ENV EARTHLY_SHOW_HIDDEN=0
-    RUN earthly --help | grep -v 'buildkit-volume-name'
+    RUN earth --help | grep -v 'buildkit-volume-name'
     ENV EARTHLY_SHOW_HIDDEN=1
-    RUN earthly --help | grep 'buildkit-volume-name'
+    RUN earth --help | grep 'buildkit-volume-name'
 
 doc:
     # Detailed doc formatting coverage lives in cmd/earthly/subcmd/doc_cmds_test.go.
@@ -1395,13 +1406,13 @@ doc-recipe-block:
 
 ls:
     COPY ls.earth Earthfile
-    RUN earthly ls 2>/dev/null | tee actual
+    RUN earth ls 2>/dev/null | tee actual
     RUN echo -e "+alpha\n+base\n+bravo\n+charlie" > expected
     RUN diff expected actual
 
 ls-subdir:
     COPY ls.earth subdir/Earthfile
-    RUN earthly ls ./subdir 2>/dev/null | tee actual
+    RUN earth ls ./subdir 2>/dev/null | tee actual
     RUN echo -e "+alpha\n+base\n+bravo\n+charlie" > expected
     RUN diff expected actual
 
@@ -1416,8 +1427,8 @@ ssh:
 set -e
 eval \"\$(ssh-agent)\"
 ssh-add /root/rsa-key
-earthly --config \$earthly_config +test
-earthly --config \$earthly_config -P +test-with-docker --FRONTEND=$FRONTEND
+earth --config \$earthly_config +test
+earth --config \$earthly_config -P +test-with-docker --FRONTEND=$FRONTEND
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
     ENV EARTH_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
@@ -1432,8 +1443,8 @@ server:
         echo -e "#!/bin/sh\\ntouch /i-was-run" > /run-this && chmod +x /run-this && \
         nc -l -p 443 -e /run-this & \
         export webserverpid="$!" && \
-        earthly +this-will-fail || true && \
-        if [ -f /i-was-run ]; then echo "earthly should not have attempted a connection" && exit 1; fi && \
+        earth +this-will-fail || true && \
+        if [ -f /i-was-run ]; then echo "earth should not have attempted a connection" && exit 1; fi && \
         kill -9 $webserverpid || true
 
 host:
@@ -1484,7 +1495,7 @@ test-init-golang:
     WORKDIR ./go-project
     DO +RUN_EARTH --extra_args "init"
     RUN if [ "$(tail -c 2 Earthfile)" == "$(printf '\n\n')" ]; then \
-        echo "Earthfile (from 'earthly init') has trailing newlines"; \
+        echo "Earthfile (from 'earth init') has trailing newlines"; \
         exit 1; \
     fi
     DO +RUN_EARTH --target "+build"
@@ -1647,8 +1658,8 @@ set -ex
 eval \$(ssh-agent)
 ssh-add /root/dont-steal-my-key
 
-earthly --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
-earthly --config \$earthly_config github.com/earthly/earthly+base 2>&1 | tee output.txt;
+earth --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
+earth --config \$earthly_config github.com/earthly/earthly+base 2>&1 | tee output.txt;
 " >/tmp/run-earthly-with-bad-ssh-cipher && chmod +x /tmp/run-earthly-with-bad-ssh-cipher
     DO +RUN_EARTH --exec_cmd=/tmp/run-earthly-with-bad-ssh-cipher
     RUN cat output.txt | acbgrep "Unknown cipher type 'badcipher'"
@@ -1669,8 +1680,8 @@ set -ex
 eval \$(ssh-agent)
 ssh-add /root/dont-steal-my-key
 
-earthly --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
-earthly --config \$earthly_config +test 2>&1 | tee output.txt;
+earth --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
+earth --config \$earthly_config +test 2>&1 | tee output.txt;
 " >/tmp/run-earthly-with-bad-ssh-cipher && chmod +x /tmp/run-earthly-with-bad-ssh-cipher
     DO +RUN_EARTH --exec_cmd=/tmp/run-earthly-with-bad-ssh-cipher
     RUN cat output.txt | acbgrep "Unknown cipher type 'badcipher'"
@@ -1725,12 +1736,12 @@ RUN_EARTH:
                 exit 1
             fi
             export EARTH_EXEC_CMD=\"$exec_cmd\"
-            echo running earthly with EARTH_EXEC_CMD=\$EARTH_EXEC_CMD
+            echo running earth with EARTH_EXEC_CMD=\$EARTH_EXEC_CMD
             set +e
             (/bin/sh /usr/bin/earthly-entrypoint.sh; echo exit_code=\$?) 2>&1 | tee earthly.output
             set -e
         else
-            echo running earthly with $extra_args $target $post_command
+            echo running earth with $extra_args $target $post_command
             set +e
             (eval \"/usr/bin/earthly-entrypoint.sh $extra_args $target $post_command\"; echo exit_code=\$?) 2>&1 | tee earthly.output
             set -e
@@ -1751,15 +1762,15 @@ RUN_EARTH:
 
         if [ \"$should_fail\" = maybe ]; then
             # This is for times when we do not care about the exit code
-            echo \"INFO: earthly exited with exit_code=\$exit_code; maybe this is ok?\"
+            echo \"INFO: earth exited with exit_code=\$exit_code; maybe this is ok?\"
         elif [ \"$should_fail\" = true ]; then
             if [ \$exit_code -eq 0 ]; then
-                echo ERROR: earthly should have failed but didn\'t.
+                echo ERROR: earth should have failed but didn\'t.
                 exit 1
             fi
         elif [ \"$should_fail\" = false ]; then
             if [ \$exit_code -ne 0 ]; then
-                echo ERROR: earthly failed with exit code \$exit_code.
+                echo ERROR: earth failed with exit code \$exit_code.
                 exit \$exit_code
             fi
         else
@@ -1768,13 +1779,13 @@ RUN_EARTH:
         fi
         if [ -n \"$output_contains\" ]; then
             if ! grep $grep_flags \"$output_contains\" earthly.output >/dev/null; then
-                echo \"ERROR: earthly output did not contain \\\"$output_contains\\\"\"
+                echo \"ERROR: earth output did not contain \\\"$output_contains\\\"\"
                 exit 1
             fi
         fi
         if [ -n \"$output_does_not_contain\" ]; then
             if grep $grep_flags \"$output_does_not_contain\" earthly.output >/dev/null; then
-                echo \"ERROR: earthly output contains \\\"$output_does_not_contain\\\" (which is unexpected)\"
+                echo \"ERROR: earth output contains \\\"$output_does_not_contain\\\" (which is unexpected)\"
                 exit 1
             fi
         fi

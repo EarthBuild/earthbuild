@@ -78,4 +78,4 @@ jobs:
             ${{inputs.TEST_TARGET}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: docker logs earthly-buildkitd || true
+        run: docker logs earth-buildkitd || true

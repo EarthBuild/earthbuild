@@ -74,4 +74,4 @@ jobs:
            ${{inputs.TARGET_NAME}} --GLOBAL_WAIT_END=true
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earth-buildkitd || true

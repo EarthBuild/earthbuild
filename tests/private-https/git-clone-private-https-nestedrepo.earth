@@ -13,7 +13,7 @@ test:
     GIT CLONE --branch main https://testuser:keepitsecret@selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo.git myrepo
 
     # however the substitute/pattern is working when calling earthbuild from the cli
-    # e.g. earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello (which is done immediately after by the Earthfile that calls this test)
+    # e.g. earth --config \$earthly_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello (which is done immediately after by the Earthfile that calls this test)
     # which implies this earthfile could do a BUILD selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo+hello
 
     WORKDIR /test/myrepo

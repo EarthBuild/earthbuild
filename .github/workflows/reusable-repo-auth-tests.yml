@@ -79,4 +79,4 @@ jobs:
 # auto-generated-entries end
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earth-buildkitd || true

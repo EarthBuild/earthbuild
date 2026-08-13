@@ -25,9 +25,6 @@ on:
         required: false
         type: boolean
         default: false
-      EXTRA_ARGS:
-        required: false
-        type: string
       USE_SATELLITE:
         required: false
         type: boolean
@@ -77,15 +74,15 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
-        run: ${INPUTS_BUILT_EARTH_PATH} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        run: |-
+          "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
         env:
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
       - name: Execute tests
         run: |-
-          GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${INPUTS_EXTRA_ARGS} -P --no-output \
-            ${INPUTS_TEST_TARGET}
+          GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
+            "${INPUTS_TEST_TARGET}"
         env:
-          INPUTS_EXTRA_ARGS: ${{inputs.EXTRA_ARGS}}
           INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}

@@ -75,7 +75,7 @@ jobs:
         run: ./tests/wait-block/test.sh
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

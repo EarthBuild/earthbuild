@@ -65,7 +65,7 @@ jobs:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
       - name: Start SSHD container
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} run -d -p 2222:22 --name sshd rastasheep/ubuntu-sshd:18.04
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" run -d -p 2222:22 --name sshd rastasheep/ubuntu-sshd:18.04
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
@@ -77,19 +77,19 @@ jobs:
 # to regenerate the entries below; run earthly ./scripts/tests/auth+generate-github-tasks
 # auto-generated-entries start;
       - name: run test-hello-world-no-ssh-agent.sh
-        run: env earthly=${INPUTS_BUILT_EARTH_PATH} scripts/tests/auth/test-hello-world-no-ssh-agent.sh
+        run: env earthly="${INPUTS_BUILT_EARTH_PATH}" scripts/tests/auth/test-hello-world-no-ssh-agent.sh
         env:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: run test-hello-world-no-ssh-keys.sh
-        run: env earthly=${INPUTS_BUILT_EARTH_PATH} scripts/tests/auth/test-hello-world-no-ssh-keys.sh
+        run: env earthly="${INPUTS_BUILT_EARTH_PATH}" scripts/tests/auth/test-hello-world-no-ssh-keys.sh
         env:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: run test-hello-world-with-non-authorized-key.sh
-        run: env earthly=${INPUTS_BUILT_EARTH_PATH} scripts/tests/auth/test-hello-world-with-non-authorized-key.sh
+        run: env earthly="${INPUTS_BUILT_EARTH_PATH}" scripts/tests/auth/test-hello-world-with-non-authorized-key.sh
         env:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: run test-self-hosted.sh
-        run: env earthly=${INPUTS_BUILT_EARTH_PATH} frontend=${INPUTS_BINARY} scripts/tests/auth/test-self-hosted.sh
+        run: env earthly="${INPUTS_BUILT_EARTH_PATH}" frontend="${INPUTS_BINARY}" scripts/tests/auth/test-self-hosted.sh
         timeout-minutes: 10
         env:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
@@ -97,7 +97,7 @@ jobs:
 # auto-generated-entries end
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

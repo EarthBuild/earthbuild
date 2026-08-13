@@ -94,14 +94,14 @@ jobs:
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        run: ${INPUTS_SUDO} ${INPUTS_BUILT_EARTH_PATH} --ci -P ${INPUTS_EXAMPLE_NAME}
+        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_EXAMPLE_NAME}"
         if: github.event_name != 'push'
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
           INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        run: ${INPUTS_SUDO} ${INPUTS_BUILT_EARTH_PATH} --ci --push -P ${INPUTS_EXAMPLE_NAME}
+        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci --push -P "${INPUTS_EXAMPLE_NAME}"
         if: github.event_name == 'push'
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
@@ -109,15 +109,15 @@ jobs:
           INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build and test multi-platform example
         run: |
-          ${INPUTS_SUDO} ${INPUTS_BUILT_EARTH_PATH} ./examples/multiplatform+all
-          ${INPUTS_SUDO} ${INPUTS_BINARY} run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" ./examples/multiplatform+all
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

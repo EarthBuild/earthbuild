@@ -71,7 +71,7 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: run docker-build-integration
-        run: ${INPUTS_SUDO} env earthly=${INPUTS_BUILT_EARTH_PATH} scripts/tests/docker-build/integration.sh
+        run: ${INPUTS_SUDO} env earthly="${INPUTS_BUILT_EARTH_PATH}" scripts/tests/docker-build/integration.sh
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}

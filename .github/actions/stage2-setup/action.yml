@@ -164,7 +164,7 @@ runs:
       shell: bash
       run: |
         echo "Loading buildkitd image from artifact..."
-        ${INPUTS_SUDO} ${INPUTS_BINARY} load -i ./build-artifacts/buildkitd-image.tar
+        ${INPUTS_SUDO} "${INPUTS_BINARY}" load -i ./build-artifacts/buildkitd-image.tar
         echo "Buildkitd image loaded successfully"
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}

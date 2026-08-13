@@ -74,14 +74,14 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute git-metadata-test
         run: |-
-          ${INPUTS_SUDO} ${INPUTS_BUILT_EARTH_PATH} --ci -P \
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P \
           ./tests/git-metadata+test
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

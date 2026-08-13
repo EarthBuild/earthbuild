@@ -70,9 +70,9 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run parallel buildkit start test. It ensures that earthly starting up buildkit does not race with itself.
         run: |-
-          ${INPUTS_SUDO} ${INPUTS_BINARY} stop earthly-buildkitd || true && \
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" stop earthly-buildkitd || true && \
           for i in 1 2 3 4; do
-              ${INPUTS_SUDO} ${INPUTS_BUILT_EARTH_PATH} --no-output github.com/EarthBuild/hello-world+hello & \
+              ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --no-output github.com/EarthBuild/hello-world+hello & \
               pids[i]=$!
           done && \
           for pid in "${pids[@]}"; do
@@ -83,28 +83,29 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Execute interactive debugger test
-        run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly ${INPUTS_BUILT_EARTH_PATH} --timeout 180
+        run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly "${INPUTS_BUILT_EARTH_PATH}" --timeout 180
         env:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Execute version test
-        run: "${INPUTS_BUILT_EARTH_PATH} --version"
+        run: |-
+          "${INPUTS_BUILT_EARTH_PATH}" --version
         env:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Execute docker2earth test
         run: "./tests/docker2earth/test.sh"
       - name: Execute remote-cache test
-        run: frontend=${INPUTS_BINARY} ./tests/remote-cache/test.sh
+        run: frontend="${INPUTS_BINARY}" ./tests/remote-cache/test.sh
         env:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute registry-certs test
-        run: frontend=${INPUTS_BINARY} ./tests/registry-certs/test.sh
+        run: frontend="${INPUTS_BINARY}" ./tests/registry-certs/test.sh
         env:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute try-catch test
         run: GITHUB_ACTIONS="" ./tests/try-catch/test.sh
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

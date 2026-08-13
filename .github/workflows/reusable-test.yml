@@ -24,9 +24,6 @@ on:
       EARTHLY_ORG:
         required: false
         type: string
-      EXTRA_ARGS:
-        required: false
-        type: string
       SKIP_JOB:
         required: false
         type: boolean
@@ -85,17 +82,16 @@ jobs:
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
         if: ${{ !inputs.SKIP_JOB }}
         run: |-
-          ${INPUTS_SUDO} ${INPUTS_BUILT_EARTH_PATH} ${INPUTS_EXTRA_ARGS} --ci -P ${INPUTS_TEST_TARGET}
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_TEST_TARGET}"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
-          INPUTS_EXTRA_ARGS: ${{inputs.EXTRA_ARGS}}
           INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
       - name: Display buildkit version
         if: ${{ !inputs.SKIP_JOB }}
         run: |-
-          ${INPUTS_SUDO} ${INPUTS_BINARY} ps -a
-          ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd |& grep 'starting earthly-buildkit'
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" ps -a
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd |& grep 'starting earthly-buildkit'
         shell: bash
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
@@ -103,14 +99,18 @@ jobs:
       - name: Execute fail test
         if: ${{ !inputs.SKIP_JOB }}
         run: |
-          ! ${INPUTS_SUDO} GITHUB_ACTIONS="" ${INPUTS_BUILT_EARTH_PATH} ${INPUTS_EXTRA_ARGS} --ci ./tests/fail+test-fail
+          # `env` is load-bearing, and doubly so here: bash decides at *parse*
+          # time whether a word is an assignment prefix, before ${INPUTS_SUDO}
+          # expands. Without it, `GITHUB_ACTIONS=` is left as the command name
+          # and exits 127 -- which `!` turns into a pass, so the test silently
+          # stops testing anything.
+          ! ${INPUTS_SUDO} env GITHUB_ACTIONS="" "${INPUTS_BUILT_EARTH_PATH}" --ci ./tests/fail+test-fail
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
-          INPUTS_EXTRA_ARGS: ${{inputs.EXTRA_ARGS}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() && !inputs.SKIP_JOB }}
-        run: ${INPUTS_SUDO} ${INPUTS_BINARY} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

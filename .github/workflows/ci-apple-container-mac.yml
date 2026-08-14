@@ -66,13 +66,13 @@ jobs:
           cp ./build-artifacts/earthly-darwin-arm64 "${{ env.BUILT_EARTH_PATH }}"
           chmod +x "${{ env.BUILT_EARTH_PATH }}"
       - name: Install apple/container
-        run: brew install container
+        run: brew upgrade container || brew install container
       - name: Start apple/container service
         run: container system start --enable-kernel-install
       - name: Verify apple/container status
         run: |
           container --version
-          container info
+          container system status
       - name: Configure earth to use GCR mirror and apple-container
         run: |-
           ${{ env.BUILT_EARTH_PATH }} config global.buildkit_additional_config "'[registry.\"docker.io\"]

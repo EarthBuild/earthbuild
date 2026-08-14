@@ -173,17 +173,6 @@ DOCKERHUB_MIRROR_USER=<my-mirror-username>
 DOCKERHUB_MIRROR_PASS=<my-mirror-password>
 ```
 
-### Running tests using earthly's internal mirror (only for members of the earthly org)
-
-If you have access to `earthly-technologies/core`, you can make use of the internal mirror by running:
-
-```bash
-./build/*/*/earthly -P \
-  ./tests+all --DOCKERHUB_MIRROR_AUTH_FROM_CLOUD_SECRETS=true
-```
-
-which will use the credentials which are stored in earthly's [cloud-hosted secrets](https://docs.earthly.dev/earthly-cloud/cloud-secrets).
-
 ## Updates to buildkit or fsutil
 
 Earthly is built against a fork of [buildkit](https://github.com/EarthBuild/buildkit) and [fsutil](https://github.com/EarthBuild/fsutil).
@@ -233,7 +222,7 @@ time="2022-10-27T18:18:06Z" level=debug msg="> creating jzaxegge8eh5hjqe33jybv2m
 
 If you have issues with git-related features or with private docker registries, make sure you have configured auth correctly. See the [auth page](https://docs.earthly.dev/guides/auth) for more details.
 
-You may need to adjust the docker login command in the `earthly-integration-test-base:` target by removing the Earthly repository and adjusting for your login credentials provider.
+You may need to adjust the docker login command in the `earthbuild-integration-test-base:` target by removing the Earthly repository and adjusting for your login credentials provider.
 
 ### Documentation
 

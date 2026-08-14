@@ -2,86 +2,40 @@ package proj_test
 
 import (
 	"bytes"
-	"context"
+	_ "embed"
 	"flag"
-	"io"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/util/proj"
-	"github.com/fatih/color"
-	"github.com/kylelemons/godebug/diff"
+	"github.com/google/go-cmp/cmp"
 )
 
-const (
-	goOutBase  = "./testdata/golang_base.out"
-	goOutNamed = "./testdata/golang_named.out"
+//go:embed testdata/golang_base.out
+var goOutBase string
 
-	version = "VERSION --arg-scope-and-set 0.7\n\n"
-)
+//go:embed testdata/golang_named.out
+var goOutNamed string
+
+const version = "VERSION --arg-scope-and-set 0.7\n\n"
 
 var update = flag.Bool("update", false, "Update the testdata for golden tests")
-
-func goldenFile(t *testing.T, path string) []byte {
-	t.Helper()
-
-	f, err := os.Open(path) // #nosec G304
-	if err != nil {
-		t.Fatalf("got error opening golden file %q: %v", path, err)
-	}
-
-	b, err := io.ReadAll(f)
-	if err != nil {
-		t.Fatalf("got error reading golden file %q: %v", path, err)
-	}
-
-	return b
-}
 
 func saveGoldenFile(t *testing.T, path string, b []byte) {
 	t.Helper()
 
-	f, err := os.Create(path) // #nosec G304
+	if !*update {
+		return
+	}
+
+	// Golden files are tracked in version control and need to be readable by other processes/CI, so 0644 is appropriate.
+	// #nosec G306
+	err := os.WriteFile(path, b, 0o644)
 	if err != nil {
-		t.Fatalf("got error creating golden file %q: %v", path, err)
+		t.Fatalf("write golden file: %v", err)
 	}
 
-	for len(b) > 0 {
-		n, err := f.Write(b)
-		if err != nil {
-			t.Fatalf("got error writing golden file %q: %v", path, err)
-		}
-
-		b = b[n:]
-	}
-}
-
-func colorDiff(s string) string {
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		switch line[0] {
-		case '-':
-			lines[i] = color.RedString(line)
-		case '+':
-			lines[i] = color.GreenString(line)
-		default:
-		}
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func matchGolden(t *testing.T, actualBytes []byte, path string) {
-	t.Helper()
-
-	goldenBytes := goldenFile(t, path)
-	golden := string(goldenBytes)
-
-	actual := string(actualBytes)
-	if golden != actual {
-		t.Fatalf("output did not match golden file. diff:\n\n%v", colorDiff(diff.Diff(golden, actual)))
-	}
+	t.Skip("golden file updated")
 }
 
 func TestGolang_Targets_Base(t *testing.T) {
@@ -108,11 +62,14 @@ func TestGolang_Targets_Base(t *testing.T) {
 		}
 	}
 
-	if *update {
-		saveGoldenFile(t, goOutBase, buf.Bytes())
-	}
+	got := buf.String()
 
-	matchGolden(t, buf.Bytes(), goOutBase)
+	saveGoldenFile(t, "./testdata/golang_base.out", []byte(got))
+
+	diff := cmp.Diff(goOutBase, got)
+	if diff != "" {
+		t.Fatal(diff)
+	}
 }
 
 func TestGolang_Targets_Named(t *testing.T) {
@@ -121,10 +78,7 @@ func TestGolang_Targets_Named(t *testing.T) {
 	buf := bytes.NewBufferString(version)
 	g := proj.NewGolang(proj.StdFS(), proj.StdExecer())
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	pfx := g.Type(ctx)
+	pfx := g.Type(t.Context())
 
 	tgts, err := g.Targets()
 	if err != nil {
@@ -144,9 +98,12 @@ func TestGolang_Targets_Named(t *testing.T) {
 		}
 	}
 
-	if *update {
-		saveGoldenFile(t, goOutNamed, buf.Bytes())
-	}
+	got := buf.String()
 
-	matchGolden(t, buf.Bytes(), goOutNamed)
+	saveGoldenFile(t, "./testdata/golang_named.out", []byte(got))
+
+	diff := cmp.Diff(goOutNamed, got)
+	if diff != "" {
+		t.Fatal(diff)
+	}
 }

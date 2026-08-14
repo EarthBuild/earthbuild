@@ -2,10 +2,12 @@ package buildcontext
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/hmac"
 	"crypto/sha1" // #nosec G505
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -23,7 +25,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/jdxcode/netrc"
 	"github.com/moby/buildkit/util/sshutil"
-	"github.com/pkg/errors"
+
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -99,7 +101,7 @@ func NewGitLookup(console conslogging.ConsoleLogger, sshAuthSock string) *GitLoo
 }
 
 // ErrNoMatch occurs when no git matcher is found.
-var ErrNoMatch = errors.Errorf("no git match found")
+var ErrNoMatch = errors.New("no git match found")
 
 // DisableSSH changes all git matchers from ssh to https.
 func (gl *GitLookup) DisableSSH() {
@@ -119,12 +121,12 @@ func (gl *GitLookup) DisableSSH() {
 
 func knownHostsToKeyScans(knownHosts string) []string {
 	knownHosts = strings.ReplaceAll(knownHosts, "\r\n", "\n")
-	foundKeyScans := make(map[string]bool)
+	foundKeyScans := make(map[string]struct{})
 
 	for s := range strings.SplitSeq(knownHosts, "\n") {
 		s = strings.TrimSpace(s)
-		if s != "" && !strings.HasPrefix(s, "#") && !foundKeyScans[s] {
-			foundKeyScans[s] = true
+		if s != "" && !strings.HasPrefix(s, "#") {
+			foundKeyScans[s] = struct{}{}
 		}
 	}
 
@@ -143,23 +145,23 @@ func (gl *GitLookup) AddMatcher(
 
 	p := gitProtocol(protocol)
 	if p == httpProtocol && password != "" {
-		return errors.Errorf("using a password with http for %s is insecure", name)
+		return fmt.Errorf("using a password with http for %s is insecure", name)
 	}
 
 	if sub != "" && (port != 0 || prefix != "") {
-		return errors.Errorf("unable to use substitution in combination with port or prefix values for %s git config", name)
+		return fmt.Errorf("unable to use substitution in combination with port or prefix values for %s git config", name)
 	}
 
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile regex %s", pattern)
+		return fmt.Errorf("failed to compile regex %s: %w", pattern, err)
 	}
 
 	switch p {
 	case httpProtocol, httpsProtocol, sshProtocol, autoProtocol:
 		break
 	default:
-		return errors.Errorf("unsupported git protocol %q", protocol)
+		return fmt.Errorf("unsupported git protocol %q", protocol)
 	}
 
 	gm := &gitMatcher{
@@ -232,12 +234,12 @@ func isHashedHost(hashAndSalt, hostname string) (bool, error) {
 
 	salt, err := base64.StdEncoding.DecodeString(splits[0])
 	if err != nil {
-		return false, errors.Wrap(err, "failed to decode known_hosts salt")
+		return false, fmt.Errorf("failed to decode known_hosts salt: %w", err)
 	}
 
 	hash, err := base64.StdEncoding.DecodeString(splits[1])
 	if err != nil {
-		return false, errors.Wrap(err, "failed to decode known_hosts hash")
+		return false, fmt.Errorf("failed to decode known_hosts hash: %w", err)
 	}
 
 	hostnameHash := hashHost(hostname, salt)
@@ -249,7 +251,7 @@ func isHashedHost(hashAndSalt, hostname string) (bool, error) {
 		if hasPort(hostname) {
 			host, _, err := net.SplitHostPort(hostname)
 			if err != nil {
-				return false, errors.Wrapf(err, "SplitHostPort on %q failed", hostname)
+				return false, fmt.Errorf("SplitHostPort on %q failed: %w", hostname, err)
 			}
 
 			hostnameHash := hashHost(host, salt)
@@ -307,7 +309,7 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 
 	host, _, err = net.SplitHostPort(hostname)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "SplitHostPort on %q failed", hostname)
+		return "", "", fmt.Errorf("SplitHostPort on %q failed: %w", hostname, err)
 	}
 
 	if scannedHostname != host {
@@ -319,7 +321,7 @@ func parseKeyScanIfHostMatches(keyScan, hostname string) (keyAlg, keyData string
 
 //nolint:unparam // error return kept for future use
 func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, error) {
-	foundAlgs := map[string]bool{}
+	foundAlgs := map[string]struct{}{}
 
 	knownHostsKeyScans, err := loadKnownHosts()
 	if err != nil {
@@ -329,7 +331,7 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 	gl.console.VerbosePrintf("loaded %d key(s) from known_hosts and %d default key(s)",
 		len(knownHostsKeyScans), len(defaultKeyScans))
 
-	foundKeys := make(map[string]bool)
+	foundKeys := make(map[string]struct{})
 
 	for _, keyScans := range [][]string{
 		knownHostsKeyScans,
@@ -346,12 +348,12 @@ func (gl *GitLookup) getHostKeyAlgorithms(hostname string) ([]string, []string, 
 				continue
 			}
 
-			foundAlgs[keyAlg] = true
+			foundAlgs[keyAlg] = struct{}{}
 
 			key := fmt.Sprintf("%s %s %s", knownhosts.Normalize(hostname), keyAlg, keyData)
-			if !foundKeys[key] {
+			if _, seen := foundKeys[key]; !seen {
 				gl.console.VerbosePrintf("found (normalized) key %s", key)
-				foundKeys[key] = true
+				foundKeys[key] = struct{}{}
 			}
 		}
 	}
@@ -494,7 +496,7 @@ func (gl *GitLookup) lookupNetRCCredential(host string) (login, password string,
 
 	machine := n.Machine(host)
 	if machine == nil {
-		return "", "", errors.Wrapf(errNoRCHostEntry, "failed to lookup netrc entry for %s", host)
+		return "", "", fmt.Errorf("failed to lookup netrc entry for %s: %w", host, errNoRCHostEntry)
 	}
 
 	login = n.Machine(host).Get("login")
@@ -508,7 +510,7 @@ func (*GitLookup) getNetrc() (*netrc.Netrc, error) {
 	if content != "" {
 		n, err := netrc.ParseString(content)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse NETRC_CONTENT data")
+			return nil, fmt.Errorf("failed to parse NETRC_CONTENT data: %w", err)
 		}
 
 		return n, nil
@@ -518,7 +520,7 @@ func (*GitLookup) getNetrc() (*netrc.Netrc, error) {
 	if path != "" {
 		n, err := netrc.Parse(path)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse netrc file: %s", path)
+			return nil, fmt.Errorf("failed to parse netrc file: %s: %w", path, err)
 		}
 
 		return n, nil
@@ -529,7 +531,7 @@ func (*GitLookup) getNetrc() (*netrc.Netrc, error) {
 
 	n, err := netrc.Parse(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse default .netrc file")
+		return nil, fmt.Errorf("failed to parse default .netrc file: %w", err)
 	}
 
 	return n, nil
@@ -584,10 +586,7 @@ func (gl *GitLookup) makeCloneURL(
 			}
 		}
 
-		port := m.port
-		if port == 0 {
-			port = 22
-		}
+		port := cmp.Or(m.port, 22)
 
 		// careful about changing all clone paths to the explicit ssh://user@host:port/user/repo.git form.
 		// as the implicit form assumes the repo is relative to the user's home directory.
@@ -615,7 +614,7 @@ func (gl *GitLookup) makeCloneURL(
 		}
 
 		if len(keyScans) == 0 && m.strictHostKeyChecking {
-			return "", nil, "", errors.Errorf("no known_hosts entries exist for %s", host)
+			return "", nil, "", fmt.Errorf("no known_hosts entries exist for %s", host)
 		}
 	case httpProtocol:
 		if user != "" || password != "" {
@@ -637,7 +636,7 @@ func (gl *GitLookup) makeCloneURL(
 
 		gitURL = "https://" + userAndPass + host + "/" + gitPath
 	default:
-		return "", nil, "", errors.Errorf("unsupported protocol: %s", configuredProtocol)
+		return "", nil, "", fmt.Errorf("unsupported protocol: %s", configuredProtocol)
 	}
 
 	return gitURL, keyScans, m.sshCommand, nil
@@ -731,7 +730,7 @@ func (gl *GitLookup) GetCloneURL(
 	}
 
 	if !m.re.MatchString(path) {
-		return "", "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
+		return "", "", nil, "", fmt.Errorf("failed to determine git path to clone for %q", path)
 	}
 
 	gitURL = m.re.ReplaceAllString(path, m.sub)
@@ -748,7 +747,7 @@ func (gl *GitLookup) GetCloneURL(
 		}
 
 		if len(keyScans) == 0 && m.strictHostKeyChecking {
-			return "", "", nil, "", errors.Errorf("no known_hosts entries exist for substituted host %s", subHost)
+			return "", "", nil, "", fmt.Errorf("no known_hosts entries exist for substituted host %s", subHost)
 		}
 	}
 
@@ -772,7 +771,7 @@ func (gl *GitLookup) ConvertCloneURL(
 	case HTTPProtocol, HTTPSProtocol:
 		splits := strings.SplitN(remote, "/", 2)
 		if len(splits) != 2 {
-			return "", nil, "", errors.Errorf("failed to split path from host in %s", remote)
+			return "", nil, "", fmt.Errorf("failed to split path from host in %s", remote)
 		}
 
 		host = splits[0]
@@ -781,7 +780,7 @@ func (gl *GitLookup) ConvertCloneURL(
 		if sshutil.IsImplicitSSHTransport(inURL) {
 			splits := strings.SplitN(remote, ":", 2)
 			if len(splits) != 2 {
-				return "", nil, "", errors.Errorf("failed to split path from host in %s", remote)
+				return "", nil, "", fmt.Errorf("failed to split path from host in %s", remote)
 			}
 
 			host = splits[0]
@@ -791,7 +790,7 @@ func (gl *GitLookup) ConvertCloneURL(
 
 			u, err = url.Parse(inURL)
 			if err != nil {
-				return "", nil, "", errors.Wrapf(err, "failed to parse %s", inURL)
+				return "", nil, "", fmt.Errorf("failed to parse %s: %w", inURL, err)
 			}
 
 			if u.Scheme != "ssh" {
@@ -802,7 +801,7 @@ func (gl *GitLookup) ConvertCloneURL(
 			gitPath = u.Path
 		}
 	default:
-		return "", nil, "", errors.Errorf("unsupported git protocol %v", protocol)
+		return "", nil, "", fmt.Errorf("unsupported git protocol %v", protocol)
 	}
 
 	m := gl.getGitMatcherByName(host)
@@ -815,7 +814,7 @@ func (gl *GitLookup) ConvertCloneURL(
 
 	path := host + strings.TrimSuffix(gitPath, ".git")
 	if !m.re.MatchString(path) {
-		return "", nil, "", errors.Errorf("failed to determine git path to clone for %q", path)
+		return "", nil, "", fmt.Errorf("failed to determine git path to clone for %q", path)
 	}
 
 	gitURL = m.re.ReplaceAllString(path, m.sub)
@@ -830,7 +829,7 @@ func (gl *GitLookup) ConvertCloneURL(
 		}
 
 		if len(keyScans) == 0 && m.strictHostKeyChecking {
-			return "", nil, "", errors.Errorf("no known_hosts entries exist for substituted host %s", subHost)
+			return "", nil, "", fmt.Errorf("no known_hosts entries exist for substituted host %s", subHost)
 		}
 	}
 
@@ -840,7 +839,7 @@ func (gl *GitLookup) ConvertCloneURL(
 func loadKnownHostsFromPath(path string) ([]string, error) {
 	knownHostsExists, err := fileutil.FileExists(path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to check if %s exists", path)
+		return nil, fmt.Errorf("failed to check if %s exists: %w", path, err)
 	}
 
 	if !knownHostsExists {
@@ -849,7 +848,7 @@ func loadKnownHostsFromPath(path string) ([]string, error) {
 
 	b, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read %s", path)
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
 	return knownHostsToKeyScans(string(b)), nil
@@ -858,7 +857,7 @@ func loadKnownHostsFromPath(path string) ([]string, error) {
 func loadKnownHosts() ([]string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get user home dir")
+		return nil, fmt.Errorf("failed to get user home dir: %w", err)
 	}
 
 	knownHosts, err := loadKnownHostsFromPath(filepath.Join(homeDir, ".ssh/known_hosts"))

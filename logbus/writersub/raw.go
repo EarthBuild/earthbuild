@@ -1,6 +1,7 @@
 package writersub
 
 import (
+	"errors"
 	"io"
 	"sync"
 
@@ -11,10 +12,10 @@ import (
 
 // RawWriterSub is a bus subscriber that can print formatted logs to a writer.
 type RawWriterSub struct {
-	w      io.Writer
-	errors []error
-	mu     sync.Mutex
-	json   bool
+	w    io.Writer
+	err  error
+	mu   sync.Mutex
+	json bool
 }
 
 // NewRaw creates a new WriterSub.
@@ -43,21 +44,21 @@ func (rws *RawWriterSub) Write(delta *logstream.Delta) {
 	}
 
 	if err != nil {
-		rws.errors = append(rws.errors, err)
+		rws.err = errors.Join(rws.err, err)
 		return
 	}
 
 	_, err = rws.w.Write(dt)
 	if err != nil {
-		rws.errors = append(rws.errors, err)
+		rws.err = errors.Join(rws.err, err)
 		return
 	}
 }
 
-// Errors returns any errors that occurred while writing to the writer.
-func (rws *RawWriterSub) Errors() []error {
+// Err returns any error that occurred while writing to the writer.
+func (rws *RawWriterSub) Err() error {
 	rws.mu.Lock()
 	defer rws.mu.Unlock()
 
-	return rws.errors
+	return rws.err
 }

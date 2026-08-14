@@ -7,12 +7,12 @@ Note to person editing!!
 The general order of the commands is as follows:
 
 - Core classical Dockerfile commands (order is the same as in the Dockerfile official docs)
-- Core, GA'd Earthly commands
-- Other Dockerfile commands which have the exact same behavior in Earthly as in Dockerfiles
-- Beta Earthly commands
-- Experimental Earthly commands
+- Core, GA'd EarthBuild commands
+- Other Dockerfile commands which have the exact same behavior in EarthBuild as in Dockerfiles
+- Beta EarthBuild commands
+- Experimental EarthBuild commands
 - Classical Dockerfile commands that are not supported
-- Deprecated Earthly commands
+- Deprecated EarthBuild commands
 
 -->
 
@@ -64,7 +64,7 @@ The `FROM` command does not mark any saved images or artifacts of the referenced
 
 ##### Note
 
-The `FROM ... AS ...` form available in the classical Dockerfile syntax is not supported in Earthfiles. Instead, define a new Earthly target. For example, the following Dockerfile
+The `FROM ... AS ...` form available in the classical Dockerfile syntax is not supported in Earthfiles. Instead, define a new EarthBuild target. For example, the following Dockerfile
 
 ```Dockerfile
 # Dockerfile
@@ -116,12 +116,12 @@ For more information see the [multi-platform guide](../guides/multi-platform.md)
 
 Allows remotely-referenced targets to request privileged capabilities; this flag has no effect when referencing local targets.
 
-Additionally, for privileged capabilities, earthly must be invoked on the command line with the `--allow-privileged` (or `-P`) flag.
+Additionally, for privileged capabilities, earth must be invoked on the command line with the `--allow-privileged` (or `-P`) flag.
 
 For example, consider two Earthfiles, one hosted on a remote GitHub repo:
 
 ```Dockerfile
-# github.com/earthly/example
+# github.com/example-org/example-repo
 FROM alpine:latest
 elevated-target:
     RUN --privileged echo do something requiring privileged access.
@@ -132,20 +132,20 @@ and a local Earthfile:
 ```Dockerfile
 FROM alpine:latest
 my-target:
-    FROM --allow-privileged github.com/earthly/example+elevated-target
+    FROM --allow-privileged github.com/example-org/example-repo+elevated-target
     # ... further instructions inheriting remotely referenced Earthfile
 ```
 
-then one can build `my-target` by invoking earthly with the `--allow-privileged` (or `-P`) flag:
+then one can build `my-target` by invoking earth with the `--allow-privileged` (or `-P`) flag:
 
 ```bash
-earthly --allow-privileged +my-target
+earth --allow-privileged +my-target
 ```
 
 ##### `--pass-args`
 
-Earthly automatically passes all current arguments to referenced targets in the *same* Earthfile.
-However, when the `--pass-args` flag is set, Earthly will also propagate all arguments to an externally referenced target.
+EarthBuild automatically passes all current arguments to referenced targets in the *same* Earthfile.
+However, when the `--pass-args` flag is set, EarthBuild will also propagate all arguments to an externally referenced target.
 
 ##### `--build-arg <key>=<value>` (**deprecated**)
 
@@ -174,10 +174,10 @@ To avoid any ambiguity regarding whether an argument is a `RUN` flag option or p
 
 Marks the command as a "push command". Push commands are never cached, thus they are executed on every applicable invocation of the build.
 
-Push commands are not run by default. Add the `--push` flag to the `earthly` invocation to enable pushing. For example
+Push commands are not run by default. Add the `--push` flag to the `earth` invocation to enable pushing. For example
 
 ```bash
-earthly --push +deploy
+earth --push +deploy
 ```
 
 Push commands were introduced to allow the user to define commands that have an effect external to the build. Good candidates for push commands are uploads of artifacts to artifactories, commands that make a change to an external environment, like a production or staging environment.
@@ -215,10 +215,10 @@ RUN --entrypoint .
 
 Allows the command to use privileged capabilities.
 
-Note that privileged mode is not enabled by default. In order to use this option, you need to additionally pass the flag `--allow-privileged` (or `-P`) to the `earthly` command. Example:
+Note that privileged mode is not enabled by default. In order to use this option, you need to additionally pass the flag `--allow-privileged` (or `-P`) to the `earth` command. Example:
 
 ```bash
-earthly --allow-privileged +some-target
+earth --allow-privileged +some-target
 ```
 
 ##### `--secret <env-var>=<secret-id> | <secret-id>`
@@ -236,8 +236,8 @@ release-short:
 ```
 
 ```bash
-earthly --secret GH_TOKEN="the-actual-secret-token-value" +release
-earthly --secret GITHUB_TOKEN="the-actual-secret-token-value" +release-short
+earth --secret GH_TOKEN="the-actual-secret-token-value" +release
+earth --secret GITHUB_TOKEN="the-actual-secret-token-value" +release-short
 ```
 
 An empty string is also allowed for `<secret-id>`, allowing for optional secrets, should it need to be disabled.
@@ -252,8 +252,8 @@ release-short:
 ```
 
 ```bash
-earthly +release --SECRET_ID=""
-earthly +release-short --SECRET_ID=""
+earth +release --SECRET_ID=""
+earth +release-short --SECRET_ID=""
 ```
 
 It is also possible to mount a secret as a file with `RUN --mount type=secret,id=secret-id,target=/path/of/secret,chmod=0400`. See `--mount` below.
@@ -279,7 +279,7 @@ RUN --ssh git config --global url."git@github.com:".insteadOf "https://github.co
 ```
 
 {% hint style='warning' %}
-Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earthly [configuration file](../earthly-config/earthly-config.md).
+Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earthly-config/earthly-config.md).
 {% endhint %}
 
 ##### `--mount <mount-spec>`
@@ -324,13 +324,13 @@ RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthl
 The contents of the secret `/root/.netrc` file can then be specified from the command line as:
 
 ```bash
-earthly --secret netrc="machine example.earthly.dev login myusername password mypassword" +base
+earth --secret netrc="machine example.earthly.dev login myusername password mypassword" +base
 ```
 
 or by passing the contents of an existing file from the host filesystem:
 
 ```bash
-earthly --secret-file netrc="$HOME/.netrc" +base
+earth --secret-file netrc="$HOME/.netrc" +base
 ```
 
 ##### `--interactive` / `--interactive-keep`
@@ -392,7 +392,18 @@ The `<oidc-spec>` is defined as a series of comma-separated list of key-values. 
 | `region`           | The AWS region to connect to in order to get the credentials. This will also be the region used by the executed AWS command (though the region may be overridden in the command). If the region is not specified, the global AWS endpoint will be used | `region=us-east-1`                                  |
 | `session-duration` | The time the credentials will be valid for before they expire. Default (AWS minimum): 15 minutes.                                                                                                                                                      | `session-duration=20m`                              |
 
-Click [here](../cloud/oidc.md#openid-connect-oidc-authentication) for more information on how to configure OIDC in AWS for Earthly.
+{% hint style='danger' %}
+
+##### The hosted OIDC provider is unavailable
+
+Configuring this required registering EarthBuild's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with EarthBuild Cloud and no longer
+resolves, so the flow cannot be set up as previously documented. The option is still accepted by
+the parser, but there is no working issuer behind it unless you run your own.
+
+Progress is tracked in [issue #750](https://github.com/EarthBuild/earthbuild/issues/750).
+
+{% endhint %}
 
 ##### `--raw-output` (experimental)
 
@@ -487,13 +498,13 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 
 - URL sources are not yet supported.
 - Absolute paths are not supported - sources in the current directory cannot be referenced with a leading `/`
-- The Earthly `COPY` is a classical `COPY --link`. It uses layer merging for the copy operations.
+- The EarthBuild `COPY` is a classical `COPY --link`. It uses layer merging for the copy operations.
 
 {% hint style='info' %}
 
 ##### Note
 
-To prevent Earthly from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthlyignore`](./earthlyignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
+To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthlyignore`](./earthlyignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
 {% endhint %}
 
 #### Options
@@ -526,15 +537,15 @@ COPY (+target1/artifact --arg1=foo --arg2=bar) ./dest/path
 
 ##### `--keep-ts`
 
-Instructs Earthly to not overwrite the file creation timestamps with a constant.
+Instructs EarthBuild to not overwrite the file creation timestamps with a constant.
 
 ##### `--keep-own`
 
-Instructs Earthly to keep file ownership information. This applies only to the *artifact form* and has no effect otherwise.
+Instructs EarthBuild to keep file ownership information. This applies only to the *artifact form* and has no effect otherwise.
 
 ##### `--chmod <octal-format>`
 
-Instructs Earthly to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.
+Instructs EarthBuild to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.
 
 {% hint style='info' %}
 Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using *artifact form*.
@@ -542,7 +553,7 @@ Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-o
 
 ##### `--if-exists`
 
-Only copy source if it exists; if it does not exist, earthly will simply ignore the COPY command and won't treat any missing sources as failures.
+Only copy source if it exists; if it does not exist, earth will simply ignore the COPY command and won't treat any missing sources as failures.
 
 ##### `--symlink-no-follow`
 
@@ -661,14 +672,14 @@ For detailed examples demonstrating how other scenarios may function, please see
 
 The command `ARG` declares a build argument (or arg) with the name `<name>` and with an optional default value `<default-value>`. If no default value is provided, then empty string is used as the default value.
 
-This command works similarly to the [Dockerfile `ARG` command](https://docs.docker.com/engine/reference/builder/#arg), with a few differences regarding the scope and the predefined args (called builtin args in Earthly). The arg's scope is always limited to the recipe of the current target or command and only from the point it is declared onward. For more information regarding builtin args, see the [builtin args page](./builtin-args.md).
+This command works similarly to the [Dockerfile `ARG` command](https://docs.docker.com/engine/reference/builder/#arg), with a few differences regarding the scope and the predefined args (called builtin args in EarthBuild). The arg's scope is always limited to the recipe of the current target or command and only from the point it is declared onward. For more information regarding builtin args, see the [builtin args page](./builtin-args.md).
 
 In its *constant form*, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its *dynamic form*, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
 
-The value of an arg can be overridden either from the `earthly` command
+The value of an arg can be overridden either from the `earth` command
 
 ```bash
-earthly <target-ref> --<name>=<override-value>
+earth <target-ref> --<name>=<override-value>
 ```
 
 or from a command from another target, when implicitly or explicitly invoking the target containing the `ARG`
@@ -687,7 +698,7 @@ COPY (+binary/bin --NAME=john) ./
 FROM +docker-image --NAME=john
 ```
 
-For more information on how to use build args see the [build arguments and variables guide](../guides/build-args.md). A number of builtin args are available and are pre-filled by Earthly. For more information see [builtin args](./builtin-args.md).
+For more information on how to use build args see the [build arguments and variables guide](../guides/build-args.md). A number of builtin args are available and are pre-filled by EarthBuild. For more information see [builtin args](./builtin-args.md).
 
 #### Options
 
@@ -730,7 +741,7 @@ It's always best to declare args as deep and late as possible within the specifi
 
 The command `SAVE ARTIFACT` copies a file, a directory, or a series of files and directories represented by a wildcard, from the build environment into the target's artifact environment.
 
-If `AS LOCAL ...` is also specified, it additionally marks the artifact to be copied to the host at the location specified by `<local-path>`, once the build is deemed as successful. Note that local artifacts are only produced by targets that are run directly with `earthly`, or when invoked using [`BUILD`](#build).
+If `AS LOCAL ...` is also specified, it additionally marks the artifact to be copied to the host at the location specified by `<local-path>`, once the build is deemed as successful. Note that local artifacts are only produced by targets that are run directly with `earth`, or when invoked using [`BUILD`](#build).
 
 If `<artifact-dest-path>` is not specified, it is inferred as `/`.
 
@@ -743,7 +754,7 @@ Files within the artifact environment are also known as "artifacts". Once a file
 In order to inspect the contents of an artifacts environment, you can run
 
 ```bash
-earthly --artifact +<target>/* ./output/
+earth --artifact +<target>/* ./output/
 ```
 
 This command dumps the contents of the artifact environment of the target `+<target>` into a local directory called `output`, which can be inspected directly.
@@ -776,15 +787,15 @@ As of [`VERSION 0.6`](#version), local artifacts are only saved [if they are con
 
 ##### `--keep-ts`
 
-Instructs Earthly to not overwrite the file creation timestamps with a constant.
+Instructs EarthBuild to not overwrite the file creation timestamps with a constant.
 
 ##### `--keep-own`
 
-Instructs Earthly to keep file ownership information.
+Instructs EarthBuild to keep file ownership information.
 
 ##### `--if-exists`
 
-Only save artifacts if they exists; if not, earthly will simply ignore the SAVE ARTIFACT command and won't treat any missing sources as failures.
+Only save artifacts if they exists; if not, earth will simply ignore the SAVE ARTIFACT command and won't treat any missing sources as failures.
 
 ##### `--symlink-no-follow`
 
@@ -874,17 +885,17 @@ As of [`VERSION 0.6`](#version), images are only saved [if they are connected to
 
 The `--push` options marks the image to be pushed to an external registry after it has been loaded within the docker daemon available on the host.
 
-If inline caching is enabled, the `--push` option also instructs Earthly to use the specified image names as cache sources.
+If inline caching is enabled, the `--push` option also instructs EarthBuild to use the specified image names as cache sources.
 
-The actual push is not executed by default. Add the `--push` flag to the earthly invocation to enable pushing. For example
+The actual push is not executed by default. Add the `--push` flag to the earth invocation to enable pushing. For example
 
 ```bash
-earthly --push +docker-image
+earth --push +docker-image
 ```
 
 ##### `--no-manifest-list`
 
-Instructs Earthly to not create a manifest list for the image. This may be useful on platforms that do not support multi-platform images (for example, AWS Lambda), and the image produced needs to be of a different platform than the default one.
+Instructs EarthBuild to not create a manifest list for the image. This may be useful on platforms that do not support multi-platform images (for example, AWS Lambda), and the image produced needs to be of a different platform than the default one.
 
 ## BUILD
 
@@ -894,7 +905,7 @@ Instructs Earthly to not create a manifest list for the image. This may be usefu
 
 #### Description
 
-The command `BUILD` instructs Earthly to additionally invoke the build of the target referenced by `<target-ref>`, where `<target-ref>` follows the rules defined by [target referencing](../guides/importing.md#target-reference). The invocation will mark any images, or artifacts saved by the referenced target for local output (assuming local output is enabled), and any push commands issued by the referenced target for pushing (assuming pushing is enabled).
+The command `BUILD` instructs EarthBuild to additionally invoke the build of the target referenced by `<target-ref>`, where `<target-ref>` follows the rules defined by [target referencing](../guides/importing.md#target-reference). The invocation will mark any images, or artifacts saved by the referenced target for local output (assuming local output is enabled), and any push commands issued by the referenced target for pushing (assuming pushing is enabled).
 
 Multiple `BUILD` commands issued one after the other will be executed in parallel if the referenced targets don't depend on each other.
 
@@ -902,7 +913,7 @@ Multiple `BUILD` commands issued one after the other will be executed in paralle
 
 ##### What is being output and pushed
 
-In Earthly v0.6+, what is being output and pushed is determined either by the main target being invoked on the command-line directly, or by targets directly connected to it via a chain of `BUILD` calls. Other ways to reference a target, such as `FROM`, `COPY`, `WITH DOCKER --load` etc, do not contribute to the final set of outputs or pushes.
+In EarthBuild v0.6+, what is being output and pushed is determined either by the main target being invoked on the command-line directly, or by targets directly connected to it via a chain of `BUILD` calls. Other ways to reference a target, such as `FROM`, `COPY`, `WITH DOCKER --load` etc, do not contribute to the final set of outputs or pushes.
 
 If you are referencing a target via some other command, such as `COPY` and you would like for the outputs or pushes to be included, you can issue an equivalent `BUILD` command in addition to the `COPY`. For example
 
@@ -998,7 +1009,7 @@ For more information see the [multi-platform guide](../guides/multi-platform.md)
 
 ##### `--auto-skip` (*beta*)
 
-Instructs Earthly to skip the build of the target if the target's dependencies have not changed from a previous successful build. For more information on how to use this feature, see the [auto-skip section of the caching in Earthfiles guide](../caching/caching-in-earthfiles.md#auto-skip).
+Instructs EarthBuild to skip the build of the target if the target's dependencies have not changed from a previous successful build. For more information on how to use this feature, see the [auto-skip section of the caching in Earthfiles guide](../caching/caching-in-earthfiles.md#auto-skip).
 
 ##### `--allow-privileged`
 
@@ -1061,9 +1072,9 @@ See [the `LET` docs for more info](#let).
 
 #### Description
 
-The command `VERSION` identifies which set of features to enable in Earthly while handling the corresponding Earthfile. Different `VERSION`s can be mixed together across different Earthfiles in the same project. Earthly handles a mix of versions gracefully, enabling or disabling features accordingly. This allows for gradual updates of `VERSION`s across large projects, without sacrificing build consistency.
+The command `VERSION` identifies which set of features to enable in EarthBuild while handling the corresponding Earthfile. Different `VERSION`s can be mixed together across different Earthfiles in the same project. EarthBuild handles a mix of versions gracefully, enabling or disabling features accordingly. This allows for gradual updates of `VERSION`s across large projects, without sacrificing build consistency.
 
-The `VERSION` command is mandatory starting with Earthly 0.7. The `VERSION` command must be the first command in the Earthfile.
+The `VERSION` command is mandatory starting with EarthBuild 0.7. The `VERSION` command must be the first command in the Earthfile.
 
 #### Options
 
@@ -1075,7 +1086,7 @@ Once a feature reaches maturity, it will be enabled by default under a new versi
 
 ##### Important
 
-Avoid using feature flags for critical workflows. You should only use feature flags for testing new experimental features. By using feature flags you are opting out of forwards/backwards compatibility guarantees. This means that running the same script in a different environment, with a different version of Earthly may result in a different behavior (i.e. it'll work on your machine, but may break the build for your colleagues or for the CI).
+Avoid using feature flags for critical workflows. You should only use feature flags for testing new experimental features. By using feature flags you are opting out of forwards/backwards compatibility guarantees. This means that running the same script in a different environment, with a different version of EarthBuild may result in a different behavior (i.e. it'll work on your machine, but may break the build for your colleagues or for the CI).
 {% endhint %}
 
 All features are described in [the version-specific features reference](./features.md).
@@ -1088,7 +1099,17 @@ All features are described in [the version-specific features reference](./featur
 
 #### Description
 
-The command `PROJECT` marks the current Earthfile as being part of the project belonging to the [Earthly organization](https://docs.earthly.dev/earthly-cloud/overview) `<org-name>` and the project `<project-name>`. The project is used by Earthly to retrieve [cloud-based secrets](../cloud/cloud-secrets.md) and build logs belonging to the project.
+The command `PROJECT` marks the current Earthfile as belonging to the organization `<org-name>` and the project `<project-name>`.
+
+{% hint style='danger' %}
+
+##### Deprecated
+
+`PROJECT` identified which EarthBuild Cloud project to fetch cloud-based secrets and build logs from. With the cloud integration removed, it **no longer has any effect** unless you use a custom secret command, and referencing it logs a deprecation warning.
+
+We may remove it in a future release and are collecting feedback to help decide. Let us know how you use `PROJECT` in [this discussion](https://github.com/orgs/EarthBuild/discussions/708).
+
+{% endhint %}
 
 The `PROJECT` command can only be used in the `base` recipe and it applies to the entire Earthfile. The `PROJECT` command can never contain any `ARG`s that need expanding.
 
@@ -1102,7 +1123,7 @@ The `PROJECT` command can only be used in the `base` recipe and it applies to th
 
 The command `GIT CLONE` clones a git repository from `<git-url>`, optionally referenced by `<git-ref>`, into the build environment, within the `<dest-path>`.
 
-In contrast to an operation like `RUN git clone <git-url> <dest-path>`, the command `GIT CLONE` is cache-aware and correctly distinguishes between different git commit IDs when deciding to reuse a previous cache or not. In addition, `GIT CLONE` can also use [Git authentication configuration](../guides/auth.md) passed on to `earthly`, whereas `RUN git clone` would require additional secrets passing, if the repository is not publicly accessible.
+In contrast to an operation like `RUN git clone <git-url> <dest-path>`, the command `GIT CLONE` is cache-aware and correctly distinguishes between different git commit IDs when deciding to reuse a previous cache or not. In addition, `GIT CLONE` can also use [Git authentication configuration](../guides/auth.md) passed on to `earth`, whereas `RUN git clone` would require additional secrets passing, if the repository is not publicly accessible.
 
 Note that the repository is cloned via a shallow-clone operation (i.e. a single-depth clone).
 
@@ -1121,7 +1142,7 @@ RUN git fetch --unshallow
 {% endhint %}
 
 {% hint style='warning' %}
-As of Earthly v0.7.21, git credentials are no longer stored in the `.git/config` file; this includes the username.
+As of EarthBuild v0.7.21, git credentials are no longer stored in the `.git/config` file; this includes the username.
 This means any ssh-based or https-based fetches or pushes will no longer work unless you restore the configured url,
 which can be done with:
 
@@ -1141,7 +1162,7 @@ Points the `HEAD` to the git reference specified by `<git-ref>`. If this option 
 
 ##### `--keep-ts`
 
-Instructs Earthly to not overwrite the file creation timestamps with a constant.
+Instructs EarthBuild to not overwrite the file creation timestamps with a constant.
 
 ## FROM DOCKERFILE
 
@@ -1151,7 +1172,7 @@ Instructs Earthly to not overwrite the file creation timestamps with a constant.
 
 #### Description
 
-The `FROM DOCKERFILE` command initializes a new build environment, inheriting from an existing Dockerfile. This allows the use of Dockerfiles in Earthly builds.
+The `FROM DOCKERFILE` command initializes a new build environment, inheriting from an existing Dockerfile. This allows the use of Dockerfiles in EarthBuild builds.
 
 The `<context-path>` is the path where the Dockerfile build context exists. By default, it is assumed that a file named `Dockerfile` exists in that directory. The context path can be either a path on the host system, or an [artifact reference](../guides/importing.md#artifact-reference), pointing to a directory containing a `Dockerfile`.
 Additionally, when using a `<context-path>` from the host system, a `.dockerignore` in the directory root will be used to exclude files (unless `.earthlyignore` or `.earthignore` are present).
@@ -1214,7 +1235,7 @@ For more information see the [multi-platform guide](../guides/multi-platform.md)
 The `--allow-privileged` flag has experimental status. To use this feature, it must be enabled via `VERSION --allow-privileged-from-dockerfile 0.8`.
 {% endhint %}
 
-When the Dockerfile build context points to an earthly artifact reference (e.g. `+mybuildcontext/mydata/*`), the `allow-privileged` flag will allow `RUN` commands under the referenced earthly target to make use of the `RUN --privileged` option.
+When the Dockerfile build context points to an earth artifact reference (e.g. `+mybuildcontext/mydata/*`), the `allow-privileged` flag will allow `RUN` commands under the referenced earth target to make use of the `RUN --privileged` option.
 This does not apply to Dockerfile's [RUN --security](https://docs.docker.com/reference/dockerfile/#run---security) flag.
 
 ## WITH DOCKER
@@ -1242,7 +1263,7 @@ The `WITH DOCKER` clause only supports the command [`RUN`](#run). Other commands
 A typical example of a `WITH DOCKER` clause might be:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
 WORKDIR /test
 COPY docker-compose.yml ./
 WITH DOCKER \
@@ -1256,7 +1277,7 @@ WITH DOCKER \
 END
 ```
 
-For more examples, see the [Docker in Earthly guide](../guides/docker-in-earthly.md) and the [Integration testing guide](../guides/integration.md).
+For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthly.md) and the [Integration testing guide](../guides/integration.md).
 
 For information on using `WITH DOCKER` with podman see the [Podman guide](../guides/podman.md)
 
@@ -1264,9 +1285,9 @@ For information on using `WITH DOCKER` with podman see the [Podman guide](../gui
 
 ##### Note
 
-For performance reasons, it is recommended to use a Docker image that already contains `dockerd`. If `dockerd` is not found, Earthly will attempt to install it.
+For performance reasons, it is recommended to use a Docker image that already contains `dockerd`. If `dockerd` is not found, earth will attempt to install it.
 
-Earthly provides officially supported images such as `earthbuild/dind:alpine-3.22-docker-28.3.3-r1` and `earthbuild/dind:ubuntu-23.04-docker-25.0.2-1` to be used together with `WITH DOCKER`.
+Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.5.3-r0` and `earthbuild/dind:ubuntu-26.04-docker-29.4.0-1` to be used together with `WITH DOCKER`.
 {% endhint %}
 
 {% hint style='info' %}
@@ -1288,7 +1309,7 @@ This option may be repeated in order to provide multiple images to be pulled.
 
 ##### Note
 
-It is recommended that you avoid issuing `RUN docker pull ...` and use `WITH DOCKER --pull ...` instead. The classical `docker pull` command does not take into account Earthly caching and so it would redownload the image much more frequently than necessary.
+It is recommended that you avoid issuing `RUN docker pull ...` and use `WITH DOCKER --pull ...` instead. The classical `docker pull` command does not take into account EarthBuild caching and so it would redownload the image much more frequently than necessary.
 {% endhint %}
 
 ##### `--load [<image-name>=]<target-ref>`
@@ -1671,14 +1692,14 @@ to prevent copying the contents to children targets unless explicitly enabled by
 
 #### Description
 
-The `LOCALLY` command can be used in place of a `FROM` command, which will cause earthly to execute all commands under the target directly
+The `LOCALLY` command can be used in place of a `FROM` command, which will cause earth to execute all commands under the target directly
 on the host system, rather than inside a container. Commands within a `LOCALLY` target will never be cached.
 This feature should be used with caution as locally run commands have no guarantee they will behave the same on different systems.
 
 `LOCALLY` defined targets only support a subset of commands (along with a subset of their flags): `RUN`, `RUN --push`, `SAVE ARTIFACT`, and `COPY`.
 
-`RUN` commands have access to the environment variables which are exposed to the `earthly` command; however, the commands
-are executed within a working directory which is set to the location of the referenced Earthfile and not where the `earthly` command is run from.
+`RUN` commands have access to the environment variables which are exposed to the `earth` command; however, the commands
+are executed within a working directory which is set to the location of the referenced Earthfile and not where the `earth` command is run from.
 
 For example, the following Earthfile will display the current user, hostname, and directory where the Earthfile is stored:
 
@@ -1692,7 +1713,7 @@ whoami:
 
 ##### Note
 
-In Earthly, outputting images and artifacts locally takes place only at the end of a successful build. In order to use such images or artifacts in `LOCALLY` targets, they need to be referenced correctly.
+In EarthBuild, outputting images and artifacts locally takes place only at the end of a successful build. In order to use such images or artifacts in `LOCALLY` targets, they need to be referenced correctly.
 
 For images, use the `--load` option under `WITH DOCKER`:
 
@@ -1771,7 +1792,7 @@ a-locally-example:
 
 #### UDCs have been renamed to Functions
 
-Functions used to be called UDCs (User Defined Commands). Earthly 0.7 uses `COMMAND` instead of `FUNCTION`.
+Functions used to be called UDCs (User Defined Commands). EarthBuild 0.7 uses `COMMAND` instead of `FUNCTION`.
 {% endhint %}
 
 The command `FUNCTION` marks the beginning of a function definition. Functions are reusable sets of instructions that can be inserted in targets or other functions. In order to reference and execute a function, you may use the command [`DO`](#do).

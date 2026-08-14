@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/util/cliutil"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -63,10 +63,10 @@ const (
 
 var (
 	// ErrInvalidTransport occurs when a URL transport type is invalid.
-	ErrInvalidTransport = errors.Errorf("invalid transport")
+	ErrInvalidTransport = errors.New("invalid transport")
 
 	// ErrInvalidAuth occurs when the auth type is invalid.
-	ErrInvalidAuth = errors.Errorf("invalid auth")
+	ErrInvalidAuth = errors.New("invalid auth")
 )
 
 // GlobalConfig contains global config values.
@@ -161,7 +161,7 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 
 	err := yaml.Unmarshal(yamlData, &config)
 	if err != nil {
-		return Config{}, errors.Wrap(err, "failed to parse YAML config")
+		return Config{}, fmt.Errorf("failed to parse YAML config: %w", err)
 	}
 
 	if config.Git == nil {
@@ -170,7 +170,7 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 
 	err = parseRelPaths(installationName, &config)
 	if err != nil {
-		return Config{}, errors.Wrap(err, "failed to parse relative path")
+		return Config{}, fmt.Errorf("failed to parse relative path: %w", err)
 	}
 
 	return config, nil
@@ -215,10 +215,10 @@ func Upsert(config []byte, path, value string) ([]byte, error) {
 		if otherErr != nil {
 			// Give up.
 			if err != nil {
-				return []byte{}, errors.Wrapf(err, "failed to parse config file")
+				return []byte{}, fmt.Errorf("failed to parse config file: %w", err)
 			}
 
-			return []byte{}, errors.Wrapf(otherErr, "failed to parse config file")
+			return []byte{}, fmt.Errorf("failed to parse config file: %w", otherErr)
 		}
 
 		base.Content = []*yaml.Node{{Kind: yaml.MappingNode}}
@@ -228,16 +228,16 @@ func Upsert(config []byte, path, value string) ([]byte, error) {
 
 	t, _, err := validatePath(reflect.TypeFor[Config](), pathParts)
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "path is not valid")
+		return []byte{}, fmt.Errorf("path is not valid: %w", err)
 	}
 
 	yamlValue, err := valueToYaml(value)
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "could not parse value")
+		return []byte{}, fmt.Errorf("could not parse value: %w", err)
 	}
 
 	if !keyAndValueCompatible(t, yamlValue) {
-		return []byte{}, errors.Errorf("cannot set %s to %v, as the types are incompatible", path, value)
+		return []byte{}, fmt.Errorf("cannot set %s to %v, as the types are incompatible", path, value)
 	}
 
 	setYamlValue(base, pathParts, yamlValue)
@@ -257,7 +257,7 @@ func Delete(config []byte, path string) ([]byte, error) {
 
 	err := yaml.Unmarshal(config, base)
 	if err != nil {
-		return []byte{}, errors.Wrapf(err, "failed to parse config file")
+		return []byte{}, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
 	if base.IsZero() {
@@ -268,7 +268,7 @@ func Delete(config []byte, path string) ([]byte, error) {
 
 	_, _, err = validatePath(reflect.TypeFor[Config](), pathParts)
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "path is not valid")
+		return []byte{}, fmt.Errorf("path is not valid: %w", err)
 	}
 
 	deleteYamlValue(base, pathParts)
@@ -286,7 +286,7 @@ func Delete(config []byte, path string) ([]byte, error) {
 func PrintHelp(path string) error {
 	t, help, err := validatePath(reflect.TypeFor[Config](), splitPath(path))
 	if err != nil {
-		return errors.Wrapf(err, "'%s' is not a valid config value", path)
+		return fmt.Errorf("'%s' is not a valid config value: %w", path, err)
 	}
 
 	fmt.Printf("(%s): %s\n", t.Kind(), help)
@@ -310,7 +310,7 @@ func splitPath(path string) []string {
 
 func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 	if len(path) == 0 {
-		return nil, "", errors.New("No path present")
+		return nil, "", errors.New("no path present")
 	}
 
 	if t.Kind() == reflect.Map {
@@ -341,7 +341,7 @@ func validatePath(t reflect.Type, path []string) (reflect.Type, string, error) {
 		}
 	}
 
-	return nil, "", errors.Errorf("no path for %s", strings.Join(path, "."))
+	return nil, "", fmt.Errorf("no path for %s", strings.Join(path, "."))
 }
 
 func valueToYaml(value string) (*yaml.Node, error) {
@@ -349,7 +349,7 @@ func valueToYaml(value string) (*yaml.Node, error) {
 
 	err := yaml.Unmarshal([]byte(value), valueNode)
 	if err != nil {
-		return nil, errors.Errorf("%s is not a valid YAML value", value)
+		return nil, fmt.Errorf("%s is not a valid YAML value", value)
 	}
 
 	// Unfold all the yaml so it's not mixed inline and flow styles in the final document
@@ -513,7 +513,7 @@ func deleteYamlValue(node *yaml.Node, path []string) []string {
 func ReadConfigFile(configPath string) ([]byte, error) {
 	yamlData, err := os.ReadFile(configPath) // #nosec G304
 	if err != nil {
-		return []byte{}, errors.Wrapf(err, "failed to read from %s", configPath)
+		return []byte{}, fmt.Errorf("failed to read from %s: %w", configPath, err)
 	}
 
 	return yamlData, nil
@@ -532,7 +532,7 @@ func WriteConfigFile(configPath string, data []byte) error {
 func parseRelPaths(instName string, cfg *Config) error {
 	err := parseTLSPaths(instName, cfg)
 	if err != nil {
-		return errors.Wrap(err, "could not parse relative TLS paths")
+		return fmt.Errorf("could not parse relative TLS paths: %w", err)
 	}
 
 	return nil
@@ -554,7 +554,7 @@ func parseTLSPaths(instName string, cfg *Config) error {
 	for name, field := range fields {
 		err := parsePath(instName, field)
 		if err != nil {
-			return errors.Wrapf(err, "could not parse %v path %q", name, *field)
+			return fmt.Errorf("could not parse %v path %q: %w", name, *field, err)
 		}
 	}
 

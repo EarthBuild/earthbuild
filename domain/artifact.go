@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Artifact is an earth artifact identifier.
@@ -37,19 +35,19 @@ func ParseArtifact(artifactName string) (Artifact, error) {
 	}
 
 	if len(parts) != 2 {
-		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
+		return Artifact{}, fmt.Errorf("invalid artifact name %s", artifactName)
 	}
 
 	partsSlash := strings.SplitN(parts[1], "/", 2)
 	if len(partsSlash) != 2 {
-		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
+		return Artifact{}, fmt.Errorf("invalid artifact name %s", artifactName)
 	}
 
 	earthTargetName := escapePlus(parts[0]) + "+" + partsSlash[0]
 
 	target, err := ParseTarget(earthTargetName)
 	if err != nil {
-		return Artifact{}, errors.Wrapf(err, "invalid artifact name %s", artifactName)
+		return Artifact{}, fmt.Errorf("invalid artifact name %s: %w", artifactName, err)
 	}
 
 	artifactPath := "/" + partsSlash[1]

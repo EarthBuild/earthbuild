@@ -1,0 +1,192 @@
+name: Integration Suite
+
+on:
+  workflow_call:
+    inputs:
+      FRONTEND:
+        required: true
+        type: string
+      SUDO:
+        required: false
+        type: string
+        default: ""
+      USE_NEXT:
+        required: false
+        type: boolean
+        default: false
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  test-local:
+    name: Test Local
+    uses: ./.github/workflows/reusable-test-local.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      BINARY_COMPOSE: "\"docker compose\""
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  push-integrations:
+    name: Push Integrations
+    uses: ./.github/workflows/reusable-push-integrations.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  bootstrap-integrations:
+    name: Bootstrap Integrations
+    uses: ./.github/workflows/reusable-bootstrap-integrations.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  repo-auth-tests:
+    name: Repo Auth Tests
+    uses: ./.github/workflows/reusable-repo-auth-tests.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  export-test:
+    name: Export Test
+    uses: ./.github/workflows/reusable-export-test.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  docker-build-integrations:
+    name: Docker Build Integrations
+    uses: ./.github/workflows/reusable-docker-build-integrations.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  earthbuild-image-test:
+    name: EarthBuild Image Test
+    uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  misc-test-1:
+    name: Misc Test 1
+    uses: ./.github/workflows/reusable-misc-tests-1.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  misc-test-2:
+    name: Misc Test 2
+    uses: ./.github/workflows/reusable-misc-tests-2.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  wait-block-main:
+    name: Wait Block Main
+    uses: ./.github/workflows/reusable-wait-block-main.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  wait-block-targets:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "+test-misc"
+            name: "Wait Block (Misc)"
+          - target: "+test-no-qemu-group1"
+            name: "Wait Block (Group 1)"
+          - target: "+test-no-qemu-group2"
+            name: "Wait Block (Group 2)"
+          - target: "+test-no-qemu-group3"
+            name: "Wait Block (Group 3)"
+          - target: "+test-no-qemu-group4"
+            name: "Wait Block (Group 4)"
+          - target: "+test-no-qemu-slow"
+            name: "Wait Block (Slow)"
+          - target: "+test-qemu"
+            name: "Wait Block (QEMU)"
+    uses: ./.github/workflows/reusable-wait-block-target.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+      TARGET_NAME: ${{ matrix.target }}
+    secrets: inherit
+
+  git-metadata-test:
+    name: Git Metadata Test
+    uses: ./.github/workflows/reusable-git-metadata-test.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit
+
+  race-tests:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "+test-misc"
+            name: "Race Tests (Misc)"
+          - target: "+test-no-qemu-group1"
+            name: "Race Tests (Group 1)"
+          - target: "+test-no-qemu-group2"
+            name: "Race Tests (Group 2)"
+          - target: "+test-no-qemu-group3"
+            name: "Race Tests (Group 3)"
+          - target: "+test-no-qemu-group4"
+            name: "Race Tests (Group 4)"
+          - target: "+test-no-qemu-slow"
+            name: "Race Tests (Slow)"
+    uses: ./.github/workflows/reusable-race-test.yml
+    with:
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      TEST_TARGET: ${{ matrix.target }}
+      RUNS_ON: "ubuntu-24.04"
+      USE_QEMU: false
+      BINARY: ${{ inputs.FRONTEND }}
+      SUDO: ${{ inputs.SUDO }}
+    secrets: inherit

@@ -2,6 +2,7 @@
 
 - [👋 Introduction](README.md)
 - [💻 Install Earthly](install/install.md)
+- [🔀 Migrating from Earthly](migrating-from-earthly.md)
 - [🎓 Learn the basics](basics/basics.md)
     - [Part 1: A simple Earthfile](basics/part-1-a-simple-earthfile.md)
     - [Part 2: Outputs](basics/part-2-outputs.md)
@@ -19,6 +20,7 @@
 
 - Guides
     - [Importing](guides/importing.md)
+    - [Target and artifact references](guides/target-ref.md)
     - [Build arguments and variables](guides/build-args.md)
     - [Secrets](guides/secrets.md)
     - [Functions](guides/functions.md)
@@ -33,9 +35,9 @@
         - [GCP Artifact Registry](guides/registries/gcp-artifact-registry.md)
         - [Azure ACR](guides/registries/azure-acr.md)
         - [Self-signed certificates](guides/registries/self-signed.md)
-    - Using the Earthly Docker Images
-        - [earthly/earthly](docker-images/all-in-one.md)
-        - [earthly/buildkitd](docker-images/buildkit-standalone.md)
+    - Using the EarthBuild Docker Images
+        - [earthbuild/earthbuild](docker-images/all-in-one.md)
+        - [earthbuild/buildkitd](docker-images/buildkit-standalone.md)
     - [Best practices](guides/best-practices.md)
 - [Caching](./caching/caching.md)
     - [Caching in Earthfiles](./caching/caching-in-earthfiles.md)
@@ -47,7 +49,7 @@
     - [Excluding patterns](earthfile/earthlyignore.md)
     - [Version-specific features](earthfile/features.md)
 - [The `earthly` command](earthly-command/earthly-command.md)
-- [Earthly lib](earthly-lib/earthly-lib.md)
+- [EarthBuild lib](earthbuild-lib/earthbuild-lib.md)
 - [Configuration reference](earthly-config/earthly-config.md)
 - [Examples](examples/examples.md)
 - Misc

@@ -1,5 +1,3 @@
-//go:generate hel --output helheim_mocks_test.go
-
 // Package proj contains types and functions for managing a project's
 // Earthfile(s).
 package proj
@@ -7,12 +5,12 @@ package proj
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
-
-	"github.com/pkg/errors"
 )
 
 // FS represents the type that proj types need to inspect files in the
@@ -133,7 +131,7 @@ func All(ctx context.Context, dir string) ([]Project, error) {
 		}
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "checking for project type %T failed", proj)
+			return nil, fmt.Errorf("checking for project type %T failed: %w", proj, err)
 		}
 
 		active = append(active, forDir)

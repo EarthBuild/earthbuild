@@ -1,5 +1,5 @@
 #!/bin/bash
-# This test is designed to be run directly by github actions or on your host (i.e. not earthly-in-earthly);
+# This test is designed to be run directly by github actions or on your host (i.e. not earthbuild-in-earthbuild);
 # as a result, you may run into issues if you have a firewall which prevents access to the registry -- make sure access to it's port is open
 set -uxe
 set -o pipefail

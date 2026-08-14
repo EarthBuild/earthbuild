@@ -1,10 +1,28 @@
 # Conventions
 
+## Naming
+
+The project is being renamed from Earthly to EarthBuild. When writing new code,
+comments, docs or commit messages:
+
+* Use `earth` for the CLI / build tool (not `earthly`).
+* Use `EarthBuild` for the project name (not `Earthly`).
+* Leave existing `earthly` identifiers alone where they are literal: Earthfile
+  target names (`+earthly-docker`), installed binary paths (`/usr/bin/earthly`),
+  env var prefixes (`EARTHLY_*`), and published image/repo names. Those change
+  only as part of the rename itself.
+
 ## Golang
 
 * Use the concepts and capabilities of Go version declared in `go.mod`. Read more here: <https://go.dev/blog/go1.26>
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
+
+## Naming & Terminology
+
+* The `earthly` naming is deprecated and being systematically eliminated.
+* Use `earth` when referring to the CLI command.
+* Use `EarthBuild` when referring to organization or project context.
 
 ## Earthfile Parser
 

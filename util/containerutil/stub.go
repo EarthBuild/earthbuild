@@ -2,9 +2,9 @@ package containerutil
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 // This is a stub for use when a proper frontend is not available.
@@ -27,7 +27,7 @@ func NewStubFrontend(cfg *FrontendConfig) (ContainerFrontend, error) {
 
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendStub, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to calculate buildkit URLs")
+		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
 
 	return fe, nil

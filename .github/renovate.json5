@@ -8,11 +8,13 @@
   ],
   baseBranchPatterns: [
     'main',
-    'docs-0.8',
   ],
   configMigration: true,
   prHourlyLimit: 0,
   prConcurrentLimit: 1,
+  lockFileMaintenance: {
+    enabled: true,
+  },
   includePaths: [
     'Earthfile',
     '**/go.mod',
@@ -74,17 +76,25 @@
         '/.+.md/',
       ],
       matchStrings: [
-        'earthly/releases/download/(?<currentValue>.+?)/',
-        '- uses: earthly/actions/setup-earthly@.*?[\\s\\n]+.*?[\\s\\n]+with:[\\s\\n]*version: (?<currentValue>.+?)[\\s\\n/]+',
-        "'earthly/earthly:(?<currentValue>.+?)'",
-        'github.com/earthly/earthly:(?<currentValue>.+?)(\\+|`)',
-        '(:|\\s+)earthly/earthly:(?<currentValue>.+?)[\\s\\n/]+',
+        'earthbuild/releases/download/(?<currentValue>.+?)/',
+        'uses: earthbuild/actions-setup@[^\\n]*[\\s\\n]+with:[\\s\\n]*version: (?<currentValue>.+?)[\\s\\n/]+',
+        'earthbuild/earthbuild:(?<currentValue>.+?)[\\s\\n\'"`/]',
+        'github.com/earthbuild/earthbuild:(?<currentValue>.+?)(\\+|`)',
         'the `latest` tag is `(?<currentValue>.+?)`',
-        'earthly/compare/(?<currentValue>.+?)\\.\\.\\.main',
-        'earthly/satellite:(?<currentValue>.+?)\\n',
       ],
-      depNameTemplate: 'earthly/earthly',
+      depNameTemplate: 'EarthBuild/earthbuild',
       datasourceTemplate: 'github-releases',
+    },
+    {
+      customType: 'regex',
+      description: 'Keep SHA-pinned earthbuild/actions-setup in docs up to date (digest + trailing version comment)',
+      managerFilePatterns: [
+        '/.+.md/',
+      ],
+      matchStrings: [
+        'uses: (?<depName>earthbuild/actions-setup)@(?<currentDigest>[a-f0-9]{40}) # (?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)',
+      ],
+      datasourceTemplate: 'github-tags',
     },
     {
       customType: 'regex',
@@ -170,73 +180,29 @@
     },
     {
       matchPackageNames: [
-        'earthly/earthly',
+        'EarthBuild/earthbuild',
       ],
       matchDatasources: [
         'github-releases',
       ],
       addLabels: [
-        'earthly-version-in-docs',
+        'earthbuild-version-in-docs',
       ],
       schedule: [ // update as soon as possible
         'at any time',
       ],
       automerge: true,
     },
-    {
-      // Point earthly/earthly updates in docs to docs-0.8 branch by:
-      // 1. disable all PRs targeting docs-0.8 for all packages except earthly/earthly
-      matchBaseBranches: [
-        'docs-0.8',
-      ],
-      enabled: false,
-      matchPackageNames: [
-        '!earthly/earthly',
-        '!earthbuild/dind',
-      ],
-    },
-    {
-      // 2. disable PRs targeting main for earthly/earthly
-      matchBaseBranches: [
-        'main',
-      ],
-      matchPackageNames: [
-        'earthly/earthly',
-      ],
-      enabled: false,
-    },
-    {
-      // disable earthly/dind updates in source & tests files for branch docs-0.8
-      matchBaseBranches: [
-        'docs-0.8',
-      ],
-      matchFileNames: [
-        'Earthfile',
-        'earthfile2llb/**',
-        'tests/**',
-        'scripts/tests/interactive-debugger/**',
-        'inputgraph/testdata/**',
-        'internal/earthfile/tests/**',
-      ],
-      matchPackageNames: [
-        'earthbuild/dind',
-      ],
-      enabled: false,
-    },
-    {
-      // disable earthly/dind updates in docs & examples files for branch main
-      matchBaseBranches: [
-        'main',
-      ],
-      matchPackageNames: [
-        'earthbuild/dind',
-      ],
-      matchFileNames: [
-        'examples/**',
-        'docs/**',
-      ],
-      enabled: false,
-    },
+    // NOTE: this repo previously split version bumps across two base branches:
+    // docs version pins were routed to docs-0.8 and disabled on main, while
+    // source/test pins were maintained on main. docs.earthbuild.dev publishes
+    // from main, so the docs half of that split updated a branch nobody read and
+    // the published pins were frozen (they sat at v0.8.13). Multi-version docs
+    // branches are deferred until v0.9.x; until then main is the only base
+    // branch and every pin -- docs, examples, source and tests -- is maintained
+    // here. The three rules implementing the old split have been removed,
+    // including the one that disabled earthbuild/dind bumps under docs/ and
+    // examples/ on main, which would otherwise have frozen those the same way.
     // group all alpine/git updates across the repo to one PR and schedule it to once a month
     {
       groupName: 'alpine/git',
@@ -256,7 +222,7 @@
       matchPackageNames: [
         '!alpine/git',
         '!earthbuild/dind',
-        '!earthly/earthly',
+        '!EarthBuild/earthbuild',
       ],
       schedule: [
         'every month',
@@ -283,16 +249,26 @@
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     {
-      // rule to update earthbuild/dind:ubuntu:23.04-* images
+      // rule to update earthbuild/dind:ubuntu:24.04-* images
       groupName: 'dind-images',
       matchPackageNames: [
         'earthbuild/dind',
       ],
-      matchCurrentVersion: '/^ubuntu-23\\.04-.*/',
-      allowedVersions: '/^ubuntu-23\\.04-.*/',
+      matchCurrentVersion: '/^ubuntu-24\\.04-.*/',
+      allowedVersions: '/^ubuntu-24\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
-    // group all examples and docs dependency updates together (except earthly/earthly and earthbuild/dind)
+    {
+      // rule to update earthbuild/dind:ubuntu:26.04-* images
+      groupName: 'dind-images',
+      matchPackageNames: [
+        'earthbuild/dind',
+      ],
+      matchCurrentVersion: '/^ubuntu-26\\.04-.*/',
+      allowedVersions: '/^ubuntu-26\\.04-.*/',
+      versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
+    },
+    // group all examples and docs dependency updates together (except EarthBuild/earthbuild and earthbuild/dind)
     {
       matchFileNames: [
         '**/.mise.toml',
@@ -300,7 +276,7 @@
       separateMajorMinor: false,
       groupName: 'examples-and-docs-dependencies',
       matchPackageNames: [
-        '!earthly/earthly',
+        '!EarthBuild/earthbuild',
         '!earthbuild/dind',
       ],
       schedule: [

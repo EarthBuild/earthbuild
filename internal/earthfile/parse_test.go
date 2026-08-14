@@ -9,6 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// errUnsupportedVersion is what the version validator emits for every
+// unsupported VERSION value. Spelled out rather than derived from
+// getValidVersionsFormatted so these tests pin the user-facing wording.
+const errUnsupportedVersion = "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+
 func TestParseOpts(t *testing.T) {
 	t.Parallel()
 
@@ -1027,7 +1032,7 @@ build:
 							{
 								Command: &Command{
 									Name: "RUN",
-									Args: []string{"echo", "\"hello \\\n    world $(echo 'nested') and $VAR\""},
+									Args: []string{"echo", "\"hello world $(echo 'nested') and $VAR\""},
 								},
 							},
 						},
@@ -1497,6 +1502,60 @@ FUNCTION my-func
 			},
 		},
 		{
+			name: "line continuations inside single-quoted strings",
+			input: `VERSION 0.8
+test:
+  RUN echo '{ \
+      "a": "1", \
+      "b": "2" \
+  }' > /x.json
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "RUN",
+									Args: []string{"echo", `'{ "a": "1", "b": "2" }'`, ">", "/x.json"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "line continuations inside double-quoted strings",
+			input: `VERSION 0.8
+test:
+  RUN echo "one \
+    two"
+`,
+			want: Tree{
+				Version: &Version{
+					Args: []string{"0.8"},
+				},
+				Targets: []Target{
+					{
+						Name: "test",
+						Recipe: Block{
+							{
+								Command: &Command{
+									Name: "RUN",
+									Args: []string{"echo", `"one two"`},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "escaped quotes and line continuations",
 			input: `VERSION 0.8
 test:
@@ -1737,6 +1796,30 @@ build:
     RUN echo "wait"
 `,
 			wantError: "expected END to close WAIT statement",
+		},
+		// The version validator funnels every unsupported VERSION value (bad
+		// major/minor/patch, or an unrecognised trailing token) to the same
+		// message. Feature-flag validation (e.g. VERSION --referenced-save-only=false)
+		// lives in the features package and is unit-tested there.
+		{
+			name:      "invalid major version",
+			input:     "VERSION 1.0\n",
+			wantError: errUnsupportedVersion,
+		},
+		{
+			name:      "invalid minor version",
+			input:     "VERSION 0.4\n", // versioning was only added since 0.5
+			wantError: errUnsupportedVersion,
+		},
+		{
+			name:      "invalid patch version",
+			input:     "VERSION 0.5.1\n", // patch version is not supported
+			wantError: errUnsupportedVersion,
+		},
+		{
+			name:      "flag after version number",
+			input:     "VERSION 0.8 --try\n", // flags must precede the version number
+			wantError: errUnsupportedVersion,
 		},
 	}
 

@@ -2,11 +2,9 @@ package containerutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 )
@@ -66,7 +64,7 @@ func autodetectFrontend(ctx context.Context, cfg *FrontendConfig) (ContainerFron
 	} {
 		fe, err := frontendIfAvailable(ctx, feType, cfg)
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = errors.Join(errs, err)
 			continue
 		}
 
@@ -78,7 +76,7 @@ func autodetectFrontend(ctx context.Context, cfg *FrontendConfig) (ContainerFron
 		return fe, nil
 	}
 
-	return nil, errors.Wrapf(errs, "failed to autodetect a supported frontend")
+	return nil, fmt.Errorf("failed to autodetect a supported frontend: %w", errs)
 }
 
 func frontendIfAvailable(ctx context.Context, feType string, cfg *FrontendConfig) (ContainerFrontend, error) {
@@ -97,7 +95,7 @@ func frontendIfAvailable(ctx context.Context, feType string, cfg *FrontendConfig
 
 	fe, err := newFe(ctx, cfg)
 	if err != nil {
-		return nil, errors.Wrapf(err, "%s frontend failed to initialize", feType)
+		return nil, fmt.Errorf("%s frontend failed to initialize: %w", feType, err)
 	}
 
 	if !fe.IsAvailable(ctx) {

@@ -7,19 +7,19 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.26.4-alpine3.24
+    FROM golang:1.26.5-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 
 node:
-    FROM node:26.3.1-alpine3.24
+    FROM node:26.7.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=11.17.0
+    LET npm_version=12.0.2
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
 
-# deps downloads and caches all dependencies for earthly. When called directly,
+# deps downloads and caches all dependencies for earthbuild. When called directly,
 # go.mod and go.sum will be updated locally.
 deps:
     FROM +go
@@ -30,7 +30,7 @@ deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-# code downloads and caches all dependencies for earthly and then copies the go code
+# code downloads and caches all dependencies for earthbuild and then copies the go code
 # directories into the image.
 # If BUILDKIT_PROJECT environment variable is set it will also update the go mods
 # for the local versions
@@ -53,7 +53,7 @@ code:
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
-# update-buildkit updates earthly's buildkit dependency.
+# update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
@@ -98,12 +98,12 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# earthly-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
+# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-earthly-script-no-stdout:
+earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r5
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     RUN apk add --no-cache bash
     COPY earthly .earthly_version_flag_overrides .
 
@@ -115,7 +115,7 @@ earthly-script-no-stdout:
     RUN test "$(cat earthly-version-output | wc -l)" = "1"
     RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthly project.
+# lint runs basic go linters against the earthbuild project.
 lint:
     FROM +go
     RUN apk add --no-cache curl
@@ -147,7 +147,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.4.0
+    ENV govulncheck_version=1.6.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -171,7 +171,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.15.1
+    ARG vale_version=3.17.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything
@@ -180,22 +180,6 @@ markdown-spellcheck:
     RUN find . -type f -iname '*.md' | xargs -n 1 sed -i 's/{[^}]*}//g'
     # TODO remove the greps once the corresponding markdown files have spelling fixed (or techterms added to .vale/styles/HouseStyle/tech-terms/...
     RUN find . -type f -iname '*.md' | xargs vale --config /etc/vale/vale.ini --output line --minAlertLevel error
-
-# mocks runs 'go generate' against this module and saves generated mock files
-# locally.
-mocks:
-    FROM +go
-    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
-    ENV hel_version=0.6.6
-    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
-    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
-    ENV goimports_version=0.24.1
-    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
-    COPY --dir +code/earthly /
-    RUN go generate ./...
-    FOR mockfile IN $(find . -name 'helheim*_test.go')
-        SAVE ARTIFACT $mockfile AS LOCAL $mockfile
-    END
 
 unit-test-parser:
     FROM +deps
@@ -288,7 +272,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.6-slim@sha256:63a4c7f612a00f92042cbdcc7cdc6a306f38485af0a200b9c89de7d9b1607d15
+    FROM python:3.14.7-slim@sha256:83c1cebb322d099ac9e3a3a532ba74b0146d702838b25e4c75c02fa81ffeb910
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -376,6 +360,12 @@ earthly-linux-amd64:
     # reach +earthly. Without forwarding, COPY-scoped --args stop at this target
     # and the binary silently falls back to dev defaults, e.g. a buildkit image
     # of $IMAGE_REGISTRY:buildkitd-$VERSION instead of the intended release image.
+    #
+    # EARTHLY_TARGET_TAG_DOCKER must be declared before it is referenced below,
+    # otherwise it expands to empty and the dev VERSION becomes "dev-" -- which
+    # bakes in a buildkitd image of buildkitd-dev- that does not match the
+    # buildkitd-dev-<tag> image the local +for-* targets actually build.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -395,6 +385,7 @@ earthly-linux-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -414,6 +405,7 @@ earthly-darwin-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -433,6 +425,7 @@ earthly-darwin-arm64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -452,6 +445,7 @@ earthly-windows-amd64:
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -477,6 +471,7 @@ all-binaries:
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
     # all binaries. See earthly-linux-amd64 for details.
+    ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
@@ -509,10 +504,21 @@ earthly-docker:
     ARG BUILDKIT_PROJECT
     ARG PUSH_LATEST_TAG="false"
     ARG PUSH_PRERELEASE_TAG="false"
-    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG"
+    # Release metadata baked into the embedded CLI. These mirror the dev
+    # defaults of +earthly and must be forwarded explicitly (see
+    # earthly-linux-amd64 for details). Release builds override them via
+    # release+release-dockerhub so the CLI inside the published image points at
+    # the buildkitd image the release actually publishes, keeping it in sync
+    # with the released binaries (+all-binaries).
+    ARG VERSION="$TAG"
+    ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$TAG"
+    # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
+    # with the CLI version, and makes this the same buildkitd build as
+    # release+perform-release-buildkitd-dockerhub pushes.
+    FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
-    # When Earthly is run from a container, the registry proxy networking setup
+    # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
@@ -521,10 +527,10 @@ earthly-docker:
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
-        --VERSION=$TAG \
+        --VERSION="$VERSION" \
+        --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
         --DEFAULT_INSTALLATION_NAME="earthly" \
         ) /usr/bin/earthly
-    ARG DOCKERHUB_IMG="earthly"
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
@@ -538,10 +544,10 @@ earthly-docker:
        SAVE IMAGE --push --cache-from=earthly/earthly:main $IMAGE_REGISTRY:$TAG
     END
 
-# earthly-integration-test-base builds earthly docker and then
+# earthbuild-integration-test-base builds earthly docker and then
 # if no dockerhub mirror is not set it will attempt to login to dockerhub using the provided docker hub username and token.
 # Otherwise, it will attempt to login to the docker hub mirror using the provided username and password
-earthly-integration-test-base:
+earthbuild-integration-test-base:
     FROM --pass-args +earthly-docker
     RUN apk update && apk add pcre-tools curl python3 bash perl findutils expect yq && apk add --upgrade sed
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
@@ -717,7 +723,7 @@ all:
     BUILD +earthly-docker
     BUILD +prerelease
 
-# lint-all runs all linting checks against the earthly project.
+# lint-all runs all linting checks against the earthbuild project.
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
@@ -744,7 +750,7 @@ test-no-qemu:
 # test-misc runs misc (non earthly-in-earthly) tests
 test-misc:
     BUILD +test-ast
-    BUILD +earthly-script-no-stdout
+    BUILD +earthbuild-script-no-stdout
 
 test-ast:
     BUILD --pass-args ./internal/earthfile/tests+group1
@@ -947,10 +953,10 @@ merge-main-to-docs:
 
     ARG git_repo="earthly/earthly"
     ARG git_url="git@github.com:$git_repo"
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.1
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG to_branch="docs-0.8"
@@ -1013,12 +1019,12 @@ open-pr-for-fork:
 
     ARG TARGETARCH
 
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.1
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
     ARG git_repo="earthly/earthly"
     LET git_url="git@github.com:$git_repo"
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG --required pr_number

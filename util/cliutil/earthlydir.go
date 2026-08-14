@@ -1,13 +1,14 @@
 package cliutil
 
 import (
+	"cmp"
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -25,10 +26,8 @@ var (
 // This function will not attempt to create the directory if missing,
 // for that functionality use to the [GetOrCreateEarthDir] function.
 func GetEarthDir(installName string) string {
-	if installName == "" {
-		// if GetEarthDir is called by the autocomplete code, this may not be set
-		installName = "earthly"
-	}
+	// if GetEarthDir is called by the autocomplete code, this may not be set
+	installName = cmp.Or(installName, "earthly")
 
 	earthDirOnce.Do(func() {
 		earthDir, earthDirSudoUser = getEarthDirAndUser(installName)
@@ -51,21 +50,21 @@ func GetOrCreateEarthDir(installName string) (string, error) {
 	earthDirCreateOnce.Do(func() {
 		earthDirExists, err := fileutil.DirExists(earthDir)
 		if err != nil {
-			errEarthDirCreate = errors.Wrapf(err, "unable to create dir %s", earthDir)
+			errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
 			return
 		}
 
 		if !earthDirExists {
 			err := os.MkdirAll(earthDir, 0o755) // #nosec G301
 			if err != nil {
-				errEarthDirCreate = errors.Wrapf(err, "unable to create dir %s", earthDir)
+				errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
 				return
 			}
 
 			if earthDirSudoUser != nil {
 				err := fileutil.EnsureUserOwned(earthDir, earthDirSudoUser)
 				if err != nil {
-					errEarthDirCreate = errors.Wrapf(err, "failed to ensure %s is owned by %s", earthDir, earthDirSudoUser)
+					errEarthDirCreate = fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, earthDirSudoUser, err)
 				}
 			}
 		}
@@ -80,13 +79,13 @@ func IsBootstrapped(installName string) bool {
 	return exists
 }
 
-// EnsurePermissions changes the permissions of all earthly files to be owned by the user and their group.
+// EnsurePermissions changes the permissions of all earthbuild files to be owned by the user and their group.
 func EnsurePermissions(installName string) error {
 	earthDir, sudoUser := getEarthDirAndUser(installName)
 	if sudoUser != nil {
 		err := fileutil.EnsureUserOwned(earthDir, sudoUser)
 		if err != nil {
-			return errors.Wrapf(err, "failed to ensure %s is owned by %s", earthDir, sudoUser)
+			return fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, sudoUser, err)
 		}
 	}
 

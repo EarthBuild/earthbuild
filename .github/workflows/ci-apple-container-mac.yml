@@ -60,6 +60,12 @@ jobs:
         with:
           name: earth-build-latest
           path: ./build-artifacts
+      - name: Download buildkitd ARM64 image artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        continue-on-error: true
+        with:
+          name: buildkitd-image-arm64-latest
+          path: ./build-artifacts-arm64
       - name: Setup earth binary from artifact
         run: |
           mkdir -p "$(dirname "${{ env.BUILT_EARTH_PATH }}")"
@@ -71,6 +77,11 @@ jobs:
           brew install container || brew upgrade container
       - name: Start apple/container service
         run: container system start --enable-kernel-install
+      - name: Load ARM64 buildkit image into Apple Container
+        run: |-
+          if [ -f "./build-artifacts-arm64/buildkitd-image.tar" ]; then
+            container image load -i ./build-artifacts-arm64/buildkitd-image.tar || true
+          fi
       - name: Verify apple/container status
         run: |
           container --version

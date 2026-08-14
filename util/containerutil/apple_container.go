@@ -3,15 +3,13 @@ package containerutil
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 )
 
 type appleShellFrontend struct {
@@ -76,7 +74,7 @@ func NewAppleContainerShellFrontend(_ context.Context, cfg *FrontendConfig) (Con
 
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendAppleContainerShell, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to calculate buildkit URLs")
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
 
 	return fe, nil
@@ -132,7 +130,7 @@ func (asf *appleShellFrontend) ContainerList(ctx context.Context) ([]*ContainerI
 
 	err = json.Unmarshal([]byte(output.stdout.String()), &inspects)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode apple container list output: %s", output.stdout.String())
+		return nil, fmt.Errorf("decode apple container list output (%s): %w", output.stdout.String(), err)
 	}
 
 	ret := make([]*ContainerInfo, len(inspects))
@@ -192,7 +190,7 @@ func (asf *appleShellFrontend) ContainerInfo(
 		if singleErr == nil {
 			inspects = []appleContainerInspect{singleInspect}
 		} else {
-			return nil, errors.Wrapf(err, "failed to decode apple container inspect output: %s", output.stdout.String())
+			return nil, fmt.Errorf("decode apple container inspect output (%s): %w", output.stdout.String(), err)
 		}
 	}
 
@@ -293,7 +291,7 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 
 		_, cmdErr := asf.commandContextOutput(ctx, args...)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -327,7 +325,7 @@ func (asf *appleShellFrontend) ImageInfo(ctx context.Context, refs ...string) (m
 		if singleErr == nil {
 			inspects = []appleImageInspect{singleInspect}
 		} else {
-			return nil, errors.Wrapf(err, "failed to decode apple image inspect output: %s", output.stdout.String())
+			return nil, fmt.Errorf("decode apple image inspect output (%s): %w", output.stdout.String(), err)
 		}
 	}
 
@@ -366,7 +364,7 @@ func (asf *appleShellFrontend) ImagePull(ctx context.Context, refs ...string) er
 
 		_, cmdErr := asf.commandContextOutput(ctx, args...)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -379,7 +377,7 @@ func (asf *appleShellFrontend) ImageTag(ctx context.Context, tags ...ImageTag) e
 	for _, tag := range tags {
 		_, cmdErr := asf.commandContextOutput(ctx, "image", "tag", tag.SourceRef, tag.TargetRef)
 		if cmdErr != nil {
-			err = multierror.Append(err, cmdErr)
+			err = errors.Join(err, cmdErr)
 		}
 	}
 
@@ -399,13 +397,13 @@ func (asf *appleShellFrontend) ImageLoad(ctx context.Context, images ...io.Reade
 	for _, image := range images {
 		file, tmpErr := os.CreateTemp("", "earthly-apple-load-*")
 		if tmpErr != nil {
-			err = multierror.Append(err, errors.Wrap(tmpErr, "failed to create temp tarball"))
+			err = errors.Join(err, fmt.Errorf("create temp tarball: %w", tmpErr))
 			continue
 		}
 
 		_, copyErr := io.Copy(file, image)
 		if copyErr != nil {
-			err = multierror.Append(err, errors.Wrapf(tmpErr, "failed to write to %s", file.Name()))
+			err = errors.Join(err, fmt.Errorf("write to %s: %w", file.Name(), copyErr))
 			continue
 		}
 		defer file.Close()
@@ -413,7 +411,7 @@ func (asf *appleShellFrontend) ImageLoad(ctx context.Context, images ...io.Reade
 
 		output, cmdErr := asf.commandContextOutput(ctx, "image", "load", "--input", file.Name())
 		if cmdErr != nil {
-			err = multierror.Append(err, errors.Wrapf(cmdErr, "image load failed: %s", output.string()))
+			err = errors.Join(err, fmt.Errorf("load image (%s): %w", output.string(), cmdErr))
 		}
 	}
 
@@ -448,7 +446,7 @@ func (asf *appleShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...st
 		if singleErr == nil {
 			inspects = []appleVolumeInspect{singleInspect}
 		} else {
-			return results, errors.Wrapf(err, "failed to decode apple volume inspect output for %v", volumeNames)
+			return results, fmt.Errorf("decode apple volume inspect output for %v: %w", volumeNames, err)
 		}
 	}
 

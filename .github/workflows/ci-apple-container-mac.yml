@@ -12,9 +12,41 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  apple-container-macos-test:
-    name: +testing-gha-apple-container
+  tests:
+    name: ${{ matrix.target }}
     runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: '+test-misc'
+            name: 'Misc (AST & Parser)'
+          - target: '+test-no-qemu-group1'
+            name: 'Group 1 (Autocompletion, Dockerfile & Imports)'
+          - target: '+test-no-qemu-group2'
+            name: 'Group 2 (COPY & Git Clone Operations)'
+          - target: '+test-no-qemu-group3'
+            name: 'Group 3 (Secrets, Build ARGs & Host Bind)'
+          - target: '+test-no-qemu-group4'
+            name: 'Group 4 (Dockerfile, Artifact Saves & Env)'
+          - target: '+test-no-qemu-group5'
+            name: 'Group 5 (Control Flow, Cache Mounts & AWS)'
+          - target: '+test-no-qemu-group6'
+            name: 'Group 6 (Cache & Credential Scrubbing)'
+          - target: '+test-no-qemu-group7'
+            name: 'Group 7 (Selective Save, Compose & Dotenv)'
+          - target: '+test-no-qemu-group8'
+            name: 'Group 8 (Docker Registry & SSH Config)'
+          - target: '+test-no-qemu-group9'
+            name: 'Group 9 (Config & ARG Redeclare Validation)'
+          - target: '+test-no-qemu-group10'
+            name: 'Group 10 (SSH & Remote Resolution)'
+          - target: '+test-no-qemu-group11'
+            name: 'Group 11 (Expose, Artifacts & Logbus)'
+          - target: '+test-no-qemu-group12'
+            name: 'Group 12 (Label Validation & Run Cache)'
+          - target: '+test-no-qemu-slow'
+            name: 'Slow (Server Daemon & WITH DOCKER)'
     env:
       EARTHLY_INSTALL_ID: 'earthly-githubactions'
       BUILT_EARTH_PATH: ./build/darwin/arm64/earthly
@@ -53,8 +85,8 @@ jobs:
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Execute tests-no-qemu
-        run: ${{ env.BUILT_EARTH_PATH }} --ci -P +test-no-qemu
+      - name: Execute ${{ matrix.target }}
+        run: ${{ env.BUILT_EARTH_PATH }} --ci -P ${{ matrix.target }}
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute fail test
         run: '! ${{ env.BUILT_EARTH_PATH }} --ci ./tests/fail+test-fail'

@@ -245,7 +245,11 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 		args = append(args, "run")
 
 		if container.Privileged {
-			args = append(args, "--cap-add", "ALL", "--read-only-path", "NONE", "--masked-path", "NONE")
+			args = append(args, "--cap-add", "ALL")
+
+			if asf.supportsUnmaskedPaths(ctx) {
+				args = append(args, "--read-only-path", "NONE", "--masked-path", "NONE")
+			}
 		}
 
 		hasCPUs := false
@@ -491,4 +495,15 @@ func (asf *appleShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...st
 	}
 
 	return results, nil
+}
+
+func (asf *appleShellFrontend) supportsUnmaskedPaths(ctx context.Context) bool {
+	cmd := exec.CommandContext(ctx, asf.binaryName, "run", "--help") // #nosec G204
+
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(string(out), "--read-only-path")
 }

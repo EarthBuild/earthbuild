@@ -82,6 +82,7 @@ jobs:
         run: |-
           export TAG_SUFFIX="latest"
           ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --push --platform=linux/arm64 ./buildkitd+buildkitd --TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
       - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
@@ -90,6 +91,7 @@ jobs:
           ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
           ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          ./build/linux/amd64/earthly --ci --image --platform=linux/arm64 --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
       - name: Save buildkitd image tarball (all runs)
         # Shipping buildkitd as a GHA artifact -- rather than having every
         # downstream test job pull it from ghcr -- moves ~67 in-run image

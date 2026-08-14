@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -284,14 +285,7 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 			args = append(args, "--label", label)
 		}
 
-		for _, mnt := range container.Mounts {
-			mount := fmt.Sprintf("type=%s,source=%s,target=%s", mnt.Type, mnt.Source, mnt.Dest)
-			if mnt.ReadOnly {
-				mount += ",readonly"
-			}
-
-			args = append(args, "--mount", mount)
-		}
+		args = append(args, buildAppleMountArgs(container.Mounts)...)
 
 		for _, prt := range container.Ports {
 			hostPort := strconv.FormatInt(int64(prt.HostPort), 10)
@@ -506,4 +500,56 @@ func (asf *appleShellFrontend) supportsUnmaskedPaths(ctx context.Context) bool {
 	}
 
 	return strings.Contains(string(out), "--read-only-path")
+}
+
+func appleBindFileDir(mnt Mount, seenDirs map[string]bool) (string, bool) {
+	if mnt.Type != MountBind {
+		return "", false
+	}
+
+	fileInfo, err := os.Stat(mnt.Source)
+	if err != nil || fileInfo.IsDir() {
+		return "", false
+	}
+
+	dir := filepath.Dir(mnt.Source)
+	if seenDirs[dir] {
+		return "", true
+	}
+
+	seenDirs[dir] = true
+	mountSpec := fmt.Sprintf("type=bind,source=%s,target=/etc/earthly-certs", dir)
+
+	if mnt.ReadOnly {
+		mountSpec += ",readonly"
+	}
+
+	return mountSpec, true
+}
+
+func buildAppleMountArgs(mounts []Mount) []string {
+	var args []string
+
+	seenMountDirs := make(map[string]bool)
+
+	for _, mnt := range mounts {
+		mountSpec, handled := appleBindFileDir(mnt, seenMountDirs)
+		if handled {
+			if mountSpec != "" {
+				args = append(args, "--mount", mountSpec)
+			}
+
+			continue
+		}
+
+		mountSpec = fmt.Sprintf("type=%s,source=%s,target=%s", mnt.Type, mnt.Source, mnt.Dest)
+
+		if mnt.ReadOnly {
+			mountSpec += ",readonly"
+		}
+
+		args = append(args, "--mount", mountSpec)
+	}
+
+	return args
 }

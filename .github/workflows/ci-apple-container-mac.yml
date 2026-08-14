@@ -14,7 +14,7 @@ env:
 jobs:
   tests:
     name: ${{ matrix.target }}
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64]
     strategy:
       fail-fast: false
       matrix:

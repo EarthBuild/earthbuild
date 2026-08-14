@@ -34,7 +34,6 @@ jobs:
     if: ${{ !inputs.SKIP_JOB && (github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository) }}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:

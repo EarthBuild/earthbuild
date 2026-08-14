@@ -17,7 +17,6 @@ jobs:
     runs-on: macos-26 # GitHub Actions the latest tag still uses macos-11, which does not have brew installed by default
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       BUILT_EARTH_PATH: build/darwin/amd64/earthly
 
       # Used in our github action as the token - TODO: look to change it into an input

@@ -245,7 +245,29 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 		args = append(args, "run")
 
 		if container.Privileged {
-			args = append(args, "--cap-add", "ALL")
+			args = append(args, "--cap-add", "ALL", "--read-only-path", "NONE", "--masked-path", "NONE")
+		}
+
+		hasCPUs := false
+		hasMemory := false
+
+		for _, a := range container.AdditionalArgs {
+			if a == "-c" || a == "--cpus" || strings.HasPrefix(a, "--cpus=") {
+				hasCPUs = true
+			}
+
+			if a == "-m" || a == "--memory" || strings.HasPrefix(a, "--memory=") {
+				hasMemory = true
+			}
+		}
+
+		cpus, memMB := defaultContainerResources()
+		if !hasCPUs && cpus > 0 {
+			args = append(args, "-c", strconv.Itoa(cpus))
+		}
+
+		if !hasMemory && memMB > 0 {
+			args = append(args, "-m", fmt.Sprintf("%dM", memMB))
 		}
 
 		for k, v := range container.Envs {

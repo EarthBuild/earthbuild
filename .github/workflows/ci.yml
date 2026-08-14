@@ -130,6 +130,18 @@ jobs:
             --VERSION="0.8.18" \
             --DEFAULT_INSTALLATION_NAME=earthly \
             ./artifacts-standard/earthly
+      - name: Build earth darwin binary artifact (all runs)
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="latest"
+
+          # Build earth darwin/arm64 CLI binary for macOS / Apple Container jobs
+          ./build/linux/amd64/earthly --ci --artifact \
+            +earthly-darwin-arm64/earthly \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.18" \
+            --DEFAULT_INSTALLATION_NAME=earthly \
+            ./artifacts-standard/earthly-darwin-arm64
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -243,6 +255,13 @@ jobs:
       USE_NEXT: true
     secrets: inherit
 
+  # --- Apple Container Suite ---
+  apple-container-tests:
+    name: Apple Container
+    needs: fast-check-and-build
+    uses: ./.github/workflows/ci-apple-container-mac.yml
+    secrets: inherit
+
   # --- Merge Gate ---
   # The ONLY check that branch protection should require. Every other job's
   # context name is free to churn (renamed suites, re-grouped tests, new
@@ -260,6 +279,7 @@ jobs:
       - podman-tests
       - podman-examples
       - next-tests
+      - apple-container-tests
     runs-on: ubuntu-24.04
     permissions: {}
     steps:

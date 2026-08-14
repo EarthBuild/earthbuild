@@ -37,54 +37,128 @@ type ProjectAdder interface {
 
 // ConvertOpt holds conversion parameters.
 type ConvertOpt struct {
-	MetaResolver                         llb.ImageMetaResolver
-	BuildkitSkipper                      bk.BuildkitSkipper
-	ProjectAdder                         ProjectAdder
-	GwClient                             gwclient.Client
-	DockerImageSolverTar                 states.DockerTarImageSolver
-	MultiImageSolver                     states.MultiImageSolver
-	ContainerFrontend                    containerutil.ContainerFrontend
-	Visited                              states.VisitedCollection
-	Parallelism                          semutil.Semaphore
-	waitBlock                            *waitBlock
-	InternalSecretStore                  *secretprovider.MutableMapStore
-	BuildContextProvider                 *provider.BuildContextProvider
-	OverridingVars                       *variables.Scope
-	CacheImports                         *states.CacheImports
-	OnExecutionSuccess                   func(context.Context)
-	Resolver                             *buildcontext.Resolver
-	FilesWithCommandRenameWarning        map[string]bool
-	GlobalImports                        map[string]domain.ImportTrackerVal
-	Logbus                               *logbus.Bus
-	LLBCaps                              *apicaps.CapSet
-	TempEarthOutDir                      func() (string, error)
-	SolveCache                           *states.SolveCache
-	LocalArtifactWhiteList               *gatewaycrafter.LocalArtifactWhiteList
-	ExportCoordinator                    *gatewaycrafter.ExportCoordinator
-	CleanCollection                      *cleanup.Collection
-	TargetInputHashStackSet              map[string]bool
-	parentDepSub                         chan string
-	ErrorGroup                           *serrgroup.Group
-	GitLookup                            *buildcontext.GitLookup
-	LocalStateCache                      *LocalStateCache
-	PlatformResolver                     *platutil.Resolver
-	Features                             *features.Features
-	Log                                  *conslogging.ConsoleLogger
-	BuiltinArgs                          variables.DefaultArgs
-	parentCommandID                      string
-	parentTargetID                       string
-	Runner                               string
-	FeatureFlagOverrides                 string
-	LocalRegistryAddr                    string
-	ImageResolveMode                     llb.ResolveMode
-	NoCache                              bool
-	InteractiveDebuggerEnabled           bool
-	IsCI                                 bool
-	GlobalWaitBlockFtr                   bool
-	DoSaves                              bool
-	AllowPrivileged                      bool
-	ForceSaveImage                       bool
-	HasDangling                          bool
+	// MetaResolver is the image meta resolver to use for resolving image metadata.
+	MetaResolver llb.ImageMetaResolver
+	// BuildkitSkipper allows for additions and existence checks for auto-skip hash values.
+	BuildkitSkipper bk.BuildkitSkipper
+	// ProjectAdder is a callback that is used to discover PROJECT <org>/<project> values
+	ProjectAdder ProjectAdder
+	// GwClient is the BuildKit gateway client.
+	GwClient gwclient.Client
+	// DockerImageSolverTar is similar to the above solver but it uses a tar
+	// file to transfer images. To be deprecated in favor of the local registry version.
+	DockerImageSolverTar states.DockerTarImageSolver
+	// MultiImageSolver can solve multiple images using a single build
+	// request. Primarily used for WITH DOCKER commands.
+	MultiImageSolver states.MultiImageSolver
+	// ContainerFrontend is the currently used container frontend, as detected by earth at app start.
+	// It provides info and access to commands to manipulate the current container frontend.
+	ContainerFrontend containerutil.ContainerFrontend
+	// Visited is a collection of target states which have been converted to LLB.
+	// This is used for deduplication and infinite cycle detection.
+	Visited states.VisitedCollection
+	// Parallelism is a semaphore controlling the maximum parallelism.
+	Parallelism semutil.Semaphore
+	// waitBlock references the current WAIT/END scope
+	waitBlock *waitBlock
+	// InternalSecretStore is a secret store used internally by earth.
+	// It is mainly used to pass along parameters to buildkit processes without
+	// invalidating the cache.
+	InternalSecretStore *secretprovider.MutableMapStore
+	// BuildContextProvider is the provider used for local build context files.
+	BuildContextProvider *provider.BuildContextProvider
+	// OverridingVars is a collection of build args used for overriding args in the build.
+	OverridingVars *variables.Scope
+	// CacheImports is a set of docker tags that can be used to import cache. Note that this
+	// set is modified by the converter if InlineCache is enabled.
+	CacheImports *states.CacheImports
+	// OnExecutionSuccess is called after a forceExecution successfully runs; it is used to save auto-skip hashes
+	OnExecutionSuccess func(context.Context)
+	// Resolver is the build context resolver.
+	Resolver *buildcontext.Resolver
+	// FilesWithCommandRenameWarning keeps track of the files for which the COMMAND => FUNCTION warning was displayed
+	// this can be removed in VERSION 0.8
+	FilesWithCommandRenameWarning map[string]struct{}
+	// GlobalImports is a map of imports used to dereference import ref targets, commands, etc.
+	GlobalImports map[string]domain.ImportTrackerVal
+	// Logbus is the bus used for logging and metadata reporting.
+	Logbus *logbus.Bus
+	// LLBCaps indicates that builder's capabilities
+	LLBCaps *apicaps.CapSet
+	// TempEarthOutDir is a path to a temp dir where artifacts are temporarily saved
+	TempEarthOutDir func() (string, error)
+	// A cache for image solves. (maybe dockerTag +) depTargetInputHash -> context containing image.tar.
+	SolveCache *states.SolveCache
+	// LocalArtifactWhiteList points to the per-connection list of seen SAVE ARTIFACT ... AS LOCAL entries
+	LocalArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList
+	// ExportCoordinator points to the per-connection map used by the builder's onPull callback
+	ExportCoordinator *gatewaycrafter.ExportCoordinator
+	// CleanCollection is a collection of cleanup functions.
+	CleanCollection *cleanup.Collection
+	// TargetInputHashStackSet is a set of target input hashes that are currently in the call stack.
+	// This is used to detect infinite cycles.
+	TargetInputHashStackSet map[string]struct{}
+	// parentDepSub is a channel informing of any new dependencies from the parent.
+	parentDepSub chan string
+	// ErrorGroup is a serrgroup used to submit parallel conversion jobs.
+	ErrorGroup *serrgroup.Group
+	// Gitlookup is used to attach credentials to GIT CLONE operations
+	GitLookup *buildcontext.GitLookup
+	// LocalStateCache provides a cache for local pllb.States
+	LocalStateCache *LocalStateCache
+	// PlatformResolver is a platform resolver, which keeps track of
+	// the current platform, the native platform, the user platform, and
+	// the default platform.
+	PlatformResolver *platutil.Resolver
+	// Features is the set of enabled features
+	Features *features.Features
+	// Default set of ARGs to make available in Earthfile.
+	BuiltinArgs variables.DefaultArgs
+	// parentCommandID is the Logbus command ID of whichever command initiated
+	// the convert operation. It's used to link commands to their referenced targets.
+	parentCommandID string
+	// parentTargetID is the Logbus target ID of the parent target, if any. It
+	// is used to link together targets.
+	parentTargetID string
+	// The runner used to execute the target on. This is used only for metadata reporting purposes.
+	// May be one of the following:
+	// * "local:<hostname>" - local builds
+	// * "bk:<buildkit-address>" - remote builds via buildkit
+	Runner string
+	// FeatureFlagOverrides is used to override feature flags that are defined in specific Earthfiles
+	FeatureFlagOverrides string
+	// LocalRegistryAddr is the address of the BuildKit-embedded registry.
+	LocalRegistryAddr string
+	// Log is for logging
+	Log *conslogging.ConsoleLogger
+	// The resolve mode for referenced images (force pull or prefer local).
+	ImageResolveMode llb.ResolveMode
+	// NoCache sets llb.IgnoreCache before calling StateToRef
+	NoCache bool
+	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
+	InteractiveDebuggerEnabled bool
+	// IsCI determines whether it is running from a CI environment.
+	IsCI bool
+	// GlobalWaitBlockFtr, when true, forces all Earthfiles to add entries into the WAIT/END block
+	// this is to facilitate de-duplicating code from builder.go
+	GlobalWaitBlockFtr bool
+	// DoSaves controls when SAVE ARTIFACT AS LOCAL, and SAVE IMAGE (to the local docker instance) calls are
+	// executed When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry
+	// (as long as DoPushes=true), but is not exported to the local docker instance.
+	DoSaves bool
+	// AllowPrivileged is used to allow (or prevent) any "RUN --privileged" or RUNs under a LOCALLY target
+	// to be executed, when set to false, it prevents other referenced remote targets from requesting
+	// elevated privileges
+	AllowPrivileged bool
+	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are for a local or
+	// remote target; this is to support the legacy behaviour that was first introduced in earthbuild (up to 0.5)
+	// When this is set to false, SAVE IMAGE commands are only executed when DoSaves is true.
+	ForceSaveImage bool
+	// HasDangling represents whether the target has dangling instructions -
+	// ie if there are any non-SAVE commands after the first SAVE command,
+	// or if the target is invoked via BUILD command (not COPY nor FROM).
+	HasDangling bool
+	// InteractiveDebuggerDebugLevelLogging controls if debug-level-logging is enabled within the interactive-debugger
 	InteractiveDebuggerDebugLevelLogging bool
 	DoPushes                             bool
 	OnlyFinalTargetImages                bool
@@ -113,10 +187,10 @@ func Earthfile2LLB(
 	}
 
 	if opt.TargetInputHashStackSet == nil {
-		opt.TargetInputHashStackSet = make(map[string]bool)
+		opt.TargetInputHashStackSet = make(map[string]struct{})
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		newMap := make(map[string]struct{}, len(opt.TargetInputHashStackSet))
 		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
@@ -205,7 +279,7 @@ func Earthfile2LLB(
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if found {
-		if opt.TargetInputHashStackSet[tiHash] {
+		if _, ok := opt.TargetInputHashStackSet[tiHash]; ok {
 			return nil, fmt.Errorf("infinite cycle detected for target %s", target.String())
 		}
 
@@ -243,7 +317,7 @@ func Earthfile2LLB(
 		}, nil
 	}
 
-	opt.TargetInputHashStackSet[tiHash] = true
+	opt.TargetInputHashStackSet[tiHash] = struct{}{}
 	opt.Log.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
 

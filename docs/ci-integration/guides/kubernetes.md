@@ -141,7 +141,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: earth
-        image: earthbuild/earthbuild:v0.8.17
+        image: earthbuild/earthbuild:v0.8.18
         args: ["github.com/EarthBuild/hello-world:main+hello"]
         securityContext:
           privileged: true
@@ -253,7 +253,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: earth
-        image: earthbuild/earthbuild:v0.8.17
+        image: earthbuild/earthbuild:v0.8.18
         args: ["github.com/EarthBuild/hello-world:main+hello"]
         volumeMounts:
           - mountPath: /workspace

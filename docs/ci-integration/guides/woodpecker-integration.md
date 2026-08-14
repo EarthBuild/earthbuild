@@ -14,7 +14,7 @@ The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-s
 #.woodpecker.yml
 pipeline:
   earth:
-    image: earthbuild/earthbuild:v0.8.17
+    image: earthbuild/earthbuild:v0.8.18
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:

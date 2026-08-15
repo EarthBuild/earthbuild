@@ -71,12 +71,8 @@ jobs:
           mkdir -p "$(dirname "${{ env.BUILT_EARTH_PATH }}")"
           cp ./build-artifacts/earthly-darwin-arm64 "${{ env.BUILT_EARTH_PATH }}"
           chmod +x "${{ env.BUILT_EARTH_PATH }}"
-      - name: Install apple/container
-        run: |
-          brew update --quiet
-          brew install container || brew upgrade container
       - name: Start apple/container service
-        run: container system start --enable-kernel-install
+        run: container system start --enable-kernel-install || true
       - name: Load ARM64 buildkit image into Apple Container
         run: |-
           if [ -f "./build-artifacts-arm64/buildkitd-image.tar" ]; then

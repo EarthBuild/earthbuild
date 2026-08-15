@@ -202,11 +202,13 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 	// to root's home isn't desirable.  One possible exception might be if
 	// those directories are on an R/O filesystem, but user can install these
 	// manually in that case.
+	cmdName := filepath.Base(os.Args[0])
+
 	if isRootUser {
 		if runtime.GOOS == "darwin" {
-			path = "/usr/local/etc/bash_completion.d/earthly"
+			path = "/usr/local/etc/bash_completion.d/" + cmdName
 		} else {
-			path = "/usr/share/bash-completion/completions/earthly"
+			path = "/usr/share/bash-completion/completions/" + cmdName
 		}
 	} else {
 		// https://github.com/scop/bash-completion/blob/master/README.md#faq
@@ -216,7 +218,7 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 			userPath = xdg.DataHome
 		}
 
-		path = filepath.Join(userPath, "bash-completion/completions/earthly")
+		path = filepath.Join(userPath, "bash-completion/completions", cmdName)
 	}
 
 	ok, err := b.insertBashCompleteEntryAt(path)
@@ -298,7 +300,8 @@ func (b *Bootstrap) insertZSHCompleteEntry() error {
 }
 
 func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
-	path := filepath.Join(dirPath, "_earthly")
+	cmdName := filepath.Base(os.Args[0])
+	path := filepath.Join(dirPath, "_"+cmdName)
 
 	pathExists, err := fileutil.FileExists(path)
 	if err != nil {
@@ -411,19 +414,22 @@ func symlinkEarthlyToEarth() error {
 }
 
 func bashCompleteEntry() (string, error) {
-	template := "complete -o nospace -C '__earthly__' earthly\n"
+	cmdName := filepath.Base(os.Args[0])
+	template := fmt.Sprintf("complete -o nospace -C '__earthly__' %s\n", cmdName)
+
 	return renderEntryTemplate(template)
 }
 
 func zshCompleteEntry() (string, error) {
-	template := `#compdef _earthly earthly
+	cmdName := filepath.Base(os.Args[0])
+	template := fmt.Sprintf(`#compdef _%s %s
 
-function _earthly {
+function _%s {
     autoload -Uz bashcompinit
     bashcompinit
-    complete -o nospace -C '__earthly__' earthly
+    complete -o nospace -C '__earthly__' %s
 }
-`
+`, cmdName, cmdName, cmdName, cmdName)
 
 	return renderEntryTemplate(template)
 }

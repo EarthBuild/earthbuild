@@ -86,7 +86,8 @@ func NewClient(
 			// errors.Is() won't work. We use strings.Contains instead to handle
 			// that case.
 			retErr = hint.Wrap(retErr,
-				fmt.Sprintf("did earth's certificates get regenerated? you may need to manually stop the %s container.", containerName))
+				fmt.Sprintf("did earth's certificates get regenerated? "+
+					"you may need to manually stop the %s container.", containerName))
 
 			return
 		}

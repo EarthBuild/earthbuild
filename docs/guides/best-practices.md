@@ -1095,7 +1095,7 @@ For example, for development purposes, you may use commands such as `LOCALLY`, w
 
 In addition, in CI it is much more likely that shared caching will be needed, while outputting artifacts and images in the CI's host environment itself would not be needed.
 
-For these reasons, Earthly comes with the `--ci` flag, which simply expands to `--no-output --use-inline-cache --save-inline-cache --strict`. The `--ci` flag therefore, prevents the use of commands that are not repeatable, enables inline caching and disables outputting artifacts and images on the CI host.
+For these reasons, Earthly comes with the `--ci` flag, which simply expands to `--no-output --strict`. The `--ci` flag therefore prevents the use of commands that are not repeatable and disables outputting artifacts and images on the CI host. It does **not** enable inline caching; to cache build layers in CI you must pass `--use-inline-cache` and/or `--save-inline-cache` explicitly (and `--save-inline-cache` only has an effect when images are actually pushed).
 
 ### Avoid `LOCALLY` and other non-strict commands
 

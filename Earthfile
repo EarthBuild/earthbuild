@@ -98,12 +98,7 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
-# lint-workflows audits the GitHub Actions workflows and composite actions with
-# zizmor (https://docs.zizmor.sh). Findings are fixed at source; the few that
-# are structurally unavoidable carry an inline `# zizmor: ignore[<audit>]` with
-# a comment saying why. Only .github is copied in -- example workflows under
-# examples/ are illustrative, are not run by this repo's CI, and include
-# deliberately schema-invalid fragments.
+# lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
     FROM ghcr.io/zizmorcore/zizmor:1.29.0
     WORKDIR /audit

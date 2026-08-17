@@ -71,7 +71,7 @@ func NewClient(
 					retErr = hint.Wrap(
 						retErr,
 						"podman now requires TLS certs by default - "+
-							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
+							fmt.Sprintf("try stopping the %s container and re-running 'earth bootstrap'", containerName),
 						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
 					)
 				}
@@ -86,7 +86,8 @@ func NewClient(
 			// errors.Is() won't work. We use strings.Contains instead to handle
 			// that case.
 			retErr = hint.Wrap(retErr,
-				"did earth's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.")
+				fmt.Sprintf("did earth's certificates get regenerated? "+
+					"you may need to manually stop the %s container.", containerName))
 
 			return
 		}

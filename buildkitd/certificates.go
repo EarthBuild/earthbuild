@@ -34,7 +34,7 @@ const (
 )
 
 // GenCerts creates and saves a CA and certificates for both sides of an mTLS TCP connection.
-func GenCerts(cfg config.Config, hostname string) error {
+func GenCerts(cfg config.Config, hostname, containerName string) error {
 	caKey, err := parseTLSKey(cfg.Global.TLSCAKey)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed reading CA key: %w", err)
@@ -80,8 +80,8 @@ func GenCerts(cfg config.Config, hostname string) error {
 				errors.New("cannot generate missing certificates"),
 				fmt.Sprintf("missing certificates: %v", missing),
 				fmt.Sprintf("found certificates: %v", found),
-				"you may want to stop earthly-buildkitd, delete your certificates, "+
-					"and run 'earthly bootstrap' to regenerate certificates",
+				fmt.Sprintf("you may want to stop %s, delete your certificates, "+
+					"and run 'earth bootstrap' to regenerate certificates", containerName),
 			)
 		}
 	}

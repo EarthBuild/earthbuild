@@ -166,7 +166,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 		}
 
 		if bkURL.Scheme == "tcp" && b.cli.Cfg().Global.TLSEnabled {
-			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName)
+			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName, b.cli.Flags().ContainerName)
 			if err != nil {
 				return fmt.Errorf("failed to generate TLS certs: %w", err)
 			}

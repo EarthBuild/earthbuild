@@ -34,6 +34,15 @@ on:
       MORE_SPACE:
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD:
+        required: false
+      DOCKERHUB_MIRROR_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 
 env:
@@ -59,6 +68,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
@@ -83,15 +93,30 @@ jobs:
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci -P ${{inputs.EXAMPLE_NAME}}
+        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_EXAMPLE_NAME}"
         if: github.event_name != 'push'
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+          INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --ci --push -P ${{inputs.EXAMPLE_NAME}}
+        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci --push -P "${INPUTS_EXAMPLE_NAME}"
         if: github.event_name == 'push'
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+          INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build and test multi-platform example
         run: |
-          ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ./examples/multiplatform+all
-          ${{inputs.SUDO}} ${{inputs.BINARY}} run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" ./examples/multiplatform+all
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}

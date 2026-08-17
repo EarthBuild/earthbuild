@@ -98,6 +98,17 @@ lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
 
+# lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
+lint-workflows:
+    FROM ghcr.io/zizmorcore/zizmor:1.29.0
+    WORKDIR /audit
+    COPY --dir .github .
+    # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
+    # to the GitHub API, which would make this target non-hermetic.
+    # --strict-collection: a workflow zizmor cannot parse is a failure, not a
+    # warning -- otherwise a typo silently drops a file from the audit.
+    RUN zizmor --no-online-audits --strict-collection .github
+
 # earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
 earthbuild-script-no-stdout:
@@ -728,6 +739,7 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
+    BUILD +lint-workflows
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations

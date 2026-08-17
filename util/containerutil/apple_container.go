@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -251,6 +252,10 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 			if asf.supportsUnmaskedPaths(ctx) {
 				args = append(args, "--read-only-path", "NONE", "--masked-path", "NONE")
 			}
+		}
+
+		if asf.supportsRosetta(ctx) {
+			args = append(args, "--rosetta")
 		}
 
 		hasCPUs := false
@@ -500,6 +505,21 @@ func (asf *appleShellFrontend) supportsUnmaskedPaths(ctx context.Context) bool {
 	}
 
 	return strings.Contains(string(out), "--read-only-path")
+}
+
+func (asf *appleShellFrontend) supportsRosetta(ctx context.Context) bool {
+	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+		return false
+	}
+
+	cmd := exec.CommandContext(ctx, asf.binaryName, "run", "--help") // #nosec G204
+
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(string(out), "--rosetta")
 }
 
 func appleBindFileDir(mnt Mount, seenDirs map[string]bool) (string, bool) {

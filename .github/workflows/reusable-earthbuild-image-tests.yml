@@ -26,6 +26,11 @@ on:
       SATELLITE_NAME:
         required: false
         type: string
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 
 env:
@@ -47,6 +52,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
@@ -62,9 +68,17 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build the earthbuild docker image
-        run: ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} +earthly-docker --TAG=image-test
+        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" +earthly-docker --TAG=image-test
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: "Run the earthbuild image tests"
-        run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
+        run: FRONTEND="${INPUTS_BINARY}" EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
+        env:
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Buildkit logs (runs on failure)
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}

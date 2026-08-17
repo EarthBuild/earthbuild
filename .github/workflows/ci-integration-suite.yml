@@ -14,6 +14,15 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD:
+        required: false
+      DOCKERHUB_MIRROR_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -25,104 +34,162 @@ env:
 jobs:
   test-local:
     name: Test Local
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-test-local.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
-      BINARY_COMPOSE: "\"docker compose\""
+      BINARY_COMPOSE: "docker compose"
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   push-integrations:
     name: Push Integrations
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   bootstrap-integrations:
     name: Bootstrap Integrations
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   repo-auth-tests:
     name: Repo Auth Tests
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   export-test:
     name: Export Test
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-export-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   docker-build-integrations:
     name: Docker Build Integrations
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   earthbuild-image-test:
     name: EarthBuild Image Test
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   misc-test-1:
     name: Misc Test 1
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   misc-test-2:
     name: Misc Test 2
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   wait-block-main:
     name: Wait Block Main
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   wait-block-targets:
     name: ${{ matrix.name }}
@@ -144,6 +211,9 @@ jobs:
             name: "Wait Block (Slow)"
           - target: "+test-qemu"
             name: "Wait Block (QEMU)"
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -151,17 +221,28 @@ jobs:
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
       TARGET_NAME: ${{ matrix.target }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   git-metadata-test:
     name: Git Metadata Test
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       RUNS_ON: "ubuntu-24.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   race-tests:
     name: ${{ matrix.name }}
@@ -181,6 +262,9 @@ jobs:
             name: "Race Tests (Group 4)"
           - target: "+test-no-qemu-slow"
             name: "Race Tests (Slow)"
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-race-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
@@ -189,4 +273,6 @@ jobs:
       USE_QEMU: false
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

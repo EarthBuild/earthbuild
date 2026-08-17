@@ -37,7 +37,6 @@ jobs:
       contents: read
       packages: write
     env:
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
     steps:

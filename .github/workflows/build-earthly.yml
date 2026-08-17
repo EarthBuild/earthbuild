@@ -47,7 +47,6 @@ jobs:
       contents: read
       packages: write
     env:
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       # Use fixed buildkitd image with Docker 29+ ulimit fix until next release
       EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
     steps:

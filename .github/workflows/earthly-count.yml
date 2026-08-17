@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Count occurrences in PR branch
         id: count_pr
@@ -60,8 +61,8 @@ jobs:
       - name: Calculate difference
         id: calculate
         run: |
-          pr_count=${{ steps.count_pr.outputs.total_count }}
-          main_count=${{ steps.count_main.outputs.main_total_count }}
+          pr_count=$PR_TOTAL
+          main_count=$MAIN_TOTAL
           difference=$((main_count - pr_count))
 
           # Calculate percentage with proper formatting
@@ -78,28 +79,45 @@ jobs:
           echo "main_count=$main_count" >> $GITHUB_OUTPUT
 
           # Calculate differences by type
-          go_diff=$((${{ steps.count_main.outputs.main_go_count }} - ${{ steps.count_pr.outputs.go_count }}))
-          md_diff=$((${{ steps.count_main.outputs.main_md_count }} - ${{ steps.count_pr.outputs.md_count }}))
-          earthfile_diff=$((${{ steps.count_main.outputs.main_earthfile_count }} - ${{ steps.count_pr.outputs.earthfile_count }}))
+          go_diff=$((MAIN_GO - PR_GO))
+          md_diff=$((MAIN_MD - PR_MD))
+          earthfile_diff=$((MAIN_EARTHFILE - PR_EARTHFILE))
 
           echo "go_diff=$go_diff" >> $GITHUB_OUTPUT
           echo "md_diff=$md_diff" >> $GITHUB_OUTPUT
           echo "earthfile_diff=$earthfile_diff" >> $GITHUB_OUTPUT
+        env:
+          PR_TOTAL: ${{ steps.count_pr.outputs.total_count }}
+          PR_GO: ${{ steps.count_pr.outputs.go_count }}
+          PR_MD: ${{ steps.count_pr.outputs.md_count }}
+          PR_EARTHFILE: ${{ steps.count_pr.outputs.earthfile_count }}
+          MAIN_TOTAL: ${{ steps.count_main.outputs.main_total_count }}
+          MAIN_GO: ${{ steps.count_main.outputs.main_go_count }}
+          MAIN_MD: ${{ steps.count_main.outputs.main_md_count }}
+          MAIN_EARTHFILE: ${{ steps.count_main.outputs.main_earthfile_count }}
 
       - name: Comment on PR
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9
+        env:
+          PR_COUNT: ${{ steps.calculate.outputs.pr_count }}
+          MAIN_COUNT: ${{ steps.calculate.outputs.main_count }}
+          DIFFERENCE: ${{ steps.calculate.outputs.difference }}
+          PERCENTAGE: ${{ steps.calculate.outputs.percentage }}
+          GO_DIFF: ${{ steps.calculate.outputs.go_diff }}
+          MD_DIFF: ${{ steps.calculate.outputs.md_diff }}
+          EARTHFILE_DIFF: ${{ steps.calculate.outputs.earthfile_diff }}
         with:
           script: |
-            const prCount = ${{ steps.calculate.outputs.pr_count }};
-            const mainCount = ${{ steps.calculate.outputs.main_count }};
-            const difference = ${{ steps.calculate.outputs.difference }};
-            const percentage = '${{ steps.calculate.outputs.percentage }}';
+            const prCount = Number(process.env.PR_COUNT);
+            const mainCount = Number(process.env.MAIN_COUNT);
+            const difference = Number(process.env.DIFFERENCE);
+            const percentage = process.env.PERCENTAGE;
 
             // File type differences
-            const goDiff = ${{ steps.calculate.outputs.go_diff }};
-            const mdDiff = ${{ steps.calculate.outputs.md_diff }};
-            const earthfileDiff = ${{ steps.calculate.outputs.earthfile_diff }};
+            const goDiff = Number(process.env.GO_DIFF);
+            const mdDiff = Number(process.env.MD_DIFF);
+            const earthfileDiff = Number(process.env.EARTHFILE_DIFF);
 
             let emoji = '📊';
             let message = '';
@@ -152,7 +170,7 @@ jobs:
             \`\`\`
 
             **Note that the goal is not to reach 0.**
-            There is anticipated to be at least _some_ occurences of \`earthly\` in the source code due to backwards compatibility with config files and language constructs.
+            There is anticipated to be at least _some_ occurrences of \`earthly\` in the source code due to backwards compatibility with config files and language constructs.
             </details>`;
 
             // Find existing comment

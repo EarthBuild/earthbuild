@@ -898,7 +898,7 @@ escape-dir-test:
     DO +RUN_EARTH --earthfile=escape-dir1.earth --extra_args="--no-output" --target=+test
 
 eine-test-base:
-    FROM docker:29.7.1-dind
+    FROM docker:29.7.2-dind
     RUN apk --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test

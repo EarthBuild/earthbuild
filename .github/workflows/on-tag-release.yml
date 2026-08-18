@@ -70,8 +70,8 @@ jobs:
                   RELEASE_TAG: ${{ github.event.release.tag_name }}
               # TODO: set usernames for docker
               run: |
-                  earth --ci --push --secret CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN} \
-                      --secret DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN} \
+                  earth --ci --push --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
+                      --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
                       ./release+promote-to-dockerhub \
                       --RELEASE_TAG="${RELEASE_TAG}" \
                       --CONTAINER_REGISTRY_USER="${GHCR_USERNAME}" \

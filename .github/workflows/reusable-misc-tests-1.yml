@@ -93,8 +93,17 @@ jobs:
       - name: Execute docker2earth test
         run: "./tests/docker2earth/test.sh"
       - name: Execute remote-cache test
-        run: frontend="${INPUTS_BINARY}" ./tests/remote-cache/test.sh
+        # Up to 3 attempts: this specific test spawns a docker registry
+        # container + multiple earthly invocations over ~90s, which is
+        # memory-heavy on a 16 GiB runner and we've consistently seen
+        # back-to-back Canceled flakes even with the standard 2-attempt
+        # retry applied to other steps. Third attempt gets us over the
+        # line without masking a genuine repeated failure.
+        run: |
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
+            -- frontend="$INPUTS_BINARY" ./tests/remote-cache/test.sh
         env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute registry-certs test
         run: frontend="${INPUTS_BINARY}" ./tests/registry-certs/test.sh
@@ -102,9 +111,9 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute try-catch test
         run: GITHUB_ACTIONS="" ./tests/try-catch/test.sh
-      - name: Buildkit logs (runs on failure)
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
-          INPUTS_BINARY: ${{inputs.BINARY}}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

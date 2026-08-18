@@ -18,7 +18,7 @@ func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (c *cli
 
 	c, err = buildkitd.NewClient(
 		ctx, cli.Console(), cli.Flags().BuildkitdImage, cli.Flags().ContainerName, cli.Flags().InstallationName,
-		cli.Flags().ContainerClient, cli.Version(), cli.Flags().BuildkitdSettings,
+		cli.Flags().Engine, cli.Version(), cli.Flags().BuildkitdSettings,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not construct new buildkit client: %w", err)

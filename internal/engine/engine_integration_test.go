@@ -1,6 +1,6 @@
 //go:build integration
 
-package container_test
+package engine_test
 
 import (
 	"bufio"
@@ -16,16 +16,16 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/internal/container"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	. "github.com/stretchr/testify/assert"
 )
 
-func newDocker(ctx context.Context, cfg *container.Config) (*container.Client, error) {
-	return container.New(ctx, container.DriverDockerShell, cfg)
+func newDocker(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
+	return engine.New(ctx, engine.DockerShell, cfg)
 }
 
-func newPodman(ctx context.Context, cfg *container.Config) (*container.Client, error) {
-	return container.New(ctx, container.DriverPodmanShell, cfg)
+func newPodman(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
+	return engine.New(ctx, engine.PodmanShell, cfg)
 }
 
 func TestEngineNew(t *testing.T) {
@@ -33,7 +33,7 @@ func TestEngineNew(t *testing.T) {
 
 	//nolint:goconst
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -46,7 +46,7 @@ func TestEngineNew(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 			NotNil(t, eng)
 		})
@@ -58,11 +58,11 @@ func TestEngineScheme(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
-		scheme  container.Scheme
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
+		scheme  engine.Scheme
 	}{
-		{"docker", newDocker, container.SchemeDockerContainer},
-		{"podman", newPodman, container.SchemePodmanContainer},
+		{"docker", newDocker, engine.SchemeDocker},
+		{"podman", newPodman, engine.SchemePodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -71,7 +71,7 @@ func TestEngineScheme(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
 			scheme := eng.Metadata().Scheme
@@ -84,7 +84,7 @@ func TestEngineIsAvailable(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -97,7 +97,7 @@ func TestEngineIsAvailable(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
 			available := eng.IsAvailable(ctx)
@@ -110,7 +110,7 @@ func TestEngineVersion(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -123,7 +123,7 @@ func TestEngineVersion(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.Version(ctx)
@@ -137,7 +137,7 @@ func TestEngineContainerInfo(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -157,11 +157,11 @@ func TestEngineContainerInfo(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
-			info, err := eng.ContainerInfo(ctx, getInfos...)
+			info, err := eng.InspectContainer(ctx, getInfos...)
 			NoError(t, err)
 			NotNil(t, info)
 
@@ -174,7 +174,7 @@ func TestEngineContainerInfo(t *testing.T) {
 			Equal(t, "docker.io/library/nginx:1.21", info[getInfos[1]].Image)
 
 			Equal(t, getInfos[2], info[getInfos[2]].Name)
-			Equal(t, container.StatusMissing, info[getInfos[2]].Status)
+			Equal(t, engine.StatusMissing, info[getInfos[2]].Status)
 		})
 	}
 }
@@ -183,7 +183,7 @@ func TestEngineContainerRemove(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -201,20 +201,20 @@ func TestEngineContainerRemove(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.ContainerInfo(ctx, testContainers...)
+			info, err := eng.InspectContainer(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 
-			err = eng.ContainerRemove(ctx, true, testContainers...)
+			err = eng.RemoveContainer(ctx, true, testContainers...)
 			NoError(t, err)
 
-			info, err = eng.ContainerInfo(ctx, testContainers...)
+			info, err = eng.InspectContainer(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, container.StatusMissing, info[testContainers[0]].Status)
-			Equal(t, container.StatusMissing, info[testContainers[1]].Status)
+			Equal(t, engine.StatusMissing, info[testContainers[0]].Status)
+			Equal(t, engine.StatusMissing, info[testContainers[1]].Status)
 		})
 	}
 }
@@ -223,7 +223,7 @@ func TestEngineContainerStop(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -241,28 +241,28 @@ func TestEngineContainerStop(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.ContainerInfo(ctx, testContainers...)
+			info, err := eng.InspectContainer(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 
-			err = eng.ContainerStop(ctx, 0, testContainers...)
+			err = eng.StopContainer(ctx, 0, testContainers...)
 			NoError(t, err)
 
-			_, err = eng.ContainerInfo(ctx, testContainers...)
+			_, err = eng.InspectContainer(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 		})
 	}
 }
 
-func TestEngineContainerLogs(t *testing.T) {
+func TestEngineLogs(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -280,10 +280,10 @@ func TestEngineContainerLogs(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			logs, err := eng.ContainerLogs(ctx, testContainers...)
+			logs, err := eng.Logs(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, logs, 2)
 
@@ -300,7 +300,7 @@ func TestEngineContainerRun(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		binary  string
 	}{
 		{binary: "docker", newFunc: newDocker},
@@ -313,14 +313,14 @@ func TestEngineContainerRun(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
 
-			runs := make([]container.RunConfig, 0, len(testContainers))
+			specs := make([]engine.ContainerSpec, 0, len(testContainers))
 			for _, name := range testContainers {
-				runs = append(runs, container.RunConfig{
+				specs = append(specs, engine.ContainerSpec{
 					NameOrID:       name,
 					ImageRef:       "docker.io/nginx:1.21",
 					Privileged:     false,
@@ -328,20 +328,20 @@ func TestEngineContainerRun(t *testing.T) {
 					Labels:         map[string]string{"test": name},
 					ContainerArgs:  []string{"nginx-debug", "-g", "daemon off;"},
 					AdditionalArgs: []string{"--rm"},
-					Mounts: []container.Mount{
+					Mounts: []engine.Mount{
 						{
-							Type:     container.MountVolume,
+							Type:     engine.MountVolume,
 							Source:   "vol-" + name,
 							Dest:     "/test",
 							ReadOnly: true,
 						},
 					},
-					Ports: []container.Port{
+					Ports: []engine.Port{
 						{
 							IP:            "127.0.0.1",
 							HostPort:      0,
 							ContainerPort: 5678,
-							Protocol:      container.ProtocolTCP,
+							Protocol:      engine.ProtocolTCP,
 						},
 					},
 				})
@@ -359,18 +359,18 @@ func TestEngineContainerRun(t *testing.T) {
 				}
 			}()
 
-			info, err := eng.ContainerInfo(ctx, testContainers...)
+			info, err := eng.InspectContainer(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, container.StatusMissing, info[testContainers[0]].Status)
-			Equal(t, container.StatusMissing, info[testContainers[1]].Status)
+			Equal(t, engine.StatusMissing, info[testContainers[0]].Status)
+			Equal(t, engine.StatusMissing, info[testContainers[1]].Status)
 
-			err = eng.ContainerRun(ctx, runs...)
+			err = eng.RunContainer(ctx, specs...)
 			NoError(t, err)
 
-			info, err = eng.ContainerInfo(ctx, testContainers...)
+			info, err = eng.InspectContainer(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, container.StatusRunning, info[testContainers[0]].Status)
-			Equal(t, container.StatusRunning, info[testContainers[1]].Status)
+			Equal(t, engine.StatusRunning, info[testContainers[0]].Status)
+			Equal(t, engine.StatusRunning, info[testContainers[1]].Status)
 		})
 	}
 }
@@ -380,7 +380,7 @@ func TestEngineImagePull(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		refList []string
 	}{
 		{"docker", newDocker, []string{"nginx:1.21", "alpine:3.18"}},
@@ -395,13 +395,13 @@ func TestEngineImagePull(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			// podman pull needs some potentially valid address to check against, otherwise panic
-			eng, err := tC.newFunc(ctx, &container.Config{
+			eng, err := tC.newFunc(ctx, &engine.Config{
 				LocalRegistryHostFileValue: "tcp://some-host:5309",
 				Console:                    testLogger(),
 			})
 			NoError(t, err)
 
-			err = eng.ImagePull(ctx, tC.refList...)
+			err = eng.PullImage(ctx, tC.refList...)
 			NoError(t, err)
 
 			defer func() {
@@ -419,7 +419,7 @@ func TestEngineImageInfo(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		refList []string
 	}{
 		{"docker", newDocker, []string{"info:1", "info:2"}},
@@ -436,10 +436,10 @@ func TestEngineImageInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.ImageInfo(ctx, tC.refList...)
+			info, err := eng.InspectImage(ctx, tC.refList...)
 			NoError(t, err)
 
 			Len(t, info, 2)
@@ -455,7 +455,7 @@ func TestEngineImageRemove(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 	}{
 		{binary: "docker", newFunc: newDocker},
 		{binary: "podman", newFunc: newPodman},
@@ -472,17 +472,17 @@ func TestEngineImageRemove(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.ImageInfo(ctx, refList...)
+			info, err := eng.InspectImage(ctx, refList...)
 			NoError(t, err)
 			Len(t, info, 2)
 
-			err = eng.ImageRemove(ctx, true, refList...)
+			err = eng.RemoveImage(ctx, true, refList...)
 			NoError(t, err)
 
-			info, err = eng.ImageInfo(ctx, refList...)
+			info, err = eng.InspectImage(ctx, refList...)
 			NoError(t, err)
 			Empty(t, info)
 		})
@@ -494,7 +494,7 @@ func TestEngineImageTag(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		tagList []string
 	}{
 		{"docker", newDocker, []string{"tag:1", "tag:2"}},
@@ -512,26 +512,26 @@ func TestEngineImageTag(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.ImageInfo(ctx, ref)
+			info, err := eng.InspectImage(ctx, ref)
 			NoError(t, err)
 
 			imageID := info[ref].ID
 
-			tags := make([]container.Tag, 0, len(tC.tagList))
+			tags := make([]engine.Tag, 0, len(tC.tagList))
 			for _, tagName := range tC.tagList {
-				tags = append(tags, container.Tag{
+				tags = append(tags, engine.Tag{
 					SourceRef: imageID,
 					TargetRef: tagName,
 				})
 			}
 
-			err = eng.ImageTag(ctx, tags...)
+			err = eng.TagImage(ctx, tags...)
 			NoError(t, err)
 
-			info, err = eng.ImageInfo(ctx, tC.tagList...)
+			info, err = eng.InspectImage(ctx, tC.tagList...)
 			NoError(t, err)
 
 			Contains(t, info[tC.tagList[0]].Tags, tC.tagList[0])
@@ -545,7 +545,7 @@ func TestEngineImageLoad(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		ref     string
 	}{
 		{"docker", newDocker, "load:me"},
@@ -569,10 +569,10 @@ func TestEngineImageLoad(t *testing.T) {
 
 			cleanup()
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			err = eng.ImageLoad(ctx, bufio.NewReader(imgBuffer))
+			err = eng.LoadImage(ctx, bufio.NewReader(imgBuffer))
 			NoError(t, err)
 
 			defer func() {
@@ -580,7 +580,7 @@ func TestEngineImageLoad(t *testing.T) {
 				_ = cmd.Run()
 			}()
 
-			info, err := eng.ImageInfo(ctx, tC.ref)
+			info, err := eng.InspectImage(ctx, tC.ref)
 			NoError(t, err)
 			Contains(t, info[tC.ref].Tags, tC.ref)
 		})
@@ -592,7 +592,7 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 		ref     string
 	}{
 		{"docker", newDocker, "hybrid:test"},
@@ -605,7 +605,7 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
 			data, err := os.ReadFile("./testdata/hybrid.tar")
@@ -613,7 +613,7 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 
 			reader := bytes.NewReader(data)
 
-			err = eng.ImageLoad(ctx, reader)
+			err = eng.LoadImage(ctx, reader)
 			NoError(t, err)
 
 			defer func() {
@@ -621,7 +621,7 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 				_ = cmd.Run()
 			}()
 
-			info, err := eng.ImageInfo(ctx, tC.ref)
+			info, err := eng.InspectImage(ctx, tC.ref)
 			NoError(t, err)
 			Contains(t, info[tC.ref].Tags, tC.ref)
 		})
@@ -633,7 +633,7 @@ func TestEngineVolumeInfo(t *testing.T) {
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 	}{
 		{binary: "docker", newFunc: newDocker},
 		{binary: "podman", newFunc: newPodman},
@@ -650,10 +650,10 @@ func TestEngineVolumeInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.VolumeInfo(ctx, volList...)
+			info, err := eng.InspectVolume(ctx, volList...)
 			NoError(t, err)
 			Len(t, info, 2)
 		})

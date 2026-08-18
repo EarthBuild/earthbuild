@@ -1,4 +1,4 @@
-package container
+package engine
 
 import (
 	"context"
@@ -21,7 +21,7 @@ func newStubEngine(cfg *Config) (engineDriver, error) {
 
 	var err error
 
-	e.Endpoints, err = e.ResolveEndpoints(DriverStub, cfg)
+	e.Endpoints, err = e.ResolveEndpoints(Stub, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
@@ -37,11 +37,6 @@ func NewStub(cfg *Config) (*Client, error) {
 	}
 
 	return &Client{driver: drv}, nil
-}
-
-// NewFake is an alias for NewStub for backwards compatibility.
-func NewFake(cfg *Config) (*Client, error) {
-	return NewStub(cfg)
 }
 
 type mockDriver struct {
@@ -85,53 +80,53 @@ func (*stubEngine) Version(context.Context) (Version, error) {
 	return Version{}, nil
 }
 
-// ContainerList returns ErrNotInitialized.
-func (*stubEngine) ContainerList(context.Context) ([]Container, error) {
+// ListContainers returns ErrNotInitialized.
+func (*stubEngine) ListContainers(context.Context) ([]Container, error) {
 	return nil, ErrNotInitialized
 }
 
-// ContainerInfo returns ErrNotInitialized.
-func (*stubEngine) ContainerInfo(context.Context, ...string) (map[string]Container, error) {
+// InspectContainer returns ErrNotInitialized.
+func (*stubEngine) InspectContainer(context.Context, ...string) (map[string]Container, error) {
 	return nil, ErrNotInitialized
 }
 
-// ContainerRemove returns ErrNotInitialized.
-func (*stubEngine) ContainerRemove(context.Context, bool, ...string) error {
+// RemoveContainer returns ErrNotInitialized.
+func (*stubEngine) RemoveContainer(context.Context, bool, ...string) error {
 	return ErrNotInitialized
 }
 
-// ContainerStop returns ErrNotInitialized.
-func (*stubEngine) ContainerStop(context.Context, time.Duration, ...string) error {
+// StopContainer returns ErrNotInitialized.
+func (*stubEngine) StopContainer(context.Context, time.Duration, ...string) error {
 	return ErrNotInitialized
 }
 
-// ContainerLogs returns ErrNotInitialized.
-func (*stubEngine) ContainerLogs(context.Context, ...string) (map[string]Logs, error) {
+// Logs returns ErrNotInitialized.
+func (*stubEngine) Logs(context.Context, ...string) (map[string]Logs, error) {
 	return nil, ErrNotInitialized
 }
 
-// ContainerRun returns ErrNotInitialized.
-func (*stubEngine) ContainerRun(context.Context, ...RunConfig) error {
+// RunContainer returns ErrNotInitialized.
+func (*stubEngine) RunContainer(context.Context, ...ContainerSpec) error {
 	return ErrNotInitialized
 }
 
-// ImageInfo returns ErrNotInitialized.
-func (*stubEngine) ImageInfo(context.Context, ...string) (map[string]Image, error) {
+// InspectImage returns ErrNotInitialized.
+func (*stubEngine) InspectImage(context.Context, ...string) (map[string]Image, error) {
 	return nil, ErrNotInitialized
 }
 
-// ImagePull returns ErrNotInitialized.
-func (*stubEngine) ImagePull(context.Context, ...string) error {
+// PullImage returns ErrNotInitialized.
+func (*stubEngine) PullImage(context.Context, ...string) error {
 	return ErrNotInitialized
 }
 
-// ImageRemove returns ErrNotInitialized.
-func (*stubEngine) ImageRemove(context.Context, bool, ...string) error {
+// RemoveImage returns ErrNotInitialized.
+func (*stubEngine) RemoveImage(context.Context, bool, ...string) error {
 	return ErrNotInitialized
 }
 
-// ImageTag returns ErrNotInitialized.
-func (*stubEngine) ImageTag(context.Context, ...Tag) error {
+// TagImage returns ErrNotInitialized.
+func (*stubEngine) TagImage(context.Context, ...Tag) error {
 	return ErrNotInitialized
 }
 
@@ -140,12 +135,12 @@ func (*stubEngine) ImageLoadCommand(string) string {
 	return ""
 }
 
-// ImageLoad returns ErrNotInitialized.
-func (*stubEngine) ImageLoad(context.Context, ...io.Reader) error {
+// LoadImage returns ErrNotInitialized.
+func (*stubEngine) LoadImage(context.Context, ...io.Reader) error {
 	return ErrNotInitialized
 }
 
-// VolumeInfo returns ErrNotInitialized.
-func (*stubEngine) VolumeInfo(context.Context, ...string) (map[string]Volume, error) {
+// InspectVolume returns ErrNotInitialized.
+func (*stubEngine) InspectVolume(context.Context, ...string) (map[string]Volume, error) {
 	return nil, ErrNotInitialized
 }

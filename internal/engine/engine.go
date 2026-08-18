@@ -1,5 +1,5 @@
-// Package container provides container engine abstractions and implementations.
-package container
+// Package engine provides container engine abstractions and implementations.
+package engine
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -27,21 +28,21 @@ type engineDriver interface {
 	Metadata() Metadata
 	Version(ctx context.Context) (Version, error)
 
-	ContainerList(ctx context.Context) ([]Container, error)
-	ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]Container, error)
-	ContainerRemove(ctx context.Context, force bool, namesOrIDs ...string) error
-	ContainerStop(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error
-	ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error)
-	ContainerRun(ctx context.Context, containers ...RunConfig) error
+	ListContainers(ctx context.Context) ([]Container, error)
+	InspectContainer(ctx context.Context, namesOrIDs ...string) (map[string]Container, error)
+	RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error
+	StopContainer(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error
+	Logs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error)
+	RunContainer(ctx context.Context, specs ...ContainerSpec) error
 
-	ImageInfo(ctx context.Context, refs ...string) (map[string]Image, error)
-	ImagePull(ctx context.Context, refs ...string) error
-	ImageRemove(ctx context.Context, force bool, refs ...string) error
-	ImageTag(ctx context.Context, tags ...Tag) error
-	ImageLoad(ctx context.Context, images ...io.Reader) error
+	InspectImage(ctx context.Context, refs ...string) (map[string]Image, error)
+	PullImage(ctx context.Context, refs ...string) error
+	RemoveImage(ctx context.Context, force bool, refs ...string) error
+	TagImage(ctx context.Context, tags ...Tag) error
+	LoadImage(ctx context.Context, images ...io.Reader) error
 	ImageLoadCommand(filename string) string
 
-	VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]Volume, error)
+	InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error)
 }
 
 // Client is the concrete struct used for interacting with the container engine.
@@ -58,59 +59,59 @@ func (c *Client) Metadata() Metadata { return c.driver.Metadata() }
 // Version returns version information for the container engine.
 func (c *Client) Version(ctx context.Context) (Version, error) { return c.driver.Version(ctx) }
 
-// ContainerList lists running or existing containers.
-func (c *Client) ContainerList(ctx context.Context) ([]Container, error) {
-	return c.driver.ContainerList(ctx)
+// ListContainers lists running or existing containers.
+func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
+	return c.driver.ListContainers(ctx)
 }
 
-// ContainerInfo returns information about specific containers.
-func (c *Client) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]Container, error) {
-	return c.driver.ContainerInfo(ctx, namesOrIDs...)
+// InspectContainer returns information about specific containers.
+func (c *Client) InspectContainer(ctx context.Context, namesOrIDs ...string) (map[string]Container, error) {
+	return c.driver.InspectContainer(ctx, namesOrIDs...)
 }
 
-// ContainerRemove removes one or more containers.
-func (c *Client) ContainerRemove(ctx context.Context, force bool, namesOrIDs ...string) error {
-	return c.driver.ContainerRemove(ctx, force, namesOrIDs...)
+// RemoveContainer removes one or more containers.
+func (c *Client) RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error {
+	return c.driver.RemoveContainer(ctx, force, namesOrIDs...)
 }
 
-// ContainerStop stops one or more running containers.
-func (c *Client) ContainerStop(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error {
-	return c.driver.ContainerStop(ctx, timeout, namesOrIDs...)
+// StopContainer stops one or more running containers.
+func (c *Client) StopContainer(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error {
+	return c.driver.StopContainer(ctx, timeout, namesOrIDs...)
 }
 
-// ContainerLogs returns logs for specified containers.
-func (c *Client) ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error) {
-	return c.driver.ContainerLogs(ctx, namesOrIDs...)
+// Logs returns logs for specified containers.
+func (c *Client) Logs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error) {
+	return c.driver.Logs(ctx, namesOrIDs...)
 }
 
-// ContainerRun starts containers according to the given configurations.
-func (c *Client) ContainerRun(ctx context.Context, containers ...RunConfig) error {
-	return c.driver.ContainerRun(ctx, containers...)
+// RunContainer starts containers according to the given configurations.
+func (c *Client) RunContainer(ctx context.Context, specs ...ContainerSpec) error {
+	return c.driver.RunContainer(ctx, specs...)
 }
 
-// ImageInfo retrieves image metadata for the given references.
-func (c *Client) ImageInfo(ctx context.Context, refs ...string) (map[string]Image, error) {
-	return c.driver.ImageInfo(ctx, refs...)
+// InspectImage retrieves image metadata for the given references.
+func (c *Client) InspectImage(ctx context.Context, refs ...string) (map[string]Image, error) {
+	return c.driver.InspectImage(ctx, refs...)
 }
 
-// ImagePull pulls images from a registry.
-func (c *Client) ImagePull(ctx context.Context, refs ...string) error {
-	return c.driver.ImagePull(ctx, refs...)
+// PullImage pulls images from a registry.
+func (c *Client) PullImage(ctx context.Context, refs ...string) error {
+	return c.driver.PullImage(ctx, refs...)
 }
 
-// ImageRemove removes images.
-func (c *Client) ImageRemove(ctx context.Context, force bool, refs ...string) error {
-	return c.driver.ImageRemove(ctx, force, refs...)
+// RemoveImage removes images.
+func (c *Client) RemoveImage(ctx context.Context, force bool, refs ...string) error {
+	return c.driver.RemoveImage(ctx, force, refs...)
 }
 
-// ImageTag tags an image with target references.
-func (c *Client) ImageTag(ctx context.Context, tags ...Tag) error {
-	return c.driver.ImageTag(ctx, tags...)
+// TagImage tags an image with target references.
+func (c *Client) TagImage(ctx context.Context, tags ...Tag) error {
+	return c.driver.TagImage(ctx, tags...)
 }
 
-// ImageLoad loads images from tar streams into the container engine.
-func (c *Client) ImageLoad(ctx context.Context, images ...io.Reader) error {
-	return c.driver.ImageLoad(ctx, images...)
+// LoadImage loads images from tar streams into the container engine.
+func (c *Client) LoadImage(ctx context.Context, images ...io.Reader) error {
+	return c.driver.LoadImage(ctx, images...)
 }
 
 // ImageLoadCommand returns the shell command used to load an image archive.
@@ -118,9 +119,9 @@ func (c *Client) ImageLoadCommand(filename string) string {
 	return c.driver.ImageLoadCommand(filename)
 }
 
-// VolumeInfo retrieves metadata for specified volume names.
-func (c *Client) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
-	return c.driver.VolumeInfo(ctx, volumeNames...)
+// InspectVolume retrieves metadata for specified volume names.
+func (c *Client) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
+	return c.driver.InspectVolume(ctx, volumeNames...)
 }
 
 // Config is the configuration needed to bring up a given container engine. Includes logging and needed information to
@@ -255,8 +256,8 @@ type Port struct {
 	ContainerPort int
 }
 
-// RunConfig contains the information needed to create and run a container.
-type RunConfig struct {
+// ContainerSpec contains the information needed to create and run a container.
+type ContainerSpec struct {
 	Envs          map[string]string
 	Labels        map[string]string
 	NameOrID      string
@@ -276,29 +277,26 @@ type RunConfig struct {
 type Driver string
 
 const (
-	// DriverAuto specifies automatic engine detection.
-	DriverAuto Driver = "auto"
+	// Auto specifies automatic engine detection.
+	Auto Driver = "auto"
 
-	// DriverDocker specifies the docker driver.
-	DriverDocker Driver = "docker"
+	// Docker specifies the docker driver.
+	Docker Driver = "docker"
 
-	// DriverDockerShell is an alias for DriverDocker for backwards compatibility.
-	DriverDockerShell Driver = "docker-shell"
+	// DockerShell is an alias for Docker for backwards compatibility.
+	DockerShell Driver = "docker-shell"
 
-	// DriverPodman specifies the podman driver.
-	DriverPodman Driver = "podman"
+	// Podman specifies the podman driver.
+	Podman Driver = "podman"
 
-	// DriverPodmanShell is an alias for DriverPodman for backwards compatibility.
-	DriverPodmanShell Driver = "podman-shell"
+	// PodmanShell is an alias for Podman for backwards compatibility.
+	PodmanShell Driver = "podman-shell"
 
-	// DriverAppleContainer specifies the apple container driver.
-	DriverAppleContainer Driver = "apple-container"
+	// AppleContainer specifies the apple container driver.
+	AppleContainer Driver = "apple-container"
 
-	// DriverAppleContainerShell is an alias for DriverAppleContainer for backwards compatibility.
-	DriverAppleContainerShell Driver = "apple-container-shell"
-
-	// DriverStub is for when there is no valid container provider (e.g. tests or satellite builds).
-	DriverStub Driver = "stub"
+	// Stub is for when there is no valid container provider (e.g. tests or satellite builds).
+	Stub Driver = "stub"
 )
 
 // Metadata contains information describing an engine implementation.
@@ -312,7 +310,7 @@ type Metadata struct {
 	// Binary is the executable name used for CLI operations (e.g. "docker", "podman", "container").
 	Binary string
 
-	// Scheme is the connection protocol scheme used by the engine (e.g. SchemeDockerContainer).
+	// Scheme is the connection protocol scheme used by the engine (e.g. SchemeDocker).
 	Scheme Scheme
 
 	// Transport is the communication mechanism used by the engine.
@@ -355,14 +353,14 @@ const (
 	// SchemeTCP is the TCP protocol scheme.
 	SchemeTCP
 
-	// SchemeDockerContainer is the scheme used for docker-container addresses.
-	SchemeDockerContainer
+	// SchemeDocker is the scheme used for docker-container addresses.
+	SchemeDocker
 
-	// SchemePodmanContainer is the scheme used for podman-container addresses.
-	SchemePodmanContainer
+	// SchemePodman is the scheme used for podman-container addresses.
+	SchemePodman
 
-	// SchemeAppleContainer is the scheme used for apple-container addresses.
-	SchemeAppleContainer
+	// SchemeApple is the scheme used for apple-container addresses.
+	SchemeApple
 )
 
 // String implements fmt.Stringer for URI construction and formatting.
@@ -372,11 +370,11 @@ func (s Scheme) String() string {
 		return "invalid"
 	case SchemeTCP:
 		return "tcp"
-	case SchemeDockerContainer:
+	case SchemeDocker:
 		return "docker-container"
-	case SchemePodmanContainer:
+	case SchemePodman:
 		return "podman-container"
-	case SchemeAppleContainer:
+	case SchemeApple:
 		return "apple-container"
 	default:
 		return "invalid"
@@ -389,11 +387,11 @@ func ParseScheme(s string) (Scheme, error) {
 	case "tcp":
 		return SchemeTCP, nil
 	case "docker-container":
-		return SchemeDockerContainer, nil
+		return SchemeDocker, nil
 	case "podman-container":
-		return SchemePodmanContainer, nil
+		return SchemePodman, nil
 	case "apple-container":
-		return SchemeAppleContainer, nil
+		return SchemeApple, nil
 	default:
 		return SchemeInvalid, fmt.Errorf(
 			"%s is not a valid scheme. "+
@@ -418,6 +416,115 @@ type Endpoints struct {
 	LocalRegistryHost *url.URL
 }
 
+// ResolveEndpoints calculates and validates buildkit and registry URLs based on the given configuration.
+func ResolveEndpoints(driver Driver, cfg *Config) (Endpoints, error) {
+	calculatedBuildkitHost := cfg.BuildkitHostCLIValue
+	if cfg.BuildkitHostCLIValue == "" {
+		if cfg.BuildkitHostFileValue != "" {
+			calculatedBuildkitHost = cfg.BuildkitHostFileValue
+		} else {
+			var err error
+
+			calculatedBuildkitHost, err = DefaultAddress(driver, cfg.LocalContainerName, cfg.DefaultPort)
+			if err != nil {
+				return Endpoints{}, fmt.Errorf("could not validate default address: %w", err)
+			}
+		}
+	}
+
+	bkURL, err := ParseURL(calculatedBuildkitHost)
+	if err != nil {
+		return Endpoints{}, err
+	}
+
+	lrURL := &url.URL{}
+	if IsLocal(calculatedBuildkitHost) && cfg.LocalRegistryHostFileValue != "" {
+		// Local registry only matters when local, and specified.
+		lrURL, err = ParseURL(cfg.LocalRegistryHostFileValue)
+		if err != nil {
+			return Endpoints{}, err
+		}
+
+		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
+			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
+			cfg.Console.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
+		}
+	} else if cfg.LocalRegistryHostFileValue != "" {
+		cfg.Console.
+			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
+	}
+
+	return Endpoints{
+		BuildkitHost:      bkURL,
+		LocalRegistryHost: lrURL,
+	}, nil
+}
+
+// DefaultAddress returns an address (signifying the desired/default transport)
+// for a given container driver.
+func DefaultAddress(driver Driver, localContainerName string, defaultPort int) (string, error) {
+	switch driver {
+	case DockerShell, Docker:
+		return DockerSchemePrefix + localContainerName, nil
+
+	case PodmanShell, Podman:
+		// Podman only works over TCP. There are weird errors when trying to use the provided helper from buildkit.
+		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
+
+	case AppleContainer:
+		// Apple container only works over TCP.
+		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
+
+	case Stub:
+		return DockerSchemePrefix + localContainerName, nil // Maintain old behavior
+
+	case Auto:
+		return "", fmt.Errorf("cannot determine default buildkit address for %s", driver)
+	}
+
+	return "", fmt.Errorf("no default buildkit address for %s", driver)
+}
+
+// ParseURL parses and checks if a URL has an allowed scheme and required port.
+func ParseURL(addr string) (*url.URL, error) {
+	parsed, err := url.Parse(addr)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", addr, errInvalidURL)
+	}
+
+	scheme, err := ParseScheme(parsed.Scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	if parsed.Port() == "" && scheme == SchemeTCP {
+		return nil, fmt.Errorf("%s does not contain a port number: %w", addr, errMissingPort)
+	}
+
+	return parsed, nil
+}
+
+// IsLocal parses a URL and returns whether it is considered a local buildkit host + port that we
+// need to manage ourselves.
+func IsLocal(addr string) bool {
+	if strings.HasPrefix(addr, DockerSchemePrefix) ||
+		strings.HasPrefix(addr, "podman-container://") ||
+		strings.HasPrefix(addr, "apple-container://") {
+		return true
+	}
+
+	parsed, err := url.Parse(addr)
+	if err != nil {
+		return false
+	}
+
+	hostname := parsed.Hostname()
+	// These need to match what we put in our certificates.
+	return hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
+		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
+		hostname == "::1" // IPv6 loopback without calling net.IPv6loopback.String()
+}
+
 // New returns a container client given a driver. This includes automatic detection.
 func New(ctx context.Context, driver Driver, cfg *Config) (*Client, error) {
 	var (
@@ -426,15 +533,15 @@ func New(ctx context.Context, driver Driver, cfg *Config) (*Client, error) {
 	)
 
 	switch driver {
-	case DriverAuto, "":
+	case Auto, "":
 		return autodetectEngine(ctx, cfg)
-	case DriverDockerShell, DriverDocker:
+	case DockerShell, Docker:
 		drv, err = newDockerEngine(ctx, cfg)
-	case DriverPodmanShell, DriverPodman:
+	case PodmanShell, Podman:
 		drv, err = newPodmanEngine(ctx, cfg)
-	case DriverAppleContainerShell, DriverAppleContainer:
+	case AppleContainer:
 		drv, err = newAppleEngine(ctx, cfg)
-	case DriverStub:
+	case Stub:
 		drv, err = newStubEngine(cfg)
 	default:
 		return nil, fmt.Errorf("%s is not a supported container driver", driver)
@@ -451,9 +558,9 @@ func autodetectEngine(ctx context.Context, cfg *Config) (*Client, error) {
 	var errs error
 
 	for _, driver := range [...]Driver{
-		DriverDockerShell,
-		DriverPodmanShell,
-		DriverAppleContainerShell,
+		DockerShell,
+		PodmanShell,
+		AppleContainer,
 	} {
 		client, err := New(ctx, driver, cfg)
 		if err != nil {
@@ -465,7 +572,7 @@ func autodetectEngine(ctx context.Context, cfg *Config) (*Client, error) {
 			continue
 		}
 
-		if client.Metadata().IsPodman && driver == DriverDockerShell {
+		if client.Metadata().IsPodman && driver == DockerShell {
 			// Docker CLI works, but it's likely podman making itself available via docker CLI.
 			continue
 		}

@@ -1,4 +1,4 @@
-package container
+package engine
 
 import (
 	"strings"
@@ -125,7 +125,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		urls, err := ResolveEndpoints(DriverDockerShell, &Config{
+		urls, err := ResolveEndpoints(DockerShell, &Config{
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
@@ -188,7 +188,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveEndpoints(DriverDockerShell, &Config{
+		_, err := ResolveEndpoints(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Console:                    logger,
@@ -288,7 +288,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveEndpoints(DriverDockerShell, &Config{
+		_, err := ResolveEndpoints(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Console:                    logger,

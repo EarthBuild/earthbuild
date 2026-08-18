@@ -1,4 +1,4 @@
-package container
+package engine
 
 import (
 	"context"
@@ -56,8 +56,8 @@ func (e *shellEngine) IsAvailable(ctx context.Context) bool {
 
 const containerDateFormat = "2006-01-02 15:04:05.999999999 -0700 MST"
 
-// ContainerList lists containers using standard formatting.
-func (e *shellEngine) ContainerList(ctx context.Context) ([]Container, error) {
+// ListContainers lists containers using standard formatting.
+func (e *shellEngine) ListContainers(ctx context.Context) ([]Container, error) {
 	// The custom format below is supported by Docker and Podman.
 	args := []string{"ps", "--format", `{{.ID}},{{.Names}},{{.Status}},{{.Image}},{{.CreatedAt}}`}
 
@@ -97,8 +97,8 @@ func parseContainerList(output string) ([]Container, error) {
 	return ret, nil
 }
 
-// ContainerInfo returns information for the given container names or IDs.
-func (e *shellEngine) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]Container, error) {
+// InspectContainer returns information for the given container names or IDs.
+func (e *shellEngine) InspectContainer(ctx context.Context, namesOrIDs ...string) (map[string]Container, error) {
 	args := append([]string{"container", "inspect"}, namesOrIDs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided names or IDs could be missing.
@@ -142,8 +142,8 @@ func (e *shellEngine) ContainerInfo(ctx context.Context, namesOrIDs ...string) (
 	return infos, nil
 }
 
-// ContainerRemove removes the requested containers.
-func (e *shellEngine) ContainerRemove(ctx context.Context, force bool, namesOrIDs ...string) error {
+// RemoveContainer removes the requested containers.
+func (e *shellEngine) RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error {
 	args := []string{"rm"}
 	if force {
 		args = append(args, "-f")
@@ -155,8 +155,8 @@ func (e *shellEngine) ContainerRemove(ctx context.Context, force bool, namesOrID
 	return err
 }
 
-// ContainerStop stops the requested containers.
-func (e *shellEngine) ContainerStop(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error {
+// StopContainer stops the requested containers.
+func (e *shellEngine) StopContainer(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error {
 	args := []string{"stop"}
 
 	if timeout > 0 {
@@ -171,8 +171,8 @@ func (e *shellEngine) ContainerStop(ctx context.Context, timeout time.Duration, 
 	return err
 }
 
-// ContainerLogs returns stdout and stderr logs for the requested containers.
-func (e *shellEngine) ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error) {
+// Logs returns stdout and stderr logs for the requested containers.
+func (e *shellEngine) Logs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error) {
 	logs := make(map[string]Logs, len(namesOrIDs))
 
 	var err error
@@ -201,32 +201,32 @@ func (e *shellEngine) ContainerLogs(ctx context.Context, namesOrIDs ...string) (
 	return logs, err
 }
 
-// ContainerRun runs containers via the CLI.
-func (e *shellEngine) ContainerRun(ctx context.Context, containers ...RunConfig) error {
+// RunContainer runs containers via the CLI.
+func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) error {
 	var err error
 
-	for _, cfg := range containers {
+	for _, spec := range specs {
 		args := []string{"run"}
 
-		if cfg.Privileged {
+		if spec.Privileged {
 			args = append(args, "--privileged")
 		}
 
-		for k, v := range cfg.Envs {
+		for k, v := range spec.Envs {
 			env := fmt.Sprintf("%s=%s", k, v)
 			args = append(args, "--env", env)
 		}
 
-		for k, v := range cfg.Labels {
+		for k, v := range spec.Labels {
 			label := fmt.Sprintf("%s=%s", k, v)
 			args = append(args, "--label", label)
 		}
 
-		if cfg.NameOrID != "" {
-			args = append(args, "--name", cfg.NameOrID)
+		if spec.NameOrID != "" {
+			args = append(args, "--name", spec.NameOrID)
 		}
 
-		for _, m := range cfg.Mounts {
+		for _, m := range spec.Mounts {
 			mount := fmt.Sprintf("type=%s,src=%s,dst=%s", m.Type, m.Source, m.Dest)
 			if m.ReadOnly {
 				mount += ",readonly" //nolint:goconst
@@ -235,28 +235,28 @@ func (e *shellEngine) ContainerRun(ctx context.Context, containers ...RunConfig)
 			args = append(args, "--mount", mount)
 		}
 
-		for _, p := range cfg.Ports {
+		for _, p := range spec.Ports {
 			port := fmt.Sprintf("%s:%d:%d/%s", p.IP, p.HostPort, p.ContainerPort, p.Protocol)
 			args = append(args, "--publish", port)
 		}
 
 		args = append(args, e.RunCompatibilityArgs...)
-		args = append(args, cfg.AdditionalArgs...)
+		args = append(args, spec.AdditionalArgs...)
 		args = append(args, "-d")
-		args = append(args, cfg.ImageRef)
-		args = append(args, cfg.ContainerArgs...)
+		args = append(args, spec.ImageRef)
+		args = append(args, spec.ContainerArgs...)
 
 		_, runErr := e.CommandOutput(ctx, args...)
 		if runErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to run container %s: %w", cfg.NameOrID, runErr))
+			err = errors.Join(err, fmt.Errorf("failed to run container %s: %w", spec.NameOrID, runErr))
 		}
 	}
 
 	return err
 }
 
-// ImageInfo returns metadata for the given image references using CLI image inspect.
-func (e *shellEngine) ImageInfo(ctx context.Context, refs ...string) (map[string]Image, error) {
+// InspectImage returns metadata for the given image references using CLI image inspect.
+func (e *shellEngine) InspectImage(ctx context.Context, refs ...string) (map[string]Image, error) {
 	if len(refs) == 0 {
 		return map[string]Image{}, nil
 	}
@@ -298,8 +298,8 @@ func (e *shellEngine) ImageInfo(ctx context.Context, refs ...string) (map[string
 	return infos, nil
 }
 
-// ImagePull pulls images via the CLI.
-func (e *shellEngine) ImagePull(ctx context.Context, refs ...string) error {
+// PullImage pulls images via the CLI.
+func (e *shellEngine) PullImage(ctx context.Context, refs ...string) error {
 	var err error
 
 	for _, ref := range refs {
@@ -312,8 +312,8 @@ func (e *shellEngine) ImagePull(ctx context.Context, refs ...string) error {
 	return err
 }
 
-// ImageRemove deletes images via the CLI.
-func (e *shellEngine) ImageRemove(ctx context.Context, force bool, refs ...string) error {
+// RemoveImage deletes images via the CLI.
+func (e *shellEngine) RemoveImage(ctx context.Context, force bool, refs ...string) error {
 	args := []string{"rmi"}
 	if force {
 		args = append(args, "-f")
@@ -325,8 +325,8 @@ func (e *shellEngine) ImageRemove(ctx context.Context, force bool, refs ...strin
 	return err
 }
 
-// ImageTag tags an image via the CLI.
-func (e *shellEngine) ImageTag(ctx context.Context, tags ...Tag) error {
+// TagImage tags an image via the CLI.
+func (e *shellEngine) TagImage(ctx context.Context, tags ...Tag) error {
 	var err error
 
 	for _, tag := range tags {
@@ -339,8 +339,8 @@ func (e *shellEngine) ImageTag(ctx context.Context, tags ...Tag) error {
 	return err
 }
 
-// ImageLoad loads images into the CLI daemon.
-func (e *shellEngine) ImageLoad(ctx context.Context, images ...io.Reader) error {
+// LoadImage loads images into the CLI daemon.
+func (e *shellEngine) LoadImage(ctx context.Context, images ...io.Reader) error {
 	var err error
 
 	for _, img := range images {
@@ -369,8 +369,8 @@ type volumeInspectJSON struct {
 	} `json:"UsageData"`
 }
 
-// VolumeInfo retrieves information about volumes via the CLI.
-func (e *shellEngine) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
+// InspectVolume retrieves information about volumes via the CLI.
+func (e *shellEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
 	args := append([]string{"volume", "inspect"}, volumeNames...)
 
 	output, err := e.CommandOutput(ctx, args...)

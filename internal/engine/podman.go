@@ -1,4 +1,4 @@
-package container
+package engine
 
 import (
 	"context"
@@ -55,7 +55,7 @@ func newPodmanEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 
 	e.Rootless = isRootless
 
-	e.Endpoints, err = e.ResolveEndpoints(DriverPodmanShell, cfg)
+	e.Endpoints, err = e.ResolveEndpoints(PodmanShell, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
@@ -67,7 +67,7 @@ func newPodmanEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 func (e *podmanEngine) Metadata() Metadata {
 	return Metadata{
 		Name:      "Podman",
-		Scheme:    SchemePodmanContainer,
+		Scheme:    SchemePodman,
 		Binary:    e.BinaryName,
 		Transport: TransportShell,
 		Endpoints: e.Endpoints,
@@ -98,9 +98,8 @@ func (e *podmanEngine) Version(ctx context.Context) (Version, error) {
 		// Fallback to local version.
 		if hasRemote {
 			hasRemote = false
-			args = []string{"version", "--format=json"}
 
-			output, err = e.CommandOutput(ctx, args...)
+			output, err = e.CommandOutput(ctx, "version", "--format=json")
 			if err != nil {
 				return Version{}, err
 			}
@@ -109,48 +108,50 @@ func (e *podmanEngine) Version(ctx context.Context) (Version, error) {
 		}
 	}
 
-	type versionInfo struct {
-		Version    string
-		APIVersion string
-		OSArch     string
+	type versionInfoJSON struct {
+		Client struct {
+			Version    string `json:"Version"`
+			APIVersion string `json:"APIVersion"`
+			Os         string `json:"Os"`
+			Arch       string `json:"Arch"`
+		} `json:"Client"`
+		Server struct {
+			Version    string `json:"Version"`
+			APIVersion string `json:"APIVersion"`
+			Os         string `json:"Os"`
+			Arch       string `json:"Arch"`
+		} `json:"Server"`
 	}
 
-	type info struct {
-		Client versionInfo
-		Server versionInfo
-	}
+	v := versionInfoJSON{}
 
-	allInfo := info{}
-
-	err = json.Unmarshal([]byte(output.String()), &allInfo)
+	err = json.Unmarshal([]byte(output.Stdout.String()), &v)
 	if err != nil {
-		return Version{}, fmt.Errorf("failed to parse version output %s: %w", output.String(), err)
+		return Version{}, fmt.Errorf("failed to parse podman version output %s: %w", output.Stdout.String(), err)
 	}
 
-	host := "daemonless"
+	remoteAddr := ""
 
 	if hasRemote {
-		output, err = e.CommandOutput(ctx, "info", "--format={{.Host.RemoteSocket.Path}}")
-		if err != nil {
-			return Version{}, err
+		host, exists := os.LookupEnv("CONTAINER_HOST")
+		if exists {
+			remoteAddr = host
 		}
-
-		host = output.String()
 	}
 
 	return Version{
-		ClientVersion:    allInfo.Client.Version,
-		ClientAPIVersion: allInfo.Client.APIVersion,
-		ClientPlatform:   allInfo.Client.OSArch,
-		ServerVersion:    allInfo.Server.Version,
-		ServerAPIVersion: allInfo.Server.APIVersion,
-		ServerPlatform:   allInfo.Server.OSArch,
-		ServerAddress:    host,
+		ClientVersion:    v.Client.Version,
+		ClientAPIVersion: v.Client.APIVersion,
+		ClientPlatform:   fmt.Sprintf("%s/%s", v.Client.Os, v.Client.Arch),
+		ServerVersion:    v.Server.Version,
+		ServerAPIVersion: v.Server.APIVersion,
+		ServerPlatform:   fmt.Sprintf("%s/%s", v.Server.Os, v.Server.Arch),
+		ServerAddress:    remoteAddr,
 	}, nil
 }
 
-// ImagePull downloads the specified container images.
-func (e *podmanEngine) ImagePull(ctx context.Context, refs ...string) error {
+// PullImage downloads the specified container images.
+func (e *podmanEngine) PullImage(ctx context.Context, refs ...string) error {
 	var err error
 
 	for _, ref := range refs {
@@ -177,8 +178,8 @@ func (e *podmanEngine) ImageLoadCommand(filename string) string {
 	return strings.Join(e.CommandArgs("pull", "docker-archive:"+filename), " ")
 }
 
-// ImageLoad writes the image to a temp file and pulls it into Podman.
-func (e *podmanEngine) ImageLoad(ctx context.Context, images ...io.Reader) error {
+// LoadImage writes the image to a temp file and pulls it into Podman.
+func (e *podmanEngine) LoadImage(ctx context.Context, images ...io.Reader) error {
 	var err error
 
 	for _, image := range images {
@@ -220,8 +221,8 @@ func (e *podmanEngine) ImageLoad(ctx context.Context, images ...io.Reader) error
 	return err
 }
 
-// VolumeInfo returns details for the specified volume names.
-func (e *podmanEngine) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
+// InspectVolume returns details for the specified volume names.
+func (e *podmanEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
 	// Older podman versions do no support --format. This means we are stuck parsing the verbose tabular output for compat.
 	output, err := e.CommandOutput(ctx, "system", "df", "-v")
 	if err != nil {

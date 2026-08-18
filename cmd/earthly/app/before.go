@@ -13,7 +13,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/internal/container"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
@@ -98,7 +98,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseContainerClient(ctx)
+	err = app.parseEngine(ctx)
 	if err != nil {
 		return ctx, err
 	}
@@ -127,9 +127,9 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	return ctx, nil
 }
 
-func (app *EarthApp) parseContainerClient(ctx context.Context) error {
+func (app *EarthApp) parseEngine(ctx context.Context) error {
 	console := app.BaseCLI.Console().WithPrefix("container")
-	engCfg := &container.Config{
+	engCfg := &engine.Config{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
 		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
 		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
@@ -138,16 +138,16 @@ func (app *EarthApp) parseContainerClient(ctx context.Context) error {
 		Console:                    console,
 	}
 
-	eng, err := container.New(ctx, container.Driver(app.BaseCLI.Cfg().Global.ContainerFrontend), engCfg)
+	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.ContainerFrontend), engCfg)
 	if err != nil {
 		origErr := err
 
-		stub, err := container.NewStub(engCfg)
+		stub, err := engine.NewStub(engCfg)
 		if err != nil {
 			return fmt.Errorf("failed stub container engine initialization: %w", err)
 		}
 
-		app.BaseCLI.Flags().ContainerClient = stub
+		app.BaseCLI.Flags().Engine = stub
 
 		if !app.BaseCLI.Flags().Verbose {
 			console.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
@@ -160,12 +160,12 @@ func (app *EarthApp) parseContainerClient(ctx context.Context) error {
 	}
 
 	console.VerbosePrintf("%s engine initialized.\n", eng.Metadata().Name)
-	app.BaseCLI.Flags().ContainerClient = eng
+	app.BaseCLI.Flags().Engine = eng
 
 	// These URLs were calculated relative to the configured engine. In the
 	// case of an automatically detected engine, they are calculated according
 	// to the first selected one in order of precedence.
-	endpoints := app.BaseCLI.Flags().ContainerClient.Metadata().Endpoints
+	endpoints := app.BaseCLI.Flags().Engine.Metadata().Endpoints
 	app.BaseCLI.Flags().BuildkitHost = endpoints.BuildkitHost.String()
 	app.BaseCLI.Flags().LocalRegistryHost = endpoints.LocalRegistryHost.String()
 

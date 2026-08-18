@@ -10,7 +10,7 @@ import (
 	"time"
 
 	conslog "github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/internal/container"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	registry "github.com/moby/buildkit/api/services/registry"
 )
@@ -24,7 +24,7 @@ const (
 // include the Darwin proxy used to enable Docker Desktop setups.
 type Controller struct {
 	registryClient   registry.RegistryClient
-	containerClient  *container.Client
+	engine           *engine.Client
 	darwinProxyImage string
 	cons             conslog.ConsoleLogger
 	darwinProxyWait  time.Duration
@@ -34,7 +34,7 @@ type Controller struct {
 // NewController creates and returns a new registry proxy controller.
 func NewController(
 	registryClient registry.RegistryClient,
-	containerClient *container.Client,
+	eng *engine.Client,
 	darwinProxy bool,
 	darwinProxyImage string,
 	darwinProxyWait time.Duration,
@@ -42,7 +42,7 @@ func NewController(
 ) *Controller {
 	return &Controller{
 		registryClient:   registryClient,
-		containerClient:  containerClient,
+		engine:           eng,
 		darwinProxy:      darwinProxy,
 		darwinProxyImage: darwinProxyImage,
 		darwinProxyWait:  darwinProxyWait,
@@ -141,15 +141,15 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 		return 0, fmt.Errorf("failed to acquire free port: %w", err)
 	}
 
-	runCfg := container.RunConfig{
+	spec := engine.ContainerSpec{
 		NameOrID: containerName,
 		ImageRef: c.darwinProxyImage,
-		Ports: []container.Port{
+		Ports: []engine.Port{
 			{
 				IP:            "127.0.0.1",
 				HostPort:      containerPort, // Bind to available port
 				ContainerPort: 80,
-				Protocol:      container.ProtocolTCP,
+				Protocol:      engine.ProtocolTCP,
 			},
 		},
 		ContainerArgs: []string{
@@ -158,7 +158,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 		},
 	}
 
-	err = c.containerClient.ContainerRun(ctx, runCfg)
+	err = c.engine.RunContainer(ctx, spec)
 	if err != nil {
 		return 0, fmt.Errorf("failed to start support container: %w", err)
 	}
@@ -197,7 +197,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 }
 
 func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
-	containers, err := c.containerClient.ContainerList(ctx)
+	containers, err := c.engine.ListContainers(ctx)
 	if err != nil {
 		return err
 	}
@@ -221,17 +221,17 @@ func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) err
 	defer cancel()
 
 	if checkExists {
-		infos, err := c.containerClient.ContainerInfo(detachedCtx, containerName)
+		infos, err := c.engine.InspectContainer(detachedCtx, containerName)
 		if err != nil {
 			return err
 		}
 
-		if info, ok := infos[containerName]; !ok || info.Status == container.StatusMissing {
+		if info, ok := infos[containerName]; !ok || info.Status == engine.StatusMissing {
 			return nil
 		}
 	}
 
-	err := c.containerClient.ContainerRemove(detachedCtx, true, containerName)
+	err := c.engine.RemoveContainer(detachedCtx, true, containerName)
 	if err != nil {
 		return fmt.Errorf("failed to stop support container: %w", err)
 	}

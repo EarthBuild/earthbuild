@@ -25,7 +25,7 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-	"github.com/EarthBuild/earthbuild/internal/container"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
@@ -374,7 +374,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		b.cli.Flags().BuildkitdImage,
 		b.cli.Flags().ContainerName,
 		b.cli.Flags().InstallationName,
-		b.cli.Flags().ContainerClient,
+		b.cli.Flags().Engine,
 		b.cli.Version(),
 		b.cli.Flags().BuildkitdSettings,
 	)
@@ -433,10 +433,10 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	var attachable session.Attachable
 
-	if b.cli.Flags().ContainerClient.Metadata().Scheme == container.SchemePodmanContainer {
+	if b.cli.Flags().Engine.Metadata().Scheme == engine.SchemePodman {
 		attachable = authprovider.NewPodman(ctx, os.Stderr)
 	} else {
-		// includes container.SchemeDockerContainer:
+		// includes engine.SchemeDocker:
 		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
@@ -581,7 +581,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		DarwinProxyImage:                      b.cli.Cfg().Global.DarwinProxyImage,
 		DarwinProxyWait:                       b.cli.Cfg().Global.DarwinProxyWait,
 		FeatureFlagOverrides:                  b.cli.Flags().FeatureFlagOverrides,
-		ContainerClient:                       b.cli.Flags().ContainerClient,
+		Engine:                                b.cli.Flags().Engine,
 		InternalSecretStore:                   internalSecretStore,
 		InteractiveDebugging:                  b.cli.Flags().InteractiveDebugging,
 		InteractiveDebuggingDebugLevelLogging: b.cli.Flags().Debug,
@@ -803,7 +803,7 @@ func receiveFileVersion2(
 func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 
-	isLocal := container.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddress)
+	isLocal := engine.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddress)
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -823,7 +823,7 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 		b.cli.Console().Warnf("")
 	}
 
-	if isLocal && !b.cli.Flags().ContainerClient.IsAvailable(ctx) {
+	if isLocal && !b.cli.Flags().Engine.IsAvailable(ctx) {
 		return "", false, errors.New(
 			"container engine is not available to perform the build; is Docker or Podman installed and running?",
 		)

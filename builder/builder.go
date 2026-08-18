@@ -20,7 +20,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
-	"github.com/EarthBuild/earthbuild/internal/container"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
@@ -69,7 +69,7 @@ type Opt struct {
 	GitLFSInclude                         string
 	BuildkitSkipper                       bk.BuildkitSkipper
 	Parallelism                           semutil.Semaphore
-	ContainerClient                       *container.Client
+	Engine                                *engine.Client
 	CleanCollection                       *cleanup.Collection
 	LogBusSolverMonitor                   *solvermon.SolverMonitor
 	InternalSecretStore                   *secretprovider.MutableMapStore
@@ -182,9 +182,9 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 	}
 
 	// Podman and Apple Container do not support the insecure localhost registry proxy
-	scheme := b.opt.ContainerClient.Metadata().Scheme
-	if scheme == container.SchemePodmanContainer ||
-		scheme == container.SchemeAppleContainer {
+	scheme := b.opt.Engine.Metadata().Scheme
+	if scheme == engine.SchemePodman ||
+		scheme == engine.SchemeApple {
 		cons.Printf("Registry proxy not supported on Podman/Apple Container. Falling back to tar-based outputs.")
 		return nil, false
 	}
@@ -197,7 +197,7 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 
 	controller := regproxy.NewController(
 		b.s.bkClient.RegistryClient(),
-		b.opt.ContainerClient,
+		b.opt.Engine,
 		useProxy,
 		b.opt.DarwinProxyImage,
 		b.opt.DarwinProxyWait,
@@ -319,7 +319,7 @@ func (b *Builder) convertAndBuild(
 				LocalStateCache:                      sharedLocalStateCache,
 				BuiltinArgs:                          opt.BuiltinArgs,
 				NoCache:                              b.opt.NoCache,
-				ContainerClient:                      b.opt.ContainerClient,
+				Engine:                               b.opt.Engine,
 				UseLocalRegistry:                     (b.opt.LocalRegistryAddr != ""),
 				LocalRegistryAddr:                    b.opt.LocalRegistryAddr,
 				DoSaves:                              !opt.NoOutput,
@@ -632,7 +632,7 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err := dockerutil.LoadDockerManifest(
-				ctx, b.opt.Console, b.opt.ContainerClient, parentImageName, children, opt.PlatformResolver,
+				ctx, b.opt.Console, b.opt.Engine, parentImageName, children, opt.PlatformResolver,
 			)
 			if err != nil {
 				return err
@@ -649,7 +649,7 @@ func (b *Builder) convertAndBuild(
 		eg.Go(func() error {
 			defer pipeR.Close()
 
-			err := dockerutil.LoadDockerTar(childCtx, b.opt.ContainerClient, pipeR)
+			err := dockerutil.LoadDockerTar(childCtx, b.opt.Engine, pipeR)
 			if err != nil {
 				return fmt.Errorf("load docker tar: %w", err)
 			}
@@ -708,7 +708,7 @@ func (b *Builder) convertAndBuild(
 			}
 		}
 
-		err := dockerutil.DockerPullLocalImages(childCtx, b.opt.ContainerClient, b.opt.LocalRegistryAddr, pullMap)
+		err := dockerutil.DockerPullLocalImages(childCtx, b.opt.Engine, b.opt.LocalRegistryAddr, pullMap)
 		if err != nil {
 			return err
 		}
@@ -719,7 +719,7 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err = dockerutil.LoadDockerManifest(
-				ctx, b.opt.Console, b.opt.ContainerClient, parentImageName, children, opt.PlatformResolver,
+				ctx, b.opt.Console, b.opt.Engine, parentImageName, children, opt.PlatformResolver,
 			)
 			if err != nil {
 				return err
@@ -970,7 +970,7 @@ func (b *Builder) convertAndBuild(
 
 	for parentImageName, children := range manifestLists {
 		err = dockerutil.
-			LoadDockerManifest(ctx, b.opt.Console, b.opt.ContainerClient, parentImageName, children, opt.PlatformResolver)
+			LoadDockerManifest(ctx, b.opt.Console, b.opt.Engine, parentImageName, children, opt.PlatformResolver)
 		if err != nil {
 			return nil, err
 		}

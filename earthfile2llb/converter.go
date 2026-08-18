@@ -27,8 +27,8 @@ import (
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/inputgraph"
-	"github.com/EarthBuild/earthbuild/internal/container"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
@@ -103,7 +103,7 @@ const (
 type Converter struct {
 	cacheContext        pllb.State
 	buildContextFactory llbfactory.Factory
-	containerClient     *container.Client
+	engine              *engine.Client
 	persistentCacheDirs map[string]states.CacheMount // maps path->mount
 	ftrs                *features.Features
 	mts                 *states.MultiTarget
@@ -178,7 +178,7 @@ func NewConverter(
 		varCollection:       variables.NewCollection(newCollOpt),
 		ftrs:                bc.Features,
 		localWorkingDir:     filepath.Dir(bc.BuildFilePath),
-		containerClient:     opt.ContainerClient,
+		engine:              opt.Engine,
 		waitBlockStack:      []*waitBlock{opt.waitBlock},
 		logbusTarget:        logbusTarget,
 	}

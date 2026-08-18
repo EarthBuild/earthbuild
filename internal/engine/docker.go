@@ -1,4 +1,4 @@
-package container
+package engine
 
 import (
 	"context"
@@ -26,7 +26,7 @@ type dockerEngine struct {
 func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 	e := &dockerEngine{
 		shellEngine: &shellEngine{
-			BinaryName:              string(DriverDocker),
+			BinaryName:              string(Docker),
 			RunCompatibilityArgs:    make([]string, 0),
 			GlobalCompatibilityArgs: make([]string, 0),
 			Console:                 cfg.Console,
@@ -53,7 +53,7 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 		e.RunCompatibilityArgs = []string{"--userns", "host"}
 	}
 
-	e.Endpoints, err = e.ResolveEndpoints(DriverDockerShell, cfg)
+	e.Endpoints, err = e.ResolveEndpoints(DockerShell, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
@@ -82,7 +82,7 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 func (e *dockerEngine) Metadata() Metadata {
 	return Metadata{
 		Name:      "Docker",
-		Scheme:    SchemeDockerContainer,
+		Scheme:    SchemeDocker,
 		Binary:    e.BinaryName,
 		Transport: TransportShell,
 		Endpoints: e.Endpoints,
@@ -132,11 +132,11 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 	}, nil
 }
 
-// ContainerInfo returns information for the given container names or IDs.
-func (e *dockerEngine) ContainerInfo(
+// InspectContainer returns information for the given container names or IDs.
+func (e *dockerEngine) InspectContainer(
 	ctx context.Context, namesOrIDs ...string,
 ) (map[string]Container, error) {
-	results, err := e.shellEngine.ContainerInfo(ctx, namesOrIDs...)
+	results, err := e.shellEngine.InspectContainer(ctx, namesOrIDs...)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +155,8 @@ func (e *dockerEngine) ContainerInfo(
 	return results, nil
 }
 
-// ImagePull downloads the specified container images.
-func (e *dockerEngine) ImagePull(ctx context.Context, refs ...string) error {
+// PullImage downloads the specified container images.
+func (e *dockerEngine) PullImage(ctx context.Context, refs ...string) error {
 	var err error
 
 	for _, ref := range refs {
@@ -174,8 +174,8 @@ func (e *dockerEngine) ImageLoadCommand(filename string) string {
 	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(e.CommandArgs("load"), " "))
 }
 
-// ImageLoad loads images into Docker via stdin.
-func (e *dockerEngine) ImageLoad(ctx context.Context, images ...io.Reader) error {
+// LoadImage loads images into Docker via stdin.
+func (e *dockerEngine) LoadImage(ctx context.Context, images ...io.Reader) error {
 	var err error
 
 	for _, image := range images {
@@ -192,8 +192,8 @@ func (e *dockerEngine) ImageLoad(ctx context.Context, images ...io.Reader) error
 	return err
 }
 
-// VolumeInfo returns details for the specified volume names.
-func (e *dockerEngine) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
+// InspectVolume returns details for the specified volume names.
+func (e *dockerEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
 	if len(volumeNames) == 0 {
 		return map[string]Volume{}, nil
 	}

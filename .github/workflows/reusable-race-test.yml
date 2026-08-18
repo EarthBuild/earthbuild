@@ -73,16 +73,23 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
-        run: |-
-          "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        run: |
+          scripts/ci/earth-retry.sh \
+            -- "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
         env:
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
       - name: Execute tests
-        run: |-
-          GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
-            "${INPUTS_TEST_TARGET}"
+        run: |
+          # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
+          scripts/ci/earth-retry.sh -c '
+            GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
+              "${INPUTS_TEST_TARGET}"
+          '
         env:
           INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
-      - name: Buildkit logs (runs on failure)
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: docker logs earthly-buildkitd || true
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

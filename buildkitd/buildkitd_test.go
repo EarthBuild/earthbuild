@@ -3,7 +3,7 @@ package buildkitd
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/internal/container"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -61,14 +61,14 @@ func TestEngineContainer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := container.NewTestClient(container.Metadata{
+			eng := engine.NewTestClient(engine.Metadata{
 				Name:   tt.engineName,
 				Binary: tt.engineBinary,
 			})
 
-			assert.Equal(t, tt.wantName, engineName(client))
-			assert.Equal(t, tt.wantDesc, engineContainer(client))
-			assert.Equal(t, tt.wantArticle, engineContainerWithArticle(client))
+			assert.Equal(t, tt.wantName, engineName(eng))
+			assert.Equal(t, tt.wantDesc, engineContainer(eng))
+			assert.Equal(t, tt.wantArticle, engineContainerWithArticle(eng))
 		})
 	}
 }

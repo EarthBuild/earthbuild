@@ -216,7 +216,7 @@ jobs:
             --PUSH_PRERELEASE_TAG="false" \
             --PUSH_LATEST_TAG="false" \
             --RELEASE_TAG="${RELEASE_TAG}-ticktock" \
-            --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${EARTHLY_NEXT}
+            --BUILDKIT_PROJECT="github.com/earthbuild/buildkit:${EARTHLY_NEXT}"
       - name: Smoke test ticktock image default buildkit image
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -254,8 +254,8 @@ jobs:
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
-            --secret CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN} \
-            --secret DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN} \
+            --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
+            --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
             ./release+copy-staging-buildkitd-to-dockerhub \
             --RELEASE_TAG="${RELEASE_TAG}" \
             --CONTAINER_REGISTRY_USER="${GITHUB_ACTOR}" \

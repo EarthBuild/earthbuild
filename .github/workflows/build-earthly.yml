@@ -75,12 +75,20 @@ jobs:
           INPUTS_SUDO: ${{inputs.SUDO}}
       - name: Install Podman (with apt-get)
         run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y podman && ${INPUTS_SUDO} rm -f /etc/containers/registries.conf
-        if: inputs.binary == 'podman'
+        if: inputs.BINARY == 'podman'
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
       - name: Podman debug info
         run: podman version && podman info && podman info --debug
         if: inputs.BINARY == 'podman'
+      - name: Add swap for extra memory headroom
+        # Detached: mkswap plus ~25G of toolchain deletion costs a minute and
+        # nothing downstream needs to block on it. The script picks the largest
+        # non-root disk (/mnt on GitHub images) so the swapfile does not eat the
+        # root disk that docker and buildkit layers need. Log is dumped by
+        # the failure-diagnostics action.
+        run: |
+          "$GITHUB_WORKSPACE/scripts/ci/add-swap.sh" --detach
       - name: Set Docker default ulimits for Docker 29+ compatibility
         if: inputs.BINARY == 'docker'
         run: |
@@ -101,6 +109,12 @@ jobs:
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
+      # bootstrap AFTER the mirror config above, so the daemon starts with
+      # the registry mirror already in place.
+      - name: Earthly bootstrap
+        run: ${INPUTS_SUDO} "$(which earth)" bootstrap
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
       - name: Login to GitHub Container Registry
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ${INPUTS_SUDO} "${INPUTS_BINARY}" login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
@@ -109,15 +123,28 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Update Buildkit to earthly-next
         if: inputs.USE_NEXT
-        run: ${INPUTS_SUDO} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+        run: |
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
+            -- ${INPUTS_SUDO} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
-      - name: Build latest earth using released earth
-        run: ${INPUTS_SUDO} "$(which earth)" --use-inline-cache +for-linux
+          INPUTS_BINARY: ${{inputs.BINARY}}
+      - name: Build latest earthly using released earthly
+        # Every downstream job depends on this step, so a failure here cascades
+        # into skips across the whole run.
+        run: |
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
+            -- ${INPUTS_SUDO} "$(which earth)" --use-inline-cache +for-linux
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
-      - name: Earth bootstrap using latest earth build
-        run: ${INPUTS_SUDO} ./build/linux/amd64/earthly bootstrap
+          INPUTS_BINARY: ${{inputs.BINARY}}
+      - name: Configure and bootstrap using latest earth build
+        run: |-
+          ${INPUTS_SUDO} ./build/linux/amd64/earthly config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          ${INPUTS_SUDO} ./build/linux/amd64/earthly bootstrap
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
@@ -125,25 +152,40 @@ jobs:
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      # Computed once: three later steps need it, and it is a pure function of
+      # the workflow inputs.
+      - name: Set TAG_SUFFIX env
+        run: |-
+          set -euo pipefail
+          suffix="$INPUTS_RUNS_ON"
+          if [ "$INPUTS_USE_NEXT" = "true" ]; then suffix="$suffix-ticktock"; fi
+          echo "TAG_SUFFIX=$suffix" >> "$GITHUB_ENV"
+        env:
+          INPUTS_RUNS_ON: ${{inputs.RUNS_ON}}
+          INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
       - name: Build and push +ci-release using latest earth build
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
-          export TAG_SUFFIX="latest"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-          ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO ./build/linux/amd64/earthly bootstrap" \
+            -- ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |-
-          export TAG_SUFFIX="latest"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-          # Build ci-release (builds binary and buildkitd but doesn't push)
-          ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
-          # Explicitly output the buildkitd image to local docker daemon
-          ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+        # Builds the binary and buildkitd, then loads the image locally - no push.
+        # Note: earth-retry.sh -c takes a single-quoted snippet, so keep
+        # apostrophes out of it. Comments belong here, not in the snippet.
+        run: |
+          # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO ./build/linux/amd64/earthly bootstrap" -c '
+            ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release && \
+              ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          '
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Save buildkitd image tarball (all runs)
         # Shipping the buildkitd image as a GHA artifact -- rather than having
         # every downstream test job pull it from ghcr -- moves ~67 in-run image
@@ -200,9 +242,9 @@ jobs:
           name: earth-build-latest${{ inputs.USE_NEXT == true && '-ticktock' || '' }}
           path: ./artifacts/
           retention-days: 1
-      - name: Buildkit logs (runs on failure)
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earth-buildkitd
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
-          INPUTS_BINARY: ${{inputs.BINARY}}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

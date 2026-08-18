@@ -67,7 +67,42 @@ jobs:
 
 For a complete guide on CI integration see the [CI integration guide](../overview.md).
 
+## Diagnosing failures
+
+`Canceled`, `context canceled`, `file already closed` and a lost solve session
+are symptoms, not causes. They report that the build stopped, not why. A
+download dying mid-transfer, one target failing and cancelling its siblings, a
+daemon crash, and the runner's OOM killer taking a `buildkit-runc` child are
+all capable of producing the same message, and which of them you are looking at
+depends entirely on your build. Read the message as a prompt to investigate,
+not as a diagnosis.
+
+The `failure-diagnostics` action collects the evidence that discriminates
+between them: the buildkit daemon log, memory and swap, and kernel OOM
+messages. The memory side matters disproportionately because it is the one
+cause that leaves no trace in the job log at all - an OOM kill is silent.
+
+```yml
+    - name: Run build
+      run: earth --ci --push +build
+    - name: Failure diagnostics
+      if: ${{ failure() }}
+      uses: EarthBuild/earthbuild/.github/actions/failure-diagnostics@main
+```
+
+Every input has a default, so that is the whole integration. See the
+[action's README](https://github.com/EarthBuild/earthbuild/tree/main/.github/actions/failure-diagnostics)
+for the inputs, including `CONTAINERS` if you build with a custom
+installation name.
+
+If it does turn out to be memory, GitHub's runners can be given more headroom
+with a swapfile - EarthBuild's own CI uses
+[`scripts/ci/add-swap.sh`](https://github.com/EarthBuild/earthbuild/blob/main/scripts/ci/add-swap.sh),
+which places one on the runner's ephemeral disk rather than the root disk your
+build layers need.
+
 {% hint style='danger' %}
+
 ## actions/checkout ref argument
 
 The example deliberately does not use the [`ref`](https://github.com/actions/checkout#checkout-a-different-branch) `actions/checkout@v4` option,

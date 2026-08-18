@@ -80,10 +80,13 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
         if: ${{ !inputs.SKIP_JOB }}
-        run: |-
-          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_TEST_TARGET}"
+        run: |
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
+            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_TEST_TARGET}"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
           INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
       - name: Display buildkit version
@@ -107,9 +110,9 @@ jobs:
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
-      - name: Buildkit logs (runs on failure)
-        if: ${{ failure() && !inputs.SKIP_JOB }}
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
-          INPUTS_BINARY: ${{inputs.BINARY}}
+      - name: Failure diagnostics
+        if: ${{ failure() }}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

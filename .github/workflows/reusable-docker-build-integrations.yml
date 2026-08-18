@@ -74,8 +74,9 @@ jobs:
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
-      - name: Buildkit logs (runs on failure)
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} docker logs earthly-buildkitd || true
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

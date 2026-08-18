@@ -43,6 +43,15 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Add swap for extra memory headroom
+      # build-earthly always adds swap; stage2-setup previously only did so for
+      # podman / MORE_MEMORY, leaving the test path with less headroom than the
+      # build path for no stated reason. Mirror build-earthly so the two match.
+      # This rules memory out as a cause of "Canceled" failures; it does not
+      # assume memory was the cause. Detached - nothing downstream blocks on it.
+      shell: bash
+      run: |
+        "$GITHUB_WORKSPACE/scripts/ci/add-swap.sh" --detach
     - name: Unset CI
       shell: bash
       run: |
@@ -109,6 +118,10 @@ runs:
         password: ${{ env.GITHUB_TOKEN }}
     - name: Login to Docker Hub
       if: inputs.BINARY == 'docker' && inputs.DOCKERHUB_PASSWORD != '' && steps.fork-check.outputs.is_fork != 'true'
+      # Hub auth only raises pull rate limits (the GCR mirror serves most
+      # pulls); a transient registry-1.docker.io timeout must not fail the
+      # whole job.
+      continue-on-error: true
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         username: ${{ inputs.DOCKERHUB_USERNAME }}

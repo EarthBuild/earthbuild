@@ -93,17 +93,27 @@ jobs:
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
-        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_EXAMPLE_NAME}"
+        # -P is --allow-privileged, required by examples that use
+        # WITH DOCKER RUN (e.g. +examples-4/grpc).
         if: github.event_name != 'push'
+        run: |
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
+            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_EXAMPLE_NAME}"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
           INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci --push -P "${INPUTS_EXAMPLE_NAME}"
         if: github.event_name == 'push'
+        run: |
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
+            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci --push -P "${INPUTS_EXAMPLE_NAME}"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
           INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build and test multi-platform example
@@ -114,9 +124,9 @@ jobs:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
           INPUTS_BINARY: ${{inputs.BINARY}}
-      - name: Buildkit logs (runs on failure)
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd || true
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
-          INPUTS_BINARY: ${{inputs.BINARY}}
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

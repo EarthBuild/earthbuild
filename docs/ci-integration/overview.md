@@ -93,15 +93,33 @@ If `earth` is running on a dedicated host, the only consideration to take is the
 
 If `earth` is connecting to a remote `earth-buildkitd`, then you will need to take additional steps. See this article for [running a remote BuildKit instance](remote-buildkit.md).
 
+## Diagnosing failures
+
+`Canceled`, `context canceled`, `file already closed` and a lost solve session
+all report that the build stopped, not why it stopped. A download dying
+mid-transfer, one target failing and cancelling its siblings, a daemon crash,
+and the host's OOM killer taking a `buildkit-runc` child can all end in the
+same message; which one it is depends on your build, your runner and your
+network, so treat the message as a starting point rather than a diagnosis.
+
+What tells them apart is the `earth-buildkitd` daemon log, the host's free
+memory and swap, and the kernel log. Check memory early despite that ordering:
+an OOM kill leaves no trace in the build output at all, so it is the one cause
+you cannot rule out by reading the log.
+
+On GitHub Actions the [failure diagnostics
+action](guides/gh-actions-integration.md#diagnosing-failures) collects all of
+that for you in one step.
+
 ## Examples
 
 Below are links to CI systems that we have more specific information for. If you run into anything in your CI that wasn't covered here, we would love to add it to our documentation. Pull requests are welcome!
 
- - [GitHub Actions](guides/gh-actions-integration.md)
- - [Circle CI](guides/circle-integration.md)
- - [GitLab CI/CD](guides/gitlab-integration.md)
- - [Jenkins](guides/jenkins.md)
- - [AWS CodeBuild](guides/codebuild-integration.md)
- - [Google Cloud Build](guides/google-cloud-build.md)
- - [Woodpecker CI](guides/woodpecker-integration.md)
- - [Kubernetes](guides/kubernetes.md)
+- [GitHub Actions](guides/gh-actions-integration.md)
+- [Circle CI](guides/circle-integration.md)
+- [GitLab CI/CD](guides/gitlab-integration.md)
+- [Jenkins](guides/jenkins.md)
+- [AWS CodeBuild](guides/codebuild-integration.md)
+- [Google Cloud Build](guides/google-cloud-build.md)
+- [Woodpecker CI](guides/woodpecker-integration.md)
+- [Kubernetes](guides/kubernetes.md)

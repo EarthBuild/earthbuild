@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -51,20 +52,16 @@ type shellFrontend struct {
 }
 
 func (sf *shellFrontend) IsAvailable(ctx context.Context) bool {
-	args := append(sf.globalCompatibilityArgs, "ps")        //nolint:gocritic
-	cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
-	err := cmd.Run()
-
-	return err == nil
+	return sf.command(ctx, "ps").Run() == nil
 }
 
 const containerDateFormat = "2006-01-02 15:04:05.999999999 -0700 MST"
 
-func (sf *shellFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, error) {
+func (sf *shellFrontend) ContainerList(ctx context.Context) ([]ContainerInfo, error) {
 	// The custom format below is supported by Docker and Podman.
 	args := []string{"ps", "--format", `{{.ID}},{{.Names}},{{.Status}},{{.Image}},{{.CreatedAt}}`}
 
-	output, err := sf.commandContextOutput(ctx, args...)
+	output, err := sf.commandOutput(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +69,8 @@ func (sf *shellFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, e
 	return parseContainerList(output.stdout.String())
 }
 
-func parseContainerList(output string) ([]*ContainerInfo, error) {
-	ret := []*ContainerInfo{}
+func parseContainerList(output string) ([]ContainerInfo, error) {
+	ret := []ContainerInfo{}
 	// The Docker & Podman JSON output format differs, so we parse the standard output here.
 	lines := strings.SplitSeq(strings.TrimSpace(output), "\n")
 	for line := range lines {
@@ -87,7 +84,7 @@ func parseContainerList(output string) ([]*ContainerInfo, error) {
 			return nil, fmt.Errorf("failed to parse container date: %w", err)
 		}
 
-		ret = append(ret, &ContainerInfo{
+		ret = append(ret, ContainerInfo{
 			ID:      parts[0],
 			Name:    parts[1],
 			Status:  parts[2],
@@ -99,17 +96,17 @@ func parseContainerList(output string) ([]*ContainerInfo, error) {
 	return ret, nil
 }
 
-func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerInfo, error) {
+func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]ContainerInfo, error) {
 	args := append([]string{"container", "inspect"}, namesOrIDs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided names or IDs could be missing.
 	// This allows for Info to report that the container itself is missing.
-	output, _ := sf.commandContextOutput(ctx, args...)
+	output, _ := sf.commandOutput(ctx, args...)
 
-	infos := map[string]*ContainerInfo{}
+	infos := make(map[string]ContainerInfo, len(namesOrIDs))
 	for _, nameOrID := range namesOrIDs {
 		// Preinitialize all as missing. It will get overwritten when we encounter a real one from the actual output.
-		infos[nameOrID] = &ContainerInfo{
+		infos[nameOrID] = ContainerInfo{
 			Name:   nameOrID,
 			Status: StatusMissing,
 		}
@@ -128,7 +125,7 @@ func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string
 			ipAddresses[k] = v.IPAddress
 		}
 
-		infos[namesOrIDs[i]] = &ContainerInfo{
+		infos[namesOrIDs[i]] = ContainerInfo{
 			ID:      container.ID,
 			Name:    container.Name,
 			Created: container.Created,
@@ -164,7 +161,7 @@ func (sf *shellFrontend) ContainerRemove(ctx context.Context, force bool, namesO
 
 	args = append(args, namesOrIDs...)
 
-	_, err := sf.commandContextOutput(ctx, args...)
+	_, err := sf.commandOutput(ctx, args...)
 
 	return err
 }
@@ -172,21 +169,19 @@ func (sf *shellFrontend) ContainerRemove(ctx context.Context, force bool, namesO
 func (sf *shellFrontend) ContainerStop(ctx context.Context, timeoutSec uint, namesOrIDs ...string) error {
 	args := append([]string{"stop", "-t", strconv.FormatUint(uint64(timeoutSec), 10)}, namesOrIDs...)
 
-	_, err := sf.commandContextOutput(ctx, args...)
+	_, err := sf.commandOutput(ctx, args...)
 
 	return err
 }
 
-func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerLogs, error) {
-	logs := map[string]*ContainerLogs{}
+func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]ContainerLogs, error) {
+	logs := make(map[string]ContainerLogs, len(namesOrIDs))
 
 	var err error
 
-	baseArgs := append(sf.globalCompatibilityArgs, "logs") //nolint:gocritic
 	for _, nameOrID := range namesOrIDs {
 		// Don't use the wrapper so we can capture stderr and stdout individually
-		args := append(baseArgs, nameOrID)                      //nolint:gocritic
-		cmd := exec.CommandContext(ctx, sf.binaryName, args...) // #nosec G204
+		cmd := sf.command(ctx, "logs", nameOrID)
 
 		var stdout, stderr strings.Builder
 
@@ -199,7 +194,7 @@ func (sf *shellFrontend) ContainerLogs(ctx context.Context, namesOrIDs ...string
 			continue
 		}
 
-		logs[nameOrID] = &ContainerLogs{
+		logs[nameOrID] = ContainerLogs{
 			Stdout: stdout.String(),
 			Stderr: stderr.String(),
 		}
@@ -265,7 +260,7 @@ func (sf *shellFrontend) ContainerRun(ctx context.Context, containers ...Contain
 		args = append(args, container.ImageRef)
 		args = append(args, container.ContainerArgs...)
 
-		_, cmdErr := sf.commandContextOutput(ctx, args...)
+		_, cmdErr := sf.commandOutput(ctx, args...)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -274,17 +269,19 @@ func (sf *shellFrontend) ContainerRun(ctx context.Context, containers ...Contain
 	return err
 }
 
-func (sf *shellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[string]*ImageInfo, error) {
+func (sf *shellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[string]ImageInfo, error) {
+	if len(refs) == 0 {
+		return map[string]ImageInfo{}, nil
+	}
+
 	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided refs could be missing.
 	// This allows for Info to report that the image itself is missing.
-	output, _ := sf.commandContextOutput(ctx, args...)
+	output, _ := sf.commandOutput(ctx, args...)
 
-	infos := map[string]*ImageInfo{}
-	for _, ref := range refs {
-		// preinitialize all as missing. It will get overwritten when we encounter a real one from the actual output.
-		infos[ref] = &ImageInfo{}
+	if strings.TrimSpace(output.stdout.String()) == "" {
+		return map[string]ImageInfo{}, nil
 	}
 
 	// Anonymous struct to just pick out what we need
@@ -300,8 +297,9 @@ func (sf *shellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[str
 		return nil, fmt.Errorf("failed to parse image info: %w", err)
 	}
 
+	infos := make(map[string]ImageInfo, len(images))
 	for i, image := range images {
-		infos[refs[i]] = &ImageInfo{
+		infos[refs[i]] = ImageInfo{
 			ID:           image.ID,
 			Architecture: image.Architecture,
 			OS:           image.OS,
@@ -320,7 +318,7 @@ func (sf *shellFrontend) ImageRemove(ctx context.Context, force bool, refs ...st
 
 	args = append(args, refs...)
 
-	_, err := sf.commandContextOutput(ctx, args...)
+	_, err := sf.commandOutput(ctx, args...)
 
 	return err
 }
@@ -329,7 +327,7 @@ func (sf *shellFrontend) ImageTag(ctx context.Context, tags ...ImageTag) error {
 	var err error
 
 	for _, tag := range tags {
-		_, cmdErr := sf.commandContextOutput(ctx, "tag", tag.SourceRef, tag.TargetRef)
+		_, cmdErr := sf.commandOutput(ctx, "tag", tag.SourceRef, tag.TargetRef)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -347,27 +345,32 @@ func (cco *commandContextOutput) string() string {
 	return strings.TrimSpace(cco.stdout.String() + cco.stderr.String())
 }
 
-func (sf *shellFrontend) commandContextStrings(args ...string) (string, []string) {
-	allArgs := append(sf.globalCompatibilityArgs, args...) //nolint:gocritic
-	return sf.binaryName, allArgs
+func (sf *shellFrontend) commandArgs(args ...string) []string {
+	return slices.Concat([]string{sf.binaryName}, sf.globalCompatibilityArgs, args)
 }
 
-func (sf *shellFrontend) commandContextOutput(ctx context.Context, args ...string) (*commandContextOutput, error) {
-	output := &commandContextOutput{}
-	binary, args := sf.commandContextStrings(args...)
-	sf.Console.VerbosePrintf("Running command: %s %s\n", binary, strings.Join(args, " "))
-
-	cmd := exec.CommandContext(ctx, binary, args...) // #nosec G204
+func (sf *shellFrontend) command(ctx context.Context, args ...string) *exec.Cmd {
+	fullArgs := sf.commandArgs(args...)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...) // #nosec G204
 	// Ensure all shellouts are using the current environment, picks up DOCKER_/PODMAN_ env vars
 	// when they matter
 	cmd.Env = os.Environ()
+
+	return cmd
+}
+
+func (sf *shellFrontend) commandOutput(ctx context.Context, args ...string) (*commandContextOutput, error) {
+	output := &commandContextOutput{}
+	cmd := sf.command(ctx, args...)
+	sf.Console.VerbosePrintf("Running command: %s\n", strings.Join(cmd.Args, " "))
+
 	cmd.Stdout = &output.stdout
 	cmd.Stderr = &output.stderr
 
 	err := cmd.Run()
 	if err != nil {
-		return output, fmt.Errorf("command failed: %s %s: %w: %s: %w",
-			sf.binaryName, strings.Join(args, " "), err, output.string(), err)
+		return output, fmt.Errorf("command failed: %s: %w: %s: %w",
+			strings.Join(cmd.Args, " "), err, output.string(), err)
 	}
 
 	return output, nil

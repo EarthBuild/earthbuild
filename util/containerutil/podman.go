@@ -30,7 +30,7 @@ func NewPodmanShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		},
 	}
 
-	output, err := fe.commandContextOutput(ctx, "info", "--format={{.Host.Security.Rootless}}")
+	output, err := fe.commandOutput(ctx, "info", "--format={{.Host.Security.Rootless}}")
 	if err != nil {
 		return nil, err
 	}
@@ -76,15 +76,15 @@ func (psf *podmanShellFrontend) Config() *CurrentFrontend {
 	}
 }
 
-func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo, error) {
-	output, err := psf.commandContextOutput(ctx, "info", "--format={{.Host.RemoteSocket.Exists}}")
+func (psf *podmanShellFrontend) Information(ctx context.Context) (FrontendInfo, error) {
+	output, err := psf.commandOutput(ctx, "info", "--format={{.Host.RemoteSocket.Exists}}")
 	if err != nil {
-		return nil, err
+		return FrontendInfo{}, err
 	}
 
 	hasRemote, err := strconv.ParseBool(output.string())
 	if err != nil {
-		return nil, fmt.Errorf("info returned invalid value %s: %w", output.string(), err)
+		return FrontendInfo{}, fmt.Errorf("info returned invalid value %s: %w", output.string(), err)
 	}
 
 	args := []string{"version", "--format=json"}
@@ -92,7 +92,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		args = append([]string{"-r"}, args...)
 	}
 
-	output, err = psf.commandContextOutput(ctx, args...)
+	output, err = psf.commandOutput(ctx, args...)
 	if err != nil {
 		// Podman 5.x might return true for .Host.RemoteSocket.Exists but the socket isn't running.
 		// Fallback to local version.
@@ -100,12 +100,12 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 			hasRemote = false
 			args = []string{"version", "--format=json"}
 
-			output, err = psf.commandContextOutput(ctx, args...)
+			output, err = psf.commandOutput(ctx, args...)
 			if err != nil {
-				return nil, err
+				return FrontendInfo{}, err
 			}
 		} else {
-			return nil, err
+			return FrontendInfo{}, err
 		}
 	}
 
@@ -124,21 +124,21 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 	err = json.Unmarshal([]byte(output.string()), &allInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse version output %s: %w", output.string(), err)
+		return FrontendInfo{}, fmt.Errorf("failed to parse version output %s: %w", output.string(), err)
 	}
 
 	host := "daemonless"
 
 	if hasRemote {
-		output, err = psf.commandContextOutput(ctx, "info", "--format={{.Host.RemoteSocket.Path}}")
+		output, err = psf.commandOutput(ctx, "info", "--format={{.Host.RemoteSocket.Path}}")
 		if err != nil {
-			return nil, err
+			return FrontendInfo{}, err
 		}
 
 		host = output.string()
 	}
 
-	return &FrontendInfo{
+	return FrontendInfo{
 		ClientVersion:    allInfo.Client.Version,
 		ClientAPIVersion: allInfo.Client.APIVersion,
 		ClientPlatform:   allInfo.Client.OSArch,
@@ -162,7 +162,7 @@ func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 
 		args = append(args, ref)
 
-		_, cmdErr := psf.commandContextOutput(ctx, args...)
+		_, cmdErr := psf.commandOutput(ctx, args...)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -172,48 +172,54 @@ func (psf *podmanShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 }
 
 func (psf *podmanShellFrontend) ImageLoadFromFileCommand(filename string) string {
-	binary, args := psf.commandContextStrings("pull", "docker-archive:"+filename)
-
-	all := append([]string{binary}, args...)
-
-	return strings.Join(all, " ")
+	return strings.Join(psf.commandArgs("pull", "docker-archive:"+filename), " ")
 }
 
 func (psf *podmanShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
 
 	for _, image := range images {
-		// Write the image to a temp file. This is needed to accommodate some Podman versions between 3.0 and 3.4. Because
-		// buildkit creates weird hybrid docker/OCI images, Podman pulls it in as an OCI image and ends up neglecting the
-		// in-built image tag. We can get around this by "pulling" a tar file and specifying the format at the CLI. This
-		// is more or less what Podman will be doing going forward. For further context, see the linked issues and discussion
-		// here: https://github.com/earthly/earthly/issues/1285
-		file, tmpErr := os.CreateTemp("", "earthly-podman-load-*")
-		if tmpErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to create temp tarball: %w", tmpErr))
-			continue
-		}
+		loadErr := func() error {
+			// Write the image to a temp file. This is needed to accommodate some Podman versions between 3.0 and 3.4. Because
+			// buildkit creates weird hybrid docker/OCI images, Podman pulls it in as an OCI image and ends up neglecting the
+			// in-built image tag. We can get around this by "pulling" a tar file and specifying the format at the CLI. This
+			// is more or less what Podman will be doing going forward. For further context, see the linked issues and discussion
+			// here: https://github.com/earthly/earthly/issues/1285
+			file, tmpErr := os.CreateTemp("", "earth-podman-load-*")
+			if tmpErr != nil {
+				return fmt.Errorf("failed to create temp tarball: %w", tmpErr)
+			}
+			defer os.Remove(file.Name())
 
-		_, copyErr := io.Copy(file, image)
-		if copyErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to write to %s: %w", file.Name(), copyErr))
-			continue
-		}
-		defer file.Close()
-		defer os.Remove(file.Name())
+			_, copyErr := io.Copy(file, image)
+			if copyErr != nil {
+				_ = file.Close()
+				return fmt.Errorf("failed to write to %s: %w", file.Name(), copyErr)
+			}
 
-		output, cmdErr := psf.commandContextOutput(ctx, "pull", "docker-archive:"+file.Name())
-		if cmdErr != nil {
-			err = errors.Join(err, fmt.Errorf("image load failed: %s: %w", output.string(), cmdErr))
+			closeErr := file.Close()
+			if closeErr != nil {
+				return fmt.Errorf("failed to close %s: %w", file.Name(), closeErr)
+			}
+
+			output, cmdErr := psf.commandOutput(ctx, "pull", "docker-archive:"+file.Name())
+			if cmdErr != nil {
+				return fmt.Errorf("image load failed: %s: %w", output.string(), cmdErr)
+			}
+
+			return nil
+		}()
+		if loadErr != nil {
+			err = errors.Join(err, loadErr)
 		}
 	}
 
 	return err
 }
 
-func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]*VolumeInfo, error) {
+func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]VolumeInfo, error) {
 	// Older podman versions do no support --format. This means we are stuck parsing the verbose tabular output for compat.
-	output, err := psf.commandContextOutput(ctx, "system", "df", "-v")
+	output, err := psf.commandOutput(ctx, "system", "df", "-v")
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +227,7 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 	idx := strings.Index(output.string(), "Local Volumes space usage:")
 	val := output.string()[idx:] //nolint:gocritic
 	lines := strings.Split(val, "\n")[3:]
-	results := map[string]*VolumeInfo{}
+	results := make(map[string]VolumeInfo, len(volumeNames))
 
 	for _, line := range lines {
 		lineParts := strings.Fields(line)
@@ -242,13 +248,13 @@ func (psf *podmanShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 
 				// The mountpoint is not included in the df output. Get that from inspect.
 				mountpoint, mountpointErr := psf.
-					commandContextOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
+					commandOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
 				if mountpointErr != nil {
 					err = errors.Join(err, mountpointErr)
 					break
 				}
 
-				results[volumeName] = &VolumeInfo{
+				results[volumeName] = VolumeInfo{
 					Name:       volumeName,
 					SizeBytes:  bytes,
 					Mountpoint: mountpoint.string(),

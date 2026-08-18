@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -59,6 +58,33 @@ type appleVolumeInspect struct {
 	} `json:"configuration"`
 }
 
+func unmarshalSingleOrSlice[T any](data string) ([]T, error) {
+	trimmed := strings.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+
+	if trimmed[0] == '[' {
+		var items []T
+
+		err := json.Unmarshal([]byte(trimmed), &items)
+		if err != nil {
+			return nil, err
+		}
+
+		return items, nil
+	}
+
+	var item T
+
+	err := json.Unmarshal([]byte(trimmed), &item)
+	if err != nil {
+		return nil, err
+	}
+
+	return []T{item}, nil
+}
+
 // NewAppleContainerShellFrontend constructs a new Frontend using the apple container binary.
 func NewAppleContainerShellFrontend(_ context.Context, cfg *FrontendConfig) (ContainerFrontend, error) {
 	fe := &appleShellFrontend{
@@ -70,8 +96,6 @@ func NewAppleContainerShellFrontend(_ context.Context, cfg *FrontendConfig) (Con
 		},
 	}
 
-	fe.rootless = false
-
 	var err error
 
 	fe.urls, err = fe.setupAndValidateAddresses(FrontendAppleContainerShell, cfg)
@@ -82,10 +106,12 @@ func NewAppleContainerShellFrontend(_ context.Context, cfg *FrontendConfig) (Con
 	return fe, nil
 }
 
+// Scheme returns the scheme used for apple-container addresses.
 func (asf *appleShellFrontend) Scheme() string {
 	return SchemeAppleContainer
 }
 
+// Config returns current frontend configuration settings.
 func (asf *appleShellFrontend) Config() *CurrentFrontend {
 	return &CurrentFrontend{
 		Setting:      FrontendAppleContainerShell,
@@ -95,23 +121,21 @@ func (asf *appleShellFrontend) Config() *CurrentFrontend {
 	}
 }
 
+// IsAvailable reports whether the container command is installed and functioning.
 func (asf *appleShellFrontend) IsAvailable(ctx context.Context) bool {
-	args := append(asf.globalCompatibilityArgs, "list")      //nolint:gocritic
-	cmd := exec.CommandContext(ctx, asf.binaryName, args...) // #nosec G204
-	err := cmd.Run()
-
-	return err == nil
+	return asf.command(ctx, "list").Run() == nil
 }
 
-func (asf *appleShellFrontend) Information(ctx context.Context) (*FrontendInfo, error) {
-	output, err := asf.commandContextOutput(ctx, "--version")
+// Information returns version and platform information for the container CLI.
+func (asf *appleShellFrontend) Information(ctx context.Context) (FrontendInfo, error) {
+	output, err := asf.commandOutput(ctx, "--version")
 	if err != nil {
-		return nil, err
+		return FrontendInfo{}, err
 	}
 
 	ver := strings.TrimSpace(output.string())
 
-	return &FrontendInfo{
+	return FrontendInfo{
 		ClientVersion:    ver,
 		ClientAPIVersion: "N/A",
 		ClientPlatform:   "darwin/arm64",
@@ -122,8 +146,9 @@ func (asf *appleShellFrontend) Information(ctx context.Context) (*FrontendInfo, 
 	}, nil
 }
 
-func (asf *appleShellFrontend) ContainerList(ctx context.Context) ([]*ContainerInfo, error) {
-	output, err := asf.commandContextOutput(ctx, "list", "--format", "json", "--all")
+// ContainerList returns a list of all containers.
+func (asf *appleShellFrontend) ContainerList(ctx context.Context) ([]ContainerInfo, error) {
+	output, err := asf.commandOutput(ctx, "list", "--format", "json", "--all")
 	if err != nil {
 		return nil, err
 	}
@@ -135,20 +160,16 @@ func (asf *appleShellFrontend) ContainerList(ctx context.Context) ([]*ContainerI
 		return nil, fmt.Errorf("decode apple container list output (%s): %w", output.stdout.String(), err)
 	}
 
-	ret := make([]*ContainerInfo, len(inspects))
+	ret := make([]ContainerInfo, len(inspects))
 	for i, v := range inspects {
 		ipAddresses := map[string]string{}
 
 		if len(v.Status.Networks) > 0 {
-			ip := v.Status.Networks[0].Address
-			if idx := strings.Index(ip, "/"); idx != -1 {
-				ip = ip[:idx]
-			}
-
+			ip, _, _ := strings.Cut(v.Status.Networks[0].Address, "/")
 			ipAddresses["bridge"] = ip
 		}
 
-		ret[i] = &ContainerInfo{
+		ret[i] = ContainerInfo{
 			ID:     v.Configuration.ID,
 			Name:   v.Configuration.ID,
 			Status: v.Status.State,
@@ -160,12 +181,13 @@ func (asf *appleShellFrontend) ContainerList(ctx context.Context) ([]*ContainerI
 	return ret, nil
 }
 
+// ContainerInfo returns information for the given container names or IDs.
 func (asf *appleShellFrontend) ContainerInfo(
 	ctx context.Context, namesOrIDs ...string,
-) (map[string]*ContainerInfo, error) {
-	infos := map[string]*ContainerInfo{}
+) (map[string]ContainerInfo, error) {
+	infos := make(map[string]ContainerInfo, len(namesOrIDs))
 	for _, nameOrID := range namesOrIDs {
-		infos[nameOrID] = &ContainerInfo{
+		infos[nameOrID] = ContainerInfo{
 			Name:   nameOrID,
 			Status: StatusMissing,
 		}
@@ -176,39 +198,25 @@ func (asf *appleShellFrontend) ContainerInfo(
 	}
 
 	args := append([]string{"inspect"}, namesOrIDs...) //nolint:goconst
-	output, _ := asf.commandContextOutput(ctx, args...)
 
-	if strings.TrimSpace(output.stdout.String()) == "" {
-		return infos, nil
-	}
+	// Ignore the error because non-existent containers cause the command to exit with an error.
+	// Empty stdout will result in unmarshalSingleOrSlice returning nil, preserving StatusMissing.
+	output, _ := asf.commandOutput(ctx, args...)
 
-	var inspects []appleContainerInspect
-
-	err := json.Unmarshal([]byte(output.stdout.String()), &inspects)
+	inspects, err := unmarshalSingleOrSlice[appleContainerInspect](output.stdout.String())
 	if err != nil {
-		var singleInspect appleContainerInspect
-
-		singleErr := json.Unmarshal([]byte(output.stdout.String()), &singleInspect)
-		if singleErr == nil {
-			inspects = []appleContainerInspect{singleInspect}
-		} else {
-			return nil, fmt.Errorf("decode apple container inspect output (%s): %w", output.stdout.String(), err)
-		}
+		return nil, fmt.Errorf("decode apple container inspect output (%s): %w", output.stdout.String(), err)
 	}
 
-	for _, v := range inspects {
+	for i, v := range inspects {
 		ipAddresses := map[string]string{}
 
 		if len(v.Status.Networks) > 0 {
-			ip := v.Status.Networks[0].Address
-			if idx := strings.Index(ip, "/"); idx != -1 {
-				ip = ip[:idx]
-			}
-
+			ip, _, _ := strings.Cut(v.Status.Networks[0].Address, "/")
 			ipAddresses["bridge"] = ip
 		}
 
-		info := &ContainerInfo{
+		infos[namesOrIDs[i]] = ContainerInfo{
 			ID:     v.Configuration.ID,
 			Name:   v.Configuration.ID,
 			Status: v.Status.State,
@@ -216,17 +224,12 @@ func (asf *appleShellFrontend) ContainerInfo(
 			IPs:    ipAddresses,
 			Labels: v.Configuration.Labels,
 		}
-
-		for _, requested := range namesOrIDs {
-			if requested == v.Configuration.ID {
-				infos[requested] = info
-			}
-		}
 	}
 
 	return infos, nil
 }
 
+// ContainerRemove deletes the specified containers.
 func (asf *appleShellFrontend) ContainerRemove(ctx context.Context, force bool, namesOrIDs ...string) error {
 	args := []string{"delete"}
 	if force {
@@ -234,39 +237,32 @@ func (asf *appleShellFrontend) ContainerRemove(ctx context.Context, force bool, 
 	}
 
 	args = append(args, namesOrIDs...)
-	_, err := asf.commandContextOutput(ctx, args...)
+	_, err := asf.commandOutput(ctx, args...)
 
 	return err
 }
 
+// ContainerRun creates and starts the specified containers.
 func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...ContainerRun) error {
 	var err error
 
 	for _, container := range containers {
 		args := make([]string, 0, 32)
-		args = append(args, "run")
+		args = append(args, "run", "--rosetta")
 
 		if container.Privileged {
-			args = append(args, "--cap-add", "ALL")
-
-			if asf.supportsUnmaskedPaths(ctx) {
-				args = append(args, "--read-only-path", "NONE", "--masked-path", "NONE")
-			}
-		}
-
-		if asf.supportsRosetta(ctx) {
-			args = append(args, "--rosetta")
+			args = append(args, "--cap-add", "ALL", "--read-only-path", "NONE", "--masked-path", "NONE")
 		}
 
 		hasCPUs := false
 		hasMemory := false
 
-		for _, a := range container.AdditionalArgs {
-			if a == "-c" || a == "--cpus" || strings.HasPrefix(a, "--cpus=") {
+		for _, arg := range container.AdditionalArgs {
+			if arg == "-c" || arg == "--cpus" || strings.HasPrefix(arg, "--cpus=") {
 				hasCPUs = true
 			}
 
-			if a == "-m" || a == "--memory" || strings.HasPrefix(a, "--memory=") {
+			if arg == "-m" || arg == "--memory" || strings.HasPrefix(arg, "--memory=") {
 				hasMemory = true
 			}
 		}
@@ -293,12 +289,12 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 		args = append(args, buildAppleMountArgs(container.Mounts)...)
 
 		for _, prt := range container.Ports {
-			hostPort := strconv.FormatInt(int64(prt.HostPort), 10)
+			hostPort := strconv.Itoa(prt.HostPort)
 			if prt.HostPort <= 0 {
 				hostPort = ""
 			}
 
-			port := fmt.Sprintf("%s:%v:%v", prt.IP, hostPort, prt.ContainerPort)
+			port := fmt.Sprintf("%s:%s:%d", prt.IP, hostPort, prt.ContainerPort)
 
 			if prt.Protocol != "" {
 				port = fmt.Sprintf("%s/%s", port, prt.Protocol)
@@ -314,7 +310,7 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 		args = append(args, container.ImageRef)
 		args = append(args, container.ContainerArgs...)
 
-		_, cmdErr := asf.commandContextOutput(ctx, args...)
+		_, cmdErr := asf.commandOutput(ctx, args...)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -323,59 +319,43 @@ func (asf *appleShellFrontend) ContainerRun(ctx context.Context, containers ...C
 	return err
 }
 
-func (asf *appleShellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[string]*ImageInfo, error) {
-	infos := map[string]*ImageInfo{}
-	for _, ref := range refs {
-		infos[ref] = &ImageInfo{}
-	}
+// ImageInfo returns metadata for the given image references.
+func (asf *appleShellFrontend) ImageInfo(ctx context.Context, refs ...string) (map[string]ImageInfo, error) {
+	infos := make(map[string]ImageInfo, len(refs))
 
 	if len(refs) == 0 {
 		return infos, nil
 	}
 
 	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
-	output, _ := asf.commandContextOutput(ctx, args...)
 
-	if strings.TrimSpace(output.stdout.String()) == "" {
-		return infos, nil
-	}
+	// Ignore the error because non-existent images cause the command to exit with an error.
+	// Empty stdout will result in unmarshalSingleOrSlice returning nil.
+	output, _ := asf.commandOutput(ctx, args...)
 
-	var inspects []appleImageInspect
-
-	err := json.Unmarshal([]byte(output.stdout.String()), &inspects)
+	inspects, err := unmarshalSingleOrSlice[appleImageInspect](output.stdout.String())
 	if err != nil {
-		var singleInspect appleImageInspect
-
-		singleErr := json.Unmarshal([]byte(output.stdout.String()), &singleInspect)
-		if singleErr == nil {
-			inspects = []appleImageInspect{singleInspect}
-		} else {
-			return nil, fmt.Errorf("decode apple image inspect output (%s): %w", output.stdout.String(), err)
-		}
+		return nil, fmt.Errorf("decode apple image inspect output (%s): %w", output.stdout.String(), err)
 	}
 
 	for i, v := range inspects {
-		if i >= len(refs) {
-			break
+		info := ImageInfo{
+			ID:   v.ID,
+			Tags: []string{v.Configuration.Name},
 		}
 
-		var osStr, archStr string
 		if len(v.Variants) > 0 {
-			osStr = v.Variants[0].Platform.OS
-			archStr = v.Variants[0].Platform.Architecture
+			info.OS = v.Variants[0].Platform.OS
+			info.Architecture = v.Variants[0].Platform.Architecture
 		}
 
-		infos[refs[i]] = &ImageInfo{
-			ID:           v.ID,
-			OS:           osStr,
-			Architecture: archStr,
-			Tags:         []string{v.Configuration.Name},
-		}
+		infos[refs[i]] = info
 	}
 
 	return infos, nil
 }
 
+// ImagePull downloads the specified container images.
 func (asf *appleShellFrontend) ImagePull(ctx context.Context, refs ...string) error {
 	var err error
 
@@ -387,7 +367,7 @@ func (asf *appleShellFrontend) ImagePull(ctx context.Context, refs ...string) er
 
 		args = append(args, ref)
 
-		_, cmdErr := asf.commandContextOutput(ctx, args...)
+		_, cmdErr := asf.commandOutput(ctx, args...)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -396,11 +376,12 @@ func (asf *appleShellFrontend) ImagePull(ctx context.Context, refs ...string) er
 	return err
 }
 
+// ImageTag applies tags to existing images.
 func (asf *appleShellFrontend) ImageTag(ctx context.Context, tags ...ImageTag) error {
 	var err error
 
 	for _, tag := range tags {
-		_, cmdErr := asf.commandContextOutput(ctx, "image", "tag", tag.SourceRef, tag.TargetRef)
+		_, cmdErr := asf.commandOutput(ctx, "image", "tag", tag.SourceRef, tag.TargetRef)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -409,71 +390,67 @@ func (asf *appleShellFrontend) ImageTag(ctx context.Context, tags ...ImageTag) e
 	return err
 }
 
+// ImageLoadFromFileCommand returns the shell command to load an image from a file.
 func (asf *appleShellFrontend) ImageLoadFromFileCommand(filename string) string {
-	binary, args := asf.commandContextStrings("image", "load", "--input", filename)
-	all := append([]string{binary}, args...)
-
-	return strings.Join(all, " ")
+	return strings.Join(asf.commandArgs("image", "load", "--input", filename), " ")
 }
 
+// ImageLoad reads image tarballs and loads them into the container store.
 func (asf *appleShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
 
 	for _, image := range images {
-		file, tmpErr := os.CreateTemp("", "earthly-apple-load-*")
-		if tmpErr != nil {
-			err = errors.Join(err, fmt.Errorf("create temp tarball: %w", tmpErr))
-			continue
-		}
+		loadErr := func() error {
+			file, tmpErr := os.CreateTemp("", "earth-apple-load-*")
+			if tmpErr != nil {
+				return fmt.Errorf("create temp tarball: %w", tmpErr)
+			}
+			defer os.Remove(file.Name())
 
-		_, copyErr := io.Copy(file, image)
-		if copyErr != nil {
-			err = errors.Join(err, fmt.Errorf("write to %s: %w", file.Name(), copyErr))
-			continue
-		}
-		defer file.Close()
-		defer os.Remove(file.Name())
+			_, copyErr := io.Copy(file, image)
+			if copyErr != nil {
+				_ = file.Close()
+				return fmt.Errorf("write to %s: %w", file.Name(), copyErr)
+			}
 
-		output, cmdErr := asf.commandContextOutput(ctx, "image", "load", "--input", file.Name())
-		if cmdErr != nil {
-			err = errors.Join(err, fmt.Errorf("load image (%s): %w", output.string(), cmdErr))
+			closeErr := file.Close()
+			if closeErr != nil {
+				return fmt.Errorf("close %s: %w", file.Name(), closeErr)
+			}
+
+			output, cmdErr := asf.commandOutput(ctx, "image", "load", "--input", file.Name())
+			if cmdErr != nil {
+				return fmt.Errorf("load image (%s): %w", output.string(), cmdErr)
+			}
+
+			return nil
+		}()
+		if loadErr != nil {
+			err = errors.Join(err, loadErr)
 		}
 	}
 
 	return err
 }
 
-func (asf *appleShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]*VolumeInfo, error) {
-	results := map[string]*VolumeInfo{}
-	for _, name := range volumeNames {
-		results[name] = &VolumeInfo{Name: name}
-	}
-
+// VolumeInfo returns details for the specified volume names.
+func (asf *appleShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]VolumeInfo, error) {
 	if len(volumeNames) == 0 {
-		return results, nil
+		return map[string]VolumeInfo{}, nil
 	}
 
 	args := append([]string{"volume", "inspect"}, volumeNames...)
 
-	output, _ := asf.commandContextOutput(ctx, args...)
+	// Ignore the error because non-existent volumes cause the command to exit with an error.
+	// Empty stdout will result in unmarshalSingleOrSlice returning nil.
+	output, _ := asf.commandOutput(ctx, args...)
 
-	if strings.TrimSpace(output.stdout.String()) == "" {
-		return results, nil
-	}
-
-	var inspects []appleVolumeInspect
-
-	err := json.Unmarshal([]byte(output.stdout.String()), &inspects)
+	inspects, err := unmarshalSingleOrSlice[appleVolumeInspect](output.stdout.String())
 	if err != nil {
-		var singleInspect appleVolumeInspect
-
-		singleErr := json.Unmarshal([]byte(output.stdout.String()), &singleInspect)
-		if singleErr == nil {
-			inspects = []appleVolumeInspect{singleInspect}
-		} else {
-			return results, fmt.Errorf("decode apple volume inspect output for %v: %w", volumeNames, err)
-		}
+		return nil, fmt.Errorf("decode apple volume inspect output for %v: %w", volumeNames, err)
 	}
+
+	results := make(map[string]VolumeInfo, len(inspects))
 
 	for _, v := range inspects {
 		name := v.Configuration.Name
@@ -481,48 +458,26 @@ func (asf *appleShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...st
 			name = v.ID
 		}
 
-		vi := &VolumeInfo{
+		vi := VolumeInfo{
 			Name:       name,
 			SizeBytes:  v.Configuration.SizeInBytes,
 			Mountpoint: v.Configuration.Source,
 		}
-		for _, reqName := range volumeNames {
-			if reqName == name || reqName == v.ID {
-				results[reqName] = vi
-			}
+		if slices.Contains(volumeNames, name) {
+			results[name] = vi
+		}
+
+		if v.ID != "" && slices.Contains(volumeNames, v.ID) {
+			results[v.ID] = vi
 		}
 	}
 
 	return results, nil
 }
 
-func (asf *appleShellFrontend) supportsUnmaskedPaths(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, asf.binaryName, "run", "--help") // #nosec G204
-
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-
-	return strings.Contains(string(out), "--read-only-path")
-}
-
-func (asf *appleShellFrontend) supportsRosetta(ctx context.Context) bool {
-	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
-		return false
-	}
-
-	cmd := exec.CommandContext(ctx, asf.binaryName, "run", "--help") // #nosec G204
-
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-
-	return strings.Contains(string(out), "--rosetta")
-}
-
-func appleBindFileDir(mnt Mount, seenDirs map[string]bool) (string, bool) {
+// appleBindFileDir converts a single-file bind mount into a directory mount,
+// as Apple Container requires directory-level bind mounts.
+func appleBindFileDir(mnt Mount, seenDirs map[string]struct{}) (string, bool) {
 	if mnt.Type != MountBind {
 		return "", false
 	}
@@ -533,11 +488,11 @@ func appleBindFileDir(mnt Mount, seenDirs map[string]bool) (string, bool) {
 	}
 
 	dir := filepath.Dir(mnt.Source)
-	if seenDirs[dir] {
+	if _, seen := seenDirs[dir]; seen {
 		return "", true
 	}
 
-	seenDirs[dir] = true
+	seenDirs[dir] = struct{}{}
 	mountSpec := fmt.Sprintf("type=bind,source=%s,target=/etc/earthly-certs", dir)
 
 	if mnt.ReadOnly {
@@ -547,10 +502,11 @@ func appleBindFileDir(mnt Mount, seenDirs map[string]bool) (string, bool) {
 	return mountSpec, true
 }
 
+// buildAppleMountArgs constructs CLI mount flags for Apple Container.
 func buildAppleMountArgs(mounts []Mount) []string {
 	var args []string
 
-	seenMountDirs := make(map[string]bool)
+	seenMountDirs := make(map[string]struct{}, len(mounts))
 
 	for _, mnt := range mounts {
 		mountSpec, handled := appleBindFileDir(mnt, seenMountDirs)

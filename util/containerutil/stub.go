@@ -48,15 +48,15 @@ func (sf *stubFrontend) Config() *CurrentFrontend {
 	}
 }
 
-func (*stubFrontend) Information(context.Context) (*FrontendInfo, error) {
-	return &FrontendInfo{}, nil
+func (*stubFrontend) Information(context.Context) (FrontendInfo, error) {
+	return FrontendInfo{}, nil
 }
 
-func (*stubFrontend) ContainerList(context.Context) ([]*ContainerInfo, error) {
+func (*stubFrontend) ContainerList(context.Context) ([]ContainerInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerInfo(context.Context, ...string) (map[string]*ContainerInfo, error) {
+func (*stubFrontend) ContainerInfo(context.Context, ...string) (map[string]ContainerInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
@@ -68,7 +68,7 @@ func (*stubFrontend) ContainerStop(context.Context, uint, ...string) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ContainerLogs(context.Context, ...string) (map[string]*ContainerLogs, error) {
+func (*stubFrontend) ContainerLogs(context.Context, ...string) (map[string]ContainerLogs, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
@@ -76,7 +76,7 @@ func (*stubFrontend) ContainerRun(context.Context, ...ContainerRun) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) ImageInfo(context.Context, ...string) (map[string]*ImageInfo, error) {
+func (*stubFrontend) ImageInfo(context.Context, ...string) (map[string]ImageInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }
 
@@ -100,6 +100,6 @@ func (*stubFrontend) ImageLoad(context.Context, ...io.Reader) error {
 	return ErrFrontendNotInitialized
 }
 
-func (*stubFrontend) VolumeInfo(context.Context, ...string) (map[string]*VolumeInfo, error) {
+func (*stubFrontend) VolumeInfo(context.Context, ...string) (map[string]VolumeInfo, error) {
 	return nil, ErrFrontendNotInitialized
 }

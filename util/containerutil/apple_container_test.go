@@ -105,3 +105,54 @@ func TestAppleVolumeInspectUnmarshal(t *testing.T) {
 	assert.Equal(t, "/var/lib/container/volumes/test-volume", v.Configuration.Source)
 	assert.Equal(t, uint64(1048576), v.Configuration.SizeInBytes)
 }
+
+func TestUnmarshalSingleOrSlice(t *testing.T) {
+	t.Parallel()
+
+	type sample struct {
+		Name string `json:"name"`
+		Val  int    `json:"val"`
+	}
+
+	t.Run("empty input", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := unmarshalSingleOrSlice[sample]("   ")
+		require.NoError(t, err)
+		assert.Nil(t, res)
+	})
+
+	t.Run("single object", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := unmarshalSingleOrSlice[sample](`{"name": "foo", "val": 42}`)
+		require.NoError(t, err)
+		require.Len(t, res, 1)
+		assert.Equal(t, "foo", res[0].Name)
+		assert.Equal(t, 42, res[0].Val)
+	})
+
+	t.Run("array of objects", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := unmarshalSingleOrSlice[sample](`[{"name": "a", "val": 1}, {"name": "b", "val": 2}]`)
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, "a", res[0].Name)
+		assert.Equal(t, "b", res[1].Name)
+	})
+
+	t.Run("invalid json object", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := unmarshalSingleOrSlice[sample](`{invalid}`)
+		require.Error(t, err)
+	})
+
+	t.Run("invalid json array", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := unmarshalSingleOrSlice[sample](`[invalid]`)
+		require.Error(t, err)
+	})
+}

@@ -1058,33 +1058,33 @@ func GetSettingsHash(ctx context.Context, containerName string, fe containerutil
 // GetContainerInfo inspects the running container (running under containerName).
 func GetContainerInfo(
 	ctx context.Context, containerName string, fe containerutil.ContainerFrontend,
-) (*containerutil.ContainerInfo, error) {
+) (containerutil.ContainerInfo, error) {
 	infos, err := fe.ContainerInfo(ctx, containerName)
 	if err != nil {
-		return nil, fmt.Errorf("get container info for current container image ID: %w", err)
+		return containerutil.ContainerInfo{}, fmt.Errorf("get container info for current container image ID: %w", err)
 	}
 
 	if containerInfo, ok := infos[containerName]; ok {
 		return containerInfo, nil
 	}
 
-	return nil, fmt.Errorf("info for container %s was not found", containerName)
+	return containerutil.ContainerInfo{}, fmt.Errorf("info for container %s was not found", containerName)
 }
 
 // GetImageInfo inspects an image.
 func GetImageInfo(
 	ctx context.Context, image string, fe containerutil.ContainerFrontend,
-) (*containerutil.ImageInfo, error) {
+) (containerutil.ImageInfo, error) {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {
-		return nil, fmt.Errorf("get image info %s: %w", image, err)
+		return containerutil.ImageInfo{}, fmt.Errorf("get image info %s: %w", image, err)
 	}
 
 	if info, ok := infos[image]; ok {
 		return info, nil
 	}
 
-	return nil, fmt.Errorf("info for image %s was not found", image)
+	return containerutil.ImageInfo{}, fmt.Errorf("info for image %s was not found", image)
 }
 
 // GetAvailableImageID fetches the ID of the image buildkitd image available.

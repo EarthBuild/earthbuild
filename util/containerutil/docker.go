@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	"al.essio.dev/pkg/shellescape"
@@ -38,12 +37,12 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 	// `--format` option.
 	// This is to prevent displaying panic() errors to our users (even though the panic() occurred in the
 	// docker cli binary and not earth).
-	_, err := fe.commandContextOutput(ctx, "info")
+	_, err := fe.commandOutput(ctx, "info")
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := fe.commandContextOutput(ctx, "info", "--format={{.SecurityOptions}}")
+	output, err := fe.commandOutput(ctx, "info", "--format={{.SecurityOptions}}")
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +59,13 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
 
-	output, err = fe.commandContextOutput(ctx, "info", "--format={{.DockerRootDir}}")
+	output, err = fe.commandOutput(ctx, "info", "--format={{.DockerRootDir}}")
 	if err != nil {
 		// Maybe the user has aliased podman=docker?
 		// (The same information is found at a different path in podman)
 		var err2 error
 
-		output, err2 = fe.commandContextOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
+		output, err2 = fe.commandOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to get docker root dir: %w", err)
 		}
@@ -96,10 +95,10 @@ func (dsf *dockerShellFrontend) Config() *CurrentFrontend {
 	}
 }
 
-func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo, error) {
-	output, err := dsf.commandContextOutput(ctx, "version", "--format={{json .}}")
+func (dsf *dockerShellFrontend) Information(ctx context.Context) (FrontendInfo, error) {
+	output, err := dsf.commandOutput(ctx, "version", "--format={{json .}}")
 	if err != nil {
-		return nil, err
+		return FrontendInfo{}, err
 	}
 
 	type versionInfo struct {
@@ -118,7 +117,7 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 	err = json.Unmarshal([]byte(output.string()), &allInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse docker version output: %w", err)
+		return FrontendInfo{}, fmt.Errorf("failed to parse docker version output: %w", err)
 	}
 
 	host, exists := os.LookupEnv("DOCKER_HOST")
@@ -126,7 +125,7 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		host = "/var/run/docker.sock"
 	}
 
-	return &FrontendInfo{
+	return FrontendInfo{
 		ClientVersion:    allInfo.Client.Version,
 		ClientAPIVersion: allInfo.Client.APIVersion,
 		ClientPlatform:   fmt.Sprintf("%s/%s", allInfo.Client.OS, allInfo.Client.Arch),
@@ -139,17 +138,20 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 
 func (dsf *dockerShellFrontend) ContainerInfo(
 	ctx context.Context, namesOrIDs ...string,
-) (map[string]*ContainerInfo, error) {
+) (map[string]ContainerInfo, error) {
 	results, err := dsf.shellFrontend.ContainerInfo(ctx, namesOrIDs...)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, v := range results {
-		// Docker prepends a `\`. This is as intended, according to docker; but unexpected in our
+	for k, v := range results {
+		// Docker prepends a `/`. This is as intended, according to docker; but unexpected in our
 		// case. So remove it. If the status is missing, it was passed through so do not remove.
 		if v.Status != StatusMissing {
-			v.Name = v.Name[1:]
+			if name, ok := strings.CutPrefix(v.Name, "/"); ok {
+				v.Name = name
+				results[k] = v
+			}
 		}
 	}
 
@@ -160,7 +162,7 @@ func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 	var err error
 
 	for _, ref := range refs {
-		_, cmdErr := dsf.commandContextOutput(ctx, "pull", ref)
+		_, cmdErr := dsf.commandOutput(ctx, "pull", ref)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -170,20 +172,15 @@ func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 }
 
 func (dsf *dockerShellFrontend) ImageLoadFromFileCommand(filename string) string {
-	binary, args := dsf.commandContextStrings("load")
-
-	all := append([]string{binary}, args...)
-
-	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(all, " "))
+	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(dsf.commandArgs("load"), " "))
 }
 
 func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
 
-	args := append(dsf.globalCompatibilityArgs, "load") //nolint:gocritic
 	for _, image := range images {
 		// Do not use the wrapper to allow the image to come in on stdin
-		cmd := exec.CommandContext(ctx, dsf.binaryName, args...) // #nosec G204
+		cmd := dsf.command(ctx, "load")
 		cmd.Stdin = image
 
 		output, cmdErr := cmd.CombinedOutput()
@@ -195,16 +192,14 @@ func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 	return err
 }
 
-func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]*VolumeInfo, error) {
+func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]VolumeInfo, error) {
+	if len(volumeNames) == 0 {
+		return map[string]VolumeInfo{}, nil
+	}
+
 	// Ignore the error. This is because one or more of the provided names could be missing.
 	// This allows for Info to report that the volume itself is missing.
-	output, _ := dsf.commandContextOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
-
-	results := map[string]*VolumeInfo{}
-	for _, name := range volumeNames {
-		// Preinitialize all as missing. It will get overwritten when we encounter a real one from the actual output.
-		results[name] = &VolumeInfo{Name: name}
-	}
+	output, _ := dsf.commandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
 
 	// Anonymous struct to just pick out what we need
 	volumeInfos := struct {
@@ -220,6 +215,8 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 		return nil, fmt.Errorf("failed to decode docker volume info for %v: %w", volumeNames, err)
 	}
 
+	results := make(map[string]VolumeInfo, len(volumeNames))
+
 	for _, name := range volumeNames {
 		for _, volumeInfo := range volumeInfos.Volumes {
 			if name == volumeInfo.Name {
@@ -227,7 +224,7 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 				if parseErr != nil {
 					err = errors.Join(err, parseErr)
 				} else {
-					results[name] = &VolumeInfo{
+					results[name] = VolumeInfo{
 						Name:       volumeInfo.Name,
 						SizeBytes:  bytes,
 						Mountpoint: volumeInfo.Mountpoint,

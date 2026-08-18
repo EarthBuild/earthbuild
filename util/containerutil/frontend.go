@@ -15,23 +15,23 @@ type ContainerFrontend interface {
 
 	IsAvailable(ctx context.Context) bool
 	Config() *CurrentFrontend
-	Information(ctx context.Context) (*FrontendInfo, error)
+	Information(ctx context.Context) (FrontendInfo, error)
 
-	ContainerList(ctx context.Context) ([]*ContainerInfo, error)
-	ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerInfo, error)
+	ContainerList(ctx context.Context) ([]ContainerInfo, error)
+	ContainerInfo(ctx context.Context, namesOrIDs ...string) (map[string]ContainerInfo, error)
 	ContainerRemove(ctx context.Context, force bool, namesOrIDs ...string) error
 	ContainerStop(ctx context.Context, timeoutSec uint, namesOrIDs ...string) error
-	ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]*ContainerLogs, error)
+	ContainerLogs(ctx context.Context, namesOrIDs ...string) (map[string]ContainerLogs, error)
 	ContainerRun(ctx context.Context, containers ...ContainerRun) error
 
-	ImageInfo(ctx context.Context, refs ...string) (map[string]*ImageInfo, error)
+	ImageInfo(ctx context.Context, refs ...string) (map[string]ImageInfo, error)
 	ImagePull(ctx context.Context, refs ...string) error
 	ImageRemove(ctx context.Context, force bool, refs ...string) error
 	ImageTag(ctx context.Context, tags ...ImageTag) error
 	ImageLoad(ctx context.Context, image ...io.Reader) error
 	ImageLoadFromFileCommand(filename string) string
 
-	VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]*VolumeInfo, error)
+	VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]VolumeInfo, error)
 }
 
 // FrontendConfig is the configuration needed to bring up a given frontend. Includes logging and needed information to

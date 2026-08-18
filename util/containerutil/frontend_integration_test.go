@@ -119,7 +119,7 @@ func TestFrontendInformation(t *testing.T) {
 
 			info, err := fe.Information(ctx)
 			NoError(t, err)
-			NotNil(t, info)
+			NotEmpty(t, info.ClientVersion)
 		})
 	}
 }
@@ -475,8 +475,7 @@ func TestFrontendImageRemove(t *testing.T) {
 
 			info, err = fe.ImageInfo(ctx, refList...)
 			NoError(t, err)
-			Empty(t, info[refList[0]].ID)
-			Empty(t, info[refList[1]].ID)
+			Empty(t, info)
 		})
 	}
 }

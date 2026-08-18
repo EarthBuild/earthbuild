@@ -8,21 +8,21 @@ This page outlines alternative installation instructions for the `earth` build t
 - [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - (*Windows only*) [Docker WSL 2 backend](https://docs.docker.com/docker-for-windows/wsl/) or [Podman WSL2 backend](https://github.com/containers/podman/blob/main/docs/tutorials/podman-for-windows.md)
 
-## Install earthly
+## Install earth
 
-Download the binary relevant to your platform from [the releases page](https://github.com/earthly/earthly/releases), rename it to `earthly` and place it in your `bin`.
+Download the binary relevant to your platform from [the releases page](https://github.com/EarthBuild/earthbuild/releases), rename it to `earth` and place it in your `bin`.
 
 To initialize the installation, including adding auto-completion for your shell, run
 
 ```bash
-sudo earthly bootstrap --with-autocomplete
+sudo earth bootstrap --with-autocomplete
 ```
 
 and then restart your shell.
 
 ### CI
 
-For instructions on how to install `earthly` for CI use, see the [CI integration guide](../ci-integration/overview.md).
+For instructions on how to install `earth` for CI use, see the [CI integration guide](../ci-integration/overview.md).
 
 ### Checksum Verification
 
@@ -31,36 +31,36 @@ You may optionally verify the checksum of the downloaded binaries, by performing
 1. Download our public key:
 
     ```bash
-    wget https://pkg.earthly.dev/earthly.pgp
+    wget -O earthbuild.pgp https://raw.githubusercontent.com/EarthBuild/earthbuild/main/release/apt-repo/earthbuild-pgp-public.pgp
     ```
 
 2. Verify the public key was correctly downloaded:
 
     ```bash
-    md5sum earthly.pgp
+    md5sum earthbuild.pgp
     ```
 
     which should produce:
 
     ```
-    8f455671610b15ee21be31e9f16b7bb6  earthly.pgp
+    ddd123d902fb61a2310e7e506abd55f3  earthbuild.pgp
     ```
 
 3. Import our key:
 
     ```bash
-    gpg --import earthly.pgp
+    gpg --import earthbuild.pgp
     ```
 
 4. Trust our key:
 
     ```bash
-    echo -e "5\ny\n" |  gpg --command-fd 0 --expert --edit-key 5816B2213DD1CEB61FC952BAB1185ECA33F8EB64 trust
+    echo -e "5\ny\n" |  gpg --command-fd 0 --expert --edit-key 08900479B981AF7C32C8B918604C8879FF83C260 trust
     ```
 
 5. Download the released `checksum.asc` file:
 
-    You can manually download it from the [the releases page](https://github.com/earthly/earthly/releases).
+    You can manually download it from the [the releases page](https://github.com/EarthBuild/earthbuild/releases).
 
     The latest version can be fetched from the command line with:
 
@@ -82,7 +82,7 @@ Don't be tempted to remove the initial `gpg --verify checksum.asc` command; gpg 
 if the signature verification fails.
 {% endhint %}
 
-7. Verify the earthly binary checksum matches
+7. Verify the earth binary checksum matches
 
     ```bash
     sha256sum --check checksum --ignore-missing
@@ -91,113 +91,35 @@ if the signature verification fails.
     This should display an entry similar to:
 
     ```
-    earthly-linux-amd64: OK
+    earth-linux-amd64: OK
     ```
 
-### Installing from Earthly repositories (**beta**)
+### Installing from deb/rpm repositories
 
 {% hint style='danger' %}
 
-##### Important
+##### Currently unavailable
 
-Our rpm and deb repositories are currently in **Beta** stage.
+The deb and rpm repositories are **not currently available**.
 
-- Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/986) for any known problems.
-- Give us feedback on [Slack](https://earthly.dev/slack).
-  {% endhint %}
+These repositories were hosted at `pkg.earthly.dev`, which was decommissioned along with the rest of
+the Earthly infrastructure; that hostname no longer resolves. EarthBuild has not yet stood up
+replacement package repositories.
 
-Earthly can be installed for Debian and RedHat based Linux distributions via the Earthly deb and rpm repositories.
+Until replacements are published, install the binary directly (see [Install earth](#install-earth)
+above) or build [from source](#installing-from-source).
 
-All of our binaries are signed with our [PGP key](https://pkg.earthly.dev/earthly.pgp); which has the fingerprint:
+{% endhint %}
 
-    5816 B221 3DD1 CEB6 1FC9 52BA B118 5ECA 33F8 EB64
+All EarthBuild release binaries are signed with our
+[PGP key](https://raw.githubusercontent.com/EarthBuild/earthbuild/main/release/apt-repo/earthbuild-pgp-public.pgp),
+which has the fingerprint:
 
-#### Debian-based repositories (including Ubuntu)
+    0890 0479 B981 AF7C 32C8 B918 604C 8879 FF83 C260
 
-Debian-based Linux users (e.g. Debian, Ubuntu, Mint, etc) can use our apt repo to install Earthly.
-
-Before installing Earthly, you must first set up the Earthly apt repo.
-
-1. Update apt and install required tools to support https-based apt repos:
-
-   ```bash
-   sudo apt-get update
-   sudo apt-get install \
-      apt-transport-https \
-      ca-certificates \
-      curl \
-      gnupg \
-      lsb-release
-   ```
-
-2. Download Earthly's GPG key:
-
-   ```bash
-   curl -fsSL https://pkg.earthly.dev/earthly.pgp | sudo gpg --dearmor -o /usr/share/keyrings/earthly-archive-keyring.gpg
-   ```
-
-3. Setup the stable repo:
-
-   ```bash
-   echo \
-     "deb [arch=amd64 signed-by=/usr/share/keyrings/earthly-archive-keyring.gpg] https://pkg.earthly.dev/deb \
-     stable main" | sudo tee /etc/apt/sources.list.d/earthly.list > /dev/null
-   ```
-
-4. Install Earthly:
-
-   ```bash
-   sudo apt-get update
-   sudo apt-get install earthly
-   ```
-
-#### Fedora repositories
-
-Fedora users can use our rpm repo to install Earthly.
-
-1. Install plugins required to manage DNF repositories:
-
-   ```bash
-   sudo dnf -y install dnf-plugins-core
-   ```
-
-2. Add the Earthly repo to your system:
-
-   ```bash
-   sudo dnf config-manager \
-       --add-repo \
-       https://pkg.earthly.dev/earthly.repo
-   ```
-
-3. Install Earthly:
-
-   ```bash
-   sudo dnf install earthly
-   ```
-
-#### CentOS repositories
-
-CentOS users can use our rpm repo to install Earthly.
-
-1. Install utils required to manage yum repositories:
-
-   ```bash
-   sudo yum install -y yum-utils
-   ```
-
-2. Add the Earthly repo to your system:
-
-   ```bash
-   sudo yum-config-manager \
-       --add-repo \
-       https://pkg.earthly.dev/earthly.repo
-   ```
-
-3. Install Earthly:
-
-   ```bash
-   sudo yum install earthly
-   ```
+Note that this is a *different* key from the one Earthly used to sign its releases
+(`5816 B221 3DD1 CEB6 1FC9 52BA B118 5ECA 33F8 EB64`). If you verified Earthly releases previously,
+you will need to import the new key — see [Checksum Verification](#checksum-verification) above.
 
 ### Native Windows
 
@@ -209,13 +131,12 @@ Our native Windows release is currently in the **Experimental** stage.
 
 - The release ships with known issues. Many things work, but some don't.
 - Check the [GitHub tracking issue](https://github.com/earthly/earthly/issues/1031) for any known problems.
-- Give us feedback on [Slack](https://earthly.dev/slack).
 
 {% endhint %}
 
-To install the Windows release, simply [download](https://github.com/earthly/earthly/releases/latest/download/earthly-windows-amd64.exe) the binary (or from our [release page](https://github.com/earthly/earthly/releases/latest/)); and ensure it is within your `PATH`.
+To install the Windows release, simply [download](https://github.com/EarthBuild/earthbuild/releases/latest/download/earth-windows-amd64.exe) the binary (or from our [release page](https://github.com/EarthBuild/earthbuild/releases/latest/)); and ensure it is within your `PATH`.
 
-To add `earthly.exe` to your `PATH` environment variable:
+To add `earth.exe` to your `PATH` environment variable:
 
 1. Search and select: System (Control Panel)
 2. Click the Advanced system settings link.
@@ -228,10 +149,10 @@ If you are going to mostly be working from a WSL2 prompt in Windows, you might w
 
 ### macOS Binary
 
-While installing `earthly` via Homebrew is the recommended approach, you can also download a binary directly. This may be useful when using `earthly` on a Mac in CI scenarios.
+While installing `earth` via Homebrew is the recommended approach, you can also download a binary directly. This may be useful when using `earth` on a Mac in CI scenarios.
 
-- [M1 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-arm64)
-- [x64 Binary](https://github.com/earthly/earthly/releases/latest/download/earthly-darwin-amd64)
+- [Apple silicon (arm64) binary](https://github.com/EarthBuild/earthbuild/releases/latest/download/earth-darwin-arm64)
+- [Intel (x64) binary](https://github.com/EarthBuild/earthbuild/releases/latest/download/earth-darwin-amd64)
 
 When using a precompiled binary, you may need to add an exception to Gatekeeper. [Follow Apple's instructions to add this exception](https://support.apple.com/guide/mac-help/apple-cant-check-app-for-malicious-software-mchleab3a043/mac).
 
@@ -241,7 +162,7 @@ To install from source, see the [contributing page](https://github.com/earthbuil
 
 ## Configuration
 
-If you use SSH-based git authentication, then your git credentials will just work with Earthly. Read more about [git auth](../guides/auth.md).
+If you use SSH-based git authentication, then your git credentials will just work with EarthBuild. Read more about [git auth](../guides/auth.md).
 
 For a full list of configuration options, see the [Configuration reference](../earthly-config/earthly-config.md)
 
@@ -250,7 +171,7 @@ For a full list of configuration options, see the [Configuration reference](../e
 To verify that the installation works correctly, you can issue a simple build of an existing hello-world project
 
 ```bash
-earthly github.com/EarthBuild/hello-world:main+hello
+earth github.com/EarthBuild/hello-world:main+hello
 ```
 
 You should see the output
@@ -264,23 +185,32 @@ github.com/EarthBuild/hello-world:main+hello | Target github.com/EarthBuild/hell
 
 # Uninstall
 
-To remove earthly, run the following commands:
+To remove earth, run the following commands:
 
 ## macOS users
 
 ```bash
-brew uninstall earthly
-rm -rf ~/.earthly
-docker rm --force earthly-buildkitd
-docker volume rm --force earthly-cache
+brew uninstall earthbuild/tap/earth
+rm -rf ~/.earth
+docker rm --force earth-buildkitd
+docker volume rm --force earth-cache
 ```
 
 ## Linux and WSL2 users
 
 ```bash
-rm /usr/local/bin/earthly
-rm /usr/share/bash-completion/completions/earthly
-rm /usr/local/share/zsh/site-functions/_earthly
+rm /usr/local/bin/earth
+rm /usr/share/bash-completion/completions/earth
+rm /usr/local/share/zsh/site-functions/_earth
+rm -rf ~/.earth
+docker rm --force earth-buildkitd
+docker volume rm --force earth-cache
+```
+
+If you previously had Earthly installed, its state lives under the old names and is not removed by
+the commands above. To clean that up as well:
+
+```bash
 rm -rf ~/.earthly
 docker rm --force earthly-buildkitd
 docker volume rm --force earthly-cache

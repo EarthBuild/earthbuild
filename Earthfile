@@ -7,14 +7,14 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.26.4-alpine3.24
+    FROM golang:1.26.5-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 
 node:
-    FROM node:26.3.1-alpine3.24
+    FROM node:26.7.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.0.1
+    LET npm_version=12.0.2
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -79,6 +79,7 @@ lint-scripts-misc:
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
         ./scripts/tests/docker-build/*.sh \
+        ./scripts/ci/*.sh \
         ./scripts/*.sh \
         ./shell_scripts/
     # some scripts need to source /etc/os-release for operating system release information,
@@ -97,6 +98,17 @@ lint-scripts-auth-test:
 lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
+
+# lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
+lint-workflows:
+    FROM ghcr.io/zizmorcore/zizmor:1.29.0
+    WORKDIR /audit
+    COPY --dir .github .
+    # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
+    # to the GitHub API, which would make this target non-hermetic.
+    # --strict-collection: a workflow zizmor cannot parse is a failure, not a
+    # warning -- otherwise a typo silently drops a file from the audit.
+    RUN zizmor --no-online-audits --strict-collection .github
 
 # earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
@@ -147,7 +159,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.6.0
+    ENV govulncheck_version=1.7.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -171,7 +183,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.15.2
+    ARG vale_version=3.17.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything
@@ -180,22 +192,6 @@ markdown-spellcheck:
     RUN find . -type f -iname '*.md' | xargs -n 1 sed -i 's/{[^}]*}//g'
     # TODO remove the greps once the corresponding markdown files have spelling fixed (or techterms added to .vale/styles/HouseStyle/tech-terms/...
     RUN find . -type f -iname '*.md' | xargs vale --config /etc/vale/vale.ini --output line --minAlertLevel error
-
-# mocks runs 'go generate' against this module and saves generated mock files
-# locally.
-mocks:
-    FROM +go
-    # renovate: datasource=git packageName=git.sr.ht/~nelsam/hel
-    ENV hel_version=0.6.6
-    RUN go install git.sr.ht/~nelsam/hel@v$hel_version
-    # renovate: datasource=git packageName=golang.org/x/tools/cmd/goimports
-    ENV goimports_version=0.24.1
-    RUN go install golang.org/x/tools/cmd/goimports@v$goimports_version
-    COPY --dir +code/earthly /
-    RUN go generate ./...
-    FOR mockfile IN $(find . -name 'helheim*_test.go')
-        SAVE ARTIFACT $mockfile AS LOCAL $mockfile
-    END
 
 unit-test-parser:
     FROM +deps
@@ -288,7 +284,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.6-slim@sha256:63a4c7f612a00f92042cbdcc7cdc6a306f38485af0a200b9c89de7d9b1607d15
+    FROM python:3.14.7-slim@sha256:83c1cebb322d099ac9e3a3a532ba74b0146d702838b25e4c75c02fa81ffeb910
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -744,6 +740,7 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
+    BUILD +lint-workflows
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations
@@ -969,10 +966,10 @@ merge-main-to-docs:
 
     ARG git_repo="earthly/earthly"
     ARG git_url="git@github.com:$git_repo"
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.1
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG to_branch="docs-0.8"
@@ -1035,12 +1032,12 @@ open-pr-for-fork:
 
     ARG TARGETARCH
 
-    # renovate: datasource=github-releases packageName=earthly/lib
-    ARG earthly_lib_version=3.0.1
+    # renovate: datasource=github-releases packageName=EarthBuild/lib
+    ARG earthbuild_lib_version=3.0.4
     ARG SECRET_PATH=littleredcorvette-id_rsa
     ARG git_repo="earthly/earthly"
     LET git_url="git@github.com:$git_repo"
-    DO --pass-args github.com/earthly/lib/utils/git:$earthly_lib_version+DEEP_CLONE \
+    DO --pass-args github.com/EarthBuild/lib/utils/git:$earthbuild_lib_version+DEEP_CLONE \
         --GIT_URL=$git_url --SECRET_PATH=$SECRET_PATH
 
     ARG --required pr_number

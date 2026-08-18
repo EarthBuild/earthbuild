@@ -10,7 +10,7 @@ Here is a quick example of running a `hello-world` docker container via `docker 
 
 ```Dockerfile
 hello:
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     WITH DOCKER --pull hello-world
         RUN docker run hello-world
     END
@@ -18,7 +18,7 @@ hello:
 
 Let's break it down.
 
-`FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1` inherits from an Earthly-supported docker-in-docker (dind) image. This is recommended, because `WITH DOCKER` requires all the Docker binaries (not just the client) to be present in the build environment.
+`FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0` inherits from an Earthly-supported docker-in-docker (dind) image. This is recommended, because `WITH DOCKER` requires all the Docker binaries (not just the client) to be present in the build environment.
 
 `WITH DOCKER ... END` starts a Docker daemon for the purpose of running Docker commands against it. At the end of the execution, this also terminates the daemon and permanently deletes all of its data (e.g. daemon cached images).
 
@@ -53,7 +53,7 @@ smoke-test:
 It is possible to run `docker-compose` via `WITH DOCKER`, either explicitly, simply by running the `docker-compose` tool, or implicitly, via the `--compose` flag. The `--compose` flag allows you to specify a Docker compose stack that needs to be brought up before the execution of the `RUN` command. For example:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
 COPY docker-compose.yml ./
 WITH DOCKER \
         --compose docker-compose.yml \
@@ -67,7 +67,7 @@ Using the `--compose` flag has the added benefit that any images needed by the c
 
 ## Performance
 
-It's recommended to use the `earthbuild/dind:alpine-3.22-docker-28.3.3-r1` image for running docker-in-docker. See the best-practices' section on using [with docker](../guides/best-practices.md#use-earthly-dind) for more details.
+It's recommended to use the `earthbuild/dind:alpine-3.24-docker-29.5.3-r0` image for running docker-in-docker. See the best-practices' section on using [with docker](../guides/best-practices.md#use-earthly-dind) for more details.
 
 In cases when using `earthbuild/dind` is not possible, Earthly will attempt to install Docker in the image you have chosen. This has the drawback of not being able to use cache efficiently and is not recommended for performance reasons.
 
@@ -75,7 +75,7 @@ Another option is to use the Earthly UDC `INSTALL_DIND`. This will install Docke
 
 ```Dockerfile
 FROM my-image:latest
-DO github.com/earthly/lib+INSTALL_DIND
+DO github.com/EarthBuild/lib:3.0.4+INSTALL_DIND
 COPY ./docker-compose.yml ./
 WITH DOCKER ...
     ...

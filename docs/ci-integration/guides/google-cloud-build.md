@@ -2,11 +2,11 @@
 
 ## Overview
 
-Google's Cloud Build is a popular, hosted build platform with deep integrations into the Google Cloud ecosystem. It includes native support for containerized builds, as well as other build scenarios. This guide will cover the use of Earthly within the `cloudbuild.yaml` spec (though it should be easily ported over to the `json` format if desired).
+Google's Cloud Build is a popular, hosted build platform with deep integrations into the Google Cloud ecosystem. It includes native support for containerized builds, as well as other build scenarios. This guide will cover the use of EarthBuild within the `cloudbuild.yaml` spec (though it should be easily ported over to the `json` format if desired).
 
 ### Compatibility
 
-Earthly itself is able to run as expected within Cloud Build, including privileged mode features like `WITH DOCKER`. However, Application Default Credentials are not available, so any `gcloud` or `gsutil` commands within your `Earthfile` will require additional manual configuration via a service account.
+EarthBuild itself is able to run as expected within Cloud Build, including privileged mode features like `WITH DOCKER`. However, Application Default Credentials are not available, so any `gcloud` or `gsutil` commands within your `Earthfile` will require additional manual configuration via a service account.
 
 ### Resources
 
@@ -67,7 +67,7 @@ It is also possible to perform these steps via the CLI; the steps are [also deta
 
 ## Additional Notes
 
-`earthly` misinterprets the Cloud Build environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
+`earth` misinterprets the Cloud Build environment as a terminal. To hide the ANSI color codes, set `NO_COLOR` to `1`.
 
 ## Example
 
@@ -75,11 +75,34 @@ It is also possible to perform these steps via the CLI; the steps are [also deta
 
 ##### Note
 
-This example is not production ready, and is intended to showcase configuration needed to get Earthly off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
+This example is not production ready, and is intended to showcase configuration needed to get EarthBuild off the ground. If you run into any issues, or need help, [don't hesitate to reach out](https://github.com/earthbuild/earthbuild/issues/new)!
 
 {% endhint %}
 
-You can find our [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml) and the [`Earthfile`](https://github.com/earthly/ci-example-project/blob/main/Earthfile) used on GitHub.
+This walkthrough uses a minimal Go project. The `Earthfile` is:
+
+```Dockerfile
+VERSION 0.8
+FROM golang:1.24-alpine
+WORKDIR /go-example
+
+deps:
+    COPY go.mod go.sum ./
+    RUN go mod download
+
+build:
+    FROM +deps
+    COPY main.go .
+    RUN go build -o build/go-example main.go
+    SAVE ARTIFACT build/go-example
+
+docker:
+    COPY +build/go-example .
+    ENTRYPOINT ["/go-example/go-example"]
+    SAVE IMAGE --push my-registry/examples:go
+```
+
+The `cloudbuild.yaml` that drives it is broken down step by step below.
 
 Start by adding a new [Trigger](https://console.cloud.google.com/cloud-build/triggers). Triggers are the things that link changes in your source code with new instances of builds in Cloud Build. Start by clicking on "Create Trigger".
 
@@ -93,7 +116,7 @@ Configure your source repository. If you do not see your desired repository in t
 
 ![Creating a trigger for Google Cloud Build, specifying a repository and branch name](img/google-cloud-build-8.png)
 
-Finally, fill in the "Configuration" section. For Earthly, you can only use the "Cloud Build configuration file", as Earthly itself will *also* be running containers. Our example will also be using an embedded [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml).
+Finally, fill in the "Configuration" section. For EarthBuild, you can only use the "Cloud Build configuration file", as EarthBuild itself will *also* be running containers. Our example will also be using an embedded `cloudbuild.yaml`.
 
 ![Creating a trigger for Google Cloud Build, specifying the configuration, including cloudbuild location and configuration type](img/google-cloud-build-9.png)
 
@@ -101,13 +124,13 @@ Click "Done" and you will be navigated back to the Triggers list view. To test t
 
 ![Google Cloud Build Trigger list, with the manual run button highlighted](img/google-cloud-build-10.png)
 
-Running this build will use the [`cloudbuild.yaml`](https://github.com/earthly/ci-example-project/blob/main/cloudbuild.yaml) file in our sample repository. This file is also a key part of the build, so lets break this down as well.
+Running this build will use the `cloudbuild.yaml` file in your repository. This file is also a key part of the build, so lets break this down as well.
 
-[The first step](https://github.com/earthly/ci-example-project/blob/ea44992b020b52cb5a46920d5d11d4b8389ce19d/cloudbuild.yaml#L2-L6) simply uses the [all-in-one Earthly image](https://hub.docker.com/r/earthbuild/earthbuild) to do a simple build.
+The first step simply uses the [all-in-one EarthBuild image](https://hub.docker.com/r/earthbuild/earthbuild) to do a simple build.
 
 ```yaml
   - id: 'build'
-    name: 'earthbuild/earthbuild:v0.8.16'
+    name: 'earthbuild/earthbuild:v0.8.18'
     args:
       - --ci
       - --push

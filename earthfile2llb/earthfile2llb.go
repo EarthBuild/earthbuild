@@ -13,10 +13,10 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/container"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -51,9 +51,9 @@ type ConvertOpt struct {
 	// MultiImageSolver can solve multiple images using a single build
 	// request. Primarily used for WITH DOCKER commands.
 	MultiImageSolver states.MultiImageSolver
-	// ContainerFrontend is the currently used container frontend, as detected by earth at app start.
-	// It provides info and access to commands to manipulate the current container frontend.
-	ContainerFrontend containerutil.ContainerFrontend
+	// ContainerClient is the container client instance, as detected by earth at app start.
+	// It provides info and access to commands to manipulate the current container engine.
+	ContainerClient *container.Client
 	// Visited is a collection of target states which have been converted to LLB.
 	// This is used for deduplication and infinite cycle detection.
 	Visited states.VisitedCollection

@@ -84,7 +84,7 @@ func (w *withDockerRunLocalTar) Run(ctx context.Context, args []string, opt With
 	})
 	// Issue docker load.
 	for _, tl := range w.tarLoads {
-		load := w.c.containerFrontend.ImageLoadFromFileCommand(tl.imgFile)
+		load := w.c.containerClient.ImageLoadCommand(tl.imgFile)
 		runOpts := []llb.RunOption{
 			llb.IgnoreCache,
 			llb.Args([]string{localhost.RunOnLocalHostMagicStr, "/bin/sh", "-c", load}),

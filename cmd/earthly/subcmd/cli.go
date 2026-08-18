@@ -23,7 +23,7 @@ type CLI interface {
 	Console() conslogging.ConsoleLogger
 	SetConsole(conslogging.ConsoleLogger)
 
-	InitFrontend(context.Context, *cli.Command) error
+	InitContainer(*cli.Command) error
 	Cfg() *config.Config
 	SetCommandName(name string)
 

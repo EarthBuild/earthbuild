@@ -1,6 +1,6 @@
 //go:build darwin
 
-package containerutil
+package container
 
 import (
 	"runtime"

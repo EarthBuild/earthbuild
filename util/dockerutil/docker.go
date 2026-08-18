@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/internal/container"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"golang.org/x/sync/errgroup"
 )
@@ -23,7 +23,7 @@ type Manifest struct {
 func LoadDockerManifest(
 	ctx context.Context,
 	console conslogging.ConsoleLogger,
-	fe containerutil.ContainerFrontend,
+	containerClient *container.Client,
 	parentImageName string,
 	children []Manifest,
 	platr *platutil.Resolver,
@@ -70,7 +70,7 @@ func LoadDockerManifest(
 		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail,
 	)
 
-	err := fe.ImageTag(ctx, containerutil.ImageTag{
+	err := containerClient.ImageTag(ctx, container.Tag{
 		SourceRef: children[defaultChild].ImageName,
 		TargetRef: parentImageName,
 	})
@@ -82,8 +82,8 @@ func LoadDockerManifest(
 }
 
 // LoadDockerTar loads a docker image via a tar.
-func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io.ReadCloser) error {
-	err := fe.ImageLoad(ctx, r)
+func LoadDockerTar(ctx context.Context, containerClient *container.Client, r io.ReadCloser) error {
+	err := containerClient.ImageLoad(ctx, r)
 	if err != nil {
 		return fmt.Errorf("load tar: %w", err)
 	}
@@ -94,7 +94,7 @@ func LoadDockerTar(ctx context.Context, fe containerutil.ContainerFrontend, r io
 // DockerPullLocalImages pulls a docker image from a local registry.
 func DockerPullLocalImages(
 	ctx context.Context,
-	fe containerutil.ContainerFrontend,
+	containerClient *container.Client,
 	localRegistryAddr string,
 	pullMap map[string]string,
 ) error {
@@ -105,7 +105,7 @@ func DockerPullLocalImages(
 		fn := finalName
 
 		eg.Go(func() error {
-			return dockerPullLocalImage(ctx, fe, localRegistryAddr, pn, fn)
+			return dockerPullLocalImage(ctx, containerClient, localRegistryAddr, pn, fn)
 		})
 	}
 
@@ -113,23 +113,23 @@ func DockerPullLocalImages(
 }
 
 func dockerPullLocalImage(
-	ctx context.Context, fe containerutil.ContainerFrontend, localRegistryAddr, pullName, finalName string,
+	ctx context.Context, containerClient *container.Client, localRegistryAddr, pullName, finalName string,
 ) error {
 	fullPullName := fmt.Sprintf("%s/%s", localRegistryAddr, pullName)
 
-	err := fe.ImagePull(ctx, fullPullName)
+	err := containerClient.ImagePull(ctx, fullPullName)
 	if err != nil {
 		return fmt.Errorf("image pull: %w", err)
 	}
 
 	// Fix for #2471 where Podman pulls seem exit before the image is available
 	// for tagging. Wait for the image to become available.
-	err = waitForImage(ctx, fe, fullPullName)
+	err = waitForImage(ctx, containerClient, fullPullName)
 	if err != nil {
 		return err
 	}
 
-	err = fe.ImageTag(ctx, containerutil.ImageTag{
+	err = containerClient.ImageTag(ctx, container.Tag{
 		SourceRef: fullPullName,
 		TargetRef: finalName,
 	})
@@ -139,7 +139,7 @@ func dockerPullLocalImage(
 
 	force := true // Sometimes Docker GCs images automatically (force prevents an error).
 
-	err = fe.ImageRemove(ctx, force, fullPullName)
+	err = containerClient.ImageRemove(ctx, force, fullPullName)
 	if err != nil {
 		return fmt.Errorf("image rmi after pull and retag: %w", err)
 	}
@@ -147,7 +147,7 @@ func dockerPullLocalImage(
 	return nil
 }
 
-func waitForImage(ctx context.Context, fe containerutil.ContainerFrontend, fullName string) error {
+func waitForImage(ctx context.Context, containerClient *container.Client, fullName string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -156,7 +156,7 @@ func waitForImage(ctx context.Context, fe containerutil.ContainerFrontend, fullN
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			m, err := fe.ImageInfo(ctx, fullName)
+			m, err := containerClient.ImageInfo(ctx, fullName)
 			if err != nil {
 				select {
 				case <-ctx.Done():

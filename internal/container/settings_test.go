@@ -1,4 +1,4 @@
-package containerutil
+package container
 
 import (
 	"strings"
@@ -125,15 +125,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub", //nolint:goconst
-		})
-		r.NoError(err)
-
-		stub, ok := frontend.(*stubFrontend)
-		assert.True(t, ok)
-
-		urls, err := stub.setupAndValidateAddresses(FrontendDockerShell, &FrontendConfig{
+		urls, err := ResolveEndpoints(DriverDockerShell, &Config{
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
@@ -167,7 +159,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 				BuildkitHost:      "http\r://foo.com/",
 				LocalRegistryHost: "",
 			},
-			expected: errURLParseFailure,
+			expected: errInvalidURL,
 			log:      "",
 		},
 		{
@@ -176,7 +168,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 				BuildkitHost:      "",
 				LocalRegistryHost: "http\r://foo.com/",
 			},
-			expected: errURLParseFailure,
+			expected: errInvalidURL,
 			log:      "",
 		},
 		{
@@ -185,7 +177,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 				BuildkitHost:      "127.0.0.1",
 				LocalRegistryHost: "",
 			},
-			expected: errURLValidationFailure,
+			expected: errInvalidScheme,
 			log:      "",
 		},
 	}
@@ -196,15 +188,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub",
-		})
-		r.NoError(err)
-
-		stub, ok := frontend.(*stubFrontend)
-		assert.True(t, ok)
-
-		_, err = stub.setupAndValidateAddresses(FrontendDockerShell, &FrontendConfig{
+		_, err := ResolveEndpoints(DriverDockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Console:                    logger,
@@ -216,7 +200,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 	}
 }
 
-func TestParseAndValidateURLFailures(t *testing.T) {
+func TestParseURLFailures(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -227,27 +211,27 @@ func TestParseAndValidateURLFailures(t *testing.T) {
 		{
 			testName: "Invalid URL",
 			url:      "http\r://foo.com/",
-			expected: errURLParseFailure,
+			expected: errInvalidURL,
 		},
 		{
 			testName: "Invalid Scheme",
 			url:      "gopher://my-hole",
-			expected: errURLValidationFailure,
+			expected: errInvalidScheme,
 		},
 		{
 			testName: "Missing Port",
 			url:      "tcp://my-server",
-			expected: errURLValidationFailure,
+			expected: errMissingPort,
 		},
 	}
 
 	for _, tt := range tests {
-		_, err := parseAndValidateURL(tt.url)
+		_, err := ParseURL(tt.url)
 		assert.ErrorIs(t, err, tt.expected)
 	}
 }
 
-func TestParseAndValidateURL(t *testing.T) {
+func TestParseURL(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -265,7 +249,7 @@ func TestParseAndValidateURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := parseAndValidateURL(tt.url)
+		_, err := ParseURL(tt.url)
 		assert.NoError(t, err)
 	}
 }
@@ -304,15 +288,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub",
-		})
-		r.NoError(err)
-
-		stub, ok := frontend.(*stubFrontend)
-		assert.True(t, ok)
-
-		_, err = stub.setupAndValidateAddresses(FrontendDockerShell, &FrontendConfig{
+		_, err := ResolveEndpoints(DriverDockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Console:                    logger,
@@ -321,5 +297,25 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		})
 		r.NoError(err)
 		assert.NotContains(t, logs.String(), tt.log)
+	}
+}
+
+func BenchmarkIsLocal(b *testing.B) {
+	addrs := []string{
+		"docker-container://earthly-buildkitd",
+		"podman-container://earthly-buildkitd",
+		"apple-container://earthly-buildkitd",
+		"tcp://127.0.0.1:8372",
+		"tcp://localhost:8372",
+		"tcp://[::1]:8372",
+		"tcp://192.168.1.100:8372",
+	}
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		for _, addr := range addrs {
+			_ = IsLocal(addr)
+		}
 	}
 }

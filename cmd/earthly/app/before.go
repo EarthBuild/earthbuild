@@ -13,10 +13,10 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/container"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/google/uuid"
@@ -98,7 +98,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseFrontend(ctx)
+	err = app.parseContainerClient(ctx)
 	if err != nil {
 		return ctx, err
 	}
@@ -127,9 +127,9 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	return ctx, nil
 }
 
-func (app *EarthApp) parseFrontend(ctx context.Context) error {
-	console := app.BaseCLI.Console().WithPrefix("frontend")
-	feCfg := &containerutil.FrontendConfig{
+func (app *EarthApp) parseContainerClient(ctx context.Context) error {
+	console := app.BaseCLI.Console().WithPrefix("container")
+	engCfg := &container.Config{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
 		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
 		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
@@ -138,36 +138,36 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 		Console:                    console,
 	}
 
-	fe, err := containerutil.FrontendForSetting(ctx, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
+	eng, err := container.New(ctx, container.Driver(app.BaseCLI.Cfg().Global.ContainerFrontend), engCfg)
 	if err != nil {
 		origErr := err
 
-		stub, err := containerutil.NewStubFrontend(feCfg)
+		stub, err := container.NewStub(engCfg)
 		if err != nil {
-			return fmt.Errorf("failed stub frontend initialization: %w", err)
+			return fmt.Errorf("failed stub container engine initialization: %w", err)
 		}
 
-		app.BaseCLI.Flags().ContainerFrontend = stub
+		app.BaseCLI.Flags().ContainerClient = stub
 
 		if !app.BaseCLI.Flags().Verbose {
 			console.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
 		}
 
-		console.VerbosePrintf("%s frontend initialization failed due to %s",
+		console.VerbosePrintf("%s container engine initialization failed due to %s",
 			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
 
 		return nil
 	}
 
-	console.VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
-	app.BaseCLI.Flags().ContainerFrontend = fe
+	console.VerbosePrintf("%s engine initialized.\n", eng.Metadata().Name)
+	app.BaseCLI.Flags().ContainerClient = eng
 
-	// These URLs were calculated relative to the configured frontend. In the
-	// case of an automatically detected frontend, they are calculated according
+	// These URLs were calculated relative to the configured engine. In the
+	// case of an automatically detected engine, they are calculated according
 	// to the first selected one in order of precedence.
-	buildkitURLs := app.BaseCLI.Flags().ContainerFrontend.Config().FrontendURLs
-	app.BaseCLI.Flags().BuildkitHost = buildkitURLs.BuildkitHost.String()
-	app.BaseCLI.Flags().LocalRegistryHost = buildkitURLs.LocalRegistryHost.String()
+	endpoints := app.BaseCLI.Flags().ContainerClient.Metadata().Endpoints
+	app.BaseCLI.Flags().BuildkitHost = endpoints.BuildkitHost.String()
+	app.BaseCLI.Flags().LocalRegistryHost = endpoints.LocalRegistryHost.String()
 
 	return nil
 }

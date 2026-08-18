@@ -1,4 +1,4 @@
-package containerutil
+package container
 
 import (
 	"context"
@@ -14,20 +14,21 @@ import (
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 )
 
-type dockerShellFrontend struct {
-	*shellFrontend
+// dockerEngine implements Engine for the Docker CLI.
+type dockerEngine struct {
+	*shellEngine
 
 	userNamespaced bool
+	isPodman       bool
 }
 
-// NewDockerShellFrontend constructs a new Frontend using the docker binary installed on the host.
-// It also ensures that the binary is functional for our needs and collects compatibility information.
-func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (ContainerFrontend, error) {
-	fe := &dockerShellFrontend{
-		shellFrontend: &shellFrontend{
-			binaryName:              FrontendDocker,
-			runCompatibilityArgs:    make([]string, 0),
-			globalCompatibilityArgs: make([]string, 0),
+// newDockerEngine constructs a new Engine using the docker binary installed on the host.
+func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
+	e := &dockerEngine{
+		shellEngine: &shellEngine{
+			BinaryName:              string(DriverDocker),
+			RunCompatibilityArgs:    make([]string, 0),
+			GlobalCompatibilityArgs: make([]string, 0),
 			Console:                 cfg.Console,
 		},
 	}
@@ -35,70 +36,65 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 	// running `docker info --format={{.SecurityOptions}}` results in a panic() when docker is not running.
 	// To workaround this issue, first we run `docker info` to test docker is running, then again with the
 	// `--format` option.
-	// This is to prevent displaying panic() errors to our users (even though the panic() occurred in the
-	// docker cli binary and not earth).
-	_, err := fe.commandOutput(ctx, "info")
+	_, err := e.CommandOutput(ctx, "info")
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := fe.commandOutput(ctx, "info", "--format={{.SecurityOptions}}")
+	output, err := e.CommandOutput(ctx, "info", "--format={{.SecurityOptions}}")
 	if err != nil {
 		return nil, err
 	}
 
-	fe.rootless = strings.Contains(output.string(), "rootless")
+	e.Rootless = strings.Contains(output.String(), "rootless")
 
-	fe.userNamespaced = strings.Contains(output.string(), "name=userns")
-	if fe.userNamespaced {
-		fe.runCompatibilityArgs = []string{"--userns", "host"}
+	e.userNamespaced = strings.Contains(output.String(), "name=userns")
+	if e.userNamespaced {
+		e.RunCompatibilityArgs = []string{"--userns", "host"}
 	}
 
-	fe.urls, err = fe.setupAndValidateAddresses(FrontendDockerShell, cfg)
+	e.Endpoints, err = e.ResolveEndpoints(DriverDockerShell, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
 
-	output, err = fe.commandOutput(ctx, "info", "--format={{.DockerRootDir}}")
+	output, err = e.CommandOutput(ctx, "info", "--format={{.DockerRootDir}}")
 	if err != nil {
 		// Maybe the user has aliased podman=docker?
-		// (The same information is found at a different path in podman)
 		var err2 error
 
-		output, err2 = fe.commandOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
+		output, err2 = e.CommandOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to get docker root dir: %w", err)
 		}
 	}
 
-	outputStr := strings.TrimSpace(output.string())
+	outputStr := strings.TrimSpace(output.String())
 	if outputStr == "/var/lib/containers/storage" {
 		// Likely podman making itself available via the docker CLI.
-		// This can happen either when podman set /var/run/docker.sock itself,
-		// or when the user has aliased podman=docker.
-		fe.likelyPodman = true
+		e.isPodman = true
 	}
 
-	return fe, nil
+	return e, nil
 }
 
-func (dsf *dockerShellFrontend) Scheme() string {
-	return SchemeDockerContainer
-}
-
-func (dsf *dockerShellFrontend) Config() *CurrentFrontend {
-	return &CurrentFrontend{
-		Setting:      FrontendDockerShell,
-		Binary:       dsf.binaryName,
-		Type:         FrontendTypeShell,
-		FrontendURLs: dsf.urls,
+// Metadata returns current engine metadata.
+func (e *dockerEngine) Metadata() Metadata {
+	return Metadata{
+		Name:      "Docker",
+		Scheme:    SchemeDockerContainer,
+		Binary:    e.BinaryName,
+		Transport: TransportShell,
+		Endpoints: e.Endpoints,
+		IsPodman:  e.isPodman,
 	}
 }
 
-func (dsf *dockerShellFrontend) Information(ctx context.Context) (FrontendInfo, error) {
-	output, err := dsf.commandOutput(ctx, "version", "--format={{json .}}")
+// Version returns version and platform information for the Docker CLI and daemon.
+func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
+	output, err := e.CommandOutput(ctx, "version", "--format={{json .}}")
 	if err != nil {
-		return FrontendInfo{}, err
+		return Version{}, err
 	}
 
 	type versionInfo struct {
@@ -115,9 +111,9 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (FrontendInfo, 
 
 	allInfo := info{}
 
-	err = json.Unmarshal([]byte(output.string()), &allInfo)
+	err = json.Unmarshal([]byte(output.String()), &allInfo)
 	if err != nil {
-		return FrontendInfo{}, fmt.Errorf("failed to parse docker version output: %w", err)
+		return Version{}, fmt.Errorf("failed to parse docker version output: %w", err)
 	}
 
 	host, exists := os.LookupEnv("DOCKER_HOST")
@@ -125,7 +121,7 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (FrontendInfo, 
 		host = "/var/run/docker.sock"
 	}
 
-	return FrontendInfo{
+	return Version{
 		ClientVersion:    allInfo.Client.Version,
 		ClientAPIVersion: allInfo.Client.APIVersion,
 		ClientPlatform:   fmt.Sprintf("%s/%s", allInfo.Client.OS, allInfo.Client.Arch),
@@ -136,10 +132,11 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (FrontendInfo, 
 	}, nil
 }
 
-func (dsf *dockerShellFrontend) ContainerInfo(
+// ContainerInfo returns information for the given container names or IDs.
+func (e *dockerEngine) ContainerInfo(
 	ctx context.Context, namesOrIDs ...string,
-) (map[string]ContainerInfo, error) {
-	results, err := dsf.shellFrontend.ContainerInfo(ctx, namesOrIDs...)
+) (map[string]Container, error) {
+	results, err := e.shellEngine.ContainerInfo(ctx, namesOrIDs...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,11 +155,12 @@ func (dsf *dockerShellFrontend) ContainerInfo(
 	return results, nil
 }
 
-func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) error {
+// ImagePull downloads the specified container images.
+func (e *dockerEngine) ImagePull(ctx context.Context, refs ...string) error {
 	var err error
 
 	for _, ref := range refs {
-		_, cmdErr := dsf.commandOutput(ctx, "pull", ref)
+		_, cmdErr := e.CommandOutput(ctx, "pull", ref)
 		if cmdErr != nil {
 			err = errors.Join(err, cmdErr)
 		}
@@ -171,16 +169,18 @@ func (dsf *dockerShellFrontend) ImagePull(ctx context.Context, refs ...string) e
 	return err
 }
 
-func (dsf *dockerShellFrontend) ImageLoadFromFileCommand(filename string) string {
-	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(dsf.commandArgs("load"), " "))
+// ImageLoadCommand returns the shell command to load an image from a file.
+func (e *dockerEngine) ImageLoadCommand(filename string) string {
+	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(e.CommandArgs("load"), " "))
 }
 
-func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Reader) error {
+// ImageLoad loads images into Docker via stdin.
+func (e *dockerEngine) ImageLoad(ctx context.Context, images ...io.Reader) error {
 	var err error
 
 	for _, image := range images {
 		// Do not use the wrapper to allow the image to come in on stdin
-		cmd := dsf.command(ctx, "load")
+		cmd := e.Command(ctx, "load")
 		cmd.Stdin = image
 
 		output, cmdErr := cmd.CombinedOutput()
@@ -192,14 +192,15 @@ func (dsf *dockerShellFrontend) ImageLoad(ctx context.Context, images ...io.Read
 	return err
 }
 
-func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]VolumeInfo, error) {
+// VolumeInfo returns details for the specified volume names.
+func (e *dockerEngine) VolumeInfo(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
 	if len(volumeNames) == 0 {
-		return map[string]VolumeInfo{}, nil
+		return map[string]Volume{}, nil
 	}
 
 	// Ignore the error. This is because one or more of the provided names could be missing.
 	// This allows for Info to report that the volume itself is missing.
-	output, _ := dsf.commandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
+	output, _ := e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
 
 	// Anonymous struct to just pick out what we need
 	volumeInfos := struct {
@@ -210,12 +211,12 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 		} `json:"Volumes"`
 	}{}
 
-	err := json.Unmarshal([]byte(output.stdout.String()), &volumeInfos)
+	err := json.Unmarshal([]byte(output.Stdout.String()), &volumeInfos)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode docker volume info for %v: %w", volumeNames, err)
 	}
 
-	results := make(map[string]VolumeInfo, len(volumeNames))
+	results := make(map[string]Volume, len(volumeNames))
 
 	for _, name := range volumeNames {
 		for _, volumeInfo := range volumeInfos.Volumes {
@@ -224,7 +225,7 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 				if parseErr != nil {
 					err = errors.Join(err, parseErr)
 				} else {
-					results[name] = VolumeInfo{
+					results[name] = Volume{
 						Name:       volumeInfo.Name,
 						SizeBytes:  bytes,
 						Mountpoint: volumeInfo.Mountpoint,

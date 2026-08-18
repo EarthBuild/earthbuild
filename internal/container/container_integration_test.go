@@ -1,6 +1,6 @@
 //go:build integration
 
-package containerutil_test
+package container_test
 
 import (
 	"bufio"
@@ -16,19 +16,28 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/internal/container"
+	. "github.com/stretchr/testify/assert"
 )
 
-func TestFrontendNew(t *testing.T) {
+func newDocker(ctx context.Context, cfg *container.Config) (*container.Client, error) {
+	return container.New(ctx, container.DriverDockerShell, cfg)
+}
+
+func newPodman(ctx context.Context, cfg *container.Config) (*container.Client, error) {
+	return container.New(ctx, container.DriverPodmanShell, cfg)
+}
+
+func TestEngineNew(t *testing.T) {
 	t.Parallel()
 
 	//nolint:goconst
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -37,23 +46,23 @@ func TestFrontendNew(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
-			NotNil(t, fe)
+			NotNil(t, eng)
 		})
 	}
 }
 
-func TestFrontendScheme(t *testing.T) {
+func TestEngineScheme(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
-		scheme  string
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
+		scheme  container.Scheme
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, containerutil.SchemeDockerContainer},
-		{"podman", containerutil.NewPodmanShellFrontend, containerutil.SchemePodmanContainer},
+		{"docker", newDocker, container.SchemeDockerContainer},
+		{"podman", newPodman, container.SchemePodmanContainer},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -62,24 +71,24 @@ func TestFrontendScheme(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			scheme := fe.Scheme()
+			scheme := eng.Metadata().Scheme
 			Equal(t, tC.scheme, scheme)
 		})
 	}
 }
 
-func TestFrontendIsAvailable(t *testing.T) {
+func TestEngineIsAvailable(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -88,24 +97,24 @@ func TestFrontendIsAvailable(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			available := fe.IsAvailable(ctx)
+			available := eng.IsAvailable(ctx)
 			True(t, available)
 		})
 	}
 }
 
-func TestFrontendInformation(t *testing.T) {
+func TestEngineVersion(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -114,25 +123,25 @@ func TestFrontendInformation(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.Information(ctx)
+			info, err := eng.Version(ctx)
 			NoError(t, err)
 			NotEmpty(t, info.ClientVersion)
 		})
 	}
 }
 
-func TestFrontendContainerInfo(t *testing.T) {
+func TestEngineContainerInfo(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -148,11 +157,11 @@ func TestFrontendContainerInfo(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
-			info, err := fe.ContainerInfo(ctx, getInfos...)
+			info, err := eng.ContainerInfo(ctx, getInfos...)
 			NoError(t, err)
 			NotNil(t, info)
 
@@ -165,20 +174,20 @@ func TestFrontendContainerInfo(t *testing.T) {
 			Equal(t, "docker.io/library/nginx:1.21", info[getInfos[1]].Image)
 
 			Equal(t, getInfos[2], info[getInfos[2]].Name)
-			Equal(t, containerutil.StatusMissing, info[getInfos[2]].Status)
+			Equal(t, container.StatusMissing, info[getInfos[2]].Status)
 		})
 	}
 }
 
-func TestFrontendContainerRemove(t *testing.T) {
+func TestEngineContainerRemove(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -192,33 +201,33 @@ func TestFrontendContainerRemove(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.ContainerInfo(ctx, testContainers...)
+			info, err := eng.ContainerInfo(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 
-			err = fe.ContainerRemove(ctx, true, testContainers...)
+			err = eng.ContainerRemove(ctx, true, testContainers...)
 			NoError(t, err)
 
-			info, err = fe.ContainerInfo(ctx, testContainers...)
+			info, err = eng.ContainerInfo(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, containerutil.StatusMissing, info[testContainers[0]].Status)
-			Equal(t, containerutil.StatusMissing, info[testContainers[1]].Status)
+			Equal(t, container.StatusMissing, info[testContainers[0]].Status)
+			Equal(t, container.StatusMissing, info[testContainers[1]].Status)
 		})
 	}
 }
 
-func TestFrontendContainerStop(t *testing.T) {
+func TestEngineContainerStop(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -232,32 +241,32 @@ func TestFrontendContainerStop(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.ContainerInfo(ctx, testContainers...)
+			info, err := eng.ContainerInfo(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 
-			err = fe.ContainerStop(ctx, 0, testContainers...)
+			err = eng.ContainerStop(ctx, 0, testContainers...)
 			NoError(t, err)
 
-			_, err = fe.ContainerInfo(ctx, testContainers...)
+			_, err = eng.ContainerInfo(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 		})
 	}
 }
 
-func TestFrontendContainerLogs(t *testing.T) {
+func TestEngineContainerLogs(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -271,10 +280,10 @@ func TestFrontendContainerLogs(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			logs, err := fe.ContainerLogs(ctx, testContainers...)
+			logs, err := eng.ContainerLogs(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, logs, 2)
 
@@ -287,15 +296,15 @@ func TestFrontendContainerLogs(t *testing.T) {
 	}
 }
 
-func TestFrontendContainerRun(t *testing.T) {
+func TestEngineContainerRun(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		binary  string
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -304,35 +313,35 @@ func TestFrontendContainerRun(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
 
-			runs := make([]containerutil.ContainerRun, 0, len(testContainers))
+			runs := make([]container.RunConfig, 0, len(testContainers))
 			for _, name := range testContainers {
-				runs = append(runs, containerutil.ContainerRun{
+				runs = append(runs, container.RunConfig{
 					NameOrID:       name,
 					ImageRef:       "docker.io/nginx:1.21",
 					Privileged:     false,
-					Envs:           containerutil.EnvMap{"test": name},
-					Labels:         containerutil.LabelMap{"test": name},
+					Envs:           map[string]string{"test": name},
+					Labels:         map[string]string{"test": name},
 					ContainerArgs:  []string{"nginx-debug", "-g", "daemon off;"},
 					AdditionalArgs: []string{"--rm"},
-					Mounts: containerutil.MountOpt{
-						containerutil.Mount{
-							Type:     containerutil.MountVolume,
+					Mounts: []container.Mount{
+						{
+							Type:     container.MountVolume,
 							Source:   "vol-" + name,
 							Dest:     "/test",
 							ReadOnly: true,
 						},
 					},
-					Ports: containerutil.PortOpt{
-						containerutil.Port{
+					Ports: []container.Port{
+						{
 							IP:            "127.0.0.1",
 							HostPort:      0,
 							ContainerPort: 5678,
-							Protocol:      containerutil.ProtocolTCP,
+							Protocol:      container.ProtocolTCP,
 						},
 					},
 				})
@@ -341,7 +350,7 @@ func TestFrontendContainerRun(t *testing.T) {
 			defer func() {
 				for _, name := range testContainers {
 					// Roll our own cleanup since we can't use the spawn test containers helper... since
-					// the whole point of this test is to create them with a frontend. Also theres a volume
+					// the whole point of this test is to create them with an engine. Also theres a volume
 					cmd := exec.CommandContext(ctx, tC.binary, "rm", "-f", name) // #nosec G204
 					_ = cmd.Run()                                                // Just best effort
 
@@ -350,33 +359,33 @@ func TestFrontendContainerRun(t *testing.T) {
 				}
 			}()
 
-			info, err := fe.ContainerInfo(ctx, testContainers...)
+			info, err := eng.ContainerInfo(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, containerutil.StatusMissing, info[testContainers[0]].Status)
-			Equal(t, containerutil.StatusMissing, info[testContainers[1]].Status)
+			Equal(t, container.StatusMissing, info[testContainers[0]].Status)
+			Equal(t, container.StatusMissing, info[testContainers[1]].Status)
 
-			err = fe.ContainerRun(ctx, runs...)
+			err = eng.ContainerRun(ctx, runs...)
 			NoError(t, err)
 
-			info, err = fe.ContainerInfo(ctx, testContainers...)
+			info, err = eng.ContainerInfo(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, containerutil.StatusRunning, info[testContainers[0]].Status)
-			Equal(t, containerutil.StatusRunning, info[testContainers[1]].Status)
+			Equal(t, container.StatusRunning, info[testContainers[0]].Status)
+			Equal(t, container.StatusRunning, info[testContainers[1]].Status)
 		})
 	}
 }
 
-func TestFrontendImagePull(t *testing.T) {
+func TestEngineImagePull(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		refList []string
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, []string{"nginx:1.21", "alpine:3.18"}},
+		{"docker", newDocker, []string{"nginx:1.21", "alpine:3.18"}},
 		// Podman prefers... and exports fully-qualified image tags
-		{"podman", containerutil.NewPodmanShellFrontend, []string{"docker.io/nginx:1.21", "docker.io/alpine:3.18"}},
+		{"podman", newPodman, []string{"docker.io/nginx:1.21", "docker.io/alpine:3.18"}},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -386,13 +395,13 @@ func TestFrontendImagePull(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			// podman pull needs some potentially valid address to check against, otherwise panic
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{
+			eng, err := tC.newFunc(ctx, &container.Config{
 				LocalRegistryHostFileValue: "tcp://some-host:5309",
 				Console:                    testLogger(),
 			})
 			NoError(t, err)
 
-			err = fe.ImagePull(ctx, tC.refList...)
+			err = eng.ImagePull(ctx, tC.refList...)
 			NoError(t, err)
 
 			defer func() {
@@ -405,16 +414,16 @@ func TestFrontendImagePull(t *testing.T) {
 	}
 }
 
-func TestFrontendImageInfo(t *testing.T) {
+func TestEngineImageInfo(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		refList []string
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, []string{"info:1", "info:2"}},
-		{"podman", containerutil.NewPodmanShellFrontend, []string{"localhost/info:1", "localhost/info:2"}},
+		{"docker", newDocker, []string{"info:1", "info:2"}},
+		{"podman", newPodman, []string{"localhost/info:1", "localhost/info:2"}},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -427,10 +436,10 @@ func TestFrontendImageInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.ImageInfo(ctx, tC.refList...)
+			info, err := eng.ImageInfo(ctx, tC.refList...)
 			NoError(t, err)
 
 			Len(t, info, 2)
@@ -441,15 +450,15 @@ func TestFrontendImageInfo(t *testing.T) {
 	}
 }
 
-func TestFrontendImageRemove(t *testing.T) {
+func TestEngineImageRemove(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
 		binary  string
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -463,33 +472,33 @@ func TestFrontendImageRemove(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.ImageInfo(ctx, refList...)
+			info, err := eng.ImageInfo(ctx, refList...)
 			NoError(t, err)
 			Len(t, info, 2)
 
-			err = fe.ImageRemove(ctx, true, refList...)
+			err = eng.ImageRemove(ctx, true, refList...)
 			NoError(t, err)
 
-			info, err = fe.ImageInfo(ctx, refList...)
+			info, err = eng.ImageInfo(ctx, refList...)
 			NoError(t, err)
 			Empty(t, info)
 		})
 	}
 }
 
-func TestFrontendImageTag(t *testing.T) {
+func TestEngineImageTag(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		tagList []string
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, []string{"tag:1", "tag:2"}},
-		{"podman", containerutil.NewPodmanShellFrontend, []string{"localhost/tag:1", "localhost/tag:2"}},
+		{"docker", newDocker, []string{"tag:1", "tag:2"}},
+		{"podman", newPodman, []string{"localhost/tag:1", "localhost/tag:2"}},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -503,26 +512,26 @@ func TestFrontendImageTag(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.ImageInfo(ctx, ref)
+			info, err := eng.ImageInfo(ctx, ref)
 			NoError(t, err)
 
 			imageID := info[ref].ID
 
-			tags := make([]containerutil.ImageTag, 0, len(tC.tagList))
+			tags := make([]container.Tag, 0, len(tC.tagList))
 			for _, tagName := range tC.tagList {
-				tags = append(tags, containerutil.ImageTag{
+				tags = append(tags, container.Tag{
 					SourceRef: imageID,
 					TargetRef: tagName,
 				})
 			}
 
-			err = fe.ImageTag(ctx, tags...)
+			err = eng.ImageTag(ctx, tags...)
 			NoError(t, err)
 
-			info, err = fe.ImageInfo(ctx, tC.tagList...)
+			info, err = eng.ImageInfo(ctx, tC.tagList...)
 			NoError(t, err)
 
 			Contains(t, info[tC.tagList[0]].Tags, tC.tagList[0])
@@ -531,16 +540,16 @@ func TestFrontendImageTag(t *testing.T) {
 	}
 }
 
-func TestFrontendImageLoad(t *testing.T) {
+func TestEngineImageLoad(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		ref     string
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, "load:me"},
-		{"podman", containerutil.NewPodmanShellFrontend, "localhost/load:me"},
+		{"docker", newDocker, "load:me"},
+		{"podman", newPodman, "localhost/load:me"},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -560,10 +569,10 @@ func TestFrontendImageLoad(t *testing.T) {
 
 			cleanup()
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			err = fe.ImageLoad(ctx, bufio.NewReader(imgBuffer))
+			err = eng.ImageLoad(ctx, bufio.NewReader(imgBuffer))
 			NoError(t, err)
 
 			defer func() {
@@ -571,23 +580,23 @@ func TestFrontendImageLoad(t *testing.T) {
 				_ = cmd.Run()
 			}()
 
-			info, err := fe.ImageInfo(ctx, tC.ref)
+			info, err := eng.ImageInfo(ctx, tC.ref)
 			NoError(t, err)
 			Contains(t, info[tC.ref].Tags, tC.ref)
 		})
 	}
 }
 
-func TestFrontendImageLoadHybrid(t *testing.T) {
+func TestEngineImageLoadHybrid(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		binary  string
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 		ref     string
 	}{
-		{"docker", containerutil.NewDockerShellFrontend, "hybrid:test"},
-		{"podman", containerutil.NewPodmanShellFrontend, "localhost/hybrid:test"},
+		{"docker", newDocker, "hybrid:test"},
+		{"podman", newPodman, "localhost/hybrid:test"},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -596,7 +605,7 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
 			data, err := os.ReadFile("./testdata/hybrid.tar")
@@ -604,7 +613,7 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 
 			reader := bytes.NewReader(data)
 
-			err = fe.ImageLoad(ctx, reader)
+			err = eng.ImageLoad(ctx, reader)
 			NoError(t, err)
 
 			defer func() {
@@ -612,22 +621,22 @@ func TestFrontendImageLoadHybrid(t *testing.T) {
 				_ = cmd.Run()
 			}()
 
-			info, err := fe.ImageInfo(ctx, tC.ref)
+			info, err := eng.ImageInfo(ctx, tC.ref)
 			NoError(t, err)
 			Contains(t, info[tC.ref].Tags, tC.ref)
 		})
 	}
 }
 
-func TestFrontendVolumeInfo(t *testing.T) {
+func TestEngineVolumeInfo(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		newFunc func(context.Context, *containerutil.FrontendConfig) (containerutil.ContainerFrontend, error)
 		binary  string
+		newFunc func(context.Context, *container.Config) (*container.Client, error)
 	}{
-		{binary: "docker", newFunc: containerutil.NewDockerShellFrontend},
-		{binary: "podman", newFunc: containerutil.NewPodmanShellFrontend},
+		{binary: "docker", newFunc: newDocker},
+		{binary: "podman", newFunc: newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -641,10 +650,10 @@ func TestFrontendVolumeInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			fe, err := tC.newFunc(ctx, &containerutil.FrontendConfig{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &container.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := fe.VolumeInfo(ctx, volList...)
+			info, err := eng.VolumeInfo(ctx, volList...)
 			NoError(t, err)
 			Len(t, info, 2)
 		})
@@ -660,41 +669,34 @@ func onlyIfBinaryIsInstalled(ctx context.Context, t *testing.T, binary string) {
 }
 
 func isBinaryInstalled(ctx context.Context, binary string) bool {
-	// This is almost a re-implementation of IsAvailable... but relying on that presupposes the
-	// binary exists to allow the New**** to run (it gathers info from the CLI).
 	cmd := exec.CommandContext(ctx, binary, "--help")
 	return cmd.Run() == nil
 }
 
-// First, we attempt to stop the containers that may be running.
-// Next, we start the containers
-// After that, we attempt to wait for the containers for up to 20 seconds
-// Then we return
-// Caller is always expected to call cleanup.
-func spawnTestContainers(ctx context.Context, feBinary string, names ...string) (func(), error) {
-	_ = removeContainers(ctx, feBinary, names...) // best effort
-	err := startTestContainers(ctx, feBinary, names...)
+func spawnTestContainers(ctx context.Context, binary string, names ...string) (func(), error) {
+	_ = removeContainers(ctx, binary, names...) // best effort
+	err := startTestContainers(ctx, binary, names...)
 
 	cleanup := func() {
-		_ = removeContainers(ctx, feBinary, names...) // best-effort
+		_ = removeContainers(ctx, binary, names...) // best-effort
 	}
 	if err != nil {
 		return cleanup, err
 	}
 
-	err = waitForContainers(ctx, feBinary, names...)
+	err = waitForContainers(ctx, binary, names...)
 
 	return cleanup, err
 }
 
-func startTestContainers(ctx context.Context, feBinary string, names ...string) error {
+func startTestContainers(ctx context.Context, binary string, names ...string) error {
 	var err error
 
 	m := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	image := "docker.io/library/nginx:1.21"
 
-	pullErr := pullImageIfNecessary(ctx, feBinary, image)
+	pullErr := pullImageIfNecessary(ctx, binary, image)
 	if pullErr != nil {
 		return fmt.Errorf("failed to pull image %s: %w", image, pullErr)
 	}
@@ -705,7 +707,7 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 		go func(name string) {
 			defer wg.Done()
 
-			cmd := exec.CommandContext(ctx, feBinary, "run", "-d", "--rm", "--name", name, image, // #nosec G204,G702
+			cmd := exec.CommandContext(ctx, binary, "run", "-d", "--rm", "--name", name, image, // #nosec G204,G702
 				"sh", "-c", `echo output stream&&>&2 echo error stream&&sleep 100`)
 			output, createErr := cmd.CombinedOutput()
 
@@ -713,7 +715,6 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 			defer m.Unlock()
 
 			if createErr != nil {
-				// the frontend exists but is non-functional. This is... not likely to work at all.
 				err = errors.Join(err, fmt.Errorf("%s: %w", string(output), createErr))
 			}
 		}(name)
@@ -724,18 +725,15 @@ func startTestContainers(ctx context.Context, feBinary string, names ...string) 
 	return err
 }
 
-// pullImageIfNecessary will only pull the image if it does not exist locally
-// This helps us avoid unauthenticated rate limits in tests.
-func pullImageIfNecessary(ctx context.Context, feBinary string, image string) error {
-	cmd := exec.CommandContext(ctx, feBinary, "inspect", "--type=image", image) // #nosec G204,G702
+func pullImageIfNecessary(ctx context.Context, binary string, image string) error {
+	cmd := exec.CommandContext(ctx, binary, "inspect", "--type=image", image) // #nosec G204,G702
 
 	_, inspectErr := cmd.CombinedOutput()
 	if inspectErr == nil {
-		// If we are able to inspect the image then it must exist locally
 		return nil
 	}
 
-	cmd = exec.CommandContext(ctx, feBinary, "pull", image) // #nosec G204,G702
+	cmd = exec.CommandContext(ctx, binary, "pull", image) // #nosec G204,G702
 
 	_, pullErr := cmd.CombinedOutput()
 	if pullErr != nil {
@@ -745,7 +743,7 @@ func pullImageIfNecessary(ctx context.Context, feBinary string, image string) er
 	return nil
 }
 
-func removeContainers(ctx context.Context, feBinary string, names ...string) error {
+func removeContainers(ctx context.Context, binary string, names ...string) error {
 	var err error
 
 	m := sync.Mutex{}
@@ -757,7 +755,7 @@ func removeContainers(ctx context.Context, feBinary string, names ...string) err
 		go func(name string) {
 			defer wg.Done()
 
-			removeCmd := exec.CommandContext(ctx, feBinary, "rm", "-f", name) // #nosec G204
+			removeCmd := exec.CommandContext(ctx, binary, "rm", "-f", name) // #nosec G204
 			_, removeErr := removeCmd.CombinedOutput()
 
 			m.Lock()
@@ -774,7 +772,7 @@ func removeContainers(ctx context.Context, feBinary string, names ...string) err
 	return err
 }
 
-func waitForContainers(ctx context.Context, feBinary string, names ...string) error {
+func waitForContainers(ctx context.Context, binary string, names ...string) error {
 	var err error
 
 	m := sync.Mutex{}
@@ -791,17 +789,13 @@ func waitForContainers(ctx context.Context, feBinary string, names ...string) er
 			attempts := 0
 			for attempts < maxAttempts {
 				attempts++
-				// docker inspect -f {{.State.Running}} CONTAINERNAME`"=="true"
-				cmd := exec.CommandContext(ctx, feBinary, "inspect", "-f", "{{.State.Running}}", name) // #nosec G204
+				cmd := exec.CommandContext(ctx, binary, "inspect", "-f", "{{.State.Running}}", name) // #nosec G204
 
 				output, inspectErr := cmd.CombinedOutput()
 				if inspectErr != nil {
 					m.Lock()
-
 					err = errors.Join(err, inspectErr)
-
 					m.Unlock()
-
 					return
 				}
 
@@ -824,24 +818,22 @@ func waitForContainers(ctx context.Context, feBinary string, names ...string) er
 	return err
 }
 
-func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func(), error) {
+func spawnTestImages(ctx context.Context, binary string, refs ...string) (func(), error) {
 	var err error
 
 	for _, ref := range refs {
-		cmd := exec.CommandContext(ctx, feBinary, "image", "pull", "docker.io/nginx:1.21")
+		cmd := exec.CommandContext(ctx, binary, "image", "pull", "docker.io/nginx:1.21")
 
 		output, createErr := cmd.CombinedOutput()
 		if createErr != nil {
-			// the frontend exists but is non-functional. This is... not likely to work at all.
 			err = errors.Join(err, fmt.Errorf("%s: %w", string(output), createErr))
 			break
 		}
 
-		cmd = exec.CommandContext(ctx, feBinary, "image", "tag", "docker.io/nginx:1.21", ref) // #nosec G204
+		cmd = exec.CommandContext(ctx, binary, "image", "tag", "docker.io/nginx:1.21", ref) // #nosec G204
 
 		output, tagErr := cmd.CombinedOutput()
 		if tagErr != nil {
-			// the frontend exists but is non-functional. This is... not likely to work at all.
 			err = errors.Join(err, fmt.Errorf("%s: %w", string(output), tagErr))
 			break
 		}
@@ -849,29 +841,28 @@ func spawnTestImages(ctx context.Context, feBinary string, refs ...string) (func
 
 	return func() {
 		for _, ref := range refs {
-			cmd := exec.CommandContext(ctx, feBinary, "image", "rm", "-f", ref) // #nosec G204
-			_ = cmd.Run()                                                       // Just best effort
+			cmd := exec.CommandContext(ctx, binary, "image", "rm", "-f", ref) // #nosec G204
+			_ = cmd.Run()
 		}
 	}, err
 }
 
-func spawnTestVolumes(ctx context.Context, feBinary string, names ...string) (func(), error) {
+func spawnTestVolumes(ctx context.Context, binary string, names ...string) (func(), error) {
 	var err error
 
 	for _, name := range names {
-		cmd := exec.CommandContext(ctx, feBinary, "volume", "create", name) // #nosec G204
+		cmd := exec.CommandContext(ctx, binary, "volume", "create", name) // #nosec G204
 
 		output, createErr := cmd.CombinedOutput()
 		if createErr != nil {
-			// the frontend exists but is non-functional. This is... not likely to work at all.
 			err = errors.Join(err, fmt.Errorf("%s: %s: %w", string(output), name, createErr))
 		}
 	}
 
 	return func() {
 		for _, name := range names {
-			cmd := exec.CommandContext(ctx, feBinary, "volume", "rm", "-f", name) // #nosec G204
-			_ = cmd.Run()                                                         // Just best effort
+			cmd := exec.CommandContext(ctx, binary, "volume", "rm", "-f", name) // #nosec G204
+			_ = cmd.Run()
 		}
 	}, err
 }

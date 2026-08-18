@@ -19,7 +19,6 @@ linters:
     - errcheck
     - errchkjson
     - exhaustruct
-    - fatcontext
     - forbidigo
     - funcorder
     - funlen

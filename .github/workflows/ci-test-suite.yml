@@ -14,6 +14,11 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -66,6 +71,9 @@ jobs:
           - target: "+test-no-qemu-kind"
             name: "KinD Integration Tests"
             skip_on: ["all"]
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: ${{ matrix.target }}
@@ -76,4 +84,6 @@ jobs:
       USE_NEXT: ${{ inputs.USE_NEXT }}
       SUDO: ${{ inputs.SUDO }}
       SKIP_JOB: ${{ contains(matrix.skip_on, 'all') || (inputs.USE_NEXT && contains(matrix.skip_on, 'next')) || false }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

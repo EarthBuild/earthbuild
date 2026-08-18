@@ -31,7 +31,8 @@ jobs:
       RUNS_ON: "ubuntu-latest"
       BINARY: "docker"
       SUDO: ""
-    secrets: inherit
+    secrets:
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
   prepare-release:
     name: prepare release
     needs: build-earthly
@@ -53,6 +54,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
         run: |
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
@@ -131,6 +133,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
         run: |-
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
@@ -147,11 +150,11 @@ jobs:
           ./build/linux/amd64/earthly --push \
             ./release+release-dockerhub \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
-            --DEFAULT_BUILDKITD_IMAGE="docker.io/earthbuild/buildkitd:${{ env.VERSION }}" \
+            --DEFAULT_BUILDKITD_IMAGE="docker.io/earthbuild/buildkitd:${VERSION}" \
             --PUSH_PRERELEASE_TAG="true" \
             --PUSH_LATEST_TAG="false" \
-            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
-            --VERSION="${{ env.VERSION }}"
+            --RELEASE_TAG="${RELEASE_TAG}" \
+            --VERSION="${VERSION}"
       - name: Smoke test image default buildkit image
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -190,6 +193,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
         run: |-
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
@@ -208,11 +212,11 @@ jobs:
           ./build/linux/amd64/earthly --push \
             ./release+release-dockerhub \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
-            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:${{ env.DOCKERHUB_BUILDKIT_IMG }}-${{ env.RELEASE_TAG }}-ticktock" \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:${{ env.DOCKERHUB_BUILDKIT_IMG }}-${RELEASE_TAG}-ticktock" \
             --PUSH_PRERELEASE_TAG="false" \
             --PUSH_LATEST_TAG="false" \
-            --RELEASE_TAG="${{ env.RELEASE_TAG }}-ticktock" \
-            --BUILDKIT_PROJECT=github.com/earthbuild/buildkit:${{ env.EARTHLY_NEXT }}
+            --RELEASE_TAG="${RELEASE_TAG}-ticktock" \
+            --BUILDKIT_PROJECT="github.com/earthbuild/buildkit:${EARTHLY_NEXT}"
       - name: Smoke test ticktock image default buildkit image
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -235,6 +239,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
         run: |-
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
@@ -245,18 +250,19 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
           VERSION: ${{ needs.prepare-release.outputs.version }}
+          VARS_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
-            --secret CONTAINER_REGISTRY_TOKEN=${{ env.GITHUB_TOKEN }} \
-            --secret DEST_CONTAINER_REGISTRY_TOKEN=${{ env.DOCKERHUB_TOKEN }} \
+            --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
+            --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
             ./release+copy-staging-buildkitd-to-dockerhub \
-            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
-            --CONTAINER_REGISTRY_USER="${{ github.actor }}" \
-            --DST_CONTAINER_REGISTRY_USER="${{ vars.DOCKERHUB_USERNAME }}" \
+            --RELEASE_TAG="${RELEASE_TAG}" \
+            --CONTAINER_REGISTRY_USER="${GITHUB_ACTOR}" \
+            --DST_CONTAINER_REGISTRY_USER="${VARS_DOCKERHUB_USERNAME}" \
             --DST_REPOSITORY_USER="earthbuild" \
             --DST_DOCKERHUB_BUILDKIT_IMG="buildkitd" \
-            --DEST_TAG="${{ env.VERSION }}"
+            --DEST_TAG="${VERSION}"
 
   release-binaries:
     name: release github
@@ -280,6 +286,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
         run: |-
           BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
@@ -295,15 +302,15 @@ jobs:
         run: |-
           set -euo pipefail
           ./build/linux/amd64/earthly --push \
-            --secret GPG_PRIVATE="${{ env.GPG_PRIVATE }}" \
+            --secret GPG_PRIVATE="${GPG_PRIVATE}" \
             ./release+signed-release \
             --DOCKERHUB_HOST="docker.io" \
             --GITHUB_USER="${{ env.GITHUB_USER }}" \
             --EARTHLY_REPO="${{ env.EARTHLY_REPO }}" \
             --DOCKERHUB_USER="${{ env.DOCKERHUB_USER }}" \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
-            --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
-            --VERSION="${{ env.VERSION }}" \
+            --RELEASE_TAG="${RELEASE_TAG}" \
+            --VERSION="${VERSION}" \
             --PRERELEASE=false
       # Upload before the smoke test so the built binaries are always available
       # for download/debugging, even when the smoke test below fails.

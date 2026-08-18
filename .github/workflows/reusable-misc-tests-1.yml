@@ -26,6 +26,11 @@ on:
       SATELLITE_NAME:
         required: false
         type: string
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 
 env:
@@ -41,13 +46,13 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
@@ -64,18 +69,27 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run parallel buildkit start test. It ensures that earthly starting up buildkit does not race with itself.
         run: |-
-          ${{inputs.SUDO}} ${{inputs.BINARY}} stop earthly-buildkitd || true && \
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" stop earthly-buildkitd || true && \
           for i in 1 2 3 4; do
-              ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} --no-output github.com/EarthBuild/hello-world+hello & \
+              ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --no-output github.com/EarthBuild/hello-world+hello & \
               pids[i]=$!
           done && \
           for pid in "${pids[@]}"; do
               wait "$pid"
           done
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Execute interactive debugger test
-        run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly ${{inputs.BUILT_EARTH_PATH}} --timeout 180
+        run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly "${INPUTS_BUILT_EARTH_PATH}" --timeout 180
+        env:
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Execute version test
-        run: "${{inputs.BUILT_EARTH_PATH}} --version"
+        run: |-
+          "${INPUTS_BUILT_EARTH_PATH}" --version
+        env:
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Execute docker2earth test
         run: "./tests/docker2earth/test.sh"
       - name: Execute remote-cache test
@@ -86,10 +100,15 @@ jobs:
         # retry applied to other steps. Third attempt gets us over the
         # line without masking a genuine repeated failure.
         run: |
-          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
-            -- frontend="${{inputs.BINARY}}" ./tests/remote-cache/test.sh
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
+            -- frontend="$INPUTS_BINARY" ./tests/remote-cache/test.sh
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute registry-certs test
-        run: frontend=${{inputs.BINARY}} ./tests/registry-certs/test.sh
+        run: frontend="${INPUTS_BINARY}" ./tests/registry-certs/test.sh
+        env:
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute try-catch test
         run: GITHUB_ACTIONS="" ./tests/try-catch/test.sh
       - name: Failure diagnostics

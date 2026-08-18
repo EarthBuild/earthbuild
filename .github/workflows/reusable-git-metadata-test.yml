@@ -22,6 +22,15 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD:
+        required: false
+      DOCKERHUB_MIRROR_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 
 env:
@@ -38,7 +47,6 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
@@ -48,6 +56,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
@@ -64,10 +73,15 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute git-metadata-test
         run: |
-          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" -c '
-            ${{inputs.SUDO}} ${{ inputs.BUILT_EARTH_PATH }} --ci -P \
+          # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" -c '
+            ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P \
               ./tests/git-metadata+test
           '
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
+          INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
       - name: Failure diagnostics
         if: ${{ failure() }}
         uses: ./.github/actions/failure-diagnostics

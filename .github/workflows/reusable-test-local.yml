@@ -6,10 +6,6 @@ on:
       BUILT_EARTH_PATH:
         required: true
         type: string
-      RUN_EARTH_TEST_ARGS:
-        required: false
-        type: string
-        default: "--use-inline-cache --save-inline-cache --no-output"
       BINARY:
         required: true
         type: string
@@ -29,6 +25,15 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD:
+        required: false
+      DOCKERHUB_MIRROR_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -44,7 +49,6 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
@@ -54,6 +58,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
@@ -69,11 +74,32 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute test-local
-        run: "${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ${{inputs.RUN_EARTH_TEST_ARGS}} ./tests/local+test-local --FRONTEND=${{inputs.BINARY}}"
+        run: |-
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache --save-inline-cache --no-output ./tests/local+test-local --FRONTEND="${INPUTS_BINARY}"
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute test-local --push
-        run: "${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ${{inputs.RUN_EARTH_TEST_ARGS}} --push ./tests/local+test-local --FRONTEND=${{inputs.BINARY}}"
+        run: |-
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache --save-inline-cache --no-output --push ./tests/local+test-local --FRONTEND="${INPUTS_BINARY}"
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Run general local tests (TODO this is re-testing the +test-local target)
-        run: "${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} ${{inputs.RUN_EARTH_TEST_ARGS}} ./tests/local+all --FRONTEND=${{inputs.BINARY}} --FRONTEND_COMPOSE=${{inputs.BINARY_COMPOSE}}"
+        # FRONTEND_COMPOSE is a two-word command ("docker compose"), so the
+        # expansion must be quoted to stay a single argument. It used to carry
+        # its own embedded quotes because the value was pasted in as literal
+        # source text before bash parsed the line; via an env var there is no
+        # such re-parse, and the caller passes the bare string.
+        run: |-
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache --save-inline-cache --no-output ./tests/local+all --FRONTEND="${INPUTS_BINARY}" --FRONTEND_COMPOSE="${INPUTS_BINARY_COMPOSE}"
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
+          INPUTS_BINARY_COMPOSE: ${{inputs.BINARY_COMPOSE}}
       - name: Failure diagnostics
         if: ${{ failure() }}
         uses: ./.github/actions/failure-diagnostics

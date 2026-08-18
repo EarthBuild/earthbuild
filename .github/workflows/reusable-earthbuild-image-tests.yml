@@ -26,6 +26,11 @@ on:
       SATELLITE_NAME:
         required: false
         type: string
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 
 env:
@@ -41,13 +46,13 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
@@ -64,10 +69,17 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build the earthbuild docker image
         run: |
-          scripts/ci/earth-retry.sh --binary "${{ inputs.BINARY }}" --sudo "${{ inputs.SUDO }}" \
-            -- ${{inputs.SUDO}} ${{inputs.BUILT_EARTH_PATH}} +earthly-docker --TAG=image-test
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
+            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" +earthly-docker --TAG=image-test
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
+          INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: "Run the earthbuild image tests"
-        run: FRONTEND=${{inputs.BINARY}} EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
+        run: FRONTEND="${INPUTS_BINARY}" EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
+        env:
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Failure diagnostics
         if: ${{ failure() }}
         uses: ./.github/actions/failure-diagnostics

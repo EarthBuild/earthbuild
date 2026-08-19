@@ -29,12 +29,12 @@ import (
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/states/dedup"
 	"github.com/EarthBuild/earthbuild/states/image"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -104,7 +104,7 @@ const (
 type Converter struct {
 	cacheContext        pllb.State
 	buildContextFactory llbfactory.Factory
-	containerFrontend   containerutil.ContainerFrontend
+	engine              *engine.Client
 	persistentCacheDirs map[string]states.CacheMount // maps path->mount
 	ftrs                *features.Features
 	mts                 *states.MultiTarget
@@ -179,7 +179,7 @@ func NewConverter(
 		varCollection:       variables.NewCollection(newCollOpt),
 		ftrs:                bc.Features,
 		localWorkingDir:     filepath.Dir(bc.BuildFilePath),
-		containerFrontend:   opt.ContainerFrontend,
+		engine:              opt.Engine,
 		waitBlockStack:      []*waitBlock{opt.waitBlock},
 		logbusTarget:        logbusTarget,
 	}

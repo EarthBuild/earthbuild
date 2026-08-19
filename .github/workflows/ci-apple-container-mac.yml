@@ -1,0 +1,104 @@
+name: Apple Container CI macOs
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  tests:
+    name: ${{ matrix.target }}
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: '+test-misc'
+            name: 'Misc (AST & Parser)'
+          - target: '+test-no-qemu-group1'
+            name: 'Group 1 (Autocompletion, Dockerfile & Imports)'
+          - target: '+test-no-qemu-group2'
+            name: 'Group 2 (COPY & Git Clone Operations)'
+          - target: '+test-no-qemu-group3'
+            name: 'Group 3 (Secrets, Build ARGs & Host Bind)'
+          - target: '+test-no-qemu-group4'
+            name: 'Group 4 (Dockerfile, Artifact Saves & Env)'
+          - target: '+test-no-qemu-group5'
+            name: 'Group 5 (Control Flow, Cache Mounts & AWS)'
+          - target: '+test-no-qemu-group6'
+            name: 'Group 6 (Cache & Credential Scrubbing)'
+          - target: '+test-no-qemu-group7'
+            name: 'Group 7 (Selective Save, Compose & Dotenv)'
+          - target: '+test-no-qemu-group8'
+            name: 'Group 8 (Docker Registry & SSH Config)'
+          - target: '+test-no-qemu-group9'
+            name: 'Group 9 (Config & ARG Redeclare Validation)'
+          - target: '+test-no-qemu-group10'
+            name: 'Group 10 (SSH & Remote Resolution)'
+          - target: '+test-no-qemu-group11'
+            name: 'Group 11 (Expose, Artifacts & Logbus)'
+          - target: '+test-no-qemu-group12'
+            name: 'Group 12 (Label Validation & Run Cache)'
+          - target: '+test-no-qemu-slow'
+            name: 'Slow (Server Daemon & WITH DOCKER)'
+    env:
+      EARTHLY_INSTALL_ID: 'earthly-githubactions'
+      BUILT_EARTH_PATH: ./build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download build-earth artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: earth-build-latest
+          path: ./build-artifacts
+      - name: Download buildkitd ARM64 image artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        continue-on-error: true
+        with:
+          name: buildkitd-image-arm64-latest
+          path: ./build-artifacts-arm64
+      - name: Setup earth binary from artifact
+        run: |
+          mkdir -p "$(dirname "${{ env.BUILT_EARTH_PATH }}")"
+          cp ./build-artifacts/earthly-darwin-arm64 "${{ env.BUILT_EARTH_PATH }}"
+          chmod +x "${{ env.BUILT_EARTH_PATH }}"
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install || true
+      - name: Load ARM64 buildkit image into Apple Container
+        run: |-
+          if [ -f "./build-artifacts-arm64/buildkitd-image.tar" ]; then
+            container image load -i ./build-artifacts-arm64/buildkitd-image.tar || true
+          fi
+      - name: Verify apple/container status
+        run: |
+          container --version
+          container system status
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          ${{ env.BUILT_EARTH_PATH }} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          ${{ env.BUILT_EARTH_PATH }} config global.container_frontend apple-container-shell
+      - name: Bootstrap earth
+        run: ${{ env.BUILT_EARTH_PATH }} bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute ${{ matrix.target }}
+        run: ${{ env.BUILT_EARTH_PATH }} --ci -P ${{ matrix.target }}
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      - name: Execute fail test
+        run: '! ${{ env.BUILT_EARTH_PATH }} --ci ./tests/fail+test-fail'
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd || true
+        if: ${{ failure() }}

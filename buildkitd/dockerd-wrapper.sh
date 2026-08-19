@@ -157,10 +157,19 @@ start_dockerd() {
     fi
     echo "Starting dockerd with data root $data_root"
 
-    if uname -a | grep microsoft-standard-WSL >/dev/null; then
-        if iptables --version | grep nf_tables >/dev/null; then
-            echo "WARNING: WSL and iptables-nft may not work; attempting to switch to iptables-legacy"
-            ln -sf "/sbin/iptables-legacy" /sbin/iptables
+    # Test if iptables-nft works with the current kernel. In VM environments like Apple Container
+    # or WSL where nf_tables netlink rule set generation is not supported, fall back to iptables-legacy.
+    if ! iptables --wait -t nat -L -n >/dev/null 2>&1; then
+        if command -v iptables-legacy >/dev/null 2>&1; then
+            echo "iptables-nft failed; switching to iptables-legacy"
+            iptables_legacy_path=$(command -v iptables-legacy)
+            ln -sf "$iptables_legacy_path" /sbin/iptables 2>/dev/null || true
+            ln -sf "$iptables_legacy_path" /usr/sbin/iptables 2>/dev/null || true
+            if command -v ip6tables-legacy >/dev/null 2>&1; then
+                ip6tables_legacy_path=$(command -v ip6tables-legacy)
+                ln -sf "$ip6tables_legacy_path" /sbin/ip6tables 2>/dev/null || true
+                ln -sf "$ip6tables_legacy_path" /usr/sbin/ip6tables 2>/dev/null || true
+            fi
         fi
     fi
 

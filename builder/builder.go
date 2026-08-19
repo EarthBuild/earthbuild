@@ -348,8 +348,8 @@ func (b *Builder) convertAndBuild(
 
 		if opt.GlobalWaitBlockFtr {
 			if opt.OnlyArtifact != nil || opt.OnlyFinalTargetImages {
-				b.opt.Log.Printf("builder.go bf code is still required for OnlyArtifact or "+
-					"OnlyImage or Push or LocalRegistryAddr: %s\n", b.opt.LocalRegistryAddr)
+				b.opt.Log.Printf("builder.go bf code is still required for OnlyArtifact or " +
+					"OnlyFinalTargetImages modes (GlobalWaitBlockFtr has no effect)\n")
 			} else {
 				b.opt.Log.Printf("skipping builder.go bf code due to GlobalWaitBlockFtr\n")
 				return nil, nil

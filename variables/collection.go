@@ -50,8 +50,10 @@ type stackFrame struct {
 
 // Collection is a collection of variable scopes used within a single target.
 type Collection struct {
-	builtin          *Scope
-	envs             *Scope
+	// These scopes are always present, regardless of the stack position.
+	builtin *Scope // inactive
+	envs    *Scope // active
+	// A scope containing all scopes above, combined.
 	effectiveCache   *Scope
 	log              *conslogging.ConsoleLogger
 	project          string

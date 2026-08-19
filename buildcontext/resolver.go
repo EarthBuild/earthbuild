@@ -47,7 +47,7 @@ type Data struct {
 type Resolver struct {
 	gr                   *gitResolver
 	lr                   *localResolver
-	parseCache           *synccache.Cache[string, earthfile.Tree]
+	parseCache           *synccache.Cache[string, earthfile.Tree] // local path -> AST
 	log                  *conslogging.ConsoleLogger
 	featureFlagOverrides string
 }

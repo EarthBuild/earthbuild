@@ -83,6 +83,8 @@ type ConvertOpt struct {
 	GlobalImports map[string]domain.ImportTrackerVal
 	// Logbus is the bus used for logging and metadata reporting.
 	Logbus *logbus.Bus
+	// Log is for logging
+	Log *conslogging.ConsoleLogger
 	// LLBCaps indicates that builder's capabilities
 	LLBCaps *apicaps.CapSet
 	// TempEarthOutDir is a path to a temp dir where artifacts are temporarily saved
@@ -129,8 +131,6 @@ type ConvertOpt struct {
 	FeatureFlagOverrides string
 	// LocalRegistryAddr is the address of the BuildKit-embedded registry.
 	LocalRegistryAddr string
-	// Log is for logging
-	Log *conslogging.ConsoleLogger
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
 	// NoCache sets llb.IgnoreCache before calling StateToRef
@@ -160,15 +160,26 @@ type ConvertOpt struct {
 	HasDangling bool
 	// InteractiveDebuggerDebugLevelLogging controls if debug-level-logging is enabled within the interactive-debugger
 	InteractiveDebuggerDebugLevelLogging bool
-	DoPushes                             bool
-	OnlyFinalTargetImages                bool
-	AllowInteractive                     bool
-	AllowLocally                         bool
-	UseLocalRegistry                     bool
-	ParallelConversion                   bool
-	UseFakeDep                           bool
-	NoAutoSkip                           bool
-	UseInlineCache                       bool
+	// DoPushes controls when a SAVE IMAGE --push, and RUN --push commands are executed;
+	// SAVE IMAGE --push ... will still export an image to the local docker instance (as long as DoSaves=true)
+	DoPushes bool
+	// OnlyFinalTargetImages is used to ignore SAVE IMAGE commands in indirectly referenced targets
+	OnlyFinalTargetImages bool
+	// AllowInteractive is an internal feature flag for controlling if interactive sessions can be initiated.
+	AllowInteractive bool
+	// AllowLocally is an internal feature flag for controlling if LOCALLY directives can be used.
+	AllowLocally bool
+	// UseLocalRegistry indicates whether the BuildKit-embedded registry can be used for exports.
+	UseLocalRegistry bool
+	// ParallelConversion is a feature flag enabling the parallel conversion algorithm.
+	ParallelConversion bool
+	// UseFakeDep is an internal feature flag for fake dep.
+	UseFakeDep bool
+	// NoAutoSkip disables auto-skip usages.
+	NoAutoSkip bool
+	// UseInlineCache enables the inline caching feature (use any SAVE IMAGE --push declaration as
+	// cache import).
+	UseInlineCache bool
 }
 
 // Earthfile2LLB parses a earthfile and executes the statements for a given target.

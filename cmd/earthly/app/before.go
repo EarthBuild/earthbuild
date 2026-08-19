@@ -75,7 +75,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 
 	app.BaseCLI.SetLogbusSetup(busSetup)
 
-	if flags.ConfigPath != "" {
+	if cmd.IsSet("config") {
 		app.BaseCLI.Log().Printf("loading config values from %q\n", flags.ConfigPath)
 	}
 
@@ -150,16 +150,16 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 		app.BaseCLI.Flags().ContainerFrontend = stub
 
 		if !app.BaseCLI.Flags().Verbose {
-			app.BaseCLI.Log().Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
+			log.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
 		}
 
-		app.BaseCLI.Log().VerbosePrintf("%s frontend initialization failed due to %s",
+		log.VerbosePrintf("%s frontend initialization failed due to %s",
 			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
 
 		return nil
 	}
 
-	app.BaseCLI.Log().VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
+	log.VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
 	app.BaseCLI.Flags().ContainerFrontend = fe
 
 	// These URLs were calculated relative to the configured frontend. In the
@@ -173,6 +173,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 }
 
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
+	app.warnIfEarth()
 	app.warnDeprecatedEarthlyEnvVars()
 	app.warnDeprecatedAutoSkip()
 
@@ -184,17 +185,39 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 
 	if flags.ConversionParallelism != 0 {
 		app.BaseCLI.Log().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, " +
-			"use --parallel-conversion and EARTHLY_PARALLEL_CONVERSION instead")
+			"please use 'earth config global.conversion_parallelism <parallelism>' instead")
 	}
 
+	// command line overrides the config file
 	if flags.GitUsernameOverride != "" || flags.GitPasswordOverride != "" {
 		app.BaseCLI.Log().Warnf("Warning: the --git-username and --git-password command flags " +
-			"have been deprecated in favor of git authentication configuration.\n" +
-			"For more information see https://docs.earthbuild.dev/docs/earthly-config#git-authentication")
-	}
+			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
+			"see https://docs.earthbuild.dev/earthly-config for reference.\n")
 
-	app.warnIfEarth()
+		if _, ok := cfg.Git["github.com"]; !ok {
+			cfg.Git["github.com"] = config.GitConfig{}
+		}
+
+		if _, ok := cfg.Git["gitlab.com"]; !ok {
+			cfg.Git["gitlab.com"] = config.GitConfig{}
+		}
+
+		for k, v := range cfg.Git {
+			v.Auth = "https"
+			if flags.GitUsernameOverride != "" {
+				v.User = flags.GitUsernameOverride
+			}
+
+			if flags.GitPasswordOverride != "" {
+				v.Password = flags.GitPasswordOverride
+			}
+
+			cfg.Git[k] = v
+		}
+	}
 }
+
+const cmdName = "earthly"
 
 // warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
 // variables, which have been replaced by the EARTH_ prefix.
@@ -234,8 +257,6 @@ func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB strin
 		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
 }
 
-const cmdName = "earthly"
-
 func (app *EarthApp) warnIfEarth() {
 	if len(os.Args) == 0 {
 		return
@@ -254,7 +275,7 @@ func (app *EarthApp) warnIfEarth() {
 			return
 		}
 
-		earthPath := path.Join(path.Dir(absPath), "earth")
+		earthPath := path.Join(path.Dir(absPath), cmdName)
 
 		earthPathExists, _ := fileutil.FileExists(earthPath)
 		if earthPathExists {

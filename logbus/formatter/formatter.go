@@ -62,14 +62,14 @@ type command struct {
 type Formatter struct {
 	startTime                  time.Time
 	err                        error
-	interactives               map[string]struct{}
+	interactives               map[string]struct{} // set of command IDs
 	bus                        *logbus.Bus
 	ongoingTicker              *time.Ticker
 	lastCommandOutput          *command
 	manifest                   *logstream.RunManifest
 	closedCh                   chan struct{}
 	log                        *conslogging.ConsoleLogger
-	timingTable                map[string]time.Duration
+	timingTable                map[string]time.Duration // targetID -> duration
 	commands                   map[string]*command
 	execStatsTracker           *execstatssummary.Tracker
 	defaultPlatform            string

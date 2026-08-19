@@ -2,6 +2,7 @@ package earthfile2llb
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
@@ -471,7 +472,7 @@ func (c *Converter) FromDockerfile(
 		}
 
 		dockerfileMetaTarget := domain.Target{
-			Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, stringutil.StrOrDefault(dfPath, "Dockerfile")),
+			Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, cmp.Or(dfPath, "Dockerfile")),
 			LocalPath: path.Join(contextPath),
 		}
 

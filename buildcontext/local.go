@@ -19,8 +19,8 @@ import (
 )
 
 type localResolver struct {
-	gitMetaCache      *synccache.Cache[string, *gitutil.GitMetadata]
-	buildFileCache    *synccache.Cache[string, *buildFile]
+	gitMetaCache      *synccache.Cache[string, *gitutil.GitMetadata] // local path -> *gitutil.GitMetadata
+	buildFileCache    *synccache.Cache[string, *buildFile]           // canonical ref -> *buildFile
 	log               *conslogging.ConsoleLogger
 	gitBranchOverride string
 }

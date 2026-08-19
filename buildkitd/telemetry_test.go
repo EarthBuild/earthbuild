@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 )
 
 func TestAddBuildkitTelemetryEnv(t *testing.T) {
@@ -38,12 +39,12 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 
 	attrs := parseResourceAttrs(env["OTEL_RESOURCE_ATTRIBUTES"])
 	wantAttrs := map[string]string{
-		"cicd.pipeline.run.id":                "123",
-		"vcs.revision.id":                     "abc",
-		string(semconv.ProcessRole):           semconv.ProcessRoleBuildkitd.Value.AsString(),
-		string(semconv.ProcessNesting):        semconv.ProcessNestingInner.Value.AsString(),
-		string(semconv.BuildkitContainerName): "earthly-buildkitd",
-		string(semconv.InstallationName):      "earthly",
+		"cicd.pipeline.run.id":               "123",
+		"vcs.revision.id":                    "abc",
+		string(semconv.ProcessRole):          semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting):       semconv.ProcessNestingInner.Value.AsString(),
+		string(otelsemconv.ContainerNameKey): "earthly-buildkitd",
+		string(semconv.InstallationName):     "earthly",
 	}
 
 	for key, want := range wantAttrs {

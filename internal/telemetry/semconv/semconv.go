@@ -21,9 +21,6 @@ const (
 	// Target is the name of the attribute that represents the target being built, e.g. "+build".
 	Target = attribute.Key("earth.target")
 
-	// BuildkitContainerName is the name of the attribute that represents the container buildkitd runs in.
-	BuildkitContainerName = attribute.Key("earth.buildkit.container.name")
-
 	// InstallationName is the name of the attribute that represents the installation the build belongs to;
 	// installations have their own buildkitd container and cache.
 	InstallationName = attribute.Key("earth.installation.name")

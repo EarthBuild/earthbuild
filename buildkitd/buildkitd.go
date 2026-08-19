@@ -30,6 +30,7 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -736,10 +737,10 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 	}
 
 	resourceAttrs := map[string]string{
-		string(semconv.ProcessRole):           semconv.ProcessRoleBuildkitd.Value.AsString(),
-		string(semconv.ProcessNesting):        nesting.Value.AsString(),
-		string(semconv.BuildkitContainerName): containerName,
-		string(semconv.InstallationName):      installationName,
+		string(semconv.ProcessRole):          semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting):       nesting.Value.AsString(),
+		string(otelsemconv.ContainerNameKey): containerName,
+		string(semconv.InstallationName):     installationName,
 	}
 	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
 		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),

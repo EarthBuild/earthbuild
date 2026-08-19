@@ -48,15 +48,15 @@ type Resolver struct {
 	gr                   *gitResolver
 	lr                   *localResolver
 	parseCache           *synccache.Cache[string, earthfile.Tree] // local path -> AST
+	log                  *conslogging.ConsoleLogger
 	featureFlagOverrides string
-	console              conslogging.ConsoleLogger
 }
 
 // NewResolver returns a new NewResolver.
 func NewResolver(
 	cleanCollection *cleanup.Collection,
 	gitLookup *GitLookup,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	featureFlagOverrides, gitBranchOverride, gitLFSInclude string,
 	gitLogLevel buildkitgitutil.GitLogLevel,
 	gitImage string,
@@ -71,11 +71,11 @@ func NewResolver(
 			projectCache:      synccache.NewCache[string, *resolvedGitProject](),
 			buildFileCache:    synccache.NewCache[string, *buildFile](),
 			gitLookup:         gitLookup,
-			console:           console,
+			log:               log,
 		},
-		lr:                   newLocalResolver(gitBranchOverride, console),
+		lr:                   newLocalResolver(gitBranchOverride, log),
 		parseCache:           synccache.NewCache[string, earthfile.Tree](),
-		console:              console,
+		log:                  log,
 		featureFlagOverrides: featureFlagOverrides,
 	}
 }

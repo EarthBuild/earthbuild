@@ -293,11 +293,11 @@ func alignVolumes(volumeNames []string, found []Volume) ([]Volume, error) {
 // Config is the configuration needed to bring up a given container engine. Includes logging and needed information to
 // calculate URLs to reach the container.
 type Config struct {
+	Log                        *conslogging.ConsoleLogger
 	BuildkitHostCLIValue       string
 	BuildkitHostFileValue      string
 	LocalRegistryHostFileValue string
 	LocalContainerName         string
-	Console                    conslogging.ConsoleLogger
 	DefaultPort                int
 }
 
@@ -613,10 +613,10 @@ func ResolveEndpoints(driver Driver, cfg *Config) (Endpoints, error) {
 
 		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
 			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
-			cfg.Console.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
+			cfg.Log.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
 		}
 	} else if cfg.LocalRegistryHostFileValue != "" {
-		cfg.Console.
+		cfg.Log.
 			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
 	}
 

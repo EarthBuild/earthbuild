@@ -143,7 +143,7 @@ func run() (code int) {
 	flagSet.SetOutput(io.Discard)
 
 	cli := base.NewCLI(
-		conslogging.ConsoleLogger{},
+		new(conslogging.ConsoleLogger),
 		base.WithVersion(Version),
 		base.WithGitSHA(GitSha),
 		base.WithBuiltBy(BuiltBy),
@@ -214,7 +214,7 @@ func run() (code int) {
 
 	logging := conslogging.Current(padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
-	cli.SetConsole(logging)
+	cli.SetLog(logging)
 	earth := app.NewEarthApp(cli, rootApp, buildApp)
 
 	return earth.Run(ctx, lastSignal)

@@ -36,10 +36,10 @@ type gitResolver struct {
 	projectCache      *synccache.Cache[string, *resolvedGitProject] // git URL#ref -> *resolvedGitProject
 	buildFileCache    *synccache.Cache[string, *buildFile]          // canonical ref -> *buildFile
 	gitLookup         *GitLookup
+	log               *conslogging.ConsoleLogger
 	gitBranchOverride string
 	lfsInclude        string
 	gitImage          string
-	console           conslogging.ConsoleLogger
 	logLevel          buildkitgitutil.GitLogLevel
 }
 
@@ -202,7 +202,7 @@ func (gr *gitResolver) resolveEarthProject(
 			if isDockerfile {
 				ftrs = new(features.Features)
 			} else {
-				ftrs, inErr = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.console)
+				ftrs, inErr = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.log)
 				if inErr != nil {
 					return nil, inErr
 				}
@@ -361,7 +361,7 @@ func (gr *gitResolver) resolveGitProject(
 			}
 
 			if imgArch != "" && imgArch != platr.LLBNative().Architecture {
-				gr.console.Warnf("git image [%s] has architecture [%s] which does not match host architecture [%s]",
+				gr.log.Warnf("git image [%s] has architecture [%s] which does not match host architecture [%s]",
 					gitImage, string(unameM), platr.LLBNative().Architecture)
 			}
 

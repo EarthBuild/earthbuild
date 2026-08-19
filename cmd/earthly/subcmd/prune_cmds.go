@@ -89,7 +89,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 		}
 
 		err = buildkitd.ResetCache(
-			ctx, a.cli.Console(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
+			ctx, a.cli.Log(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
 			a.cli.Flags().InstallationName, a.cli.Flags().Engine, a.cli.Flags().BuildkitdSettings,
 		)
 		if err != nil {
@@ -138,7 +138,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 					return nil
 				}
 
-				a.cli.Console().Printf("%s\t%s\n", usageInfo.ID, humanize.Bytes(uint64(usageInfo.Size)))
+				a.cli.Log().Printf("%s\t%s\n", usageInfo.ID, humanize.Bytes(uint64(usageInfo.Size)))
 				total += uint64(usageInfo.Size) // #nosec G115
 			case <-ctx.Done():
 				return nil
@@ -151,7 +151,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("err group: %w", err)
 	}
 
-	a.cli.Console().Printf("Freed %s\n", humanize.Bytes(total))
+	a.cli.Log().Printf("Freed %s\n", humanize.Bytes(total))
 
 	return nil
 }

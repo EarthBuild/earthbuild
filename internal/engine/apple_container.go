@@ -91,7 +91,7 @@ func newAppleEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 			BinaryName:              "container",
 			RunCompatibilityArgs:    make([]string, 0),
 			GlobalCompatibilityArgs: make([]string, 0),
-			Console:                 cfg.Console,
+			Log:                     cfg.Log,
 		},
 	}
 

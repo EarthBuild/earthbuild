@@ -41,11 +41,11 @@ type containerInfoJSON struct {
 
 // shellEngine provides shared shell-execution functionality across CLI-based container engines.
 type shellEngine struct {
+	Log                     *conslogging.ConsoleLogger
+	Endpoints               Endpoints
 	BinaryName              string
 	RunCompatibilityArgs    []string
 	GlobalCompatibilityArgs []string
-	Endpoints               Endpoints
-	Console                 conslogging.ConsoleLogger
 	Rootless                bool
 }
 
@@ -410,7 +410,7 @@ func (cco *commandContextOutput) String() string {
 func (e *shellEngine) CommandOutput(ctx context.Context, args ...string) (*commandContextOutput, error) {
 	output := &commandContextOutput{}
 	cmd := e.Command(ctx, args...)
-	e.Console.VerbosePrintf("Running command: %s\n", strings.Join(cmd.Args, " "))
+	e.Log.VerbosePrintf("Running command: %s\n", strings.Join(cmd.Args, " "))
 
 	cmd.Stdout = &output.Stdout
 	cmd.Stderr = &output.Stderr

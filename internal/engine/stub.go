@@ -16,7 +16,7 @@ type stubEngine struct {
 // newStubEngine creates a stub engine instance.
 func newStubEngine(cfg *Config) (engineDriver, error) {
 	e := &stubEngine{
-		shellEngine: &shellEngine{Console: cfg.Console},
+		shellEngine: &shellEngine{Log: cfg.Log},
 	}
 
 	var err error

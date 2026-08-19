@@ -29,7 +29,7 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 			BinaryName:              string(Docker),
 			RunCompatibilityArgs:    make([]string, 0),
 			GlobalCompatibilityArgs: make([]string, 0),
-			Console:                 cfg.Console,
+			Log:                     cfg.Log,
 		},
 	}
 

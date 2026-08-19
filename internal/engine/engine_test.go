@@ -131,7 +131,7 @@ func TestBuildArgMatrix(t *testing.T) {
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			LocalContainerName:         "test", //nolint:goconst
 			DefaultPort:                8372,
-			Console:                    logger,
+			Log:                        logger,
 		})
 		r.NoError(err)
 		assert.Equal(t, tt.expected, results{
@@ -191,7 +191,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		_, err := ResolveEndpoints(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			Console:                    logger,
+			Log:                        logger,
 			LocalContainerName:         "test",
 			DefaultPort:                8372,
 		})
@@ -291,7 +291,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		_, err := ResolveEndpoints(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			Console:                    logger,
+			Log:                        logger,
 			LocalContainerName:         "test",
 			DefaultPort:                8372,
 		})

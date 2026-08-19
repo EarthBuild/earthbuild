@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"maps"
@@ -17,20 +18,20 @@ type ImportTrackerVal struct {
 
 // ImportTracker is a resolver which also takes into account imports.
 type ImportTracker struct {
-	local   map[string]ImportTrackerVal // local name -> import details
-	global  map[string]ImportTrackerVal // local name -> import details
-	console conslogging.ConsoleLogger
+	local  map[string]ImportTrackerVal // local name -> import details
+	global map[string]ImportTrackerVal // local name -> import details
+	log    *conslogging.ConsoleLogger
 }
 
 // NewImportTracker creates a new import resolver.
-func NewImportTracker(console conslogging.ConsoleLogger, global map[string]ImportTrackerVal) *ImportTracker {
+func NewImportTracker(log *conslogging.ConsoleLogger, global map[string]ImportTrackerVal) *ImportTracker {
 	gi := make(map[string]ImportTrackerVal)
 	maps.Copy(gi, global)
 
 	return &ImportTracker{
-		local:   make(map[string]ImportTrackerVal),
-		global:  gi,
-		console: console,
+		local:  make(map[string]ImportTrackerVal),
+		global: gi,
+		log:    log,
 	}
 }
 
@@ -74,7 +75,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		path = parsedImport.GetLocalPath()
 
 		if allowPrivilegedFlag {
-			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
+			ir.log.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
 	default:
 		return fmt.Errorf("IMPORT %s not supported", importStr)
@@ -94,9 +95,7 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 		return errors.New("IMPORT requires AS if the import path ends with \".\" or \"..\"")
 	}
 
-	if as == "" {
-		as = defaultAs
-	}
+	as = cmp.Or(as, defaultAs)
 
 	if strings.ContainsAny(as, "/:") {
 		return fmt.Errorf("invalid IMPORT AS %s", as)

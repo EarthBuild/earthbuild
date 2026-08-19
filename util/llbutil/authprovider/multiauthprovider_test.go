@@ -4,10 +4,9 @@ import (
 	"context"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
-	"time"
 
-	"git.sr.ht/~nelsam/hel/pkg/pers"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session/auth"
@@ -16,176 +15,124 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func newConsLogger() conslogging.ConsoleLogger {
+type fakeChild struct {
+	fetchTokenFn func(context.Context, *auth.FetchTokenRequest) (*auth.FetchTokenResponse, error)
+	addProjectFn func(org, project string)
+	fetchCount   atomic.Int32
+}
+
+func (*fakeChild) Credentials(_ context.Context, _ *auth.CredentialsRequest) (*auth.CredentialsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
+func (f *fakeChild) FetchToken(ctx context.Context, req *auth.FetchTokenRequest) (*auth.FetchTokenResponse, error) {
+	f.fetchCount.Add(1)
+
+	if f.fetchTokenFn != nil {
+		return f.fetchTokenFn(ctx, req)
+	}
+
+	return nil, authprovider.ErrAuthProviderNoResponse
+}
+
+func (*fakeChild) GetTokenAuthority(
+	_ context.Context, _ *auth.GetTokenAuthorityRequest,
+) (*auth.GetTokenAuthorityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
+func (*fakeChild) VerifyTokenAuthority(
+	_ context.Context, _ *auth.VerifyTokenAuthorityRequest,
+) (*auth.VerifyTokenAuthorityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
+func (f *fakeChild) AddProject(org, project string) {
+	if f.addProjectFn != nil {
+		f.addProjectFn(org, project)
+	}
+}
+
+func newConsLogger() *conslogging.ConsoleLogger {
 	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 
+//nolint:goconst
 func TestMultiAuth(t *testing.T) {
 	t.Parallel()
-
-	type testCtx struct {
-		multi    *authprovider.MultiAuthProvider
-		children []*mockChild
-	}
-
-	setup := func(t *testing.T) testCtx {
-		t.Helper()
-
-		children := []*mockChild{
-			newMockChild(pers.WithTimeout(t, mockTimeout)),
-			newMockChild(pers.WithTimeout(t, mockTimeout)),
-		}
-
-		srv := make([]authprovider.Child, 0, len(children))
-		for _, c := range children {
-			srv = append(srv, c)
-		}
-
-		return testCtx{
-			children: children,
-			multi:    authprovider.New(newConsLogger(), srv),
-		}
-	}
-
-	type fetchResult struct {
-		resp *auth.FetchTokenResponse
-		err  error
-	}
 
 	t.Run("it calls child ProjectAdders", func(t *testing.T) {
 		t.Parallel()
 
-		type projectProvider struct {
-			*mockChild
-			*mockProjectAdder
+		var calledOrg, calledProj string
+
+		child := &fakeChild{
+			addProjectFn: func(org, project string) {
+				calledOrg = org
+				calledProj = project
+			},
 		}
 
-		p := projectProvider{
-			mockChild:        newMockChild(pers.WithTimeout(t, mockTimeout)),
-			mockProjectAdder: newMockProjectAdder(pers.WithTimeout(t, mockTimeout)),
-		}
-		multi := authprovider.New(newConsLogger(), []authprovider.Child{p})
-		pers.Return(p.mockProjectAdder.method.AddProject)
+		multi := authprovider.New(newConsLogger(), []authprovider.Child{child})
+
 		multi.AddProject("foo", "bar")
-		pers.MethodWasCalled(t, p.mockProjectAdder.method.AddProject, pers.WithArgs("foo", "bar"))
+
+		require.Equal(t, "foo", calledOrg)
+		require.Equal(t, "bar", calledProj)
 	})
 
 	t.Run("it does not continue to contact servers with no credentials for a given host", func(t *testing.T) {
 		t.Parallel()
 
-		tc := setup(t)
-		req := &auth.FetchTokenRequest{Host: "foo.bar"} //nolint:goconst
+		child1 := &fakeChild{}
+		child2 := &fakeChild{}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+		multi := authprovider.New(newConsLogger(), []authprovider.Child{child1, child2})
+		req := &auth.FetchTokenRequest{Host: "foo.bar"}
 
-		res := make(chan fetchResult)
+		// First call: both children checked
+		resp, err := multi.FetchToken(t.Context(), req)
+		require.Nil(t, resp)
+		require.Equal(t, codes.Unavailable, status.Code(err))
+		require.Equal(t, int32(1), child1.fetchCount.Load())
+		require.Equal(t, int32(1), child2.fetchCount.Load())
 
-		go func() {
-			resp, err := tc.multi.FetchToken(ctx, req)
-			res <- fetchResult{resp, err}
-		}()
-
-		for _, c := range tc.children {
-			pers.MethodWasCalled(
-				t, c.method.FetchToken,
-				pers.Within(timeout),
-				pers.WithArgs(pers.Any, req),
-				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),
-			)
-		}
-
-		select {
-		case result := <-res:
-			require.Nil(t, result.resp)
-			require.Equal(t, codes.Unavailable, status.Code(result.err))
-		case <-time.After(timeout):
-			t.Fatal("timed out waiting for FetchToken to return")
-		}
-
-		go func() {
-			resp, err := tc.multi.FetchToken(ctx, req)
-			res <- fetchResult{resp, err}
-		}()
-
-		for _, c := range tc.children {
-			pers.MethodWasNotCalled(t, c.method.FetchToken, pers.Within(10*time.Millisecond))
-		}
-
-		select {
-		case result := <-res:
-			require.Nil(t, result.resp)
-			require.Equal(t, codes.Unavailable, status.Code(result.err))
-		case <-time.After(timeout):
-			t.Fatal("timed out waiting for FetchToken to return")
-		}
+		// Second call: skipped because host marked unavailable
+		resp, err = multi.FetchToken(t.Context(), req)
+		require.Nil(t, resp)
+		require.Equal(t, codes.Unavailable, status.Code(err))
+		require.Equal(t, int32(1), child1.fetchCount.Load())
+		require.Equal(t, int32(1), child2.fetchCount.Load())
 	})
 
 	t.Run("it resets its knowledge of which servers it should contact after a project is added", func(t *testing.T) {
 		t.Parallel()
 
-		tc := setup(t)
+		child1 := &fakeChild{}
+		child2 := &fakeChild{
+			fetchTokenFn: func(_ context.Context, _ *auth.FetchTokenRequest) (*auth.FetchTokenResponse, error) {
+				return &auth.FetchTokenResponse{Token: "secret"}, nil
+			},
+		}
+
+		multi := authprovider.New(newConsLogger(), []authprovider.Child{child1, child2})
 		req := &auth.FetchTokenRequest{Host: "foo.bar"}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+		resp, err := multi.FetchToken(t.Context(), req)
+		require.NoError(t, err)
+		require.Equal(t, "secret", resp.Token)
+		require.Equal(t, int32(1), child1.fetchCount.Load())
+		require.Equal(t, int32(1), child2.fetchCount.Load())
 
-		res := make(chan fetchResult)
+		// Reset via AddProject
+		child2.fetchTokenFn = nil // now child2 will also return ErrAuthProviderNoResponse
 
-		go func() {
-			resp, err := tc.multi.FetchToken(ctx, req)
-			res <- fetchResult{resp, err}
-		}()
+		multi.AddProject("foo", "bar")
 
-		for i, c := range tc.children {
-			ret := []any{
-				(*auth.FetchTokenResponse)(nil),
-				authprovider.ErrAuthProviderNoResponse,
-			}
-			if i == len(tc.children)-1 {
-				ret = []any{
-					&auth.FetchTokenResponse{},
-					nil,
-				}
-			}
-
-			pers.MethodWasCalled(
-				t, c.method.FetchToken,
-				pers.Within(timeout),
-				pers.WithArgs(pers.Any, req),
-				pers.Returning(ret...),
-			)
-		}
-
-		select {
-		case result := <-res:
-			require.NoError(t, result.err)
-		case <-time.After(timeout):
-			t.Fatal("timed out waiting for FetchToken to return")
-		}
-
-		tc.multi.AddProject("foo", "bar")
-
-		go func() {
-			resp, err := tc.multi.FetchToken(ctx, req)
-			res <- fetchResult{resp, err}
-		}()
-
-		for _, c := range tc.children {
-			pers.MethodWasCalled(
-				t, c.method.FetchToken,
-				pers.Within(timeout),
-				pers.WithArgs(pers.Any, req),
-				pers.Returning((*auth.FetchTokenResponse)(nil), authprovider.ErrAuthProviderNoResponse),
-			)
-		}
-
-		select {
-		case result := <-res:
-			require.Nil(t, result.resp)
-			require.Equal(t, codes.Unavailable, status.Code(result.err))
-		case <-time.After(timeout):
-			t.Fatal("timed out waiting for FetchToken to return")
-		}
+		resp, err = multi.FetchToken(t.Context(), req)
+		require.Nil(t, resp)
+		require.Equal(t, codes.Unavailable, status.Code(err))
+		require.Equal(t, int32(2), child1.fetchCount.Load())
+		require.Equal(t, int32(2), child2.fetchCount.Load())
 	})
 }

@@ -52,7 +52,7 @@ func (s *solver) buildMainMulti(
 	onArtifact onArtifactFunc,
 	onFinalArtifact onFinalArtifactFunc,
 	onPullCallback pullping.PullCallback,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 ) error {
 	ch := make(chan *client.SolveStatus, statusChanSize)
 
@@ -61,7 +61,7 @@ func (s *solver) buildMainMulti(
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	solveOpt, err := s.newSolveOptMulti(ctx, eg, onImage, onArtifact, onFinalArtifact, onPullCallback, console)
+	solveOpt, err := s.newSolveOptMulti(ctx, eg, onImage, onArtifact, onFinalArtifact, onPullCallback, log)
 	if err != nil {
 		return fmt.Errorf("new solve opt: %w", err)
 	}
@@ -109,7 +109,7 @@ func (s *solver) newSolveOptMulti(
 	onArtifact onArtifactFunc,
 	onFinalArtifact onFinalArtifactFunc,
 	onPullCallback pullping.PullCallback,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 ) (*client.SolveOpt, error) {
 	imports := s.cacheImports.AsSlice()
 
@@ -142,7 +142,7 @@ func (s *solver) newSolveOptMulti(
 		cacheExports = append(cacheExports, newInlineCacheOpt())
 	}
 
-	progressCB := fsutilprogress.New("", console.WithPrefix("output"))
+	progressCB := fsutilprogress.New("", log.WithPrefix("output"))
 
 	isTrue := func(s string) bool {
 		return s == "true"

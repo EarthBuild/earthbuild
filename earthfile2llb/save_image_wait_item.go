@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 )
 
 type saveImageWaitItem struct {
@@ -18,7 +17,7 @@ type saveImageWaitItem struct {
 	mu sync.Mutex
 }
 
-func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool) waitutil.WaitItem {
+func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool) states.WaitItem {
 	return &saveImageWaitItem{
 		c:           c,
 		si:          si,

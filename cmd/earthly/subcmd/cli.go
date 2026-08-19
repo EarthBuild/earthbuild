@@ -20,8 +20,8 @@ type CLI interface {
 	GitSHA() string
 
 	Flags() *flag.Global
-	Console() conslogging.ConsoleLogger
-	SetConsole(conslogging.ConsoleLogger)
+	Log() *conslogging.ConsoleLogger
+	SetLog(*conslogging.ConsoleLogger)
 
 	InitFrontend(context.Context, *cli.Command) error
 	Cfg() *config.Config

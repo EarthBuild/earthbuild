@@ -231,11 +231,11 @@ WORKDIR my-proj
 RUN ls
 ```
 
-Alternatively, an optimal deep clone can be achieved by calling the `FUNCTION` [DEEP_CLONE](https://github.com/earthly/lib/blob/3.0.1/utils/git/Earthfile#L4):
+Alternatively, an optimal deep clone can be achieved by calling the `FUNCTION` [DEEP_CLONE](https://github.com/EarthBuild/lib/blob/3.0.4/utils/git/Earthfile#L4):
 
 ```Dockerfile
 ARG git_url="git@github.com/my-co/my-proj"
-DO github.com/earthly/lib/utils/git:3.0.1+DEEP_CLONE --GIT_URL=$git_url
+DO github.com/EarthBuild/lib/utils/git:3.0.4+DEEP_CLONE --GIT_URL=$git_url
 RUN ls
 ```
 
@@ -306,7 +306,7 @@ In certain cases, it may be desirable to execute certain targets on the host mac
 Suppose we wanted the following target to be executed on against the host's Docker daemon:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
 WORKDIR /app
 COPY docker-compose.yml ./
 WITH DOCKER --compose docker-compose.yml \
@@ -337,7 +337,7 @@ ARG run_locally=false
 IF [ "$run_locally" = "true" ]
     LOCALLY
 ELSE
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     WORKDIR /app
     COPY docker-compose.yml ./
 END
@@ -397,7 +397,7 @@ RUN --push --secret GITHUB_TOKEN github-release upload ...
 
 ### Use `--secret`, not `ARG`s to pass secrets to the build
 
-If a build requires the usage of secrets, it is strongly recommended that you use the builtin secrets constructs, such as `earthly --secret`, [Earthly Cloud Secrets](../cloud/cloud-secrets.md), `RUN --secret`.
+If a build requires the usage of secrets, it is strongly recommended that you use the builtin secrets constructs, such as `earth --secret`, `earth --secret-file-path`, and `RUN --secret`. See the [secrets guide](secrets.md).
 
 Using `ARG`s for passing secrets is strongly discouraged, as the secrets will be leaked in build logs, the build cache and the possibly in published images.
 
@@ -1051,7 +1051,7 @@ A simple way to fix this is to use an earthly-provided [function](../guides/func
 # Better
 integration-test:
     FROM some-other-image:latest
-    DO github.com/earthly/lib+INSTALL_DIND
+    DO github.com/EarthBuild/lib:3.0.4+INSTALL_DIND
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN ...
@@ -1063,7 +1063,7 @@ The best supported option, however, is to use the `earthbuild/dind` image, if po
 ```Dockerfile
 # Best - if possible
 integration-test:
-    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
     COPY docker-compose.yml ./
     WITH DOCKER --compose docker-compose.yml
         RUN ...

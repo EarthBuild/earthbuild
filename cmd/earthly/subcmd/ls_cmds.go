@@ -83,9 +83,9 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 		targetToDisplay = "current directory"
 	}
 
-	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
+	gitLookup := buildcontext.NewGitLookup(a.cli.Log(), a.cli.Flags().SSHAuthSock)
 	resolver := buildcontext.NewResolver(
-		nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "",
+		nil, gitLookup, a.cli.Log(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "",
 	)
 
 	// TODO this is a nil pointer which causes a panic if we try to expand a remotelyreferenced earthfile

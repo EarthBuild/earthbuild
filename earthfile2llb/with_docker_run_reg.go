@@ -55,14 +55,14 @@ func (w *withDockerRunRegistry) prepareImages(
 		platform  string
 	}
 
-	composeImagesSet := make(map[setKey]bool)
+	composeImagesSet := make(map[setKey]struct{})
 
 	for _, pull := range composePulls {
 		pull.Platform = w.c.platr.SubPlatform(pull.Platform)
 		composeImagesSet[setKey{
 			imageName: pull.ImageName,
 			platform:  w.c.platr.Materialize(pull.Platform).String(),
-		}] = true
+		}] = struct{}{}
 	}
 
 	// Loads.
@@ -89,9 +89,7 @@ func (w *withDockerRunRegistry) prepareImages(
 				imageName: imageDef.ImageName, // may have changed
 				platform:  w.c.platr.Materialize(imageDef.Platform).String(),
 			}
-			if composeImagesSet[key] {
-				delete(composeImagesSet, key)
-			}
+			delete(composeImagesSet, key)
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -105,7 +103,7 @@ func (w *withDockerRunRegistry) prepareImages(
 			imageName: pull.ImageName,
 			platform:  w.c.platr.Materialize(pull.Platform).String(),
 		}
-		if composeImagesSet[key] {
+		if _, ok := composeImagesSet[key]; ok {
 			opt.Pulls = append(opt.Pulls, pull)
 		}
 	}
@@ -267,7 +265,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	platformIncompatible := !w.c.platr.PlatformEquals(w.c.platr.Current(), platutil.NativePlatform)
 	if platformIncompatible {
-		w.c.opt.Console.Warnf("Error: %s", platformIncompatMsg(w.c.platr))
+		w.c.opt.Log.Warnf("Error: %s", platformIncompatMsg(w.c.platr))
 		return errors.New("platform incompatible")
 	}
 

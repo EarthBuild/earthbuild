@@ -10,6 +10,6 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
-func ConnectTerm(ctx context.Context, addr io.ReadWriteCloser, console conslogging.ConsoleLogger) error {
+func ConnectTerm(ctx context.Context, addr io.ReadWriteCloser, log *conslogging.ConsoleLogger) error {
 	return errors.New("debugger not supported on Windows yet")
 }

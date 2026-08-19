@@ -23,7 +23,7 @@ type CLI struct {
 	cfg                     *config.Config
 	logbusSetup             *setup.BusSetup
 	logbus                  *logbus.Bus
-	console                 conslogging.ConsoleLogger
+	log                     *conslogging.ConsoleLogger
 	flags                   flag.Global
 }
 
@@ -71,11 +71,11 @@ func WithDefaultInstallationName(name string) CLIOpt {
 }
 
 // NewCLI creates a new [CLI].
-func NewCLI(console conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
+func NewCLI(log *conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	cli := CLI{
-		app:     new(cli.Command),
-		console: console,
-		logbus:  logbus.New(),
+		app:    new(cli.Command),
+		log:    log,
+		logbus: logbus.New(),
 		flags: flag.Global{
 			BuildkitdSettings: buildkitd.Settings{},
 		},
@@ -138,14 +138,14 @@ func (c *CLI) SetBefore(before cli.BeforeFunc) {
 	c.app.Before = before
 }
 
-// Console returns the console logger.
-func (c *CLI) Console() conslogging.ConsoleLogger {
-	return c.console
+// Log returns the console logger.
+func (c *CLI) Log() *conslogging.ConsoleLogger {
+	return c.log
 }
 
-// SetConsole sets the console logger.
-func (c *CLI) SetConsole(cons conslogging.ConsoleLogger) {
-	c.console = cons
+// SetLog sets the console logger.
+func (c *CLI) SetLog(log *conslogging.ConsoleLogger) {
+	c.log = log
 }
 
 // Cfg returns the config.

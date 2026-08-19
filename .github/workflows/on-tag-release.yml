@@ -21,23 +21,24 @@ jobs:
             FORCE_COLOR: 1
             EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
         steps:
-            - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+            - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
               with:
                   # Authenticate the release-list API call so it isn't rate-limited
                   # on shared runner IPs (unauthenticated is 60 req/hr/IP).
                   github-token: ${{ secrets.GITHUB_TOKEN }}
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   ref: ${{ github.event.release.tag_name }}
                   fetch-depth: 0
+                  persist-credentials: false
             - name: Copy pre-built artifacts to release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   RELEASE_TAG: ${{ github.event.release.tag_name }}
               run: |
-                  earth --ci --push --secret GITHUB_TOKEN="${{ env.GITHUB_TOKEN }}" ./release+promote-artifacts-to-gh \
-                      --RELEASE_TAG="${{ env.RELEASE_TAG }}"
+                  earth --ci --push --secret GITHUB_TOKEN="${GITHUB_TOKEN}" ./release+promote-artifacts-to-gh \
+                      --RELEASE_TAG="${RELEASE_TAG}"
     release-images-to-dockerhub:
         runs-on: ubuntu-24.04-arm
         permissions:
@@ -47,16 +48,17 @@ jobs:
             FORCE_COLOR: 1
             EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
         steps:
-            - uses: earthbuild/actions-setup@5d323543fa1d7b963384b46b2cbaef0bf6d88216 # v2.1.0
+            - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
               with:
                   # Authenticate the release-list API call so it isn't rate-limited
                   # on shared runner IPs (unauthenticated is 60 req/hr/IP).
                   github-token: ${{ secrets.GITHUB_TOKEN }}
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   ref: ${{ github.event.release.tag_name }}
                   fetch-depth: 0
+                  persist-credentials: false
             - name: Copy images from GHCR.io to DockerHub
               env:
                   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
@@ -68,9 +70,9 @@ jobs:
                   RELEASE_TAG: ${{ github.event.release.tag_name }}
               # TODO: set usernames for docker
               run: |
-                  earth --ci --push --secret CONTAINER_REGISTRY_TOKEN=${{ env.GITHUB_TOKEN }} \
-                      --secret DEST_CONTAINER_REGISTRY_TOKEN=${{ env.DOCKERHUB_TOKEN }} \
+                  earth --ci --push --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
+                      --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
                       ./release+promote-to-dockerhub \
-                      --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
-                      --CONTAINER_REGISTRY_USER="${{ env.GHCR_USERNAME }}" \
-                      --DST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"
+                      --RELEASE_TAG="${RELEASE_TAG}" \
+                      --CONTAINER_REGISTRY_USER="${GHCR_USERNAME}" \
+                      --DST_CONTAINER_REGISTRY_USER="${DOCKERHUB_USERNAME}"

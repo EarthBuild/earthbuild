@@ -55,7 +55,7 @@ Since most CI platforms do not allow reusing state between runs efficiently, pas
 
 The most effective means of sharing cache between runs is to execute the Earthly builds remotely. This allows Earthly maintain the cache close to where it executes, thus being able to access it instantly without the need for an upload/download step. Because all Earthly builds are containerized, you still get the ephemeral nature of the CI runner, allowing for build repeatability, but you also get the benefits of a fast cache that is local to the execution environment.
 
-To read more, check out the [remote runners page](../remote-runners.md) and [Earthly Satellites](../cloud/satellites.md), remote runners offered by Earthly.
+To read more, check out the [remote runners page](../remote-runners.md).
 
 ## Managing Cache
 

@@ -78,11 +78,13 @@ type ConvertOpt struct {
 	Resolver *buildcontext.Resolver
 	// FilesWithCommandRenameWarning keeps track of the files for which the COMMAND => FUNCTION warning was displayed
 	// this can be removed in VERSION 0.8
-	FilesWithCommandRenameWarning map[string]bool
+	FilesWithCommandRenameWarning map[string]struct{}
 	// GlobalImports is a map of imports used to dereference import ref targets, commands, etc.
 	GlobalImports map[string]domain.ImportTrackerVal
 	// Logbus is the bus used for logging and metadata reporting.
 	Logbus *logbus.Bus
+	// Log is for logging
+	Log *conslogging.ConsoleLogger
 	// LLBCaps indicates that builder's capabilities
 	LLBCaps *apicaps.CapSet
 	// TempEarthOutDir is a path to a temp dir where artifacts are temporarily saved
@@ -97,7 +99,7 @@ type ConvertOpt struct {
 	CleanCollection *cleanup.Collection
 	// TargetInputHashStackSet is a set of target input hashes that are currently in the call stack.
 	// This is used to detect infinite cycles.
-	TargetInputHashStackSet map[string]bool
+	TargetInputHashStackSet map[string]struct{}
 	// parentDepSub is a channel informing of any new dependencies from the parent.
 	parentDepSub chan string
 	// ErrorGroup is a serrgroup used to submit parallel conversion jobs.
@@ -129,8 +131,6 @@ type ConvertOpt struct {
 	FeatureFlagOverrides string
 	// LocalRegistryAddr is the address of the BuildKit-embedded registry.
 	LocalRegistryAddr string
-	// Console is for logging
-	Console conslogging.ConsoleLogger
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
 	// NoCache sets llb.IgnoreCache before calling StateToRef
@@ -198,10 +198,10 @@ func Earthfile2LLB(
 	}
 
 	if opt.TargetInputHashStackSet == nil {
-		opt.TargetInputHashStackSet = make(map[string]bool)
+		opt.TargetInputHashStackSet = make(map[string]struct{})
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		newMap := make(map[string]struct{}, len(opt.TargetInputHashStackSet))
 		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
@@ -224,8 +224,8 @@ func Earthfile2LLB(
 				// context.Canceled resulted from the cancellation of the
 				// ErrorGroup, but not the root cause).
 				err2 := opt.ErrorGroup.Err()
-				opt.Console.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
-				opt.Console.VerbosePrintf("earthfile2llb group error: %v", err2)
+				opt.Log.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
+				opt.Log.VerbosePrintf("earthfile2llb group error: %v", err2)
 
 				if err2 != nil {
 					retErr = err2
@@ -290,7 +290,7 @@ func Earthfile2LLB(
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if found {
-		if opt.TargetInputHashStackSet[tiHash] {
+		if _, ok := opt.TargetInputHashStackSet[tiHash]; ok {
 			return nil, fmt.Errorf("infinite cycle detected for target %s", target.String())
 		}
 
@@ -328,8 +328,8 @@ func Earthfile2LLB(
 		}, nil
 	}
 
-	opt.TargetInputHashStackSet[tiHash] = true
-	opt.Console.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
+	opt.TargetInputHashStackSet[tiHash] = struct{}{}
+	opt.Log.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
 
 	converter, err := NewConverter(targetWithMetadata, bc, sts, opt)
@@ -342,7 +342,7 @@ func Earthfile2LLB(
 		targetWithMetadata,
 		opt.AllowPrivileged,
 		opt.ParallelConversion,
-		opt.Console,
+		opt.Log,
 		opt.GitLookup,
 	)
 

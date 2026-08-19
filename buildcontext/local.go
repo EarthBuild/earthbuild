@@ -10,19 +10,28 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 type localResolver struct {
-	gitMetaCache      *synccache.SyncCache // local path -> *gitutil.GitMetadata
+	gitMetaCache      *synccache.Cache[string, *gitutil.GitMetadata] // local path -> *gitutil.GitMetadata
+	buildFileCache    *synccache.Cache[string, *buildFile]           // canonical ref -> *buildFile
+	log               *conslogging.ConsoleLogger
 	gitBranchOverride string
-	buildFileCache    *synccache.SyncCache
-	console           conslogging.ConsoleLogger
+}
+
+func newLocalResolver(gitBranchOverride string, log *conslogging.ConsoleLogger) *localResolver {
+	return &localResolver{
+		buildFileCache:    synccache.NewCache[string, *buildFile](),
+		gitMetaCache:      synccache.NewCache[string, *gitutil.GitMetadata](),
+		gitBranchOverride: gitBranchOverride,
+		log:               log,
+	}
 }
 
 func (lr *localResolver) resolveLocal(
@@ -36,36 +45,34 @@ func (lr *localResolver) resolveLocal(
 		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
 	}
 
-	metadataValue, err := lr.gitMetaCache.Do(ctx, ref.GetLocalPath(), func(ctx context.Context, _ any) (any, error) {
-		metadata, err := gitutil.Metadata(ctx, ref.GetLocalPath(), lr.gitBranchOverride)
-		if err != nil {
-			if errors.Is(err, gitutil.ErrNoGitBinary) ||
-				errors.Is(err, gitutil.ErrNotAGitDir) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectRemote) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitHash) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitShortHash) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitBranch) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitTags) ||
-				errors.Is(err, gitutil.ErrCouldNotDetectGitRefs) {
-				// Keep going anyway. Either not a git dir, or git not installed, or
-				// remote not detected.
-				if errors.Is(err, gitutil.ErrNoGitBinary) {
-					lr.console.Warnf("Warning: %s\n", err.Error())
+	metadata, err := lr.gitMetaCache.Load(
+		ctx, ref.GetLocalPath(),
+		func(ctx context.Context) (*gitutil.GitMetadata, error) {
+			meta, err := gitutil.Metadata(ctx, ref.GetLocalPath(), lr.gitBranchOverride)
+			if err != nil {
+				if errors.Is(err, gitutil.ErrNoGitBinary) ||
+					errors.Is(err, gitutil.ErrNotAGitDir) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectRemote) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitHash) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitShortHash) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitBranch) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitTags) ||
+					errors.Is(err, gitutil.ErrCouldNotDetectGitRefs) {
+					// Keep going anyway. Either not a git dir, or git not installed, or
+					// remote not detected.
+					if errors.Is(err, gitutil.ErrNoGitBinary) {
+						lr.log.Warnf("Warning: %s\n", err.Error())
+					}
+				} else {
+					return nil, err
 				}
-			} else {
-				return nil, err
 			}
-		}
 
-		return metadata, nil
-	})
+			return meta, nil
+		},
+	)
 	if err != nil {
 		return nil, err
-	}
-
-	metadata, ok := metadataValue.(*gitutil.GitMetadata)
-	if !ok {
-		return nil, fmt.Errorf("want *gitutil.GitMetadata, got %T", metadataValue)
 	}
 
 	localPath := filepath.FromSlash(ref.GetLocalPath())
@@ -77,7 +84,7 @@ func (lr *localResolver) resolveLocal(
 		key = ref.String()
 	}
 
-	buildFileValue, err := lr.buildFileCache.Do(ctx, key, func(context.Context, any) (any, error) {
+	bf, err := lr.buildFileCache.Load(ctx, key, func(context.Context) (*buildFile, error) {
 		var buildFilePath string
 
 		buildFilePath, err = detectBuildFile(ref, localPath)
@@ -89,7 +96,7 @@ func (lr *localResolver) resolveLocal(
 		if isDockerfile {
 			ftrs = new(features.Features)
 		} else {
-			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.GetLocalPath(), lr.console)
+			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.GetLocalPath(), lr.log)
 			if err != nil {
 				return nil, err
 			}
@@ -102,11 +109,6 @@ func (lr *localResolver) resolveLocal(
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	bf, ok := buildFileValue.(*buildFile)
-	if !ok {
-		return nil, fmt.Errorf("want *buildFile, got %T", buildFileValue)
 	}
 
 	data := &Data{

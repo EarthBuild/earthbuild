@@ -13,8 +13,6 @@ Learning EarthBuild does not stop here. Discover more of what EarthBuild can do 
 - [Examples using EarthBuild](../examples/examples.md)
 - [Best practices](../guides/best-practices.md)
 
-- [Earthly Cloud](https://cloud.earthly.dev/)
-
 ##### More examples:
 
 - [Examples directory on GitHub](https://github.com/earthbuild/earthbuild/tree/main/examples)

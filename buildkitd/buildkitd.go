@@ -701,33 +701,42 @@ func Start(
 	return nil
 }
 
+// buildkitdOTELServiceName is the OTel service.name buildkitd reports under; the CLI
+// itself reports as "EarthBuild".
+const buildkitdOTELServiceName = "EarthBuild-buildkitd"
+
+// otelPassthroughEnvVars are the OTel env vars the CLI forwards to buildkitd
+// unchanged. Only the transport is inherited - the identity (service name, resource
+// attributes) is buildkitd's own and is set separately below.
+var otelPassthroughEnvVars = []string{
+	"OTEL_EXPORTER_OTLP_ENDPOINT",
+	"OTEL_EXPORTER_OTLP_HEADERS",
+	"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+	"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
+	"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+	"OTEL_EXPORTER_OTLP_PROTOCOL",
+	"OTEL_METRICS_EXPORTER",
+}
+
 func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installationName string, withDocker bool) {
-	for _, key := range []string{
-		"OTEL_EXPORTER_OTLP_ENDPOINT",
-		"OTEL_EXPORTER_OTLP_HEADERS",
-		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-		"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
-		"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
-		"OTEL_EXPORTER_OTLP_PROTOCOL",
-		"OTEL_METRICS_EXPORTER",
-	} {
+	for _, key := range otelPassthroughEnvVars {
 		if value := os.Getenv(key); value != "" {
 			envOpts[key] = value
 		}
 	}
 
-	_, ok := envOpts["OTEL_METRICS_EXPORTER"]
-	if !ok {
-		if envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] != "" || envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] != "" {
-			envOpts["OTEL_METRICS_EXPORTER"] = "otlp"
-		}
-	}
-
-	if envOpts["OTEL_METRICS_EXPORTER"] == "" {
+	// buildkitd runs the same telemetry setup as the CLI, which opts in on the mere
+	// presence of any of these and lets autoexport pick the exporter - otlp by default.
+	// So this is only a gate: setting OTEL_METRICS_EXPORTER=otlp ourselves would pin a
+	// default that is already the default, and would override the user's exporter choice
+	// on any future path that reaches here without it.
+	if envOpts["OTEL_METRICS_EXPORTER"] == "" &&
+		envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] == "" &&
+		envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] == "" {
 		return
 	}
 
-	envOpts["OTEL_SERVICE_NAME"] = "EarthBuild-buildkitd"
+	envOpts["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName
 
 	// buildkitd is a separate process, so it takes its attributes as env rather than
 	// as attribute.KeyValue - hence the string forms of the shared semconv keys.

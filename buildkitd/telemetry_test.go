@@ -1,6 +1,7 @@
 package buildkitd
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -17,12 +18,15 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 	env := map[string]string{}
 	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", true)
 
-	if got := env["OTEL_SERVICE_NAME"]; got != "EarthBuild-buildkitd" {
-		t.Fatalf("OTEL_SERVICE_NAME = %q, want EarthBuild-buildkitd", got)
+	if got := env["OTEL_SERVICE_NAME"]; got != buildkitdOTELServiceName {
+		t.Fatalf("OTEL_SERVICE_NAME = %q, want %q", got, buildkitdOTELServiceName)
 	}
 
-	if got := env["OTEL_METRICS_EXPORTER"]; got != "otlp" {
-		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want otlp", got)
+	// otlp is autoexport's default, and buildkitd's telemetry setup opts in on the
+	// presence of the endpoint alone - so fabricating OTEL_METRICS_EXPORTER=otlp here
+	// would only pin a default that is already the default.
+	if got, ok := env["OTEL_METRICS_EXPORTER"]; ok {
+		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want unset", got)
 	}
 
 	if got := env["OTEL_EXPORTER_OTLP_ENDPOINT"]; got != "https://otel.example.test" {
@@ -91,14 +95,45 @@ func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.
 	}
 }
 
+// An explicit exporter choice is the user's, not ours: it must reach buildkitd
+// verbatim, and is enough to enable telemetry on its own - prometheus, console and
+// none all need no endpoint.
+func TestAddBuildkitTelemetryEnvPropagatesExplicitMetricsExporter(t *testing.T) {
+	clearOTELEnv(t)
+	t.Setenv("OTEL_METRICS_EXPORTER", "prometheus")
+
+	env := map[string]string{}
+	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", false)
+
+	if got := env["OTEL_METRICS_EXPORTER"]; got != "prometheus" {
+		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want prometheus", got)
+	}
+
+	if got := env["OTEL_SERVICE_NAME"]; got != buildkitdOTELServiceName {
+		t.Fatalf("OTEL_SERVICE_NAME = %q, want %q", got, buildkitdOTELServiceName)
+	}
+}
+
+//nolint:paralleltest // clearOTELEnv calls t.Setenv, which forbids t.Parallel.
 func TestAddBuildkitTelemetryEnvDoesNothingWithoutMetricsExporter(t *testing.T) {
-	t.Parallel()
+	clearOTELEnv(t)
 
 	env := map[string]string{}
 	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", false)
 
 	if len(env) != 0 {
 		t.Fatalf("env = %#v, want empty", env)
+	}
+}
+
+// clearOTELEnv unsets every OTEL_* var addBuildkitTelemetryEnv reads. Without it a
+// test asserting the disabled path fails on any machine that exports an OTLP endpoint
+// - which is precisely the setup this feature asks users to adopt.
+func clearOTELEnv(t *testing.T) {
+	t.Helper()
+
+	for _, key := range slices.Concat(otelPassthroughEnvVars, []string{"OTEL_RESOURCE_ATTRIBUTES"}) {
+		t.Setenv(key, "")
 	}
 }
 

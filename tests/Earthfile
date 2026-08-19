@@ -1061,7 +1061,7 @@ for x in \$(seq 1 $numruns); do
   earthly --config \$earthly_config --artifact '+build/*' test/\$x/
 done
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
-    ENV EARTHLY_EXEC_CMD="/tmp/test-earthly-script"
+    ENV EARTH_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
     --entrypoint \
     --mount=type=tmpfs,target=/tmp/earthbuild \
@@ -1419,7 +1419,7 @@ ssh-add /root/rsa-key
 earthly --config \$earthly_config +test
 earthly --config \$earthly_config -P +test-with-docker --FRONTEND=$FRONTEND
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
-    ENV EARTHLY_EXEC_CMD="/tmp/test-earthly-script"
+    ENV EARTH_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
     --entrypoint \
     --mount=type=tmpfs,target=/tmp/earthbuild \
@@ -1710,7 +1710,7 @@ RUN_EARTH:
         set -ex
         export EARTHLY_VERBOSE=$verbose
         if $use_tmpfs; then
-            export EARTHLY_TMP_DIR=/tmp/earthbuild-tmpfs
+            export EARTH_TMP_DIR=/tmp/earthbuild-tmpfs
         fi
         if [ -n \"$pre_command\" ]; then
             eval \"$pre_command\"
@@ -1724,8 +1724,8 @@ RUN_EARTH:
                 echo \"target cannot be used with exec_cmd\"
                 exit 1
             fi
-            export EARTHLY_EXEC_CMD=\"$exec_cmd\"
-            echo running earthly with EARTHLY_EXEC_CMD=\$EARTHLY_EXEC_CMD
+            export EARTH_EXEC_CMD=\"$exec_cmd\"
+            echo running earthly with EARTH_EXEC_CMD=\$EARTH_EXEC_CMD
             set +e
             (/bin/sh /usr/bin/earthly-entrypoint.sh; echo exit_code=\$?) 2>&1 | tee earthly.output
             set -e

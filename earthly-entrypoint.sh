@@ -1,10 +1,14 @@
 #!/bin/sh
 set -e
 
-EARTHLY_DEBUG=${EARTHLY_DEBUG:-false}
-if [ "$EARTHLY_DEBUG" = "true" ]; then
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=earth-env.sh
+. /usr/bin/earth-env.sh
+
+EARTH_DEBUG="$(earth_env DEBUG false)"
+if [ "$EARTH_DEBUG" = "true" ]; then
     set -x
-    export EARTHLY_DEBUG
+    export EARTH_DEBUG
 fi
 
 earthly_config="/etc/.earthly/config.yml"
@@ -67,12 +71,12 @@ if [ -z "$NO_BUILDKIT" ]; then
         tail -f /var/log/buildkitd.log &
     fi
 
-    EARTHLY_BUILDKIT_HOST="tcp://$(hostname):8372" # hostname is not recognized as local for this reason
-    export EARTHLY_BUILDKIT_HOST
+    EARTH_BUILDKIT_HOST="tcp://$(hostname):8372" # hostname is not recognized as local for this reason
+    export EARTH_BUILDKIT_HOST
   else
-    export EARTHLY_BUILDKIT_HOST="$BUILDKIT_HOST"
+    export EARTH_BUILDKIT_HOST="$BUILDKIT_HOST"
   fi
-  ! "$EARTHLY_DEBUG" || echo 1>&2 "Using $EARTHLY_BUILDKIT_HOST as buildkit daemon"
+  ! "$EARTH_DEBUG" || echo 1>&2 "Using $EARTH_BUILDKIT_HOST as buildkit daemon"
 fi
 
 if [ -n "$SRC_DIR" ]; then
@@ -81,9 +85,10 @@ if [ -n "$SRC_DIR" ]; then
   cd "$SRC_DIR"
 fi
 
-if [ -n "$EARTHLY_EXEC_CMD" ]; then
+EARTH_EXEC_CMD="$(earth_env EXEC_CMD)"
+if [ -n "$EARTH_EXEC_CMD" ]; then
     export earthly_config
-    exec "$EARTHLY_EXEC_CMD"
+    exec "$EARTH_EXEC_CMD"
     exit 1 # this should never be reached
 fi
 

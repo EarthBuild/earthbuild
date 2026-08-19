@@ -46,7 +46,7 @@ touch /var/lib/shared/vfs-layers/layers.lock
 # The single-quoted sed replacement is an intentional literal env-var token,
 # not a value to expand at this point.
 # shellcheck disable=SC2016
-sed -i 's/\/var\/lib\/containers\/storage/$EARTHLY_DOCKERD_DATA_ROOT/g' /etc/containers/storage.conf
+sed -i 's/\/var\/lib\/containers\/storage/$EARTH_DOCKERD_DATA_ROOT/g' /etc/containers/storage.conf
 
 if [ -n "$DOCKERHUB_MIRROR" ]; then
     INSECURE=$(if [ "$DOCKERHUB_MIRROR_HTTP" = "true" ] || [ "$DOCKERHUB_MIRROR_INSECURE" = "true" ]; then echo 'true'; else echo 'false'; fi)

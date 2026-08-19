@@ -132,43 +132,6 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 	}, nil
 }
 
-// InspectContainer returns information for the given container names or IDs.
-func (e *dockerEngine) InspectContainer(
-	ctx context.Context, namesOrIDs ...string,
-) (map[string]Container, error) {
-	results, err := e.shellEngine.InspectContainer(ctx, namesOrIDs...)
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range results {
-		// Docker prepends a `/`. This is as intended, according to docker; but unexpected in our
-		// case. So remove it. If the status is missing, it was passed through so do not remove.
-		if v.Status != StatusMissing {
-			if name, ok := strings.CutPrefix(v.Name, "/"); ok {
-				v.Name = name
-				results[k] = v
-			}
-		}
-	}
-
-	return results, nil
-}
-
-// PullImage downloads the specified container images.
-func (e *dockerEngine) PullImage(ctx context.Context, refs ...string) error {
-	var err error
-
-	for _, ref := range refs {
-		_, cmdErr := e.CommandOutput(ctx, "pull", ref)
-		if cmdErr != nil {
-			err = errors.Join(err, cmdErr)
-		}
-	}
-
-	return err
-}
-
 // ImageLoadCommand returns the shell command to load an image from a file.
 func (e *dockerEngine) ImageLoadCommand(filename string) string {
 	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(e.CommandArgs("load"), " "))
@@ -192,12 +155,8 @@ func (e *dockerEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 	return err
 }
 
-// InspectVolume returns details for the specified volume names.
-func (e *dockerEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
-	if len(volumeNames) == 0 {
-		return map[string]Volume{}, nil
-	}
-
+// InspectVolumes returns details for the specified volume names.
+func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
 	// Ignore the error. This is because one or more of the provided names could be missing.
 	// This allows for Info to report that the volume itself is missing.
 	output, _ := e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
@@ -216,26 +175,20 @@ func (e *dockerEngine) InspectVolume(ctx context.Context, volumeNames ...string)
 		return nil, fmt.Errorf("failed to decode docker volume info for %v: %w", volumeNames, err)
 	}
 
-	results := make(map[string]Volume, len(volumeNames))
-
-	for _, name := range volumeNames {
-		for _, volumeInfo := range volumeInfos.Volumes {
-			if name == volumeInfo.Name {
-				bytes, parseErr := humanize.ParseBytes(volumeInfo.Size)
-				if parseErr != nil {
-					err = errors.Join(err, parseErr)
-				} else {
-					results[name] = Volume{
-						Name:       volumeInfo.Name,
-						SizeBytes:  bytes,
-						Mountpoint: volumeInfo.Mountpoint,
-					}
-				}
-
-				break
-			}
+	volumes := make([]Volume, 0, len(volumeInfos.Volumes))
+	for _, volumeInfo := range volumeInfos.Volumes {
+		bytes, parseErr := humanize.ParseBytes(volumeInfo.Size)
+		if parseErr != nil {
+			err = errors.Join(err, parseErr)
+			continue
 		}
+
+		volumes = append(volumes, Volume{
+			Name:       volumeInfo.Name,
+			SizeBytes:  bytes,
+			Mountpoint: volumeInfo.Mountpoint,
+		})
 	}
 
-	return results, err
+	return volumes, err
 }

@@ -156,7 +156,7 @@ func waitForImage(ctx context.Context, eng *engine.Client, fullName string) erro
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			m, err := eng.InspectImage(ctx, fullName)
+			info, err := eng.InspectImage(ctx, fullName)
 			if err != nil {
 				select {
 				case <-ctx.Done():
@@ -166,7 +166,7 @@ func waitForImage(ctx context.Context, eng *engine.Client, fullName string) erro
 				}
 			}
 
-			if info, ok := m[fullName]; ok && info.ID != "" {
+			if info.ID != "" {
 				return nil
 			}
 		}

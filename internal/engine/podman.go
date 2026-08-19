@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -221,8 +222,8 @@ func (e *podmanEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 	return err
 }
 
-// InspectVolume returns details for the specified volume names.
-func (e *podmanEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
+// InspectVolumes returns details for the specified volume names.
+func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
 	// Older podman versions do no support --format. This means we are stuck parsing the verbose tabular output for compat.
 	output, err := e.CommandOutput(ctx, "system", "df", "-v")
 	if err != nil {
@@ -232,43 +233,38 @@ func (e *podmanEngine) InspectVolume(ctx context.Context, volumeNames ...string)
 	idx := strings.Index(output.String(), "Local Volumes space usage:")
 	val := output.String()[idx:] //nolint:gocritic
 	lines := strings.Split(val, "\n")[3:]
-	results := make(map[string]Volume, len(volumeNames))
+	volumes := make([]Volume, 0, len(volumeNames))
 
 	for _, line := range lines {
 		lineParts := strings.Fields(line)
-		for _, volumeName := range volumeNames {
-			// There are three columns. By index:
-			// 0 -> name, 1 -> links, 2 -> size
-			// There may be straggler lines after due to parsing, ignore them. They will not have enough length.
-			// The volume lines are last so we are safe.
-			if len(lineParts) == 3 && volumeName == lineParts[0] {
-				// Get size
-				var bytes uint64
+		// There are three columns. By index:
+		// 0 -> name, 1 -> links, 2 -> size
+		// There may be straggler lines after due to parsing, ignore them. They will not have enough length.
+		// The volume lines are last so we are safe.
+		if len(lineParts) == 3 && slices.Contains(volumeNames, lineParts[0]) {
+			volumeName := lineParts[0]
 
-				bytes, parseErr := humanize.ParseBytes(lineParts[2])
-				if parseErr != nil {
-					err = errors.Join(err, parseErr)
-					break
-				}
-
-				// The mountpoint is not included in the df output. Get that from inspect.
-				mountpoint, mountpointErr := e.
-					CommandOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
-				if mountpointErr != nil {
-					err = errors.Join(err, mountpointErr)
-					break
-				}
-
-				results[volumeName] = Volume{
-					Name:       volumeName,
-					SizeBytes:  bytes,
-					Mountpoint: mountpoint.String(),
-				}
-
-				break
+			bytes, parseErr := humanize.ParseBytes(lineParts[2])
+			if parseErr != nil {
+				err = errors.Join(err, parseErr)
+				continue
 			}
+
+			// The mountpoint is not included in the df output. Get that from inspect.
+			mountpoint, mountpointErr := e.
+				CommandOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
+			if mountpointErr != nil {
+				err = errors.Join(err, mountpointErr)
+				continue
+			}
+
+			volumes = append(volumes, Volume{
+				Name:       volumeName,
+				SizeBytes:  bytes,
+				Mountpoint: mountpoint.String(),
+			})
 		}
 	}
 
-	return results, err
+	return volumes, err
 }

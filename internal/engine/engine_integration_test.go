@@ -161,20 +161,20 @@ func TestEngineContainerInfo(t *testing.T) {
 			NoError(t, err)
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
-			info, err := eng.InspectContainer(ctx, getInfos...)
+			info, err := eng.InspectContainers(ctx, getInfos...)
 			NoError(t, err)
 			NotNil(t, info)
 
 			Len(t, info, 3)
 
-			Equal(t, getInfos[0], info[getInfos[0]].Name)
-			Equal(t, "docker.io/library/nginx:1.21", info[getInfos[0]].Image)
+			Equal(t, getInfos[0], info[0].Name)
+			Equal(t, "docker.io/library/nginx:1.21", info[0].Image)
 
-			Equal(t, getInfos[1], info[getInfos[1]].Name)
-			Equal(t, "docker.io/library/nginx:1.21", info[getInfos[1]].Image)
+			Equal(t, getInfos[1], info[1].Name)
+			Equal(t, "docker.io/library/nginx:1.21", info[1].Image)
 
-			Equal(t, getInfos[2], info[getInfos[2]].Name)
-			Equal(t, engine.StatusMissing, info[getInfos[2]].Status)
+			Equal(t, getInfos[2], info[2].Name)
+			Equal(t, engine.StatusMissing, info[2].Status)
 		})
 	}
 }
@@ -204,17 +204,17 @@ func TestEngineContainerRemove(t *testing.T) {
 			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.InspectContainer(ctx, testContainers...)
+			info, err := eng.InspectContainers(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 
 			err = eng.RemoveContainer(ctx, true, testContainers...)
 			NoError(t, err)
 
-			info, err = eng.InspectContainer(ctx, testContainers...)
+			info, err = eng.InspectContainers(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, engine.StatusMissing, info[testContainers[0]].Status)
-			Equal(t, engine.StatusMissing, info[testContainers[1]].Status)
+			Equal(t, engine.StatusMissing, info[0].Status)
+			Equal(t, engine.StatusMissing, info[1].Status)
 		})
 	}
 }
@@ -244,14 +244,14 @@ func TestEngineContainerStop(t *testing.T) {
 			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.InspectContainer(ctx, testContainers...)
+			info, err := eng.InspectContainers(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 
 			err = eng.StopContainer(ctx, 0, testContainers...)
 			NoError(t, err)
 
-			_, err = eng.InspectContainer(ctx, testContainers...)
+			_, err = eng.InspectContainers(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, info, 2)
 		})
@@ -283,15 +283,15 @@ func TestEngineLogs(t *testing.T) {
 			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			logs, err := eng.Logs(ctx, testContainers...)
+			logs, err := eng.ContainersLogs(ctx, testContainers...)
 			NoError(t, err)
 			Len(t, logs, 2)
 
-			Equal(t, "output stream\n", logs[testContainers[0]].Stdout)
-			Equal(t, "error stream\n", logs[testContainers[0]].Stderr)
+			Equal(t, "output stream\n", logs[0].Stdout)
+			Equal(t, "error stream\n", logs[0].Stderr)
 
-			Equal(t, "output stream\n", logs[testContainers[1]].Stdout)
-			Equal(t, "error stream\n", logs[testContainers[1]].Stderr)
+			Equal(t, "output stream\n", logs[1].Stdout)
+			Equal(t, "error stream\n", logs[1].Stderr)
 		})
 	}
 }
@@ -359,18 +359,18 @@ func TestEngineContainerRun(t *testing.T) {
 				}
 			}()
 
-			info, err := eng.InspectContainer(ctx, testContainers...)
+			info, err := eng.InspectContainers(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, engine.StatusMissing, info[testContainers[0]].Status)
-			Equal(t, engine.StatusMissing, info[testContainers[1]].Status)
+			Equal(t, engine.StatusMissing, info[0].Status)
+			Equal(t, engine.StatusMissing, info[1].Status)
 
 			err = eng.RunContainer(ctx, specs...)
 			NoError(t, err)
 
-			info, err = eng.InspectContainer(ctx, testContainers...)
+			info, err = eng.InspectContainers(ctx, testContainers...)
 			NoError(t, err)
-			Equal(t, engine.StatusRunning, info[testContainers[0]].Status)
-			Equal(t, engine.StatusRunning, info[testContainers[1]].Status)
+			Equal(t, engine.StatusRunning, info[0].Status)
+			Equal(t, engine.StatusRunning, info[1].Status)
 		})
 	}
 }
@@ -439,13 +439,13 @@ func TestEngineImageInfo(t *testing.T) {
 			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.InspectImage(ctx, tC.refList...)
+			info, err := eng.InspectImages(ctx, tC.refList...)
 			NoError(t, err)
 
 			Len(t, info, 2)
 
-			Contains(t, info[tC.refList[0]].Tags, tC.refList[0])
-			Contains(t, info[tC.refList[1]].Tags, tC.refList[1])
+			Contains(t, info[0].Tags, tC.refList[0])
+			Contains(t, info[1].Tags, tC.refList[1])
 		})
 	}
 }
@@ -475,14 +475,14 @@ func TestEngineImageRemove(t *testing.T) {
 			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.InspectImage(ctx, refList...)
+			info, err := eng.InspectImages(ctx, refList...)
 			NoError(t, err)
 			Len(t, info, 2)
 
 			err = eng.RemoveImage(ctx, true, refList...)
 			NoError(t, err)
 
-			info, err = eng.InspectImage(ctx, refList...)
+			info, err = eng.InspectImages(ctx, refList...)
 			NoError(t, err)
 			Empty(t, info)
 		})
@@ -518,7 +518,7 @@ func TestEngineImageTag(t *testing.T) {
 			info, err := eng.InspectImage(ctx, ref)
 			NoError(t, err)
 
-			imageID := info[ref].ID
+			imageID := info.ID
 
 			tags := make([]engine.Tag, 0, len(tC.tagList))
 			for _, tagName := range tC.tagList {
@@ -531,11 +531,11 @@ func TestEngineImageTag(t *testing.T) {
 			err = eng.TagImage(ctx, tags...)
 			NoError(t, err)
 
-			info, err = eng.InspectImage(ctx, tC.tagList...)
+			infos, err := eng.InspectImages(ctx, tC.tagList...)
 			NoError(t, err)
 
-			Contains(t, info[tC.tagList[0]].Tags, tC.tagList[0])
-			Contains(t, info[tC.tagList[1]].Tags, tC.tagList[1])
+			Contains(t, infos[0].Tags, tC.tagList[0])
+			Contains(t, infos[1].Tags, tC.tagList[1])
 		})
 	}
 }
@@ -582,7 +582,7 @@ func TestEngineImageLoad(t *testing.T) {
 
 			info, err := eng.InspectImage(ctx, tC.ref)
 			NoError(t, err)
-			Contains(t, info[tC.ref].Tags, tC.ref)
+			Contains(t, info.Tags, tC.ref)
 		})
 	}
 }
@@ -623,7 +623,7 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 
 			info, err := eng.InspectImage(ctx, tC.ref)
 			NoError(t, err)
-			Contains(t, info[tC.ref].Tags, tC.ref)
+			Contains(t, info.Tags, tC.ref)
 		})
 	}
 }
@@ -635,8 +635,8 @@ func TestEngineVolumeInfo(t *testing.T) {
 		binary  string
 		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
 	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
+		{"docker", newDocker},
+		{"podman", newPodman},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.binary, func(t *testing.T) {
@@ -653,7 +653,7 @@ func TestEngineVolumeInfo(t *testing.T) {
 			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
 			NoError(t, err)
 
-			info, err := eng.InspectVolume(ctx, volList...)
+			info, err := eng.InspectVolumes(ctx, volList...)
 			NoError(t, err)
 			Len(t, info, 2)
 		})

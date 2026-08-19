@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -185,34 +184,28 @@ func (e *appleEngine) ListContainers(ctx context.Context) ([]Container, error) {
 	return ret, nil
 }
 
-// InspectContainer returns information for the given container names or IDs.
-func (e *appleEngine) InspectContainer(
+// InspectContainers returns information for the given container names or IDs.
+func (e *appleEngine) InspectContainers(
 	ctx context.Context, namesOrIDs ...string,
-) (map[string]Container, error) {
-	infos := make(map[string]Container, len(namesOrIDs))
-	for _, nameOrID := range namesOrIDs {
-		infos[nameOrID] = Container{
-			Name:   nameOrID,
-			Status: StatusMissing,
-		}
-	}
-
-	if len(namesOrIDs) == 0 {
-		return infos, nil
-	}
-
+) ([]Container, error) {
 	args := append([]string{"inspect"}, namesOrIDs...) //nolint:goconst
 
 	// Ignore the error because non-existent containers cause the command to exit with an error.
 	// Empty stdout will result in unmarshalSingleOrSlice returning nil, preserving StatusMissing.
 	output, _ := e.CommandOutput(ctx, args...)
 
-	inspects, err := unmarshalSingleOrSlice[appleContainerInspect](output.Stdout.String())
-	if err != nil {
-		return nil, fmt.Errorf("decode apple container inspect output (%s): %w", output.Stdout.String(), err)
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
 	}
 
-	for i, v := range inspects {
+	inspects, err := unmarshalSingleOrSlice[appleContainerInspect](stdout)
+	if err != nil {
+		return nil, fmt.Errorf("decode apple container inspect output (%s): %w", stdout, err)
+	}
+
+	containers := make([]Container, 0, len(inspects))
+	for _, v := range inspects {
 		ipAddresses := map[string]string{}
 
 		if len(v.Status.Networks) > 0 {
@@ -220,17 +213,17 @@ func (e *appleEngine) InspectContainer(
 			ipAddresses["bridge"] = ip
 		}
 
-		infos[namesOrIDs[i]] = Container{
+		containers = append(containers, Container{
 			ID:     v.Configuration.ID,
 			Name:   v.Configuration.ID,
 			Status: v.Status.State,
 			Image:  v.Configuration.Image.Reference,
 			IPs:    ipAddresses,
 			Labels: v.Configuration.Labels,
-		}
+		})
 	}
 
-	return infos, nil
+	return containers, nil
 }
 
 // RemoveContainer deletes the specified containers.
@@ -323,26 +316,26 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 	return err
 }
 
-// InspectImage returns metadata for the given image references.
-func (e *appleEngine) InspectImage(ctx context.Context, refs ...string) (map[string]Image, error) {
-	infos := make(map[string]Image, len(refs))
-
-	if len(refs) == 0 {
-		return infos, nil
-	}
-
+// InspectImages returns metadata for the given image references.
+func (e *appleEngine) InspectImages(ctx context.Context, refs ...string) ([]Image, error) {
 	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
 
 	// Ignore the error because non-existent images cause the command to exit with an error.
 	// Empty stdout will result in unmarshalSingleOrSlice returning nil.
 	output, _ := e.CommandOutput(ctx, args...)
 
-	inspects, err := unmarshalSingleOrSlice[appleImageInspect](output.Stdout.String())
-	if err != nil {
-		return nil, fmt.Errorf("decode apple image inspect output (%s): %w", output.Stdout.String(), err)
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
 	}
 
-	for idx, v := range inspects {
+	inspects, err := unmarshalSingleOrSlice[appleImageInspect](stdout)
+	if err != nil {
+		return nil, fmt.Errorf("decode apple image inspect output (%s): %w", stdout, err)
+	}
+
+	images := make([]Image, 0, len(inspects))
+	for _, v := range inspects {
 		info := Image{
 			ID:   v.ID,
 			Tags: []string{v.Configuration.Name},
@@ -353,10 +346,10 @@ func (e *appleEngine) InspectImage(ctx context.Context, refs ...string) (map[str
 			info.Architecture = v.Variants[0].Platform.Architecture
 		}
 
-		infos[refs[idx]] = info
+		images = append(images, info)
 	}
 
-	return infos, nil
+	return images, nil
 }
 
 // PullImage downloads the specified container images.
@@ -437,46 +430,39 @@ func (e *appleEngine) LoadImage(ctx context.Context, images ...io.Reader) error 
 	return err
 }
 
-// InspectVolume returns details for the specified volume names.
-func (e *appleEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
-	if len(volumeNames) == 0 {
-		return map[string]Volume{}, nil
-	}
-
+// InspectVolumes returns details for the specified volume names.
+func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
 	args := append([]string{"volume", "inspect"}, volumeNames...)
 
 	// Ignore the error because non-existent volumes cause the command to exit with an error.
 	// Empty stdout will result in unmarshalSingleOrSlice returning nil.
 	output, _ := e.CommandOutput(ctx, args...)
 
-	inspects, err := unmarshalSingleOrSlice[appleVolumeInspect](output.Stdout.String())
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
+	}
+
+	inspects, err := unmarshalSingleOrSlice[appleVolumeInspect](stdout)
 	if err != nil {
 		return nil, fmt.Errorf("decode apple volume inspect output for %v: %w", volumeNames, err)
 	}
 
-	results := make(map[string]Volume, len(inspects))
-
+	volumes := make([]Volume, 0, len(inspects))
 	for _, vol := range inspects {
 		name := vol.Configuration.Name
 		if name == "" {
 			name = vol.ID
 		}
 
-		vi := Volume{
+		volumes = append(volumes, Volume{
 			Name:       name,
 			SizeBytes:  vol.Configuration.SizeInBytes,
 			Mountpoint: vol.Configuration.Source,
-		}
-		if slices.Contains(volumeNames, name) {
-			results[name] = vi
-		}
-
-		if vol.ID != "" && slices.Contains(volumeNames, vol.ID) {
-			results[vol.ID] = vi
-		}
+		})
 	}
 
-	return results, nil
+	return volumes, nil
 }
 
 // appleBindFileDir converts a single-file bind mount into a directory mount,

@@ -463,13 +463,12 @@ func maybeRestart(
 
 // RemoveExited removes any stopped or exited buildkitd containers.
 func RemoveExited(ctx context.Context, eng *engine.Client, containerName string) error {
-	infos, err := eng.InspectContainer(ctx, containerName)
+	info, err := eng.InspectContainer(ctx, containerName)
 	if err != nil {
 		return fmt.Errorf("get info to remove exited %s: %w", containerName, err)
 	}
 
-	containerInfo, ok := infos[containerName]
-	if !ok || containerInfo.Status == engine.StatusMissing {
+	if info.Status == engine.StatusMissing {
 		return nil
 	}
 
@@ -702,17 +701,12 @@ func Stop(ctx context.Context, containerName string, eng *engine.Client) error {
 
 // IsStarted checks if the buildkitd container has been started.
 func IsStarted(ctx context.Context, containerName string, eng *engine.Client) (bool, error) {
-	infos, err := eng.InspectContainer(ctx, containerName)
+	info, err := eng.InspectContainer(ctx, containerName)
 	if err != nil {
 		return false, err
 	}
 
-	containerInfo, ok := infos[containerName]
-	if !ok {
-		return false, err
-	}
-
-	return containerInfo.Status == engine.StatusRunning, nil
+	return info.Status == engine.StatusRunning, nil
 }
 
 // WaitUntilStarted waits until the buildkitd daemon has started and is healthy.
@@ -966,12 +960,12 @@ func checkConnection(
 func MaybePull(
 	ctx context.Context, console conslogging.ConsoleLogger, image string, eng *engine.Client,
 ) error {
-	infos, err := eng.InspectImage(ctx, image)
+	info, err := eng.InspectImage(ctx, image)
 	if err != nil {
 		return fmt.Errorf("could not get container info: %w", err)
 	}
 
-	if len(infos) > 0 { // the presence of an item implies its local
+	if info.ID != "" { // the presence of an item implies its local
 		return nil
 	}
 
@@ -1009,16 +1003,12 @@ func GetLogs(
 		return "", nil
 	}
 
-	logs, err := eng.Logs(ctx, containerName)
+	logs, err := eng.ContainerLogs(ctx, containerName)
 	if err != nil {
 		return "", fmt.Errorf(": %w", err)
 	}
 
-	if containerLogs, ok := logs[containerName]; ok {
-		return containerLogs.Stdout, nil
-	}
-
-	return "", fmt.Errorf("logs for container %s were not found", containerName)
+	return logs.Stdout, nil
 }
 
 // WaitUntilStopped waits until the buildkitd daemon has stopped.
@@ -1048,71 +1038,75 @@ func WaitUntilStopped(
 
 // GetSettingsHash fetches the hash of the currently running buildkitd container.
 func GetSettingsHash(ctx context.Context, containerName string, eng *engine.Client) (string, error) {
-	infos, err := eng.InspectContainer(ctx, containerName)
+	info, err := eng.InspectContainer(ctx, containerName)
 	if err != nil {
 		return "", fmt.Errorf("get container info for settings: %w", err)
 	}
 
-	if containerInfo, ok := infos[containerName]; ok {
-		return strings.TrimSpace(containerInfo.Labels["dev.earthly.settingshash"]), nil
+	if info.Status == engine.StatusMissing {
+		return "", fmt.Errorf("settings hash for container %s was not found", containerName)
 	}
 
-	return "", fmt.Errorf("settings hash for container %s was not found", containerName)
+	return strings.TrimSpace(info.Labels["dev.earthly.settingshash"]), nil
 }
 
 // GetContainerInfo inspects the running container (running under containerName).
 func GetContainerInfo(
 	ctx context.Context, containerName string, eng *engine.Client,
 ) (engine.Container, error) {
-	infos, err := eng.InspectContainer(ctx, containerName)
+	info, err := eng.InspectContainer(ctx, containerName)
 	if err != nil {
 		return engine.Container{}, fmt.Errorf("get container info for current container image ID: %w", err)
 	}
 
-	if containerInfo, ok := infos[containerName]; ok {
-		return containerInfo, nil
+	if info.Status == engine.StatusMissing {
+		return engine.Container{}, fmt.Errorf("info for container %s was not found", containerName)
 	}
 
-	return engine.Container{}, fmt.Errorf("info for container %s was not found", containerName)
+	return info, nil
 }
 
 // GetImageInfo inspects an image.
 func GetImageInfo(
 	ctx context.Context, image string, eng *engine.Client,
 ) (engine.Image, error) {
-	infos, err := eng.InspectImage(ctx, image)
+	info, err := eng.InspectImage(ctx, image)
 	if err != nil {
 		return engine.Image{}, fmt.Errorf("get image info %s: %w", image, err)
 	}
 
-	if info, ok := infos[image]; ok {
-		return info, nil
+	if info.ID == "" {
+		return engine.Image{}, fmt.Errorf("info for image %s was not found", image)
 	}
 
-	return engine.Image{}, fmt.Errorf("info for image %s was not found", image)
+	return info, nil
 }
 
 // GetAvailableImageID fetches the ID of the image buildkitd image available.
 func GetAvailableImageID(ctx context.Context, image string, eng *engine.Client) (string, error) {
-	infos, err := eng.InspectImage(ctx, image)
+	info, err := eng.InspectImage(ctx, image)
 	if err != nil {
 		return "", fmt.Errorf("get output for available image ID: %w", err)
 	}
 
-	return infos[image].ID, nil
+	if info.ID == "" {
+		return "", fmt.Errorf("image ID for %s was not found", image)
+	}
+
+	return info.ID, nil
 }
 
 func isContainerRunning(ctx context.Context, containerName string, eng *engine.Client) (bool, error) {
-	infos, err := eng.InspectContainer(ctx, containerName)
+	info, err := eng.InspectContainer(ctx, containerName)
 	if err != nil {
 		return false, fmt.Errorf("failed to get container info while checking if running: %w", err)
 	}
 
-	if containerInfo, ok := infos[containerName]; ok {
-		return containerInfo.Status == engine.StatusRunning, nil
+	if info.Status == engine.StatusMissing {
+		return false, fmt.Errorf("status for container %s was not found", containerName)
 	}
 
-	return false, fmt.Errorf("status for container %s was not found", containerName)
+	return info.Status == engine.StatusRunning, nil
 }
 
 func printBuildkitInfo(
@@ -1247,12 +1241,12 @@ func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 
 // getCacheSize returns the size of the earthbuild cache in bytes.
 func getCacheSize(ctx context.Context, volumeName string, eng *engine.Client) (int, error) {
-	infos, err := eng.InspectVolume(ctx, volumeName)
+	info, err := eng.InspectVolume(ctx, volumeName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get volume info for cache size %s: %w", volumeName, err)
 	}
 
-	return int(infos[volumeName].SizeBytes), nil // #nosec G115
+	return int(info.SizeBytes), nil // #nosec G115
 }
 
 func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.ClientOpt, error) {

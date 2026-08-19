@@ -85,8 +85,8 @@ func (*stubEngine) ListContainers(context.Context) ([]Container, error) {
 	return nil, ErrNotInitialized
 }
 
-// InspectContainer returns ErrNotInitialized.
-func (*stubEngine) InspectContainer(context.Context, ...string) (map[string]Container, error) {
+// InspectContainers returns ErrNotInitialized.
+func (*stubEngine) InspectContainers(context.Context, ...string) ([]Container, error) {
 	return nil, ErrNotInitialized
 }
 
@@ -100,8 +100,8 @@ func (*stubEngine) StopContainer(context.Context, time.Duration, ...string) erro
 	return ErrNotInitialized
 }
 
-// Logs returns ErrNotInitialized.
-func (*stubEngine) Logs(context.Context, ...string) (map[string]Logs, error) {
+// ContainerLogs returns ErrNotInitialized.
+func (*stubEngine) ContainerLogs(context.Context, ...string) ([]Logs, error) {
 	return nil, ErrNotInitialized
 }
 
@@ -110,8 +110,8 @@ func (*stubEngine) RunContainer(context.Context, ...ContainerSpec) error {
 	return ErrNotInitialized
 }
 
-// InspectImage returns ErrNotInitialized.
-func (*stubEngine) InspectImage(context.Context, ...string) (map[string]Image, error) {
+// InspectImages returns ErrNotInitialized.
+func (*stubEngine) InspectImages(context.Context, ...string) ([]Image, error) {
 	return nil, ErrNotInitialized
 }
 
@@ -140,7 +140,7 @@ func (*stubEngine) LoadImage(context.Context, ...io.Reader) error {
 	return ErrNotInitialized
 }
 
-// InspectVolume returns ErrNotInitialized.
-func (*stubEngine) InspectVolume(context.Context, ...string) (map[string]Volume, error) {
+// InspectVolumes returns ErrNotInitialized.
+func (*stubEngine) InspectVolumes(context.Context, ...string) ([]Volume, error) {
 	return nil, ErrNotInitialized
 }

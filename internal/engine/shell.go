@@ -97,49 +97,46 @@ func parseContainerList(output string) ([]Container, error) {
 	return ret, nil
 }
 
-// InspectContainer returns information for the given container names or IDs.
-func (e *shellEngine) InspectContainer(ctx context.Context, namesOrIDs ...string) (map[string]Container, error) {
+// InspectContainers returns information for the given container names or IDs.
+func (e *shellEngine) InspectContainers(ctx context.Context, namesOrIDs ...string) ([]Container, error) {
 	args := append([]string{"container", "inspect"}, namesOrIDs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided names or IDs could be missing.
 	// This allows for Info to report that the container itself is missing.
 	output, _ := e.CommandOutput(ctx, args...)
 
-	infos := make(map[string]Container, len(namesOrIDs))
-	for _, nameOrID := range namesOrIDs {
-		// Preinitialize all as missing. It will get overwritten when we encounter a real one from the actual output.
-		infos[nameOrID] = Container{
-			Name:   nameOrID,
-			Status: StatusMissing,
-		}
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
 	}
 
-	containers := []containerInfoJSON{}
+	var in []containerInfoJSON
 
-	err := json.Unmarshal([]byte(output.Stdout.String()), &containers)
+	err := json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal container inspect output %s: %w", output.Stdout.String(), err)
+		return nil, fmt.Errorf("failed to unmarshal container inspect output %s: %w", stdout, err)
 	}
 
-	for i, container := range containers {
+	containers := make([]Container, 0, len(in))
+	for _, container := range in {
 		ipAddresses := map[string]string{}
 		for k, v := range container.NetworkSettings.Networks {
 			ipAddresses[k] = v.IPAddress
 		}
 
-		infos[namesOrIDs[i]] = Container{
+		containers = append(containers, Container{
 			ID:      container.ID,
-			Name:    container.Name,
+			Name:    strings.TrimPrefix(container.Name, "/"),
 			Created: container.Created,
 			Status:  container.State.Status,
 			IPs:     ipAddresses,
 			Labels:  container.Config.Labels,
 			Image:   container.Config.Image,
 			ImageID: container.Image,
-		}
+		})
 	}
 
-	return infos, nil
+	return containers, nil
 }
 
 // RemoveContainer removes the requested containers.
@@ -171,13 +168,13 @@ func (e *shellEngine) StopContainer(ctx context.Context, timeout time.Duration, 
 	return err
 }
 
-// Logs returns stdout and stderr logs for the requested containers.
-func (e *shellEngine) Logs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error) {
-	logs := make(map[string]Logs, len(namesOrIDs))
+// ContainerLogs returns stdout and stderr logs for the requested containers.
+func (e *shellEngine) ContainerLogs(ctx context.Context, namesOrIDs ...string) ([]Logs, error) {
+	logs := make([]Logs, len(namesOrIDs))
 
 	var err error
 
-	for _, nameOrID := range namesOrIDs {
+	for i, nameOrID := range namesOrIDs {
 		// Don't use the wrapper so we can capture stderr and stdout individually
 		cmd := e.Command(ctx, "logs", nameOrID)
 
@@ -192,7 +189,7 @@ func (e *shellEngine) Logs(ctx context.Context, namesOrIDs ...string) (map[strin
 			continue
 		}
 
-		logs[nameOrID] = Logs{
+		logs[i] = Logs{
 			Stdout: stdout.String(),
 			Stderr: stderr.String(),
 		}
@@ -207,23 +204,18 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 
 	for _, spec := range specs {
 		args := []string{"run"}
-
 		if spec.Privileged {
 			args = append(args, "--privileged")
 		}
 
 		for k, v := range spec.Envs {
 			env := fmt.Sprintf("%s=%s", k, v)
-			args = append(args, "--env", env)
+			args = append(args, "-e", env)
 		}
 
 		for k, v := range spec.Labels {
 			label := fmt.Sprintf("%s=%s", k, v)
 			args = append(args, "--label", label)
-		}
-
-		if spec.NameOrID != "" {
-			args = append(args, "--name", spec.NameOrID)
 		}
 
 		for _, m := range spec.Mounts {
@@ -235,14 +227,20 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 			args = append(args, "--mount", mount)
 		}
 
-		for _, p := range spec.Ports {
-			port := fmt.Sprintf("%s:%d:%d/%s", p.IP, p.HostPort, p.ContainerPort, p.Protocol)
-			args = append(args, "--publish", port)
+		for _, port := range spec.Ports {
+			hostPort := strconv.Itoa(port.HostPort)
+			if port.HostPort <= 0 {
+				hostPort = ""
+			}
+
+			// Format: -p IP:HostPort:ContainerPort/Protocol
+			args = append(args, "-p", fmt.Sprintf("%s:%s:%d/%s", port.IP, hostPort, port.ContainerPort, port.Protocol))
 		}
 
-		args = append(args, e.RunCompatibilityArgs...)
-		args = append(args, spec.AdditionalArgs...)
 		args = append(args, "-d")
+		args = append(args, "--name", spec.NameOrID)
+		args = append(args, spec.AdditionalArgs...)
+		args = append(args, e.RunCompatibilityArgs...)
 		args = append(args, spec.ImageRef)
 		args = append(args, spec.ContainerArgs...)
 
@@ -255,20 +253,17 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 	return err
 }
 
-// InspectImage returns metadata for the given image references using CLI image inspect.
-func (e *shellEngine) InspectImage(ctx context.Context, refs ...string) (map[string]Image, error) {
-	if len(refs) == 0 {
-		return map[string]Image{}, nil
-	}
-
+// InspectImages returns metadata for the given image references using CLI image inspect.
+func (e *shellEngine) InspectImages(ctx context.Context, refs ...string) ([]Image, error) {
 	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
 
 	// Ignore the error. This is because one or more of the provided refs could be missing.
 	// This allows for Info to report that the image itself is missing.
 	output, _ := e.CommandOutput(ctx, args...)
 
-	if strings.TrimSpace(output.Stdout.String()) == "" {
-		return map[string]Image{}, nil
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
 	}
 
 	type imageInfoJSON struct {
@@ -278,24 +273,24 @@ func (e *shellEngine) InspectImage(ctx context.Context, refs ...string) (map[str
 		RepoTags     []string `json:"RepoTags"`
 	}
 
-	var images []imageInfoJSON
+	var in []imageInfoJSON
 
-	err := json.Unmarshal([]byte(output.Stdout.String()), &images)
+	err := json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image info: %w", err)
 	}
 
-	infos := make(map[string]Image, len(images))
-	for idx, img := range images {
-		infos[refs[idx]] = Image{
+	images := make([]Image, 0, len(in))
+	for _, img := range in {
+		images = append(images, Image{
 			ID:           img.ID,
 			Architecture: img.Architecture,
 			OS:           img.OS,
 			Tags:         img.RepoTags,
-		}
+		})
 	}
 
-	return infos, nil
+	return images, nil
 }
 
 // PullImage pulls images via the CLI.
@@ -369,8 +364,8 @@ type volumeInspectJSON struct {
 	} `json:"UsageData"`
 }
 
-// InspectVolume retrieves information about volumes via the CLI.
-func (e *shellEngine) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
+// InspectVolumes retrieves information about volumes via the CLI.
+func (e *shellEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
 	args := append([]string{"volume", "inspect"}, volumeNames...)
 
 	output, err := e.CommandOutput(ctx, args...)
@@ -378,20 +373,25 @@ func (e *shellEngine) InspectVolume(ctx context.Context, volumeNames ...string) 
 		return nil, fmt.Errorf("failed to inspect volumes: %w", err)
 	}
 
-	volumesOut := []volumeInspectJSON{}
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
+	}
 
-	err = json.Unmarshal([]byte(output.Stdout.String()), &volumesOut)
+	var in []volumeInspectJSON
+
+	err = json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal volume inspect output: %w", err)
 	}
 
-	volumes := make(map[string]Volume, len(volumeNames))
-	for _, vol := range volumesOut {
-		volumes[vol.Name] = Volume{
+	volumes := make([]Volume, 0, len(in))
+	for _, vol := range in {
+		volumes = append(volumes, Volume{
 			Name:       vol.Name,
 			Mountpoint: vol.Mountpoint,
 			SizeBytes:  uint64(vol.UsageData.Size), //nolint:gosec // UsageData.Size is non-negative container size
-		}
+		})
 	}
 
 	return volumes, nil

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,20 +30,20 @@ type engineDriver interface {
 	Version(ctx context.Context) (Version, error)
 
 	ListContainers(ctx context.Context) ([]Container, error)
-	InspectContainer(ctx context.Context, namesOrIDs ...string) (map[string]Container, error)
+	InspectContainers(ctx context.Context, namesOrIDs ...string) ([]Container, error)
 	RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error
 	StopContainer(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error
-	Logs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error)
+	ContainerLogs(ctx context.Context, namesOrIDs ...string) ([]Logs, error)
 	RunContainer(ctx context.Context, specs ...ContainerSpec) error
 
-	InspectImage(ctx context.Context, refs ...string) (map[string]Image, error)
+	InspectImages(ctx context.Context, refs ...string) ([]Image, error)
 	PullImage(ctx context.Context, refs ...string) error
 	RemoveImage(ctx context.Context, force bool, refs ...string) error
 	TagImage(ctx context.Context, tags ...Tag) error
 	LoadImage(ctx context.Context, images ...io.Reader) error
 	ImageLoadCommand(filename string) string
 
-	InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error)
+	InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error)
 }
 
 // Client is the concrete struct used for interacting with the container engine.
@@ -64,53 +65,178 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 	return c.driver.ListContainers(ctx)
 }
 
-// InspectContainer returns information about specific containers.
-func (c *Client) InspectContainer(ctx context.Context, namesOrIDs ...string) (map[string]Container, error) {
-	return c.driver.InspectContainer(ctx, namesOrIDs...)
+// InspectContainer returns metadata for a single container.
+func (c *Client) InspectContainer(ctx context.Context, nameOrID string) (Container, error) {
+	infos, err := c.InspectContainers(ctx, nameOrID)
+	if err != nil {
+		return Container{}, err
+	}
+
+	return infos[0], nil
+}
+
+// InspectContainers returns metadata for multiple containers in 1:1 order.
+func (c *Client) InspectContainers(ctx context.Context, namesOrIDs ...string) ([]Container, error) {
+	if len(namesOrIDs) == 0 {
+		return nil, nil
+	}
+
+	found, err := c.driver.InspectContainers(ctx, namesOrIDs...)
+	if err != nil {
+		return nil, err
+	}
+
+	return alignContainers(namesOrIDs, found)
+}
+
+func alignContainers(namesOrIDs []string, found []Container) ([]Container, error) {
+	infos := make([]Container, len(namesOrIDs))
+	for i, nameOrID := range namesOrIDs {
+		infos[i] = Container{
+			Name:   nameOrID,
+			Status: StatusMissing,
+		}
+	}
+
+	for _, container := range found {
+		cName := strings.TrimPrefix(container.Name, "/")
+
+		idx := slices.IndexFunc(namesOrIDs, func(requested string) bool {
+			return requested == cName || requested == container.Name ||
+				requested == container.ID || strings.HasPrefix(container.ID, requested)
+		})
+		if idx < 0 {
+			return nil, fmt.Errorf("unmatched container in inspect output (id: %q, name: %q) against requested %v",
+				container.ID, container.Name, namesOrIDs)
+		}
+
+		infos[idx] = container
+	}
+
+	return infos, nil
 }
 
 // RemoveContainer removes one or more containers.
 func (c *Client) RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error {
+	if len(namesOrIDs) == 0 {
+		return nil
+	}
+
 	return c.driver.RemoveContainer(ctx, force, namesOrIDs...)
 }
 
 // StopContainer stops one or more running containers.
 func (c *Client) StopContainer(ctx context.Context, timeout time.Duration, namesOrIDs ...string) error {
+	if len(namesOrIDs) == 0 {
+		return nil
+	}
+
 	return c.driver.StopContainer(ctx, timeout, namesOrIDs...)
 }
 
-// Logs returns logs for specified containers.
-func (c *Client) Logs(ctx context.Context, namesOrIDs ...string) (map[string]Logs, error) {
-	return c.driver.Logs(ctx, namesOrIDs...)
+// ContainerLogs returns stdout and stderr logs for a single container.
+func (c *Client) ContainerLogs(ctx context.Context, nameOrID string) (Logs, error) {
+	logs, err := c.driver.ContainerLogs(ctx, nameOrID)
+	if err != nil {
+		return Logs{}, err
+	}
+
+	return logs[0], nil
+}
+
+// ContainersLogs returns logs for specified containers in 1:1 order.
+func (c *Client) ContainersLogs(ctx context.Context, namesOrIDs ...string) ([]Logs, error) {
+	if len(namesOrIDs) == 0 {
+		return nil, nil
+	}
+
+	return c.driver.ContainerLogs(ctx, namesOrIDs...)
 }
 
 // RunContainer starts containers according to the given configurations.
 func (c *Client) RunContainer(ctx context.Context, specs ...ContainerSpec) error {
+	if len(specs) == 0 {
+		return nil
+	}
+
 	return c.driver.RunContainer(ctx, specs...)
 }
 
-// InspectImage retrieves image metadata for the given references.
-func (c *Client) InspectImage(ctx context.Context, refs ...string) (map[string]Image, error) {
-	return c.driver.InspectImage(ctx, refs...)
+// InspectImage retrieves image metadata for a single reference.
+func (c *Client) InspectImage(ctx context.Context, ref string) (Image, error) {
+	infos, err := c.InspectImages(ctx, ref)
+	if err != nil {
+		return Image{}, err
+	}
+
+	return infos[0], nil
+}
+
+// InspectImages retrieves image metadata for multiple references in 1:1 order.
+func (c *Client) InspectImages(ctx context.Context, refs ...string) ([]Image, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+
+	found, err := c.driver.InspectImages(ctx, refs...)
+	if err != nil {
+		return nil, err
+	}
+
+	return alignImages(refs, found)
+}
+
+func alignImages(refs []string, found []Image) ([]Image, error) {
+	infos := make([]Image, len(refs))
+
+	for _, img := range found {
+		idx := slices.IndexFunc(refs, func(ref string) bool {
+			return slices.Contains(img.Tags, ref) || ref == img.ID || strings.HasPrefix(img.ID, ref)
+		})
+		if idx < 0 {
+			return nil, fmt.Errorf("unmatched image in inspect output (id: %q, tags: %v) against requested %v",
+				img.ID, img.Tags, refs)
+		}
+
+		infos[idx] = img
+	}
+
+	return infos, nil
 }
 
 // PullImage pulls images from a registry.
 func (c *Client) PullImage(ctx context.Context, refs ...string) error {
+	if len(refs) == 0 {
+		return nil
+	}
+
 	return c.driver.PullImage(ctx, refs...)
 }
 
 // RemoveImage removes images.
 func (c *Client) RemoveImage(ctx context.Context, force bool, refs ...string) error {
+	if len(refs) == 0 {
+		return nil
+	}
+
 	return c.driver.RemoveImage(ctx, force, refs...)
 }
 
 // TagImage tags an image with target references.
 func (c *Client) TagImage(ctx context.Context, tags ...Tag) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
 	return c.driver.TagImage(ctx, tags...)
 }
 
 // LoadImage loads images from tar streams into the container engine.
 func (c *Client) LoadImage(ctx context.Context, images ...io.Reader) error {
+	if len(images) == 0 {
+		return nil
+	}
+
 	return c.driver.LoadImage(ctx, images...)
 }
 
@@ -119,9 +245,49 @@ func (c *Client) ImageLoadCommand(filename string) string {
 	return c.driver.ImageLoadCommand(filename)
 }
 
-// InspectVolume retrieves metadata for specified volume names.
-func (c *Client) InspectVolume(ctx context.Context, volumeNames ...string) (map[string]Volume, error) {
-	return c.driver.InspectVolume(ctx, volumeNames...)
+// InspectVolume retrieves metadata for a single volume.
+func (c *Client) InspectVolume(ctx context.Context, volumeName string) (Volume, error) {
+	infos, err := c.InspectVolumes(ctx, volumeName)
+	if err != nil {
+		return Volume{}, err
+	}
+
+	return infos[0], nil
+}
+
+// InspectVolumes retrieves metadata for multiple volume names in 1:1 order.
+func (c *Client) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
+	if len(volumeNames) == 0 {
+		return nil, nil
+	}
+
+	found, err := c.driver.InspectVolumes(ctx, volumeNames...)
+	if err != nil {
+		return nil, err
+	}
+
+	return alignVolumes(volumeNames, found)
+}
+
+func alignVolumes(volumeNames []string, found []Volume) ([]Volume, error) {
+	results := make([]Volume, len(volumeNames))
+	for i, name := range volumeNames {
+		results[i] = Volume{Name: name}
+	}
+
+	for _, vol := range found {
+		idx := slices.IndexFunc(volumeNames, func(reqName string) bool {
+			return reqName == vol.Name
+		})
+		if idx < 0 {
+			return nil, fmt.Errorf("unmatched volume in inspect output (name: %q) against requested %v",
+				vol.Name, volumeNames)
+		}
+
+		results[idx] = vol
+	}
+
+	return results, nil
 }
 
 // Config is the configuration needed to bring up a given container engine. Includes logging and needed information to

@@ -221,12 +221,12 @@ func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) err
 	defer cancel()
 
 	if checkExists {
-		infos, err := c.engine.InspectContainer(detachedCtx, containerName)
+		info, err := c.engine.InspectContainer(detachedCtx, containerName)
 		if err != nil {
 			return err
 		}
 
-		if info, ok := infos[containerName]; !ok || info.Status == engine.StatusMissing {
+		if info.Status == engine.StatusMissing {
 			return nil
 		}
 	}

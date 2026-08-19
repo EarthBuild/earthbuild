@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -505,7 +506,7 @@ func Start(
 		// Keep going - it might still work.
 	}
 
-	withDocker, err := parseBoolEnv("EARTHLY_WITH_DOCKER")
+	withDocker, err := env.Bool("WITH_DOCKER")
 	if err != nil {
 		// Not fatal: an unparsable value only mis-labels the build as outer,
 		// which costs the earth-in-earth cgroup mounts, not correctness of the

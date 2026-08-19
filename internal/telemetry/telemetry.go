@@ -11,9 +11,9 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
-	"strconv"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
@@ -310,8 +310,14 @@ func processMemoryMetricAttributes() []attribute.KeyValue {
 }
 
 func earthbuildProcessNesting() attribute.KeyValue {
-	value, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
-	if value {
+	// A typo only mis-labels the datapoint as outer, so it is reported and shrugged
+	// off rather than failing telemetry setup over it.
+	withDocker, err := env.Bool("WITH_DOCKER")
+	if err != nil {
+		otel.Handle(err)
+	}
+
+	if withDocker {
 		return semconv.ProcessNestingInner
 	}
 

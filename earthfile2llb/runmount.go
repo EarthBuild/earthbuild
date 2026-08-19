@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/moby/buildkit/client/llb"
 )
@@ -260,7 +260,7 @@ func ParseMode(s string) (os.FileMode, error) {
 
 // cacheKey returns a key that can be used to uniquely identify the target.
 // Cache mounts use this key to ensure that the cache is unique to the target.
-func cacheKey(target domain.Target) string {
+func cacheKey(target reference.Reference) string {
 	target.Tag = "" // Strip away tag info (e.g. git sha)
 	digest := sha256.Sum256([]byte(target.StringCanonical()))
 

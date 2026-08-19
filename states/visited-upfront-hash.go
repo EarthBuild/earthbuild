@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
 )
@@ -37,7 +37,7 @@ func (vc *visitedUpfrontHashCollection) All() []*SingleTarget {
 // either the previously visited one or a brand new one.
 func (vc *visitedUpfrontHashCollection) Add(
 	ctx context.Context,
-	target domain.Target,
+	target reference.Reference,
 	platr *platutil.Resolver,
 	allowPrivileged bool,
 	overridingVars *variables.Scope,

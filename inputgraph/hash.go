@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 	"github.com/EarthBuild/earthbuild/variables"
 )
@@ -12,7 +12,7 @@ import (
 // HashOpt contains all of the options available to the hasher.
 type HashOpt struct {
 	OverridingVars *variables.Scope
-	Target         domain.Target
+	Target         reference.Reference
 	BuiltinArgs    variables.DefaultArgs
 	Console        conslogging.ConsoleLogger
 	CI             bool
@@ -22,7 +22,7 @@ type HashOpt struct {
 func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
 	// Bypass further analysis for remote targets as there's nothing to do
 	// beyond hashing the full target name.
-	if t := opt.Target; t.IsRemote() {
+	if t := opt.Target; t.Kind() == reference.KindRemote {
 		if supportedRemoteTarget(t) {
 			h := hasher.New()
 			h.HashString(t.StringCanonical())

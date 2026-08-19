@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
 )
 
@@ -72,7 +72,7 @@ func (ti TargetInput) cloneNoTag() (TargetInput, error) {
 	targetStr := ""
 
 	if ti.TargetCanonical != "" {
-		target, err := domain.ParseTarget(ti.TargetCanonical)
+		target, err := reference.ParseTarget(ti.TargetCanonical)
 		if err != nil {
 			return TargetInput{}, err
 		}

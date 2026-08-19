@@ -16,10 +16,10 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -48,11 +48,11 @@ type loader struct {
 	hashCache      map[string][]byte
 	resolver       *buildcontext.Resolver
 	stats          *Stats
-	globalImports  map[string]domain.ImportTrackerVal
+	globalImports  map[string]reference.ImportTrackerVal
 	varCollection  *variables.Collection
 	features       *features.Features
 	overridingVars *variables.Scope
-	target         domain.Target
+	target         reference.Reference
 	builtinArgs    variables.DefaultArgs
 	conslog        conslogging.ConsoleLogger
 	baseProcessed  bool
@@ -72,7 +72,7 @@ func newLoader(opt HashOpt) *loader {
 		ci:             opt.CI,
 		builtinArgs:    opt.BuiltinArgs,
 		overridingVars: opt.OverridingVars,
-		globalImports:  map[string]domain.ImportTrackerVal{},
+		globalImports:  map[string]reference.ImportTrackerVal{},
 		hashCache:      map[string][]byte{},
 		// One resolver shared across the whole recursive walk so its
 		// gitMetaCache dedups git metadata per local path. Creating it per
@@ -129,28 +129,23 @@ func (l *loader) handleBuild(ctx context.Context, cmd earthfile.Command) error {
 	return nil
 }
 
-func (l *loader) derefedTarget(targetName string) (domain.Target, error) {
-	target, err := domain.ParseTarget(targetName)
+func (l *loader) derefedTarget(targetName string) (reference.Reference, error) {
+	target, err := reference.ParseTarget(targetName)
 	if err != nil {
-		return domain.Target{}, fmt.Errorf("failed to parse target %s: %w", targetName, err)
+		return reference.Reference{}, fmt.Errorf("failed to parse target %s: %w", targetName, err)
 	}
 
 	derefed, _, _, err := l.varCollection.Imports().Deref(target)
 	if err != nil {
-		return domain.Target{}, fmt.Errorf("failed to deref target %s: %w", target, err)
+		return reference.Reference{}, fmt.Errorf("failed to deref target %s: %w", target, err)
 	}
 
-	targetRef, err := domain.JoinReferences(l.varCollection.AbsRef(), derefed)
+	ref, err := reference.JoinReferences(l.varCollection.AbsRef(), derefed)
 	if err != nil {
-		return domain.Target{}, fmt.Errorf("failed to join %s and %s: %w", l.target, target, err)
+		return reference.Reference{}, fmt.Errorf("failed to join %s and %s: %w", l.target, target, err)
 	}
 
-	target, ok := targetRef.(domain.Target)
-	if !ok {
-		return domain.Target{}, fmt.Errorf("want domain.Target, got %T", targetRef)
-	}
-
-	return target, nil
+	return ref, nil
 }
 
 func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
@@ -215,7 +210,7 @@ func containsShellExpr(s string) bool {
 func (l *loader) handleCopySrc(ctx context.Context, cmd earthfile.Command, src string, mustExist bool) error {
 	var (
 		classical   bool
-		artifactSrc domain.Artifact
+		artifactSrc reference.Artifact
 		extraArgs   []string
 		err         error
 	)
@@ -240,7 +235,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd earthfile.Command, src s
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
 
-		artifactSrc, err = domain.ParseArtifact(expandedArtifact)
+		artifactSrc, err = reference.ParseArtifact(expandedArtifact)
 		if err != nil {
 			return wrapError(err, cmd.SourceLocation, "failed to parse artifact")
 		}
@@ -252,7 +247,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd earthfile.Command, src s
 			return wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact")
 		}
 
-		artifactSrc, err = domain.ParseArtifact(expandedSrc)
+		artifactSrc, err = reference.ParseArtifact(expandedSrc)
 		if err != nil {
 			classical = true
 		}
@@ -288,7 +283,7 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd earthfile.Command, src s
 
 	var (
 		files []string
-		path  = filepath.Join(l.target.GetLocalPath(), src)
+		path  = filepath.Join(l.target.LocalPath, src)
 	)
 
 	files, err = l.expandCopyFiles(path, mustExist)
@@ -314,8 +309,8 @@ func (l *loader) handleCopySrc(ctx context.Context, cmd earthfile.Command, src s
 
 var sha1RE = regexp.MustCompile("^[0-9a-f]{40}$")
 
-func supportedRemoteTarget(t domain.Target) bool {
-	return strings.HasPrefix(t.GetTag(), "tags/") || sha1RE.MatchString(t.GetTag())
+func supportedRemoteTarget(target reference.Reference) bool {
+	return strings.HasPrefix(target.Tag, "tags/") || sha1RE.MatchString(target.Tag)
 }
 
 // expandCopyFiles expands a single COPY source into a slice containing all
@@ -966,7 +961,7 @@ func (l *loader) loadBlock(ctx context.Context, b earthfile.Block) error {
 	return l.handleStatements(ctx, b)
 }
 
-func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (*loader, error) {
+func (l *loader) forTarget(target reference.Reference, args []string, passArgs bool) (*loader, error) {
 	fullTargetName := target.String()
 
 	visited := copyVisited(l.visited)
@@ -1000,7 +995,7 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 		primaryTarget:  false,
 	}
 
-	if target.IsLocalInternal() {
+	if target.Kind() == reference.KindLocalInternal {
 		ret.baseProcessed = true
 		ret.globalImports = l.varCollection.Imports().Global()
 	}
@@ -1032,7 +1027,7 @@ func (l *loader) loadTargetFromString(
 		return addErrorSrc(err, srcLoc)
 	}
 
-	if target.IsRemote() {
+	if target.Kind() == reference.KindRemote {
 		if supportedRemoteTarget(target) {
 			l.hasher.HashString(target.StringCanonical())
 			return nil
@@ -1081,7 +1076,7 @@ func (l *loader) targetCacheKey() string {
 }
 
 func (l *loader) load(ctx context.Context) ([]byte, error) {
-	if l.target.IsRemote() {
+	if l.target.Kind() == reference.KindRemote {
 		return nil, errCannotLoadRemoteTarget
 	}
 

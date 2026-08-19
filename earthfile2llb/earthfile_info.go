@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -17,9 +17,9 @@ import (
 // most notably for `earth doc` and `earth ls` output.
 
 // GetTargets returns a list of targets from an Earthfile.
-// Note that the passed in domain.Target's target name is ignored (only the reference to the Earthfile is used).
+// Note that the passed in [reference.Reference]'s target name is ignored (only the reference to the Earthfile is used).
 func GetTargets(
-	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target,
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target reference.Reference,
 ) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 
@@ -38,7 +38,7 @@ func GetTargets(
 
 // GetTargetArgs returns a list of build arguments for a specified target.
 func GetTargetArgs(
-	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target domain.Target,
+	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, target reference.Reference,
 ) ([]string, error) {
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 

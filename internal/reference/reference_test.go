@@ -1,66 +1,68 @@
 //go:build !windows
 
-package domain
+package reference
 
 import (
 	"testing"
 )
 
+//nolint:goconst
 var targetTests = []struct {
 	in  string
-	out Target
+	out Reference
 }{{
 	"+target",
-	Target{Target: "target", LocalPath: "."}, //nolint:goconst
+	Reference{Target: "target", LocalPath: "."},
 }, {
 	"+another-target",
-	Target{Target: "another-target", LocalPath: "."}, //nolint:goconst
+	Reference{Target: "another-target", LocalPath: "."},
 }, {
 	"./a/local/dir+target",
-	Target{Target: "target", LocalPath: "./a/local/dir"}, //nolint:goconst
+	Reference{Target: "target", LocalPath: "./a/local/dir"},
 }, {
 	"/abs/local/dir+target",
-	Target{Target: "target", LocalPath: "/abs/local/dir"},
+	Reference{Target: "target", LocalPath: "/abs/local/dir"},
 }, {
 	"/abs/space here/dir+target",
-	Target{Target: "target", LocalPath: "/abs/space here/dir"}, //nolint:goconst
+	Reference{Target: "target", LocalPath: "/abs/space here/dir"},
 }, {
 	`/abs/back\slash/dir+target`,
-	Target{Target: "target", LocalPath: `/abs/back\slash/dir`}, //nolint:goconst
+	Reference{Target: "target", LocalPath: `/abs/back\slash/dir`},
 }, {
 	"../rel/local/dir+target",
-	Target{Target: "target", LocalPath: "../rel/local/dir"},
+	Reference{Target: "target", LocalPath: "../rel/local/dir"},
 }, {
 	"github.com/foo/bar+target",
-	Target{Target: "target", GitURL: "github.com/foo/bar"}, //nolint:goconst
+	Reference{Target: "target", GitURL: "github.com/foo/bar"},
 }, {
 	"github.com/foo/bar:tag+target",
-	Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag"}, //nolint:goconst
+	Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag"},
 }, {
 	"github.com/foo/bar:tag/with/slash+target",
-	Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag/with/slash"}, //nolint:goconst
+	Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag/with/slash"},
 }, {
 	"import+target",
-	Target{Target: "target", ImportRef: "import"}, //nolint:goconst
+	Reference{Target: "target", ImportRef: "import"},
 }, { // \+
 	"./a/local/dir-with-\\+-in-it+target",
-	Target{Target: "target", LocalPath: "./a/local/dir-with-+-in-it"}, //nolint:goconst
+	Reference{Target: "target", LocalPath: "./a/local/dir-with-+-in-it"},
 }, {
 	"/abs/local/dir-with-\\+-in+target",
-	Target{Target: "target", LocalPath: "/abs/local/dir-with-+-in"}, //nolint:goconst
+	Reference{Target: "target", LocalPath: "/abs/local/dir-with-+-in"},
 }, {
 	"../rel/local/dir-with-\\+-in+target",
-	Target{Target: "target", LocalPath: "../rel/local/dir-with-+-in"}, //nolint:goconst
+	Reference{Target: "target", LocalPath: "../rel/local/dir-with-+-in"},
 }, {
 	"github.com/foo/bar/dir-with-\\+-in+target",
-	Target{Target: "target", GitURL: "github.com/foo/bar/dir-with-+-in"}, //nolint:goconst
+	Reference{Target: "target", GitURL: "github.com/foo/bar/dir-with-+-in"},
 }, {
 	"github.com/foo/bar:tag-with-\\+-in+target",
-	Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"}, //nolint:goconst
+	Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
 }}
 
 var targetNegativeTests = []string{
 	"+COMMAND", "./something+COMMAND", "nope", "abc+cde+efg", "+target/artifact",
+	"+123target", "+_target", "+-target",
 }
 
 func TestTargetParser(t *testing.T) {
@@ -72,7 +74,10 @@ func TestTargetParser(t *testing.T) {
 
 			out, err := ParseTarget(tt.in)
 			NoError(t, err, "parse target failed")
-			Equal(t, tt.out, out)
+
+			expected := tt.out
+			expected.kind = expected.Kind()
+			Equal(t, expected, out)
 		})
 	}
 }
@@ -108,89 +113,89 @@ var artifactTests = []struct {
 	out Artifact
 }{{
 	"+target/artifact",
-	Artifact{Target: Target{Target: "target", LocalPath: "."}, Artifact: "/artifact"}, //nolint:goconst
+	Artifact{Target: Reference{Target: "target", LocalPath: "."}, Artifact: "/artifact"}, //nolint:goconst
 }, {
 	"+another-target/another-artifact",
-	Artifact{Target: Target{Target: "another-target", LocalPath: "."}, Artifact: "/another-artifact"},
+	Artifact{Target: Reference{Target: "another-target", LocalPath: "."}, Artifact: "/another-artifact"},
 }, {
 	"+another-target/deep/artifact",
-	Artifact{Target: Target{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact"},
+	Artifact{Target: Reference{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact"},
 }, {
 	"+another-target/deep/artifact/with/*",
-	Artifact{Target: Target{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact/with/*"},
+	Artifact{Target: Reference{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact/with/*"},
 }, {
 	"./a/local/dir+target/artifact",
-	Artifact{Target: Target{Target: "target", LocalPath: "./a/local/dir"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", LocalPath: "./a/local/dir"}, Artifact: "/artifact"},
 }, {
 	"/abs/space here/dir+target/artifact",
-	Artifact{Target: Target{Target: "target", LocalPath: "/abs/space here/dir"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", LocalPath: "/abs/space here/dir"}, Artifact: "/artifact"},
 }, {
 	`/abs/back\slash/dir+target/artifact`,
-	Artifact{Target: Target{Target: "target", LocalPath: `/abs/back\slash/dir`}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", LocalPath: `/abs/back\slash/dir`}, Artifact: "/artifact"},
 }, {
 	"github.com/foo/bar+target/artifact",
-	Artifact{Target: Target{Target: "target", GitURL: "github.com/foo/bar"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", GitURL: "github.com/foo/bar"}, Artifact: "/artifact"},
 }, {
 	"github.com/foo/bar:tag+target/artifact",
-	Artifact{Target: Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag"}, Artifact: "/artifact"},
 }, {
 	"github.com/foo/bar:tag/with/slash+target/artifact",
 	Artifact{
-		Target:   Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag/with/slash"},
+		Target:   Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag/with/slash"},
 		Artifact: "/artifact",
 	},
 }, {
 	"import+target/artifact",
-	Artifact{Target: Target{Target: "target", ImportRef: "import"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", ImportRef: "import"}, Artifact: "/artifact"},
 }, { // \+ in target
 	"./a/local/dir-with-\\+-in-it+target/artifact",
-	Artifact{Target: Target{Target: "target", LocalPath: "./a/local/dir-with-+-in-it"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", LocalPath: "./a/local/dir-with-+-in-it"}, Artifact: "/artifact"},
 }, {
 	"/abs/local/dir-with-\\+-in+target/artifact",
-	Artifact{Target: Target{Target: "target", LocalPath: "/abs/local/dir-with-+-in"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", LocalPath: "/abs/local/dir-with-+-in"}, Artifact: "/artifact"},
 }, {
 	"../rel/local/dir-with-\\+-in+target/artifact",
-	Artifact{Target: Target{Target: "target", LocalPath: "../rel/local/dir-with-+-in"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", LocalPath: "../rel/local/dir-with-+-in"}, Artifact: "/artifact"},
 }, {
 	"github.com/foo/bar/dir-with-\\+-in+target/artifact",
-	Artifact{Target: Target{Target: "target", GitURL: "github.com/foo/bar/dir-with-+-in"}, Artifact: "/artifact"},
+	Artifact{Target: Reference{Target: "target", GitURL: "github.com/foo/bar/dir-with-+-in"}, Artifact: "/artifact"},
 }, {
 	"github.com/foo/bar:tag-with-\\+-in+target/artifact",
 	Artifact{
-		Target:   Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
+		Target:   Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
 		Artifact: "/artifact",
 	},
 }, { // \+ in artifact
 	"+target/artifact-with-\\+",
-	Artifact{Target: Target{Target: "target", LocalPath: "."}, Artifact: "/artifact-with-+"},
+	Artifact{Target: Reference{Target: "target", LocalPath: "."}, Artifact: "/artifact-with-+"},
 }, {
 	"+another-target/deep/artifact-with-\\+/in/it",
-	Artifact{Target: Target{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact-with-+/in/it"},
+	Artifact{Target: Reference{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact-with-+/in/it"},
 }, {
 	"+another-target/deep/artifact/with-\\+/and/*",
-	Artifact{Target: Target{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact/with-+/and/*"},
+	Artifact{Target: Reference{Target: "another-target", LocalPath: "."}, Artifact: "/deep/artifact/with-+/and/*"},
 }, { // \+ in target and artifact
 	"./a/local/dir-with-\\+-in-it+target/artifact-with-\\+/in/it",
 	Artifact{
-		Target:   Target{Target: "target", LocalPath: "./a/local/dir-with-+-in-it"},
+		Target:   Reference{Target: "target", LocalPath: "./a/local/dir-with-+-in-it"},
 		Artifact: "/artifact-with-+/in/it", //nolint:goconst
 	},
 }, {
 	"/abs/local/dir-with-\\+-in+target/artifact-with-\\+/in/it",
 	Artifact{
-		Target:   Target{Target: "target", LocalPath: "/abs/local/dir-with-+-in"},
+		Target:   Reference{Target: "target", LocalPath: "/abs/local/dir-with-+-in"},
 		Artifact: "/artifact-with-+/in/it",
 	},
 }, {
 	"../rel/local/dir-with-\\+-in+target/artifact-with-\\+/in/it",
 	Artifact{
-		Target:   Target{Target: "target", LocalPath: "../rel/local/dir-with-+-in"},
+		Target:   Reference{Target: "target", LocalPath: "../rel/local/dir-with-+-in"},
 		Artifact: "/artifact-with-+/in/it",
 	},
 }, {
 	"github.com/foo/bar/dir-with-\\+-in+target/artifact-with-\\+/in/it",
 	Artifact{
-		Target: Target{
+		Target: Reference{
 			Target: "target", GitURL: "github.com/foo/bar/dir-with-+-in",
 		},
 		Artifact: "/artifact-with-+/in/it",
@@ -198,7 +203,7 @@ var artifactTests = []struct {
 }, {
 	"github.com/foo/bar:tag-with-\\+-in+target/artifact-with-\\+/in/it",
 	Artifact{
-		Target:   Target{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
+		Target:   Reference{Target: "target", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
 		Artifact: "/artifact-with-+/in/it",
 	},
 }}
@@ -216,7 +221,10 @@ func TestArtifactParser(t *testing.T) {
 
 			out, err := ParseArtifact(tt.in)
 			NoError(t, err, "parse artifact failed")
-			Equal(t, tt.out, out)
+
+			expected := tt.out
+			expected.Target.kind = expected.Target.Kind()
+			Equal(t, expected, out)
 		})
 	}
 }
@@ -249,59 +257,60 @@ func TestArtifactToString(t *testing.T) {
 
 var commandTests = []struct {
 	in  string
-	out Command
+	out Reference
 }{{
 	"+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "."}, //nolint:goconst
+	Reference{Command: "COMMAND", LocalPath: "."}, //nolint:goconst
 }, {
 	"+ANOTHER_COMMAND",
-	Command{Command: "ANOTHER_COMMAND", LocalPath: "."},
+	Reference{Command: "ANOTHER_COMMAND", LocalPath: "."},
 }, {
 	"./a/local/dir+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "./a/local/dir"},
+	Reference{Command: "COMMAND", LocalPath: "./a/local/dir"},
 }, {
 	"/abs/local/dir+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "/abs/local/dir"},
+	Reference{Command: "COMMAND", LocalPath: "/abs/local/dir"},
 }, {
 	"../rel/local/dir+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "../rel/local/dir"},
+	Reference{Command: "COMMAND", LocalPath: "../rel/local/dir"},
 }, {
 	"/abs/space here/dir+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "/abs/space here/dir"},
+	Reference{Command: "COMMAND", LocalPath: "/abs/space here/dir"},
 }, {
 	`/abs/back\slash/dir+COMMAND`,
-	Command{Command: "COMMAND", LocalPath: `/abs/back\slash/dir`},
+	Reference{Command: "COMMAND", LocalPath: `/abs/back\slash/dir`},
 }, {
 	"github.com/foo/bar+COMMAND",
-	Command{Command: "COMMAND", GitURL: "github.com/foo/bar"},
+	Reference{Command: "COMMAND", GitURL: "github.com/foo/bar"},
 }, {
 	"github.com/foo/bar:tag+COMMAND",
-	Command{Command: "COMMAND", GitURL: "github.com/foo/bar", Tag: "tag"},
+	Reference{Command: "COMMAND", GitURL: "github.com/foo/bar", Tag: "tag"},
 }, {
 	"github.com/foo/bar:tag/with/slash+COMMAND",
-	Command{Command: "COMMAND", GitURL: "github.com/foo/bar", Tag: "tag/with/slash"},
+	Reference{Command: "COMMAND", GitURL: "github.com/foo/bar", Tag: "tag/with/slash"},
 }, {
 	"import+COMMAND",
-	Command{Command: "COMMAND", ImportRef: "import"},
+	Reference{Command: "COMMAND", ImportRef: "import"},
 }, { // \+
 	"./a/local/dir-with-\\+-in-it+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "./a/local/dir-with-+-in-it"},
+	Reference{Command: "COMMAND", LocalPath: "./a/local/dir-with-+-in-it"},
 }, {
 	"/abs/local/dir-with-\\+-in+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "/abs/local/dir-with-+-in"},
+	Reference{Command: "COMMAND", LocalPath: "/abs/local/dir-with-+-in"},
 }, {
 	"../rel/local/dir-with-\\+-in+COMMAND",
-	Command{Command: "COMMAND", LocalPath: "../rel/local/dir-with-+-in"},
+	Reference{Command: "COMMAND", LocalPath: "../rel/local/dir-with-+-in"},
 }, {
 	"github.com/foo/bar/dir-with-\\+-in+COMMAND",
-	Command{Command: "COMMAND", GitURL: "github.com/foo/bar/dir-with-+-in"},
+	Reference{Command: "COMMAND", GitURL: "github.com/foo/bar/dir-with-+-in"},
 }, {
 	"github.com/foo/bar:tag-with-\\+-in+COMMAND",
-	Command{Command: "COMMAND", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
+	Reference{Command: "COMMAND", GitURL: "github.com/foo/bar", Tag: "tag-with-+-in"},
 }}
 
 var commandNegativeTests = []string{
 	"+target", "./something+target", "nope", "NOPE", "ABC+DEF+EFG", "+COMMAND/artifact",
+	"+1COMMAND", "+_COMMAND", "+MY-COMMAND",
 }
 
 func TestCommandParser(t *testing.T) {
@@ -313,7 +322,10 @@ func TestCommandParser(t *testing.T) {
 
 			out, err := ParseCommand(tt.in)
 			NoError(t, err, "parse target failed")
-			Equal(t, tt.out, out)
+
+			expected := tt.out
+			expected.kind = expected.Kind()
+			Equal(t, expected, out)
 		})
 	}
 }

@@ -22,9 +22,9 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/dockerfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
@@ -193,10 +193,12 @@ func (b *Build) gitLogLevel() buildkitgitutil.GitLogLevel {
 	return buildkitgitutil.GitLogLevelDefault
 }
 
-func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Target, domain.Artifact, string, error) {
+func (b *Build) parseTarget(
+	cmd *cli.Command, nonFlagArgs []string,
+) (reference.Reference, reference.Artifact, string, error) {
 	var (
-		target   domain.Target
-		artifact domain.Artifact
+		target   reference.Reference
+		artifact reference.Artifact
 		destPath = "./"
 	)
 
@@ -217,7 +219,7 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 
 		var err error
 
-		target, err = domain.ParseTarget(targetName)
+		target, err = reference.ParseTarget(targetName)
 		if err != nil {
 			return target, artifact, "", params.Wrapf(err, "invalid target name %s", targetName)
 		}
@@ -240,7 +242,7 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 
 		var err error
 
-		artifact, err = domain.ParseArtifact(artifactName)
+		artifact, err = reference.ParseArtifact(artifactName)
 		if err != nil {
 			return target, artifact, "", params.Wrapf(err, "invalid artifact name %s", artifactName)
 		}
@@ -262,13 +264,13 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 
 		var err error
 
-		target, err = domain.ParseTarget(targetName)
+		target, err = reference.ParseTarget(targetName)
 		if err != nil {
 			return target, artifact, "", params.Errorf("invalid target %s", targetName)
 		}
 
 		if b.dockerSourcePath != "" {
-			target.SourcePath = b.dockerSourcePath
+			target = reference.NewDockerfileTarget(b.dockerSourcePath, target.Name())
 			b.dockerSourcePath = ""
 		}
 	}
@@ -838,7 +840,7 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 }
 
 func (b *Build) platformResolver(
-	ctx context.Context, bkClient *bkclient.Client, target domain.Target,
+	ctx context.Context, bkClient *bkclient.Client, target reference.Reference,
 ) (*platutil.Resolver, error) {
 	nativePlatform, err := platutil.GetNativePlatformViaBkClient(ctx, bkClient)
 	if err != nil {
@@ -872,7 +874,7 @@ func (b *Build) platformResolver(
 }
 
 func (b *Build) initAutoSkip(
-	ctx context.Context, skipDB bk.BuildkitSkipper, target domain.Target, overridingVars *variables.Scope,
+	ctx context.Context, skipDB bk.BuildkitSkipper, target reference.Reference, overridingVars *variables.Scope,
 ) (func(), bool, error) {
 	if !b.cli.Flags().SkipBuildkit {
 		return nil, false, nil
@@ -909,20 +911,15 @@ func (b *Build) initAutoSkip(
 		stats.TargetsVisited, stats.TargetsHashed, stats.TargetCacheHits)
 	console.VerbosePrintf("hash calculation took %s", stats.Duration)
 
-	if !target.IsRemote() {
+	if target.Kind() != reference.KindRemote {
 		var meta *gitutil.GitMetadata
 
-		meta, err = gitutil.Metadata(ctx, target.GetLocalPath(), b.cli.Flags().GitBranchOverride)
+		meta, err = gitutil.Metadata(ctx, target.LocalPath, b.cli.Flags().GitBranchOverride)
 		if err != nil {
 			console.VerboseWarnf("unable to detect all git metadata: %v", err.Error())
 		}
 
-		var ok bool
-
-		target, ok = gitutil.ReferenceWithGitMeta(target, meta).(domain.Target)
-		if !ok {
-			return nil, false, fmt.Errorf("want domain.Target, got %T", target)
-		}
+		target = gitutil.ReferenceWithGitMeta(target, meta)
 
 		target.Tag = ""
 	}

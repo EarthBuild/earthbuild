@@ -9,9 +9,9 @@ import (
 
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
@@ -30,7 +30,7 @@ type Data struct {
 	// BuildContext is the state to use for the build.
 	BuildContextFactory llbfactory.Factory
 	// Target is the earth reference.
-	Ref domain.Reference
+	Ref reference.Reference
 	// GitMetadata contains git metadata information.
 	GitMetadata *gitutil.GitMetadata
 	// LocalDirs is the local dirs map to be passed as part of the buildkit solve.
@@ -86,10 +86,10 @@ func NewResolver(
 // path. This is then used when globbing for matches. The paths are then made
 // relative to the parent target for resolution by the caller.
 func (r *Resolver) ExpandWildcard(
-	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, parentTarget, target domain.Target,
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, parentTarget, target reference.Reference,
 ) ([]string, error) {
-	if parentTarget.IsRemote() {
-		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.GetLocalPath())
+	if parentTarget.Kind() == reference.KindRemote {
+		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.LocalPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to expand remote BUILD target path: %w", err)
 		}
@@ -101,17 +101,14 @@ func (r *Resolver) ExpandWildcard(
 	// working directory of earth in order to glob for matching paths. We can
 	// get this path by joining the targets. The child target will likely still
 	// include *'s (expanded below), but that shouldn't be a problem.
-	ref, err := domain.JoinReferences(parentTarget, target)
+	ref, err := reference.JoinReferences(parentTarget, target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to join references: %w", err)
 	}
 
-	target, ok := ref.(domain.Target)
-	if !ok {
-		return nil, fmt.Errorf("want domain.Target, got %T", ref)
-	}
+	target = ref
 
-	matches, err := fileutil.GlobDirs(target.GetLocalPath())
+	matches, err := fileutil.GlobDirs(target.LocalPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to expand BUILD target path: %w", err)
 	}
@@ -121,7 +118,7 @@ func (r *Resolver) ExpandWildcard(
 	// requires a relative target path.
 	ret := make([]string, 0, len(matches))
 	for _, match := range matches {
-		rel, err := filepath.Rel(parentTarget.GetLocalPath(), match)
+		rel, err := filepath.Rel(parentTarget.LocalPath, match)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve relative path: %w", err)
 		}
@@ -133,11 +130,12 @@ func (r *Resolver) ExpandWildcard(
 }
 
 // resolveLocalRootEarthfile rewrites a Earthfile reference for the root of a project.
-func resolveLocalRootEarthfile(ref domain.Reference) domain.Reference {
-	if ref.IsRemote() ||
-		ref.IsImportReference() ||
-		filepath.Clean(ref.GetLocalPath()) != "." ||
-		strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
+func resolveLocalRootEarthfile(ref reference.Reference) reference.Reference {
+	if ref.Kind() == reference.KindRemote ||
+		ref.Kind() == reference.KindImport ||
+		ref.Kind() == reference.KindUnresolvedImport ||
+		filepath.Clean(ref.LocalPath) != "." ||
+		strings.HasPrefix(ref.Name(), DockerfileMetaTarget) {
 		return ref
 	}
 
@@ -161,7 +159,8 @@ func resolveLocalRootEarthfile(ref domain.Reference) domain.Reference {
 
 		relPath, err := filepath.Rel(cwd, curr)
 		if err != nil {
-			return withLocalPath(ref, curr)
+			ref.LocalPath = curr
+			return ref
 		}
 
 		relPath = filepath.ToSlash(relPath)
@@ -169,7 +168,9 @@ func resolveLocalRootEarthfile(ref domain.Reference) domain.Reference {
 			relPath = "./" + relPath
 		}
 
-		return withLocalPath(ref, relPath)
+		ref.LocalPath = relPath
+
+		return ref
 	}
 
 	return ref
@@ -184,25 +185,12 @@ func hasEarthfile(dir string) bool {
 	return !fi.IsDir()
 }
 
-func withLocalPath(ref domain.Reference, newLocalPath string) domain.Reference {
-	switch r := ref.(type) {
-	case domain.Target:
-		r.LocalPath = newLocalPath
-		return r
-	case domain.Command:
-		r.LocalPath = newLocalPath
-		return r
-	default:
-		return ref
-	}
-}
-
 // Resolve returns resolved context data for a given earth reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
 func (r *Resolver) Resolve(
-	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref reference.Reference,
 ) (*Data, error) {
-	if ref.IsUnresolvedImportReference() {
+	if ref.Kind() == reference.KindUnresolvedImport {
 		return nil, fmt.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}
 
@@ -215,7 +203,7 @@ func (r *Resolver) Resolve(
 
 	localDirs := make(map[string]string)
 
-	if ref.IsRemote() {
+	if ref.Kind() == reference.KindRemote {
 		// Remote.
 		d, err = r.gr.resolveEarthProject(ctx, gwClient, platr, ref, r.featureFlagOverrides)
 		if err != nil {
@@ -223,8 +211,8 @@ func (r *Resolver) Resolve(
 		}
 	} else {
 		// Local.
-		if _, isTarget := ref.(domain.Target); isTarget {
-			localDirs[ref.GetLocalPath()] = ref.GetLocalPath()
+		if ref.Command == "" {
+			localDirs[ref.LocalPath] = ref.LocalPath
 		}
 
 		d, err = r.lr.resolveLocal(ctx, gwClient, platr, ref, r.featureFlagOverrides)
@@ -236,7 +224,7 @@ func (r *Resolver) Resolve(
 	d.Ref = gitutil.ReferenceWithGitMeta(ref, d.GitMetadata)
 
 	d.LocalDirs = localDirs
-	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
+	if !strings.HasPrefix(ref.Name(), DockerfileMetaTarget) {
 		path := filepath.Clean(d.BuildFilePath)
 
 		d.Earthfile, err = r.parseCache.Load(

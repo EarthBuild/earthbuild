@@ -8,8 +8,8 @@ import (
 	"maps"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
@@ -30,7 +30,7 @@ const statusChanSize = 500
 
 type (
 	onImageFunc         func(context.Context, *errgroup.Group, string, string, string) (io.WriteCloser, error)
-	onArtifactFunc      func(context.Context, string, domain.Artifact, string, string) (string, error)
+	onArtifactFunc      func(context.Context, string, reference.Artifact, string, string) (string, error)
 	onFinalArtifactFunc func(context.Context) (string, error)
 )
 
@@ -179,7 +179,7 @@ func (s *solver) newSolveOptMulti(
 					srcPath := md["src-path"]
 					destPath := md["dest-path"]
 
-					artifact, err := domain.ParseArtifact(artifactStr)
+					artifact, err := reference.ParseArtifact(artifactStr)
 					if err != nil {
 						return "", fmt.Errorf("parse artifact %s: %w", artifactStr, err)
 					}

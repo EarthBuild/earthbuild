@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +20,7 @@ func TestHashTargetWithDocker(t *testing.T) {
 
 	r := require.New(t)
 	//nolint:goconst
-	target := domain.Target{
+	target := reference.Reference{
 		LocalPath: "./testdata/with-docker",
 		Target:    "with-docker-load",
 	}
@@ -45,7 +45,7 @@ func TestHashTargetWithDocker(t *testing.T) {
 	err = replaceInFile(tmpFile, "saved:latest", "other:latest")
 	r.NoError(err)
 
-	target = domain.Target{
+	target = reference.Reference{
 		LocalPath: tmpDir,
 		Target:    "with-docker-load",
 	}
@@ -112,7 +112,7 @@ func TestHashTargetWithDockerNoAlias(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
-	target := domain.Target{
+	target := reference.Reference{
 		LocalPath: "./testdata/with-docker",
 		Target:    "with-docker-load-no-alias",
 	}
@@ -132,7 +132,7 @@ func TestHashTargetWithDockerRemote(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
-	target := domain.Target{
+	target := reference.Reference{
 		LocalPath: "./testdata/with-docker",
 		Target:    "with-docker-load-remote",
 	}
@@ -151,7 +151,7 @@ func TestHashTargetNoCache(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
-	target := domain.Target{
+	target := reference.Reference{
 		LocalPath: "./testdata/target-cache",
 		Target:    "no-cache-hits",
 	}
@@ -174,7 +174,7 @@ func TestHashTargetCache(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
-	target := domain.Target{
+	target := reference.Reference{
 		LocalPath: "./testdata/target-cache",
 		Target:    "cache-hits",
 	}

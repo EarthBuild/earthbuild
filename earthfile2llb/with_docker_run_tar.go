@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/dockertar"
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -280,7 +280,7 @@ func (w *withDockerRunTar) pull(ctx context.Context, opt DockerPullOpt) (chan st
 func (w *withDockerRunTar) load(ctx context.Context, opt DockerLoadOpt) (chan DockerLoadOpt, error) {
 	optPromise := make(chan DockerLoadOpt, 1)
 
-	depTarget, err := domain.ParseTarget(opt.Target)
+	depTarget, err := reference.ParseTarget(opt.Target)
 	if err != nil {
 		return nil, fmt.Errorf("parse target %s: %w", opt.Target, err)
 	}

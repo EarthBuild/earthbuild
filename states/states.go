@@ -9,7 +9,7 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/states/dedup"
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
@@ -38,7 +38,7 @@ type CacheMount struct {
 }
 
 // FinalTarget returns the final target of the states.
-func (mts *MultiTarget) FinalTarget() domain.Target {
+func (mts *MultiTarget) FinalTarget() reference.Reference {
 	return mts.Final.Target
 }
 
@@ -65,7 +65,7 @@ type WaitBlock interface {
 type SingleTarget struct {
 	MainState              pllb.State
 	ArtifactsState         pllb.State
-	Target                 domain.Target
+	Target                 reference.Reference
 	targetInput            dedup.TargetInput
 	SaveLocals             []SaveLocal
 	SeparateArtifactsState []pllb.State
@@ -84,7 +84,7 @@ type SingleTarget struct {
 	doneCh chan struct{}
 	// dependentIDs are the sts IDs of the transitive dependants of this target.
 	dependentIDs       map[string]bool
-	GlobalImports      map[string]domain.ImportTrackerVal
+	GlobalImports      map[string]reference.ImportTrackerVal
 	MainImage          *image.Image
 	PlatformResolver   *platutil.Resolver
 	VarCollection      *variables.Collection
@@ -111,7 +111,7 @@ type SingleTarget struct {
 
 func newSingleTarget(
 	ctx context.Context,
-	target domain.Target,
+	target reference.Reference,
 	platr *platutil.Resolver,
 	allowPrivileged bool,
 	overridingVars *variables.Scope,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
@@ -145,7 +145,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (chan *states.ImageDef, error) {
 	imageDefChan := make(chan *states.ImageDef, 1)
 
-	depTarget, err := domain.ParseTarget(opt.Target)
+	depTarget, err := reference.ParseTarget(opt.Target)
 	if err != nil {
 		return nil, fmt.Errorf("parse target %s: %w", opt.Target, err)
 	}

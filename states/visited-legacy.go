@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/states/dedup"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -38,7 +38,7 @@ func (vc *legacyVisitedCollection) All() []*SingleTarget {
 // either the previously visited one or a brand new one.
 func (vc *legacyVisitedCollection) Add(
 	ctx context.Context,
-	target domain.Target,
+	target reference.Reference,
 	platr *platutil.Resolver,
 	allowPrivileged bool,
 	overridingVars *variables.Scope,
@@ -101,7 +101,7 @@ func (vc *legacyVisitedCollection) Add(
 // target, allowing for comparisons across the board while the lock is held.
 func (vc *legacyVisitedCollection) waitAllDoneAndLock(
 	ctx context.Context,
-	target domain.Target,
+	target reference.Reference,
 	parentDepSub chan string,
 ) (map[string]bool, error) {
 	// Build up dependents from parentDepSub. The list needs to be complete when returning
@@ -153,7 +153,7 @@ func (vc *legacyVisitedCollection) waitAllDoneAndLock(
 
 // compareTargetInputs compares two targets and their inputs to check if they are the same.
 func compareTargetInputs(
-	target domain.Target,
+	target reference.Reference,
 	platr *platutil.Resolver,
 	allowPrivileged bool,
 	overridingVars *variables.Scope,

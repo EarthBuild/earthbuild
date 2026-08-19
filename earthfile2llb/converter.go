@@ -23,11 +23,11 @@ import (
 	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
@@ -51,7 +51,7 @@ import (
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
+	distref "github.com/distribution/reference"
 	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
@@ -114,7 +114,7 @@ type Converter struct {
 	waitBlockStack      []*waitBlock
 	directDeps          []*states.SingleTarget
 	localWorkingDir     string
-	target              domain.Target
+	target              reference.Reference
 	opt                 ConvertOpt
 	nextCmdID           int
 	cmdSet              bool
@@ -123,7 +123,7 @@ type Converter struct {
 
 // NewConverter constructs a new converter for a given earth target.
 func NewConverter(
-	target domain.Target, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt,
+	target reference.Reference, bc *buildcontext.Data, sts *states.SingleTarget, opt ConvertOpt,
 ) (*Converter, error) {
 	opt.BuildContextProvider.AddDirs(bc.LocalDirs)
 	sts.HasDangling = opt.HasDangling
@@ -279,7 +279,7 @@ func (c *Converter) fromTarget(
 		cmd.SetEndError(retErr)
 	}()
 
-	depTarget, err := domain.ParseTarget(targetName)
+	depTarget, err := reference.ParseTarget(targetName)
 	if err != nil {
 		return fmt.Errorf("parse target name %s: %w", targetName, err)
 	}
@@ -294,7 +294,7 @@ func (c *Converter) fromTarget(
 		return errors.New("cannot FROM a target ending with an --interactive")
 	}
 
-	if depTarget.IsLocalInternal() {
+	if depTarget.Kind() == reference.KindLocalInternal {
 		depTarget.LocalPath = c.mts.Final.Target.LocalPath
 	}
 
@@ -355,7 +355,7 @@ func (c *Converter) FromDockerfile(
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if dfPath != "" {
-		dfArtifact, parseErr := domain.ParseArtifact(dfPath)
+		dfArtifact, parseErr := reference.ParseArtifact(dfPath)
 		if parseErr == nil {
 			// The Dockerfile is from a target's artifact.
 			var mts *states.MultiTarget
@@ -375,11 +375,11 @@ func (c *Converter) FromDockerfile(
 		} else {
 			// The Dockerfile is from the host.
 			var (
-				dockerfileMetaTarget = domain.Target{
+				dockerfileMetaTarget = reference.Reference{
 					Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, path.Base(dfPath)),
 					LocalPath: path.Dir(dfPath),
 				}
-				dockerfileMetaTargetRef domain.Reference
+				dockerfileMetaTargetRef reference.Reference
 			)
 
 			dockerfileMetaTargetRef, err = c.joinRefs(dockerfileMetaTarget)
@@ -387,12 +387,7 @@ func (c *Converter) FromDockerfile(
 				return fmt.Errorf("join targets: %w", err)
 			}
 
-			var ok bool
-
-			dockerfileMetaTarget, ok = dockerfileMetaTargetRef.(domain.Target)
-			if !ok {
-				return fmt.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
-			}
+			dockerfileMetaTarget = dockerfileMetaTargetRef
 
 			var data *buildcontext.Data
 
@@ -412,7 +407,7 @@ func (c *Converter) FromDockerfile(
 
 	var BuildContextFactory llbfactory.Factory
 
-	contextArtifact, parseErr := domain.ParseArtifact(contextPath)
+	contextArtifact, parseErr := reference.ParseArtifact(contextPath)
 	//nolint:nestif // TODO(jhorsts): simplify
 	if parseErr == nil {
 		var prefix string
@@ -470,24 +465,19 @@ func (c *Converter) FromDockerfile(
 			contextPath = "./" + contextPath
 		}
 
-		dockerfileMetaTarget := domain.Target{
+		dockerfileMetaTarget := reference.Reference{
 			Target:    fmt.Sprintf("%s%s", buildcontext.DockerfileMetaTarget, stringutil.StrOrDefault(dfPath, "Dockerfile")),
 			LocalPath: path.Join(contextPath),
 		}
 
-		var dockerfileMetaTargetRef domain.Reference
+		var dockerfileMetaTargetRef reference.Reference
 
 		dockerfileMetaTargetRef, err = c.joinRefs(dockerfileMetaTarget)
 		if err != nil {
 			return fmt.Errorf("join targets: %w", err)
 		}
 
-		var ok bool
-
-		dockerfileMetaTarget, ok = dockerfileMetaTargetRef.(domain.Target)
-		if !ok {
-			return fmt.Errorf("want domain.Target, got %T", dockerfileMetaTargetRef)
-		}
+		dockerfileMetaTarget = dockerfileMetaTargetRef
 
 		var data *buildcontext.Data
 
@@ -612,7 +602,7 @@ func (c *Converter) CopyArtifactLocal(
 
 	c.nonSaveCommand()
 
-	artifact, err := domain.ParseArtifact(artifactName)
+	artifact, err := reference.ParseArtifact(artifactName)
 	if err != nil {
 		return fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
@@ -629,7 +619,7 @@ func (c *Converter) CopyArtifactLocal(
 		return fmt.Errorf("apply build %s: %w", artifact.Target.String(), err)
 	}
 
-	if artifact.Target.IsLocalInternal() {
+	if artifact.Target.Kind() == reference.KindLocalInternal {
 		artifact.Target.LocalPath = c.mts.Final.Target.LocalPath
 	}
 	// Grab the artifacts state in the dep states, after we've built it.
@@ -688,7 +678,7 @@ func (c *Converter) CopyArtifact(
 
 	c.nonSaveCommand()
 
-	artifact, err := domain.ParseArtifact(artifactName)
+	artifact, err := reference.ParseArtifact(artifactName)
 	if err != nil {
 		return fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
@@ -705,7 +695,7 @@ func (c *Converter) CopyArtifact(
 		return fmt.Errorf("apply build %s: %w", artifact.Target.String(), err)
 	}
 
-	if artifact.Target.IsLocalInternal() {
+	if artifact.Target.Kind() == reference.KindLocalInternal {
 		artifact.Target.LocalPath = c.mts.Final.Target.LocalPath
 	}
 	// Grab the artifacts state in the dep states, after we've built it.
@@ -1084,7 +1074,7 @@ func (c *Converter) SaveArtifact(
 		artifactPath = path.Join(saveToAdjusted, saveToF)
 	}
 
-	artifact := domain.Artifact{
+	artifact := reference.Artifact{
 		Target:   c.mts.Final.Target,
 		Artifact: artifactPath,
 	}
@@ -2107,14 +2097,16 @@ func (c *Converter) ExpandWildcardCmds(
 
 // ExpandWildcardArtifacts expands a glob expression in the specified artifact's target and returns copies(clones) of
 // the artifact for each match of the expression.
-func (c *Converter) ExpandWildcardArtifacts(ctx context.Context, artifact domain.Artifact) ([]domain.Artifact, error) {
+func (c *Converter) ExpandWildcardArtifacts(
+	ctx context.Context, artifact reference.Artifact,
+) ([]reference.Artifact, error) {
 	targets, err := c.expandWildcardTargets(ctx, artifact.Target.String())
 	if err != nil {
 		return nil, err
 	}
 
-	return clonesWithExpandedTargets(targets, artifact, func(artifact *domain.Artifact, expandedTarget string) error {
-		artifact.Target, err = domain.ParseTarget(expandedTarget)
+	return clonesWithExpandedTargets(targets, artifact, func(artifact *reference.Artifact, expandedTarget string) error {
+		artifact.Target, err = reference.ParseTarget(expandedTarget)
 		return err
 	})
 }
@@ -2122,7 +2114,7 @@ func (c *Converter) ExpandWildcardArtifacts(ctx context.Context, artifact domain
 // ResolveReference resolves a reference's build context given the current state: relativity
 // to the Earthfile, imports etc.
 func (c *Converter) ResolveReference(
-	ctx context.Context, ref domain.Reference,
+	ctx context.Context, ref reference.Reference,
 ) (bc *buildcontext.Data, allowPrivileged, allowPrivilegedSet bool, err error) {
 	derefed, allowPrivileged, allowPrivilegedSet, err := c.varCollection.Imports().Deref(ref)
 	if err != nil {
@@ -2145,8 +2137,8 @@ func (c *Converter) ResolveReference(
 // EnterScopeDo introduces a new variable scope. Globals and imports are fetched from baseTarget.
 func (c *Converter) EnterScopeDo(
 	ctx context.Context,
-	command domain.Command,
-	baseTarget domain.Target,
+	command reference.Reference,
+	baseTarget reference.Reference,
 	allowPrivileged, passArgs bool,
 	scopeName string,
 	buildArgs []string,
@@ -2301,32 +2293,28 @@ func (c *Converter) ExpandArgs(
 
 func (c *Converter) absolutizeTarget(
 	fullTargetName string, allowPrivileged bool,
-) (domain.Target, domain.Target, bool, error) {
-	relTarget, err := domain.ParseTarget(fullTargetName)
+) (reference.Reference, reference.Reference, bool, error) {
+	relTarget, err := reference.ParseTarget(fullTargetName)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, fmt.Errorf("earth target parse %s: %w", fullTargetName, err)
+		return reference.Reference{}, reference.Reference{}, false,
+			fmt.Errorf("earth target parse %s: %w", fullTargetName, err)
 	}
 
 	derefedTarget, allowPrivilegedImport, isImport, err := c.varCollection.Imports().Deref(relTarget)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, err
+		return reference.Reference{}, reference.Reference{}, false, err
 	}
 
 	if isImport {
 		allowPrivileged = allowPrivileged && allowPrivilegedImport
 	}
 
-	targetRef, err := c.joinRefs(derefedTarget)
+	ref, err := c.joinRefs(derefedTarget)
 	if err != nil {
-		return domain.Target{}, domain.Target{}, false, fmt.Errorf("join targets: %w", err)
+		return reference.Reference{}, reference.Reference{}, false, fmt.Errorf("join targets: %w", err)
 	}
 
-	target, ok := targetRef.(domain.Target)
-	if !ok {
-		return domain.Target{}, domain.Target{}, false, fmt.Errorf("want domain.Target, got %T", targetRef)
-	}
-
-	return target, relTarget, allowPrivileged, nil
+	return ref, relTarget, allowPrivileged, nil
 }
 
 func (c *Converter) checkAutoSkip(
@@ -2394,7 +2382,7 @@ func (c *Converter) checkAutoSkip(
 }
 
 func (c *Converter) prepOverridingVars(
-	ctx context.Context, relTarget domain.Target, passArgs bool, buildArgs []string,
+	ctx context.Context, relTarget reference.Reference, passArgs bool, buildArgs []string,
 ) (*variables.Scope, bool, error) {
 	var buildArgFunc variables.ProcessNonConstantVariableFunc
 	if !c.opt.Features.ShellOutAnywhere {
@@ -2407,7 +2395,7 @@ func (c *Converter) prepOverridingVars(
 	}
 
 	// Don't allow transitive overriding variables to cross project boundaries (unless --pass-args is used).
-	propagateBuildArgs := !relTarget.IsExternal()
+	propagateBuildArgs := relTarget.Kind() == reference.KindLocalInternal
 	if passArgs {
 		overriding = variables.
 			CombineScopes(overriding, c.varCollection.Overriding(), c.varCollection.Args(), c.varCollection.Globals())
@@ -2429,15 +2417,15 @@ func (c *Converter) prepBuildTarget(
 	cmdT cmdType,
 	parentCmdID string,
 	onExecutionSuccess func(context.Context),
-) (domain.Target, ConvertOpt, bool, error) {
+) (reference.Reference, ConvertOpt, bool, error) {
 	target, relTarget, allowPrivileged, err := c.absolutizeTarget(fullTargetName, allowPrivileged)
 	if err != nil {
-		return domain.Target{}, ConvertOpt{}, false, err
+		return reference.Reference{}, ConvertOpt{}, false, err
 	}
 
 	overriding, propagateBuildArgs, err := c.prepOverridingVars(ctx, relTarget, passArgs, buildArgs)
 	if err != nil {
-		return domain.Target{}, ConvertOpt{}, false, err
+		return reference.Reference{}, ConvertOpt{}, false, err
 	}
 
 	// Recursion.
@@ -2467,8 +2455,9 @@ func (c *Converter) prepBuildTarget(
 		opt.DoPushes = (cmdT == buildCmd && c.opt.DoPushes)
 		opt.ForceSaveImage = false
 	} else {
-		opt.DoSaves = c.opt.DoSaves && !target.IsRemote()   // legacy mode only saves artifacts from local targets
-		opt.DoPushes = c.opt.DoPushes && !target.IsRemote() // legacy mode only saves artifacts from local targets
+		// legacy mode only saves artifacts from local targets
+		opt.DoSaves = c.opt.DoSaves && target.Kind() != reference.KindRemote
+		opt.DoPushes = c.opt.DoPushes && target.Kind() != reference.KindRemote
 	}
 
 	return target, opt, propagateBuildArgs, nil
@@ -3063,7 +3052,7 @@ func (c *Converter) forceExecution(ctx context.Context, state pllb.State, platr 
 }
 
 func (c *Converter) readArtifact(
-	ctx context.Context, mts *states.MultiTarget, artifact domain.Artifact,
+	ctx context.Context, mts *states.MultiTarget, artifact reference.Artifact,
 ) ([]byte, error) {
 	if mts.Final.ArtifactsState.Output() == nil {
 		// ArtifactsState is scratch - no artifact has been copied.
@@ -3104,12 +3093,12 @@ func (c *Converter) internalFromClassical(
 		return pllb.Scratch().Platform(llbPlatform), img, nil, nil
 	}
 
-	sourceRef, err := reference.ParseNormalizedNamed(imageName)
+	sourceRef, err := distref.ParseNormalizedNamed(imageName)
 	if err != nil {
 		return pllb.State{}, nil, nil, fmt.Errorf("parse normalized named %s: %w", imageName, err)
 	}
 
-	baseImageName := reference.TagNameOnly(sourceRef).String()
+	baseImageName := distref.TagNameOnly(sourceRef).String()
 	logName := fmt.Sprintf(
 		"%sLoad metadata %s %s",
 		c.imageVertexPrefix(imageName, platform), imageName, platforms.Format(llbPlatform),
@@ -3127,7 +3116,7 @@ func (c *Converter) internalFromClassical(
 		return pllb.State{}, nil, nil, fmt.Errorf("resolve image config for %s: %w", imageName, err)
 	}
 
-	sourceRef, err = reference.ParseNormalizedNamed(ref)
+	sourceRef, err = distref.ParseNormalizedNamed(ref)
 	if err != nil {
 		return pllb.State{}, nil, nil, fmt.Errorf("parse normalized named %s: %w", ref, err)
 	}
@@ -3140,7 +3129,7 @@ func (c *Converter) internalFromClassical(
 	}
 
 	if dgst != "" {
-		sourceRef, err = reference.WithDigest(sourceRef, dgst)
+		sourceRef, err = distref.WithDigest(sourceRef, dgst)
 		if err != nil {
 			return pllb.State{}, nil, nil, fmt.Errorf("reference add digest %v for %s: %w", dgst, imageName, err)
 		}
@@ -3396,8 +3385,8 @@ func (c *Converter) setPlatform(platform platutil.Platform) platutil.Platform {
 	return newPlatform
 }
 
-func (c *Converter) joinRefs(relRef domain.Reference) (domain.Reference, error) {
-	return domain.JoinReferences(c.varCollection.AbsRef(), relRef)
+func (c *Converter) joinRefs(relRef reference.Reference) (reference.Reference, error) {
+	return reference.JoinReferences(c.varCollection.AbsRef(), relRef)
 }
 
 func (c *Converter) checkAllowed(command cmdType) error {
@@ -3481,7 +3470,7 @@ func (c *Converter) newCmdID() int {
 }
 
 func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName string) ([]string, error) {
-	parsedTarget, err := domain.ParseTarget(fullTargetName)
+	parsedTarget, err := reference.ParseTarget(fullTargetName)
 	if err != nil {
 		return nil, err
 	}
@@ -3497,9 +3486,9 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 
 	targets := make([]string, 0, len(matches))
 	for _, match := range matches {
-		childTargetName := fmt.Sprintf("./%s+%s", match, parsedTarget.GetName())
+		childTargetName := fmt.Sprintf("./%s+%s", match, parsedTarget.Name())
 
-		childTarget, err := domain.ParseTarget(childTargetName)
+		childTarget, err := reference.ParseTarget(childTargetName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse target %q: %w", childTargetName, err)
 		}
@@ -3516,7 +3505,7 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 		var found bool
 
 		for _, target := range data.Earthfile.Targets {
-			if target.Name == childTarget.GetName() {
+			if target.Name == childTarget.Name() {
 				found = true
 				break
 			}
@@ -3530,7 +3519,7 @@ func (c *Converter) expandWildcardTargets(ctx context.Context, fullTargetName st
 	}
 
 	if len(targets) == 0 {
-		return nil, fmt.Errorf("no matching targets found for pattern %q", parsedTarget.GetLocalPath())
+		return nil, fmt.Errorf("no matching targets found for pattern %q", parsedTarget.LocalPath)
 	}
 
 	return targets, nil

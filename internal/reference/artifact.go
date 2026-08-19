@@ -1,4 +1,4 @@
-package domain
+package reference
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 
 // Artifact is an earth artifact identifier.
 type Artifact struct {
-	Target   Target
 	Artifact string
+	Target   Reference
 }
 
 // Clone returns a copy of the Artifact.

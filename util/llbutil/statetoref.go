@@ -10,7 +10,7 @@ import (
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
-// StateToRef takes an LLB state, solves it using gateway and returns the ref.
+// StateToRef takes an LLB state, solves it using gateway and returns the reference.
 func StateToRef(
 	ctx context.Context,
 	gwClient gwclient.Client,

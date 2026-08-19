@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -24,7 +24,7 @@ type DefaultArgs struct {
 
 // BuiltinArgs returns a scope containing the builtin args.
 func BuiltinArgs(
-	target domain.Target,
+	target reference.Reference,
 	platr *platutil.Resolver,
 	gitMeta *gitutil.GitMetadata,
 	defaultArgs DefaultArgs,
@@ -210,7 +210,7 @@ func getProjectName(s string) string {
 	return s
 }
 
-func setTargetTag(ret *Scope, target domain.Target, gitMeta *gitutil.GitMetadata) {
+func setTargetTag(ret *Scope, target reference.Reference, gitMeta *gitutil.GitMetadata) {
 	// We prefer branch for these tags if the build is triggered from an action on a branch (pr / push)
 	// https://github.com/earthly/cloud-issues/issues/11#issuecomment-1467308267
 	if gitMeta != nil && gitMeta.BranchOverrideTagArg && len(gitMeta.Branch) > 0 {

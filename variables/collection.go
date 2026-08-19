@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -33,9 +33,7 @@ var ShellOutEnvs = map[string]struct{}{
 }
 
 type stackFrame struct {
-	// absRef is the ref any other ref in this frame would be relative to.
-	absRef  domain.Reference
-	imports *domain.ImportTracker
+	imports *reference.ImportTracker
 	// Always inactive scopes. These scopes only influence newly declared
 	// args. They do not otherwise participate when args are expanded.
 	overriding *Scope
@@ -46,6 +44,9 @@ type stackFrame struct {
 	// and will always be active, and even override the overriding scopes.
 	vars      *Scope
 	frameName string
+
+	// absRef is the ref any other ref in this frame would be relative to.
+	absRef reference.Reference
 }
 
 // Collection is a collection of variable scopes used within a single target.
@@ -71,9 +72,9 @@ type NewCollectionOpt struct {
 	OverridingVars   *Scope
 	AssignedVars     *Scope
 	Features         *features.Features
-	GlobalImports    map[string]domain.ImportTrackerVal
+	GlobalImports    map[string]reference.ImportTrackerVal
 	NativePlatform   specs.Platform
-	Target           domain.Target
+	Target           reference.Reference
 	BuiltinArgs      DefaultArgs
 	Console          conslogging.ConsoleLogger
 	Push             bool
@@ -99,7 +100,7 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 		stack: []*stackFrame{{
 			frameName:  target.StringCanonical(),
 			absRef:     target,
-			imports:    domain.NewImportTracker(console, opts.GlobalImports),
+			imports:    reference.NewImportTracker(console, opts.GlobalImports),
 			overriding: opts.OverridingVars,
 			args:       NewScope(),
 			globals:    NewScope(),
@@ -445,22 +446,22 @@ func (c *Collection) UpdateVar(name, value string, pncvf ProcessNonConstantVaria
 }
 
 // Imports returns the imports tracker of the current frame.
-func (c *Collection) Imports() *domain.ImportTracker {
+func (c *Collection) Imports() *reference.ImportTracker {
 	return c.frame().imports
 }
 
 // EnterFrame creates a new stack frame.
 func (c *Collection) EnterFrame(
 	frameName string,
-	absRef domain.Reference,
+	absRef reference.Reference,
 	overriding *Scope,
 	globals *Scope,
-	globalImports map[string]domain.ImportTrackerVal,
+	globalImports map[string]reference.ImportTrackerVal,
 ) {
 	c.stack = append(c.stack, &stackFrame{
 		frameName:  frameName,
 		absRef:     absRef,
-		imports:    domain.NewImportTracker(c.console, globalImports),
+		imports:    reference.NewImportTracker(c.console, globalImports),
 		overriding: overriding,
 		globals:    globals,
 		vars:       NewScope(),
@@ -480,7 +481,7 @@ func (c *Collection) ExitFrame() {
 }
 
 // AbsRef returns a ref that any other reference should be relative to as part of the stack frame.
-func (c *Collection) AbsRef() domain.Reference {
+func (c *Collection) AbsRef() reference.Reference {
 	return c.frame().absRef
 }
 

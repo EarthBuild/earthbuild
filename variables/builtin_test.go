@@ -3,8 +3,8 @@ package variables
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	arg "github.com/EarthBuild/earthbuild/variables/reserved"
 )
@@ -88,7 +88,7 @@ func TestBuiltinArgsContentHash(t *testing.T) {
 		ContentHash: "deadbeef01234567890abcdef01234567890abcd",
 	}
 
-	scope := BuiltinArgs(domain.Target{Target: "test"}, nil, gitMeta, DefaultArgs{}, ftrs, false, false)
+	scope := BuiltinArgs(reference.Reference{Target: "test"}, nil, gitMeta, DefaultArgs{}, ftrs, false, false)
 
 	val, found := scope.Get(arg.EarthGitContentHash)
 	Equal(t, true, found)
@@ -100,7 +100,7 @@ func TestBuiltinArgsContentHashNilGitMeta(t *testing.T) {
 
 	ftrs := &features.Features{}
 
-	scope := BuiltinArgs(domain.Target{Target: "test"}, nil, nil, DefaultArgs{}, ftrs, false, false)
+	scope := BuiltinArgs(reference.Reference{Target: "test"}, nil, nil, DefaultArgs{}, ftrs, false, false)
 
 	_, found := scope.Get(arg.EarthGitContentHash)
 	Equal(t, false, found)

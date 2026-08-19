@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/files"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 )
 
@@ -22,7 +22,7 @@ func SaveArtifactLocally(
 	ctx context.Context,
 	exportCoordinator *gatewaycrafter.ExportCoordinator,
 	console conslogging.ConsoleLogger,
-	artifact domain.Artifact,
+	artifact reference.Artifact,
 	indexOutDir, destPath, salt string,
 	ifExists bool,
 ) error {
@@ -33,7 +33,7 @@ func SaveArtifactLocally(
 	fromGlobMatches, err := filepath.Glob(fromPattern)
 	if err != nil {
 		return fmt.Errorf("glob: %w", err)
-	} else if !artifact.Target.IsRemote() && len(fromGlobMatches) == 0 {
+	} else if artifact.Target.Kind() != reference.KindRemote && len(fromGlobMatches) == 0 {
 		if ifExists {
 			return nil
 		}
@@ -53,7 +53,7 @@ func SaveArtifactLocally(
 		to := destPath
 
 		destIsDir := strings.HasSuffix(to, "/") || to == "."
-		if artifact.Target.IsLocalExternal() && !filepath.IsAbs(to) {
+		if artifact.Target.Kind() == reference.KindLocalExternal && !filepath.IsAbs(to) {
 			// Place within external dir.
 			to = path.Join(artifact.Target.LocalPath, to)
 		}
@@ -113,7 +113,7 @@ func SaveArtifactLocally(
 
 		// Add summary data about this artifact (to be output to console in summary phase).
 		artifactPath := trimFilePathPrefix(indexOutDir, from, console)
-		artifact2 := domain.Artifact{
+		artifact2 := reference.Artifact{
 			Target:   artifact.Target,
 			Artifact: artifactPath,
 		}

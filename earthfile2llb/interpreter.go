@@ -15,9 +15,9 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -40,7 +40,7 @@ var defaultZeroStringFlag = uuid.NewString()
 
 // Interpreter interprets earth AST's into calls to the converter.
 type Interpreter struct {
-	target               domain.Target
+	target               reference.Reference
 	interactiveSaveFiles []debuggercommon.SaveFilesSettings
 	converter            *Converter
 	gitLookup            *buildcontext.GitLookup
@@ -57,7 +57,7 @@ type Interpreter struct {
 
 func newInterpreter(
 	c *Converter,
-	t domain.Target,
+	t reference.Reference,
 	allowPrivileged, parallelConversion bool,
 	console conslogging.ConsoleLogger,
 	gitLookup *buildcontext.GitLookup,
@@ -178,9 +178,9 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block
 
 func (i *Interpreter) handleStatement(ctx context.Context, stmt earthfile.Statement) error {
 	sl := stmt.SourceLocation
-	if sl != nil && i.target.SourcePath != "" {
+	if sl != nil && i.target.Kind() == reference.KindDockerfile {
 		copySl := *sl
-		copySl.File = i.target.SourcePath
+		copySl.File = i.target.LocalPath
 		sl = &copySl
 	}
 
@@ -713,7 +713,7 @@ func (i *Interpreter) getAllowPrivilegedTarget(targetName string, allowPrivilege
 		return false, nil
 	}
 
-	depTarget, err := domain.ParseTarget(targetName)
+	depTarget, err := reference.ParseTarget(targetName)
 	if err != nil {
 		return false, fmt.Errorf("parse target name %s: %w", targetName, err)
 	}
@@ -721,8 +721,8 @@ func (i *Interpreter) getAllowPrivilegedTarget(targetName string, allowPrivilege
 	return i.getAllowPrivileged(depTarget, allowPrivileged)
 }
 
-func (i *Interpreter) getAllowPrivileged(depTarget domain.Target, allowPrivileged bool) (bool, error) {
-	if depTarget.IsRemote() {
+func (i *Interpreter) getAllowPrivileged(depTarget reference.Reference, allowPrivileged bool) (bool, error) {
+	if depTarget.Kind() == reference.KindRemote {
 		return i.allowPrivileged && allowPrivileged, nil
 	}
 
@@ -734,7 +734,7 @@ func (i *Interpreter) getAllowPrivileged(depTarget domain.Target, allowPrivilege
 }
 
 func (i *Interpreter) getAllowPrivilegedArtifact(artifactName string, allowPrivileged bool) (bool, error) {
-	artifact, err := domain.ParseArtifact(artifactName)
+	artifact, err := reference.ParseArtifact(artifactName)
 	if err != nil {
 		return false, fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
@@ -980,7 +980,7 @@ func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd earthfile.Co
 		return i.errorf(cmd.SourceLocation, "failed to expand FROM DOCKERFILE path arg %s", args[0])
 	}
 
-	_, parseErr := domain.ParseArtifact(path)
+	_, parseErr := reference.ParseArtifact(path)
 	if parseErr != nil {
 		// Treat as context path, not artifact path.
 		path, err = i.expandArgs(ctx, args[0], false, false)
@@ -1077,7 +1077,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 	}
 
 	srcs := args[:len(args)-1]
-	srcArtifacts := make([]domain.Artifact, len(srcs))
+	srcArtifacts := make([]reference.Artifact, len(srcs))
 	srcFlagArgs := make([][]string, len(srcs))
 
 	dest, err := i.expandArgs(ctx, args[len(args)-1], false, false)
@@ -1131,7 +1131,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 
 	for index, src := range srcs {
 		var (
-			artifactSrc domain.Artifact
+			artifactSrc reference.Artifact
 			parseErr    error
 		)
 
@@ -1152,7 +1152,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 				return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY artifact %s", artifactStr)
 			}
 
-			artifactSrc, parseErr = domain.ParseArtifact(expandedArtifact)
+			artifactSrc, parseErr = reference.ParseArtifact(expandedArtifact)
 			if parseErr != nil {
 				// Must parse in the params case.
 				return i.wrapError(err, cmd.SourceLocation, "parse artifact")
@@ -1165,7 +1165,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 				return i.wrapError(err, cmd.SourceLocation, "failed to expand COPY src %s", src)
 			}
 
-			artifactSrc, parseErr = domain.ParseArtifact(expandedSrc)
+			artifactSrc, parseErr = reference.ParseArtifact(expandedSrc)
 		}
 
 		// If it parses as an artifact, treat as artifact.
@@ -1262,7 +1262,7 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 				return i.errorf(cmd.SourceLocation, "wildcard COPY commands are not enabled")
 			}
 
-			var expandedArtifacts []domain.Artifact
+			var expandedArtifacts []reference.Artifact
 
 			expandedArtifacts, err = i.converter.ExpandWildcardArtifacts(ctx, srcArtifacts[index])
 			if err != nil {
@@ -2275,13 +2275,13 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 		return i.wrapError(err, cmd.SourceLocation, "failed to expand user command %v", args[0])
 	}
 
-	relCommand, err := domain.ParseCommand(ucName)
+	relCommand, err := reference.ParseCommand(ucName)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "unable to parse user command reference %s", ucName)
 	}
 
 	allowPrivileged := i.allowPrivileged
-	if relCommand.IsRemote() {
+	if relCommand.Kind() == reference.KindRemote {
 		allowPrivileged = i.allowPrivileged && opts.AllowPrivileged
 	} else if opts.AllowPrivileged {
 		i.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
@@ -2292,10 +2292,7 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 		return i.wrapError(err, cmd.SourceLocation, "unable to resolve user command %s", ucName)
 	}
 
-	command, ok := bc.Ref.(domain.Command)
-	if !ok {
-		return i.errorf(cmd.SourceLocation, "want domain.Command, got %T", bc.Ref)
-	}
+	command := bc.Ref
 
 	if resolvedAllowPrivilegedSet {
 		allowPrivileged = allowPrivileged && resolvedAllowPrivileged
@@ -2477,7 +2474,7 @@ func (i *Interpreter) handleHost(ctx context.Context, cmd earthfile.Command) err
 
 func (i *Interpreter) handleDoFunction(
 	ctx context.Context,
-	command, relCommand domain.Command,
+	command, relCommand reference.Reference,
 	uc earthfile.Function,
 	do earthfile.Command,
 	buildArgs []string,
@@ -2668,12 +2665,12 @@ func isSafeAsyncBuildArgs(args []string) bool {
 	return true
 }
 
-func baseTarget(ref domain.Reference) domain.Target {
-	return domain.Target{
-		GitURL:    ref.GetGitURL(),
-		Tag:       ref.GetTag(),
-		ImportRef: ref.GetImportRef(),
-		LocalPath: ref.GetLocalPath(),
+func baseTarget(ref reference.Reference) reference.Reference {
+	return reference.Reference{
+		GitURL:    ref.GitURL,
+		Tag:       ref.Tag,
+		ImportRef: ref.ImportRef,
+		LocalPath: ref.LocalPath,
 		Target:    earthfile.TargetBase,
 	}
 }

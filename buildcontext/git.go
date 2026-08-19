@@ -12,8 +12,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
@@ -69,9 +69,9 @@ type resolvedGitProject struct {
 }
 
 func (gr *gitResolver) expandWildcard(
-	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target domain.Target, pattern string,
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, target reference.Reference, pattern string,
 ) ([]string, error) {
-	if !target.IsRemote() {
+	if target.Kind() != reference.KindRemote {
 		return nil, fmt.Errorf("unexpected local reference %s", target.String())
 	}
 
@@ -110,10 +110,10 @@ func (gr *gitResolver) resolveEarthProject(
 	ctx context.Context,
 	gwClient gwclient.Client,
 	platr *platutil.Resolver,
-	ref domain.Reference,
+	ref reference.Reference,
 	featureFlagOverrides string,
 ) (*Data, error) {
-	if !ref.IsRemote() {
+	if ref.Kind() != reference.KindRemote {
 		return nil, fmt.Errorf("unexpected local reference %s", ref.String())
 	}
 
@@ -125,7 +125,7 @@ func (gr *gitResolver) resolveEarthProject(
 
 	var buildContextFactory llbfactory.Factory
 
-	if _, isTarget := ref.(domain.Target); isTarget {
+	if ref.IsTarget() {
 		// Restrict the resulting build context to the right subdir.
 		if subDir == "." {
 			// Optimization.
@@ -153,7 +153,7 @@ func (gr *gitResolver) resolveEarthProject(
 
 	key := ref.ProjectCanonical()
 
-	isDockerfile := strings.HasPrefix(ref.GetName(), DockerfileMetaTarget)
+	isDockerfile := strings.HasPrefix(ref.Name(), DockerfileMetaTarget)
 	if isDockerfile {
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.StringCanonical()
@@ -244,9 +244,9 @@ func (gr *gitResolver) resolveEarthProject(
 }
 
 func (gr *gitResolver) resolveGitProject(
-	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
+	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref reference.Reference,
 ) (rgp *resolvedGitProject, gitURL string, subDir string, finalErr error) {
-	gitRef := ref.GetTag()
+	gitRef := ref.Tag
 
 	var (
 		err        error
@@ -254,7 +254,7 @@ func (gr *gitResolver) resolveGitProject(
 		sshCommand string
 	)
 
-	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ctx, ref.GetGitURL())
+	gitURL, subDir, keyScans, sshCommand, err = gr.gitLookup.GetCloneURL(ctx, ref.GitURL)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to get url for cloning: %w", err)
 	}

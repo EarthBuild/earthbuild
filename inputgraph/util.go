@@ -7,15 +7,15 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 )
 
 // ParseProjectCommand parses a project command from arguments.
 func ParseProjectCommand(
-	ctx context.Context, target domain.Target, console conslogging.ConsoleLogger,
+	ctx context.Context, target reference.Reference, console conslogging.ConsoleLogger,
 ) (string, string, error) {
-	if target.IsRemote() {
+	if target.Kind() == reference.KindRemote {
 		return "", "", errCannotLoadRemoteTarget
 	}
 

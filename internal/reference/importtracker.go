@@ -1,4 +1,4 @@
-package domain
+package reference
 
 import (
 	"cmp"
@@ -65,20 +65,22 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 
 	allowPrivileged := currentlyPrivileged
 
-	switch {
-	case parsedImport.IsImportReference():
+	switch parsedImport.Kind() {
+	case KindUnspecified, KindImport, KindUnresolvedImport:
 		return fmt.Errorf("IMPORT %s not supported", importStr)
-	case parsedImport.IsRemote():
-		path = parsedImport.GetGitURL()
+	case KindRemote:
+		path = parsedImport.GitURL
 		allowPrivileged = allowPrivileged && allowPrivilegedFlag
-	case parsedImport.IsLocalExternal():
-		path = parsedImport.GetLocalPath()
+	case KindLocalExternal:
+		path = parsedImport.LocalPath
 
 		if allowPrivilegedFlag {
 			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
 		}
-	default:
-		return fmt.Errorf("IMPORT %s not supported", importStr)
+	case KindLocalInternal, KindDockerfile:
+		if allowPrivilegedFlag {
+			ir.console.Printf("the --allow-privileged flag has no effect when referencing a local target\n")
+		}
 	}
 
 	pathParts := strings.Split(path, "/")
@@ -130,48 +132,37 @@ func (ir *ImportTracker) Add(importStr string, as string, global, currentlyPrivi
 func (ir *ImportTracker) Deref(
 	ref Reference,
 ) (resolvedRef Reference, allowPrivileged, allowPrivilegedSet bool, err error) {
-	if !ref.IsImportReference() {
+	if ref.Kind() != KindImport && ref.Kind() != KindUnresolvedImport {
 		return ref, false, false, nil
 	}
 
-	resolvedImport, ok := ir.local[ref.GetImportRef()]
+	resolvedImport, ok := ir.local[ref.ImportRef]
 	if !ok {
-		resolvedImport, ok = ir.global[ref.GetImportRef()]
+		resolvedImport, ok = ir.global[ref.ImportRef]
 		if !ok {
-			return nil, false, false, fmt.Errorf("import reference %s could not be resolved", ref.GetImportRef())
+			return Reference{}, false, false, fmt.Errorf("import reference %s could not be resolved", ref.ImportRef)
 		}
 	}
 
-	resolvedRefStr := fmt.Sprintf("%s+%s", resolvedImport.fullPath, ref.GetName())
-	switch ref.(type) {
-	case Target:
-		ref2, err := ParseTarget(resolvedRefStr)
-		if err != nil {
-			return nil, false, false, err
-		}
-
-		resolvedRef = Target{
-			GitURL:    ref2.GitURL,
-			Tag:       ref2.Tag,
-			LocalPath: ref2.LocalPath,
-			Target:    ref2.Target,
-			ImportRef: ref.GetImportRef(), // set import ref too
-		}
-	case Command:
+	resolvedRefStr := fmt.Sprintf("%s+%s", resolvedImport.fullPath, ref.Name())
+	if ref.IsCommand() {
 		ref2, err := ParseCommand(resolvedRefStr)
 		if err != nil {
-			return nil, false, false, err
+			return Reference{}, false, false, err
 		}
 
-		resolvedRef = Command{
-			GitURL:    ref2.GitURL,
-			Tag:       ref2.Tag,
-			LocalPath: ref2.LocalPath,
-			Command:   ref2.Command,
-			ImportRef: ref.GetImportRef(), // set import ref too
+		ref2.ImportRef = ref.ImportRef
+		ref2.kind = KindImport
+		resolvedRef = ref2
+	} else {
+		ref2, err := ParseTarget(resolvedRefStr)
+		if err != nil {
+			return Reference{}, false, false, err
 		}
-	default:
-		return nil, false, false, errors.New("ref resolve not supported for this type")
+
+		ref2.ImportRef = ref.ImportRef
+		ref2.kind = KindImport
+		resolvedRef = ref2
 	}
 
 	return resolvedRef, resolvedImport.allowPrivileged, true, nil

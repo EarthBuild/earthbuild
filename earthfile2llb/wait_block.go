@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/states"
@@ -332,10 +332,10 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 }
 
 type saveArtifactLocalEntry struct {
-	artifact    domain.Artifact
 	artifactDir string
 	destPath    string
 	salt        string
+	artifact    reference.Artifact
 	ifExists    bool
 }
 
@@ -372,7 +372,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 			return err
 		}
 
-		artifact := domain.Artifact{
+		artifact := reference.Artifact{
 			Target:   c.target,
 			Artifact: saveLocalItem.saveLocal.ArtifactPath,
 		}

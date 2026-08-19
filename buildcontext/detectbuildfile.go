@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
@@ -23,8 +23,8 @@ func (err EarthfileNotExistError) Error() string {
 }
 
 // detectBuildFile detects whether to use Earthfile, build.earth or Dockerfile.
-func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
-	if after, ok := strings.CutPrefix(ref.GetName(), DockerfileMetaTarget); ok {
+func detectBuildFile(ref reference.Reference, localDir string) (string, error) {
+	if after, ok := strings.CutPrefix(ref.Name(), DockerfileMetaTarget); ok {
 		return filepath.Join(localDir, after), nil
 	}
 
@@ -50,9 +50,9 @@ func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
 }
 
 func detectBuildFileInRef(
-	ctx context.Context, earthRef domain.Reference, ref gwclient.Reference, subDir string,
+	ctx context.Context, earthRef reference.Reference, ref gwclient.Reference, subDir string,
 ) (string, error) {
-	if after, ok := strings.CutPrefix(earthRef.GetName(), DockerfileMetaTarget); ok {
+	if after, ok := strings.CutPrefix(earthRef.Name(), DockerfileMetaTarget); ok {
 		return filepath.Join(subDir, after), nil
 	}
 

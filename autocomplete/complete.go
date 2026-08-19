@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v3"
@@ -135,9 +135,9 @@ func getPotentialPaths(
 			targetToParse += earthfile.TargetBase
 		}
 
-		var target domain.Target
+		var target reference.Reference
 
-		target, err = domain.ParseTarget(targetToParse)
+		target, err = reference.ParseTarget(targetToParse)
 		if err != nil {
 			return nil, err
 		}
@@ -264,7 +264,7 @@ func getPotentialTargets(prefix, dirPath string, replaceHomePrefix func(string) 
 func getPotentialTargetBuildArgs(
 	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, targetStr string,
 ) ([]string, error) {
-	target, err := domain.ParseTarget(targetStr)
+	target, err := reference.ParseTarget(targetStr)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func getPotentialTargetBuildArgs(
 func getPotentialArtifactBuildArgs(
 	ctx context.Context, resolver *buildcontext.Resolver, gwClient gwclient.Client, artifactStr string,
 ) ([]string, error) {
-	artifact, err := domain.ParseArtifact(artifactStr)
+	artifact, err := reference.ParseArtifact(artifactStr)
 	if err != nil {
 		return nil, err
 	}

@@ -11,8 +11,8 @@ import (
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/states"
@@ -80,7 +80,7 @@ type ConvertOpt struct {
 	// this can be removed in VERSION 0.8
 	FilesWithCommandRenameWarning map[string]bool
 	// GlobalImports is a map of imports used to dereference import ref targets, commands, etc.
-	GlobalImports map[string]domain.ImportTrackerVal
+	GlobalImports map[string]reference.ImportTrackerVal
 	// Logbus is the bus used for logging and metadata reporting.
 	Logbus *logbus.Bus
 	// LLBCaps indicates that builder's capabilities
@@ -184,7 +184,7 @@ type ConvertOpt struct {
 
 // Earthfile2LLB parses a earthfile and executes the statements for a given target.
 func Earthfile2LLB(
-	ctx context.Context, target domain.Target, opt ConvertOpt, initialCall bool,
+	ctx context.Context, target reference.Reference, opt ConvertOpt, initialCall bool,
 ) (mts *states.MultiTarget, retErr error) {
 	ctx, span := telemetry.Tracer().Start(ctx, "+"+target.Target)
 	defer span.End()
@@ -250,8 +250,10 @@ func Earthfile2LLB(
 
 	opt.Features = bc.Features
 	if initialCall && !bc.Features.ReferencedSaveOnly {
-		opt.DoSaves = !target.IsRemote() // legacy mode only saves artifacts that are locally referenced
-		opt.ForceSaveImage = true        // legacy mode always saves images regardless of locally or remotely referenced
+		// legacy mode only saves artifacts that are locally referenced
+		opt.DoSaves = target.Kind() != reference.KindRemote
+		// legacy mode always saves images regardless of locally or remotely referenced
+		opt.ForceSaveImage = true
 	}
 
 	opt.PlatformResolver.AllowNativeAndUser = opt.Features.NewPlatform
@@ -260,10 +262,7 @@ func Earthfile2LLB(
 		opt.waitBlock = newWaitBlock()
 	}
 
-	targetWithMetadata, ok := bc.Ref.(domain.Target)
-	if !ok {
-		return nil, fmt.Errorf("want domain.Target, got %T", bc.Ref)
-	}
+	targetWithMetadata := bc.Ref
 
 	sts, found, err := opt.Visited.
 		Add(ctx, targetWithMetadata, opt.PlatformResolver, opt.AllowPrivileged, opt.OverridingVars, opt.parentDepSub)
@@ -279,7 +278,7 @@ func Earthfile2LLB(
 
 	if opt.parentCommandID != "" {
 		if parentCmd, ok := opt.Logbus.Run().Command(opt.parentCommandID); ok {
-			parentCmd.AddDependsOn(sts.ID, target.GetName())
+			parentCmd.AddDependsOn(sts.ID, target.Name())
 		}
 	}
 

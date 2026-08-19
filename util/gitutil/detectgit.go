@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 )
 
 var (
@@ -551,7 +551,7 @@ func gitRelDir(basePath string, path string) (string, bool, error) {
 }
 
 // ReferenceWithGitMeta applies git metadata to the target naming.
-func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Reference {
+func ReferenceWithGitMeta(ref reference.Reference, gitMeta *GitMetadata) reference.Reference {
 	if gitMeta == nil || gitMeta.GitURL == "" {
 		return ref
 	}
@@ -561,11 +561,7 @@ func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Ref
 		gitURL = path.Join(gitURL, gitMeta.RelDir)
 	}
 
-	tag := ref.GetTag()
-	localPath := ref.GetLocalPath()
-	name := ref.GetName()
-	importRef := ref.GetImportRef()
-
+	tag := ref.Tag
 	if tag == "" {
 		switch {
 		case len(gitMeta.Tags) > 0:
@@ -577,24 +573,12 @@ func ReferenceWithGitMeta(ref domain.Reference, gitMeta *GitMetadata) domain.Ref
 		}
 	}
 
-	switch ref.(type) {
-	case domain.Target:
-		return domain.Target{
-			GitURL:    gitURL,
-			Tag:       tag,
-			LocalPath: localPath,
-			ImportRef: importRef,
-			Target:    name,
-		}
-	case domain.Command:
-		return domain.Command{
-			GitURL:    gitURL,
-			Tag:       tag,
-			LocalPath: localPath,
-			ImportRef: importRef,
-			Command:   name,
-		}
-	default:
-		panic("not supported for this type")
+	return reference.Reference{
+		GitURL:    gitURL,
+		Tag:       tag,
+		LocalPath: ref.LocalPath,
+		ImportRef: ref.ImportRef,
+		Target:    ref.Target,
+		Command:   ref.Command,
 	}
 }

@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -135,12 +135,12 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 // parseDocTarget interprets the doc command's optional path argument. An empty
 // path (or no argument) documents every target in the local "+base" Earthfile;
 // a path containing '+' documents that single target. Remote paths are rejected.
-func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err error) {
+func parseDocTarget(tgtPath string) (target reference.Reference, singleTgt bool, err error) {
 	if tgtPath != "" {
 		switch tgtPath[0] {
 		case '.', '/', '+':
 		default:
-			return domain.Target{}, false, errors.New(
+			return reference.Reference{}, false, errors.New(
 				"remote-paths are not currently supported - documentation targets must start with one of ['.', '/', '+']",
 			)
 		}
@@ -153,9 +153,9 @@ func parseDocTarget(tgtPath string) (target domain.Target, singleTgt bool, err e
 		singleTgt = false
 	}
 
-	target, err = domain.ParseTarget(tgtPath)
+	target, err = reference.ParseTarget(tgtPath)
 	if err != nil {
-		return domain.Target{}, false, fmt.Errorf("unable to parse target %q", tgtPath)
+		return reference.Reference{}, false, fmt.Errorf("unable to parse target %q", tgtPath)
 	}
 
 	return target, singleTgt, nil

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
@@ -38,17 +38,17 @@ func (lr *localResolver) resolveLocal(
 	ctx context.Context,
 	gwClient gwclient.Client,
 	platr *platutil.Resolver,
-	ref domain.Reference,
+	ref reference.Reference,
 	featureFlagOverrides string,
 ) (*Data, error) {
-	if ref.IsRemote() {
+	if ref.Kind() == reference.KindRemote {
 		return nil, fmt.Errorf("unexpected remote target %s", ref.String())
 	}
 
 	metadata, err := lr.gitMetaCache.Load(
-		ctx, ref.GetLocalPath(),
+		ctx, ref.LocalPath,
 		func(ctx context.Context) (*gitutil.GitMetadata, error) {
-			meta, err := gitutil.Metadata(ctx, ref.GetLocalPath(), lr.gitBranchOverride)
+			meta, err := gitutil.Metadata(ctx, ref.LocalPath, lr.gitBranchOverride)
 			if err != nil {
 				if errors.Is(err, gitutil.ErrNoGitBinary) ||
 					errors.Is(err, gitutil.ErrNotAGitDir) ||
@@ -75,10 +75,10 @@ func (lr *localResolver) resolveLocal(
 		return nil, err
 	}
 
-	localPath := filepath.FromSlash(ref.GetLocalPath())
+	localPath := filepath.FromSlash(ref.LocalPath)
 	key := localPath
 
-	isDockerfile := strings.HasPrefix(ref.GetName(), DockerfileMetaTarget)
+	isDockerfile := strings.HasPrefix(ref.Name(), DockerfileMetaTarget)
 	if isDockerfile {
 		// Different key for dockerfiles to include the dockerfile name itself.
 		key = ref.String()
@@ -96,7 +96,7 @@ func (lr *localResolver) resolveLocal(
 		if isDockerfile {
 			ftrs = new(features.Features)
 		} else {
-			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.GetLocalPath(), lr.console)
+			ftrs, err = parseFeatures(buildFilePath, featureFlagOverrides, ref.LocalPath, lr.console)
 			if err != nil {
 				return nil, err
 			}
@@ -123,7 +123,7 @@ func (lr *localResolver) resolveLocal(
 
 	// guard against auto-complete code's GetTargetArgs() func which passes in a nil gwClient
 	// (but doesn't actually invoke buildkit)
-	if _, isTarget := ref.(domain.Target); !isTarget {
+	if ref.IsCommand() {
 		return data, nil
 	}
 
@@ -135,16 +135,16 @@ func (lr *localResolver) resolveLocal(
 		useDockerIgnore = useDockerIgnore && ftrs.UseDockerIgnore
 	}
 
-	excludes, err := readExcludes(ref.GetLocalPath(), noImplicitIgnore, useDockerIgnore)
+	excludes, err := readExcludes(ref.LocalPath, noImplicitIgnore, useDockerIgnore)
 	if err != nil {
 		return nil, err
 	}
 
 	data.BuildContextFactory = llbfactory.Local(
-		ref.GetLocalPath(),
+		ref.LocalPath,
 		llb.ExcludePatterns(excludes),
 		llb.Platform(platr.LLBNative()),
-		llb.WithCustomNamef("[context %s] local context %s", ref.GetLocalPath(), ref.GetLocalPath()),
+		llb.WithCustomNamef("[context %s] local context %s", ref.LocalPath, ref.LocalPath),
 	)
 
 	return data, nil

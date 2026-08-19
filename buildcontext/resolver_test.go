@@ -5,9 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/stretchr/testify/require"
-
-	"github.com/EarthBuild/earthbuild/domain"
 )
 
 //nolint:paralleltest
@@ -25,12 +24,12 @@ func TestResolveLocalRootEarthfile(t *testing.T) {
 
 		t.Chdir(subSubDir)
 
-		ref, err := domain.ParseTarget("+foo")
+		ref, err := reference.ParseTarget("+foo")
 		require.NoError(t, err)
 
 		resolved := resolveLocalRootEarthfile(ref)
 
-		require.Equal(t, "../..", resolved.GetLocalPath())
+		require.Equal(t, "../..", resolved.LocalPath)
 	})
 
 	t.Run("finds Earthfile in current directory (.)", func(t *testing.T) {
@@ -41,12 +40,12 @@ func TestResolveLocalRootEarthfile(t *testing.T) {
 
 		t.Chdir(tmpDir)
 
-		ref, err := domain.ParseTarget("+foo")
+		ref, err := reference.ParseTarget("+foo")
 		require.NoError(t, err)
 
 		resolved := resolveLocalRootEarthfile(ref)
 
-		require.Equal(t, ".", resolved.GetLocalPath())
+		require.Equal(t, ".", resolved.LocalPath)
 	})
 
 	t.Run("stops at nearest ancestor Earthfile", func(t *testing.T) {
@@ -65,12 +64,12 @@ func TestResolveLocalRootEarthfile(t *testing.T) {
 
 		t.Chdir(withOwnDir)
 
-		ref, err := domain.ParseTarget("+foo")
+		ref, err := reference.ParseTarget("+foo")
 		require.NoError(t, err)
 
 		resolved := resolveLocalRootEarthfile(ref)
 
-		require.Equal(t, ".", resolved.GetLocalPath())
+		require.Equal(t, ".", resolved.LocalPath)
 	})
 
 	t.Run("returns original reference when no Earthfile exists in ancestors", func(t *testing.T) {
@@ -78,11 +77,11 @@ func TestResolveLocalRootEarthfile(t *testing.T) {
 
 		t.Chdir(tmpDir)
 
-		ref, err := domain.ParseTarget("+foo")
+		ref, err := reference.ParseTarget("+foo")
 		require.NoError(t, err)
 
 		resolved := resolveLocalRootEarthfile(ref)
 
-		require.Equal(t, ".", resolved.GetLocalPath())
+		require.Equal(t, ".", resolved.LocalPath)
 	})
 }

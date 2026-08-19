@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/moby/buildkit/util/sshutil"
 )
@@ -48,7 +48,7 @@ func (run *Run) Generic() *Generic {
 // NewTarget creates a new target printer.
 func (run *Run) NewTarget(
 	targetID string,
-	target domain.Target,
+	target reference.Reference,
 	overrideArgs []string,
 	initialPlatform string,
 	runner string,
@@ -75,10 +75,10 @@ func (run *Run) NewTarget(
 			targetID: {
 				Name:            target.String(), // Includes "+" prefix (e.g., "+target-name").
 				CanonicalName:   target.StringCanonical(),
-				GitUrl:          target.GetGitURL(),
-				LocalPath:       target.GetLocalPath(),
-				Tag:             target.GetTag(),
-				ImportRef:       target.GetImportRef(),
+				GitUrl:          target.GitURL,
+				LocalPath:       target.LocalPath,
+				Tag:             target.Tag,
+				ImportRef:       target.ImportRef,
 				OverrideArgs:    overrideArgs,
 				InitialPlatform: initialPlatform,
 				Runner:          runner,

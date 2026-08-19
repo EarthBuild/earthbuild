@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v3"
 )
@@ -95,7 +95,7 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	)
 
 	// the +base is required to make ParseTarget work; however is ignored by GetTargets
-	target, err := domain.ParseTarget(targetToParse + "+base")
+	target, err := reference.ParseTarget(targetToParse + "+base")
 	if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
 		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	} else if err != nil {

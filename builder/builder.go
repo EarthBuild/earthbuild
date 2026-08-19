@@ -18,8 +18,8 @@ import (
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/reference"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
@@ -106,7 +106,7 @@ type ProjectAdder interface {
 // BuildOpt is a collection of build options.
 type BuildOpt struct {
 	ProjectAdder               ProjectAdder
-	OnlyArtifact               *domain.Artifact
+	OnlyArtifact               *reference.Artifact
 	Logbus                     *logbus.Bus
 	LocalArtifactWhiteList     *gatewaycrafter.LocalArtifactWhiteList
 	PlatformResolver           *platutil.Resolver
@@ -158,7 +158,9 @@ func NewBuilder(opt Opt) (*Builder, error) {
 }
 
 // BuildTarget executes the build of a given earth target.
-func (b *Builder) BuildTarget(ctx context.Context, target domain.Target, opt BuildOpt) (*states.MultiTarget, error) {
+func (b *Builder) BuildTarget(
+	ctx context.Context, target reference.Reference, opt BuildOpt,
+) (*states.MultiTarget, error) {
 	mts, err := b.convertAndBuild(ctx, target, opt)
 	if err != nil {
 		return nil, err
@@ -247,7 +249,7 @@ func useSecondaryProxy() (bool, error) {
 }
 
 func (b *Builder) convertAndBuild(
-	ctx context.Context, target domain.Target, opt BuildOpt,
+	ctx context.Context, target reference.Reference, opt BuildOpt,
 ) (*states.MultiTarget, error) {
 	var (
 		sharedLocalStateCache = earthfile2llb.NewSharedLocalStateCache()
@@ -439,7 +441,7 @@ func (b *Builder) convertAndBuild(
 					doSave
 				shouldPush := opt.Push &&
 					saveImage.Push &&
-					!sts.Target.IsRemote() &&
+					sts.Target.Kind() != reference.KindRemote &&
 					saveImage.DockerTag != "" &&
 					sts.GetDoPushes()
 
@@ -564,7 +566,7 @@ func (b *Builder) convertAndBuild(
 						return nil, err
 					}
 
-					artifact := domain.Artifact{
+					artifact := reference.Artifact{
 						Target:   sts.Target,
 						Artifact: saveLocal.ArtifactPath,
 					}
@@ -658,7 +660,7 @@ func (b *Builder) convertAndBuild(
 
 		return pipeW, nil
 	}
-	onArtifact := func(_ context.Context, index string, _ domain.Artifact, _, destPath string) (string, error) {
+	onArtifact := func(_ context.Context, index string, _ reference.Artifact, _, destPath string) (string, error) {
 		if !opt.LocalArtifactWhiteList.Exists(destPath) {
 			err := fmt.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
 			return "", err
@@ -823,7 +825,11 @@ func (b *Builder) convertAndBuild(
 		for _, sts := range mts.All() {
 			for _, saveImage := range sts.SaveImages {
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
+				shouldPush := opt.Push &&
+					saveImage.Push &&
+					sts.Target.Kind() != reference.KindRemote &&
+					saveImage.DockerTag != "" &&
+					sts.GetDoPushes()
 
 				shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
@@ -834,7 +840,7 @@ func (b *Builder) convertAndBuild(
 					exportCoordinator.AddPushedImageSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID, true)
 				}
 
-				if saveImage.Push && !opt.Push && !sts.Target.IsRemote() {
+				if saveImage.Push && !opt.Push && sts.Target.Kind() != reference.KindRemote {
 					exportCoordinator.AddPushedImageSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID, false)
 				}
 
@@ -856,7 +862,7 @@ func (b *Builder) convertAndBuild(
 					}
 
 					artifactDir := filepath.Join(outDir, "index-"+dirID)
-					artifact := domain.Artifact{
+					artifact := reference.Artifact{
 						Target:   sts.Target,
 						Artifact: saveLocal.ArtifactPath,
 					}
@@ -891,7 +897,7 @@ func (b *Builder) convertAndBuild(
 					}
 
 					artifactDir := filepath.Join(outDir, "index-"+dirID)
-					artifact := domain.Artifact{
+					artifact := reference.Artifact{
 						Target:   sts.Target,
 						Artifact: saveLocal.ArtifactPath,
 					}

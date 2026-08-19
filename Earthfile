@@ -7,7 +7,7 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.26.5-alpine3.24
+    FROM golang:1.26.6-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 
@@ -79,6 +79,7 @@ lint-scripts-misc:
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
         ./scripts/tests/docker-build/*.sh \
+        ./scripts/ci/*.sh \
         ./scripts/*.sh \
         ./shell_scripts/
     # some scripts need to source /etc/os-release for operating system release information,
@@ -97,6 +98,17 @@ lint-scripts-auth-test:
 lint-scripts:
     BUILD +lint-scripts-auth-test
     BUILD +lint-scripts-misc
+
+# lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
+lint-workflows:
+    FROM ghcr.io/zizmorcore/zizmor:1.29.0
+    WORKDIR /audit
+    COPY --dir .github .
+    # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
+    # to the GitHub API, which would make this target non-hermetic.
+    # --strict-collection: a workflow zizmor cannot parse is a failure, not a
+    # warning -- otherwise a typo silently drops a file from the audit.
+    RUN zizmor --no-online-audits --strict-collection .github
 
 # earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
 # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
@@ -147,7 +159,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.6.0
+    ENV govulncheck_version=1.7.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earthly /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -272,7 +284,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:83c1cebb322d099ac9e3a3a532ba74b0146d702838b25e4c75c02fa81ffeb910
+    FROM python:3.14.7-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -728,6 +740,7 @@ lint-all:
     BUILD +lint
     BUILD +lint-scripts
     BUILD +lint-changelog
+    BUILD +lint-workflows
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations

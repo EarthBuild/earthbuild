@@ -25,9 +25,6 @@ on:
         required: false
         type: boolean
         default: false
-      EXTRA_ARGS:
-        required: false
-        type: string
       USE_SATELLITE:
         required: false
         type: boolean
@@ -35,6 +32,11 @@ on:
       SATELLITE_NAME:
         required: false
         type: string
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -50,12 +52,12 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: ./.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
@@ -71,11 +73,23 @@ jobs:
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
-        run: ${{ inputs.BUILT_EARTH_PATH }} --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        run: |
+          scripts/ci/earth-retry.sh \
+            -- "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache ./buildkitd+buildkitd --TAG=race-test
+        env:
+          INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
       - name: Execute tests
-        run: |-
-          GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test ${{inputs.EXTRA_ARGS}} -P --no-output \
-            ${{inputs.TEST_TARGET}}
-      - name: Buildkit logs (runs on failure)
+        run: |
+          # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
+          scripts/ci/earth-retry.sh -c '
+            GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
+              "${INPUTS_TEST_TARGET}"
+          '
+        env:
+          INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: docker logs earthly-buildkitd || true
+        uses: ./.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

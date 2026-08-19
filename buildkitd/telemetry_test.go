@@ -1,6 +1,7 @@
 package buildkitd
 
 import (
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -134,6 +135,50 @@ func clearOTELEnv(t *testing.T) {
 
 	for _, key := range slices.Concat(otelPassthroughEnvVars, []string{"OTEL_RESOURCE_ATTRIBUTES"}) {
 		t.Setenv(key, "")
+	}
+}
+
+// OTEL_RESOURCE_ATTRIBUTES is a comma-separated key=value list in which "," and "="
+// MUST be percent-encoded, per
+// https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable.
+// The consumer (sdk/resource.fromEnv) splits on "," and the first "=", then
+// url.PathUnescape's the value - so an unencoded separator in a value silently
+// invents attributes, and a bare "%" makes decoding fail outright.
+func TestAppendOTELResourceAttributesEncodesSeparators(t *testing.T) {
+	t.Parallel()
+
+	const nasty = "a,b=c 100% d"
+
+	got := appendOTELResourceAttributes("", map[string]string{"earth.installation.name": nasty})
+
+	if strings.Count(got, ",") != 0 {
+		t.Fatalf("got %q, want no bare separator", got)
+	}
+
+	key, value, ok := strings.Cut(got, "=")
+	if !ok || key != "earth.installation.name" {
+		t.Fatalf("got %q, want key earth.installation.name", got)
+	}
+
+	decoded, err := url.PathUnescape(value)
+	if err != nil {
+		t.Fatalf("PathUnescape(%q): %v", value, err)
+	}
+
+	if decoded != nasty {
+		t.Fatalf("decoded = %q, want %q", decoded, nasty)
+	}
+}
+
+// Inherited entries are already encoded by whoever wrote them; re-encoding would
+// double the escapes and hand the collector a literal "%2C".
+func TestAppendOTELResourceAttributesLeavesInheritedEncodingAlone(t *testing.T) {
+	t.Parallel()
+
+	got := appendOTELResourceAttributes("vcs.revision.id=a%2Cb", map[string]string{"earth.target": "+build"})
+
+	if want := "vcs.revision.id=a%2Cb,earth.target=+build"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 

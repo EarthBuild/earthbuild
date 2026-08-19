@@ -757,11 +757,28 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 	)
 }
 
+// otelResourceAttrValueEscaper percent-encodes the characters the OTel spec requires
+// in an OTEL_RESOURCE_ATTRIBUTES value: "," and "=" are the list separators, and "%"
+// itself, without which url.PathUnescape on the consumer side errors on a literal
+// percent and hands back the raw, untrimmed string. Nothing else is encoded - the
+// value stays readable and still round-trips exactly. Replacements are not rescanned,
+// so "%" -> "%25" cannot be mangled by the later rules.
+//
+// Keys are deliberately left alone. The spec asks for them to be encoded too, but
+// sdk/resource.fromEnv never decodes keys, so an encoded one would arrive as a literal
+// "a%2Cb" - and ours are constants with no separators in them.
+var otelResourceAttrValueEscaper = strings.NewReplacer("%", "%25", ",", "%2C", "=", "%3D")
+
 // appendOTELResourceAttributes merges attrs into an inherited
-// OTEL_RESOURCE_ATTRIBUTES string, dropping malformed entries. attrs wins on a
-// key collision: the inherited value describes the process that spawned
-// buildkitd, ours describes buildkitd itself. Emitting the key twice is not an
-// option - collectors disagree on which duplicate survives.
+// OTEL_RESOURCE_ATTRIBUTES string, dropping malformed entries and encoding the values
+// it adds. attrs wins on a key collision: the inherited value describes the process
+// that spawned buildkitd, ours describes buildkitd itself. Emitting the key twice is
+// not an option - collectors disagree on which duplicate survives. Inherited entries
+// are copied verbatim; they are already encoded by whoever wrote them.
+//
+// Format: https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable
+//
+//nolint:lll // The spec anchor does not survive wrapping.
 func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 	parts := make([]string, 0, len(attrs)+1)
 
@@ -790,7 +807,7 @@ func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 			continue
 		}
 
-		parts = append(parts, key+"="+attrs[key])
+		parts = append(parts, key+"="+otelResourceAttrValueEscaper.Replace(attrs[key]))
 	}
 
 	return strings.Join(parts, ",")

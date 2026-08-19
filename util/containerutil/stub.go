@@ -20,7 +20,7 @@ var ErrFrontendNotInitialized = errors.New("frontend (e.g. docker/podman) not in
 // currently only used as a fallback when docker or other frontends are missing.
 func NewStubFrontend(cfg *FrontendConfig) (ContainerFrontend, error) {
 	fe := &stubFrontend{
-		shellFrontend: &shellFrontend{Console: cfg.Console},
+		shellFrontend: &shellFrontend{Log: cfg.Log},
 	}
 
 	var err error

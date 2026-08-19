@@ -43,7 +43,7 @@ func getWindowSizePayload() ([]byte, error) {
 }
 
 // ConnectTerm presents a terminal to the shell repeater.
-func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console conslogging.ConsoleLogger) error {
+func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, log *conslogging.ConsoleLogger) error {
 	sigs := make(chan os.Signal, 10)
 	signal.Notify(sigs, syscall.SIGWINCH)
 
@@ -59,7 +59,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 			connDataType, data, err := common.ReadDataPacket(conn)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					console.VerbosePrintf("ReadDataPacket failed: %s\n", err.Error())
+					log.VerbosePrintf("ReadDataPacket failed: %s\n", err.Error())
 				}
 
 				break
@@ -67,11 +67,11 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 			switch connDataType {
 			case common.StartShellSession:
-				console.VerbosePrintf("starting new interactive shell pseudo terminal\n")
+				log.VerbosePrintf("starting new interactive shell pseudo terminal\n")
 
 				err := ts.makeRaw()
 				if err != nil {
-					console.VerbosePrintf("makeRaw failed: %s\n", err.Error())
+					log.VerbosePrintf("makeRaw failed: %s\n", err.Error())
 					break outer
 				}
 
@@ -79,17 +79,17 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 			case common.EndShellSession:
 				err := ts.restore()
 				if err != nil {
-					console.VerbosePrintf("restore failed: %s\n", err.Error())
+					log.VerbosePrintf("restore failed: %s\n", err.Error())
 					break outer
 				}
 			case common.PtyData:
 				err := handlePtyData(data)
 				if err != nil {
-					console.VerbosePrintf("handlePtyData failed: %s\n", err.Error())
+					log.VerbosePrintf("handlePtyData failed: %s\n", err.Error())
 					break outer
 				}
 			default:
-				console.VerbosePrintf("unhandled terminal data type: %d\n", connDataType)
+				log.VerbosePrintf("unhandled terminal data type: %d\n", connDataType)
 				break outer
 			}
 		}
@@ -105,7 +105,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 			data, err := getWindowSizePayload()
 			if err != nil {
-				console.VerbosePrintf("failed to get window size payload: %s\n", err.Error())
+				log.VerbosePrintf("failed to get window size payload: %s\n", err.Error())
 				break
 			}
 
@@ -121,7 +121,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 			_, err := conn.Write(buf)
 			if err != nil {
-				console.VerbosePrintf("failed to send term data to shell: %s\n", err.Error())
+				log.VerbosePrintf("failed to send term data to shell: %s\n", err.Error())
 				break
 			}
 		}
@@ -134,7 +134,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 			n, err := os.Stdin.Read(buf)
 			if err != nil {
-				console.VerbosePrintf("failed to read from stdin: %s\n", err.Error())
+				log.VerbosePrintf("failed to read from stdin: %s\n", err.Error())
 				break
 			}
 
@@ -142,7 +142,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 			buf2, err := common.SerializeDataPacket(common.PtyData, buf)
 			if err != nil {
-				console.VerbosePrintf("failed to serialize data: %s\n", err.Error())
+				log.VerbosePrintf("failed to serialize data: %s\n", err.Error())
 				break
 			}
 
@@ -154,7 +154,7 @@ func ConnectTerm(ctx context.Context, conn io.ReadWriteCloser, console consloggi
 
 	<-ctx.Done()
 
-	console.VerbosePrintf("exiting interactive debugger shell\n")
+	log.VerbosePrintf("exiting interactive debugger shell\n")
 
 	err := ts.restore()
 	if err != nil {

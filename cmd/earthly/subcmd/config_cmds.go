@@ -127,7 +127,7 @@ func (a *Config) action(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("write config: %w", err)
 	}
 
-	a.cli.Console().Printf("Updated config file %s", a.cli.Flags().ConfigPath)
+	a.cli.Log().Printf("Updated config file %s", a.cli.Flags().ConfigPath)
 
 	return nil
 }

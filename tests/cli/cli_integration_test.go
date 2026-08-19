@@ -535,7 +535,7 @@ func buildEarthBinary() (string, func(), error) {
 			"-X main.Version=dev-test",
 		"-o",
 		binary,
-		"./cmd/earthly",
+		"./cmd/earth",
 	)
 	cmd.Dir = repoRoot()
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"

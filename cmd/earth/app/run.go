@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/env"

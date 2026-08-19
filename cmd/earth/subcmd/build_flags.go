@@ -3,7 +3,7 @@ package subcmd
 import (
 	"os"
 
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/urfave/cli/v3"
 )
 

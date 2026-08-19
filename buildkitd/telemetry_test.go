@@ -10,14 +10,13 @@ import (
 	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 )
 
-func TestAddBuildkitTelemetryEnv(t *testing.T) {
+func TestBuildkitTelemetryEnv(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
 	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "authorization=Bearer token")
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "cicd.pipeline.run.id=123,vcs.revision.id=abc")
 
-	env := map[string]string{}
-	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", true)
+	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", true)
 
 	if got := env["OTEL_SERVICE_NAME"]; got != buildkitdOTELServiceName {
 		t.Fatalf("OTEL_SERVICE_NAME = %q, want %q", got, buildkitdOTELServiceName)
@@ -64,7 +63,7 @@ func TestAddBuildkitTelemetryEnv(t *testing.T) {
 // the CLI. Ours must win, and must appear exactly once - a duplicate key is
 // resolved differently by different collectors, and losing the override would
 // tag buildkitd's metrics as the CLI's, which is the whole point of the PR.
-func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) {
+func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", strings.Join([]string{
 		string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
@@ -72,8 +71,7 @@ func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.
 		"cicd.pipeline.run.id=123",
 	}, ","))
 
-	env := map[string]string{}
-	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", true)
+	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", true)
 
 	raw := env["OTEL_RESOURCE_ATTRIBUTES"]
 	for _, key := range []string{string(semconv.ProcessRole), string(semconv.ProcessNesting)} {
@@ -99,12 +97,11 @@ func TestAddBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.
 // An explicit exporter choice is the user's, not ours: it must reach buildkitd
 // verbatim, and is enough to enable telemetry on its own - prometheus, console and
 // none all need no endpoint.
-func TestAddBuildkitTelemetryEnvPropagatesExplicitMetricsExporter(t *testing.T) {
+func TestBuildkitTelemetryEnvPropagatesExplicitMetricsExporter(t *testing.T) {
 	clearOTELEnv(t)
 	t.Setenv("OTEL_METRICS_EXPORTER", "prometheus")
 
-	env := map[string]string{}
-	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", false)
+	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", false)
 
 	if got := env["OTEL_METRICS_EXPORTER"]; got != "prometheus" {
 		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want prometheus", got)
@@ -116,18 +113,17 @@ func TestAddBuildkitTelemetryEnvPropagatesExplicitMetricsExporter(t *testing.T) 
 }
 
 //nolint:paralleltest // clearOTELEnv calls t.Setenv, which forbids t.Parallel.
-func TestAddBuildkitTelemetryEnvDoesNothingWithoutMetricsExporter(t *testing.T) {
+func TestBuildkitTelemetryEnvReturnsNilWithoutMetricsExporter(t *testing.T) {
 	clearOTELEnv(t)
 
-	env := map[string]string{}
-	addBuildkitTelemetryEnv(env, "earthly-buildkitd", "earthly", false)
+	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", false)
 
-	if len(env) != 0 {
-		t.Fatalf("env = %#v, want empty", env)
+	if env != nil {
+		t.Fatalf("env = %#v, want nil", env)
 	}
 }
 
-// clearOTELEnv unsets every OTEL_* var addBuildkitTelemetryEnv reads. Without it a
+// clearOTELEnv unsets every OTEL_* var buildkitTelemetryEnv reads. Without it a
 // test asserting the disabled path fails on any machine that exports an OTLP endpoint
 // - which is precisely the setup this feature asks users to adopt.
 func clearOTELEnv(t *testing.T) {

@@ -505,13 +505,6 @@ func Start(
 		// Keep going - it might still work.
 	}
 
-	envOpts := map[string]string{
-		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
-		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
-		"BUILDKIT_TLS_ENABLED":           strconv.FormatBool(settings.UseTCP && settings.UseTLS),
-		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
-	}
-
 	withDocker, err := parseBoolEnv("EARTHLY_WITH_DOCKER")
 	if err != nil {
 		// Not fatal: an unparsable value only mis-labels the build as outer,
@@ -522,7 +515,7 @@ func Start(
 			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
 	}
 
-	addBuildkitTelemetryEnv(envOpts, containerName, installationName, withDocker)
+	envOpts := buildkitEnv(settings, containerName, installationName, withDocker, reset)
 
 	labelOpts := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
@@ -538,14 +531,6 @@ func Start(
 	}
 
 	portOpts := containerutil.PortOpt{}
-
-	if settings.AdditionalConfig != "" {
-		envOpts["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
-	}
-
-	if settings.IPTables != "" {
-		envOpts["IP_TABLES"] = settings.IPTables
-	}
 
 	const localhost = "127.0.0.1"
 
@@ -654,31 +639,6 @@ func Start(
 		}
 	}
 
-	if settings.CniMtu > 0 {
-		envOpts["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
-	}
-
-	if settings.CacheSizeMb > 0 {
-		envOpts["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
-	}
-
-	if settings.CacheSizePct > 0 {
-		envOpts["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
-	}
-
-	if settings.CacheKeepDuration > 0 {
-		envOpts["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
-	}
-
-	if settings.EnableProfiler {
-		envOpts["BUILDKIT_PPROF_ENABLED"] = "true"
-	}
-
-	// Apply reset.
-	if reset {
-		envOpts["EARTHLY_RESET_TMP_DIR"] = "true"
-	}
-
 	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)
 	// lowered the default from 1048576 to 1024, which starves buildkitd.
 	additionalArgs := append([]string{"--ulimit", "nofile=1048576:1048576"}, settings.AdditionalArgs...)
@@ -718,7 +678,61 @@ var otelPassthroughEnvVars = []string{
 	"OTEL_METRICS_EXPORTER",
 }
 
-func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installationName string, withDocker bool) {
+// buildkitEnv is the single source of the environment the buildkitd container is
+// started with. It is a pure function of its arguments and the OTel env vars the CLI
+// forwards, so what buildkitd runs with can be asserted in a test rather than
+// reconstructed by reading Start top to bottom.
+func buildkitEnv(settings Settings, containerName, installationName string, withDocker, reset bool) map[string]string {
+	env := map[string]string{
+		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
+		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
+		"BUILDKIT_TLS_ENABLED":           strconv.FormatBool(settings.UseTCP && settings.UseTLS),
+		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
+	}
+
+	if settings.AdditionalConfig != "" {
+		env["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
+	}
+
+	if settings.IPTables != "" {
+		env["IP_TABLES"] = settings.IPTables
+	}
+
+	if settings.CniMtu > 0 {
+		env["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
+	}
+
+	if settings.CacheSizeMb > 0 {
+		env["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
+	}
+
+	if settings.CacheSizePct > 0 {
+		env["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
+	}
+
+	if settings.CacheKeepDuration > 0 {
+		env["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
+	}
+
+	if settings.EnableProfiler {
+		env["BUILDKIT_PPROF_ENABLED"] = "true"
+	}
+
+	if reset {
+		env["EARTHLY_RESET_TMP_DIR"] = "true"
+	}
+
+	// Telemetry keys are all OTEL_-prefixed, so the merge cannot collide with the above.
+	maps.Copy(env, buildkitTelemetryEnv(containerName, installationName, withDocker))
+
+	return env
+}
+
+// buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
+// if the CLI has no telemetry configured to hand it.
+func buildkitTelemetryEnv(containerName, installationName string, withDocker bool) map[string]string {
+	envOpts := map[string]string{}
+
 	for _, key := range otelPassthroughEnvVars {
 		if value := os.Getenv(key); value != "" {
 			envOpts[key] = value
@@ -733,7 +747,7 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 	if envOpts["OTEL_METRICS_EXPORTER"] == "" &&
 		envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] == "" &&
 		envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] == "" {
-		return
+		return nil
 	}
 
 	envOpts["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName
@@ -755,6 +769,8 @@ func addBuildkitTelemetryEnv(envOpts map[string]string, containerName, installat
 		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),
 		resourceAttrs,
 	)
+
+	return envOpts
 }
 
 // otelResourceAttrValueEscaper percent-encodes the characters the OTel spec requires

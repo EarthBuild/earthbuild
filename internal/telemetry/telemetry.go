@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -283,10 +284,8 @@ func registerProcessMemoryGauge(
 }
 
 func clampUint64ToInt64(value uint64) int64 {
-	const maxInt64 = uint64(1<<63 - 1)
-
-	if value > maxInt64 {
-		return int64(maxInt64)
+	if value > math.MaxInt64 {
+		return math.MaxInt64
 	}
 
 	return int64(value)

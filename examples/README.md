@@ -1,12 +1,12 @@
-# Earthly examples
+# EarthBuild examples
 
-This folder contains a series of examples to help you familiarize yourself with Earthly.
+This folder contains a series of examples to help you familiarize yourself with EarthBuild.
 
 <!-- NOTE: If you change this, please also change docs/examples/examples.md -->
 
 ## Examples from the Basics tutorial
 
-If you are new to Earthly, you may find the [Basics tutorial](https://docs.earthly.dev/basics) helpful.
+If you are new to EarthBuild, you may find the [Basics tutorial](https://docs.earthly.dev/basics) helpful.
 
 <!-- vale HouseStyle.Spelling = NO -->
 - [tutorial](./tutorial)
@@ -45,28 +45,28 @@ Please note that these examples, although similar, are distinct from the ones us
 - [monorepo](./monorepo) - shows how multiple sub-projects can be co-located in a single repository and how the build can be fragmented across these.
 - [multirepo](./multirepo) - shows how artifacts from multiple repositories can be referenced in a single build. See also the `grpc` example for a more extensive use-case.
 
-## Examples by Earthly features
+## Examples by EarthBuild features
 
 - [import](./import) - shows how to use the `IMPORT` command to alias Earthfile references.
 - [cutoff-optimization](./cutoff-optimization) - shows that if an intermediate artifact does not change, then the rest of the build will use the cache, even if the source has changed.
-- [multiplatform](./multiplatform) - shows how Earthly can execute builds and create images for multiple platforms, using QEMU emulation.
+- [multiplatform](./multiplatform) - shows how EarthBuild can execute builds and create images for multiple platforms, using QEMU emulation.
 - [multiplatform-cross-compile](./multiplatform-cross-compile) - shows has through the use of cross-compilation, you can create images for multiple platforms, without using QEMU emulation.
 
 ## Examples by use of other technologies
 
-- [grpc](./grpc) - shows how to use Earthly to compile a protobuf grpc definition into protobuf code for both a Go-based server, and a python-based client, in a multirepo setup.
-- [terraform](./terraform) - shows how Terraform could be used from Earthly.
+- [grpc](./grpc) - shows how to use EarthBuild to compile a protobuf grpc definition into protobuf code for both a Go-based server, and a python-based client, in a multirepo setup.
+- [terraform](./terraform) - shows how Terraform could be used from EarthBuild.
 
 ## Other
 
 - [readme](./readme) - some sample code we used in our README.
-- [tests](./tests) - a suite of tests Earthly uses to ensure that its features are working correctly.
+- [tests](./tests) - a suite of tests EarthBuild uses to ensure that its features are working correctly.
 
 ### Larger Examples And Community Examples
 
-- [Earthly, Rust, GoLang, NodeJS and GitHub Actions Example](https://github.com/earthly/earthly-vs-gha)
+- [EarthBuild, Rust, GoLang, NodeJS and GitHub Actions Example](https://github.com/earthly/earthly-vs-gha)
 - [Cloud Services In GoLang](https://github.com/earthly/cloud-services-example)
 - [Earthfile workshop Repo](https://github.com/earthly/workshop-2023-09-18)
 - [Python & C Example](https://github.com/earthly/pymerge)
 - [Python Docker Example](https://github.com/earthly/build-transpose/blob/main/Earthfile)
-- [Awesome Earthly - Community Examples](https://github.com/earthly/awesome-earthly)
+- [Awesome EarthBuild - Community Examples](https://github.com/earthly/awesome-earthly)

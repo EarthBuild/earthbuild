@@ -1,7 +1,7 @@
 To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part2) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part2/part2 ./part2
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part2/part2 ./part2
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
@@ -38,7 +38,7 @@ build:
     SAVE ARTIFACT output/example AS LOCAL local-output/go-example
 ```
 
-If we run this example with `earthly +build`, we'll see a `local-output` directory show up locally with a `go-example` file inside of it.
+If we run this example with `earth +build`, we'll see a `local-output` directory show up locally with a `go-example` file inside of it.
 
 ## Saving Docker Images
 
@@ -56,10 +56,10 @@ docker:
     SAVE IMAGE go-example:latest
 ```
 
-In this example, running `earthly +docker` will save an image named `go-example` with the tag `latest`.
+In this example, running `earth +docker` will save an image named `go-example` with the tag `latest`.
 
 ```bash
-~$ earthly +docker
+~$ earth +docker
 ...
 ~$ docker image ls
 REPOSITORY          TAG       IMAGE ID       CREATED          SIZE
@@ -104,7 +104,7 @@ docker:
     SAVE IMAGE go-example:latest
 ```
 
-Running `earthly +docker` in this case will now output `local-output/go-example` locally.
+Running `earth +docker` in this case will now output `local-output/go-example` locally.
 
 ## The Push Flag
 
@@ -119,7 +119,7 @@ docker:
     SAVE IMAGE --push go-example:latest
 ```
 
-Note that adding the `--push` flag to `SAVE IMAGE` is not enough, we'll also need to invoke push when we run earthly. `earthly --push +docker`.
+Note that adding the `--push` flag to `SAVE IMAGE` is not enough, we'll also need to invoke push when we run earth. `earth --push +docker`.
 
 #### External Changes
 
@@ -133,7 +133,7 @@ release:
 ```
 
 ```bash
-earthly --push +release
+earth --push +release
 ```
 
 But also allows you to do things like run database migrations.
@@ -145,7 +145,7 @@ migrate:
 ```
 
 ```bash
-earthly --push +migrate
+earth --push +migrate
 ```
 
 Or apply terraform changes
@@ -156,12 +156,12 @@ apply:
 ```
 
 ```bash
-earthly --push +apply
+earth --push +apply
 ```
 
 **NOTE**
 
-Just like saving files, any command that uses `--push` **will only produce output if called directly**, `earthly --push +target-with-push` **or via a** `BUILD` command. Calling a target via `FROM` or `COPY` will not invoke `--push`.
+Just like saving files, any command that uses `--push` **will only produce output if called directly**, `earth --push +target-with-push` **or via a** `BUILD` command. Calling a target via `FROM` or `COPY` will not invoke `--push`.
 
 ### More Examples
 
@@ -173,7 +173,7 @@ To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part2/part2 ./part2
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part2/part2 ./part2
 ```
 
 `./Earthfile`
@@ -213,7 +213,7 @@ To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part2/part2 ./part2
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part2/part2 ./part2
 ```
 
 `./Earthfile`
@@ -270,7 +270,7 @@ To copy the files for [this example ( Part 2 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part2/part2 ./part2
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part2/part2 ./part2
 ```
 
 `./Earthfile`

@@ -1,12 +1,12 @@
-# Integration Testing With Earthly
+# Integration Testing With EarthBuild
 
 Running unit tests in a build pipeline is relatively simple. By definition, unit tests have no external dependencies. Things get more interesting when we want to test how our service integrates with other services and external systems. A service may have dependencies on external file systems, on databases, on external message queues, or other services. An ergonomic and effective development environment should have simple ways to construct and run integration tests. It should be easy to run these tests locally on the developer machine and in the build pipeline.
 
-** This guide will take an existing application with integration tests and show how they can be easily run inside earthly, both in the local development environment as well as in the build pipeline. **
+** This guide will take an existing application with integration tests and show how they can be easily run inside earth, both in the local development environment as well as in the build pipeline. **
 
 ## Prerequisites
 
-*This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthbuild/earthbuild/tree/main/examples) for guidance on using earthly in other languages.*
+*This integration approach can work with most applications and development stacks. See [examples](https://github.com/earthbuild/earthbuild/tree/main/examples) for guidance on using earth in other languages.*
 
 ### Our Application
 
@@ -106,7 +106,7 @@ Output:
 {% sample lang="Service Dependencies" %}
 
 The Docker compose configuration specifies the application's dependencies. It is useful for local development and can be started and stopped using `docker-compose up -d` and `docker-compose down`.
-This will also be essential for our Earthly integration tests.
+This will also be essential for our EarthBuild integration tests.
 
 Docker Compose:
 
@@ -139,7 +139,7 @@ services:
 We start with a simple Earthfile that can build and create a docker image for our app. See the [Basics guide](../basics/basics.md) for more details, as well as examples in many programming languages.
 
 {% method %}
-{% sample lang="Base Earthly Target" %}
+{% sample lang="Base EarthBuild Target" %}
 
 We start from an appropriate docker image and set up a working directory.
 
@@ -256,7 +256,7 @@ The `WITH DOCKER` has a `--compose` flag that we use to start up our docker-comp
 We can now run our tests both locally and in the CI pipeline, in a reproducible way:
 
 ```bash
-> earthly -P +integration-test
+> earth -P +integration-test
 +integration-test | Creating local-postgres ... done
 +integration-test | Creating local-postgres-ui ... done
 +integration-test | +integration-test | [info] Loading settings for project scala-example-build from plugins.sbt ...
@@ -313,7 +313,7 @@ Output:
 We can then run this and check that our application with its dependencies, produces the correct output.
 
 ```Dockerfile
-> earthly -P +smoke-test
+> earth -P +smoke-test
 +smoke-test | --> WITH DOCKER RUN for i in {1..30}; do nc -z localhost 5432 && break; sleep 1; done; docker run --network=host earthbuild/examples:integration
 +smoke-test | Loading images...
 +smoke-test | Loaded image: aa8y/postgres-dataset:iso3166
@@ -347,7 +347,7 @@ all:
 ```
 
 ```bash
-> earthly -P +all
+> earth -P +all
 ...
 +all | Target github.com/EarthBuild/earthly-example-scala/integration:main+all built successfully
 =========================== SUCCESS ===========================
@@ -357,6 +357,6 @@ There we have it, a reproducible integration process. If you have questions abou
 
 ## See also
 
-- [Docker In Earthly](./docker-in-earthly.md)
+- [Docker In EarthBuild](./docker-in-earthly.md)
 - [Source code for example](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test)
 - [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)

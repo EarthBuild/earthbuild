@@ -5,7 +5,7 @@
 ##### Removed commands
 
 The commands below were documented here previously and **no longer exist**. They belonged to
-Earthly's commercial cloud offering, which was shut down; EarthBuild is self-hosted only.
+EarthBuild's commercial cloud offering, which was shut down; EarthBuild is self-hosted only.
 
 | Removed                   | Instead                                                                                            |
 | ------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -17,30 +17,30 @@ Earthly's commercial cloud offering, which was shut down; EarthBuild is self-hos
 | `web`, `billing`, `gha`   | Not applicable.                                                                                      |
 | `prune-auto-skip`         | Delete the local auto-skip database file directly.                                                   |
 
-See [Migrating from earthly](../migrating-from-earthly.md) for the full migration guide.
+See [Migrating from earth](../migrating-from-earthly.md) for the full migration guide.
 
 {% endhint %}
 
-## earthly
+## earth
 
 #### Synopsis
 
 - Target form
   ```
-  earthly [options...] <target-ref> [build-args...]
+  earth [options...] <target-ref> [build-args...]
   ```
 - Artifact form
   ```
-  earthly [options...] --artifact|-a <target-ref>/<artifact-path> [<dest-path>] [build-args...]
+  earth [options...] --artifact|-a <target-ref>/<artifact-path> [<dest-path>] [build-args...]
   ```
 - Image form
   ```
-  earthly [options...] --image <target-ref> [build-args...]
+  earth [options...] --image <target-ref> [build-args...]
   ```
 
 #### Description
 
-The earthly command executes a build referenced by `<target-ref>` (*target form* and *image form*) or `<artifact-ref>` (*artifact form*). In the *target form*, the referenced target and its dependencies are built. In the *artifact form*, the referenced artifact and its dependencies are built, but only the specified artifact is output. The output path of the artifact can be optionally overridden by `<dest-path>`. In the *image form*, the image produced by the referenced target and its dependencies are built, but only the specified image is output.
+The earth command executes a build referenced by `<target-ref>` (*target form* and *image form*) or `<artifact-ref>` (*artifact form*). In the *target form*, the referenced target and its dependencies are built. In the *artifact form*, the referenced artifact and its dependencies are built, but only the specified artifact is output. The output path of the artifact can be optionally overridden by `<dest-path>`. In the *image form*, the image produced by the referenced target and its dependencies are built, but only the specified image is output.
 
 If a BuildKit daemon has not already been started, and the option `--buildkit-host` is not specified, this command also starts up a container named `earthly-buildkitd` to act as a build daemon.
 
@@ -51,7 +51,7 @@ The execution has four phases:
 - Push (optional - disabled by default)
 - Local output (optional - enabled by default)
 
-During the init phase the configuration is interpreted and the BuildKit daemon is started (if applicable). During the build phase, the referenced target and all its direct or indirect dependencies are executed. During the push phase, when enabled, Earthly performs image pushes and it also runs `RUN --push` commands.  During the local output phase, all applicable artifacts with an `AS LOCAL` specification are written to the specified output location, and all applicable docker images are loaded onto the host's docker daemon.
+During the init phase the configuration is interpreted and the BuildKit daemon is started (if applicable). During the build phase, the referenced target and all its direct or indirect dependencies are executed. During the push phase, when enabled, EarthBuild performs image pushes and it also runs `RUN --push` commands.  During the local output phase, all applicable artifacts with an `AS LOCAL` specification are written to the specified output location, and all applicable docker images are loaded onto the host's docker daemon.
 
 If the build phase does not succeed, no output is produced and no push instruction is executed. In this case, the command exits with a non-zero exit code.
 
@@ -82,21 +82,21 @@ See the [importing guide](../guides/importing.md) for more details and examples.
 
 Synopsis:
 
-  - Target form `earthly <target-ref> [--<build-arg-key>=<build-arg-value>...]`
-  - Artifact form `earthly --artifact <target-ref>/<artifact-path> <dest-path> [--<build-arg-key>=<build-arg-value>...]`
-  - Image form `earthly --image <target-ref> [--<build-arg-key>=<build-arg-value>...]`
+  - Target form `earth <target-ref> [--<build-arg-key>=<build-arg-value>...]`
+  - Artifact form `earth --artifact <target-ref>/<artifact-path> <dest-path> [--<build-arg-key>=<build-arg-value>...]`
+  - Image form `earth --image <target-ref> [--<build-arg-key>=<build-arg-value>...]`
 
 Also available as an env var setting: `EARTHLY_BUILD_ARGS="<build-arg-key>=<build-arg-value>,<build-arg-key>=<build-arg-value>,..."`.
 
-Build arg overrides may be specified as part of the Earthly command. The value of the build arg `<build-arg-key>` is set to `<build-arg-value>`.
+Build arg overrides may be specified as part of the EarthBuild command. The value of the build arg `<build-arg-key>` is set to `<build-arg-value>`.
 
-In the target and image forms the build args are passed after the target reference. For example `earthly +some-target --NAME=john --SPECIES=human`. In the artifact form, the build args are passed immediately after the artifact reference, however they are surrounded by parenthesis, similar to a [`COPY` command](../earthfile/earthfile.md#copy). For example `earthly --artifact +some-target/some-artifact ./dest/path --NAME=john --SPECIES=human`.
+In the target and image forms the build args are passed after the target reference. For example `earth +some-target --NAME=john --SPECIES=human`. In the artifact form, the build args are passed immediately after the artifact reference, however they are surrounded by parenthesis, similar to a [`COPY` command](../earthfile/earthfile.md#copy). For example `earth --artifact +some-target/some-artifact ./dest/path --NAME=john --SPECIES=human`.
 
 The build arg overrides only apply to the target being called directly and any other target referenced as part of the same Earthfile. Build arg overrides, will not apply to targets referenced from other directories or other repositories.
 
 ##### Storing values in the `.arg` File
 
-Build args can also be specified using a `.arg` file, relative to the current working directory where `earthly` is executed from, using the syntax:
+Build args can also be specified using a `.arg` file, relative to the current working directory where `earth` is executed from, using the syntax:
 
 ```.env
 <NAME_OF_BUILD_ARG>=<value>
@@ -113,7 +113,7 @@ MY_SETTING=a setting which contains spaces
 
 {% hint style='info' %}
 ##### Note
-The directory used for loading the `.arg` file is the directory where `earthly` is called from and not necessarily the directory where the Earthfile is located in.
+The directory used for loading the `.arg` file is the directory where `earth` is called from and not necessarily the directory where the Earthfile is located in.
 {% endhint %}
 
 {% hint style='danger' %}
@@ -129,7 +129,7 @@ For more information about build args see the [`ARG` Earthfile command](../earth
 
 Flag options can either be set on the command line, or by using an equivalent environment variable, as specified under the [options section](#options).
 
-It is also possible to set these flag options in an `.env` file, relative to the current working directory where `earthly` is executed from, using the syntax:
+It is also possible to set these flag options in an `.env` file, relative to the current working directory where `earth` is executed from, using the syntax:
 
 ```.env
 <NAME_OF_ENV_VAR>=<value>
@@ -149,34 +149,34 @@ EARTHLY_VERBOSE=true
 
 ##### `--help`
 
-Prints help information about earthly.
+Prints help information about earth.
 
 ###### Synopsis
 
 - ```
-  earthly --help
+  earth --help
   ```
 - ```
-  earthly <command> --help
+  earth <command> --help
   ```
 
 ##### `--config <path>`
 
 Also available as an env var setting: `EARTHLY_CONFIG=<path>`.
 
-Overrides the earthly [configuration file](../earthly-config/earthly-config.md), defaults to `~/.earthly/config.yml`.
+Overrides the earth [configuration file](../earthly-config/earthly-config.md), defaults to `~/.earthly/config.yml`.
 
 ##### `--installation-name <name>`
 
 Also available as an env var setting: `EARTHLY_INSTALLATION_NAME=<name>`.
 
-Overrides the Earthly installation name. The installation name is used for the BuildKit Daemon name, the cache volume name, the configuration directory (`~/.<installation-name>`) and for the ports used by BuildKit. Using multiple installation names on the same system allows Earthly to run as multiple isolated instances, each with its own configuration, cache and daemon. Defaults to `earthly`.
+Overrides the EarthBuild installation name. The installation name is used for the BuildKit Daemon name, the cache volume name, the configuration directory (`~/.<installation-name>`) and for the ports used by BuildKit. Using multiple installation names on the same system allows EarthBuild to run as multiple isolated instances, each with its own configuration, cache and daemon. Defaults to `earth`.
 
 ##### `--ssh-auth-sock <path-to-sock>`
 
 Also available as an env var setting: `EARTHLY_SSH_AUTH_SOCK=<path-to-sock>`.
 
-Sets the path to the SSH agent sock, which can be used for SSH authentication. SSH authentication is used by Earthly in order to perform git clone's underneath.
+Sets the path to the SSH agent sock, which can be used for SSH authentication. SSH authentication is used by EarthBuild in order to perform git clone's underneath.
 
 On Linux systems, this setting defaults to the value of the env var $SSH_AUTH_SOCK. On most systems, the env var `SSH_AUTH_SOCK` env var is already set if an SSH agent is running.
 
@@ -206,12 +206,12 @@ This option is now deprecated. Please use the [configuration file](../earthly-co
 
 Also used to be available as an env var setting: `GIT_URL_INSTEAD_OF=<git-instead-of>`.
 
-This option is now obsolete. By default, `earthly` will automatically switch from ssh to HTTPS when no keys are found or the ssh-agent isn't running.
+This option is now obsolete. By default, `earth` will automatically switch from ssh to HTTPS when no keys are found or the ssh-agent isn't running.
 Please use the [configuration file](../earthly-config/earthly-config.md) to override the default behavior.
 
 ### Build Options
 
-Build options are specific to executing Earthly builds; they are simply listed in this section for readability, and can be supplied as global options.
+Build options are specific to executing EarthBuild builds; they are simply listed in this section for readability, and can be supplied as global options.
 
 ##### `--secret|-s <secret-id>[=<value>]`
 
@@ -235,7 +235,7 @@ The secret can be referenced within Earthfile recipes as `RUN --secret <arbitrar
 
 Also available as an env var setting: `EARTHLY_PUSH=true`.
 
-Instructs Earthly to push any docker images declared with the `--push` flag to remote docker registries and to run any `RUN --push` commands. For more information see the [`SAVE IMAGE` Earthfile command](../earthfile/earthfile.md#save-image) and the [`RUN --push` Earthfile command](../earthfile/earthfile.md#run).
+Instructs EarthBuild to push any docker images declared with the `--push` flag to remote docker registries and to run any `RUN --push` commands. For more information see the [`SAVE IMAGE` Earthfile command](../earthfile/earthfile.md#save-image) and the [`RUN --push` Earthfile command](../earthfile/earthfile.md#run).
 
 Pushing only happens during the output phase, and only if the build has succeeded.
 
@@ -243,7 +243,7 @@ Pushing only happens during the output phase, and only if the build has succeede
 
 Also available as an env var setting: `EARTHLY_NO_OUTPUT=true`.
 
-Instructs Earthly not to output any images or artifacts. This option cannot be used with the *artifact form* or the *image form*.
+Instructs EarthBuild not to output any images or artifacts. This option cannot be used with the *artifact form* or the *image form*.
 
 ##### `--output`
 
@@ -255,13 +255,13 @@ Allow artifacts or images to be output, even when running under --ci mode.
 
 Also available as an env var setting: `EARTHLY_NO_CACHE=true`.
 
-Instructs Earthly to ignore any cache when building. It does, however, continue to store new cache formed as part of the build (to be possibly used on future invocations).
+Instructs EarthBuild to ignore any cache when building. It does, however, continue to store new cache formed as part of the build (to be possibly used on future invocations).
 
 ##### `--auto-skip` (**experimental**)
 
 Also available as an env var setting: `EARTHLY_AUTO_SKIP=true`.
 
-Instructs Earthly to skip any targets that have not changed from a previous build. For more information see the [auto-skip guide](../caching/caching-in-earthfiles.md#auto-skip).
+Instructs EarthBuild to skip any targets that have not changed from a previous build. For more information see the [auto-skip guide](../caching/caching-in-earthfiles.md#auto-skip).
 
 ##### `--allow-privileged|-P`
 
@@ -306,7 +306,7 @@ build:
 
 ##### `--build-arg <key>[=<value>]` (**deprecated**)
 
-This option has been deprecated in favor of the new build arg syntax `earthly <target-ref> --<key>=<value>`.
+This option has been deprecated in favor of the new build arg syntax `earth <target-ref> --<key>=<value>`.
 
 Also available as an env var setting: `EARTHLY_BUILD_ARGS="<key>=<value>,<key>=<value>,..."`.
 
@@ -316,7 +316,7 @@ Overrides the value of the build arg `<key>`. If `<value>` is not specified, the
 
 Also available as an env var setting: `EARTHLY_INTERACTIVE=true`.
 
-Enable interactive debugging mode. By default when a `RUN` command fails, earthly will display the error and exit. If the interactive mode is enabled and an error occurs, an interactive shell is presented which can be used for investigating the error interactively. Due to technical limitations, only a single interactive shell can be used on the system at any given time.
+Enable interactive debugging mode. By default when a `RUN` command fails, earth will display the error and exit. If the interactive mode is enabled and an error occurs, an interactive shell is presented which can be used for investigating the error interactively. Due to technical limitations, only a single interactive shell can be used on the system at any given time.
 
 ##### `--strict`
 
@@ -334,24 +334,24 @@ These options can only be set via environment variables, and have no command lin
 | EARTHLY_FULL_TARGET    | `EARTHLY_FULL_TARGET=1` will always print the full target name, and leave the target name column ragged.                                                                                                   |
 
 
-## earthly --version
+## earth --version
 
 #### Synopsis
 
 - ```
-  earthly --version
+  earth --version
   ```
 
 #### Description
 
-Prints version information about earthly.
+Prints version information about earth.
 
-## earthly ls
+## earth ls
 
 #### Synopsis
 
 - ```
-  earthly ls [<earthfile-ref>]
+  earth ls [<earthfile-ref>]
   ```
 
 #### Description
@@ -368,12 +368,12 @@ Show arguments (`ARG` statements) in the targets.
 
 Show full, canonical target references (includes the project part of the reference, if applicable).
 
-## earthly doc
+## earth doc
 
 #### Synopsis
 
 - ```
-  earthly doc [<earthfile-ref>[+<target-ref>]]
+  earth doc [<earthfile-ref>[+<target-ref>]]
   ```
 
 #### Description
@@ -414,7 +414,7 @@ tidy:
 ##### Print the doc comments for all documented targets:
 
 ```
-$ earthly doc
+$ earth doc
 TARGETS:
   +build
     build runs 'go build' and saves the artifact locally.
@@ -422,34 +422,34 @@ TARGETS:
     tidy runs 'go mod tidy' and saves go.mod/go.sum locally.
 ```
 
-Note that, unlike `earthly ls`, `earthly doc` does not mention the `deps`
+Note that, unlike `earth ls`, `earth doc` does not mention the `deps`
 target. Since it has no documentation, the `deps` target is not included in the
 output.
 
 ##### Print the doc comments for a specific target:
 
 ```
-$ earthly doc +build
+$ earth doc +build
 +build
   build runs 'go build' and saves the artifact locally.
 ```
 
 
-## earthly prune
+## earth prune
 
 #### Synopsis
 
 - ```
   # Standard form
-  earthly [options] prune (--all|-a)
+  earth [options] prune (--all|-a)
 
   # Reset form
-  earthly [options] prune --reset
+  earth [options] prune --reset
   ```
 
 #### Description
 
-The command `earthly prune` eliminates the Earthly cache.
+The command `earth prune` eliminates the EarthBuild cache.
 
 In *standard form* (default) it issues a prune command to the BuildKit daemon.
 
@@ -459,7 +459,7 @@ In *reset form* it restarts the BuildKit daemon, instructing it to completely de
 
 ##### `--all|-a`
 
-Instructs earthly to issue a "prune all" command to the BuildKit daemon.
+Instructs earth to issue a "prune all" command to the BuildKit daemon.
 
 ##### `--reset`
 
@@ -473,14 +473,14 @@ Prunes cache older than the specified duration. Accepts a duration string, which
 
 Prunes cache to specified size, starting with the oldest cache. It will eliminate cache until it reaches or exceeds the target size.
 
-## earthly config
+## earth config
 
 #### Synopsis
 
 ```
-# Set key value in your earthly config
+# Set key value in your earth config
 
-earthly [options] config [key] [value]
+earth [options] config [key] [value]
 ```
 
 #### Description
@@ -499,19 +499,19 @@ Prints the changed config file to the console instead of writing it to file
 Set your cache size:
 
 ```
-earthly config global.cache_size_mb 1234
+earth config global.cache_size_mb 1234
 ```
 
 Set additional BuildKit args, using a YAML array:
 
 ```
-earthly config global.buildkit_additional_args ['userns', '--host']
+earth config global.buildkit_additional_args ['userns', '--host']
 ```
 
 Set a key containing a period:
 
 ```
-earthly config git."example.com".password hunter2
+earth config git."example.com".password hunter2
 ```
 
 Set up a whole custom git repository for a server called example.com, using a single-line YAML literal:
@@ -519,7 +519,7 @@ Set up a whole custom git repository for a server called example.com, using a si
 - allows access over ssh
 - using port 2222
 - sets the username to git
-- is recognized to earthly as example.com/name-of-repo
+- is recognized to earth as example.com/name-of-repo
 
 ```
 config git "{example: {pattern: 'example.com/([^/]+)', substitute: 'ssh://git@example.com:2222/var/git/repos/\$1.git', auth: ssh, user: git}}"
@@ -536,17 +536,17 @@ git:
         user: git
 ```
 
-## earthly bootstrap
+## earth bootstrap
 
 #### Synopsis
 
 - ```
-  earthly [options] bootstrap [--no-buildkit, --with-autocomplete, --certs-hostname]
+  earth [options] bootstrap [--no-buildkit, --with-autocomplete, --certs-hostname]
   ```
 
 #### Description
 
-Performs initialization tasks needed for `earthly` to function correctly. This command can be re-run to fix broken setups. It is recommended to run this with sudo.
+Performs initialization tasks needed for `earth` to function correctly. This command can be re-run to fix broken setups. It is recommended to run this with sudo.
 
 #### Options
 
@@ -562,17 +562,17 @@ Installs shell autocompletions during bootstrap. Requires `sudo` to install them
 
 Takes in a value as the hostname for which to generate a TLS key/certificate pair
 
-## earthly docker-build
+## earth docker-build
 
 #### Synopsis
 
 - ```
-  earthly [options] docker-build [--dockerfile <dockerfile-path>] [--tag=<image-tag>] [--target=<target-name>] [--platform <platform1[,platform2,...]>] <build-context-dir> [--arg1=arg-value]
+  earth [options] docker-build [--dockerfile <dockerfile-path>] [--tag=<image-tag>] [--target=<target-name>] [--platform <platform1[,platform2,...]>] <build-context-dir> [--arg1=arg-value]
   ```
 
 #### Description
 
-The command `earthly docker-build` builds a docker image from a Dockerfile instead of an Earthfile.
+The command `earth docker-build` builds a docker image from a Dockerfile instead of an Earthfile.
 The `<build-context-dir>` is the path where the Dockerfile build context exists. By default, it is assumed that a file named Dockerfile exists in that directory.
 
 Additionally, all other build options are supported when using `docker-build`. For more information see [build-options](#build-options).
@@ -582,13 +582,13 @@ Additionally, all other build options are supported when using `docker-build`. F
 Build a dockerfile within the context of the `myDockerfiles` directory.
 
 ```
-earthly docker-build --dockerfile Dockerfile ./myDockerfiles
+earth docker-build --dockerfile Dockerfile ./myDockerfiles
 ```
 
 Push an image built from your Dockerfile built for linux/arm64
 
 ```
-earthly docker-build --dockerfile Dockerfile --platform linux/arm64 --tag {DOCKER_TAG} --push ./myDockerfiles
+earth docker-build --dockerfile Dockerfile --platform linux/arm64 --tag {DOCKER_TAG} --push ./myDockerfiles
 ```
 
 #### Options

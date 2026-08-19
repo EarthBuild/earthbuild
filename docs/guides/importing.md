@@ -1,10 +1,10 @@
 # Importing
 
-Importing in Earthly is how multiple build components (targets, artifacts, functions, Earthfiles) can be interconnected to compose complex build setups while reusing build code. This page describes the syntax and semantics of importing in Earthly.
+Importing in EarthBuild is how multiple build components (targets, artifacts, functions, Earthfiles) can be interconnected to compose complex build setups while reusing build code. This page describes the syntax and semantics of importing in EarthBuild.
 
 ## Cheat sheet
 
-Here's a quick cheat sheet for the syntax of importing in Earthly. The sections below go into more detail on each of these.
+Here's a quick cheat sheet for the syntax of importing in EarthBuild. The sections below go into more detail on each of these.
 
 <img src="img/import-cheat-sheet.png" alt="Import syntax" title="Import syntax cheat sheet" width="1400px" />
 
@@ -76,7 +76,7 @@ COPY ./some/other/dir+my-target/out.txt ./
 
 ## Referencing syntax
 
-This subsection goes through the different types of references that Earthly uses:
+This subsection goes through the different types of references that EarthBuild uses:
 
 - Earthfile references `github.com/foo/bar`, `./my/local/path`
 - Target references: `<earthfile-ref>+my-target`
@@ -86,7 +86,7 @@ This subsection goes through the different types of references that Earthly uses
 
 ## Target reference
 
-Target references point to an Earthly target. They have the general form
+Target references point to an EarthBuild target. They have the general form
 
 `<earthfile-ref>+<target>`
 
@@ -138,7 +138,7 @@ For more information on functions, see the [Functions Guide](./functions.md).
 
 ## Earthfile references
 
-Earthfile references appear in target, artifact and function references. They point to the Earthfile containing the respective target, artifact or function. Below are the different types of Earthfile references available in Earthly.
+Earthfile references appear in target, artifact and function references. They point to the Earthfile containing the respective target, artifact or function. Below are the different types of Earthfile references available in EarthBuild.
 
 ### Local, internal
 
@@ -149,7 +149,7 @@ The simplest form, is where a target, function or artifact is referenced from th
 | (**empty string**) | `+<target-name>` | `+<target-name>/<artifact-path>` | `+<function-name>` |
 | (**empty string**) | `+build`         | `+build/out.bin`                 | `+COMPILE`         |
 
-In this form, Earthly will look for the target within the same Earthfile. We call this type of referencing local, internal. Local, because it comes from the same system, and internal, because it is within the same Earthfile.
+In this form, EarthBuild will look for the target within the same Earthfile. We call this type of referencing local, internal. Local, because it comes from the same system, and internal, because it is within the same Earthfile.
 
 ### Local, external
 
@@ -188,7 +188,7 @@ Finally, the last form of Earthfile referencing is an import reference. Import r
 | --------------------------------------------------- | ---------------- | ------------------------------ | ---------------------------------------------- | -------------------------------- |
 | `IMPORT <full-earthfile-ref> AS <import-alias>`     | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
 | `IMPORT github.com/earthbuild/earthbuild/buildkitd` | `buildkitd`      | `buildkitd+build`              | `buildkitd+build/out.bin`                      | `buildkitd+COMPILE`              |
-| `IMPORT github.com/earthbuild/earthbuild:v0.8.18`   | `earthly`        | `earthly+build`                | `earthly+build/out.bin`                        | `earthly+COMPILE`                |
+| `IMPORT github.com/earthbuild/earthbuild:v0.8.18`   | `earth`        | `earth+build`                | `earth+build/out.bin`                        | `earth+COMPILE`                |
 
 Here is an example in an Earthfile:
 
@@ -218,10 +218,10 @@ build:
 
 Most references have a canonical form. It is essentially the remote form of the same target, with repository and tag inferred. The canonical form can be useful as a universal identifier for a target.
 
-For example, depending on where the files are stored, the `+build` target could have the canonical form `github.com/some-user/some-project/some/deep/dir:master+build`, where `github.com/some-user/some-project` was inferred as the Git location, based on the Git remote called `origin`, and `/some/deep/dir` was inferred as the sub-directory where `+build` exists within that repository. The Earthly tag is inferred using the following algorithm:
+For example, depending on where the files are stored, the `+build` target could have the canonical form `github.com/some-user/some-project/some/deep/dir:master+build`, where `github.com/some-user/some-project` was inferred as the Git location, based on the Git remote called `origin`, and `/some/deep/dir` was inferred as the sub-directory where `+build` exists within that repository. The EarthBuild tag is inferred using the following algorithm:
 
 - If the current HEAD has at least one Git tag, then use the first Git tag listed by Git, otherwise
 - If the repository is not in detached HEAD mode, use the current branch, otherwise
 - Use the current Git hash.
 
-If no Git context is detected by Earthly, then the target does not have a canonical form.
+If no Git context is detected by EarthBuild, then the target does not have a canonical form.

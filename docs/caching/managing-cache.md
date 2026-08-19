@@ -1,12 +1,12 @@
 # Managing cache
 
-This page describes how to manage the Earthly cache locally or on a remote runner, such as an Earthly Satellite.
+This page describes how to manage the EarthBuild cache locally or on a remote runner, such as an EarthBuild Satellite.
 
 ## Local cache
 
 ### Local cache location
 
-Earthly cache is persisted in a docker (or podman) volume called `earthly-cache` on your system. When Earthly starts for the first time, it brings up a BuildKit daemon in a Docker container, which initializes the `earthly-cache` volume. The volume is managed by Earthly's BuildKit daemon and there is a regular garbage-collection for old cache.
+EarthBuild cache is persisted in a docker (or podman) volume called `earthly-cache` on your system. When EarthBuild starts for the first time, it brings up a BuildKit daemon in a Docker container, which initializes the `earthly-cache` volume. The volume is managed by EarthBuild's BuildKit daemon and there is a regular garbage-collection for old cache.
 
 ### Specifying the local cache size limit
 
@@ -32,7 +32,7 @@ sudo du -h /var/lib/docker/volumes/earthly-cache | tail -n 1
 To reset the cache, you can issue the command
 
 ```bash
-earthly prune
+earth prune
 ```
 
 You can also safely delete the cache manually, if the daemon is not running
@@ -43,10 +43,10 @@ docker rm earthly-buildkitd
 docker volume rm earthly-cache
 ```
 
-Earthly also has a command that automates the above:
+EarthBuild also has a command that automates the above:
 
 ```bash
-earthly prune --reset
+earth prune --reset
 ```
 
 ## Cache on a remote runner
@@ -57,18 +57,18 @@ Remote runners are self-hosted. You can configure the cache policy by passing th
 
 ### Resetting the cache on a remote runner
 
-The command `earthly prune` will work on remote runners too, albeit without the `--reset` flag, which is not supported in a remote setting.
+The command `earth prune` will work on remote runners too, albeit without the `--reset` flag, which is not supported in a remote setting.
 
-To cause a satellite to restart with a fresh cache, you can use the command `earthly sat update --drop-cache`.
+To cause a satellite to restart with a fresh cache, you can use the command `earth sat update --drop-cache`.
 
 ## Auto-skip cache
 
-The auto-skip cache is a cache that is used to skip large parts of a build in certain situations. It is used by the `earthly --auto-skip` and `BUILD --auto-skip` commands.
+The auto-skip cache is a cache that is used to skip large parts of a build in certain situations. It is used by the `earth --auto-skip` and `BUILD --auto-skip` commands.
 
 Unlike the layer cache and the cache mounts, the auto-skip cache is global and is stored in a cloud database.
 
-To clear the entire auto-skip cache for your Earthly org, you can use the command `earthly prune-auto-skip`.
+To clear the entire auto-skip cache for your EarthBuild org, you can use the command `earth prune-auto-skip`.
 
-To clear the auto-skip cache for an entire repository, you can use the command `earthly prune-auto-skip --path github.com/foo/bar --deep`.
+To clear the auto-skip cache for an entire repository, you can use the command `earth prune-auto-skip --path github.com/foo/bar --deep`.
 
-To clear the auto-skip cache for a specific target, you can use the command `earthly prune-auto-skip --path github.com/foo/bar --target +my-target`.
+To clear the auto-skip cache for a specific target, you can use the command `earth prune-auto-skip --path github.com/foo/bar --target +my-target`.

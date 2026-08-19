@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The AWS Elastic Container Registry (ECR) is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with Earthly. This guide will walk you through creating an Earthfile, building an image, and pushing it to ECR.
+The AWS Elastic Container Registry (ECR) is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with EarthBuild. This guide will walk you through creating an Earthfile, building an image, and pushing it to ECR.
 
 This guide assumes you have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html), and [created a new repository named hello-earthly](https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html).
 
@@ -14,7 +14,7 @@ No special considerations are needed in the Earthfile itself. You can use `SAVE 
 FROM alpine:3.18
 
 build:
-    RUN echo "Hello from Earthly!" > motd
+    RUN echo "Hello from EarthBuild!" > motd
     ENTRYPOINT cat motd
     SAVE IMAGE --push <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
 ```
@@ -36,7 +36,7 @@ ECR does not issue permanent credentials. Instead, it relies on your AWS credent
 
 ## IAM
 
-Ensure that you have correct permissions to push the images. The ECR helper is aware of the `AWS_PROFILE` variable; and can work under an assumed role. Here is a minimum set of privileges needed to push to ECR from Earthly:
+Ensure that you have correct permissions to push the images. The ECR helper is aware of the `AWS_PROFILE` variable; and can work under an assumed role. Here is a minimum set of privileges needed to push to ECR from EarthBuild:
 
 ```
 {
@@ -72,12 +72,12 @@ Additional [examples](https://docs.aws.amazon.com/AmazonECR/latest/userguide/rep
 With the helper installed, no special commands or flags are required. To build and push an image, simply execute the build target with the `--push` flag.
 
 ```
-❯ earthly --push +build
+❯ earth --push +build
            buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
          alpine:3.18 | --> Load metadata linux/amd64
                +base | --> FROM alpine:3.18
                +base | [██████████] resolve docker.io/library/alpine:3.18@sha256:0bd0e9e03a022c3b0226667621da84fc9bf562a9056130424b5bfbd8bcb0397f ... 100%
-              +build | --> RUN echo "Hello from Earthly!" > motd
+              +build | --> RUN echo "Hello from EarthBuild!" > motd
               output | --> exporting outputs
               output | [██████████] exporting layers ... 100%
               output | [██████████] exporting manifest sha256:9ab4df74dafa2a71d71e39e1af133d110186698c78554ab000159cfa92081de4 ... 100%
@@ -107,7 +107,7 @@ run:
 And here is how you would run it:
 
 ```
-❯ earthly -P +run
+❯ earth -P +run
            buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
  earthbuild/dind:alpine-3.24-docker-29.5.3-r0 | --> Load metadata linux/amd64
 4/hello-earthly:with-love | --> Load metadata linux/amd64
@@ -126,7 +126,7 @@ And here is how you would run it:
 
 ### Basic Credentials Not Found
 
-If you get a message saying `basic credentials not found`; your distribution may not have the most recent version installed. A simple workaround is to simply prepend `AWS_SDK_LOAD_CONFIG=true` to your Earthly invocation. This will force the helper to use the SDK over built-in config when executing. You can track this [issue](https://github.com/awslabs/amazon-ecr-credential-helper/issues/232).
+If you get a message saying `basic credentials not found`; your distribution may not have the most recent version installed. A simple workaround is to simply prepend `AWS_SDK_LOAD_CONFIG=true` to your EarthBuild invocation. This will force the helper to use the SDK over built-in config when executing. You can track this [issue](https://github.com/awslabs/amazon-ecr-credential-helper/issues/232).
 
 ### 401 Unauthorized
 

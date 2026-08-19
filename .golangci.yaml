@@ -19,7 +19,6 @@ linters:
     - errcheck
     - errchkjson
     - exhaustruct
-    - fatcontext
     - forbidigo
     - funcorder
     - funlen
@@ -41,7 +40,6 @@ linters:
     - nilnil
     - nlreturn
     - nonamedreturns
-    - recvcheck
     - tagliatelle
     - testpackage
     - varnamelen

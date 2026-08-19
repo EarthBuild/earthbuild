@@ -58,7 +58,7 @@ func AutoComplete(ctx context.Context, cli *base.CLI) (code int) {
 		autocomplete.Logf("COMP_LINE=%q COMP_POINT=%q", os.Getenv("COMP_LINE"), os.Getenv("COMP_POINT"))
 	}
 
-	cli.SetConsole(cli.Console().WithLogLevel(conslogging.Silent))
+	cli.SetLog(cli.Log().WithLogLevel(conslogging.Silent))
 
 	err := autoCompleteImp(ctx, cli)
 	if err != nil {
@@ -89,8 +89,8 @@ func autoCompleteImp(ctx context.Context, cli *base.CLI) (err error) {
 		return err
 	}
 
-	gitLookup := buildcontext.NewGitLookup(cli.Console(), cli.Flags().SSHAuthSock)
-	resolver := buildcontext.NewResolver(nil, gitLookup, cli.Console(), "", cli.Flags().GitBranchOverride, "", 0, "")
+	gitLookup := buildcontext.NewGitLookup(cli.Log(), cli.Flags().SSHAuthSock)
+	resolver := buildcontext.NewResolver(nil, gitLookup, cli.Log(), "", cli.Flags().GitBranchOverride, "", 0, "")
 
 	// TODO this is a nil pointer which causes a panic if we try to expand a remotely referenced earthfile
 	var gwClient gwclient.Client

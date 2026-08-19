@@ -68,19 +68,19 @@ type ConsoleLogger struct {
 }
 
 // Current returns the current console.
-func Current(prefixPadding int, logLevel LogLevel, githubAnnotations bool) ConsoleLogger {
+func Current(prefixPadding int, logLevel LogLevel, githubAnnotations bool) *ConsoleLogger {
 	return New(getCompatibleStderr(), &currentConsoleMutex, prefixPadding, logLevel, githubAnnotations)
 }
 
 // New returns a new ConsoleLogger with a predefined target writer.
 func New(
 	w io.Writer, mu *sync.Mutex, prefixPadding int, logLevel LogLevel, githubAnnotations bool,
-) ConsoleLogger {
+) *ConsoleLogger {
 	if mu == nil {
 		mu = &sync.Mutex{}
 	}
 
-	return ConsoleLogger{
+	return &ConsoleLogger{
 		consoleErrW:       w,
 		errW:              w,
 		saltColors:        make(map[string]*color.Color),
@@ -92,34 +92,34 @@ func New(
 	}
 }
 
-func (cl ConsoleLogger) clone() ConsoleLogger {
-	return ConsoleLogger{
-		consoleErrW:       cl.consoleErrW,
-		errW:              cl.errW,
-		prefixWriter:      cl.prefixWriter,
-		prefix:            cl.prefix,
-		metadataMode:      cl.metadataMode,
-		isLocal:           cl.isLocal,
-		logLevel:          cl.logLevel,
-		salt:              cl.salt,
-		isCached:          cl.isCached,
-		isFailed:          cl.isFailed,
-		githubAnnotations: cl.githubAnnotations,
-		saltColors:        cl.saltColors,
-		nextColorIndex:    cl.nextColorIndex,
-		prefixPadding:     cl.prefixPadding,
-		mu:                cl.mu,
+func (l *ConsoleLogger) clone() *ConsoleLogger {
+	return &ConsoleLogger{
+		consoleErrW:       l.consoleErrW,
+		errW:              l.errW,
+		prefixWriter:      l.prefixWriter,
+		prefix:            l.prefix,
+		metadataMode:      l.metadataMode,
+		isLocal:           l.isLocal,
+		logLevel:          l.logLevel,
+		salt:              l.salt,
+		isCached:          l.isCached,
+		isFailed:          l.isFailed,
+		githubAnnotations: l.githubAnnotations,
+		saltColors:        l.saltColors,
+		nextColorIndex:    l.nextColorIndex,
+		prefixPadding:     l.prefixPadding,
+		mu:                l.mu,
 	}
 }
 
 // WithPrefix returns a ConsoleLogger with a prefix added.
-func (cl ConsoleLogger) WithPrefix(prefix string) ConsoleLogger {
-	return cl.WithPrefixAndSalt(prefix, prefix)
+func (l *ConsoleLogger) WithPrefix(prefix string) *ConsoleLogger {
+	return l.WithPrefixAndSalt(prefix, prefix)
 }
 
 // WithPrefixAndSalt returns a ConsoleLogger with a prefix and a seed added.
-func (cl ConsoleLogger) WithPrefixAndSalt(prefix string, salt string) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithPrefixAndSalt(prefix string, salt string) *ConsoleLogger {
+	ret := l.clone()
 	ret.prefix = prefix
 
 	ret.salt = salt
@@ -132,58 +132,58 @@ func (cl ConsoleLogger) WithPrefixAndSalt(prefix string, salt string) ConsoleLog
 }
 
 // WithMetadataMode returns a ConsoleLogger with metadata printing mode set.
-func (cl ConsoleLogger) WithMetadataMode(metadataMode bool) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithMetadataMode(metadataMode bool) *ConsoleLogger {
+	ret := l.clone()
 	ret.metadataMode = metadataMode
 
 	return ret
 }
 
 // WithLocal returns a ConsoleLogger with local set.
-func (cl ConsoleLogger) WithLocal(isLocal bool) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithLocal(isLocal bool) *ConsoleLogger {
+	ret := l.clone()
 	ret.isLocal = isLocal
 
 	return ret
 }
 
 // Prefix returns the console's prefix.
-func (cl ConsoleLogger) Prefix() string {
-	return cl.prefix
+func (l *ConsoleLogger) Prefix() string {
+	return l.prefix
 }
 
 // Salt returns the console's salt.
-func (cl ConsoleLogger) Salt() string {
-	return cl.salt
+func (l *ConsoleLogger) Salt() string {
+	return l.salt
 }
 
 // WithCached returns a ConsoleLogger with isCached flag set accordingly.
-func (cl ConsoleLogger) WithCached(isCached bool) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithCached(isCached bool) *ConsoleLogger {
+	ret := l.clone()
 	ret.isCached = isCached
 
 	return ret
 }
 
 // WithFailed returns a ConsoleLogger with isFailed flag set accordingly.
-func (cl ConsoleLogger) WithFailed(isFailed bool) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithFailed(isFailed bool) *ConsoleLogger {
+	ret := l.clone()
 	ret.isFailed = isFailed
 
 	return ret
 }
 
 // WithWriter returns a ConsoleLogger with stderr pointed at the provided io.Writer.
-func (cl ConsoleLogger) WithWriter(w io.Writer) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithWriter(w io.Writer) *ConsoleLogger {
+	ret := l.clone()
 	ret.errW = w
 
 	return ret
 }
 
 // WithPrefixWriter returns a ConsoleLogger with a prefix writer.
-func (cl ConsoleLogger) WithPrefixWriter(w PrefixWriter) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithPrefixWriter(w PrefixWriter) *ConsoleLogger {
+	ret := l.clone()
 	ret.prefixWriter = w
 	ret.errW = w
 
@@ -191,29 +191,29 @@ func (cl ConsoleLogger) WithPrefixWriter(w PrefixWriter) ConsoleLogger {
 }
 
 // PrintPhaseHeader prints the phase header.
-func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special string) {
+func (l *ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special string) {
 	w := new(bytes.Buffer)
 
-	cl.mu.Lock()
+	l.mu.Lock()
 
 	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-		cl.mu.Unlock()
+		_, _ = w.WriteTo(l.errW)
+		l.mu.Unlock()
 	}()
 
 	msg := phase
 
-	c := cl.color(phaseColor)
+	c := l.color(phaseColor)
 	if disabled {
-		c = cl.color(disabledPhaseColor)
+		c = l.color(disabledPhaseColor)
 		msg += " (disabled)"
 	} else if special != "" {
-		c = cl.color(specialPhaseColor)
+		c = l.color(specialPhaseColor)
 		msg += " (" + special + ")"
 	}
 
 	underlineLength := max(utf8.RuneCountInString(msg)+2, barWidth)
-	cl.printGithubActionsControl(groupCommand, msg)
+	l.printGithubActionsControl(groupCommand, msg)
 	c.Fprintf(w, " %s", msg) // #nosec G104
 	fmt.Fprintf(w, "\n")
 	c.Fprintf(w, "%s", strings.Repeat("—", underlineLength)) // #nosec G104
@@ -221,46 +221,46 @@ func (cl ConsoleLogger) PrintPhaseHeader(phase string, disabled bool, special st
 }
 
 // PrintPhaseFooter prints the phase footer.
-func (cl ConsoleLogger) PrintPhaseFooter(phase string) {
+func (l *ConsoleLogger) PrintPhaseFooter(phase string) {
 	w := new(bytes.Buffer)
 
-	cl.mu.Lock()
+	l.mu.Lock()
 
 	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-		cl.mu.Unlock()
+		_, _ = w.WriteTo(l.errW)
+		l.mu.Unlock()
 	}()
 
-	c := cl.color(noColor)
-	cl.printGithubActionsControl(endGroupCommand, phase)
+	c := l.color(noColor)
+	l.printGithubActionsControl(endGroupCommand, phase)
 	c.Fprintf(w, "\n") // #nosec G104
 }
 
 // PrintSuccess prints the success message.
-func (cl ConsoleLogger) PrintSuccess() {
-	cl.PrintBar(successColor, "🌍 Earth Build  ✅ SUCCESS", "")
+func (l *ConsoleLogger) PrintSuccess() {
+	l.PrintBar(successColor, "🌍 Earth Build  ✅ SUCCESS", "")
 }
 
 // PrintFailure prints the failure message.
-func (cl ConsoleLogger) PrintFailure(phase string) {
-	cl.PrintBar(warnColor, "❌ FAILURE", phase)
+func (l *ConsoleLogger) PrintFailure(phase string) {
+	l.PrintBar(warnColor, "❌ FAILURE", phase)
 }
 
 // PrefixColor returns the color used for the prefix.
-func (cl ConsoleLogger) PrefixColor() *color.Color {
-	c, found := cl.saltColors[cl.salt]
+func (l *ConsoleLogger) PrefixColor() *color.Color {
+	c, found := l.saltColors[l.salt]
 	if !found {
-		c = availablePrefixColors[*cl.nextColorIndex]
-		cl.saltColors[cl.salt] = c
-		*cl.nextColorIndex = (*cl.nextColorIndex + 1) % len(availablePrefixColors)
+		c = availablePrefixColors[*l.nextColorIndex]
+		l.saltColors[l.salt] = c
+		*l.nextColorIndex = (*l.nextColorIndex + 1) % len(availablePrefixColors)
 	}
 
-	return cl.color(c)
+	return l.color(c)
 }
 
 // PrintGHASummary prints a GitHub Actions summary message to GITHUB_STEP_SUMMARY.
-func (cl *ConsoleLogger) PrintGHASummary(message string) {
-	if !cl.githubAnnotations {
+func (l *ConsoleLogger) PrintGHASummary(message string) {
+	if !l.githubAnnotations {
 		return
 	}
 
@@ -269,7 +269,7 @@ func (cl *ConsoleLogger) PrintGHASummary(message string) {
 		w := new(bytes.Buffer)
 
 		defer func() {
-			_, _ = w.WriteTo(cl.errW)
+			_, _ = w.WriteTo(l.errW)
 		}()
 
 		fmt.Print(w, message)
@@ -316,9 +316,9 @@ func WithGHASourceLocation(file string, line, col int32) GHAErrorOpt {
 }
 
 // PrintGHAError constructs a GitHub Actions error message.
-func (cl *ConsoleLogger) PrintGHAError(message string, fns ...GHAErrorOpt) {
-	cl.mu.Lock()
-	defer cl.mu.Unlock()
+func (l *ConsoleLogger) PrintGHAError(message string, fns ...GHAErrorOpt) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
 	ge := GHAError{
 		message: message,
@@ -327,7 +327,7 @@ func (cl *ConsoleLogger) PrintGHAError(message string, fns ...GHAErrorOpt) {
 		fn(&ge)
 	}
 
-	cl.printGithubActionsControl(errorCommand, ge.FormattedMessage())
+	l.printGithubActionsControl(errorCommand, ge.FormattedMessage())
 }
 
 type ghHeader string
@@ -339,8 +339,8 @@ const (
 )
 
 // Print GHA control messages like ::group and ::error.
-func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
-	if !cl.githubAnnotations {
+func (l *ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
+	if !l.githubAnnotations {
 		return
 	}
 
@@ -356,21 +356,21 @@ func (cl ConsoleLogger) printGithubActionsControl(header ghHeader, msg string) {
 
 	w.WriteString(msg)
 
-	_, _ = w.WriteTo(cl.errW)
+	_, _ = w.WriteTo(l.errW)
 }
 
 // PrintBar prints an earth message bar.
-func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
+func (l *ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 	w := new(bytes.Buffer)
 
-	cl.mu.Lock()
+	l.mu.Lock()
 
 	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-		cl.mu.Unlock()
+		_, _ = w.WriteTo(l.errW)
+		l.mu.Unlock()
 	}()
 
-	c = cl.color(c)
+	c = l.color(c)
 
 	center := msg
 	if phase != "" {
@@ -395,72 +395,76 @@ func (cl ConsoleLogger) PrintBar(c *color.Color, msg, phase string) {
 }
 
 // Warn prints a warning message in red to errWriter.
-func (cl ConsoleLogger) Warn(message string) {
-	c := cl.color(warnColor)
-	cl.colorPrint(Warn, c, message)
+func (l *ConsoleLogger) Warn(message string) {
+	c := l.color(warnColor)
+	l.colorPrint(Warn, c, message)
 }
 
 // Warnf prints a formatted warning message in red to errWriter.
-func (cl ConsoleLogger) Warnf(format string, args ...any) {
-	cl.Warn(fmt.Sprintf(format, args...))
+func (l *ConsoleLogger) Warnf(format string, args ...any) {
+	l.Warn(fmt.Sprintf(format, args...))
 }
 
 // VerboseWarn prints a message in red to errWriter when verbose flag is set.
-func (cl ConsoleLogger) VerboseWarn(msg string) {
-	if cl.logLevel < Verbose {
+func (l *ConsoleLogger) VerboseWarn(msg string) {
+	if l.logLevel < Verbose {
 		return
 	}
 
-	cl.Warn(msg)
+	l.Warn(msg)
 }
 
 // VerboseWarnf prints a formatted message in red to errWriter when verbose flag is set.
-func (cl ConsoleLogger) VerboseWarnf(format string, args ...any) {
-	cl.VerboseWarn(fmt.Sprintf(format, args...))
+func (l *ConsoleLogger) VerboseWarnf(format string, args ...any) {
+	l.VerboseWarn(fmt.Sprintf(format, args...))
 }
 
 // HelpPrint prints message to the console with `Help:` prefix in a specific color.
-func (cl ConsoleLogger) HelpPrint(msg string) {
-	cl.ColorPrint(cl.color(helpColor), "\nHelp: "+msg+"\n")
+func (l *ConsoleLogger) HelpPrint(msg string) {
+	l.ColorPrint(l.color(helpColor), "\nHelp: "+msg+"\n")
 }
 
 // HelpPrintf prints formatted message to the console with `Help:` prefix in a specific color.
-func (cl ConsoleLogger) HelpPrintf(format string, args ...any) {
-	cl.ColorPrintf(cl.color(helpColor), "\nHelp: "+format+"\n", args...)
+func (l *ConsoleLogger) HelpPrintf(format string, args ...any) {
+	l.ColorPrintf(l.color(helpColor), "\nHelp: "+format+"\n", args...)
 }
 
 // Print prints message to the console.
-func (cl ConsoleLogger) Print(msg string) {
-	c := cl.color(noColor)
-	if cl.metadataMode {
-		c = cl.color(metadataModeColor)
+func (l *ConsoleLogger) Print(msg string) {
+	if l == nil {
+		return
 	}
 
-	cl.ColorPrint(c, msg)
+	c := l.color(noColor)
+	if l.metadataMode {
+		c = l.color(metadataModeColor)
+	}
+
+	l.ColorPrint(c, msg)
 }
 
 // Printf prints formatted message to the console.
-func (cl ConsoleLogger) Printf(format string, args ...any) {
-	cl.Print(fmt.Sprintf(format, args...))
+func (l *ConsoleLogger) Printf(format string, args ...any) {
+	l.Print(fmt.Sprintf(format, args...))
 }
 
-func (cl ConsoleLogger) colorPrint(level LogLevel, c *color.Color, msg string) {
-	if cl.logLevel < level {
+func (l *ConsoleLogger) colorPrint(level LogLevel, c *color.Color, msg string) {
+	if l == nil || l.logLevel < level {
 		return
 	}
 
 	w := new(bytes.Buffer)
 
-	cl.mu.Lock()
+	l.mu.Lock()
 
 	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-		cl.mu.Unlock()
+		_, _ = w.WriteTo(l.errW)
+		l.mu.Unlock()
 	}()
 
 	msg = strings.TrimSuffix(msg, "\n")
 	for line := range strings.SplitSeq(msg, "\n") {
-		cl.printPrefix(w)
+		l.printPrefix(w)
 		c.Fprintf(w, "%s", line) // #nosec G104
 
 		// Don't use a background color for \n.
@@ -469,29 +473,33 @@ func (cl ConsoleLogger) colorPrint(level LogLevel, c *color.Color, msg string) {
 }
 
 // ColorPrint prints message to the console in a specific color.
-func (cl ConsoleLogger) ColorPrint(c *color.Color, msg string) {
-	cl.colorPrint(Info, c, msg)
+func (l *ConsoleLogger) ColorPrint(c *color.Color, msg string) {
+	l.colorPrint(Info, c, msg)
 }
 
 // ColorPrintf prints formatted message to the console in a specific color.
-func (cl ConsoleLogger) ColorPrintf(c *color.Color, format string, args ...any) {
-	cl.colorPrint(Info, c, fmt.Sprintf(format, args...))
+func (l *ConsoleLogger) ColorPrintf(c *color.Color, format string, args ...any) {
+	l.colorPrint(Info, c, fmt.Sprintf(format, args...))
 }
 
 // PrintBytes prints bytes directly to the console.
-func (cl ConsoleLogger) PrintBytes(data []byte) {
+func (l *ConsoleLogger) PrintBytes(data []byte) {
+	if l == nil {
+		return
+	}
+
 	w := new(bytes.Buffer)
 	w.Grow(len(data) + len(data)/4)
-	cl.mu.Lock()
+	l.mu.Lock()
 
 	defer func() {
-		_, _ = w.WriteTo(cl.errW)
-		cl.mu.Unlock()
+		_, _ = w.WriteTo(l.errW)
+		l.mu.Unlock()
 	}()
 
-	c := cl.color(noColor)
-	if cl.metadataMode {
-		c = cl.color(metadataModeColor)
+	c := l.color(noColor)
+	if l.metadataMode {
+		c = l.color(metadataModeColor)
 	}
 
 	output := make([]byte, 0, len(data))
@@ -503,19 +511,19 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 		switch r {
 		case '\r':
 			output = append(output, ch...)
-			cl.trailingLine = false
+			l.trailingLine = false
 		case '\n':
 			output = append(output, ch...)
-			cl.trailingLine = false
+			l.trailingLine = false
 		default:
-			if !cl.trailingLine {
+			if !l.trailingLine {
 				if len(output) > 0 {
 					c.Fprintf(w, "%s", string(output)) // #nosec G104
 					output = output[:0]
 				}
 
-				cl.printPrefix(w)
-				cl.trailingLine = true
+				l.printPrefix(w)
+				l.trailingLine = true
 			}
 
 			output = append(output, ch...)
@@ -529,82 +537,82 @@ func (cl ConsoleLogger) PrintBytes(data []byte) {
 }
 
 // VerbosePrint prints a message to the console when verbose flag is set.
-func (cl ConsoleLogger) VerbosePrint(msg string) {
-	if cl.logLevel < Verbose {
+func (l *ConsoleLogger) VerbosePrint(msg string) {
+	if l.logLevel < Verbose {
 		return
 	}
 
-	cl.WithMetadataMode(true).Print(msg)
+	l.WithMetadataMode(true).Print(msg)
 }
 
 // VerbosePrintf prints formatted message to the console when verbose flag is set.
-func (cl ConsoleLogger) VerbosePrintf(format string, args ...any) {
-	cl.VerbosePrint(fmt.Sprintf(format, args...))
+func (l *ConsoleLogger) VerbosePrintf(format string, args ...any) {
+	l.VerbosePrint(fmt.Sprintf(format, args...))
 }
 
 // VerboseBytes prints bytes directly to the console when verbose flag is set.
-func (cl ConsoleLogger) VerboseBytes(data []byte) {
-	if cl.logLevel < Verbose {
+func (l *ConsoleLogger) VerboseBytes(data []byte) {
+	if l.logLevel < Verbose {
 		return
 	}
 
-	cl.WithMetadataMode(true).PrintBytes(data)
+	l.WithMetadataMode(true).PrintBytes(data)
 }
 
 // DebugPrintf prints formatted message to the console when debug flag is set.
-func (cl ConsoleLogger) DebugPrintf(format string, args ...any) {
-	if cl.logLevel < Debug {
+func (l *ConsoleLogger) DebugPrintf(format string, args ...any) {
+	if l.logLevel < Debug {
 		return
 	}
 
-	cl.WithMetadataMode(true).Printf(format, args...)
+	l.WithMetadataMode(true).Printf(format, args...)
 }
 
 // DebugBytes prints bytes directly to the console when debug flag is set.
-func (cl ConsoleLogger) DebugBytes(data []byte) {
-	if cl.logLevel < Debug {
+func (l *ConsoleLogger) DebugBytes(data []byte) {
+	if l.logLevel < Debug {
 		return
 	}
 
-	cl.WithMetadataMode(true).PrintBytes(data)
+	l.WithMetadataMode(true).PrintBytes(data)
 }
 
-func (cl ConsoleLogger) printPrefix(w io.Writer) {
+func (l *ConsoleLogger) printPrefix(w io.Writer) {
 	// Assumes mu locked.
-	if cl.prefixWriter != nil {
+	if l.prefixWriter != nil {
 		// When the prefix writer is in use, we don't need to print the prefix.
 		return
 	}
 
-	if cl.prefix == "" {
+	if l.prefix == "" {
 		return
 	}
 
-	c := cl.PrefixColor()
-	c.Fprintf(w, "%s", prettyPrefix(cl.prefixPadding, cl.prefix)) // #nosec G104
+	c := l.PrefixColor()
+	c.Fprintf(w, "%s", prettyPrefix(l.prefixPadding, l.prefix)) // #nosec G104
 
-	if cl.isLocal {
+	if l.isLocal {
 		fmt.Fprintf(w, " *")
-		cl.color(localColor).Fprintf(w, "local") // #nosec G104
+		l.color(localColor).Fprintf(w, "local") // #nosec G104
 		fmt.Fprintf(w, "*")
 	}
 
-	if cl.isFailed {
+	if l.isFailed {
 		fmt.Fprintf(w, " *")
-		cl.color(warnColor).Fprintf(w, "failed") // #nosec G104
+		l.color(warnColor).Fprintf(w, "failed") // #nosec G104
 		fmt.Fprintf(w, "*")
 	}
 
 	fmt.Fprintf(w, " | ")
 
-	if cl.isCached {
+	if l.isCached {
 		fmt.Fprintf(w, "*")
-		cl.color(cachedColor).Fprintf(w, "cached") // #nosec G104
+		l.color(cachedColor).Fprintf(w, "cached") // #nosec G104
 		fmt.Fprintf(w, "* ")
 	}
 }
 
-func (cl ConsoleLogger) color(c *color.Color) *color.Color {
+func (l *ConsoleLogger) color(c *color.Color) *color.Color {
 	if color.NoColor {
 		return noColor
 	}
@@ -617,8 +625,8 @@ func prettyPrefix(prefixPadding int, prefix string) string {
 }
 
 // WithLogLevel changes the log level.
-func (cl ConsoleLogger) WithLogLevel(logLevel LogLevel) ConsoleLogger {
-	ret := cl.clone()
+func (l *ConsoleLogger) WithLogLevel(logLevel LogLevel) *ConsoleLogger {
+	ret := l.clone()
 	ret.logLevel = logLevel
 
 	return ret

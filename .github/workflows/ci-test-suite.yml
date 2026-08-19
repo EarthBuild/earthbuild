@@ -1,0 +1,89 @@
+name: Test Suite
+
+on:
+  workflow_call:
+    inputs:
+      FRONTEND:
+        required: true
+        type: string
+      SUDO:
+        required: false
+        type: string
+        default: ""
+      USE_NEXT:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  tests:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "+test-misc"
+            name: "Misc (AST & Parser)"
+            skip_on: ["next"]
+          - target: "+test-no-qemu-group1"
+            name: "Group 1 (Autocompletion, Dockerfile & Imports)"
+          - target: "+test-no-qemu-group2"
+            name: "Group 2 (COPY & Git Clone Operations)"
+          - target: "+test-no-qemu-group3"
+            name: "Group 3 (Secrets, Build ARGs & Host Bind)"
+          - target: "+test-no-qemu-group4"
+            name: "Group 4 (Dockerfile, Artifact Saves & Env)"
+          - target: "+test-no-qemu-group5"
+            name: "Group 5 (Control Flow, Cache Mounts & AWS)"
+          - target: "+test-no-qemu-group6"
+            name: "Group 6 (Cache & Credential Scrubbing)"
+          - target: "+test-no-qemu-group7"
+            name: "Group 7 (Selective Save, Compose & Dotenv)"
+          - target: "+test-no-qemu-group8"
+            name: "Group 8 (Docker Registry & SSH Config)"
+          - target: "+test-no-qemu-group9"
+            name: "Group 9 (Config & ARG Redeclare Validation)"
+          - target: "+test-no-qemu-group10"
+            name: "Group 10 (SSH & Remote Resolution)"
+          - target: "+test-no-qemu-group11"
+            name: "Group 11 (Expose, Artifacts & Logbus)"
+          - target: "+test-no-qemu-group12"
+            name: "Group 12 (Label Validation & Run Cache)"
+          - target: "+test-no-qemu-slow"
+            name: "Slow (Server Daemon & WITH DOCKER)"
+            skip_on: ["next"]
+          - target: "+test-qemu"
+            name: "QEMU Multi-Arch Tests"
+            use_qemu: true
+            skip_on: ["next"]
+          - target: "+test-no-qemu-kind"
+            name: "KinD Integration Tests"
+            skip_on: ["all"]
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      TEST_TARGET: ${{ matrix.target }}
+      USE_QEMU: ${{ matrix.use_qemu || false }}
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-24.04"
+      BINARY: ${{ inputs.FRONTEND }}
+      USE_NEXT: ${{ inputs.USE_NEXT }}
+      SUDO: ${{ inputs.SUDO }}
+      SKIP_JOB: ${{ contains(matrix.skip_on, 'all') || (inputs.USE_NEXT && contains(matrix.skip_on, 'next')) || false }}
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

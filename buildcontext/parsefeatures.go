@@ -15,7 +15,7 @@ type buildFile struct {
 }
 
 func parseFeatures(
-	buildFilePath string, featureFlagOverrides string, projectRef string, console conslogging.ConsoleLogger,
+	buildFilePath string, featureFlagOverrides string, projectRef string, log *conslogging.ConsoleLogger,
 ) (*features.Features, error) {
 	version, err := earthfile.ParseVersionFile(buildFilePath)
 	if err != nil {
@@ -37,7 +37,7 @@ func parseFeatures(
 	}
 
 	if len(warningStrs) > 0 {
-		console.Printf(
+		log.Printf(
 			"NOTE: The %s feature is enabled by default under VERSION %s, "+
 				"and can be safely removed from the VERSION command",
 			strings.Join(warningStrs, ", "), ftrs.Version(),

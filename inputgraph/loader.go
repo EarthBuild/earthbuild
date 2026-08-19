@@ -43,18 +43,18 @@ type Stats struct {
 }
 
 type loader struct {
-	visited        map[string]struct{}
-	hasher         *hasher.Hasher
+	varCollection  *variables.Collection
+	features       *features.Features
 	hashCache      map[string][]byte
 	resolver       *buildcontext.Resolver
 	stats          *Stats
 	globalImports  map[string]reference.ImportTrackerVal
-	varCollection  *variables.Collection
-	features       *features.Features
+	hasher         *hasher.Hasher
+	log            *conslogging.ConsoleLogger
+	visited        map[string]struct{}
 	overridingVars *variables.Scope
-	target         reference.Reference
 	builtinArgs    variables.DefaultArgs
-	conslog        conslogging.ConsoleLogger
+	target         reference.Reference
 	baseProcessed  bool
 	ci             bool
 	primaryTarget  bool
@@ -65,7 +65,7 @@ func newLoader(opt HashOpt) *loader {
 	h.HashJSONMarshalled(opt.BuiltinArgs)
 	// Other important values are set by load().
 	return &loader{
-		conslog:        opt.Console,
+		log:            opt.Log,
 		target:         opt.Target,
 		visited:        map[string]struct{}{},
 		hasher:         h,
@@ -78,7 +78,7 @@ func newLoader(opt HashOpt) *loader {
 		// gitMetaCache dedups git metadata per local path. Creating it per
 		// target re-shells to git (~195ms/target, linear in graph size);
 		// shared, it's ~one git invocation per distinct local path.
-		resolver:      buildcontext.NewResolver(nil, nil, opt.Console, "", "", "", 0, ""),
+		resolver:      buildcontext.NewResolver(nil, nil, opt.Log, "", "", "", 0, ""),
 		stats:         &Stats{StartTime: time.Now()},
 		primaryTarget: true,
 	}
@@ -982,7 +982,7 @@ func (l *loader) forTarget(target reference.Reference, args []string, passArgs b
 	}
 
 	ret := &loader{
-		conslog:        l.conslog,
+		log:            l.log,
 		target:         target,
 		visited:        visited,
 		hasher:         hasher.New(),
@@ -1099,7 +1099,7 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 	l.features = buildCtx.Features
 
 	collOpt := variables.NewCollectionOpt{
-		Console:        l.conslog,
+		Log:            l.log,
 		Target:         l.target,
 		CI:             l.ci,
 		BuiltinArgs:    l.builtinArgs,

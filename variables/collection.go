@@ -56,10 +56,10 @@ type Collection struct {
 	envs    *Scope // active
 	// A scope containing all scopes above, combined.
 	effectiveCache   *Scope
-	stack            []*stackFrame
+	log              *conslogging.ConsoleLogger
 	project          string
 	org              string
-	console          conslogging.ConsoleLogger
+	stack            []*stackFrame
 	errorOnRedeclare bool
 	shelloutAnywhere bool
 }
@@ -73,10 +73,10 @@ type NewCollectionOpt struct {
 	AssignedVars     *Scope
 	Features         *features.Features
 	GlobalImports    map[string]reference.ImportTrackerVal
+	Log              *conslogging.ConsoleLogger
 	NativePlatform   specs.Platform
-	Target           reference.Reference
 	BuiltinArgs      DefaultArgs
-	Console          conslogging.ConsoleLogger
+	Target           reference.Reference
 	Push             bool
 	CI               bool
 }
@@ -85,7 +85,7 @@ type NewCollectionOpt struct {
 func NewCollection(opts NewCollectionOpt) *Collection {
 	target := opts.Target
 
-	console := opts.Console
+	log := opts.Log
 	if opts.OverridingVars == nil {
 		opts.OverridingVars = NewScope()
 	}
@@ -100,13 +100,13 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 		stack: []*stackFrame{{
 			frameName:  target.StringCanonical(),
 			absRef:     target,
-			imports:    reference.NewImportTracker(console, opts.GlobalImports),
+			imports:    reference.NewImportTracker(log, opts.GlobalImports),
 			overriding: opts.OverridingVars,
 			args:       NewScope(),
 			globals:    NewScope(),
 			vars:       NewScope(),
 		}},
-		console: console,
+		log: log,
 	}
 }
 
@@ -461,7 +461,7 @@ func (c *Collection) EnterFrame(
 	c.stack = append(c.stack, &stackFrame{
 		frameName:  frameName,
 		absRef:     absRef,
-		imports:    reference.NewImportTracker(c.console, globalImports),
+		imports:    reference.NewImportTracker(c.log, globalImports),
 		overriding: overriding,
 		globals:    globals,
 		vars:       NewScope(),

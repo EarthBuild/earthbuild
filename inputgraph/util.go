@@ -13,13 +13,13 @@ import (
 
 // ParseProjectCommand parses a project command from arguments.
 func ParseProjectCommand(
-	ctx context.Context, target reference.Reference, console conslogging.ConsoleLogger,
+	ctx context.Context, target reference.Reference, log *conslogging.ConsoleLogger,
 ) (string, string, error) {
 	if target.Kind() == reference.KindRemote {
 		return "", "", errCannotLoadRemoteTarget
 	}
 
-	resolver := buildcontext.NewResolver(nil, nil, console, "", "", "", 0, "")
+	resolver := buildcontext.NewResolver(nil, nil, log, "", "", "", 0, "")
 
 	buildCtx, err := resolver.Resolve(ctx, nil, nil, target)
 	if err != nil {

@@ -12,9 +12,9 @@ import (
 // HashOpt contains all of the options available to the hasher.
 type HashOpt struct {
 	OverridingVars *variables.Scope
-	Target         reference.Reference
+	Log            *conslogging.ConsoleLogger
 	BuiltinArgs    variables.DefaultArgs
-	Console        conslogging.ConsoleLogger
+	Target         reference.Reference
 	CI             bool
 }
 

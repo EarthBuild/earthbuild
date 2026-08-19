@@ -49,7 +49,7 @@
     - [Excluding patterns](earthfile/earthlyignore.md)
     - [Version-specific features](earthfile/features.md)
 - [The `earthly` command](earthly-command/earthly-command.md)
-- [Earthly lib](earthly-lib/earthly-lib.md)
+- [EarthBuild lib](earthbuild-lib/earthbuild-lib.md)
 - [Configuration reference](earthly-config/earthly-config.md)
 - [Examples](examples/examples.md)
 - Misc

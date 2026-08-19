@@ -119,7 +119,7 @@ func (b *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 }
 
 func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
-	console := b.cli.Console().WithPrefix("bootstrap")
+	console := b.cli.Log().WithPrefix("bootstrap")
 
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
@@ -225,9 +225,9 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 	}
 
 	if ok {
-		b.cli.Console().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
+		b.cli.Log().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
 	} else {
-		b.cli.Console().VerbosePrintf("Bash-completion already present at %s\n", path)
+		b.cli.Log().VerbosePrintf("Bash-completion already present at %s\n", path)
 	}
 
 	return nil

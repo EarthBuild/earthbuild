@@ -93,8 +93,8 @@ func (a *Doc) action(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	gitLookup := buildcontext.NewGitLookup(a.cli.Console(), a.cli.Flags().SSHAuthSock)
-	resolver := buildcontext.NewResolver(nil, gitLookup, a.cli.Console(), "", a.cli.Flags().GitBranchOverride, "", 0, "")
+	gitLookup := buildcontext.NewGitLookup(a.cli.Log(), a.cli.Flags().SSHAuthSock)
+	resolver := buildcontext.NewResolver(nil, gitLookup, a.cli.Log(), "", a.cli.Flags().GitBranchOverride, "", 0, "")
 	platr := platutil.NewResolver(platutil.GetUserPlatform())
 
 	var gwClient gwclient.Client

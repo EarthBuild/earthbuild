@@ -45,7 +45,7 @@ var (
 // might start one up, if not already started.
 func NewClient(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	earthVersion string,
@@ -100,7 +100,7 @@ func NewClient(
 	isLocal := isLocalBuildkit(settings)
 	if !isLocal {
 		var (
-			remoteConsole = console.WithPrefix("buildkitd")
+			remoteConsole = log.WithPrefix("buildkitd")
 			info          *client.Info
 			workerInfo    *client.WorkerInfo
 		)
@@ -125,18 +125,18 @@ func NewClient(
 		return bkClient, nil
 	}
 
-	bkCons := console.WithPrefix("buildkitd")
+	bkLog := log.WithPrefix("buildkitd")
 	if !isDockerAvailable(ctx, fe) {
-		bkCons.Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", fe.Config().Binary)
+		bkLog.Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", fe.Config().Binary)
 		return nil, fmt.Errorf("%s not available", fe.Config().Binary)
 	}
 
-	info, workerInfo, err := maybeStart(ctx, console, image, containerName, installationName, fe, settings, opts...)
+	info, workerInfo, err := maybeStart(ctx, log, image, containerName, installationName, fe, settings, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 	}
 
-	printBuildkitInfo(bkCons, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
+	printBuildkitInfo(bkLog, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
 
 	bkClient, err := client.New(ctx, settings.BuildkitAddress, opts...)
 	if err != nil {
@@ -149,7 +149,7 @@ func NewClient(
 // ResetCache restarts the buildkitd daemon with the reset command.
 func ResetCache(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
@@ -165,7 +165,7 @@ func ResetCache(
 		return fmt.Errorf("add required client opts: %w", err)
 	}
 
-	console.
+	log.
 		WithPrefix("buildkitd").
 		Printf("Restarting buildkit daemon with reset command...\n")
 
@@ -190,17 +190,17 @@ func ResetCache(
 		}
 	}
 
-	err = Start(ctx, console, image, containerName, installationName, fe, settings, true)
+	err = Start(ctx, log, image, containerName, installationName, fe, settings, true)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = WaitUntilStarted(ctx, console, containerName, settings.VolumeName, settings, fe, opts...)
+	_, _, err = WaitUntilStarted(ctx, log, containerName, settings.VolumeName, settings, fe, opts...)
 	if err != nil {
 		return err
 	}
 
-	console.
+	log.
 		WithPrefix("buildkitd").
 		Printf("... Done")
 
@@ -211,7 +211,7 @@ func ResetCache(
 // that can be used to connect to it.
 func maybeStart(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
@@ -224,7 +224,7 @@ func maybeStart(
 			time.Sleep(3 * time.Second)
 
 			if !tryLockDone.Load() {
-				console.Warnf("waiting on other instance of earthbuild to start buildkitd (as indicated by %q existing)",
+				log.Warnf("waiting on other instance of earthbuild to start buildkitd (as indicated by %q existing)",
 					settings.StartUpLockPath)
 			}
 		}()
@@ -247,7 +247,7 @@ func maybeStart(
 			defer func() {
 				inErr := startLock.Unlock()
 				if inErr != nil {
-					console.Warnf("Failed to unlock %s: %v", settings.StartUpLockPath, inErr)
+					log.Warnf("Failed to unlock %s: %v", settings.StartUpLockPath, inErr)
 
 					if finalErr == nil {
 						finalErr = inErr
@@ -265,7 +265,7 @@ func maybeStart(
 	}
 
 	if isStarted {
-		console.
+		log.
 			WithPrefix("buildkitd").
 			Printf("Found buildkit daemon as %s container (%s)\n", fe.Config().Binary, containerName)
 
@@ -274,7 +274,7 @@ func maybeStart(
 			workerInfo *client.WorkerInfo
 		)
 
-		info, workerInfo, err = maybeRestart(ctx, console, image, containerName, installationName, fe, settings, opts...)
+		info, workerInfo, err = maybeRestart(ctx, log, image, containerName, installationName, fe, settings, opts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("maybe restart: %w", err)
 		}
@@ -282,16 +282,16 @@ func maybeStart(
 		return info, workerInfo, nil
 	}
 
-	console.
+	log.
 		WithPrefix("buildkitd").
 		Printf("Starting buildkit daemon as a %s container (%s)...\n", fe.Config().Binary, containerName)
 
-	err = Start(ctx, console, image, containerName, installationName, fe, settings, false)
+	err = Start(ctx, log, image, containerName, installationName, fe, settings, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("start: %w", err)
 	}
 
-	info, workerInfo, err := WaitUntilStarted(ctx, console, containerName, settings.VolumeName, settings, fe, opts...)
+	info, workerInfo, err := WaitUntilStarted(ctx, log, containerName, settings.VolumeName, settings, fe, opts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("wait until started: %w", err)
 	}
@@ -308,13 +308,13 @@ func maybeStart(
 	}
 
 	if currentImageInfo.Architecture != runtime.GOARCH {
-		console.
+		log.
 			WithPrefix("buildkitd").
 			Warnf("Warning: %s was started using architecture %s, but host architecture is %s; "+
 				"is DOCKER_DEFAULT_PLATFORM accidentally set?\n", containerName, currentImageInfo.Architecture, runtime.GOARCH)
 	}
 
-	console.
+	log.
 		WithPrefix("buildkitd").
 		Printf("...Done\n")
 
@@ -326,13 +326,13 @@ func maybeStart(
 // the container is restarted.
 func maybeRestart(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
-	bkCons := console.WithPrefix("buildkitd")
+	bkLog := log.WithPrefix("buildkitd")
 
 	runningContainerInfo, err := GetContainerInfo(ctx, containerName, fe)
 	if err != nil {
@@ -345,7 +345,7 @@ func maybeRestart(
 	}
 
 	if currentImageInfo.Architecture != runtime.GOARCH {
-		console.
+		log.
 			WithPrefix("buildkitd").
 			Warnf("Warning: currently running %s under architecture %s, but host architecture is %s; "+
 				"is DOCKER_DEFAULT_PLATFORM accidentally set?\n", containerName, currentImageInfo.Architecture, runtime.GOARCH)
@@ -361,7 +361,7 @@ func maybeRestart(
 		// Keep going anyway.
 	}
 
-	bkCons.VerbosePrintf("Comparing running container %q image (%q) with available image %q (%q)\n",
+	bkLog.VerbosePrintf("Comparing running container %q image (%q) with available image %q (%q)\n",
 		containerName, containerImageID, image, availableImageID)
 
 	switch {
@@ -384,11 +384,11 @@ func maybeRestart(
 		useExistingContainer := false
 
 		if hashOK {
-			bkCons.VerbosePrintf("Settings hashes match (%q), no restart required\n", hash)
+			bkLog.VerbosePrintf("Settings hashes match (%q), no restart required\n", hash)
 
 			useExistingContainer = true
 		} else if settings.NoUpdate {
-			bkCons.Warnf("Settings do not match; however restart was inhibited. " +
+			bkLog.Warnf("Settings do not match; however restart was inhibited. " +
 				"This may cause unexpected issues, proceed with caution.\n")
 
 			useExistingContainer = true
@@ -408,9 +408,9 @@ func maybeRestart(
 			return info, workerInfo, nil
 		}
 
-		bkCons.Printf("Settings do not match. Restarting buildkit daemon with updated settings...\n")
+		bkLog.Printf("Settings do not match. Restarting buildkit daemon with updated settings...\n")
 	case settings.NoUpdate:
-		bkCons.Printf("Updated image available; however update was inhibited.\n")
+		bkLog.Printf("Updated image available; however update was inhibited.\n")
 
 		var (
 			info       *client.Info
@@ -424,7 +424,7 @@ func maybeRestart(
 
 		return info, workerInfo, nil
 	default:
-		bkCons.Printf("Updated image available. Restarting buildkit daemon...\n")
+		bkLog.Printf("Updated image available. Restarting buildkit daemon...\n")
 	}
 
 	// Replace.
@@ -438,17 +438,17 @@ func maybeRestart(
 		return nil, nil, fmt.Errorf("could not wait for container %q to stop: %w", containerName, err)
 	}
 
-	err = Start(ctx, console, image, containerName, installationName, fe, settings, false)
+	err = Start(ctx, log, image, containerName, installationName, fe, settings, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not start container %q: %w", containerName, err)
 	}
 
-	info, workerInfo, err := WaitUntilStarted(ctx, console, containerName, settings.VolumeName, settings, fe, opts...)
+	info, workerInfo, err := WaitUntilStarted(ctx, log, containerName, settings.VolumeName, settings, fe, opts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not wait for container %q to start: %w", containerName, err)
 	}
 
-	bkCons.Printf("...Done\n")
+	bkLog.Printf("...Done\n")
 
 	return info, workerInfo, nil
 }
@@ -476,7 +476,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 // Start starts the buildkitd daemon.
 func Start(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	image, containerName, _ string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
@@ -493,9 +493,9 @@ func Start(
 	}
 	// Pulling is not strictly needed, but it helps display some progress status to the user in
 	// case the image is not available locally.
-	err = MaybePull(ctx, console, image, fe)
+	err = MaybePull(ctx, log, image, fe)
 	if err != nil {
-		console.
+		log.
 			WithPrefix("buildkitd-pull").
 			Printf("Error: %s. Attempting to start buildkitd anyway...\n", err.Error())
 		// Keep going - it might still work.
@@ -710,7 +710,7 @@ func IsStarted(ctx context.Context, containerName string, fe containerutil.Conta
 // WaitUntilStarted waits until the buildkitd daemon has started and is healthy.
 func WaitUntilStarted(
 	ctx context.Context,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	containerName, volumeName string,
 	settings Settings,
 	fe containerutil.ContainerFrontend,
@@ -763,7 +763,7 @@ ContainerRunningLoop:
 		// We timed out. Check if the user has a lot of cache and give buildkit another chance.
 		cacheSizeBytes, cacheSizeErr := getCacheSize(ctx, volumeName, fe)
 		if cacheSizeErr != nil {
-			console.
+			log.
 				WithPrefix("buildkitd").
 				Printf("Warning: Could not detect buildkit cache size: %v\n", cacheSizeErr)
 
@@ -772,12 +772,12 @@ ContainerRunningLoop:
 
 		cacheGigs := cacheSizeBytes / 1024 / 1024 / 1024
 		if cacheGigs >= 30 || (cacheGigs >= 10 && runtime.GOOS == "darwin") {
-			console.
+			log.
 				WithPrefix("buildkitd").
 				Printf("Detected cache size %d GiB. "+
 					"It could take a while for buildkit to start up. "+
 					"Waiting for another %s before giving up...\n", cacheGigs, opTimeout)
-			console.
+			log.
 				WithPrefix("buildkitd").
 				Printf("To reduce the size of the cache, you can run one of\n" +
 					"\t\tearth config 'global.cache_size_mb' <new-size>\n" +
@@ -956,7 +956,7 @@ func checkConnection(
 
 // MaybePull checks whether an image is available locally and pulls it if it is not.
 func MaybePull(
-	ctx context.Context, console conslogging.ConsoleLogger, image string, fe containerutil.ContainerFrontend,
+	ctx context.Context, log *conslogging.ConsoleLogger, image string, fe containerutil.ContainerFrontend,
 ) error {
 	infos, err := fe.ImageInfo(ctx, image)
 	if err != nil {
@@ -967,7 +967,7 @@ func MaybePull(
 		return nil
 	}
 
-	console.
+	log.
 		WithPrefix("buildkitd-pull").
 		Printf("Pulling buildkitd image...\n")
 
@@ -976,7 +976,7 @@ func MaybePull(
 		return fmt.Errorf("could not pull %s: %w", image, err)
 	}
 
-	console.
+	log.
 		WithPrefix("buildkitd-pull").
 		Printf("...Done\n")
 
@@ -1112,21 +1112,21 @@ func isDockerAvailable(ctx context.Context, fe containerutil.ContainerFrontend) 
 }
 
 func printBuildkitInfo(
-	bkCons conslogging.ConsoleLogger,
+	bkLog *conslogging.ConsoleLogger,
 	info *client.Info,
 	workerInfo *client.WorkerInfo,
 	earthVersion string,
 	isLocal, hasConfiguredCacheSize bool,
 ) {
 	// Print most of this stuff only for remote buildkits
-	printFun := bkCons.Printf
+	printFun := bkLog.Printf
 	if isLocal {
-		printFun = bkCons.VerbosePrintf
+		printFun = bkLog.VerbosePrintf
 	}
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if info.BuildkitVersion.Version == unknown {
-		bkCons.Warnf(
+		bkLog.Warnf(
 			"Warning: Buildkit version is unknown. This usually means that " +
 				"it's from a version lower than earth Buildkit v0.6.20",
 		)
@@ -1139,13 +1139,13 @@ func printBuildkitInfo(
 		const buildkitPackage = "github.com/EarthBuild/buildkit"
 
 		if !strings.EqualFold(info.BuildkitVersion.Package, buildkitPackage) {
-			bkCons.Warnf("Using a non-EarthBuild version of Buildkit is not supported.\n"+
+			bkLog.Warnf("Using a non-EarthBuild version of Buildkit is not supported.\n"+
 				"  Supported: %s\n"+
 				"  Detected:  %s", buildkitPackage, info.BuildkitVersion.Package)
 		} else if strings.TrimSuffix(info.BuildkitVersion.Version, "-ticktock") != earthVersion {
 			if isLocal {
 				// For local buildkits we expect perfect version match.
-				bkCons.Warnf(
+				bkLog.Warnf(
 					"Warning: Buildkit version (%s) is different from earth version (%s)",
 					info.BuildkitVersion.Version, earthVersion,
 				)
@@ -1153,23 +1153,23 @@ func printBuildkitInfo(
 				compatible := true
 
 				if !semver.IsValid(info.BuildkitVersion.Version) {
-					bkCons.VerbosePrintf("Warning: could not parse buildkit version: %s", info.BuildkitVersion.Version)
+					bkLog.VerbosePrintf("Warning: could not parse buildkit version: %s", info.BuildkitVersion.Version)
 
 					compatible = false
 				}
 
 				if !semver.IsValid(earthVersion) {
-					bkCons.VerbosePrintf("Warning: could not parse earth version: %s", earthVersion)
+					bkLog.VerbosePrintf("Warning: could not parse earth version: %s", earthVersion)
 
 					compatible = false
 				}
 
 				compatible = compatible && semver.MajorMinor(info.BuildkitVersion.Version) == semver.MajorMinor(earthVersion)
 				if compatible {
-					bkCons.VerbosePrintf("Buildkit version (%s) is compatible with earth version (%s)",
+					bkLog.VerbosePrintf("Buildkit version (%s) is compatible with earth version (%s)",
 						info.BuildkitVersion.Version, earthVersion)
 				} else {
-					bkCons.Warnf("Warning: Buildkit version (%s) is not compatible with earth version (%s)",
+					bkLog.Warnf("Warning: Buildkit version (%s) is not compatible with earth version (%s)",
 						info.BuildkitVersion.Version, earthVersion)
 				}
 			}
@@ -1190,9 +1190,9 @@ func printBuildkitInfo(
 
 	switch {
 	case workerInfo.ParallelismWaiting > 5:
-		bkCons.Warnf("Warning: Currently under heavy load. Performance will be affected")
+		bkLog.Warnf("Warning: Currently under heavy load. Performance will be affected")
 	case workerInfo.ParallelismWaiting > 0:
-		bkCons.Printf("Note: Currently under significant load. Performance will be affected")
+		bkLog.Printf("Note: Currently under significant load. Performance will be affected")
 	default:
 	}
 
@@ -1215,18 +1215,18 @@ func printBuildkitInfo(
 		d := time.Since(*workerInfo.GCAnalytics.CurrentStartTime).Round(time.Second)
 		switch {
 		case d > 5*time.Minute:
-			bkCons.Warnf("Warning: GC has been running for a long time, started %v ago", d)
+			bkLog.Warnf("Warning: GC has been running for a long time, started %v ago", d)
 		case d > 1*time.Minute:
-			bkCons.Printf("GC currently ongoing, started %v ago", d)
+			bkLog.Printf("GC currently ongoing, started %v ago", d)
 		default:
 		}
 	}
 
 	if isLocal && !hasConfiguredCacheSize {
 		if size, ok := getGCPolicySize(workerInfo); ok && size < minRecommendedCacheSize {
-			bkCons.Warnf("Configured cache size of %s is smaller than the minimum recommended size of %s",
+			bkLog.Warnf("Configured cache size of %s is smaller than the minimum recommended size of %s",
 				units.HumanSize(float64(size)), units.HumanSize(minRecommendedCacheSize))
-			bkCons.Warnf("Please consider increasing the cache size: https://docs.earthbuild.dev/docs/caching/managing-cache")
+			bkLog.Warnf("Please consider increasing the cache size: https://docs.earthbuild.dev/docs/caching/managing-cache")
 		}
 	}
 }

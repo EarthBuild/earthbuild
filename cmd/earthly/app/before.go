@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -36,11 +37,11 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		}
 
 		if !cmd.IsSet("buildkit-container-name") {
-			flags.ContainerName = flags.InstallationName + "-buildkitd"
+			flags.ContainerName = buildkitd.ContainerName(flags.InstallationName)
 		}
 
 		if !cmd.IsSet("buildkit-volume-name") {
-			flags.BuildkitdSettings.VolumeName = flags.InstallationName + "-cache"
+			flags.BuildkitdSettings.VolumeName = buildkitd.VolumeName(flags.InstallationName)
 		}
 	}
 

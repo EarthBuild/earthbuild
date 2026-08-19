@@ -11,6 +11,16 @@ if [ "$EARTH_DEBUG" = "true" ]; then
     export EARTH_DEBUG
 fi
 
+# The CLI writes its generated certificates to ~/.<installation name>/certs.
+# +earthly-docker bakes the name it built the CLI with into the environment.
+# A caller overriding the installation name moves that directory, so resolve it
+# the same way the CLI does, falling back to the name the image was built with.
+earth_installation_name="$(earth_env INSTALLATION_NAME "${EARTH_IMAGE_INSTALLATION_NAME:-earth}")"
+earth_certs_dir="${HOME:-/root}/.${earth_installation_name}/certs"
+
+# A documented mount point for callers supplying their own config, rather than a
+# path the CLI derives, so it is independent of the installation name and is
+# passed explicitly via --config below.
 earthly_config="/etc/.earthly/config.yml"
 if [ ! -f "$earthly_config" ]; then
   # Missing config, generate it and use the env vars
@@ -19,12 +29,12 @@ if [ ! -f "$earthly_config" ]; then
 
   # Apply global configuration
   if [ -n "$GLOBAL_CONFIG" ]; then
-    earthly --config "$earthly_config" config global "$GLOBAL_CONFIG"
+    earth --config "$earthly_config" config global "$GLOBAL_CONFIG"
   fi
 
   # Apply git configuration
   if [ -n "$GIT_CONFIG" ]; then
-    earthly --config $earthly_config config git "$GIT_CONFIG"
+    earth --config $earthly_config config git "$GIT_CONFIG"
   fi
 fi
 
@@ -43,18 +53,26 @@ if [ -z "$NO_BUILDKIT" ]; then
     fi
 
     # generate certificates
-    earthly --config "$earthly_config" --buildkit-host=tcp://127.0.0.1:8372 bootstrap --certs-hostname="$(hostname)" --no-buildkit --force-certificate-generation
+    earth --config "$earthly_config" --buildkit-host=tcp://127.0.0.1:8372 bootstrap --certs-hostname="$(hostname)" --no-buildkit --force-certificate-generation
+
+    # Fail loudly rather than leaving dangling symlinks: if the CLI's
+    # installation name and $earth_certs_dir ever disagree, buildkitd would
+    # otherwise start and fail its TLS handshake with no hint why.
+    if [ ! -d "$earth_certs_dir" ]; then
+      echo >&2 "earthly-entrypoint.sh: expected generated certificates in $earth_certs_dir, but that directory does not exist"
+      exit 1
+    fi
 
     if [ ! -f /etc/ca.pem ]; then
-      ln -s /root/.earthly/certs/ca_cert.pem /etc/ca.pem
+      ln -s "$earth_certs_dir/ca_cert.pem" /etc/ca.pem
     fi
 
     if [ ! -f /etc/cert.pem ]; then
-      ln -s /root/.earthly/certs/buildkit_cert.pem /etc/cert.pem
+      ln -s "$earth_certs_dir/buildkit_cert.pem" /etc/cert.pem
     fi
 
     if [ ! -f /etc/key.pem ]; then
-      ln -s /root/.earthly/certs/buildkit_key.pem /etc/key.pem
+      ln -s "$earth_certs_dir/buildkit_key.pem" /etc/key.pem
     fi
 
 
@@ -92,6 +110,6 @@ if [ -n "$EARTH_EXEC_CMD" ]; then
     exit 1 # this should never be reached
 fi
 
-# Run earthly with given args.
+# Run earth with given args.
 # Exec so we don't have to trap and manage signal propagation
-exec earthly --config "$earthly_config" "$@"
+exec earth --config "$earthly_config" "$@"

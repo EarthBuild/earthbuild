@@ -124,8 +124,14 @@ type Config struct {
 
 // PortOffset is the offset to use for dev ports.
 func PortOffset(installationName string) int {
-	if installationName == "earthly" {
-		// No offset for the official release.
+	switch installationName {
+	// "earth" and "earthly" are both official installation names and must map
+	// to a zero offset. Several places hardcode the ports a zero offset
+	// produces -- earthly-entrypoint.sh, buildkitd/buildkitd.tcp.template and
+	// BUILDKIT_LOCAL_REGISTRY_LISTEN_PORT in buildkitd/Earthfile -- so an
+	// official name must offset to zero or the in-image client and buildkitd
+	// disagree about the port.
+	case "earth", "earthly":
 		return 0
 	}
 

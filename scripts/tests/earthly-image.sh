@@ -52,9 +52,24 @@ fi
 acbgrep "Executes earth builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 
+echo "Test the CLI is on PATH under its released name."
+# The image must expose the CLI as 'earth' on PATH, matching the name the
+# release binaries are published under.
+"$FRONTEND" run --rm --entrypoint sh "${EARTHLY_IMAGE}" -c 'command -v earth' 2>&1 | tee output.txt
+acbgrep "/earth$" output.txt
+"$FRONTEND" run --rm -e NO_BUILDKIT=1 --entrypoint earth "${EARTHLY_IMAGE}" --version 2>&1 | tee output.txt
+acbgrep "^earth version" output.txt
+
+echo "Test the deprecated name still resolves, and says so."
+# 'ls' with no Earthfile in the workdir exits non-zero; the rename notice is
+# emitted by the before hook, ahead of that error.
+"$FRONTEND" run --rm -e NO_BUILDKIT=1 --entrypoint earthly "${EARTHLY_IMAGE}" ls 2>&1 | tee output.txt || true
+acbgrep "the earthly binary has been renamed to earth" output.txt
+acbgrep "you can .rm /usr/bin/earthly" output.txt
+
 # A trivial build that only needs the parser, so the deprecation scan can be
 # observed without standing up buildkit.
-deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Earthfile && earthly ls'
+deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Earthfile && earth ls'
 
 echo "Test the image does not emit deprecation warnings for its own configuration."
 # The deprecation scan cannot tell a user-set EARTHLY_* variable from one

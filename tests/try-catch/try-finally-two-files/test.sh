@@ -27,6 +27,9 @@ rm .testpea || true # cleanup
 
 set +e
 "$earthly" "$@" +test --fail=yesplease
+exit_code=$?
+set -e
+test "$exit_code" -ne 0
 
 test -f .testbean
 test -f .testpea

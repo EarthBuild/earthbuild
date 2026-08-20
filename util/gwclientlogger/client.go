@@ -23,19 +23,16 @@ func New(c gwclient.Client) gwclient.Client {
 
 // Solve wraps gwclient.Solve.
 func (vc *verboseClient) Solve(ctx context.Context, req gwclient.SolveRequest) (*gwclient.Result, error) {
-	reqStr, _ := json.MarshalIndent(req, "", "\t")
 	res, err := vc.c.Solve(ctx, req)
-	resStr, _ := json.MarshalIndent(res, "", "\t")
-	fmt.Printf("Solve req=%s res=%s; err=%v\n", reqStr, resStr, err)
+	fmt.Printf("Solve req=%+v res=%+v; err=%v\n", req, res, err)
 
 	return res, err
 }
 
 // Export wraps gwclient.Export.
 func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest) error {
-	reqStr, _ := json.MarshalIndent(req, "", "\t")
 	err := vc.c.Export(ctx, req)
-	fmt.Printf("Export req=%s; err=%v\n", reqStr, err)
+	fmt.Printf("Export req=%+v; err=%v\n", req, err)
 
 	return err
 }

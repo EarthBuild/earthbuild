@@ -410,7 +410,15 @@ func (m *multiImageSolver) addRefToResult(
 		return fmt.Errorf("initial state to ref conversion: %w", err)
 	}
 
-	refPrefix, err := gwCrafter.AddPushImageEntry(ref, imageIndex, imageDef.ImageName, false, false, saveImage.Image, nil)
+	refPrefix, err := gwCrafter.AddPushImageEntry(
+		ref,
+		imageIndex,
+		imageDef.ImageName,
+		false,
+		false,
+		saveImage.Image,
+		nil,
+	)
 	if err != nil {
 		return err
 	}

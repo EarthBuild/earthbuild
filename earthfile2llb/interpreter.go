@@ -1311,8 +1311,20 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 				}
 			} else {
 				err = i.converter.CopyArtifact(
-					ctx, expandedSrc, dest, platform, allowPrivileged, opts.PassArgs, srcBuildArgs,
-					opts.IsDirCopy, opts.KeepTs, opts.KeepOwn, expandedChown, fileModeParsed, opts.IfExists, opts.SymlinkNoFollow,
+					ctx,
+					expandedSrc,
+					dest,
+					platform,
+					allowPrivileged,
+					opts.PassArgs,
+					srcBuildArgs,
+					opts.IsDirCopy,
+					opts.KeepTs,
+					opts.KeepOwn,
+					expandedChown,
+					fileModeParsed,
+					opts.IfExists,
+					opts.SymlinkNoFollow,
 				)
 				if err != nil {
 					return i.wrapError(err, cmd.SourceLocation, "copy artifact")

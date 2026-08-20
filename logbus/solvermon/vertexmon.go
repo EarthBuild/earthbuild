@@ -39,7 +39,7 @@ type vertexMonitor struct {
 
 var reErrExitCode = regexp.MustCompile(
 	`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`,
-) //nolint:lll
+)
 
 var (
 	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")

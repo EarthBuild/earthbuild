@@ -171,7 +171,16 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+			ctx,
+			depTarget.String(),
+			opt.Platform,
+			opt.AllowPrivileged,
+			opt.PassArgs,
+			opt.BuildArgs,
+			false,
+			loadCmd,
+			cmdID,
+			nil,
 		)
 		if err != nil {
 			return nil, err

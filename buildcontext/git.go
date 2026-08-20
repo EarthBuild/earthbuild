@@ -140,9 +140,22 @@ func (gr *gitResolver) resolveEarthProject(
 				copyState pllb.State
 			)
 
-			copyState, err = llbutil.CopyOp(ctx,
-				rgp.state, []string{subDir}, platr.Scratch(), "./", false, false, false, "root:root", nil, false, false, false,
-				llb.WithCustomNamef("%sCOPY git context %s", vm.ToVertexPrefix(), ref.String()))
+			copyState, err = llbutil.CopyOp(
+				ctx,
+				rgp.state,
+				[]string{subDir},
+				platr.Scratch(),
+				"./",
+				false,
+				false,
+				false,
+				"root:root",
+				nil,
+				false,
+				false,
+				false,
+				llb.WithCustomNamef("%sCOPY git context %s", vm.ToVertexPrefix(), ref.String()),
+			)
 			if err != nil {
 				return nil, fmt.Errorf("copyOp failed in resolveEarthProject: %w", err)
 			}

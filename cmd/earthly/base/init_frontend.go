@@ -30,13 +30,17 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 		}
 
 		if cli.Cfg().Global.BuildkitImage != "" {
-			return errors.New("the --ticktock flags can not be used in combination with the buildkit_image config option")
+			return errors.New(
+				"the --ticktock flags can not be used in combination with the buildkit_image config option",
+			)
 		}
 
 		cli.Flags().BuildkitdImage += "-ticktock"
 	}
 
-	bkURL, err := url.Parse(cli.Flags().BuildkitHost) // Not validated because we already did that when we calculated it.
+	bkURL, err := url.Parse(
+		cli.Flags().BuildkitHost,
+	) // Not validated because we already did that when we calculated it.
 	if err != nil {
 		return fmt.Errorf("failed to parse generated buildkit URL: %w", err)
 	}

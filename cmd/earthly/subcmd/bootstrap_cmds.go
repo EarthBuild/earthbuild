@@ -152,7 +152,9 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 			// Keep going.
 		}
 
-		console.Printf("You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n")
+		console.Printf(
+			"You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n",
+		)
 	}
 
 	err := symlinkEarthlyToEarth()

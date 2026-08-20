@@ -201,7 +201,7 @@ func TestReErrNotFound(t *testing.T) {
 				"",
 				"p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f",
 				`"/doesnotexist": not found`,
-			}, //nolint:lll
+			},
 		},
 		{
 			name:      "complex (internal)",
@@ -210,7 +210,7 @@ func TestReErrNotFound(t *testing.T) {
 				"internal",
 				"p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f",
 				`"/doesnotexist": not found`,
-			}, //nolint:lll
+			},
 		},
 	}
 

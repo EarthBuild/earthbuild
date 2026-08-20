@@ -176,7 +176,8 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 func (b *Build) warnIfArgContainsBuildArg(flagArgs []string) {
 	for _, flag := range flagArgs {
 		if strings.HasPrefix(flag, "build-arg=") || strings.HasPrefix(flag, "buildarg=") {
-			b.cli.Log().Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
+			b.cli.Log().
+				Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
 		}
 	}
 }
@@ -226,7 +227,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName(),
+				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>",
+				common.GetBinaryName(),
 			)
 		} else if len(nonFlagArgs) > 2 {
 			_ = cli.ShowAppHelp(cmd)
@@ -927,7 +929,13 @@ func (b *Build) initAutoSkip(
 
 	exists, err := skipDB.Exists(ctx, targetHash)
 	if err != nil {
-		console.Warnf("Unable to check if target %s (hash %x) has already been run: %s", targetStr, targetHash, err.Error())
+		console.Warnf(
+			"Unable to check if target %s (hash %x) has already been run: %s",
+			targetStr,
+			targetHash,
+			err.Error(),
+		)
+
 		return nil, false, nil
 	}
 

@@ -23198,3 +23198,46 @@ part somebody already made careful.
 
 *A diagnosis that ignores half of its own error message.* Both readings were available before
 looking, and both were contradicted by the text already printed.
+
+### Settled: two namespaces, one comparison
+
+The mechanism is not ownership, and it is not id maps. Both were tested and both are wrong; the
+second was written as a failing test that refused to fail, which is the cheapest way to lose a
+hypothesis.
+
+Asking a real store what its own directory contains settles it:
+
+```text
+directory is named        ebea4699e70a885d403b71736ec6020364fe1e043b9d38aea2956803df6bcf55
+its contents capture to   dc7fc085e83ea3fb28e5f08770786b2f5c00a858d3b71a55701341be1db753ec
+content-only (no mtimes)  e0d704712804756929aba7a6c3503adf63a08c44e7f780decb5964148406a3f9
+```
+
+`dc7fc085` is the digest the peer served in the reproduction, and the name worker 2 filed the
+arrival under. The chain is complete:
+
+| value      | what it is                                               |
+| ---------- | -------------------------------------------------------- |
+| `ebea4699` | the node id - the cache key Κ the build asked for        |
+| `dc7fc085` | the capture of the directory's actual contents           |
+| `7b9c2d35` | the digest of the packed byte stream `Layers.Get` writes |
+
+A layer directory is named by its **node id**. `Layers.Put` unpacks an arrival, captures it, gets the
+content id, and `keep` compares that against the node id that was asked for - two different
+namespaces, one `!=`.
+
+*A store named by cache key, served by a protocol that assumes it is named by content.* Every
+component is correct in isolation. `keep`'s own comment argues, rightly, that filing an arrival
+under the digest that was asked for would serve corruption for ever after - and that argument holds
+only where the asked-for digest names the bytes. Here it names the *derivation*, and §5.3's
+integrity story does not reach it.
+
+**Not fixed here.** The remedy is a design decision rather than a patch: either an arrival is filed
+under the node id and its integrity comes from a capture the sender declares and the receiver
+recomputes, or layer directories become content-named and the node id maps to them. The first keeps
+the store's shape and moves what is trusted; the second changes what a layer store is. Choosing
+wants the green paper open at §5.3, not a quick edit.
+
+**What this cost, and what it did not.** Nothing: the digest check caught it every time, the driver
+ran the step itself, and both builds were correct. What it costs is the point of a fleet - a base
+that cannot be shared is a base every machine fetches for itself.

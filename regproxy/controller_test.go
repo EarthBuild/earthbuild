@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	conslog "github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/require"
+
+	conslog "github.com/EarthBuild/earthbuild/conslogging"
 )
 
 func TestNewController(t *testing.T) {

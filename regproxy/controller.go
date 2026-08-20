@@ -9,10 +9,11 @@ import (
 	"strings"
 	"time"
 
+	registry "github.com/moby/buildkit/api/services/registry"
+
 	conslog "github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	registry "github.com/moby/buildkit/api/services/registry"
 )
 
 const (

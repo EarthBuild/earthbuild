@@ -11,14 +11,15 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/adrg/xdg"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
-	"github.com/adrg/xdg"
-	"github.com/urfave/cli/v3"
 )
 
 // Bootstrap encapsulates the bootstrap command logic.
@@ -151,7 +152,9 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 			// Keep going.
 		}
 
-		console.Printf("You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n")
+		console.Printf(
+			"You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n",
+		)
 	}
 
 	err := symlinkEarthlyToEarth()

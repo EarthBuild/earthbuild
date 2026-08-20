@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	"github.com/stretchr/testify/require"
 )
 
 func TestParseDocTarget(t *testing.T) {
@@ -24,7 +25,11 @@ func TestParseDocTarget(t *testing.T) {
 		{name: "local dir documents all base targets", path: ".", wantTarget: docBaseTarget, wantSingle: false},
 		{name: "explicit target is single", path: "+build", wantTarget: "+build", wantSingle: true},
 		{name: "pathed target is single", path: "./foo+build", wantTarget: "./foo+build", wantSingle: true},
-		{name: "remote path rejected", path: "github.com/foo/bar+x", wantErrLike: "remote-paths are not currently supported"},
+		{
+			name:        "remote path rejected",
+			path:        "github.com/foo/bar+x",
+			wantErrLike: "remote-paths are not currently supported",
+		},
 	}
 
 	for _, tt := range tests {

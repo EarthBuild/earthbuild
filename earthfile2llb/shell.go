@@ -95,7 +95,9 @@ func shellCmd(cmd string) []string {
 }
 
 func withShellAndEnvVars(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string {
-	return shellCmd(strWithEnvVarsAndDocker(args, envVars, withShell, withDebugger, forceDebugger, false, false, "", ""))
+	return shellCmd(
+		strWithEnvVarsAndDocker(args, envVars, withShell, withDebugger, forceDebugger, false, false, "", ""),
+	)
 }
 
 func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {

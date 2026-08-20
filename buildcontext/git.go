@@ -10,6 +10,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/moby/buildkit/client/llb"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
+
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -22,9 +26,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/moby/buildkit/client/llb"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 )
 
 const (
@@ -139,9 +140,22 @@ func (gr *gitResolver) resolveEarthProject(
 				copyState pllb.State
 			)
 
-			copyState, err = llbutil.CopyOp(ctx,
-				rgp.state, []string{subDir}, platr.Scratch(), "./", false, false, false, "root:root", nil, false, false, false,
-				llb.WithCustomNamef("%sCOPY git context %s", vm.ToVertexPrefix(), ref.String()))
+			copyState, err = llbutil.CopyOp(
+				ctx,
+				rgp.state,
+				[]string{subDir},
+				platr.Scratch(),
+				"./",
+				false,
+				false,
+				false,
+				"root:root",
+				nil,
+				false,
+				false,
+				false,
+				llb.WithCustomNamef("%sCOPY git context %s", vm.ToVertexPrefix(), ref.String()),
+			)
 			if err != nil {
 				return nil, fmt.Errorf("copyOp failed in resolveEarthProject: %w", err)
 			}

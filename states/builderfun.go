@@ -3,8 +3,9 @@ package states
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/util/platutil"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/EarthBuild/earthbuild/util/platutil"
 )
 
 // DockerTarImageSolver can create a Docker image and make it available as a tar

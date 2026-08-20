@@ -9,8 +9,9 @@ import (
 	"syscall"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/moby/buildkit/session/secrets"
+
+	"github.com/EarthBuild/earthbuild/debugger/common"
 )
 
 type cmdStore struct {

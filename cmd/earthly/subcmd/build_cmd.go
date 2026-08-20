@@ -12,6 +12,21 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/containerd/platforms"
+	"github.com/docker/cli/cli/config"
+	"github.com/joho/godotenv"
+	bkclient "github.com/moby/buildkit/client"
+	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/auth"
+	dockerauthprovider "github.com/moby/buildkit/session/auth/authprovider"
+	"github.com/moby/buildkit/session/localhost/localhostprovider"
+	"github.com/moby/buildkit/session/socketforward/socketprovider"
+	"github.com/moby/buildkit/session/sshforward/sshprovider"
+	"github.com/moby/buildkit/util/entitlements"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/builder"
@@ -39,20 +54,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/containerd/platforms"
-	"github.com/docker/cli/cli/config"
-	"github.com/joho/godotenv"
-	bkclient "github.com/moby/buildkit/client"
-	"github.com/moby/buildkit/client/llb"
-	"github.com/moby/buildkit/session"
-	"github.com/moby/buildkit/session/auth"
-	dockerauthprovider "github.com/moby/buildkit/session/auth/authprovider"
-	"github.com/moby/buildkit/session/localhost/localhostprovider"
-	"github.com/moby/buildkit/session/socketforward/socketprovider"
-	"github.com/moby/buildkit/session/sshforward/sshprovider"
-	"github.com/moby/buildkit/util/entitlements"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/urfave/cli/v3"
 )
 
 const autoSkipPrefix = "auto-skip"
@@ -175,7 +176,8 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 func (b *Build) warnIfArgContainsBuildArg(flagArgs []string) {
 	for _, flag := range flagArgs {
 		if strings.HasPrefix(flag, "build-arg=") || strings.HasPrefix(flag, "buildarg=") {
-			b.cli.Log().Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
+			b.cli.Log().
+				Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
 		}
 	}
 }
@@ -225,7 +227,8 @@ func (b *Build) parseTarget(cmd *cli.Command, nonFlagArgs []string) (domain.Targ
 			_ = cli.ShowAppHelp(cmd)
 
 			return target, artifact, "", params.Errorf(
-				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>", common.GetBinaryName(),
+				"no artifact reference provided. Try %s --artifact +<target-name>/<artifact-name>",
+				common.GetBinaryName(),
 			)
 		} else if len(nonFlagArgs) > 2 {
 			_ = cli.ShowAppHelp(cmd)
@@ -926,7 +929,13 @@ func (b *Build) initAutoSkip(
 
 	exists, err := skipDB.Exists(ctx, targetHash)
 	if err != nil {
-		console.Warnf("Unable to check if target %s (hash %x) has already been run: %s", targetStr, targetHash, err.Error())
+		console.Warnf(
+			"Unable to check if target %s (hash %x) has already been run: %s",
+			targetStr,
+			targetHash,
+			err.Error(),
+		)
+
 		return nil, false, nil
 	}
 

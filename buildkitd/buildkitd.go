@@ -15,11 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/buildkitutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/containerd/platforms"
 	"github.com/docker/go-units"
 	"github.com/dustin/go-humanize"
@@ -29,6 +24,12 @@ import (
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/buildkitutil"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB
@@ -85,8 +86,10 @@ func NewClient(
 			// verification errors can happen server-side, which means
 			// errors.Is() won't work. We use strings.Contains instead to handle
 			// that case.
-			retErr = hint.Wrap(retErr,
-				"did earth's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.")
+			retErr = hint.Wrap(
+				retErr,
+				"did earth's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.",
+			)
 
 			return
 		}
@@ -1164,7 +1167,8 @@ func printBuildkitInfo(
 					compatible = false
 				}
 
-				compatible = compatible && semver.MajorMinor(info.BuildkitVersion.Version) == semver.MajorMinor(earthVersion)
+				compatible = compatible &&
+					semver.MajorMinor(info.BuildkitVersion.Version) == semver.MajorMinor(earthVersion)
 				if compatible {
 					bkLog.VerbosePrintf("Buildkit version (%s) is compatible with earth version (%s)",
 						info.BuildkitVersion.Version, earthVersion)
@@ -1226,7 +1230,9 @@ func printBuildkitInfo(
 		if size, ok := getGCPolicySize(workerInfo); ok && size < minRecommendedCacheSize {
 			bkLog.Warnf("Configured cache size of %s is smaller than the minimum recommended size of %s",
 				units.HumanSize(float64(size)), units.HumanSize(minRecommendedCacheSize))
-			bkLog.Warnf("Please consider increasing the cache size: https://docs.earthbuild.dev/docs/caching/managing-cache")
+			bkLog.Warnf(
+				"Please consider increasing the cache size: https://docs.earthbuild.dev/docs/caching/managing-cache",
+			)
 		}
 	}
 }

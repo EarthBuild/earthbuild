@@ -7,12 +7,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session/auth"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 )
 
 type fakeChild struct {

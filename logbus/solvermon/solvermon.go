@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moby/buildkit/client"
+	"github.com/opencontainers/go-digest"
+
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/moby/buildkit/client"
-	"github.com/opencontainers/go-digest"
 )
 
 // SolverMonitor is a buildkit solver monitor.

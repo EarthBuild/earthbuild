@@ -3,12 +3,13 @@ package variables_test
 import (
 	"testing"
 
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/stretchr/testify/require"
+
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	specs "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCollection(t *testing.T) {

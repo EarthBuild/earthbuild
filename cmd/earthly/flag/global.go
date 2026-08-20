@@ -5,10 +5,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/urfave/cli/v3"
 )
 
 const (

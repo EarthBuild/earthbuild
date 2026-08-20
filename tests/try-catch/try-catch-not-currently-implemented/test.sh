@@ -10,7 +10,7 @@ echo "using earthly=$(realpath "$earthly")"
 
 rm .testdata || true # cleanup
 
-! "$earthly" $@ +test 2>&1 | tee .earthlyoutput
-! test -f .testdata
+"$earthly" "$@" +test 2>&1 | tee .earthlyoutput && exit 1
+test -f .testdata && exit 1
 
 grep "TRY/FINALLY doesn't (currently) support CATCH statements" .earthlyoutput

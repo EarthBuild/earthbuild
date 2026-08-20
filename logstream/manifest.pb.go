@@ -1149,8 +1149,8 @@ var (
 	file_manifest_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 	file_manifest_proto_msgTypes  = make([]protoimpl.MessageInfo, 8)
 	file_manifest_proto_goTypes   = []interface{}{
-		(RunStatus)(0),          // 0: api.public.logstream.RunStatus
-		(FailureType)(0),        // 1: api.public.logstream.FailureType
+		RunStatus(0),            // 0: api.public.logstream.RunStatus
+		FailureType(0),          // 1: api.public.logstream.FailureType
 		(*RunManifest)(nil),     // 2: api.public.logstream.RunManifest
 		(*Failure)(nil),         // 3: api.public.logstream.Failure
 		(*TargetManifest)(nil),  // 4: api.public.logstream.TargetManifest
@@ -1161,6 +1161,7 @@ var (
 		nil,                     // 9: api.public.logstream.RunManifest.CommandsEntry
 	}
 )
+
 var file_manifest_proto_depIdxs = []int32{
 	0,  // 0: api.public.logstream.RunManifest.status:type_name -> api.public.logstream.RunStatus
 	8,  // 1: api.public.logstream.RunManifest.targets:type_name -> api.public.logstream.RunManifest.TargetsEntry

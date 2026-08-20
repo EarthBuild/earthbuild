@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -19,8 +22,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/google/uuid"
-	"github.com/urfave/cli/v3"
 )
 
 func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {

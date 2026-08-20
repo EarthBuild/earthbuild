@@ -252,7 +252,14 @@ func TestSettingsHash(t *testing.T) {
 			require.NoError(t, err)
 
 			hasChanged := (hash != baseHash)
-			assert.Equal(t, tt.wantChanged, hasChanged, "changed status mismatch (baseHash: %q, modHash: %q)", baseHash, hash)
+			assert.Equal(
+				t,
+				tt.wantChanged,
+				hasChanged,
+				"changed status mismatch (baseHash: %q, modHash: %q)",
+				baseHash,
+				hash,
+			)
 
 			ok, err := s.VerifyHash(baseHash)
 			require.NoError(t, err)

@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/EarthBuild/earthbuild/states/image"
-	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+
+	"github.com/EarthBuild/earthbuild/states/image"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
 )
 
 // NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref

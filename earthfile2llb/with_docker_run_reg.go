@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moby/buildkit/client/llb"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/logstream"
@@ -15,7 +17,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
-	"github.com/moby/buildkit/client/llb"
 )
 
 type withDockerRunRegistry struct {
@@ -348,14 +349,31 @@ func (w *withDockerRunRegistry) load(
 
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFn, w.sem,
+			ctx,
+			depTarget.String(),
+			opt.Platform,
+			opt.AllowPrivileged,
+			opt.PassArgs,
+			opt.BuildArgs,
+			loadCmd,
+			afterFn,
+			w.sem,
 		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+			ctx,
+			depTarget.String(),
+			opt.Platform,
+			opt.AllowPrivileged,
+			opt.PassArgs,
+			opt.BuildArgs,
+			false,
+			loadCmd,
+			cmdID,
+			nil,
 		)
 		if err != nil {
 			return nil, err

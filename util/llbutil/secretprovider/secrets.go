@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/secrets"
+
+	"github.com/EarthBuild/earthbuild/util/hint"
 
 	"google.golang.org/grpc"
 )

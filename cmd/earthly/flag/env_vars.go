@@ -1,8 +1,9 @@
 package flag
 
 import (
-	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/urfave/cli/v3"
+
+	"github.com/EarthBuild/earthbuild/internal/env"
 )
 
 // EarthEnvVars returns a value source chain for the given env var suffix that

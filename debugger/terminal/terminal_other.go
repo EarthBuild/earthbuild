@@ -13,10 +13,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/creack/pty"
 	"golang.org/x/term"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/debugger/common"
 )
 
 func handlePtyData(data []byte) error {

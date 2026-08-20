@@ -11,11 +11,12 @@ import (
 	"slices"
 	"strings"
 
+	gsysinfo "github.com/elastic/go-sysinfo"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/variables"
-	gsysinfo "github.com/elastic/go-sysinfo"
 )
 
 // Wrap formats strings by joining them with newlines and tabs.
@@ -63,9 +64,11 @@ func ProcessSecrets(
 			if !found {
 				err := fmt.Errorf("failed to set secret %q via --secret flag without a value", secret)
 
-				return nil, hint.Wrapf(err,
+				return nil, hint.Wrapf(
+					err,
 					"Try to set an env var by the name %q with the secret value or pass the value as part of the --secret flag",
-					secret)
+					secret,
+				)
 			}
 
 			data = []byte(value)

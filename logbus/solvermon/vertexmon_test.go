@@ -4,8 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/EarthBuild/earthbuild/logstream"
 )
 
 func TestGetExitCode(t *testing.T) {
@@ -147,11 +148,23 @@ func TestDetermineFatalErrorType(t *testing.T) {
 
 			fatalType, fatal := determineFatalErrorType(tt.errString, tt.exitCode, tt.parseErr)
 			if fatalType != tt.expectedType {
-				t.Errorf("determineFatalErrorType(%q, %d) = %v, want %v", tt.errString, tt.exitCode, fatalType, tt.expectedType)
+				t.Errorf(
+					"determineFatalErrorType(%q, %d) = %v, want %v",
+					tt.errString,
+					tt.exitCode,
+					fatalType,
+					tt.expectedType,
+				)
 			}
 
 			if fatal != tt.expectedFatal {
-				t.Errorf("determineFatalErrorType(%q, %d) = %v, want %v", tt.errString, tt.exitCode, fatal, tt.expectedFatal)
+				t.Errorf(
+					"determineFatalErrorType(%q, %d) = %v, want %v",
+					tt.errString,
+					tt.exitCode,
+					fatal,
+					tt.expectedFatal,
+				)
 			}
 		})
 	}
@@ -184,12 +197,20 @@ func TestReErrNotFound(t *testing.T) {
 		{
 			name:      "complex",
 			errString: ` failed to calculate checksum of ref p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f: "/doesnotexist": not found`, //nolint:lll
-			expected:  []string{"", "p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f", `"/doesnotexist": not found`},                      //nolint:lll
+			expected: []string{
+				"",
+				"p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f",
+				`"/doesnotexist": not found`,
+			},
 		},
 		{
 			name:      "complex (internal)",
 			errString: ` internalfailed to calculate checksum of ref p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f: "/doesnotexist": not found`, //nolint:lll
-			expected:  []string{"internal", "p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f", `"/doesnotexist": not found`},                      //nolint:lll
+			expected: []string{
+				"internal",
+				"p4gz72iufvk3t1nsqq07p9sim::m4m7o7gui4zuuoy9vynbrzx8f",
+				`"/doesnotexist": not found`,
+			},
 		},
 	}
 

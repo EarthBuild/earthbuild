@@ -3,10 +3,11 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/opencontainers/go-digest"
+
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 )
 
 var _ llb.ImageMetaResolver = &CachedMetaResolver{}

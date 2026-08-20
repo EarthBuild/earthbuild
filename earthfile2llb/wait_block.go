@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
@@ -18,7 +20,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 type waitBlock struct {
@@ -233,15 +234,27 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			case isMultiPlatform[item.si.DockerTag]:
 				// local docker instance does not support multi-platform images, so we must create a new entry
 				// and set it to the platformImgName
-				refPrefix, err = gwCrafter.AddPushImageEntry(ref, refID, platformImgName, false, false, item.si.Image, nil)
+				refPrefix, err = gwCrafter.AddPushImageEntry(
+					ref,
+					refID,
+					platformImgName,
+					false,
+					false,
+					item.si.Image,
+					nil,
+				)
 				if err != nil {
 					return err
 				}
 
-				exportCoordinatorImageID := exportCoordinator.AddImage(sessionID, item.si.DockerTag, &dockerutil.Manifest{
-					ImageName: platformImgName,
-					Platform:  item.si.Platform,
-				})
+				exportCoordinatorImageID := exportCoordinator.AddImage(
+					sessionID,
+					item.si.DockerTag,
+					&dockerutil.Manifest{
+						ImageName: platformImgName,
+						Platform:  item.si.Platform,
+					},
+				)
 
 				if item.c.opt.UseLocalRegistry {
 					gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(exportCoordinatorImageID))
@@ -320,7 +333,11 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)
 			if err != nil {
-				return fmt.Errorf("acquiring parallelism semaphore during waitStates for %s: %w", item.c.target.String(), err)
+				return fmt.Errorf(
+					"acquiring parallelism semaphore during waitStates for %s: %w",
+					item.c.target.String(),
+					err,
+				)
 			}
 			defer rel()
 

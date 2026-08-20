@@ -20,11 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jdxcode/netrc"
+	"github.com/moby/buildkit/util/sshutil"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/jdxcode/netrc"
-	"github.com/moby/buildkit/util/sshutil"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -149,7 +150,10 @@ func (gl *GitLookup) AddMatcher(
 	}
 
 	if sub != "" && (port != 0 || prefix != "") {
-		return fmt.Errorf("unable to use substitution in combination with port or prefix values for %s git config", name)
+		return fmt.Errorf(
+			"unable to use substitution in combination with port or prefix values for %s git config",
+			name,
+		)
 	}
 
 	re, err := regexp.Compile(pattern)
@@ -580,7 +584,9 @@ func (gl *GitLookup) makeCloneURL(
 			if !ok {
 				user = gitUser
 
-				gl.log.VerbosePrintf("ssh auth configured without a user; failed to get current user, defaulting to git")
+				gl.log.VerbosePrintf(
+					"ssh auth configured without a user; failed to get current user, defaulting to git",
+				)
 			} else {
 				gl.log.VerbosePrintf("ssh auth configured without a user; defaulting to current user")
 			}

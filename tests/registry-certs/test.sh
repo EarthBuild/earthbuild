@@ -5,7 +5,7 @@
 set -uxe
 set -o pipefail
 
-testdir="$(realpath $(dirname "$0"))"
+testdir="$(realpath "$(dirname "$0")")"
 
 earthly=${earthly-"$testdir/../../build/linux/amd64/earthly"}
 # docker / podman

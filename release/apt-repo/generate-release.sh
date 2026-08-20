@@ -5,12 +5,12 @@ do_hash() {
     HASH_NAME=$1
     HASH_CMD=$2
     echo "${HASH_NAME}:"
-    for f in $(find -type f); do
-        f=$(echo $f | cut -c3-) # remove ./ prefix
+    find . -type f | while IFS= read -r f; do
+        f=$(echo "$f" | cut -c3-) # remove ./ prefix
         if [ "$f" = "Release" ]; then
             continue
         fi
-        echo " $(${HASH_CMD} ${f}  | cut -d" " -f1) $(wc -c $f)"
+        echo " $("$HASH_CMD" "$f" | cut -d" " -f1) $(wc -c "$f")"
     done
 }
 

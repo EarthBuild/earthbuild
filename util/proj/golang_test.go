@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/stretchr/testify/require"
+
+	"github.com/EarthBuild/earthbuild/util/proj"
 )
 
 type fakeFS struct {

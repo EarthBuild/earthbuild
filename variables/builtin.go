@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/containerd/platforms"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
@@ -12,7 +14,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	arg "github.com/EarthBuild/earthbuild/variables/reserved"
-	"github.com/containerd/platforms"
 )
 
 // DefaultArgs contains additional builtin ARG values which need

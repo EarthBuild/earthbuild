@@ -56,11 +56,11 @@ type From struct {
 
 // FromDockerfile contains options for the FROM DOCKERFILE command.
 type FromDockerfile struct {
-	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`         //nolint:lll
-	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`           //nolint:lll
-	Path            string   `description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference" short:"f"`               //nolint:lll
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target and also to the Dockerfile build"        long:"build-arg"`        //nolint:lll
-	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"` //nolint:lll
+	Platform        string   `description:"The platform to use"                                                                                 long:"platform"`                   //nolint:lll
+	Target          string   `description:"The Dockerfile target to inherit from"                                                               long:"target"`                     //nolint:lll
+	Path            string   `description:"The Dockerfile location on the host, relative to the current Earthfile, or as an artifact reference"                         short:"f"` //nolint:lll,tagalign
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target and also to the Dockerfile build"        long:"build-arg"`                  //nolint:lll
+	AllowPrivileged bool     `description:"Allow command to assume privileged mode"                                                             long:"allow-privileged"`           //nolint:lll
 }
 
 // Copy contains options for the COPY command.
@@ -115,11 +115,11 @@ type GitClone struct {
 
 // HealthCheck contains options for the HEALTHCHECK command.
 type HealthCheck struct {
-	Interval      time.Duration `default:"30s"                                                                                                       description:"The interval between healthchecks"                                long:"interval"`       //nolint:lll
-	Timeout       time.Duration `default:"30s"                                                                                                       description:"The timeout before the command is considered failed"              long:"timeout"`        //nolint:lll
-	StartPeriod   time.Duration `description:"An initialization time period in which failures are not counted towards the maximum number of retries" long:"start-period"`                                                                                  //nolint:lll
-	Retries       int           `default:"3"                                                                                                         description:"The number of retries before a container is considered unhealthy" long:"retries"`        //nolint:lll
-	StartInterval time.Duration `default:"5s"                                                                                                        description:"The time interval between health checks during the start period"  long:"start-interval"` //nolint:lll
+	Interval      time.Duration `default:"30s" description:"The interval between healthchecks"                                                                     long:"interval"`       //nolint:lll,tagalign
+	Timeout       time.Duration `default:"30s" description:"The timeout before the command is considered failed"                                                   long:"timeout"`        //nolint:lll,tagalign
+	StartPeriod   time.Duration `              description:"An initialization time period in which failures are not counted towards the maximum number of retries" long:"start-period"`   //nolint:lll,tagalign
+	Retries       int           `default:"3"   description:"The number of retries before a container is considered unhealthy"                                      long:"retries"`        //nolint:lll,tagalign
+	StartInterval time.Duration `default:"5s"  description:"The time interval between health checks during the start period"                                       long:"start-interval"` //nolint:lll,tagalign
 }
 
 // WithDocker contains options for the WITH DOCKER command.
@@ -165,7 +165,7 @@ type Let struct{}
 // Cache contains options for the CACHE command.
 type Cache struct {
 	Sharing string `description:"The cache sharing mode: locked (default), shared, private"                 long:"sharing"`
-	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"` //nolint:lll
+	Mode    string `description:"Apply a mode to the cache folder"                                          long:"chmod"   default:"0644"` //nolint:lll,tagalign
 	ID      string `description:"Cache ID, to reuse the same cache across different targets and Earthfiles" long:"id"`
 	Persist bool   `description:"If should persist cache state in image"                                    long:"persist"`
 }

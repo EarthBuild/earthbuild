@@ -5,9 +5,10 @@ package image
 import (
 	"maps"
 
-	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/moby/buildkit/exporter/containerimage/image"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/EarthBuild/earthbuild/util/llbutil"
 )
 
 // Image is a partial of the standard Image struct defined as part of the image opencontainers spec

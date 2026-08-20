@@ -7,12 +7,13 @@ import (
 	"sort"
 	"strings"
 
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/urfave/cli/v3"
 )
 
 // List encapsulates the ls command logic.

@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+
+	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
 type containerInfo struct {
@@ -407,7 +408,9 @@ func (sf *shellFrontend) setupAndValidateAddresses(feType string, cfg *FrontendC
 		}
 	} else if cfg.LocalRegistryHostFileValue != "" {
 		cfg.Log.
-			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
+			VerbosePrintf(
+				"Local registry host is specified while using remote buildkit. Local registry will not be used.",
+			)
 	}
 
 	return &FrontendURLs{

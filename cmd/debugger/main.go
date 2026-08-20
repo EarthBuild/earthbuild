@@ -16,12 +16,13 @@ import (
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/debugger/common"
-	"github.com/EarthBuild/earthbuild/slog"
 	"github.com/creack/pty"
 	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/slog"
 )
 
 var (

@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/dustin/go-humanize"
 	"github.com/tonistiigi/fsutil"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
 // ProgressCallback exposes two different levels of callbacks for displaying status on files being sent or received.

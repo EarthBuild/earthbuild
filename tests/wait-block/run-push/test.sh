@@ -57,12 +57,13 @@ docker run \
     --network=host \
     --name "$echoserver" alexcb132/netcat \
     /bin/sh -c "nc -l -k -p $PORT"
-timeout 5 sh -c 'until nc -z $0 $1; do sleep 1; done' 127.0.0.1 $PORT
+# shellcheck disable=SC2016 # $0/$1 are the inner sh -c's own positional args, not this shell's
+timeout 5 sh -c 'until nc -z $0 $1; do sleep 1; done' 127.0.0.1 "$PORT"
 
 
 echo "===test1===" > "/dev/tcp/127.0.0.1/$PORT"
 
-"$earthly" $@ +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
+"$earthly" "$@" +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
 
 diff <(docker logs "$echoserver" | grep -A 999 '===test1===') <(cat <<EXPECTED
 ===test1===
@@ -73,7 +74,7 @@ EXPECTED
 
 echo "===test2===" > "/dev/tcp/127.0.0.1/$PORT"
 
-"$earthly" --push $@ +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
+"$earthly" --push "$@" +test --echoserver_ip="$HOST_IP" --echoserver_port="$PORT"
 
 diff <(docker logs "$echoserver" | grep -A 999 '===test2===') <(cat <<EXPECTED
 ===test2===

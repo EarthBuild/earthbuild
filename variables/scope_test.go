@@ -3,8 +3,9 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/stretchr/testify/require"
+
+	"github.com/EarthBuild/earthbuild/variables"
 )
 
 func TestScope(t *testing.T) {

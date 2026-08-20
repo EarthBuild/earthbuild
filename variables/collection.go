@@ -6,6 +6,9 @@ import (
 	"slices"
 	"strings"
 
+	dfShell "github.com/moby/buildkit/frontend/dockerfile/shell"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
@@ -13,8 +16,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
-	dfShell "github.com/moby/buildkit/frontend/dockerfile/shell"
-	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // Standard errors related to variable collections.
@@ -89,7 +90,15 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 		opts.OverridingVars = NewScope()
 	}
 
-	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push, opts.CI)
+	args := BuiltinArgs(
+		target,
+		opts.PlatformResolver,
+		opts.GitMeta,
+		opts.BuiltinArgs,
+		opts.Features,
+		opts.Push,
+		opts.CI,
+	)
 
 	return &Collection{
 		builtin:          args,

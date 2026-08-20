@@ -9,10 +9,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/proj"
-	"github.com/urfave/cli/v3"
 )
 
 const efIndent = "    "
@@ -95,7 +96,11 @@ func (a *Init) action(ctx context.Context, _ *cli.Command) error {
 		// In the distant future, this may be used to generate multiple
 		// Earthfiles over multiple directories and call them from a main
 		// Earthfile target with BUILD.
-		return fmt.Errorf("project type %T wants to generate an Earthfile in an unsupported directory: %q", p, p.Root(ctx))
+		return fmt.Errorf(
+			"project type %T wants to generate an Earthfile in an unsupported directory: %q",
+			p,
+			p.Root(ctx),
+		)
 	}
 
 	return initSingleProject(f, p)

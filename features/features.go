@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	goflags "github.com/jessevdk/go-flags"
+
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
-	goflags "github.com/jessevdk/go-flags"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining

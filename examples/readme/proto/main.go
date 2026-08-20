@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/EarthBuild/earthbuild/examples/readme/proto/pb"
 	"github.com/golang/protobuf/proto"
+
+	"github.com/EarthBuild/earthbuild/examples/readme/proto/pb"
 )
 
 func main() {

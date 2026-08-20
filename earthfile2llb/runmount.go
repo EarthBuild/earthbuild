@@ -12,9 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/moby/buildkit/client/llb"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/moby/buildkit/client/llb"
 )
 
 func (c *Converter) parseMounts(mounts []string) ([]llb.RunOption, error) {

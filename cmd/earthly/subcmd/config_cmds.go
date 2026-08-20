@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/EarthBuild/earthbuild/config"
 	"github.com/urfave/cli/v3"
+
+	"github.com/EarthBuild/earthbuild/config"
 )
 
 // Config encapsulates the config command logic.

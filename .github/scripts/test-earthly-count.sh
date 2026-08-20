@@ -23,7 +23,7 @@ echo ""
 
 # Calculate difference
 DIFFERENCE=$((MAIN_COUNT - CURRENT_COUNT))
-if [ $MAIN_COUNT -gt 0 ]; then
+if [ "$MAIN_COUNT" -gt 0 ]; then
     PERCENTAGE=$(echo "scale=2; $DIFFERENCE * 100 / $MAIN_COUNT" | bc)
 else
     PERCENTAGE=0

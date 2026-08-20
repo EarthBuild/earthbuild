@@ -9,11 +9,12 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/session/localhost"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
-	"github.com/moby/buildkit/client/llb"
-	"github.com/moby/buildkit/session/localhost"
 )
 
 type withDockerRunLocalTar struct {
@@ -155,14 +156,31 @@ func (w *withDockerRunLocalTar) load(ctx context.Context, cmdID string, opt Dock
 	}
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem,
+			ctx,
+			depTarget.String(),
+			opt.Platform,
+			opt.AllowPrivileged,
+			opt.PassArgs,
+			opt.BuildArgs,
+			loadCmd,
+			afterFun,
+			w.sem,
 		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, cmdID, nil,
+			ctx,
+			depTarget.String(),
+			opt.Platform,
+			opt.AllowPrivileged,
+			opt.PassArgs,
+			opt.BuildArgs,
+			false,
+			loadCmd,
+			cmdID,
+			nil,
 		)
 		if err != nil {
 			return nil, err

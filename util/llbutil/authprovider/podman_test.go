@@ -10,9 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 	"github.com/moby/buildkit/session/auth"
 	"github.com/stretchr/testify/require"
+
+	"github.com/EarthBuild/earthbuild/util/llbutil/authprovider"
 )
 
 const authFmt = `

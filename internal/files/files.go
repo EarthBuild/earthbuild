@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 )
 
 // copyBuffer is 128KB, which is the optimal size determined by benchmarks.

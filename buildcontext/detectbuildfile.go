@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/domain"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+
+	"github.com/EarthBuild/earthbuild/domain"
 )
 
 // EarthfileNotExistError is the struct indicating that file does not exist.

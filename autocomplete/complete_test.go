@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/urfave/cli/v3"
 )
 
 func getApp() *cli.Command {

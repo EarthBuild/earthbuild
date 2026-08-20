@@ -8,6 +8,9 @@ import (
 	"os"
 	"strings"
 
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/formatter"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
@@ -15,8 +18,6 @@ import (
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/deltautil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 // BusSetup is a helper for setting up a logbus.Bus.

@@ -13,6 +13,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moby/buildkit/client"
+	"github.com/moby/buildkit/client/llb"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/solver/pb"
+	"github.com/moby/buildkit/util/apicaps"
+	"github.com/moby/buildkit/util/entitlements"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/cleanup"
@@ -35,15 +45,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/moby/buildkit/client"
-	"github.com/moby/buildkit/client/llb"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/moby/buildkit/session"
-	"github.com/moby/buildkit/solver/pb"
-	"github.com/moby/buildkit/util/apicaps"
-	"github.com/moby/buildkit/util/entitlements"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -506,7 +507,11 @@ func (b *Builder) convertAndBuild(
 
 						imageIndex++
 
-						localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, platformImgName, nil)
+						localRegPullID := exportCoordinator.AddImage(
+							gwClient.BuildOpts().SessionID,
+							platformImgName,
+							nil,
+						)
 						if b.opt.LocalRegistryAddr != "" {
 							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
 						} else {
@@ -532,7 +537,11 @@ func (b *Builder) convertAndBuild(
 						singPlatImgNames[saveImage.DockerTag] = struct{}{}
 					}
 
-					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
+					localRegPullID := exportCoordinator.AddImage(
+						gwClient.BuildOpts().SessionID,
+						saveImage.DockerTag,
+						nil,
+					)
 
 					refPrefix, err := gwCrafter.AddPushImageEntry(
 						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil,
@@ -573,7 +582,13 @@ func (b *Builder) convertAndBuild(
 					}
 
 					dirID, err := gwCrafter.
-						AddSaveArtifactLocal(ref, dirIndex, artifact.String(), saveLocal.ArtifactPath, saveLocal.DestPath)
+						AddSaveArtifactLocal(
+							ref,
+							dirIndex,
+							artifact.String(),
+							saveLocal.ArtifactPath,
+							saveLocal.DestPath,
+						)
 					if err != nil {
 						return nil, err
 					}
@@ -663,7 +678,12 @@ func (b *Builder) convertAndBuild(
 	}
 	onArtifact := func(_ context.Context, index string, _ domain.Artifact, _, destPath string) (string, error) {
 		if !opt.LocalArtifactWhiteList.Exists(destPath) {
-			err := fmt.Errorf("dest path %s is not in the whitelist: %+v", destPath, opt.LocalArtifactWhiteList.AsList())
+			err := fmt.Errorf(
+				"dest path %s is not in the whitelist: %+v",
+				destPath,
+				opt.LocalArtifactWhiteList.AsList(),
+			)
+
 			return "", err
 		}
 
@@ -787,7 +807,14 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err = saveartifactlocally.SaveArtifactLocally(
-				ctx, exportCoordinator, b.opt.Log, *opt.OnlyArtifact, outDir, opt.OnlyArtifactDestPath, mts.Final.ID, false,
+				ctx,
+				exportCoordinator,
+				b.opt.Log,
+				*opt.OnlyArtifact,
+				outDir,
+				opt.OnlyArtifactDestPath,
+				mts.Final.ID,
+				false,
 			)
 			if err != nil {
 				return nil, err
@@ -807,12 +834,22 @@ func (b *Builder) convertAndBuild(
 
 			if shouldPush {
 				exportCoordinator.
-					AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Log.Salt(), true)
+					AddPushedImageSummary(
+						mts.Final.Target.StringCanonical(),
+						saveImage.DockerTag,
+						b.opt.Log.Salt(),
+						true,
+					)
 			}
 
 			if saveImage.Push && !opt.Push {
 				exportCoordinator.
-					AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Log.Salt(), false)
+					AddPushedImageSummary(
+						mts.Final.Target.StringCanonical(),
+						saveImage.DockerTag,
+						b.opt.Log.Salt(),
+						false,
+					)
 			}
 
 			exportCoordinator.
@@ -826,7 +863,8 @@ func (b *Builder) convertAndBuild(
 		for _, sts := range mts.All() {
 			for _, saveImage := range sts.SaveImages {
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
+				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" &&
+					sts.GetDoPushes()
 
 				shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
@@ -834,11 +872,21 @@ func (b *Builder) convertAndBuild(
 				}
 
 				if shouldPush {
-					exportCoordinator.AddPushedImageSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID, true)
+					exportCoordinator.AddPushedImageSummary(
+						sts.Target.StringCanonical(),
+						saveImage.DockerTag,
+						sts.ID,
+						true,
+					)
 				}
 
 				if saveImage.Push && !opt.Push && !sts.Target.IsRemote() {
-					exportCoordinator.AddPushedImageSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID, false)
+					exportCoordinator.AddPushedImageSummary(
+						sts.Target.StringCanonical(),
+						saveImage.DockerTag,
+						sts.ID,
+						false,
+					)
 				}
 
 				exportCoordinator.AddLocalOutputSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID)
@@ -865,7 +913,14 @@ func (b *Builder) convertAndBuild(
 					}
 
 					err = saveartifactlocally.SaveArtifactLocally(
-						ctx, exportCoordinator, b.opt.Log, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists,
+						ctx,
+						exportCoordinator,
+						b.opt.Log,
+						artifact,
+						artifactDir,
+						saveLocal.DestPath,
+						sts.ID,
+						saveLocal.IfExists,
 					)
 					if err != nil {
 						return nil, err
@@ -900,7 +955,14 @@ func (b *Builder) convertAndBuild(
 					}
 
 					err = saveartifactlocally.SaveArtifactLocally(
-						ctx, exportCoordinator, b.opt.Log, artifact, artifactDir, saveLocal.DestPath, sts.ID, saveLocal.IfExists,
+						ctx,
+						exportCoordinator,
+						b.opt.Log,
+						artifact,
+						artifactDir,
+						saveLocal.DestPath,
+						sts.ID,
+						saveLocal.IfExists,
 					)
 					if err != nil {
 						return nil, err

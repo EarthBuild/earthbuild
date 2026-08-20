@@ -13,13 +13,14 @@ import (
 	"sort"
 	"strings"
 
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/urfave/cli/v3"
 )
 
 var errCompPointOutOfBounds = errors.New("COMP_POINT out of bounds")

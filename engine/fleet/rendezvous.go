@@ -655,16 +655,41 @@ var _ Transport = (*Rendezvous)(nil)
 func (r *Rendezvous) WaitFor(ctx context.Context, want int) int {
 	const poll = 20 * time.Millisecond
 
-	for r.Workers() < want {
+	for r.Declared() < want {
 		select {
 		case <-ctx.Done():
-			return r.Workers()
+			return r.Declared()
 
 		case <-time.After(poll):
 		}
 	}
 
-	return r.Workers()
+	return r.Declared()
+}
+
+// Declared is how many workers have said what they run.
+//
+// **Not the same as how many have connected.** Placement refuses a worker with
+// no platform, so a connection that has not declared is a machine the scheduler
+// steps over: counting it lets a driver report a fleet, place nothing on it, and
+// build everything itself - a local build wearing a fleet's clothes.
+//
+// On one machine the connection and the declaration land in the same instant and
+// the difference is invisible. Over a relay the declaration is a round trip
+// later, which is where this was found (E505).
+func (r *Rendezvous) Declared() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	n := 0
+
+	for i := range r.conns {
+		if r.conns[i].platform != "" {
+			n++
+		}
+	}
+
+	return n
 }
 
 // Inventory is the workers to schedule against, as core sees them.

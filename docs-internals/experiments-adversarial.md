@@ -23025,12 +23025,37 @@ and loopback is where the peer is. Across machines it resolves at the *dialler* 
 loopback. `PeerAddr.Endpoint` now drops an unspecified host and leaves the identity, which discovery
 can look up and a direct-only fleet correctly reports as unreachable.
 
-### What it still does not do
+### And it works
 
-The worker joins and is then given nothing: `await an assignment: timeout`, an empty layer store, and
-a driver that built everything itself. It is not the blob path - no step is ever placed - so the
-driver is not learning what the worker is over a relayed connection, which is the E504 declaration
-arriving (or not) by a route it has never been tested on.
+A fifth defect stood between joining and being useful. The worker joined, was counted, and was given
+nothing: every step ran on the driver.
 
-The direct path is unaffected: told an address, a worker still does real work, 4 layers, unchanged
-through all of this. Discovery remains opt-in until the placement gap closes.
+**A barrier that counts connections is not a barrier on readiness.** `WaitFor` counted connections,
+and a worker is placeable only once it has declared what it runs - placement refuses a worker with no
+platform (E503). So a driver could report `1 worker(s) joined`, place nothing on it, and build
+everything itself: a local build wearing a fleet's clothes, and one that looks from the log exactly
+like a fleet that is working. On one machine the connection and the declaration land in the same
+instant, which is why every test to date was blind to it; over a relay the declaration is a round
+trip later. `WaitFor` now counts `Declared()`.
+
+With that, a worker given nothing but `EARTH_FLEET_SECRET` finds its driver over a relay, says what
+it runs, is placed on, and materialises four layers - the same four the direct path produces. The
+direct path is unchanged throughout.
+
+### A note on measuring this
+
+Two readings in this entry were wrong before they were right, both from misreading the driver's
+output.
+
+`Earthfile:11   | a` is *progress*: step `Earthfile:11` printing the line `a`. It was read here as a
+failure stack, which turned a healthy build into a diagnosis of a broken one and sent an hour after
+an exit code that was correct all along. The format is `%-14s | %s` and it has no failure in it.
+
+The layer count was also doing less work than it appeared to. A worker materialises layers whether or
+not the build as a whole succeeds, so "4 layers" answers *was this worker given steps* and not *did
+the build work*. It happens to be the right question here - the claim being tested is whether work
+crosses the wire - but it is one question, not two.
+
+*A number that answers a narrower question than the one being asked.* It is not a wrong measurement;
+it is a measurement whose scope has to be said out loud, or the next reader will take it for the
+broader claim.

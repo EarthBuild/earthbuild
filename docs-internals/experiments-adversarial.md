@@ -23141,3 +23141,60 @@ just as unreachable from another machine as `[::]` was.
 tested the wrong property: what matters is not whether a host is a placeholder but whether the peer
 being told about it can reach it - which only the peer can know. Unverified, and it needs a test that
 distinguishes the two before it is worth fixing.
+
+## E507 - a layer that can be checked and not reproduced
+
+**Found by** the one blemish in E506's green run: a worker refused a delegated step because an input
+arrived wrong.
+
+```text
+not the layer that was asked for: asked for ebea4699... and got 58d777a8...
+```
+
+The digest check held and the driver ran the step itself, so the build was correct. What it was
+protecting against is the finding.
+
+**Reproduced on demand.** Ask a real store to serve a layer it holds:
+
+```text
+asked for ebea4699e70a885d403b71736ec6020364fe1e043b9d38aea2956803df6bcf55
+packed to 7b9c2d35dd6d6123b2ce9160a4d32198752f136b9677f54d22940ee039e4473f (8573991 bytes)
+```
+
+Three times, the same answer: the pack *is* a deterministic function of the tree, as `Layers.Get`
+claims. It is simply not the inverse of whatever named the layer. **A store can verify a layer it
+holds and cannot reproduce it**, so a peer asking for a base image layer is always sent bytes under
+the wrong name - and the far end always rejects them.
+
+*A layer that can be checked and not reproduced.* Verification and reproduction look like the same
+property and are not: one asks whether these bytes are what the name says, the other asks whether
+this tree can be turned back into those bytes. A store that has only the first can answer a question
+about a layer and cannot answer *with* it.
+
+The suspected mechanism is ownership. The digest is fixed when the layer is made, including what its
+files are owned by; `Layers.Get` packs with `owners(id)`, which reads a `.own` sidecar written for
+layers that arrived from elsewhere and *not* for a layer this machine materialised from an image -
+where the comment says the disk is the authority. Under a uid map the disk is not the authority: the
+tree on disk is owned by whoever unpacked it, which is not who the digest says owns it (E495). The
+driver's store has `ebea4699.config.json` and no `ebea4699.own`, which is consistent - and unproven.
+
+**Why one machine never sees it.** Every machine materialises its own bases, so nothing ever asks a
+peer for one. It takes a second machine that lacks a base for the first machine to be asked to
+reproduce one, which is why this survived to the first three-runner build and appeared in it
+immediately.
+
+### Two wrong hypotheses, recorded because they were cheap to prefer
+
+**"A private address is not an unspecified address."** The first reading was that a runner's private
+`10.x.y.z` survives the wildcard check and is dialled uselessly. Plausible, tidy, and wrong: the
+peer was reached. The message said the bytes were wrong, not that nobody answered - the error had
+already ruled out the network and was read as if it had not.
+
+**"The wire crossed two answers."** The second was that a batched request and its stream of answers
+had come out of step. Also wrong: requests and replies are paired positionally from the same list,
+absence has its own marker so a gap cannot shift the sequence, and every reply is tagged with its
+shape. The framing was the first thing to suspect and the wrong thing to suspect, because it is the
+part somebody already made careful.
+
+*A diagnosis that ignores half of its own error message.* Both readings were available before
+looking, and both were contradicted by the text already printed.

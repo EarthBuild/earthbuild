@@ -23105,3 +23105,39 @@ macOS, where the sandbox is a VM and the guest is root inside it. The Linux back
 guest with namespaces instead, and the difference does not appear until the first machine that runs
 it unprivileged. It is not a portability bug; it is a privilege assumption that was never written
 down, and CI is where such assumptions surface because CI is the first machine nobody configured.
+
+### Green
+
+With `sudo -E`, all three jobs pass:
+
+```text
+fleet: 2 worker(s) joined
+  fleet                     4 delegated, 6 local
+PASS: fleet                     4 delegated, 6 local
+```
+
+Four steps of a real build ran on two machines that were not the one that planned it, reached
+through no address either side was told. Both assertions hold: two workers counted as joined, and a
+non-zero delegation count - the second being the one that matters, since a fleet that formed and
+placed nothing prints an otherwise identical log and exits zero.
+
+**This closes the claim the plan opened.** A fleet is no longer a thing that works on one developer's
+LAN; it is a thing that works between machines chosen by somebody else, with no configuration beyond
+a shared secret.
+
+### One blemish, and it is the next thing
+
+```text
+fleet: a worker would not take Earthfile:23 (1 of 1 input(s) for a delegated step:
+  some blobs could not be fetched
+```
+
+Once, one worker could not fetch an input and refused the step, which the driver then ran itself. The
+likely cause is the same lesson one layer down: a wildcard host was fixed, but a runner's **private**
+address - `10.x.y.z:port` - is not unspecified, so it survives the check and is dialled, and it is
+just as unreachable from another machine as `[::]` was.
+
+*A private address is not an unspecified address, and is exactly as useless.* The wildcard check
+tested the wrong property: what matters is not whether a host is a placeholder but whether the peer
+being told about it can reach it - which only the peer can know. Unverified, and it needs a test that
+distinguishes the two before it is worth fixing.

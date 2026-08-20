@@ -1,0 +1,134 @@
+# One build, three runners: a driver and two workers that have never heard of
+# each other and cannot dial each other.
+#
+# This is the only environment that tests what a fleet is for. GitHub jobs are
+# separate VMs behind NAT with no inbound and no route between them, so a worker
+# reaches its driver by publishing where it is and looking the driver up - the
+# path a LAN fleet never exercises, because there a direct dial always works and
+# silently covers for discovery being broken (E505).
+#
+# Rendezvous is keyless: every job derives the driver's identity from the shared
+# terms below, so nothing has to be told an address.
+name: fleet-e2e
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [giles-post-buildkit-engine]
+    paths:
+      - engine/fleet/**
+      - cmd/earth-worker/**
+      - cmd/earth-native/**
+      - tests/fleet/**
+      - .github/workflows/fleet-e2e.yml
+
+permissions:
+  contents: read
+
+env:
+  # Everything but the secret is public metadata; the secret is what stops an
+  # observer deriving the same identity and joining somebody's build (C.1).
+  #
+  # `github.run_id` is a fallback and a weak one: it is visible to anyone
+  # watching a public repository. It is here so the workflow runs on a fork with
+  # nothing configured; set a repository secret named FLEET_SECRET to close it.
+  EARTH_FLEET_SECRET: ${{ secrets.FLEET_SECRET || github.run_id }}
+  EARTH_FLEET_SESSION: fleet-e2e
+  EARTH_FLEET_RUN: ${{ github.run_id }}
+  EARTH_FLEET_ATTEMPT: ${{ github.run_attempt }}
+  EARTH_FLEET_REPO: ${{ github.repository }}
+  # Relays and endpoint discovery. Off by default because a fleet on one LAN
+  # needs neither; mandatory here, where no two machines can reach each other.
+  EARTH_FLEET_DISCOVER: "1"
+
+jobs:
+  driver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: build the engine and the guest
+        run: |
+          go build -o "$RUNNER_TEMP/earth-native" ./cmd/earth-native
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -o "$RUNNER_TEMP/earth-guestd" ./cmd/earth-guestd
+      - name: build over the fleet
+        env:
+          EARTH_CACHE_DIR: ${{ runner.temp }}/driver-store
+          EARTH_IMAGE_CACHE_DIR: ${{ runner.temp }}/images
+          EARTH_GUESTD: ${{ runner.temp }}/earth-guestd
+          # Both workers, and long enough for two cold runners to boot, build
+          # the binaries and publish where they are.
+          EARTH_FLEET_WORKERS: "2"
+          EARTH_FLEET_WAIT: 8m
+        run: |
+          "$RUNNER_TEMP/earth-native" -dir tests/fleet +all 2>&1 | tee driver.log
+      - name: assert the build was a fleet and not a local build wearing one
+        run: |
+          # Both workers arrived. A worker that connects but never says what it
+          # runs is not counted: placement refuses it, so it is a machine the
+          # scheduler steps over (E505).
+          grep -q "fleet: 2 worker(s) joined" driver.log \
+            || { echo "FAIL: both workers did not join"; exit 1; }
+
+          # And steps actually crossed the wire. This is the assertion that
+          # matters: a fleet that formed, placed nothing and built everything on
+          # the driver prints an otherwise identical log and exits zero.
+          grep -qE "fleet +[1-9][0-9]* delegated" driver.log \
+            || { echo "FAIL: the fleet delegated nothing"; exit 1; }
+
+          echo "PASS: $(grep -oE 'fleet +[0-9]+ delegated, [0-9]+ local' driver.log)"
+      - name: the driver's log, whatever happened
+        if: always()
+        run: cat driver.log || true
+
+  worker:
+    strategy:
+      # One worker dying must not cancel the other, and must not cancel the
+      # driver: a fleet of one is a slower build, not a failed one, and the
+      # driver's assertions are where that gets judged.
+      fail-fast: false
+      matrix:
+        n: [1, 2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: build the worker and the guest
+        run: |
+          go build -o "$RUNNER_TEMP/earth-worker" ./cmd/earth-worker
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -o "$RUNNER_TEMP/earth-guestd" ./cmd/earth-guestd
+      - name: serve steps until the driver has finished with us
+        env:
+          EARTH_CACHE_DIR: ${{ runner.temp }}/worker-store
+          EARTH_IMAGE_CACHE_DIR: ${{ runner.temp }}/images
+          EARTH_GUESTD: ${{ runner.temp }}/earth-guestd
+        # A worker ends by timing out on an idle connection, which is a non-zero
+        # exit and is the *expected* ending: the driver finishes, stops asking,
+        # and the worker has nothing left to wait for. Judging the run on this
+        # exit code would fail every green build, so the assertion below is on
+        # what the worker did rather than on how it stopped.
+        run: |
+          timeout 900 "$RUNNER_TEMP/earth-worker" 2>&1 | tee worker.log || true
+      - name: assert this worker joined
+        run: |
+          grep -q "joining " worker.log \
+            || { echo "FAIL: worker ${{ matrix.n }} never tried to join"; exit 1; }
+
+          # Not asserted: that *this* worker was given steps. Four steps and two
+          # workers with several cores each means one worker legitimately taking
+          # all of them, so requiring work here would fail on a healthy fleet.
+          # How much was delegated is the driver's question, and it asks it.
+          echo "worker ${{ matrix.n }} store:"
+          du -sh "$RUNNER_TEMP/worker-store" 2>/dev/null || echo "empty"

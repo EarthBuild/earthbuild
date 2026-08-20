@@ -438,6 +438,11 @@ func runPlan(
 	// where a reader has finished reading the per-step lines.
 	fmt.Fprint(o.Out, cacheSummary(s.Stats))
 
+	// Whether the fleet this build waited for did anything (E505).
+	if d, ok := g.fleetEx.(*fleet.Delegating); ok {
+		fmt.Fprint(o.Out, fleetSummary(d.Spend()))
+	}
+
 	// What the build spent, where the invocation asked for it (E467).
 	if o.ExecStats {
 		fmt.Fprint(o.Out, usageSummary(s.Stats))

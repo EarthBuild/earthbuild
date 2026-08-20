@@ -181,7 +181,7 @@ lint-fix:
     SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
     SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
 
-# lint runs basic go linters against the earthly project.
+# lint runs basic Go linters against the EarthBuild project.
 lint:
     FROM +lint-deps
     RUN \
@@ -200,7 +200,7 @@ fmt:
 # subset, since staged files can come from any module (tests/, examples/),
 # not just the one +code targets. Pass --files to format specific files
 # instead of the whole repo, e.g. for use from a pre-commit hook:
-# earthly +fmt-go --files="a.go b.go"
+# earth +fmt-go --files="a.go b.go"
 fmt-go:
     FROM +golangci-lint-install
     COPY . .
@@ -210,7 +210,7 @@ fmt-go:
         SAVE ARTIFACT $f AS LOCAL $f
     END
 
-# govulncheck runs govulncheck against the earthbuild project.
+# govulncheck runs govulncheck against the EarthBuild project.
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck

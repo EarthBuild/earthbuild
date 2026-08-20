@@ -58,3 +58,34 @@ func TestTheDriverAnnouncementWithNoAddress(t *testing.T) {
 		t.Errorf("the announcement is %q and does not identify the driver", line)
 	}
 }
+
+// A driver bound to a wildcard address tells a worker what it can act on.
+//
+// `e.LocalAddr()` is the *bind* address - `[::]:60965` - which is honest and
+// unusable: a worker cannot dial `[::]`. Worse, a worker on another machine has
+// no use for any address this driver could print, because it will find it by
+// identity (E505).
+//
+// So a wildcard bind says the port and how to be found, rather than offering
+// something that looks copy-pasteable and is not.
+func TestAWildcardBindDoesNotOfferItselfAsAnAddress(t *testing.T) {
+	t.Parallel()
+
+	line := announcement("abc123", "[::]:60965", 25, 2)
+
+	if strings.Contains(line, EnvDriver+"=[::]:60965") {
+		t.Errorf("the announcement offers %q, which no worker can dial:\n%s",
+			"[::]:60965", line)
+	}
+
+	// The port is still worth saying: a worker on this machine can use it.
+	if !strings.Contains(line, "60965") {
+		t.Errorf("the announcement drops the port entirely:\n%s", line)
+	}
+
+	// And a real address is still offered as one.
+	real := announcement("abc123", "192.168.1.20:60965", 25, 2)
+	if !strings.Contains(real, EnvDriver+"=192.168.1.20:60965") {
+		t.Errorf("a routable address is not offered:\n%s", real)
+	}
+}

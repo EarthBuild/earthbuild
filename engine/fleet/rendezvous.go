@@ -46,9 +46,12 @@ func BindDriver(ctx context.Context, s Session, secret []byte, opts ...iroh.Opti
 		return nil, fmt.Errorf("the derived key is not an endpoint key: %w", err)
 	}
 
-	e, err := iroh.Bind(ctx, append([]iroh.Option{
+	// Reachable from another machine, not only from this one: see
+	// endpointOptions. Before the caller's own options, so a test binding to a
+	// fixed address still gets one.
+	e, err := iroh.Bind(ctx, append(append([]iroh.Option{
 		iroh.WithSecretKey(sk), iroh.WithALPNs(ALPNControl),
-	}, opts...)...)
+	}, endpointOptions(sk)...), opts...)...)
 	if err != nil {
 		return nil, fmt.Errorf("bind the driver: %w", err)
 	}

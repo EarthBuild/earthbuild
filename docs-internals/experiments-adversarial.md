@@ -360,13 +360,13 @@ round-trips mtimes exactly.
 Not a ranking - three different trade-offs. Confidence: high on the shapes, moderate on
 `zstd:chunked`'s chunking details.
 
-|                               | eStargz                                                    | zstd:chunked                                                     | SOCI                  |
-| ----------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- | --------------------- |
-| compression                   | gzip                                                       | zstd - faster to decompress, better ratio                        | untouched             |
-| where the index lives         | TOC plus footer, inside the layer                          | zstd skippable frame                                             | **separate artifact** |
-| layer digest                  | changes                                                    | changes                                                          | **unchanged**         |
-| readable by gzip-only clients | yes, still a valid tar.gz                                  | no                                                               | n/a, original layer   |
-| cross-image dedup             | per file                                                   | **per chunk**, so near-identical rebuilt layers share            | none                  |
+|                               | eStargz                                                  | zstd:chunked                                                     | SOCI                  |
+| ----------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- | --------------------- |
+| compression                   | gzip                                                     | zstd - faster to decompress, better ratio                        | untouched             |
+| where the index lives         | TOC plus footer, inside the layer                        | zstd skippable frame                                             | **separate artifact** |
+| layer digest                  | changes                                                  | changes                                                          | **unchanged**         |
+| readable by gzip-only clients | yes, still a valid tar.gz                                | no                                                               | n/a, original layer   |
+| cross-image dedup             | per file                                                 | **per chunk**, so near-identical rebuilt layers share            | none                  |
 | in our dependency graph       | **yes** - `stargz-snapshotter`and`estargz`, via BuildKit | no - lives in `containers/image`, the stack rejected in plan §2b | no                    |
 
 For us the deciding factor is stack alignment rather than merit. `zstd:chunked`'s chunk-level
@@ -1152,7 +1152,7 @@ including on a case-sensitive volume, which E26 listed as the run not yet done.
 | Shape                                       | verdict                                                          |
 | ------------------------------------------- | ---------------------------------------------------------------- |
 | `COPY /dist: nothing in that target has it` | **ours.** Fixed - see below                                      |
-| `go build ... no module provides logrus`| the tutorial's own`go.mod` is missing the dependency            |
+| `go build ... no module provides logrus`    | the tutorial's own`go.mod` is missing the dependency             |
 | `the sandbox has no /usr/local/bin/docker`  | downstream of the case-insensitive store, not a fault of its own |
 
 ```text
@@ -1605,8 +1605,8 @@ against it:
 
 | Earthfile                       | reference             | native                |
 | ------------------------------- | --------------------- | --------------------- |
-| `SAVE ARTIFACT f.txt`|`2020-04-16 12:00:00`|`2001-02-03 04:05:06` |
-| `SAVE ARTIFACT --keep-ts f.txt`|`2001-02-03 04:05:06`|`2001-02-03 04:05:06` |
+| `SAVE ARTIFACT f.txt`           | `2020-04-16 12:00:00` | `2001-02-03 04:05:06` |
+| `SAVE ARTIFACT --keep-ts f.txt` | `2001-02-03 04:05:06` | `2001-02-03 04:05:06` |
 
 So the reference's model is **clamp by default, preserve on request**, and this engine's is *preserve
 always*. The two agree exactly when the flag is given and differ only on the default - which is a
@@ -2603,7 +2603,7 @@ property meant all along - the key follows the content, not the pointer.
 | paralleltest | 449      | subtests without `t.Parallel()`          |
 | goconst      | 416      | repeated string literals in tests        |
 | gosec        | 278      | mostly G304, reading a file by variable  |
-| govet        | 111      | `shadow`on`err`, and fieldalignment    |
+| govet        | 111      | `shadow`on`err`, and fieldalignment      |
 | the rest     | 161      | lll, exhaustive, revive, contextcheck... |
 
 All mechanical, all in categories the rest of the repository satisfies, and none of them a defect.
@@ -2728,10 +2728,10 @@ rather than made here.
 
 ### Where the sweep stands
 
-| stage                                              | findings |
-| -------------------------------------------------- | -------- |
-| first full run                                     | 1,530    |
-| after the config fix                               | 1,435    |
+| stage                                            | findings |
+| ------------------------------------------------ | -------- |
+| first full run                                   | 1,530    |
+| after the config fix                             | 1,435    |
 | after `cmd`and the mechanical`noinlineerr` sites | 1,428    |
 
 Nothing outside `engine/` remains, so main is unbroken. What is left is the engine's own, and it is
@@ -3160,7 +3160,7 @@ That was the last category with a plausible defect in it. The tally for the whol
 | `unused`, `staticcheck` | 18       | 5 dead functions, 5 assertions that could not fail |
 | `contextcheck`          | 14       | 1: a build could not be interrupted (E56)          |
 | `paralleltest`          | 449      | 4 test hazards, all needing concurrency to show    |
-| `exhaustive`| 18       | 0 - every`default` was a deliberate refusal       |
+| `exhaustive`            | 18       | 0 - every`default` was a deliberate refusal        |
 | `govet: shadow`         | 34       | 0                                                  |
 | `goconst`, `gosec` G30x | ~700     | 0, and none plausible: literals and permissions    |
 
@@ -3923,13 +3923,13 @@ Re-rooting needed the root, which the guest was not carrying: `findInStack` retu
 `layerPath{root, path}`. That is the whole reason the same three lines resolved against the wrong
 filesystem - the information needed to be right was never in the call.
 
-| case                                        | before               | after               | reference |
-| ------------------------------------------- | -------------------- | ------------------- | --------- |
+| case                                       | before              | after               | reference |
+| ------------------------------------------ | ------------------- | ------------------- | --------- |
 | `COPY +t/link`where link names a directory | a link naming`real` | the tree            | the tree  |
-| `COPY --dir +t/link /placed`|`/placed/link`link  |`/placed/link` tree | -         |
-| `SAVE ARTIFACT link`                        | a link               | the tree            | the tree  |
-| `ln -s <host path> link`                    | **the host's file**  | refused, named      | -         |
-| `ln -s a b; ln -s b a`                      | copied as a link     | refused as a loop   | -         |
+| `COPY --dir +t/link /placed`               | `/placed/link`link  | `/placed/link` tree | -         |
+| `SAVE ARTIFACT link`                       | a link              | the tree            | the tree  |
+| `ln -s <host path> link`                   | **the host's file** | refused, named      | -         |
+| `ln -s a b; ln -s b a`                     | copied as a link    | refused as a loop   | -         |
 
 The second row is its own case because resolving one line earlier would have been correct and
 unfindable: `COPY --dir link /placed`must give`/placed/link`, not `/placed/real`. Resolution
@@ -3946,11 +3946,11 @@ changed nothing. E74 had just shown why that probe could not see anything - it u
 
 Re-asked with a symlink to a directory, and with the flag varied on one side at a time:
 
-| `SAVE ARTIFACT`|`COPY`                | what arrives                    |
+| `SAVE ARTIFACT`       | `COPY`                | what arrives                    |
 | --------------------- | --------------------- | ------------------------------- |
 | plain                 | plain                 | the tree                        |
 | `--symlink-no-follow` | plain                 | the tree                        |
-| `--symlink-no-follow`|`--symlink-no-follow` | the link, dangling in the image |
+| `--symlink-no-follow` | `--symlink-no-follow` | the link, dangling in the image |
 
 **The flag on the `COPY` decides**, which is exactly what the reference documentation says - "the
 same flag must also be used in the corresponding `COPY` command" - and what the earlier probe could
@@ -4426,10 +4426,10 @@ question at a different type.
 Swapping one unstable digest for another would be worthless, so: same probe, two more cold stores,
 reading the cache entries the new field writes.
 
-| run | `layer`|`content`          |
+| run | `layer`     | `content`          |
 | --- | ----------- | ------------------ |
-| 3   | `91ffe347…`|`4f908bde4eb759e4` |
-| 4   | `5c29c2d5…`|`4f908bde4eb759e4` |
+| 3   | `91ffe347…` | `4f908bde4eb759e4` |
+| 4   | `5c29c2d5…` | `4f908bde4eb759e4` |
 
 Stable exactly where `Layer` is not.
 
@@ -4684,7 +4684,7 @@ good news arriving as a red test.
 | break                                         | result                                    |
 | --------------------------------------------- | ----------------------------------------- |
 | divergence row points at a file that lacks it | `TestEveryStageZeroMechanismIsCalled` red |
-| port table flips `Profiles`to a live role    |`TestAGatedMechanismNamesAnInertPort` red |
+| port table flips `Profiles`to a live role     | `TestAGatedMechanismNamesAnInertPort` red |
 
 One test each, and nothing else moved. A guard that has never been seen to fail is a guard nobody has
 reason to trust, and this branch has now shipped two that passed for the wrong reason - the `--ssh`
@@ -5210,10 +5210,10 @@ had a precedent in this repository with the reasoning written down.
 
 So: build layers spell it the same way, and something translates.
 
-| where                           | what it does                                                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `guest/whiteout.go`| commit writes`.wh.<name>` where the store refuses a device                                                         |
-| `mat/overlay/whiteout_linux.go`| the materialiser turns markers back into device nodes and the opaque xattr, on VM-local storage where`mknod` works |
+| where                           | what it does                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `guest/whiteout.go`             | commit writes`.wh.<name>` where the store refuses a device                                                         |
+| `mat/overlay/whiteout_linux.go` | the materialiser turns markers back into device nodes and the opaque xattr, on VM-local storage where`mknod` works |
 
 **Only layers containing a marker are translated**, so the cost falls on the builds that need it; the
 result is remembered per layer, because a stack is materialised once per step and translating one
@@ -5621,7 +5621,7 @@ the same machine:
 | -------------------------------------------------- | ------ |
 | a relative `target=`                               | works  |
 | contents persisting between steps                  | works  |
-| `mode=0777`, `id`containing`#`, `sharing=locked` | works  |
+| `mode=0777`, `id`containing`#`, `sharing=locked`   | works  |
 | mounting over a directory an earlier layer created | works  |
 
 So the design question E101 named is **not the one to answer**: a cache mount bound from the store is
@@ -5673,7 +5673,7 @@ a redirect xattr, `redirect_dir` is off by default, and:
 
 | measured on the failing machine               | answer            |
 | --------------------------------------------- | ----------------- |
-| `/sys/module/overlay/parameters/redirect_dir`|`N`               |
+| `/sys/module/overlay/parameters/redirect_dir` | `N`               |
 | rename in a userns overlay                    | I/O error         |
 | mount with `redirect_dir=on` in a userns      | permission denied |
 
@@ -5787,7 +5787,7 @@ Measured on 192.168.1.137 (NixOS, 6.12, unprivileged, `/etc/subuid`=`gilescope:1
 
 | probe                                           | before E105 | after    |
 | ----------------------------------------------- | ----------- | -------- |
-| `RUN apt-get update`| exit 112    |`APT-OK` |
+| `RUN apt-get update`                            | exit 112    | `APT-OK` |
 | `RUN apt-get -o APT::Sandbox::User=root update` | works       | works    |
 | overlayfs mounts at all                         | yes         | yes      |
 
@@ -5865,10 +5865,10 @@ interface**.
 Writing the test against `Sandbox`rather than against`Native` then failed on darwin too, for a
 different reason:
 
-| backend | `Available()`|`StoreDir()` before Start | cause                                                  |
-| ------- | ------------- | ------------------------- | ------------------------------------------------------ |
-| native  | nil           | `""`| root resolved in`Start`                               |
-| apple   | nil           | `""`| needs the guest binary, which`Available` never checks |
+| backend | `Available()` | `StoreDir()` before Start | cause                                                 |
+| ------- | ------------- | ------------------------- | ----------------------------------------------------- |
+| native  | nil           | `""`                      | root resolved in`Start`                               |
+| apple   | nil           | `""`                      | needs the guest binary, which`Available` never checks |
 
 Apple's `Available()`checks the`container`CLI and the apiserver.`StoreDir()` derives the store
 from the guest binary's directory and returned `""` when there was none - an ordinary state on a
@@ -6607,7 +6607,7 @@ else was skipping for the same reason:
 
 | test                                 | why it skipped                | now                                   |
 | ------------------------------------ | ----------------------------- | ------------------------------------- |
-| `TestOverlayConforms`|`os.Geteuid() != 0`           | runs, passes                          |
+| `TestOverlayConforms`                | `os.Geteuid() != 0`           | runs, passes                          |
 | `TestScratchIsSeparateFromLayers`    | mount EPERM                   | runs, passes                          |
 | `TestOverlayOnOverlayExplainsItself` | the temp dir is not overlayfs | still skips - genuinely environmental |
 
@@ -6947,12 +6947,12 @@ engine knew the path at the moment it refused and threw it away.**
 base, and `Consistent`is now`WhyStale(…) == ""` - one implementation, because two answers to one
 question is what this session has spent a fortnight removing.
 
-| the prediction said   | the base says      | the message                                               |
-| --------------------- | ------------------ | --------------------------------------------------------- |
-| read `/w`as digest X | digest Y           |`/w changed in the base`                                  |
-| read `/w`| nothing there      |`/w is gone from the base`                                |
-| `/w`was absent       | something is there |`/w exists in the base, and the step ran when it did not` |
-| `/inc`listed as X    | different names    |`/inc holds different names in the base`                  |
+| the prediction said  | the base says      | the message                                               |
+| -------------------- | ------------------ | --------------------------------------------------------- |
+| read `/w`as digest X | digest Y           | `/w changed in the base`                                  |
+| read `/w`            | nothing there      | `/w is gone from the base`                                |
+| `/w`was absent       | something is there | `/w exists in the base, and the step ran when it did not` |
+| `/inc`listed as X    | different names    | `/inc holds different names in the base`                  |
 
 The direction matters: "it exists now" and "its contents changed" send a reader to different places.
 
@@ -7332,12 +7332,12 @@ code.
 Five findings had the same shape, so the shape was swept for rather than stumbled on: everything the
 code itself marks as unreached - one `[GAP]`in`engine/`, four ports the register calls inert.
 
-| port           | verdict                                                             |
-| -------------- | ------------------------------------------------------------------- |
-| `Trusted`| covered - a cache poisoned by a writer called`attacker` is refused |
-| `Capabilities` | covered - four tests, including that refusal precedes any step      |
-| `Materialiser` | covered - a test sets it                                            |
-| `Parallelism`  | **read in one place, set in none**                                  |
+| port           | verdict                                                            |
+| -------------- | ------------------------------------------------------------------ |
+| `Trusted`      | covered - a cache poisoned by a writer called`attacker` is refused |
+| `Capabilities` | covered - four tests, including that refusal precedes any step     |
+| `Materialiser` | covered - a test sets it                                           |
+| `Parallelism`  | **read in one place, set in none**                                 |
 
 `limit := s.Parallelism` is the only reader, and nothing writes it - not the front end, which leaves
 it zero for NumCPU, and not any test. So *"bounds how many steps run at once"* was a sentence with no
@@ -7622,12 +7622,12 @@ suspicion down.
 
 Reading the rest found the same defect three times:
 
-| where                    | staging name              | what two builds do to each other             |
-| ------------------------ | ------------------------- | -------------------------------------------- |
-| mount directories (E140) | `h<pid>-<counter>`        | mount into one overlay                       |
-| whiteout translations    | `<id>.partial`| one`RemoveAll`s the other's half-built tree |
-| layer commits            | `<id>.partial`            | the same, one directory up                   |
-| image placement          | *none* - written in place | `Remove`then create,`file exists`          |
+| where                    | staging name              | what two builds do to each other            |
+| ------------------------ | ------------------------- | ------------------------------------------- |
+| mount directories (E140) | `h<pid>-<counter>`        | mount into one overlay                      |
+| whiteout translations    | `<id>.partial`            | one`RemoveAll`s the other's half-built tree |
+| layer commits            | `<id>.partial`            | the same, one directory up                  |
+| image placement          | *none* - written in place | `Remove`then create,`file exists`           |
 
 Every one is **a name that has to be unique, derived rather than asked for**. A derived name is
 unique among the things the deriver knows about, and a second process is not one of them. Each site
@@ -8309,7 +8309,7 @@ first, inside the namespace a step actually runs in.
 
 | probe            | result                                         |
 | ---------------- | ---------------------------------------------- |
-| `CapEff`|`000001ffffffffff` - every capability there is |
+| `CapEff`         | `000001ffffffffff` - every capability there is |
 | mount a tmpfs    | succeeds                                       |
 | `mknod` a device | **EPERM**                                      |
 
@@ -8532,8 +8532,8 @@ Two more of the same, found by finishing the job:
 
 | test                                        | gated on         | in a container      |
 | ------------------------------------------- | ---------------- | ------------------- |
-| `TestChrootHidesTheHost`|`Geteuid() != 0` | ran, failed         |
-| `TestOverlayOnOverlayExplainsItself`|`Geteuid() != 0` | ran, failed         |
+| `TestChrootHidesTheHost`                    | `Geteuid() != 0` | ran, failed         |
+| `TestOverlayOnOverlayExplainsItself`        | `Geteuid() != 0` | ran, failed         |
 | `TestTwoTranslationsOfOneLayerDoNotCollide` | nothing          | ran, failed 8 times |
 
 Each now asks whether the operation works: mount what a step mounts, mount an overlay, `mknod` a
@@ -8955,12 +8955,12 @@ word instead of a finding (E166b), one iteration later.
 E168 left ten gosec findings in production code, five of them `G703: path traversal via taint
 analysis`. Every one is safe, and every one is safe for a *different reason*:
 
-| site                  | why the taint does not matter                              |
-| --------------------- | ---------------------------------------------------------- |
-| `export.go`write     |`insideProject` resolved it three lines above              |
-| `guestbin.go`stat    | the path is`$EARTH_GUESTD`, set by whoever ran the engine |
-| `imagecache.go` write | derived from a path this engine wrote                      |
-| `mountable.go`(×3)   |`os.MkdirTemp` made the name, from this file's own list    |
+| site                  | why the taint does not matter                             |
+| --------------------- | --------------------------------------------------------- |
+| `export.go`write      | `insideProject` resolved it three lines above             |
+| `guestbin.go`stat     | the path is`$EARTH_GUESTD`, set by whoever ran the engine |
+| `imagecache.go` write | derived from a path this engine wrote                     |
+| `mountable.go`(×3)    | `os.MkdirTemp` made the name, from this file's own list   |
 
 So each says which, rather than saying `//nolint:gosec` and nothing. The export one names the
 guard **and the test that keeps the guard there**:
@@ -9246,13 +9246,13 @@ than an unapplied one.
 `usetesting`says`os.MkdirTemp`could be`t.TempDir`. Eight sites, and **every one of them is
 deliberate**:
 
-| site                     | why not `t.TempDir`                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| site                    | why not `t.TempDir`                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `layers_test.go`(×2)    | its cleanup is`os.RemoveAll`, which cannot delete inside a directory that denies writing - which is the layer under test |
 | `mountname_test.go`(×3) | the directory must be under`root` and carry the engine's own prefix, both of which are what is being tested              |
-| `overlay_test.go`        | under the materialiser's root, which the suite hands in                                                                   |
-| `e2e_sandbox_test.go`| under`EARTH_TEST_STORE`, whose whole purpose is choosing the disk                                                        |
-| `ensurerace_test.go`| a unix socket path is capped near 104 bytes and a`t.TempDir` name is long                                                |
+| `overlay_test.go`       | under the materialiser's root, which the suite hands in                                                                  |
+| `e2e_sandbox_test.go`   | under`EARTH_TEST_STORE`, whose whole purpose is choosing the disk                                                        |
+| `ensurerace_test.go`    | a unix socket path is capped near 104 bytes and a`t.TempDir` name is long                                                |
 
 The first was **already explained**, in a comment three lines above the call:
 
@@ -10191,8 +10191,8 @@ on.
 The test asserts what a person is told, through a real parse error rather than by comparing a
 constant to itself. Then the probe:
 
-| mutation                                 | before fix | after fix |
-| ---------------------------------------- | ---------- | --------- |
+| mutation                               | before fix | after fix |
+| -------------------------------------- | ---------- | --------- |
 | `CmdSaveImage`->`SAVE-IMAGE`           | red        | **red**   |
 | the literal in `interp.go`->`SAVE IMG` | red        | n/a       |
 
@@ -10267,7 +10267,7 @@ A registry that answers only what it was asked for, and a mutation:
 
 | removed from the header | result                                   |
 | ----------------------- | ---------------------------------------- |
-| `…image.index.v1+json`|`406 Not Acceptable`, both new tests red |
+| `…image.index.v1+json`  | `406 Not Acceptable`, both new tests red |
 | nothing                 | green                                    |
 
 OCI's two now come from `ocispec`. Docker's two stay literals: `github.com/docker/distribution` is
@@ -10321,7 +10321,7 @@ It does not work, for two independent reasons, either of which alone is fatal:
 | through an overlay, lower inode      | no                     |                 |         |
 | through an overlay, merged inode     | no                     |                 |         |
 | overlay mounted `MS_STRICTATIME`     | no                     |                 |         |
-| lower remounted `MS_BIND\            | MS_REMOUNT\            | MS_STRICTATIME`|`EPERM` |
+| lower remounted `MS_BIND\            | MS_REMOUNT\            | MS_STRICTATIME` | `EPERM` |
 
 Kernel 6.12.90, on two filesystems. `ST_RELATIME` reads false after the strictatime mount, so the
 flag took and the stamp still did not move: overlayfs simply does not record what it serves. And the
@@ -10394,10 +10394,10 @@ So it is **executed**. `golang.org/x/net/bpf` carries a virtual machine for clas
 what a seccomp filter is, and a `seccomp_data` is a flat 64-byte buffer - so the test runs the same
 program the kernel would, on the same input. Mutating one jump by one:
 
-| mutation                                         | result                 |
-| ------------------------------------------------ | ---------------------- |
+| mutation                                       | result                 |
+| ---------------------------------------------- | ---------------------- |
 | `SkipTrue: notifyAt - at - 1`->`notifyAt - at` | three of six tests red |
-| none                                             | green                  |
+| none                                           | green                  |
 
 ### The first run passed for the wrong reason
 
@@ -10473,10 +10473,10 @@ The reader loop was written to end when its descriptor closed, and the test wait
 descriptor from another thread does not reliably wake a blocked `ioctl`, so it waited for ever. It
 reports the moment it has an answer now and is never asked to finish.
 
-| mutation                            | result                                    |
-| ----------------------------------- | ----------------------------------------- |
-| trap `uname`instead of the openers |`a file was read and no open was trapped` |
-| unchanged                           | green, nine tests                         |
+| mutation                           | result                                    |
+| ---------------------------------- | ----------------------------------------- |
+| trap `uname`instead of the openers | `a file was read and no open was trapped` |
+| unchanged                          | green, nine tests                         |
 
 ## E207 - the argument index, checked against the syscall rather than the manual
 
@@ -10489,10 +10489,10 @@ Checking it against the manual page catches that on the day somebody reads the m
 call is **made**, against a path chosen to be unmistakable, and the tracer's answer is compared with
 what was passed. A wrong index cannot produce the right string.
 
-| mutation        | what happened                                           |
-| --------------- | ------------------------------------------------------- |
-| `openat`1 -> 0 |`at 0xffffffffffffff9c after 0 bytes: negative offset`  |
-| `statx`1 -> 3  |`syscall 332 never named ".../unmistakable-8f3a1c.txt"` |
+| mutation       | what happened                                           |
+| -------------- | ------------------------------------------------------- |
+| `openat`1 -> 0 | `at 0xffffffffffffff9c after 0 bytes: negative offset`  |
+| `statx`1 -> 3  | `syscall 332 never named ".../unmistakable-8f3a1c.txt"` |
 
 The first is the diagnostic naming itself: `0xffffffffffffff9c`is`AT_FDCWD`, -100, read as an
 address. It is also **luck**. A wrong index landing on unmapped memory errors, and `flags` could as
@@ -10534,7 +10534,7 @@ the suffix means. A second table would be a second thing to fall out of step wit
 | mutation                                                | result                                       |
 | ------------------------------------------------------- | -------------------------------------------- |
 | ignore the descriptor, always use the working directory | 2 red                                        |
-| `fd != AT_FDCWD`->`fd != AT_FDCWD-1`|`read "/proc/…/fd/-100", want "/proc/…/cwd"` |
+| `fd != AT_FDCWD`->`fd != AT_FDCWD-1`                    | `read "/proc/…/fd/-100", want "/proc/…/cwd"` |
 | drop the `(deleted)` check                              | 2 red                                        |
 
 ### The third row is the point of this entry
@@ -10803,11 +10803,11 @@ list of fields to check is a second place to forget the field.
 Non-zero matters: nearly every field is `omitempty`, so a zero value is not written at all and a
 round trip of one proves nothing.
 
-| mutation                               | result                                    |
-| -------------------------------------- | ----------------------------------------- |
-| `json:"trace,omitempty"`->`json:"-"`|`Trace is excluded from the wire`         |
-| a new field with no tag at all         | green, correctly - Go marshals it by name |
-| `json:"trace,omitempty,string"`        | **green**, and that is the limit below    |
+| mutation                             | result                                    |
+| ------------------------------------ | ----------------------------------------- |
+| `json:"trace,omitempty"`->`json:"-"` | `Trace is excluded from the wire`         |
+| a new field with no tag at all       | green, correctly - Go marshals it by name |
+| `json:"trace,omitempty,string"`      | **green**, and that is the limit below    |
 
 The third is worth stating rather than papering over. `,string`encodes the bool as`"true"` and Go
 decodes it back, so a Go-to-Go round trip cannot see it. The failure this guard cannot reach is a
@@ -11029,7 +11029,7 @@ open_how` in the target's memory rather than in a register.
 
 |                               | result                                                        |
 | ----------------------------- | ------------------------------------------------------------- |
-| before `Observed`was set     |`not served by observed inputs`                               |
+| before `Observed`was set      | `not served by observed inputs`                               |
 | before write-only was skipped | `1 of 2 predictions stale (/w/out.txt is gone from the base)` |
 | both                          | `1 by observed inputs`, artifact identical to a cold build    |
 
@@ -11141,12 +11141,12 @@ only**, which was taken when the argument for exec was diagnostics - "useful for
 that shells out to something unpinned; not required by Ω". The argument here is correctness, which
 is different evidence rather than a change of mind.
 
-|                                            | result                                                                          |
-| ------------------------------------------ | ------------------------------------------------------------------------------- |
-| `TestTheProgramAStepRunsIsRecorded`before |`a step ran "/run/current-system/sw/bin/true" and the tracer did not record it` |
-| after                                      | green                                                                           |
-| removing exec from the traced set again    | red, on that message                                                            |
-| unobserved steps across 12 corpus builds   | **1 -> 0**                                                                      |
+|                                           | result                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------- |
+| `TestTheProgramAStepRunsIsRecorded`before | `a step ran "/run/current-system/sw/bin/true" and the tracer did not record it` |
+| after                                     | green                                                                           |
+| removing exec from the traced set again   | red, on that message                                                            |
+| unobserved steps across 12 corpus builds  | **1 -> 0**                                                                      |
 
 The argument index needed no new rule: `execve(path, …)` takes its path first like the older forms
 and `execveat(dirfd, path, …)`is an`*at` form, so both fall out of the table and the derivation
@@ -11457,7 +11457,7 @@ So the two misses per target are both accounted for, and neither is a defect:
 | miss              | why                                                       |
 | ----------------- | --------------------------------------------------------- |
 | the perturbation  | a step that has never existed before                      |
-| `RUN mvn package`|`CACHE /root/.m2` makes it uncacheable **by design** (I3) |
+| `RUN mvn package` | `CACHE /root/.m2` makes it uncacheable **by design** (I3) |
 
 Everything else - three quarters of each build - comes back, and two steps per target come back from
 a base they never ran on. **Every step this engine is willing to reuse, it reuses.** That is a
@@ -11503,7 +11503,7 @@ becoming uncacheable is named the first time it happens instead of arriving as a
 | `Op.Docker`             | a docker daemon, whose contents no key describes |
 | a mount                 | a cache mount, whose contents no key describes   |
 | a secret                | a secret, which no key may describe              |
-| `--no-cache`|`--no-cache`                                     |
+| `--no-cache`            | `--no-cache`                                     |
 
 Ordered most-specific-first, because `NoCache` is one flag set by four different things and reporting
 the flag would name none of them.
@@ -11537,11 +11537,11 @@ The other half is that a worker is sent a step, **never a graph**: 𝑏 is a seq
 rather than the subgraph that produced them. That is asserted by walking every type reachable from
 an `Assignment`, which is stronger than reading the struct once:
 
-| mutation                      | result                                                                  |
-| ----------------------------- | ----------------------------------------------------------------------- |
-| `Op`becomes`ir.Op`|`Assignment.Op reaches ir.Op: the IR's operation carries host`          |
-| `Hints`becomes`any`|`Assignment.Hints is an interface, so anything at all can travel in it` |
-| `Version`becomes`omitempty`|`an absent version and version zero must not look the same`             |
+| mutation                    | result                                                                  |
+| --------------------------- | ----------------------------------------------------------------------- |
+| `Op`becomes`ir.Op`          | `Assignment.Op reaches ir.Op: the IR's operation carries host`          |
+| `Hints`becomes`any`         | `Assignment.Hints is an interface, so anything at all can travel in it` |
+| `Version`becomes`omitempty` | `an absent version and version zero must not look the same`             |
 
 The interface case is the one worth having written down. A declared-type check that stops at
 `interface{}` stops exactly where a graph would get through, so the walk refuses an interface
@@ -11579,7 +11579,7 @@ than inherited**.
 
 | mutation                            | result                                                                                  |
 | ----------------------------------- | --------------------------------------------------------------------------------------- |
-| `host`delegated as`exec`|`host was delegated (<nil>); it runs on the invoking machine`                           |
+| `host`delegated as`exec`            | `host was delegated (<nil>); it runs on the invoking machine`                           |
 | a secret dropped instead of refused | `a step whose inputs cannot be described must be refused rather than sent without them` |
 
 ## E231 - 𝒮 is one function, and a test that could not fail
@@ -11762,7 +11762,7 @@ driver's existing rules then decline to key on, because an empty observation agr
 | mutation                                            | result                                                               |
 | --------------------------------------------------- | -------------------------------------------------------------------- |
 | a non-delegable step fails instead of building here | `a host step: the build failed: … host runs on the invoking machine` |
-| `Observed: true`regardless of content              |`a reply that named nothing produced an observed result`             |
+| `Observed: true`regardless of content               | `a reply that named nothing produced an observed result`             |
 | a vanished fleet fails the build                    | `an empty fleet: the build failed: no worker is available`           |
 
 ## E236 - a build through a fleet, on one machine
@@ -12001,7 +12001,7 @@ mechanisms darwin cannot compile:
 | mechanism                                                        |                 |
 | ---------------------------------------------------------------- | --------------- |
 | `guest`: **chroot a step into its own filesystem** (A3, I10)     | **survived**    |
-| `guest`: drop `MS_RELATIME`when`MS_NOATIME` is set (E172)      | killed          |
+| `guest`: drop `MS_RELATIME`when`MS_NOATIME` is set (E172)        | killed          |
 | `guest`: create a mount point with `O_EXCL` (TOCTOU)             | killed          |
 | `trace`: set no-new-privs before the filter                      | killed          |
 | `trace`: keep the filter alive across the syscall                | did not compile |
@@ -12245,12 +12245,12 @@ comes back, with the observation intact.
 
 Getting there cost four wrong diagnoses, and every one of them was plausible:
 
-| guess                                | why it was wrong                                                       |
-| ------------------------------------ | ---------------------------------------------------------------------- |
-| the listener had not started         | `SetALPNs`after`Bind` changed nothing                                |
-| the endpoint needed time             | a 300 ms sleep changed nothing                                         |
-| the address was wrong                | it was, and fixing it got past `no reachable address` to a new failure |
-| `OpenStreamConn`was not synchronous |`OpenStreamSync` changed nothing                                       |
+| guess                               | why it was wrong                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| the listener had not started        | `SetALPNs`after`Bind` changed nothing                                  |
+| the endpoint needed time            | a 300 ms sleep changed nothing                                         |
+| the address was wrong               | it was, and fixing it got past `no reachable address` to a new failure |
+| `OpenStreamConn`was not synchronous | `OpenStreamSync` changed nothing                                       |
 
 What settled it was not another guess. A **minimal echo** was written in the same package, in the
 shape of the library's own test - and it passed, alone, immediately. That reduced the question from
@@ -12512,7 +12512,7 @@ is missing:
 | what arrives                         | what the driver is told                        |
 | ------------------------------------ | ---------------------------------------------- |
 | a kind nobody has heard of           | `"sudo" is not an operation this worker knows` |
-| `build`- a whole target             |`this worker cannot take a whole target yet`   |
+| `build`- a whole target              | `this worker cannot take a whole target yet`   |
 | a version this worker does not speak | `this worker speaks version 1 and was sent 2`  |
 
 And E232's distinction from the worker's side: a **non-zero exit is a result** and travels as one, so
@@ -12669,10 +12669,10 @@ is done - the one failure that is certainly not the worker's fault.
 `Reach` gives one worker a fixed time to answer, and here is where the interesting part was.
 Wrapping the call in `context.WithTimeout` changed nothing at all:
 
-| where the context reaches               | what it covers                                     |
-| --------------------------------------- | -------------------------------------------------- |
-| `conn.OpenStreamSync(ctx)`              | the dial                                           |
-| `WriteMessage(s, …)`/`ReadMessage(s)`| **nothing** - they take an`io.Writer`/`io.Reader` |
+| where the context reaches             | what it covers                                    |
+| ------------------------------------- | ------------------------------------------------- |
+| `conn.OpenStreamSync(ctx)`            | the dial                                          |
+| `WriteMessage(s, …)`/`ReadMessage(s)` | **nothing** - they take an`io.Writer`/`io.Reader` |
 
 The reads take no context, so a peer that vanished *after* the stream opened blocked until QUIC gave
 up on the connection: **30.03 seconds**, measured, once per step. `Stream.SetDeadline` from the
@@ -12765,7 +12765,7 @@ unreachable looks, from a green suite, exactly like one that works.
 | **do not fetch what is present**       | a base layer is hundreds of megabytes and a worker keeps its store between steps; refetching per step spends more time on the network than the steps spend building |
 | batch the request                      | C.4: one stream per blob does not survive a thousand-blob synchronisation                                                                                           |
 | refuse when nobody has it              | running without the base produces a *different* answer keyed as the right one (I3), and caches it for everybody                                                     |
-| check the store filed it as it arrived | the fetch verified these bytes against `id`and the step is keyed on`id`; a store that renamed them leaves the step reading something nobody checked               |
+| check the store filed it as it arrived | the fetch verified these bytes against `id`and the step is keyed on`id`; a store that renamed them leaves the step reading something nobody checked                 |
 
 The second row is the one that decides whether a fleet is worth having, and it is the reason the
 test asserts *which* blobs were asked for rather than that the fetch succeeded.
@@ -13214,7 +13214,7 @@ and the consequences went both ways at once.
 
 | the step says            | the old rule did                        | which meant                                                        |
 | ------------------------ | --------------------------------------- | ------------------------------------------------------------------ |
-| `--platform=linux/amd64`| refuse every worker, since none matched | **a`--platform` build never used the fleet at all**, silently     |
+| `--platform=linux/amd64` | refuse every worker, since none matched | **a`--platform` build never used the fleet at all**, silently      |
 | nothing at all           | an empty platform means "any"           | **a wrong build**: the step runs on whatever architecture answered |
 
 The second is the serious one. A step written without a platform means *native*. Run on the other
@@ -13515,11 +13515,11 @@ The default stays **every core**. A worker exists to build, and one that quietly
 dedicated builder would be a puzzle nobody thinks to look for - the surprising configuration is the
 one that should have to be asked for.
 
-| set to      | result                                                       |
-| ----------- | ------------------------------------------------------------ |
-| unset       | every core                                                   |
-| `12`        | twelve                                                       |
-| `eight`     | **refused**, naming the variable                             |
+| set to    | result                                                       |
+| --------- | ------------------------------------------------------------ |
+| unset     | every core                                                   |
+| `12`      | twelve                                                       |
+| `eight`   | **refused**, naming the variable                             |
 | `0`or`-4` | **refused**, saying what a worker with no room actually does |
 
 **Refused rather than clamped**, because a worker silently ignoring `EARTH_FLEET_CAPACITY=eight`
@@ -14479,11 +14479,11 @@ takes fd 3 on one path, so a fixed number would move underneath it.
 
 ### Nil all the way down, on purpose
 
-| absent                 | consequence                                              |
-| ---------------------- | -------------------------------------------------------- |
-| no `EARTH_GUEST_FILLS`|`Server.Fills` is nil                                    |
-| `Server.Fills`nil     |`filler()` returns nil                                   |
-| `Tracer.Fill` nil      | the tracer watches, exactly as it always has             |
+| absent                 | consequence                                            |
+| ---------------------- | ------------------------------------------------------ |
+| no `EARTH_GUEST_FILLS` | `Server.Fills` is nil                                  |
+| `Server.Fills`nil      | `filler()` returns nil                                 |
+| `Tracer.Fill` nil      | the tracer watches, exactly as it always has           |
 | nothing placed         | `placedIn`is empty, and the capture is exactly`TakeIn` |
 
 Four nils, one behaviour, and it is the behaviour every build has today. That is what makes this safe
@@ -15169,9 +15169,9 @@ Six boundaries in one path, each discarding the reason the next one needed:
 | `Delegating`   | the worker's refusal (E308)                               |
 | `Provision`    | each source's error (E309)                                |
 | `Provision`    | which sources were consulted (E312)                       |
-| `serveOneBlob`|`Get`'s error - held-and-unreadable read as absent (E312) |
-| `Provision`|`keep`'s "asked for X and got Y" (E313)                   |
-| `unpack`|`Lchown`'s error, which is the fault itself (E313)        |
+| `serveOneBlob` | `Get`'s error - held-and-unreadable read as absent (E312) |
+| `Provision`    | `keep`'s "asked for X and got Y" (E313)                   |
+| `unpack`       | `Lchown`'s error, which is the fault itself (E313)        |
 
 Five of the six are now fixed. The sixth is the bug.
 
@@ -15248,10 +15248,10 @@ the second attempt at this project did.
 
 Both costs are kept, apart, because they have different remedies:
 
-| number                    | comes down by                               |
-| ------------------------- | ------------------------------------------- |
+| number                  | comes down by                               |
+| ----------------------- | ------------------------------------------- |
 | `Moved`less`FromOrigin` | placing a step where its inputs already are |
-| `FromOrigin`              | not delegating the step at all              |
+| `FromOrigin`            | not delegating the step at all              |
 
 The existing test asserting the exclusion was rewritten rather than deleted: the distinction it
 defended is real, the omission was not survivable.
@@ -15295,10 +15295,10 @@ its step ran; those three were kept for the account and never used to decide any
 
 | where            | before           | now                                    |
 | ---------------- | ---------------- | -------------------------------------- |
-| `preferFetching`|`+ transferCost`|`+ fetch`, priced by the caller        |
+| `preferFetching` | `+ transferCost` | `+ fetch`, priced by the caller        |
 | `Rendezvous`     | -                | observes every reply, prices the next  |
 | `Hints.Bytes`    | -                | what the driver knows the inputs weigh |
-| `Predict`| constant         |`PredictAt` at the same rate           |
+| `Predict`        | constant         | `PredictAt` at the same rate           |
 
 **All the inputs or none.** An assignment with one input of unknown size states no size at all: a
 partial sum reads as a full price, and under-pricing a base is how a fleet talks itself into
@@ -15842,7 +15842,7 @@ numbers are wrong.
 
 | field   | left nil                                    | what that makes inert                                                                                                        |
 | ------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `Room`| "as many steps as arrive"                   |`waves` answers one however much is running, so the driver is the infinitely-parallel machine E321 was written to stop being |
+| `Room`  | "as many steps as arrive"                   | `waves` answers one however much is running, so the driver is the infinitely-parallel machine E321 was written to stop being |
 | `Sizes` | every layer no step produced weighs nothing | E317's transfer term is absent, so the driver delegates as though the network were free                                      |
 
 `Sizes` is the more embarrassing of the two: the layer no step produces is the **base image**, in
@@ -15877,8 +15877,8 @@ That is five sightings of one shape:
 | E312       | a store instrument            | the server got the bare store |
 | E319       | a rate the driver learns from | nothing fed it                |
 | E325       | a fragment ownership sidecar  | nothing could observe it      |
-| E330       | `Room`and`Sizes`|`Driver` set neither          |
-| E331       | `Parts`| the worker served`Layers`    |
+| E330       | `Room`and`Sizes`              | `Driver` set neither          |
+| E331       | `Parts`                       | the worker served`Layers`     |
 
 Each was built, unit-tested, measured in the probe, and absent from the binary - because **a unit
 test of a mechanism passes whether or not anything calls it**, and every one of these had one.
@@ -16857,11 +16857,11 @@ None of the others discards it outright; the question turned out to be narrower 
 construct that takes a **fixed** number of words binds the leftovers and then reads `rest[0]`,
 which drops `rest[1]` in silence:
 
-| construct   | given            | was                                  |
-| ----------- | ---------------- | ------------------------------------ |
-| `FROM`|`alpine extra`| accepted,`extra` dropped            |
-| `CACHE`|`/one /two`| accepted,`/two` dropped             |
-| `GIT CLONE`| a third argument | refused - it checks`len(rest) != 2` |
+| construct   | given            | was                                 |
+| ----------- | ---------------- | ----------------------------------- |
+| `FROM`      | `alpine extra`   | accepted,`extra` dropped            |
+| `CACHE`     | `/one /two`      | accepted,`/two` dropped             |
+| `GIT CLONE` | a third argument | refused - it checks`len(rest) != 2` |
 
 A step that asked for two caches got one and cached writes to the other into its own layer.
 
@@ -16926,7 +16926,7 @@ Three of the requirements for a rootless daemon are the **host's**, and they fai
 | missing                    | what it costs the operator                  |
 | -------------------------- | ------------------------------------------- |
 | `newuidmap`, `newgidmap`   | a package                                   |
-| a range in `/etc/subuid`| a`usermod`                                 |
+| a range in `/etc/subuid`   | a`usermod`                                  |
 | `user.max_user_namespaces` | a distribution's decision, often not theirs |
 
 A machine missing all three cannot host one however much is built here; a machine missing one is a
@@ -17007,13 +17007,13 @@ The answer for that machine is still **ready**, now for reasons that are this en
 The cheapest decisive experiment before writing anything: start a dockerd by hand in a plain user
 namespace on the machine E363 cleared. Five attempts, each ended by the daemon saying what it needed:
 
-| it said                                        | the flag                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------- |
-| `PID 4055967 is still running`|`--pidfile` - the default is the host's                       |
-| `chown /tmp/d.sock: invalid argument`|`--group=`- a namespace mapping one id has no`docker` group |
-| `mkdir /run/docker/plugins: permission denied`| a writable`/run`, mounted before it starts                   |
-| -                                              | `--data-root`, `--exec-root` - the defaults are the host's    |
-| -                                              | `--storage-driver=vfs`, `--iptables=false`, `--bridge=none`   |
+| it said                                        | the flag                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| `PID 4055967 is still running`                 | `--pidfile` - the default is the host's                     |
+| `chown /tmp/d.sock: invalid argument`          | `--group=`- a namespace mapping one id has no`docker` group |
+| `mkdir /run/docker/plugins: permission denied` | a writable`/run`, mounted before it starts                  |
+| -                                              | `--data-root`, `--exec-root` - the defaults are the host's  |
+| -                                              | `--storage-driver=vfs`, `--iptables=false`, `--bridge=none` |
 
 Then:
 
@@ -17531,14 +17531,14 @@ before the feature it belongs to, and it is the right time to meet it: a build r
 
 Hypotheses, tested rather than ranked:
 
-| candidate                                               | verdict                                                        |
-| ------------------------------------------------------- | -------------------------------------------------------------- |
-| `max_user_namespaces` exhausted at this depth           | cleared - 256543 outside, 2147483647 inside a namespace        |
-| nested user namespaces refused outright                 | cleared - `unshare -Ur sh -c "unshare -Ur …"` works            |
-| exec of `/proc/self/exe` from a mapped-root process     | cleared - works, with and without a mount namespace            |
-| the binary unlinked, so `/proc/self/exe`is`(deleted)`| cleared -`go test -c` to a persistent path, identical failure |
-| a `/proc` predating the pid namespace                   | real, a separate defect, fixed - see below                     |
-| exec'ing *this* file under a nested mapping             | open                                                           |
+| candidate                                             | verdict                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------- |
+| `max_user_namespaces` exhausted at this depth         | cleared - 256543 outside, 2147483647 inside a namespace       |
+| nested user namespaces refused outright               | cleared - `unshare -Ur sh -c "unshare -Ur …"` works           |
+| exec of `/proc/self/exe` from a mapped-root process   | cleared - works, with and without a mount namespace           |
+| the binary unlinked, so `/proc/self/exe`is`(deleted)` | cleared -`go test -c` to a persistent path, identical failure |
+| a `/proc` predating the pid namespace                 | real, a separate defect, fixed - see below                    |
+| exec'ing *this* file under a nested mapping           | open                                                          |
 
 One of those was a defect in its own right. `nstest`uses`CLONE_NEWPID`, and `/proc/self` resolves
 through whichever `/proc`is mounted: one predating the process's pid namespace resolves`self` to a
@@ -18572,18 +18572,18 @@ proposal and the diagnosis were wrong, and the same measurement settled them.
 | operation                  | ext4     |
 | -------------------------- | -------- |
 | `umount`                   | 13.07 ms |
-| `umount`with`MNT_DETACH` | 13.12 ms |
+| `umount`with`MNT_DETACH`   | 13.12 ms |
 | `RemoveAll` of the scratch | 0.20 ms  |
 
 The teardown is one syscall and detaching does not make it cheaper. So much for the remedy.
 
 **And the syscall is not overlayfs's:**
 
-| operation                  | ext4     | tmpfs    | ratio |
-| -------------------------- | -------- | -------- | ----- |
-| `umount`                   | 13.07 ms | 0.041 ms | 316x  |
+| operation                | ext4     | tmpfs    | ratio |
+| ------------------------ | -------- | -------- | ----- |
+| `umount`                 | 13.07 ms | 0.041 ms | 316x  |
 | `umount`with`MNT_DETACH` | 13.12 ms | 0.040 ms | 328x  |
-| `RemoveAll`                | 0.20 ms  | 0.059 ms | 3x    |
+| `RemoveAll`              | 0.20 ms  | 0.059 ms | 3x    |
 
 **316x.** Overlayfs teardown is 41 microseconds when the upper and work directories are on tmpfs and
 thirteen milliseconds when they are on ext4. A step's cost is a property of *where the scratch lives*,
@@ -18870,11 +18870,11 @@ the construct by name elsewhere", which it now does.
 257 of 456, before and after. The files naming those flags *use* wildcards, so they still refuse -
 later, and for the right reason. What changed:
 
-| before                                                            | after                                                |
-| ----------------------------------------------------------------- | ---------------------------------------------------- |
-| whole file refused at its `VERSION`line                          | the`COPY`or`BUILD` that needs the feature refused |
-| `no target named "sub*"`                                          | the feature named, classified as unimplemented       |
-| `--wildcard-copy`x16,`--wildcard-builds`x8 in the top refusals | gone;`--build-auto-skip` x8 visible behind them     |
+| before                                                         | after                                             |
+| -------------------------------------------------------------- | ------------------------------------------------- |
+| whole file refused at its `VERSION`line                        | the`COPY`or`BUILD` that needs the feature refused |
+| `no target named "sub*"`                                       | the feature named, classified as unimplemented    |
+| `--wildcard-copy`x16,`--wildcard-builds`x8 in the top refusals | gone;`--build-auto-skip` x8 visible behind them   |
 
 **A previously hidden gap surfaced by being no longer hidden behind a larger one.** That is worth as
 much as the fix: the list of what this engine lacks is only useful while the entries are real, and
@@ -19543,12 +19543,12 @@ doubt and the magnitude is."
 The disk filled up completely a day later, which forced a clear-out and made the experiment cheap.
 With ten times the free space:
 
-| operation                  | full (328 MB free) | after (3.4 GB free) |
-| -------------------------- | ------------------ | ------------------- |
-| `umount`, ext4             | 13.07 ms           | 12.90 ms            |
+| operation                | full (328 MB free) | after (3.4 GB free) |
+| ------------------------ | ------------------ | ------------------- |
+| `umount`, ext4           | 13.07 ms           | 12.90 ms            |
 | `umount`with`MNT_DETACH` | 13.12 ms           | 13.02 ms            |
-| `umount`, tmpfs            | 0.041 ms           | 0.043 ms            |
-| ratio                      | 316x               | 302x                |
+| `umount`, tmpfs          | 0.041 ms           | 0.043 ms            |
+| ratio                    | 316x               | 302x                |
 
 **The same answer.** The caveat was reasonable and is wrong: a 1% change across a tenfold change in
 free space is not a filesystem straining to allocate. The 300x is about ext4 versus tmpfs, not about
@@ -19711,7 +19711,7 @@ key was neither used nor refused. So:
 
 | written                 | provided                     |
 | ----------------------- | ---------------------------- |
-| `sharing=locked`|`shared` - no lock at all    |
+| `sharing=locked`        | `shared` - no lock at all    |
 | `mode=0100` (a secret)  | 0400, whatever was asked for |
 | `readonly` (bare)       | writable                     |
 | `uid=`, `gid=`, `from=` | nothing, silently            |
@@ -20270,15 +20270,15 @@ evaluation and the base they are evaluated against are all pinned.
 
 Still 19 of 37 - and the composition moved, which is the number worth reading:
 
-| gained                                    | why                                                       |
-| ----------------------------------------- | --------------------------------------------------------- |
-| `build-arg-dynamic-with-empty-base.earth`| its`test` target supplies the argument its helper wanted |
-| `ci-arg.earth`|`EARTHLY_CI`now says`false` rather than nothing (E443)  |
+| gained                                    | why                                                      |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `build-arg-dynamic-with-empty-base.earth` | its`test` target supplies the argument its helper wanted |
+| `ci-arg.earth`                            | `EARTHLY_CI`now says`false` rather than nothing (E443)   |
 
-| lost                  | why                                                 |
-| --------------------- | --------------------------------------------------- |
-| `comments.earth`| its`all` target builds more than its first one did |
-| `copy-keep-own.earth` | the same                                            |
+| lost                  | why                                                |
+| --------------------- | -------------------------------------------------- |
+| `comments.earth`      | its`all` target builds more than its first one did |
+| `copy-keep-own.earth` | the same                                           |
 
 Two in, two out, and a total that did not move. **A count that stayed the same while half of what it
 counted changed** is the argument for printing the names beside it - which E442 added one increment
@@ -20430,7 +20430,7 @@ in one build:
 
 | probe                   | value            |
 | ----------------------- | ---------------- |
-| `$(wc -c /tmp/content)`|`5 /tmp/content` |
+| `$(wc -c /tmp/content)` | `5 /tmp/content` |
 | `$(cat /tmp/content)`   | *empty*          |
 | `$(echo -n direct)`     | *empty*          |
 
@@ -21164,7 +21164,7 @@ been given one meaning when the second was written:
 | written                   | means                                          |
 | ------------------------- | ---------------------------------------------- |
 | `--secret-file NAME=path` | one secret whose value is that file's contents |
-| `--secret-file-path path`| where the project keeps *many*, its`.secret`  |
+| `--secret-file-path path` | where the project keeps *many*, its`.secret`   |
 
 E465 implemented the second and mapped the first onto it, so a credential named on the command line
 was read as a directory listing of nowhere. *Two options whose names differ by a suffix, and a reader
@@ -21957,7 +21957,7 @@ Most are fine, and the difference is a ratio rather than a style:
 | shape                                            | example                                                   | verdict           |
 | ------------------------------------------------ | --------------------------------------------------------- | ----------------- |
 | ceiling ~1000x the healthy path                  | `dialcost`, 250ms against a loopback fetch measured in µs | a hang detector   |
-| ceiling 10x+, on a path with a real timeout      | `hang_linux`40s,`evict`15s,`driver` 10s               | a hang detector   |
+| ceiling 10x+, on a path with a real timeout      | `hang_linux`40s,`evict`15s,`driver` 10s                   | a hang detector   |
 | ceiling relative to the mechanism's own constant | `dockerdproc`, `took > gracePeriod/2`                     | **the good form** |
 | floor - "it did wait"                            | `waitfor`, `fleetprobe`                                   | safe direction    |
 | ceiling within ~3x of the work being timed       | `mux`, 300ms for four 100ms requests                      | a stopwatch       |
@@ -22437,8 +22437,8 @@ answer, and each eliminated by building the *same* Earthfile by hand with one va
 | suspect                      | why it was plausible                                                             | verdict                                                   |
 | ---------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | the store's case-sensitivity | the engine prints a note about it, and E26 blamed it for 19 of 26 sweep failures | ruled out: the same build succeeds on the same filesystem |
-| the store path's length      | E466 found `t.TempDir()`too long for a unix socket                              | ruled out: a 103-character store under`/tmp` works       |
-| the store path's location    | `$TMPDIR`is under`/var/folders`, reached by a firmlink                         | ruled out: a `mktemp -d` store works by hand              |
+| the store path's length      | E466 found `t.TempDir()`too long for a unix socket                               | ruled out: a 103-character store under`/tmp` works        |
+| the store path's location    | `$TMPDIR`is under`/var/folders`, reached by a firmlink                           | ruled out: a `mktemp -d` store works by hand              |
 
 The intermediate failure those were chased for - `fork/exec /bin/sh: no such file or directory`,
 where `/bin/sh`is a symlink to a`/bin/busybox` the materialised base does not have - is *also*
@@ -22930,3 +22930,51 @@ a worker nothing can be placed on.
 
 Two mutants, killed. The first deletes the ask and is caught in ten seconds by the fresh-worker test
 timing out on a declaration that never arrives.
+
+## E505 - a worker that is told only the secret
+
+**Claim under test.** A worker cannot join a fleet without being told the driver's `host:port`, so a
+fleet spanning machines that cannot dial each other - which is every pair of CI runners - is out of
+reach.
+
+**The claim was wrong twice over, and both errors were mine.**
+
+The first was a refusal in `cmd/earth-worker`: `EARTH_FLEET_DRIVER` was mandatory, and the code
+required an address before it would even try. Nothing downstream needed one. The rendezvous is
+keyless and derives both identities from the shared secret (§4.4), so the driver's endpoint ID is
+already known to anyone holding the secret; the address is a hint that lets the dial skip discovery,
+not a precondition for it. `driverAt` now returns a bare `netaddr.NewEndpointAddr(id)` when the
+variable is unset, and `TestAWorkerJoinsWithoutBeingToldWhere` holds that open.
+
+The second was the diagnosis I gave for why a fleet across GitHub runners was "not yet ready" -
+that it needs a relay "which nothing here configures". The configuring is a two-line change. What
+made the claim look true from the outside was a default: this repository's `go-iroh` binds
+direct-only, `WithRelayMode` defaulting to `relay.ModeDisabled`, where the Rust iroh that rebuck2
+uses has relays and DNS discovery on. A default is not an absence of capability, and reporting one
+as the other is how a five-minute change gets filed as a project.
+
+**Result: the refusal is gone, the discovery is not proven.**
+
+With relays and n0's DNS discovery turned on at all four bind sites, a worker given only
+`EARTH_FLEET_SECRET` gets as far as `iroh: no reachable address for endpoint`. Publication is
+registered and resolution is registered; something between them does not complete, and I have not
+found what.
+
+Worse, and the reason this entry exists: with discovery **on by default**, the path that had been
+doing real work an hour earlier stopped. A worker handed `127.0.0.1:<port>` joined, was counted, and
+received nothing - 0 layers where the same run had produced 4. Turning the options off restores the
+4. So the mechanism does not merely fail to help; on this machine it breaks the working case, by
+some route through endpoint addressing I have not traced.
+
+It is therefore **opt-in** (`EARTH_FLEET_DISCOVER=1`), which is a retreat and is labelled as one in
+the source. A build tool does not get to default onto a path whose failure mode its author cannot
+explain.
+
+*A default is not a capability.* The gap between "this cannot do X" and "this is configured not to
+do X" is one line of documentation wide, and I fell in it - twice on the same mechanism, having been
+shown the working example both times.
+
+**What would settle it.** Two GitHub runners, driver and worker, secret derived from
+`$GITHUB_RUN_ID`, which is the shape rebuck2 already runs. That is the environment the mechanism is
+for - and, since the machines genuinely cannot dial each other there, the one place where the
+discovery path is the only path and cannot be quietly masked by a working direct dial.

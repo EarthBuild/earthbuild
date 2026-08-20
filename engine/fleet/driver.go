@@ -3,6 +3,7 @@ package fleet
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"os"
 	"sort"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tmc/go-iroh/iroh"
+	"github.com/tmc/go-iroh/key"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -119,7 +121,19 @@ func Driver(
 	self := ""
 
 	if store != nil {
-		blobs, err := iroh.Bind(serving, iroh.WithALPNs(ALPNBlob))
+		// A key of its own: the blob endpoint is a second identity and publishes
+		// itself, and reusing the driver's would announce two different
+		// addresses under one name.
+		blobKey, keyErr := key.GenerateSecretKey()
+		if keyErr != nil {
+			stop()
+
+			return nil, nil, fmt.Errorf("a key for this driver's blob endpoint: %w", keyErr)
+		}
+
+		blobs, err := iroh.Bind(serving, append([]iroh.Option{
+			iroh.WithALPNs(ALPNBlob), iroh.WithSecretKey(blobKey),
+		}, endpointOptions(blobKey)...)...)
 		if err != nil {
 			stop()
 
@@ -369,6 +383,18 @@ func announcement(id, addr string, wait time.Duration, want int) string {
 		// Nothing rather than an empty setting. `EARTH_FLEET_DRIVER=` looks
 		// like something to copy.
 		return line
+	}
+
+	// A wildcard bind is honest and unusable: nobody can dial `[::]`. Worse, a
+	// worker elsewhere needs no address at all - it finds this driver by the
+	// identity it derives from the shared secret - so offering one that cannot
+	// work would send a reader looking for a networking problem they do not
+	// have (E505).
+	if ap, err := netip.ParseAddrPort(addr); err == nil && ap.Addr().IsUnspecified() {
+		return fmt.Sprintf(
+			"%s\n  a worker elsewhere needs only the same %s; on this machine,"+
+				" %s=127.0.0.1:%d",
+			line, EnvSecret, EnvDriver, ap.Port())
 	}
 
 	return fmt.Sprintf("%s\n  workers join with %s=%s and the same %s",

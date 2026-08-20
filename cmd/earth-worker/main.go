@@ -24,6 +24,7 @@ import (
 	"syscall"
 
 	"github.com/tmc/go-iroh/iroh"
+	"github.com/tmc/go-iroh/key"
 	"github.com/tmc/go-iroh/netaddr"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -52,25 +53,26 @@ func run() error {
 		return err
 	}
 
-	at := os.Getenv(fleet.EnvDriver)
-	if at == "" {
-		return fmt.Errorf("set %s to the driver's address"+
-			"\n  a worker derives *who* the driver is from the secret and has"+
-			" to be told *where*", fleet.EnvDriver)
-	}
-
-	addr, err := netip.ParseAddrPort(at)
-	if err != nil {
-		return fmt.Errorf("%s is %q, which is not host:port: %w",
-			fleet.EnvDriver, at, err)
-	}
-
 	id, err := fleet.DriverID(session, secret)
 	if err != nil {
 		return err
 	}
 
-	e, err := iroh.Bind(ctx)
+	where, err := driverAt(id, os.Getenv(fleet.EnvDriver))
+	if err != nil {
+		return err
+	}
+
+	// The same reachability the driver binds with: a worker behind NAT that
+	// only ever dials out still has to be *fetchable*, and a worker that cannot
+	// resolve the driver's identity cannot join at all (E505).
+	sk, err := key.GenerateSecretKey()
+	if err != nil {
+		return fmt.Errorf("a key for this worker: %w", err)
+	}
+
+	e, err := iroh.Bind(ctx, append([]iroh.Option{iroh.WithSecretKey(sk)},
+		fleet.EndpointOptions(sk)...)...)
 	if err != nil {
 		return fmt.Errorf("bind this worker: %w", err)
 	}
@@ -106,7 +108,14 @@ func run() error {
 	// produces to its peers rather than every one of them going back to the
 	// driver (E260). Separate from the control endpoint because a blob transfer
 	// is long and a control message must not queue behind one.
-	blobs, err := iroh.Bind(ctx, iroh.WithALPNs(fleet.ALPNBlob))
+	blobKey, err := key.GenerateSecretKey()
+	if err != nil {
+		return fmt.Errorf("a key for this worker's blob endpoint: %w", err)
+	}
+
+	blobs, err := iroh.Bind(ctx, append([]iroh.Option{
+		iroh.WithALPNs(fleet.ALPNBlob), iroh.WithSecretKey(blobKey),
+	}, fleet.EndpointOptions(blobKey)...)...)
 	if err != nil {
 		return fmt.Errorf("bind this worker's blob endpoint: %w", err)
 	}
@@ -196,15 +205,15 @@ func run() error {
 	fmt.Fprintf(os.Stderr,
 		"earth-worker: joining %v at %v, serving layers as %v, room for %d step(s),"+
 			" fetching what steps read\n",
-		id, addr, me, room)
+		id, whereFrom(where), me, room)
 
-	return fleet.Join(ctx, e, netaddr.NewEndpointAddr(id).WithIP(addr),
+	return fleet.Join(ctx, e, where,
 		fleet.Runner(x, core.Worker{ID: "worker"},
 			fleet.WithCapacity(room),
 			fleet.WithBlobs(layers),
 			fleet.WithFragments(frags),
 			fleet.WithPeerSink(peers),
-			fleet.WithPeers(me.String(), dialPeer(e, addr))),
+			fleet.WithPeers(me.String(), dialPeer(e, os.Getenv(fleet.EnvDriver)))),
 		func(err error) { fmt.Fprintf(os.Stderr, "earth-worker: %v\n", err) },
 		// Reachable without being reachable: the driver fetches what this
 		// worker produced over the connection this worker opened (E279).
@@ -226,8 +235,12 @@ func run() error {
 // that did not check it (A5). Nothing here trusts it: a name that will not parse
 // is refused, and bytes that do arrive are checked against the digest that was
 // asked for - so the worst a wrong address can do is cost a retry.
-func dialPeer(e *iroh.Endpoint, driver netip.AddrPort) func(string) (fleet.Source, error) {
-	fix := fleet.AtDriver(driver.String())
+func dialPeer(e *iroh.Endpoint, driver string) func(string) (fleet.Source, error) {
+	// Empty where this worker was never told the driver's address, and
+	// `AtDriver` then leaves every hint alone - which is right: the fixup exists
+	// to replace an *unspecified* host with the one we dialled, and a worker
+	// that discovered its driver has no such answer to substitute (E505).
+	fix := fleet.AtDriver(driver)
 
 	return func(at string) (fleet.Source, error) {
 		at = fix(at)
@@ -244,4 +257,45 @@ func dialPeer(e *iroh.Endpoint, driver netip.AddrPort) func(string) (fleet.Sourc
 
 		return &fleet.PeerSource{Endpoint: e, Peer: to, Label: at}, nil
 	}
+}
+
+// driverAt is where to reach the driver: its identity, and its address if this
+// worker was told one.
+//
+// A worker refused to start without `EARTH_FLEET_DRIVER`, reasoning that it
+// derives *who* the driver is and has to be told *where*. The first half is
+// right; the second is not. `netaddr.NewEndpointAddr` takes addresses
+// variadically and iroh finds a peer by node id through discovery and relays
+// when it has none - which is how N GitHub runners, with no route to each other
+// and no address worth telling anybody, form a mesh at all (E505).
+//
+// The address stays as a **hint**. On one machine or one LAN it is the fast
+// path, and skipping discovery is worth having when the answer is already known.
+//
+// A malformed one is still refused. The one thing worse than no address is a
+// typo read as none: a worker that quietly fell back to discovery would take
+// longer to fail and never say why.
+func driverAt(id key.EndpointID, at string) (netaddr.EndpointAddr, error) {
+	if at == "" {
+		return netaddr.NewEndpointAddr(id), nil
+	}
+
+	ap, err := netip.ParseAddrPort(at)
+	if err != nil {
+		return netaddr.EndpointAddr{}, fmt.Errorf(
+			"%s is %q, which is not host:port: %w"+
+				"\n  leave it unset to find the driver by its identity instead",
+			fleet.EnvDriver, at, err)
+	}
+
+	return netaddr.NewEndpointAddr(id).WithIP(ap), nil
+}
+
+// whereFrom says how this worker is reaching the driver, for the log.
+func whereFrom(at netaddr.EndpointAddr) string {
+	if len(at.Addrs()) == 0 {
+		return "an address it discovers"
+	}
+
+	return fmt.Sprint(at.Addrs()[0])
 }

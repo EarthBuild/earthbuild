@@ -66,8 +66,14 @@ jobs:
           # the binaries and publish where they are.
           EARTH_FLEET_WORKERS: "2"
           EARTH_FLEET_WAIT: 8m
+        # As root. A stock runner refuses the overlay mount a step's root
+        # filesystem is made of - `mount overlay ...: permission denied` - and
+        # refuses a procfs in the guest's namespace, both wanting CAP_SYS_ADMIN
+        # that an unprivileged user namespace on this kernel does not grant.
+        # `sudo -E` keeps the fleet's environment, which is the whole
+        # configuration.
         run: |
-          "$RUNNER_TEMP/earth-native" -dir tests/fleet +all 2>&1 | tee driver.log
+          sudo -E "$RUNNER_TEMP/earth-native" -dir tests/fleet +all 2>&1 | tee driver.log
       - name: assert the build was a fleet and not a local build wearing one
         run: |
           # Both workers arrived. A worker that connects but never says what it
@@ -120,7 +126,7 @@ jobs:
         # exit code would fail every green build, so the assertion below is on
         # what the worker did rather than on how it stopped.
         run: |
-          timeout 900 "$RUNNER_TEMP/earth-worker" 2>&1 | tee worker.log || true
+          sudo -E timeout 900 "$RUNNER_TEMP/earth-worker" 2>&1 | tee worker.log || true
       - name: assert this worker joined
         run: |
           grep -q "joining " worker.log \

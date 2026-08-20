@@ -23059,3 +23059,49 @@ crosses the wire - but it is one question, not two.
 *A number that answers a narrower question than the one being asked.* It is not a wrong measurement;
 it is a measurement whose scope has to be said out loud, or the next reader will take it for the
 broader claim.
+
+## E506 - a fleet across three machines
+
+**Claim under test.** A fleet forms between machines that have no route to each other, given nothing
+but a shared secret.
+
+**Result: it does.** Three GitHub runners - a driver and two workers, separate VMs behind NAT with no
+inbound and no route between them - on the first attempt:
+
+```text
+fleet: 155334bf..., waiting 8m0s for 2 worker(s)
+fleet: 2 worker(s) joined
+```
+
+Under a minute from job start, with no address configured anywhere and no relay operated by this
+project. Each side derived the driver's identity from the run's shared terms (§4.4), published where
+it was, looked the other up, and connected. This is the environment the mechanism exists for and the
+only one that tests it: on a LAN a direct dial always succeeds and covers for discovery being broken,
+which is precisely how E505 stayed hidden through four fixes.
+
+### What failed, and what that showed
+
+The build then failed - on the sandbox, not the fleet:
+
+```text
+fleet: a worker would not take Earthfile:35 (materialise the base for : mount overlay (1 layers)
+  at .../merged: permission denied) - running here
+earth-guestd: no procfs of this namespace, so RUN steps will not be observed
+  this needs CAP_SYS_ADMIN in this user namespace and a mount namespace of this process's own
+```
+
+A stock runner's unprivileged user namespace grants neither the overlay mount a step's root
+filesystem is made of nor a procfs of its own. Both are `CAP_SYS_ADMIN`, and both are available
+through the passwordless `sudo` every runner has.
+
+The interesting part is the first line. A worker **refused a step it could not run, said why in the
+same breath, and the driver ran it locally** - the designed degradation (C.5), exercised for the
+first time by an environment rather than by a test. A fleet whose workers cannot run steps is a
+slower build, not a failed one, and the diagnostic names the mount, the path and the cause without
+anybody having to go and look.
+
+*A capability the developer's machine has and the target does not.* Everything above was developed on
+macOS, where the sandbox is a VM and the guest is root inside it. The Linux backend confines the
+guest with namespaces instead, and the difference does not appear until the first machine that runs
+it unprivileged. It is not a portability bug; it is a privilege assumption that was never written
+down, and CI is where such assumptions surface because CI is the first machine nobody configured.

@@ -22978,3 +22978,59 @@ shown the working example both times.
 `$GITHUB_RUN_ID`, which is the shape rebuck2 already runs. That is the environment the mechanism is
 for - and, since the machines genuinely cannot dial each other there, the one place where the
 discovery path is the only path and cannot be quietly masked by a working direct dial.
+
+### It joins
+
+```text
+earth-worker: joining a4f139cc... at an address it discovers, ...
+fleet: 1 worker(s) joined
+```
+
+A worker holding nothing but `EARTH_FLEET_SECRET` found its driver and joined, over a relay, with no
+address given to either side. Four separate defects stood between the claim and that line, and each
+one produced the *same* message - `iroh: no reachable address for endpoint` - which is why the first
+three fixes each looked like no progress at all.
+
+| what was wrong                        | why it looked like the same failure                       |
+| ------------------------------------- | --------------------------------------------------------- |
+| relays and discovery were not enabled | nothing published, nothing resolved                       |
+| `Publish` was never called            | a registered publisher publishes nothing on its own       |
+| `WatchAddr` never fired               | the address arrived by the one route that does not notify |
+| `Connect` consults no resolver        | a published, resolvable driver still could not be dialled |
+
+**A registered publisher is not a publication.** Nothing in go-iroh calls `Publish`: `endpoint.go`
+only ever resolves. Attaching a publisher and binding is the whole of what the API appears to ask
+for, and it announces nothing.
+
+**A watcher that does not watch everything its value is derived from.** `Endpoint.Addr()` is
+composed from the bind address, external NAT candidates and the home relay. `updateAddrWatchLocked`
+runs on the NAT paths and on `InsertRelay`/`RemoveRelay` - and never when a home relay is *elected*.
+Behind NAT the relay is the only dialable address there is, so the address that matters is precisely
+the one whose arrival is silent. The remedy is not a better subscription: `Announce` polls.
+
+**Configured is not consulted.** `Connect` dials the addresses in the `EndpointAddr` it is handed,
+and the lookup services an endpoint is bound with add addresses to a remote it is *already* talking
+to. A worker deriving its driver's identity from the shared secret hands `Connect` an identity and
+nothing else, so the dial fails no matter how healthy discovery is. The caller has to resolve first,
+which is what `Reachable.Find` does.
+
+**Not findable yet is not absent.** An endpoint publishes seconds after it binds and the record
+takes seconds more to resolve, so a worker that dials once at startup loses that race nearly every
+time. `KeepJoining` waits out `iroh.ErrNoAddress` and only that: a wrong secret does not improve
+with time, and retrying it silently would bury the one message that names the mistake.
+
+**A peer on every interface is a peer nowhere.** A worker binds its blob endpoint to the wildcard
+and advertises `<id>@[::]:port`. On one machine that is harmless, because the dial lands on loopback
+and loopback is where the peer is. Across machines it resolves at the *dialler* to the dialler's own
+loopback. `PeerAddr.Endpoint` now drops an unspecified host and leaves the identity, which discovery
+can look up and a direct-only fleet correctly reports as unreachable.
+
+### What it still does not do
+
+The worker joins and is then given nothing: `await an assignment: timeout`, an empty layer store, and
+a driver that built everything itself. It is not the blob path - no step is ever placed - so the
+driver is not learning what the worker is over a relayed connection, which is the E504 declaration
+arriving (or not) by a route it has never been tested on.
+
+The direct path is unaffected: told an address, a worker still does real work, 4 layers, unchanged
+through all of this. Discovery remains opt-in until the placement gap closes.

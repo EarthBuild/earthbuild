@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/tmc/go-iroh/iroh"
 	"github.com/tmc/go-iroh/key"
@@ -71,11 +72,15 @@ func run() error {
 		return fmt.Errorf("a key for this worker: %w", err)
 	}
 
+	found := fleet.Discovery(sk)
+
 	e, err := iroh.Bind(ctx, append([]iroh.Option{iroh.WithSecretKey(sk)},
-		fleet.EndpointOptions(sk)...)...)
+		found.Options()...)...)
 	if err != nil {
 		return fmt.Errorf("bind this worker: %w", err)
 	}
+
+	found.Announce(ctx, e)
 
 	defer func() { _ = e.Shutdown(context.Background()) }()
 
@@ -113,12 +118,16 @@ func run() error {
 		return fmt.Errorf("a key for this worker's blob endpoint: %w", err)
 	}
 
+	blobsFound := fleet.Discovery(blobKey)
+
 	blobs, err := iroh.Bind(ctx, append([]iroh.Option{
 		iroh.WithALPNs(fleet.ALPNBlob), iroh.WithSecretKey(blobKey),
-	}, fleet.EndpointOptions(blobKey)...)...)
+	}, blobsFound.Options()...)...)
 	if err != nil {
 		return fmt.Errorf("bind this worker's blob endpoint: %w", err)
 	}
+
+	blobsFound.Announce(ctx, blobs)
 
 	defer func() { _ = blobs.Shutdown(context.WithoutCancel(ctx)) }()
 
@@ -207,26 +216,43 @@ func run() error {
 			" fetching what steps read\n",
 		id, whereFrom(where), me, room)
 
-	return fleet.Join(ctx, e, where,
-		fleet.Runner(x, core.Worker{ID: "worker"},
-			fleet.WithCapacity(room),
-			fleet.WithBlobs(layers),
-			fleet.WithFragments(frags),
-			fleet.WithPeerSink(peers),
-			fleet.WithPeers(me.String(), dialPeer(e, os.Getenv(fleet.EnvDriver)))),
-		func(err error) { fmt.Fprintf(os.Stderr, "earth-worker: %v\n", err) },
-		// Reachable without being reachable: the driver fetches what this
-		// worker produced over the connection this worker opened (E279).
-		fleet.Serving(layers),
-		// What this worker is, said on arrival.
-		//
-		// Placement refuses a worker that has not declared a platform, and a
-		// worker used to declare one by echoing the platform of an assignment
-		// it had run - so it could never be given a first step (E503). The
-		// platform is the sandbox's, not this process's: a darwin worker runs
-		// `linux/<arch>` steps in a VM, and saying `darwin/<arch>` would refuse
-		// every step it can actually run.
-		fleet.Runs(exec.DefaultPlatform(), room, me.String()))
+	say := func(err error) { fmt.Fprintf(os.Stderr, "earth-worker: %v\n", err) }
+
+	join := func(ctx context.Context) error {
+		// Where, not just who. Connect dials the addresses it is handed and
+		// consults no resolver of its own, so an identity derived from the
+		// secret has to be looked up before it can be dialled (E505).
+		at, err := found.Find(ctx, where)
+		if err != nil {
+			return err
+		}
+
+		return fleet.Join(ctx, e, at,
+			fleet.Runner(x, core.Worker{ID: "worker"},
+				fleet.WithCapacity(room),
+				fleet.WithBlobs(layers),
+				fleet.WithFragments(frags),
+				fleet.WithPeerSink(peers),
+				fleet.WithPeers(me.String(), dialPeer(ctx, e, found, os.Getenv(fleet.EnvDriver)))),
+			say,
+			// Reachable without being reachable: the driver fetches what this
+			// worker produced over the connection this worker opened (E279).
+			fleet.Serving(layers),
+			// What this worker is, said on arrival.
+			//
+			// Placement refuses a worker that has not declared a platform, and a
+			// worker used to declare one by echoing the platform of an assignment
+			// it had run - so it could never be given a first step (E503). The
+			// platform is the sandbox's, not this process's: a darwin worker runs
+			// `linux/<arch>` steps in a VM, and saying `darwin/<arch>` would refuse
+			// every step it can actually run.
+			fleet.Runs(exec.DefaultPlatform(), room, me.String()))
+	}
+
+	// Once if this worker was told where the driver is, repeatedly if it has to
+	// find it: an endpoint publishes where it is seconds after it binds, and a
+	// single dial at startup loses that race nearly every time (E505).
+	return fleet.KeepJoining(ctx, fleet.DefaultPatience, 3*time.Second, join, say)
 }
 
 // dialPeer turns a holder hint into somewhere to fetch from.
@@ -235,7 +261,7 @@ func run() error {
 // that did not check it (A5). Nothing here trusts it: a name that will not parse
 // is refused, and bytes that do arrive are checked against the digest that was
 // asked for - so the worst a wrong address can do is cost a retry.
-func dialPeer(e *iroh.Endpoint, driver string) func(string) (fleet.Source, error) {
+func dialPeer(ctx context.Context, e *iroh.Endpoint, found *fleet.Reachable, driver string) func(string) (fleet.Source, error) {
 	// Empty where this worker was never told the driver's address, and
 	// `AtDriver` then leaves every hint alone - which is right: the fixup exists
 	// to replace an *unspecified* host with the one we dialled, and a worker
@@ -251,6 +277,13 @@ func dialPeer(e *iroh.Endpoint, driver string) func(string) (fleet.Source, error
 		}
 
 		to, err := p.Endpoint()
+		if err != nil {
+			return nil, err
+		}
+
+		// A peer that bound to the wildcard is an identity and nothing more, so
+		// it has to be looked up the same way the driver was (E505).
+		to, err = found.Find(ctx, to)
 		if err != nil {
 			return nil, err
 		}

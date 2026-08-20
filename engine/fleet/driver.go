@@ -131,14 +131,18 @@ func Driver(
 			return nil, nil, fmt.Errorf("a key for this driver's blob endpoint: %w", keyErr)
 		}
 
+		blobsFound := Discovery(blobKey)
+
 		blobs, err := iroh.Bind(serving, append([]iroh.Option{
 			iroh.WithALPNs(ALPNBlob), iroh.WithSecretKey(blobKey),
-		}, endpointOptions(blobKey)...)...)
+		}, blobsFound.Options()...)...)
 		if err != nil {
 			stop()
 
 			return nil, nil, fmt.Errorf("bind this driver's blob endpoint: %w", err)
 		}
+
+		blobsFound.Announce(serving, blobs)
 
 		go func() {
 			_ = ServeBlobs(serving, blobs, store, func(err error) { note(err.Error()) })

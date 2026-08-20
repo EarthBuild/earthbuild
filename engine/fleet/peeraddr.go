@@ -68,6 +68,14 @@ func (p PeerAddr) Endpoint() (netaddr.EndpointAddr, error) {
 		return at, err
 	}
 
+	// "Every interface on that host" is not a place a peer can be dialled: at
+	// the dialler it resolves to the dialler's own machine. Dropping it leaves
+	// the identity, which a fleet with discovery can look up, and which a fleet
+	// without it will report as unreachable - correctly (E505).
+	if ap.Addr().IsUnspecified() {
+		return at, nil
+	}
+
 	return at.WithIP(ap), nil
 }
 

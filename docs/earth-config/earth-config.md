@@ -198,7 +198,7 @@ Allows to override the image used to run internal `git` commands (e.g. during `G
 
 ### org
 
-The default organization to use when performing EarthBuild operations that require an organization. Ignored when  the `--org` CLI option is present, or when the `EARTHLY_ORG` environment variable are set.
+The default organization to use when performing EarthBuild operations that require an organization. Ignored when  the `--org` CLI option is present, or when the `EARTH_ORG` environment variable are set.
 
 ### Frontend configuration
 

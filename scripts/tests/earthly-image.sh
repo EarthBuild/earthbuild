@@ -17,7 +17,7 @@ EOF
 # Note that it is not possible to use GLOBAL_CONFIG for this, due to the fact
 # earthly-entrypoint.sh starts buildkit instead of the earthly binary,
 # as a result the buildkit_additional_config value in ~/.earthly/config.yml is ignored.
-export EARTHLY_ADDITIONAL_BUILDKIT_CONFIG='[registry."docker.io"]
+export EARTH_ADDITIONAL_BUILDKIT_CONFIG='[registry."docker.io"]
   mirrors = ["mirror.gcr.io", "public.ecr.aws"]'
 
 function finish {
@@ -52,6 +52,26 @@ fi
 acbgrep "Executes earth builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 
+# A trivial build that only needs the parser, so the deprecation scan can be
+# observed without standing up buildkit.
+deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Earthfile && earthly ls'
+
+echo "Test the image does not emit deprecation warnings for its own configuration."
+# The deprecation scan cannot tell a user-set EARTHLY_* variable from one
+# earthbuild set on itself, so the image must only ever set EARTH_* names.
+"$FRONTEND" run --rm --entrypoint sh "${EARTHLY_IMAGE}" -c "$deprecation_probe" 2>&1 | tee output.txt
+acbgrep "+foo" output.txt # the probe really ran
+# Match the env-var warning shape specifically, so the unrelated
+# earthly-is-now-earth binary rename notice does not trip this.
+if grep -E "WARNING: EARTHLY_[A-Z0-9_]+ is deprecated" output.txt; then
+    echo "the image emitted deprecation warnings the user cannot act on"
+    exit 1
+fi
+
+echo "Test a user-set EARTHLY_ variable still warns, and is still honoured."
+"$FRONTEND" run --rm --entrypoint sh -e EARTHLY_TMP_DIR=/tmp/earthbuild "${EARTHLY_IMAGE}" -c "$deprecation_probe" 2>&1 | tee output.txt
+acbgrep "WARNING: EARTHLY_TMP_DIR is deprecated. Use EARTH_TMP_DIR." output.txt
+
 echo "Test --version (smoke test)."
 "$FRONTEND" run --rm --privileged "${EARTHLY_IMAGE}" --version 2>&1
 "$FRONTEND" run --rm -e NO_BUILDKIT=1 "${EARTHLY_IMAGE}" --version 2>&1
@@ -63,13 +83,13 @@ acbgrep "Executes earth builds" output.txt # Display help
 acbgrep "Executes earth builds" output.txt # Display help
 
 echo "Test hello world with embedded buildkit."
-"$FRONTEND" run --rm --privileged -e EARTHLY_ADDITIONAL_BUILDKIT_CONFIG -v "$dockerconfig:/root/.docker/config.json" "${EARTHLY_IMAGE}" --no-cache github.com/EarthBuild/hello-world:4d466d524f768a379374c785fdef30470e87721d+hello 2>&1 | tee output.txt
+"$FRONTEND" run --rm --privileged -e EARTH_ADDITIONAL_BUILDKIT_CONFIG -v "$dockerconfig:/root/.docker/config.json" "${EARTHLY_IMAGE}" --no-cache github.com/EarthBuild/hello-world:4d466d524f768a379374c785fdef30470e87721d+hello 2>&1 | tee output.txt
 acbgrep "Hello World" output.txt
 acbgrep "Earthly installation is working correctly" output.txt
 
 if [ "$FRONTEND" = "docker" ]; then
     echo "Test use /var/run/docker.sock, but not privileged."
-    "$FRONTEND" run --rm -e EARTHLY_ADDITIONAL_BUILDKIT_CONFIG -v "$dockerconfig:/root/.docker/config.json" -e NO_BUILDKIT=1 -e EARTHLY_NO_BUILDKIT_UPDATE=1 -v /var/run/docker.sock:/var/run/docker.sock "${EARTHLY_IMAGE}" --no-cache github.com/EarthBuild/hello-world:4d466d524f768a379374c785fdef30470e87721d+hello 2>&1 | tee output.txt
+    "$FRONTEND" run --rm -e EARTH_ADDITIONAL_BUILDKIT_CONFIG -v "$dockerconfig:/root/.docker/config.json" -e NO_BUILDKIT=1 -e EARTH_NO_BUILDKIT_UPDATE=1 -v /var/run/docker.sock:/var/run/docker.sock "${EARTHLY_IMAGE}" --no-cache github.com/EarthBuild/hello-world:4d466d524f768a379374c785fdef30470e87721d+hello 2>&1 | tee output.txt
     acbgrep "Hello World" output.txt
     acbgrep "Earthly installation is working correctly" output.txt
 fi

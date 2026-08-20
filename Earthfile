@@ -49,7 +49,8 @@ code:
     END
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
         docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
-    COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
+    COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go \
+        buildkitd/with_docker_env_test.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
 
@@ -74,7 +75,7 @@ lint-scripts-base:
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
+    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -222,6 +223,13 @@ unit-test:
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
 
+# unit-test-scripts runs unit tests for the shell scripts baked into the images.
+unit-test-scripts:
+    FROM alpine:3.24.1
+    WORKDIR /shell_scripts
+    COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./
+    RUN sh ./earth-env-test.sh
+
 # fuzz-test runs fuzz tests
 fuzz-test:
     FROM +go
@@ -300,12 +308,12 @@ debugger:
     ARG GO_EXTRA_LDFLAGS=""
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go build \
-            -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
+            -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTH_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
             -o build/earth_debugger \
             cmd/debugger/*.go
@@ -332,7 +340,7 @@ earthly:
     ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     # TODO: this works for CI but the final value should probably come from dockerhub
     ARG DEFAULT_BUILDKITD_IMAGE=$IMAGE_REGISTRY:buildkitd-$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
@@ -340,7 +348,7 @@ earthly:
     RUN printf "$BUILD_TAGS" > ./build/tags && echo "$(cat ./build/tags)"
     RUN printf '-X main.DefaultBuildkitdImage='"$DEFAULT_BUILDKITD_IMAGE" > ./build/ldflags && \
         printf ' -X main.Version='"$VERSION" >> ./build/ldflags && \
-        printf ' -X main.GitSha='"$EARTHLY_GIT_HASH" >> ./build/ldflags && \
+        printf ' -X main.GitSha='"$EARTH_GIT_HASH" >> ./build/ldflags && \
         printf ' -X main.DefaultInstallationName='"$DEFAULT_INSTALLATION_NAME" >> ./build/ldflags && \
         printf ' '"$GO_EXTRA_LDFLAGS" >> ./build/ldflags && \
         echo "$(cat ./build/ldflags)"
@@ -529,12 +537,11 @@ earthly-docker:
     # release+perform-release-buildkitd-dockerhub pushes.
     FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
-    ENV EARTHLY_IMAGE=true
     # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
-    ENV EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY=true
+    ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
     COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
     ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
     WORKDIR /workspace
@@ -565,7 +572,7 @@ earthbuild-integration-test-base:
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
     ENV NO_DOCKER=1
     ENV NETWORK_MODE=host # Note that this breaks access to embedded registry in WITH DOCKER.
-    ENV EARTHLY_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
+    ENV EARTH_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
     WORKDIR /test
 
     # The inner buildkit requires Docker hub creds to prevent rate-limiting issues.
@@ -592,7 +599,7 @@ earthbuild-integration-test-base:
     # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
     # cause buildkit to crash -- this is why we first assign it to a tmp variable, followed by an if.
-    ENV EARTHLY_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
+    ENV EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
 
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
@@ -614,21 +621,21 @@ prerelease-script:
     SAVE ARTIFACT ./earthly
 
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
-# EARTHLY_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
+# EARTH_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
     FROM alpine:3.24.1
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     ARG --required TAG_SUFFIX
     BUILD \
         --platform=linux/amd64 \
-        ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
+        ./buildkitd+buildkitd --TAG=${EARTH_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
+    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTH_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTH_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
-    SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
+    SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTH_GIT_HASH}-${TAG_SUFFIX}
 
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
@@ -859,6 +866,7 @@ smoke-test:
 # test runs examples, no-qemu, qemu, and experimental tests
 test-all:
     BUILD +unit-test
+    BUILD +unit-test-scripts
     BUILD +integration-test
     BUILD +fuzz-test
     BUILD +examples

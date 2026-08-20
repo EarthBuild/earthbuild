@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/docker2earth"
-	"github.com/urfave/cli/v3"
 )
 
 // Doc2Earth encapsulates the doc2earth command logic.

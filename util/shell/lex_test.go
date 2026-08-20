@@ -240,12 +240,24 @@ func TestShellParser4Words(t *testing.T) {
 			}
 
 			if len(result) != len(expected) {
-				t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
+				t.Fatalf(
+					"Error on line %d. %q was suppose to result in %q, but got %q instead",
+					lineNum,
+					test,
+					expected,
+					result,
+				)
 			}
 
 			for i, w := range expected {
 				if w != result[i] {
-					t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
+					t.Fatalf(
+						"Error on line %d. %q was suppose to result in %q, but got %q instead",
+						lineNum,
+						test,
+						expected,
+						result,
+					)
 				}
 			}
 
@@ -256,12 +268,24 @@ func TestShellParser4Words(t *testing.T) {
 			}
 
 			if len(result) != len(expected) {
-				t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
+				t.Fatalf(
+					"Error on line %d. %q was suppose to result in %q, but got %q instead",
+					lineNum,
+					test,
+					expected,
+					result,
+				)
 			}
 
 			for i, w := range expected {
 				if w != result[i] {
-					t.Fatalf("Error on line %d. %q was suppose to result in %q, but got %q instead", lineNum, test, expected, result)
+					t.Fatalf(
+						"Error on line %d. %q was suppose to result in %q, but got %q instead",
+						lineNum,
+						test,
+						expected,
+						result,
+					)
 				}
 			}
 		}

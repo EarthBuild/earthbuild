@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
+
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -17,8 +20,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 )
 
 // DockerfileMetaTarget is a target name prefix which signals the resolver that the build file is a

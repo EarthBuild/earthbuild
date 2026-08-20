@@ -22,6 +22,20 @@ import (
 	"time"
 
 	"al.essio.dev/pkg/shellescape"
+	"github.com/containerd/platforms"
+	"github.com/distribution/reference"
+	"github.com/google/uuid"
+	"github.com/moby/buildkit/client/llb"
+	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
+	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
+	"github.com/moby/buildkit/frontend/dockerui"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/moby/buildkit/session/localhost"
+	solverpb "github.com/moby/buildkit/solver/pb"
+	"github.com/moby/buildkit/util/apicaps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -51,19 +65,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
-	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
-	"github.com/google/uuid"
-	"github.com/moby/buildkit/client/llb"
-	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
-	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
-	"github.com/moby/buildkit/frontend/dockerui"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/moby/buildkit/session/localhost"
-	solverpb "github.com/moby/buildkit/solver/pb"
-	"github.com/moby/buildkit/util/apicaps"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const rootOwn = "root:root"
@@ -1206,7 +1207,11 @@ func (c *Converter) SaveArtifact(
 
 		if !canSave {
 			if c.ftrs.RequireForceForUnsafeSaves {
-				return fmt.Errorf("unable to save to %s; path must be located under %s", saveAsLocalTo, c.target.LocalPath)
+				return fmt.Errorf(
+					"unable to save to %s; path must be located under %s",
+					saveAsLocalTo,
+					c.target.LocalPath,
+				)
 			}
 
 			c.opt.Log.Warnf(
@@ -2711,7 +2716,10 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		if err != nil {
 			if _, ok := errors.AsType[*apicaps.CapError](err); ok {
 				if c.opt.InteractiveDebuggerEnabled || isInteractive {
-					return pllb.State{}, fmt.Errorf("interactive debugger requires a newer version of buildkit: %w", err)
+					return pllb.State{}, fmt.Errorf(
+						"interactive debugger requires a newer version of buildkit: %w",
+						err,
+					)
 				}
 			} else {
 				c.opt.Log.Warnf("failed to check LLBCaps for CapExecMountSock: %v", err) // keep going
@@ -2743,7 +2751,11 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 			if !canSave {
 				err = fmt.
-					Errorf("unable to save to %s; path must be located under %s", interactiveSaveFile.Dst, c.target.LocalPath)
+					Errorf(
+						"unable to save to %s; path must be located under %s",
+						interactiveSaveFile.Dst,
+						c.target.LocalPath,
+					)
 
 				return pllb.State{}, err
 			}
@@ -3069,7 +3081,9 @@ func (c *Converter) readArtifact(
 	if mts.Final.ArtifactsState.Output() == nil {
 		// ArtifactsState is scratch - no artifact has been copied.
 		return nil, fmt.Errorf(
-			"artifact %s not found; no SAVE ARTIFACT command was issued in %s", artifact.String(), artifact.Target.String(),
+			"artifact %s not found; no SAVE ARTIFACT command was issued in %s",
+			artifact.String(),
+			artifact.Target.String(),
 		)
 	}
 

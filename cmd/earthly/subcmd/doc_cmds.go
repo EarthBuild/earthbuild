@@ -9,6 +9,9 @@ import (
 	"slices"
 	"strings"
 
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
@@ -16,8 +19,6 @@ import (
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/urfave/cli/v3"
 )
 
 // docBaseTarget is the implicit target documented when no '+target' is given.

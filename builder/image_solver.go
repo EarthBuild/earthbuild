@@ -11,11 +11,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/logbus/solvermon"
-	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/states/image"
-	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
-	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
@@ -25,6 +20,12 @@ import (
 	"github.com/moby/buildkit/util/entitlements"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/EarthBuild/earthbuild/logbus/solvermon"
+	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/states/image"
+	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
 )
 
 func newTarImageSolver(opt Opt, sm *solvermon.SolverMonitor) *tarImageSolver {

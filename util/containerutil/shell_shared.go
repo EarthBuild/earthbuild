@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+
+	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
 type containerInfo struct {

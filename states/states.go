@@ -9,13 +9,14 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 
+	"github.com/google/uuid"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/states/dedup"
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/google/uuid"
 )
 
 // MultiTarget holds LLB states representing multiple earth targets,

@@ -3,8 +3,9 @@ package llbutil
 import (
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/distribution/reference"
+
+	"github.com/EarthBuild/earthbuild/util/platutil"
 )
 
 // PlatformSpecificImageName returns the PlatformSpecificImageName.

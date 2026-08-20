@@ -11,11 +11,12 @@ import (
 	"slices"
 	"strings"
 
+	gsysinfo "github.com/elastic/go-sysinfo"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/variables"
-	gsysinfo "github.com/elastic/go-sysinfo"
 )
 
 // Wrap formats strings by joining them with newlines and tabs.

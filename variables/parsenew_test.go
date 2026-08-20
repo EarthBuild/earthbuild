@@ -3,8 +3,9 @@ package variables_test
 import (
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/stretchr/testify/require"
+
+	"github.com/EarthBuild/earthbuild/variables"
 )
 
 func TestParseFlagArgs(t *testing.T) {
@@ -64,8 +65,16 @@ func TestParseFlagArgsWithNonFlags(t *testing.T) {
 		{[]string{"--flag=foo"}, []string{"flag=foo"}, nil},
 		{[]string{"--flag=foo", "arg"}, []string{"flag=foo"}, []string{"arg"}},
 		{[]string{"arg", "--flag=foo"}, []string{"flag=foo"}, []string{"arg"}},
-		{[]string{"arg", "--flag=foo", "arg2", "--flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
-		{[]string{"arg", "--flag", "foo", "arg2", "--flag2=bar"}, []string{"flag=foo", "flag2=bar"}, []string{"arg", "arg2"}},
+		{
+			[]string{"arg", "--flag=foo", "arg2", "--flag2=bar"},
+			[]string{"flag=foo", "flag2=bar"},
+			[]string{"arg", "arg2"},
+		},
+		{
+			[]string{"arg", "--flag", "foo", "arg2", "--flag2=bar"},
+			[]string{"flag=foo", "flag2=bar"},
+			[]string{"arg", "arg2"},
+		},
 		{[]string{"arg"}, nil, []string{"arg"}},
 		{[]string{"just", "args"}, nil, []string{"just", "args"}},
 	}

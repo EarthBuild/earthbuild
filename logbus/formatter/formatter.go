@@ -13,6 +13,11 @@ import (
 	"sync"
 	"time"
 
+	runc "github.com/containerd/go-runc"
+	humanize "github.com/dustin/go-humanize"
+	"github.com/mattn/go-isatty"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
@@ -20,10 +25,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/progressbar"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	runc "github.com/containerd/go-runc"
-	humanize "github.com/dustin/go-humanize"
-	"github.com/mattn/go-isatty"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -323,7 +324,12 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 		output = fmt.Appendf(nil, "[stats] total CPU: %s; total memory: %s\n", totalCPU, humanize.Bytes(totalMem))
 		if f.execStatsTracker != nil {
-			f.execStatsTracker.Observe(f.targetName(dl.GetTargetId()), f.commandName(dl.GetCommandId()), totalMem, totalCPU)
+			f.execStatsTracker.Observe(
+				f.targetName(dl.GetTargetId()),
+				f.commandName(dl.GetCommandId()),
+				totalMem,
+				totalCPU,
+			)
 		}
 
 		if !f.displayStats {

@@ -12,6 +12,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/docker/go-connections/nat"
+	"github.com/google/uuid"
+	"github.com/jessevdk/go-flags"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
@@ -26,9 +30,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/shell"
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
-	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
-	"github.com/jessevdk/go-flags"
 )
 
 const maxCommandRenameWarnings = 3
@@ -555,8 +556,11 @@ func (i *Interpreter) handleTry(ctx context.Context, tryStmt earthfile.TryStatem
 
 	for _, cmd := range *tryStmt.FinallyBody {
 		if cmd.Command == nil || cmd.Command.Name != "SAVE ARTIFACT" {
-			return i.errorf(tryStmt.SourceLocation,
-				"CATCH/FINALLY body only (currently) supports SAVE ARTIFACT ... AS LOCAL commands; got %s", cmd.Command.Name)
+			return i.errorf(
+				tryStmt.SourceLocation,
+				"CATCH/FINALLY body only (currently) supports SAVE ARTIFACT ... AS LOCAL commands; got %s",
+				cmd.Command.Name,
+			)
 		}
 
 		var opts cmdopts.SaveArtifact
@@ -761,7 +765,12 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 	opts := cmdopts.Run{OIDC: defaultZeroStringFlag}
 
 	args, err := flagutil.
-		ParseArgsWithValueModifierCleaned("RUN", &opts, flagutil.GetArgsCopy(cmd), i.flagValModifierFuncWithContext(ctx))
+		ParseArgsWithValueModifierCleaned(
+			"RUN",
+			&opts,
+			flagutil.GetArgsCopy(cmd),
+			i.flagValModifierFuncWithContext(ctx),
+		)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "invalid RUN arguments %v", cmd.Args)
 	}
@@ -807,7 +816,11 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 
 		if opts.Network != "none" {
 			return i.
-				errorf(cmd.SourceLocation, "invalid network value %s; only \"none\" is currently supported", opts.Network)
+				errorf(
+					cmd.SourceLocation,
+					"invalid network value %s; only \"none\" is currently supported",
+					opts.Network,
+				)
 		}
 
 		noNetwork = true
@@ -828,7 +841,10 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 
 	if i.withDocker == nil {
 		if opts.WithDocker {
-			return i.errorf(cmd.SourceLocation, "--with-docker is obsolete. Please use WITH DOCKER ... RUN ... END instead")
+			return i.errorf(
+				cmd.SourceLocation,
+				"--with-docker is obsolete. Please use WITH DOCKER ... RUN ... END instead",
+			)
 		}
 
 		opts := ConvertRunOpts{
@@ -1021,7 +1037,15 @@ func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd earthfile.Co
 
 	i.local = false
 
-	err = i.converter.FromDockerfile(ctx, path, expandedPath, expandedTarget, platform, allowPrivileged, expandedBuildArgs)
+	err = i.converter.FromDockerfile(
+		ctx,
+		path,
+		expandedPath,
+		expandedTarget,
+		platform,
+		allowPrivileged,
+		expandedBuildArgs,
+	)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "from dockerfile")
 	}
@@ -1031,8 +1055,11 @@ func (i *Interpreter) handleFromDockerfile(ctx context.Context, cmd earthfile.Co
 
 func (i *Interpreter) handleLocally(ctx context.Context, cmd earthfile.Command) error {
 	if !i.allowPrivileged {
-		return i.errorf(cmd.SourceLocation, "Permission denied: unwilling to allow locally directive from remote Earthfile; "+
-			"did you reference a remote Earthfile without the --allow-privileged flag?")
+		return i.errorf(
+			cmd.SourceLocation,
+			"Permission denied: unwilling to allow locally directive from remote Earthfile; "+
+				"did you reference a remote Earthfile without the --allow-privileged flag?",
+		)
 	}
 
 	if i.pushOnlyAllowed {
@@ -1197,7 +1224,11 @@ func (i *Interpreter) handleCopy(ctx context.Context, cmd earthfile.Command) err
 
 	if !allArtifacts {
 		if len(expandedBuildArgs) != 0 {
-			return i.errorf(cmd.SourceLocation, "build args not supported for non +artifact arguments case %v", cmd.Args)
+			return i.errorf(
+				cmd.SourceLocation,
+				"build args not supported for non +artifact arguments case %v",
+				cmd.Args,
+			)
 		}
 
 		if i.local {
@@ -1370,8 +1401,10 @@ func (i *Interpreter) handleSaveArtifact(ctx context.Context, cmd earthfile.Comm
 
 	if i.converter.ftrs.SaveArtifactKeepOwn {
 		if opts.KeepOwn {
-			fmt.Fprintf(os.Stderr,
-				"Deprecation: SAVE ARTIFACT --keep-own is now applied by default, setting it no longer has any effect\n")
+			fmt.Fprintf(
+				os.Stderr,
+				"Deprecation: SAVE ARTIFACT --keep-own is now applied by default, setting it no longer has any effect\n",
+			)
 		}
 
 		opts.KeepOwn = true
@@ -1524,7 +1557,10 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd earthfile.Command, as
 	}
 
 	if i.local && !asyncSafeArgs {
-		return i.errorf(cmd.SourceLocation, "BUILD args do not currently support shelling-out in combination with LOCALLY")
+		return i.errorf(
+			cmd.SourceLocation,
+			"BUILD args do not currently support shelling-out in combination with LOCALLY",
+		)
 	}
 
 	expandedBuildArgs, err := i.expandArgsSlice(ctx, opts.BuildArgs, async)
@@ -1589,7 +1625,17 @@ func (i *Interpreter) handleBuild(ctx context.Context, cmd earthfile.Command, as
 		for _, platform := range platformsSlice {
 			if async {
 				err := i.converter.
-					BuildAsync(ctx, fullTargetName, platform, allowPrivileged, opts.PassArgs, buildArgs, buildCmd, nil, nil)
+					BuildAsync(
+						ctx,
+						fullTargetName,
+						platform,
+						allowPrivileged,
+						opts.PassArgs,
+						buildArgs,
+						buildCmd,
+						nil,
+						nil,
+					)
 				if err != nil {
 					return i.wrapError(err, cmd.SourceLocation, "apply BUILD %s", fullTargetName)
 				}
@@ -2084,7 +2130,16 @@ func (i *Interpreter) handleHealthcheck(ctx context.Context, cmd earthfile.Comma
 	}
 
 	err = i.converter.
-		Healthcheck(ctx, isNone, cmdArgs, opts.Interval, opts.Timeout, opts.StartPeriod, opts.Retries, opts.StartInterval)
+		Healthcheck(
+			ctx,
+			isNone,
+			cmdArgs,
+			opts.Interval,
+			opts.Timeout,
+			opts.StartPeriod,
+			opts.Retries,
+			opts.StartInterval,
+		)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation, "apply HEALTHCHECK")
 	}
@@ -2296,7 +2351,10 @@ func (i *Interpreter) handleDo(ctx context.Context, cmd earthfile.Command) error
 
 	if !i.converter.ftrs.PassArgs && opts.PassArgs {
 		return i.
-			errorf(cmd.SourceLocation, "the DO --pass-args flag must be enabled with the VERSION --pass-args feature flag.")
+			errorf(
+				cmd.SourceLocation,
+				"the DO --pass-args flag must be enabled with the VERSION --pass-args feature flag.",
+			)
 	}
 
 	var fnNames []string
@@ -2368,7 +2426,10 @@ func (i *Interpreter) handleProject(ctx context.Context, cmd earthfile.Command) 
 
 	parts := strings.Split(projectVal, "/")
 	if len(parts) != 2 {
-		return i.errorf(cmd.SourceLocation, "unexpected format for PROJECT statement, should be: <organization>/<project>")
+		return i.errorf(
+			cmd.SourceLocation,
+			"unexpected format for PROJECT statement, should be: <organization>/<project>",
+		)
 	}
 
 	err := i.converter.Project(ctx, parts[0], parts[1])
@@ -2514,7 +2575,15 @@ Note that switching now may cause breakages for your colleagues if they are usin
 		command.StringCanonical(), do.SourceLocation.File, do.SourceLocation.StartLine, do.SourceLocation.StartColumn,
 	)
 
-	err := i.converter.EnterScopeDo(ctx, command, baseTarget(relCommand), allowPrivileged, passArgs, scopeName, buildArgs)
+	err := i.converter.EnterScopeDo(
+		ctx,
+		command,
+		baseTarget(relCommand),
+		allowPrivileged,
+		passArgs,
+		scopeName,
+		buildArgs,
+	)
 	if err != nil {
 		return i.wrapError(err, uc.SourceLocation, "enter scope")
 	}

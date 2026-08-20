@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 // These are functions that are used for getting information about an Earthfile,

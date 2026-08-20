@@ -11,14 +11,15 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/adrg/xdg"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/termutil"
-	"github.com/adrg/xdg"
-	"github.com/urfave/cli/v3"
 )
 
 // Bootstrap encapsulates the bootstrap command logic.

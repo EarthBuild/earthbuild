@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moby/buildkit/client/llb"
+
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/moby/buildkit/client/llb"
 )
 
 // CopyOp is a simplified llb copy operation.

@@ -64,7 +64,12 @@ func GetOrCreateEarthDir(installName string) (string, error) {
 			if earthDirSudoUser != nil {
 				err := fileutil.EnsureUserOwned(earthDir, earthDirSudoUser)
 				if err != nil {
-					errEarthDirCreate = fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, earthDirSudoUser, err)
+					errEarthDirCreate = fmt.Errorf(
+						"failed to ensure %s is owned by %s: %w",
+						earthDir,
+						earthDirSudoUser,
+						err,
+					)
 				}
 			}
 		}

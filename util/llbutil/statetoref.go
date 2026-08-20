@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
-	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 )
 
 // StateToRef takes an LLB state, solves it using gateway and returns the ref.

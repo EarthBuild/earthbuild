@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"gopkg.in/yaml.v3"
+
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
 const (

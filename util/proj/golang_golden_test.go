@@ -7,8 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/util/proj"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/EarthBuild/earthbuild/util/proj"
 )
 
 //go:embed testdata/golang_base.out

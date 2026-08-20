@@ -7,10 +7,11 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/jessevdk/go-flags"
+
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/jessevdk/go-flags"
 )
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer

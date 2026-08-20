@@ -20,11 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jdxcode/netrc"
+	"github.com/moby/buildkit/util/sshutil"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/jdxcode/netrc"
-	"github.com/moby/buildkit/util/sshutil"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"

@@ -5,8 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/require"
+
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 func TestMustParseVersion(t *testing.T) {

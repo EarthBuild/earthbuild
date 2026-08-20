@@ -1,10 +1,11 @@
 package llbutil
 
 import (
+	"github.com/moby/buildkit/client/llb"
+
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/moby/buildkit/client/llb"
 )
 
 // WithDependency creates a fake dependency between two states.

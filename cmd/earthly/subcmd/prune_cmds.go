@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
-	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
 )
 
 // Prune encapsulates the prune command logic.

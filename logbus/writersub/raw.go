@@ -5,9 +5,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/logstream"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/EarthBuild/earthbuild/logstream"
 )
 
 // RawWriterSub is a bus subscriber that can print formatted logs to a writer.

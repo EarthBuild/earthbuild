@@ -10,11 +10,12 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/containerd/platforms"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
 	"github.com/urfave/cli/v3"
+
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 // Debug encapsulates the debug command logic.

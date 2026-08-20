@@ -19,6 +19,13 @@ import (
 	// to ensure it happens before other packages initialize.
 	_ "github.com/EarthBuild/earthbuild/cmd/earthly/disable_alpn"
 
+	"github.com/fatih/color"
+	"github.com/joho/godotenv"
+	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	"github.com/sirupsen/logrus"
+	urfavecli "github.com/urfave/cli/v3"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+
 	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
@@ -29,12 +36,6 @@ import (
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
-	"github.com/fatih/color"
-	"github.com/joho/godotenv"
-	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
-	"github.com/sirupsen/logrus"
-	urfavecli "github.com/urfave/cli/v3"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
 // These vars are set by ldflags.

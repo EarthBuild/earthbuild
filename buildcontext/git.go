@@ -10,6 +10,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/moby/buildkit/client/llb"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
+
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -22,9 +26,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/moby/buildkit/client/llb"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
 )
 
 const (

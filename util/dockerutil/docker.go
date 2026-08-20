@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"golang.org/x/sync/errgroup"
 )
 
 // Manifest contains docker manifest data.
@@ -48,7 +49,9 @@ func LoadDockerManifest(
 		// fall back to using first defined platform (and display a warning)
 		log.Warnf(
 			"Failed to find default platform (%s) of multi-platform image %s; defaulting to the first platform type: %s\n",
-			platr.Materialize(platutil.DefaultPlatform).String(), parentImageName, children[defaultChild].Platform,
+			platr.Materialize(platutil.DefaultPlatform).String(),
+			parentImageName,
+			children[defaultChild].Platform,
 		)
 	}
 

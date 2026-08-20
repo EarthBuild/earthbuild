@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/urfave/cli/v3"
+
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 )
 
 // InitFrontend initializes the frontend for the given command.

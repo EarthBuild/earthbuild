@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/moby/buildkit/client"
 	"github.com/urfave/cli/v3"
+
+	"github.com/EarthBuild/earthbuild/buildkitd"
 )
 
 // GetBuildkitClient returns a Buildkit client.

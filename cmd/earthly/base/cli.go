@@ -1,13 +1,14 @@
 package base
 
 import (
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/setup"
-	"github.com/urfave/cli/v3"
 )
 
 // CLI contains the common "earth" command line interface.

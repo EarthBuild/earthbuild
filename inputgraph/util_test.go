@@ -6,9 +6,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/stretchr/testify/require"
 )
 
 func TestParseProjectCommand(t *testing.T) {

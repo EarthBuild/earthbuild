@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/moby/patternmatcher/ignorefile"
+
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 )
 
 const (

@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/util/parseutil"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
+
+	"github.com/EarthBuild/earthbuild/util/parseutil"
 )
 
 const iam = "iam"

@@ -15,11 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
-	"github.com/EarthBuild/earthbuild/util/buildkitutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
-	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/containerd/platforms"
 	"github.com/docker/go-units"
 	"github.com/dustin/go-humanize"
@@ -29,6 +24,12 @@ import (
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/util/buildkitutil"
+	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
 )
 
 const minRecommendedCacheSize = 10 << 30 // 10 GiB

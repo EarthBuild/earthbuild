@@ -8,11 +8,12 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/moby/buildkit/session/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
 // ErrAuthProviderNoResponse signals that the auth server had no response to give.
@@ -138,7 +139,10 @@ func (ap *MultiAuthProvider) FetchToken(
 
 		if a.Anonymous {
 			ap.log.
-				Warnf("Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n", req.Host)
+				Warnf(
+					"Warning: you are not logged into %s, you may experience rate-limiting when pulling images\n",
+					req.Host,
+				)
 		}
 
 		ap.setAuthServer(req.Host, as)
@@ -174,7 +178,10 @@ func (ap *MultiAuthProvider) Credentials(
 		return a, nil
 	}
 
-	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
+	return nil, status.Errorf(
+		codes.Unavailable,
+		"no configured auth servers in the list of client-side configs responded",
+	)
 }
 
 // GetTokenAuthority calls child GetTokenAuthority methods until one of ap's
@@ -201,7 +208,10 @@ func (ap *MultiAuthProvider) GetTokenAuthority(
 		return a, nil
 	}
 
-	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
+	return nil, status.Errorf(
+		codes.Unavailable,
+		"no configured auth servers in the list of client-side configs responded",
+	)
 }
 
 // VerifyTokenAuthority calls child VerifyTokenAuthority methods until one of
@@ -228,5 +238,8 @@ func (ap *MultiAuthProvider) VerifyTokenAuthority(
 		return a, nil
 	}
 
-	return nil, status.Errorf(codes.Unavailable, "no configured auth servers in the list of client-side configs responded")
+	return nil, status.Errorf(
+		codes.Unavailable,
+		"no configured auth servers in the list of client-side configs responded",
+	)
 }

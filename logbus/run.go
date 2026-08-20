@@ -7,10 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moby/buildkit/util/sshutil"
+
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logstream"
-	"github.com/moby/buildkit/util/sshutil"
 )
 
 // GenericDefault is the internal name used to identify messages unrelated to a specific target or command.

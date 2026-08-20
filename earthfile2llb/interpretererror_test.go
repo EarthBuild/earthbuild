@@ -4,8 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 func TestFromError(t *testing.T) {

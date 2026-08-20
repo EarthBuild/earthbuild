@@ -6,14 +6,15 @@ import (
 	"path"
 	"strings"
 
-	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
-	"github.com/EarthBuild/earthbuild/util/llbutil"
-	"github.com/EarthBuild/earthbuild/util/oidcutil"
-	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"gopkg.in/yaml.v3"
+
+	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/oidcutil"
+	"github.com/EarthBuild/earthbuild/util/platutil"
 )
 
 const (
@@ -137,7 +138,12 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 		if serviceInfo.Platform != "" {
 			p, err := platforms.Parse(serviceInfo.Platform)
 			if err != nil {
-				return nil, fmt.Errorf("parse platform for image %s: %s: %w", serviceInfo.Image, serviceInfo.Platform, err)
+				return nil, fmt.Errorf(
+					"parse platform for image %s: %s: %w",
+					serviceInfo.Image,
+					serviceInfo.Platform,
+					err,
+				)
 			}
 
 			platform = platutil.FromLLBPlatform(p)

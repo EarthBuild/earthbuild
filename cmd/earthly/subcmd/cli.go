@@ -3,13 +3,14 @@ package subcmd
 import (
 	"context"
 
+	"github.com/moby/buildkit/client"
+	"github.com/urfave/cli/v3"
+
 	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/setup"
-	"github.com/moby/buildkit/client"
-	"github.com/urfave/cli/v3"
 )
 
 // CLI is the interface for the base earth CLI.

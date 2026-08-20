@@ -4,10 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/config"
-	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/EarthBuild/earthbuild/config"
+	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
 var noopArgs = parsedCLIVals{}

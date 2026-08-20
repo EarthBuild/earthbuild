@@ -42,7 +42,7 @@ To execute the build, we can run `earth +build`:
 
 ```
 ~/workspace/earthbuild/examples/go ❯ earth +build
-buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 context | --> local context .
 +base | --> FROM golang:1.15-alpine3.13
 +base | resolve docker.io/library/golang:1.15-alpine3.13@sha256:7d45a6fc9cde63c3bf41651736996fe94a8347e726fe581926fd8c26e244e3b2 0%
@@ -83,7 +83,7 @@ We can then run `earth +docker` to build this target:
 
 ```
 ~/workspace/earthbuild/examples/go ❯ earth +docker
-buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 context | --> local context .
 +base | --> FROM golang:1.15-alpine3.13
 +base | resolve docker.io/library/golang:1.15-alpine3.13@sha256:7d45a6fc9cde63c3bf41651736996fe94a8347e726fe581926fd8c26e244e3b2 0%
@@ -123,7 +123,7 @@ Not only you can run your program with EarthBuild, but also your unit and integr
 To execute the unit-tests, we can run `earth -P +unit-test`:
 
 ```
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 golang:1.15-alpine3.13 | --> Load metadata linux/amd64
                +base | --> FROM golang:1.15-alpine3.13
              context | --> local context .
@@ -148,7 +148,7 @@ golang:1.15-alpine3.13 | --> Load metadata linux/amd64
 To execute the integration-tests, we can run `earth -P +integration-test`:
 
 ```
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 golang:1.15-alpine3.13 | --> Load metadata linux/amd64
                +base | --> FROM golang:1.15-alpine3.13
              context | --> local context .
@@ -189,7 +189,7 @@ golang:1.15-alpine3.13 | --> Load metadata linux/amd64
 Finally, to run the build, unit test, integration test and docker image just run `earth -P +all`:
 
 ```
-          buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+          buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 golang:1.15-alpine3.13 | --> Load metadata linux/amd64
              context | --> local context .
                +base | --> FROM golang:1.15-alpine3.13

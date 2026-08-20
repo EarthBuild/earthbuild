@@ -35,7 +35,7 @@ earth +hello --name=world
 This will output
 
 ```
-    buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+    buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 alpine:latest | --> Load metadata linux/arm64
          +foo | --> FROM alpine:latest
          +foo | 100% resolve docker.io/library/alpine:latest@sha256:21a3deaa0d32a8057914f36584b5288d2e5ecc984380bc0118285c70fa8c9300
@@ -176,7 +176,7 @@ greetings:
 Then when we call `earth +greetings`, earth will call `+hello` three times:
 
 ```
-     buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+     buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
  alpine:latest | --> Load metadata linux/amd64
          +base | --> FROM alpine:latest
          +base | resolve docker.io/library/alpine:latest@sha256:69e70a79f2d41ab5d637de98c1e0b055206ba40a8145e7bddb55ccc04e13cf8f ... 100%

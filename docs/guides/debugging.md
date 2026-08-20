@@ -149,7 +149,7 @@ httpd.serve_forever()
 Let's fire up our integration test with `earth -P -i +test`:
 
 ```
-buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 +base | --> FROM python:3
 context | --> local context .
 +base | resolve docker.io/library/python:3@sha256:e9b7e3b4e9569808066c5901b8a9ad315a9f14ae8d3949ece22ae339fff2cad0 100%

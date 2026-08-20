@@ -29,7 +29,7 @@ On Linux, QEMU needs to be installed manually. On Ubuntu, this can be achieved b
 ```bash
 sudo apt-get install qemu-system binfmt-support qemu-user-static
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-docker stop earthly-buildkitd || true
+docker stop earth-buildkitd || true
 ```
 
 The `docker run` command above enables execution of different multi-architecture containers by QEMU and `binfmt_misc`. It only needs to be run once.

@@ -211,7 +211,7 @@ If you previously had EarthBuild installed, its state lives under the old names 
 the commands above. To clean that up as well:
 
 ```bash
-rm -rf ~/.earthly
-docker rm --force earthly-buildkitd
-docker volume rm --force earthly-cache
+rm -rf ~/.earth
+docker rm --force earth-buildkitd
+docker volume rm --force earth-cache
 ```

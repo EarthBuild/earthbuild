@@ -62,7 +62,7 @@ Once you are logged in, and have the optional credential helper installed, then 
 
 ```
 ❯ ../earthly/earthly --push --no-cache +build
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
          alpine:3.18 | --> Load metadata linux/amd64
                +base | --> FROM alpine:3.18
                +base | [██████████] resolve docker.io/library/alpine:3.18@sha256:0bd0e9e03a022c3b0226667621da84fc9bf562a9056130424b5bfbd8bcb0397f ... 100%
@@ -97,7 +97,7 @@ And here is how you would run it:
 
 ```
 ❯ earth -P +run
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
   e/dind:alpine-main | --> Load metadata linux/amd64
 h/hello-earthly:with-love | --> Load metadata linux/amd64
 h/hello-earthly:with-love | --> DOCKER PULL helloearthly.azurecr.io/hello-earthly:with-love

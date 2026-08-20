@@ -205,7 +205,7 @@ fmt-go:
     FROM +golangci-lint-install
     COPY . .
     ARG files="."
-    RUN golangci-lint fmt --config=.golangci.yaml ${files}
+    RUN set -f; golangci-lint fmt --config=.golangci.yaml -- ${files}
     FOR f IN $files
         SAVE ARTIFACT $f AS LOCAL $f
     END

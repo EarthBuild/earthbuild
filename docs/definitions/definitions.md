@@ -15,4 +15,4 @@ This page presents some common terms used throughout the earth documentation. Un
 ## See also
 
 - The [Earthfile reference](../earthfile/earthfile.md)
-- The [earth command reference](../earthly-command/earthly-command.md)
+- The [earth command reference](../earth-command/earth-command.md)

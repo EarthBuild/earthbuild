@@ -39,7 +39,7 @@ git:
 
 {% hint style='info' %}
 ##### Tip
-To quickly change a configuration item via the `earth` command, you can use [`earth config`](../earthly-command/earthly-command.md#earthly-config).
+To quickly change a configuration item via the `earth` command, you can use [`earth config`](../earth-command/earth-command.md#earth-config).
 
 ```bash
 earth config <key> <value>

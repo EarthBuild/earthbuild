@@ -147,8 +147,8 @@ See also the [full documentation](https://docs.earthbuild.dev).
 Reference pages
 
 - 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
-- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/earthly-command/earthly-command)
-- ⚙️ [Configuration reference](https://docs.earthbuild.dev/earthly-config/earthly-config)
+- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/earth-command/earth-command)
+- ⚙️ [Configuration reference](https://docs.earthbuild.dev/earth-config/earth-config)
 
 ### A simple example (for Go)
 

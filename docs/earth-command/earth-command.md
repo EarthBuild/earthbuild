@@ -17,7 +17,7 @@ EarthBuild's commercial cloud offering, which was shut down; EarthBuild is self-
 | `web`, `billing`, `gha`   | Not applicable.                                                                                      |
 | `prune-auto-skip`         | Delete the local auto-skip database file directly.                                                   |
 
-See [Migrating from earth](../migrating-from-earthly.md) for the full migration guide.
+See [Migrating from earthly](../migrating-from-earthly.md) for the full migration guide.
 
 {% endhint %}
 
@@ -42,7 +42,7 @@ See [Migrating from earth](../migrating-from-earthly.md) for the full migration 
 
 The earth command executes a build referenced by `<target-ref>` (*target form* and *image form*) or `<artifact-ref>` (*artifact form*). In the *target form*, the referenced target and its dependencies are built. In the *artifact form*, the referenced artifact and its dependencies are built, but only the specified artifact is output. The output path of the artifact can be optionally overridden by `<dest-path>`. In the *image form*, the image produced by the referenced target and its dependencies are built, but only the specified image is output.
 
-If a BuildKit daemon has not already been started, and the option `--buildkit-host` is not specified, this command also starts up a container named `earthly-buildkitd` to act as a build daemon.
+If a BuildKit daemon has not already been started, and the option `--buildkit-host` is not specified, this command also starts up a container named `earth-buildkitd` to act as a build daemon.
 
 The execution has four phases:
 
@@ -86,7 +86,7 @@ Synopsis:
   - Artifact form `earth --artifact <target-ref>/<artifact-path> <dest-path> [--<build-arg-key>=<build-arg-value>...]`
   - Image form `earth --image <target-ref> [--<build-arg-key>=<build-arg-value>...]`
 
-Also available as an env var setting: `EARTHLY_BUILD_ARGS="<build-arg-key>=<build-arg-value>,<build-arg-key>=<build-arg-value>,..."`.
+Also available as an env var setting: `EARTH_BUILD_ARGS="<build-arg-key>=<build-arg-value>,<build-arg-key>=<build-arg-value>,..."`.
 
 Build arg overrides may be specified as part of the EarthBuild command. The value of the build arg `<build-arg-key>` is set to `<build-arg-value>`.
 
@@ -162,9 +162,9 @@ Prints help information about earth.
 
 ##### `--config <path>`
 
-Also available as an env var setting: `EARTHLY_CONFIG=<path>`.
+Also available as an env var setting: `EARTH_CONFIG=<path>`.
 
-Overrides the earth [configuration file](../earthly-config/earthly-config.md), defaults to `~/.earthly/config.yml`.
+Overrides the earth [configuration file](../earth-config/earth-config.md), defaults to `~/.earth/config.yml`.
 
 ##### `--installation-name <name>`
 
@@ -194,20 +194,20 @@ Enables verbose logging.
 
 Also available as an env var setting: `GIT_USERNAME=<git-user>`.
 
-This option is now deprecated. Please use the [configuration file](../earthly-config/earthly-config.md) instead.
+This option is now deprecated. Please use the [configuration file](../earth-config/earth-config.md) instead.
 
 ##### `--git-password <git-pass>` (**deprecated**)
 
 Also available as an env var setting: `GIT_PASSWORD=<git-pass>`.
 
-This option is now deprecated. Please use the [configuration file](../earthly-config/earthly-config.md) instead.
+This option is now deprecated. Please use the [configuration file](../earth-config/earth-config.md) instead.
 
 ##### `--git-url-instead-of <git-instead-of>` (**obsolete**)
 
 Also used to be available as an env var setting: `GIT_URL_INSTEAD_OF=<git-instead-of>`.
 
 This option is now obsolete. By default, `earth` will automatically switch from ssh to HTTPS when no keys are found or the ssh-agent isn't running.
-Please use the [configuration file](../earthly-config/earthly-config.md) to override the default behavior.
+Please use the [configuration file](../earth-config/earth-config.md) to override the default behavior.
 
 ### Build Options
 
@@ -308,7 +308,7 @@ build:
 
 This option has been deprecated in favor of the new build arg syntax `earth <target-ref> --<key>=<value>`.
 
-Also available as an env var setting: `EARTHLY_BUILD_ARGS="<key>=<value>,<key>=<value>,..."`.
+Also available as an env var setting: `EARTH_BUILD_ARGS="<key>=<value>,<key>=<value>,..."`.
 
 Overrides the value of the build arg `<key>`. If `<value>` is not specified, then the value becomes the value of the environment variable with the same name as `<key>`. For more information see the [`ARG` Earthfile command](../earthfile/earthfile.md#arg).
 
@@ -485,7 +485,7 @@ earth [options] config [key] [value]
 
 #### Description
 
-Manipulates values in `~/.earthly/config.yml`. It does its best to preserve existing formatting and comments. `[value]` must be a valid YAML literal for the given `[key]`.
+Manipulates values in `~/.earth/config.yml`. It does its best to preserve existing formatting and comments. `[value]` must be a valid YAML literal for the given `[key]`.
 
 #### Options
 

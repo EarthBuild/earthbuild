@@ -58,7 +58,7 @@ VERSION [<flags>...] <version-number>
 | `--referenced-save-only`                | 0.6                                                                             | Changes the behavior of SAVE commands in a significant way                                                        |
 | `--for-in`                              | 0.6                                                                             | Enables support for `FOR ... IN ...` commands                                                                     |
 | `--require-force-for-unsafe-saves`      | 0.6                                                                             | Requires `--force` for saving artifacts locally outside the Earthfile's directory                                 |
-| `--no-implicit-ignore`                  | 0.6                                                                             | Eliminates implicit `.earthlyignore` entries, such as `Earthfile` and `.tmp-earth-out`                          |
+| `--no-implicit-ignore`                  | 0.6                                                                             | Eliminates implicit `.earthignore` entries, such as `Earthfile` and `.tmp-earth-out`                          |
 | `--earthly-version-arg`                 | 0.7                                                                             | Enables builtin ARGs: `EARTHLY_VERSION` and `EARTHLY_BUILD_SHA`                                                   |
 | `--shell-out-anywhere`                  | 0.7                                                                             | Allows shelling-out in any earth command (including in the middle of `ARG`)                                     |
 | `--explicit-global`                     | 0.7                                                                             | Base target args must have a `--global` flag in order to be considered global args                                |
@@ -100,7 +100,7 @@ Note that the features flags are disabled by default in EarthBuild versions lowe
 *Speeds up COPY transfers.*
 
 When enabled, EarthBuild will only send the files listed for the specific [`COPY`](../earthfile/earthfile.md#copy) command.
-Without this feature, EarthBuild sends the entire directory of files excluding files listed in the [`.earthlyignore` file](../earthfile/earthlyignore.md).
+Without this feature, EarthBuild sends the entire directory of files excluding files listed in the [`.earthignore` file](../earthfile/earthignore.md).
 
 ##### `--referenced-save-only`
 

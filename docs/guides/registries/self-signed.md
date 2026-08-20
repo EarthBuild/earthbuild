@@ -19,7 +19,7 @@ build:
 
 ## Add certificates to EarthBuild
 
-Set the following configuration options in your [EarthBuild config](../../earthly-config/earthly-config.md).
+Set the following configuration options in your [EarthBuild config](../../earth-config/earth-config.md).
 
 ```yaml
 global:
@@ -35,7 +35,7 @@ Where `<absolute-path-to-ca-file>` is the location of the CA certificate you wis
 
 For testing purposes, you can also define insecure registries for EarthBuild to access. Note that the non-test use of insecure registries is strongly discouraged due to the risk of man-in-the-middle (MITM) attacks.
 
-To configure EarthBuild to use an insecure registry, use the following [EarthBuild config](../../earthly-config/earthly-config.md) settings.
+To configure EarthBuild to use an insecure registry, use the following [EarthBuild config](../../earth-config/earth-config.md) settings.
 
 ```yaml
 global:

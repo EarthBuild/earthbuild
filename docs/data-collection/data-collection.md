@@ -4,7 +4,7 @@ By default, EarthBuild collects anonymized data which we use for measuring perfo
 
 ## Installation ID
 
-EarthBuild will create a universally unique installation ID (UUID v4) under `~/.earthly/install_id`, which
+EarthBuild will create a universally unique installation ID (UUID v4) under `~/.earth/install_id`, which
 is used to track each installation. This ID is randomly created and does not contain any personal data.
 
 
@@ -25,7 +25,7 @@ Command line arguments are *not* captured.
 
 ## Disabling analytics
 
-To disable the collection of data, set the `disable_analytics` option to `true` under the global config file `~/.earthly/config.yml`.
+To disable the collection of data, set the `disable_analytics` option to `true` under the global config file `~/.earth/config.yml`.
 
 For example:
 
@@ -34,4 +34,4 @@ global:
     disable_analytics: true
 ```
 
-This option is documented in the [EarthBuild configuration file page](../earthly-config/earthly-config.md).
+This option is documented in the [EarthBuild configuration file page](../earth-config/earth-config.md).

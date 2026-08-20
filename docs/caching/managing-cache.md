@@ -6,11 +6,11 @@ This page describes how to manage the EarthBuild cache locally or on a remote ru
 
 ### Local cache location
 
-EarthBuild cache is persisted in a docker (or podman) volume called `earthly-cache` on your system. When EarthBuild starts for the first time, it brings up a BuildKit daemon in a Docker container, which initializes the `earthly-cache` volume. The volume is managed by EarthBuild's BuildKit daemon and there is a regular garbage-collection for old cache.
+EarthBuild cache is persisted in a docker (or podman) volume called `earth-cache` on your system. When EarthBuild starts for the first time, it brings up a BuildKit daemon in a Docker container, which initializes the `earth-cache` volume. The volume is managed by EarthBuild's BuildKit daemon and there is a regular garbage-collection for old cache.
 
 ### Specifying the local cache size limit
 
-The default cache size is adaptable depending on available space on your system. It defaults to `min(55%, max(10%, 20GB))`. If you would like to change the cache size, you can specify a different limit by modifying the `cache_size_mb` and/or `cache_size_pct` settings in the [configuration](../earthly-config/earthly-config.md). For example:
+The default cache size is adaptable depending on available space on your system. It defaults to `min(55%, max(10%, 20GB))`. If you would like to change the cache size, you can specify a different limit by modifying the `cache_size_mb` and/or `cache_size_pct` settings in the [configuration](../earth-config/earth-config.md). For example:
 
 ```yaml
 global:
@@ -23,7 +23,7 @@ global:
 You can check the current size of the cache volume by running:
 
 ```bash
-sudo du -h /var/lib/docker/volumes/earthly-cache | tail -n 1
+sudo du -h /var/lib/docker/volumes/earth-cache | tail -n 1
 ```
 {% endhint %}
 
@@ -38,9 +38,9 @@ earth prune
 You can also safely delete the cache manually, if the daemon is not running
 
 ```bash
-docker stop earthly-buildkitd
-docker rm earthly-buildkitd
-docker volume rm earthly-cache
+docker stop earth-buildkitd
+docker rm earth-buildkitd
+docker volume rm earth-cache
 ```
 
 EarthBuild also has a command that automates the above:

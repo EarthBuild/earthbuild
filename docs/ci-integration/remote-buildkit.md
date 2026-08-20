@@ -43,7 +43,7 @@ This part of our documentation needs improvement. If you have a Kubernetes-based
 
 #### Daemon
 
-To configure an `earthbuild/buildkitd` daemon as a remotely available daemon, you will need to start the container yourself. See our [configuration docs](../earthly-config/earthly-config.md) for more details on all the options available; but here are the ones you need to know:
+To configure an `earthbuild/buildkitd` daemon as a remotely available daemon, you will need to start the container yourself. See our [configuration docs](../earth-config/earth-config.md) for more details on all the options available; but here are the ones you need to know:
 
 **`BUILDKIT_TCP_TRANSPORT_ENABLED`**
 

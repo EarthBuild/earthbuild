@@ -164,7 +164,7 @@ To install from source, see the [contributing page](https://github.com/earthbuil
 
 If you use SSH-based git authentication, then your git credentials will just work with EarthBuild. Read more about [git auth](../guides/auth.md).
 
-For a full list of configuration options, see the [Configuration reference](../earthly-config/earthly-config.md)
+For a full list of configuration options, see the [Configuration reference](../earth-config/earth-config.md)
 
 ## Verify installation
 

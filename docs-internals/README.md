@@ -2,7 +2,7 @@
 
 This documents the internals of the EarthBuild build tool; it is written for developers who wish to [contribute](../CONTRIBUTING.md) to the EarthBuild codebase.
 
-Users of EarthBuild can find general user-documentation at [https://docs.earthly.dev/](https://docs.earthly.dev/).
+Users of EarthBuild can find general user-documentation at [https://docs.earthbuild.dev/](https://docs.earthbuild.dev/).
 
 ## Warning
 
@@ -33,7 +33,7 @@ the [buildkit/docs/dev](https://github.com/moby/buildkit/tree/master/docs/dev) s
 | **dockertar** | The legacy approach for exporting images from BuildKit to the host via a `tar` file; we try to use pullping instead, since it only pulls the needed layers |
 | **logbus** | An interface for writing output to both stdout and the web-based log viewer under cloud.earthly.dev |
 | **earthlyoutputs** | A custom buildkit exporter (within the [EarthBuild/buildkit fork](https://github.com/EarthBuild/buildkit/tree/main/exporter/earthlyoutputs)), which is used to send images back to earth |
-| **embedded registry** | A [docker registry](https://github.com/distribution/distribution) which runs within the earthly-buildkitd container, used in combination with earthlyoutputs and the pullping callback; also referred to as "local registry" |
+| **embedded registry** | A [docker registry](https://github.com/distribution/distribution) which runs within the earth-buildkitd container, used in combination with earthlyoutputs and the pullping callback; also referred to as "local registry" |
 
 ## Guides
 

@@ -44,7 +44,7 @@ In order for the SSH agent to have the right credentials available, make sure yo
 
 Another key setting is the `auth` mode for the git site that hosts the repository. By default earth automatically default to `ssh` authentication if the ssh auth agent is running and has at least 1 key loaded, otherwise `earth` will fallback to using non-authenticated HTTPS.
 
-Sites can be explicitly added to the [earth config file](../earthly-config/earthly-config.md) under the git section in order to override the auto-authentication mode:
+Sites can be explicitly added to the [earth config file](../earth-config/earth-config.md) under the git section in order to override the auto-authentication mode:
 
 ```yaml
 git:
@@ -55,7 +55,7 @@ git:
 
 #### Username-password authentication
 
-Username-password based authentication can be configured in the [earth config file](../earthly-config/earthly-config.md) under the git section:
+Username-password based authentication can be configured in the [earth config file](../earth-config/earth-config.md) under the git section:
 
 ```yaml
 git:
@@ -197,4 +197,4 @@ Currently EarthBuild provides a built-in way to easily authenticate to AWS durin
 
 ## See also
 
-- The [earth command reference](../earthly-command/earthly-command.md)
+- The [earth command reference](../earth-command/earth-command.md)

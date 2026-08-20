@@ -16,8 +16,6 @@
       "Bash(gh issue view:*)",
       "Bash(gh run *)",
       "Bash(gh pr *)",
-      "Bash(grep -n '\",\\\\s*$' cmd/earthly/app/run.go)",
-      "Bash(grep -n -B2 '^\\\\s*\\)\\\\s*$' cmd/earthly/app/run.go)",
       "WebFetch(domain:golangci-lint.run)"
     ]
   }

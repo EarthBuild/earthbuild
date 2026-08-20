@@ -8328,3 +8328,30 @@ was asked.
 The protocol gains a message, so this is a version bump. It is the last thing between the current
 engine and a fleet that does any work, and it is a prerequisite for measuring whether a fleet is
 faster - a question this plan has answered so far only for the scheduler.
+
+## Open decision: what name a layer travels under
+
+A fleet forms across machines and delegates real work (E506), and it cannot share a base (E507). The
+second is one decision away, and it is a decision rather than a fix.
+
+A layer directory is named by its node id - the cache key of the operation that produced it. The
+transport files an arrival under the capture of its contents and checks that against the id it asked
+for, which compares two namespaces. §5.3 now records the gap; this is the choice that closes it.
+
+| Option                                        | What is trusted                           | Cost                                                  |
+| --------------------------------------------- | ----------------------------------------- | ----------------------------------------------------- |
+| keep the node id, sender declares the capture | a declaration the receiver recomputes     | one more field on the wire; the store keeps its shape |
+| name directories by content, map the node id  | nothing - integrity holds by construction | an indirection on every lookup, and a migration       |
+
+The first is smaller and is the one this engine's other declarations already look like: `Layers.Put`
+takes the sender's ownership account and checks it rather than trusting it, which is the same shape.
+The second is what the specification currently *assumes* - Appendix A.1 says a layer "is
+content-addressed" - and that assumption is why the gap went unnoticed.
+
+**Recommendation: the first**, on the grounds that it changes one message rather than what a layer
+store is, and that the check it rests on is one the receiver performs itself. Not taken unilaterally:
+it moves what a trust boundary rests on, and §5.3 is the document that should say so before the code
+does.
+
+Until then a fleet pays for every base on every machine. That is a cost, not a correctness problem -
+the digest check refuses the mismatch and the driver runs the step itself.

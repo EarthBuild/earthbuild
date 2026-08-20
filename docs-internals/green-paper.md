@@ -815,24 +815,24 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | 4     | **sampled at runtime** | probabilistic, for checks too dear to run always          |
 | 5     | **experiment only**    | chosen inputs, CI time - the weakest form                 |
 
-| Invariant | Enforced by                                                                                         | Level | Tested by                                                     |
-| --------- | --------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------- |
-| I1        | sampled determinism screening (§6)                                                                  | 4     | E14; E7 fleet equivalence                                     |
-| I2        | digest verified on every read - it *is* the mechanism                                               | 2     | E5c, E15                                                      |
-| I3        | observation set closed at key time; every field of ω reaches Κ₁                                     | 3     | **E5b**; core key-coverage tests                              |
-| I4        | Λ's return type has no error variant (4.4)                                                          | **1** | E5c                                                           |
-| I5        | results identical with all hints disabled                                                           | 3     | E12                                                           |
-| I6        | -                                                                                                   | 5     | E15                                                           |
-| I7        | attempt counter; `host` absent from the wire vocabulary (C.3)                                       | **1** | E15                                                           |
-| I8        | assert nanoseconds survive layer write unless clamping                                              | 3     | E3, containerd fork tests                                     |
-| I9        | insert-only stores: an existing entry is never rewritten                                            | **2** | E76; crash-safety, c4 in this engine's terms                  |
-| I10       | capability list consulted before evaluation; three kinds of refusal, each with a way out that works | 2     | core capability tests; interp refusal tests; E152, E153, E157 |
-| I11       | isolation returns an error; limits return a stated reason                                           | 2     | guest isolation and cgroup tests                              |
-| I12       | records sorted by traversal position; earliest failure wins                                         | 2     | core concurrency tests                                        |
-| I13       | every entry of a fragment sealed against its manifest (C.4.1)                                       | 2     | E324; layer fragment-seal tests                               |
-| I14       | δ hashed into Κ₁ at both mirrors; scheduler refuses the cache for δ ≠ `own`                         | 2     | E381, E384; key-coverage guards; interp isolation tests       |
-| I15       | μ hashed into Κ₁ at both mirrors; the guest queues only `locked` mounts                             | 2     | E427, E432; mount-coverage guards; sharing-mode tests         |
-| I16       | LOCALLY refused in a fetched Earthfile, its functions and its checkout                              | 2     | E439; interp remote-trust tests                               |
+| Invariant | Enforced by                                                                                                             | Level | Tested by                                                     |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------- |
+| I1        | sampled determinism screening (§6)                                                                                      | 4     | E14; E7 fleet equivalence                                     |
+| I2        | digest verified on every read - it *is* the mechanism. **[GAP]** for layers, which are not named by their digest (§5.3) | 2     | E5c, E15; E507 for the gap                                    |
+| I3        | observation set closed at key time; every field of ω reaches Κ₁                                                         | 3     | **E5b**; core key-coverage tests                              |
+| I4        | Λ's return type has no error variant (4.4)                                                                              | **1** | E5c                                                           |
+| I5        | results identical with all hints disabled                                                                               | 3     | E12                                                           |
+| I6        | -                                                                                                                       | 5     | E15                                                           |
+| I7        | attempt counter; `host` absent from the wire vocabulary (C.3)                                                           | **1** | E15                                                           |
+| I8        | assert nanoseconds survive layer write unless clamping                                                                  | 3     | E3, containerd fork tests                                     |
+| I9        | insert-only stores: an existing entry is never rewritten                                                                | **2** | E76; crash-safety, c4 in this engine's terms                  |
+| I10       | capability list consulted before evaluation; three kinds of refusal, each with a way out that works                     | 2     | core capability tests; interp refusal tests; E152, E153, E157 |
+| I11       | isolation returns an error; limits return a stated reason                                                               | 2     | guest isolation and cgroup tests                              |
+| I12       | records sorted by traversal position; earliest failure wins                                                             | 2     | core concurrency tests                                        |
+| I13       | every entry of a fragment sealed against its manifest (C.4.1)                                                           | 2     | E324; layer fragment-seal tests                               |
+| I14       | δ hashed into Κ₁ at both mirrors; scheduler refuses the cache for δ ≠ `own`                                             | 2     | E381, E384; key-coverage guards; interp isolation tests       |
+| I15       | μ hashed into Κ₁ at both mirrors; the guest queues only `locked` mounts                                                 | 2     | E427, E432; mount-coverage guards; sharing-mode tests         |
+| I16       | LOCALLY refused in a fetched Earthfile, its functions and its checkout                                                  | 2     | E439; interp remote-trust tests                               |
 
 An invariant with two mechanisms takes the **weaker** level, not the better one: I3 needs both the
 observation set to be closed and every field of ω to reach the key, so it is enforced only as well as
@@ -871,6 +871,25 @@ The boundary is *provenance and not path*: it follows the file the operation is 
 functions it invokes and through other files of the same checkout, and it does not attach to a local
 file merely for referring to a remote one. A rule that spread the other way would refuse ordinary
 builds and be disabled within a week, which is a security property in name only.
+
+**[GAP]** A layer crossing a domain boundary has no defined name. I2 requires every blob to be
+verified against its digest before use, peer-sourced transfers included, and that is the mechanism
+for a blob: a blob is named by its digest, so the check is an identity. A **layer** is not. A layer
+is a directory named by the node id of the operation that produced it - the cache key Κ, which names
+a derivation - and the digest of its contents is a different value (E507). A receiver therefore
+cannot check an arriving layer against the name it asked for, because the two are in different
+namespaces, and no rule here says which name should travel or what the far end is entitled to
+conclude from it.
+
+The two candidate resolutions differ in what is trusted rather than in how much:
+
+* the layer keeps its node id and the sender declares the capture of its contents, which the
+  receiver recomputes - integrity then rests on the declaration being checkable, which it is;
+* layer directories are named by their contents and the node id maps to them - integrity is
+  recovered by construction, at the cost of a level of indirection on every lookup.
+
+Until one is chosen, an implementation is free to refuse the transfer, which is what this one does,
+and a fleet cannot share a base.
 
 ## 6. Classification
 

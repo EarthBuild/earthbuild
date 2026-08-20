@@ -48,7 +48,29 @@ code:
             go mod download
     END
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
+        docker2earth dockertar domain earthfile2llb engine features internal logbus logstream regproxy states slog tools util variables ./
+    # docs-internals holds one Go package: a guard that every `§` citation in
+    # the code names a section the specification or the plan actually has. It
+    # needs the documents themselves, not only its own source, which is why the
+    # whole directory comes in rather than the `.go` file alone.
+    COPY --dir docs-internals ./
+    # The reference for the language this engine implements. `engine/interp`
+    # asserts that every flag it refuses by name is described from this file, so
+    # the test needs the document as well as the code - without it the guard
+    # fails in CI for want of a file rather than for want of an explanation.
+    COPY docs/earthfile/earthfile.md docs/earthfile/earthfile.md
+    # The corpus the engine's sweep builds, and the Earthfile it reaches up to.
+    #
+    # `engine/cli` asserts that the sweep runs in a *copy* - a full sweep once
+    # produced 58,000 lines of build output in the working tree - and that the
+    # copy holds both the corpus and what the corpus refers to, because an
+    # Earthfile in a monorepo says `FROM ../..+base`. Without these the test
+    # fails in CI for want of the files, which it had been doing.
+    #
+    # 2.5 MB tracked. The 958 MB in a developer's `examples/` is build output,
+    # untracked, and is exactly what that test exists to keep out.
+    COPY --dir examples ./
+    COPY Earthfile ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earthly
@@ -126,7 +148,18 @@ lint:
         rm /tmp/golangci-install.sh
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
-    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+    # `-n1` because `dirname` in this image is busybox's, which takes exactly one
+    # argument. With several modules `xargs` passed them all at once, dirname
+    # printed its usage and exited 1, and the reference engine iterated over the
+    # *words of the error message* - `Usage:`, `dirname`, `FILENAME`, ... - as
+    # module paths. It worked only while this image happened to hold a single
+    # go.mod, which stopped being true the moment `examples/` was added to
+    # `+code` for the corpus tests.
+    #
+    # `examples/` is excluded because it never was linted: those modules are
+    # sample code, they are here so the engine's corpus tests can see them, and
+    # linting them now would be a new policy rather than a fix.
+    FOR mod_path IN $(find . -name go.mod -not -path './examples/*' -print0 | xargs -0 -n1 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
@@ -209,6 +242,142 @@ unit-test:
         testarg=""; \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
+
+# engine-race runs the engine's own tests under the race detector, shuffled.
+#
+# Separate from +unit-test because `-race` needs cgo and a C toolchain, and the
+# rest of this build deliberately does without one - every other Go target sets
+# CGO_ENABLED=0.
+#
+# Two sweeps in one run, answering different questions: `-race` finds
+# unsynchronised access, `-shuffle` finds a test that only passes because
+# another ran first. Both were clean when this target was written (E158), which
+# is exactly why it exists - a sweep whose findings arrive only when somebody
+# remembers to look is not coverage, and the engine has already shipped one
+# concurrent-map crash and one test that passed on macOS and failed on Linux.
+#
+# Longer timeout than +unit-test: the race detector costs roughly four times the
+# wall clock on this suite.
+engine-race:
+    FROM +go
+    # -race needs a C compiler; the base image has none.
+    RUN apk add --no-cache build-base
+    COPY --dir +code/earthly /
+    ENV CGO_ENABLED=1
+    # How many tests may skip here before the run stops being evidence.
+    #
+    # Measured: 112 of 1466 skip in this container against 76 of 1474 on a Linux
+    # developer machine, so CI verifies 97% of what a developer does. The
+    # difference is the tests needing a user namespace, an overlay mount or a
+    # device node, each of which now asks whether the operation works (E160).
+    #
+    # A ceiling rather than an equality - tests come and go - but a low one. The
+    # failure it exists to catch is a change that makes half the suite skip in
+    # the container and leaves the target green, which is what "green" would
+    # then mean.
+    ARG SKIP_CEILING=130
+    # Nothing is excluded. Every test needing a privilege this container does
+    # not grant - a user namespace, an overlay mount, a device node - now skips
+    # with the reason, because each asks whether the *operation* works rather
+    # than whether the uid is zero (E160). The portable tests are swept; the
+    # rest say out loud what this machine will not do.
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go test -race -shuffle=on -timeout 20m -v ./engine/... > /tmp/t.log 2>&1; \
+        rc=$?; \
+        grep -E "^ *--- (FAIL|SKIP)" /tmp/t.log | sort | uniq -c | sort -rn | head -40; \
+        skipped=$(grep -cE "^ *--- SKIP" /tmp/t.log || true); \
+        echo "skipped here: $skipped of $(grep -cE "^ *--- (PASS|SKIP|FAIL)" /tmp/t.log)"; \
+        if [ "$rc" -ne 0 ]; then grep -E "^ *--- FAIL|^ *[a-z_]+\.go:" /tmp/t.log | head -40; exit "$rc"; fi; \
+        if [ "$skipped" -gt "$SKIP_CEILING" ]; then \
+            echo "more tests skipped than this container should need ($skipped > $SKIP_CEILING):"; \
+            echo "a green run that verified less is the failure this ceiling exists to catch"; \
+            exit 1; \
+        fi
+
+# engine-daemon runs the tests that need a real docker daemon.
+#
+# Behind the `integration` build tag and therefore skipped by every other
+# target, because they take a `dockerd`, a privileged container and several
+# seconds each. They are also the only tests that exercise what a `WITH DOCKER`
+# step actually gets: a daemon started for it, or one inherited from the step it
+# is running inside (E364-E387).
+#
+# **Privileged, and that is a requirement rather than a convenience.** The daemon
+# runs in a mount namespace with a private `/run`, which needs CAP_SYS_ADMIN; a
+# plain container fails at `clone` before anything starts. Measured both ways
+# before this target was written, so the flag is here because the alternative was
+# tried (E387).
+#
+# `CGO_ENABLED=0` for the same reason every other Go target sets it, and one
+# more: a dynamically linked test binary cannot run in a container that has no
+# interpreter for it, which is E117's failure arriving in the test harness.
+#
+# No Go toolchain is needed at *test* time - the tests copy this binary into the
+# step they are testing and re-execute it as their prober, the same trick the
+# daemon shim uses, so nothing has to be compiled inside a step whose root is
+# empty.
+engine-daemon:
+    FROM +go
+    # docker brings dockerd and the client; util-linux brings unshare, which the
+    # tests use to clean up what a namespaced daemon wrote as root.
+    RUN apk add --no-cache docker util-linux
+    COPY --dir +code/earthly /
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        CGO_ENABLED=0 go test -c -tags integration -o /tmp/daemon.test ./engine/guest/ \
+        && CGO_ENABLED=0 go test -c -tags integration -o /tmp/build.test ./engine/cli/
+    # How few tests may run here before the run stops being evidence.
+    #
+    # The mirror of +engine-race's SKIP_CEILING and the same argument: a target
+    # that passes because nothing ran is the failure worth catching, and these
+    # tests skip themselves when there is no `dockerd` on the machine. A floor
+    # turns "no daemon here" from a green run into a red one.
+    ARG RAN_FLOOR=7
+    # TMPDIR on a cache mount for the build test, and that is a requirement
+    # rather than thrift: a container's root is overlayfs and **overlayfs cannot
+    # stack on overlayfs**, so a build whose store is under the container's own
+    # `/tmp` cannot materialise its first base - which the engine says in as many
+    # words, with the remedy. A cache mount is a real filesystem.
+    #
+    # **For the build test only.** Moving the guest's tests there too made two of
+    # them skip: their isolation probe runs as root in a user namespace, which is
+    # nobody on a shared directory, and `mkdir: permission denied` became "this
+    # machine cannot isolate a step". A fix for one test silently disabling two
+    # others is what a floor counting by name catches and a floor counting
+    # `--- PASS` would not (E400, E401).
+    #
+    # EARTH_TEST_NETWORK because the build test pulls a base image; the guest's
+    # tests need none.
+    RUN --privileged \
+        --mount type=cache,target=/scratch,id=engine-daemon-scratch \
+        sh -c "/tmp/daemon.test -test.v; \
+               TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earthly /tmp/build.test -test.v \
+                   -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild|HowManyEarthTestsBuild'" \
+            > /tmp/d.log 2>&1; \
+        rc=$?; \
+        grep -E "^ *--- (FAIL|SKIP)" /tmp/d.log | head -20; \
+        # The four that need a real daemon, named one by one.
+        #
+        # Neither `--- PASS` nor a name pattern works: this binary holds the
+        # package's whole unit suite, so a plain count is in the hundreds and a
+        # daemon-ish pattern still matches 33 tests that never start one. Either
+        # would let a green run clear the floor while verifying nothing, which is
+        # the failure the floor exists to catch (E400).
+        #
+        # A written-out list goes stale when a test is renamed, and that is the
+        # trade: it goes stale *loudly*, by failing here, rather than quietly by
+        # matching nothing.
+        passed=$(grep -cE "^ *--- PASS: Test(TheWholeDaemonLifetimeAgainstARealDockerd|ADaemonStartsInAUserNamespace|AStepIsGivenADaemonAtItsOwnPath|AStepReachesADaemonItDidNotStart|ABuildWithADockerBlockRuns|ABuildInsideABuild|HowManyEarthTestsBuild)" /tmp/d.log || true); \
+        echo "daemon tests passed: $passed"; \
+        if [ "$rc" -ne 0 ]; then grep -E "^ *--- FAIL|^ *[a-z_]+\.go:" /tmp/d.log | head -40; exit "$rc"; fi; \
+        if [ "$passed" -lt "$RAN_FLOOR" ]; then \
+            echo "only $passed daemon test(s) ran, and this target is evidence for none of them"; \
+            echo "a green run that verified nothing is the failure this floor exists to catch"; \
+            exit 1; \
+        fi
 
 # fuzz-test runs fuzz tests
 fuzz-test:
@@ -348,6 +517,32 @@ earthly:
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"
     SAVE IMAGE --cache-from=earthly/earthly:main
+
+# native-engine builds the post-BuildKit engine's own binaries.
+#
+# The bootstrap. Everything else here builds the BuildKit front end; this builds
+# the engine that is meant to replace it, with itself - so the engine is the
+# first consumer of its own output and a defect in a layer write shows up as a
+# binary that does not run rather than as a digest nobody re-checks.
+#
+# Both for Linux: `earth-guestd` runs inside the sandbox and has no other
+# platform, and `earth-native` is built for the same one so that a Linux host
+# has the pair. A developer's machine builds them with `go build`, which is what
+# the verify script does; this is what a deployment installs.
+native-engine:
+    FROM +code
+    ENV CGO_ENABLED=0
+    ARG TARGETARCH
+    ARG GOOS=linux
+    ARG GOARCH=$TARGETARCH
+    RUN mkdir -p build
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go build -o build/earth-native ./cmd/earth-native && \
+        go build -o build/earth-guestd ./cmd/earth-guestd
+    SAVE ARTIFACT build/earth-native AS LOCAL "build/$GOOS/$GOARCH/earth-native"
+    SAVE ARTIFACT build/earth-guestd AS LOCAL "build/$GOOS/$GOARCH/earth-guestd"
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
@@ -726,6 +921,38 @@ all:
 # lint-all runs all linting checks against the earthbuild project.
 lint-all:
     BUILD +lint
+    BUILD +lint-scripts
+    BUILD +lint-changelog
+
+# mutate deletes each mechanism the engine's correctness rests on and checks
+# that the suite notices.
+#
+# Not a merge gate: it runs the tests once per mutant, which is minutes rather
+# than seconds. It is the thing to run when adding an invariant, and the thing
+# to run before believing a green suite means anything - five tests in this
+# engine asserted an outcome and were satisfied by any of its causes, and every
+# one was found this way rather than by reading.
+#
+# On Linux, because half the catalogue is Linux-only and a sweep elsewhere
+# reports those as `unrun` rather than as guarded. A mutation the platform
+# compiled away looks exactly like one nothing tested.
+mutate:
+    FROM +code
+    RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        cd /earthly && go run ./tools/mutate
+
+# lint-gating runs the linting checks that gate a merge.
+#
+# The Go linters are not among them, and deliberately: the configuration is
+# maximal, the engine work carries a backlog against it, and a check that is
+# expected to be red stops being read - which costs more than the findings do.
+# They run in CI as their own step, reported and not gating, so the number stays
+# visible while it comes down.
+#
+# Shell and changelog linting do gate. Both pass, and folding two working gates
+# into one broken one to excuse the broken one would lose more than it saves.
+lint-gating:
     BUILD +lint-scripts
     BUILD +lint-changelog
 

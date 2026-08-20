@@ -25,9 +25,11 @@ import (
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
+	"github.com/EarthBuild/earthbuild/util/enginetrace"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
@@ -62,11 +64,22 @@ func setExportableVars() {
 }
 
 func main() {
+	// First of all, and it does not return when it applies: this binary is also
+	// the shim that a step's own docker daemon is launched through, because
+	// `dockerd` needs a user namespace it is root in and a writable `/run`, and
+	// Go cannot run code between clone and exec (E373). On the native backend on
+	// Linux the guest runs in this process, so it is this binary that gets
+	// re-executed.
+	guest.RunDaemonShimIfAsked()
+
 	os.Exit(run())
 }
 
 // run executes the CLI and returns an exit code to pass to [os.Exit].
 func run() (code int) {
+	// Phase 0 measurement harness; a no-op unless EARTH_ENGINE_TRACE is set.
+	defer enginetrace.Dump(os.Stderr)
+
 	// set up OpenTelemetry
 	ctx := context.Background()
 

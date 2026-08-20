@@ -1,0 +1,1331 @@
+// Package exec is stage S4: the port the scheduler calls to actually run a step.
+//
+// Its whole reason for existing is the sandbox lifetime. Experiment E1b
+// measured a VM at roughly 690ms to boot and tear down, against about 65ms to
+// exec inside a running one, so a sandbox per *step* would put half a minute of
+// pure lifecycle into a fifty-step build for no benefit. The sandbox is a
+// property of the run; steps are what happen inside it.
+//
+// The Sandbox port keeps that decision testable without a VM: the boot count is
+// observable, so "one sandbox per run" is asserted rather than intended.
+package exec
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	osexec "os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/image"
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
+
+// Conn is a bidirectional channel to a guest agent. An interface rather than
+// net.Conn because the transports differ - a pipe locally, a vsock or a stdio
+// pair into a VM - and none of that concerns the caller.
+type Conn interface {
+	io.ReadWriteCloser
+}
+
+// Sandbox is a place steps can run: something that boots, serves the guest
+// protocol, and stops.
+//
+// Note what it cannot express: there is no per-step method. A sandbox is
+// started once and reused, and the type is what makes that so rather than a
+// convention someone has to remember.
+type Sandbox interface {
+	Start(ctx context.Context) (Conn, error)
+	Stop() error
+
+	// StoreDir is where layers live for this sandbox. FROM is satisfied by
+	// placing an image there rather than by running anything, so the executor
+	// has to know where "there" is.
+	StoreDir() string
+
+	// Confines reports whether a step's writes are held to its own layer
+	// (green paper A3). A sandbox that does not confine still runs steps; its
+	// results simply never become cache entries, because ε does not bound what
+	// the step observed and the resulting key would be a false claim.
+	Confines() bool
+}
+
+// Executor runs steps inside one sandbox. Implements core.Executor.
+type Executor struct {
+	// Platform is the "os/arch" images are pulled for. Defaults to the guest's.
+	Platform string
+
+	// Prime assembles a base from the paths a step was predicted to read,
+	// instead of stacking the whole of its layers.
+	//
+	// Nil everywhere but a worker that has peers to fetch fragments from, and
+	// nil means the base is the stack of layers it has always been. Set, a step
+	// moves the part of its base it reads - measured at 0.2% to 2% of the layer
+	// for read sets the shape a real step has (E298, E302).
+	//
+	// A primer that cannot prime falls back to the ordinary path rather than
+	// failing: it is a slower build, and every mechanism this rests on was built
+	// to degrade (I11).
+	Prime func(ctx context.Context, stack []ir.NodeID, want []string, into string) error
+	// Fetch obtains one path of a stack, into a place this engine chose.
+	//
+	// The other half of Prime: what the prediction missed, faulted in while the
+	// step runs (E289, E304). Nil means a step that reads beyond its prediction
+	// is failed rather than served, which is why a primer without a fetcher is
+	// a configuration nobody should build.
+	Fetch func(ctx context.Context, stack []ir.NodeID, into, at string) error
+
+	primedMu sync.Mutex
+	primed   map[string]primedBase
+
+	// Scratch is where a primed base is assembled. The system temporary
+	// directory when empty, which is wrong on a machine whose /tmp is a
+	// different filesystem from the store - the same argument as E263's.
+	Scratch string
+	// ImageCache is where pulled images are kept, when they should not live
+	// with the layers.
+	//
+	// Empty means beside the layer store, which is the simple case. Set, it lets
+	// one machine share images across build caches: an image is identical for
+	// every project, and fetching alpine once per project is bandwidth spent on
+	// nothing.
+	ImageCache string
+	// Terminal is the caller's terminal, for `RUN --interactive`.
+	//
+	// Held here rather than in the graph for the reason Secrets are: the IR says
+	// a step is interactive, and this is the only place the terminal itself
+	// exists. Nil means no interactive step can run, which is the honest answer
+	// for a build with nobody watching - a CI job, a cron entry - as well as for
+	// any arrangement that is not one host.
+	Terminal *os.File
+	// Secrets are the credentials the invocation supplied, by name.
+	//
+	// Held here rather than in the graph so a value has nowhere to leak: the IR
+	// carries a secret's id, and this is the only place the value exists.
+	Secrets map[string]string
+	// SSHAuthSock is where the invoking user's ssh agent listens, empty when
+	// there is none.
+	//
+	// Supplied rather than read from the environment here, because this package
+	// is the one that runs steps and an executor that reached for ambient state
+	// would be a second place the build's inputs come from (E466).
+	SSHAuthSock string
+	// Context is the local build context directory COPY reads from.
+	Context string
+	// Progress receives each line a step prints, with the step it came from.
+	// Nil discards output, which is what tests want and what a machine-readable
+	// front end would do differently.
+	Progress func(step, line string)
+
+	// Capture receives each line a step prints, with the node that printed it.
+	//
+	// Progress is for display and names a step the way a person reads it - a
+	// source location. Capture is for a caller that needs one step's output as
+	// a *value*, which a label cannot answer: source locations are not unique,
+	// and a caller filtering on one would be reading whatever else happened to
+	// share a line.
+	//
+	// The distinction is not theoretical. `LET v=$(cmd)` runs cmd on the
+	// filesystem the recipe has built to that point, which runs the steps
+	// before it when they are not already cached, and taking the value out of
+	// the display stream took their output with it - so v depended on whether
+	// the machine had built this before.
+	Capture func(n *ir.Node, line string)
+
+	sb Sandbox
+	c  *guest.Client
+
+	// start guards the one boot; startErr is what it came to, so every later
+	// caller is told the same thing rather than retrying a backend that is down.
+	start    sync.Once
+	startErr error
+
+	mu      sync.Mutex
+	closed  bool
+	running bool
+	// dockerNote is why a WITH DOCKER step got no client. See DockerNote.
+	dockerNote string
+}
+
+// New prepares an executor over a sandbox, without starting it.
+//
+// The sandbox starts on first use - see client() for why, and for what it cost
+// when it did not.
+func New(sb Sandbox) (*Executor, error) {
+	return &Executor{sb: sb}, nil
+}
+
+// client starts the sandbox if it is not running, and returns the guest.
+//
+// Started on first use rather than at construction, which is worth the whole of
+// a VM boot on the most common thing a developer does: build again after
+// changing nothing. A no-op rebuild of `FROM alpine + RUN true` - every step an
+// L1 hit, nothing executed - cost 790ms against 10ms for the same build with no
+// sandbox in its plan, and the difference was a VM booted to run nothing.
+//
+// The failure to start is deferred with it. That is the honest place for it: a
+// build whose every step is cached is entitled to succeed on a machine whose VM
+// backend is broken, and a build that must run something gets the diagnosis at
+// the step that needed it.
+func (e *Executor) client() (*guest.Client, error) {
+	e.start.Do(func() {
+		c, err := e.connect()
+		if err != nil {
+			e.startErr = err
+
+			return
+		}
+
+		e.mu.Lock()
+		e.c, e.running = c, true
+		e.mu.Unlock()
+	})
+
+	return e.c, e.startErr
+}
+
+// connect starts the sandbox and greets the guest, recovering once from a VM
+// that is not there.
+//
+// A sandbox is now reused between builds, and the listing that decides to reuse
+// one can be stale: a VM that is gone, or up but wedged, answers `container ls`
+// and not a handshake. Taking it away and booting a fresh one is the recovery,
+// and it belongs here because the handshake is the first thing that can tell
+// the difference.
+//
+// Once, not in a loop. A backend that is genuinely broken has to say so rather
+// than reboot until someone notices.
+func (e *Executor) connect() (*guest.Client, error) {
+	// Background deliberately, not the caller's context. The boot happens once,
+	// behind a sync.Once, and serves every step of the build - so honouring the
+	// context of whichever caller happened to arrive first would let a probe
+	// with a short deadline take the sandbox away from everything after it.
+	//
+	// The consequence is that a boot cannot be cancelled, which is a real cost
+	// and the smaller one: a wedged boot wastes a minute, and a sandbox
+	// cancelled out from under a running build wastes the build.
+	conn, err := e.sb.Start(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("start sandbox: %w", err)
+	}
+
+	c, err := guest.Dial(conn)
+	if err == nil {
+		withTerminals(e.sb, c)
+
+		return c, nil
+	}
+
+	r, ok := e.sb.(interface{ Remove() error })
+	if !ok {
+		_ = e.sb.Stop()
+
+		return nil, fmt.Errorf("connect to the guest inside the sandbox: %w", err)
+	}
+
+	_ = e.sb.Stop()
+	_ = r.Remove()
+
+	conn, err2 := e.sb.Start(context.Background())
+	if err2 != nil {
+		return nil, fmt.Errorf("start sandbox: %w\n  after clearing one that did not answer: %w", err2, err)
+	}
+
+	c, err2 = guest.Dial(conn)
+	if err2 == nil {
+		withTerminals(e.sb, c)
+	}
+
+	if err2 != nil {
+		_ = e.sb.Stop()
+
+		return nil, fmt.Errorf("connect to the guest inside the sandbox: %w"+
+			"\n  a previous one was cleared and rebooted first: %w", err2, err)
+	}
+
+	return c, nil
+}
+
+// Ping starts the sandbox and checks the guest answers. Nothing in a build
+// calls it; it exists so the lazy start is observable to a test without
+// materialising a layer stack.
+func (e *Executor) Ping(ctx context.Context) error {
+	c, err := e.client()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Materialise(ctx, nil)
+
+	return err
+}
+
+// baseImageOf names the image a step stands on, for a diagnosis. Empty when the
+// chain does not reach one, which a message can say better than a blank can.
+func baseImageOf(n *ir.Node) string {
+	for _, in := range n.Inputs {
+		if in.Op.Kind == ir.OpImage && len(in.Op.Args) > 0 {
+			return in.Op.Args[0]
+		}
+
+		if name := baseImageOf(in); name != "" {
+			return name
+		}
+	}
+
+	return "the base image"
+}
+
+// configSuffix names the file holding what an image declared, beside its layer.
+const configSuffix = ".config.json"
+
+// baseConfig is what the lowest layer of a stack declared, if anything did.
+//
+// The lowest, because that is the image the stack was built from: FROM is the
+// only thing that brings a configuration, and every layer above it is this
+// engine's own work.
+func (e *Executor) baseConfig(base []ir.NodeID) ocispec.ImageConfig {
+	if len(base) == 0 {
+		return ocispec.ImageConfig{}
+	}
+
+	path := filepath.Join(e.sb.StoreDir(), "layers", base[0].String()) + configSuffix
+
+	b, err := os.ReadFile(path) //nolint:gosec // a path this engine derived
+	if err != nil {
+		return ocispec.ImageConfig{}
+	}
+
+	var cfg ocispec.ImageConfig
+	err = json.Unmarshal(b, &cfg)
+	if err != nil {
+		return ocispec.ImageConfig{}
+	}
+
+	return cfg
+}
+
+// Where the docker client and its socket live in a sandbox image that has a
+// daemon. Fixed paths, because they are a property of the image the engine
+// chooses rather than of anything an Earthfile can say.
+const (
+	dockerClientPath = "/usr/local/bin/docker"
+	dockerSocketPath = "/var/run/docker.sock"
+	// The subcommands that are separate binaries: `docker compose` and
+	// `docker buildx` are plugins, and a step given only the client finds
+	// `docker` and then reports `compose` as an unknown command - with the
+	// whole of docker's help after it, which reads as though the Earthfile were
+	// wrong.
+	//
+	// Read only by dockermounts_darwin.go, so a linter run on Linux reports it
+	// as unused and deleting it breaks the macOS build. `unused` findings are
+	// per-platform, which is E106's lesson arriving from the linter's side: a
+	// file behind a build tag is not compiled, not counted, and here not seen.
+	dockerPluginDir = "/usr/local/libexec/docker/cli-plugins"
+)
+
+// Run executes one step against a materialised base, and captures what it
+// produced.
+//
+// A result is marked captured only when it was *both* captured and confined.
+// The two are separate failures with the same remedy: a digest that was not
+// computed names nothing, and a digest computed from an unconfined step names
+// something no other build should trust. Either way the scheduler declines to
+// cache it, and says so rather than silently producing a build that looks
+// cached and is not.
+func (e *Executor) Run(
+	ctx context.Context, n *ir.Node, _ core.Worker, base []ir.NodeID, sources [][]ir.NodeID,
+) (core.Result, error) {
+	//nolint:exhaustive // the default refuses everything this backend cannot run
+	switch n.Op.Kind {
+	case ir.OpImage:
+		// FROM is materialised, not run: the image is placed in the layer store
+		// under this node's identity, and the "result" is that layer.
+		return e.materialiseImage(ctx, n)
+
+	case ir.OpScratch:
+		// The empty base. Nothing is fetched, nothing is written, and the
+		// result is a step with no layer at all - which is what every step
+		// stacked on it then starts from (E468).
+		//
+		// Captured, because it is complete: a build that copies onto `scratch`
+		// and saves the result must be cacheable like any other, and the layer
+		// it produced is the empty one.
+		return core.Result{Captured: true}, nil
+
+	case ir.OpLocal:
+		// The context lives on the host, and so does the store, so this is a
+		// host-side copy: nothing needs to enter the sandbox to do it.
+		return e.stageContext(n)
+
+	case ir.OpFile:
+		return e.copyStep(ctx, n, base, sources)
+
+	case ir.OpPackImage:
+		// Written on this machine, into the store both sides share: the layers,
+		// the platform and the reference are all here, and the step that loads
+		// it is inside the sandbox.
+		return e.packImage(ctx, n, base)
+
+	case ir.OpHost:
+		// LOCALLY: on this machine, in the project directory, with no sandbox.
+		return e.hostStep(ctx, n)
+
+	case ir.OpExec:
+		// The case below.
+
+	default:
+		// Everything else is another stage's work and must not be silently
+		// treated as a no-op, which would build something the Earthfile does not
+		// describe.
+		return core.Result{}, fmt.Errorf("exec backend cannot evaluate %s (%s)", n.Op.Kind, n.Meta.Source)
+	}
+
+	c, err := e.client()
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	h, done, err := e.base(ctx, c, n, base)
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	defer done()
+
+	env := make([]string, 0, len(n.Op.Env))
+	for k, v := range n.Op.Env {
+		env = append(env, k+"="+v)
+	}
+
+	// The id travels, not a path. The guest resolves it against its own store,
+	// because the host and the guest see that store at different paths - a VM
+	// on macOS - and a host path would have the guest create a directory in its
+	// own filesystem that vanishes with it.
+	mounts := make([]guest.Mount, 0, len(n.Op.Mounts)+2)
+
+	// A WITH DOCKER step is given the client and a socket to reach the daemon
+	// running in the sandbox. Both are mounts rather than layers, for the reason
+	// a cache is one: they belong to the machine and outlive the step, and
+	// anything written into the step's own root is captured into its image.
+	//
+	// The daemon itself is the sandbox image's business - the plan chooses an
+	// image with one in it - so nothing here starts or stops anything.
+	var daemon *guest.Daemon
+
+	if n.Op.Docker {
+		// Which daemon a step reaches is a property of the backend *and* of the
+		// block: a VM's is disposable and this machine's is not (E117), and the
+		// block says whether it wants one of its own (E381).
+		plan, err := dockerFor(n.Op.IsolateDocker, n.Op.DockerCache)
+		if err != nil {
+			return core.Result{}, err
+		}
+
+		// Why no client was provided, if none was: the socket alone works only
+		// for an image carrying its own, and a step whose image has none says
+		// `docker: not found` about a mount that is fine (E146). Only that -
+		// this channel is a warning about the client and nothing else (E392).
+		e.noteDocker(plan.Note)
+
+		mounts = append(mounts, plan.Mounts...)
+
+		if plan.Own {
+			daemon = &guest.Daemon{Root: daemonRoot, Socket: daemonSocket}
+		}
+	}
+
+	for _, m := range n.Op.Mounts {
+		gm := guest.Mount{
+			ID: m.ID, Target: m.Target, ReadOnly: m.ReadOnly,
+			Persist: m.Persist, Sandbox: m.Sandbox,
+			// The sharing mode, which decides whether the guest queues steps on
+			// this directory and whether it is a directory anybody else can see
+			// (E432).
+			Exclusive: m.Exclusive, Ephemeral: m.Ephemeral, Mode: m.Mode,
+		}
+
+		// The value is looked up here and nowhere earlier: it is not in the
+		// node, not in the key, and not in any plan anyone can print.
+		if m.Secret {
+			v, ok := e.Secrets[m.ID]
+			if !ok {
+				return core.Result{}, fmt.Errorf(
+					"%s needs the secret %q, which this invocation did not supply",
+					n.Meta.Source, m.ID)
+			}
+
+			gm.Secret = v
+		}
+
+		mounts = append(mounts, gm)
+	}
+
+	// The invoking user's ssh agent, where the step asked for one.
+	//
+	// Resolved here rather than at planning, because the socket's path is a
+	// property of this invocation and would poison every key it reached: the
+	// operation says an agent is wanted and this finds it (E466).
+	if n.Op.SSH {
+		agentMounts, agentEnv, err := sshAgent(e.SSHAuthSock)
+		if err != nil {
+			return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)
+		}
+
+		mounts = append(mounts, agentMounts...)
+
+		for k, v := range agentEnv {
+			env = append(env, k+"="+v)
+		}
+	}
+
+	// Secret values are added to the environment here and nowhere earlier: the
+	// node records which secrets the step asked for, and this is the only place
+	// a value exists.
+	for _, spec := range n.Op.SecretEnv {
+		name, source, ok := strings.Cut(spec, "=")
+		if !ok {
+			source = name
+		}
+
+		v, given := e.Secrets[source]
+		if !given {
+			return core.Result{}, fmt.Errorf(
+				"%s needs the secret %q, which this invocation did not supply",
+				n.Meta.Source, source)
+		}
+
+		env = append(env, name+"="+v)
+	}
+
+	// What the base image declared, under ε. It comes from an input and is
+	// therefore already in this step's key, so it is not the ambient state I3
+	// forbids.
+	// Before anything runs: a step built for a platform this sandbox cannot
+	// execute fails with `exec format error`, which names neither the platform
+	// nor the line.
+	err = CheckRunnable(DefaultPlatform(), e.platformFor(n), n.Meta.Source)
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	baseCfg := e.baseConfig(base)
+
+	// `RUN --entrypoint` runs the image's own entrypoint with these arguments.
+	// The entrypoint is read here rather than planned, because only the fetched
+	// image knows it - and it is in the step's key already, through the image
+	// the step stands on.
+	argv := n.Op.Args
+	if n.Op.Entrypoint {
+		if len(baseCfg.Entrypoint) == 0 {
+			return core.Result{}, fmt.Errorf(
+				"%s: --entrypoint, but %s declares no entrypoint to run"+
+					"\n  write the command out, or use an image that declares one",
+				n.Meta.Source, baseImageOf(n))
+		}
+
+		argv = append(append([]string{}, baseCfg.Entrypoint...), argv...)
+	}
+
+	write, flush := e.sinkFor(n)
+
+	step, err := c.RunStep(ctx, h, guest.Step{
+		Dir: n.Op.Dir, Argv: argv, Env: env, BaseEnv: baseCfg.Env, Mounts: mounts,
+		NoNet: n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
+		// Observed, so the step can be reused against a base it did not run on.
+		//
+		// The only source a RUN has, and it costs: measured at **8x on a path
+		// operation**, 8.4µs against 1.0µs, which is one round trip through this
+		// engine per open or stat (E213). Affordable because path calls are a
+		// small share of a real step's time - a compile making a hundred
+		// thousand of them pays under a second - and not free, so this is the
+		// line to change when somebody measures a build where it is not.
+		//
+		// Not for an interactive step. A person at a prompt is not producing a
+		// layer anybody will reuse, and every keystroke's worth of shell
+		// completion would trap.
+		Trace: !n.Op.Interactive,
+		// Only for a step that asked. Handing a terminal to every step would put
+		// a prompt's descriptor in front of a hundred non-interactive ones and
+		// make each of them the sole holder of it (E192).
+		Terminal: terminalFor(n, e.Terminal),
+	}, write)
+
+	// The step is over, so anything the buffer still holds is the last line of
+	// its output and belongs to it (E449). Before the error is handled, because
+	// the output of a step that failed is the part worth reading.
+	flush()
+
+	if err != nil {
+		return core.Result{}, ExplainExec(
+			fmt.Errorf("run %s: %w", n.Meta.Source, err), DefaultPlatform(), n.Meta.Source)
+	}
+
+	id, content, bytes, err := c.Capture(ctx, h)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)
+	}
+
+	// What the step looked at, which the guest recorded while it ran. Asked
+	// after the work and before the handle is released, because that is the only
+	// moment both are true - the same reason and the same place as the copy path.
+	//
+	// **Missing here until now**, which is why a traced RUN produced a complete
+	// observation that nothing ever stored: `usableObservation` gates on
+	// `Observed`, so a result that never sets it is one no prediction is ever
+	// written for, and Κ₂ has nothing to look up (E217).
+	obs, observed := observedFrom(h)
+
+	return core.Result{
+		Layer:   id,
+		Content: content,
+		Bytes:   bytes,
+		Exit:    step.Exit,
+		Output:  step.Output,
+		// What the step spent, for a build asked to say so (E467).
+		CPU:         step.CPU,
+		MaxRSS:      step.MaxRSS,
+		Observation: obs,
+		Observed:    observed,
+		Captured:    e.sb.Confines(),
+		// Anything watching has already seen these lines, so an error about
+		// this step points at them rather than printing them again (E73).
+		Streamed: e.Progress != nil,
+	}, nil
+}
+
+// platformFor is the platform a node is built for.
+//
+// The node's own platform wins, because `BUILD --platform=linux/arm64 +target`
+// means that target's steps run there. Without this the interpreter records a
+// platform, the key changes, two builds are planned - and both pull the same
+// image: a right plan and a wrong result.
+func (e *Executor) platformFor(n *ir.Node) string {
+	if n.Platform.OS != "" && n.Platform.Arch != "" {
+		p := n.Platform.OS + "/" + n.Platform.Arch
+		if n.Platform.Variant != "" {
+			p += "/" + n.Platform.Variant
+		}
+
+		return p
+	}
+
+	if e.Platform != "" {
+		return e.Platform
+	}
+
+	return DefaultPlatform()
+}
+
+// DefaultPlatform is what images are pulled for when nothing says otherwise.
+//
+// The *sandbox's* platform, not the host's. Both backends run Linux - a VM on
+// macOS, this kernel on Linux - so defaulting to runtime.GOOS asks a registry
+// for a darwin image, which no base image provides.
+func DefaultPlatform() string { return "linux/" + runtime.GOARCH }
+
+// materialiseImage ensures a base image is present in the layer store.
+//
+// Pulled once and then reused: the layer directory is named by the node's
+// identity, which is derived from the reference, so a second target using the
+// same base finds it already there. A pull that has already happened is the
+// cheapest kind.
+func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Result, error) {
+	if len(n.Op.Args) == 0 {
+		return core.Result{}, fmt.Errorf("FROM has no image reference (%s)", n.Meta.Source)
+	}
+
+	dir := filepath.Join(e.sb.StoreDir(), "layers", n.ID().String())
+
+	entries, err := os.ReadDir(dir)
+	if err == nil && len(entries) > 0 {
+		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+	}
+
+	// Through the shared cache, so the second target to name this image links
+	// it rather than pulling it again.
+	platform := e.platformFor(n)
+
+	// The configuration the pull found, kept so it can be written beside the
+	// layer once the fetch has succeeded. Empty when the image came from the
+	// shared cache and was not fetched at all.
+	pull := func(ctx context.Context, ref, into string) (ocispec.ImageConfig, error) {
+		return image.Pull(ctx, ref, into, image.Options{Platform: platform})
+	}
+
+	imageRoot := e.ImageCache
+	if imageRoot == "" {
+		imageRoot = e.sb.StoreDir()
+	}
+
+	err = fetchImageFrom(ctx, imageRoot, n.Op.Args[0], platform, dir, pull)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
+	}
+
+	return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+}
+
+// stageContext places a build context path in the layer store.
+//
+// Identity comes from the node, whose Content digest already covers the bytes
+// (green paper §3.3a via the interpreter), so a context that has not changed is
+// staged once and found thereafter.
+func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
+	if e.Context == "" {
+		return core.Result{}, fmt.Errorf("no build context configured, but %s needs one", n.Meta.Source)
+	}
+
+	dir := filepath.Join(e.sb.StoreDir(), "layers", n.ID().String())
+
+	_, err := os.Stat(dir)
+	if err == nil {
+		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+	}
+
+	// The directory this entry was read from, which for a target in another
+	// Earthfile is that Earthfile's own - not the invocation's.
+	root := n.Meta.ContextRoot
+	if root == "" {
+		root = e.Context
+	}
+
+	src := filepath.Join(root, filepath.Clean("/"+n.Op.Args[0]))
+
+	fi, err := os.Stat(src)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("build context %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
+	}
+
+	// Staged under the path it has in the context, so the guest can name it the
+	// way the Earthfile does.
+	dst := filepath.Join(dir, filepath.Clean("/"+n.Op.Args[0]))
+	err = os.MkdirAll(filepath.Dir(dst), 0o755)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("prepare the context layer: %w", err)
+	}
+
+	if fi.IsDir() {
+		err = copyDir(src, dst)
+	} else {
+		err = copyOut(src, dst)
+	}
+
+	if err != nil {
+		return core.Result{}, fmt.Errorf("stage the build context: %w", err)
+	}
+
+	return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+}
+
+// copyStep implements COPY: materialise the base, copy from the context layer,
+// capture what changed.
+func (e *Executor) copyStep(
+	ctx context.Context, n *ir.Node, base []ir.NodeID, sources [][]ir.NodeID,
+) (core.Result, error) {
+	if len(n.Op.Args) < 2 {
+		return core.Result{}, fmt.Errorf("COPY needs a source and a destination (%s)", n.Meta.Source)
+	}
+
+	// The source is what the step reads from - a staged build context, or
+	// another target's output - and is never part of the base. Looking for it
+	// among the inputs was correct only while a context was the sole kind of
+	// source; an artifact source is an ordinary node and was invisible there.
+	if len(sources) == 0 {
+		return core.Result{}, fmt.Errorf("COPY at %s has no source", n.Meta.Source)
+	}
+
+	from := sources[0]
+
+	c, err := e.client()
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	h, err := c.Materialise(ctx, base)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("materialise the base for %s: %w", n.Meta.Source, err)
+	}
+
+	defer func() { _ = h.Release() }()
+
+	err = c.Copy(ctx, h, from, n.Op.Args[0], n.Op.Args[1],
+		guest.CopyOpts{AsDir: n.Op.DirCopy, NoFollow: n.Op.NoFollow, KeepOwn: n.Op.KeepOwn,
+			Chown: n.Op.Chown})
+	if err != nil {
+		return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)
+	}
+
+	id, content, bytes, err := c.Capture(ctx, h)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)
+	}
+
+	// What the copy looked at in its base, which the guest recorded while doing
+	// the work (E119). Asked after the copy and before the handle is released,
+	// because that is the only moment both are true.
+	obs, observed := observedFrom(h)
+
+	return core.Result{
+		Layer: id, Content: content, Bytes: bytes, Captured: e.sb.Confines(),
+		Observation: obs, Observed: observed,
+	}, nil
+}
+
+// observedFrom decides whether a handle's record amounts to an observation of
+// the step, and returns it either way.
+//
+// The guest reports *what it saw*; whether that is an observation of the step is
+// a question about the whole step, which is why this is on the executor's side.
+//
+// **A lossy record is still reported.** `Observed` and `Incomplete` answer
+// different questions - "did anyone watch" and "did they see everything" -
+// and collapsing them here would throw away the distinction the scheduler needs
+// to refuse for the right reason and to say so in the build's record.
+func observedFrom(h core.Handle) (core.Observation, bool) {
+	obs := h.Observations()
+
+	return obs, len(obs.Reads) > 0 || len(obs.Listings) > 0 || len(obs.Negative) > 0
+}
+
+// Degraded reports why steps ran without the resource limits they were given.
+//
+// Passed through from the guest, which is the only party that knows: the host
+// asks for a memory ceiling and the guest is where a cgroup either exists or
+// does not. Empty when nothing was degraded, so a caller can print it
+// unconditionally (E123).
+func (e *Executor) Degraded() string {
+	// **Never starts one.** `client()` boots the sandbox on first use, and a
+	// build whose every step was cached or local is entitled never to boot one
+	// - which is the property `TestALocalOnlyBuildNeedsNoSandbox` exists to
+	// hold, and which asking this question used to break by asking it. A query
+	// with a side effect is not a query.
+	e.mu.Lock()
+	c := e.c
+	e.mu.Unlock()
+
+	if c == nil {
+		return ""
+	}
+
+	return c.Degraded()
+}
+
+// DockerNote reports why a WITH DOCKER step was given no docker client, or
+// empty if it was given one.
+//
+// Kept once and asked of the executor rather than announced, so the caller
+// decides when a build-level note belongs in its output - the same shape as
+// Degraded and as the case-insensitive store warning.
+// GuestNote says the sandbox agent is older than this engine, or nothing.
+//
+// Asked of the executor rather than computed at the call site, because the
+// executor is what knows where the guest came from - `$EARTH_GUESTD`, or beside
+// this binary - and a note naming a different file than the one that ran would
+// be worse than none (E499).
+func (e *Executor) GuestNote() string {
+	self, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+
+	guest, err := findGuestBinary()
+	if err != nil {
+		return ""
+	}
+
+	return staleGuestNote(self, guest)
+}
+
+func (e *Executor) DockerNote() string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.dockerNote
+}
+
+func (e *Executor) noteDocker(note string) {
+	if note == "" {
+		return
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.dockerNote == "" {
+		e.dockerNote = note
+	}
+}
+
+// sinkFor routes a step's live output, prefixed with where the step came from.
+//
+// The prefix is not decoration. Steps run concurrently, so their output
+// interleaves; unattributed lines are worse than none, because a user reads one
+// step's error under another step's heading and debugs the wrong command.
+func (e *Executor) sinkFor(n *ir.Node) (write func(string), done func()) {
+	if e.Progress == nil && e.Capture == nil {
+		return nil, func() {}
+	}
+
+	where := n.Meta.Source
+	if where == "" {
+		where = n.Op.Kind.String()
+	}
+
+	var pending string
+
+	emit := func(line string) {
+		if e.Progress != nil {
+			e.Progress(where, line)
+		}
+
+		if e.Capture != nil {
+			e.Capture(n, line)
+		}
+	}
+
+	write = func(chunk string) {
+		// Buffered to line boundaries: a write that splits mid-line would
+		// otherwise produce a prefix in the middle of a sentence.
+		pending += chunk
+
+		for {
+			i := strings.IndexByte(pending, '\n')
+			if i < 0 {
+				return
+			}
+
+			emit(pending[:i])
+
+			pending = pending[i+1:]
+		}
+	}
+
+	// What is left when the step ends.
+	//
+	// Buffering to line boundaries dropped it: a command whose last line has no
+	// newline printed nothing at all, and `printf hello` is such a command. It
+	// costs more than a missing line on screen - `ARG V=$(cat ./content)` takes
+	// its value from this stream, so the argument arrived empty and the failure
+	// named an assertion three lines later (E449).
+	//
+	// Nothing is emitted when the output ended cleanly: flushing an empty
+	// remainder would print a blank line after every step.
+	done = func() {
+		if pending == "" {
+			return
+		}
+
+		emit(pending)
+		pending = ""
+	}
+
+	return write, done
+}
+
+// hostStep runs a step on the invoking machine.
+//
+// No sandbox, no layer, no capture. That is what LOCALLY means, and the three
+// go together: nothing confines it, so nothing bounds what it observed, so there
+// is nothing that could honestly be cached (green paper I7). The scheduler
+// enforces the same rule; saying it here as well means a component reports the
+// truth it knows rather than relying on another to notice.
+func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error) {
+	if len(n.Op.Args) == 0 {
+		return core.Result{}, fmt.Errorf("RUN needs a command (%s)", n.Meta.Source)
+	}
+
+	cmd := osexec.CommandContext(ctx, n.Op.Args[0], n.Op.Args[1:]...) //nolint:gosec // the argv is the step
+
+	// The project directory, because a LOCALLY target's commands are written
+	// relative to the Earthfile that contains them. WORKDIR moves within it.
+	cmd.Dir = e.Context
+	if n.Op.Dir != "" && n.Op.Dir != "/" {
+		cmd.Dir = filepath.Join(e.Context, filepath.Clean("/"+n.Op.Dir))
+	}
+
+	// A host step inherits the machine's environment, with ε layered on top.
+	//
+	// This is the opposite of a sandboxed step, and the difference is not a
+	// relaxation. ε is restricted there because it must *bound what the step
+	// observed* for the key to be sound (I3). A host step has no sound key by
+	// construction - it is unsandboxed, so nothing bounds it, so it is never
+	// cached (I7) - and the restriction therefore buys no correctness while
+	// costing the feature entirely: with an empty environment there is no PATH,
+	// and a LOCALLY target cannot run `tr`, `mkdir`, or anything else that is
+	// not a shell builtin.
+	cmd.Env = os.Environ()
+	for k, v := range n.Op.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+
+	write, flush := e.sinkFor(n)
+
+	out, err := runHost(cmd, write)
+
+	flush()
+
+	if len(out) > maxHostOutput {
+		out = out[:maxHostOutput]
+	}
+
+	var exitErr *osexec.ExitError
+	if errors.As(err, &exitErr) {
+		// It ran and failed. That is a result.
+		return core.Result{Exit: exitErr.ExitCode(), Output: string(out)}, nil
+	}
+
+	if err != nil {
+		return core.Result{}, fmt.Errorf("run %s on this machine: %w", n.Meta.Source, err)
+	}
+
+	// Captured is deliberately false: see above.
+	return core.Result{Exit: 0, Output: string(out)}, nil
+}
+
+// maxHostOutput bounds what a host step's output can cost, as for a sandboxed
+// one.
+const maxHostOutput = 64 << 10
+
+// runHost executes a command, streaming its output if anyone is listening.
+func runHost(cmd *osexec.Cmd, sink func(string)) ([]byte, error) {
+	if sink == nil {
+		return cmd.CombinedOutput() //nolint:wrapcheck // the caller classifies this
+	}
+
+	var (
+		mu  sync.Mutex
+		buf []byte
+	)
+
+	w := hostWriter(func(b []byte) (int, error) {
+		mu.Lock()
+		buf = append(buf, b...)
+		mu.Unlock()
+
+		sink(string(b))
+
+		return len(b), nil
+	})
+
+	cmd.Stdout, cmd.Stderr = w, w
+
+	err := cmd.Run()
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	return buf, err //nolint:wrapcheck // the caller classifies this
+}
+
+type hostWriter func([]byte) (int, error)
+
+func (f hostWriter) Write(b []byte) (int, error) { return f(b) }
+
+// NewHostOnly returns an executor with no sandbox, for a build whose every step
+// runs on this machine.
+//
+// Any sandboxed step refuses rather than improvising one: an executor that
+// quietly started a sandbox here would make "needs no sandbox" a guess the
+// caller made and this type silently corrected.
+func NewHostOnly() (*Executor, error) { return &Executor{}, nil }
+
+// Sandbox is where this executor's layers live, if it has one.
+func (e *Executor) Sandbox() Sandbox {
+	if e.sb == nil {
+		return hostOnlyStore{}
+	}
+
+	return e.sb
+}
+
+// hostOnlyStore stands in for a sandbox that does not exist. Its store is a
+// directory beside the cache, because a host-only build still records what it
+// did even though it caches nothing.
+type hostOnlyStore struct{}
+
+func (hostOnlyStore) Start(context.Context) (Conn, error) {
+	return nil, errors.New("this build has no sandbox: every step runs on this machine")
+}
+
+func (hostOnlyStore) Stop() error      { return nil }
+func (hostOnlyStore) StoreDir() string { return os.TempDir() }
+func (hostOnlyStore) Confines() bool   { return false }
+
+// Close stops the sandbox. Idempotent, because a deferred Close and an explicit
+// one on an error path both run, and the second must not mask the first error.
+func (e *Executor) Close() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// Nothing to stop if nothing started. Not merely wasteful: the backend is a
+	// CLI that reports an unknown container as an error, so shutting down a
+	// sandbox that never began turns a clean build into one that ends by
+	// printing a failure.
+	if e.closed || e.sb == nil || !e.running {
+		return nil
+	}
+
+	e.closed = true
+
+	err := e.sb.Stop()
+	if err != nil {
+		return fmt.Errorf("stop sandbox: %w", err)
+	}
+
+	return nil
+}
+
+// LoopbackConn serves a guest in this process over an in-memory pipe, against
+// the host filesystem.
+//
+// Not a mock: it is the real Server and the real wire format, only without a
+// machine boundary, so the protocol is exercised identically to a real sandbox.
+// Callers are responsible for nothing; the temporary root is left to the OS.
+// ClosedConn is a connection to a machine that is not there.
+//
+// The listing can say a VM is running when it is gone or wedged, and this is
+// what that looks like from here: reads and writes fail immediately, so the
+// handshake fails rather than hanging. Exported because the recovery from it is
+// worth testing and cannot be provoked with a real VM on demand.
+func ClosedConn() Conn {
+	host, other := net.Pipe()
+	_ = host.Close()
+	_ = other.Close()
+
+	return &pipeConn{Conn: host, other: other}
+}
+
+func LoopbackConn() Conn {
+	// A failure here means no directory to remove either, so the fallback is
+	// recorded as *not ours*: removing os.TempDir() on Close would take the
+	// machine's whole scratch space with it.
+	root, err := os.MkdirTemp("", "earthbuild-loopback-")
+	if err != nil {
+		return loopbackIn(os.TempDir(), "")
+	}
+
+	return loopbackIn(root, root)
+}
+
+// loopbackIn serves a guest rooted at `root`, owning `own` if it is not empty.
+func loopbackIn(root, own string) Conn {
+
+	host, guestSide := net.Pipe()
+
+	srv := &guest.Server{Mat: &hostMat{root: root}, Unconfined: true}
+	go func() { _ = srv.Serve(context.Background(), guestSide) }()
+
+	// The directory is the connection's, so closing the connection takes it
+	// away. It was not, and every call left one behind: 2890 of them on the
+	// build box, whose root filesystem filled up and stopped the run gate
+	// (E473).
+	return &pipeConn{Conn: host, other: guestSide, root: own}
+}
+
+type pipeConn struct {
+	net.Conn
+
+	other net.Conn
+	// root is the scratch directory this connection's guest lives in, empty
+	// when the connection did not make one. Removed by Close.
+	root string
+}
+
+// Scratch names the directory this connection owns, empty when it owns none.
+//
+// Exported for the same reason LoopbackConn is: the rule worth testing is that
+// the directory goes away with the connection, and a test that looks for it by
+// globbing `/tmp` is reading every other test's litter as well as its own.
+func (p *pipeConn) Scratch() string { return p.root }
+
+func (p *pipeConn) Close() error {
+	err := p.Conn.Close()
+
+	otherErr := p.other.Close()
+	if err == nil && !errors.Is(otherErr, net.ErrClosed) {
+		err = otherErr
+	}
+
+	// After the pipes, so nothing is still writing into it - and reported
+	// rather than swallowed: a scratch directory that cannot be removed is how
+	// a disk fills up quietly, which is the failure this whole thing came from.
+	if p.root != "" {
+		if rmErr := os.RemoveAll(p.root); err == nil {
+			err = rmErr
+		}
+
+		p.root = ""
+	}
+
+	return err
+}
+
+// CheckRunnable reports whether this sandbox can execute a step built for a
+// platform.
+//
+// `fork/exec /bin/sh: exec format error` is what running an amd64 binary on an
+// arm64 machine looks like, and it names neither the platform nor the image nor
+// the line. The sandbox knows what it can run and the step knows what it wants,
+// so the two are compared before anything is executed.
+//
+// Only *executing* is refused. Cross-building is legitimate - a target that
+// copies files for another architecture works perfectly well - so this belongs
+// where a command is about to run rather than where an image is fetched.
+//
+// The variant is not the architecture: arm64/v8 runs arm64 code.
+func CheckRunnable(sandbox, want, where string) error {
+	if sandbox == "" || want == "" {
+		return nil
+	}
+
+	arch := func(p string) string {
+		os, rest, ok := strings.Cut(p, "/")
+		if !ok {
+			return p
+		}
+
+		a, _, _ := strings.Cut(rest, "/")
+
+		return os + "/" + a
+	}
+
+	if arch(sandbox) == arch(want) {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"%s is for %s and this sandbox runs %s, so it cannot be executed here"+
+			"\n  nothing emulates one on the other, so building for %s only moves the failure"+
+			"\n  use an image that provides %s, or run this build on a %s machine",
+		where, want, sandbox, want, sandbox, want)
+}
+
+// ExplainExec turns the kernel's `exec format error` into a sentence about
+// architectures.
+//
+// It is what running a binary built for another machine looks like, and it
+// names neither the binary's platform nor this one's. The commonest route to it
+// is an image cached before this engine checked architectures: the step asks for
+// the sandbox's own platform, so nothing compares them, and the first command
+// fails with six words.
+//
+// Explained where it surfaces, because every route ends here - including the
+// ones nobody has thought of. Anything else is passed through untouched: a
+// command that exits 1 is not a platform problem, and dressing it as one sends
+// the reader away from the cause.
+func ExplainExec(err error, sandbox, where string) error {
+	if err == nil || !strings.Contains(err.Error(), "exec format error") {
+		return err
+	}
+
+	return fmt.Errorf("%w"+
+		"\n  that is what a binary for another architecture looks like to the kernel"+
+		"\n  this sandbox runs %s, so the image %s stands on has to provide it"+
+		"\n  if this image was fetched before, clear the image cache and build again",
+		err, sandbox, where)
+}
+
+// withTerminals gives a client the sandbox's descriptor channel, where it has
+// one.
+//
+// An optional interface rather than a method on Sandbox, like `Remove` above:
+// only a backend that can pass descriptors has one, and a backend that cannot -
+// anything not on this machine - should not have to say so with a nil.
+//
+// A client without a channel refuses an interactive step by name, which is the
+// answer for every arrangement that is not one host (E189).
+func withTerminals(sb Sandbox, c *guest.Client) {
+	t, ok := sb.(interface{ Terminals() *net.UnixConn })
+	if !ok {
+		return
+	}
+
+	c.Terminals = t.Terminals()
+}
+
+// terminalFor is the terminal a step is entitled to: its own, or none.
+func terminalFor(n *ir.Node, tty *os.File) *os.File {
+	if !n.Op.Interactive {
+		return nil
+	}
+
+	return tty
+}
+
+// wouldPrime says whether a step's base is worth assembling lazily.
+//
+// Three things have to be true, and each absence means the same thing - assemble
+// the layers. A step nobody has seen before has no prediction; a step with no
+// base has nothing to prime from; an engine with no peers has no primer.
+//
+// Separate from `base` so the decision can be tested without a guest, which is
+// the only part of it worth testing on its own.
+func (e *Executor) wouldPrime(n *ir.Node, stack []ir.NodeID) bool {
+	return e.Prime != nil && len(n.Meta.ReadsPredicted) > 0 && len(stack) > 0
+}
+
+// base assembles what a step reads, lazily when it can.
+//
+// **The whole of the difference between moving a layer and moving what was
+// read.** With a primer and a prediction, a directory is primed with the paths
+// the step is expected to open and handed to the guest as a prepared base
+// (E300); anything unpredicted faults in while the step runs (E289). Without
+// either, the base is the stack of layers it has always been.
+//
+// The fall back is to the ordinary path and not to a failure: a primer that
+// cannot prime is a slower build, and every mechanism this rests on was built
+// to degrade rather than refuse (I11, E302).
+func (e *Executor) base(
+	ctx context.Context, c *guest.Client, n *ir.Node, stack []ir.NodeID,
+) (core.Handle, func(), error) {
+	want := n.Meta.ReadsPredicted
+
+	if e.wouldPrime(n, stack) {
+		into, err := os.MkdirTemp(e.Scratch, "primed-")
+		if err == nil {
+			err = e.Prime(ctx, stack, want, into)
+			if err == nil {
+				h, herr := c.MaterialisePrepared(ctx, into)
+				if herr == nil {
+					// Under the name the guest will use when it faults a path
+					// in (E303, E304). A handle with no name cannot be
+					// answered for, so the base is thrown away rather than
+					// left to fail every fault-in it receives.
+					named, ok := h.(interface{ HandleID() string })
+					if ok {
+						e.remember(named.HandleID(), primedBase{stack: stack, into: into})
+
+						return h, func() {
+							e.forget(named.HandleID())
+							_ = h.Release()
+							_ = os.RemoveAll(into)
+						}, nil
+					}
+
+					_ = h.Release()
+				}
+			}
+
+			_ = os.RemoveAll(into)
+		}
+	}
+
+	h, err := c.Materialise(ctx, stack)
+	if err != nil {
+		return nil, nil, fmt.Errorf("materialise the base for %s: %w", n.Meta.Source, err)
+	}
+
+	return h, func() { _ = h.Release() }, nil
+}

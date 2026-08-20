@@ -47,6 +47,12 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl # deprecated
+    # Renamed, not removed: golangci-lint v2 calls the same linter wsl_v5, so
+    # the line above stopped disabling anything and `default: all` switched it
+    # back on. It reported two files nobody had touched since #609, and the
+    # tool gives no warning that a disabled name no longer exists. Disabling
+    # both keeps the decision the line above was making.
+    - wsl_v5
   exclusions:
     generated: lax
   settings:

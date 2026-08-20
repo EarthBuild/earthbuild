@@ -12,3 +12,5 @@
 .DS_Store
 **/node_modules
 .gradle
+# a stray build of ./tools/mutate; the tool is run with `go run`
+/mutate

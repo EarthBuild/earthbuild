@@ -8,7 +8,9 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/util/enginetrace"
 	"github.com/moby/buildkit/client/llb"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -102,11 +104,24 @@ func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 }
 
 // Marshal is a wrapper around llb.Marshal.
+//
+// Instrumented for Phase 0: the time spent waiting for gmu is reported separately from
+// the marshal itself, because the two have different fixes. See
+// docs-internals/experiments-adversarial.md E2.
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
+	lockStart := time.Now()
+
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return s.st.Marshal(ctx, co...)
+	enginetrace.Record(enginetrace.KindLockWait, time.Since(lockStart), 0)
+
+	marshalStart := time.Now()
+	def, err := s.st.Marshal(ctx, co...)
+
+	enginetrace.Record(enginetrace.KindMarshal, time.Since(marshalStart), 0)
+
+	return def, err
 }
 
 // Run is a wrapper around llb.Run.

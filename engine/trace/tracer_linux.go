@@ -1,0 +1,465 @@
+//go:build linux
+
+package trace
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"slices"
+	"sync"
+
+	"golang.org/x/sys/unix"
+)
+
+// Sightings is what a step was seen to look at.
+//
+// Paths as the *step* named them, resolved to absolute but not translated out of
+// whatever root it was running in - that translation needs the mount, which this
+// package does not have and should not.
+//
+// **No digests, and no division into read and absent.** A notification says a
+// path was named, and nothing about how the call came out: the answer is sent
+// before the syscall runs, which is what lets every one of them proceed. Whether
+// a path was there is decided later, against the base, exactly as it is for a
+// copy's destination (engine/guest/observe.go) - a path present in the mount
+// becomes a read, one absent from it becomes a negative lookup, and both come
+// from the same list.
+type Sightings struct {
+	// Paths is sorted and deduplicated, so that two runs seeing the same things
+	// in a different order produce the same value (I12).
+	Paths []string
+	// Incomplete says this engine knows it missed something. A step whose
+	// sightings are incomplete can still be built and still be cached; what it
+	// cannot do is serve an L2 hit, because the reads it did not see are exactly
+	// the ones that would make that hit wrong (I3).
+	Incomplete bool
+	// Why names each distinct reason, sorted. A step that silently never earns
+	// an L2 hit is a performance bug nobody can find; this is what turns it into
+	// a sentence. It also makes the reasons *distinguishable* to a test, which
+	// is how the architecture check was found to be untested: without a reason,
+	// every way of losing an observation looks identical from outside (E209).
+	Why []string
+}
+
+// Reasons an observation is incomplete.
+const (
+	whyForeignArch = "a syscall in another architecture's numbering"
+	whyUnknownCall = "a trapped syscall this engine reads no path from"
+	whyUnreadable  = "a path argument that could not be read"
+)
+
+// Tracer answers notifications and remembers the paths they carried.
+//
+// One per step. The loop must keep answering whatever happens - a step whose
+// notification goes unanswered is stopped in the kernel for ever - so every path
+// through it ends in a response, and the interesting decisions are all about
+// what to *record* rather than whether to reply.
+type Tracer struct {
+	fd int
+	// listener owns the descriptor when the tracer made it itself.
+	//
+	// An `*os.File` closes its descriptor from a **finaliser**, so a tracer
+	// holding only `fd` has the listener closed the moment the file becomes
+	// unreachable - and the number is then handed out again, so `Close` closes
+	// whatever got it. It presented as `readdirent …: bad file descriptor` in an
+	// unrelated capture, four runs in five (E215).
+	//
+	// Nil when the descriptor came from somewhere else, as it does for the
+	// helper arrangement, where whoever passed it owns it.
+	listener *os.File
+	// stopR and stopW wake a blocked Run.
+	//
+	// A descriptor cannot be used for this by closing it: `receive` blocks in an
+	// `ioctl`, and **closing a descriptor does not wake a thread already inside
+	// one**. So Run waits on the listener *and* on stopR, and Close closes stopW
+	// - which is a readable event on stopR and returns from the wait at once.
+	//
+	// The lesson was already written down, in E206, in the comment on a test
+	// that consequently never joined this loop. Then the guest joined it and
+	// every traced step hung (E214). A mechanism beats a note.
+	stopR, stopW int
+	// mine is the engine's own thread, or zero when the engine has none.
+	//
+	// The filter lives on the thread that installed it, so that thread's
+	// syscalls trap alongside the step's - and that thread belongs to the
+	// engine. `exec.Cmd` with a nil Stdout opens /dev/null in the *parent*, on
+	// that very thread, so without this the plainest use of the tracer
+	// attributes /dev/null to every step that does not redirect its output.
+	//
+	// A **thread** id, and that is not a detail: `seccomp_notif.pid` is what the
+	// kernel calls `task_pid_vnr`, which for a thread is its tid rather than the
+	// process it belongs to. Comparing against `os.Getpid()` matches nothing
+	// that any non-main thread does, which is every notification this is meant
+	// to catch (E211).
+	mine uint32
+
+	// Fill fetches a path the step is about to open and this machine does not
+	// have, before the syscall is allowed to proceed.
+	//
+	// Nil for a tracer that only watches, which is what every observation-only
+	// use wants. Set, it turns the tracer into a lazy materialiser: the step is
+	// stopped in the kernel, the file arrives, and the open then finds it
+	// (E289).
+	//
+	// **Succeeding without creating anything means the file is genuinely
+	// absent**, and the syscall proceeds to its honest ENOENT. Returning an
+	// error means this engine could not obtain a file that may well exist, which
+	// is recorded as fatal - see Unfilled.
+	Fill func(path string) error
+
+	mu       sync.Mutex
+	paths    map[string]bool
+	why      map[string]bool
+	unfilled error
+}
+
+// NewTracer takes ownership of a listener returned by install.
+func NewTracer(fd int) *Tracer {
+	t := &Tracer{fd: fd, stopR: -1, stopW: -1, paths: map[string]bool{}, why: map[string]bool{}}
+
+	var p [2]int
+
+	// A pipe rather than a poll timeout: an interval is a choice between waking
+	// up for nothing and taking that long to stop, and there is no need to make
+	// it. A failure here leaves Run relying on the listener alone, which is the
+	// behaviour without this and still terminates when the last filtered process
+	// is gone.
+	if err := unix.Pipe2(p[:], unix.O_CLOEXEC); err == nil {
+		t.stopR, t.stopW = p[0], p[1]
+	}
+
+	return t
+}
+
+// Run answers notifications until the listener has no more to give.
+//
+// Returns when the descriptor is closed or the last filtered process is gone,
+// which is how a step ends. Errors from a single notification are not fatal and
+// are not silent either: each one marks the observation incomplete, because a
+// call this engine could not interpret is a read it cannot rule out.
+func (t *Tracer) Run() {
+	for {
+		if !t.waitForWork() {
+			return
+		}
+
+		n, err := receive(t.fd)
+		if err != nil {
+			return
+		}
+
+		t.handle(n)
+
+		// Always, and last. A notification left unanswered leaves the step
+		// stopped in the kernel, so this happens whatever was made of it -
+		// including nothing.
+		if err := respond(t.fd, n.ID); err != nil {
+			return
+		}
+	}
+}
+
+// waitForWork blocks until a notification is ready or the tracer is stopped.
+//
+// Reports whether there is work. The listener is polled rather than read
+// directly so that a stop can be noticed: `receive` blocks in an `ioctl` and
+// nothing short of a notification brings it back.
+//
+// Without a stop pipe - which only happens if one could not be made - this waits
+// on the listener alone and behaves as it did before, terminating when the last
+// filtered process exits.
+func (t *Tracer) waitForWork() bool {
+	fds := []unix.PollFd{{Fd: int32(t.fd), Events: unix.POLLIN}} //nolint:gosec // a descriptor is not that large
+
+	if t.stopR >= 0 {
+		fds = append(fds, unix.PollFd{Fd: int32(t.stopR), Events: unix.POLLIN}) //nolint:gosec // ditto
+	}
+
+	for {
+		_, err := unix.Poll(fds, -1)
+		if err == unix.EINTR {
+			continue
+		}
+
+		if err != nil {
+			return false
+		}
+
+		// Stopped, or the listener has gone away under us.
+		if len(fds) > 1 && fds[1].Revents != 0 {
+			return false
+		}
+
+		if fds[0].Revents&(unix.POLLERR|unix.POLLHUP|unix.POLLNVAL) != 0 {
+			return false
+		}
+
+		if fds[0].Revents&unix.POLLIN != 0 {
+			return true
+		}
+	}
+}
+
+// handle records what one notification says, or that it could not be read.
+func (t *Tracer) handle(n seccompNotif) {
+	// The engine's own thread, not the step. Answered like any other - it is
+	// stopped in the kernel and waiting - and recorded as nothing, because it is
+	// nothing the step did.
+	//
+	// Not `lose` either: this is not a gap in what was observed, it is a call
+	// that was never part of the observation. Declaring it incomplete would deny
+	// an L2 hit to every step, permanently, for a file the step never opened.
+	if t.mine != 0 && n.Pid == t.mine {
+		return
+	}
+
+	// Architecture first, before the syscall number means anything. A process
+	// may issue calls in another architecture's numbering and those numbers
+	// **overlap ours** - i386's 5 is `open`, x86-64's 5 is `fstat` - so
+	// consulting the table on a foreign call would look up a real entry and read
+	// whichever argument that entry names. A confident, wrong path.
+	//
+	// The filter traps these deliberately rather than passing them (E205), and
+	// this is what that is for: the gap gets declared.
+	if n.Data.Arch != auditArch {
+		t.lose(whyForeignArch)
+
+		return
+	}
+
+	if _, ok := pathArg(n.Data.NR); !ok {
+		// Trapped, and not something this engine knows how to read a path from.
+		// It cannot happen while the filter and the table are built from the
+		// same list, and if it ever does the honest answer is that something was
+		// looked at and this engine cannot say what.
+		t.lose(whyUnknownCall)
+
+		return
+	}
+
+	// A file the step *writes* is not a file it read.
+	//
+	// `cat x > out` opens `out` with O_WRONLY|O_CREAT|O_TRUNC, and the tracer
+	// sees a path being named like any other. Recorded as a read it becomes a
+	// prediction naming the step's own output - which the base cannot contain,
+	// so it is stale on the next build for ever: `1 of 2 predictions stale
+	// (/w/out.txt is gone from the base)` (E217).
+	//
+	// Only write-*only* is skipped. O_RDWR may read, and recording a read that
+	// did not happen costs a miss, while missing one that did costs a false hit -
+	// so the doubtful case goes the safe way.
+	if writeOnly(n) {
+		return
+	}
+
+	path, err := observedPath(n)
+	if err != nil {
+		// Unreadable is not absent. The step named *something*; recording one
+		// fewer path would be a claim this engine cannot make, so the whole
+		// observation is declared incomplete instead (I3).
+		//
+		// The errno comes with it. `whyUnreadable` alone says a step will never
+		// earn an L2 hit and not why - which is precisely the performance bug
+		// nobody can find that the reasons were added for, one level down
+		// (E209). An errno is a closed set, so this cannot grow without bound;
+		// the path and the address are deliberately left out, because they
+		// would.
+		t.lose(whyUnreadable + ": " + errnoOf(err))
+
+		return
+	}
+
+	t.fill(path)
+	t.record(path)
+}
+
+// fill fetches a path the step is about to open, if it is not here.
+//
+// **Lazy materialisation, and the whole of it.** The step is stopped in the
+// kernel *before* the open happens, so a file fetched now is a file the syscall
+// then finds. A snapshotter does this on a page fault; this does it on the
+// syscall, with a prediction in front so that most files are already here
+// (E289).
+//
+// A file that is already here costs one `Lstat` and nothing else, which is the
+// case that has to stay cheap because a good prediction makes it the only case.
+func (t *Tracer) fill(path string) {
+	if t.Fill == nil {
+		return
+	}
+
+	if _, err := os.Lstat(path); err == nil {
+		return
+	}
+
+	err := t.Fill(path)
+	if err == nil {
+		return
+	}
+
+	// **A fetch that failed is not a file that is absent**, and the difference
+	// is a wrong build rather than a slow one. A step that reads a file which
+	// exists in its base, and is handed ENOENT because a peer went away, takes
+	// the other branch and succeeds - producing a layer keyed as though the file
+	// had been looked for and not found. Nothing errors and nothing is corrupt.
+	//
+	// So it is recorded as fatal and the step is failed by whoever is running
+	// it. A file that is *genuinely* absent is not this: the filler says so by
+	// succeeding without creating anything, and the syscall proceeds to its
+	// honest ENOENT.
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.unfilled == nil {
+		t.unfilled = fmt.Errorf("could not obtain %s: %w", path, err)
+	}
+}
+
+// Unfilled is the first path this engine could not obtain for the step, if any.
+//
+// Not a count and not a list: the first failure is the one that made the step's
+// view of its base a lie, and everything after it is downstream of that.
+func (t *Tracer) Unfilled() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.unfilled
+}
+
+// record keeps a path, unless it is one that says nothing.
+func (t *Tracer) record(path string) {
+	// The root is not a read. "The filesystem has a root" decides no behaviour,
+	// while `/`'s digest carries a mode, an owner and a timestamp that move
+	// whenever anything at all is layered on the base - so recording it makes a
+	// step stale on every base change there is, which is the opposite of what
+	// the tier is for (E221).
+	//
+	// Not a gap either: nothing is lost, so the observation stays complete. The
+	// copy path reached this first and stops its ancestor walk *above* the root
+	// for the same reason.
+	if path == "/" {
+		return
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.paths[path] = true
+}
+
+// writeOnly reports that an open can only have written.
+//
+// The flags of an open sit one argument after its path - `open(path, flags)`,
+// `openat(dirfd, path, flags)` - which is derived rather than tabulated, on the
+// same argument as the directory descriptor: a second table is a second thing to
+// fall out of step with the first.
+//
+// `openat2` is not covered and is treated as a read. Its third argument is a
+// pointer to a `struct open_how` rather than a word, so the flags are in the
+// target's memory; reading them is possible and is not done here, because the
+// cost of being wrong in this direction is a miss.
+func writeOnly(n seccompNotif) bool {
+	i, ok := pathArg(n.Data.NR)
+	if !ok || !isOpenNR(n.Data.NR) || n.Data.NR == openAt2NR {
+		return false
+	}
+
+	flags := n.Data.Args[i+1]
+
+	return flags&unix.O_ACCMODE == unix.O_WRONLY
+}
+
+// isOpenNR reports whether a syscall opens a path rather than interrogating it.
+func isOpenNR(nr int32) bool {
+	for _, o := range openers {
+		if nr == int32(o) { //nolint:gosec // a syscall number fits
+			return true
+		}
+	}
+
+	return false
+}
+
+// errnoOf names the system error at the bottom of a failure, or its type.
+func errnoOf(err error) string {
+	var errno unix.Errno
+	if errors.As(err, &errno) {
+		return errno.Error()
+	}
+
+	var perr *fs.PathError
+	if errors.As(err, &perr) {
+		return perr.Err.Error()
+	}
+
+	return "no system error"
+}
+
+func (t *Tracer) lose(why string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.why[why] = true
+}
+
+// Sightings is what has been seen so far.
+//
+// Safe to call while Run is going; a caller wanting the whole of a step's
+// sightings waits for Run to return first.
+func (t *Tracer) Sightings() Sightings {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	out := Sightings{
+		Paths:      make([]string, 0, len(t.paths)),
+		Incomplete: len(t.why) > 0,
+		Why:        make([]string, 0, len(t.why)),
+	}
+
+	for p := range t.paths {
+		out.Paths = append(out.Paths, p)
+	}
+
+	for w := range t.why {
+		out.Why = append(out.Why, w)
+	}
+
+	// Both, because both are read out of maps and a map's order is not one.
+	slices.Sort(out.Paths)
+	slices.Sort(out.Why)
+
+	return out
+}
+
+// FromFile is a tracer that owns the file its listener came in.
+//
+// Keeping the file rather than its number is the whole point: see Tracer.listener.
+func fromFile(f *os.File) *Tracer {
+	t := NewTracer(int(f.Fd()))
+	t.listener = f
+
+	return t
+}
+
+// Close stops Run and releases the listener.
+//
+// The stop side is closed first and on purpose: it is what wakes a blocked Run,
+// and closing the listener first would leave Run in an `ioctl` on a descriptor
+// that no longer exists - which is not woken by the close and is then woken by
+// nothing at all.
+func (t *Tracer) Close() error {
+	if t.stopW >= 0 {
+		_ = unix.Close(t.stopW)
+		t.stopW = -1
+	}
+
+	// Through the file when there is one, so its finaliser has nothing left to
+	// do and cannot close a descriptor this number has since been reused for.
+	if t.listener != nil {
+		return t.listener.Close() //nolint:wrapcheck // os reports this verbatim
+	}
+
+	return unix.Close(t.fd)
+}

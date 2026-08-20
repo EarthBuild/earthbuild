@@ -1,0 +1,116 @@
+//go:build linux
+
+package trace
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
+)
+
+// What a traced path operation costs.
+//
+// The number that decides whether tracing can be on by default. Every open or
+// stat a traced step makes becomes a round trip: the kernel stops the caller,
+// this engine reads a notification, reads a path out of the stopped process's
+// memory, resolves it through `/proc`, and answers. None of that is free, and a
+// configure script makes thousands of them.
+//
+// Reported rather than asserted against a threshold, because the ratio depends
+// on the machine and a number baked in here would fail for being measured
+// somewhere else. The bound that *is* asserted is loose enough to mean only one
+// thing - that the loop has not stopped working - and tight enough to catch a
+// tracer that has started doing something quadratic.
+func TestWhatATracedOperationCosts(t *testing.T) {
+	dir := t.TempDir()
+
+	// A file that exists and one that does not, since the loader's traffic is
+	// mostly the second and a negative lookup resolves through the same path.
+	present := filepath.Join(dir, "present.txt")
+
+	err := os.WriteFile(present, []byte("x"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	absent := filepath.Join(dir, "absent.txt")
+
+	const rounds = 2000
+
+	work := func() {
+		var st unix.Stat_t
+
+		for range rounds {
+			_ = unix.Fstatat(unix.AT_FDCWD, present, &st, 0)
+			_ = unix.Fstatat(unix.AT_FDCWD, absent, &st, 0)
+		}
+	}
+
+	// Untraced, on this machine, now.
+	start := time.Now()
+
+	work()
+
+	plain := time.Since(start)
+
+	// Traced.
+	out := make(chan time.Duration, 1)
+	fail := make(chan error, 1)
+
+	go func() {
+		runtime.LockOSThread()
+
+		tr, err := StartOnSelf()
+		if err != nil {
+			fail <- err
+
+			return
+		}
+
+		go tr.Run()
+
+		start := time.Now()
+
+		work()
+
+		out <- time.Since(start)
+
+		select {}
+	}()
+
+	var observed time.Duration
+
+	select {
+	case err := <-fail:
+		t.Skipf("no seccomp user notification here: %v", err)
+	case observed = <-out:
+	case <-time.After(120 * time.Second):
+		// Skipped, not failed. Four thousand traced calls take thirty
+		// milliseconds on an idle machine; a box that cannot finish them in two
+		// minutes is loaded, and that is not evidence about the tracer. Seen
+		// once, while the same machine was compiling the rest of the suite.
+		t.Skip("the traced work did not finish in two minutes;" +
+			" this machine is too busy to measure on")
+	}
+
+	const calls = rounds * 2
+
+	perPlain := plain / calls
+	perObserved := observed / calls
+
+	t.Logf("%d path calls: untraced %v (%v each), traced %v (%v each), %.0fx",
+		calls, plain, perPlain, observed, perObserved,
+		float64(observed)/float64(plain))
+
+	// Loose, and it means one thing: a round trip through this engine is tens of
+	// microseconds, so anything past a millisecond each is not overhead, it is a
+	// tracer that has stopped working the way this one does.
+	if perObserved > time.Millisecond {
+		t.Errorf("a traced path call costs %v, which is not a round trip",
+			perObserved)
+	}
+}

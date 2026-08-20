@@ -1,0 +1,124 @@
+// Command earth-native builds an Earthfile with the native engine.
+//
+// A thin front end over engine/cli, which holds everything worth testing. This
+// binary exists so the engine is reachable from a terminal; it will become
+// `earthly --engine=native` once the flag is wired through the existing CLI.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/cli"
+)
+
+// buildArgs collects repeated -build-arg flags.
+type buildArgs map[string]string
+
+func (a buildArgs) String() string { return "" }
+
+func (a *buildArgs) Set(v string) error {
+	name, value, ok := strings.Cut(v, "=")
+	if !ok || name == "" {
+		// Refused rather than guessed: `-build-arg version` is a typo, and
+		// treating it as an empty value would build something the user did not
+		// ask for and say nothing.
+		return fmt.Errorf("expected NAME=VALUE, found %q", v)
+	}
+
+	if *a == nil {
+		*a = buildArgs{}
+	}
+
+	(*a)[name] = value
+
+	return nil
+}
+
+func main() {
+	var (
+		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")
+		platform = flag.String("platform", "", "os/arch to build for; the sandbox's own when empty")
+		dryRun   = flag.Bool("dry-run", false, "resolve the plan and print it without running anything")
+		stopSb   = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
+		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
+		args     buildArgs
+	)
+
+	flag.Var(&args, "build-arg", "set a build argument as NAME=VALUE; repeatable")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: earth-native [flags] <target|ls|doc>\n\n")
+		flag.PrintDefaults()
+	}
+
+	flag.Parse()
+
+	// The sandbox outlives a build on purpose. This is how it is taken away,
+	// and it takes no target because it is not a build.
+	if *stopSb {
+		err := cli.RemoveSandbox()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
+	if flag.NArg() != 1 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	// Two words that are not targets. Both read the Earthfile and neither plans
+	// or runs anything, so they are answered before a sandbox is thought about
+	// (E474).
+	switch flag.Arg(0) {
+	case "ls":
+		report(cli.List(cli.Options{Dir: *dir, Out: os.Stdout}))
+
+		return
+
+	case "doc":
+		report(cli.Doc(cli.Options{Dir: *dir, Out: os.Stdout, Long: *long}))
+
+		return
+	}
+
+	// Ctrl-C cancels the build rather than killing this process where it
+	// stands: the guest holds mounts and handles, and a mount left behind keeps
+	// a root busy until the machine is restarted. A second interrupt is not
+	// caught, so a wedged build can still be stopped (E179).
+	ctx, stop := cli.InterruptContext(context.Background())
+	defer stop()
+
+	err := cli.Run(ctx, cli.Options{
+		Dir:      *dir,
+		Target:   flag.Arg(0),
+		Platform: *platform,
+		Args:     args,
+		DryRun:   *dryRun,
+		Out:      os.Stdout,
+	})
+	if err != nil {
+		// Bare, with no "error:" prefix: these diagnostics are written to be read
+		// as prose and already name the construct, the line and the remedy.
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+// report ends the process on an error, and says nothing otherwise.
+//
+// Bare, with no "error:" prefix: these diagnostics are written to be read as
+// prose and already name the construct, the line and the remedy.
+func report(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

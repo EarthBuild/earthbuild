@@ -133,6 +133,7 @@ type WithDocker struct {
 	Pulls           []string `description:"An image which is pulled and made available in the docker cache" long:"pull"`
 	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"      long:"allow-privileged"` //nolint:lll
 	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`        //nolint:lll
+	Isolate         bool     `description:"Start a daemon of this step's own rather than sharing an outer one" long:"isolate"`       //nolint:lll
 }
 
 // Do contains options for the DO command.

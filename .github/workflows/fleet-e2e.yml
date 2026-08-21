@@ -16,7 +16,13 @@ on:
   push:
     branches: [giles-post-buildkit-engine]
     paths:
-      - engine/fleet/**
+      # Not only the fleet's own package. What a worker is given, and whether it
+      # can use what it is sent, is decided in the executor and the interpreter:
+      # pinning a reference (E508) and filing a layer under its contents (E509)
+      # both changed how much a fleet delegates, and neither would have run this
+      # workflow. A trigger list that names only the obvious package tests the
+      # obvious package.
+      - engine/**
       - cmd/earth-worker/**
       - cmd/earth-native/**
       - tests/fleet/**

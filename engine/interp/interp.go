@@ -282,7 +282,13 @@ func (p *Plan) targetIn(u *unit, name string) (*ir.Node, *state, error) {
 	// `+base` is the base recipe - the commands before the first target - and
 	// not a target in the list. The name is reserved, so a reference to it can
 	// only mean the implicit one.
-	if name == earthfile.TargetBase {
+	//
+	// Compared *after* the leading `+` is stripped, because the two spellings
+	// are one request everywhere else - `find` trims it for exactly that reason.
+	// Matching before the trim made `FROM +base` work, where the reference
+	// parser had already removed it, and `earth +base` report that no such
+	// target exists while `earth ls` listed it.
+	if strings.TrimPrefix(name, "+") == earthfile.TargetBase {
 		n, baseState, err := p.baseRecipe(u)
 		if err != nil {
 			return nil, nil, err

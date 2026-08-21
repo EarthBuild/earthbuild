@@ -493,6 +493,24 @@ func placeAll(files []linkJob) error {
 			defer wg.Done()
 
 			for j := range jobs {
+				// **Drained, never abandoned.** A worker that returned on the
+				// first error stopped receiving, and the caller - still sending
+				// on an unbounded number of entries through a channel with no
+				// buffer - blocked on a send nobody would ever take. Forever, at
+				// no CPU, with the work already done and nothing on screen to
+				// say what was being waited for.
+				//
+				// *A producer that outlives its consumers.* Skipping the work
+				// costs the remaining entries a channel receive each and keeps
+				// the one property the caller depends on: that this returns.
+				mu.Lock()
+				stop := bad != nil
+				mu.Unlock()
+
+				if stop {
+					continue
+				}
+
 				err := placeOne(j)
 				if err != nil {
 					mu.Lock()
@@ -505,8 +523,6 @@ func placeAll(files []linkJob) error {
 					}
 
 					mu.Unlock()
-
-					return
 				}
 			}
 		}()

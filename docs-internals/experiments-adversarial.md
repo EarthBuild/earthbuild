@@ -23372,3 +23372,79 @@ every digest still perfectly self-consistent.
 is the obvious way to make a tree and stamps it with now; the system's trees are stamped by the
 archive they came from. The test was asserting something true about its fixture and false about the
 engine.
+
+## E510 - cloning a base, and the hang behind it
+
+**Claim under test.** Materialising a base hard-links every entry, which is most of the wall clock of
+a cold build. APFS can clone a directory in one call.
+
+**The measurement is not close.** A Go base image, 267MB and 17,580 entries:
+
+| method                                      | time      |
+| ------------------------------------------- | --------- |
+| hard link, one entry at a time (as shipped) | 8.51s     |
+| hard link, across every core                | ~6s       |
+| `cp -Rc`, cloning each file                 | 4.12s     |
+| **`clonefile(2)` on the directory**         | **0.26s** |
+
+Copy-on-write is also the safer primitive. A hard link makes one file with two names, so a write
+through the layer store reaches into the shared image cache; a clone diverges on the first write,
+which is what a caller of a *copy* is entitled to expect.
+
+**And it hangs.** With cloning on, `+deps` against this repository's own Earthfile never finishes.
+Twice for a 900-second budget, in a step that takes seconds.
+
+### What it is not
+
+Each of these completes with cloning on, so none of them is the cause:
+
+| probe                                           | result |
+| ----------------------------------------------- | ------ |
+| small base, four RUNs (`tests/fleet`)           | 7.2s ✓ |
+| the 267MB base, one RUN                         | 5.6s ✓ |
+| the 267MB base, a shared cache mount            | 5.3s ✓ |
+| COPY from context plus a real `go mod download` | 6.9s ✓ |
+
+It takes the real target - 205 modules, 451MB, some 15,000 files - to reproduce. Scale, not shape.
+
+### Where it stops
+
+The step *completes*. Sampled while stalled: 450MB of modules land in the cache mount by t=40s, and
+then nothing moves for as long as the build is allowed to run. A goroutine dump names the host's
+position exactly:
+
+```text
+goroutine 1 [sync.WaitGroup.Wait]   core.(*Scheduler).Run  schedule.go:545
+goroutine 40468 [IO wait]           exec.(*duplex).Read -> guest.(*conn).recv
+goroutine 40469 [select]            guest.(*Client).RunStep -> doStream
+```
+
+The host is waiting for a reply, correctly. **The guest never sends one**, and the VM is at 0.0% CPU
+while it does not - so this is a deadlock in the guest and not slow hashing, which is what a capture
+of a large tree would have looked like.
+
+*The absence of work is the diagnosis.* A guest that was hashing 450MB would show it; one that is
+idle is waiting for something that is not coming. The next question is what the guest is blocked on
+after a step it has finished, and answering it needs a stack from inside the VM rather than another
+hypothesis from outside.
+
+Suspected, unproven: the guest mounts the placed tree as an overlay lowerdir, and a clone shares
+extents where a link shares inodes. E89 records `layer.Take` depending on inode identity to find hard
+links, and an alpine base is full of them - every busybox applet.
+
+### A different deadlock, found on the way and real
+
+The first suspicion was a producer that outlives its consumers, and it was there, in code written the
+same evening: `placeAll` fills an unbuffered channel while its workers return on the first error. If
+every worker gives up, the caller blocks on a send nobody will ever receive - forever, at no CPU,
+with the work already on disk.
+
+It is a genuine bug on the link path, which the capture after every step reaches through `squash`. It
+is fixed, with a test that fails by hanging rather than by asserting. It is **not** the hang above:
+cloning skips that path entirely, and the build still stops.
+
+*Two bugs with one signature.* Both present as a build at 0% CPU with its work apparently done, and
+finding the first is exactly what makes it tempting to stop looking.
+
+**Left off**, behind `EARTH_CLONE_TREES`. A 30x improvement on the largest fixed cost of a cold build
+is worth returning to; a build that does not finish is not worth shipping for it.

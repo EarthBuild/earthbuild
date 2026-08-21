@@ -222,7 +222,7 @@ runs:
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
         if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        ${INPUTS_SUDO} ./earthly upgrade
+        ${INPUTS_SUDO} env TAG="${TAG}" ./earthly upgrade
         ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"

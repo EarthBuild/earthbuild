@@ -23536,3 +23536,36 @@ throughput floor under the one construct that exists to make repeated builds fas
 
 A cache mount does not need the *host* to see it. It needs to outlive the build, which a disk image
 attached to the sandbox does equally well.
+
+### E511, corrected: the share is slower, but not by twelve
+
+The entry above attributes a 12x difference to the host share on the strength of one pair of
+observations - 30s writing to guest-local scratch, over 380s writing to a cache mount. Measuring the
+share directly does not support that ratio.
+
+Inside the guest, 4,000 files, one process and no forks:
+
+| operation              | guest-local | host share | ratio |
+| ---------------------- | ----------- | ---------- | ----- |
+| untar (create + write) | 2.44s       | 3.69s      | 1.5x  |
+| tar read               | 0.39s       | 1.32s      | 3.4x  |
+| `rm -rf`               | 0.17s       | 1.11s      | 6.5x  |
+
+And it does not collapse under concurrency, which was the obvious explanation for a sequential test
+missing something: four parallel untars scale on the share exactly as they do locally (7.55s serial
+to 4.03s parallel, against 4.85s to 2.49s).
+
+**So the mechanism is real and the magnitude is not established.** A 1.5x write penalty does not
+produce a twelvefold slowdown. What produced the 380 seconds is unexplained: the candidates are
+descriptor pressure at the time (E510's amplifier), or variance in `go mod download` itself, and the
+re-measurement that would separate them was abandoned when the machine failed its own quietness gate
+six sandboxes deep.
+
+*A ratio taken from one pair of runs.* The two numbers were real, the difference was real, and the
+cause attributed to it was the one being investigated at the time. Two earlier findings this week
+went the same way - a hang blamed on `clonefile` and a 21-second saving inflated by cache order - and
+each was corrected by measuring the mechanism rather than the outcome.
+
+**The first two measurements a benchmark should take are of the machine.** Every wrong number here
+came from an apparatus that was not fit at the moment it was read, and `tools/bench/quiet.sh` exists
+because of it - then reported LOUD and was overridden by the person who had just written it.

@@ -8450,3 +8450,35 @@ case `shared` exists for, and §3.3c would have to say so rather than leave a re
 **Not decided.** The first is a measurement waiting to be acted on; the second is a trade that wants
 somebody to decide whether intra-build sharing or cross-machine sharing is worth more, and the answer
 probably differs between a laptop and a fleet.
+
+## Decided: a host share is not the default storage
+
+**Decision, 2026-08-21.** The layer store and cache mounts stop defaulting to a directory shared from
+the host. Guest-owned storage - a block device attached to the sandbox - becomes the default, with a
+host share available for the cases that need the host to see the bytes.
+
+The case for it is cumulative rather than any single number, which is why it survived one of those
+numbers being wrong:
+
+| what the share costs                                                          | where         |
+| ----------------------------------------------------------------------------- | ------------- |
+| uid and gid lost, so `--keep-own` cannot work                                 | E84           |
+| a whiteout is a character device; `mknod` returns `EPERM`                     | E88, E94      |
+| a stored layer never re-digests to its own name on macOS                      | E89, reopened |
+| the sandbox holds one descriptor per file in the store - 40,000 for one build | E510          |
+| 1.5x to 6.5x on file operations, by operation class                           | E511          |
+
+The last one was first reported as twelvefold and corrected; the decision does not rest on it. Four
+of the five are correctness costs that no amount of tuning removes, and three of them have already
+been worked around once each, in three different places, by three different mechanisms.
+
+**What it does not fix.** The host currently reads the store directly, and two things rely on it:
+`placeCaptured` captures a materialised tree host-side, and `Layers.Get` packs a layer host-side to
+serve it to a fleet peer. Both become guest-mediated, which turns a filesystem walk into a protocol.
+That is the work this decision buys, and it is not small.
+
+**What to keep from the share.** Nothing about the *image cache* needs to move: it is written by the
+host, read by the host, and only its materialised output ever reaches a guest.
+
+Sequenced after the two cache-mount entries above, which this subsumes: moving cache mounts off the
+share *is* this change, applied to the storage that showed the cost first.

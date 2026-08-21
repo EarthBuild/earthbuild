@@ -8597,3 +8597,46 @@ first time.
 
 Two and four are the storage question. Six is a protocol question and it is the one with a fleet
 attached: every worker that receives a base pays a full hash of it, and there may be many.
+
+### Unpacking only what is read: mostly built, and off
+
+Packing and unpacking whole layers is the dominant handling, and the remedy is the one every
+lazy-pull format implements: place a layer without its contents and fetch a file when something opens
+it. The specification already anticipates the formats (§3.2 names eStargz, zstd:chunked and nydus as
+*encodings* rather than identities) and already specifies the thing that makes lazy placement pay -
+masks, which record which files a step actually reads (Appendix A).
+
+**The machinery is here.** A fleet worker fetches fragments rather than layers today: `WithFragments`
+"makes a worker fetch only what a step is predicted to read", the guest has a fills channel, and
+`ServeFills` answers faults from the host.
+
+**It is off where it would help most.**
+
+| path                  | lazy fault-in                                 |
+| --------------------- | --------------------------------------------- |
+| fleet worker          | yes - fragments, predicted from masks         |
+| Linux native sandbox  | channel wired, fills served                   |
+| **darwin VM sandbox** | **not wired** - no `EARTH_GUEST_FILLS` at all |
+
+So every measurement in this document taken on macOS materialised each base image whole, eagerly,
+through the slowest transport available, while the code to avoid that sat one environment variable
+away from being reachable.
+
+*A capability built for the hard case and never turned on for the easy one.* Fault-in was written for
+a worker fetching across a network, where the saving is obvious. The local guest reading a shared
+directory is the same problem with a shorter wire, and it was never connected - the comment in
+`guest.go` says "nil for every build today" and has been right for every build since.
+
+**What is actually missing**, as opposed to unwired:
+
+* nothing *decides* to place a layer sparsely on a local build - the materialiser always places the
+  whole tree, so there is nothing for the fills channel to answer;
+* the prediction that makes it worth doing is 𝔐, and a mask has to exist before the first build that
+  benefits from it - the first build of anything pays full price and learns;
+* and a fault-in on the local path must be cheaper than the read it replaces, which over a shared
+  mount it plainly is and on a local disk it plainly is not. It is a property of the transport, not
+  of the engine, so it wants to be a decision the sandbox makes rather than a constant.
+
+This is the cheapest of the open storage questions, because the answer is mostly wiring rather than
+design, and it is the one that most directly serves *move the data less*: a base image that is never
+read is never moved.

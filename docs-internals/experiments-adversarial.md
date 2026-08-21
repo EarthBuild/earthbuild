@@ -23815,3 +23815,53 @@ E516 stayed silent through a later one.
 So there are two failures wearing one symptom, or one failure with two presentations, and the
 distinguishing evidence is still missing. What is no longer missing is the priority: **this engine
 does not need to be faster, it needs to finish.**
+
+## E518 - the hang was a pipe closed by its own watcher
+
+**Caught, at last, by not watching.** An intermittent stall had survived four investigations: blamed
+on `clonefile` (wrong), on the host share (wrong), on a stale guest (partly), and left as "two
+failures wearing one symptom". A script that built in a loop and captured everything on the first
+stall found it on its first attempt.
+
+What it captured:
+
+```text
+=== guest processes:      (empty - no guest in the container)
+=== guest load/mem:  0.09 0.02 0.01   Mem: 8005 total, 61 used
+=== host:  goroutine 1 [sync.WaitGroup.Wait]  core.(*Scheduler).Run
+```
+
+The guest was gone, the VM was idle and nowhere near out of memory, and the guest had said nothing on
+its way out - no panic, no error, no signal. A silent, clean exit.
+
+**A clean exit is the clue.** `Serve` returns nil on EOF, `run` returns, `main` exits. So the guest's
+*stdin closed*. Nothing in the guest closes it, which leaves the host - and the host had just been
+given a new reason to:
+
+> Wait will close the pipe after seeing the command exit, so most callers need not close it
+> themselves; **it is thus incorrect to call Wait before all writes to the pipe have completed**.
+> - `os/exec`, on `StdinPipe`
+
+E516 added a watcher that calls `cmd.Wait()` in a goroutine started with the guest, precisely so a
+dead guest would be noticed. `Cmd` owns the pipes `StdinPipe` makes and closes them in `Wait`, so the
+watcher's whole purpose put it in the one position the documentation forbids. The engine now makes
+its own pipes with `os.Pipe` and hands the child ends over, so `Wait` has nothing of ours to close.
+
+Eight consecutive runs, no stall: 17s for the first (a cold VM), then 7, 7, 8, 7, 9, 7, 7. Against
+buildkit's 7-8s on the same work.
+
+*A watcher that caused what it was watching for.* The fix in E516 was right about the disease - a
+guest can die and leave the host waiting - and its implementation introduced a way for the guest to
+die. The stall predates it, so this cannot be the whole history; what it is, is a mechanism that was
+definitely there, definitely wrong, and definitely capable of producing exactly the symptom.
+
+**Eight runs is not proof** at a rate of one in five to ten. The catcher runs again.
+
+### Why it took five attempts
+
+Every previous investigation reasoned from a summary: a timing, a store size, a log tail. Each was
+consistent with several stories and I picked one each time. The thing that worked was refusing to
+reason at all until the machine was stopped mid-failure with its processes, memory and stacks
+recorded together - which took a script, because the failure only happened when nobody was watching.
+
+*Diagnose from the crime scene, not the police report.*

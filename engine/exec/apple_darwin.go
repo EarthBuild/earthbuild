@@ -369,22 +369,45 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 
 	cmd := osexec.CommandContext(ctx, "container", args...) //nolint:gosec // a fixed argv
 
-	stdin, err := cmd.StdinPipe()
+	// **Our own pipes, not `StdinPipe`.** `Cmd` owns the pipes it makes and
+	// closes them in `Wait`, and its documentation says calling `Wait` before
+	// every write has completed is incorrect - which a watcher started
+	// alongside the guest does by construction. The symptom is the guest's
+	// stdin closing under it: `Serve` reads EOF, returns nil, and the guest
+	// exits cleanly and silently, leaving the host waiting for a reply from a
+	// process that decided it was finished (E518).
+	inR, stdin, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("guest stdin: %w", err)
 	}
 
-	stdout, err := cmd.StdoutPipe()
+	stdout, outW, err := os.Pipe()
 	if err != nil {
+		_ = inR.Close()
+		_ = stdin.Close()
+
 		return nil, fmt.Errorf("guest stdout: %w", err)
 	}
+
+	cmd.Stdin = inR
+	cmd.Stdout = outW
 
 	// Guest diagnostics go to our stderr rather than being discarded: when the
 	// guest refuses to start, its reason is the only useful thing on the screen.
 	cmd.Stderr = os.Stderr
 
 	err = cmd.Start()
+
+	// The child holds its own ends now. Keeping ours open would mean the read
+	// below never sees EOF even when the guest is gone, which is the failure
+	// this whole arrangement exists to make visible.
+	_ = inR.Close()
+	_ = outW.Close()
+
 	if err != nil {
+		_ = stdin.Close()
+		_ = stdout.Close()
+
 		return nil, fmt.Errorf("start earth-guestd in the sandbox: %w", err)
 	}
 

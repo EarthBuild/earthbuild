@@ -16,7 +16,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -254,6 +256,29 @@ func walk(root string) ([]entry, int64, error) { return walkNeeding(root, true) 
 // The contents of what survives the filter are filled in afterwards, by
 // `fillContents`, which is the only place that knows what survived.
 func walkNeeding(root string, contents bool) ([]entry, int64, error) {
+	// A root that is itself a file is handled whole by walkOne, contents
+	// included, and its entry is named by its basename rather than by a path
+	// under the root - so filling it again would look for `f/f`. The single-file
+	// case is the one where the split below does not apply.
+	if fi, err := os.Lstat(root); err == nil && !fi.IsDir() {
+		return walkOne(root)
+	}
+
+	entries, size, err := walkMetadata(root)
+	if err != nil || !contents {
+		return entries, size, err
+	}
+
+	err = fillContents(root, entries)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return entries, size, nil
+}
+
+// walkMetadata is the ordered half: every entry, without any file's contents.
+func walkMetadata(root string) ([]entry, int64, error) {
 	// A root that is itself a file is digested as one entry named by its base.
 	// The walk below skips its own root - correct for a directory, where the root
 	// is the layer rather than a member of it - which for a file meant hashing
@@ -316,14 +341,11 @@ func walkNeeding(root string, contents bool) ([]entry, int64, error) {
 			e.size = info.Size()
 			size += info.Size()
 
-			if !contents {
-				break
-			}
-
-			e.content, err = contentDigest(p)
-			if err != nil {
-				return err
-			}
+			// Contents are not read here even when they are wanted. The walk is
+			// ordered and one file at a time; hashing is neither, and it is
+			// where the time goes - a capture of a 267MB base image spent 1.98s
+			// of its 2s in this one line, on one core of however many the
+			// machine has. See fillContents.
 		}
 
 		xs, err := readXattrs(p)
@@ -453,7 +475,66 @@ func ObservedOwnerForTest(t *testing.T, fn func(uid, gid uint32) (uint32, uint32
 // a directory carried along to scaffold a fragment has none, and asking for one
 // would read a directory as a file.
 func fillContents(root string, entries []entry) error {
-	for i := range entries {
+	// Hashing is CPU-bound and every file is independent of every other: each
+	// worker writes to its own index of a slice that is already the right
+	// length, so nothing is shared and nothing needs ordering. A capture of a
+	// 267MB base image spent 1.98 seconds reading files on a single core, and
+	// every RUN in every build pays a capture.
+	//
+	// Bounded by CPU count. The work is hashing rather than waiting, so more
+	// goroutines than cores buys nothing and costs scheduling.
+	workers := min(runtime.NumCPU(), len(entries))
+	if workers < 2 {
+		return fillRange(root, entries, 0, len(entries))
+	}
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		bad  error
+		next atomic.Int64
+	)
+
+	for range workers {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			// Claimed one at a time rather than sliced into equal parts: a
+			// layer's files vary in size by orders of magnitude, and a fixed
+			// split leaves one worker holding every large file while the rest
+			// finish early.
+			for {
+				i := int(next.Add(1)) - 1
+				if i >= len(entries) {
+					return
+				}
+
+				err := fillRange(root, entries, i, i+1)
+				if err != nil {
+					mu.Lock()
+
+					if bad == nil {
+						bad = err
+					}
+
+					mu.Unlock()
+
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return bad
+}
+
+// fillRange reads the contents of entries[from:to].
+func fillRange(root string, entries []entry, from, to int) error {
+	for i := from; i < to; i++ {
 		if !fs.FileMode(entries[i].mode).IsRegular() {
 			continue
 		}

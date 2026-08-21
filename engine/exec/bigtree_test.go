@@ -87,6 +87,34 @@ func bigTree(t *testing.T, n int) string {
 
 	stamp := time.Unix(1000000000, 0)
 
+	err = os.MkdirAll(staging, 0o755)
+	if err != nil {
+		t.Fatalf("build the fixture: %v", err)
+	}
+
+	// Spotlight indexes anything under a checkout, and a hundred thousand files
+	// is a hundred thousand files to index: `mds_stores` sat at 104% CPU after
+	// this fixture first appeared, which is a benchmark ruined by a test that is
+	// not even running. macOS honours this marker; elsewhere it is a file nobody
+	// reads.
+	//
+	// **Written before the stamping, not after.** It has to live inside the
+	// tree to work, so it is part of what the tree digests to - and a file added
+	// after the mtimes were fixed carries the wall clock and re-dirties the
+	// directory it lands in. The same mistake as the completion marker, which
+	// could be moved outside; this one cannot.
+	indexed := filepath.Join(staging, ".metadata_never_index")
+
+	err = os.WriteFile(indexed, nil, 0o644)
+	if err != nil {
+		t.Fatalf("mark the fixture unindexable: %v", err)
+	}
+
+	err = os.Chtimes(indexed, stamp, stamp)
+	if err != nil {
+		t.Fatalf("stamp the fixture: %v", err)
+	}
+
 	// Spread across directories: a layer is not one flat directory, and a
 	// filesystem behaves differently when it is.
 	for i := range n {
@@ -127,16 +155,6 @@ func bigTree(t *testing.T, n int) string {
 
 	for i := len(dirs) - 1; i >= 0; i-- {
 		_ = os.Chtimes(dirs[i], stamp, stamp)
-	}
-
-	// Spotlight indexes anything under a checkout, and a hundred thousand files
-	// is a hundred thousand files to index: `mds_stores` sat at 104% CPU after
-	// this fixture first appeared, which is a benchmark ruined by a test fixture
-	// that is not even running. macOS honours this marker; elsewhere it is an
-	// empty file nobody reads.
-	err = os.WriteFile(filepath.Join(staging, ".metadata_never_index"), nil, 0o644)
-	if err != nil {
-		t.Fatalf("mark the fixture unindexable: %v", err)
 	}
 
 	err = os.Rename(staging, dir)

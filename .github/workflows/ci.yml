@@ -245,7 +245,7 @@ jobs:
     uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "podman"
-      SUDO: "sudo -E"
+      SUDO: "sudo"
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
@@ -259,7 +259,7 @@ jobs:
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: "podman"
-      SUDO: "sudo -E"
+      SUDO: "sudo"
     secrets:
       DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
       DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}

@@ -57,17 +57,6 @@ runs:
       shell: bash
       run: |
         unset CI
-    - name: Configure sudo to preserve environment
-      if: inputs.SUDO != ''
-      shell: bash
-      run: |
-        # Allow sudo to preserve full environment and home directory on Ubuntu 26.04+
-        echo '# Preserve runner environment and home directory across sudo' | ${INPUTS_SUDO} tee /etc/sudoers.d/99-preserve-env > /dev/null
-        echo 'Defaults !env_reset' | ${INPUTS_SUDO} tee -a /etc/sudoers.d/99-preserve-env > /dev/null
-        echo 'Defaults !always_set_home' | ${INPUTS_SUDO} tee -a /etc/sudoers.d/99-preserve-env > /dev/null
-        ${INPUTS_SUDO} chmod 0440 /etc/sudoers.d/99-preserve-env
-      env:
-        INPUTS_SUDO: ${{inputs.SUDO}}
     - name: Check if running on fork
       id: fork-check
       shell: bash
@@ -233,7 +222,7 @@ runs:
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
         if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        ${INPUTS_SUDO} ./earthly upgrade
+        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earthly upgrade
         ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"

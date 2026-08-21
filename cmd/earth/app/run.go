@@ -448,7 +448,7 @@ func (app *EarthApp) printCrashLogs(ctx context.Context) {
 	logs, err := buildkitd.GetLogs(ctx,
 		app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().ContainerFrontend, app.BaseCLI.Flags().BuildkitdSettings)
 	if err != nil {
-		app.BaseCLI.Log().Warnf("failed fetching earthly-buildkit logs: %s\n", err.Error())
+		app.BaseCLI.Log().Warnf("failed fetching %s logs: %s\n", app.BaseCLI.Flags().ContainerName, err.Error())
 	} else {
 		app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "Buildkit Logs", "")
 		fmt.Fprintln(os.Stderr, logs) // #nosec G705

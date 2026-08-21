@@ -162,7 +162,7 @@ func (gr *gitResolver) resolveEarthProject(
 	localBuildFile, err := gr.buildFileCache.Load(
 		ctx, key,
 		func(ctx context.Context) (*buildFile, error) {
-			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
+			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earth-git")
 			if inErr != nil {
 				return nil, fmt.Errorf("create temp dir for Earthfile: %w", inErr)
 			}
@@ -284,7 +284,7 @@ func (gr *gitResolver) resolveGitProject(
 			if gr.lfsInclude != "" {
 				// TODO this should eventually be inferred by the contents of a COPY command, which means the call
 				// to resolveGitProject will need to be lazy-evaluated. However this makes it really difficult for
-				// an Earthfile which first has an ARG EARTHLY_GIT_HASH, then a RUN, then a COPY
+				// an Earthfile which first has an ARG EARTH_GIT_HASH, then a RUN, then a COPY
 				gitOpts = append(gitOpts, llb.LFSInclude(gr.lfsInclude))
 			}
 

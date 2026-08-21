@@ -132,7 +132,7 @@ lint:
     FROM +go
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.12.2
+    LET golangci_lint_version=2.13.0
     RUN curl -sSfL --retry 7 --retry-all-errors -o /tmp/golangci-install.sh https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh && \
         sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
         rm /tmp/golangci-install.sh
@@ -355,7 +355,7 @@ earthly:
             -ldflags "$(cat ./build/ldflags)" \
             -gcflags="${GO_GCFLAGS}" \
             -o build/$EXECUTABLE_NAME \
-            cmd/earthly/*.go
+            cmd/earth/*.go
     SAVE ARTIFACT ./build/tags
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"

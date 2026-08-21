@@ -17,13 +17,13 @@ import (
 	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
 	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
 	// to ensure it happens before other packages initialize.
-	_ "github.com/EarthBuild/earthbuild/cmd/earthly/disable_alpn"
+	_ "github.com/EarthBuild/earthbuild/cmd/earth/disable_alpn"
 
-	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/cmd/earth/app"
+	"github.com/EarthBuild/earthbuild/cmd/earth/base"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	eFlag "github.com/EarthBuild/earthbuild/cmd/earth/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"

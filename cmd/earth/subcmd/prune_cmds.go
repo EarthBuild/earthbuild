@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"

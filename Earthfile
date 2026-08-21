@@ -355,7 +355,7 @@ earthly:
             -ldflags "$(cat ./build/ldflags)" \
             -gcflags="${GO_GCFLAGS}" \
             -o build/$EXECUTABLE_NAME \
-            cmd/earthly/*.go
+            cmd/earth/*.go
     SAVE ARTIFACT ./build/tags
     SAVE ARTIFACT ./build/ldflags
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"

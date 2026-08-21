@@ -19,6 +19,7 @@ linters:
     - errcheck
     - errchkjson
     - exhaustruct
+    - exhaustruct_v5
     - forbidigo
     - funcorder
     - funlen

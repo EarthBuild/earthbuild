@@ -23608,3 +23608,34 @@ XFS could, and `container volume create` does not offer the choice.
 **Standing caveat, still unresolved.** Buildkit's `go mod download` reports a cache miss after
 `prune --reset`, but whether its cache-mount *contents* survive that reset was never established. If
 they do, its cold number is flattering and the true gap is smaller than 2.0x.
+
+## E513 - copying a layer to fast storage is slower than reading it slowly
+
+**Claim under test.** Cache mounts moved to a block device the guest owns and a cold build went from
+31.8s to 24.8s. The layer store is still on the host share, and a lower layer on a shared mount is
+read *through* it - so copying each layer to the volume before a step reads it should win too.
+
+**It does not.** Cold `+deps`, three runs with the copy against one without:
+
+| arrangement                       | cold                |
+| --------------------------------- | ------------------- |
+| layers read from the share        | 24.8s               |
+| layers copied to the volume first | 26.6s, 26.7s, 26.9s |
+
+Consistently a little worse, and the reason is arithmetic rather than mysterious: the copy is
+**eager and whole**, and a step's reads are **lazy and partial**. Materialising
+`golang:1.26.5-alpine3.24` copies 267MB and 17,580 files across the boundary; the steps that follow
+open a few hundred of them. Paying for the whole layer to avoid reading part of it is a trade that
+only pays when the part approaches the whole.
+
+*An optimisation that assumes its own workload.* The measurement that would have predicted this - how
+much of a base image a step actually reads - was never taken, because the argument was about
+transports rather than about the files.
+
+**What it does not disprove.** Moving the store itself onto owned storage stands: it removes the
+boundary crossing without paying a copy at all, which is the difference between relocating the data
+and duplicating it. The copy is a cache, and this one has a hit rate that does not repay it.
+
+Reverted. It would be worth revisiting for a build with many steps over one base, where the copy is
+amortised - but that is a conditional nobody has measured, and shipping it on the strength of the
+condition being plausible is how this entry happened.

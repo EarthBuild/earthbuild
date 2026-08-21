@@ -23779,3 +23779,39 @@ read side, and reports the exit status.
 
 That is worth having whatever caused the stalls: a build that ends with "the guest in this sandbox
 exited" is one somebody can act on, and one that hangs for ever is a build tool nobody trusts.
+
+## E517 - on equal work, the gap is not there
+
+**Every gap reported in this document compared unequal work.** Buildkit's 9.10s in E516 did not run
+`apk add git` or materialise a base: those layers were cache hits, and only the fresh cache-mount id
+forced `go mod download` to re-run. Ours ran all three, from an empty store. The 1.5x was the
+difference in what was done, not in how fast it was done.
+
+Given the same work - a warm store on both sides, a cache-mount id neither has seen, so only the
+download is cold:
+
+| round | earth     | earthly |
+| ----- | --------- | ------- |
+| 1     | 8s        | 7.9s    |
+| 2     | 7s        | 8s      |
+| 3     | *stalled* | 7s      |
+
+**Parity.** Ours reports `6 hit, 1 miss` and buildkit reports one cache miss, so both engines agree
+about what there was to do.
+
+*A benchmark that compares two engines doing different work.* Ours was measured from an empty store
+because that is what "cold" meant while the store was the thing being changed; buildkit was measured
+after `prune --reset`, which empties its build cache and leaves its image layers. Neither was wrong
+on its own terms, and together they were a factor of two that did not exist.
+
+### What is actually slower
+
+The stall. Roughly one run in five to ten hangs until its timeout, on both engines' worth of
+identical input, and an infinite build is worse than any ratio. It is not the stale guest - E516
+suspected that and it recurs with the guest built from the same commit - and it is not consistently a
+dead guest either: one occurrence had no guest process in the container, and the watcher added in
+E516 stayed silent through a later one.
+
+So there are two failures wearing one symptom, or one failure with two presentations, and the
+distinguishing evidence is still missing. What is no longer missing is the priority: **this engine
+does not need to be faster, it needs to finish.**

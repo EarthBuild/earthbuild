@@ -8329,29 +8329,27 @@ The protocol gains a message, so this is a version bump. It is the last thing be
 engine and a fleet that does any work, and it is a prerequisite for measuring whether a fleet is
 faster - a question this plan has answered so far only for the scheduler.
 
-## Open decision: what name a layer travels under
+## Conformance: a layer travels under its own digest
 
-A fleet forms across machines and delegates real work (E506), and it cannot share a base (E507). The
-second is one decision away, and it is a decision rather than a fix.
+Not an open decision. §2.2, §3.2 and §3.3a already settle it, and the implementation does not do
+what they say - so this is a defect to be worked off rather than a design to be chosen (E507).
 
-A layer directory is named by its node id - the cache key of the operation that produced it. The
-transport files an arrival under the capture of its contents and checks that against the id it asked
-for, which compares two namespaces. §5.3 now records the gap; this is the choice that closes it.
+The specification's shape is the one every distributed build converges on: a content-addressed store
+keyed by digest, and a separate map from cache key to the digest of the result. `𝔅 : 𝔻 ⇀ 𝔹` with
+(2.2) `ℋ(𝔅[𝑑]) = 𝑑` is the first; `𝔄 : 𝕂 ⇀ 𝔸` is the second. This engine collapsed them into one
+directory named by the cache key, which is why a peer cannot check what arrives.
 
-| Option                                        | What is trusted                           | Cost                                                  |
-| --------------------------------------------- | ----------------------------------------- | ----------------------------------------------------- |
-| keep the node id, sender declares the capture | a declaration the receiver recomputes     | one more field on the wire; the store keeps its shape |
-| name directories by content, map the node id  | nothing - integrity holds by construction | an indirection on every lookup, and a migration       |
+| defect                                                               | violates          |
+| -------------------------------------------------------------------- | ----------------- |
+| layer directories named by node id rather than `ℓ_id`                | §2.2, §3.2, §3.3a |
+| the image cache describes itself as content-addressed *by reference* | §3.2              |
+| a mutable reference is never pinned, so a moving tag keeps one key   | §3.4d, I3, I17    |
 
-The first is smaller and is the one this engine's other declarations already look like: `Layers.Put`
-takes the sender's ownership account and checks it rather than trusting it, which is the same shape.
-The second is what the specification currently *assumes* - Appendix A.1 says a layer "is
-content-addressed" - and that assumption is why the gap went unnoticed.
+**What the store change costs.** Layer lookup gains one indirection (key to digest, then digest to
+tree) and gains deduplication for free, since two derivations producing identical output become one
+entry. Existing stores are named the old way, so it wants a store-layout version rather than a
+rename in place: an old store is not wrong, it is a different shape, and the safe migration is to
+let it age out.
 
-**Recommendation: the first**, on the grounds that it changes one message rather than what a layer
-store is, and that the check it rests on is one the receiver performs itself. Not taken unilaterally:
-it moves what a trust boundary rests on, and §5.3 is the document that should say so before the code
-does.
-
-Until then a fleet pays for every base on every machine. That is a cost, not a correctness problem -
-the digest check refuses the mismatch and the driver runs the step itself.
+**What it buys.** A fleet can share a base. Today every machine fetches its own, which is the cost
+E507 measured and the reason a fleet's second machine is worth less than it should be.

@@ -23241,3 +23241,38 @@ wants the green paper open at §5.3, not a quick edit.
 **What this cost, and what it did not.** Nothing: the digest check caught it every time, the driver
 ran the step itself, and both builds were correct. What it costs is the point of a fleet - a base
 that cannot be shared is a base every machine fetches for itself.
+
+### Correction: the specification was not the gap
+
+The entry above concludes that the specification is silent on what name a layer travels under, and
+proposes two resolutions. That is wrong, and the paragraph in §5.3 that recorded it has been
+removed.
+
+The specification says all three of these already:
+
+```text
+(2.1)    σ ≡ (𝔅, 𝔄, 𝔐, 𝔇, ℜ)         𝔅 : 𝔻 ⇀ 𝔹,   𝔄 : 𝕂 ⇀ 𝔸
+(2.2)    ∀ 𝑑 ∈ dom(𝔅) :  ℋ(𝔅[𝑑]) = 𝑑
+(3.1)    id(ℓ) ≡ ℋ(uncompressed canonical tar of ℓ)
+```
+
+§3.2 opens "a layer ℓ ∈ 𝕃 is a **content-addressed** filesystem delta", and §3.3a says of ℓ_id that
+it "is stored in 𝔄, **transferred between workers**, and reproduced by a restore". A content store
+keyed by digest, a separate map from cache key to result digest, and a statement that the digest is
+what crosses the wire. The design was specified before it was implemented; the implementation
+collapsed the two maps into one directory named by the cache key.
+
+*A gap reported where a conformance failure was.* The two are opposite instructions to whoever picks
+the work up: a gap says stop and decide, a conformance failure says do what the paper already says.
+Half an hour was spent drafting alternatives for a decision that had been made, and the draft was
+published in the normative document, where a reader would have taken it for an open question on the
+authority of it being there at all.
+
+**What made it easy.** The implementation reads coherently on its own: the store's shape, `keep`'s
+comment about not filing under the asked-for digest, the transport - all consistent with each other
+and none of them consistent with §2. It was read as the system, and the specification as
+commentary on it. It is the other way round.
+
+The same reading also mistook a settled question for an open one lower down: whether a content store
+should hold trees or packs was called a genuine trade, and (3.1) had already chosen - the identity
+is the digest of the uncompressed canonical tar.

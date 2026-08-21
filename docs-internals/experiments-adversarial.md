@@ -23569,3 +23569,42 @@ each was corrected by measuring the mechanism rather than the outcome.
 **The first two measurements a benchmark should take are of the machine.** Every wrong number here
 came from an apparatus that was not fit at the moment it was read, and `tools/bench/quiet.sh` exists
 because of it - then reported LOUD and was overridden by the person who had just written it.
+
+## E512 - where the gap stands, and what closed it
+
+Cold `+deps` against this repository's own Earthfile, measured on a machine that passed
+`tools/bench/quiet.sh`, each change measured after the one above it:
+
+| state                                           | cold  | gap to buildkit |
+| ----------------------------------------------- | ----- | --------------- |
+| as it stood that morning                        | 45.3s | 3.8x            |
+| placement: concurrent, and no per-entry staging | 33.2s | 2.6x            |
+| base image cloned rather than linked            | 31.8s | 2.5x            |
+| cache mounts on a block device the guest owns   | 24.8s | **2.0x**        |
+| buildkit, after `earthly prune --reset`         | 12.5s | -               |
+
+Warm is within noise of parity: 2.61s and 2.57s against 2.41s and 2.22s.
+
+**The largest single win was the one that changed where bytes live, not how fast they are hashed.**
+Cloning a base and hashing across every core are worth about seven seconds between them; moving one
+cache mount off the host share is worth seven on its own, and it is the only change of the three that
+removes work rather than parallelising it.
+
+### What the volume made redundant, which is worth stating
+
+`clonefile` places a 267MB base in 0.26s where hard-linking it takes 8.51s - **over virtiofs**. On the
+volume, hard-linking 4,000 files takes 0.07s against 2.92s on the share, a factor of 42. So the
+copy-on-write work exists to route around a transport, and on guest-owned storage plain hard links
+are already as cheap as clones were.
+
+It is not wasted: the layer store is still on the share, where it is doing exactly that work today,
+and a host share remains a supported configuration. But it is a reminder that an optimisation can be
+excellent and still be a symptom - `clonefile` was the right answer to a question that a different
+storage decision does not ask.
+
+Note also that ext4 has no reflink, so a store on this volume could not clone even if it wanted to.
+XFS could, and `container volume create` does not offer the choice.
+
+**Standing caveat, still unresolved.** Buildkit's `go mod download` reports a cache miss after
+`prune --reset`, but whether its cache-mount *contents* survive that reset was never established. If
+they do, its cold number is flattering and the true gap is smaller than 2.0x.

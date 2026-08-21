@@ -37,6 +37,13 @@ type fakeRegistry struct {
 	// config is the image configuration blob, as JSON. Empty serves `{}`, which
 	// is what an image with nothing declared looks like.
 	config []byte
+	// multi serves a manifest list rather than a manifest, which is what a
+	// multi-platform tag names.
+	multi bool
+	// manifests counts manifest requests, separately from blobs: resolving a
+	// reference fetches no blob at all, so a blob counter cannot tell "resolved
+	// without asking" from "did not resolve".
+	manifests int
 }
 
 func gzipTar(t *testing.T, name, body string) []byte {
@@ -101,6 +108,34 @@ func (f *fakeRegistry) start(t *testing.T) string {
 	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/manifests/"):
+			f.manifests++
+
+			// A manifest list, when the tag names one and the request is for
+			// the tag rather than for one of the images it lists.
+			if f.multi && !strings.Contains(r.URL.Path, "/manifests/sha256:") {
+				w.Header().Set("Content-Type", ocispec.MediaTypeImageIndex)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					testSchemaVersion: 2,
+					testMediaType:     ocispec.MediaTypeImageIndex,
+					"manifests": []map[string]any{
+						{
+							testMediaType: ocispec.MediaTypeImageManifest,
+							testDigest:    "sha256:" + strings.Repeat("a", 64),
+							testSize:      2,
+							"platform":    map[string]any{"os": "linux", "architecture": "amd64"},
+						},
+						{
+							testMediaType: ocispec.MediaTypeImageManifest,
+							testDigest:    "sha256:" + strings.Repeat("b", 64),
+							testSize:      2,
+							"platform":    map[string]any{"os": "linux", "architecture": "arm64"},
+						},
+					},
+				})
+
+				return
+			}
+
 			descs := make([]map[string]any, 0, len(f.layers))
 			for _, l := range f.layers {
 				descs = append(descs, map[string]any{

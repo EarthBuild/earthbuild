@@ -231,6 +231,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithSecrets(secrets),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
+		interp.WithImageResolver(g.imageResolver(ctx)),
 		interp.WithVersionFlags(o.VersionFlags),
 		// Withheld from a dry run, which promises to run nothing: a plan that
 		// needs a target built to exist is refused there, saying so (E488).
@@ -437,6 +438,10 @@ func runPlan(
 	// After the steps, because these are about the build as a whole and belong
 	// where a reader has finished reading the per-step lines.
 	fmt.Fprint(o.Out, cacheSummary(s.Stats))
+
+	// What each mutable reference resolved to (§3.4d): the one input a key
+	// cannot be closed over, so the one worth naming.
+	recordPinning(o.Out, plan.Pinned)
 
 	// Whether the fleet this build waited for did anything (E505).
 	if d, ok := g.fleetEx.(*fleet.Delegating); ok {

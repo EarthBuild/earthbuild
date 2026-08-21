@@ -8343,7 +8343,7 @@ directory named by the cache key, which is why a peer cannot check what arrives.
 | -------------------------------------------------------------------- | ----------------- |
 | layer directories named by node id rather than `ℓ_id`                | §2.2, §3.2, §3.3a |
 | the image cache describes itself as content-addressed *by reference* | §3.2              |
-| a mutable reference is never pinned, so a moving tag keeps one key   | §3.4d, I3, I17    |
+| ~~a mutable reference is never pinned~~ - done, E508                 | §3.4d, I3, I17    |
 
 **What the store change costs.** Layer lookup gains one indirection (key to digest, then digest to
 tree) and gains deduplication for free, since two derivations producing identical output become one

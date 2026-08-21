@@ -38,6 +38,10 @@ type options struct {
 	// gitClone fetches a repository named by GIT CLONE. Nil means the construct
 	// is refused rather than fetched.
 	gitClone GitClone
+	// resolveImage pins a mutable reference to a digest (§3.4d). Nil means a
+	// reference is left as written - not refused, unlike the seams above it:
+	// see WithImageResolver for why FROM is the exception.
+	resolveImage ResolveImage
 	// secrets are the names the invocation supplied. Only the *names* are kept
 	// here: the interpreter needs to know a secret exists so it can refuse one
 	// that does not, and needs the value for nothing at all.

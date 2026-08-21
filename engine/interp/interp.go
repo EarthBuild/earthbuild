@@ -90,6 +90,21 @@ type Plan struct {
 	Artifacts []Artifact
 	// Images are the images this target declares it produces.
 	Images []Image
+	// Pinned is Θ's graph for this build: what each mutable reference resolved
+	// to (§3.4d). Empty when nothing resolved anything, which is a build whose
+	// references are as written - see WithImageResolver.
+	//
+	// Provenance rather than input: it is recorded so two builds can be compared
+	// and a moved tag told from a changed Earthfile (B.3, B.4).
+	//
+	// Keyed by the reference as written. A build for two platforms resolves the
+	// same tag twice, to two manifests, and records the later one here - the
+	// memo behind it is keyed by the pair, so the *graph* is right either way
+	// and only this record is lossy. **[GAP]** per-platform provenance.
+	Pinned map[string]string
+	// pinned memoises Θ on (reference, platform), which is what makes it once
+	// per build rather than once per use (I17).
+	pinned map[string]string
 
 	// dockerCache is the shared daemon storage the WITH DOCKER block being
 	// planned right now asked for, and empty outside one. See withStatement.
@@ -731,9 +746,13 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			}, nil
 		}
 
+		// Pinned before it reaches the graph, so the digest and not the tag is
+		// what every key downstream is derived from (§3.4d, I3). The description
+		// keeps the reference as written: that is what the Earthfile says and
+		// what a reader is looking for.
 		return &ir.Node{
 			Platform: platformOf(rs.platform),
-			Op:       ir.Op{Kind: ir.OpImage, Args: []string{image}},
+			Op:       ir.Op{Kind: ir.OpImage, Args: []string{p.pin(image, rs.platform)}},
 			Meta:     ir.Meta{Source: loc(c.SourceLocation), Description: "FROM " + image},
 		}, nil
 

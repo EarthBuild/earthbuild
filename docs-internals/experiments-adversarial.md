@@ -23276,3 +23276,50 @@ commentary on it. It is the other way round.
 The same reading also mistook a settled question for an open one lower down: whether a content store
 should hold trees or packs was called a genuine trade, and (3.1) had already chosen - the identity
 is the digest of the uncompressed canonical tar.
+
+## E508 - pinning a mutable reference
+
+**Claim under test.** `FROM alpine:latest` keys on the string, so a tag that moves is a stale hit on
+every step above it - I3, "the one failure that must never occur".
+
+**Confirmed by reading, not inference.** `Node.ID()` hashes `Op.Args`, and for `OpImage` `Args[0]` is
+the reference as written. Inputs contribute their *node* ids, so the graph is derivation-keyed end to
+end: nothing anywhere resolved a reference to a digest, and a moved tag reached no key.
+
+**Fixed** by Θ (§3.4d): the interpreter gains a resolver seam, memoises it on (reference, platform)
+so a reference resolves once per build however many targets name it, and puts the digest into
+`Op.Args` before any key is derived. `image.Resolve` fetches the manifest only - no blob, nothing
+written - so it costs one round trip per distinct reference whether or not the image is cached.
+
+```text
+  pinned                    alpine:3.22 -> alpine@sha256:2c9d26f410d032d5b1525aa8a873e238b05b90c4ae8618743d4311f0cc827e37
+```
+
+**Absent does not refuse.** Every other capability seam refuses the construct it cannot serve, and
+`FROM` cannot: it is in every Earthfile, and `ls`, `doc` and corpus analysis must produce a graph
+without reaching the network. So a missing resolver leaves the reference as written. The build is
+then unpinned, which is what it was yesterday.
+
+### The bug that was mine, in the code that reports bugs
+
+The first live build pinned nothing at all, silently, because the resolver's error was swallowed by
+design and the design said an unreachable registry must not fail a build. Making the failure visible
+took one line and named the cause immediately:
+
+```text
+note: alpine:3.22 was not pinned: alpine:3.22: no manifest for darwin/arm64
+```
+
+A plan for the native platform names no platform, so the registry was asked for whatever platform
+*this program* was built for. On macOS that is `darwin/arm64`, which no image has - so on the one
+platform this engine is developed on, every reference failed to pin and the build carried on exactly
+as if nothing were wrong.
+
+*The platform that matters is the sandbox's, not the process's.* The same sentence as E503, where a
+darwin worker declared `darwin/arm64` to the fleet and was therefore never given a step it could have
+run. `exec.platformFor` had the correct fallback already; the new code did not use it.
+
+The lesson underneath is about the swallow, not the platform. A failure that is designed not to stop
+the build must still be designed to be *heard*, or the design has converted a loud failure into a
+silent one and called it robustness - which is the same trade as *a skip and a pass are the same
+word*, made deliberately.

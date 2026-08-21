@@ -43,6 +43,19 @@ and why a fleet exchanges layers rather than instructions: not to be quick, but 
 work is not paid for N times. A fleet that cannot share a base is not merely slower than one that
 can - it is N times more expensive for an identical answer, and the difference grows with the fleet.
 
+**Move the data less.** Moving a byte is work, and moving it twice is work done twice for a result
+that was already correct after the first. The costs compound quietly because each handling is
+defensible on its own: a pull writes an image, a materialise places it, a capture reads it back to
+learn the name it will be filed under, a step reads it again through whatever it was placed on, and a
+transfer packs it, sends it, unpacks it and hashes it once more to learn a name the sender already
+knew. Six handlings, each with a good reason, of bytes that never changed.
+
+The rule that follows is not "copy less often" but **let the bytes land once, where they will be
+used, named as they arrive**. A name computed while the bytes are already passing costs nothing; the
+same name computed later costs a full read. Content addressing is what makes this possible - a digest
+taken at the moment of writing is as good as one taken afterwards - and the specification therefore
+requires it to be cheap to preserve rather than expensive to recover (§3.2).
+
 **A resource nobody is using should stop.** An idle sandbox draws power to serve nobody; an idle
 worker holds a machine that could be off. Nothing that persists for the convenience of a later build
 may persist indefinitely without something deciding it is still wanted, and that decision belongs

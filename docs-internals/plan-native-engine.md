@@ -8522,3 +8522,78 @@ measured, and an unmeasured optimisation is a rumour. It is cheap to test and it
 decided about storage.
 
 No `fsync` is called anywhere in that sequence, which rules out the other obvious hypothesis.
+
+## Direction: the store says where, not what
+
+The store holds bytes and every consumer reaches into it. The alternative is that it holds an
+*index* - digest to where a copy can be found - and whoever needs the bytes fetches them to where
+they are needed. Popular content is promoted to somewhere central; the rest lives wherever it landed.
+
+**Most of this exists.** A fleet worker already fetches layers by digest from peers (Appendix C.4),
+verifies them on arrival, and serves what it holds. What is missing is that the *local* guest is not
+a peer: it reads bytes through a directory shared from the host, which is the one arrangement that
+needs neither an index nor a fetch and is also the slowest thing measured this week.
+
+**It is safe because the store is content-addressed, and only because of that.** A location is a
+hint in the sense I5 means: it may be absent, stale, or wrong in either direction, and the build is
+unaffected, because (2.2) says the bytes are checked against the digest that named them. An index
+that lies costs a wasted fetch. An index that is empty costs a slower one. Neither can produce a
+wrong artefact, and that is what makes the whole shape affordable.
+
+**It resolves the objection to moving the store.** The cost recorded above was that the host loses
+direct access, so `placeCaptured` and `Layers.Get` become guest-mediated - work with no benefit
+attached. Under this model that mediation is not a cost being paid, it is the mechanism: the guest
+holds what it fetched and serves it like any other peer, and the host asks for it the same way a
+worker on another machine would. One path instead of two.
+
+**And it takes E513 as its caching rule rather than contradicting it.** Copying a whole base image
+to fast storage before a step reads a few hundred of its files was measured and is a loss. "Fetch
+what is needed, promote what is used repeatedly" is that finding as a policy: a copy has to earn its
+place, and the thing that earns it is being asked for more than once.
+
+### What it would cost, honestly
+
+* **A cold build depends on somebody having the bytes.** Today a local store is a floor: if it is
+  there, the build runs. An index that resolves to nowhere is a build that fetches from a registry,
+  which is slower and needs the network. The floor has to be rebuilt as a policy - what is always
+  kept locally, and why.
+* **Garbage collection gets harder.** Deleting the last copy of something the index still names is a
+  dangling reference, and the index cannot be authoritative about liveness without becoming state
+  that must be correct - which is exactly what §2.3 says derived state must not be.
+* **Promotion needs a counter**, and a counter is derived state. It must be able to be wrong, lost or
+  reset without changing a result, like 𝔐 and 𝔇 (I5). That is a constraint on the design, not an
+  afterthought.
+* **Fetching per step rather than per build** changes the scheduling picture: a step's first read may
+  block on a transfer, which is exactly what the fleet's prefetch and placement machinery (§4.7.1)
+  already exists to hide. It would need to serve local steps too.
+
+Not a decision. It is the direction the fleet work has been walking towards from the other end, and
+the thing that makes the storage question a design rather than a chore.
+
+### Six handlings of one image, and which are avoidable
+
+"Move the data less" is a principle (§0.0); this is the arithmetic behind it for one cold build of a
+267MB base.
+
+| #   | handling                                                    | avoidable?                                    |
+| --- | ----------------------------------------------------------- | --------------------------------------------- |
+| 1   | registry to image cache - a write                           | no, it has to arrive                          |
+| 2   | image cache to layer store - a clone, 0.26s                 | yes, if they were one store                   |
+| 3   | **capture: a full read and hash, to learn its name**        | **yes - the name was knowable as it arrived** |
+| 4   | the guest reads it through the share, per file              | yes, if it landed where the guest reads       |
+| 5   | a fleet transfer packs it and sends it                      | no, it has to cross                           |
+| 6   | **the receiver unpacks and re-hashes it to learn its name** | **yes - the sender already knew**             |
+
+Three and six are the same mistake: a name recovered by reading bytes that had already been read.
+Content addressing makes the cheap version possible - a digest taken *while* the bytes stream past
+costs nothing, and the same digest taken afterwards costs a full pass.
+
+E509 added handling 3 deliberately, to fix filing a layer under a name that described its derivation
+rather than its contents, and that was the right fix for that problem. The cheaper fix is to compute
+the digest during the unpack that is already happening rather than in a walk afterwards, and the
+`.layer` sidecar beside the image-cache entry is already most of the way there: it remembers the
+answer so the second build does not re-derive it. What it does not yet do is avoid deriving it the
+first time.
+
+Two and four are the storage question. Six is a protocol question and it is the one with a fleet
+attached: every worker that receives a base pays a full hash of it, and there may be many.

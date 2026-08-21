@@ -7,7 +7,7 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.26.6-alpine3.24
+    FROM golang:1.27.0-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 

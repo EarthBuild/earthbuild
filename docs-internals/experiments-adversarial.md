@@ -23639,3 +23639,47 @@ and duplicating it. The copy is a cache, and this one has a hit rate that does n
 Reverted. It would be worth revisiting for a build with many steps over one base, where the copy is
 amortised - but that is a conditional nobody has measured, and shipping it on the strength of the
 condition being plausible is how this entry happened.
+
+## E514 - how much of a base a step actually reads
+
+**Why it matters.** E513 found that copying a whole base to fast storage before a step reads it is a
+loss, and named the measurement that would have predicted it: what fraction of a base does a step
+open? The same number decides whether lazy placement - materialising a layer without its contents and
+faulting files in - is worth building.
+
+**Measured inside the guest**, atimes reset before each run, 5,410 files of a Go toolchain:
+
+| step                                          | files read | fraction |
+| --------------------------------------------- | ---------- | -------- |
+| `go version`                                  | 2          | 0.04%    |
+| `go vet ./...`                                | 3          | 0.06%    |
+| `go build` of a trivial program, cold GOCACHE | 1,752      | **32%**  |
+
+So the answer depends on the step, and not by a little. A compile reads a third of its toolchain -
+Go builds the standard library on a cold cache - while everything else reads almost nothing. Lazy
+placement is worth roughly 68% on the expensive case and effectively everything on the cheap ones.
+
+It also explains E513 from the other side: an eager copy pays 100% to avoid reading 32%, which is a
+loss on the very workload it was aimed at.
+
+### The instrument was broken, again
+
+The first two attempts at this returned zero, and zero was wrong both times.
+
+The first measured atimes on the host, through the share: they do not propagate, so nothing looked
+read. The second ran inside the guest and used `find -newerat`, which busybox does not implement -
+and busybox `find` reports `unrecognized: -newerat` on stderr while exiting cleanly, so the count was
+zero and the pipeline was green.
+
+A three-line check settled it: touch two files, read one, `stat` both. atime updates; `-newerat` does
+not exist. *An unsupported flag is not an empty result.* Three instruments have now lied in this
+document - a stale guest binary, a `cp` that rejected its own flag in 0.00s, and this - and each was
+caught by asking the instrument to demonstrate a difference it should be able to see.
+
+### And a correction to the scope
+
+The previous plan entry called turning this on "mostly wiring". That is wrong for the sandbox that
+needs it most. Only `Native` implements `SetFill`, and it can pass a descriptor to a child process;
+`container exec` has no flag for one, so a VM sandbox has a single stream and the fault-in channel
+has nowhere to go. Reaching it needs reverse messages on the existing protocol, or a vsock - design,
+not wiring.

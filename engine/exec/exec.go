@@ -646,13 +646,6 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 		return core.Result{}, fmt.Errorf("FROM has no image reference (%s)", n.Meta.Source)
 	}
 
-	dir := filepath.Join(e.sb.StoreDir(), "layers", n.ID().String())
-
-	entries, err := os.ReadDir(dir)
-	if err == nil && len(entries) > 0 {
-		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
-	}
-
 	// Through the shared cache, so the second target to name this image links
 	// it rather than pulling it again.
 	platform := e.platformFor(n)
@@ -669,12 +662,96 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 		imageRoot = e.sb.StoreDir()
 	}
 
-	err = fetchImageFrom(ctx, imageRoot, n.Op.Args[0], platform, dir, pull)
+	store := e.sb.StoreDir()
+	shared := filepath.Join(imageRoot, "imagecache", ImageCacheKey(n.Op.Args[0], platform))
+
+	// Already materialised, and named by what is in it rather than by which
+	// node asked for it. The recorded name is what makes this cheap: without it
+	// every build would re-capture the tree to learn a digest it had already
+	// computed.
+	if id, ok := imageLayerNamed(shared); ok && populated(filepath.Join(store, "layers", id.String())) {
+		return core.Result{Layer: id, Captured: e.sb.Confines()}, nil
+	}
+
+	// Staged under a name nothing derives meaning from, because the name this
+	// layer will keep is the digest of what lands here (§3.2) and that is not
+	// known until it has landed.
+	staging, err := os.MkdirTemp(filepath.Join(store, "layers"), ".image-")
+	if err != nil {
+		// The directory is absent on the first image of a cold store, which is
+		// the common case rather than an error.
+		if mk := os.MkdirAll(filepath.Join(store, "layers"), 0o755); mk != nil {
+			return core.Result{}, fmt.Errorf("prepare the layer store: %w", mk)
+		}
+
+		staging, err = os.MkdirTemp(filepath.Join(store, "layers"), ".image-")
+		if err != nil {
+			return core.Result{}, fmt.Errorf("stage %s: %w", n.Op.Args[0], err)
+		}
+	}
+
+	// fetchImageFrom refuses to write into a directory that exists, since an
+	// existing layer is a finished one it must not disturb (E141). The staging
+	// name is ours and empty, so it is removed and handed over as a name.
+	_ = os.Remove(staging)
+
+	err = fetchImageFrom(ctx, imageRoot, n.Op.Args[0], platform, staging, pull)
 	if err != nil {
 		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
-	return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+	id, err := placeCaptured(store, staging)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
+	}
+
+	// The configuration follows the layer to its final name. What an image
+	// declares is not part of what it ships, so it travels beside the tree
+	// rather than in it.
+	at := filepath.Join(store, "layers", id.String())
+	if _, statErr := os.Stat(at + configSuffix); statErr != nil {
+		_ = os.Rename(staging+configSuffix, at+configSuffix)
+	}
+
+	_ = os.Remove(staging + configSuffix)
+
+	rememberImageLayer(shared, id)
+
+	return core.Result{Layer: id, Captured: e.sb.Confines()}, nil
+}
+
+// layerSuffix names the file recording which layer an image materialised as.
+//
+// Beside the shared image-cache entry rather than in the layer store: it answers
+// "what does this reference unpack to", which is a property of the image and not
+// of any one build's store.
+const layerSuffix = ".layer"
+
+// imageLayerNamed is the layer an image was last materialised as, if this
+// machine has done it before.
+//
+// A cache of a pure function - the digest of the tree the image unpacks to - so
+// a wrong or stale answer costs a re-capture and cannot produce a wrong layer:
+// the caller checks the named layer is present, and what it names was computed
+// by capturing the tree.
+func imageLayerNamed(shared string) (ir.NodeID, bool) {
+	b, err := os.ReadFile(shared + layerSuffix)
+	if err != nil {
+		return ir.NodeID{}, false
+	}
+
+	id, err := ir.ParseNodeID(strings.TrimSpace(string(b)))
+	if err != nil {
+		return ir.NodeID{}, false
+	}
+
+	return id, true
+}
+
+// rememberImageLayer records what an image unpacked to. Best-effort: losing it
+// costs one capture.
+func rememberImageLayer(shared string, id ir.NodeID) {
+	_ = os.WriteFile(shared+layerSuffix, []byte(id.String()), 0o600)
 }
 
 // stageContext places a build context path in the layer store.

@@ -23323,3 +23323,52 @@ The lesson underneath is about the swallow, not the platform. A failure that is 
 the build must still be designed to be *heard*, or the design has converted a loud failure into a
 silent one and called it robustness - which is the same trade as *a skip and a pass are the same
 word*, made deliberately.
+
+## E509 - a fleet shares a base
+
+**Claim under test.** E507: a layer is filed under the node id of the operation that produced it, so
+a peer cannot check what it receives and every machine fetches its own base.
+
+**Half of it was already right.** A RUN step's result was filed under `c.Capture`'s digest - the
+content - because the executor stored what the capture returned. Only `materialiseImage` and
+`stageContext` returned `n.ID()`. So the store held two namespaces at once, and the failure was
+exactly as selective as that: transfers of RUN results worked, and bases never did.
+
+That is why the earlier reading generalised wrongly. One failing case was taken for the shape of the
+whole store, and the store was already three quarters of the way to what §3.2 asks for.
+
+**Fixed** by capturing what an image materialises and filing it under that digest, with the name
+recorded beside the shared image-cache entry so a later build does not re-capture a tree whose digest
+it has already computed. The configuration sidecar follows the layer to its name.
+
+```text
+directory is named        fc5435f99edc9123d8afd07094fc5989a484765279fa26aefebef62bae5e2fd0
+its contents capture to   fc5435f99edc9123d8afd07094fc5989a484765279fa26aefebef62bae5e2fd0
+```
+
+**Measured, two workers, one machine:**
+
+|        | refusals                                    | split                |
+| ------ | ------------------------------------------- | -------------------- |
+| before | `a worker would not take ... not the layer` | 4 delegated, 4 local |
+| after  | none                                        | 4 delegated, 1 local |
+
+Every RUN reached a worker; the one step left at home is the base materialisation itself. The base
+crossed the wire and was accepted, which is what a fleet is for.
+
+### What the fixture taught
+
+The dedup test failed first, and correctly: two trees with identical bytes written a millisecond
+apart have different `ℓ_id`, because identity includes mtimes (§3.3a, I8). The expectation was wrong,
+not the code.
+
+It matters beyond the test. Content addressing deduplicates *layers*, and two materialisations of one
+image are the same layer only if they agree about timestamps - which they do, because an OCI layer
+carries its mtimes and unpacking restores them. Had the unpack stamped the clock instead, every
+machine would compute a different name for the same image and no fleet could share anything, with
+every digest still perfectly self-consistent.
+
+*A fixture that is unrepresentative in the one dimension under test.* `t.TempDir()` plus `os.WriteFile`
+is the obvious way to make a tree and stamps it with now; the system's trees are stamped by the
+archive they came from. The test was asserting something true about its fixture and false about the
+engine.

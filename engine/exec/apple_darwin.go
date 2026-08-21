@@ -32,6 +32,13 @@ type Apple struct {
 	// Image is the sandbox's root filesystem.
 	Image string
 
+	// guestExit is why the guest process ended, and guestGone says it has.
+	// Watched rather than waited for: `container exec` does not close the pipe
+	// when the guest behind it dies, so nothing else would notice.
+	guestMu   sync.Mutex
+	guestExit error
+	guestGone bool
+
 	// fill faults a path into a step's base, or nil where nothing asked this
 	// sandbox to. Guarded because it is set by a worker before the sandbox
 	// starts and read when the relay is launched. See SetFill.
@@ -383,6 +390,28 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 
 	a.cmd = cmd
 
+	// **A guest that dies must not leave the build waiting for its reply.**
+	//
+	// `container exec` does not close this pipe when the process behind it
+	// exits, so a guest that is killed - or that panics, or is reaped by the
+	// kernel - leaves the host blocked in a read that will never return. That is
+	// not a slow build: it is one that never ends, and one in three cold builds
+	// of this repository was doing it.
+	//
+	// Closing the read side here turns that into an EOF the protocol already
+	// knows how to report, and the exit status turns it into a sentence naming
+	// what happened rather than a cancelled context blamed on the step.
+	go func() {
+		waitErr := cmd.Wait()
+
+		a.guestMu.Lock()
+		a.guestExit = waitErr
+		a.guestGone = true
+		a.guestMu.Unlock()
+
+		_ = stdout.Close()
+	}()
+
 	// The fault-in relay, once the guest it dials is running. Started after the
 	// guest rather than with it: the relay connects to a socket the guest binds,
 	// and one that arrives first waits (see dialFills) but should not have to.
@@ -412,7 +441,9 @@ func (a *Apple) Stop() error {
 
 	if a.cmd != nil && a.cmd.Process != nil {
 		_ = a.cmd.Process.Kill()
-		_ = a.cmd.Wait()
+
+		// Not waited for here: the watcher started with the guest owns the
+		// Wait, and calling it twice is an error rather than a second answer.
 	}
 
 	return nil
@@ -607,4 +638,27 @@ func (a *Apple) runArgs() []string {
 // could be guessed here.
 func (a *Apple) ensureVolume(ctx context.Context) {
 	_ = osexec.CommandContext(ctx, "container", "volume", "create", a.volumeName()).Run() //nolint:gosec // fixed argv
+}
+
+// GuestFailure says why the guest ended, if it ended on its own.
+//
+// Empty while the guest is running and after an ordinary shutdown. A caller that
+// sees its connection close asks this, so the message names the cause instead of
+// reporting that a pipe closed - which is true, uninformative, and reads like a
+// bug in the caller.
+func (a *Apple) GuestFailure() string {
+	a.guestMu.Lock()
+	defer a.guestMu.Unlock()
+
+	if !a.guestGone {
+		return ""
+	}
+
+	if a.guestExit == nil {
+		return "the guest in this sandbox exited"
+	}
+
+	return fmt.Sprintf("the guest in this sandbox exited: %v"+
+		"\n  the build was waiting for it to answer, and nothing else would have"+
+		" reported this", a.guestExit)
 }

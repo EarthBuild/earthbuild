@@ -23726,3 +23726,56 @@ and inside the sandbox where nothing on the host can reach it.
 **What is proven and what is not.** The channel carries a fault end to end under test, and the worker
 advertises the capability. A fault crossing it during a real fleet build has not been observed, which
 needs a darwin worker taking an assignment whose base it does not hold.
+
+## E516 - the gap is 1.5x, and the stalls were a stale guest
+
+**The caveat is settled, and it closes against us.** Every comparison in E512 carried the same
+unresolved doubt: whether buildkit's `--mount type=cache` contents survive `prune --reset`, which
+would mean its cold number never re-downloads 450MB while ours always does. Settling it needed no
+access to buildkitd - only a cache-mount id nothing has ever seen:
+
+```text
+RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=fresh-1787351545 go mod download
+```
+
+Buildkit did the whole target in **9.10s**, faster than its pruned run, because the image and `apk`
+layers were still warm while the modules genuinely were not. Its cold number is real; nothing was
+being carried over.
+
+**And ours is closer than reported.** On that same fixture, image warm on both sides:
+
+| run | time |
+| --- | ---- |
+| 1   | 16s  |
+| 2   | 14s  |
+| 3   | 13s  |
+| 4   | 20s  |
+
+Against buildkit's 9.1s, that is **about 1.5x**, not the 2.0x carried since E512 - which compared a
+build with a cold *image* cache against one with a warm one.
+
+### The stalls
+
+Before those four runs, three attempts in nine hung until their timeout, and the hang was real
+enough to be measured, profiled and half-diagnosed: the host blocked in `conn.recv`, the VM at 0%
+CPU, and - caught in the act - **no guest process in the container at all**. The host was waiting for
+a reply from something that had exited.
+
+With the engine and the guest built from the same commit, four of four completed. At least two of the
+stalled runs carry the stale-guest note in their own output. That is not proof, and this entry does
+not claim the deadlock is impossible; it claims the reproduction that made it look like one build in
+three was measuring a guest older than the engine it was speaking to.
+
+*The fifth procedural failure in one day*, after a stale guest (twice), a `cp` that rejected its own
+flag, a `find` without `-newerat`, and a quietness gate overridden by its own author. Each was caught
+by making the instrument demonstrate something it should have been able to see.
+
+### What was fixed anyway
+
+`container exec` does not close its pipe when the process behind it exits, so a guest that dies -
+killed, panicking, reaped - leaves the host in a read that never returns. Nothing waited on the guest
+during a build; `Wait` was called only by `Stop`, after a kill. A watcher now owns it, closes the
+read side, and reports the exit status.
+
+That is worth having whatever caused the stalls: a build that ends with "the guest in this sandbox
+exited" is one somebody can act on, and one that hangs for ever is a build tool nobody trusts.

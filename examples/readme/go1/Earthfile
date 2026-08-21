@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM golang:1.27-alpine3.23
+FROM golang:1.27-alpine3.24
 RUN apk --no-cache add git curl
 WORKDIR /go-example
 

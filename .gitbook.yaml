@@ -6,7 +6,12 @@ structure:
 
 redirects:
     earthfile: earthfile/earthfile.md
-    the-earthly-command/earthly-command: earthly-command/earthly-command.md
+    # Legacy pre-rename URLs: keep the `earthly`-prefixed keys as redirect
+    # sources so old bookmarks/links resolve to the renamed pages.
+    the-earthly-command/earthly-command: earth-command/earth-command.md
+    earthly-command/earthly-command: earth-command/earth-command.md
+    earthly-config/earthly-config: earth-config/earth-config.md
+    earthfile/earthlyignore: earthfile/earthignore.md
     guides: ./README.md
     guides/advanced-local-caching: caching/caching-in-earthfiles.md
     docs/guides/advanced-local-caching: caching/caching-in-earthfiles.md
@@ -21,10 +26,10 @@ redirects:
     docs/guides/target-ref: guides/importing.md
     guides/udc: guides/functions.md
     docs/guides/udc: guides/functions.md
-    earthly-config: earthly-config/earthly-config.md
+    earthly-config: earth-config/earth-config.md # legacy pre-rename URL (redirect source)
     ci-integration: ci-integration/overview.md
-    earth-command: earthly-command/earthly-command.md
-    earth-config: earthly-config/earthly-config.md
+    earth-command: earth-command/earth-command.md
+    earth-config: earth-config/earth-config.md
     installation: ./README.md
     guides/pushing-and-pulling-images-with-cloud-providers: guides/auth.md
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-ecr: guides/registries/aws-ecr.md

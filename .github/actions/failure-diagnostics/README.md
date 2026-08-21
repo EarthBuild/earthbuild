@@ -53,7 +53,7 @@ Each section is a collapsed log group:
 - kernel oom and cgroup messages — filtered `dmesg` (Linux only)
 - container engine state — `version`, `info`, `ps -a`, `stats`
 - buildkit containers — `inspect` and log tail for each name in `CONTAINERS`
-- earthly directories — cache sizes under `~/.earthly`
+- earth directories — cache sizes under `~/.earth`
 
 ## Behaviour
 

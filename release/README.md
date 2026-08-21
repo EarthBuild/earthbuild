@@ -1,6 +1,6 @@
 ## Releasing instructions
 
-### earthly
+### earth
 
 - Make sure you have access to the `earthly-technologies` organization secrets.
   ```bash
@@ -31,13 +31,13 @@
   cd release
   env -i HOME="$HOME" PATH="$PATH" SSH_AUTH_SOCK="$SSH_AUTH_SOCK" RELEASE_TAG="$RELEASE_TAG" USER="$USER" PRERELEASE="$PRERELEASE" ./release.sh
   ```
-- Wait for the [Merge main to docs-0.8 on New Earthly Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New Earthly Release](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml)
+- Wait for the [Merge main to docs-0.8 on New EarthBuild Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New EarthBuild Release](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml)
   In case the workflow fails the manual process is:
   ````shell
     git checkout docs-0.8 && git pull && git merge main && git push
     ```
   ````
-- Updating the Earthly version in our docs:
+- Updating the EarthBuild version in our docs:
   [Renovate](https://www.mend.io/renovate/) will open a PR targeting `docs-0.8` branch to update all docs as soon as a new release is available in this repo which you should then review & merge (An example PR can be found [here](https://github.com/earthly/earthly/pull/3285/files)).
 - Merge `docs-0.8` into `main`.
   ```shell
@@ -54,7 +54,7 @@
 
 - Wait for the [Check Docs for Broken Links](../.github/workflows/docs-checks-links.yml) workflow to complete; this workflow validates https://docs.earthly.dev does not contain any broken links. You can watch for it here: [![Check Docs for Broken Links](https://github.com/earthly/earthly/actions/workflows/docs-checks-links.yml/badge.svg?event=push)](https://github.com/earthly/earthly/actions/workflows/docs-checks-links.yml)
 - Verify the [Homebrew release job](https://github.com/earthly/homebrew-earthly) has successfully run and has merged the new `release-v...` branch into `main`.
-- Copy the release notes you have written before and paste them in the Earthly Community slack channel `#announcements`, together with a link to the release's GitHub page. If you have Slack markdown editing activated, you can copy the markdown version of the text.
+- Copy the release notes you have written before and paste them in the EarthBuild Community slack channel `#announcements`, together with a link to the release's GitHub page. If you have Slack markdown editing activated, you can copy the markdown version of the text.
 
 ### One-Time (clear this section when done during release)
 
@@ -66,12 +66,12 @@ To perform a test release to a personal repo, first:
 
 1. fork a copy of both `earthly/earthly`, and `earthly/homebrew-earthly`
 2. commit your changes you wish to release and push them to your personal repo.
-3. save a copy of your GitHub token to `user/github-token` (e.g. `earthly secrets set /user/github-token keep-it-secret`)
+3. save a copy of your GitHub token to `user/github-token` (e.g. `earth secrets set /user/github-token keep-it-secret`)
 
 Then run:
 
 ```bash
-RELEASE_TAG=v0.5.10 GITHUB_USER=mygithubuser DOCKERHUB_USER=mydockerhubuser EARTHLY_REPO=earthly BREW_REPO=homebrew-earthly GITHUB_SECRET_PATH=user/github-token ./release.sh
+RELEASE_TAG=v0.5.10 GITHUB_USER=mygithubuser DOCKERHUB_USER=mydockerhubuser EARTHLY_REPO=earth BREW_REPO=homebrew-earthly GITHUB_SECRET_PATH=user/github-token ./release.sh
 ```
 
 NOTE: apt and yum repos do not currently support test releases. (TODO: fix this)
@@ -102,7 +102,7 @@ git push
 
 ### dind
 
-Docker-in-Docker (dind) images change less frequently than earthly, but take a long time to build.
+Docker-in-Docker (dind) images change less frequently than earth, but take a long time to build.
 earthbuild/dind images and their releases are maintained in [project repo](https://github.com/earthbuild/dind).
 
 ### Syntax Highlighting Releases

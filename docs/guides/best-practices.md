@@ -1,8 +1,8 @@
 # Best practices
 
-Although Earthly has been designed to be unambiguous about what command to use for the job, writing Earthfiles can sometimes still be tricky, when it comes to nuances. As you try to accomplish certain tasks, you may find that sometimes the same result can be achieved using more than one technique. Or so it might seem.
+Although EarthBuild has been designed to be unambiguous about what command to use for the job, writing Earthfiles can sometimes still be tricky, when it comes to nuances. As you try to accomplish certain tasks, you may find that sometimes the same result can be achieved using more than one technique. Or so it might seem.
 
-Below we list some of the best practices that we have found to be useful in designing Earthly builds, with a focus on certain commands or techniques that seem similar, but aren't really, but also on some key points that we have seen newcomers stumble into.
+Below we list some of the best practices that we have found to be useful in designing EarthBuild builds, with a focus on certain commands or techniques that seem similar, but aren't really, but also on some key points that we have seen newcomers stumble into.
 
 ## Table of contents
 
@@ -18,7 +18,7 @@ Below we list some of the best practices that we have found to be useful in desi
     - [Use `RUN --push` for deployment commands](#use-run-push-for-deployment-commands)
     - [Use `--secret`, not `ARG`s to pass secrets to the build](#use-secret-not-args-to-pass-secrets-to-the-build)
     - [Avoid copying secrets to the build environment](#avoid-copying-secrets-to-the-build-environment)
-    - [Do not pass Earthly dependencies from one target to another via the local file system or via an external registry](#do-not-pass-earthly-dependencies-from-one-target-to-another-via-the-local-file-system-or-via-an-external-registry)
+    - [Do not pass EarthBuild dependencies from one target to another via the local file system or via an external registry](#do-not-pass-earthbuild-dependencies-from-one-target-to-another-via-the-local-file-system-or-via-an-external-registry)
     - [Use `WITH DOCKER --pull`](#use-with-docker-pull)
     - [Style: Define the high-level targets at the top of the Earthfile](#style-define-the-high-level-targets-at-the-top-of-the-earthfile)
     - [Use `COPY +my-target/...` to pass files to and from `LOCALLY` targets](#use-copy-+my-target-...-to-pass-files-to-and-from-locally-targets)
@@ -40,8 +40,8 @@ Below we list some of the best practices that we have found to be useful in desi
     - [Avoid `LOCALLY` and other non-strict commands](#avoid-locally-and-other-non-strict-commands)
     - [Pattern: Push on the `main` branch only](#pattern-push-on-the-main-branch-only)
     - [Do not expose cache image tags publicly if the cache contains private code or dependencies](#do-not-expose-cache-image-tags-publicly-if-the-cache-contains-private-code-or-dependencies)
-    - [Technique: Use `earthly -i` to debug failures](#technique-use-earthly-i-to-debug-failures)
-    - [Run everything in a single Earthly invocation, do not wrap Earthly](#run-everything-in-a-single-earthly-invocation-do-not-wrap-earthly)
+    - [Technique: Use `earth -i` to debug failures](#technique-use-earth-i-to-debug-failures)
+    - [Run everything in a single EarthBuild invocation, do not wrap EarthBuild](#run-everything-in-a-single-earthbuild-invocation-do-not-wrap-earthbuild)
     - [Use `RUN --ssh` for passing host SSH keys to builds](#use-run-ssh-for-passing-host-ssh-keys-to-builds)
     - [Use SAVE IMAGE to always cache](#use-save-image-to-always-cache)
     - [Future: Saving an artifact even if the build fails](#future-saving-an-artifact-even-if-the-build-fails)
@@ -58,7 +58,7 @@ COPY . .
 COPY * ./
 ```
 
-The problem with this is that many of the files copied are not actually used during the build, however Earthly will react to changes to them, causing it to reuse cache inefficiently. It's not an issue of file size (though sometimes that too can hurt performance). It is much of an issue of re-executing build commands that wouldn't have to be re-executed.
+The problem with this is that many of the files copied are not actually used during the build, however EarthBuild will react to changes to them, causing it to reuse cache inefficiently. It's not an issue of file size (though sometimes that too can hurt performance). It is much of an issue of re-executing build commands that wouldn't have to be re-executed.
 
 ```Dockerfile
 # Avoid
@@ -69,7 +69,7 @@ RUN go build ...
 
 In the above example, changing the project's `README.md` or running `git fetch` might cause slow commands like `go mod download` to be re-executed.
 
-Earthly uses `COPY` commands (among other things) to mark certain files as inputs to the build. If any file included in a `COPY` changes, then the build will continue from that `COPY` command onwards. For this reason, you want to be as specific as possible when including files in a `COPY` command. In some cases, you might even have to list files individually.
+EarthBuild uses `COPY` commands (among other things) to mark certain files as inputs to the build. If any file included in a `COPY` changes, then the build will continue from that `COPY` command onwards. For this reason, you want to be as specific as possible when including files in a `COPY` command. In some cases, you might even have to list files individually.
 
 Here are some possible ways to improve the above example:
 
@@ -90,7 +90,7 @@ COPY ./*.go ./
 RUN go build ...
 ```
 
-An additional way in which you can improve the precision of the `COPY` command is to use the [`.earthlyignore`](../earthfile/earthlyignore.md) file. Note, however, that this is best left as a last resort, as new files added to the project (that may be irrelevant to builds) would need to be manually added to `.earthlyignore`, which may be error-prone. It is much better to have to include every new file manually into the build (by adding it to a `COPY` command), than to exclude every new file manually (by adding it to the `.earthlyignore`), as whenever any such new file *must* be included, then the build would typically fail, making it harder to make a mistake compared to the opposite.
+An additional way in which you can improve the precision of the `COPY` command is to use the [`.earthignore`](../earthfile/earthignore.md) file. Note, however, that this is best left as a last resort, as new files added to the project (that may be irrelevant to builds) would need to be manually added to `.earthignore`, which may be error-prone. It is much better to have to include every new file manually into the build (by adding it to a `COPY` command), than to exclude every new file manually (by adding it to the `.earthignore`), as whenever any such new file *must* be included, then the build would typically fail, making it harder to make a mistake compared to the opposite.
 
 ### `ENV` for image env vars, `ARG` for build configurability
 
@@ -111,7 +111,7 @@ However, if the use-case is build configurability, then `ARG` is the way to achi
 
 ### Use cross-repo references, and avoid `GIT CLONE` if possible
 
-Earthly provides rich set of features to allow working with and across Git repositories. It is recommended to use Earthly [cross-repository references](../guides/importing.md) rather than `GIT CLONE` or `RUN git clone`, whenever possible.
+EarthBuild provides rich set of features to allow working with and across Git repositories. It is recommended to use EarthBuild [cross-repository references](../guides/importing.md) rather than `GIT CLONE` or `RUN git clone`, whenever possible.
 
 Here is an example.
 
@@ -183,8 +183,8 @@ Finally, here is a comparison between cross-repo references and `GIT CLONE`:
 |                                                            | Cross-repo reference                                 | `GIT CLONE`                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
 | Example                                                    | `FROM github.com/my-co/my-proj:my-branch+my-target`  | `GIT CLONE --branch=my-branch git@github.com:my-co/my-proj` |
-| Earthly can pass-through SSH agent access from the host    | ✅                                                   | ✅                                                          |
-| Access to HTTPS repositories can be configured in Earthly  | ✅                                                   | ✅                                                          |
+| EarthBuild can pass-through SSH agent access from the host    | ✅                                                   | ✅                                                          |
+| Access to HTTPS repositories can be configured in EarthBuild  | ✅                                                   | ✅                                                          |
 | Can specify branch or tag                                  | ✅ - via `:<branch>`                                 | ✅ - via `--branch`                                         |
 | Source configurable via `ARG`s                             | ✅                                                   | ✅                                                          |
 | Protocol-agnostic referencing                              | ✅                                                   | ❌ - can be `ssh://`, `https://`, `git@github.com` etc      |
@@ -194,11 +194,11 @@ Finally, here is a comparison between cross-repo references and `GIT CLONE`:
 
 ### `GIT CLONE` vs `RUN git clone`
 
-Earthly has a built-in `GIT CLONE` instruction that can be used to clone a Git repository. It is recommended that `GIT CLONE` is used rather than `RUN git clone`, for a few reasons:
+EarthBuild has a built-in `GIT CLONE` instruction that can be used to clone a Git repository. It is recommended that `GIT CLONE` is used rather than `RUN git clone`, for a few reasons:
 
-- Earthly treats `GIT CLONE` as a first-class input (BuildKit source). As such, Earthly caches the repository internally and downloading only incremental differences on changes.
-- Earthly is commit hash-aware, so it'll be able to detect when the build needs to take place versus when there are no changes to be made and the cache can be reused. If a change takes place in the source repository, `RUN git clone` would not be able to detect that, as it is not recognized as an input. So it would naively reuse the cache when it shouldn't.
-- `GIT CLONE` will pass-through Earthly settings for [authentication](../guides/auth.md), such as SSH agent access and/or HTTPS credentials.
+- EarthBuild treats `GIT CLONE` as a first-class input (BuildKit source). As such, EarthBuild caches the repository internally and downloading only incremental differences on changes.
+- EarthBuild is commit hash-aware, so it'll be able to detect when the build needs to take place versus when there are no changes to be made and the cache can be reused. If a change takes place in the source repository, `RUN git clone` would not be able to detect that, as it is not recognized as an input. So it would naively reuse the cache when it shouldn't.
+- `GIT CLONE` will pass-through EarthBuild settings for [authentication](../guides/auth.md), such as SSH agent access and/or HTTPS credentials.
 
 `GIT CLONE` does have some limitations, however. It only performs a shallow clone, it does not have the branch information, it does not have origin information, and it does not have the tags downloaded. Even in such cases, it might be better to attempt to reintroduce the information after a `GIT CLONE`, whenever possible, in order to gain the caching benefits.
 
@@ -244,7 +244,7 @@ RUN ls
 ##### Note
 
 The final "if you have no choice" example contains an `ARG` shell-out, which will be set to the latest git sha; this is done so that if the git repository doesn't
-contain any new commits between multiple runs, the `ARG git_hash` value will stay constant, and will allow earthly to skip over the `RUN` command; whereas a `RUN --no-cache`
+contain any new commits between multiple runs, the `ARG git_hash` value will stay constant, and will allow earth to skip over the `RUN` command; whereas a `RUN --no-cache`
 command will be run each time even if the `ARG git_hash` value has never changed.
 {% endhint %}
 
@@ -253,15 +253,15 @@ Finally, here is a comparison between `GIT CLONE` and `RUN git clone`:
 |                                                                         | `GIT CLONE`                                            | `RUN git clone`                                        |
 | ----------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
 | Earthfiles can be protocol-agnostic                                     | ❌ - can be `ssh://`, `https://`, `git@github.com` etc | ❌ - can be `ssh://`, `https://`, `git@github.com` etc |
-| Can configure access in Earthly, to keep Earthfiles agnostic            | ✅                                                     | ❌                                                     |
-| Earthly can pass-through SSH agent access from the host                 | ✅                                                     | ✅ - but it requires `RUN --ssh`                       |
-| Access to HTTPS repositories can be configured in Earthly               | ✅                                                     | ❌ - but possible to pass credentials via secrets      |
+| Can configure access in EarthBuild, to keep Earthfiles agnostic            | ✅                                                     | ❌                                                     |
+| EarthBuild can pass-through SSH agent access from the host                 | ✅                                                     | ✅ - but it requires `RUN --ssh`                       |
+| Access to HTTPS repositories can be configured in EarthBuild               | ✅                                                     | ❌ - but possible to pass credentials via secrets      |
 | Cache-aware - incremental pulls                                         | ✅                                                     | ❌                                                     |
 | Commit hash-aware - rebuild when there are changes in remote repository | ✅                                                     | ❌                                                     |
 
 ### `IF [...]` vs `RUN if [...]`
 
-Earthly 0.6 introduces the conditional `IF` command, which allows for complex control flow within Earthly recipes. However, there is also the possibility of using the shell `if` command to accomplish similar behavior. Which one should you use? Here is a quick comparison:
+EarthBuild 0.6 introduces the conditional `IF` command, which allows for complex control flow within EarthBuild recipes. However, there is also the possibility of using the shell `if` command to accomplish similar behavior. Which one should you use? Here is a quick comparison:
 
 |                                                         | `IF` | `RUN if` |
 | ------------------------------------------------------- | ---- | -------- |
@@ -270,9 +270,9 @@ Earthly 0.6 introduces the conditional `IF` command, which allows for complex co
 | Can use ARGs                                            | ✅   | ✅       |
 | Expression can be cached                                | ✅   | ✅       |
 | Body runs in the same layer as the condition expression | ❌   | ✅       |
-| Body can include any Earthly command                    | ✅   | ❌       |
+| Body can include any EarthBuild command                    | ✅   | ❌       |
 
-As you can see, `IF` is more powerful in that it can include other Earthly commands within it, allowing for rich conditional behavior. Examples might include optionally saving images, using different base images depending on a set of conditions, initializing `ARG`s with varying values.
+As you can see, `IF` is more powerful in that it can include other EarthBuild commands within it, allowing for rich conditional behavior. Examples might include optionally saving images, using different base images depending on a set of conditions, initializing `ARG`s with varying values.
 
 `RUN if`, however is often simpler, and it only uses one layer.
 
@@ -280,7 +280,7 @@ As a best practice, it is recommended to use `RUN if` whenever possible (e.g. on
 
 ### `FOR ... IN ...` vs `RUN for ... in ...`
 
-As is the case with `IF` vs `RUN if`, there is a similar debate for the Earthly builtin command `FOR` vs `RUN for`. Here is a quick comparison of the two 'for' flavors:
+As is the case with `IF` vs `RUN if`, there is a similar debate for the EarthBuild builtin command `FOR` vs `RUN for`. Here is a quick comparison of the two 'for' flavors:
 
 |                                                      | `FOR` | `RUN for` |
 | ---------------------------------------------------- | ----- | --------- |
@@ -291,9 +291,9 @@ As is the case with `IF` vs `RUN if`, there is a similar debate for the Earthly 
 | Can iterate over a constant list                     | ✅    | ✅        |
 | Can iterate over a list resulting from an expression | ✅    | ✅        |
 | Body runs in the same layer as the for expression    | ❌    | ✅        |
-| Body can include any Earthly command                 | ✅    | ❌        |
+| Body can include any EarthBuild command                 | ✅    | ❌        |
 
-Similar to the `IF` vs `RUN if` comparison, `FOR` is more powerful in that it can include other Earthly commands within it, allowing for rich iteration behavior. Examples might include iterating over a list of directories in a monorepo and calling Earthly targets within them, performing `SAVE IMAGE` over a list of container image tags.
+Similar to the `IF` vs `RUN if` comparison, `FOR` is more powerful in that it can include other EarthBuild commands within it, allowing for rich iteration behavior. Examples might include iterating over a list of directories in a monorepo and calling EarthBuild targets within them, performing `SAVE IMAGE` over a list of container image tags.
 
 `RUN for`, however is often simpler, and it only uses one layer.
 
@@ -348,7 +348,7 @@ WITH DOCKER --compose docker-compose.yml \
 END
 ```
 
-Now, to run locally, you can execute `earthly +my-target --run_locally=true`, otherwise `earthly +my-target` will execute in the sandboxed environment (the same way it executes in CI).
+Now, to run locally, you can execute `earth +my-target --run_locally=true`, otherwise `earth +my-target` will execute in the sandboxed environment (the same way it executes in CI).
 
 ### Pattern: Deciding on a base image based on a condition
 
@@ -372,7 +372,7 @@ If the result of a build needs to be pushed to an external service (or storage p
 
 To execute a custom push command, you can simply use a regular `RUN` command together with the `--push` flag. The `--push` will ensure that:
 
-- The command is only executed when Earthly is in push mode (`earthly --push`)
+- The command is only executed when EarthBuild is in push mode (`earth --push`)
 - No cache is reused for that specific command, causing it to execute every time
 - The command is executed during the push phase of the build, ensuring that everything else (e.g. testing) has completed successfully first
 
@@ -386,7 +386,7 @@ RUN --no-cache --secret GITHUB_TOKEN github-release upload ...
 `RUN --no-cache` should be avoided for this use-case, as it has some potentially dangerous downsides:
 
 - The upload command may be executed in parallel with any testing (meaning that tests might not pass yet the upload may still complete)
-- The upload will execute even when earthly is not invoked in `--push` mode.
+- The upload will execute even when earth is not invoked in `--push` mode.
 
 To address this issue, it is advisable to use `RUN --push` instead.
 
@@ -463,9 +463,9 @@ RUN aws ec2 describe-images
 RUN rm /root/.aws/credentials
 ```
 
-### Do not pass Earthly dependencies from one target to another via the local file system or via an external registry
+### Do not pass EarthBuild dependencies from one target to another via the local file system or via an external registry
 
-If you are new to Earthly, you may be tempted to save an artifact locally in one target and then to retrieve it another one.
+If you are new to EarthBuild, you may be tempted to save an artifact locally in one target and then to retrieve it another one.
 
 ```Dockerfile
 # Bad
@@ -481,7 +481,7 @@ build:
     ...
 ```
 
-This will not actually work, as in Earthly all output takes place only at the end of a successful build. Meaning that when `+build` starts, the artifact would not have been output yet. In fact, `+dep` and `+build` will run completely parallel anyway - as Earthly does not know of a dependency between them.
+This will not actually work, as in EarthBuild all output takes place only at the end of a successful build. Meaning that when `+build` starts, the artifact would not have been output yet. In fact, `+dep` and `+build` will run completely parallel anyway - as EarthBuild does not know of a dependency between them.
 
 The proper way to achieve this is to use [artifact references](../guides/importing.md).
 
@@ -498,11 +498,11 @@ build:
     ...
 ```
 
-Notice that `+dep` no longer needs to save the file locally. Also, the `COPY` command no longer references the file from the local file system. It has been replaced with an artifact reference from the target `+dep`. This reference will tell Earthly that these two targets depend on each other and will therefore schedule the relevant parts to run sequentially.
+Notice that `+dep` no longer needs to save the file locally. Also, the `COPY` command no longer references the file from the local file system. It has been replaced with an artifact reference from the target `+dep`. This reference will tell EarthBuild that these two targets depend on each other and will therefore schedule the relevant parts to run sequentially.
 
 Notice also that in our `+all` target, we no longer have to call both `+dep` and `+build`. The system will automatically infer that when building `+build`, `+dep` is also required.
 
-Another example of what you should **not** do is to pass Earthly images via between targets via an external registry.
+Another example of what you should **not** do is to pass EarthBuild images via between targets via an external registry.
 
 ```Dockerfile
 # Bad
@@ -549,7 +549,7 @@ test:
     END
 ```
 
-The `--load` instruction will inform Earthly that the two targets depend on each other and will therefore build the image and load it into the Docker daemon provided by `WITH DOCKER`.
+The `--load` instruction will inform EarthBuild that the two targets depend on each other and will therefore build the image and load it into the Docker daemon provided by `WITH DOCKER`.
 
 ### Use `WITH DOCKER --pull`
 
@@ -559,7 +559,7 @@ When referencing an external image in the body of a `WITH DOCKER` block, it is i
 - The Daemon within `WITH DOCKER` is not logged into registries. Your local Docker login config is not propagated to the daemon. This means that you may run into issues when trying to pull images from private registries, but also, DockerHub rate limiting may prevent you from pulling images consistently from public repositories.
 
 ```Dockerfile
-# Bad: Image hello-world needs to be pulled every time and is not part of the Earthly-managed cache.
+# Bad: Image hello-world needs to be pulled every time and is not part of the EarthBuild-managed cache.
 WITH DOCKER
    RUN docker run hello-world
 END
@@ -572,7 +572,7 @@ WITH DOCKER --pull hello-world
 END
 ```
 
-If you use `WITH DOCKER --compose`, Earthly will automatically pull images declared in the compose file for you, as long as they are not already being loaded from another target via `WITH DOCKER --load`. So in this case, you do not need to declare those image with `WITH DOCKER --pull`.
+If you use `WITH DOCKER --compose`, EarthBuild will automatically pull images declared in the compose file for you, as long as they are not already being loaded from another target via `WITH DOCKER --load`. So in this case, you do not need to declare those image with `WITH DOCKER --pull`.
 
 ### Style: Define the high-level targets at the top of the Earthfile
 
@@ -584,7 +584,7 @@ It also helps a reader to consume the Earthfile starting from the top, forming a
 
 ### Use `COPY +my-target/...` to pass files to and from `LOCALLY` targets
 
-When using `LOCALLY`, it is tempting to skip on using Earthly constructs for passing files between targets. However, this can be problematic.
+When using `LOCALLY`, it is tempting to skip on using EarthBuild constructs for passing files between targets. However, this can be problematic.
 
 ```Dockerfile
 # Bad
@@ -601,7 +601,7 @@ build:
 
 This setup may actually work, but it has a key issue: the order of `+dep` and `+build` is not guaranteed. So in some runs, the file `./my-artifact.txt` will be created before the `+build` target is executed, and in some runs it will be created after.
 
-To fix this race condition, you need to use an [artifact reference](../guides/importing.md), to ensure that Earthly is aware of the dependency between the two targets:
+To fix this race condition, you need to use an [artifact reference](../guides/importing.md), to ensure that EarthBuild is aware of the dependency between the two targets:
 
 ```Dockerfile
 # Good
@@ -633,7 +633,7 @@ run-locally:
     RUN echo ./build/my-artifact.txt
 ```
 
-The mistake here is relying on `SAVE ARTIFACT ... AS LOCAL ...` for the transfer of the artifact to the `LOCALLY` target. As Earthly outputs are written at the end of the build, the target `+run-locally` will not have the file in time (or it might have it from a previous run only, meaning that it might be stale).
+The mistake here is relying on `SAVE ARTIFACT ... AS LOCAL ...` for the transfer of the artifact to the `LOCALLY` target. As EarthBuild outputs are written at the end of the build, the target `+run-locally` will not have the file in time (or it might have it from a previous run only, meaning that it might be stale).
 
 Here is how to fix this:
 
@@ -652,7 +652,7 @@ run-locally:
     RUN echo ./build/my-artifact.txt
 ```
 
-The `COPY` command using an artifact reference will inform Earthly of the dependency between the two targets, and will therefore cause the transfer of artifact between the two properly.
+The `COPY` command using an artifact reference will inform EarthBuild of the dependency between the two targets, and will therefore cause the transfer of artifact between the two properly.
 
 And finally, here is another common mistake, when passing files between two `LOCALLY` targets:
 
@@ -684,7 +684,7 @@ run-locally:
     RUN echo ./build/my-artifact.txt
 ```
 
-Here, the mistake is that the order of operations is not guaranteed. Earthly does not know that the two targets depend on each other, and therefore might decide to run them out of order. It might work sometimes, but it is not guaranteed that it will work every time.
+Here, the mistake is that the order of operations is not guaranteed. EarthBuild does not know that the two targets depend on each other, and therefore might decide to run them out of order. It might work sometimes, but it is not guaranteed that it will work every time.
 
 To address this, again, the relationship between the two targets should be declared via `COPY` and an artifact reference.
 
@@ -704,7 +704,7 @@ run-locally:
 
 ### Use `WITH DOCKER --load=+my-target` to pass images to `LOCALLY` targets
 
-Earthly is able to output Docker images to the local Docker daemon at the end of each build. However, when requiring an image for a `LOCALLY` target, the image needs to be output in the *middle* of the build.
+EarthBuild is able to output Docker images to the local Docker daemon at the end of each build. However, when requiring an image for a `LOCALLY` target, the image needs to be output in the *middle* of the build.
 
 ```Dockerfile
 # Bad
@@ -719,7 +719,7 @@ run-img:
     RUN docker run my-co/my-img:latest
 ```
 
-The above will not work as the output will take place at the end of the build only. In addition, Earthly is unaware that there is a dependency between the two targets. To address this, we need to use `WITH DOCKER --load` and a [target reference](../guides/importing.md):
+The above will not work as the output will take place at the end of the build only. In addition, EarthBuild is unaware that there is a dependency between the two targets. To address this, we need to use `WITH DOCKER --load` and a [target reference](../guides/importing.md):
 
 ```Dockerfile
 # Good
@@ -735,19 +735,19 @@ run-img:
     END
 ```
 
-The `--load` instruction will inform Earthly of the dependency and will therefore cause the image to be output right before the `WITH DOCKER` `RUN` command executes.
+The `--load` instruction will inform EarthBuild of the dependency and will therefore cause the image to be output right before the `WITH DOCKER` `RUN` command executes.
 
 ### Avoid non-deterministic behavior
 
-It is generally recommended to avoid any non-deterministic behavior when designing Earthly builds. This may include:
+It is generally recommended to avoid any non-deterministic behavior when designing EarthBuild builds. This may include:
 
 - Introducing time-stamps in builds or in tags
 - Generating unique IDs
 - Initializing `ARG` with values that include randomness
 
-The main reason to avoid non-deterministic behavior is to ensure that builds are repeatable, and to maximize the use of cache. If an intermediate step leads to the same result as a previous run, Earthly may be able to reuse further computation performed previously.
+The main reason to avoid non-deterministic behavior is to ensure that builds are repeatable, and to maximize the use of cache. If an intermediate step leads to the same result as a previous run, EarthBuild may be able to reuse further computation performed previously.
 
-Many compilers, code generators and other tools might not be deterministic and there may be no way around it. Earthly still functions correctly in these cases, however there may be occasions where the cache is not fully utilized to its potential.
+Many compilers, code generators and other tools might not be deterministic and there may be no way around it. EarthBuild still functions correctly in these cases, however there may be occasions where the cache is not fully utilized to its potential.
 
 ### Use `COPY --dir` to copy multiple directories
 
@@ -762,7 +762,7 @@ COPY dir-3 dir-3
 
 This is repetitive and uses more cache layers than should be necessary.
 
-Earthly introduces a setting, `COPY --dir`, which makes `COPY` behave more like `cp` and less like the Dockerfile `COPY`. The `--dir` flag can be used therefore to copy multiple directories in a single command:
+EarthBuild introduces a setting, `COPY --dir`, which makes `COPY` behave more like `cp` and less like the Dockerfile `COPY`. The `--dir` flag can be used therefore to copy multiple directories in a single command:
 
 ```Dockerfile
 # Good
@@ -812,15 +812,15 @@ image:
 
 Many programming tools require the generation of code. The generated code is often used in completing a build, but also it might be required for IDEs to perform code completion. For this reason, it's often preferable that generated code is also output as local files during development.
 
-It is recommended that any generated code is saved via `SAVE ARTIFACT ... AS LOCAL ...` via regular Earthly targets, rather than via running the generation command in `LOCALLY`. There are multiple reasons for this:
+It is recommended that any generated code is saved via `SAVE ARTIFACT ... AS LOCAL ...` via regular EarthBuild targets, rather than via running the generation command in `LOCALLY`. There are multiple reasons for this:
 
 - Executing commands via `LOCALLY` loses the repeatability benefits. This means that the same command could end up generating different code, depending on the system it is being run on. Differences in the environment, such as the version of code generator installed (e.g. `protoc`), or certain environment variables (e.g. `GOPATH`) could cause the generated code to be different.
 - The logic to generate code via `LOCALLY` will not be usable in the CI, as the CI script would typically enable `--strict` mode.
-- If the code generation workflow requires that the generated code is committed to the repository and then used in a subsequent earthly build, it is possible that due to human error, changes will be made to the input files, without the generated code to be updated correctly. If a problem or an incompatibility is introduced in this manner, it will only show up later, for other people when they try to generate the code themselves. In worse cases, it may even go unnoticed and end up in production.
+- If the code generation workflow requires that the generated code is committed to the repository and then used in a subsequent earth build, it is possible that due to human error, changes will be made to the input files, without the generated code to be updated correctly. If a problem or an incompatibility is introduced in this manner, it will only show up later, for other people when they try to generate the code themselves. In worse cases, it may even go unnoticed and end up in production.
 
 ### Multi-line strings
 
-To specify a multi-line string in Earthly, you can simply start quotes on one line and end them on another.
+To specify a multi-line string in EarthBuild, you can simply start quotes on one line and end them on another.
 
 ```Dockerfile
 # Bad
@@ -870,7 +870,7 @@ It is generally advisable to avoid copying files outside of the build context. I
 COPY ../dir1/some-file.txt ./
 ```
 
-In the above example, the file `some-file.txt` is copied from the sibling directory `dir1`. This will not work in Earthly as the file is not in the build context of `./dir2/Earthfile` (the build context in this case is `./dir2`). To address this issue, we can create an Earthfile in `dir1` that exports the file `some-file.txt` as an artifact.
+In the above example, the file `some-file.txt` is copied from the sibling directory `dir1`. This will not work in EarthBuild as the file is not in the build context of `./dir2/Earthfile` (the build context in this case is `./dir2`). To address this issue, we can create an Earthfile in `dir1` that exports the file `some-file.txt` as an artifact.
 
 ```
 ├── dir1
@@ -911,25 +911,25 @@ do-something:
 
 Note, however, that `LOCALLY` is not allowed in `--strict` mode (or in `--ci` mode), as it introduces a dependency from the host machine, which may interfere with the repeatability property of the build.
 
-Although performing a `COPY ../` is not possible in Earthly today, there are some rare, but valid use-cases for this functionality. This is being discussed in GitHub issue [#1221](https://github.com/earthly/earthly/issues/1221).
+Although performing a `COPY ../` is not possible in EarthBuild today, there are some rare, but valid use-cases for this functionality. This is being discussed in GitHub issue [#1221](https://github.com/earthly/earthly/issues/1221).
 
 ### Repository structure: Place build logic as close to the relevant code as possible
 
-When designing builds, it is advisable to place lower-level build logic closer to the code that it is building. This can be achieved by splitting Earthly builds across multiple Earthfiles, and placing some of the Earthfiles deeper inside the directory structure. The lower-level Earthfiles can then export artifacts and/or images via `SAVE ARTIFACT` or `SAVE IMAGE` commands, respectively. Those artifacts can then be referenced in higher-level Earthfiles via artifact and target references (`COPY ./deep/dir+some-target/an/artifact ...`, `FROM ./some/path+my-target`).
+When designing builds, it is advisable to place lower-level build logic closer to the code that it is building. This can be achieved by splitting EarthBuild builds across multiple Earthfiles, and placing some of the Earthfiles deeper inside the directory structure. The lower-level Earthfiles can then export artifacts and/or images via `SAVE ARTIFACT` or `SAVE IMAGE` commands, respectively. Those artifacts can then be referenced in higher-level Earthfiles via artifact and target references (`COPY ./deep/dir+some-target/an/artifact ...`, `FROM ./some/path+my-target`).
 
 This allows for low coupling between modules within your code and creates a "build API" for your directories, whereby all externally accessible artifacts are exposed explicitly.
 
 As one example, you might find the [monorepo example](https://github.com/earthbuild/earthbuild/tree/main/examples/monorepo) to be a useful case-study. However, even when a repository contains a single project, you might still find it useful to split logic across multiple Earthfiles. An example might be including Protocol Buffers generation logic inside the subdirectory containing the `.proto` files, in its own Earthfile.
 
-For a real-world example, you can also take a look at Earthly's own build, where several Earthfiles are scattered across the repository to help organize build logic across modules, very much like regular code. Here are some examples:
+For a real-world example, you can also take a look at EarthBuild's own build, where several Earthfiles are scattered across the repository to help organize build logic across modules, very much like regular code. Here are some examples:
 
 <!-- GitBook currently has a bug where any references to an "Earthfile" gets confused with "docs/Earthfile" and somehow appends a /README.md
 https://github.com/earthbuild/earthbuild/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
 
 - [`internal/earthfile/tests`](https://github.com/earthbuild/earthbuild/tree/main/internal/earthfile/tests) - Earthfile contains logic for running AST-specific tests.
-- [`buildkitd`](https://github.com/earthly/earthly/tree/main/buildkitd) - Earthfile contains the logic for building the Earthly BuildKit image.
+- [`buildkitd`](https://github.com/earthly/earthly/tree/main/buildkitd) - Earthfile contains the logic for building the EarthBuild BuildKit image.
 - [`tests`](https://github.com/earthly/earthly/tree/main/tests) - Earthfile contains logic for executing e2e tests.
-- [`release/**/`](https://github.com/earthly/earthly/tree/main/release) - Multiple Earthfiles contain logic used for the release of Earthly.
+- [`release/**/`](https://github.com/earthly/earthly/tree/main/release) - Multiple Earthfiles contain logic used for the release of EarthBuild.
 - [The main Earthfile](https://tinyurl.com/yt3d3cx6) - ties everything together, referencing the various targets across the sub-directories.
 
 ### Repository structure: Do not place all Earthfiles in a dedicated directory
@@ -952,12 +952,12 @@ A common practice when using Dockerfiles is to place all Dockerfiles in a specia
 
 And then running `docker build -f ./services/app1.Dockerfile ./app1-src-dir ...` and so on.
 
-In Earthly, however, this is an anti-pattern, for a couple reasons:
+In EarthBuild, however, this is an anti-pattern, for a couple reasons:
 
-- Every repository using Earthly should have a common structure, to help the user navigate the build. The convention is that Earthfiles are as close to the code as possible, with some high-level targets exposed in the root of the repository, or the root of the directory containing the code for a specific app. Having this convention helps the users who have not written the Earthfiles to quickly be able to browse around and understand the build, at least at a high level.
+- Every repository using EarthBuild should have a common structure, to help the user navigate the build. The convention is that Earthfiles are as close to the code as possible, with some high-level targets exposed in the root of the repository, or the root of the directory containing the code for a specific app. Having this convention helps the users who have not written the Earthfiles to quickly be able to browse around and understand the build, at least at a high level.
 - Cross-directory and cross-repository references will point to directories where the user expects an Earthfile to be present, and then to a specific target or function within that Earthfile. It is important for this discoverability to be available to anyone browsing the build code and understanding the connections between Earthfiles.
 
-For these reasons, Earthly does not support placing all Earthfiles in a single directory, nor the equivalent of a `docker build -f` option.
+For these reasons, EarthBuild does not support placing all Earthfiles in a single directory, nor the equivalent of a `docker build -f` option.
 
 ### Pattern: Pass-through artifacts or images
 
@@ -1027,7 +1027,7 @@ This allows for `+build-wrapper` to reuse the logic in `+build`, but ultimately 
 
 ### Use `earthbuild/dind`
 
-When using `WITH DOCKER`, it is recommended that you use the official `earthbuild/dind` image (preferably `:alpine`) for running Docker-in-Docker. Earthly's `WITH DOCKER` requires that the Docker engine is installed already in the image it is running in.
+When using `WITH DOCKER`, it is recommended that you use the official `earthbuild/dind` image (preferably `:alpine`) for running Docker-in-Docker. EarthBuild's `WITH DOCKER` requires that the Docker engine is installed already in the image it is running in.
 
 If Docker engine is not detected, `WITH DOCKER` will need to first install it - it usually does so automatically - however, the cache will be inefficient. Consider the following example:
 
@@ -1041,7 +1041,7 @@ integration-test:
     END
 ```
 
-Let's assume that `some-other-image:latest` does not already have Docker engine installed. This means that on the `WITH DOCKER` line, Earthly will add a hidden installation step, to add Docker engine. This takes some time to execute, but it will work.
+Let's assume that `some-other-image:latest` does not already have Docker engine installed. This means that on the `WITH DOCKER` line, EarthBuild will add a hidden installation step, to add Docker engine. This takes some time to execute, but it will work.
 
 The problem, however, will be apparent when there is a change (no matter how small) to `docker-compose.yml`. That will cause the build to re-execute without cache from the `COPY` command onwards, meaning that the installation of Docker engine will be repeated.
 
@@ -1072,7 +1072,7 @@ integration-test:
 
 ### Pattern: Saving artifacts resulting from a `WITH DOCKER`
 
-In Earthly, `WITH DOCKER` starts up a transient Docker daemon for that specific instruction and then shuts it down and completely wipes its data afterwards. That does not mean, however, that you cannot export any information from it (or from any container running within), to be used in another part of the build. Although you may not run any non-`RUN` commands within `WITH DOCKER`, you can still use `SAVE ARTIFACT` (and any other command) after the `WITH DOCKER` instruction. The Docker daemon's data is wiped - but the rest of the build environment remains intact.
+In EarthBuild, `WITH DOCKER` starts up a transient Docker daemon for that specific instruction and then shuts it down and completely wipes its data afterwards. That does not mean, however, that you cannot export any information from it (or from any container running within), to be used in another part of the build. Although you may not run any non-`RUN` commands within `WITH DOCKER`, you can still use `SAVE ARTIFACT` (and any other command) after the `WITH DOCKER` instruction. The Docker daemon's data is wiped - but the rest of the build environment remains intact.
 
 ```Dockerfile
 WITH DOCKER ...
@@ -1089,21 +1089,21 @@ SAVE ARTIFACT ./some-docker-state.json
 
 ### Use `--ci` when running in CI
 
-Build scripts serve slightly different purposes when they are run in CI compared to when they are executed for local development. Most of the logic is similar (hence Earthly attempts to unify the two concepts in a single syntax), but there are some small differences.
+Build scripts serve slightly different purposes when they are run in CI compared to when they are executed for local development. Most of the logic is similar (hence EarthBuild attempts to unify the two concepts in a single syntax), but there are some small differences.
 
-For example, for development purposes, you may use commands such as `LOCALLY`, which cause Earthly to be less repeatable, and yet might satisfy very much needed use-cases that are typically out of scope of a CI build.
+For example, for development purposes, you may use commands such as `LOCALLY`, which cause EarthBuild to be less repeatable, and yet might satisfy very much needed use-cases that are typically out of scope of a CI build.
 
 In addition, in CI it is much more likely that shared caching will be needed, while outputting artifacts and images in the CI's host environment itself would not be needed.
 
-For these reasons, Earthly comes with the `--ci` flag, which simply expands to `--no-output --use-inline-cache --save-inline-cache --strict`. The `--ci` flag therefore, prevents the use of commands that are not repeatable, enables inline caching and disables outputting artifacts and images on the CI host.
+For these reasons, EarthBuild comes with the `--ci` flag, which simply expands to `--no-output --use-inline-cache --save-inline-cache --strict`. The `--ci` flag therefore, prevents the use of commands that are not repeatable, enables inline caching and disables outputting artifacts and images on the CI host.
 
 ### Avoid `LOCALLY` and other non-strict commands
 
-Certain Earthly functionality is only meant to be used for local development only. Most such commands do not fully abide by the Earthly spirit of repeatable builds, however, for certain specific development use-cases they are needed and therefore Earthly provides them. When Earthly is used in `--strict` mode (`earthly --strict +my-target` or `earthly --ci +my-target`), the usage of these commands is not allowed.
+Certain EarthBuild functionality is only meant to be used for local development only. Most such commands do not fully abide by the EarthBuild spirit of repeatable builds, however, for certain specific development use-cases they are needed and therefore EarthBuild provides them. When EarthBuild is used in `--strict` mode (`earth --strict +my-target` or `earth --ci +my-target`), the usage of these commands is not allowed.
 
 For this reason, it is recommended to avoid using these commands as much as possible, as doing so will:
 
-1. Cause Earthly to behave in a non-repeatable way across other platforms, as it will rely on host-specific environment configuration.
+1. Cause EarthBuild to behave in a non-repeatable way across other platforms, as it will rely on host-specific environment configuration.
 2. Disable caching.
 3. Cause the specific targets to not work at all when `--ci` is passed in.
 
@@ -1119,58 +1119,58 @@ Note, however, that none of these cases are needed in a CI environment, and ulti
 
 ### Pattern: Push on the `main` branch only
 
-When using Earthly in a sandboxed CI, it may be useful to perform pushes on occasion, in order to populate shared caches. In addition, image pushes might also help developers to grab pre-built images for local use for various development workflows.
+When using EarthBuild in a sandboxed CI, it may be useful to perform pushes on occasion, in order to populate shared caches. In addition, image pushes might also help developers to grab pre-built images for local use for various development workflows.
 
 Pushing too often can result in slowing down builds due to the upload time, while pushing too infrequently results in stale cache or stale development images.
 
 A good balance is often to perform pushes on the `main` branch only, and to disable any pushing on PR builds. Although the `main` build will be slower, it will allow for maximum use of cache in PR builds, without the slowdown of further pushes.
 
-Main branch build: `earthly --ci --push +target`.
-PR build: `earthly --ci +target`.
+Main branch build: `earth --ci --push +target`.
+PR build: `earth --ci +target`.
 
 The push option can also be configured via the env var `EARTHLY_PUSH`, which may be easier to manipulate in your CI of choice.
 
-A more extreme case of this idea can be to use explicit maximum cache: `earthly --ci --push --remote-cache=.... --max-remote-cache +target`. The idea, again is to tradeoff performance on the `main` branch, for the benefit of faster PR builds. Whether this is actually beneficial needs to be measured on a project-by-project basis, however.
+A more extreme case of this idea can be to use explicit maximum cache: `earth --ci --push --remote-cache=.... --max-remote-cache +target`. The idea, again is to tradeoff performance on the `main` branch, for the benefit of faster PR builds. Whether this is actually beneficial needs to be measured on a project-by-project basis, however.
 
 ### Do not expose cache image tags publicly if the cache contains private code or dependencies
 
-When using shared caching, Earthly has the ability to save some intermediate information about the build in a Docker registry of choice. Note, however, that the intermediate cache may also contain private code or dependencies, which could be exposed via the cache in some cases. Even if the final image only contains compiled binaries, it may still be possible to access intermediate layers that lead to the fully compiled binaries - some of which may contain private code or dependencies.
+When using shared caching, EarthBuild has the ability to save some intermediate information about the build in a Docker registry of choice. Note, however, that the intermediate cache may also contain private code or dependencies, which could be exposed via the cache in some cases. Even if the final image only contains compiled binaries, it may still be possible to access intermediate layers that lead to the fully compiled binaries - some of which may contain private code or dependencies.
 
 As such, when working on a closed-source project, it is advisable to only use private image repositories to prevent any code leaks.
 
-### Technique: Use `earthly -i` to debug failures
+### Technique: Use `earth -i` to debug failures
 
-In Earthly it is possible to drop into the container of a failed step to diagnose the failure better. To turn on this setting you can use the `-i` flag: `earthly -i +my-target`. Once dropped into the container's shell, you may use the up arrow to pre-populate the previously failed command should you wish to retry it or amend it. To exit the shell, press `Ctrl+D`.
+In EarthBuild it is possible to drop into the container of a failed step to diagnose the failure better. To turn on this setting you can use the `-i` flag: `earth -i +my-target`. Once dropped into the container's shell, you may use the up arrow to pre-populate the previously failed command should you wish to retry it or amend it. To exit the shell, press `Ctrl+D`.
 
-### Run everything in a single Earthly invocation, do not wrap Earthly
+### Run everything in a single EarthBuild invocation, do not wrap EarthBuild
 
 Historically, build scripts have been constructed by cobbling up multiple technologies together: Makefiles, Bash scripts, Dockerfiles, Python scripts, Ruby scripts, and so on. The possibilities are endless, but also the readability and maintainability of the scripts suffer.
 
-Earthly has been designed with a few key goals in mind:
+EarthBuild has been designed with a few key goals in mind:
 
 - Repeatability - the builds should just work on another system
 - Readability - the builds should be understandable by any team member on the team, without much effort
 - A universal CI script - a script that contains all the information needed for the CI to perform a complete build
 
-In this spirit, Earthly has been designed to not require any wrapping around it. Here are some examples of antipatterns:
+In this spirit, EarthBuild has been designed to not require any wrapping around it. Here are some examples of antipatterns:
 
-- **Antipattern**: Earthly is called repeatedly in a single script in order to process intermediate results and then pass those results to later invocations.
-- **Antipattern**: Downloading dependencies outside of Earthly and then copying them in.
+- **Antipattern**: EarthBuild is called repeatedly in a single script in order to process intermediate results and then pass those results to later invocations.
+- **Antipattern**: Downloading dependencies outside of EarthBuild and then copying them in.
 - **Antipattern**: Performing a build without `--push` and then repeating the same build, but with `--push` enabled.
-- **Antipattern**: Computing the value of an `ARG` outside of Earthly and then calling Earthly with that value.
-- **Antipattern**: Running `earthly` in a bash `for` loop, to process multiple targets as separate builds.
-- **Antipattern**: Running `earthly` repeatedly, rather than using an `all` target encapsulating all the targets needed to be built.
-- **Antipattern**: Running `earthly` repeatedly with `--no-cache`, to control the order of a deployment, instead of using `RUN --push` adequately.
+- **Antipattern**: Computing the value of an `ARG` outside of EarthBuild and then calling EarthBuild with that value.
+- **Antipattern**: Running `earth` in a bash `for` loop, to process multiple targets as separate builds.
+- **Antipattern**: Running `earth` repeatedly, rather than using an `all` target encapsulating all the targets needed to be built.
+- **Antipattern**: Running `earth` repeatedly with `--no-cache`, to control the order of a deployment, instead of using `RUN --push` adequately.
 
-All of the above should be avoided as they hinder repeatability and/or they are abusing Earthly features in ways Earthly was not designed for. If a wrapping script is used outside of Earthly, it means that the script is not containerized, which means that the script is susceptible to host environment nuances.
+All of the above should be avoided as they hinder repeatability and/or they are abusing EarthBuild features in ways EarthBuild was not designed for. If a wrapping script is used outside of EarthBuild, it means that the script is not containerized, which means that the script is susceptible to host environment nuances.
 
 The differences can be somewhat surprising: `make` and `sed` can be different on a Mac compared to a Linux machine, for example. Various linux distributions might have different versions of `bash` installed. Environment variables could play surprising roles. Causes for inconsistencies can sip in from anywhere, making builds more difficult to maintain.
 
-To keep your build scripts uniform across projects (and thus more readable) and to keep them repeatable, it is best if `earthly` is used directly and with minimal argument overrides.
+To keep your build scripts uniform across projects (and thus more readable) and to keep them repeatable, it is best if `earth` is used directly and with minimal argument overrides.
 
 ### Use `RUN --ssh` for passing host SSH keys to builds
 
-Earthly provides a way to pass-through access to your host's SSH keys to the build, by proxying the host's ssh-agent connection inside the build. This may be useful if you need to access private repositories where you authenticate with SSH. An example of such a case might be downloading Go dependencies from private repositories:
+EarthBuild provides a way to pass-through access to your host's SSH keys to the build, by proxying the host's ssh-agent connection inside the build. This may be useful if you need to access private repositories where you authenticate with SSH. An example of such a case might be downloading Go dependencies from private repositories:
 
 ```Dockerfile
 RUN --ssh go mod download
@@ -1178,9 +1178,9 @@ RUN --ssh go mod download
 
 ### Use SAVE IMAGE to always cache
 
-The simplicity of Earthly comes from its ability to cache build steps that do not need to be rerun. There are times, though, when you have more insight into the build process than Earthly does and may need to manually manage the cache for certain steps. Using an image push is an advanced technique that lets you tell Earthly, **"I want to always cache this step."**
+The simplicity of EarthBuild comes from its ability to cache build steps that do not need to be rerun. There are times, though, when you have more insight into the build process than EarthBuild does and may need to manually manage the cache for certain steps. Using an image push is an advanced technique that lets you tell EarthBuild, **"I want to always cache this step."**
 
-For example, consider the Earthly Blog's Earthfile, which has a base image that installs Pandoc, among other utilities:
+For example, consider the EarthBuild Blog's Earthfile, which has a base image that installs Pandoc, among other utilities:
 
 ```Dockerfile
 base:
@@ -1216,7 +1216,7 @@ build:
     RUN ...
 ```
 
-By doing this, we ensure that the build process is consistently swift, as the base layers do not need to be rebuilt. The trade-off is that the base target needs to be updated manually. For the Earthly website, we address this by running earthly `+base` once a week via a CI job, and on-demand whenever there are changes to the base image. You can see the full example, including flags for manual rerunning the base image, on GitHub.
+By doing this, we ensure that the build process is consistently swift, as the base layers do not need to be rebuilt. The trade-off is that the base target needs to be updated manually. For the EarthBuild website, we address this by running earth `+base` once a week via a CI job, and on-demand whenever there are changes to the base image. You can see the full example, including flags for manual rerunning the base image, on GitHub.
 
 #### Caveats to this approach
 
@@ -1226,9 +1226,9 @@ By doing this, we ensure that the build process is consistently swift, as the ba
 
 #### Effective use cases
 
-- **Expensive build steps that rarely change.** Earthly's cache operates on a least-recently-used (LRU) basis, trying to retain frequently used cache steps. However, some steps are more costly to regenerate than others. An external image can serve as a reliable fallback if an expensive step is evicted from the cache.
+- **Expensive build steps that rarely change.** EarthBuild's cache operates on a least-recently-used (LRU) basis, trying to retain frequently used cache steps. However, some steps are more costly to regenerate than others. An external image can serve as a reliable fallback if an expensive step is evicted from the cache.
 
-- **Benign Nondeterminism:** Earthly’s cache expects determinism. It assumes that if an input file changes, the associated build step must be rerun. If you know a step can be cached despite changes in inputs, using SAVE IMAGE for caching allows you to manage this manually and avoid unnecessary cache invalidation.
+- **Benign Nondeterminism:** EarthBuild’s cache expects determinism. It assumes that if an input file changes, the associated build step must be rerun. If you know a step can be cached despite changes in inputs, using SAVE IMAGE for caching allows you to manage this manually and avoid unnecessary cache invalidation.
 
 ### Future: Saving an artifact even if the build fails
 

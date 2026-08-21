@@ -1,7 +1,7 @@
 To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/go/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part6/part6 ./part6
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part6/part6 ./part6
 ```
 
 Examples in [Python](#more-examples), [JavaScript](#more-examples) and [Java](#more-examples) are at the bottom of this page.
@@ -154,7 +154,7 @@ When we use the `--compose` flag, EarthBuild will start up the services defined 
 You'll need to use `--allow-privileged` (or `-P` for short) to run this example.
 
 ```bash
-earthly --allow-privileged +integration-tests
+earth --allow-privileged +integration-tests
 ```
 
 ## More Examples
@@ -366,7 +366,7 @@ app-with-api:
 
 ```
 
-Now you can run `earthly -P +app-with-api` to run the app and api side-by-side.
+Now you can run `earth -P +app-with-api` to run the app and api side-by-side.
 
 </details>
 
@@ -378,7 +378,7 @@ To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part6/part6 ./part6
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part6/part6 ./part6
 ```
 
 `./Earthfile`
@@ -432,7 +432,7 @@ services:
     hostname: postgres
     environment:
 - POSTGRES_DB=test_db
-- POSTGRES_USER=earthly
+- POSTGRES_USER=earth
 - POSTGRES_PASSWORD=password
     ports:
 - 127.0.0.1:5432:5432
@@ -463,7 +463,7 @@ public class PostgreSQLJDBC {
          Class.forName("org.postgresql.Driver");
          c = DriverManager
             .getConnection("jdbc:postgresql://postgres:5432/test_db",
-            "earthly", "password");
+            "earth", "password");
       } catch (Exception e) {
          e.printStackTrace();
          System.err.println(e.getClass().getName()+": "+e.getMessage());
@@ -486,7 +486,7 @@ public class PostgreSQLJDBC {
 To copy the files for [this example ( Part 6 )](https://github.com/earthbuild/earthbuild/tree/main/examples/tutorial/python/part6) run
 
 ```bash
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part6/part6 ./part6
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part6/part6 ./part6
 ```
 
 `./tests/test_db_connection.py`
@@ -501,7 +501,7 @@ class MyIntegrationTests(unittest.TestCase):
         connection = psycopg2.connect(
             host="postgres",
             database="test_db",
-            user="earthly",
+            user="earth",
             password="password")
 
         self.assertEqual(connection.closed, 0)
@@ -520,7 +520,7 @@ services:
     hostname: postgres
     environment:
 - POSTGRES_DB=test_db
-- POSTGRES_USER=earthly
+- POSTGRES_USER=earth
 - POSTGRES_PASSWORD=password
     ports:
 - 5432:5432

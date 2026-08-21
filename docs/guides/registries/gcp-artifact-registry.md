@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The GCP Artifact Registry is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with Earthly. This guide will walk you through creating an Earthfile, building an image, and pushing it to Artifact Registry.
+The GCP Artifact Registry is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with EarthBuild. This guide will walk you through creating an Earthfile, building an image, and pushing it to Artifact Registry.
 
 [Artifact Registry is the successor to the GCP Container Registry (GCR)](https://cloud.google.com/artifact-registry/docs/transition/transition-from-gcr). It can accommodate more than just Docker images, but those are beyond the scope of this guide. Most of what we detail here applies to GCR as well, it will just require some [small tweaks](https://cloud.google.com/artifact-registry/docs/transition/transition-from-gcr#compare).
 
@@ -16,7 +16,7 @@ No special considerations are needed in the Earthfile itself. You can use `SAVE 
 FROM alpine:3.18
 
 build:
-    RUN echo "Hello from Earthly!" > motd
+    RUN echo "Hello from EarthBuild!" > motd
     ENTRYPOINT cat motd
     SAVE IMAGE --push <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love
 ```
@@ -40,7 +40,7 @@ Ensure that you have correct permissions to push and pull the images. Please ref
 
 If you are using GCR; keep in mind that the needed permissions are based on the GCP storage permissions. We used the `Storage Admin` permissions to complete the guide with GCR.
 
-Service Accounts also work with Earthly. Rather than `gcloud init`, simply log in using the Google-provided key like this:
+Service Accounts also work with EarthBuild. Rather than `gcloud init`, simply log in using the Google-provided key like this:
 
 ```
 RUN gcloud auth activate-service-account --key-file /test/key.json
@@ -51,12 +51,12 @@ RUN gcloud auth activate-service-account --key-file /test/key.json
 With the helper installed, no special To build and push an image, simply execute the build target. Don't forget the `--push` flag!
 
 ```
-❯ earthly --push +build
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+❯ earth --push +build
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
          alpine:3.18 | --> Load metadata linux/amd64
                +base | --> FROM alpine:3.18
                +base | [██████████] resolve docker.io/library/alpine:3.18@sha256:0bd0e9e03a022c3b0226667621da84fc9bf562a9056130424b5bfbd8bcb0397f ... 100%
-              +build | --> RUN echo "Hello from Earthly!" > motd
+              +build | --> RUN echo "Hello from EarthBuild!" > motd
               output | --> exporting outputs
               output | [██████████] exporting layers ... 100%
               output | [██████████] exporting manifest sha256:08f310b4520418a60f7c12b168167ea22b886bc03d43ab87058e959ef5c14cf2 ... 100%
@@ -88,8 +88,8 @@ run:
 And here is how you would run it:
 
 ```
-❯ earthly -P +run
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+❯ earth -P +run
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
   e/dind:alpine-main | --> Load metadata linux/amd64
 u/e/h/hello-earthly:with-love | --> Load metadata linux/amd64
 u/e/h/hello-earthly:with-love | --> DOCKER PULL <region>-docker.pkg.dev/<project>/hello-earthly/hello-earthly:with-love

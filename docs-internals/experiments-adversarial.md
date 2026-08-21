@@ -23448,3 +23448,54 @@ finding the first is exactly what makes it tempting to stop looking.
 
 **Left off**, behind `EARTH_CLONE_TREES`. A 30x improvement on the largest fixed cost of a cold build
 is worth returning to; a build that does not finish is not worth shipping for it.
+
+### The correction: it was never the clone
+
+Shrinking the reproducer settled it, and settled it against the entry above. Replacing `go mod
+download` with a step that writes 20,000 small files - no go, no modules, no network - failed
+immediately rather than hanging, and said what was wrong:
+
+```text
+capture the result of Earthfile:5: create .../.partial-.../out/f18885:
+  too many open files in system
+```
+
+*In system*, not in process. So the machine, not the build. Counting who held them:
+
+```text
+13 sandbox VMs, each holding 10,000-40,000 open descriptors on the layer store
+com.apple (the VMs)   241,401 of a 491,520 system-wide limit
+```
+
+Every interrupted build leaks its VM, and **each VM holds roughly one descriptor per file it has
+touched in the shared store**. A single cold `+deps` takes `kern.num_files` from 10,088 to 49,952.
+Twelve un-reaped builds exhaust the machine, after which a build that needs a descriptor either
+fails - the 20,000-file probe - or blocks, which is what `+deps` was doing.
+
+Cleaning the machine and running the same build with cloning on: **26.4s, exit 0**. It never hung.
+
+**Why it looked causal.** Cloning makes materialising a base fast enough to reach the file-heavy step
+sooner, on a machine whose descriptors were already mostly spent. The correlation was real, repeated,
+and about the wrong variable.
+
+*A resource the experiment consumes.* Every run made the next one more likely to fail, so the
+evidence accumulated in the same direction as the hypothesis. Three of the four measurements taken
+that evening were poisoned by it, including the one that produced this entry's conclusion, and the
+one measurement that would have exposed it - `kern.num_files` before and after - costs a single
+command.
+
+The remedy that matters is not the clone flag. It is that a sandbox holds a descriptor per file and
+that nothing reaps a sandbox whose build was killed; the second now has an idle timeout, and the
+first is recorded in the nits as the amplifier that turns a leak into a machine-wide failure.
+
+### Cold, on a clean machine, both engines
+
+| engine                                  | cold  |
+| ---------------------------------------- | ----- |
+| buildkit (`earthly`, after prune --reset) | 15.9s |
+| native, clone on, cold image cache       | 31.8s |
+| native, clone on, warm image cache       | 26.4s |
+| native, hard links, cold image cache     | 33.2s |
+
+Still behind, by about 2x rather than the 3.8x this started at. Both numbers moved when the machine
+was cleaned, which is the point of the entry above: neither engine was being measured before.

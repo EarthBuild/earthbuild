@@ -2,23 +2,25 @@ package exec
 
 import "os"
 
-// EnvClone turns on whole-tree cloning when materialising a base.
+// EnvClone turns whole-tree cloning off.
 //
-// **Opt-in, and that is a retreat rather than a design.** `clonefile(2)` places
-// a 267MB, 17,580-entry base image in 0.26s where hard-linking it takes 8.5s,
-// and it is the safer of the two - a hard link makes one file with two names, so
-// a write through the layer store reaches into the shared image cache, while a
-// clone diverges on first write.
+// On by default. `clonefile(2)` places a 267MB, 17,580-entry base image in
+// 0.26s where hard-linking each entry takes 8.51s, and it is the safer of the
+// two besides: a hard link makes one file with two names, so a write through the
+// layer store reaches into the shared image cache, while a clone diverges on the
+// first write - which is what a caller of a *copy* is entitled to expect.
 //
-// It is off because turning it on made `go mod download` hang. Twice, cold, for
-// the whole of a 900-second budget, in a step that had taken seconds all
-// evening; the materialise itself was visibly faster - the first `apk` line
-// arrived at 6s rather than 19s - and then the build stopped. The cause is not
-// established, and a build tool does not default onto a path whose failure its
-// author cannot explain. Suspected: the guest mounts the placed tree as an
-// overlay lowerdir, and a clone shares extents where a link shares inodes, which
-// is a difference the layer machinery is known to care about (E89 records
-// `layer.Take` recording inode identity).
+// **It was off for one increment, on evidence that turned out to be about
+// something else.** With cloning on, a build appeared to hang after its step
+// completed; with it off, the same build finished. The difference was real and
+// the conclusion was wrong. Every one of those runs was made on a machine
+// carrying a dozen leaked sandbox VMs, each holding tens of thousands of open
+// descriptors on the layer store, and the system-wide limit was the thing being
+// hit. Cloning made materialising a base fast enough to reach the file-heavy
+// step sooner, which is why it looked causal (E510).
+//
+// Set it to anything falsy to fall back to hard links: another filesystem, or a
+// platform with no directory clone, takes that path anyway.
 const EnvClone = "EARTH_CLONE_TREES"
 
 // placeTree puts a copy of src at dst, by whatever means the filesystem allows.
@@ -27,7 +29,7 @@ const EnvClone = "EARTH_CLONE_TREES"
 // temporary directory and rename the finished tree into place - because the link
 // path skips the per-entry staging that defends against a second writer.
 func placeTree(src, dst string) error {
-	if os.Getenv(EnvClone) != "" {
+	if v := os.Getenv(EnvClone); v != "0" && v != "false" && v != "no" {
 		if err := cloneTree(src, dst); err == nil {
 			return nil
 		}

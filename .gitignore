@@ -14,3 +14,8 @@
 .gradle
 # a stray build of ./tools/mutate; the tool is run with `go run`
 /mutate
+
+# Generated test fixtures: a hundred thousand files is a repository nobody can
+# clone, for content that is a for loop. See engine/exec/bigtree_test.go.
+**/testdata/bigtree-*
+**/testdata/bigtree-*.complete

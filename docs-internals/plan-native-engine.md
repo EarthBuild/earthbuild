@@ -8353,3 +8353,47 @@ let it age out.
 
 **What it buys.** A fleet can share a base. Today every machine fetches its own, which is the cost
 E507 measured and the reason a fleet's second machine is worth less than it should be.
+
+## Open question: the store as a directory, or as a disk
+
+The layer store is a host directory shared into the sandbox. Everything below follows from that one
+choice, and it is worth asking once, deliberately, whether it is the right one.
+
+**What it costs, measured.** A build of `FROM golang:1.26.5-alpine3.24` and `RUN go version` - which
+reads perhaps a dozen files of its base - leaves the sandbox holding **10,813 file descriptors**
+against a store of 15,252 files. The count tracks what is *in the store*, not what the step used. A
+cold `+deps` reaches about 40,000. Nothing reaps a sandbox whose build was killed, so a dozen
+interrupted builds exhaust a machine's system-wide limit, and the failure surfaces as an unrelated
+step reporting `too many open files in system` or hanging at no CPU (E510).
+
+**What else it costs, already recorded and not previously connected:**
+
+| symptom                                                      | recorded as              |
+| ------------------------------------------------------------ | ------------------------ |
+| uid and gid lost, so `--keep-own` cannot work                | E84                      |
+| a whiteout is a character device and `mknod` returns `EPERM` | E88, E94                 |
+| a stored layer never re-digests to its own name on macOS     | E89, reopened 2026-08-21 |
+| one descriptor per file in the store, held by the sandbox    | E510                     |
+
+Four unrelated-looking defects with one cause: **the store's contract is "a filesystem that can hold
+a Linux layer", and a host directory shared into a VM is not one.** Each was found the hard way, by
+implementing something that then could not work.
+
+**The alternative is a disk image.** A block device attached to the sandbox, with a Linux filesystem
+the guest owns. The host holds one descriptor regardless of how many files the store has; uids, gids,
+device nodes and mtimes are native, so a layer digests to its own name; whiteouts need no
+translation.
+
+**What that costs, and it is not nothing.** The host can currently read the store directly, and two
+things depend on it: `placeCaptured` captures a materialised tree host-side, and `Layers.Get` packs a
+layer host-side to serve it to a fleet peer. Both would have to go through the guest, which turns a
+filesystem walk into a protocol. The image also needs a size, and a size is a thing to get wrong -
+either wasted or exhausted, with growth to implement either way.
+
+**Not decided here.** It is the largest single question left in this engine, it touches four defects
+at once, and it wants measuring rather than arguing: how much does guest-mediated layer reading cost,
+against 40,000 descriptors and three classes of lost metadata.
+
+*A cost that appears in four places is usually one cost.* Each of the four was investigated on its
+own terms and none of the investigations found this, because each stopped when its own symptom was
+explained.

@@ -17,6 +17,7 @@ inputs:
   USE_QEMU:
     description: "Whether to set up QEMU"
     required: false
+    default: 'false'
   USE_NEXT:
     description: "Whether to use earthly-next"
     required: false
@@ -164,9 +165,9 @@ runs:
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
-    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
-      # qemu-user-static needed for cross-compilation (--platform) targets
-      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-static
+    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU == 'true' }}
+      # qemu-user-binfmt needed for cross-compilation (--platform) targets
+      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-binfmt
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}

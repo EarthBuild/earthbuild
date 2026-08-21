@@ -8482,3 +8482,43 @@ host, read by the host, and only its materialised output ever reaches a guest.
 
 Sequenced after the two cache-mount entries above, which this subsumes: moving cache mounts off the
 share *is* this change, applied to the storage that showed the cost first.
+
+### What the prior art says, and it agrees
+
+Researched rather than assumed, because "host shares are slow" is the sort of thing everyone repeats
+and nobody sources.
+
+**Nobody has made a host share fast for metadata; everyone has worked around it.**
+
+| project        | what they did                                                                          |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Docker Desktop | osxfs (~10x native for metadata) then gRPC-FUSE (still ~10x) then VirtioFS (~3-4x)     |
+| Docker again   | Synchronized File Shares: a Mutagen replica *inside* the VM. A cache, not a transport  |
+| Lima / Colima  | `vmType: vz` + `mountType: virtiofs`, and documented advice to move caches into the VM |
+| OrbStack       | custom VirtioFS with its own caching layer                                             |
+
+Two things follow. First, our measured 1.5x to 6.5x is *ordinary* for virtiofs rather than evidence
+of something being held wrongly - which is a second, independent reason the twelvefold claim in E511
+was suspect. Second, the escape hatch everyone converges on is the decision above: put the bytes
+where the guest owns them.
+
+### What `go mod download` actually does, which is more than expected
+
+From the Go source, per module version, on a cold cache:
+
+* `.info`, `.mod` and `.zip` each written to a temporary name and renamed, under a `flock`;
+* the zip is read back **twice** - once to validate, once to hash;
+* `rewriteVersionList` does an `os.ReadDir` of the `@v/` directory *per module*;
+* extraction opens every file `O_EXCL` with mode `0444`;
+* and then `makeDirsReadOnly` walks the whole extracted tree **again**, chmod-ing every directory.
+
+For `golang.org/x/sys` alone that is 549 file creations across 17 directories, then a second full
+traversal of the same tree. On a filesystem where a metadata operation costs a VM boundary crossing,
+the second traversal is not free.
+
+**A knob worth testing: `GOFLAGS=-modcacherw`.** The final walk is gated on `!ModCacheRW`, so the flag
+skips it entirely. **[UNVERIFIED]** - the machine failed its own quietness gate before this could be
+measured, and an unmeasured optimisation is a rumour. It is cheap to test and it applies whatever is
+decided about storage.
+
+No `fsync` is called anywhere in that sequence, which rules out the other obvious hypothesis.

@@ -8397,3 +8397,56 @@ against 40,000 descriptors and three classes of lost metadata.
 *A cost that appears in four places is usually one cost.* Each of the four was investigated on its
 own terms and none of the investigations found this, because each stopped when its own symptom was
 explained.
+
+## Cache mounts: two changes, in this order
+
+They are usually discussed as one thing and they are not. The first is measured and costs nothing
+semantically; the second is a design change with a stated regression. Doing them in the wrong order
+means arguing about the second while the first is what everyone is feeling.
+
+### 1. Move the storage off the host share
+
+A `--mount type=cache` lives in the shared store because it has to outlive the build, and that is
+the whole of E511: the same `go mod download` takes 5.3s on the host, 30s in the sandbox writing to
+guest-local scratch, and over 380s writing to a cache mount on the host store. Metadata operations
+through a host directory share cost an order of magnitude more than the writes they accompany, and
+Go's module cache is rename- and chmod-heavy.
+
+**A cache mount does not need the host to see it.** It needs to outlive the build, which a block
+device attached to the sandbox does equally well. Nothing in §3.3c is about storage, so `locked`,
+`shared` and `private` all keep their meanings exactly.
+
+This is the same question as "the store as a directory, or as a disk", reaching the same answer from
+a different direction and with a larger number attached.
+
+### 2. Then model a cache mount as layers with a pointer to the top
+
+A stack of content-addressed layers with a mutable `latest`, materialised by overlay like any base,
+with a step's writes landing in its own upper.
+
+**What it buys is the fleet, and the argument is §0.0 rather than speed.** Today every worker
+downloads its own 450MB module cache: N times the bytes, N times the energy, for a byte-identical
+result. As layers it is fetched the way a base is - once, and then shared. It also gives a build a
+consistent snapshot rather than whatever half-written state another build is mid-way through, which
+is a correctness improvement obtained as a side effect.
+
+Two mechanisms this needs are already specified, which is some evidence it fits: Φ (§4.6) for
+flattening a stack that otherwise grows a layer per build until overlayfs objects, and I7's
+last-writer-wins for "manifest or tag update", which is what `latest` is.
+
+**What it costs is `shared`, specifically.** §3.3c says μ enters Κ₁ *because it changes what the step
+sees*:
+
+| mode      | under layering                                                           |
+| --------- | ------------------------------------------------------------------------ |
+| `private` | unchanged - a fresh upper, discarded with the step                       |
+| `locked`  | equivalent - one step at a time, so a snapshot *is* the live state       |
+| `shared`  | **changed** - concurrent steps see each other today; snapshots would not |
+
+Two steps in one build would each download the same module rather than one benefiting from the
+other. Not incorrect - cache contents bound no key by §4.4 - but it is a regression in exactly the
+case `shared` exists for, and §3.3c would have to say so rather than leave a reader to find out.
+
+**Not decided.** The first is a measurement waiting to be acted on; the second is a trade that wants
+somebody to decide whether intra-build sharing or cross-machine sharing is worth more, and the answer
+probably differs between a laptop and a fleet.

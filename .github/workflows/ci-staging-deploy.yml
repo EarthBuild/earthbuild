@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/build-earthly.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-latest"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: "docker"
       SUDO: ""
     secrets:

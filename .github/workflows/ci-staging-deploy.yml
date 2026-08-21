@@ -36,7 +36,7 @@ jobs:
   prepare-release:
     name: prepare release
     needs: build-earthly
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
       packages: write
@@ -109,7 +109,7 @@ jobs:
   release-image:
     name: release dockerhub (main)
     needs: [build-earthly, prepare-release]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: read
@@ -168,7 +168,7 @@ jobs:
   release-ticktock-image:
     name: release dockerhub (ticktock)
     needs: [build-earthly, prepare-release]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: read
@@ -229,7 +229,7 @@ jobs:
   copy-buildkitd-to-dockerhub:
     name: copy buildkitd to dockerhub
     needs: [build-earthly, prepare-release, release-image]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: read
     env:
@@ -267,7 +267,7 @@ jobs:
   release-binaries:
     name: release github
     needs: [build-earthly, prepare-release, copy-buildkitd-to-dockerhub]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     env:

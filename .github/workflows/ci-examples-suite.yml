@@ -55,7 +55,7 @@ jobs:
     with:
       EXAMPLE_NAME: ${{ matrix.example }}
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       USE_QEMU: ${{ inputs.FRONTEND == 'podman' }}
       SUDO: ${{ inputs.SUDO }}

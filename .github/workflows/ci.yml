@@ -32,7 +32,7 @@ env:
 jobs:
   fast-check-and-build:
     name: Fast Check & Build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write
@@ -298,7 +298,7 @@ jobs:
       - podman-tests
       - podman-examples
       - next-tests
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions: {}
     steps:
       - name: Check suite results

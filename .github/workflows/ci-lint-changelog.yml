@@ -19,7 +19,7 @@ env:
 jobs:
   test:
     name: +lint-changelog
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     permissions:
       contents: read
     env:

@@ -15,6 +15,8 @@ import (
 	"syscall"
 
 	"lukechampine.com/blake3"
+
+	"github.com/EarthBuild/earthbuild/engine/guest"
 )
 
 // Apple runs steps inside a macOS VM via Apple's `container` CLI.
@@ -151,7 +153,11 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	// Memory is in here because a VM is found and reused by name: leave it out
 	// and raising the setting changes nothing until every existing sandbox has
 	// been removed by hand, while the configuration insists it took effect.
-	for _, part := range append([]string{image, guestDir, store, memory}, command...) {
+	// guestFast is in here for the reason memory is: a VM is found and reused by
+	// name, so a sandbox started before this engine attached a volume would be
+	// reused without one - and the build would quietly put its caches back on
+	// the shared store, which is the thing being fixed.
+	for _, part := range append([]string{image, guestDir, store, memory, guestFast}, command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
 	}
 
@@ -293,14 +299,9 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	reapOrphans(seen)
 
 	if seen[a.name] != "running" {
-		run := osexec.CommandContext(ctx, "container", "run", "-d", //nolint:gosec // fixed argv
-			"--name", a.name,
-			"-m", a.memory(),
-			"-v", a.dir+":/earth",
-			"-v", a.Store+":"+guestStore,
-			a.Image)
+		a.ensureVolume(ctx)
 
-		run.Args = append(run.Args, a.keepAlive()...)
+		run := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
 		out, err := run.CombinedOutput()
 		if err != nil {
@@ -310,14 +311,7 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 			// someone is told to run a cleanup command.
 			_ = osexec.Command("container", "rm", "-f", a.name).Run() //nolint:gosec // fixed argv
 
-			retry := osexec.CommandContext(ctx, "container", "run", "-d", //nolint:gosec // fixed argv
-				"--name", a.name,
-				"-m", a.memory(),
-				"-v", a.dir+":/earth",
-				"-v", a.Store+":"+guestStore,
-				a.Image)
-
-			retry.Args = append(retry.Args, a.keepAlive()...)
+			retry := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
 			out2, err2 := retry.CombinedOutput()
 			if err2 != nil {
@@ -341,6 +335,9 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		// as an overlay upper layer, and keeping it out also means a step cannot
 		// write into the host's cache.
 		"-e", "EARTH_GUEST_SCRATCH=/var/lib/earthbuild/scratch",
+		// Storage this sandbox owns, for the things that must outlive a step
+		// without the host needing to see them. See guestFast.
+		"-e", guest.EnvFast + "=" + guestFast,
 	}
 
 	// Forwarded, because the guest writes files too and the decision has to
@@ -548,4 +545,51 @@ func guestArch() string {
 	}
 
 	return "arm64"
+}
+
+// guestFast is where the sandbox's own storage is mounted inside the guest.
+//
+// A block device rather than a share, so the filesystem lives in the guest
+// kernel and a metadata operation never crosses the VM boundary. Measured in one
+// guest, 4,000 files: untarring into it takes 0.09s where the shared store takes
+// 2.31s, and removing the tree 0.00s against 0.62s.
+const guestFast = "/var/lib/earthbuild/fast"
+
+// volumeName is the block-device volume this sandbox keeps fast storage on.
+//
+// **Named after the sandbox, and that is a correctness requirement rather than
+// tidiness.** Two VMs attaching one volume writably corrupts the filesystem, and
+// Virtualization.framework offers no lock that would stop them - it is silent.
+// A sandbox is already named by everything that makes it different, so deriving
+// the volume from it means exactly one VM ever attaches it.
+func (a *Apple) volumeName() string { return a.name + "-fast" }
+
+// runArgs is the argv that starts this sandbox.
+//
+// One place, because there were two: the start and the retry-after-removal built
+// the same list separately, so anything added to a build's sandbox had to be
+// added twice or it applied only until the first crash.
+func (a *Apple) runArgs() []string {
+	args := []string{
+		"run", "-d",
+		"--name", a.name,
+		"-m", a.memory(),
+		"-v", a.dir + ":/earth",
+		"-v", a.Store + ":" + guestStore,
+		"-v", a.volumeName() + ":" + guestFast,
+		a.Image,
+	}
+
+	return append(args, a.keepAlive()...)
+}
+
+// ensureVolume creates this sandbox's volume if it is not already there.
+//
+// Best-effort and deliberately quiet: `volume create` fails when the volume
+// exists, which is the ordinary case on every build after the first. A failure
+// that is not that shows up as the sandbox refusing to start with a mount it
+// cannot satisfy, which names the volume - a better message than anything that
+// could be guessed here.
+func (a *Apple) ensureVolume(ctx context.Context) {
+	_ = osexec.CommandContext(ctx, "container", "volume", "create", a.volumeName()).Run() //nolint:gosec // fixed argv
 }

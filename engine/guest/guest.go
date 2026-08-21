@@ -1954,12 +1954,41 @@ func (c *Client) RunStep(
 	}, nil
 }
 
+// EnvFast names storage the guest owns, if the sandbox was given any.
+//
+// A block device attached to the VM, so its filesystem lives in the guest kernel
+// rather than being a view of a host directory. Empty where the sandbox has no
+// such device - a Linux worker confining with namespaces has none - and then
+// everything is as it was.
+const EnvFast = "EARTH_GUEST_FAST"
+
 // mountStore is where this guest keeps the directories a CACHE names.
 //
-// Beside the layers, because both outlive a step and neither is content the
-// step produced - and resolved here rather than sent by the host, since the
-// host and the guest see the store at different paths.
+// **On storage the guest owns, where there is any.** These were beside the
+// layers, in the store shared from the host, because a cache mount has to
+// outlive the step that used it. That requirement is right and the conclusion
+// was wrong: outliving the build does not mean the *host* must see it.
+//
+// The difference is not marginal. In one guest, 4,000 files: untarring into a
+// block-device volume takes 0.09s where the shared store takes 2.31s, and
+// removing the tree 0.00s against 0.62s - because every metadata operation over
+// a share is a round trip across the VM boundary and none of them is on a block
+// device (E511, and the prior art in the plan).
+//
+// Resolved here rather than sent by the host, since the host and the guest see
+// the store at different paths.
 func (s *Server) mountStore() string {
+	// Checked for rather than trusted: the environment says a volume was
+	// attached and the filesystem is the authority on whether it arrived. A
+	// sandbox that started without its mount would otherwise put a build's
+	// caches somewhere that is not there, and the failure would name a cache
+	// rather than a missing volume.
+	if fast := os.Getenv(EnvFast); fast != "" {
+		if fi, err := os.Stat(fast); err == nil && fi.IsDir() {
+			return filepath.Join(fast, "mounts")
+		}
+	}
+
 	if s.LayerDir == "" {
 		return filepath.Join(os.TempDir(), "earthbuild-mounts")
 	}

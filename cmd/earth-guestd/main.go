@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/guest"
@@ -67,6 +68,10 @@ func run() error {
 	srv := &guest.Server{
 		Mat:      mat,
 		LayerDir: root,
+		// A sandbox nobody is using stops itself. The host cannot be trusted to
+		// do it: the host is what gets killed, and a VM whose reaper died is
+		// exactly the VM that leaks (nits, 2026-08-21).
+		Idle: guest.NewIdle(envDuration(guest.EnvIdle, guest.DefaultIdle)),
 		// Confinement is the guest's job and it is not optional: a step that
 		// escapes invalidates every cache claim the engine makes (green paper
 		// A3). There is deliberately no flag to turn this off.
@@ -118,6 +123,15 @@ func run() error {
 		srv.Fills = guest.NewFills(fills)
 	}
 
+	// Started before serving and never joined: it outlives every request by
+	// design, and the only way it ends is by ending the process.
+	go srv.Idle.Watch(func() {
+		fmt.Fprintf(os.Stderr, "earth-guestd: nothing has used this sandbox for %v, stopping"+
+			"\n  set %s to change that, or 0 to keep it up\n",
+			envDuration(guest.EnvIdle, guest.DefaultIdle), guest.EnvIdle)
+		os.Exit(0)
+	})
+
 	err = srv.Serve(context.Background(), stdio{})
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
@@ -145,4 +159,28 @@ func envBytes(name string) int64 {
 	}
 
 	return n
+}
+
+// envDuration reads a duration from the environment, falling back when it is
+// unset and **refusing when it will not parse**.
+//
+// Refused rather than defaulted: `EARTH_GUEST_IDLE=30` looks like thirty
+// minutes and is not a duration, and silently using the default would leave an
+// operator certain they had configured something. The one value that must not be
+// guessed is the one somebody set deliberately.
+func envDuration(name string, fallback time.Duration) time.Duration {
+	v := os.Getenv(name)
+	if v == "" {
+		return fallback
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-guestd: %s is %q, which is not a duration"+
+			" (try 30m, 2h, 90s); using %v\n", name, v, fallback)
+
+		return fallback
+	}
+
+	return d
 }

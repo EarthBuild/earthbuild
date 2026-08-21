@@ -10,8 +10,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/image"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -216,6 +218,9 @@ func linkTree(src, dst string) error {
 	// name -> the mode it should end with, applied once everything is in place.
 	modes := map[string]os.FileMode{}
 
+	// Every non-directory entry, placed after the walk has made the directories.
+	var files []linkJob
+
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -273,28 +278,19 @@ func linkTree(src, dst string) error {
 		// directory out from under that mount - which is `fork/exec /bin/sh:
 		// input/output error` in a step that has nothing to do with images.
 		// That version was written, measured, and reverted (E141).
-		if d.Type()&os.ModeSymlink != 0 {
-			link, err := os.Readlink(p)
-			if err != nil {
-				return err
-			}
+		// Collected rather than placed here. The walk must create every parent
+		// before its children, which is inherently ordered; placing the entries
+		// is not, and it is where the time goes - 17,580 of them for
+		// golang:1.26.5-alpine3.24, each a syscall's latency and no work.
+		files = append(files, linkJob{from: p, to: target, symlink: d.Type()&os.ModeSymlink != 0})
 
-			return placeAtomically(target, func(tmp string) error {
-				return os.Symlink(link, tmp)
-			})
-		}
-
-		return placeAtomically(target, func(tmp string) error {
-			// A hard link where the store allows it, a copy where it does not:
-			// a separated image cache is often on another filesystem.
-			err := os.Link(p, tmp)
-			if err == nil {
-				return nil
-			}
-
-			return copyFile(p, tmp)
-		})
+		return nil
 	})
+	if err != nil {
+		return fmt.Errorf("place the image at %s: %w", dst, err)
+	}
+
+	err = placeAll(files)
 	if err != nil {
 		return fmt.Errorf("place the image at %s: %w", dst, err)
 	}
@@ -438,4 +434,100 @@ func placeAtomically(target string, write func(tmp string) error) error {
 	}
 
 	return nil
+}
+
+// linkJob is one entry of a tree waiting to be placed.
+type linkJob struct {
+	from, to string
+	symlink  bool
+}
+
+// placeAll places every entry, several at a time.
+//
+// **The walk is ordered and the placing is not.** A directory must exist before
+// anything inside it, which is why the walk creates them as it goes; a hard link
+// into a directory that already exists depends on nothing else in the tree. That
+// is the whole of the concurrency, and it is worth having because the cost here
+// is syscall latency rather than work: 17,580 entries for a Go base image, at
+// roughly 370µs each, is 6.5 seconds of a 45-second build spent waiting.
+//
+// Bounded by CPU count rather than unbounded: the kernel serialises much of this
+// anyway, and thousands of goroutines each holding an open file would trade one
+// bottleneck for a worse one.
+func placeAll(files []linkJob) error {
+	if len(files) == 0 {
+		return nil
+	}
+
+	workers := min(runtime.NumCPU(), len(files))
+
+	jobs := make(chan linkJob)
+
+	var (
+		wg  sync.WaitGroup
+		mu  sync.Mutex
+		bad error
+	)
+
+	for range workers {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			for j := range jobs {
+				err := placeOne(j)
+				if err != nil {
+					mu.Lock()
+
+					// The first failure is the one reported: later ones are
+					// usually consequences, and a caller given the last error
+					// out of a race is given a different story every run.
+					if bad == nil {
+						bad = err
+					}
+
+					mu.Unlock()
+
+					return
+				}
+			}
+		}()
+	}
+
+	for _, j := range files {
+		jobs <- j
+	}
+
+	close(jobs)
+	wg.Wait()
+
+	return bad
+}
+
+// placeOne places a single entry, atomically, exactly as the serial version did.
+func placeOne(j linkJob) error {
+	if j.symlink {
+		// A symlink is recreated rather than linked: hard-linking one would tie
+		// the two trees together through a name that may itself be replaced.
+		link, err := os.Readlink(j.from)
+		if err != nil {
+			return err
+		}
+
+		return placeAtomically(j.to, func(tmp string) error {
+			return os.Symlink(link, tmp)
+		})
+	}
+
+	return placeAtomically(j.to, func(tmp string) error {
+		// A hard link where the store allows it, a copy where it does not: a
+		// separated image cache is often on another filesystem.
+		err := os.Link(j.from, tmp)
+		if err == nil {
+			return nil
+		}
+
+		return copyFile(j.from, tmp)
+	})
 }

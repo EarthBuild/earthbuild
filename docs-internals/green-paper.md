@@ -25,6 +25,40 @@ practice - and divergence in a cache is a wrong artefact, delivered silently.
 That is the standard this document is held to: can two people implement §4 and get the same
 answer, and does §5 forbid the failures that matter.
 
+### 0.0 Work not done
+
+**The cheapest computation is the one that does not happen, and it is also the cleanest.** A build
+system's output is an artefact; its by-product is heat. Every cache hit is a compilation that did not
+run, a CPU that did not spin and a watt that was not drawn - which is the same statement whether it
+is read as latency, as cost, or as carbon. This is the *earth* the name refers to, and it is a design
+principle rather than a sentiment: where two designs produce the same artefact, the one that computes
+less is the better one, even where the wall clock cannot tell them apart.
+
+Three consequences run through the rest of this document.
+
+**Once, not once per machine.** N workers each materialising the same base do N times the download,
+N times the unpack and N times the hashing to reach a byte-identical result. One worker doing it and
+the others fetching what it produced does it once. This is why a layer is content-addressed (§3.2)
+and why a fleet exchanges layers rather than instructions: not to be quick, but so that the same
+work is not paid for N times. A fleet that cannot share a base is not merely slower than one that
+can - it is N times more expensive for an identical answer, and the difference grows with the fleet.
+
+**A resource nobody is using should stop.** An idle sandbox draws power to serve nobody; an idle
+worker holds a machine that could be off. Nothing that persists for the convenience of a later build
+may persist indefinitely without something deciding it is still wanted, and that decision belongs
+where it survives the death of whatever was using it (§C.5).
+
+**Speculation is the exception, and is bounded because of this.** §4.7.4 permits work that may be
+discarded, which is the one mechanism here that deliberately spends energy on an answer nobody may
+need. It is not forbidden - a build that finishes sooner may leave the machine idle sooner - but it
+is the only place where computing *more* is allowed, so the burden of showing it pays falls on it
+rather than on the alternative.
+
+The tension with §6 is real and stated rather than resolved: determinism screening re-runs steps that
+are believed deterministic, spending energy to learn something no single build needs. It buys the
+right to share results at all, which saves incomparably more - but a screening rate is a cost, not a
+free check, and §6's floor above zero is where that trade is set.
+
 ### 0.1 Assumptions
 
 Stated apart from the mechanism, because each is a place where the specification can be true and

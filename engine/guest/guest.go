@@ -31,6 +31,11 @@ import (
 type Server struct {
 	Mat core.Materialiser
 
+	// Idle stops the sandbox when nobody has used it for a while. Nil means it
+	// stays up until something else stops it, which is what a sandbox did
+	// before this existed. See idle.
+	Idle *idle
+
 	// Fills faults in paths a lazily materialised base does not yet have, and
 	// remembers what arrived so the capture can leave it out (E293, E295).
 	//
@@ -255,6 +260,9 @@ func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 			return fmt.Errorf("receive: %w", err)
 		}
 
+		// Something arrived, so this sandbox is wanted.
+		s.Idle.touched()
+
 		// Handled concurrently: a slow materialise must not hold up an exec
 		// queued behind it, which is the whole reason requests carry ids.
 		go func() {
@@ -274,7 +282,13 @@ func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 
 			s.began(req.ID, cancel)
 
+			// Held open for as long as this request runs, however long that is:
+			// a RUN that compiles for an hour sends nothing while it works, and
+			// a sandbox that stopped on silence would stop in the middle of it.
+			s.Idle.working()
+
 			defer func() {
+				s.Idle.done()
 				s.ended(req.ID)
 				cancel()
 			}()

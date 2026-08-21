@@ -129,6 +129,16 @@ func bigTree(t *testing.T, n int) string {
 		_ = os.Chtimes(dirs[i], stamp, stamp)
 	}
 
+	// Spotlight indexes anything under a checkout, and a hundred thousand files
+	// is a hundred thousand files to index: `mds_stores` sat at 104% CPU after
+	// this fixture first appeared, which is a benchmark ruined by a test fixture
+	// that is not even running. macOS honours this marker; elsewhere it is an
+	// empty file nobody reads.
+	err = os.WriteFile(filepath.Join(staging, ".metadata_never_index"), nil, 0o644)
+	if err != nil {
+		t.Fatalf("mark the fixture unindexable: %v", err)
+	}
+
 	err = os.Rename(staging, dir)
 	if err != nil {
 		// Somebody else finished first, which is a race worth losing: their

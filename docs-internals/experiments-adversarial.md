@@ -23490,12 +23490,49 @@ first is recorded in the nits as the amplifier that turns a leak into a machine-
 
 ### Cold, on a clean machine, both engines
 
-| engine                                  | cold  |
-| ---------------------------------------- | ----- |
+| engine                                    | cold  |
+| ----------------------------------------- | ----- |
 | buildkit (`earthly`, after prune --reset) | 15.9s |
-| native, clone on, cold image cache       | 31.8s |
-| native, clone on, warm image cache       | 26.4s |
-| native, hard links, cold image cache     | 33.2s |
+| native, clone on, cold image cache        | 31.8s |
+| native, clone on, warm image cache        | 26.4s |
+| native, hard links, cold image cache      | 33.2s |
 
 Still behind, by about 2x rather than the 3.8x this started at. Both numbers moved when the machine
 was cleaned, which is the point of the entry above: neither engine was being measured before.
+
+## E511 - the cache mount is the cold build
+
+**Claim under test.** A cold build of `+deps` takes twice what buildkit takes, and the difference is
+spread across materialising, hashing and running.
+
+**It is not spread.** The same `go mod download` - 450MB, 205 modules, some 28,000 files - measured
+three ways on a quiet machine:
+
+| where it writes                              | time  |
+| -------------------------------------------- | ----- |
+| the host, no sandbox at all                  | 5.3s  |
+| the sandbox, guest-local overlay scratch     | 30.0s |
+| the sandbox, a cache mount on the host store | >380s |
+
+The network is not the constraint: 450MB in 5.3 seconds is the machine's own connection doing its
+job. Nor is the sandbox as such - the same work in the same VM, writing to storage the guest owns,
+finishes in half a minute.
+
+**A `--mount type=cache` lives on the shared store, because it has to outlive the build.** That is
+the whole of the cause. Go's module cache is rename- and chmod-heavy, and metadata operations through
+a host directory share are an order of magnitude dearer than the writes they accompany.
+
+*The slow part was not the part being optimised.* An afternoon went into the placement of base
+images: linking to cloning, 8.51s to 0.26s, and parallel hashing, 1.98s to 1.02s. Both are real, both
+are worth having, and together they are worth about seven seconds of a build whose cache mount was
+costing six minutes. The profile said the setup was 19 seconds of 45; it did not say that the
+remaining 26 could become 380 on a different Earthfile.
+
+**What it means for the shared store.** The plan already asks whether the layer store should be a
+host directory or a disk image, on the strength of four defects: lost uids (E84), whiteouts needing
+translation (E88), layers that do not re-digest (E89), and a descriptor per file (E510). This is the
+fifth and the largest, because it is not a correctness cost that can be worked around - it is a
+throughput floor under the one construct that exists to make repeated builds fast.
+
+A cache mount does not need the *host* to see it. It needs to outlive the build, which a disk image
+attached to the sandbox does equally well.

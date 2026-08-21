@@ -13,6 +13,9 @@ import (
 type primedBase struct {
 	stack []ir.NodeID
 	into  string
+	// complete says the base was assembled whole rather than primed, so nothing
+	// is missing from it that a fetch could supply. See FillFor.
+	complete bool
 }
 
 // remember records a primed base against the handle the guest gave it.
@@ -58,6 +61,24 @@ func (e *Executor) FillFor(ctx context.Context, handle, path string) error {
 	if !ok {
 		return fmt.Errorf("a fault-in named base %q, which this engine did not"+
 			" prime\n  it cannot be answered from another step's base", handle)
+	}
+
+	// **Not every miss is a fault.** A step resolving a command walks `PATH`:
+	// `go version` opens `/go/bin/go`, which no Go image has, before finding
+	// `/usr/local/go/bin/go`, which every one does. The tracer stops the syscall
+	// on any path that is not there, so a base with nothing missing still
+	// produces faults - one per probe.
+	//
+	// A base assembled whole has nothing to fetch and nothing absent that ought
+	// to be present, so the answer is the one this protocol already has: no
+	// error, meaning the host looked and the file is genuinely not there, and
+	// the step gets its honest ENOENT (E289).
+	//
+	// Reported as a failure instead, this cost a real fleet build: a worker
+	// fetched a 267MB base, ran `go version`, faulted on a PATH probe, and
+	// refused the step.
+	if b.complete {
+		return nil
 	}
 
 	if e.Fetch == nil {

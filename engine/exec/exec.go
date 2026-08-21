@@ -1404,5 +1404,19 @@ func (e *Executor) base(
 		return nil, nil, fmt.Errorf("materialise the base for %s: %w", n.Meta.Source, err)
 	}
 
+	// Recorded even though nothing was primed, because the guest may still fault
+	// against it: the tracer stops on any path that is not there, and a step
+	// resolving a command walks PATH through several that never will be. A base
+	// assembled whole answers those with an honest absence, where an unknown
+	// handle has to be refused (see FillFor).
+	if named, ok := h.(interface{ HandleID() string }); ok {
+		e.remember(named.HandleID(), primedBase{stack: stack, complete: true})
+
+		return h, func() {
+			e.forget(named.HandleID())
+			_ = h.Release()
+		}, nil
+	}
+
 	return h, func() { _ = h.Release() }, nil
 }

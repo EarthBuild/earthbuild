@@ -23683,3 +23683,46 @@ needs it most. Only `Native` implements `SetFill`, and it can pass a descriptor 
 `container exec` has no flag for one, so a VM sandbox has a single stream and the fault-in channel
 has nowhere to go. Reaching it needs reverse messages on the existing protocol, or a vsock - design,
 not wiring.
+
+## E515 - a fault-in channel for a sandbox reached through a VM
+
+**What was missing.** A worker fetches only what a step is predicted to read and faults the rest in
+as the step runs; the tracer blocks the syscall with seccomp user notification, asks the host, and
+lets the open proceed. That works where the sandbox spawns its guest as a child and can pass a second
+descriptor. A darwin worker cannot: `container exec` gives one stdio pair, the main protocol holds
+it, and a fault travels the other way. So it said so and took whole layers:
+
+```text
+earth-worker: this sandbox cannot fault paths in, so steps get whole layers
+```
+
+**No frame changed.** `Fills` speaks its protocol over any `io.ReadWriter`, so what was needed was a
+second stream rather than a second protocol: the guest listens on a unix socket inside the sandbox
+and a second `container exec` runs `earth-guestd --fills`, which carries bytes between that socket
+and the host and understands none of them.
+
+The worker now says the other thing:
+
+```text
+earth-worker: joining ... room for 16 step(s), fetching what steps read
+```
+
+### Two faults found by building it, both real rather than test-only
+
+**The relay can arrive before the guest is listening.** Nothing orders a second `container exec`
+against the guest binding its socket, so a single dial fails whenever they land the wrong way round -
+often enough to look like a flake, rare enough to be blamed on something else. `dialFills` waits, and
+gives up after 30 seconds with a message saying the sandbox will take whole layers instead.
+
+**A unix socket path is not a path.** `sun_path` is 104 bytes on darwin and a longer one fails with
+`invalid argument`, which names neither the limit nor the length and sends a reader to look at
+permissions. Found because `t.TempDir()` on darwin is already longer than that. The check is now in
+the code with the numbers in the message, and the socket lives at `/run/earth-fills.sock` - short,
+and inside the sandbox where nothing on the host can reach it.
+
+*A limit that is not a length.* Both of these are the same shape: a constraint the API expresses as
+`invalid argument` at the moment of failure, having said nothing at the moment of construction.
+
+**What is proven and what is not.** The channel carries a fault end to end under test, and the worker
+advertises the capability. A fault crossing it during a real fleet build has not been observed, which
+needs a darwin worker taking an assignment whose base it does not hold.

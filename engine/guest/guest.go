@@ -42,6 +42,9 @@ type Server struct {
 	// Nil for every build today: nothing lazily materialises yet, and a nil one
 	// makes the capture exactly what it was.
 	Fills *Fills
+	// fillsMu guards Fills, which arrives when a host dials rather than when
+	// this server is built. See SetFills.
+	fillsMu sync.Mutex
 
 	// obs records what each handle's step looked at in its base, which is the
 	// engine's first real observation source. See observe.go.

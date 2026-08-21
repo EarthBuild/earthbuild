@@ -22,6 +22,23 @@ import (
 )
 
 func main() {
+	// The relay: a second process inside the sandbox whose stdio is the
+	// fault-in channel. It carries bytes and understands none of them.
+	if len(os.Args) > 1 && os.Args[1] == "--fills" {
+		at := os.Getenv(guest.EnvFillSocket)
+		if at == "" {
+			fmt.Fprintf(os.Stderr, "earth-guestd --fills: %s is not set\n", guest.EnvFillSocket)
+			os.Exit(1)
+		}
+
+		if err := guest.RelayFills(at, os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "earth-guestd --fills: %v\n", err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
 	// First of all, and it does not return when it applies: this binary is also
 	// the shim that a step's own docker daemon is launched through, because
 	// `dockerd` needs a user namespace it is root in and a writable `/run`, and
@@ -100,6 +117,26 @@ func run() error {
 		defer func() { _ = terms.Close() }()
 
 		srv.Terminals = terms
+	}
+
+	// The fault-in channel over a socket, where the engine reaches this guest
+	// through a VM and has no descriptor to pass. See guest.EnvFillSocket.
+	//
+	// Accepted in the background: a guest must serve steps whether or not
+	// anything ever dials, and a host that starts its relay late is ordinary
+	// rather than an error.
+	if at := os.Getenv(guest.EnvFillSocket); at != "" {
+		go func() {
+			c, err := guest.ListenForFills(at)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "earth-guestd: no fault-in channel: %v"+
+					"\n  steps will take whole layers\n", err)
+
+				return
+			}
+
+			srv.SetFills(guest.NewFills(c))
+		}()
 	}
 
 	// The fault-in channel, where the engine gave us one.

@@ -31,6 +31,12 @@ import (
 type Apple struct {
 	// Image is the sandbox's root filesystem.
 	Image string
+
+	// fill faults a path into a step's base, or nil where nothing asked this
+	// sandbox to. Guarded because it is set by a worker before the sandbox
+	// starts and read when the relay is launched. See SetFill.
+	fillMu sync.Mutex
+	fill   func(handle, path string) error
 	// GuestBinary is a linux binary of earth-guestd for the VM's architecture.
 	// Built on demand when empty.
 	GuestBinary string
@@ -338,6 +344,10 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		// Storage this sandbox owns, for the things that must outlive a step
 		// without the host needing to see them. See guestFast.
 		"-e", guest.EnvFast + "=" + guestFast,
+		// Where this guest listens for faults, when anything wants to fault.
+		// Set always: the guest binds cheaply and nothing dials unless a worker
+		// asked for fault-in. See SetFill.
+		"-e", guest.EnvFillSocket + "=" + guestFillSocket,
 	}
 
 	// Forwarded, because the guest writes files too and the decision has to
@@ -372,6 +382,11 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	}
 
 	a.cmd = cmd
+
+	// The fault-in relay, once the guest it dials is running. Started after the
+	// guest rather than with it: the relay connects to a socket the guest binds,
+	// and one that arrives first waits (see dialFills) but should not have to.
+	a.serveFills()
 
 	return &duplex{r: stdout, w: stdin}, nil
 }

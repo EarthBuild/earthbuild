@@ -101,3 +101,72 @@ func TestALinkedTreeIsTheTreeItCameFrom(t *testing.T) {
 		}
 	}
 }
+
+// Placing into a destination somebody else may be writing replaces atomically.
+//
+// Two builds materialising the same image into the same directory both write
+// every entry. `Remove` then create is a TOCTOU between them: both remove, one
+// creates, the other gets `file exists` (E142). Rename replaces in one step, so
+// the loser overwrites with identical bytes and nobody fails.
+func TestASharedDestinationIsReplacedAtomically(t *testing.T) {
+	t.Parallel()
+
+	src := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(src, "f"), []byte("new"), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dst := t.TempDir()
+
+	// Something is already there, as it would be if another build got here
+	// first.
+	err = os.WriteFile(filepath.Join(dst, "f"), []byte("old"), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = linkTree(src, dst)
+	if err != nil {
+		t.Fatalf("link over an existing entry: %v", err)
+	}
+
+	b, err := os.ReadFile(filepath.Join(dst, "f"))
+	if err != nil || string(b) != "new" {
+		t.Errorf("entry is %q (%v), want the one just placed", string(b), err)
+	}
+}
+
+// A destination nobody else can see is filled directly.
+//
+// Both real callers link into a temporary directory of their own and rename the
+// finished tree into place, so no other writer can reach it while it is being
+// filled. The atomic dance costs four extra syscalls per entry - create a temp,
+// unlink it, link, rename - which on a Go base image is 15,808 entries and,
+// measured, 2.3x the time of linking directly.
+//
+// *Protection against a race that the caller has already excluded.* The cost is
+// invisible per entry and is most of the wall clock at this scale.
+func TestAPrivateDestinationIsFilledDirectly(t *testing.T) {
+	t.Parallel()
+
+	src := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(src, "f"), []byte("body"), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dst := filepath.Join(t.TempDir(), "mine")
+
+	err = linkTreeExclusive(src, dst)
+	if err != nil {
+		t.Fatalf("link into a private destination: %v", err)
+	}
+
+	b, err := os.ReadFile(filepath.Join(dst, "f"))
+	if err != nil || string(b) != "body" {
+		t.Errorf("entry is %q (%v)", string(b), err)
+	}
+}

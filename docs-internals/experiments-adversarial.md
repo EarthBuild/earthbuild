@@ -24186,3 +24186,29 @@ and was the free path *after* a full tree walk, so nothing about the code drew a
 the whole argument for keeping it: `EARTH_TIMINGS` ships, and it is forwarded into the sandbox,
 because the phases worth timing are mostly the guest's and a switch that stops at the sandbox wall
 reports a round trip without saying what the round trip was doing.
+
+## E530 - the answer now outlives the process that found it
+
+E529 put the marker scan behind a memo, which took it from once per step to once per guest. The guest
+is stopped by the idle timeout after 30 minutes, so "once per guest" is once per session: the first
+build after coming back to a machine still walked the whole base.
+
+The positive answer had always been durable - a translated layer is a directory on disk, and `use`
+already looked for it before staging one. Only the negative answer, which is nearly every layer, was
+being forgotten. It is now a note beside the translations:
+
+```text
+build 1, fresh guest        mat:markers  0.693s
+container stop
+build 2, guest restarted    no scan at all
+```
+
+The note is written beside the translations rather than inside the layer, because a layer is named by
+its content and a file added to it is a layer that is no longer what it says it is. Writing it is best
+effort: a note that cannot be written costs one walk in some later process, which is exactly what
+happened before it existed, and failing a materialise over it would turn a slow build into a broken
+one.
+
+**Both halves of a cached question want the same durability.** The asymmetry here was invisible
+because the expensive branch left its answer on disk as a side effect of doing the work, so nobody
+had to decide to persist it - and the cheap branch, having no side effect, quietly persisted nothing.

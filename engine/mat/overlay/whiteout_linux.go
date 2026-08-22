@@ -68,6 +68,19 @@ func (t *translator) use(src, id string) (string, error) {
 
 	t.mu.Unlock()
 
+	// **The positive answer was already durable and the negative one was not.**
+	// A translated layer is a directory the next process finds; "this layer has
+	// no markers" lived only in the memo above, which belongs to the guest
+	// daemon - and the idle timeout stops that after 30 minutes, so the first
+	// build of a session walked the whole base again (E530).
+	if _, err := os.Stat(unmarkedFile(t.dir, id)); err == nil {
+		t.mu.Lock()
+		t.done[id] = src
+		t.mu.Unlock()
+
+		return src, nil
+	}
+
 	endMarkers := timing.Phase("mat:markers", id)
 	marked, err := hasMarkers(src)
 	endMarkers()
@@ -83,6 +96,14 @@ func (t *translator) use(src, id string) (string, error) {
 	// question just as much as a translated one is.
 	if !marked {
 		t.done[id] = src
+
+		// Best effort, and deliberately so: a note that cannot be written costs
+		// one walk in some later process, which is what happened before it
+		// existed. Failing the materialise over it would turn a slow build into
+		// a broken one.
+		if err := os.MkdirAll(t.dir, 0o755); err == nil {
+			_ = os.WriteFile(unmarkedFile(t.dir, id), nil, 0o644)
+		}
 
 		return src, nil
 	}
@@ -258,3 +279,12 @@ func copyOne(src, dst string) error {
 
 	return os.Chtimes(dst, at, at) //nolint:wrapcheck // named by the caller
 }
+
+// unmarkedFile names the note that says a layer was scanned and carries no
+// markers.
+//
+// Beside the translations rather than inside the layer: a layer is named by its
+// content, and a file added to it would be a layer that is no longer what it
+// says it is. The suffix cannot collide with a translation, whose name is a
+// hex id.
+func unmarkedFile(dir, id string) string { return filepath.Join(dir, id+".unmarked") }

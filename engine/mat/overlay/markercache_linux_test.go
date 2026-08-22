@@ -54,3 +54,42 @@ func TestALayerIsScannedForMarkersOnce(t *testing.T) {
 		t.Errorf("the layer was walked a second time: got %q, want the remembered %q", second, first)
 	}
 }
+
+// The answer outlives the process that worked it out.
+//
+// The memo above the scan is per materialiser, and the materialiser is the guest
+// daemon - which the idle timeout stops after 30 minutes. So the first build of
+// a session walked the base again, 0.6s, every time. The positive answer was
+// already durable: a translated layer is a directory on disk that the next
+// process finds. Only "this layer has no markers" was being forgotten (E530).
+func TestTheAnswerSurvivesTheProcessThatFoundIt(t *testing.T) {
+	t.Parallel()
+
+	src := t.TempDir()
+	shared := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(src, "ordinary"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := (&translator{dir: shared, done: map[string]string{}}).use(src, "layer-2")
+	if err != nil {
+		t.Fatalf("first use: %v", err)
+	}
+
+	// Only a rescan can see this, and a rescan is what a second process was
+	// doing.
+	if err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// A different translator over the same directory: a new guest, same VM.
+	second, err := (&translator{dir: shared, done: map[string]string{}}).use(src, "layer-2")
+	if err != nil {
+		t.Fatalf("second use: %v", err)
+	}
+
+	if second != first {
+		t.Errorf("a second process walked the layer again: got %q, want %q", second, first)
+	}
+}

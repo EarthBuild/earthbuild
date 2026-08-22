@@ -79,7 +79,7 @@ jobs:
       TEST_TARGET: ${{ matrix.target }}
       USE_QEMU: ${{ matrix.use_qemu || false }}
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       USE_NEXT: ${{ inputs.USE_NEXT }}
       SUDO: ${{ inputs.SUDO }}

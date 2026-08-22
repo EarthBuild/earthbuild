@@ -3,7 +3,7 @@ package subcmd
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/logbus"
@@ -20,8 +20,8 @@ type CLI interface {
 	GitSHA() string
 
 	Flags() *flag.Global
-	Console() conslogging.ConsoleLogger
-	SetConsole(conslogging.ConsoleLogger)
+	Log() *conslogging.ConsoleLogger
+	SetLog(*conslogging.ConsoleLogger)
 
 	InitFrontend(context.Context, *cli.Command) error
 	Cfg() *config.Config

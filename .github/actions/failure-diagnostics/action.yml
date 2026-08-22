@@ -1,0 +1,144 @@
+name: EarthBuild failure diagnostics
+description: >-
+  Dump host, memory, swap and buildkit daemon state after a failed EarthBuild
+  step, so a cancelled build can be attributed to its actual cause. Every
+  input has a working default - drop it in behind `if: failure()` and it works.
+author: EarthBuild
+inputs:
+  BINARY:
+    description: >-
+      Container engine to inspect. Defaults to autodetecting docker, podman or
+      nerdctl, in that order.
+    required: false
+    default: "auto"
+  SUDO:
+    description: "Prefix for engine commands when the daemon needs root, e.g. `sudo -E`."
+    required: false
+    default: ""
+  CONTAINERS:
+    description: "Space-separated buildkit container names to inspect."
+    required: false
+    default: "earthly-buildkitd earthly-dev-buildkitd earthly-integration-buildkitd earthly-test-buildkitd"
+  LOG_TAIL:
+    description: "Lines of daemon log to dump per container."
+    required: false
+    default: "2000"
+  EXTRA_LOGS:
+    description: "Space-separated extra log files to dump. Missing files are skipped."
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        ENGINE: ${{ inputs.BINARY }}
+        SUDO_PREFIX: ${{ inputs.SUDO }}
+        CONTAINERS: ${{ inputs.CONTAINERS }}
+        LOG_TAIL: ${{ inputs.LOG_TAIL }}
+        EXTRA_LOGS: ${{ inputs.EXTRA_LOGS }}
+      run: |
+        # Diagnostics must never mask the failure that triggered them, so every
+        # command here is best-effort and the step always exits 0.
+        set +e
+
+        # Callers include macOS runners, so /proc- and GNU-specific probes are
+        # gated rather than left to fail noisily.
+        is_linux=false
+        [ "$(uname -s)" = Linux ] && is_linux=true
+
+        if [ -z "$ENGINE" ] || [ "$ENGINE" = auto ]; then
+          for candidate in docker podman nerdctl; do
+            if command -v "$candidate" >/dev/null 2>&1; then
+              ENGINE="$candidate"
+              break
+            fi
+          done
+        fi
+
+        run_cmd() {
+          echo "+ $*"
+          "$@"
+        }
+
+        run_shell() {
+          echo "+ $*"
+          bash -lc "$*"
+        }
+
+        echo "::group::host memory, disk and pressure"
+        date -u
+        uname -a
+        run_cmd df -h
+        run_cmd uptime
+        if $is_linux; then
+          run_cmd free -h
+          run_cmd swapon --show
+          run_shell 'test -r /proc/pressure/memory && cat /proc/pressure/memory || true'
+          run_shell 'test -r /proc/pressure/io && cat /proc/pressure/io || true'
+        else
+          run_cmd vm_stat
+        fi
+        echo "::endgroup::"
+
+        echo "::group::extra logs"
+        # add-swap.sh (EarthBuild's own CI) runs detached, so a failure to
+        # allocate swap is otherwise invisible - and no swap is a prime suspect
+        # for an OOM-shaped failure. Absent for anyone not using it.
+        seen=""
+        for f in $EXTRA_LOGS "${RUNNER_TEMP:-/tmp}/add-swap.log"; do
+          case " $seen " in *" $f "*) continue ;; esac
+          seen="$seen $f"
+          if [ -r "$f" ]; then
+            echo "--- $f ---"
+            cat "$f"
+          fi
+        done
+        echo "::endgroup::"
+
+        echo "::group::top processes"
+        if $is_linux; then
+          run_shell 'ps -eo pid,ppid,stat,pcpu,pmem,rss,vsz,comm,args --sort=-rss | head -80'
+          # shellcheck disable=SC2016  # deliberately expanded by the inner shell
+          run_shell 'for pid in $(ps -eo pid= --sort=-rss | head -80); do printf "%s oom_score=%s oom_score_adj=%s\n" "$pid" "$(cat /proc/$pid/oom_score 2>/dev/null || echo unknown)" "$(cat /proc/$pid/oom_score_adj 2>/dev/null || echo unknown)"; done'
+        else
+          run_shell 'ps -eo pid,ppid,stat,pcpu,pmem,rss,vsz,comm -m | head -80'
+        fi
+        echo "::endgroup::"
+
+        if $is_linux; then
+          echo "::group::kernel oom and cgroup messages"
+          $SUDO_PREFIX dmesg -T 2>/dev/null | grep -Ei 'out of memory|oom|killed process|memory cgroup|cgroup' | tail -200 || true
+          echo "::endgroup::"
+        fi
+
+        if [ -z "$ENGINE" ] || ! command -v "$ENGINE" >/dev/null 2>&1; then
+          echo "::warning::no container engine found; skipping engine and buildkit diagnostics"
+          exit 0
+        fi
+
+        echo "::group::container engine state"
+        run_shell "$SUDO_PREFIX $ENGINE version || true"
+        run_shell "$SUDO_PREFIX $ENGINE info || true"
+        run_shell "$SUDO_PREFIX $ENGINE ps -a || true"
+        run_shell "$SUDO_PREFIX $ENGINE stats --no-stream --all || true"
+        echo "::endgroup::"
+
+        echo "::group::buildkit containers"
+        # earthly-buildkitd is the released daemon, earthly-dev-buildkitd the
+        # source-built one; which of them exists depends on the job. A custom
+        # installation name means a custom container name - pass CONTAINERS.
+        for name in $CONTAINERS; do
+          echo "--- $name inspect ---"
+          $SUDO_PREFIX "$ENGINE" inspect "$name" 2>/dev/null || true
+          echo "--- $name logs (last ${LOG_TAIL} lines) ---"
+          $SUDO_PREFIX "$ENGINE" logs --tail "$LOG_TAIL" "$name" 2>&1 || true
+        done
+        echo "::endgroup::"
+
+        echo "::group::earthly directories"
+        run_shell 'du -sh ~/.earthly ~/.earthly-dev 2>/dev/null || true'
+        run_shell 'find ~/.earthly ~/.earthly-dev -maxdepth 2 -type d 2>/dev/null | sort | head -100 || true'
+        echo "::endgroup::"
+
+        exit 0

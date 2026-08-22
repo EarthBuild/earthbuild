@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/cmd/earth/app"
+	"github.com/EarthBuild/earthbuild/cmd/earth/base"
+	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
@@ -17,7 +17,7 @@ func TestRootCmdsHelp(t *testing.T) {
 	t.Parallel()
 
 	newCLI := base.NewCLI(
-		conslogging.ConsoleLogger{},
+		new(conslogging.ConsoleLogger),
 		base.WithVersion(""),
 		base.WithGitSHA(""),
 		base.WithBuiltBy(""),

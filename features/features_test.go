@@ -188,7 +188,7 @@ func TestAvailableFlags(t *testing.T) {
 
 			field := reflect.ValueOf(fts).FieldByName(tt.field)
 			require.True(t, field.IsValid(), "field %v does not exist on %T", tt.field, fts)
-			val, ok := field.Interface().(bool)
+			val, ok := reflect.TypeAssert[bool](field)
 			require.True(t, ok, "field %v was not a boolean", tt.field)
 			require.True(t, val, "expected field %v to be set to true by flag %v", tt.field, tt.flag)
 		})

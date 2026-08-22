@@ -36,10 +36,10 @@ type gitResolver struct {
 	projectCache      *synccache.Cache[string, *resolvedGitProject] // git URL#ref -> *resolvedGitProject
 	buildFileCache    *synccache.Cache[string, *buildFile]          // canonical ref -> *buildFile
 	gitLookup         *GitLookup
+	log               *conslogging.ConsoleLogger
 	gitBranchOverride string
 	lfsInclude        string
 	gitImage          string
-	console           conslogging.ConsoleLogger
 	logLevel          buildkitgitutil.GitLogLevel
 }
 
@@ -162,7 +162,7 @@ func (gr *gitResolver) resolveEarthProject(
 	localBuildFile, err := gr.buildFileCache.Load(
 		ctx, key,
 		func(ctx context.Context) (*buildFile, error) {
-			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earthly-git")
+			earthfileTmpDir, inErr := os.MkdirTemp(os.TempDir(), "earth-git")
 			if inErr != nil {
 				return nil, fmt.Errorf("create temp dir for Earthfile: %w", inErr)
 			}
@@ -202,7 +202,7 @@ func (gr *gitResolver) resolveEarthProject(
 			if isDockerfile {
 				ftrs = new(features.Features)
 			} else {
-				ftrs, inErr = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.console)
+				ftrs, inErr = parseFeatures(localBuildFilePath, featureFlagOverrides, ref.ProjectCanonical(), gr.log)
 				if inErr != nil {
 					return nil, inErr
 				}
@@ -284,7 +284,7 @@ func (gr *gitResolver) resolveGitProject(
 			if gr.lfsInclude != "" {
 				// TODO this should eventually be inferred by the contents of a COPY command, which means the call
 				// to resolveGitProject will need to be lazy-evaluated. However this makes it really difficult for
-				// an Earthfile which first has an ARG EARTHLY_GIT_HASH, then a RUN, then a COPY
+				// an Earthfile which first has an ARG EARTH_GIT_HASH, then a RUN, then a COPY
 				gitOpts = append(gitOpts, llb.LFSInclude(gr.lfsInclude))
 			}
 
@@ -361,7 +361,7 @@ func (gr *gitResolver) resolveGitProject(
 			}
 
 			if imgArch != "" && imgArch != platr.LLBNative().Architecture {
-				gr.console.Warnf("git image [%s] has architecture [%s] which does not match host architecture [%s]",
+				gr.log.Warnf("git image [%s] has architecture [%s] which does not match host architecture [%s]",
 					gitImage, string(unameM), platr.LLBNative().Architecture)
 			}
 
@@ -395,12 +395,12 @@ func (gr *gitResolver) resolveGitProject(
 				return s != "" && s != "HEAD"
 			}
 
-			gitHash := strings.SplitN(string(meta["git-hash"]), "\n", 2)[0]
-			gitShortHash := strings.SplitN(string(meta["git-short-hash"]), "\n", 2)[0]
-			gitContentHash := strings.SplitN(string(meta["git-content-hash"]), "\n", 2)[0]
+			gitHash, _, _ := strings.Cut(string(meta["git-hash"]), "\n")
+			gitShortHash, _, _ := strings.Cut(string(meta["git-short-hash"]), "\n")
+			gitContentHash, _, _ := strings.Cut(string(meta["git-content-hash"]), "\n")
 			gitBranches := strings.SplitN(gitBranch, "\n", 2)
-			gitAuthorEmail := strings.SplitN(string(meta["git-author-email"]), "\n", 2)[0]
-			gitAuthorName := strings.SplitN(string(meta["git-author-name"]), "\n", 2)[0]
+			gitAuthorEmail, _, _ := strings.Cut(string(meta["git-author-email"]), "\n")
+			gitAuthorName, _, _ := strings.Cut(string(meta["git-author-name"]), "\n")
 			gitCoAuthors := gitutil.ParseCoAuthorsFromBody(string(meta["git-body"]))
 
 			var gitBranches2 []string
@@ -433,8 +433,8 @@ func (gr *gitResolver) resolveGitProject(
 				}
 			}
 
-			gitCommitterTs := strings.SplitN(string(meta["git-committer-ts"]), "\n", 2)[0]
-			gitAuthorTs := strings.SplitN(string(meta["git-author-ts"]), "\n", 2)[0]
+			gitCommitterTs, _, _ := strings.Cut(string(meta["git-committer-ts"]), "\n")
+			gitAuthorTs, _, _ := strings.Cut(string(meta["git-author-ts"]), "\n")
 			gitRefs := strings.Split(string(meta["git-refs"]), "\n")
 
 			var gitRefs2 []string

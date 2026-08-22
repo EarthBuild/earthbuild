@@ -39,11 +39,11 @@ var (
 // BuildContextProvider is a BuildKit attachable which provides local files as part
 // of the build context.
 type BuildContextProvider struct {
-	p       progressCb
-	doneCh  chan error
-	dirs    map[string]SyncedDir
-	console conslogging.ConsoleLogger
-	mu      sync.Mutex
+	p      progressCb
+	doneCh chan error
+	dirs   map[string]SyncedDir
+	log    *conslogging.ConsoleLogger
+	mu     sync.Mutex
 }
 
 // SyncedDir is a directory to be synced across.
@@ -55,10 +55,10 @@ type SyncedDir struct {
 }
 
 // NewBuildContextProvider creates a new provider for sending build context files from client.
-func NewBuildContextProvider(console conslogging.ConsoleLogger) *BuildContextProvider {
+func NewBuildContextProvider(log *conslogging.ConsoleLogger) *BuildContextProvider {
 	return &BuildContextProvider{
-		dirs:    map[string]SyncedDir{},
-		console: console,
+		dirs: map[string]SyncedDir{},
+		log:  log,
 	}
 }
 
@@ -148,7 +148,7 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 
 	followPaths := opts[keyFollowPaths]
 
-	progressCB := fsutilprogress.New(dir.Dir, bcp.console.WithPrefixAndSalt("context", dir.Dir))
+	progressCB := fsutilprogress.New(dir.Dir, bcp.log.WithPrefixAndSalt("context", dir.Dir))
 
 	var doneCh chan error
 	if bcp.doneCh != nil {

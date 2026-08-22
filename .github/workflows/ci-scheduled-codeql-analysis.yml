@@ -45,11 +45,12 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: false
 
     - name: Install Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
       with:
-        go-version: '1.26.5'
+        go-version: '1.26.6'
         go-version-file: go.mod
 
     # Initializes the CodeQL tools for scanning.
@@ -78,7 +79,7 @@ jobs:
 
     # - run: |
     #     go version
-    #     go build ./cmd/earthly/*.go
+    #     go build ./cmd/earth/*.go
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@bc0b696b4103f5fe60f15749af68a046868d511a # CodeQL Bundle v2.25.4

@@ -12,10 +12,11 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/termutil"
 	"github.com/adrg/xdg"
 	"github.com/urfave/cli/v3"
@@ -119,7 +120,7 @@ func (b *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 }
 
 func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
-	console := b.cli.Console().WithPrefix("bootstrap")
+	console := b.cli.Log().WithPrefix("bootstrap")
 
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
@@ -168,7 +169,12 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 		if bkURL.Scheme == "tcp" && b.cli.Cfg().Global.TLSEnabled {
 			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName)
 			if err != nil {
-				return fmt.Errorf("failed to generate TLS certs: %w", err)
+				return hint.Wrapf(
+					fmt.Errorf("failed to generate TLS certs: %w", err),
+					"you may want to stop the %s container, delete your certificates, "+
+						"and run 'earth bootstrap' to regenerate certificates",
+					b.cli.Flags().ContainerName,
+				)
 			}
 		}
 	}
@@ -225,9 +231,9 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 	}
 
 	if ok {
-		b.cli.Console().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
+		b.cli.Log().VerbosePrintf("Successfully enabled bash-completion at %s\n", path)
 	} else {
-		b.cli.Console().VerbosePrintf("Bash-completion already present at %s\n", path)
+		b.cli.Log().VerbosePrintf("Bash-completion already present at %s\n", path)
 	}
 
 	return nil

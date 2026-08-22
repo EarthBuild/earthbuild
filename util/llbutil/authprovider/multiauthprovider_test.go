@@ -53,7 +53,7 @@ func (f *fakeChild) AddProject(org, project string) {
 	}
 }
 
-func newConsLogger() conslogging.ConsoleLogger {
+func newConsLogger() *conslogging.ConsoleLogger {
 	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 

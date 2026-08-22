@@ -898,7 +898,7 @@ escape-dir-test:
     DO +RUN_EARTH --earthfile=escape-dir1.earth --extra_args="--no-output" --target=+test
 
 eine-test-base:
-    FROM docker:29.7.1-dind
+    FROM docker:29.7.2-dind
     RUN apk --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
@@ -1376,7 +1376,7 @@ help:
     RUN earthly --help | grep 'buildkit-volume-name'
 
 doc:
-    # Detailed doc formatting coverage lives in cmd/earthly/subcmd/doc_cmds_test.go.
+    # Detailed doc formatting coverage lives in cmd/earth/subcmd/doc_cmds_test.go.
     # Keep this as a full CLI smoke test.
     DO +RUN_EARTH --earthfile=target-docs.earth --extra_args="doc" --target="" --post_command=">output.txt"
     RUN pcregrep --multiline "TARGETS:
@@ -1387,7 +1387,7 @@ doc:
       It also has a separator between paragraphs." output.txt
 
 doc-recipe-block:
-    # Detailed recipe block output coverage lives in cmd/earthly/subcmd/doc_cmds_test.go.
+    # Detailed recipe block output coverage lives in cmd/earth/subcmd/doc_cmds_test.go.
     # Keep this as a full CLI smoke test for the --long path.
     DO +RUN_EARTH --earthfile=doc-recipe-block.earth --extra_args="doc --long" --target="" --post_command=">output.txt"
     RUN grep 'REQUIRED ARGS:' output.txt

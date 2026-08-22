@@ -17,13 +17,13 @@ import (
 	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
 	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
 	// to ensure it happens before other packages initialize.
-	_ "github.com/EarthBuild/earthbuild/cmd/earthly/disable_alpn"
+	_ "github.com/EarthBuild/earthbuild/cmd/earth/disable_alpn"
 
-	"github.com/EarthBuild/earthbuild/cmd/earthly/app"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/base"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	eFlag "github.com/EarthBuild/earthbuild/cmd/earthly/flag"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/subcmd"
+	"github.com/EarthBuild/earthbuild/cmd/earth/app"
+	"github.com/EarthBuild/earthbuild/cmd/earth/base"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	eFlag "github.com/EarthBuild/earthbuild/cmd/earth/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/internal/env"
@@ -156,7 +156,7 @@ func run() (code int) {
 	flagSet.SetOutput(io.Discard)
 
 	cli := base.NewCLI(
-		conslogging.ConsoleLogger{},
+		new(conslogging.ConsoleLogger),
 		base.WithVersion(Version),
 		base.WithGitSHA(GitSha),
 		base.WithBuiltBy(BuiltBy),
@@ -227,7 +227,7 @@ func run() (code int) {
 
 	logging := conslogging.Current(padding, conslogging.Info, cli.Flags().GithubAnnotations)
 
-	cli.SetConsole(logging)
+	cli.SetLog(logging)
 	earth := app.NewEarthApp(cli, rootApp, buildApp)
 
 	return earth.Run(ctx, lastSignal)

@@ -9,7 +9,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/cleanup"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
+	"github.com/EarthBuild/earthbuild/cmd/earth/bk"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
@@ -83,6 +83,8 @@ type ConvertOpt struct {
 	GlobalImports map[string]domain.ImportTrackerVal
 	// Logbus is the bus used for logging and metadata reporting.
 	Logbus *logbus.Bus
+	// Log is for logging
+	Log *conslogging.ConsoleLogger
 	// LLBCaps indicates that builder's capabilities
 	LLBCaps *apicaps.CapSet
 	// TempEarthOutDir is a path to a temp dir where artifacts are temporarily saved
@@ -129,8 +131,6 @@ type ConvertOpt struct {
 	FeatureFlagOverrides string
 	// LocalRegistryAddr is the address of the BuildKit-embedded registry.
 	LocalRegistryAddr string
-	// Console is for logging
-	Console conslogging.ConsoleLogger
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
 	// NoCache sets llb.IgnoreCache before calling StateToRef
@@ -224,8 +224,8 @@ func Earthfile2LLB(
 				// context.Canceled resulted from the cancellation of the
 				// ErrorGroup, but not the root cause).
 				err2 := opt.ErrorGroup.Err()
-				opt.Console.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
-				opt.Console.VerbosePrintf("earthfile2llb group error: %v", err2)
+				opt.Log.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
+				opt.Log.VerbosePrintf("earthfile2llb group error: %v", err2)
 
 				if err2 != nil {
 					retErr = err2
@@ -329,7 +329,7 @@ func Earthfile2LLB(
 	}
 
 	opt.TargetInputHashStackSet[tiHash] = struct{}{}
-	opt.Console.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
+	opt.Log.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
 
 	converter, err := NewConverter(targetWithMetadata, bc, sts, opt)
@@ -342,7 +342,7 @@ func Earthfile2LLB(
 		targetWithMetadata,
 		opt.AllowPrivileged,
 		opt.ParallelConversion,
-		opt.Console,
+		opt.Log,
 		opt.GitLookup,
 	)
 

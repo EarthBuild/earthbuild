@@ -14,6 +14,15 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD:
+        required: false
+      DOCKERHUB_MIRROR_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -39,6 +48,9 @@ jobs:
             name: "Examples 4 (gRPC)"
           - example: "+examples-5"
             name: "Examples 5 (Java, JS & Node)"
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/reusable-example.yml
     with:
       EXAMPLE_NAME: ${{ matrix.example }}
@@ -47,4 +59,8 @@ jobs:
       BINARY: ${{ inputs.FRONTEND }}
       USE_QEMU: ${{ inputs.FRONTEND == 'podman' }}
       SUDO: ${{ inputs.SUDO }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

@@ -347,7 +347,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 	var (
 		gatewayClient     gwclient.Client
-		console           conslogging.ConsoleLogger
+		log               *conslogging.ConsoleLogger
 		exportCoordinator *gatewaycrafter.ExportCoordinator
 		artifacts         []saveArtifactLocalEntry
 		localDestinations []string
@@ -362,7 +362,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		c := saveLocalItem.c
 		i := saveLocalItem.saveLocal.Index
 		gatewayClient = c.opt.GwClient
-		console = c.opt.Console
+		log = c.opt.Log
 		exportCoordinator = c.opt.ExportCoordinator
 
 		state := c.mts.Final.SeparateArtifactsState[i]
@@ -423,7 +423,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 
 	for _, entry := range artifacts {
 		err = saveartifactlocally.SaveArtifactLocally(
-			ctx, exportCoordinator, console, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists,
+			ctx, exportCoordinator, log, entry.artifact, entry.artifactDir, entry.destPath, entry.salt, entry.ifExists,
 		)
 		if err != nil {
 			return err

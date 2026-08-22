@@ -17,9 +17,9 @@ import (
 	"github.com/EarthBuild/earthbuild/builder"
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cleanup"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/bk"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
 	"github.com/EarthBuild/earthbuild/docker2earth"
@@ -175,7 +175,7 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 func (b *Build) warnIfArgContainsBuildArg(flagArgs []string) {
 	for _, flag := range flagArgs {
 		if strings.HasPrefix(flag, "build-arg=") || strings.HasPrefix(flag, "buildarg=") {
-			b.cli.Console().Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
+			b.cli.Log().Warnf("Found a flag named %q; flags after the build target should be specified as --KEY=VAL\n", flag)
 		}
 	}
 }
@@ -280,7 +280,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	cleanCollection := cleanup.NewCollection()
 	defer cleanCollection.Close()
 
-	b.cli.Console().PrintPhaseHeader(builder.PhaseInit, false, "")
+	b.cli.Log().PrintPhaseHeader(builder.PhaseInit, false, "")
 	b.warnIfArgContainsBuildArg(flagArgs)
 
 	showUnexpectedEnvWarnings := true
@@ -313,7 +313,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		validEnvNames := cliutil.GetValidEnvNames(b.cli.App())
 		for k := range dotEnvMap {
 			if _, found := validEnvNames[k]; !found {
-				b.cli.Console().Warnf("unexpected env \"%s\": as of v0.7.0, "+
+				b.cli.Log().Warnf("unexpected env \"%s\": as of v0.7.0, "+
 					"--build-arg values must be defined in .arg (and --secret values in .secret)", k)
 			}
 		}
@@ -329,7 +329,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		if !shell.IsValidEnvVarName(secretKey) {
 			// TODO If the year is 2024 or later, please move this check into processSecrets, and turn it into an error;
 			// see https://github.com/earthly/earthly/issues/2883
-			b.cli.Console().Warnf(
+			b.cli.Log().Warnf(
 				"Deprecation: secret key %q does not follow the recommended naming convention "+
 					"(a letter followed by alphanumeric characters or underscores); "+
 					"this will become an error in a future version of earthly.", secretKey,
@@ -344,12 +344,12 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	skipDB, err := bk.NewBuildkitSkipper(b.cli.Flags().LocalSkipDB)
 	if err != nil {
-		b.cli.Console().WithPrefix(autoSkipPrefix).Warnf("Failed to initialize auto-skip database: %v", err)
+		b.cli.Log().WithPrefix(autoSkipPrefix).Warnf("Failed to initialize auto-skip database: %v", err)
 	}
 
 	addHashFn, doSkip, err := b.initAutoSkip(ctx, skipDB, target, overridingVars)
 	if err != nil {
-		b.cli.Console().PrintFailure("auto-skip")
+		b.cli.Log().PrintFailure("auto-skip")
 		return err
 	}
 
@@ -370,10 +370,9 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	bkClient, err := buildkitd.NewClient(
 		ctx,
-		b.cli.Console(),
+		b.cli.Log(),
 		b.cli.Flags().BuildkitdImage,
 		b.cli.Flags().ContainerName,
-		b.cli.Flags().InstallationName,
 		b.cli.Flags().ContainerFrontend,
 		b.cli.Version(),
 		b.cli.Flags().BuildkitdSettings,
@@ -406,7 +405,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	defaultLocalDirs := make(map[string]string)
 	defaultLocalDirs["earthly-cache"] = cacheLocalDir
-	buildContextProvider := provider.NewBuildContextProvider(b.cli.Console())
+	buildContextProvider := provider.NewBuildContextProvider(b.cli.Log())
 	buildContextProvider.AddDirs(defaultLocalDirs)
 
 	internalSecretStore := secretprovider.NewMutableMapStore(nil)
@@ -446,10 +445,10 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return fmt.Errorf("want auth.AuthServer, got %T", attachable)
 	}
 
-	authProvider := authprovider.New(b.cli.Console(), []authprovider.Child{authSvr})
+	authProvider := authprovider.New(b.cli.Log(), []authprovider.Child{authSvr})
 	attachables = append(attachables, authProvider)
 
-	gitLookup := buildcontext.NewGitLookup(b.cli.Console(), b.cli.Flags().SSHAuthSock)
+	gitLookup := buildcontext.NewGitLookup(b.cli.Log(), b.cli.Flags().SSHAuthSock)
 
 	err = b.updateGitLookupConfig(gitLookup)
 	if err != nil {
@@ -478,7 +477,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 				return errors.New("interactive mode unavailable due to terminal not being tty")
 			}
 
-			debugTermConsole := b.cli.Console().WithPrefix("internal-term")
+			debugTermConsole := b.cli.Log().WithPrefix("internal-term")
 
 			termErr := terminal.ConnectTerm(ctx, conn, debugTermConsole)
 			if termErr != nil {
@@ -557,7 +556,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	builderOpts := builder.Opt{
 		BkClient:                              bkClient,
 		LogBusSolverMonitor:                   logbusSM,
-		Console:                               b.cli.Console(),
+		Log:                                   b.cli.Log(),
 		Verbose:                               b.cli.Flags().Verbose,
 		Attachables:                           attachables,
 		Enttlmnts:                             enttlmnts,
@@ -599,7 +598,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return fmt.Errorf("new builder: %w", err)
 	}
 
-	b.cli.Console().PrintPhaseFooter(builder.PhaseInit)
+	b.cli.Log().PrintPhaseFooter(builder.PhaseInit)
 
 	builtinArgs := variables.DefaultArgs{
 		EarthVersion:  b.cli.Version(),
@@ -674,7 +673,7 @@ func getTryCatchSaveFileHandler(
 func (b *Build) updateGitLookupConfig(gitLookup *buildcontext.GitLookup) error {
 	for k, v := range b.cli.Cfg().Git {
 		if k == "github" || k == "gitlab" || k == "bitbucket" {
-			b.cli.Console().Warnf("git configuration for %q found, did you mean %q?\n", k, k+".com")
+			b.cli.Log().Warnf("git configuration for %q found, did you mean %q?\n", k, k+".com")
 		}
 
 		pattern := v.Pattern
@@ -808,7 +807,7 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {
-			b.cli.Console().Warnf("failed to get hostname: %v", err)
+			b.cli.Log().Warnf("failed to get hostname: %v", err)
 
 			hostname = "unknown"
 		}
@@ -819,9 +818,9 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	}
 
 	if !isLocal && (b.cli.Flags().UseInlineCache || b.cli.Flags().SaveInlineCache) {
-		b.cli.Console().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause " +
+		b.cli.Log().Warnf("Note that inline cache (--use-inline-cache and --save-inline-cache) occasionally cause " +
 			"builds to get stuck at 100%% CPU on remote Buildkit.")
-		b.cli.Console().Warnf("")
+		b.cli.Log().Warnf("")
 	}
 
 	if isLocal && !b.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
@@ -872,13 +871,13 @@ func (b *Build) initAutoSkip(
 		return nil, false, nil
 	}
 
-	console := b.cli.Console().WithPrefix(autoSkipPrefix)
+	console := b.cli.Log().WithPrefix(autoSkipPrefix)
 
 	if skipDB == nil {
 		return nil, false, nil
 	}
 
-	consoleNoPrefix := b.cli.Console()
+	consoleNoPrefix := b.cli.Log()
 
 	if b.cli.Flags().NoCache {
 		return nil, false, errors.New("--no-cache cannot be used with --auto-skip")
@@ -890,7 +889,7 @@ func (b *Build) initAutoSkip(
 
 	targetHash, stats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
-		Console:        b.cli.Console(),
+		Log:            b.cli.Log(),
 		CI:             b.cli.Flags().CI,
 		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
 		OverridingVars: overridingVars,
@@ -921,7 +920,7 @@ func (b *Build) initAutoSkip(
 		target.Tag = ""
 	}
 
-	targetConsole := b.cli.Console().WithPrefix(target.String())
+	targetConsole := b.cli.Log().WithPrefix(target.String())
 	targetStr := targetConsole.PrefixColor().Sprint(target.StringCanonical())
 
 	exists, err := skipDB.Exists(ctx, targetHash)
@@ -940,7 +939,7 @@ func (b *Build) initAutoSkip(
 	addHashFn := func() {
 		err := skipDB.Add(ctx, target.StringCanonical(), targetHash)
 		if err != nil {
-			b.cli.Console().WithPrefix(autoSkipPrefix).
+			b.cli.Log().WithPrefix(autoSkipPrefix).
 				Warnf("failed to record %s (hash %x) as completed: %s", target.String(), target, err)
 		}
 	}

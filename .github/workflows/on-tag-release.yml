@@ -31,13 +31,14 @@ jobs:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   ref: ${{ github.event.release.tag_name }}
                   fetch-depth: 0
+                  persist-credentials: false
             - name: Copy pre-built artifacts to release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   RELEASE_TAG: ${{ github.event.release.tag_name }}
               run: |
-                  earth --ci --push --secret GITHUB_TOKEN="${{ env.GITHUB_TOKEN }}" ./release+promote-artifacts-to-gh \
-                      --RELEASE_TAG="${{ env.RELEASE_TAG }}"
+                  earth --ci --push --secret GITHUB_TOKEN="${GITHUB_TOKEN}" ./release+promote-artifacts-to-gh \
+                      --RELEASE_TAG="${RELEASE_TAG}"
     release-images-to-dockerhub:
         runs-on: ubuntu-24.04-arm
         permissions:
@@ -57,6 +58,7 @@ jobs:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   ref: ${{ github.event.release.tag_name }}
                   fetch-depth: 0
+                  persist-credentials: false
             - name: Copy images from GHCR.io to DockerHub
               env:
                   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
@@ -68,9 +70,9 @@ jobs:
                   RELEASE_TAG: ${{ github.event.release.tag_name }}
               # TODO: set usernames for docker
               run: |
-                  earth --ci --push --secret CONTAINER_REGISTRY_TOKEN=${{ env.GITHUB_TOKEN }} \
-                      --secret DEST_CONTAINER_REGISTRY_TOKEN=${{ env.DOCKERHUB_TOKEN }} \
+                  earth --ci --push --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
+                      --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
                       ./release+promote-to-dockerhub \
-                      --RELEASE_TAG="${{ env.RELEASE_TAG }}" \
-                      --CONTAINER_REGISTRY_USER="${{ env.GHCR_USERNAME }}" \
-                      --DST_CONTAINER_REGISTRY_USER="${{ env.DOCKERHUB_USERNAME }}"
+                      --RELEASE_TAG="${RELEASE_TAG}" \
+                      --CONTAINER_REGISTRY_USER="${GHCR_USERNAME}" \
+                      --DST_CONTAINER_REGISTRY_USER="${DOCKERHUB_USERNAME}"

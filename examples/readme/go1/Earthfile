@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM golang:1.26-alpine3.23
+FROM golang:1.27-alpine3.24
 RUN apk --no-cache add git curl
 WORKDIR /go-example
 
@@ -13,7 +13,7 @@ build:
   SAVE ARTIFACT build/go-example AS LOCAL build/go-example
 
 lint:
-  FROM golangci/golangci-lint:v2.12.2-alpine
+  FROM golangci/golangci-lint:v2.13.1-alpine
   COPY main.go .
   RUN golangci-lint run main.go
 

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/helper"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/env"
@@ -66,7 +66,7 @@ func (app *EarthApp) unhideFlags() error {
 	autocompleteHidden, _ := env.Lookup("AUTOCOMPLETE_HIDDEN")
 	if autocompleteHidden != "" && os.Getenv("COMP_POINT") == "" {
 		// only display warning when NOT under complete mode (otherwise we break auto completion)
-		app.BaseCLI.Console().Warn("Warning: EARTH_AUTOCOMPLETE_HIDDEN has been renamed to EARTH_SHOW_HIDDEN\n")
+		app.BaseCLI.Log().Warn("Warning: EARTH_AUTOCOMPLETE_HIDDEN has been renamed to EARTH_SHOW_HIDDEN\n")
 	}
 
 	showHidden := false
@@ -164,7 +164,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			hintErr.Hint(),
 			hintErr.Message(),
 		)
-		app.BaseCLI.Console().HelpPrint(hintErr.Hint())
+		app.BaseCLI.Log().HelpPrint(hintErr.Hint())
 
 		return 1
 	case errors.As(err, &autoSkipErr):
@@ -185,7 +185,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 
 		if paramsErr.Error() != paramsErr.ParentError() {
-			app.BaseCLI.Console().VerboseWarn(errorWithPrefix(paramsErr.Error()))
+			app.BaseCLI.Log().VerboseWarn(errorWithPrefix(paramsErr.Error()))
 		}
 
 		return 1
@@ -194,7 +194,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 
 		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
 			"For more information see https://docs.earthbuild.dev/guides/multi-platform\n"
-		app.BaseCLI.Console().HelpPrint(helpMsg)
+		app.BaseCLI.Log().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_OTHER,
@@ -214,7 +214,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			})
 			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
 			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
-			app.BaseCLI.Console().HelpPrint(helpMsg)
+			app.BaseCLI.Log().HelpPrint(helpMsg)
 		}
 		// This error would have been displayed earlier from the SolverMonitor.
 		// This SetGenericFatalError is a catch-all just in case that hasn't happened.
@@ -234,7 +234,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			helpMsg,
 			err.Error(),
 		)
-		app.BaseCLI.Console().HelpPrint(helpMsg)
+		app.BaseCLI.Log().HelpPrint(helpMsg)
 
 		return 9
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
@@ -250,12 +250,12 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 
 		gitStdErr, shorterErr, ok := errutil.ExtractEarthlyGitStdErr(err.Error())
 		if ok {
-			app.BaseCLI.Console().VerboseWarnf("Error: %v\n\n%s\n", shorterErr, gitStdErr)
+			app.BaseCLI.Log().VerboseWarnf("Error: %v\n\n%s\n", shorterErr, gitStdErr)
 		} else {
-			app.BaseCLI.Console().VerboseWarnf("Error: %v\n", err.Error())
+			app.BaseCLI.Log().VerboseWarnf("Error: %v\n", err.Error())
 		}
 
-		app.BaseCLI.Console().HelpPrint(helpMsg)
+		app.BaseCLI.Log().HelpPrint(helpMsg)
 
 		return 1
 	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
@@ -288,7 +288,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		helpMsg := fmt.Sprintf("%s responded with a rate limit error. This is usually because you are not logged in.\n"+
 			"You can login using the command:\n"+
 			"  docker login%s", registryName, registryHost)
-		app.BaseCLI.Console().HelpPrint(helpMsg)
+		app.BaseCLI.Log().HelpPrint(helpMsg)
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_RATE_LIMITED,
@@ -305,22 +305,22 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			errorMsg = matches["msg"][0]
 		}
 
-		app.BaseCLI.Console().VerboseWarn(err.Error())
+		app.BaseCLI.Log().VerboseWarn(err.Error())
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
 
 		return 1
 	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
-		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
+		app.BaseCLI.Log().VerboseWarn(errorWithPrefix(err.Error()))
 
 		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. " +
 			"Verify your account to lift this restriction."
 		app.BaseCLI.Logbus().Run().
 			SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
-		app.BaseCLI.Console().HelpPrint(helpMsg)
+		app.BaseCLI.Log().HelpPrint(helpMsg)
 
 		return 1
 	case grpcErrOK && grpcErr.Code() != codes.Canceled:
-		app.BaseCLI.Console().VerboseWarn(errorWithPrefix(err.Error()))
+		app.BaseCLI.Log().VerboseWarn(errorWithPrefix(err.Error()))
 
 		if !strings.Contains(grpcErr.Message(), "transport is closing") {
 			app.BaseCLI.Logbus().Run().SetGenericFatalError(
@@ -339,7 +339,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			"",
 			grpcErr.Message(),
 		)
-		app.BaseCLI.Console().Warn(
+		app.BaseCLI.Log().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 		)
@@ -356,7 +356,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			"",
 			err.Error(),
 		)
-		app.BaseCLI.Console().Warn(
+		app.BaseCLI.Log().Warn(
 			"Error: It seems that buildkitd is shutting down or it has crashed. " +
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 		)
@@ -375,7 +375,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
-			app.BaseCLI.Console().Warn(
+			app.BaseCLI.Log().Warn(
 				"Error: It seems that buildkitd had an issue. " +
 					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 			)
@@ -387,9 +387,9 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
 
 		if app.BaseCLI.Flags().Verbose {
-			app.BaseCLI.Console().Warnf("Canceled: %v\n", err)
+			app.BaseCLI.Log().Warnf("Canceled: %v\n", err)
 		} else {
-			app.BaseCLI.Console().Warn("Canceled\n")
+			app.BaseCLI.Log().Warn("Canceled\n")
 		}
 
 		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
@@ -432,25 +432,25 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 }
 
 func (app *EarthApp) printCrashLogs(ctx context.Context) {
-	app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "System Info", "")
+	app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "System Info", "")
 	fmt.Fprintf(os.Stderr, "version: %s\n", app.BaseCLI.Version())  // #nosec G705
 	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA()) // #nosec G705
 	fmt.Fprintf(os.Stderr, "platform: %s\n", common.GetPlatform())  // #nosec G705
 
 	dockerVersion, err := buildkitd.GetDockerVersion(ctx, app.BaseCLI.Flags().ContainerFrontend)
 	if err != nil {
-		app.BaseCLI.Console().Warnf("failed querying docker version: %s\n", err.Error())
+		app.BaseCLI.Log().Warnf("failed querying docker version: %s\n", err.Error())
 	} else {
-		app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "Docker Version", "")
+		app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "Docker Version", "")
 		fmt.Fprintln(os.Stderr, dockerVersion) // #nosec G705
 	}
 
 	logs, err := buildkitd.GetLogs(ctx,
 		app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().ContainerFrontend, app.BaseCLI.Flags().BuildkitdSettings)
 	if err != nil {
-		app.BaseCLI.Console().Warnf("failed fetching earthly-buildkit logs: %s\n", err.Error())
+		app.BaseCLI.Log().Warnf("failed fetching %s logs: %s\n", app.BaseCLI.Flags().ContainerName, err.Error())
 	} else {
-		app.BaseCLI.Console().PrintBar(color.New(color.FgHiRed), "Buildkit Logs", "")
+		app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "Buildkit Logs", "")
 		fmt.Fprintln(os.Stderr, logs) // #nosec G705
 	}
 }

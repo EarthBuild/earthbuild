@@ -24318,3 +24318,47 @@ build, which is an argument about what CI caches rather than about this code.
 placement already in the plan, where a base nobody reads is never written. That is the green paper's
 own first principle, and this is the measurement that says the arithmetic works out - a `RUN echo` on
 a golang base reads none of its ten thousand files.
+
+## E534 - a no-op build spends its time authenticating to a registry
+
+With everything cached and nothing to do, a build takes 0.64s. Almost none of that is the sandbox:
+
+```text
+no-op build            0.660  0.636  0.627
+plan only (-dry-run)   0.606  0.605  0.593
+```
+
+40ms separates them, so the VM, the cache lookups and the guest are not the cost. Planning is - and
+planning is one network exchange:
+
+```text
+-dry-run, FROM scratch                    0.031s
+-dry-run, FROM golang:1.26.5-alpine3.24   0.600s
+-dry-run, FROM golang@sha256:787328...    0.030s
+```
+
+Resolving a *tag* to a digest costs 0.57s, and a ref that already carries its digest costs nothing,
+because `Resolve` returns before touching the network. Split:
+
+```text
+pin:token     0.465s   docker.io
+pin:manifest  0.155s   golang:1.26.5-alpine3.24
+```
+
+Three requests across two hosts, each with its own DNS and TLS: an unauthenticated probe to collect
+the `WWW-Authenticate` challenge, a token request to the realm it names, and the manifest itself.
+**The probe is the expensive one and it fetches nothing** - a registry's realm and service are stable,
+public metadata that this engine relearns on every invocation.
+
+Resolution stays per invocation: that is what stops a fleet seeing `latest` move underneath it, and
+the digest is needed to *key* the cache, so even a no-op must have it. What is available is making the
+exchange cheaper rather than rarer:
+
+* cache realm and service per registry, derive the scope and fall back to the full challenge on a
+  401. Saves the probe, stores nothing secret, and needs a fake registry to test against - this
+  package has no test that exercises the challenge at all;
+* cache the token itself, which is worth 0.465s and puts a bearer credential in the cache directory.
+  That is a decision about credentials rather than an optimisation, so it is not one to take quietly.
+
+And a user can have the whole 0.57s today by pinning the digest, which the engine already prints for
+them on every build.

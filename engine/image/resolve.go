@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Resolve answers what a reference names right now: the same repository at a
@@ -48,12 +50,17 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)
 
+	endToken := timing.Phase("pin:token", r.Registry)
 	tok, err := token(ctx, client, base+"/manifests/"+r.Tag)
+	endToken()
+
 	if err != nil {
 		return "", fmt.Errorf("authenticate to %s: %w", r.Registry, err)
 	}
 
+	endManifest := timing.Phase("pin:manifest", ref)
 	body, err := get(ctx, client, tok, base+"/manifests/"+r.Tag, maxManifest)
+	endManifest()
 	if err != nil {
 		return "", fmt.Errorf("fetch the manifest for %s: %w", ref, err)
 	}

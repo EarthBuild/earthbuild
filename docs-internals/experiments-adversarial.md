@@ -24546,3 +24546,40 @@ honestly absent, and an image entry that cannot say is not a hit. It is the shap
 
 **The cost, stated rather than discovered:** base stacks gain an element, so every key derived from an
 image changes and those steps re-run once. Layers keep their identity, so nothing is re-fetched.
+
+## E539 - the file descriptors are the shared directory, and there are 65,000 of them
+
+A build of `+earthly` failed with `too many open files in system` while capturing a layer. ENFILE, not
+EMFILE: the machine was out, not the process. Reaping four idle sandboxes took `kern.num_files` from
+204,935 to 107,237 and the identical build then succeeded - 104.2s failed, 104.7s passed, same code.
+
+The descriptors are not this engine's:
+
+```text
+com.apple.Virtualization.VirtualMachine   65,331 REG   of which 65,317 under the layer store
+                                          12,505 DIR
+store on disk                            209,661 files, 37,105 directories
+```
+
+**The layer store is shared into the VM as a directory**, so every file the guest's overlayfs touches
+becomes a host-side descriptor that lives as long as the VM. This one had touched about a third of the
+store. The count is therefore a function of how much of a base gets materialised, and it grows with
+every build until the machine is stopped.
+
+The arithmetic is the finding. `kern.maxfiles` is 491,520 and `kern.maxfilesperproc` is 245,760, so a
+single VM may legitimately take half the machine's global budget, and two VMs that have each touched a
+whole store would exhaust it. Not by leaking - by working.
+
+**So raising the limit is the wrong repair.** It moves the wall rather than removing it, and per-process
+limits do not govern ENFILE at all, so a reader who tries `ulimit -n` will conclude the diagnosis was
+wrong rather than the remedy. Two things remove it:
+
+* **the store as a block device** rather than a shared directory, which is already in the plan for
+  its speed - the host then holds one descriptor for a disk image instead of one per file. The same
+  change made cache mounts 26x faster on metadata (E511);
+* **lazy placement**, which reduces the same quantity from the other end: a `RUN echo` on a golang
+  base reads none of its ten thousand files and should hold none of them open.
+
+Both were performance items this morning. This makes them correctness items: a build that fails
+depending on how many sandboxes are running, with a message naming a `@babel` file it has never heard
+of, is not a build anybody can reason about.

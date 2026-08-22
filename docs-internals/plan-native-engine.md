@@ -8641,6 +8641,23 @@ This is the cheapest of the open storage questions, because the answer is mostly
 design, and it is the one that most directly serves *move the data less*: a base image that is never
 read is never moved.
 
+## The store as a block device is a correctness item, not a speed one
+
+It has been in this plan as a way to make the store faster. E539 makes it a way to make builds work.
+
+The store is shared into the VM as a *directory*, so the host holds one descriptor per file the guest
+touches, for as long as the VM runs - 65,331 of them after a few builds, against a `kern.maxfiles` of
+491,520 and a `kern.maxfilesperproc` of 245,760. One VM may legitimately take half the machine. Two
+that have each touched a whole store exhaust it. A build then fails in an unrelated place with a
+message that names a file in `node_modules` and nothing about the cause.
+
+A block device removes the whole class: the host holds one descriptor for a disk image. Lazy
+placement attacks the same number from the other end, since the count is exactly how much of a base
+was materialised.
+
+Neither is scheduled here. What changes is why they are worth doing: this is no longer an argument
+about milliseconds.
+
 ## A stopped sandbox is restarted, not rebuilt
 
 A VM this engine can reuse is found by name, and the name is a digest of its mounts. When the named

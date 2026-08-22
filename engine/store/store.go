@@ -109,20 +109,16 @@ func (d DirStore) AdoptConfig(id ir.NodeID, from string) error {
 // staging is removed rather than renamed over, because a rename onto a directory
 // fails and because what is there has been built exactly as carefully.
 func (d DirStore) PutNamed(id ir.NodeID, staging string) error {
-	at := d.LayerPath(id)
-
-	err := os.Rename(staging, at)
-	if err == nil {
-		return nil
+	err := Publish(string(d), id, staging)
+	if err != nil {
+		return err
 	}
 
-	if d.Has(id) {
-		_ = os.RemoveAll(staging)
+	// Gone already on the winning path; on the losing one this is what
+	// "already there" costs.
+	_ = os.RemoveAll(staging)
 
-		return nil
-	}
-
-	return fmt.Errorf("file layer %v: %w", id, err)
+	return nil
 }
 
 // Root is the directory this store occupies.

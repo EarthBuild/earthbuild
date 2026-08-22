@@ -53,22 +53,17 @@ func placeCaptured(store, staging string) (ir.NodeID, error) {
 		return c.ID, nil
 	}
 
-	err = os.Rename(staging, at)
+	// Losing the race to file it is not a failure - see `Publish`, which is
+	// where that is said.
+	err = Publish(store, c.ID, staging)
 	if err != nil {
-		// **Lost a race, which is not a failure.** Two steps on the same base
-		// materialise at once, both find the name absent, and the loser's
-		// rename lands on a directory that now exists. The winner's copy was
-		// named by the same function over the same bytes, so the answer to
-		// losing is that the layer is there (the shape `Layers.Put` documents
-		// as TOCTOU on a check-then-act, E347).
-		if _, again := os.Stat(at); again == nil {
-			_ = os.RemoveAll(staging)
-
-			return c.ID, nil
-		}
-
-		return ir.NodeID{}, fmt.Errorf("file layer %v: %w", c.ID, err)
+		return ir.NodeID{}, err
 	}
+
+	// Nothing on the winning path: the rename took the staging tree away, and
+	// removing what is not there succeeds. On the losing path it is still
+	// here, and this is what "already filed" costs.
+	_ = os.RemoveAll(staging)
 
 	return c.ID, nil
 }

@@ -19,7 +19,7 @@ import (
 // what makes it addressable - so a squash of ten gigabytes costs inodes and no
 // bytes. The link farm the mount uses relies on the same property.
 func squashInto(ctx context.Context, store string, into ir.NodeID, rng []ir.NodeID) error {
-	final := filepath.Join(store, "layers", into.String())
+	final := LayerStore(store).Path(into)
 
 	// Already built, by this build or a previous one: the identity is derived
 	// from the range, so there is nothing here that could be out of date.
@@ -70,19 +70,10 @@ func squashInto(ctx context.Context, store string, into ir.NodeID, rng []ir.Node
 		}
 	}
 
-	err = os.Rename(partial, final)
-	if err != nil {
-		// A concurrent squash of the same range got there first, which is a
-		// success: the identity says the two results are the same bytes.
-		_, statErr := os.Stat(final)
-		if statErr == nil {
-			return nil
-		}
-
-		return fmt.Errorf("publish the squashed layer: %w", err)
-	}
-
-	return nil
+	// A concurrent squash of the same range getting there first is a success:
+	// the identity says the two results are the same bytes. Said once, in
+	// `Publish`, for every caller that files a layer.
+	return Publish(store, into, partial)
 }
 
 // MountableStackDepth is the deepest stack the guest can actually mount.

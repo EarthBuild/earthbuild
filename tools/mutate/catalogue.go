@@ -96,8 +96,8 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
-		Name:        "overlay: reversing the stack for lowerdir (§3.2)",
-		File:        "engine/mat/overlay/overlay_linux.go",
+		Name: "overlay: reversing the stack for lowerdir (§3.2)",
+		File: "engine/mat/overlay/overlay_linux.go",
 		// The stack became `trees` when declarations joined it: an element that
 		// contributes no directory is classified out before the mount is built,
 		// so what gets reversed is the elements that have one (§3.2a).
@@ -1544,11 +1544,16 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
-		Name:        "fleet: losing a race to file a layer not being a failure (E347)",
-		File:        "engine/fleet/layers.go",
-		Anchor:      "\t\tif l.Has(c.ID) {\n\t\t\treturn c.ID, c.Bytes, nil\n\t\t}\n\n\t\treturn ir.NodeID{}, 0, fmt.Errorf(\"file layer %v: %w\", c.ID, err)",
-		Replacement: "\t\treturn ir.NodeID{}, 0, fmt.Errorf(\"file layer %v: %w\", c.ID, err)",
-		Package:     "./engine/fleet/",
+		// Moved here from `engine/fleet/layers.go` when five callers that each
+		// filed a layer, and each handled this race in their own words, were
+		// given one seam to do it through (E543). The mutant is the same: lose
+		// the race, report a failure.
+		Name: "store: losing a race to file a layer not being a failure (E347)",
+		File: "engine/store/publish.go",
+		Anchor: "\t\tif !LayerStore(root).Has(id) {\n\t\t\treturn fmt.Errorf(" +
+			"\"file layer %s at %s: %w\", id, at, err)\n\t\t}",
+		Replacement: "\t\treturn fmt.Errorf(\"file layer %s at %s: %w\", id, at, err)",
+		Package:     "./engine/store/",
 	},
 	{
 		Name:        "fleet: a transfer costing something before it moves a byte (E346)",

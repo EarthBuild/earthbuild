@@ -37,9 +37,14 @@ func (s LayerStore) Has(id ir.NodeID) bool {
 		return false
 	}
 
-	fi, err := os.Stat(filepath.Join(string(s), "layers", id.String()))
+	fi, err := os.Stat(s.Path(id))
 
 	return err == nil && fi.IsDir()
+}
+
+// Path is where a layer's tree lives.
+func (s LayerStore) Path(id ir.NodeID) string {
+	return filepath.Join(string(s), "layers", id.String())
 }
 
 // Verify rehashes a layer and reports whether it matches the digest naming it.

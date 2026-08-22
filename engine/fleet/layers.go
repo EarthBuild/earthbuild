@@ -14,6 +14,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Layers is a directory of layers, as both a source and a destination.
@@ -168,34 +169,21 @@ func (l *Layers) Put(r io.Reader) (ir.NodeID, int64, error) {
 		return ir.NodeID{}, 0, fmt.Errorf("capture an incoming layer: %w", err)
 	}
 
-	at := l.at(c.ID)
-
 	// Already here - two workers can send the same base at once. The copy that
 	// arrived second is discarded rather than renamed over the first, because a
 	// rename onto a directory fails and because whichever is already there has
 	// been checked exactly as hard.
+	//
+	// Checking first is an optimisation, not the guard: the guard is in
+	// `Publish`, which treats a rename onto an existing layer as the success it
+	// is. This check only saves the rename syscall in the common case.
 	if l.Has(c.ID) {
 		return c.ID, c.Bytes, nil
 	}
 
-	err = os.Rename(tmp, at)
+	err = store.Publish(l.Root, c.ID, tmp)
 	if err != nil {
-		// **Somebody else filed it between the check above and here.**
-		//
-		// The check is not a lock and cannot be one: two steps fetching the
-		// same input at once both unpack, both find the layer absent, and the
-		// loser's rename lands on a directory that now exists. A step that got
-		// its input perfectly well then reported that it could not (E347).
-		//
-		// *Failure class: TOCTOU on a check-then-act.* The remedy is not a lock
-		// either - the winner's copy was verified exactly as hard as this one,
-		// because a layer is named by what it contains (§5.3), so the answer to
-		// losing is that the layer is there.
-		if l.Has(c.ID) {
-			return c.ID, c.Bytes, nil
-		}
-
-		return ir.NodeID{}, 0, fmt.Errorf("file layer %v: %w", c.ID, err)
+		return ir.NodeID{}, 0, err
 	}
 
 	// After the rename: the layer is the thing, and a declaration beside a

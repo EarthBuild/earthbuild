@@ -819,7 +819,7 @@ func (s *Server) commit(delta string, id ir.NodeID) error {
 		return nil // no store configured; the caller keeps the digest and nothing else
 	}
 
-	dst := filepath.Join(s.LayerDir, "layers", id.String())
+	dst := store.LayerStore(s.LayerDir).Path(id)
 
 	_, err := os.Stat(dst)
 	if err == nil {
@@ -879,18 +879,13 @@ func (s *Server) commit(delta string, id ir.NodeID) error {
 		return err
 	}
 
-	err = os.Rename(tmp, dst)
+	// Losing to another build committing the same layer is a race worth losing,
+	// and `Publish` is where that is said once for every caller that files one.
+	err = store.Publish(s.LayerDir, id, tmp)
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
-		// Another build committed the same layer while this one was copying
-		// it, which is a race worth losing: the id names the content, so the
-		// two results are the same bytes. This is the deduplication property
-		// stated as a race rather than as a check.
-		_, statErr := os.Stat(dst)
-		if statErr != nil {
-			return fmt.Errorf("commit layer %s: %w", id, err)
-		}
+		return fmt.Errorf("commit layer %s: %w", id, err)
 	}
 
 	return nil

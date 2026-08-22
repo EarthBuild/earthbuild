@@ -211,7 +211,7 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 // go.* names otelruntime already emits - the unit lives in WithUnit, and exporters
 // derive earth_process_memory_alloc_bytes from it for Prometheus themselves.
 func setupProcessMemoryMetrics() error {
-	meter := otel.Meter("go.earthbuild.dev/earthbuild/process")
+	meter := otel.Meter("go.earthbuild.dev/earthbuild/internal/telemetry")
 	attrs := processMemoryMetricAttributes()
 
 	err := registerProcessMemoryGauge(

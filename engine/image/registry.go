@@ -15,6 +15,8 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/distribution/reference"
+
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Ref is a parsed image reference.
@@ -288,7 +290,10 @@ func pullLayer(ctx context.Context, client *http.Client, tok, base string, d des
 	// Read the whole blob and verify before unpacking. Streaming into the
 	// unpacker while hashing would be faster and would also mean the archive has
 	// already written files by the time the digest is found to be wrong.
+	endGet := timing.Phase("layer:get", d.Digest)
 	blob, err := get(ctx, client, tok, base+"/blobs/"+d.Digest, limit)
+	endGet()
+
 	if err != nil {
 		return err
 	}
@@ -304,6 +309,9 @@ func pullLayer(ctx context.Context, client *http.Client, tok, base string, d des
 	}
 
 	defer r.Close()
+
+	endUnpack := timing.Phase("layer:unpack", d.Digest)
+	defer endUnpack()
 
 	return Unpack(r, dir)
 }

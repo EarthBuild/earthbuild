@@ -24243,3 +24243,41 @@ disk, and the machine was indexing while these were taken.
 function from a file with no build tag, so the package has never compiled on linux - which is what CI
 builds. It went unnoticed because the branch has no pull request yet, so nothing had ever run the
 suite anywhere but this laptop. `go vet ./...` on a linux box is now clean.
+
+## E532 - the cold build is one layer, and it is not the network
+
+Timing each layer's download and unpack separately, on a golang base:
+
+```text
+layer        get     unpack
+5de55e     0.255    0.102
+aeb60d     0.107    0.040
+9e4d5c     1.103    3.211      the Go toolchain
+c46b3d     0.101    0.000
+4f4fb7     0.099    0.000
+           1.665    3.353
+```
+
+**This kills the obvious optimisation.** Layers are pulled strictly in sequence, so fetching the next
+while unpacking the current is the change that suggests itself - and it is worth about half a second,
+because the 3.2s unpack has only 0.56s of other people's downloads to overlap with. The serialisation
+*within* a layer is deliberate and stays: the blob is verified before it is unpacked, so a bad digest
+is caught before the archive has written anything.
+
+`compress/gzip` to `klauspost/compress/gzip`, which was already in the module for zstd, is worth 0.26s
+of the unpack:
+
+```text
+fastgzip   2.927  2.947  2.946    mean 2.940
+stdgzip    3.215  3.232  3.153    mean 3.200
+```
+
+Two samples had said 2.967 against 3.211 and that was *not* enough to conclude from - the totals were
+identical and network variance is half a second. Three alternating pairs with no overlap between the
+groups is a different claim.
+
+What is left is 2.9s to write about 10,000 files: 294µs each, which is far too slow for the writing.
+Every regular file gets `open`, `write`, `close`, and then `Chmod`, `applyOwner`, `applyXattrs` and
+`Chtimes` **by path** - four more resolutions of a path this code has just written and holds a
+descriptor for. That is the next measurement, and it wants a benchmark rather than a rewrite of a
+permissions path at five in the morning.

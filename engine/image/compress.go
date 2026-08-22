@@ -2,11 +2,14 @@ package image
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"strings"
 
+	// Not `compress/gzip`: the same interface, a faster inflate, and the module
+	// is already here for zstd. A layer is decompressed once per cold build and
+	// the largest one in a golang image is most of that build.
+	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
 )
 

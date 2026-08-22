@@ -24631,3 +24631,44 @@ build re-walks only what it needs.
 **Three of the four explanations offered on the way here were wrong** - open/close, then "one per file
 touched", then "the guest is caching file contents" - and each was stated with more confidence than
 the evidence carried. The fixture took four minutes and settled it.
+
+## E541 - the store as a disk, measured: the guest already pays the cost the objection feared
+
+The plan left this as "the largest single question left in this engine", undecided pending one
+measurement: how much does guest-mediated layer reading cost, against 40,000 descriptors and three
+classes of lost metadata. Both paths exist in the same sandbox already - the store arrives over
+virtiofs and the cache mounts over `/dev/vdc`, ext4 - so the comparison needs no new machinery.
+
+Reading 5,000 small files, which is the shape of a layer, guest cache dropped each time:
+
+```text
+virtiofs (shared store)   1094ms   219µs per file
+ext4 (block device)        319ms    64µs per file
+```
+
+Bulk is less interesting and points the same way: 2.0-2.2 GB/s against 5.2-5.9 GB/s for one 400MB
+file.
+
+**The objection was that a disk turns a filesystem walk into a protocol**, because `placeCaptured`
+and `Layers.Get` read the store host-side. Measured, the transport is not the constraint: the guest
+streams to the host at 375-386 MB/s, against the 307 MB/s at which the host currently hashes a placed
+image. The transport is faster than the work it would feed.
+
+And the walk it replaces is not free today - it is the *guest* paying 219µs a file, on every
+materialise, plus a host descriptor per entry it looks up (E540).
+
+```text
+                            shared directory      block device
+guest per-file read              219µs                64µs
+bulk read                      2.0 GB/s            5.4 GB/s
+host descriptors          1 per entry walked        1 total
+uid, gid, devices, mtimes  lost (E84, E88, E89)     native
+host reads the store            direct         via transport, 382 MB/s
+```
+
+Every column favours the disk except the last, and the last is bounded by a transport faster than
+the hashing it serves. **What was described as a trade is mostly not one** - the cost was already
+being paid, by the other side of the boundary, where nobody had measured it.
+
+Not implemented here. What this settles is the argument, not the work: sizing the image and growing
+it remain real, and `placeCaptured` and `Layers.Get` still have to move behind the protocol.

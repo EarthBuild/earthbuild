@@ -8390,9 +8390,16 @@ layer host-side to serve it to a fleet peer. Both would have to go through the g
 filesystem walk into a protocol. The image also needs a size, and a size is a thing to get wrong -
 either wasted or exhausted, with growth to implement either way.
 
-**Not decided here.** It is the largest single question left in this engine, it touches four defects
-at once, and it wants measuring rather than arguing: how much does guest-mediated layer reading cost,
-against 40,000 descriptors and three classes of lost metadata.
+**Measured, 2026-08-22 (E541).** The transport is not the constraint. The guest streams to the host at
+375-386 MB/s, against the 307 MB/s at which the host currently hashes a placed image - faster than the
+work it would feed. And the walk a disk would replace is not free today: reading 5,000 small files
+costs the *guest* 219µs each over virtiofs against 64µs on `/dev/vdc`, plus a host descriptor per entry
+it looks up.
+
+So the shape of the decision has changed. It was framed as a trade - lose direct host reads, gain
+descriptors and metadata - and most of it is not a trade: the cost was already being paid on the other
+side of the boundary, where nobody had measured it. What remains genuinely open is sizing the image
+and growing it, and moving `placeCaptured` and `Layers.Get` behind the protocol.
 
 *A cost that appears in four places is usually one cost.* Each of the four was investigated on its
 own terms and none of the investigations found this, because each stopped when its own symptom was

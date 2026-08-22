@@ -57,6 +57,18 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Load legacy iptables kernel modules
+      # On Ubuntu 26.04+ runners, the kernel defaults to nf_tables and does not
+      # auto-load legacy iptables modules. Legacy DinD images that use iptables-legacy
+      # (such as ubuntu:20.04 DinD and docker:20.10 DinD) cannot modprobe inside
+      # containers because /lib/modules is not mounted. Pre-loading these modules on
+      # the host ensures legacy DinD containers can initialize the NAT/filter tables.
+      shell: bash
+      run: |
+        sudo modprobe ip_tables 2>/dev/null || true
+        sudo modprobe iptable_filter 2>/dev/null || true
+        sudo modprobe iptable_nat 2>/dev/null || true
+        sudo modprobe iptable_mangle 2>/dev/null || true
     - name: Check if running on fork
       id: fork-check
       shell: bash

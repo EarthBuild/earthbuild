@@ -54,6 +54,9 @@ type fakeRegistry struct {
 	// data - separately from tokens.
 	probes int
 	tokens int
+	// pings counts requests to `/v2/` itself - the registry's own endpoint,
+	// which this engine asks for nothing except a warm connection.
+	pings int
 }
 
 func gzipTar(t *testing.T, name, body string) []byte {
@@ -126,6 +129,16 @@ func (f *fakeRegistry) start(t *testing.T) string {
 	})
 
 	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
+		// The ping. Counted apart from the probe: one is a connection being
+		// warmed, the other is a round trip fetching a challenge.
+		if r.URL.Path == "/v2/" {
+			f.pings++
+
+			w.WriteHeader(http.StatusUnauthorized)
+
+			return
+		}
+
 		if f.auth && r.Header.Get("Authorization") == "" {
 			f.probes++
 

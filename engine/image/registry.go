@@ -358,7 +358,18 @@ func token(ctx context.Context, client *http.Client, url, dir, key string) (stri
 	// Where this repository's token came from last time. A stale answer costs a
 	// probe rather than a build: the exchange below runs and replaces it.
 	if at := rememberedChallenge(dir, key); at != "" {
+		// **The registry is dialled while the token is fetched.** They are
+		// different hosts, so the two TLS handshakes have nothing to say to each
+		// other and no reason to happen one after the other. The probe this
+		// remembered answer replaces had been doing this dial as a side effect,
+		// which is why deleting it returned less than its own phase claimed
+		// (E535).
+		done := warm(ctx, client, url)
+
 		tok, err := fetchToken(ctx, client, at)
+
+		done()
+
 		if err == nil && tok != "" {
 			return tok, nil
 		}
@@ -419,6 +430,47 @@ func token(ctx context.Context, client *http.Client, url, dir, key string) (stri
 	rememberChallenge(dir, key, at)
 
 	return tok, nil
+}
+
+// warm opens a connection to the registry a manifest is about to be fetched
+// from, and returns a function that waits for it.
+//
+// `/v2/` is the registry's own endpoint and the cheapest thing it will answer:
+// this wants the connection, not the response, and reads the body only so the
+// transport can pool it. Any failure is ignored - the request that follows will
+// dial for itself, which is what it did before this existed.
+func warm(ctx context.Context, client *http.Client, manifestURL string) func() {
+	at := strings.Index(manifestURL, "/v2/")
+	if at < 0 {
+		return func() {}
+	}
+
+	ping := manifestURL[:at+len("/v2/")]
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, ping, nil)
+		if err != nil {
+			return
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return
+		}
+
+		defer resp.Body.Close()
+
+		// Drained, not abandoned: a body left unread is a connection the
+		// transport will not reuse, which loses the only thing this is for.
+		_, _ = io.Copy(io.Discard, resp.Body)
+	}()
+
+	// Waited for, so the connection is in the pool before the manifest asks for
+	// one - and so this goroutine never outlives the call that started it.
+	return func() { <-done }
 }
 
 // fetchToken asks a realm for a token.

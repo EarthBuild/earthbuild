@@ -132,3 +132,40 @@ func TestAStaleChallengeFallsBackToTheProbe(t *testing.T) {
 		t.Errorf("%d probes after the answer was refreshed, want 1", f.probes)
 	}
 }
+
+// With the challenge already known, the registry is dialled while the token is
+// being fetched.
+//
+// Deleting the probe made the token phase 0.30s cheaper and the build only 0.14s
+// cheaper: the probe had been dialling the registry, and the manifest request
+// inherited that connection. The two handshakes are to different hosts and have
+// nothing to say to each other, so they can happen at once (E535).
+func TestTheRegistryIsDialledWhileTheTokenIsFetched(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeRegistry{auth: true}
+	host := f.start(t)
+	opt := image.Options{Plain: true, Challenges: t.TempDir()}
+
+	// First resolution learns the challenge; it probes, so there is nothing to
+	// warm in parallel with.
+	if _, err := image.Resolve(context.Background(), host+"/thing:latest", opt); err != nil {
+		t.Fatalf("first resolve: %v", err)
+	}
+
+	if f.pings != 0 {
+		t.Errorf("%d pings on the resolution that probed, want 0 - the probe warms it", f.pings)
+	}
+
+	if _, err := image.Resolve(context.Background(), host+"/thing:latest", opt); err != nil {
+		t.Fatalf("second resolve: %v", err)
+	}
+
+	if f.pings != 1 {
+		t.Errorf("%d pings on the resolution that skipped the probe, want 1", f.pings)
+	}
+
+	if f.probes != 1 {
+		t.Errorf("%d probes, want 1 - the ping must not become a second probe", f.probes)
+	}
+}

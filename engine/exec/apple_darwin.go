@@ -17,6 +17,7 @@ import (
 	"lukechampine.com/blake3"
 
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Apple runs steps inside a macOS VM via Apple's `container` CLI.
@@ -394,6 +395,13 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// read from whatever the VM happens to have.
 	if at := os.Getenv(sourceDateEpoch); at != "" {
 		args = append(args, "-e", sourceDateEpoch+"="+at)
+	}
+
+	// Likewise: the phases worth timing are mostly the guest's, and a switch
+	// that stops at the sandbox wall reports the round trip without ever saying
+	// what the round trip was doing.
+	if on := os.Getenv(timing.Env); on != "" {
+		args = append(args, "-e", timing.Env+"="+on)
 	}
 
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))

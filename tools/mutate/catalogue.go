@@ -1262,8 +1262,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "exec: falling back to a stacked base when priming fails (I11, E302)",
 		File:        "engine/exec/exec.go",
-		Anchor:      "\t\t\t_ = os.RemoveAll(into)\n\t\t}\n\t}\n\n\th, err := c.Materialise(ctx, stack)",
-		Replacement: "\t\t\t_ = os.RemoveAll(into)\n\n\t\t\treturn nil, nil, err\n\t\t}\n\t}\n\n\th, err := c.Materialise(ctx, stack)",
+		Anchor:      "\t\t\t_ = os.RemoveAll(into)\n\t\t}\n\t}",
+		Replacement: "\t\t\t_ = os.RemoveAll(into)\n\n\t\t\treturn nil, nil, err\n\t\t}\n\t}",
 		Package:     "./engine/exec/",
 	},
 	{

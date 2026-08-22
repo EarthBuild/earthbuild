@@ -96,3 +96,14 @@ any non-empty value to turn it on. Off by default: it was on for one increment, 
 the driver's address - a path that had been working - joined and was then given no work (E505).
 
 Default: off.
+
+### `EARTH_TIMINGS`
+
+Makes a build say where its time went. Set to any non-empty value. Each line is one phase of one
+step - `materialise`, `run`, `capture`, and the materialiser's own sub-phases - reported as the phase
+ends rather than summarised at exit, so a build that is slow at step 900 of 1000 says so at step 900.
+
+The switch is forwarded into the sandbox, so phases timed inside the guest appear in the same output
+as those timed outside it.
+
+Default: off.

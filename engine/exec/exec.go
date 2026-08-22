@@ -540,6 +540,8 @@ func (e *Executor) Run(
 
 	write, flush := e.sinkFor(n)
 
+	endRun := phase("run", n.Meta.Source)
+
 	step, err := c.RunStep(ctx, h, guest.Step{
 		Dir: n.Op.Dir, Argv: argv, Env: env, BaseEnv: baseCfg.Env, Mounts: mounts,
 		NoNet: n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
@@ -562,6 +564,8 @@ func (e *Executor) Run(
 		Terminal: terminalFor(n, e.Terminal),
 	}, write)
 
+	endRun()
+
 	// The step is over, so anything the buffer still holds is the last line of
 	// its output and belongs to it (E449). Before the error is handled, because
 	// the output of a step that failed is the part worth reading.
@@ -572,7 +576,10 @@ func (e *Executor) Run(
 			fmt.Errorf("run %s: %w", n.Meta.Source, err), DefaultPlatform(), n.Meta.Source)
 	}
 
+	endCapture := phase("capture", n.Meta.Source)
 	id, content, bytes, err := c.Capture(ctx, h)
+	endCapture()
+
 	if err != nil {
 		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)
 	}
@@ -1399,7 +1406,10 @@ func (e *Executor) base(
 		}
 	}
 
+	endMaterialise := phase("materialise", n.Meta.Source)
 	h, err := c.Materialise(ctx, stack)
+	endMaterialise()
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("materialise the base for %s: %w", n.Meta.Source, err)
 	}

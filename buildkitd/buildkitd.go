@@ -656,7 +656,7 @@ func Start(
 		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
-		return fmt.Errorf("could not start buildkit: %w", err)
+		return fmt.Errorf("start buildkit: %w", err)
 	}
 
 	return nil

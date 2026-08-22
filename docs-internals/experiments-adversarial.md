@@ -24069,3 +24069,37 @@ made the leak look imaginary.
 Not fixed here, and still open: a volume whose container is gone is *not* unambiguously garbage,
 because the next build with the same configuration reuses it warm. Bounding that needs an age
 policy (see the plan), and that is the reason this stops at explicit removal.
+
+## E527 - per-step cost: flat for buildkit, and not flat here
+
+One trivial step (`RUN echo $N`, busted by a build arg) on a warm base, measured against the installed
+earthly on the same machine and the same Earthfile:
+
+```text
+base                   earth     earthly
+alpine:3.20            0.65s      1.46s
+golang:1.26-alpine     1.39s      1.45s
+```
+
+Two different shapes. earthly is **flat in the size of the base** - buildkit mounts it with overlayfs
+and a step never touches it - while this engine grows with it. It also starts faster: a no-op build
+is 0.7s here against 1.6s for earthly, which has a daemon to talk to.
+
+So the position today is parity or better, and the risk is structural rather than a deficit: at
+700MB the lines have not crossed, and nothing about these two shapes says they will not at 2GB.
+
+**The first version of this said we lose on large bases, from samples of 1.88s and 2.07s.** They were
+noise - the machine was still settling - and an alternating A/B put the figure at 1.39s:
+
+```text
+clone=1   1.40 1.38 1.38 1.40    mean 1.39
+clone=0   1.33 1.44 1.39 1.42    mean 1.40
+```
+
+Which also answers a second question: whole-tree cloning and per-entry linking are the same speed for
+this base, so the growth is not in how the tree is placed. Three separate wrong conclusions this
+session came from reading two or three timings on a machine that was not quiet; alternating the
+variants is what makes an ordering effect and a warm-up visible, and it costs one extra minute.
+
+Where the growth actually is remains unmeasured - the engine prints no per-phase timings, and adding
+them is the next step rather than another guess about which phase it is.

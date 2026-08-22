@@ -679,7 +679,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// computed.
 	st := DirStore(store)
 
-	if id, ok := imageLayerNamed(shared); ok && populated(st.LayerPath(id)) {
+	if id, ok := imageLayerNamed(shared); ok && st.Populated(id) {
 		// The declaration too, and by the same route: it is derived from the
 		// configuration beside the layer, so an image this machine has already
 		// materialised produces the same identity without fetching anything.
@@ -714,7 +714,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	endPlace()
 
 	if err == nil {
-		noteUnmarked(st.LayerPath(id))
+		st.NoteUnmarked(id)
 	}
 
 	if err != nil {
@@ -782,12 +782,11 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		return core.Result{}, fmt.Errorf("no build context configured, but %s needs one", n.Meta.Source)
 	}
 
-	dir := DirStore(e.sb.StoreDir()).LayerPath(n.ID())
-
-	_, err := os.Stat(dir)
-	if err == nil {
+	if DirStore(e.sb.StoreDir()).Has(n.ID()) {
 		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
 	}
+
+	dir := DirStore(e.sb.StoreDir()).LayerPath(n.ID())
 
 	// The directory this entry was read from, which for a target in another
 	// Earthfile is that Earthfile's own - not the invocation's.

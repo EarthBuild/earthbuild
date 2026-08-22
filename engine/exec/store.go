@@ -66,6 +66,12 @@ func (d DirStore) Staging(prefix string) (string, error) {
 	return dir, nil
 }
 
+// Populated reports whether the layer is there and holds something.
+func (d DirStore) Populated(id ir.NodeID) bool { return populated(d.LayerPath(id)) }
+
+// NoteUnmarked records that a layer carries no whiteout markers.
+func (d DirStore) NoteUnmarked(id ir.NodeID) { noteUnmarked(d.LayerPath(id)) }
+
 // Root is the directory this store occupies.
 //
 // Present only while the store is a directory: the callers that still need it

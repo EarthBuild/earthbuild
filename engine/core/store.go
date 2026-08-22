@@ -59,4 +59,17 @@ type Store interface {
 	// where the room comes from is the store's business, and on a disk it is not
 	// a path the caller could have written.
 	Staging(prefix string) (string, error)
+
+	// Populated reports whether a layer is there *and* has something in it.
+	//
+	// Distinct from Has, which counts an empty layer as present - and correctly,
+	// because a step that writes nothing produces an empty delta worth caching.
+	// This asks a different question: an image that unpacked to nothing did not
+	// unpack, so the entry naming it is a claim to re-check rather than a base
+	// to build on.
+	Populated(id ir.NodeID) bool
+
+	// NoteUnmarked records that a layer carries no whiteout markers, so nothing
+	// has to walk it to find that out again (E531).
+	NoteUnmarked(id ir.NodeID)
 }

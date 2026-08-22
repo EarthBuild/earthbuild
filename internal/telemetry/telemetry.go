@@ -11,18 +11,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/internal/env"
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -51,6 +54,10 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		}
 
 		shutdowns = nil
+
+		if shutdownErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: OpenTelemetry shutdown failed; continuing: %s\n", shutdownErr)
+		}
 
 		return shutdownErr
 	}
@@ -112,14 +119,19 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 
 	var otelResource *resource.Resource
 
+	// The CI and VCS attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are deliberately
+	// absent: resource.Default() includes the fromEnv detector, so they already reach
+	// the resource these are merged into.
 	otelResource, err = resource.New(
 		ctx,
 		resource.WithAttributes(
-			semconv.ServiceName("EarthBuild"),
-			semconv.ProcessCommand(filepath.Base(executable)),
-			semconv.ProcessPID(os.Getpid()),
-			semconv.ProcessCommandArgs(os.Args...),
-			semconv.ProcessExecutablePath(executable),
+			otelsemconv.ServiceName("EarthBuild"),
+			otelsemconv.ProcessCommand(filepath.Base(executable)),
+			otelsemconv.ProcessPID(os.Getpid()),
+			otelsemconv.ProcessCommandArgs(os.Args...),
+			otelsemconv.ProcessExecutablePath(executable),
+			semconv.ProcessRoleCLI,
+			earthbuildProcessNesting(),
 		),
 	)
 	if err != nil {
@@ -184,12 +196,30 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	)
 	otel.SetMeterProvider(mp)
 
-	err = runtime.Start()
+	// Hand otelruntime the provider we just built rather than let it resolve the global
+	// one: it is the same object, but only because SetMeterProvider happens to run first,
+	// and nothing here enforces that ordering.
+	err = otelruntime.Start(otelruntime.WithMeterProvider(mp))
 	if err != nil {
 		return errorf("initialize runtime metrics: %w", err)
 	}
 
 	return mp.Shutdown, nil
+}
+
+func earthbuildProcessNesting() attribute.KeyValue {
+	// A typo only mis-labels the datapoint as outer, so it is reported and shrugged
+	// off rather than failing telemetry setup over it.
+	withDocker, err := env.Bool("WITH_DOCKER")
+	if err != nil {
+		otel.Handle(err)
+	}
+
+	if withDocker {
+		return semconv.ProcessNestingInner
+	}
+
+	return semconv.ProcessNestingOuter
 }
 
 func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {

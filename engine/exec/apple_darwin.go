@@ -523,6 +523,19 @@ func (a *Apple) Remove() error {
 		return fmt.Errorf("remove the sandbox VM %s: %w: %s", name, err, out)
 	}
 
+	// **The VM's storage goes with the VM.** `container rm` leaves volumes
+	// alone, which is right for a sandbox that stops and comes back and wrong
+	// for one being taken away: nothing will ever name this one again, because
+	// the name is a digest of mounts that included a directory now gone.
+	//
+	// Every VM-booting test names its sandbox after a temporary guest directory,
+	// so each run minted a volume for ever. Eleven of them, holding 14GB,
+	// accumulated in an hour of running this suite (E526).
+	//
+	// After the container, not before: a volume still attached to a container is
+	// refused, and the refusal would be the only news this returned.
+	_ = osexec.Command("container", "volume", "rm", volumeFor(name)).Run() //nolint:gosec // fixed argv
+
 	return nil
 }
 
@@ -662,7 +675,12 @@ const guestFast = "/var/lib/earthbuild/fast"
 // Virtualization.framework offers no lock that would stop them - it is silent.
 // A sandbox is already named by everything that makes it different, so deriving
 // the volume from it means exactly one VM ever attaches it.
-func (a *Apple) volumeName() string { return a.name + "-fast" }
+func (a *Apple) volumeName() string { return volumeFor(a.name) }
+
+// volumeFor names a sandbox's storage. One definition, because Remove works
+// from a name it may have had to recompute rather than from a.name, and a
+// suffix written twice is a suffix that drifts.
+func volumeFor(name string) string { return name + "-fast" }
 
 // runArgs is the argv that starts this sandbox.
 //

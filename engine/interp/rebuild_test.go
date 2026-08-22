@@ -40,6 +40,11 @@ func run(t *testing.T, store string, cache core.ActionCache) []core.Outcome {
 		t.Skipf("apple container backend unavailable: %v", err)
 	}
 
+	// The VM outlives Close by design, so a test whose sandbox is named after a
+	// temporary directory has to take it away - nothing will ever name that one
+	// again. Without this each run left a VM and its 1.3GB volume behind (E526).
+	defer func() { _ = sb.Remove() }()
+
 	e, err := exec.New(sb)
 	if err != nil {
 		t.Fatal(err)

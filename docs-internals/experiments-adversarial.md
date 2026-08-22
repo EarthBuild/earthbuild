@@ -24023,3 +24023,49 @@ XPC timeout under load - having stopped the VM anyway, which made the first vers
 in the full suite and fine on its own. The test now polls for the state instead of trusting the exit
 status. A stop that takes 5s is unattended and costs nobody anything today, but it is the reason a
 build cannot simply stop and start its VM around a long gap.
+
+## E525 - Spotlight is not indexing the cache (a saving that was not there)
+
+`mds_stores` at 192% during a suite run, a store holding 71,132 files and a build cache holding
+15,710, and an obvious conclusion: macOS is indexing every unpacked layer, and one
+`.metadata_never_index` at each root would stop it. Free, and squarely *work not done*.
+
+It is already not happening:
+
+```text
+mdfind -onlyin ~/.cache/earthbuild "kMDItemFSName == '*'"   0 items   (71,132 files)
+mdfind -onlyin /tmp/ebEQ90819    "kMDItemFSName == '*'"     0 items   (15,710 files)
+mdfind -onlyin <the repo>        "kMDItemFSName == 'go.mod'"  finds them
+```
+
+The same query answers in the repo, so the probe works. `~/.cache` is a dot-directory and
+`/private/tmp` is excluded by default, and the marker would have been a no-op in both. The indexer
+was busy with something outside this engine; the suite leaves nothing untracked in the working tree.
+
+Recorded because the reasoning is sound and the conclusion is wrong, which is the kind that gets
+implemented twice. **The cost of an optimisation is easy to estimate and the cost being optimised is
+not**: the file counts and the CPU were real, and neither had anything to do with the other.
+
+## E526 - the suite left 1.3GB behind per VM it booted
+
+A VM's fast storage is a `container` volume, and `container rm` does not touch volumes. That is right
+for a sandbox that stops and comes back - the volume is what makes it warm - and wrong for one being
+taken away.
+
+Every VM-booting test names its sandbox after a guest binary built into `t.TempDir()`, so the name is
+a digest of a directory that will not exist again and the volume it minted is unreachable for ever.
+Eleven of them, 14GB, accumulated in an hour; an earlier sweep had cleared 32GB and 140 stopped
+container records the same evening.
+
+`Remove` now takes the volume with the container, and the four `interp` tests that boot a VM without
+removing it now remove it. Measured over the `interp` package alone: 12 volumes before, 12 after,
+where four unique sandbox names would each have left one.
+
+**The arithmetic looked wrong and was not.** A full suite run had shown only +1 volume rather than
++4, which reads as "the interp tests are not leaking". They were: the same run was the first in which
+`apple_test.go`'s three `Remove` calls also removed volumes, so +4 and -3 netted to the number that
+made the leak look imaginary.
+
+Not fixed here, and still open: a volume whose container is gone is *not* unambiguously garbage,
+because the next build with the same configuration reuses it warm. Bounding that needs an age
+policy (see the plan), and that is the reason this stops at explicit removal.

@@ -32,6 +32,11 @@ func TestEarthfileBuildsEndToEnd(t *testing.T) {
 		t.Skipf("apple container backend unavailable: %v", err)
 	}
 
+	// The VM outlives Close by design, so a test whose sandbox is named after a
+	// temporary directory has to take it away - nothing will ever name that one
+	// again. Without this each run left a VM and its 1.3GB volume behind (E526).
+	defer func() { _ = sb.Remove() }()
+
 	p, err := interp.Build(`VERSION 0.8
 
 build:

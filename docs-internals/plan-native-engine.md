@@ -8808,3 +8808,60 @@ So the technique has a home, and it is the one this specification already built 
 cannot be trusted: 𝔇, determinism beliefs, hint-only by §2 and droppable by I5. Differential runs
 could say "this step looks insensitive to its environment" as advice - worth having for screening, a
 warning, or deciding what to try next - and must never say it to a key.
+
+## The store as a disk: how to get there without a broken fortnight
+
+E541 settled the argument. This is the route, and the ordering is the whole of it: **the abstraction
+moves first and the storage second**, so that at no point is there a tree where half the engine reads
+a directory and half reads a disk.
+
+Six capabilities reach into the store host-side today. Each assumes it can join a path and walk:
+
+| capability                | where                | what it does                          |
+| ------------------------- | -------------------- | ------------------------------------- |
+| `Has`, `Verify`           | `exec/layerstore.go` | is this layer here, and is it whole   |
+| `placeCaptured`           | `exec/exec.go`       | file a captured tree under its digest |
+| declarations and sidecars | `exec/exec.go`       | read what an image declared           |
+| unpack and link           | `exec/imagecache.go` | put a pulled image into the store     |
+| `Squash`                  | `exec/squash.go`     | merge a range of layers               |
+| `packImage`               | `exec/packimage.go`  | write an OCI layout out of layers     |
+| `Layers.Get`/`Put`        | `fleet/layers.go`    | serve a layer to a peer               |
+
+### Phase 1 - name the operations
+
+An interface with exactly those methods, and a directory-backed implementation that is the code that
+exists now, moved. Nothing changes behaviour; every test that passes today passes after. The value is
+that the store stops being "a path everybody knows" and becomes a thing with a surface, which is what
+makes the next two phases reviewable rather than a rewrite.
+
+The measure of this phase: `grep -r 'StoreDir()' engine/` returns the store implementation and nothing
+else.
+
+### Phase 2 - a guest-backed implementation
+
+The same interface, implemented over the protocol. The guest already materialises, captures and packs
+(the same operations, seen from the other side of the boundary), so this is mostly wiring existing
+guest code to new request kinds.
+
+Measured in E541: the transport carries 382 MB/s against the 307 MB/s at which the host hashes, so it
+is faster than the work it feeds. This phase is where that gets confirmed on real layers rather than
+on `/dev/zero`.
+
+### Phase 3 - the disk
+
+Attach a second block device, put ext4 on it, mount it where the store is, and select the guest-backed
+implementation. The two open questions belong here and nowhere earlier:
+
+* **sizing.** A disk has one, a directory does not. Too small fails a build; too large wastes a
+  developer's disk. Growth is implementable - ext4 resizes online - and is a thing to build rather
+  than a thing to assume.
+* **who owns the bytes on the host.** The image is a file the host must not corrupt, and the sandbox
+  that has it mounted is the only writer. A second sandbox wanting the same store has to wait or be
+  refused, where today two builds share a directory happily.
+
+### What this is worth, from E540 and E541
+
+Per-file reads 219µs to 64µs; host descriptors from one per entry walked to one in total; uid, gid,
+device nodes and mtimes native rather than lost, which closes E84, E88, E94 and E89 as a side effect.
+Four defects with one cause, fixed by one change - which is the argument for spending a fortnight on
+it rather than an afternoon on each.

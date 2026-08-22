@@ -23953,3 +23953,39 @@ Two candidate mechanisms for a stray close were examined and cleared rather than
 single call site. Neither is the cause; both were checked because the previous six answers were
 guesses. **This changes no behaviour except what a stalled build says**, which is the point: the next
 capture names its exit or the instrument is wrong again.
+
+## E523 - the hang: a notification that evaporated, read as a broken listener
+
+The repaired instrument answered on the third build:
+
+```text
+earth: syscall tracer stopped: receiving a notification: receive a notification:
+no such file or directory
+```
+
+`ENOENT` from `SECCOMP_IOCTL_NOTIF_RECV`. `seccomp_unotify(2)` gives it a meaning that is not a
+failure: *the target thread was killed by a signal as the notification information was being
+generated, or the target's (blocked) system call was interrupted by a signal handler*. There is
+nothing to answer - that syscall is not going to run - and the next notification is the work.
+
+Read as fatal, it ended the notification loop, and a filter with nothing servicing it stops the
+step's *next* intercepted syscall in the kernel with nothing coming to release it. The step never
+exits, the guest waits on it, the host waits on the guest.
+
+**The answer path already knew.** `respond` returns nil on `ENOENT` with a comment explaining that a
+step exiting mid-syscall is ordinary. `receive` did not, and the two are the same fact seen from
+either end of one notification. The asymmetry survived because the receive side is only reached by
+losing a race with a signal, which nothing in the suite was trying to lose.
+
+The window is much wider than "a thread died" suggests: the step being traced was `go mod download`,
+and the Go runtime sends `SIGURG` to its own threads constantly for asynchronous preemption. Every
+one of those is a chance to interrupt a blocked syscall while its notification is being built.
+
+That makes this the third instance of one failure class in this stall - `respond` not retrying
+`EINTR` (E520), `receive` not retrying `EINTR`, and now `receive` on `ENOENT` - and each was found
+by a separate investigation because the loop said nothing when it gave up. **The instrument was worth
+more than any of the three fixes**: it named this one on the third build, after six wrong answers
+reasoned from silence (E521, E522).
+
+`receiveWith` now holds the policy over any source of notifications, so which errno ends the loop is
+a decision the suite exercises rather than one that needs a lost race to reach.

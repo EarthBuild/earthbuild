@@ -85,11 +85,20 @@ func install(arch uint32, traced []uint32) (int, error) {
 // carrying the last notification. That makes an `EINTR` retry that reuses the
 // buffer fail for a reason with nothing to do with the interruption.
 func receive(fd int) (seccompNotif, error) {
+	return receiveWith(func(n *seccompNotif) unix.Errno { return receiveInto(fd, n) })
+}
+
+// receiveWith is receive's policy, over any source of notifications.
+//
+// Separate for the reason receiveInto is: which errno ends this loop is the
+// whole of the decision, and a decision that can only be exercised by getting
+// the kernel to lose a race is a decision nobody checks.
+func receiveWith(next func(*seccompNotif) unix.Errno) (seccompNotif, error) {
 	for {
 		// A fresh one each time round, which is the point - see receiveInto.
 		var n seccompNotif
 
-		errno := receiveInto(fd, &n)
+		errno := next(&n)
 
 		switch {
 		case errno == 0:
@@ -97,6 +106,21 @@ func receive(fd int) (seccompNotif, error) {
 
 		case errno == unix.EINTR:
 			// A signal, not a failure. Round again with a clear buffer.
+			continue
+
+		case errno == unix.ENOENT:
+			// **The notification evaporated, and that is ordinary.** The target
+			// thread was killed as it was being generated, or its blocked
+			// syscall was interrupted by a signal handler - seccomp_unotify(2)
+			// says so. There is nothing to answer: that syscall is not going to
+			// run, and the thread that would have made it is gone or has
+			// restarted it. The next notification is the work.
+			//
+			// Read as fatal, it ended the loop and left the filter without a
+			// servicer, which stops the step's next intercepted syscall in the
+			// kernel for ever. The step it was caught on was `go mod download`,
+			// and Go's runtime signals its own threads for preemption
+			// constantly, so the window is far wider than it looks (E523).
 			continue
 
 		default:
@@ -131,26 +155,41 @@ func receiveInto(fd int, n *seccompNotif) unix.Errno {
 // that could refuse a syscall would be a sandbox with a different set of
 // questions to answer.
 func respond(fd int, id uint64) error {
-	r := seccompNotifResp{ID: id, Flags: unix.SECCOMP_USER_NOTIF_FLAG_CONTINUE}
+	for {
+		r := seccompNotifResp{ID: id, Flags: unix.SECCOMP_USER_NOTIF_FLAG_CONTINUE}
 
-	// SAFETY: as above. The kernel reads through `&r` during the ioctl and
-	// retains nothing; `r` holds no pointers.
-	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd),
-		uintptr(uint(unix.SECCOMP_IOCTL_NOTIF_SEND)),
-		uintptr(unsafe.Pointer(&r)))
+		// SAFETY: as above. The kernel reads through `&r` during the ioctl and
+		// retains nothing; `r` holds no pointers.
+		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd),
+			uintptr(uint(unix.SECCOMP_IOCTL_NOTIF_SEND)),
+			uintptr(unsafe.Pointer(&r)))
 
-	// The target died while this engine was deciding. Nothing to answer and
-	// nothing wrong: a step that exits mid-syscall is ordinary, and treating it
-	// as an error would fail builds for finishing.
-	if errno == unix.ENOENT {
-		return nil
+		switch {
+		case errno == 0:
+			return nil
+
+		case errno == unix.EINTR:
+			// **A signal, not a failure - and `receive` has always known that.**
+			// The Go runtime preempts goroutines by sending SIGURG, so an ioctl
+			// on a busy thread is interrupted routinely rather than rarely.
+			//
+			// Left unretried, one such signal ended the notification loop, and a
+			// filter with nothing answering it leaves the *next* intercepted
+			// syscall stopped in the kernel for ever: the step never exits, the
+			// guest waits on it, and the host waits on the guest. That is the
+			// stall that survived five investigations (E520).
+			continue
+
+		case errno == unix.ENOENT:
+			// The target died while this engine was deciding. Nothing to answer
+			// and nothing wrong: a step that exits mid-syscall is ordinary, and
+			// treating it as an error would fail builds for finishing.
+			return nil
+
+		default:
+			return fmt.Errorf("answer notification %d: %w", id, errno)
+		}
 	}
-
-	if errno != 0 {
-		return fmt.Errorf("answer notification %d: %w", id, errno)
-	}
-
-	return nil
 }
 
 // stillRunning reports whether the process that made a call is still that

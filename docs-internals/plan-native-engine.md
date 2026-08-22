@@ -8640,3 +8640,23 @@ directory is the same problem with a shorter wire, and it was never connected - 
 This is the cheapest of the open storage questions, because the answer is mostly wiring rather than
 design, and it is the one that most directly serves *move the data less*: a base image that is never
 read is never moved.
+
+## A stopped sandbox is restarted, not rebuilt
+
+A VM this engine can reuse is found by name, and the name is a digest of its mounts. When the named
+VM exists but is *stopped* - which the idle timeout makes routine - `Start` calls `container run`
+anyway, lets it fail on the name collision, then removes the VM and boots a fresh one. So the common
+case of coming back to a machine after lunch pays a failed call, a removal, and a full boot, and
+throws away a warm volume to do it.
+
+`container start <name>` exists and does the obvious thing. The change is small; what it needs is a
+measurement, because a boot is 620-700ms (E19) and a restart is only worth wiring if it is materially
+under that.
+
+**The related question is deliberately not being answered here.** Content-named VMs are never reaped
+(`TestAContentNamedVMIsNeverReaped`), on the ground that a stopped VM may be another project's warm
+sandbox and reaping it takes that project's cache away. The consequence is unbounded: 140 stopped
+records and 55 volumes totalling 32GB accumulated on the development machine, because a name is a
+digest and every configuration change mints a fresh one. Bounding it means an age policy - a stopped
+VM untouched for longer than some period is dead weight whoever owns it - and that is a decision with
+a real trade-off rather than a bug to fix, so it belongs here rather than in a hurried commit.

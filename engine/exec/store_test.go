@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -23,7 +25,7 @@ import (
 func TestADirectoryStoreSatisfiesTheSurface(t *testing.T) {
 	t.Parallel()
 
-	var s Store = DirStore(t.TempDir())
+	var s core.Store = DirStore(t.TempDir())
 
 	id := ir.NodeID{1, 2, 3}
 
@@ -66,5 +68,71 @@ func TestTheStoreAnswersWhatAnImageDeclared(t *testing.T) {
 
 	if got := s.Declaration(id); got == (ir.NodeID{}) {
 		t.Error("a layer whose image declared an environment produced no declaration")
+	}
+}
+
+// A captured tree is filed by asking the store, not by renaming into it.
+//
+// `placeCaptured` took a store path and moved a directory under it, which is the
+// shape that cannot survive the store becoming a disk: the host has no path to
+// rename into. Asking the store to take the tree keeps the contract - the name
+// is the digest of what arrives, never the caller's choice - and leaves
+// somewhere for phase 2 to put a protocol.
+func TestTheStoreTakesACapturedTree(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	s := DirStore(root)
+
+	// Two trees with the same contents *and the same timestamps*. Not the same
+	// contents alone: a layer's identity includes mtime to nanosecond precision
+	// (I8), so two trees built a moment apart differ legitimately - which is why
+	// Content exists for comparing runs and Layer does not.
+	when := time.Unix(1000000, 0)
+
+	stage := func(name string) string {
+		t.Helper()
+
+		at := filepath.Join(root, "layers", name)
+		if err := os.MkdirAll(at, 0o750); err != nil {
+			t.Fatal(err)
+		}
+
+		f := filepath.Join(at, "a")
+		if err := os.WriteFile(f, []byte("hello"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, p := range []string{f, at} {
+			if err := os.Chtimes(p, when, when); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		return at
+	}
+
+	first, second := stage(".incoming"), stage(".incoming2")
+
+	id, err := s.Place(first)
+	if err != nil {
+		t.Fatalf("place: %v", err)
+	}
+
+	if id == (ir.NodeID{}) {
+		t.Fatal("a placed tree got no identity")
+	}
+
+	if !s.Has(id) {
+		t.Error("the store does not hold what it just filed")
+	}
+
+	twice, err := s.Place(second)
+	if err != nil {
+		t.Fatalf("place again: %v", err)
+	}
+
+	if twice != id {
+		t.Errorf("identical trees filed as %v and %v", id, twice)
 	}
 }

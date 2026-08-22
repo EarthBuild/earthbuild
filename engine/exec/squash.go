@@ -18,7 +18,7 @@ import (
 // 480 and the mount fails at about 90, so Φ had never fired and the defect was
 // latent rather than daily (E50).
 func (e *Executor) Squash(ctx context.Context, into ir.NodeID, rng []ir.NodeID) error {
-	return squashInto(ctx, e.sb.StoreDir(), into, rng)
+	return DirStore(e.sb.StoreDir()).Squash(ctx, into, rng)
 }
 
 // squashInto merges a range of layers into one, oldest first.

@@ -290,26 +290,6 @@ func baseImageOf(n *ir.Node) string {
 // configSuffix names the file holding what an image declared, beside its layer.
 const configSuffix = ".config.json"
 
-// baseConfig is what the lowest layer of a stack declared, if anything did.
-//
-// The lowest, because that is the image the stack was built from: FROM is the
-// only thing that brings a configuration, and every layer above it is this
-// engine's own work.
-func (e *Executor) baseConfig(base []ir.NodeID) ocispec.ImageConfig {
-	if len(base) == 0 {
-		return ocispec.ImageConfig{}
-	}
-
-	path := filepath.Join(e.sb.StoreDir(), "layers", base[0].String()) + configSuffix
-
-	cfg, err := readImageConfig(path)
-	if err != nil {
-		return ocispec.ImageConfig{}
-	}
-
-	return cfg
-}
-
 // readImageConfig reads what an image declared, from beside its layer.
 func readImageConfig(path string) (ocispec.ImageConfig, error) {
 	b, err := os.ReadFile(path) //nolint:gosec // a path this engine derived
@@ -697,30 +677,23 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// node asked for it. The recorded name is what makes this cheap: without it
 	// every build would re-capture the tree to learn a digest it had already
 	// computed.
-	if id, ok := imageLayerNamed(shared); ok && populated(filepath.Join(store, "layers", id.String())) {
+	st := DirStore(store)
+
+	if id, ok := imageLayerNamed(shared); ok && populated(st.LayerPath(id)) {
 		// The declaration too, and by the same route: it is derived from the
 		// configuration beside the layer, so an image this machine has already
 		// materialised produces the same identity without fetching anything.
 		return core.Result{
-			Layer: id, Captured: e.sb.Confines(), Declares: declarationFor(store, id),
+			Layer: id, Captured: e.sb.Confines(), Declares: st.Declaration(id),
 		}, nil
 	}
 
 	// Staged under a name nothing derives meaning from, because the name this
 	// layer will keep is the digest of what lands here (§3.2) and that is not
 	// known until it has landed.
-	staging, err := os.MkdirTemp(filepath.Join(store, "layers"), ".image-")
+	staging, err := st.Staging(".image-")
 	if err != nil {
-		// The directory is absent on the first image of a cold store, which is
-		// the common case rather than an error.
-		if mk := os.MkdirAll(filepath.Join(store, "layers"), 0o755); mk != nil {
-			return core.Result{}, fmt.Errorf("prepare the layer store: %w", mk)
-		}
-
-		staging, err = os.MkdirTemp(filepath.Join(store, "layers"), ".image-")
-		if err != nil {
-			return core.Result{}, fmt.Errorf("stage %s: %w", n.Op.Args[0], err)
-		}
+		return core.Result{}, fmt.Errorf("stage %s: %w", n.Op.Args[0], err)
 	}
 
 	// fetchImageFrom refuses to write into a directory that exists, since an
@@ -737,11 +710,11 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	}
 
 	endPlace := phase("image:place", n.Op.Args[0])
-	id, err := placeCaptured(store, staging)
+	id, err := st.Place(staging)
 	endPlace()
 
 	if err == nil {
-		noteUnmarked(filepath.Join(store, "layers", id.String()))
+		noteUnmarked(st.LayerPath(id))
 	}
 
 	if err != nil {
@@ -751,7 +724,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// The configuration follows the layer to its final name. What an image
 	// declares is not part of what it ships, so it travels beside the tree
 	// rather than in it.
-	at := filepath.Join(store, "layers", id.String())
+	at := st.LayerPath(id)
 	if _, statErr := os.Stat(at + configSuffix); statErr != nil {
 		_ = os.Rename(staging+configSuffix, at+configSuffix)
 	}
@@ -761,7 +734,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	rememberImageLayer(shared, id)
 
 	return core.Result{
-		Layer: id, Captured: e.sb.Confines(), Declares: declarationFor(store, id),
+		Layer: id, Captured: e.sb.Confines(), Declares: st.Declaration(id),
 	}, nil
 }
 
@@ -809,7 +782,7 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		return core.Result{}, fmt.Errorf("no build context configured, but %s needs one", n.Meta.Source)
 	}
 
-	dir := filepath.Join(e.sb.StoreDir(), "layers", n.ID().String())
+	dir := DirStore(e.sb.StoreDir()).LayerPath(n.ID())
 
 	_, err := os.Stat(dir)
 	if err == nil {

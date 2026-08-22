@@ -39,10 +39,11 @@ func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (c
 	}
 
 	store := e.sb.StoreDir()
+	st := DirStore(store)
 
 	layers := make([]string, 0, len(base))
 	for _, id := range base {
-		layers = append(layers, filepath.Join(store, "layers", id.String()))
+		layers = append(layers, st.LayerPath(id))
 	}
 
 	spec := image.Spec{Ref: n.Op.Args[0], Layers: layers}

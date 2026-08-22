@@ -8837,6 +8837,29 @@ makes the next two phases reviewable rather than a rewrite.
 The measure of this phase: `grep -r 'StoreDir()' engine/` returns the store implementation and nothing
 else.
 
+**Progress, 2026-08-22.** `core.Store` is the port - `Has`, `LayerPath`, `Declaration`, `Place`,
+`Squash`, `Staging` - and `exec.DirStore` is the directory implementation that exists today. Inside
+`engine/exec` the direct path-joins went from thirteen to one, and that one is the sandbox boot
+creating `layers/`, which a disk supplies instead.
+
+Two things fell out rather than being aimed at: `baseConfig` was dead once declarations moved to the
+stack, and the eleven lines of "make a temp dir, and if that fails because the store is cold, create
+the store and try again" turned out to be one operation. Naming things tends to do that.
+
+**`fleet.Layers` needs nothing here, which took a wrong turn to establish.** It serves layers to peers
+out of the same store and reaches for paths to do it, so the first conclusion was that it wanted the
+same treatment - and that it could not have it without importing `engine/exec`, so the implementation
+would have to move to a neutral package. Both halves were wrong. `Has`, `Get` and `Put` are *already*
+named operations; only their implementation joins a path, and that is precisely what phase 2 replaces.
+An interface in front of an interface would have been ceremony.
+
+The test for whether something needs phase 1 is not "does it touch a path" but **"does a caller
+outside it have to know the store is a filesystem"**. For `fleet.Layers` the answer is no: its callers
+ask for a layer and get bytes.
+
+`LayerPath` has five users. That number is phase 2's worklist: each is a caller that wants a path
+rather than an operation, and a store on a disk has no path to give it.
+
 ### Phase 2 - a guest-backed implementation
 
 The same interface, implemented over the protocol. The guest already materialises, captures and packs

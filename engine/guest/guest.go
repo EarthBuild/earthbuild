@@ -1385,7 +1385,26 @@ func run(cmd *osexec.Cmd, sink func([]byte)) ([]byte, error) {
 
 	cmd.Stdout, cmd.Stderr = w, w
 
+	// **`Wait` waits for the copying, not just the child.** `Stdout` here is not
+	// an `*os.File`, so `os/exec` makes an OS pipe and a goroutine to drain it,
+	// and `Wait` returns only once that goroutine sees EOF - which needs every
+	// holder of the write end to close it. A process the step left running in
+	// the background inherited that end, so a step that exited promptly could
+	// leave this guest blocked for ever, and the host waiting for a reply that
+	// was never coming (E519).
+	//
+	// The bound starts when the child exits, so an ordinary step pays nothing.
+	cmd.WaitDelay = stepWaitDelay
+
 	err := cmd.Run()
+
+	// **A step that left something behind still succeeded.** When the delay
+	// elapses, `os/exec` closes the pipes and reports `ErrWaitDelay` - which is
+	// news about the plumbing, not about the command. Reporting it as a failure
+	// would fail builds that worked, and for a reason nobody could act on.
+	if errors.Is(err, osexec.ErrWaitDelay) && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 0 {
+		err = nil
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -2260,6 +2279,15 @@ func layerIDs(ids []ir.NodeID) []string {
 
 	return out
 }
+
+// stepWaitDelay bounds how long this guest waits for a step's pipes to close
+// after the step itself has exited.
+//
+// Generous, because the cost of the two mistakes is not symmetric: too short
+// truncates the tail of a step's output, and too long is a build that hangs.
+// Output already written is already copied - the delay only covers the gap
+// between the child exiting and its inherited pipe ends being released.
+const stepWaitDelay = 5 * time.Second
 
 // runStep runs a step, observed if it asked to be.
 //

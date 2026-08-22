@@ -23865,3 +23865,51 @@ reason at all until the machine was stopped mid-failure with its processes, memo
 recorded together - which took a script, because the failure only happened when nobody was watching.
 
 *Diagnose from the crime scene, not the police report.*
+
+## E519 - the hang: a pipe held by a process the step left behind
+
+**The guest's own stacks, finally.** Five investigations had reasoned from summaries. A catcher that
+built in a loop, and on the first stall sent `SIGQUIT` to the guest *inside the VM* before touching
+anything else, produced the frames that settle it:
+
+```text
+os/exec/exec.go:930                      cmd.Wait -> waitid
+engine/guest.run              guest.go:1388
+engine/guest.runStep.func1    guest.go:2283
+engine/guest.runObserved.func1  traced_linux.go:65
+
+goroutine 51 [IO wait]:  io.Copy, draining the step's output pipe
+```
+
+The guest was blocked in `Wait` on a step, with a second goroutine blocked copying that step's output.
+The step itself had exited.
+
+**`Wait` waits for the copying, not just the child.** `cmd.Stdout` here is a custom writer rather than
+an `*os.File`, so `os/exec` makes an OS pipe and a goroutine to drain it, and `Wait` returns only
+when that goroutine sees EOF - which requires *every* holder of the write end to close it. A process
+the step started in the background inherits that end. `go mod download` runs `git` for VCS fetches,
+which is how a step that exits promptly leaves the guest waiting for ever.
+
+`Cmd.WaitDelay` exists for exactly this, and was never set. The delay starts when the child exits, so
+an ordinary step pays nothing; when it elapses, the pipes are closed and `Wait` reports
+`ErrWaitDelay` - which is news about the plumbing rather than the command, so a step that exited zero
+is still a step that succeeded.
+
+The regression test is the smallest thing that reproduces it - `sh -c 'sleep 60 & exit 0'` - and
+without the bound it does not fail, it hangs, which is what the bug does.
+
+### Two bugs, one symptom, and the order they had to be found in
+
+|      | what happened                                                                     | evidence                                    |
+| ---- | --------------------------------------------------------------------------------- | ------------------------------------------- |
+| E518 | the guest exited silently, its stdin closed by a watcher calling `Wait` too early | no guest process, idle VM, no panic         |
+| E519 | the guest is alive and blocked in `Wait` on a step whose pipe a grandchild holds  | guest alive, 5GB page cache, its own stacks |
+
+The first hid the second: while the watcher could close stdin, a stall could always be explained
+without looking further. Fixing it did not stop the stalls, which is what proved there were two.
+
+*Diagnose from the crime scene, not the police report.* Every earlier attempt read a timing, a
+directory size or a log tail - each consistent with several stories, and a story was chosen each
+time. What worked was refusing to reason until a failing machine had been stopped with its processes,
+memory and both sides' stacks captured together, which needed a script, because the failure only
+happened when nobody was watching.

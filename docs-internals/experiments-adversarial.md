@@ -24103,3 +24103,45 @@ variants is what makes an ordering effect and a warm-up visible, and it costs on
 
 Where the growth actually is remains unmeasured - the engine prints no per-phase timings, and adding
 them is the next step rather than another guess about which phase it is.
+
+## E528 - the per-step cost is bytes of base, inside the guest
+
+E527 left the growth unmeasured. Cold steps, unique content per measurement so nothing can hit
+cache, against the installed earthly on the same machine:
+
+```text
+steps            1      2      4      6     per step
+earth, golang   1.39   2.06   3.31   4.28    0.58s
+earth, alpine   0.89   0.86   0.93   0.99    0.02s
+earthly         1.85   1.56   1.93   2.14    0.08s
+```
+
+So earth wins the one-step build and loses everything larger, and the crossover is about 1.6 steps.
+A twenty-step Earthfile projects to 12.4s here against 3.2s.
+
+**It is bytes, not files.** A synthetic base of 10,000 empty files - the same file count as the golang
+image and almost none of its bytes - behaves like alpine:
+
+```text
+base                      files    bytes    per cold step
+alpine:3.20                ~500      8MB      0.02s
+synthetic, 10k empty     10,000       ~0      0.06s
+golang:1.26-alpine       ~10,000    700MB     0.58s
+```
+
+Same file count, 700MB more, 29 times the cost. 700MB in 0.58s is about 1.2GB/s, which is what this
+machine does for a copy or a hash of that size.
+
+**And it is in the guest.** Sampled through a cold six-step build, the host process sits at 0-1.6%
+CPU while the VM runs at 72-95%. That rules out the host's cache keys, its layer bookkeeping and its
+hashing, none of which were going to be it anyway - but they were the three things guessed at before
+anyone looked.
+
+Which leaves: something in the guest moves the whole base once per cold step, and a step that changes
+nothing pays the same as one that changes everything. The next move is per-phase timings in the
+guest's materialiser, not a fourth guess about which phase it is.
+
+**Three benchmark designs were wrong before this one.** Directories are not isolation when the cache
+is content-addressed: sweeping k=1..6 in separate directories had each larger k hit the previous k's
+steps, producing 6 steps *faster* than 3. A measurement that says more work took less time is not a
+surprising result, it is a broken harness.

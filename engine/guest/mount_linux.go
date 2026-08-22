@@ -100,6 +100,17 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 	// step produced.
 	var created []string
 
+	// touched are directories this engine made a mount point in, with what they
+	// held and when, from before it did.
+	//
+	// Removing the mount point is not enough. Adding an entry to a directory
+	// changes that directory's mtime and removing it changes it again, so a
+	// parent the engine only passed through comes out carrying the moment the
+	// step started - and overlayfs has copied it up into the delta by then.
+	// `/etc` and `/dev`, empty, were what remained of E547 and were enough to
+	// give `RUN true` a different identity on every machine (E548).
+	var touched []directoryAsFound
+
 	unmount := func() {
 		// Reverse order: a mount inside another has to go first, and the list is
 		// applied outermost-first.
@@ -135,6 +146,12 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		// image already had keeps whatever the image put in it.
 		for i := len(created) - 1; i >= 0; i-- {
 			_ = os.Remove(created[i])
+		}
+
+		// After the removals, because what is being asked is whether the
+		// directory ends as it began.
+		for _, d := range touched {
+			d.restore()
 		}
 	}
 
@@ -288,6 +305,13 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 			// run (E547).
 			_, bad := os.Lstat(target)
 			missing := bad != nil
+
+			if missing {
+				found, ok := findDirectory(filepath.Dir(target))
+				if ok {
+					touched = append(touched, found)
+				}
+			}
 
 			err := ensureFile(target, perm)
 			if err != nil {

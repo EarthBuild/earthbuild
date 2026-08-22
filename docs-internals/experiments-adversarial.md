@@ -25003,3 +25003,54 @@ exactly what this engine placed*, which is a question about lazily faulted files
 for a directory the kernel copied up. The tracer already excludes mount points from *observations*
 for precisely this reason (E222); the capture wants the same list and a general exclusion to apply
 it with. That is the next piece.
+
+## E548 - the directory a mount point was made in, and the reproducible build
+
+E547 took the sandbox's seven files out of every step's delta and left two empty directories, `/etc`
+and `/dev`, copied up by overlayfs when the mount point was created inside them. They carried the
+moment the step started, so `RUN true` still had a different identity on every machine.
+
+Removing them is not available: deleting an upper directory whose lower still has one is a whiteout,
+and that would delete `/etc` from the step's view. Excluding them at capture is available and wrong -
+it would drop a directory the step may genuinely have written in.
+
+**A directory's mtime is a record of entries arriving and leaving**, which makes the question exact
+rather than a judgement:
+
+```text
+    names before == names after   ->  nothing that outlived the step happened here; put the time back
+    names before != names after   ->  the step changed what it holds; the time is the step's
+```
+
+By name and not by count: a step that adds one file and removes another leaves the count alone and
+has genuinely changed the directory. Sorted, because readdir order is the filesystem's business and
+comparing two unsorted listings would restore a time or not depending on how the kernel felt, which
+is the sort of thing I12 exists to keep out of a build's output.
+
+With it, a whole build is byte-identical on two machines that share nothing:
+
+```text
+store G   a43867dc…  ddff13df…
+store H   a43867dc…  ddff13df…
+```
+
+That is the first time this engine has produced the same layer identities twice from separate
+stores, and it is what E545, E546, E547 and this were all for: an L2 hit cannot cross a machine
+until the machines agree about what a layer is called, and neither can a fleet transfer.
+
+**Where it stops.** A step that *writes* is still not reproducible, and correctly so - the files it
+writes carry the time it ran, and this engine takes its instruction on that rather than choosing
+(`SOURCE_DATE_EPOCH`, engine/exec/clamp.go). Setting it does not help yet:
+
+```text
+    SOURCE_DATE_EPOCH=1600000000, two stores, three RUN steps that write
+    store K   32f41c27…  935ac1bf…  b4eb8625…
+    store L   9a806cdb…  dee8aadd…  f1a255ed…
+```
+
+The clamp reaches the host's own writes and the guest's `COPY`, and never a `RUN`'s captured delta.
+The guest reads `SOURCE_DATE_EPOCH` from its own environment - *"the value reaches it as an
+environment variable forwarded at exec"* - and nothing forwards it. A capability that is documented,
+believed, and silently partial is worse than one that is absent, because the build that most wants
+it is the one that will not check. That is the next piece: the epoch belongs in the request, not in
+the air.

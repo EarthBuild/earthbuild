@@ -63,6 +63,12 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 		// it a base image is named by the day it was cloned (E545).
 		"exec/clone_darwin.go": "the times belong to the tree being cloned, and" +
 			" clonefile does not copy a directory's own",
+		// Putting back the time a directory had before this engine made a
+		// mount point in it. Not a time being written, an edit being undone -
+		// and a clamp here would set a value the lower layer does not have,
+		// which is a difference invented rather than removed (E548).
+		"guest/directoryasfound_linux.go": "the time is the one the directory" +
+			" already had, restored after this engine borrowed the directory",
 	}
 
 	root, err := filepath.Abs("..")

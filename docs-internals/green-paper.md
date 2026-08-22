@@ -359,6 +359,32 @@ instead of carried whole, and the three consequences are the argument for it:
   stay distinct. Carried as one document beside a layer they collide, and whichever was placed second
   answers for both.
 
+**An Earthfile's own `ENV` is a declaration, by the same rule.** There is one mechanism, not one for
+what an image declares and another for what a build declares - they say the same kind of thing about
+the same step and are composed by the same fold in the same order. `ENV` between two `RUN`s is an
+element between two layers, and it applies to what follows it for the reason a layer does.
+
+This is the reduction §4.4 asks for. Environment variables were the first item ε had to enumerate,
+and ε is that section's stated weak point: what is ambient must be listed correctly or a key is
+wrong, and nothing detects the omission. A declaration is not ambient. It is an input, named by its
+content, and it reaches every key derived from the stack by (4.5) whether or not anybody remembered
+it. **Every reduction in ε is worth more than every addition to it**, and this is the largest one
+available.
+
+```text
+(3.10)   𝒮(γ) is the declaration as written, before expansion
+```
+
+Equation 3.10 is what lets a declaration be shared. `ENV MYPATH=hello:$PATH` names its own base if it
+is expanded when it is written down, so the same line on two bases would be two elements; expanded in
+the fold instead, it is one element that means what it should on both. The fold is also the only
+place where the value of `$PATH` is known, since it is whatever the elements before it left.
+
+**A secret is never a declaration.** ε keeps declared secrets by identity and never by value (§4.4),
+and a declaration is stored, content-addressed and shared by construction - so a secret value placed
+in one would be published to every machine that materialises the stack. The two mechanisms are
+distinguished by what may be written down, and that is the whole of the distinction (I19).
+
 ### 3.3a Layer identity
 
 A layer carries two digests over the same metadata:
@@ -679,9 +705,10 @@ distinct paths to one encoding, which is exactly the collision §1.4 exists to p
 a *predicted* 𝑟̂ and a consistency check (§4.5).
 
 **ε is the weakest point in this specification and is treated as such.** It must enumerate
-everything ambient a step may observe: environment variables in scope, argv, uid and gid, umask,
-locale, timezone, hostname, CPU feature flags exposed to the sandbox, and the set of declared
-secrets (by identity, never by value). Anything observable but omitted is a false hit, undetectable
+everything ambient a step may observe: argv, uid and gid, umask, locale, timezone, hostname, CPU
+feature flags exposed to the sandbox, and the set of declared secrets (by identity, never by value).
+Environment variables were the first item on that list and are no longer on it: they are declarations
+(§3.2a), which are inputs rather than ambient state and reach a key through ids(𝑏). Anything observable but omitted is a false hit, undetectable
 by any signature because nothing was forged. **The mitigation is to shrink what is observable** -
 to make steps hermetic - rather than to enumerate ever harder. Every reduction in ε is worth more
 than every addition to it.
@@ -913,6 +940,9 @@ Normative. An implementation that violates any of these is defective, not merely
   as contributing none; an element the store does not hold is refused. A materialiser that answers
   both with an empty directory cannot tell an image that declares from a base that never arrived
   (§3.2a).
+* **I19 (A secret is never written down).** A declared secret enters ε by identity and never by
+  value, and never becomes a declaration: declarations are stored, content-addressed and shared, so a
+  secret in one is a secret published to every machine that materialises the stack (§3.2a).
   Every key that depends on it, and every worker that acts on it, sees the same digest. A reference
   is never itself a term of a key.
 
@@ -933,26 +963,27 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | 4     | **sampled at runtime** | probabilistic, for checks too dear to run always          |
 | 5     | **experiment only**    | chosen inputs, CI time - the weakest form                 |
 
-| Invariant | Enforced by                                                                                                                                       | Level | Tested by                                                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------- |
-| I1        | sampled determinism screening (§6)                                                                                                                | 4     | E14; E7 fleet equivalence                                     |
-| I2        | digest verified on every read - it *is* the mechanism                                                                                             | 2     | E5c, E15                                                      |
-| I3        | observation set closed at key time; every field of ω reaches Κ₁                                                                                   | 3     | **E5b**; core key-coverage tests                              |
-| I4        | Λ's return type has no error variant (4.4)                                                                                                        | **1** | E5c                                                           |
-| I5        | results identical with all hints disabled                                                                                                         | 3     | E12                                                           |
-| I6        | -                                                                                                                                                 | 5     | E15                                                           |
-| I7        | attempt counter; `host` absent from the wire vocabulary (C.3)                                                                                     | **1** | E15                                                           |
-| I8        | assert nanoseconds survive layer write unless clamping                                                                                            | 3     | E3, containerd fork tests                                     |
-| I9        | insert-only stores: an existing entry is never rewritten                                                                                          | **2** | E76; crash-safety, c4 in this engine's terms                  |
-| I10       | capability list consulted before evaluation; three kinds of refusal, each with a way out that works                                               | 2     | core capability tests; interp refusal tests; E152, E153, E157 |
-| I11       | isolation returns an error; limits return a stated reason                                                                                         | 2     | guest isolation and cgroup tests                              |
-| I12       | records sorted by traversal position; earliest failure wins                                                                                       | 2     | core concurrency tests                                        |
-| I13       | every entry of a fragment sealed against its manifest (C.4.1)                                                                                     | 2     | E324; layer fragment-seal tests                               |
-| I14       | δ hashed into Κ₁ at both mirrors; scheduler refuses the cache for δ ≠ `own`                                                                       | 2     | E381, E384; key-coverage guards; interp isolation tests       |
-| I15       | μ hashed into Κ₁ at both mirrors; the guest queues only `locked` mounts                                                                           | 2     | E427, E432; mount-coverage guards; sharing-mode tests         |
-| I16       | LOCALLY refused in a fetched Earthfile, its functions and its checkout                                                                            | 2     | E439; interp remote-trust tests                               |
-| I17       | Θ memoised on (reference, platform); the digest reaches Op.Args before the key. An unpinned build says so                                         | 2     | E508; interp pinning tests                                    |
-| I18       | the materialiser distinguishes a declaration from a layer the store does not hold, rather than creating an empty directory for whatever is absent | 2     | **[GAP]**                                                     |
+| Invariant | Enforced by                                                                                                                                          | Level | Tested by                                                     |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------- |
+| I1        | sampled determinism screening (§6)                                                                                                                   | 4     | E14; E7 fleet equivalence                                     |
+| I2        | digest verified on every read - it *is* the mechanism                                                                                                | 2     | E5c, E15                                                      |
+| I3        | observation set closed at key time; every field of ω reaches Κ₁                                                                                      | 3     | **E5b**; core key-coverage tests                              |
+| I4        | Λ's return type has no error variant (4.4)                                                                                                           | **1** | E5c                                                           |
+| I5        | results identical with all hints disabled                                                                                                            | 3     | E12                                                           |
+| I6        | -                                                                                                                                                    | 5     | E15                                                           |
+| I7        | attempt counter; `host` absent from the wire vocabulary (C.3)                                                                                        | **1** | E15                                                           |
+| I8        | assert nanoseconds survive layer write unless clamping                                                                                               | 3     | E3, containerd fork tests                                     |
+| I9        | insert-only stores: an existing entry is never rewritten                                                                                             | **2** | E76; crash-safety, c4 in this engine's terms                  |
+| I10       | capability list consulted before evaluation; three kinds of refusal, each with a way out that works                                                  | 2     | core capability tests; interp refusal tests; E152, E153, E157 |
+| I11       | isolation returns an error; limits return a stated reason                                                                                            | 2     | guest isolation and cgroup tests                              |
+| I12       | records sorted by traversal position; earliest failure wins                                                                                          | 2     | core concurrency tests                                        |
+| I13       | every entry of a fragment sealed against its manifest (C.4.1)                                                                                        | 2     | E324; layer fragment-seal tests                               |
+| I14       | δ hashed into Κ₁ at both mirrors; scheduler refuses the cache for δ ≠ `own`                                                                          | 2     | E381, E384; key-coverage guards; interp isolation tests       |
+| I15       | μ hashed into Κ₁ at both mirrors; the guest queues only `locked` mounts                                                                              | 2     | E427, E432; mount-coverage guards; sharing-mode tests         |
+| I16       | LOCALLY refused in a fetched Earthfile, its functions and its checkout                                                                               | 2     | E439; interp remote-trust tests                               |
+| I17       | Θ memoised on (reference, platform); the digest reaches Op.Args before the key. An unpinned build says so                                            | 2     | E508; interp pinning tests                                    |
+| I18       | the materialiser distinguishes a declaration from a layer the store does not hold, rather than creating an empty directory for whatever is absent    | 2     | **[GAP]**                                                     |
+| I19       | a secret reaches a step through the secret mechanism and has no path into a declaration; the type that carries a declaration carries no secret value | 1     | **[GAP]**                                                     |
 
 An invariant with two mechanisms takes the **weaker** level, not the better one: I3 needs both the
 observation set to be closed and every field of ω to reach the key, so it is enforced only as well as
@@ -1370,7 +1401,7 @@ found and fixed in the process, listed at the end.
 | Symbol | Meaning                                  | Introduced     |
 | ------ | ---------------------------------------- | -------------- |
 | ℓ      | a layer                                  | (3.1)          |
-| γ      | a declaration                            | (3.8)          |
+| γ      | a declaration                            | (3.8), (3.10)  |
 | s      | a step                                   | (3.2)          |
 | 𝑏      | a base stack                             | (3.2)          |
 | ω      | an operation                             | (3.2)          |

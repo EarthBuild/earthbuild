@@ -8704,6 +8704,29 @@ that differ only in what they declare share their filesystem and stay distinct.
 once. Layers keep their identity, so nothing is re-fetched - the cost is a re-key, not a re-download.
 Fragments are unaffected: a declaration is small enough that a partial one is not worth expressing.
 
-**Not in scope, and worth stating:** an Earthfile's own `ENV` could be a declaration element too,
-which would make ε and an image's environment one mechanism rather than two. That is a larger change
-to §3.4 and is not required to fix delegation.
+**And an Earthfile's own `ENV` is a declaration too.** One mechanism, not one for what an image
+declares and another for what a build declares: they say the same kind of thing about the same step,
+and composing them by two different rules is how the two came to disagree in the first place. It is
+not required to fix delegation, and it is the reason to do this rather than the smaller thing.
+
+The specification asked for it. §4.4 names ε its weakest point - what is ambient must be enumerated
+correctly or a key is silently wrong - and lists environment variables first among what ε must
+carry. A declaration is not ambient: it is an input, named by its content, and it reaches every key
+derived from the stack whether or not anybody remembered to enumerate it. §3.2a now says so and §4.4
+no longer lists environment variables.
+
+Three things the implementation must not get wrong, each now an invariant or an equation:
+
+* a declaration is stored **as written, before expansion** (3.10). `ENV MYPATH=hello:$PATH` expanded
+  at the point it is written down names its own base, so the same line on two bases would be two
+  elements; expanded in the fold it is one element that means the right thing on both - and the fold
+  is the only place the value of `$PATH` is known anyway;
+* a secret is never a declaration (I19). Declarations are stored, content-addressed and shared, so a
+  secret value in one is published to every machine that materialises the stack. ε keeps secrets by
+  identity and keeps them;
+* an element that declares is not an element that is missing (I18).
+
+Sequencing, once the model is settled: declarations in the store and the materialiser first, because
+everything else needs somewhere to put them; then `Θ` yielding an image's declaration with its digest,
+which fixes delegation; then the interpreter emitting `ENV` as an element, which is what makes it one
+mechanism and re-keys every build that sets one.

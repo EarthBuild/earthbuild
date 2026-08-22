@@ -139,3 +139,39 @@ func Literal(env []string) Declaration {
 
 	return Declaration{Env: out}
 }
+
+// Compose is the declaration a stack leaves: every element applied in order.
+//
+// The environment folds - later wins, and a name with no value removes it. The
+// rest overrides only when the later declaration says something, because a
+// declaration that is silent about the user leaves the user alone, exactly as a
+// Dockerfile omitting `USER` inherits it. Silence and emptiness are the same
+// thing for these fields: OCI has no way to say "no entrypoint" either.
+//
+// One operation over whole declarations, so a caller wanting the working
+// directory a stack settled on does not invent its own rule for it.
+func Compose(ds ...Declaration) Declaration {
+	var out Declaration
+
+	for _, d := range ds {
+		out.Env = Fold(out.Env, Literal(nil), d)
+
+		if d.WorkingDir != "" {
+			out.WorkingDir = d.WorkingDir
+		}
+
+		if d.User != "" {
+			out.User = d.User
+		}
+
+		if len(d.Entrypoint) > 0 {
+			out.Entrypoint = d.Entrypoint
+		}
+
+		if len(d.Cmd) > 0 {
+			out.Cmd = d.Cmd
+		}
+	}
+
+	return out
+}

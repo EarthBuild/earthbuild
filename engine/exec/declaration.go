@@ -1,0 +1,55 @@
+package exec
+
+import (
+	"path/filepath"
+
+	"github.com/EarthBuild/earthbuild/engine/decl"
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
+
+// declarationFor turns what an image declared into a stack element, returning
+// its identity.
+//
+// **A declaration is an element, not a file beside the layer** (green paper
+// §3.2a). Written here, where the image has just been placed and its
+// configuration is on disk, so the step that follows finds it on the stack -
+// which is how it reaches a worker, since a worker fetches every id in a stack
+// and nothing ever fetched a sidecar.
+//
+// Zero when the image declares nothing, which is the honest encoding of "says
+// nothing": one fewer identity on every stack, and one fewer thing to fetch.
+//
+// Best effort. A declaration that cannot be written costs the environment an
+// image asked for, which is a build that behaves as it did before this existed;
+// failing the FROM instead would turn a degraded build into no build.
+func declarationFor(store string, layer ir.NodeID) ir.NodeID {
+	cfg, err := readImageConfig(filepath.Join(store, "layers", layer.String()) + configSuffix)
+	if err != nil {
+		return ir.NodeID{}
+	}
+
+	// **Literal, because an image's environment is already expanded.** A
+	// Dockerfile's ENV is resolved when the image is built, so `A=$B` in a
+	// configuration means those characters; a declaration stores text before
+	// expansion (3.10), so importing one without saying so expands it twice.
+	d := decl.Literal(cfg.Env)
+	d.WorkingDir = cfg.WorkingDir
+	d.User = cfg.User
+	d.Entrypoint = cfg.Entrypoint
+	d.Cmd = cfg.Cmd
+
+	// **Compared by identity, not field by field.** 𝒮(γ) covers every field and
+	// a test enforces that, so "declares nothing" is "hashes as the empty
+	// declaration does" - and stays right when a field is added, which a hand
+	// written emptiness check would not.
+	if decl.ID(d) == decl.ID(decl.Declaration{}) {
+		return ir.NodeID{}
+	}
+
+	id, err := decl.Write(store, d)
+	if err != nil {
+		return ir.NodeID{}
+	}
+
+	return id
+}

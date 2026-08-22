@@ -160,3 +160,47 @@ func TestLiteralKeepsRemovals(t *testing.T) {
 		t.Errorf("an imported removal did not remove: %v", got)
 	}
 }
+
+// Whole declarations compose, not only their environments.
+//
+// An image declares a working directory, a user and an entrypoint as well, and a
+// step needs the composition of everything its stack said - so the composition
+// is one operation over whole declarations rather than one rule per field
+// invented at each call site.
+func TestDeclarationsCompose(t *testing.T) {
+	t.Parallel()
+
+	got := decl.Compose(
+		decl.Declaration{Env: env("A=1"), WorkingDir: "/base", User: "root", Cmd: env("/bin/sh")},
+		decl.Declaration{Env: env("B=2"), WorkingDir: "/later"},
+	)
+
+	if got.WorkingDir != "/later" {
+		t.Errorf("working directory %q, want the later one", got.WorkingDir)
+	}
+
+	// Unset by the later one is not "set to nothing": a declaration that says
+	// nothing about the user leaves the user alone, exactly as a Dockerfile that
+	// omits USER inherits it.
+	if got.User != "root" {
+		t.Errorf("user %q, want the earlier one to survive a declaration that is silent", got.User)
+	}
+
+	if !slices.Equal(got.Cmd, env("/bin/sh")) {
+		t.Errorf("cmd %v, want the earlier one to survive", got.Cmd)
+	}
+
+	folded := decl.Fold(nil, got)
+	if !slices.Contains(folded, "A=1") || !slices.Contains(folded, "B=2") {
+		t.Errorf("composed environment %v, want both", folded)
+	}
+}
+
+// Composing nothing is nothing.
+func TestComposingNothingIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	if decl.ID(decl.Compose()) != decl.ID(decl.Declaration{}) {
+		t.Error("composing no declarations produced something")
+	}
+}

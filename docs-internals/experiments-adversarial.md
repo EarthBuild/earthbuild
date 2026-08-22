@@ -24509,3 +24509,40 @@ common it is.
 **Pinning and warming are substitutes, not complements.** With the Earthfile pinned, planning falls to
 about 0.05s and the boot has nothing left to overlap: warming gained nothing at all. Unpinned it is worth
 0.9s. Both attack the same window, so whichever is added second is worth much less than it looks.
+
+## E538 - the declaration reaches the step, and the sidecar stops mattering
+
+The bug: a worker holding every byte of a golang toolchain runs `go version` and gets
+`/bin/sh: go: not found`. What it lacks is `PATH`, which the image declares in a file beside its
+layer - and the fleet moves layers, not the file beside them.
+
+Reproduced without a fleet, by deleting from a local store exactly what a worker never receives:
+
+```text
+sidecars: 0   declarations: 1
+
+before   Earthfile:5 | /bin/sh: go: not found
+after    Earthfile:5 | worker-sim GOPATH=/go
+```
+
+What changed is where the environment comes from. `Θ` writes the image's configuration as a
+declaration (§3.2a), the result carries its identity, and `finish` puts it on the stack above the
+layer. The materialiser folds it; the guest takes the environment from the handle rather than from
+the request; the host stops sending `BaseEnv` at all. So a delegate derives what its base declares
+exactly as the machine that sent the work would - which is what C.3 asks for and what a sidecar could
+never satisfy.
+
+**A cache hit dropped it, and would have shipped.** `Result` was rebuilt from an entry as
+`{Layer, Exit, Bytes}`, so a cached `FROM` produced a stack with no declaration and the step above it
+ran without its image's environment: the original bug, arriving by a different road, on the path that
+is taken far more often than the one that was fixed.
+
+That needed the distinction this engine keeps rediscovering. An entry with no declaration means either
+*this image declares nothing* - a fact about the image - or *nobody recorded it* - a fact about the
+entry. Read as the same, a stale entry silently serves a stack that is missing an element. `Entry`
+therefore carries `Declared` beside `Declares`, `omitempty` so an entry written before this stays
+honestly absent, and an image entry that cannot say is not a hit. It is the shape `Content` and
+`Captured` already have, for the third time.
+
+**The cost, stated rather than discovered:** base stacks gain an element, so every key derived from an
+image changes and those steps re-run once. Layers keep their identity, so nothing is re-fetched.

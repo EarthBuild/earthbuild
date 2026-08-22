@@ -82,6 +82,12 @@ type stored struct {
 	Exit    int    `json:"exit"`
 	Bytes   int64  `json:"bytes"`
 	Writer  string `json:"writer"`
+	// Declares is the declaration the result carries, and Declared says somebody
+	// looked. Both omitempty for the reason Content is: an entry written before
+	// they existed has neither, and absent must stay absent rather than becoming
+	// "this image declares nothing".
+	Declares string `json:"declares,omitempty"`
+	Declared bool   `json:"declared,omitempty"`
 }
 
 // Get returns a claim, if there is a readable one.
@@ -119,8 +125,16 @@ func (c *Cache) Get(k core.Key) (core.Entry, bool) {
 		content = ir.NodeID{}
 	}
 
+	// Unparseable is absent here too, and absent is honest: a declaration this
+	// cannot name is one the reader must not believe it has.
+	declares, err := parseID(s.Declares)
+	if err != nil {
+		declares = ir.NodeID{}
+	}
+
 	return core.Entry{
 		Layer: id, Content: content, Exit: s.Exit, Bytes: s.Bytes, Writer: s.Writer,
+		Declares: declares, Declared: s.Declared,
 	}, true
 }
 
@@ -199,6 +213,14 @@ func (c *Cache) Put(k core.Key, e core.Entry) {
 
 	if e.Content != zero {
 		rec.Content = e.Content.String()
+	}
+
+	// Declared travels even when there is nothing to declare: it is the record
+	// that somebody looked, which is what tells a later reader that an absent
+	// declaration is the image's answer and not this entry's age.
+	rec.Declared = e.Declared
+	if e.Declares != zero {
+		rec.Declares = e.Declares.String()
 	}
 
 	b, err := json.Marshal(rec)

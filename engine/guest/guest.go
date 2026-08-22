@@ -1478,7 +1478,15 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	//
 	// It has not come up before because every other step runs `/bin/sh`, and an
 	// absolute path needs no resolving.
-	argv0 := lookIn(h.Root(), req.Argv[0], stepEnv(req.BaseEnv, req.Env))
+	// **What the base declares comes from the base**, not from whoever asked for
+	// the step. The materialiser walked the stack and folded its declarations
+	// (green paper §3.2a), so a delegate derives this exactly as the machine
+	// that sent it would - which is the difference between a worker that runs a
+	// step correctly and one that runs `go build` without the PATH its image
+	// sets.
+	declared := declaredBy(h, req)
+
+	argv0 := lookIn(h.Root(), req.Argv[0], stepEnv(declared, req.Env))
 
 	// A context of this step's own, so a cancel naming this request abandons
 	// this step and nothing else.
@@ -1706,7 +1714,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// The baseline is fixed and written down here, so it is the same on every
 	// machine and in every build: constant, not observed, and therefore not
 	// something I3 has anything to say about.
-	cmd.Env = stepEnv(req.BaseEnv, req.Env)
+	cmd.Env = stepEnv(declared, req.Env)
 
 	// Registered for exactly as long as it runs, so a cancel arriving in the
 	// middle finds it and one arriving after finds nothing.
@@ -2288,4 +2296,23 @@ func mountPoints(mounts []Mount) []string {
 	}
 
 	return append(out, "/proc")
+}
+
+// declaredBy is what this step's base says about how it should run.
+//
+// From the stack the materialiser walked, when it can say - and from the request
+// otherwise, which is what a caller with no declaration in its stack sends and
+// what every build did before declarations existed.
+func declaredBy(h core.Handle, req Request) []string {
+	d, ok := h.(interface{ Declared() []string })
+	if !ok {
+		return req.BaseEnv
+	}
+
+	from := d.Declared()
+	if len(from) == 0 {
+		return req.BaseEnv
+	}
+
+	return from
 }

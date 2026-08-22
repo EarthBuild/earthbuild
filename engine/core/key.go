@@ -213,6 +213,27 @@ type Entry struct {
 	Bytes int64
 	// Writer identifies who published this entry, 𝑤.
 	Writer string
+	// Declares is the declaration this step's result carries, and Declared says
+	// whether anybody looked.
+	//
+	// Two fields for the reason Content and Captured are two things: a zero
+	// identity means "declares nothing", which is a fact about the image, and an
+	// entry written before declarations existed means "nobody recorded what it
+	// says", which is a fact about the entry. Read as the same, a cached FROM
+	// serves a stack with no declaration and the step above it runs without the
+	// environment its image sets (§3.2a).
+	Declares ir.NodeID
+	Declared bool
+}
+
+// usableDeclaration reports whether an entry's declaration may be believed.
+//
+// Only an image is expected to carry one, so a step's entry is not refused for
+// lacking what it never had - which matters because every entry written before
+// this field existed says nothing, and refusing all of them would empty the
+// cache for one kind of node's benefit.
+func usableDeclaration(kind ir.OpKind, e Entry) bool {
+	return kind != ir.OpImage || e.Declared
 }
 
 // ActionCache is the 𝔄 port: key ↦ claim. Unlike the blob store it is not

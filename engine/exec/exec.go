@@ -302,18 +302,29 @@ func (e *Executor) baseConfig(base []ir.NodeID) ocispec.ImageConfig {
 
 	path := filepath.Join(e.sb.StoreDir(), "layers", base[0].String()) + configSuffix
 
-	b, err := os.ReadFile(path) //nolint:gosec // a path this engine derived
-	if err != nil {
-		return ocispec.ImageConfig{}
-	}
-
-	var cfg ocispec.ImageConfig
-	err = json.Unmarshal(b, &cfg)
+	cfg, err := readImageConfig(path)
 	if err != nil {
 		return ocispec.ImageConfig{}
 	}
 
 	return cfg
+}
+
+// readImageConfig reads what an image declared, from beside its layer.
+func readImageConfig(path string) (ocispec.ImageConfig, error) {
+	b, err := os.ReadFile(path) //nolint:gosec // a path this engine derived
+	if err != nil {
+		return ocispec.ImageConfig{}, fmt.Errorf("read an image configuration: %w", err)
+	}
+
+	var cfg ocispec.ImageConfig
+
+	err = json.Unmarshal(b, &cfg)
+	if err != nil {
+		return ocispec.ImageConfig{}, fmt.Errorf("parse the image configuration at %s: %w", path, err)
+	}
+
+	return cfg, nil
 }
 
 // Where the docker client and its socket live in a sandbox image that has a
@@ -520,7 +531,12 @@ func (e *Executor) Run(
 		return core.Result{}, err
 	}
 
-	baseCfg := e.baseConfig(base)
+	// **From the stack, which is where a declaration lives** (green paper
+	// §3.2a). This read a file beside the base's lowest layer, which is right on
+	// a machine that materialised the image itself and wrong on one that was
+	// sent the layers: the sidecar does not travel, so a worker found nothing
+	// and ran steps without the PATH their image sets.
+	baseCfg := stackDeclaration(e.sb.StoreDir(), base)
 
 	// `RUN --entrypoint` runs the image's own entrypoint with these arguments.
 	// The entrypoint is read here rather than planned, because only the fetched
@@ -543,7 +559,7 @@ func (e *Executor) Run(
 	endRun := phase("run", n.Meta.Source)
 
 	step, err := c.RunStep(ctx, h, guest.Step{
-		Dir: n.Op.Dir, Argv: argv, Env: env, BaseEnv: baseCfg.Env, Mounts: mounts,
+		Dir: n.Op.Dir, Argv: argv, Env: env, Mounts: mounts,
 		NoNet: n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
 		// Observed, so the step can be reused against a base it did not run on.
 		//
@@ -682,7 +698,12 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// every build would re-capture the tree to learn a digest it had already
 	// computed.
 	if id, ok := imageLayerNamed(shared); ok && populated(filepath.Join(store, "layers", id.String())) {
-		return core.Result{Layer: id, Captured: e.sb.Confines()}, nil
+		// The declaration too, and by the same route: it is derived from the
+		// configuration beside the layer, so an image this machine has already
+		// materialised produces the same identity without fetching anything.
+		return core.Result{
+			Layer: id, Captured: e.sb.Confines(), Declares: declarationFor(store, id),
+		}, nil
 	}
 
 	// Staged under a name nothing derives meaning from, because the name this
@@ -739,7 +760,9 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 
 	rememberImageLayer(shared, id)
 
-	return core.Result{Layer: id, Captured: e.sb.Confines()}, nil
+	return core.Result{
+		Layer: id, Captured: e.sb.Confines(), Declares: declarationFor(store, id),
+	}, nil
 }
 
 // layerSuffix names the file recording which layer an image materialised as.

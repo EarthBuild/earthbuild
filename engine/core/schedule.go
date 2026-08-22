@@ -64,6 +64,17 @@ type Executor interface {
 type Result struct {
 	// Layer identifies the produced filesystem delta.
 	Layer ir.NodeID
+	// Declares is what this step says about how the steps after it should run -
+	// an image's environment, working directory, user, entrypoint and command.
+	// Zero when it says nothing, which is most steps.
+	//
+	// A stack element rather than a file beside the layer (green paper §3.2a).
+	// That is what makes it travel, since a worker fetches every id in the stack,
+	// and what puts it in ids(𝑏) so it reaches every key derived from the base
+	// without an exception being made for it. A worker that received the
+	// filesystem and not the declaration ran steps without the PATH their image
+	// sets.
+	Declares ir.NodeID
 	// Exit is the step's exit code.
 	Exit int
 	// CPU and MaxRSS are what the step's process spent, zero where the platform
@@ -1259,9 +1270,14 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	if !host {
 		// L1. A hit skips execution entirely; a miss does the work. There is no
 		// third outcome (I4).
-		if e, hit := Lookup(s.cacheToRead(), s.Blobs, s.Trusted, key); hit {
+		// An entry that cannot say what its image declared is not a hit: the
+		// stack it would produce is missing an element, and nothing downstream
+		// could tell (§3.2a).
+		if e, hit := Lookup(s.cacheToRead(), s.Blobs, s.Trusted, key); hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL1Hit
-			s.finish(n, base, Result{Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes}, rec)
+			s.finish(n, base, Result{
+				Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes, Declares: e.Declares,
+			}, rec)
 			s.bump(&s.Stats.Hits)
 
 			return nil
@@ -1269,9 +1285,11 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		// L2. Consulted only when L1 missed, which is exactly when the
 		// alternative is a full rebuild (green paper 4.3).
-		if e, hit := s.tryL2(ctx, n, base, refs); hit {
+		if e, hit := s.tryL2(ctx, n, base, refs); hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL2Hit
-			s.finish(n, base, Result{Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes}, rec)
+			s.finish(n, base, Result{
+				Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes, Declares: e.Declares,
+			}, rec)
 			s.bump(&s.Stats.L2Hits)
 
 			return nil
@@ -1357,6 +1375,10 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		e := Entry{
 			Layer: res.Layer, Content: res.Content,
 			Exit: res.Exit, Bytes: res.Bytes, Writer: s.Writer,
+			// Declared unconditionally: this result came from running the step,
+			// so whether it declares anything is known even when the answer is
+			// nothing.
+			Declares: res.Declares, Declared: true,
 		}
 
 		// Both keys name the same result. Κ₁ is what the next identical build
@@ -1385,7 +1407,15 @@ func (s *Scheduler) finish(n *ir.Node, base []ir.NodeID, res Result, rec StepRec
 	defer s.mu.Unlock()
 
 	s.done[n.ID()] = res
-	s.stacks[n.ID()] = pushLayer(base, res.Layer)
+
+	// Above the layer it came with, because a declaration applies to what comes
+	// after it exactly as a layer does.
+	stack := pushLayer(base, res.Layer)
+	if res.Declares != (ir.NodeID{}) {
+		stack = pushLayer(stack, res.Declares)
+	}
+
+	s.stacks[n.ID()] = stack
 	s.Record.Steps = append(s.Record.Steps, rec)
 
 	// Summed and maxed, under the lock that already guards the rest: a cache hit

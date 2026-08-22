@@ -46,6 +46,16 @@ var (
 	ErrBuildkitConnectionFailure = errors.New("buildkitd did not respond (in time)")
 )
 
+// ContainerName returns the buildkitd container name for a given installation.
+func ContainerName(installationName string) string {
+	return installationName + "-buildkitd"
+}
+
+// VolumeName returns the cache volume name for a given installation.
+func VolumeName(installationName string) string {
+	return installationName + "-cache"
+}
+
 // NewClient returns a new buildkitd client. If the buildkitd daemon is local, this function
 // might start one up, if not already started.
 func NewClient(
@@ -73,11 +83,12 @@ func NewClient(
 					settings.ClientTLSCert,
 				}
 				if containsAny(retErr.Error(), tlsPaths...) {
-					retErr = hint.Wrap(
+					retErr = hint.Wrapf(
 						retErr,
 						"podman now requires TLS certs by default - "+
-							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
-						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
+							"try stopping the %s container and re-running 'earth bootstrap'\n"+
+							"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
+						containerName,
 					)
 				}
 			default:
@@ -90,8 +101,11 @@ func NewClient(
 			// verification errors can happen server-side, which means
 			// errors.Is() won't work. We use strings.Contains instead to handle
 			// that case.
-			retErr = hint.Wrap(retErr,
-				"did earth's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.")
+			retErr = hint.Wrapf(
+				retErr,
+				"did earth's certificates get regenerated? you may need to manually stop the %s container.",
+				containerName,
+			)
 
 			return
 		}
@@ -1137,7 +1151,7 @@ func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (
 	return fmt.Sprintf("%#v", info), nil
 }
 
-// GetLogs returns earthly-buildkitd logs.
+// GetLogs returns buildkitd daemon container logs.
 func GetLogs(
 	ctx context.Context, containerName string, fe containerutil.ContainerFrontend, settings Settings,
 ) (string, error) {

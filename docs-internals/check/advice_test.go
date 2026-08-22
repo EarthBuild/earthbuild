@@ -34,7 +34,7 @@ func TestNoAdviceNamesAFlagThatDoesNotExist(t *testing.T) {
 			return nil //nolint:nilerr // an unreadable corner is not this test's problem
 		}
 
-		if fi.IsDir() && (fi.Name() == ".git" || fi.Name() == "node_modules") {
+		if fi.IsDir() && (fi.Name() == skipGit || fi.Name() == skipModules || fi.Name() == skipTestdata) {
 			return filepath.SkipDir
 		}
 

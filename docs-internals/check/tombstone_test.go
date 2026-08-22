@@ -82,7 +82,7 @@ func tombstones(t *testing.T) []tombstone {
 			return nil //nolint:nilerr // an unreadable corner is not this guard's business
 		}
 
-		if d.IsDir() && (d.Name() == ".git" || d.Name() == "node_modules") {
+		if d.IsDir() && (d.Name() == skipGit || d.Name() == skipModules || d.Name() == skipTestdata) {
 			return filepath.SkipDir
 		}
 
@@ -146,7 +146,7 @@ func declaredTests(t *testing.T) map[string]bool {
 			return nil //nolint:nilerr // an unreadable corner is not this guard's business
 		}
 
-		if d.IsDir() && (d.Name() == ".git" || d.Name() == "node_modules") {
+		if d.IsDir() && (d.Name() == skipGit || d.Name() == skipModules || d.Name() == skipTestdata) {
 			return filepath.SkipDir
 		}
 

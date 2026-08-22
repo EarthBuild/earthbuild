@@ -164,7 +164,7 @@ func goSources(t *testing.T, root string) []string {
 
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "vendor", "node_modules", "build":
+			case skipGit, "vendor", skipModules, "build", skipTestdata:
 				return filepath.SkipDir
 			}
 
@@ -367,7 +367,7 @@ func TestEveryCitedTestExists(t *testing.T) {
 			return nil //nolint:nilerr // an unreadable corner is not this test's problem
 		}
 
-		if fi.IsDir() && (fi.Name() == ".git" || fi.Name() == "node_modules") {
+		if fi.IsDir() && (fi.Name() == skipGit || fi.Name() == skipModules || fi.Name() == skipTestdata) {
 			return filepath.SkipDir
 		}
 

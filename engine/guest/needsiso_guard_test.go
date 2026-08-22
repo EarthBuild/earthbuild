@@ -35,6 +35,14 @@ func TestTheIsolationGateIsNeverIgnored(t *testing.T) {
 	root := ".."
 
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		// Fixtures hold no source and are built while this walks: a tree of
+		// 20,000 entries is assembled under a temporary name and renamed by
+		// another package's test, and a walker inside it when that happens
+		// fails on a path that was real when it was listed.
+		if d != nil && d.IsDir() && d.Name() == "testdata" {
+			return filepath.SkipDir
+		}
+
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, "_test.go") {
 			return err
 		}

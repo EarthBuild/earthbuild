@@ -12,6 +12,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -38,8 +39,8 @@ func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (c
 			"%s: nothing produced the image %q", n.Meta.Source, n.Op.Args[0])
 	}
 
-	store := e.sb.StoreDir()
-	st := DirStore(store)
+	root := e.sb.StoreDir()
+	st := store.DirStore(root)
 
 	layers := make([]string, 0, len(base))
 	for _, id := range base {
@@ -85,7 +86,7 @@ func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (c
 	// Named after this step's own identity, so two loads of different images in
 	// one build do not land on each other and a repeat of the same one is the
 	// same file.
-	dir := filepath.Join(store, "images", n.ID().String())
+	dir := filepath.Join(root, "images", n.ID().String())
 	err = os.RemoveAll(dir)
 	if err != nil {
 		return core.Result{}, fmt.Errorf("clear the previous %s: %w", n.Op.Args[0], err)

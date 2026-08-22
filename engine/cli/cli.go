@@ -20,6 +20,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/fleet"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Options configure a build.
@@ -384,13 +385,13 @@ func runPlan(
 		// The invocation saying "redo it all": reads nothing already there and
 		// writes everything it produces, so the *next* build is warm (E462).
 		NoCache: o.NoCache,
-		Blobs:   exec.LayerStore(sb.StoreDir()),
+		Blobs:   store.LayerStore(sb.StoreDir()),
 		Writer:  writerName,
 		Record:  rec,
 		// What the mount can take, not what overlayfs allows: the option page
 		// runs out an order of magnitude sooner (E49), and Φ exists for exactly
 		// this.
-		MaxStack: exec.MountableStackDepth,
+		MaxStack: store.MountableStackDepth,
 
 		// The L2 tier, switched on now that a real observation source exists
 		// (E119) and the empty-observation trap is closed on the base rather
@@ -565,7 +566,7 @@ func artifactsFor(ctx context.Context, o Options, g *engine, src string) interp.
 // one of them has an interesting answer to. `TestTheDarwinSandboxSaysHowItShares`
 // is what stops that being a rule nobody notices going missing.
 func viewsFor(sb exec.Sandbox) core.ViewSource {
-	store := exec.LayerStore(sb.StoreDir())
+	store := store.LayerStore(sb.StoreDir())
 
 	shared, ok := sb.(interface{ SharesStoreAsRoot() bool })
 	if !ok || !shared.SharesStoreAsRoot() {

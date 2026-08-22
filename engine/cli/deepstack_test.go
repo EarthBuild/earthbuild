@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
-	"github.com/EarthBuild/earthbuild/engine/exec"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // A build deeper than the mount allows still builds, and keeps its oldest work.
@@ -41,10 +41,10 @@ func TestABuildDeeperThanTheMountStillKeepsItsBase(t *testing.T) { //nolint:para
 
 	sh := testShell
 
-	// Deeper than exec.MountableStackDepth, so the flattening is real rather
+	// Deeper than store.MountableStackDepth, so the flattening is real rather
 	// than arranged: this is the number of layers at which a mount of full
 	// paths stops working, reached by an Earthfile that does nothing unusual.
-	const steps = exec.MountableStackDepth + 8
+	const steps = store.MountableStackDepth + 8
 
 	var b strings.Builder
 

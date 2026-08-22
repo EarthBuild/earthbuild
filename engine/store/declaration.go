@@ -1,4 +1,4 @@
-package exec
+package store
 
 import (
 	"path/filepath"
@@ -23,7 +23,7 @@ import (
 // image asked for, which is a build that behaves as it did before this existed;
 // failing the FROM instead would turn a degraded build into no build.
 func declarationFor(store string, layer ir.NodeID) ir.NodeID {
-	cfg, err := readImageConfig(filepath.Join(store, "layers", layer.String()) + configSuffix)
+	cfg, err := ReadImageConfig(filepath.Join(store, "layers", layer.String()) + ConfigSuffix)
 	if err != nil {
 		return ir.NodeID{}
 	}

@@ -1,4 +1,4 @@
-package exec_test
+package store
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
@@ -47,7 +46,7 @@ func viewOf(t *testing.T, store string, stack ...ir.NodeID) interface {
 } {
 	t.Helper()
 
-	v, err := exec.LayerStore(store).View(context.Background(), stack)
+	v, err := LayerStore(store).View(context.Background(), stack)
 	if err != nil {
 		t.Fatal(err)
 	}

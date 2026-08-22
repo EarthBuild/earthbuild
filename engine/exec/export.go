@@ -9,6 +9,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Export writes an artifact from a step's filesystem to a path on the host.
@@ -290,7 +291,7 @@ func existingAncestor(p string) string {
 // edits land near the top, so granularity is worth most there and the base is
 // what stays unchanged between builds.
 func flattenForMount(stack []ir.NodeID) (mount []ir.NodeID, squash []ir.NodeID) {
-	out, flat := core.Flatten(stack, MountableStackDepth, core.SquashID)
+	out, flat := core.Flatten(stack, store.MountableStackDepth, core.SquashID)
 	if !flat.Applied() {
 		return out, nil
 	}

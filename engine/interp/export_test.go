@@ -10,6 +10,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/interp"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // TestSaveArtifactReachesTheHost is what a build is for: a file made inside a
@@ -62,7 +63,7 @@ build:
 		Workers:  []core.Worker{{ID: "vm", IsInvoker: true}},
 		Executor: e,
 		Cache:    memCache{},
-		Blobs:    exec.LayerStore(sb.StoreDir()),
+		Blobs:    store.LayerStore(sb.StoreDir()),
 		Writer:   "test",
 	}
 

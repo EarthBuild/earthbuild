@@ -12,7 +12,6 @@ package exec
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +29,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Conn is a bidirectional channel to a guest agent. An interface rather than
@@ -285,26 +285,6 @@ func baseImageOf(n *ir.Node) string {
 	}
 
 	return "the base image"
-}
-
-// configSuffix names the file holding what an image declared, beside its layer.
-const configSuffix = ".config.json"
-
-// readImageConfig reads what an image declared, from beside its layer.
-func readImageConfig(path string) (ocispec.ImageConfig, error) {
-	b, err := os.ReadFile(path) //nolint:gosec // a path this engine derived
-	if err != nil {
-		return ocispec.ImageConfig{}, fmt.Errorf("read an image configuration: %w", err)
-	}
-
-	var cfg ocispec.ImageConfig
-
-	err = json.Unmarshal(b, &cfg)
-	if err != nil {
-		return ocispec.ImageConfig{}, fmt.Errorf("parse the image configuration at %s: %w", path, err)
-	}
-
-	return cfg, nil
 }
 
 // Where the docker client and its socket live in a sandbox image that has a
@@ -670,14 +650,14 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 		})
 	}
 
-	store := e.sb.StoreDir()
+	root := e.sb.StoreDir()
 	shared := filepath.Join(imageRoot, "imagecache", ImageCacheKey(n.Op.Args[0], platform))
 
 	// Already materialised, and named by what is in it rather than by which
 	// node asked for it. The recorded name is what makes this cheap: without it
 	// every build would re-capture the tree to learn a digest it had already
 	// computed.
-	st := DirStore(store)
+	st := store.DirStore(root)
 
 	if id, ok := imageLayerNamed(shared); ok && st.Populated(id) {
 		// The declaration too, and by the same route: it is derived from the
@@ -724,8 +704,8 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// The configuration follows the layer to its final name. What an image
 	// declares is not part of what it ships, so it travels beside the tree
 	// rather than in it.
-	_ = st.AdoptConfig(id, staging+configSuffix)
-	_ = os.Remove(staging + configSuffix)
+	_ = st.AdoptConfig(id, staging+store.ConfigSuffix)
+	_ = os.Remove(staging + store.ConfigSuffix)
 
 	rememberImageLayer(shared, id)
 
@@ -778,11 +758,11 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		return core.Result{}, fmt.Errorf("no build context configured, but %s needs one", n.Meta.Source)
 	}
 
-	if DirStore(e.sb.StoreDir()).Has(n.ID()) {
+	if store.DirStore(e.sb.StoreDir()).Has(n.ID()) {
 		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
 	}
 
-	st := DirStore(e.sb.StoreDir())
+	st := store.DirStore(e.sb.StoreDir())
 
 	// **Built beside its name and renamed in.** This used to copy straight into
 	// the final directory, so a copy that failed half way left a tree that `Has`

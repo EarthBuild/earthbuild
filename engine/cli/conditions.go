@@ -16,6 +16,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/fleet"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 	"github.com/containerd/platforms"
 )
 
@@ -265,7 +266,7 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 			Workers:  workers,
 			Executor: x,
 			Cache:    ac,
-			Blobs:    exec.LayerStore(sb.StoreDir()),
+			Blobs:    store.LayerStore(sb.StoreDir()),
 			Writer:   writerName,
 		}
 	})

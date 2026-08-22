@@ -2778,11 +2778,11 @@ var Mutants = []Mutant{
 		Package:     "./engine/core/",
 	},
 	{
-		Name:        "exec: the view reading a shared store as the guest does (E494)",
-		File:        "engine/exec/view.go",
+		Name:        "store: the view reading a shared store as the guest does (E494)",
+		File:        "engine/store/view.go",
 		Anchor:      "\t\td, err := layer.PathDigestIn(filepath.Join(root, rel), v.uids, v.gids)",
 		Replacement: "\t\td, err := layer.PathDigest(filepath.Join(root, rel))",
-		Package:     "./engine/exec/",
+		Package:     "./engine/store/",
 	},
 	{
 		Name: "cli: the sandbox asked how it shares the store (E494)",

@@ -1,4 +1,4 @@
-package exec
+package store
 
 import (
 	"encoding/json"
@@ -62,7 +62,8 @@ func TestTheStoreAnswersWhatAnImageDeclared(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(at+configSuffix, b, 0o600); err != nil {
+	err = os.WriteFile(at+ConfigSuffix, b, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

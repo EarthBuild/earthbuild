@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/nstest"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // A layer captured inside a namespace verifies outside it.
@@ -102,5 +102,5 @@ func TestALayerCapturedInANamespaceVerifiesOutsideIt(t *testing.T) { //nolint:pa
 			captured, outside.ID)
 	}
 
-	_ = exec.LayerStore(root)
+	_ = store.LayerStore(root)
 }

@@ -1,4 +1,4 @@
-package exec
+package store
 
 import (
 	"encoding/json"
@@ -28,7 +28,8 @@ func withConfig(t *testing.T, cfg ocispec.ImageConfig) (store string, layer ir.N
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(at+configSuffix, b, 0o600); err != nil {
+	err = os.WriteFile(at+ConfigSuffix, b, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

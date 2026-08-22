@@ -79,7 +79,7 @@ var schedulerPorts = map[string]port{
 	// profile naming nothing about a base it stood on is refused on both sides.
 	"Profiles": {role: mustSet},
 	// The other half: both are required for L2 to run at all.
-	// exec.LayerStore.View reads the merged stack without mounting it (E114),
+	// store.LayerStore.View reads the merged stack without mounting it (E114),
 	// and its digests are asserted to equal the ones an observer records inside
 	// the mount (E121) - which is the comparison Consistent makes.
 	"Views": {role: mustSet},

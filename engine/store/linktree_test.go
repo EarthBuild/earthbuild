@@ -1,4 +1,4 @@
-package exec
+package store
 
 import (
 	"os"
@@ -42,7 +42,7 @@ func TestALinkedTreeIsTheTreeItCameFrom(t *testing.T) {
 
 	dst := filepath.Join(t.TempDir(), "out")
 
-	err = linkTree(src, dst)
+	err = LinkTree(src, dst)
 	if err != nil {
 		t.Fatalf("link: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestASharedDestinationIsReplacedAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = linkTree(src, dst)
+	err = LinkTree(src, dst)
 	if err != nil {
 		t.Fatalf("link over an existing entry: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestAPrivateDestinationIsFilledDirectly(t *testing.T) {
 
 	dst := filepath.Join(t.TempDir(), "mine")
 
-	err = linkTreeExclusive(src, dst)
+	err = LinkTreeExclusive(src, dst)
 	if err != nil {
 		t.Fatalf("link into a private destination: %v", err)
 	}

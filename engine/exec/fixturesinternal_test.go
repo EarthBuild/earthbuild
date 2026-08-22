@@ -7,6 +7,4 @@ const (
 	testOtherPlatform = "linux/amd64"
 	// testArch is this fixture's architecture half.
 	testArch = "arm64"
-	// testTwiceFile is written by two steps, to prove which one wins.
-	testTwiceFile = "twice.txt"
 )

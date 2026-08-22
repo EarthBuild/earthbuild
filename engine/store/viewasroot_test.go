@@ -1,4 +1,4 @@
-package exec_test
+package store
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
@@ -45,7 +44,7 @@ func TestAViewDigestsAStoreSharedAsRootTheWayAGuestSeesIt(t *testing.T) {
 
 	// The plain view is the store's own answer, which is what the observation
 	// could never match.
-	plain, err := exec.LayerStore(store).View(context.Background(), []ir.NodeID{id})
+	plain, err := LayerStore(store).View(context.Background(), []ir.NodeID{id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +54,7 @@ func TestAViewDigestsAStoreSharedAsRootTheWayAGuestSeesIt(t *testing.T) {
 		t.Fatal("the plain view has no /bin/cat")
 	}
 
-	seen, err := exec.LayerStore(store).
+	seen, err := LayerStore(store).
 		SeenAsRoot(uint32(os.Getuid()), uint32(os.Getgid())).
 		View(context.Background(), []ir.NodeID{id})
 	if err != nil {

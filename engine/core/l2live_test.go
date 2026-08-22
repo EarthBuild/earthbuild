@@ -12,7 +12,7 @@ import (
 // The L2 tier works end to end, against the real store and a real view.
 //
 // Both halves are implementations now rather than fakes - `cache.Profiles`
-// (E118) writes to disk and `exec.LayerStore.View` (E114) reads a layer stack -
+// (E118) writes to disk and `store.LayerStore.View` (E114) reads a layer stack -
 // and the front end still sets neither, deliberately: an empty profile agrees
 // with every base, and a file on disk that this version never writes is one a
 // future or foreign version could (E112, and the port register says so).

@@ -1,6 +1,10 @@
 package exec
 
-import "os"
+import (
+	"os"
+
+	"github.com/EarthBuild/earthbuild/engine/store"
+)
 
 // EnvClone turns whole-tree cloning off.
 //
@@ -37,5 +41,5 @@ func placeTree(src, dst string) error {
 		// on another volume, and every filesystem that is not APFS takes it.
 	}
 
-	return linkTreeExclusive(src, dst)
+	return store.LinkTreeExclusive(src, dst)
 }

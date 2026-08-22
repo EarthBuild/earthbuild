@@ -1,4 +1,4 @@
-package exec
+package store
 
 import (
 	"os"
@@ -84,14 +84,14 @@ func TestDescriptorUseDoesNotScaleWithFileCount(t *testing.T) {
 
 	before := openFDs(t)
 
-	err := linkTreeExclusive(small, filepath.Join(t.TempDir(), "small"))
+	err := LinkTreeExclusive(small, filepath.Join(t.TempDir(), "small"))
 	if err != nil {
 		t.Fatalf("small: %v", err)
 	}
 
 	afterSmall := openFDs(t)
 
-	err = linkTreeExclusive(large, filepath.Join(t.TempDir(), "large"))
+	err = LinkTreeExclusive(large, filepath.Join(t.TempDir(), "large"))
 	if err != nil {
 		t.Fatalf("large: %v", err)
 	}
@@ -142,7 +142,7 @@ func copyOfBigTree(t *testing.T, n int) string {
 
 	dst := filepath.Join(t.TempDir(), "copy")
 
-	err := linkTreeExclusive(bigTree(t, n), dst)
+	err := LinkTreeExclusive(bigTree(t, n), dst)
 	if err != nil {
 		t.Fatalf("copy the fixture: %v", err)
 	}

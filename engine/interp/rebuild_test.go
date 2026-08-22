@@ -11,6 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 const rebuildSrc = `VERSION 0.8
@@ -23,7 +24,7 @@ build:
 
 // run builds the source once against a shared cache and layer store, returning
 // what each step did.
-func run(t *testing.T, store string, cache core.ActionCache) []core.Outcome {
+func run(t *testing.T, root string, cache core.ActionCache) []core.Outcome {
 	t.Helper()
 
 	p, err := interp.Build(rebuildSrc, "build")
@@ -32,7 +33,7 @@ func run(t *testing.T, store string, cache core.ActionCache) []core.Outcome {
 	}
 
 	sb := exec.NewApple()
-	sb.Store = store
+	sb.Store = root
 	sb.GuestBinary = guestd(t)
 
 	err = sb.Available()
@@ -60,7 +61,7 @@ func run(t *testing.T, store string, cache core.ActionCache) []core.Outcome {
 		Workers:  []core.Worker{{ID: "vm", IsInvoker: true}},
 		Executor: e,
 		Cache:    cache,
-		Blobs:    exec.LayerStore(store),
+		Blobs:    store.LayerStore(root),
 		Writer:   "test",
 		Record:   rec,
 	}
@@ -90,17 +91,17 @@ func TestRebuildIsAllHits(t *testing.T) {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
 
-	store := t.TempDir()
+	root := t.TempDir()
 	cache := memCache{}
 
-	first := run(t, store, cache)
+	first := run(t, root, cache)
 	for i, o := range first {
 		if o != core.OutcomeMiss {
 			t.Errorf("first build, step %d: %v, want a miss", i, o)
 		}
 	}
 
-	second := run(t, store, cache)
+	second := run(t, root, cache)
 	for i, o := range second {
 		if o != core.OutcomeL1Hit {
 			t.Errorf("second build, step %d: %v, want an L1 hit", i, o)
@@ -121,13 +122,13 @@ func TestAMissingLayerCostsTimeNotCorrectness(t *testing.T) {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
 
-	store := t.TempDir()
+	root := t.TempDir()
 	cache := memCache{}
 
-	run(t, store, cache)
+	run(t, root, cache)
 
 	// Evict the layer produced by the last step, as a GC would.
-	layers, err := os.ReadDir(filepath.Join(store, "layers"))
+	layers, err := os.ReadDir(filepath.Join(root, "layers"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +149,7 @@ func TestAMissingLayerCostsTimeNotCorrectness(t *testing.T) {
 		}
 	}
 
-	err = os.RemoveAll(filepath.Join(store, "layers", evicted))
+	err = os.RemoveAll(filepath.Join(root, "layers", evicted))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +158,7 @@ func TestAMissingLayerCostsTimeNotCorrectness(t *testing.T) {
 	// entry whose result is gone.
 	var misses int
 
-	for _, o := range run(t, store, cache) {
+	for _, o := range run(t, root, cache) {
 		if o == core.OutcomeMiss {
 			misses++
 		}

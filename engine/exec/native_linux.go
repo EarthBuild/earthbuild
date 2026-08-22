@@ -3,14 +3,15 @@ package exec
 import (
 	"context"
 	"fmt"
-	"github.com/EarthBuild/earthbuild/engine/fdpass"
-	"github.com/EarthBuild/earthbuild/engine/guest"
 	"net"
 	"os"
 	osexec "os/exec"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/EarthBuild/earthbuild/engine/fdpass"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 )
 
 // Native runs steps on this Linux machine, with no VM.

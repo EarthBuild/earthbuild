@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // stackOf makes n distinct layer identities.
@@ -51,9 +52,9 @@ func TestAnExportedStackFitsTheMount(t *testing.T) {
 		n    int
 	}{
 		{"a shallow stack is left alone", 4},
-		{"exactly the limit is left alone", MountableStackDepth},
-		{"one deeper is flattened", MountableStackDepth + 1},
-		{"a step's own layer on a flattened base", MountableStackDepth + 8},
+		{"exactly the limit is left alone", store.MountableStackDepth},
+		{"one deeper is flattened", store.MountableStackDepth + 1},
+		{"a step's own layer on a flattened base", store.MountableStackDepth + 8},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -62,12 +63,12 @@ func TestAnExportedStackFitsTheMount(t *testing.T) {
 
 			out, rng := flattenForMount(in)
 
-			if len(out) > MountableStackDepth {
+			if len(out) > store.MountableStackDepth {
 				t.Errorf("a stack of %d layers was handed to the mount as %d,"+
-					" and the mount takes %d", tc.n, len(out), MountableStackDepth)
+					" and the mount takes %d", tc.n, len(out), store.MountableStackDepth)
 			}
 
-			if tc.n <= MountableStackDepth {
+			if tc.n <= store.MountableStackDepth {
 				if rng != nil {
 					t.Errorf("a stack that already fits was squashed anyway")
 				}

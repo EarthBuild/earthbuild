@@ -1,4 +1,4 @@
-package exec
+package store
 
 import (
 	"os"
@@ -55,7 +55,7 @@ func TestPlacingAnImageCannotWriteOutsideTheStore(t *testing.T) {
 
 	// The error is not the point - refusing is one right answer and so is
 	// replacing the link - so only the escape is asserted.
-	_ = linkTree(src, dst)
+	_ = LinkTree(src, dst)
 
 	_, err = os.Stat(filepath.Join(outside, "bin", "tool"))
 	if err == nil {

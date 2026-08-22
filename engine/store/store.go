@@ -1,4 +1,15 @@
-package exec
+// Package store is σ: the layer store, and everything that puts a tree into it.
+//
+// Split out of the executor because it has two callers on opposite sides of the
+// sandbox boundary. The host places images and build contexts; the guest places
+// what a step captured, and cannot import the executor that used to own this
+// code. Under a shared directory that split was invisible - both sides opened
+// the same paths - and it is the split the disk makes real (E541, E542).
+//
+// What lives here answers "where does a layer live and how does one get there".
+// What does not: pulling an image, running a step, or deciding which layer is
+// wanted, all of which are the executor's.
+package store
 
 import (
 	"context"
@@ -67,14 +78,14 @@ func (d DirStore) Staging(prefix string) (string, error) {
 }
 
 // Populated reports whether the layer is there and holds something.
-func (d DirStore) Populated(id ir.NodeID) bool { return populated(d.LayerPath(id)) }
+func (d DirStore) Populated(id ir.NodeID) bool { return Populated(d.LayerPath(id)) }
 
 // NoteUnmarked records that a layer carries no whiteout markers.
 func (d DirStore) NoteUnmarked(id ir.NodeID) { noteUnmarked(d.LayerPath(id)) }
 
 // AdoptConfig moves a configuration to sit beside its layer.
 func (d DirStore) AdoptConfig(id ir.NodeID, from string) error {
-	at := d.LayerPath(id) + configSuffix
+	at := d.LayerPath(id) + ConfigSuffix
 
 	// Only if there is none. Two builds placing the same image both arrive with
 	// a copy, and whichever got there first is as good as this one.

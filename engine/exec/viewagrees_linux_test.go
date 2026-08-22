@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/mat/overlay"
 	"github.com/EarthBuild/earthbuild/engine/nstest"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // What the observer digests and what the view digests are the same number.
@@ -41,9 +41,9 @@ func TestTheObserverAndTheViewAgree(t *testing.T) { //nolint:paralleltest // mou
 		return
 	}
 
-	store := t.TempDir()
+	root := t.TempDir()
 
-	m, err := overlay.New(store)
+	m, err := overlay.New(root)
 	if err != nil {
 		t.Skipf("no overlay materialiser here: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestTheObserverAndTheViewAgree(t *testing.T) { //nolint:paralleltest // mou
 
 	defer func() { _ = h.Release() }()
 
-	view, err := exec.LayerStore(store).View(context.Background(), stack)
+	view, err := store.LayerStore(root).View(context.Background(), stack)
 	if err != nil {
 		t.Fatal(err)
 	}

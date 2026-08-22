@@ -24281,3 +24281,40 @@ Every regular file gets `open`, `write`, `close`, and then `Chmod`, `applyOwner`
 `Chtimes` **by path** - four more resolutions of a path this code has just written and holds a
 descriptor for. That is the next measurement, and it wants a benchmark rather than a rewrite of a
 permissions path at five in the morning.
+
+## E533 - the unpack is at the filesystem's floor, and three ways round it are dead
+
+2.9s to write about 10,000 files looked like something to optimise. A benchmark of one regular file,
+on the machine that does it:
+
+```text
+create an empty file            64µs
+  + write 4KB                   86µs
+  + Chmod and Chtimes by path  103µs
+```
+
+**The directory entry is three quarters of it**, before any content or metadata. Ten thousand of them
+have a floor of 0.64s here whatever the writer does.
+
+Three candidate optimisations, all measured, all dead:
+
+```text
+metadata on the descriptor      105µs   against 103µs by path - no better, marginally worse
+parallel, one directory         107µs   against 107µs sequential - no better
+parallel, a directory each      124µs   worse
+```
+
+So the fd-versus-path rewrite of a permissions and ownership path would have bought nothing, and a
+concurrent unpacker would have bought a way to corrupt a layer. Both were about to be written on the
+strength of "294µs per file is obviously too slow for writing", which was true and pointed at the
+wrong thing.
+
+`image:place` is the same wall from the other side: `placeCaptured` renames rather than copies - one
+syscall - so its 1.14s is `TakeOwnedIn` hashing 350MB to name the flattened tree, at about 300MB/s.
+Both costs are paid once per image per store, so a developer pays them once and CI pays them every
+build, which is an argument about what CI caches rather than about this code.
+
+**What is left is not to do it.** The floor is per *file*, so the only lever is fewer files: the lazy
+placement already in the plan, where a base nobody reads is never written. That is the green paper's
+own first principle, and this is the measurement that says the arithmetic works out - a `RUN echo` on
+a golang base reads none of its ten thousand files.

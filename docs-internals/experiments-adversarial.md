@@ -24583,3 +24583,51 @@ wrong rather than the remedy. Two things remove it:
 Both were performance items this morning. This makes them correctness items: a build that fails
 depending on how many sandboxes are running, with a message naming a `@babel` file it has never heard
 of, is not a build anybody can reason about.
+
+## E540 - the descriptors are `readdir`, not `open`, and the guest's dentry cache holds them
+
+E539 said "one descriptor per file the guest touches" and was challenged on the obvious ground: a
+process that opens a file and closes it leaves no descriptor behind. Quite so. Measured against a
+fixture of 5,000 files in 50 directories, on a cold dentry cache each time:
+
+```text
+readdir only (ls -R)             5047 fds   1.01 per file
+stat every file                  5110 fds   1.02 per file
+open + read + close every file   5051 fds   1.01 per file
+```
+
+**Opening is free; listing is not.** A Linux guest's `readdir` issues `READDIRPLUS`, which looks up
+every entry, so the sharing server takes a handle per entry whether or not anything is opened. The
+guest never touched these files.
+
+Release is the guest's dentry cache and nothing else:
+
+```text
+first listing               +5052
+listing again (cached)         +0     answered in the guest, no host traffic
+drop_caches=2 (dentries)    -4933     98% returned
+```
+
+Which also explains the number that did not fit: `ls -R` over the whole store gave 67,193 for 209,646
+files - 0.32 each - because most entries were already cached and needed no fresh lookup. On a cold
+cache it is 1.01.
+
+**Evicting is not free**, so the obvious mitigation is a trap:
+
+```text
+5,000 entries    cold 368ms    warm 127ms    ~48µs per entry to re-look-up
+```
+
+At 48µs an entry, `vfs_cache_pressure` taxes every lookup a build makes: ~0.5s to re-walk a
+ten-thousand-file base, ~10s for this store. A build that walks its base per step would pay it each
+time. The cache is doing its job; the fault is asking it to hold 200,000 entries.
+
+So the levers are unchanged and better argued: **a store the guest reads as a block device has no host
+lookups at all**, and **lazy placement reduces the count directly**, because the count is exactly the
+number of entries walked. One cheap mitigation fits between them - dropping dentries when a build
+*ends* rather than continuously, since an idle sandbox has no use for a cached dentry and the next
+build re-walks only what it needs.
+
+**Three of the four explanations offered on the way here were wrong** - open/close, then "one per file
+touched", then "the guest is caching file contents" - and each was stated with more confidence than
+the evidence carried. The fixture took four minutes and settled it.

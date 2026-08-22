@@ -732,23 +732,24 @@ func buildkitEnv(settings Settings, containerName, installationName string, with
 // buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
 // if the CLI has no telemetry configured to hand it.
 func buildkitTelemetryEnv(containerName, installationName string, withDocker bool) map[string]string {
+	// buildkitd runs the same telemetry setup as the CLI, which opts in on the mere
+	// presence of any of these and lets autoexport pick the exporter - otlp by default.
+	// So this is only a gate: setting OTEL_METRICS_EXPORTER=otlp ourselves would pin a
+	// default that is already the default, and would override the user's exporter choice
+	// on any future path that reaches here without it. Gate first, so the common
+	// telemetry-off case does no passthrough work at all.
+	if os.Getenv("OTEL_METRICS_EXPORTER") == "" &&
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
+		os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") == "" {
+		return nil
+	}
+
 	envOpts := map[string]string{}
 
 	for _, key := range otelPassthroughEnvVars {
 		if value := os.Getenv(key); value != "" {
 			envOpts[key] = value
 		}
-	}
-
-	// buildkitd runs the same telemetry setup as the CLI, which opts in on the mere
-	// presence of any of these and lets autoexport pick the exporter - otlp by default.
-	// So this is only a gate: setting OTEL_METRICS_EXPORTER=otlp ourselves would pin a
-	// default that is already the default, and would override the user's exporter choice
-	// on any future path that reaches here without it.
-	if envOpts["OTEL_METRICS_EXPORTER"] == "" &&
-		envOpts["OTEL_EXPORTER_OTLP_ENDPOINT"] == "" &&
-		envOpts["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] == "" {
-		return nil
 	}
 
 	envOpts["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName

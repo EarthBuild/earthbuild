@@ -276,11 +276,28 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 				perm = os.FileMode(m.Mode)
 			}
 
+			// Asked before creating it, exactly as the directory branch does
+			// and for the same reason: afterwards there is no way to tell
+			// whether the file was the image's or ours.
+			//
+			// This branch did not ask, so a file mount point was never taken
+			// away - and every step captured the sandbox's plumbing as its own
+			// output: `/etc/resolv.conf` and six device nodes in the delta of a
+			// step that writes nothing, each stamped with the moment the step
+			// started, which made `RUN true` produce a different layer every
+			// run (E547).
+			_, bad := os.Lstat(target)
+			missing := bad != nil
+
 			err := ensureFile(target, perm)
 			if err != nil {
 				unmount()
 
 				return nil, fmt.Errorf("prepare the mount point %s: %w", m.Target, err)
+			}
+
+			if missing {
+				created = append(created, target)
 			}
 		} else {
 			// Whether the directory was already there decides whether it is

@@ -24943,3 +24943,63 @@ Seven entries, in the captured delta of a step that writes nothing. They are the
 plumbing rather than the step's output, they are created at run time, and every one of them carries
 the moment the sandbox made it. A step that does nothing therefore produces a different layer every
 time it runs. That is a capture question, not a timestamp one, and is the next thing.
+
+## E547 - every step captured the sandbox's plumbing as its own output
+
+E546 left one thing unexplained: two stores that now agree about a base image still disagreed about
+the layer `RUN true` produced. A step that writes nothing was producing a different layer every time
+it ran, on the commonest step there is.
+
+The delta held seven entries:
+
+```text
+  /etc/resolv.conf
+  /dev/full  /dev/tty  /dev/null  /dev/zero  /dev/random  /dev/urandom
+```
+
+None of them the step's. They are bind mounts the sandbox provides - an image ships no resolver
+configuration and an empty `/dev`, because the runtime is expected to supply both - and a bind needs
+something to land on, so the setup creates the target.
+
+**The rule was already written down and already kept, for half the cases.** From `bindMounts`:
+
+> A mount point this engine created is taken away again, so it does not end up in the step's layer.
+> A mount is a hole: what was under it stays as it was, and what the step wrote into it is not part
+> of what the step produced.
+
+That is E33, and it is why an empty `/cache` stopped appearing in images. The directory branch asks
+`Lstat` first - *"whether the directory was already there decides whether it is ours to remove
+afterwards. Asked before creating it, because afterwards there is no way to tell"* - and the file
+branch never asked, so a file mount point was never anybody's and never removed.
+
+One `Lstat`, in the branch that did not have it. The delta of `RUN true` goes from seven entries to
+zero files.
+
+**A test was resting on the defect.** `TestTwoStepsOnOneRootDoNotFightOverTheirMounts` checked that
+binds had actually run before trusting its own result, and the evidence it used was the leftover:
+
+> `ensureFile` creates the target for the resolver bind and leaves it behind when the mount is
+> popped, so its presence is the evidence that binds happened.
+
+Accurate, and it was pointing at the bug. The precondition it wanted is whether the sandbox has a
+resolver configuration at all, because `resolverMount` returns nothing when it does not - so that is
+what it asks now. *A sanity check calibrated against current behaviour will defend the behaviour,
+including the part of it that is wrong.*
+
+**What remains, and it is not a timestamp.** Two entries survive:
+
+```text
+  /etc    (empty)
+  /dev    (empty)
+```
+
+Their parents, copied up by overlayfs when the mount point was created inside them. They cannot be
+removed - deleting an upper directory whose lower still has one is a whiteout, which would delete
+`/etc` from the step's view - and they still carry the moment of the copy-up, so `RUN true` is
+reproducible on one machine and not yet across two.
+
+The seam for it exists and does not fit: `TakeExcludingIn` excludes a path only when it is *still
+exactly what this engine placed*, which is a question about lazily faulted files and has no answer
+for a directory the kernel copied up. The tracer already excludes mount points from *observations*
+for precisely this reason (E222); the capture wants the same list and a general exclusion to apply
+it with. That is the next piece.

@@ -5,7 +5,6 @@ package guest_test
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -71,12 +70,21 @@ func TestTwoStepsOnOneRootDoNotFightOverTheirMounts(t *testing.T) {
 		wg.Wait()
 	}
 
-	// The mount path has to have run, or this measures nothing. `ensureFile`
-	// creates the target for the resolver bind and leaves it behind when the
-	// mount is popped, so its presence is the evidence that binds happened.
-	if _, err := os.Lstat(filepath.Join(root, "etc", "resolv.conf")); err != nil {
-		t.Fatalf("no resolver mount point was ever made, so no bind ran and this"+
-			" test says nothing about sharing them: %v", err)
+	// The mount path has to have run, or this measures nothing.
+	//
+	// **The evidence used to be the defect.** `ensureFile` created the target
+	// for the resolver bind and left it behind, so a leftover in the step's
+	// root proved a bind had happened - and that leftover was the sandbox's
+	// plumbing being captured as the step's output (E547). It is removed now,
+	// so the evidence has to come from the precondition instead:
+	// `resolverMount` returns nothing at all when the sandbox has no resolver
+	// configuration, and then no bind is attempted and this loop is measuring
+	// an empty mount list.
+	_, err = os.Lstat("/etc/resolv.conf")
+	if err != nil {
+		t.Fatalf("this sandbox has no resolver configuration, so no resolver"+
+			" bind was attempted and this test says nothing about sharing"+
+			" mounts: %v", err)
 	}
 
 	if len(failures) != 0 {

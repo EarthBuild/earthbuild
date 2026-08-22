@@ -44,6 +44,7 @@ func main() {
 		platform = flag.String("platform", "", "os/arch to build for; the sandbox's own when empty")
 		dryRun   = flag.Bool("dry-run", false, "resolve the plan and print it without running anything")
 		stopSb   = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
+		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
 		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
 		args     buildArgs
 	)
@@ -65,6 +66,15 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+
+		return
+	}
+
+	// Not a build either, and it takes no target: it resolves what the file
+	// names and edits the file. The one thing here that changes a file the user
+	// wrote, so it happens only when asked for by name.
+	if *doPin {
+		report(cli.Pin(cli.Options{Dir: *dir, Out: os.Stdout, Platform: *platform}))
 
 		return
 	}

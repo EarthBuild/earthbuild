@@ -81,6 +81,16 @@ func recordPinning(w io.Writer, pinned map[string]string) {
 	for _, ref := range refs {
 		fmt.Fprintf(w, "  pinned                    %s -> %s\n", ref, pinned[ref])
 	}
+
+	// **Said because the reader can act on it.** Every reference above cost a
+	// registry round trip this invocation and will cost one again next time,
+	// which on a build with nothing else to do is most of the build - 0.60s of
+	// planning against 0.03s for a reference that names its digest (E534). The
+	// engine has just worked the digests out; `--pin` is how they get written
+	// down. Once, after the list, rather than against each line: the advice is
+	// the same for all of them.
+	fmt.Fprintf(w, "  note                      --pin writes these into the Earthfile,"+
+		" which makes the build reproducible and skips the lookup\n")
 }
 
 // resolveFor is the platform a reference is resolved for.

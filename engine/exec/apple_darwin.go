@@ -77,6 +77,9 @@ type Apple struct {
 	cmd     *osexec.Cmd
 	boots   atomic.Int64
 	resumes atomic.Int64
+	// bootMu serialises making the VM exist, so a prewarm and a start cannot
+	// both run `container run` for one name.
+	bootMu  sync.Mutex
 	mu      sync.Mutex
 	stopped bool
 }
@@ -290,20 +293,33 @@ func (a *Apple) Available() error {
 // `container exec -i` was verified to be 8-bit clean, which the length-prefixed
 // framing requires: a transport that mangled 0x00 or 0xff would corrupt frames
 // rather than fail, and corruption is much harder to diagnose than a refusal.
-func (a *Apple) Start(ctx context.Context) (Conn, error) {
+// ensureRunning makes this build's VM exist, and is the half of Start that
+// costs anything.
+//
+// Separate because it needs nothing the Earthfile says - the sandbox image is
+// this engine's, not the build's - so it can happen while the plan is still
+// being worked out. See Prewarm.
+//
+// Guarded, because a prewarm and a start can arrive together: two `container
+// run` calls for one name is one failure and one wasted boot, and the loser
+// would report a machine that is running perfectly well as broken.
+func (a *Apple) ensureRunning(ctx context.Context) error {
+	a.bootMu.Lock()
+	defer a.bootMu.Unlock()
+
 	err := a.Available()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	guestBin, err := a.guestBinary()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = checkGuestArch(guestBin, guestArch())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	a.dir = filepath.Dir(guestBin)
@@ -316,7 +332,7 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// 0750: the layer store is this engine's, and the guest reads it as root.
 	err = os.MkdirAll(filepath.Join(a.StoreDir(), "layers"), 0o750)
 	if err != nil {
-		return nil, fmt.Errorf("create the layer store: %w", err)
+		return fmt.Errorf("create the layer store: %w", err)
 	}
 	a.name = SandboxNameWith(a.Image, a.dir, a.StoreDir(), a.memory(), a.keepAlive())
 
@@ -359,13 +375,29 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 
 				out2, err2 := retry.CombinedOutput()
 				if err2 != nil {
-					return nil, fmt.Errorf("boot the sandbox VM (image %s): %w: %s\n  after clearing a stale one: %s",
+					return fmt.Errorf("boot the sandbox VM (image %s): %w: %s\n  after clearing a stale one: %s",
 						a.Image, err, out, out2)
 				}
 			}
 
 			a.boots.Add(1)
 		}
+	}
+
+	return nil
+}
+
+func (a *Apple) Start(ctx context.Context) (Conn, error) {
+	err := a.ensureRunning(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Memoised by guestBinary, so this is the path ensureRunning already found
+	// and checked rather than a second search.
+	guestBin, err := a.guestBinary()
+	if err != nil {
+		return nil, err
 	}
 
 	// The environment goes through `container exec -e`, NOT through cmd.Env.
@@ -741,4 +773,24 @@ func (a *Apple) GuestFailure() string {
 	return fmt.Sprintf("the guest in this sandbox exited: %v"+
 		"\n  the build was waiting for it to answer, and nothing else would have"+
 		" reported this", a.guestExit)
+}
+
+// Prewarm starts this build's VM without waiting for the plan.
+//
+// **The boot needs nothing the Earthfile says.** The sandbox image is this
+// engine's own, not the build's, so which machine to start is known before a
+// line is parsed - while planning meanwhile spends a registry round trip
+// resolving what the build's `FROM` means. Done one after the other a build pays
+// for both; done together it pays for the longer of the two (E537).
+//
+// Silent about failure on purpose. This is an optimisation, so a prewarm that
+// cannot work must leave a build that is slower rather than one that stops -
+// and whatever is wrong is reported by the Start that follows, which has the
+// context to say it properly.
+func (a *Apple) Prewarm(ctx context.Context) {
+	if a.Available() != nil {
+		return
+	}
+
+	_ = a.ensureRunning(ctx)
 }

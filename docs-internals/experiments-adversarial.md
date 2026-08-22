@@ -24472,3 +24472,40 @@ number that exposed it only appears if the benchmark pins *after* the cache is w
 The unpinned figure also says where these were taken. A cold pull of this image was about 6s at home
 and 49s here, so **no cold measurement in this session's benchmark is comparable with the earlier
 tables** - a fact worth more than the numbers it disqualifies.
+
+## E537 - the machine is started beside the plan, not in front of the first step
+
+A VM boot is about 850ms and needs nothing the Earthfile says: the sandbox image is this engine's own,
+not the build's. Planning meanwhile spends a registry round trip resolving what `FROM` means. Run one
+after the other and a build pays for both.
+
+`warm` already existed and did not do this. It built the executor - caches, profiles, a fleet driver -
+on another goroutine, and the executor does not boot: `client()` starts the machine on first use,
+deliberately, so a build that runs nothing boots nothing. So the 850ms was still in front of the first
+step. It was also gated on `shouldWarm`, which asks whether the project has ever run a *condition*, and
+therefore never fired for a project with no `IF` and a hundred `RUN`s.
+
+Both changed. Alternating, a fresh binary each way, the machine reaped between runs:
+
+```text
+boot-needed build          warm 2.83   nowarm 3.92     -0.9s
+no-op that exports         warm 1.08   nowarm 1.61     -0.5s
+true no-op, no export      warm 0.64   nowarm 0.71     -0.07s
+```
+
+**Nothing waits for the boot**, which is what makes the third row cost nothing. A build needing no
+machine finishes and exits while `container run` is still in flight, and what it leaves behind is a
+running VM - the one the next build would otherwise have booted. Stopping it instead was considered and
+rejected on a measurement: `container stop` takes 5.4s, so killing an unwanted machine costs six times
+what booting it did.
+
+Two things this found on the way:
+
+**A no-op is not always a build with nothing to do.** The second row is `10 hit, 0 miss` and still needs
+the machine, because `SAVE ARTIFACT` has to export the file. The case the old laziness protects - every
+step a hit *and* nothing exported - had to be constructed to be measured, which is a fair comment on how
+common it is.
+
+**Pinning and warming are substitutes, not complements.** With the Earthfile pinned, planning falls to
+about 0.05s and the boot has nothing left to overlap: warming gained nothing at all. Unpinned it is worth
+0.9s. Both attack the same window, so whichever is added second is worth much less than it looks.

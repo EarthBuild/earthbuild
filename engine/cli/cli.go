@@ -177,13 +177,18 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 			// speculated on it.
 			defer prefetch(ctx, learned, intoImageCache(dir, platform))()
 
-			// A project that has ever run a condition needed a sandbox to do
-			// it. Starting it here overlaps the boot with parsing, digesting
-			// the build context and everything else interpretation does, rather
-			// than stopping at the first probe to wait for a VM.
-			if shouldWarm(learned) {
-				g.warm()
-			}
+			// Started for every build, not only one whose history says a
+			// condition will need it. A build that runs *any* step needs the
+			// machine, which is nearly all of them, and the boot then overlaps
+			// parsing, digesting the build context and resolving what `FROM`
+			// means - about half a second of registry round trip that the
+			// machine has no reason to wait behind.
+			//
+			// Nothing waits for it, so a build that turns out to need no machine
+			// is not slowed: it finishes and exits while the boot is in flight,
+			// and leaves behind the VM the next build would have had to boot
+			// anyway (E537).
+			g.warm(ctx)
 
 			defer func() {
 				recordNeeds(learned, g.decided, g.images)

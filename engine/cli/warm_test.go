@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 )
@@ -115,30 +114,36 @@ func TestABuildThatNeedsASandboxTakesTheWarmOne(t *testing.T) {
 	}
 }
 
-// Whether to start a sandbox before knowing the plan is answered from what
-// earlier builds did.
+// Warming does not wait to be told the project will need a machine.
 //
-// A project that has ever run a condition needed a sandbox to do it, and will
-// almost certainly need one again; a project with no history gets no guess. The
-// cost of being wrong is one VM boot that goes unused, which is the same shape
-// of cost as a wasted image pull - recoverable, and never a result.
-func TestWarmingIsDecidedFromHistory(t *testing.T) {
+// It used to: a sandbox was started early only for a project whose history
+// showed a condition, on the ground that a speculative boot is wasted on a build
+// that runs nothing. Measured, that gate was giving up most of the benefit -
+// a project with no `IF` but plenty of `RUN` never warmed, and a build needing a
+// boot paid 3.92s against 2.83s warmed (E537).
+//
+// The cost it guarded against did not appear, because nothing waits for the
+// boot: a build that needs no machine finishes and exits while it is still in
+// flight, and the machine it leaves is the one the next build wants. A true
+// no-op - every step a hit and nothing exported - measured 0.64s warmed against
+// 0.71s cold.
+//
+// This test is the record of that decision, so a future gate has to argue with a
+// number rather than with a comment.
+func TestWarmingIsNotGatedOnHistory(t *testing.T) {
 	t.Parallel()
 
-	if shouldWarm(nil) {
-		t.Error("a machine with no history started a sandbox on speculation")
+	src, err := os.ReadFile("cli.go")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	empty := core.NewPredictions()
-	if shouldWarm(empty) {
-		t.Error("a project that has never run a condition started a sandbox on speculation")
+	if strings.Contains(string(src), "shouldWarm(") {
+		t.Error("warming is gated again; if that is right, this test wants the measurement that says so")
 	}
 
-	seen := core.NewPredictions()
-	seen.Observe("Earthfile:12 command -v unbuffer", true)
-
-	if !shouldWarm(seen) {
-		t.Error("a project that has run a condition did not start its sandbox early")
+	if !strings.Contains(string(src), "g.warm(ctx)") {
+		t.Error("nothing starts the sandbox beside interpretation any more")
 	}
 }
 

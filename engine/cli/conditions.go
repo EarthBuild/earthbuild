@@ -656,28 +656,32 @@ const (
 	dockerSandboxImage = "docker:27-dind"
 )
 
-// shouldWarm reports whether to start a sandbox before the plan is known.
-//
-// A project that has ever run a condition needed a sandbox to do it and will
-// almost certainly need one again, so the boot can overlap interpretation
-// instead of stopping it. A project with no history gets no guess.
-//
-// The cost of being wrong is one VM boot that goes unused - the same shape of
-// cost as a wasted image pull, recoverable and never a result.
-func shouldWarm(learned *core.Predictions) bool {
-	return learned != nil && len(learned.Sites()) > 0
-}
-
 // warm starts the sandbox beside the interpretation rather than in front of it.
 //
 // sandboxed() is a sync.Once, so the first caller that genuinely needs the
 // sandbox joins this initialisation rather than racing it or starting a second.
-func (g *engine) warm() {
+func (g *engine) warm(ctx context.Context) {
 	g.mu.Lock()
 	g.started = true
 	g.mu.Unlock()
 
-	go func() { _, _, _ = g.sandboxed() }()
+	go func() {
+		e, _, err := g.sandboxed()
+		if err != nil || e == nil {
+			return
+		}
+
+		// **And the machine, not only the bookkeeping.** Building the executor
+		// opens caches and joins a fleet; it does not boot anything, because the
+		// boot is deferred to first use. So the 850ms this exists to overlap was
+		// still being paid in front of the first step (E537).
+		//
+		// Nothing waits for this. A build that needs no machine finishes and
+		// exits while the boot is still in flight, and what it leaves behind is
+		// a running VM - which is what the next build wants, and what the idle
+		// timeout takes away if there is no next build.
+		e.Prewarm(ctx)
+	}()
 }
 
 // switchTo makes the build's sandbox the one running image.

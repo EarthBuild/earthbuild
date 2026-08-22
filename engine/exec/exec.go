@@ -1445,3 +1445,22 @@ func (e *Executor) base(
 
 	return h, func() { _ = h.Release() }, nil
 }
+
+// Prewarm starts the sandbox's machine without waiting for anything to need it.
+//
+// The boot is otherwise deferred to first use, which is worth a whole VM on a
+// build that turns out to run nothing - see client(). Deferring it also puts it
+// squarely on the critical path of every build that *does* run something, where
+// it cannot overlap the planning that precedes it.
+//
+// So it is started here instead, on the caller's goroutine, and the caller is
+// expected to be one that does not wait: a build that needed no machine must not
+// pay for one, and a machine booted on speculation is the machine the next build
+// finds already running (E537).
+//
+// Backends that have nothing to warm say nothing.
+func (e *Executor) Prewarm(ctx context.Context) {
+	if p, ok := e.sb.(interface{ Prewarm(context.Context) }); ok {
+		p.Prewarm(ctx)
+	}
+}

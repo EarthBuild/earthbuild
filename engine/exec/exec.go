@@ -714,6 +714,10 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	id, err := placeCaptured(store, staging)
 	endPlace()
 
+	if err == nil {
+		noteUnmarked(filepath.Join(store, "layers", id.String()))
+	}
+
 	if err != nil {
 		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}

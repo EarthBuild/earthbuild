@@ -93,3 +93,38 @@ func TestTheAnswerSurvivesTheProcessThatFoundIt(t *testing.T) {
 		t.Errorf("a second process walked the layer again: got %q, want %q", second, first)
 	}
 }
+
+// A note in the store is believed, and is the only note a fresh VM has.
+//
+// Whoever placed the layer knew: an image is flattened as it is unpacked and
+// every `.wh.` entry applied as a deletion there, so a placed image cannot carry
+// one. CI gets a new VM per build, so the guest's own notes are always absent
+// and the scan was always paid (E531).
+func TestAStoreNoteIsBelieved(t *testing.T) {
+	t.Parallel()
+
+	store := t.TempDir()
+
+	src := filepath.Join(store, "layer-3")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Only a scan can see this, and the note says no scan is needed.
+	if err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(UnmarkedNote(src), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := (&translator{dir: t.TempDir(), done: map[string]string{}}).use(src, "layer-3")
+	if err != nil {
+		t.Fatalf("use: %v", err)
+	}
+
+	if got != src {
+		t.Errorf("the store's note was ignored and the layer walked: got %q, want %q", got, src)
+	}
+}

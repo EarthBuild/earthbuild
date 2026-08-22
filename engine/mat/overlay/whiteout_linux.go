@@ -73,6 +73,18 @@ func (t *translator) use(src, id string) (string, error) {
 	// no markers" lived only in the memo above, which belongs to the guest
 	// daemon - and the idle timeout stops that after 30 minutes, so the first
 	// build of a session walked the whole base again (E530).
+	// The store's note first, because it is the one a fresh VM has: whoever
+	// placed the layer knew the answer without looking, and CI gets a new VM
+	// for every build, so a note this guest wrote last time never exists there
+	// (E531).
+	if _, err := os.Stat(UnmarkedNote(src)); err == nil {
+		t.mu.Lock()
+		t.done[id] = src
+		t.mu.Unlock()
+
+		return src, nil
+	}
+
 	if _, err := os.Stat(unmarkedFile(t.dir, id)); err == nil {
 		t.mu.Lock()
 		t.done[id] = src
@@ -287,4 +299,4 @@ func copyOne(src, dst string) error {
 // content, and a file added to it would be a layer that is no longer what it
 // says it is. The suffix cannot collide with a translation, whose name is a
 // hex id.
-func unmarkedFile(dir, id string) string { return filepath.Join(dir, id+".unmarked") }
+func unmarkedFile(dir, id string) string { return UnmarkedNote(filepath.Join(dir, id)) }

@@ -24212,3 +24212,34 @@ one.
 **Both halves of a cached question want the same durability.** The asymmetry here was invisible
 because the expensive branch left its answer on disk as a side effect of doing the work, so nobody
 had to decide to persist it - and the cheap branch, having no side effect, quietly persisted nothing.
+
+## E531 - the question is not asked at all any more
+
+Three experiments to stop asking one question. E529 stopped asking it per step, E530 stopped asking
+it per guest - and "per guest" is still every build on CI, which gets a new VM each time and so has
+none of the guest's own notes.
+
+Nobody needed to ask it. `engine/image` unpacks an image's layers into **one** tree and applies every
+`.wh.` entry as a deletion as it goes: `whiteout` matches on `strings.HasPrefix(base, whPrefix)`, with
+no path that writes such an entry literally. A placed image therefore cannot carry a marker, and the
+materialiser was walking the whole tree to establish something the code that wrote it already knew.
+
+The note now goes into the store beside the layer, where a fresh VM can read it:
+
+```text
+cold build, fresh VM, empty store
+before   image:fetch  5.916s   image:place  1.134s   mat:markers  1.029s   materialise  1.032s
+after    image:fetch  5.872s   image:place  1.143s   (no scan)            materialise  0.002s
+```
+
+**Soundness first, because a wrong note is a wrong build rather than a slow one.** The claim rests on
+the unpacker catching every `.wh.` name, which was read before the note was written rather than
+assumed from the comment above it.
+
+What remains of a cold build is honest work: 7s of the 9.9s is fetching an image and putting it on
+disk, and the machine was indexing while these were taken.
+
+**And the branch could not have run this on CI.** `engine/exec`'s tests reference a darwin-only
+function from a file with no build tag, so the package has never compiled on linux - which is what CI
+builds. It went unnoticed because the branch has no pull request yet, so nothing had ever run the
+suite anywhere but this laptop. `go vet ./...` on a linux box is now clean.

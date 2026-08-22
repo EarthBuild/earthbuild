@@ -24362,3 +24362,34 @@ exchange cheaper rather than rarer:
 
 And a user can have the whole 0.57s today by pinning the digest, which the engine already prints for
 them on every build.
+
+## E535 - the probe was also warming the connection
+
+E534 found a no-op build spending 0.465s collecting an authentication challenge that fetches no data.
+A registry's realm and service are stable public metadata, so they are now remembered beside the
+images - per machine rather than per project, which is what both are.
+
+The phase-level result overstates the win by two:
+
+```text
+before   pin:token 0.465  + pin:manifest 0.155  = 0.620
+after    pin:token 0.144  + pin:manifest 0.332  = 0.476
+```
+
+**The probe fetched no data and was not doing nothing.** It dialled `registry-1.docker.io`, and the
+manifest request that followed inherited the connection. Removing it moved 0.18s out of one phase and
+into the next; the build is 0.14s faster, not 0.30s. Reporting the `pin:token` line alone would have
+claimed double, which is the same shape as an earlier cache-order effect - *a phase that got faster
+because its cost moved next door*.
+
+The remaining 0.18s is a TLS handshake to a host this engine knows it is about to use, so it can be
+dialled while the token is being fetched. That reintroduces a request whose only purpose is to warm a
+connection, which is what was just deleted, and is worth doing only deliberately.
+
+**This package had no test of the authentication exchange at all** before this. There are now three:
+the exchange as it stands (probe, token, manifest), a registry that issues no challenge - the path
+every other test here silently took - and a remembered realm that has gone stale, which must cost a
+probe rather than a build.
+
+The token is deliberately not remembered. It is a credential and it expires; putting one in a cache
+directory is a decision about credentials rather than an optimisation, and it is worth 0.14s more.

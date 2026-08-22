@@ -660,13 +660,18 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// The configuration the pull found, kept so it can be written beside the
 	// layer once the fetch has succeeded. Empty when the image came from the
 	// shared cache and was not fetched at all.
-	pull := func(ctx context.Context, ref, into string) (ocispec.ImageConfig, error) {
-		return image.Pull(ctx, ref, into, image.Options{Platform: platform})
-	}
-
 	imageRoot := e.ImageCache
 	if imageRoot == "" {
 		imageRoot = e.sb.StoreDir()
+	}
+
+	pull := func(ctx context.Context, ref, into string) (ocispec.ImageConfig, error) {
+		return image.Pull(ctx, ref, into, image.Options{
+			Platform: platform,
+			// Beside the images, because where a registry issues tokens is the
+			// same answer for every project on this machine (E535).
+			Challenges: imageRoot,
+		})
 	}
 
 	store := e.sb.StoreDir()

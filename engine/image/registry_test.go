@@ -44,6 +44,16 @@ type fakeRegistry struct {
 	// reference fetches no blob at all, so a blob counter cannot tell "resolved
 	// without asking" from "did not resolve".
 	manifests int
+	// auth makes this registry behave like a real one: an unauthenticated
+	// request is answered with a challenge and nothing else, and a token has to
+	// be fetched from the realm it names. Every test here predates this and runs
+	// without it, which is why the exchange that costs a no-op build 0.465s was
+	// unguarded (E534).
+	auth bool
+	// probes counts unauthenticated requests - the round trips that fetch no
+	// data - separately from tokens.
+	probes int
+	tokens int
 }
 
 func gzipTar(t *testing.T, name, body string) []byte {
@@ -105,7 +115,27 @@ func (f *fakeRegistry) start(t *testing.T) string {
 
 	mux := http.NewServeMux()
 
+	// Set once the server exists, because the challenge has to name its own
+	// realm and the URL is not known until then.
+	var realm string
+
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		f.tokens++
+
+		_ = json.NewEncoder(w).Encode(map[string]any{"token": "issued"})
+	})
+
 	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
+		if f.auth && r.Header.Get("Authorization") == "" {
+			f.probes++
+
+			w.Header().Set("WWW-Authenticate", `Bearer realm="`+realm+
+				`",service="fake",scope="repository:thing:pull"`)
+			w.WriteHeader(http.StatusUnauthorized)
+
+			return
+		}
+
 		switch {
 		case strings.Contains(r.URL.Path, "/manifests/"):
 			f.manifests++
@@ -191,6 +221,8 @@ func (f *fakeRegistry) start(t *testing.T) string {
 
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
+
+	realm = srv.URL + "/token"
 
 	return strings.TrimPrefix(srv.URL, "http://")
 }

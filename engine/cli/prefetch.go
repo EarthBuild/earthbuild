@@ -118,7 +118,11 @@ func intoImageCache(root, platform string) pullFunc {
 	return func(ctx context.Context, ref string) error {
 		return exec.Prefetch(ctx, root, ref, platform,
 			func(ctx context.Context, ref, dir string) (ocispec.ImageConfig, error) {
-				return image.Pull(ctx, ref, dir, image.Options{Platform: platform})
+				return image.Pull(ctx, ref, dir, image.Options{
+					// Beside the images: where a registry issues tokens is the
+					// same answer for every project on this machine (E535).
+					Platform: platform, Challenges: root,
+				})
 			})
 	}
 }

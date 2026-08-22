@@ -51,7 +51,7 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)
 
 	endToken := timing.Phase("pin:token", r.Registry)
-	tok, err := token(ctx, client, base+"/manifests/"+r.Tag)
+	tok, err := token(ctx, client, base+"/manifests/"+r.Tag, opt.Challenges, challengeKey(r))
 	endToken()
 
 	if err != nil {

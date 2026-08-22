@@ -26,8 +26,19 @@ import (
 // should be. What it must not do is claim to have pinned: an unresolved
 // reference is absent from the record below.
 func (g *engine) imageResolver(ctx context.Context) interp.ResolveImage {
+	// Where each registry issues tokens, remembered beside the images it serves:
+	// both are per machine rather than per project, and both are the same for
+	// every build on it. An error here costs the round trip it would have saved
+	// and nothing else (E535).
+	challenges, err := imageCacheDir()
+	if err != nil {
+		challenges = ""
+	}
+
 	return func(ref, platform string) (string, error) {
-		to, err := image.Resolve(ctx, ref, image.Options{Platform: resolveFor(platform)})
+		to, err := image.Resolve(ctx, ref, image.Options{
+			Platform: resolveFor(platform), Challenges: challenges,
+		})
 		if err != nil {
 			// Said once, where it can be acted on. An unpinned build is not a
 			// failed build, but it is a build whose keys are coarser than they

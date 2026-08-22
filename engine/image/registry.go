@@ -86,6 +86,13 @@ type Options struct {
 	Client *http.Client
 	// Platform is "os/arch". Defaults to this machine's.
 	Platform string
+	// Challenges is a directory in which to remember where each registry issues
+	// tokens, so the round trip that collects that answer is paid once rather
+	// than once per build. Empty means do not remember, which is what every
+	// test and every caller without a cache directory wants.
+	//
+	// The token itself is never written here. See challenge.go.
+	Challenges string
 }
 
 // maxManifest bounds a manifest document. A registry that returns an unbounded
@@ -169,7 +176,7 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 	// Registries answer an anonymous request with 401 and a challenge naming
 	// where to get a token. Public images need this too, so it is not an
 	// authentication feature - it is how a pull works at all.
-	tok, err := token(ctx, client, base+"/manifests/"+target)
+	tok, err := token(ctx, client, base+"/manifests/"+target, opt.Challenges, challengeKey(r))
 	if err != nil {
 		return ocispec.ImageConfig{}, fmt.Errorf("authenticate to %s: %w", r.Registry, err)
 	}
@@ -347,7 +354,16 @@ func verify(blob []byte, want string) error {
 //
 // Returns the empty string when the registry does not challenge, which is the
 // case for a local one, and is not an error.
-func token(ctx context.Context, client *http.Client, url string) (string, error) {
+func token(ctx context.Context, client *http.Client, url, dir, key string) (string, error) {
+	// Where this repository's token came from last time. A stale answer costs a
+	// probe rather than a build: the exchange below runs and replaces it.
+	if at := rememberedChallenge(dir, key); at != "" {
+		tok, err := fetchToken(ctx, client, at)
+		if err == nil && tok != "" {
+			return tok, nil
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("build the challenge request: %w", err)
@@ -391,7 +407,23 @@ func token(ctx context.Context, client *http.Client, url string) (string, error)
 		return "", fmt.Errorf("authentication challenge names no realm: %q", challenge)
 	}
 
-	body, err := get(ctx, client, "", fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope), maxManifest)
+	at := fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope)
+
+	tok, err := fetchToken(ctx, client, at)
+	if err != nil {
+		return "", err
+	}
+
+	// Remembered only once it has worked, so a realm that answers with nothing
+	// useful is not the answer the next build starts from.
+	rememberChallenge(dir, key, at)
+
+	return tok, nil
+}
+
+// fetchToken asks a realm for a token.
+func fetchToken(ctx context.Context, client *http.Client, at string) (string, error) {
+	body, err := get(ctx, client, "", at, maxManifest)
 	if err != nil {
 		return "", err
 	}

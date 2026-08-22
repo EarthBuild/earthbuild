@@ -136,3 +136,52 @@ func TestTheStoreTakesACapturedTree(t *testing.T) {
 		t.Errorf("identical trees filed as %v and %v", id, twice)
 	}
 }
+
+// A layer with a chosen name arrives whole or not at all.
+//
+// A local context is named by the node that asked for it rather than by a digest
+// of its contents, so it cannot go through Place. It was therefore built
+// directly under its final name - and a copy that failed half way left a
+// directory that `Has` reports as present, which is a base a later build would
+// stand on. The rule everywhere else in this engine is that a transfer leaving
+// nothing is better than one leaving half (see fleet.Put); this brings the
+// context path under it.
+func TestANamedLayerArrivesWholeOrNotAtAll(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	s := DirStore(root)
+	id := ir.NodeID{7, 7}
+
+	staging, err := s.Staging(".ctx-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(staging, "a"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Nothing is visible under the name while it is being built.
+	if s.Has(id) {
+		t.Error("the store holds a layer nobody has committed")
+	}
+
+	if err := s.PutNamed(id, staging); err != nil {
+		t.Fatalf("put named: %v", err)
+	}
+
+	if !s.Has(id) {
+		t.Error("a committed layer is not there")
+	}
+
+	// Committing again is not an error: two builds may produce the same context.
+	second, err := s.Staging(".ctx-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.PutNamed(id, second); err != nil {
+		t.Errorf("committing the same name twice: %v", err)
+	}
+}

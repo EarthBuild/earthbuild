@@ -80,4 +80,17 @@ type Store interface {
 	// its digest says. Kept only if the layer has none - two builds placing one
 	// image both arrive with a copy, and the first is as good as the second.
 	AdoptConfig(id ir.NodeID, from string) error
+
+	// PutNamed files a staged tree under an identity the caller chose.
+	//
+	// **Distinct from Place, and the distinction is not a convenience.** A layer
+	// is normally named by the digest of what it holds, which is what makes two
+	// machines agree without asking. A local context cannot be: it is named by
+	// the node that asked for it, because what it holds is a copy of somebody's
+	// working directory and the *request* is its identity.
+	//
+	// Whole or not at all. A tree built directly under its final name leaves,
+	// when a copy fails half way, a directory that Has reports as present - and
+	// a later build stands on it.
+	PutNamed(id ir.NodeID, staging string) error
 }

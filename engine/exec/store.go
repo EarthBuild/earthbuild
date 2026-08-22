@@ -91,6 +91,29 @@ func (d DirStore) AdoptConfig(id ir.NodeID, from string) error {
 	return nil
 }
 
+// PutNamed renames a staged tree into place under the given identity.
+//
+// Already there is success, not a conflict: two builds may produce the same
+// context, and the one that arrived first is as good as this one. The loser's
+// staging is removed rather than renamed over, because a rename onto a directory
+// fails and because what is there has been built exactly as carefully.
+func (d DirStore) PutNamed(id ir.NodeID, staging string) error {
+	at := d.LayerPath(id)
+
+	err := os.Rename(staging, at)
+	if err == nil {
+		return nil
+	}
+
+	if d.Has(id) {
+		_ = os.RemoveAll(staging)
+
+		return nil
+	}
+
+	return fmt.Errorf("file layer %v: %w", id, err)
+}
+
 // Root is the directory this store occupies.
 //
 // Present only while the store is a directory: the callers that still need it

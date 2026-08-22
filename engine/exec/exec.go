@@ -782,7 +782,24 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
 	}
 
-	dir := DirStore(e.sb.StoreDir()).LayerPath(n.ID())
+	st := DirStore(e.sb.StoreDir())
+
+	// **Built beside its name and renamed in.** This used to copy straight into
+	// the final directory, so a copy that failed half way left a tree that `Has`
+	// reports as present and a later build stands on. The rule everywhere else
+	// here is that a transfer leaving nothing beats one leaving half.
+	dir, err := st.Staging(".context-")
+	if err != nil {
+		return core.Result{}, fmt.Errorf("stage the build context: %w", err)
+	}
+
+	committed := false
+
+	defer func() {
+		if !committed {
+			_ = os.RemoveAll(dir)
+		}
+	}()
 
 	// The directory this entry was read from, which for a target in another
 	// Earthfile is that Earthfile's own - not the invocation's.
@@ -815,6 +832,13 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 	if err != nil {
 		return core.Result{}, fmt.Errorf("stage the build context: %w", err)
 	}
+
+	err = st.PutNamed(n.ID(), dir)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("file the build context: %w", err)
+	}
+
+	committed = true
 
 	return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
 }

@@ -262,11 +262,21 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// Kept for the *build's* scheduler as well, not only for conditions
 		// (E500).
 		g.fleetEx = x
+
+		// The same question the build's scheduler asks, asked the same way:
+		// a conditions pass that verified against the store while the build
+		// verified against the index could answer a condition one way and its
+		// own build the other.
+		//
+		// A failure here is not this pass's to report - the build opens the
+		// same store a moment later and says so with somewhere to say it.
+		blobs, _ := store.OpenBlobs(sb.StoreDir())
+
 		g.sched = &core.Scheduler{
 			Workers:  workers,
 			Executor: x,
 			Cache:    ac,
-			Blobs:    store.LayerStore(sb.StoreDir()),
+			Blobs:    blobs,
 			Writer:   writerName,
 		}
 	})

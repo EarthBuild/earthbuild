@@ -378,6 +378,25 @@ func runPlan(
 	// (E500).
 	over, workers := g.scheduling(e, o.Platform)
 
+	// What the L2 tier verifies its hits against: the store's index, with the
+	// store itself as the fallback that says when the index lagged (E542).
+	//
+	// A store that cannot be asked is reported and the build carries on against
+	// the store alone - the tier this feeds turns every one of its own failures
+	// into a rebuild rather than a wrong answer (I4), so a missing index costs
+	// time and nothing else.
+	blobs, err := store.OpenBlobs(sb.StoreDir())
+	if err != nil {
+		fmt.Fprintf(o.Out, "earth: the layer store's index could not be opened,"+
+			" so this build verifies its cache against the store directly: %v\n", err)
+	}
+
+	blobs.Gap = func(id ir.NodeID) {
+		fmt.Fprintf(o.Out, "earth: layer %s is in the store and was not in its"+
+			" index, which means something filed it without recording it;"+
+			" the index has been corrected\n", id)
+	}
+
 	s := &core.Scheduler{
 		Workers:  workers,
 		Executor: over,
@@ -385,7 +404,7 @@ func runPlan(
 		// The invocation saying "redo it all": reads nothing already there and
 		// writes everything it produces, so the *next* build is warm (E462).
 		NoCache: o.NoCache,
-		Blobs:   store.LayerStore(sb.StoreDir()),
+		Blobs:   blobs,
 		Writer:  writerName,
 		Record:  rec,
 		// What the mount can take, not what overlayfs allows: the option page

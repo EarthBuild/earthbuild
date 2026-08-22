@@ -702,12 +702,18 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// name is ours and empty, so it is removed and handed over as a name.
 	_ = os.Remove(staging)
 
+	endFetch := phase("image:fetch", n.Op.Args[0])
 	err = fetchImageFrom(ctx, imageRoot, n.Op.Args[0], platform, staging, pull)
+	endFetch()
+
 	if err != nil {
 		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
+	endPlace := phase("image:place", n.Op.Args[0])
 	id, err := placeCaptured(store, staging)
+	endPlace()
+
 	if err != nil {
 		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}

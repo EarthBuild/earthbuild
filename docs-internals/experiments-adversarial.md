@@ -15,6 +15,49 @@ House rules:
 * A killed assumption is a good day. It costs an afternoon instead of a quarter.
 * Every number carries its hardware and date. "Fast" is not a measurement.
 
+## Measuring
+
+Every rule here was bought. The entry named after each is where it was paid for, and the failures
+were all of the same kind: a number that was believed because it was a number.
+
+* **Instrument before optimising, and keep the instrument.** `EARTH_TIMINGS` named the whole of the
+  per-step cost on its first run, after four benchmark designs and three confident guesses had not
+  (E528, E529). The instrument outlived the fix and cost less than any of the guesses.
+
+* **A probe must not share the fate of its subject.** A stall was diagnosed six times from silence
+  because the tracer recorded its reason and reported it by failing the step - which a hung step
+  never does. Diagnostics for a hang are write-through or they are decoration (E521, E522).
+
+* **Directories are not isolation when the cache is content-addressed.** Sweeping k=1..6 in separate
+  directories had each larger k hit the previous k's steps, and reported six steps as *faster* than
+  three (E528). Give every measurement a token nothing has seen.
+
+* **More work taking less time is a broken harness, not a surprising result.** Stop and fix the
+  harness. Every instinct to explain the result is the enemy here.
+
+* **Alternate the variants; never run them in blocks.** Three alternating pairs settled a gzip
+  question that six samples in two blocks had left ambiguous (E532). Blocks cannot separate the
+  variant from the warm-up, the cache order, or the machine getting busier.
+
+* **Check the machine is quiet, mechanically.** `tools/bench/quiet.sh`. Three wrong conclusions in one
+  session came from a laptop that was indexing, and each one looked like a finding.
+
+* **A phase that got faster may have moved its cost next door.** Removing an authentication probe cut
+  its phase by 0.30s and the build by 0.14s: the probe had also been warming the TLS connection the
+  next request used (E535). Always read the total as well as the phase.
+
+* **Measure the cost you are about to remove, not the one you assume.** An obvious `.metadata_never_index`
+  fix addressed indexing that was already not happening - `mdfind` reported zero indexed items in a
+  71,132-file store (E525). The cost of an optimisation is easy to estimate; the cost being optimised
+  is not.
+
+* **Record the negative results.** Three unpack optimisations - descriptor-based metadata, parallel
+  writes, parallel writes spread across directories - died on one benchmark rather than in review
+  (E533). Sound reasoning with a wrong conclusion is the kind that gets implemented twice.
+
+* **Read the real exit status.** `go test ./... | grep FAIL` reports grep's status. A suite was called
+  green on the strength of a pipeline that could not have said otherwise.
+
 ## E1 - VM lifecycle cost (RUN, 2026-08-12)
 
 **Assumption (plan §2b):** Apple's runtime is cheap enough to run one VM per build step, so the

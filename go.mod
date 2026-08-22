@@ -7,7 +7,7 @@ require (
 	github.com/adrg/xdg v0.5.3
 	github.com/aws/aws-sdk-go-v2 v1.43.6
 	github.com/aws/aws-sdk-go-v2/config v1.32.37
-	github.com/containerd/go-runc v1.1.0
+	github.com/containerd/go-runc v1.2.0
 	github.com/containerd/platforms v1.0.0-rc.4
 	github.com/creack/pty v1.1.24
 	github.com/distribution/reference v0.6.0

@@ -98,8 +98,11 @@ var Mutants = []Mutant{
 	{
 		Name:        "overlay: reversing the stack for lowerdir (§3.2)",
 		File:        "engine/mat/overlay/overlay_linux.go",
-		Anchor:      "\tfor i := len(stack) - 1; i >= 0; i-- {\n\t\tid := stack[i]",
-		Replacement: "\tfor i := range stack {\n\t\tid := stack[i]",
+		// The stack became `trees` when declarations joined it: an element that
+		// contributes no directory is classified out before the mount is built,
+		// so what gets reversed is the elements that have one (§3.2a).
+		Anchor:      "\tfor i := len(trees) - 1; i >= 0; i-- {\n\t\tid := trees[i]",
+		Replacement: "\tfor i := range trees {\n\t\tid := trees[i]",
 		Package:     "./engine/mat/overlay/",
 		Linux:       true,
 	},

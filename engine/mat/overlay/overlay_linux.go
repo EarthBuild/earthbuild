@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 	"golang.org/x/sys/unix"
@@ -115,7 +116,18 @@ func Available(dir string) error {
 		return err
 	}
 
-	h, err := m.Materialise(context.Background(), []ir.NodeID{{}})
+	// The trial holds what it stacks. A stack element the store has neither a
+	// layer nor a declaration for is refused (I18), and this probe used to name
+	// one that had never been written - which worked only while a missing
+	// element was quietly invented as an empty directory.
+	probe := ir.NodeID{}
+
+	err = m.WriteLayer(probe, nil)
+	if err != nil {
+		return fmt.Errorf("prepare a layer to try mounting: %w", err)
+	}
+
+	h, err := m.Materialise(context.Background(), []ir.NodeID{probe})
 	if err != nil {
 		return err
 	}
@@ -195,16 +207,20 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 
 	endStack := timing.Phase("mat:stack", fmt.Sprintf("%d layers", len(stack)))
 
-	lower := make([]string, 0, len(stack))
-	for i := len(stack) - 1; i >= 0; i-- {
-		id := stack[i]
+	// **Classified in stack order, stacked in reverse.** A declaration folds
+	// lowest-first, because later wins; overlayfs takes its lower directories
+	// topmost-first. Two orders over one sequence, so the walk that decides what
+	// each element *is* cannot be the walk that builds the mount (§3.2a).
+	trees, declared, err := m.classify(stack)
+	if err != nil {
+		return nil, err
+	}
+
+	lower := make([]string, 0, len(trees))
+	for i := len(trees) - 1; i >= 0; i-- {
+		id := trees[i]
 
 		dir := m.layerDir(id)
-
-		err := os.MkdirAll(dir, 0o755)
-		if err != nil {
-			return nil, fmt.Errorf("prepare layer: %w", err)
-		}
 
 		// A layer that records a deletion is translated onto storage this VM
 		// owns, because a `.wh.` marker is what the shared store can hold and a
@@ -271,7 +287,7 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 			len(stack), merged, err, hint)
 	}
 
-	return &handle{root: merged, upper: upper, base: base, mounted: true}, nil
+	return &handle{root: merged, upper: upper, base: base, mounted: true, declared: declared}, nil
 }
 
 type handle struct {
@@ -279,12 +295,22 @@ type handle struct {
 	upper   string
 	base    string
 	mounted bool
+	// declared is what the stack's declarations left, folded in stack order.
+	declared []string
 
 	mu       sync.Mutex
 	released bool
 }
 
 func (h *handle) Root() string { return h.root }
+
+// Declared is what the stack says about how a step should run: the environment
+// its declarations leave, folded lowest-first (§3.2a).
+//
+// On the handle rather than fetched by the executor, because the materialiser is
+// what walked the stack - and an executor reaching back into the store for it is
+// how a worker came to run steps without the PATH their image sets.
+func (h *handle) Declared() []string { return h.declared }
 
 // Delta is the overlay upper directory: exactly what the step wrote.
 func (h *handle) Delta() string { return h.upper }
@@ -340,4 +366,47 @@ func (m *Materialiser) translator() *translator {
 	}
 
 	return m.tr
+}
+
+// classify sorts a stack into the elements that contribute paths and the ones
+// that contribute a declaration.
+//
+// **An element the store holds neither way is refused.** This used to be
+// `MkdirAll`, which made a directory for whatever was not there - so a layer
+// that never arrived materialised as one contributing nothing, which is
+// indistinguishable from a declaration and is a silent wrong answer rather than
+// an error (I18).
+func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, []string, error) {
+	trees := make([]ir.NodeID, 0, len(stack))
+
+	var declarations []decl.Declaration
+
+	for _, id := range stack {
+		fi, err := os.Stat(m.layerDir(id))
+		if err == nil && fi.IsDir() {
+			trees = append(trees, id)
+
+			continue
+		}
+
+		d, held, err := decl.Read(m.root, id)
+		if err != nil {
+			return nil, nil, fmt.Errorf("materialise %v: %w", id, err)
+		}
+
+		if held {
+			declarations = append(declarations, d)
+
+			continue
+		}
+
+		return nil, nil, fmt.Errorf(
+			"%v is in this step's base and this store holds neither a layer nor a"+
+				" declaration for it\n  looked for %s and %s\n  a base is materialised"+
+				" from what the store has, so the element has to be fetched before the"+
+				" step can run",
+			id, m.layerDir(id), decl.Path(m.root, id))
+	}
+
+	return trees, decl.Fold(nil, declarations...), nil
 }

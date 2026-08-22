@@ -13,6 +13,7 @@ package coretest
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -80,6 +81,38 @@ func layers(n int) []ir.NodeID {
 	return out
 }
 
+// stack is n layer identities that the implementation actually holds.
+//
+// **Named ids are not held layers.** These cases used to materialise identities
+// nothing had ever written, which passed only because a materialiser made a
+// directory for whatever was missing - so a base that never arrived produced an
+// empty tree rather than a refusal, and the suite was asserting that as correct.
+// It is not: a stack element the store holds neither way is an element that has
+// to be fetched (green paper I18).
+//
+// A simulator holds no bytes and legitimately cannot write one, so it keeps the
+// bare identities: for an implementation with no store, "the store does not hold
+// it" says nothing.
+func stack(t *testing.T, m core.Materialiser, n int) []ir.NodeID {
+	t.Helper()
+
+	ids := layers(n)
+
+	b, ok := m.(LayerBuilder)
+	if !ok {
+		return ids
+	}
+
+	for i, id := range ids {
+		err := b.WriteLayer(id, map[string]string{fmt.Sprintf("from-layer-%d", i): "x"})
+		if err != nil {
+			t.Fatalf("write layer %d: %v", i, err)
+		}
+	}
+
+	return ids
+}
+
 // emptyStack: a step with no inputs runs against scratch, and scratch is a
 // legitimate stack rather than an error.
 func emptyStack(t *testing.T, m core.Materialiser) {
@@ -101,7 +134,7 @@ func emptyStack(t *testing.T, m core.Materialiser) {
 func rootIsStable(t *testing.T, m core.Materialiser) {
 	t.Helper()
 
-	h, err := m.Materialise(context.Background(), layers(3))
+	h, err := m.Materialise(context.Background(), stack(t, m, 3))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +153,7 @@ func sameStackSameRoot(t *testing.T, m core.Materialiser) {
 	t.Helper()
 
 	ctx := context.Background()
-	st := layers(4)
+	st := stack(t, m, 4)
 
 	a, err := m.Materialise(ctx, st)
 	if err != nil {
@@ -149,7 +182,7 @@ func orderMatters(t *testing.T, m core.Materialiser) {
 
 	ctx := context.Background()
 
-	fwd := layers(2)
+	fwd := stack(t, m, 2)
 	rev := []ir.NodeID{fwd[1], fwd[0]}
 
 	a, err := m.Materialise(ctx, fwd)
@@ -178,12 +211,12 @@ func handlesAreIndependent(t *testing.T, m core.Materialiser) {
 
 	ctx := context.Background()
 
-	a, err := m.Materialise(ctx, layers(2))
+	a, err := m.Materialise(ctx, stack(t, m, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b, err := m.Materialise(ctx, layers(3))
+	b, err := m.Materialise(ctx, stack(t, m, 3))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +238,7 @@ func handlesAreIndependent(t *testing.T, m core.Materialiser) {
 func releaseIsIdempotent(t *testing.T, m core.Materialiser) {
 	t.Helper()
 
-	h, err := m.Materialise(context.Background(), layers(1))
+	h, err := m.Materialise(context.Background(), stack(t, m, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +259,7 @@ func releaseIsIdempotent(t *testing.T, m core.Materialiser) {
 func observationsAddressable(t *testing.T, m core.Materialiser) {
 	t.Helper()
 
-	h, err := m.Materialise(context.Background(), layers(2))
+	h, err := m.Materialise(context.Background(), stack(t, m, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +335,7 @@ func stackContentsVisible(t *testing.T, m core.Materialiser) {
 		t.Skip("materialiser holds no content")
 	}
 
-	st := layers(3)
+	st := stack(t, m, 3)
 	for i, id := range st {
 		err := lb.WriteLayer(id, map[string]string{
 			"file" + string(rune('a'+i)): "contents",

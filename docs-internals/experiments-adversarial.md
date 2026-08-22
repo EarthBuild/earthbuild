@@ -24720,3 +24720,50 @@ and one afternoon of that wiring found a step that has to come before phase 3 an
 The measurement in E541 was right and the sequencing it implied was wrong - a good argument for
 building the smallest round trip early, where the shape of the thing shows up before the cost of
 being wrong about it does.
+
+## E543 - four packages filed a layer, four ways, and none of them could be indexed
+
+E542 said the store needs an index the guest writes and the host reads, and that it comes before
+the disk rather than after. Building it found the reason it could not have been built earlier.
+
+An index is only as good as its completeness: a layer filed without being recorded costs a rebuild
+on a machine that has the layer, silently. So the question is how many places file a layer. The
+answer was four, in three packages, each with its own rename and its own account of the same race:
+
+```text
+engine/store   placeCaptured   captures, images
+engine/store   PutNamed        build contexts
+engine/store   squashInto      Φ, a flattened stack
+engine/guest   commit          a step's delta, inside the sandbox
+engine/fleet   Put             a transfer from a peer
+```
+
+Five, in fact. Every one ended `os.Rename(tmp, at)`, and every one handled the same loss the same
+way - `Has` again, and if it is there, succeed - under a different comment. Three of those comments
+independently name the failure class (*TOCTOU on a check-then-act*), which is a good sign that the
+mechanism was understood and a bad sign about where it lived.
+
+`store.Publish(root, id, staged)` is now the one moment a layer becomes visible, and therefore the
+one place the index is kept. The index follows the layer and never leads it:
+
+```text
+    the store holds, the index does not  ->  a rebuild
+    the index claims, the store does not ->  a cache hit against nothing
+```
+
+Note after filing, forget before deleting, and when in doubt say no. The second row is the outcome
+the engine spends its invariants avoiding, so the asymmetry decides every ordering here.
+
+**Checked in shadow.** While the store is a directory, both answers exist and can be compared, which
+is the entire reason to build the index now rather than with the disk. `Index.Disagrees` reports the
+difference in both directions, and it is asserted after a *real* build - one that pulls an image,
+runs steps and captures deltas - not only after the three paths a unit test can reach. It is empty.
+
+A false alarm worth recording: the image path looked like a fifth writer, `os.Rename(staged, dest)`
+in the image cache, straight into what read like a layer directory. It is not - `dest` there is a
+staging name the caller owns, and the image reaches the store through `Place` like everything else.
+The check that settled it was reading the caller, which is the check that should have come first.
+
+What this does not do is move the index to the host's side of the boundary. It sits inside the store
+today, because that is where the store is; relocating it is the disk's job, and the completeness
+question - the one that could be got wrong quietly - is answered now, where it can be seen.

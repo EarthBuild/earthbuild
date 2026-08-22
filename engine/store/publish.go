@@ -18,7 +18,7 @@ import (
 // first filed the same bytes and checked them exactly as hard (green paper
 // §5.3): the answer to a rename that lands on an existing layer is that the
 // layer is there. Stating it once means the next caller cannot state it wrong -
-// and it is the seam an index of what the store holds would be kept honest at,
+// and it is the seam an index of what the store holds is kept honest at,
 // because a layer that becomes visible anywhere becomes visible here (E542).
 //
 // The staging tree is not removed on failure. Its maker knows what it is and
@@ -38,5 +38,10 @@ func Publish(root string, id ir.NodeID, staged string) error {
 		}
 	}
 
-	return nil
+	// After the layer, always. An index entry that arrives first describes a
+	// layer that may never exist, and the whole value of the index is that it
+	// never claims one (see Index).
+	//
+	// Noted on the losing path too: the layer is there, whoever filed it.
+	return Index(root).Note(id)
 }

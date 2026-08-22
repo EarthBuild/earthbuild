@@ -107,6 +107,30 @@ func TestRebuildIsAllHits(t *testing.T) {
 			t.Errorf("second build, step %d: %v, want an L1 hit", i, o)
 		}
 	}
+
+	// The store's index agrees with the store, after a build that pulled an
+	// image, ran steps and captured their deltas.
+	//
+	// The synthetic version of this check exercises the three ways a layer is
+	// filed that a unit test can reach; this one exercises whatever the engine
+	// actually does, which is the difference that matters. The index is not
+	// load-bearing yet and this is the window in which it can be checked at all
+	// - once the store is a disk, only its owner can answer (E542).
+	missing, claimed, err := store.Index(root).Disagrees()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(missing) != 0 {
+		t.Errorf("a real build filed layers the store index does not record: %v"+
+			"\n  a path that files a layer is not going through Publish, and the"+
+			"\n  cost is a machine rebuilding what it already has", missing)
+	}
+
+	if len(claimed) != 0 {
+		t.Errorf("the store index records layers a real build did not leave: %v"+
+			"\n  which is a cache hit against a layer that is not there", claimed)
+	}
 }
 
 // A cache entry whose layer is gone must miss, not hit.

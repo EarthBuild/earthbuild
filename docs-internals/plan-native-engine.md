@@ -8898,6 +8898,11 @@ So Phase 2 has a second half, and it is the one Phase 3 actually depends on:
   mounts has no such hole, so an index the guest maintains is exactly as trustworthy as the stat was.
   The check does not weaken; what it checks becomes unforgeable by construction.
 
+  Built, and checked in shadow (E543). Five places filed a layer and none could be indexed until
+  they shared one; `store.Publish` is that seam, and `Index.Disagrees` asserts the index and the
+  store agree after a real build. What remains for Phase 3 is moving the index to the host's own
+  directory - it lives inside the store today, because that is still where the store is.
+
 ### Phase 3 - the disk
 
 Attach a second block device, put ext4 on it, mount it where the store is, and select the guest-backed

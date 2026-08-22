@@ -72,6 +72,25 @@ func (d DirStore) Populated(id ir.NodeID) bool { return populated(d.LayerPath(id
 // NoteUnmarked records that a layer carries no whiteout markers.
 func (d DirStore) NoteUnmarked(id ir.NodeID) { noteUnmarked(d.LayerPath(id)) }
 
+// AdoptConfig moves a configuration to sit beside its layer.
+func (d DirStore) AdoptConfig(id ir.NodeID, from string) error {
+	at := d.LayerPath(id) + configSuffix
+
+	// Only if there is none. Two builds placing the same image both arrive with
+	// a copy, and whichever got there first is as good as this one.
+	_, err := os.Stat(at)
+	if err == nil {
+		return nil
+	}
+
+	err = os.Rename(from, at)
+	if err != nil {
+		return fmt.Errorf("file the configuration for layer %v: %w", id, err)
+	}
+
+	return nil
+}
+
 // Root is the directory this store occupies.
 //
 // Present only while the store is a directory: the callers that still need it

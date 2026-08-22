@@ -724,11 +724,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// The configuration follows the layer to its final name. What an image
 	// declares is not part of what it ships, so it travels beside the tree
 	// rather than in it.
-	at := st.LayerPath(id)
-	if _, statErr := os.Stat(at + configSuffix); statErr != nil {
-		_ = os.Rename(staging+configSuffix, at+configSuffix)
-	}
-
+	_ = st.AdoptConfig(id, staging+configSuffix)
 	_ = os.Remove(staging + configSuffix)
 
 	rememberImageLayer(shared, id)

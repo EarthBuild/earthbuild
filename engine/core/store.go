@@ -72,4 +72,12 @@ type Store interface {
 	// NoteUnmarked records that a layer carries no whiteout markers, so nothing
 	// has to walk it to find that out again (E531).
 	NoteUnmarked(id ir.NodeID)
+
+	// AdoptConfig takes an image configuration as belonging to a layer.
+	//
+	// Beside the tree rather than in it: what an image declares is not part of
+	// what it ships, so putting it inside would make the layer no longer what
+	// its digest says. Kept only if the layer has none - two builds placing one
+	// image both arrive with a copy, and the first is as good as the second.
+	AdoptConfig(id ir.NodeID, from string) error
 }

@@ -8857,8 +8857,23 @@ The test for whether something needs phase 1 is not "does it touch a path" but *
 outside it have to know the store is a filesystem"**. For `fleet.Layers` the answer is no: its callers
 ask for a layer and get bytes.
 
-`LayerPath` has five users. That number is phase 2's worklist: each is a caller that wants a path
-rather than an operation, and a store on a disk has no path to give it.
+`LayerPath` had five users. It has one: `packImage`, which reads several layers to assemble an OCI
+layout, and therefore wants bytes rather than a name - which is phase 2's work rather than more of
+this. The other four were questions wearing a path (`Populated`, `NoteUnmarked`, `Has`) or renames
+the store should own (`AdoptConfig`, `PutNamed`).
+
+**Phase 1 found two defects on its own**, which is the argument for doing it as a phase rather than
+as a preamble to phase 3:
+
+* `baseConfig` had no callers once declarations moved to the stack, and was a second way to read what
+  an image declares;
+* a build context was copied straight into its final directory, so a copy that failed half way left a
+  tree `Has` reports as present, and a later build would stand on it. Everywhere else here a transfer
+  leaving nothing beats one leaving half; the context path was outside that rule and nobody had
+  noticed, because the failure needs an interrupt at the wrong moment.
+
+Neither was visible while the store was a path everybody could join. Naming the operations is what
+made them look wrong.
 
 ### Phase 2 - a guest-backed implementation
 

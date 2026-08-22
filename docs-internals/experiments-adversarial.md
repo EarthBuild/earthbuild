@@ -23989,3 +23989,37 @@ reasoned from silence (E521, E522).
 
 `receiveWith` now holds the policy over any source of notifications, so which errno ends the loop is
 a decision the suite exercises rather than one that needs a lost race to reach.
+
+## E524 - a stopped VM is woken, not replaced
+
+The idle timeout stops an unattended sandbox after 30 minutes, so the first build of a session finds
+one stopped rather than absent. That case took the slowest route available:
+
+```text
+container run (fails on the name in use)     46ms
+container rm -f                             156ms
+container run (the boot proper)             751ms
+                                            -----
+                                            953ms
+
+container start (the VM already there)      592ms
+```
+
+361ms, on a path taken every time somebody comes back to a machine. `container start` was never tried
+because the reuse check asks only whether the VM is *running*, and everything that is not running was
+treated as wreckage.
+
+**It does not save the caches.** An earlier draft of this claimed the old path threw the volume away;
+it does not - `rm -f` removes the container and leaves the volume, which is exactly why 55 of them
+accumulated. The saving is the 361ms and nothing else.
+
+`Resumes()` reports the cheap path the way `Boots()` reports the expensive one, which is what the
+test asserts on. Disabling the resume makes it fail with `resumed 0 times, want 1`; that was checked
+rather than assumed, because a test that has only ever failed to compile has not been shown to detect
+anything.
+
+**`container stop` is the slow half of this and is not fixed here**: 5.4s on an idle machine, and an
+XPC timeout under load - having stopped the VM anyway, which made the first version of the test flaky
+in the full suite and fine on its own. The test now polls for the state instead of trusting the exit
+status. A stop that takes 5s is unattended and costs nobody anything today, but it is the reason a
+build cannot simply stop and start its VM around a long gap.

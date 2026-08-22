@@ -75,6 +75,7 @@ type Apple struct {
 	dir     string
 	cmd     *osexec.Cmd
 	boots   atomic.Int64
+	resumes atomic.Int64
 	mu      sync.Mutex
 	stopped bool
 }
@@ -185,6 +186,24 @@ func NewApple() *Apple {
 // Boots reports how many VMs this sandbox has started, so "one VM per run" is
 // observable rather than asserted in a comment.
 func (a *Apple) Boots() int { return int(a.boots.Load()) }
+
+// Resumes reports how many stopped VMs this sandbox woke rather than replaced,
+// so the cheap path is observable rather than asserted in a comment.
+func (a *Apple) Resumes() int { return int(a.resumes.Load()) }
+
+// resume wakes the stopped VM this build is named for, reporting whether it
+// came back. A failure is not an error: every caller's next move is to boot one,
+// which is the right move whatever went wrong here.
+func (a *Apple) resume(ctx context.Context) bool {
+	err := osexec.CommandContext(ctx, "container", "start", a.name).Run() //nolint:gosec // fixed argv
+	if err != nil {
+		return false
+	}
+
+	a.resumes.Add(1)
+
+	return true
+}
 
 // StoreDir is where layers live for this sandbox.
 //
@@ -314,26 +333,38 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	if seen[a.name] != "running" {
 		a.ensureVolume(ctx)
 
-		run := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
+		// **A VM of this name that is merely stopped is this build's VM asleep.**
+		// Same mounts and same volume - the name is a digest of them - so waking
+		// it is all that is wanted. The idle timeout stops an unattended sandbox
+		// after 30 minutes, which makes the first build of a session find one
+		// every time.
+		//
+		// It used to boot a replacement, and by the slowest route available: a
+		// `container run` that fails on the name in use, an `rm -f`, and then
+		// the boot. 953ms measured, against 592ms to start the one already
+		// there (E524).
+		if !(seen[a.name] == "stopped" && a.resume(ctx)) {
+			run := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
-		out, err := run.CombinedOutput()
-		if err != nil {
-			// A container of this name that exists but is not running is the
-			// remains of a crash. Removed and retried once rather than reported,
-			// because the alternative is a machine that cannot build until
-			// someone is told to run a cleanup command.
-			_ = osexec.Command("container", "rm", "-f", a.name).Run() //nolint:gosec // fixed argv
+			out, err := run.CombinedOutput()
+			if err != nil {
+				// A container of this name that exists but is not running is the
+				// remains of a crash. Removed and retried once rather than
+				// reported, because the alternative is a machine that cannot
+				// build until someone is told to run a cleanup command.
+				_ = osexec.Command("container", "rm", "-f", a.name).Run() //nolint:gosec // fixed argv
 
-			retry := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
+				retry := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
-			out2, err2 := retry.CombinedOutput()
-			if err2 != nil {
-				return nil, fmt.Errorf("boot the sandbox VM (image %s): %w: %s\n  after clearing a stale one: %s",
-					a.Image, err, out, out2)
+				out2, err2 := retry.CombinedOutput()
+				if err2 != nil {
+					return nil, fmt.Errorf("boot the sandbox VM (image %s): %w: %s\n  after clearing a stale one: %s",
+						a.Image, err, out, out2)
+				}
 			}
-		}
 
-		a.boots.Add(1)
+			a.boots.Add(1)
+		}
 	}
 
 	// The environment goes through `container exec -e`, NOT through cmd.Env.

@@ -8885,6 +8885,19 @@ Measured in E541: the transport carries 382 MB/s against the 307 MB/s at which t
 is faster than the work it feeds. This phase is where that gets confirmed on real layers rather than
 on `/dev/zero`.
 
+The first operation across - `store-has` - found a step this plan did not have (E542). `core.Lookup`
+verifies every L2 hit with a stat, during scheduling, before any VM boots; a build whose every step is
+cached boots nothing at all, and that is the 0.66s no-op build. Route that question over the wire and
+the fastest path this quarter bought pays a VM start to be told what it already believed.
+
+So Phase 2 has a second half, and it is the one Phase 3 actually depends on:
+
+* **an index of what the store holds, written by the guest and read by the host.** The stat is not
+  asking whether the cache is honest - it is checking that a layer directory on a shared filesystem
+  has not been deleted by a GC, a half-finished copy, or a user with `rm`. A disk only the guest
+  mounts has no such hole, so an index the guest maintains is exactly as trustworthy as the stat was.
+  The check does not weaken; what it checks becomes unforgeable by construction.
+
 ### Phase 3 - the disk
 
 Attach a second block device, put ext4 on it, mount it where the store is, and select the guest-backed

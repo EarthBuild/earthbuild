@@ -24672,3 +24672,51 @@ being paid, by the other side of the boundary, where nobody had measured it.
 
 Not implemented here. What this settles is the argument, not the work: sizing the image and growing
 it remain real, and `placeCaptured` and `Layers.Get` still have to move behind the protocol.
+
+## E542 - the disk's real cost is not bandwidth, it is that a cache hit asks a question
+
+E541 answered the objection everyone raised - that reading the store over a transport would be
+slow - and the answer was that it is not. Building the first store operation over the wire found
+the objection nobody raised, which is the one that bites.
+
+`core.Lookup` verifies before it trusts:
+
+```go
+// A claim whose result is not present is not usable, however well signed.
+if bs != nil && !bs.Has(e.Layer) {
+    return Entry{}, false
+}
+```
+
+That runs on **every L2 hit**, during scheduling, and today it is an `os.Stat` on a directory the
+host can see. A build whose every step is cached asks it once per step and boots no VM at all -
+which is the whole of the 0.66s no-op build (E537).
+
+Put the store on a disk only the guest mounts and the host cannot answer it. The question has to
+cross the wire, the wire needs a guest, and the guest needs a boot: a fully cached build would pay
+a VM start to be told what it already believed. That is the fast path this quarter was spent
+buying, spent in one move.
+
+**The resolution is that the disk removes the reason the check exists.** `Has` is not asking
+whether the cache is telling the truth - it is a signature the cache cannot forge, and it is
+checked because a layer directory on a shared filesystem can be deleted by anything: a GC, a
+half-finished copy, a user with `rm`. `rebuild_test.go` holds exactly that case and demands a
+rebuild.
+
+A disk only the guest mounts has no such hole. Nothing on the host can reach it, so an index of
+what it holds - written by the guest as it places layers, read by the host - is as trustworthy as
+the stat was, and the host-visible index is the *only* thing the host reads. Verification does not
+weaken; the thing being verified becomes unforgeable by construction rather than by inspection.
+
+The order that follows, and it is not the order the plan had:
+
+1. `StoreHas` over the wire, for a host that already has a guest. Built and tested here.
+2. The host-side index, written by the guest. This, not the transport, is what phase 3 needs
+   before the disk can exist.
+3. The disk.
+
+Recorded because the plan's phase 2 said "mostly wiring existing guest code to new request kinds",
+and one afternoon of that wiring found a step that has to come before phase 3 and was not in it.
+The measurement in E541 was right and the sequencing it implied was wrong - a good argument for
+building the smallest round trip early, where the shape of the thing shows up before the cost of
+being wrong about it does.

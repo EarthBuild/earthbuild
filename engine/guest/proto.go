@@ -82,6 +82,16 @@ const (
 	KindCapture     Kind = "capture"
 	KindExport      Kind = "export"
 	KindCopy        Kind = "copy"
+	// KindStoreHas asks which of a set of layer ids the store holds.
+	//
+	// The first request that treats the guest's store as the store rather than
+	// as a directory the host can also see. Under a shared mount the host
+	// answered this with `os.Stat` and the question never crossed the wire; once
+	// the store is a disk the guest owns, only the guest can answer it (E541).
+	//
+	// A set rather than one id, because the scheduler asks about a whole stack
+	// at once and a round trip per layer is the cost this move exists to avoid.
+	KindStoreHas Kind = "store-has"
 	// KindCancel abandons a request that is still running, by id.
 	//
 	// The only request that refers to another one. It exists because a step is
@@ -343,6 +353,12 @@ type Response struct {
 	// Layer and Content are a capture's two digests, hex. Layer is the identity
 	// (timestamps included); Content excludes them, so determinism screening
 	// judges a step on what it produced rather than on when it ran.
+	// Held is the subset of a store-has request's ids the store holds.
+	//
+	// The subset rather than a parallel array of booleans: absent means absent,
+	// and a shorter list cannot be misread the way a truncated one could.
+	Held []string `json:"held,omitempty"`
+
 	Layer   string `json:"layer,omitempty"`
 	Content string `json:"content,omitempty"`
 	Bytes   int64  `json:"bytes,omitempty"`

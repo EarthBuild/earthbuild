@@ -21,6 +21,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Server is the guest half: it runs inside the VM and serves a real
@@ -482,6 +483,35 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		}
 
 		return Response{Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes}
+
+	case KindStoreHas:
+		ids, err := decodeStack(req.Stack)
+		if err != nil {
+			return Response{Err: "store-has: " + err.Error()}
+		}
+
+		// An unset store is not an empty store. `DirStore("")` joins to a
+		// *relative* path, so the answer would come from whatever directory
+		// this process happens to be in - and "no" from the wrong place is
+		// indistinguishable from "no", so the build would quietly rebuild
+		// everything it already had.
+		if s.LayerDir == "" {
+			return Response{Err: "store-has: this guest was started without a" +
+				" layer directory, so it cannot say what the store holds" +
+				" (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
+		}
+
+		st := store.DirStore(s.LayerDir)
+
+		held := make([]string, 0, len(ids))
+
+		for _, id := range ids {
+			if st.Has(id) {
+				held = append(held, id.String())
+			}
+		}
+
+		return Response{Held: held}
 
 	case KindRelease:
 		s.mu.Lock()

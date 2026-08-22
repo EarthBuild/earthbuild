@@ -3,6 +3,7 @@
 package guest
 
 import (
+	"fmt"
 	"runtime"
 
 	"github.com/EarthBuild/earthbuild/engine/trace"
@@ -72,6 +73,16 @@ func runObserved(
 		// never sets this, which is every use today.
 		if unfilled := tr.Unfilled(); unfilled != nil && runErr == nil {
 			runErr = unfilled
+		}
+
+		// **A servicer that stopped early is the step's business.** The filter
+		// outlives it, so anything the step does afterwards is stopped in the
+		// kernel with nothing coming to release it. Until this was reported, a
+		// build in that state hung with no message on either side (E520).
+		if stopped := tr.Stopped(); stopped != nil && runErr == nil {
+			runErr = fmt.Errorf("this step's syscall tracer stopped while it was"+
+				" running: %w\n  anything the step did after that is stopped in"+
+				" the kernel, so the step cannot be trusted to have finished", stopped)
 		}
 
 		// Read before the listener closes. The step is reaped, so every

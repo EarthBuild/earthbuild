@@ -116,7 +116,12 @@ func TestRebuildIsAllHits(t *testing.T) {
 	// actually does, which is the difference that matters. The index is not
 	// load-bearing yet and this is the window in which it can be checked at all
 	// - once the store is a disk, only its owner can answer (E542).
-	missing, claimed, err := store.Index(root).Disagrees()
+	index, err := store.OpenIndex(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	missing, claimed, err := index.Disagrees()
 	if err != nil {
 		t.Fatal(err)
 	}

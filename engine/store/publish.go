@@ -43,5 +43,14 @@ func Publish(root string, id ir.NodeID, staged string) error {
 	// never claims one (see Index).
 	//
 	// Noted on the losing path too: the layer is there, whoever filed it.
-	return Index(root).Note(id)
+	//
+	// Opened rather than addressed, because a store filled before the index
+	// existed has an index that is *missing* rather than empty, and filing one
+	// layer into it must not be what makes it look like the only one.
+	index, err := OpenIndex(root)
+	if err != nil {
+		return err
+	}
+
+	return index.Note(id)
 }

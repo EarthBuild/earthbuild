@@ -4,16 +4,30 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
+// openIndex is OpenIndex, failing the test rather than returning.
+func openIndex(t *testing.T, root string) Index {
+	t.Helper()
+
+	i, err := OpenIndex(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return i
+}
+
 // disagreements is Index.Disagrees, failing the test rather than returning.
 func disagreements(t *testing.T, root string) (missing, claimed []ir.NodeID) {
 	t.Helper()
 
-	missing, claimed, err := Index(root).Disagrees()
+	missing, claimed, err := openIndex(t, root).Disagrees()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,12 +83,14 @@ func TestEveryWayALayerIsFiledRecordsIt(t *testing.T) {
 	}
 }
 
-// A lost index is rebuilt from the store.
+// A store filled before the index existed is not a store with nothing in it.
 //
-// The index is derived, so losing it must cost a walk and not a rebuild of
-// every layer. This is also the path a host takes when it meets an existing
-// store for the first time.
-func TestALostIndexIsRebuiltFromTheStore(t *testing.T) {
+// *Absent is not empty.* Every machine that has ever run this engine has a store
+// full of layers and no index, and an index that answered "no" about all of them
+// would throw away a cache nobody could see was gone - a first build after an
+// upgrade that rebuilds everything and reports success. So opening an index that
+// is not there builds it from the store, once.
+func TestAStoreFilledBeforeTheIndexExistedKeepsItsLayers(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -88,41 +104,81 @@ func TestALostIndexIsRebuiltFromTheStore(t *testing.T) {
 		}
 	}
 
+	// The state of every existing store: layers, and no record of them.
 	err := os.RemoveAll(filepath.Join(root, "index"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if Index(root).Has(ir.NodeID{1}) {
-		t.Fatal("the index was removed and still answers")
+	if !openIndex(t, root).Has(ir.NodeID{1}) {
+		t.Fatal("a store filled before the index existed reported holding none" +
+			" of its layers:\n  every machine upgrading to this would rebuild its" +
+			" whole cache and say nothing")
 	}
 
-	err = Index(root).Rebuild()
+	missing, claimed := disagreements(t, root)
+	if len(missing) != 0 || len(claimed) != 0 {
+		t.Fatalf("a built index disagrees with the store:"+
+			"\n  the store holds and the index lacks: %v"+
+			"\n  the index claims and the store lacks: %v", missing, claimed)
+	}
+}
+
+// Rebuild replaces an index that is there and wrong.
+//
+// The repair, as against the migration above: opening fills a *missing* index
+// and leaves a present one alone, because a present one is the one the engine
+// has been maintaining. Replacing it is asked for.
+func TestRebuildReplacesAnIndexThatIsWrong(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	err := Publish(root, ir.NodeID{1}, staged(t, root, ".real", "real"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A record of a layer the store does not hold: the dangerous direction,
+	// and the one a repair exists to remove.
+	err = openIndex(t, root).Note(ir.NodeID{7})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, claimed := disagreements(t, root)
+	if len(claimed) != 1 {
+		t.Fatalf("the fixture did not produce a wrong index: claimed %v", claimed)
+	}
+
+	err = openIndex(t, root).Rebuild()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	missing, claimed := disagreements(t, root)
 	if len(missing) != 0 || len(claimed) != 0 {
-		t.Fatalf("a rebuilt index disagrees with the store:"+
+		t.Fatalf("a rebuilt index still disagrees with the store:"+
 			"\n  the store holds and the index lacks: %v"+
 			"\n  the index claims and the store lacks: %v", missing, claimed)
 	}
 }
 
-// An unset index holds nothing rather than answering from the working directory.
+// The zero index holds nothing, and is the only one a caller gets without asking.
 //
-// `Index("")` joins to a *relative* path, so a stray `index/` beside whatever
-// directory the process happens to be in would be read as the store's own. A
-// wrong "no" costs a rebuild; a wrong "yes" is a cache hit against nothing.
-func TestAnUnsetIndexHoldsNothing(t *testing.T) {
+// It is what OpenIndex returns for a store with no directory - a sandbox that
+// has not started answers "" for its store (E141's neighbour), and joining that
+// would read a stray `index/` beside whatever directory the process happens to
+// be in. A wrong "no" costs a rebuild; a wrong "yes" is a cache hit against
+// nothing, so the zero value takes the safe side of that.
+func TestTheZeroIndexHoldsNothing(t *testing.T) {
 	t.Parallel()
 
-	if Index("").Has(ir.NodeID{1}) {
+	if (Index{}).Has(ir.NodeID{1}) {
 		t.Fatal("an index with no store answered yes")
 	}
 
-	err := Index("").Note(ir.NodeID{1})
+	err := (Index{}).Note(ir.NodeID{1})
 	if err != nil {
 		t.Fatalf("noting into an unset index failed rather than doing nothing: %v", err)
 	}
@@ -138,8 +194,135 @@ func TestForgettingWhatWasNeverRecordedSucceeds(t *testing.T) {
 
 	root := t.TempDir()
 
-	err := Index(root).Forget(ir.NodeID{9})
+	err := openIndex(t, root).Forget(ir.NodeID{9})
 	if err != nil {
 		t.Fatalf("forgetting an unrecorded layer failed: %v", err)
+	}
+}
+
+// Two builds meeting an unindexed store both get an index, and it is complete.
+//
+// The migration happens on the first build after an upgrade, and there is no
+// reason that is one build: a developer's shell and their editor's language
+// server reach the same store at the same moment. Both walk, both write, and one
+// of them renames onto a directory that now exists.
+//
+// Losing that is success, and only when filling a gap - the loser read the same
+// store the winner did. The property that matters is the one asserted here: no
+// caller sees a partial index, because the walk happens beside and arrives whole.
+func TestTwoBuildsBuildingTheIndexAtOnceBothGetAWholeOne(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	for i, name := range []string{".r1", ".r2", ".r3", ".r4"} {
+		err := Publish(root, ir.NodeID{byte(i + 1)}, staged(t, root, name, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err := os.RemoveAll(filepath.Join(root, "index"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		bad  []error
+		held [2]bool
+	)
+
+	for n := range 2 {
+		wg.Go(func() {
+			i, err := OpenIndex(root)
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				bad = append(bad, err)
+
+				return
+			}
+
+			held[n] = i.Has(ir.NodeID{4})
+		})
+	}
+
+	wg.Wait()
+
+	for _, err := range bad {
+		t.Errorf("building the index concurrently failed: %v", err)
+	}
+
+	for n, ok := range held {
+		if !ok {
+			t.Errorf("build %d got an index that does not hold a layer the store does", n)
+		}
+	}
+
+	missing, claimed := disagreements(t, root)
+	if len(missing) != 0 || len(claimed) != 0 {
+		t.Fatalf("two concurrent builds left an index that disagrees with the store:"+
+			"\n  the store holds and the index lacks: %v"+
+			"\n  the index claims and the store lacks: %v", missing, claimed)
+	}
+}
+
+// Filling a gap that somebody else has already filled is success.
+//
+// The deterministic half of the test above, which cannot promise it reached this
+// path: `fill` walks the store beside the index and renames the result in, so a
+// second filler renames onto a directory that now exists. It read the same store
+// and would have written the same answer, and the index it finds is whole.
+//
+// Only when filling a gap. A *replace* that finds one is a replace that did not
+// happen, and reporting that as success would leave a wrong index in place with
+// nobody told.
+func TestFillingAGapAnotherFillerClosedSucceeds(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	err := Publish(root, ir.NodeID{1}, staged(t, root, ".g1", "g1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.RemoveAll(filepath.Join(root, "index"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	i := Index{dir: root}
+
+	err = i.fill(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The loser: the index it is about to install is already there.
+	err = i.fill(false)
+	if err != nil {
+		t.Fatalf("filling a gap another filler had closed was reported as a failure: %v", err)
+	}
+
+	if !i.Has(ir.NodeID{1}) {
+		t.Fatal("the index does not hold a layer the store does")
+	}
+
+	// Nothing left behind: a staging directory that outlives its fill is a
+	// directory the next walk has to know is not a layer.
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".index-") {
+			t.Errorf("a fill left its staging directory behind: %s", e.Name())
+		}
 	}
 }

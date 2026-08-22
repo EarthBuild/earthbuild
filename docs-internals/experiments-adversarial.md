@@ -24767,3 +24767,49 @@ The check that settled it was reading the caller, which is the check that should
 What this does not do is move the index to the host's side of the boundary. It sits inside the store
 today, because that is where the store is; relocating it is the disk's job, and the completeness
 question - the one that could be got wrong quietly - is answered now, where it can be seen.
+
+## E544 - the index's first user is every store that already exists
+
+An index of what the store holds is only useful once something reads it instead of the store. The
+day that happens, every machine that has ever run this engine has a store full of layers and no
+index - and an index that answers "no" about all of them is a first build after an upgrade that
+rebuilds the entire cache and reports success.
+
+*Absent is not empty.* The same failure class as the cache entry that lost its declaration (E538),
+and as the sandbox that answers `""` for its store directory before it starts: a value that means
+"I have not been told" read as a value that means "there is nothing".
+
+The remedy is not to remember to migrate. A mechanism whose correctness rests on somebody calling
+`Ensure` first is a mechanism that will be read without it, so the type does not offer the choice:
+
+```go
+type Index struct{ dir string }          // no conversion from a string
+
+func OpenIndex(root string) (Index, error)   // fills a missing index from the store
+```
+
+Every index comes from `OpenIndex`, and an index that is not there is built from the store's own
+layer directory - once, on the first build that touches the store. The zero value holds nothing,
+which is the safe direction and the only index a caller can get without asking for one.
+
+Two races, and they are not the same race:
+
+* **Filling a gap.** Two builds meet an unindexed store together - a developer's shell and their
+  editor's language server reach it in the same second. Both walk, both write beside, and one
+  renames onto a directory that now exists. Losing is success: the loser read the same store and
+  would have written the same answer. Neither ever sees a partial index, because the walk happens
+  beside and arrives by rename.
+* **Replacing a wrong one.** `Rebuild` is the repair, asked for rather than stumbled into, and a
+  replace that finds somebody else's index at the rename is a replace that *did not happen*.
+  Reporting that as success would leave a wrong index in place with nobody told, so it is an error.
+
+One flag, two meanings, and getting them the same way round would be a defect in the direction that
+matters: an index claiming a layer the store lacks is a cache hit against nothing.
+
+Tested three ways: the migration on a store filled before the index existed; the concurrent fill,
+under `-race`, 200 iterations; and the loser path forced deterministically, because a concurrency
+test cannot promise it reached the branch it was written for.
+
+What is not done, and deliberately: the index still lives inside the store, and nothing reads it
+instead of the store. Both are the disk's to change. What this buys is that when they do change,
+the migration has already happened on every machine that has run a build since.

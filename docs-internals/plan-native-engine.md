@@ -8660,3 +8660,50 @@ records and 55 volumes totalling 32GB accumulated on the development machine, be
 digest and every configuration change mints a fresh one. Bounding it means an age policy - a stopped
 VM untouched for longer than some period is dead weight whoever owns it - and that is a decision with
 a real trade-off rather than a bug to fix, so it belongs here rather than in a hurried commit.
+
+## A declaration is a stack element (§3.2a)
+
+A worker running `RUN go version` on a golang base fails with `/bin/sh: go: not found`, holding every
+byte of the toolchain. What it does not hold is `PATH`, which the image declares and which reaches a
+step through `Executor.baseConfig` - a read of `layers/<base[0]>.config.json` in the local store. The
+fleet moves layer trees. Nothing moves that file, so on a worker the read fails, `baseConfig` returns
+an empty configuration, and the step runs with the engine's floor `PATH` alone.
+
+Three fixes were considered and two rejected.
+
+**Carrying the environment in the assignment** is what buildkit does - `applyFromImage` folds the
+image's `Env` into the LLB state at conversion (`earthfile2llb/converter.go:3175`), so a worker is
+told rather than deriving. Rejected here because a delegate is an engine (C.3): it materialises from
+its own store and never learns how the base was built, and an environment supplied by the driver is
+unverified, persists if filed, and is not covered by the digest that makes everything else here
+checkable.
+
+**Making the declaration part of a layer's identity** - `id(ℓ) = ℋ(declaration ‖ manifest)` - is
+correct and too expensive: it invalidates every digest this engine has computed, and it makes two
+images with identical filesystems and different declarations two copies of one tree.
+
+**A declaration is its own stack element**, which is what §3.2a now says. Everything falls out of the
+existing machinery: it travels because stack elements travel, it is keyed because ids(𝑏) is keyed, it
+is tiny so it materialises whole while the tree behind it may still arrive lazily, and two images
+that differ only in what they declare share their filesystem and stay distinct.
+
+**What it needs:**
+
+* a store object that is a declaration rather than a directory, and a `Has` that knows the
+  difference;
+* a materialiser that folds a declaration into the environment instead of into the lower stack -
+  where the hazard is `MkdirAll` in `Materialise`, which today creates an empty directory for any
+  stack element the store does not hold. A missing layer therefore materialises as one that
+  contributes nothing, which is the shape of the bug being fixed. I18 exists for this;
+* `Θ` to yield the declaration alongside the digest, since resolution is where an image's
+  configuration is already fetched;
+* `baseConfig` to read the stack rather than `base[0]`'s sidecar, after which driver and worker run
+  the same code over the same inputs.
+
+**What it costs:** base stacks change shape, so every image-based key changes and those steps re-run
+once. Layers keep their identity, so nothing is re-fetched - the cost is a re-key, not a re-download.
+Fragments are unaffected: a declaration is small enough that a partial one is not worth expressing.
+
+**Not in scope, and worth stating:** an Earthfile's own `ENV` could be a declaration element too,
+which would make ε and an image's environment one mechanism rather than two. That is a larger change
+to §3.4 and is not required to fix delegation.

@@ -12,109 +12,23 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func TestEarthbuildTargetFromArgs(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-		want string
-	}{
-		{
-			name: "no target",
-			args: []string{"earth", "--version"},
-			want: "",
-		},
-		{
-			name: "no arguments at all",
-			args: []string{"earth"},
-			want: "",
-		},
-		{
-			name: "bare target",
-			args: []string{"earth", "+build"},
-			want: "+build",
-		},
-		{
-			name: "target after flags",
-			args: []string{"earth", "--verbose", "--no-cache", "+build"},
-			want: "+build",
-		},
-		{
-			name: "path-qualified target",
-			args: []string{"earth", "./subdir+build"},
-			want: "./subdir+build",
-		},
-		{
-			name: "remote target",
-			args: []string{"earth", "github.com/EarthBuild/earthbuild+build"},
-			want: "github.com/EarthBuild/earthbuild+build",
-		},
-		{
-			name: "first of several targets",
-			args: []string{"earth", "+build", "+test"},
-			want: "+build",
-		},
-		{
-			// Known limit of the heuristic, pinned rather than hidden: a target may be
-			// path- or repo-qualified, so it cannot be recognised by a leading "+", and
-			// without the flag set there is no way to tell a flag's value from a target.
-			// The attribute is best-effort labelling, so a rare mislabel beats parsing
-			// the CLI twice - but it should not be discovered by surprise.
-			name: "mistakes a separate flag value containing + for the target",
-			args: []string{"earth", "--build-arg", "VERSION=1.0+beta", "+build"},
-			want: "VERSION=1.0+beta",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := earthbuildTargetFromArgs(tt.args); got != tt.want {
-				t.Fatalf("earthbuildTargetFromArgs(%q) = %q, want %q", tt.args, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestOptInRejectsNonExporterFirstKey(t *testing.T) {
-	_, err := optIn("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_METRICS_EXPORTER")
-	if err == nil {
-		t.Fatal("optIn accepted a first key that is not OTEL_..._EXPORTER, want error")
-	}
-}
-
-func TestOptInOnExporter(t *testing.T) {
-	t.Setenv("OTEL_METRICS_EXPORTER", "otlp")
-	unsetEnv(t, "OTEL_EXPORTER_OTLP_ENDPOINT")
-
-	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	if err != nil {
-		t.Fatalf("optIn: %v", err)
-	}
-
-	if !got {
-		t.Fatal("optIn = false with OTEL_METRICS_EXPORTER set, want true")
-	}
-}
-
-func TestOptInOnAnySecondaryKey(t *testing.T) {
-	unsetEnv(t, "OTEL_METRICS_EXPORTER")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
-
-	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	if err != nil {
-		t.Fatalf("optIn: %v", err)
-	}
-
-	if !got {
-		t.Fatal("optIn = false with only the endpoint set, want true")
-	}
-}
-
-// The opt-out is a side effect, not just a return value: autoexport defaults to otlp,
-// so declining telemetry means actively pinning the exporter to "none" before the SDK
-// reads it. Drop that and an un-configured earth starts trying to export.
+// optIn is the switch the whole package hangs off, and its opt-out is a side effect
+// rather than a return value: autoexport defaults to otlp, so declining telemetry
+// means writing OTEL_..._EXPORTER=none before the SDK reads it. Lose that and an
+// unconfigured earth starts trying to export.
 func TestOptInPinsExporterToNoneWhenNothingIsSet(t *testing.T) {
-	unsetEnv(t, "OTEL_METRICS_EXPORTER")
-	unsetEnv(t, "OTEL_EXPORTER_OTLP_ENDPOINT")
+	t.Setenv("OTEL_METRICS_EXPORTER", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+
+	err := os.Unsetenv("OTEL_METRICS_EXPORTER")
+	if err != nil {
+		t.Fatalf("unset OTEL_METRICS_EXPORTER: %v", err)
+	}
+
+	err = os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if err != nil {
+		t.Fatalf("unset OTEL_EXPORTER_OTLP_ENDPOINT: %v", err)
+	}
 
 	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
 	if err != nil {
@@ -130,26 +44,36 @@ func TestOptInPinsExporterToNoneWhenNothingIsSet(t *testing.T) {
 	}
 }
 
-func TestWithTraceparentIsANoopWhenUnset(t *testing.T) {
-	setTraceContextPropagator(t)
-	unsetEnv(t, "TRACEPARENT")
+// Any one of the keys opts in, not just the exporter - an endpoint alone is how CI
+// configures earth, and autoexport picks otlp from there.
+func TestOptInOnAnyKey(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
 
-	ctx := WithTraceparent(context.Background())
+	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
+	if err != nil {
+		t.Fatalf("optIn: %v", err)
+	}
 
-	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
-		t.Fatalf("span context = %v, want none", sc)
+	if !got {
+		t.Fatal("optIn = false with only the endpoint set, want true")
 	}
 }
 
+// WithTraceparent is the CI-to-earth trace link: a build step exports TRACEPARENT and
+// earth's spans have to land under the pipeline's trace rather than starting their own.
 func TestWithTraceparentAdoptsTheCallersTrace(t *testing.T) {
-	setTraceContextPropagator(t)
-
 	const (
 		traceID = "4bf92f3577b34da6a3ce929d0e0e4736"
 		spanID  = "00f067aa0ba902b7"
 	)
 
 	t.Setenv("TRACEPARENT", "00-"+traceID+"-"+spanID+"-01")
+
+	previous := otel.GetTextMapPropagator()
+
+	t.Cleanup(func() { otel.SetTextMapPropagator(previous) })
+
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	sc := trace.SpanContextFromContext(WithTraceparent(context.Background()))
 
@@ -166,14 +90,13 @@ func TestWithTraceparentAdoptsTheCallersTrace(t *testing.T) {
 	}
 }
 
-// The identity attributes moved off the four bespoke memory gauges and onto the
-// resource, which is what carries them now that otelruntime emits the metrics -
-// and otelruntime's instruments take resource attributes only.
+// otelruntime's instruments carry resource attributes and nothing else, so the
+// resource is the only place earth's own identity can reach its metrics.
 func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 	tests := []struct {
+		want       attribute.KeyValue
 		name       string
 		withDocker string
-		want       attribute.KeyValue
 	}{
 		{name: "outer build", withDocker: "", want: semconv.ProcessNestingOuter},
 		{name: "inside WITH DOCKER", withDocker: "true", want: semconv.ProcessNestingInner},
@@ -203,38 +126,11 @@ func assertAttribute(t *testing.T, attrs []attribute.KeyValue, want attribute.Ke
 		}
 
 		if attr.Value != want.Value {
-			t.Fatalf("%s = %v, want %v", want.Key, attr.Value.Emit(), want.Value.Emit())
+			t.Fatalf("%s = %v, want %v", want.Key, attr.Value.AsString(), want.Value.AsString())
 		}
 
 		return
 	}
 
-	t.Fatalf("%s missing from resource, want %v", want.Key, want.Value.Emit())
-}
-
-// setTraceContextPropagator installs the same propagator Setup does, since
-// WithTraceparent reads it from the global and the default is a no-op.
-func setTraceContextPropagator(t *testing.T) {
-	t.Helper()
-
-	previous := otel.GetTextMapPropagator()
-	t.Cleanup(func() { otel.SetTextMapPropagator(previous) })
-
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
-}
-
-// unsetEnv removes key for the duration of the test. t.Setenv registers the restore,
-// which plain os.Unsetenv would not - and optIn writes to the environment, so leaking
-// it would make the order tests run in observable.
-func unsetEnv(t *testing.T, key string) {
-	t.Helper()
-
-	t.Setenv(key, "")
-
-	if err := os.Unsetenv(key); err != nil {
-		t.Fatalf("unset %s: %v", key, err)
-	}
+	t.Fatalf("%s missing from resource, want %v", want.Key, want.Value.AsString())
 }

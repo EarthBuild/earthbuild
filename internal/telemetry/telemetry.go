@@ -119,16 +119,21 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 
 	var otelResource *resource.Resource
 
-	attrs := []attribute.KeyValue{
-		otelsemconv.ServiceName("EarthBuild"),
-		otelsemconv.ProcessCommand(filepath.Base(executable)),
-		otelsemconv.ProcessPID(os.Getpid()),
-		otelsemconv.ProcessCommandArgs(os.Args...),
-		otelsemconv.ProcessExecutablePath(executable),
-	}
-	attrs = append(attrs, processIdentityAttributes()...)
-
-	otelResource, err = resource.New(ctx, resource.WithAttributes(attrs...))
+	// The CI and VCS attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are deliberately
+	// absent: resource.Default() includes the fromEnv detector, so they already reach
+	// the resource these are merged into.
+	otelResource, err = resource.New(
+		ctx,
+		resource.WithAttributes(
+			otelsemconv.ServiceName("EarthBuild"),
+			otelsemconv.ProcessCommand(filepath.Base(executable)),
+			otelsemconv.ProcessPID(os.Getpid()),
+			otelsemconv.ProcessCommandArgs(os.Args...),
+			otelsemconv.ProcessExecutablePath(executable),
+			semconv.ProcessRoleCLI,
+			earthbuildProcessNesting(),
+		),
+	)
 	if err != nil {
 		return errorf("%w", err)
 	}
@@ -202,23 +207,6 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	return mp.Shutdown, nil
 }
 
-// processIdentityAttributes returns only what identifies *this* process. The CI and VCS
-// attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are deliberately absent: resource.Default()
-// includes the fromEnv detector, so they already reach the resource these are merged into.
-func processIdentityAttributes() []attribute.KeyValue {
-	attrs := []attribute.KeyValue{
-		semconv.ProcessRoleCLI,
-		earthbuildProcessNesting(),
-	}
-
-	target := earthbuildTargetFromArgs(os.Args)
-	if target != "" {
-		attrs = append(attrs, semconv.Target.String(target))
-	}
-
-	return attrs
-}
-
 func earthbuildProcessNesting() attribute.KeyValue {
 	// A typo only mis-labels the datapoint as outer, so it is reported and shrugged
 	// off rather than failing telemetry setup over it.
@@ -232,20 +220,6 @@ func earthbuildProcessNesting() attribute.KeyValue {
 	}
 
 	return semconv.ProcessNestingOuter
-}
-
-func earthbuildTargetFromArgs(args []string) string {
-	for _, arg := range args[1:] {
-		if strings.HasPrefix(arg, "-") {
-			continue
-		}
-
-		if strings.Contains(arg, "+") {
-			return arg
-		}
-	}
-
-	return ""
 }
 
 func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {

@@ -6,11 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/internal/env"
@@ -22,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log/global"
-	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -122,16 +119,16 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 
 	var otelResource *resource.Resource
 
-	otelResource, err = resource.New(
-		ctx,
-		resource.WithAttributes(
-			otelsemconv.ServiceName("EarthBuild"),
-			otelsemconv.ProcessCommand(filepath.Base(executable)),
-			otelsemconv.ProcessPID(os.Getpid()),
-			otelsemconv.ProcessCommandArgs(os.Args...),
-			otelsemconv.ProcessExecutablePath(executable),
-		),
-	)
+	attrs := []attribute.KeyValue{
+		otelsemconv.ServiceName("EarthBuild"),
+		otelsemconv.ProcessCommand(filepath.Base(executable)),
+		otelsemconv.ProcessPID(os.Getpid()),
+		otelsemconv.ProcessCommandArgs(os.Args...),
+		otelsemconv.ProcessExecutablePath(executable),
+	}
+	attrs = append(attrs, processIdentityAttributes()...)
+
+	otelResource, err = resource.New(ctx, resource.WithAttributes(attrs...))
 	if err != nil {
 		return errorf("%w", err)
 	}
@@ -199,103 +196,13 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 		return errorf("initialize runtime metrics: %w", err)
 	}
 
-	err = setupProcessMemoryMetrics()
-	if err != nil {
-		return errorf("initialize process memory metrics: %w", err)
-	}
-
 	return mp.Shutdown, nil
 }
 
-// Instrument names are dotted and unit-free, per OTel convention and to match the
-// go.* names otelruntime already emits - the unit lives in WithUnit, and exporters
-// derive earth_process_memory_alloc_bytes from it for Prometheus themselves.
-func setupProcessMemoryMetrics() error {
-	meter := otel.Meter("go.earthbuild.dev/earthbuild/internal/telemetry")
-	attrs := processMemoryMetricAttributes()
-
-	err := registerProcessMemoryGauge(
-		meter,
-		attrs,
-		"earth.process.memory.alloc",
-		"Bytes allocated and still in use by this EarthBuild process.",
-		func(stats goruntime.MemStats) uint64 { return stats.Alloc },
-	)
-	if err != nil {
-		return err
-	}
-
-	err = registerProcessMemoryGauge(
-		meter,
-		attrs,
-		"earth.process.memory.heap.alloc",
-		"Heap bytes allocated and still in use by this EarthBuild process.",
-		func(stats goruntime.MemStats) uint64 { return stats.HeapAlloc },
-	)
-	if err != nil {
-		return err
-	}
-
-	err = registerProcessMemoryGauge(
-		meter,
-		attrs,
-		"earth.process.memory.heap.sys",
-		"Heap bytes obtained from the OS by this EarthBuild process.",
-		func(stats goruntime.MemStats) uint64 { return stats.HeapSys },
-	)
-	if err != nil {
-		return err
-	}
-
-	return registerProcessMemoryGauge(
-		meter,
-		attrs,
-		"earth.process.memory.sys",
-		"Total bytes obtained from the OS by this EarthBuild process.",
-		func(stats goruntime.MemStats) uint64 { return stats.Sys },
-	)
-}
-
-func registerProcessMemoryGauge(
-	meter otelmetric.Meter,
-	attrs []attribute.KeyValue,
-	name string,
-	description string,
-	value func(goruntime.MemStats) uint64,
-) error {
-	_, err := meter.Int64ObservableGauge(
-		name,
-		otelmetric.WithUnit("By"),
-		otelmetric.WithDescription(description),
-		otelmetric.WithInt64Callback(func(_ context.Context, observer otelmetric.Int64Observer) error {
-			var stats goruntime.MemStats
-			goruntime.ReadMemStats(&stats)
-
-			observer.Observe(clampUint64ToInt64(value(stats)), otelmetric.WithAttributes(attrs...))
-
-			return nil
-		}),
-	)
-	if err != nil {
-		return fmt.Errorf("create %s gauge: %w", name, err)
-	}
-
-	return nil
-}
-
-func clampUint64ToInt64(value uint64) int64 {
-	if value > math.MaxInt64 {
-		return math.MaxInt64
-	}
-
-	return int64(value)
-}
-
-// processMemoryMetricAttributes returns only what identifies *this* process. The CI and VCS
+// processIdentityAttributes returns only what identifies *this* process. The CI and VCS
 // attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are deliberately absent: resource.Default()
-// includes the fromEnv detector, so they are already on the resource these metrics are exported
-// with, and copying them per datapoint would only add cardinality and a second place to rot.
-func processMemoryMetricAttributes() []attribute.KeyValue {
+// includes the fromEnv detector, so they already reach the resource these are merged into.
+func processIdentityAttributes() []attribute.KeyValue {
 	attrs := []attribute.KeyValue{
 		semconv.ProcessRoleCLI,
 		earthbuildProcessNesting(),

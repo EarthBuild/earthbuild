@@ -1,0 +1,56 @@
+//go:build linux
+
+package overlay
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// A layer is scanned for whiteout markers once, not once per step.
+//
+// The scan walks the whole layer, and the cache above it held only the result of
+// a *translation* - so a layer with no markers, which is nearly all of them, was
+// walked again on every materialise. On a golang base that was 0.54s of every
+// step's 0.58s, which is the whole of this engine's per-step cost against
+// buildkit (E529).
+//
+// The test changes the layer between the two calls, which a real layer cannot
+// do: they are immutable and content-addressed, and that is exactly what makes
+// remembering the answer sound. A second call that notices the change is a
+// second call that walked the tree.
+func TestALayerIsScannedForMarkersOnce(t *testing.T) {
+	t.Parallel()
+
+	src := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(src, "ordinary"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := &translator{dir: t.TempDir(), done: map[string]string{}}
+
+	first, err := tr.use(src, "layer-1")
+	if err != nil {
+		t.Fatalf("first use: %v", err)
+	}
+
+	if first != src {
+		t.Fatalf("a layer with no markers was translated to %q, want %q", first, src)
+	}
+
+	// Only a rescan can see this.
+	if err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	second, err := tr.use(src, "layer-1")
+	if err != nil {
+		t.Fatalf("second use: %v", err)
+	}
+
+	if second != first {
+		t.Errorf("the layer was walked a second time: got %q, want the remembered %q", second, first)
+	}
+}

@@ -18,6 +18,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 	"golang.org/x/sys/unix"
 )
 
@@ -192,6 +193,8 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 		return &handle{root: upper, upper: upper, base: base}, nil
 	}
 
+	endStack := timing.Phase("mat:stack", fmt.Sprintf("%d layers", len(stack)))
+
 	lower := make([]string, 0, len(stack))
 	for i := len(stack) - 1; i >= 0; i-- {
 		id := stack[i]
@@ -216,6 +219,8 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 		// one page of options the kernel will read. See link().
 		lower = append(lower, link(m.farmDir(), dir, id.String()))
 	}
+
+	endStack()
 
 	// Named through /proc/self/fd where that is available, which makes the
 	// option budget independent of how deep the store is. See byDescriptor.

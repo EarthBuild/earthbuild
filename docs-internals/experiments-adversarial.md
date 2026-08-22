@@ -24145,3 +24145,44 @@ guest's materialiser, not a fourth guess about which phase it is.
 is content-addressed: sweeping k=1..6 in separate directories had each larger k hit the previous k's
 steps, producing 6 steps *faster* than 3. A measurement that says more work took less time is not a
 surprising result, it is a broken harness.
+
+## E529 - the per-step cost was a question asked once per step about an immutable thing
+
+E528 put the per-step cost in the guest and left the phase unnamed. `EARTH_TIMINGS` named it on the
+first run:
+
+```text
+earth: mat:markers   0.538s  e532fee3...   the base layer, on every step
+earth: mat:markers   0.001s  6d6e85a6...   the layer the previous step made
+earth: mat:stack     0.538s  1 layers
+earth: materialise   0.541s  Earthfile:5
+earth: run           0.006s  Earthfile:5
+earth: capture       0.007s  Earthfile:5
+```
+
+`hasMarkers` walks a layer looking for `.wh.` whiteouts, because a layer carrying one has to be
+translated onto storage the VM owns before overlayfs will read it. The translator remembers the
+*translation*, and the memo was consulted after the scan - so a layer with no markers, which the
+comment beside it says is nearly all of them, was walked again on every materialise. Once per step,
+for the whole base.
+
+A layer is immutable and named by its content, so whether it carries a marker is a property of the
+id. Moving the memo above the scan and recording the negative answer as well as the positive one:
+
+```text
+cold steps       1      2      4      6     per step
+before         1.39   2.06   3.31   4.28    0.58s
+after          1.31   1.40   1.60   1.52    0.04s
+earthly        1.85   1.56   1.93   2.14    0.08s
+```
+
+Six cold steps, 4.28s to 1.52s, and the slope that E528 called the structural risk is gone: this
+engine is now flatter in the size of a base than buildkit is, and faster at every size measured here.
+
+**The failure class is a memo on the expensive branch only.** `return src` looked like the free path
+and was the free path *after* a full tree walk, so nothing about the code drew attention to it.
+
+**The instrument found in one run what four benchmark designs and three guesses did not.** That is
+the whole argument for keeping it: `EARTH_TIMINGS` ships, and it is forwarded into the sandbox,
+because the phases worth timing are mostly the guest's and a switch that stops at the sandbox wall
+reports a round trip without saying what the round trip was doing.

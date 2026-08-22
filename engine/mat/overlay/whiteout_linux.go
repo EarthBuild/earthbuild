@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 const (
@@ -50,18 +52,42 @@ func newTranslator(dir string) *translator {
 // use returns the directory to stack for a layer: the store's own, or a
 // translated copy where the layer records a deletion.
 func (t *translator) use(src, id string) (string, error) {
-	marked, err := hasMarkers(src)
-	if err != nil {
-		return "", err
+	// **Before the scan, not after it.** A layer is immutable and named by its
+	// content, so whether it carries a marker is a property of the id and can be
+	// remembered - and the scan walks the whole layer, which on a golang base is
+	// 0.54s. Asking after the scan meant only translations were remembered, and
+	// a layer with no markers - nearly all of them - was walked again on every
+	// materialise, which is once per step (E529).
+	t.mu.Lock()
+
+	if out, ok := t.done[id]; ok {
+		t.mu.Unlock()
+
+		return out, nil
 	}
 
-	if !marked {
-		return src, nil
+	t.mu.Unlock()
+
+	endMarkers := timing.Phase("mat:markers", id)
+	marked, err := hasMarkers(src)
+	endMarkers()
+
+	if err != nil {
+		return "", err
 	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	// Remembered as itself: a layer stacked from the store is the answer to this
+	// question just as much as a translated one is.
+	if !marked {
+		t.done[id] = src
+
+		return src, nil
+	}
+
+	// Another materialise translated it while this one was scanning.
 	if out, ok := t.done[id]; ok {
 		return out, nil
 	}

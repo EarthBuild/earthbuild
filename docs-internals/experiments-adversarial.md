@@ -24813,3 +24813,73 @@ test cannot promise it reached the branch it was written for.
 What is not done, and deliberately: the index still lives inside the store, and nothing reads it
 instead of the store. Both are the disk's to change. What this buys is that when they do change,
 the migration has already happened on every machine that has run a build since.
+
+## E545 - the base image was named by the day it was placed
+
+A real store, built over months, reported the same warning on every build:
+
+```text
+  warning: 1 cache key claimed two different results
+    44150024e7e2  held 1ff02c20cfa7, then produced 04888c361ff1
+```
+
+Accurate, and pointing at the wrong thing. The message describes a step that read the same inputs
+twice and produced different output - I1, which §6's screening exists to find - and the step named
+was `FROM alpine:3.22`. A fresh store did not reproduce it, which is the shape of a defect that only
+appears after an upgrade, so the first guess was a stale entry from an older engine.
+
+It was not. Both layers were still in the store, so the question was answerable rather than
+arguable:
+
+```text
+                 1ff02c20cfa7    04888c361ff1     differing in mtime
+regular files          87              87            0 of 87
+symlinks              335             335          335 of 335
+directories            98              98           98 of 98
+```
+
+Identical trees. **Different times on every entry that was not a hard link**, and a layer's identity
+covers every entry's mtime (§3.3). The base image was named by the day it was placed.
+
+The first version of that table said 52 symlinks and 142 directories, which was noise: `stat -f` on
+this machine is GNU coreutils' *filesystem* stat, not BSD's format flag, so every row was reporting
+free blocks and the "differences" were the disk filling up between two calls. The defect was real
+and proved by other means - a red test, a clone measured in Go, and a re-placed image that went from
+a permanent miss to an L1 hit - but the number published for it was measuring nothing. *A tally is
+evidence only if the tool was asked the question you think it was asked.*
+
+Two mechanisms place a tree and both had it:
+
+* `LinkTree` hard-links files, which carries their times for free, and *recreates* symlinks, which
+  gives them today's. Directories it creates with `MkdirAll` and never stamps - and a directory's
+  mtime changes when entries are made inside it, so the time it should carry is only restorable
+  after its contents are all there. The deferred pass that already existed for restrictive modes,
+  deepest-first, was the right place and had the wrong payload.
+* `clonefile(2)` copies metadata, and the manual does not say which. Measured:
+
+```text
+    source                  clone
+    bin          2020-09-13  bin          2026-08-22    <- the day it was cloned
+    bin/busybox  2020-09-13  bin/busybox  2020-09-13
+    bin/arch     2020-09-13  bin/arch     2020-09-13    (the link itself)
+```
+
+  Files and symlinks yes, directories no. One walk restoring directory times costs 98 calls for
+  Alpine against 17,580 entries, so cloning stays the fast path.
+
+The consequences were larger than the warning suggested. A layer nobody can reproduce is a layer no
+two machines agree about, so the fleet could never have shared a base image - E313's failure by a
+different route, and it would have looked like a transfer bug. And the L2 tier could never verify a
+`FROM`, so every re-placement of an image was permanent work.
+
+**A guard existed and had been switched off by a rename.** `TestEveryMtimeIsClampedOrExcused` matches
+every write of a time and demands it be clamped or excused in writing; its own comment says the
+hazard is a second spelling it would not see. Exporting `lchtimes` as `Lchtimes` for a second package
+was exactly that, and the match is case-sensitive - so the guard silently stopped seeing
+`layer/unpack.go:261`. Repairing it made that line reappear. *A guard that names a mechanism by its
+spelling is one rename from being decorative.*
+
+The near-miss is worth as much as the defect: the first version of the clone fix used a local named
+`at`, which is the variable the guard accepts, and it passed. Accidental compliance. Renaming it to
+`when` made the guard fail as it should, and the write was then excused deliberately, with a reason,
+which is what the guard is for.

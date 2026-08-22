@@ -143,13 +143,13 @@ func setXattrs(p string, xs []xattr) error {
 	return nil
 }
 
-// lchtimes stamps a path without following it.
+// Lchtimes stamps a path without following it.
 //
 // `os.Chtimes` follows a symlink, so using it on one stamps the *target* - which
 // changes a file the layer also carries and leaves the link with whatever time
 // it was created. A layer's identity includes both, so the result is two wrong
 // entries from one call.
-func lchtimes(p string, when time.Time) error {
+func Lchtimes(p string, when time.Time) error {
 	ts := []unix.Timespec{
 		unix.NsecToTimespec(when.UnixNano()),
 		unix.NsecToTimespec(when.UnixNano()),

@@ -48,6 +48,21 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 		"fleet/filler.go": "the time belongs to the layer the file was faulted" +
 			" in from, and clamping it would make a lazily materialised base" +
 			" differ from the same base materialised whole",
+		// Placing a tree restores the times the *source* carries: a directory
+		// is stamped after its contents, because creating them changed it, and
+		// a recreated symlink has no time of its own to keep. Clamping either
+		// would put the day of the placement into the layer's identity, which
+		// is the defect this was written to remove (E545) - the same I8
+		// argument as the rows above, arriving from the placement side.
+		"store/place.go": "the times belong to the tree being placed, and" +
+			" clamping them would name a layer by when it was placed rather" +
+			" than by what it holds",
+		// `clonefile(2)` copies times for files and links and not for
+		// directories, so a cloned tree has to be told the ones its source
+		// carried. Same argument as the row above, and the same defect: without
+		// it a base image is named by the day it was cloned (E545).
+		"exec/clone_darwin.go": "the times belong to the tree being cloned, and" +
+			" clonefile does not copy a directory's own",
 	}
 
 	root, err := filepath.Abs("..")
@@ -82,12 +97,20 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 			// follows a symlink and a link has an mtime of its own - a second
 			// spelling, which a guard naming one function would not have seen.
 			// Both take the time twice, so one rule covers both.
-			if !strings.Contains(line, "os.Chtimes(") && !strings.Contains(line, "lchtimes(") {
+			// Matched without regard to case, because the spelling changed:
+			// `lchtimes` was exported as `Lchtimes` when a second package
+			// needed it, and a guard matching the lower-case name alone stopped
+			// seeing every call the moment the rename landed. It is the same
+			// hazard the paragraph above describes, arriving through the same
+			// door twice - so the rule is now about the *name*, not about one
+			// capitalisation of it.
+			lower := strings.ToLower(line)
+			if !strings.Contains(lower, "os.chtimes(") && !strings.Contains(lower, "lchtimes(") {
 				continue
 			}
 
 			// The definition, not a call of it.
-			if strings.HasPrefix(strings.TrimSpace(line), "func lchtimes(") {
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "func lchtimes(") {
 				continue
 			}
 

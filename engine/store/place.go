@@ -10,6 +10,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // Placing a tree into the store: hard links where it can, copies where it must,
@@ -56,8 +59,11 @@ func Populated(dir string) bool {
 func LinkTree(src, dst string) error { return linkTreeInto(src, dst, false) }
 
 func linkTreeInto(src, dst string, exclusive bool) error {
-	// name -> the mode it should end with, applied once everything is in place.
-	modes := map[string]os.FileMode{}
+	// name -> what the directory should end with, applied once everything is in
+	// place. The mode because a restrictive one cannot be written into; the
+	// mtime because *creating* the entries beneath a directory changes it, so
+	// the time it should carry is only restorable after they are all there.
+	dirs := map[string]dirMeta{}
 
 	// Every non-directory entry, placed after the walk has made the directories.
 	var files []linkJob
@@ -80,7 +86,7 @@ func linkTreeInto(src, dst string, exclusive bool) error {
 				return err
 			}
 
-			modes[target] = info.Mode().Perm()
+			dirs[target] = dirMeta{mode: info.Mode().Perm(), mtime: info.ModTime()}
 
 			// A symlink already sitting where a directory belongs is removed
 			// rather than followed. The store is shared with the guest, which
@@ -123,11 +129,26 @@ func linkTreeInto(src, dst string, exclusive bool) error {
 		// before its children, which is inherently ordered; placing the entries
 		// is not, and it is where the time goes - 17,580 of them for
 		// golang:1.26.5-alpine3.24, each a syscall's latency and no work.
-		files = append(files, linkJob{
+		job := linkJob{
 			from: p, to: target,
 			symlink:   d.Type()&os.ModeSymlink != 0,
 			exclusive: exclusive,
-		})
+		}
+
+		// A recreated symlink is a *new* link, and a new link's time is now.
+		// Hard-linked files keep theirs because they are the same inode; a
+		// symlink has none to keep, so the time it should carry is read here
+		// and restored where it is made (E545).
+		if job.symlink {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+
+			job.mtime = info.ModTime()
+		}
+
+		files = append(files, job)
 
 		return nil
 	})
@@ -142,8 +163,8 @@ func linkTreeInto(src, dst string, exclusive bool) error {
 
 	// Deepest first, so a directory that denies writing is never made read-only
 	// before the one beneath it has been given its own mode.
-	paths := make([]string, 0, len(modes))
-	for p := range modes {
+	paths := make([]string, 0, len(dirs))
+	for p := range dirs {
 		paths = append(paths, p)
 	}
 
@@ -153,13 +174,27 @@ func linkTreeInto(src, dst string, exclusive bool) error {
 	})
 
 	for _, p := range paths {
-		err := os.Chmod(p, modes[p])
+		err := os.Chmod(p, dirs[p].mode)
 		if err != nil {
 			return fmt.Errorf("set the mode on %s: %w", p, err)
+		}
+
+		// After the mode, and after everything beneath it: this is the last
+		// thing done to a directory, because anything done to one afterwards
+		// would put the clock back into the layer's identity.
+		err = os.Chtimes(p, dirs[p].mtime, dirs[p].mtime)
+		if err != nil {
+			return fmt.Errorf("set the time on %s: %w", p, err)
 		}
 	}
 
 	return nil
+}
+
+// dirMeta is what a directory should carry once its contents are in place.
+type dirMeta struct {
+	mtime time.Time
+	mode  os.FileMode
 }
 
 // CopyFile is the fallback when a link cannot be made.
@@ -240,6 +275,9 @@ func PlaceAtomically(target string, write func(tmp string) error) error {
 type linkJob struct {
 	from, to string
 	symlink  bool
+	// mtime is the time a recreated symlink should carry. Symlinks only:
+	// everything else is hard-linked and keeps its own.
+	mtime time.Time
 	// exclusive says the destination is one nobody else can reach, so the entry
 	// can be created directly instead of being staged and renamed over.
 	exclusive bool
@@ -335,7 +373,13 @@ func placeOne(j linkJob) error {
 		}
 
 		return PlaceAtomically(j.to, func(tmp string) error {
-			return os.Symlink(link, tmp)
+			err := os.Symlink(link, tmp)
+			if err != nil {
+				return err
+			}
+
+			// Stamped before the rename, while the name is this call's own.
+			return layer.Lchtimes(tmp, j.mtime)
 		})
 	}
 
@@ -370,7 +414,15 @@ func placeDirectly(j linkJob) error {
 			return err
 		}
 
-		return os.Symlink(link, j.to)
+		err = os.Symlink(link, j.to)
+		if err != nil {
+			return err
+		}
+
+		// The link is new and so is its time. Restoring the one the source
+		// carries is what keeps a placed tree's identity a property of the
+		// tree rather than of the day it was placed (E545).
+		return layer.Lchtimes(j.to, j.mtime)
 	}
 
 	err := os.Link(j.from, j.to)

@@ -557,7 +557,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: stamping a link rather than what it points at (E262)",
 		File:        "engine/layer/unpack.go",
-		Anchor:      "\tif e.kind == kindSymlink {\n\t\treturn lchtimes(p, when)\n\t}",
+		Anchor:      "\tif e.kind == kindSymlink {\n\t\treturn Lchtimes(p, when)\n\t}",
 		Replacement: "",
 		Package:     "./engine/layer/",
 	},
@@ -1542,6 +1542,17 @@ var Mutants = []Mutant{
 		Anchor:      "\treturn 2*waves(here, room)+int64(bring) < 2*waves(flight, slots)+int64(ship)",
 		Replacement: "\treturn 2*waves(here, room) < 2*waves(flight, slots)+int64(ship)",
 		Package:     "./engine/fleet/",
+	},
+	{
+		// A placed tree named by the day it was placed is a base no two
+		// machines agree about, and an image that conflicts with its own cache
+		// entry on every build afterwards. The mutant is the state a real store
+		// was found in.
+		Name:        "store: a placed directory keeping the time its source had (E545)",
+		File:        "engine/store/place.go",
+		Anchor:      "\t\terr = os.Chtimes(p, dirs[p].mtime, dirs[p].mtime)",
+		Replacement: "\t\terr = error(nil)",
+		Package:     "./engine/store/",
 	},
 	{
 		// Moved here from `engine/fleet/layers.go` when five callers that each

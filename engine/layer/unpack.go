@@ -258,7 +258,7 @@ func stamp(root string, e packed) error {
 	// both, so the mistake is not subtle, but it is invisible until something
 	// compares a restored layer with its own identity.
 	if e.kind == kindSymlink {
-		return lchtimes(p, when)
+		return Lchtimes(p, when)
 	}
 
 	err = os.Chtimes(p, when, when)

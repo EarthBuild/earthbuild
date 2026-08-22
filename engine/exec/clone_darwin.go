@@ -3,6 +3,9 @@
 package exec
 
 import (
+	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 
 	"golang.org/x/sys/unix"
@@ -26,5 +29,57 @@ import (
 // than exceptional, so the caller falls back rather than failing (see
 // placeTree).
 func cloneTree(src, dst string) error {
-	return unix.Clonefile(filepath.Clean(src), filepath.Clean(dst), 0)
+	err := unix.Clonefile(filepath.Clean(src), filepath.Clean(dst), 0)
+	if err != nil {
+		return err
+	}
+
+	return cloneDirTimes(src, dst)
+}
+
+// cloneDirTimes restores the modification times `clonefile` does not copy.
+//
+// **It copies them for files and for symlinks, and not for directories**, which
+// come out stamped with the moment of the clone. Measured, because the manual
+// says metadata is copied and does not say which:
+//
+//	source                  clone
+//	bin          2020-09-13  bin          2026-08-22
+//	bin/busybox  2020-09-13  bin/busybox  2020-09-13
+//
+// A layer's identity covers every entry's mtime (green paper §3.3), so without
+// this a base image is named by the day it was placed: two machines never agree
+// about a base they both hold, and a re-placed image conflicts with its own
+// cache entry on every build afterwards (E545).
+//
+// Directories only, and read from the walk rather than by stat, so this costs
+// one pass over the tree and one call per directory - 98 of them for Alpine
+// against 17,580 entries, which is why cloning is still the fast path.
+func cloneDirTimes(src, dst string) error {
+	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return err
+		}
+
+		rel, err := filepath.Rel(src, p)
+		if err != nil {
+			return err
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		when := info.ModTime()
+
+		// Not Lchtimes: a directory is not a link, and the platform stub for
+		// links does nothing where this must not.
+		err = os.Chtimes(filepath.Join(dst, rel), when, when)
+		if err != nil {
+			return fmt.Errorf("restore the time of %s after cloning: %w", rel, err)
+		}
+
+		return nil
+	})
 }

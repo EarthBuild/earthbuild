@@ -2101,11 +2101,14 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "guest: an ENV value expanded against what is already set (E422)",
-		File:        "engine/guest/guest.go",
-		Anchor:      "\t\tout = overlay(out, []string{name + \"=\" + expandEnv(value, out)})",
-		Replacement: "\t\tout = overlay(out, []string{name + \"=\" + value})",
-		Package:     "./engine/guest/",
+		// Moved with the mechanism, not deleted with the line: the fold that
+		// expands a value now lives in engine/decl, because what an image
+		// declares and what an Earthfile declares are one thing (§3.2a).
+		Name:        "decl: an ENV value expanded against what is already set (E422)",
+		File:        "engine/decl/fold.go",
+		Anchor:      "\t\t\tout = assign(out, name, expand(value, out))",
+		Replacement: "\t\t\tout = assign(out, name, value)",
+		Package:     "./engine/decl/",
 	},
 	{
 		Name:        "interp: the EARTH_ builtins a target can declare (E423)",

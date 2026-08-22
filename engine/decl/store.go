@@ -105,7 +105,13 @@ func Read(store string, id ir.NodeID) (Declaration, bool, error) {
 
 	d, err := Decode(b)
 	if err != nil {
-		return Declaration{}, false, fmt.Errorf("declaration %v is damaged: %w", id, err)
+		// **The remedy is simple and easy to miss.** A declaration is named by
+		// its contents, so nothing here is irreplaceable: whatever wrote it can
+		// write it again, and a reader who is not told that is left wondering
+		// what they have lost.
+		return Declaration{}, false, fmt.Errorf("the declaration at %s is damaged: %w"+
+			"\n  it is named by its contents, so it is safe to delete and will be fetched again",
+			Path(store, id), err)
 	}
 
 	return d, true, nil

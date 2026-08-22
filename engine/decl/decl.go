@@ -11,6 +11,7 @@ package decl
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -92,21 +93,54 @@ func ID(d Declaration) ir.NodeID {
 func Decode(b []byte) (Declaration, error) {
 	d := decoder{b: b}
 
-	if got := string(d.fixed(len(magic))); d.err == nil && got != magic {
-		return Declaration{}, fmt.Errorf("not a declaration (magic %q)", got)
+	got := string(d.fixed(len(magic), "magic"))
+	if d.err == nil && got != magic {
+		return Declaration{}, fmt.Errorf("not a declaration: want magic %q, found %q%s",
+			magic, shown(b), whatThatIs(got))
 	}
 
-	out := Declaration{Env: d.seq()}
-	out.WorkingDir = d.str()
-	out.User = d.str()
-	out.Entrypoint = d.seq()
-	out.Cmd = d.seq()
+	out := Declaration{Env: d.seq("Env")}
+	out.WorkingDir = d.str("WorkingDir")
+	out.User = d.str("User")
+	out.Entrypoint = d.seq("Entrypoint")
+	out.Cmd = d.seq("Cmd")
 
 	if d.err != nil {
 		return Declaration{}, d.err
 	}
 
 	return out, nil
+}
+
+// whatThatIs names the stream somebody actually has, where this engine can
+// recognise it.
+//
+// "not a declaration" is true and useless: the reader has bytes from somewhere
+// and needs to know which of this engine's encodings they hold. A layer pack
+// handed to a declaration decoder is a wiring mistake with an obvious fix, and
+// it reads exactly like corruption unless the refusal says otherwise.
+// shown is what to print for a stream that is not this one.
+//
+// Not the bytes compared, which are exactly as many as this format's magic and
+// so cut another format's in half - `EBLAYER1` reads as `EBLAYER`, and a reader
+// checking it against the layer format finds it matches nothing. A few bytes
+// either way costs nothing and the confusion is real.
+func shown(b []byte) string {
+	const most = 8
+
+	if len(b) > most {
+		b = b[:most]
+	}
+
+	return string(b)
+}
+
+func whatThatIs(got string) string {
+	if strings.HasPrefix(got, "EBLAYER") {
+		return " - that is a layer pack, which carries a tree rather than what an image declares"
+	}
+
+	return ""
 }
 
 // maxSeq bounds a sequence a decoder will allocate for.
@@ -123,34 +157,41 @@ const maxSeq = 1 << 16
 type decoder struct {
 	err error
 	b   []byte
+	// at is how many bytes have been consumed, so a refusal can say where it
+	// stopped. A length and a remainder say that something is short; the offset
+	// and the field name say *what* is short, which is where somebody looks.
+	at int
 }
 
-func (d *decoder) fixed(n int) []byte {
+func (d *decoder) fixed(n int, field string) []byte {
 	if d.err != nil {
 		return nil
 	}
 
 	if n < 0 || n > len(d.b) {
-		d.err = fmt.Errorf("a declaration ends mid-field: %d bytes wanted, %d left", n, len(d.b))
+		d.err = fmt.Errorf("declaration ends early: %s wanted %d bytes at offset %d, %d remain",
+			field, n, d.at, len(d.b))
 
 		return nil
 	}
 
 	out := d.b[:n]
 	d.b = d.b[n:]
+	d.at += n
 
 	return out
 }
 
-func (d *decoder) count() int {
-	b := d.fixed(4)
+func (d *decoder) count(field string) int {
+	b := d.fixed(4, field+" length")
 	if d.err != nil {
 		return 0
 	}
 
 	n := int(uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3]))
 	if n > maxSeq {
-		d.err = fmt.Errorf("a declaration claims %d elements, more than %d", n, maxSeq)
+		d.err = fmt.Errorf("declaration claims %s holds %d entries at offset %d, more than the %d"+
+			" this decoder will allocate for", field, n, d.at-4, maxSeq)
 
 		return 0
 	}
@@ -158,17 +199,18 @@ func (d *decoder) count() int {
 	return n
 }
 
-func (d *decoder) str() string { return string(d.fixed(d.count())) }
+func (d *decoder) str(field string) string { return string(d.fixed(d.count(field), field)) }
 
-func (d *decoder) seq() []string {
-	n := d.count()
+func (d *decoder) seq(field string) []string {
+	n := d.count(field)
 	if d.err != nil || n == 0 {
 		return nil
 	}
 
 	out := make([]string, 0, n)
-	for range n {
-		out = append(out, d.str())
+
+	for i := range n {
+		out = append(out, d.str(fmt.Sprintf("%s[%d]", field, i)))
 	}
 
 	if d.err != nil {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
@@ -2041,63 +2042,18 @@ func stepEnv(base, env []string) []string {
 		"HOME=/root",
 	}
 
-	out := make([]string, 0, len(floor)+len(base)+len(env))
-
-	for _, layer := range [][]string{floor, base} {
-		out = overlay(out, layer)
-	}
-
-	// Each value expanded against everything set before it.
+	// **One fold, in `engine/decl`.** What an image declares and what an
+	// Earthfile declares are the same kind of thing said about the same step
+	// (green paper §3.2a), and this had two rules for them: the base was
+	// overlaid without expansion and ε was expanded one entry at a time. Two
+	// rules for one question is how the two came to disagree - and the version
+	// here also wrote a bare name into the environment as a malformed entry
+	// rather than removing it.
 	//
-	// `ENV MYPATH=hello:$PATH` means the base image's PATH, and this engine set
-	// the literal string - so a step adding a directory to its PATH lost
-	// everything already on it, and only failed when something it needed was no
-	// longer found (E422).
-	//
-	// Here rather than in the interpreter because this is where the base image's
-	// environment is known: at plan time `$PATH` is whatever the image says, and
-	// the image is an input the plan does not read.
-	//
-	// One at a time and in order, so a later ENV sees an earlier one - which is
-	// the order the file is written in and the rule every other per-step
-	// declaration here follows.
-	for _, e := range env {
-		name, value, ok := strings.Cut(e, "=")
-		if !ok {
-			out = overlay(out, []string{e})
-
-			continue
-		}
-
-		out = overlay(out, []string{name + "=" + expandEnv(value, out)})
-	}
-
-	return out
-}
-
-// expandEnv replaces `$NAME` and `${NAME}` with what the environment holds.
-//
-// `$$` is a literal dollar, which is the only escape: a value that means the
-// text can say so, and everything else expands - including a name nothing
-// defines, which becomes empty exactly as a shell would leave it. Leaving an
-// unknown name as its own text is how the bug this fixes read from the outside.
-func expandEnv(value string, env []string) string {
-	seen := make(map[string]string, len(env))
-
-	for _, e := range env {
-		if name, v, ok := strings.Cut(e, "="); ok {
-			seen[name] = v
-		}
-	}
-
-	return os.Expand(value, func(name string) string {
-		// os.Expand calls this with "$" for a literal `$$`.
-		if name == "$" {
-			return "$"
-		}
-
-		return seen[name]
-	})
+	// The floor and the base arrive already expanded, so they say so: their
+	// values mean the characters they contain, not whatever this step's
+	// environment would substitute.
+	return decl.Fold(nil, decl.Literal(floor), decl.Literal(base), decl.Declaration{Env: env})
 }
 
 // overlay adds entries to an environment, replacing any of the same name.

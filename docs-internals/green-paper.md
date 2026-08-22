@@ -373,12 +373,24 @@ available.
 
 ```text
 (3.10)   𝒮(γ) is the declaration as written, before expansion
+(3.11)   an entry with no `=` removes the name it gives
 ```
 
 Equation 3.10 is what lets a declaration be shared. `ENV MYPATH=hello:$PATH` names its own base if it
 is expanded when it is written down, so the same line on two bases would be two elements; expanded in
 the fold instead, it is one element that means what it should on both. The fold is also the only
 place where the value of `$PATH` is known, since it is whatever the elements before it left.
+
+**A declaration can remove.** An encoding that can only add needs a way to say "not this": a layer
+says it with a whiteout marker, and (3.11) is the same statement for a name. The two forms cannot be
+confused, because POSIX forbids `=` in a name, so an entry without one is not an assignment anybody
+could have written.
+
+Removal is not assignment to nothing. `NAME=` is a name that is present and empty; `NAME` is a name
+that is not there. `os.LookupEnv` distinguishes them, and so does anything that enumerates - a step
+scanning for a prefix sees the first and not the second - so a model with only assignment cannot say
+what an unset variable is. A removed name expands to nothing thereafter, exactly as a name that was
+never set does, which is what makes the removal mean what it says.
 
 **A secret is never a declaration.** ε keeps declared secrets by identity and never by value (§4.4),
 and a declaration is stored, content-addressed and shared by construction - so a secret value placed

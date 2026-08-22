@@ -191,7 +191,10 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	)
 	otel.SetMeterProvider(mp)
 
-	err = otelruntime.Start()
+	// Hand otelruntime the provider we just built rather than let it resolve the global
+	// one: it is the same object, but only because SetMeterProvider happens to run first,
+	// and nothing here enforces that ordering.
+	err = otelruntime.Start(otelruntime.WithMeterProvider(mp))
 	if err != nil {
 		return errorf("initialize runtime metrics: %w", err)
 	}

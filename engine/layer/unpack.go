@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -258,7 +259,7 @@ func stamp(root string, e packed) error {
 	// both, so the mistake is not subtle, but it is invisible until something
 	// compares a restored layer with its own identity.
 	if e.kind == kindSymlink {
-		return Lchtimes(p, when)
+		return fstime.Lchtimes(p, when, when)
 	}
 
 	err = os.Chtimes(p, when, when)

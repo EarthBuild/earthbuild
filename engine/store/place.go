@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/engine/layer"
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 )
 
 // Placing a tree into the store: hard links where it can, copies where it must,
@@ -379,7 +379,7 @@ func placeOne(j linkJob) error {
 			}
 
 			// Stamped before the rename, while the name is this call's own.
-			return layer.Lchtimes(tmp, j.mtime)
+			return fstime.Lchtimes(tmp, j.mtime, j.mtime)
 		})
 	}
 
@@ -422,7 +422,7 @@ func placeDirectly(j linkJob) error {
 		// The link is new and so is its time. Restoring the one the source
 		// carries is what keeps a placed tree's identity a property of the
 		// tree rather than of the day it was placed (E545).
-		return layer.Lchtimes(j.to, j.mtime)
+		return fstime.Lchtimes(j.to, j.mtime, j.mtime)
 	}
 
 	err := os.Link(j.from, j.to)

@@ -557,7 +557,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: stamping a link rather than what it points at (E262)",
 		File:        "engine/layer/unpack.go",
-		Anchor:      "\tif e.kind == kindSymlink {\n\t\treturn Lchtimes(p, when)\n\t}",
+		Anchor:      "\tif e.kind == kindSymlink {\n\t\treturn fstime.Lchtimes(p, when, when)\n\t}",
 		Replacement: "",
 		Package:     "./engine/layer/",
 	},

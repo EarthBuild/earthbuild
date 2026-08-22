@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 )
 
 // copyPath copies a file or a directory, and its callers do not say which.
@@ -337,7 +339,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 			// so a tree with one link in it digested differently after a copy.
 			at := stamp(fi.ModTime())
 
-			return lchtimes(target, at, at)
+			return fstime.Lchtimes(target, at, at)
 
 		case fi.Mode().IsRegular():
 			// A second name for a file already copied is *linked*, not copied

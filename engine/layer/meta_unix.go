@@ -3,12 +3,10 @@
 package layer
 
 import (
-	"fmt"
 	"io/fs"
 	"sort"
 	"strings"
 	"syscall"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -138,26 +136,6 @@ func assembledBy(name string) bool {
 func setXattrs(p string, xs []xattr) error {
 	for _, x := range xs {
 		_ = unix.Lsetxattr(p, x.name, []byte(x.value), 0)
-	}
-
-	return nil
-}
-
-// Lchtimes stamps a path without following it.
-//
-// `os.Chtimes` follows a symlink, so using it on one stamps the *target* - which
-// changes a file the layer also carries and leaves the link with whatever time
-// it was created. A layer's identity includes both, so the result is two wrong
-// entries from one call.
-func Lchtimes(p string, when time.Time) error {
-	ts := []unix.Timespec{
-		unix.NsecToTimespec(when.UnixNano()),
-		unix.NsecToTimespec(when.UnixNano()),
-	}
-
-	err := unix.UtimesNanoAt(unix.AT_FDCWD, p, ts, unix.AT_SYMLINK_NOFOLLOW)
-	if err != nil {
-		return fmt.Errorf("times of %s: %w", p, err)
 	}
 
 	return nil

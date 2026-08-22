@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 )
 
 // Unpack writes a layer tar into dir.
@@ -362,8 +364,30 @@ func writeFile(tr *tar.Reader, h *tar.Header, target string) error {
 // (I8).
 func setMeta(h *tar.Header, target string) error {
 	if h.Typeflag == tar.TypeSymlink {
-		// Mode and time apply to the link's target, not the link, and following
-		// it is what this unpacker must never do.
+		// **Mode belongs to the target and the time does not.** A symlink has
+		// an mtime of its own, and a layer's identity covers it (§3.3), so
+		// skipping the whole of setMeta for links left every one of them
+		// stamped with the moment of the unpack.
+		//
+		// The reasoning that produced the skip was right about `os.Chmod` and
+		// `os.Chtimes` - both follow a link, and following one here is what
+		// this unpacker must never do - and wrong to conclude there was
+		// nothing to set. `Lchtimes` sets a link's own time without following
+		// it, which `layer/unpack.go` has always done for the same reason.
+		//
+		// Alpine carries 335 of them and every one differed between two
+		// unpacks of the same bytes, so the placed layer had a different
+		// identity on every machine: no L2 hit ever crossed one, and in the
+		// fleet it would have read as a corrupted transfer (E546).
+		if h.ModTime.IsZero() {
+			return nil
+		}
+
+		err := fstime.Lchtimes(target, h.ModTime, h.ModTime)
+		if err != nil {
+			return fmt.Errorf("set mtime on the link %q: %w", h.Name, err)
+		}
+
 		return nil
 	}
 

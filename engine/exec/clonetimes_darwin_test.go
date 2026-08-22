@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/engine/layer"
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 )
 
 // A cloned tree carries the times its source carried.
@@ -46,7 +46,7 @@ func TestACloneCarriesTheTimesOfItsSource(t *testing.T) {
 	// Deepest first: stamping a child does not re-date its parent, but creating
 	// one does.
 	for _, p := range []string{filepath.Join(src, "bin", "busybox"), filepath.Join(src, "bin"), src} {
-		err = layer.Lchtimes(p, when)
+		err = fstime.Lchtimes(p, when, when)
 		if err != nil {
 			t.Fatal(err)
 		}

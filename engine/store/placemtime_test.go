@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
@@ -93,7 +94,7 @@ func placeAndTake(t *testing.T, src string) string {
 func stamp(t *testing.T, p string, when time.Time) {
 	t.Helper()
 
-	err := layer.Lchtimes(p, when)
+	err := fstime.Lchtimes(p, when, when)
 	if err != nil {
 		t.Fatal(err)
 	}

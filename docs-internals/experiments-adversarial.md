@@ -24883,3 +24883,63 @@ The near-miss is worth as much as the defect: the first version of the clone fix
 `at`, which is the variable the guard accepts, and it passed. Accidental compliance. Renaming it to
 `when` made the guard fail as it should, and the write was then excused deliberately, with a reason,
 which is what the guard is for.
+
+## E546 - the same image, unpacked twice, was two images
+
+E545 stopped a placed tree being named by the day it was placed. It did not make two machines agree,
+because the thing being placed already differed. Two independent stores, same Earthfile, same tag:
+
+```text
+store C   4a624fff…  a43867dc…
+store D   cd7c761c…  a43867dc…
+```
+
+Four ids where there should be two. Measuring the unpacked image caches - in Go this time, after
+E545's tally turned out to be `stat -f` reporting free disk blocks:
+
+```text
+                differing in mtime between two unpacks
+  regular files    0 of  87
+  symlinks       335 of 335
+  directories      1 of  98
+```
+
+Every symlink. The image unpacker set mode, ownership, xattrs and time for every entry and returned
+early for links:
+
+```go
+if h.Typeflag == tar.TypeSymlink {
+    // Mode and time apply to the link's target, not the link, and following
+    // it is what this unpacker must never do.
+    return nil
+}
+```
+
+The sentence is true of `os.Chmod` and `os.Chtimes` - both follow - and the conclusion drawn from it
+is false. **A symlink has an mtime of its own**, `Lstat` records it, and the layer's identity covers
+it (§3.3). `Lchtimes` sets it without following.
+
+That is the third time this exact inference has been made in this codebase. The guest's `copyTree`
+made it (E87-E90, found by the conformance suite on its first run). The layer restorer made it
+(E262). The image unpacker made it, and there it meant no two machines ever agreed about a base
+image: an L2 hit could not cross a machine, and in the fleet a base transferred from a peer would
+have been rejected as not being what was asked for - E313's symptom with a different cause.
+
+Three sites, three copies of the fix, one of them missing. So there is now one function, in
+`engine/fstime`, and the two existing copies are deleted. It has its own package because no two of
+its callers may import each other: `engine/image` reaches `engine/layer` only through a cycle in
+`engine/ir`. *A rule written down three times is a rule that is wrong somewhere.*
+
+After it: `a43867dc…` is the base image in both stores, from two unpacks that share nothing.
+
+**What remains.** The `RUN true` delta still differs, and for a better reason than a timestamp:
+
+```text
+  /etc/resolv.conf
+  /dev/full  /dev/tty  /dev/null  /dev/zero  /dev/random  /dev/urandom
+```
+
+Seven entries, in the captured delta of a step that writes nothing. They are the *sandbox's*
+plumbing rather than the step's output, they are created at run time, and every one of them carries
+the moment the sandbox made it. A step that does nothing therefore produces a different layer every
+time it runs. That is a capture question, not a timestamp one, and is the next thing.

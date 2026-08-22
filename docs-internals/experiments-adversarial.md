@@ -24436,3 +24436,39 @@ probe rather than a build.
 
 The token is deliberately not remembered. It is a credential and it expires; putting one in a cache
 directory is a decision about credentials rather than an optimisation, and it is worth 0.14s more.
+
+## E536 - pinning cost a full re-download, because the cache was keyed by spelling
+
+The benchmark that was meant to show `--pin` working showed this instead:
+
+```text
+no-op, pinned    run 1   33.58s
+                 run 2    0.09s
+                 run 3    0.08s
+```
+
+Run 1 is not warm-up. `--pin` rewrote `FROM golang:1.26.5-alpine3.24` as
+`golang:1.26.5-alpine3.24@sha256:787328...`, and the image cache was keyed by `sha256(ref ‖ platform)`
+over the reference **as written** - so the pinned spelling missed the entry the unpinned one had just
+filled, and the next build fetched the entire image again. Bytes already on the disk, re-downloaded
+because they were asked for by a different name.
+
+A digest *is* the content. `golang:1.26@sha256:x`, `golang@sha256:x` and a mirror serving the same
+manifest are one set of bytes under three names, and the key now reduces all three to the digest.
+Platform stays in it: this engine resolves to one platform's manifest, but an author may write a
+digest naming a manifest *list* by hand, and serving one architecture's bytes for another is a
+container that will not start.
+
+```text
+unpinned, cold cache   48.88s
+--pin, then build       0.06s      was 33.58s
+```
+
+**A feature that makes a build slower the first time you take its advice is a feature nobody uses
+twice.** The whole argument for pinning is that it removes a round trip; a version that charges a
+full pull for the privilege teaches the opposite lesson, and it would have shipped, because the
+number that exposed it only appears if the benchmark pins *after* the cache is warm.
+
+The unpinned figure also says where these were taken. A cold pull of this image was about 6s at home
+and 49s here, so **no cold measurement in this session's benchmark is comparable with the earlier
+tables** - a fact worth more than the numbers it disqualifies.

@@ -25,13 +25,32 @@ type pullInto func(ctx context.Context, ref, dir string) (ocispec.ImageConfig, e
 
 // ImageCacheKey names an image's place in the shared cache.
 //
-// Reference *and* platform, because the same name on two architectures is two
-// sets of bytes and serving one for the other is a container that will not
-// start. Hashed rather than sanitised: a reference holds slashes, colons and
+// **By digest where the reference carries one**, because a digest *is* the
+// content: `golang:1.26@sha256:x`, `golang@sha256:x` and a mirror serving the
+// same manifest are one set of bytes under three names, and keying on the text
+// files them three times. `--pin` rewrites a reference this machine has already
+// pulled, so keyed on the text it missed the entry it had just filled and the
+// next build fetched the whole image again - 33s for bytes already on the disk.
+// A user who takes the advice to pin must not pay for it (E536).
+//
+// Platform stays in the key even so. This engine resolves to one platform's
+// manifest, but an author may write a digest naming a manifest *list* by hand,
+// and serving one architecture's bytes for another is a container that will not
+// start. The cost of keeping it is nothing.
+//
+// Hashed rather than sanitised: a reference holds slashes, colons and
 // occasionally characters a filesystem will not take, and a digest cannot
 // collide by accident the way a substitution can.
 func ImageCacheKey(ref, platform string) string {
-	sum := sha256.Sum256([]byte(ref + "\x00" + platform))
+	// The text is the only identity an unresolved reference has - the point of a
+	// tag is that it moves - so it is what names one until something resolves it.
+	name := ref
+
+	if r, err := image.ParseRef(ref); err == nil && r.Digest != "" {
+		name = r.Digest
+	}
+
+	sum := sha256.Sum256([]byte(name + "\x00" + platform))
 
 	return hex.EncodeToString(sum[:])
 }

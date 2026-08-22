@@ -23840,7 +23840,8 @@ given a new reason to:
 
 > Wait will close the pipe after seeing the command exit, so most callers need not close it
 > themselves; **it is thus incorrect to call Wait before all writes to the pipe have completed**.
-> - `os/exec`, on `StdinPipe`
+>
+> -- `os/exec`, on `StdinPipe`
 
 E516 added a watcher that calls `cmd.Wait()` in a goroutine started with the guest, precisely so a
 dead guest would be noticed. `Cmd` owns the pipes `StdinPipe` makes and closes them in `Wait`, so the
@@ -23913,3 +23914,42 @@ directory size or a log tail - each consistent with several stories, and a story
 time. What worked was refusing to reason until a failing machine had been stopped with its processes,
 memory and both sides' stacks captured together, which needed a script, because the failure only
 happened when nobody was watching.
+
+## E520 - the hang: a responder that gave up on EINTR
+
+`respond` wrote the seccomp verdict with a single `ioctl` and returned its error. `EINTR` is not a
+failure of that call - Go's scheduler delivers signals to threads routinely - but it ended the
+notification loop, and the step whose syscall was waiting for that verdict stopped in the kernel with
+nothing left to release it.
+
+Retrying `EINTR` moved the stall from every run or two to one run in eight. **A frequency change is
+not a fix**, and reading it as one is what produced the next two wrong diagnoses: the loop still
+ended early, for a second reason, and the improvement made the remaining case rarer and so harder to
+catch.
+
+## E521 - the hang: no tracer frames, and a verdict that could not arrive
+
+The next capture had `cmd.Wait` blocked as before, **no `engine/trace` frames at all** - so the
+notification loop had returned - and no message saying why. Three of `waitForWork`'s four exits were
+instrumented, so the silence was read as proof that it had taken the fourth.
+
+It was not proof of anything. `stopped` only *recorded* the reason; the guest reported it by failing
+the step, at `traced_linux.go:82`, which runs when the step's `fn` returns - and the step was hung.
+**The probe shared the fate of its subject**: the one state it existed to explain was the one state
+in which it could not speak. Every "empty verdict" capture is uninformative, not exculpatory.
+
+## E522 - the instrument, fixed first
+
+`Tracer.Report` announces a stop on stderr as it happens, which the host already forwards
+(`apple_darwin.go:397`), so the reason appears in the build log of a build that is *still hung*.
+
+A `closing` flag now separates a stop that was asked for from one that was not. `Revents != 0` on the
+stop pipe is also `POLLERR`, `POLLHUP` and `POLLNVAL`, so a stop pipe closed by anything other than
+`Close` ended the loop indistinguishably from an orderly shutdown - the fourth exit, and the one that
+would have been read as clean.
+
+Two candidate mechanisms for a stray close were examined and cleared rather than assumed:
+`fromFile` already keeps the `*os.File` alive against its finaliser (E215), and `cgroup.remove` has a
+single call site. Neither is the cause; both were checked because the previous six answers were
+guesses. **This changes no behaviour except what a stalled build says**, which is the point: the next
+capture names its exit or the instrument is wrong again.

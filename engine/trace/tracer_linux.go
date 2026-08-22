@@ -5,10 +5,13 @@ package trace
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"slices"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sys/unix"
 )
@@ -57,7 +60,16 @@ const (
 // through it ends in a response, and the interesting decisions are all about
 // what to *record* rather than whether to reply.
 type Tracer struct {
-	fd int
+	// Report is where a stop is announced, as it happens. Nil means stderr.
+	//
+	// **Announced, not just recorded.** A tracer that stops early leaves the
+	// step stopped in the kernel for ever, so the reason is wanted while the
+	// build is *still hung* - and reporting it through the step's error, as this
+	// used to, delivers it only when the step returns, which is exactly what a
+	// hung step never does. Three captures came back with an empty verdict for
+	// that reason (E522).
+	Report io.Writer
+	fd     int
 	// listener owns the descriptor when the tracer made it itself.
 	//
 	// An `*os.File` closes its descriptor from a **finaliser**, so a tracer
@@ -80,6 +92,12 @@ type Tracer struct {
 	// that consequently never joined this loop. Then the guest joined it and
 	// every traced step hung (E214). A mechanism beats a note.
 	stopR, stopW int
+	// closing separates a stop that was asked for from one that was not.
+	//
+	// Without it both arrive at Run as the same readable event on stopR, so a
+	// stop pipe that fires on its own is indistinguishable from an orderly
+	// Close - and the step it strands hangs with nothing said (E522).
+	closing atomic.Bool
 	// mine is the engine's own thread, or zero when the engine has none.
 	//
 	// The filter lives on the thread that installed it, so that thread's
@@ -108,6 +126,10 @@ type Tracer struct {
 	// error means this engine could not obtain a file that may well exist, which
 	// is recorded as fatal - see Unfilled.
 	Fill func(path string) error
+
+	// stopErr is why Run gave up, if it did. See stopped.
+	stopMu  sync.Mutex
+	stopErr error
 
 	mu       sync.Mutex
 	paths    map[string]bool
@@ -147,6 +169,8 @@ func (t *Tracer) Run() {
 
 		n, err := receive(t.fd)
 		if err != nil {
+			t.stopped(fmt.Errorf("receiving a notification: %w", err))
+
 			return
 		}
 
@@ -156,9 +180,46 @@ func (t *Tracer) Run() {
 		// stopped in the kernel, so this happens whatever was made of it -
 		// including nothing.
 		if err := respond(t.fd, n.ID); err != nil {
+			t.stopped(fmt.Errorf("answering notification %d: %w", n.ID, err))
+
 			return
 		}
 	}
+}
+
+// stopped records why this loop gave up.
+//
+// **A servicer that stops is worse than one that never started.** The filter
+// outlives it, so the next syscall the step makes is stopped in the kernel and
+// nothing is coming to release it - and until this was recorded, that presented
+// as a build hanging with no message anywhere, on either side, about why.
+func (t *Tracer) stopped(err error) {
+	t.stopMu.Lock()
+	defer t.stopMu.Unlock()
+
+	if t.stopErr != nil {
+		return
+	}
+
+	t.stopErr = err
+
+	// First one wins, here as in Stopped: a loop stops once, and a second line
+	// reads as a second fault.
+	w := t.Report
+	if w == nil {
+		w = os.Stderr
+	}
+
+	_, _ = fmt.Fprintf(w, "earth: syscall tracer stopped: %v\n", err)
+}
+
+// Stopped is why the notification loop ended, or nil if it ended because it was
+// asked to.
+func (t *Tracer) Stopped() error {
+	t.stopMu.Lock()
+	defer t.stopMu.Unlock()
+
+	return t.stopErr
 }
 
 // waitForWork blocks until a notification is ready or the tracer is stopped.
@@ -184,15 +245,41 @@ func (t *Tracer) waitForWork() bool {
 		}
 
 		if err != nil {
+			t.stopped(fmt.Errorf("polling the notification listener: %w", err))
+
 			return false
 		}
 
-		// Stopped, or the listener has gone away under us.
-		if len(fds) > 1 && fds[1].Revents != 0 {
-			return false
+		// Asked to stop - the only one of these that is not news, and only when
+		// somebody actually asked. `Revents != 0` is also POLLERR, POLLHUP and
+		// POLLNVAL, so a stop pipe closed by anything other than Close ends this
+		// loop just as quietly and deadlocks the step; say so rather than let it
+		// pass for a clean stop (E522).
+		if len(fds) > 1 {
+			if r := fds[1].Revents; r != 0 {
+				if !t.closing.Load() {
+					t.stopped(fmt.Errorf("the stop pipe reported %s while the step"+
+						" was still running and nothing asked this loop to stop",
+						pollEvents(r)))
+				}
+
+				return false
+			}
 		}
 
-		if fds[0].Revents&(unix.POLLERR|unix.POLLHUP|unix.POLLNVAL) != 0 {
+		// **The listener went away while a step was still filtered.** POLLHUP
+		// on a notification fd means the kernel has no filtered task left, which
+		// after a step has exited is ordinary and before it has is the beginning
+		// of a deadlock: the filter outlives this loop, and the step's next
+		// intercepted syscall stops in the kernel with nothing to release it.
+		//
+		// Recorded rather than guessed at. Three investigations named a cause
+		// for this stall from a summary and were wrong each time; the loop now
+		// says which of its exits it took (E521).
+		if r := fds[0].Revents; r&(unix.POLLERR|unix.POLLHUP|unix.POLLNVAL) != 0 {
+			t.stopped(fmt.Errorf("the notification listener reported %s while the"+
+				" step was still running", pollEvents(r)))
+
 			return false
 		}
 
@@ -450,6 +537,10 @@ func fromFile(f *os.File) *Tracer {
 // that no longer exists - which is not woken by the close and is then woken by
 // nothing at all.
 func (t *Tracer) Close() error {
+	// Before the close, so Run can never see the wake-up without the reason for
+	// it and call an orderly stop a fault.
+	t.closing.Store(true)
+
 	if t.stopW >= 0 {
 		_ = unix.Close(t.stopW)
 		t.stopW = -1
@@ -462,4 +553,30 @@ func (t *Tracer) Close() error {
 	}
 
 	return unix.Close(t.fd)
+}
+
+// pollEvents names the bits a poll came back with, because "0x18" in a message
+// is a number somebody then has to look up.
+func pollEvents(r int16) string {
+	var names []string
+
+	for _, e := range []struct {
+		bit  int16
+		name string
+	}{
+		{unix.POLLERR, "POLLERR"},
+		{unix.POLLHUP, "POLLHUP"},
+		{unix.POLLNVAL, "POLLNVAL"},
+		{unix.POLLIN, "POLLIN"},
+	} {
+		if r&e.bit != 0 {
+			names = append(names, e.name)
+		}
+	}
+
+	if len(names) == 0 {
+		return "no events"
+	}
+
+	return strings.Join(names, "|")
 }

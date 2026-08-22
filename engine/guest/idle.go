@@ -7,8 +7,9 @@ import (
 
 // EnvIdle is how long a sandbox stays up with nothing to do.
 //
-// A duration - `20m`, `2h`, `90s`. Zero or unset means never, which is what
-// this engine did before the timeout existed.
+// A duration - `20m`, `2h`, `90s`. Zero means never, which is what this engine
+// did before the timeout existed; unset means DefaultIdle, because the guest is
+// started by a host that supplies one.
 const EnvIdle = "EARTH_GUEST_IDLE"
 
 // DefaultIdle is how long an unattended sandbox waits before stopping.

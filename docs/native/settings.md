@@ -70,3 +70,29 @@ Default: found next to `earth-native`.
 How much memory the sandbox VM is given, on macOS. Ignored elsewhere, where there is no VM.
 
 Default: the backend's own.
+
+### `EARTH_CLONE_TREES`
+
+Whether a tree is placed by cloning it. On a filesystem with copy-on-write clones - APFS, and Linux
+filesystems that support reflinks - a whole tree is placed in one call and shares its storage with
+the original until something writes to it. Set to `0`, `false` or `no` to place trees by linking
+each entry instead, which is what happens anyway when the source and destination are on different
+filesystems.
+
+Default: on.
+
+### `EARTH_GUEST_IDLE`
+
+How long a sandbox stays up with nothing to do, as a duration - `20m`, `2h`, `90s`. A sandbox that
+stops too early costs one VM boot, about 0.4s, on the next build; one that never stops costs a VM
+per interrupted build until the machine runs out. Zero means never stop.
+
+Default: `30m`.
+
+### `EARTH_FLEET_DISCOVER`
+
+Whether a fleet uses relays and endpoint discovery to reach machines it cannot dial directly. Set to
+any non-empty value to turn it on. Off by default: it was on for one increment, and a worker given
+the driver's address - a path that had been working - joined and was then given no work (E505).
+
+Default: off.

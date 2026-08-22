@@ -30,6 +30,8 @@ var internalSettings = map[string]string{
 	"EARTH_FULL_TARGET":         "passed to a target's own sub-build",
 	"EARTH_GUEST_ARCH":          "passed to the guest by the host",
 	"EARTH_GUEST_CGROUP_PARENT": "passed to the guest by the host",
+	"EARTH_GUEST_FAST":          "passed to the guest by the host",
+	"EARTH_GUEST_FILL_SOCKET":   "passed to the guest by the host",
 	"EARTH_GUEST_FILLS":         "passed to the guest by the host",
 	"EARTH_GUEST_ID_GATE":       "passed to the guest by the host",
 	"EARTH_GUEST_MEMORY_MAX":    "passed to the guest by the host",

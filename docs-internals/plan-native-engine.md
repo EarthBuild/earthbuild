@@ -8758,3 +8758,29 @@ Go's startup copy would touch all of them anyway).
 **Unverified:** the intended check - `strace` a Go binary reading a variable and confirm no system
 call names it - did not run, because the machine was unreachable. The reasoning above is from the
 mechanism rather than from a measurement, and should be confirmed before anybody spends a week on it.
+
+**Differential testing does not substitute for observation, and the reason is worth keeping.** The
+idea is obvious and good: run the step once with the whole environment and once with a minimal one,
+and if the results agree, the variables that differed did not matter. It needs no tracer at all.
+
+It cannot key a cache, because it proves the wrong statement. Observation of a read is a claim about
+what the execution *did*: a step that never read `CARGO_HOME` cannot have been affected by it, and
+that holds for every value it might have had. Two runs that agree are a claim about the two values
+tried. The first is universally quantified and the second is not, and a cache needs the first - it is
+about to reuse this output against an environment nobody has run yet.
+
+**The absence case is where it fails outright**, and it is the common one. A step that behaves one way
+when `CI` is unset and another way when it is set is ordinary. Run it with a full environment and a
+minimal one and `CI` is unset in both, so the results agree and the conclusion is "`CI` does not
+matter" - which is exactly wrong, and wrong in the direction that serves a stale output. The engine
+would then reuse that layer on a machine where `CI` *is* set.
+
+Observation has an answer to that and this does not: a lookup that found nothing is recorded in 𝑁
+(§3.4), so "I asked for `CI` and it was absent" is part of the key and setting it later is a miss. A
+differential run cannot record what it never varied, and varying every name is not a thing anyone can
+enumerate.
+
+So the technique has a home, and it is the one this specification already built for claims that
+cannot be trusted: 𝔇, determinism beliefs, hint-only by §2 and droppable by I5. Differential runs
+could say "this step looks insensitive to its environment" as advice - worth having for screening, a
+warning, or deciding what to try next - and must never say it to a key.

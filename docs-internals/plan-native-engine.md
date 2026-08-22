@@ -8730,3 +8730,31 @@ Sequencing, once the model is settled: declarations in the store and the materia
 everything else needs somewhere to put them; then `Θ` yielding an image's declaration with its digest,
 which fixes delegation; then the interpreter emitting `ENV` as an element, which is what makes it one
 mechanism and re-keys every build that sets one.
+
+## Parked: keying on the declarations a step actually reads
+
+Once declarations are elements, a step's key covers every one of them, so an `ENV` nobody reads
+invalidates everything above it. The obvious next move is to key on what was *read* rather than on
+what was in scope - Κ₂ for declarations, exactly as it already works for paths.
+
+**The model needs nothing new.** An environment is a namespace, and the observation set already has
+the right three shapes for one: 𝑅 for what was read, 𝑁 for a name looked up and absent, and 𝐷 for an
+enumeration, keyed by the digest of the whole listing. A program that scans for `CARGO_*` enumerates,
+so it lands in 𝐷 and depends on the entire set including which names are *not* there - which is
+correct rather than a defect. The awkward case is the one the vocabulary was built for.
+
+**The blocker is mechanical and specific.** Reading an environment variable makes no system call:
+`environ` is memory the kernel populated at `execve`, and `getenv` is a library walk over it. The
+tracer here sees system calls, so it sees nothing at all - unlike a path, which cannot be read
+without asking the kernel. Worse, Go's runtime copies the whole environment at startup before `main`,
+so any shim at the `getenv` level would report "everything, immediately" for every Go program, which
+is most of what this engine builds.
+
+Routes, if it is ever worth revisiting: an `LD_PRELOAD` shim (blind to static binaries, to Go, and to
+anything walking `environ` directly), eBPF uprobes on `getenv` (the same blind spots), or protecting
+the pages holding the environment and catching the faults (the kernel chooses where they land, and
+Go's startup copy would touch all of them anyway).
+
+**Unverified:** the intended check - `strace` a Go binary reading a variable and confirm no system
+call names it - did not run, because the machine was unreachable. The reasoning above is from the
+mechanism rather than from a measurement, and should be confirmed before anybody spends a week on it.

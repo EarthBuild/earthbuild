@@ -25345,3 +25345,59 @@ The register moves `engine/decl/store.go` from `host` to `guest`, which is the p
 the work list went down by one for a reason anybody can check, rather than because somebody
 remembered to cross it off. Two host readers remain - `cli/images.go`, which writes an OCI image out,
 and `fleet/layers.go`, which serves layers to peers.
+
+## E555 - the reaper was inside the thing it was supposed to outlive
+
+Twenty-six sandboxes were running on one laptop, the oldest eight hours old, every one of them
+holding a VM open with nothing in it. The engine has a mechanism for exactly this and its
+documentation is unambiguous:
+
+> **It lives in the guest, and that is the whole design.** The obvious place for this is the host -
+> it knows when the build ended - and the obvious place is wrong: the host process is the one that
+> gets killed, `defer` does not run on SIGKILL, and a VM whose reaper died is exactly the VM that
+> leaks. Anything that cleans up a sandbox has to outlive whatever killed the build, and the only
+> thing that does is the sandbox.
+
+Every word of that is right, and the conclusion is one level short. The guest is not the sandbox. On
+this backend the guest is one `container exec` per build, and it is gone within a second of the
+build ending:
+
+```text
+    t+1s    0 guestd, container running
+    t+8s    0 guestd, container running
+    t+20s   0 guestd, container running
+```
+
+So the timeout never fired. `guest.Idle`, `EnvIdle` and `DefaultIdle` are a complete, tested,
+documented mechanism that on this backend cannot run, because the process holding the timer exits
+before the timer matters. The machine then stayed up until its `sleep 86400` ended, a day later.
+
+**Three fixes, and the first two were aimed at the wrong half.**
+
+* The guest now stops its machine when it idles out, which is correct and almost never fires.
+* `EARTH_GUEST_IDLE` was never forwarded to a VM sandbox at all, so a developer setting it was
+  changing nothing - and forwarding it at boot introduced E549's failure class, a per-invocation
+  decision cached on a machine that outlives the invocation. It is in the sandbox's *name* instead,
+  where `memory` and the fast volume already are: anything that changes what the machine is has to
+  change which machine it is.
+* The one that mattered: **PID 1 is the reaper.** The keep-alive that holds the machine open now
+  asks, every poll, whether any agent is in it, and exits when none has been for the timeout.
+
+```text
+    sh -c 'idle=0; while :; do sleep 3;
+             if pgrep earth-guestd >/dev/null 2>&1; then idle=0; else idle=$((idle+3)); fi;
+             [ "$idle" -lt 30 ] || exit 0; done'
+```
+
+Measured: build, then the machine stops itself 25 seconds later against a 30-second setting.
+
+It *asks* rather than being told, which is the property worth keeping. A build that crashes, a host
+that is SIGKILLed and an exec that dies all look identical from PID 1 - which is the entire set of
+cases a reaper exists for, and exactly the set that a mechanism relying on being notified misses.
+
+*A probe of my own that was wrong twice.* Checking whether the new variables reached the guest, I
+read `/proc/1/environ` and ran a bare `container exec ... env`, and both showed nothing. The
+variables go through `container exec -e` on the *agent's* invocation - the source file says so, in a
+comment warning about this exact mistake - so PID 1 never had them and a second exec has its own
+environment. The code was right and the measurement was wrong, for the third time this session in
+the same shape: *the tool answered the question I asked it, and I had asked a different one.*

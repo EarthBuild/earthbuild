@@ -31,6 +31,7 @@ var internalSettings = map[string]string{
 	"EARTH_GUEST_ARCH":          "passed to the guest by the host",
 	"EARTH_GUEST_CGROUP_PARENT": "passed to the guest by the host",
 	"EARTH_GUEST_FAST":          "passed to the guest by the host",
+	"EARTH_GUEST_OWNS_MACHINE":  "passed to the guest by the host: a grant, not a preference",
 	"EARTH_GUEST_FILL_SOCKET":   "passed to the guest by the host",
 	"EARTH_GUEST_FILLS":         "passed to the guest by the host",
 	"EARTH_GUEST_ID_GATE":       "passed to the guest by the host",

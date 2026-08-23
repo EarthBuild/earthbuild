@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	"lukechampine.com/blake3"
 
@@ -95,7 +96,7 @@ func (a *Apple) keepAlive() []string {
 	}
 
 	if a.Image == "" || a.Image == defaultSandboxImage {
-		return []string{"sleep", "86400"}
+		return keepAliveUntilIdle(idleSetting())
 	}
 
 	return nil
@@ -175,7 +176,13 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	// name, so a sandbox started before this engine attached a volume would be
 	// reused without one - and the build would quietly put its caches back on
 	// the shared store, which is the thing being fixed.
-	for _, part := range append([]string{image, guestDir, store, memory, guestFast}, command...) {
+	//
+	// The idle setting is in here for the same reason once more. It decides how
+	// long the machine lives, which is a property of the machine and not of the
+	// request that found it - so a build asking for an hour and a build asking
+	// for the default have to be asking about two machines, or the second gets
+	// whatever the first said (E549's failure class, E555's occasion).
+	for _, part := range append([]string{image, guestDir, store, memory, guestFast, idleSetting()}, command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
 	}
 
@@ -415,6 +422,19 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		// Storage this sandbox owns, for the things that must outlive a step
 		// without the host needing to see them. See guestFast.
 		"-e", guest.EnvFast + "=" + guestFast,
+		// How long an unused sandbox waits before stopping.
+		//
+		// Forwarded because it was not, and `EnvIdle`'s own documentation says
+		// "unset means DefaultIdle, because the guest is started by a host that
+		// supplies one" - which was true of the namespace backend and never
+		// true here. A developer setting it against a VM sandbox was changing
+		// nothing (E555).
+		"-e", guest.EnvIdle + "=" + idleSetting(),
+		// This machine exists for this guest and is held open by the keep-alive
+		// in runArgs, so the guest going idle is the machine having nothing to
+		// do. Without it the agent stopped and the VM stayed up until its sleep
+		// ended (E555).
+		"-e", guest.EnvOwnsMachine + "=1",
 		// Where this guest listens for faults, when anything wants to fault.
 		// Set always: the guest binds cheaply and nothing dials unless a worker
 		// asked for fault-in. See SetFill.
@@ -794,4 +814,63 @@ func (a *Apple) Prewarm(ctx context.Context) {
 	}
 
 	_ = a.ensureRunning(ctx)
+}
+
+// idleSetting is what this invocation asks an unused sandbox to wait.
+//
+// The host's own environment, passed on rather than interpreted: the guest
+// parses it and owns what an unparseable value means, and a second reading here
+// would be a second answer to the same question.
+func idleSetting() string {
+	if v := os.Getenv(guest.EnvIdle); v != "" {
+		return v
+	}
+
+	return guest.DefaultIdle.String()
+}
+
+// keepAliveUntilIdle holds a sandbox open while anything is using it.
+//
+// **The reaper has to outlive the agent, and the agent is what was doing the
+// reaping.** `guest.Idle` stops a sandbox nobody has used - that is its whole
+// design, and it lives in the guest because the host is the process that gets
+// killed. On this backend the guest does not live long enough to run it: it is
+// one `container exec` per build, and it is gone within a second of the build
+// ending. So the timeout never fired, the machine stayed up until its sleep
+// ended a day later, and twenty-six of them were found on one laptop (E555).
+//
+// This is the same rule in the one process that is still there: PID 1, which is
+// the machine. It asks whether an agent is present rather than being told, so
+// nothing has to remember to report - a build that crashes, a host that is
+// SIGKILLed and a `container exec` that dies all look the same from here, which
+// is exactly the set of cases a reaper is for.
+//
+// A shell loop because the sandbox image is the plain one and a shell is what
+// it has. `pgrep` and `date` are busybox builtins; nothing here needs the
+// engine's own binaries, which is the point - this must work when the agent
+// cannot start at all.
+func keepAliveUntilIdle(idle string) []string {
+	secs := int((30 * time.Minute).Seconds())
+
+	if d, err := time.ParseDuration(idle); err == nil && d > 0 {
+		secs = int(d.Seconds())
+	} else if err == nil {
+		// Zero is `EnvIdle`'s "keep it up", which a developer debugging a
+		// sandbox asks for. The plain sleep is what this was before any of
+		// this, so "never" means exactly as long as it ever did - a day - and
+		// not longer.
+		return []string{"sleep", "86400"}
+	}
+
+	// The poll is a fraction of the timeout, so a sandbox stops within about a
+	// tenth of what was asked rather than a fixed interval that is either
+	// wasteful for a long timeout or coarse for a short one. Floored at a
+	// second: a poll faster than that is a busy loop in every idle VM.
+	poll := max(secs/10, 1)
+
+	return []string{"sh", "-c", fmt.Sprintf(
+		`idle=0; while :; do sleep %d; `+
+			`if pgrep earth-guestd >/dev/null 2>&1; then idle=0; `+
+			`else idle=$((idle+%d)); fi; `+
+			`[ "$idle" -lt %d ] || exit 0; done`, poll, poll, secs)}
 }

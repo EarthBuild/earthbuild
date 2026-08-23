@@ -166,6 +166,20 @@ func run() error {
 		fmt.Fprintf(os.Stderr, "earth-guestd: nothing has used this sandbox for %v, stopping"+
 			"\n  set %s to change that, or 0 to keep it up\n",
 			envDuration(guest.EnvIdle, guest.DefaultIdle), guest.EnvIdle)
+
+		// **Stopping the agent is not stopping the sandbox.** In a VM the
+		// machine is held open by a keep-alive at PID 1, so exiting here left a
+		// running VM with a `sleep` in it and its memory reserved until that
+		// sleep ended a day later - twenty-six of them on one machine (E555).
+		//
+		// Reported and not fatal: the exit below is what this function is for,
+		// and a machine that will not stop is the state the engine was already
+		// in.
+		stopErr := guest.StopMachine()
+		if stopErr != nil {
+			fmt.Fprintf(os.Stderr, "earth-guestd: %v\n", stopErr)
+		}
+
 		os.Exit(0)
 	})
 

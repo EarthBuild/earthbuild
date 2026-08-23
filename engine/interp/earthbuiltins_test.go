@@ -94,13 +94,20 @@ build:
 	}
 }
 
-// A git builtin is still not answered.
+// A declared git builtin is answered from the build context's repository.
 //
-// It needs a repository read this engine does not do, and an empty string is a
-// claim to have looked: a step could not tell "not a repository" from "the
-// engine forgot". Declared and unset expands to nothing, which is the same
-// result with none of the claim.
-func TestAGitBuiltinIsNotAnswered(t *testing.T) {
+// **This test used to assert the opposite, and the reason it gave was right at
+// the time**: "it needs a repository read this engine does not do, and an empty
+// string is a claim to have looked - a step could not tell 'not a repository'
+// from 'the engine forgot'". The engine now does the read, so the premise is
+// gone: an empty value means there is no repository, which is what the
+// documentation promises and what a step can act on.
+//
+// The symptom of not answering was a binary. `earth +earthly` stamped itself
+// `Version=dev-` and `GitSha=`, forty bytes smaller than the same target built
+// by the reference engine and otherwise identical - provenance missing,
+// reported as success (E563).
+func TestADeclaredGitBuiltinIsAnswered(t *testing.T) {
 	t.Parallel()
 
 	plan, err := interp.Build(`
@@ -114,12 +121,34 @@ build:
 		t.Fatalf("%v", err)
 	}
 
+	// This test runs inside this repository's own checkout, so there is a
+	// commit to report. A hash is forty hex characters and nothing else is, so
+	// the shape is the assertion rather than any particular value - which would
+	// be a test that fails on every commit.
+	answered := false
+
 	for _, n := range plan.Graph.Nodes() {
 		for _, a := range n.Op.Args {
-			if strings.Contains(a, "[") && !strings.Contains(a, "[]") {
-				t.Errorf("a git builtin was answered: %q", a)
+			_, after, opened := strings.Cut(a, "[")
+			if !opened {
+				continue
+			}
+
+			inside, _, closed := strings.Cut(after, "]")
+			if !closed {
+				continue
+			}
+
+			if len(inside) == 40 && strings.Trim(inside, "0123456789abcdef") == "" {
+				answered = true
 			}
 		}
+	}
+
+	if !answered {
+		t.Error("a declared git builtin expanded to nothing inside a checkout:" +
+			"\n  an Earthfile that stamps a version with it ships an unstamped" +
+			"\n  binary, and reports success")
 	}
 }
 

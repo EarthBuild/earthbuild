@@ -25775,3 +25775,49 @@ the `.earthlyignore` that was already there. The engine correctly refuses both a
 returned an error, the excluder fell back to excluding nothing, and three runs of timings said the
 change had achieved nothing. The mechanism under test reported the collision plainly; the harness
 around it discarded the message and kept the number.
+
+## E563 - the same Earthfile, the same commit, the same bytes
+
+`earth +earthly` and `earthly +earthly` produced binaries forty bytes apart. Not a divergence in the
+build - the code was identical - and the difference was worth more than a matching size would have
+been, because it named something missing:
+
+```text
+    earth     -X main.Version=dev-                            -X main.GitSha=
+    earthly   -X main.Version=dev-giles-post-buildkit-engine  -X main.GitSha=53124e44…
+```
+
+The Earthfile stamps itself from `$EARTHLY_TARGET_TAG_DOCKER` and `$EARTHLY_GIT_HASH`. **The native
+engine supplied no git built-in args at all**, so both expanded to empty and the binary shipped
+unstamped - a provenance failure that reports success, which is the shape E448 named for the engine's
+own version args and this is the same shape one family along.
+
+Implemented against the documented contract: always present, empty where there is no repository, so
+an `ARG EARTHLY_GIT_HASH` outside a checkout gets an empty string rather than an error. Four `git`
+invocations rather than eleven - one `git log` with a format string answers everything about the
+commit - cached per directory, and timeout-bounded, because a `git` that stops for a credential
+prompt would otherwise hang a build before it has read a line of the Earthfile.
+
+Two details that are decisions rather than details:
+
+* `ORIGIN_URL_SCRUBBED` removes credentials and *not* the user in `git@host:org/repo`. A URL that
+  carried a token is a token in the layer; a URL with its user removed is one nobody can clone.
+* A detached HEAD reports no branch rather than the literal `HEAD`, which is the name of no branch
+  and would have an Earthfile tag an image `HEAD`.
+
+Then, same commit, both engines:
+
+```text
+    45,483,720 bytes
+    6a9056db6e6a59c3e8b0430826b9f800   earth
+    6a9056db6e6a59c3e8b0430826b9f800   earthly
+```
+
+**Byte-identical.** Which is the strongest statement available about a replacement engine: not that
+it is faster - it is, 1.41s against 20.7s warm on this target - but that the thing it produces cannot
+be told from what it replaces.
+
+*The forty bytes were the useful part.* A comparison that had matched would have proved less: two
+binaries of the same size and different content say the build works, while forty bytes of missing
+version string say exactly which mechanism is absent. The measurement was aimed at parity and what it
+found was a feature.

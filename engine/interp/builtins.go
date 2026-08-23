@@ -32,7 +32,7 @@ func UserPlatform() string { return runtime.GOOS + "/" + runtime.GOARCH }
 // expands to nothing in the engine that ships - checked against it directly -
 // and filling it in would change what an Earthfile means. A compatible engine
 // does not get to be helpful about that.
-func builtinArgs(target, native, name string, locally bool) map[string]string {
+func builtinArgs(target, native, name, dir string, locally bool) map[string]string {
 	// The name arrives with its `+` when the caller wrote one - `earth +build`
 	// and `interp.Build(src, "build")` both reach here - so it is stripped once
 	// and added back where the reference wants it. Without this,
@@ -80,6 +80,40 @@ func builtinArgs(target, native, name string, locally bool) map[string]string {
 		"EARTH_BUILD_SHA": engineBuildSHA(),
 	}
 
+	// What the build context's repository says about itself.
+	//
+	// **Always present, empty where there is no repository.** Every one is
+	// documented that way, and the names have to exist whatever the answer: an
+	// Earthfile declaring `ARG EARTHLY_GIT_HASH` outside a checkout gets an
+	// empty string, and a name that were absent instead would make the
+	// declaration an error rather than an empty label.
+	//
+	// This family was missing entirely, and the symptom was a binary: `earth
+	// +earthly` produced one stamped `Version=dev-` and `GitSha=`, forty bytes
+	// smaller than the same target built by the reference engine and otherwise
+	// identical (E563).
+	g := gitFactsFor(dir)
+
+	out["EARTH_GIT_HASH"] = g.hash
+	out["EARTH_GIT_SHORT_HASH"] = g.shortHash
+	out["EARTH_GIT_CONTENT_HASH"] = g.tree
+	out["EARTH_GIT_BRANCH"] = g.branch
+	out["EARTH_GIT_TAG"] = g.tag
+	out["EARTH_GIT_COMMIT_TIMESTAMP"] = g.commitTime
+	out["EARTH_GIT_COMMIT_AUTHOR_TIMESTAMP"] = g.authorTime
+	out["EARTH_GIT_AUTHOR"] = g.authorMail
+	out["EARTH_GIT_AUTHOR_EMAIL"] = g.authorMail
+	out["EARTH_GIT_AUTHOR_NAME"] = g.authorName
+	out["EARTH_GIT_ORIGIN_URL"] = g.origin
+	out["EARTH_GIT_ORIGIN_URL_SCRUBBED"] = scrubbed(g.origin)
+	out["EARTH_GIT_PROJECT_NAME"] = g.project
+
+	// The tag half of the canonical reference, which for a checkout is the
+	// branch it is on: `github.com/org/repo:branch+target`. Empty outside a
+	// repository, because there is no canonical form to take a tag from.
+	out["EARTH_TARGET_TAG"] = g.branch
+	out["EARTH_TARGET_TAG_DOCKER"] = dockerTag(g.branch)
+
 	// The legacy spelling, which the reference still supplies.
 	//
 	// `ARG EARTHLY_TARGET` is deprecated in favour of `ARG EARTH_TARGET` and
@@ -91,6 +125,13 @@ func builtinArgs(target, native, name string, locally bool) map[string]string {
 		"EARTH_TARGET_NAME", "EARTH_TARGET", "EARTH_LOCALLY",
 		"EARTH_CI", "EARTH_SOURCE_DATE_EPOCH",
 		"EARTH_VERSION", "EARTH_BUILD_SHA", "EARTH_PUSH",
+		"EARTH_TARGET_TAG", "EARTH_TARGET_TAG_DOCKER",
+		"EARTH_GIT_HASH", "EARTH_GIT_SHORT_HASH", "EARTH_GIT_CONTENT_HASH",
+		"EARTH_GIT_BRANCH", "EARTH_GIT_TAG",
+		"EARTH_GIT_COMMIT_TIMESTAMP", "EARTH_GIT_COMMIT_AUTHOR_TIMESTAMP",
+		"EARTH_GIT_AUTHOR", "EARTH_GIT_AUTHOR_EMAIL", "EARTH_GIT_AUTHOR_NAME",
+		"EARTH_GIT_ORIGIN_URL", "EARTH_GIT_ORIGIN_URL_SCRUBBED",
+		"EARTH_GIT_PROJECT_NAME",
 	} {
 		out["EARTHLY_"+strings.TrimPrefix(n, "EARTH_")] = out[n]
 	}
@@ -229,4 +270,31 @@ func addCIRunner(into map[string]string) {
 	for _, name := range []string{"EARTH_CI_RUNNER", "EARTHLY_CI_RUNNER"} {
 		into[name] = value
 	}
+}
+
+// dockerTag is a reference's tag as a docker tag: valid, and never empty.
+//
+// A tag has to be usable where an image is named, and a branch is not: `/` is
+// how a registry separates a repository from its host, so `john/work` in a tag
+// names something else entirely. `latest` where there is no tag at all, which
+// is what a reference with no canonical form is documented to give and what
+// every other tool means by an unnamed version.
+func dockerTag(tag string) string {
+	if tag == "" {
+		return "latest"
+	}
+
+	safe := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			return r
+		case r == '.', r == '_', r == '-':
+			return r
+		default:
+			return '_'
+		}
+	}, tag)
+
+	// A docker tag may not begin with a separator, and a branch may.
+	return strings.TrimLeft(safe, "._-")
 }

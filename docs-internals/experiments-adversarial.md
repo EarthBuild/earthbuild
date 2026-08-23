@@ -26856,3 +26856,44 @@ What this is worth: `+earthly` said this engine is 17x faster and `+unit-test` s
 slower, and both are true of what they measured. A no-op build measures the cache; a test suite
 measures execution and finds two deadlocks. **Choosing only the first target is how an engine gets
 shipped with a hang in it.**
+
+## E588 - the tracer is the difference, and it is twenty-five times
+
+E586 measured this engine at five times earthly on `+unit-test` and found the ratio was not one
+thing: two packages hung, two were heavy, and `engine/core` was at parity. E587 removed one hang.
+This is what the heavy ones are.
+
+A step that makes four thousand files, reads them back and lists them:
+
+| Operation            | earth | earthly | Ratio |
+| -------------------- | ----- | ------- | ----- |
+| create 4000 files    | 0.34s | 0.06s   | 5.7x  |
+| read them (`cat f*`) | 0.25s | 0.01s   | 25x   |
+| list them (`ls -la`) | 0.25s | 0.01s   | 25x   |
+
+Two candidates: the store is virtiofs from the host, or every syscall is intercepted by the seccomp
+tracer. They are separable in one line - `Trace: !n.Op.Interactive` becomes `Trace: false` - and the
+answer is not the filesystem:
+
+| Operation         | traced | untraced  | earthly |
+| ----------------- | ------ | --------- | ------- |
+| create 4000 files | 0.34s  | 0.11s     | 0.06s   |
+| read them back    | 0.25s  | **0.01s** | 0.01s   |
+| list them         | 0.25s  | **0.01s** | 0.01s   |
+
+**Untraced, this engine matches buildkit exactly on reads and listings**, and is within a factor of
+two on creates. The tracer is the whole of the difference, and on read-heavy work it is
+twenty-five-fold.
+
+Which is not a defect: the tracer is how a step earns an L2 hit, and L2 is what lets a build over a
+*different* base reuse a result it did not compute. The trade is real and it has never been priced.
+Now it has: **observed inputs cost 25x on a step that reads a lot of small files**, and the packages
+that pay it are exactly the ones E586 found - `engine/store` at 41x, `engine/cli` at 18x,
+`engine/exec` at 517x, and `engine/interp`'s corpus sweeps, which walk the repository and time out.
+`engine/core` computes and does not read, and sits at 1.0x.
+
+*What this does not settle.* Whether the price is worth paying is a question about a build, not about
+this measurement: a step that is cached is not run at all, so the tracer costs nothing on the builds
+this engine is fastest at, and everything on a test suite that re-runs because it is red. What the
+number changes is that the choice can now be made with a figure rather than an intuition - and that a
+`RUN` which will never be reused has no reason to be watched.

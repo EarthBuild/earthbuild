@@ -9,6 +9,16 @@ import (
 
 func (b *Build) buildFlags() []cli.Flag {
 	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "engine",
+			Sources: flag.EarthEnvVars("ENGINE"),
+			// No backticks: urfave/cli reads the first backticked word as the
+			// value's placeholder name, so `buildkit` here made the help read
+			// "--engine buildkit" as though that were a type.
+			Usage:       "Which build engine runs the build: buildkit (the default) or native",
+			Value:       "buildkit",
+			Destination: &b.cli.Flags().Engine,
+		},
 		&cli.StringSliceFlag{
 			Name:        "platform",
 			Sources:     flag.EarthEnvVars("PLATFORMS"),

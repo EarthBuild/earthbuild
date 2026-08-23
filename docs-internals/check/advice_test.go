@@ -9,6 +9,10 @@ import (
 
 // No refusal tells an author to use a flag this CLI does not have.
 //
+// **The flag exists now** (E593), so this no longer refuses the phrase outright
+// - it refuses it where the reader is already inside the native engine, which is
+// advice that cannot apply where it is printed.
+//
 // Three messages said "build with `--engine=native`" - the macOS backend's
 // refusal of `--isolate`, the plan-level refusal before a machine boots, and the
 // buildkit engine's refusal of the flag. The native engine is reached by the
@@ -52,7 +56,10 @@ func TestNoAdviceNamesAFlagThatDoesNotExist(t *testing.T) {
 			return nil //nolint:nilerr // ditto
 		}
 
-		if strings.Contains(string(b), "--engine=native") {
+		// The flag exists now, so naming it is advice rather than a usage
+		// message. What this still refuses is naming it from the *native
+		// engine's own* packages, where the reader is already inside it.
+		if strings.Contains(string(b), "--engine=native") && strings.Contains(p, "/engine/") {
 			found = append(found, p)
 		}
 
@@ -63,9 +70,9 @@ func TestNoAdviceNamesAFlagThatDoesNotExist(t *testing.T) {
 	}
 
 	if len(found) > 0 {
-		t.Errorf("these tell an author to use a flag this CLI does not accept:\n  %s"+
-			"\n  the native engine is the `earth-native` binary until the flag is"+
-			" wired through, and advice that prints a usage message is worse than"+
-			" no advice", strings.Join(found, "\n  "))
+		t.Errorf("these name --engine=native from inside the native engine:\n  %s"+
+			"\n  the native engine is what these packages already are, so telling"+
+			" a reader to switch to it is advice that cannot apply where it is"+
+			" printed", strings.Join(found, "\n  "))
 	}
 }

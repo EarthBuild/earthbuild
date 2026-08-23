@@ -27053,3 +27053,36 @@ Each of those took one command and each would have been a paragraph of plausible
 value of writing them down is that the next person does not spend the afternoon this took: what
 remains is a hang that survives the removal of tracing, of slow storage, of the corpus fallback and
 of the network, in a package whose work is pure interpretation.
+
+## E593 - the flag the error messages had been promising
+
+Five places in this engine tell an author to "use `--engine=buildkit`", and one comment in
+`cmd/earth-native` describes itself as what becomes "`earthly --engine=native` once the flag is wired
+through the existing CLI". A guard existed to keep those promises honest: `advice_test.go` refused
+any message naming a flag the CLI did not accept, because advice that prints a usage error is worse
+than no advice.
+
+The flag is wired now, and it is thirty lines. `cli.Run(ctx, cli.Options{Dir, Target, Platform,
+Args, Out})` is the whole of the native engine's entry point, so the shipped CLI needs a flag, a
+field and a branch taken immediately after the target is parsed - before anything starts a daemon
+neither engine was going to use.
+
+```text
+    earth build --engine=native +earthly     ->  builds, exports go.mod, go.sum and the binary
+```
+
+What it refuses rather than approximates, because a comparison that quietly builds something else
+stops being a comparison: a remote target, an artifact reference, and more than one `--platform`.
+Each says which engine to use instead.
+
+**The default stays `buildkit`.** Flipping it would change what every user of this branch gets from
+an engine that cannot yet run `LOCALLY`, cannot emulate another architecture and has two known
+hangs - and the value being sought here is a *comparison*, which a flag provides and a default does
+not. What a default would buy is CI coverage, and CI can pass the flag.
+
+*The guard had to learn the new fact, which is the part worth recording.* It refused the phrase
+`--engine=native` anywhere in the tree, on the grounds that the flag did not exist. It does now, so
+refusing the phrase outright would keep a true statement out of the codebase. It refuses it inside
+`engine/` instead - where the reader is already in the native engine, and being told to switch to it
+is advice that cannot apply where it is printed. **A guard whose premise changes is not a guard to
+delete; it is one whose subject moved.**

@@ -26940,3 +26940,36 @@ conclusion before it was written down.
 
 So what makes `engine/store` forty times slower is open, and this experiment's only contribution to
 that question is to have removed the answer everybody would have reached for first.
+
+## E590 - reads and writes have different answers
+
+E588 measured the tracer at 25x and blamed it for everything; E589 ran the workload with the tracer
+off, found no change, and withdrew the claim. Both were looking at one number where there are two.
+
+The operations `TestCapturingALargeTreeDoesNotHoardDescriptors` actually performs - twenty thousand
+files created, hardlinked, then read and hashed - measured three ways:
+
+| Operation (20,000 files) | Traced | Untraced  | earthly |
+| ------------------------ | ------ | --------- | ------- |
+| create                   | 4.29s  | 2.50s     | 0.33s   |
+| hardlink (`cp -al`)      | 5.35s  | 2.39s     | 0.23s   |
+| read and hash            | 1.47s  | **0.09s** | 0.11s   |
+
+**Reads are the tracer, entirely.** 1.47s becomes 0.09s with it off, against earthly's 0.11s - not
+close to parity, at parity. E588's twenty-five-fold is real and it is a fact about reading.
+
+**Writes and metadata are something else.** Creating and hardlinking stay seven to ten times slower
+with the tracer off, and that is most of the eleven seconds this workload costs. Which is why E589
+saw nothing: a test suite that writes far more than it reads was never going to move when the read
+cost was removed.
+
+So both earlier readings were half of this one, and the half each measured was the half its
+benchmark exercised. `cat f*` reads and does not write, so the tracer was all of it. `+unit-test`
+writes far more than it reads, so the tracer was none of it. **The workload chose the answer, and
+neither experiment noticed it was being chosen for.**
+
+*What is now open, precisely.* The remaining seven to ten times is on file creation and hardlinking
+inside a step, with tracing off, against buildkit doing the same thing in its own VM. Overlay depth
+is the obvious suspect and this benchmark refuses it: `FROM alpine:3.24.1` is three layers deep, not
+the fifty a real target carries. The cause is unknown and the number is 2.5s against 0.33s, which is
+the whole of what separates this engine from buildkit on a write-heavy step.

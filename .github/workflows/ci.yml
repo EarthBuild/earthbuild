@@ -317,6 +317,54 @@ jobs:
   # frontends) without an admin having to re-point the ruleset - a mismatch
   # there leaves a PR waiting forever on a context nothing will ever report.
   # Add new suites to `needs` and they are gated automatically.
+  # What the native engine does on a machine nobody developed it on.
+  #
+  # It has been built against one darwin arm64 laptop; this is linux on amd64,
+  # with a different sandbox and a different filesystem, which is the set of
+  # assumptions a single developer's machine cannot test (E593).
+  #
+  # **Not a gate.** `continue-on-error` and absent from `ci-success` on purpose:
+  # the native engine is not what this repository ships, and a job that reports
+  # is worth having long before one that blocks. It turns red into a comment on
+  # a pull request rather than a merge nobody can complete.
+  native-engine:
+    name: Native engine (report only)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build both binaries
+        run: |-
+          set -euo pipefail
+          go build -o /tmp/earth ./cmd/earth
+          go build -o /tmp/earth-guestd ./cmd/earth-guestd
+      - name: What this platform can do
+        run: |-
+          set -euo pipefail
+          uname -srm
+          # Every combination the release ships, so a package that cannot be
+          # built for one of them fails here rather than in a release (E581).
+          for pair in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            printf '%-16s ' "$pair"
+            GOOS="${pair%%/*}" GOARCH="${pair##*/}" go build ./... && echo ok
+          done
+      - name: Build a target with the native engine
+        # Report, do not gate: this is the first time it has run here.
+        continue-on-error: true
+        env:
+          EARTH_GUESTD: /tmp/earth-guestd
+        run: |-
+          set -euo pipefail
+          /tmp/earth build --engine=native +earthly 2>&1 | tail -40
+
   ci-success:
     name: CI Success
     if: always()

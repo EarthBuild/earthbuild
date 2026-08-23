@@ -59,7 +59,10 @@ func (e *Executor) exportTo(
 		return nil
 	}
 
+	endClient := phase("export:client", path)
 	c, err := e.client()
+	endClient()
+
 	if err != nil {
 		return err
 	}
@@ -71,18 +74,28 @@ func (e *Executor) exportTo(
 	stack, squash := flattenForMount(stack)
 
 	if squash != nil {
+		endSquash := phase("export:squash", path)
 		err = e.Squash(ctx, stack[0], squash)
+		endSquash()
+
 		if err != nil {
 			return fmt.Errorf("collapse %d layers into one to read %s: %w", len(squash), path, err)
 		}
 	}
 
+	endMat := phase("export:materialise", path)
 	h, err := c.Materialise(ctx, stack)
+	endMat()
+
 	if err != nil {
 		return fmt.Errorf("materialise the filesystem holding %s: %w", path, err)
 	}
 
-	defer func() { _ = h.Release() }()
+	defer func() {
+		endRel := phase("export:release", path)
+		_ = h.Release()
+		endRel()
+	}()
 
 	// `SAVE ARTIFACT --if-exists` means an absent path is not a failure. Asked
 	// of the materialised filesystem rather than inferred from an export error,

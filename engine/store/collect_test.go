@@ -36,11 +36,13 @@ func fill(t *testing.T, root string, n byte, size int, used time.Time) ir.NodeID
 	id := ir.NodeID{n}
 
 	dir := LayerStore(root).Path(id)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	err := os.MkdirAll(dir, 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "f"), make([]byte, size), 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(dir, "f"), make([]byte, size), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,11 +51,13 @@ func fill(t *testing.T, root string, n byte, size int, used time.Time) ir.NodeID
 		t.Fatal(err)
 	}
 
-	if err := index.Note(id); err != nil {
+	err = index.Note(id)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.Chtimes(index.path(id), used, used); err != nil {
+	err = os.Chtimes(index.path(id), used, used)
+	if err != nil {
 		t.Fatal(err)
 	}
 

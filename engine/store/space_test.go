@@ -15,7 +15,8 @@ func TestAFullDiskSaysWhoFilledIt(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(root, "layer"), make([]byte, 4096), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(root, "layer"), make([]byte, 4096), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,7 +69,8 @@ func TestSizeSaysWhenItIsAFloor(t *testing.T) {
 	want := 3 * 4096
 	for i := range 3 {
 		p := filepath.Join(root, fmt.Sprintf("f%d", i))
-		if err := os.WriteFile(p, make([]byte, 4096), 0o600); err != nil {
+		err := os.WriteFile(p, make([]byte, 4096), 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -170,7 +172,8 @@ func TestASizeIsWhatTheDiskGivesBack(t *testing.T) {
 
 	for i := range files {
 		p := filepath.Join(root, fmt.Sprintf("f%d", i))
-		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+		err := os.WriteFile(p, []byte("x"), 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -77,11 +77,13 @@ func TestStoppingADaemonStopsIt(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	if err := syscall.Kill(pid, 0); err != nil {
+	err = syscall.Kill(pid, 0)
+	if err != nil {
 		t.Fatalf("nothing was running to stop: %v", err)
 	}
 
-	if err := proc.Stop(); err != nil {
+	err = proc.Stop()
+	if err != nil {
 		t.Fatalf("a stubborn daemon would not stop: %v", err)
 	}
 
@@ -103,7 +105,8 @@ func TestADaemonThatDiedIsNoticed(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "quitter")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700); err != nil {
+	err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -143,7 +146,8 @@ func TestStoppingAnAlreadyNoticedDeadDaemonReturns(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "quitter")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700); err != nil {
+	err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -202,7 +206,8 @@ func TestADaemonIsAskedOnItsOwnSocket(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "sleeper")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o700); err != nil {
+	err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o700)
+	if err != nil {
 		t.Fatal(err)
 	}
 

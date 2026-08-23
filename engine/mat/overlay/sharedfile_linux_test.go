@@ -23,7 +23,8 @@ func TestAnUntouchedFileIsTheStoresOwn(t *testing.T) {
 	m, _ := materialiserFor(t)
 
 	layer := ir.NodeID{1}
-	if err := m.WriteLayer(layer, map[string]string{buildEarthly: "bytes"}); err != nil {
+	err := m.WriteLayer(layer, map[string]string{buildEarthly: "bytes"})
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,7 +72,8 @@ func TestWhatIsRefusedRatherThanResolved(t *testing.T) {
 	}
 
 	// A deletion: the merged view has no such file, and the store still does.
-	if err := os.Remove(filepath.Join(h.Root(), "untouched")); err != nil {
+	err = os.Remove(filepath.Join(h.Root(), "untouched"))
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -112,7 +114,8 @@ func TestAScratchHandleSharesNothing(t *testing.T) {
 
 	defer func() { _ = h.Release() }()
 
-	if err := os.WriteFile(filepath.Join(h.Root(), "f"), []byte("x"), 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(h.Root(), "f"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

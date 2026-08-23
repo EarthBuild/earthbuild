@@ -27,11 +27,13 @@ func TestAnIndexThatLeadsTheStoreIsNotBelieved(t *testing.T) {
 
 	id := ir.NodeID{7}
 
-	if err := os.MkdirAll(LayerStore(root).Path(id), 0o750); err != nil {
+	err = os.MkdirAll(LayerStore(root).Path(id), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := b.Index().Note(id); err != nil {
+	err = b.Index().Note(id)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -40,7 +42,8 @@ func TestAnIndexThatLeadsTheStoreIsNotBelieved(t *testing.T) {
 	}
 
 	// What a collector, or a user with rm, does. The index is not told.
-	if err := os.RemoveAll(LayerStore(root).Path(id)); err != nil {
+	err = os.RemoveAll(LayerStore(root).Path(id))
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -74,7 +77,8 @@ func TestAnIndexThatLagsTheStoreCatchesUp(t *testing.T) {
 
 	id := ir.NodeID{9}
 
-	if err := os.MkdirAll(LayerStore(root).Path(id), 0o750); err != nil {
+	err = os.MkdirAll(LayerStore(root).Path(id), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 

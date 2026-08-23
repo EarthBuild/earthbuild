@@ -18,7 +18,8 @@ func TestAnInventedDirectoryDoesNotCarryTheWallClock(t *testing.T) {
 	root := t.TempDir()
 
 	target := filepath.Join(root, "earthly", "build", "out")
-	if err := mkdirAllStamped(target, 0o755, nil); err != nil {
+	err := mkdirAllStamped(target, 0o755, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -46,13 +47,15 @@ func TestTwoBuildsInventTheSameTimes(t *testing.T) {
 
 	first, second := t.TempDir(), t.TempDir()
 
-	if err := mkdirAllStamped(filepath.Join(first, "a", "b"), 0o755, nil); err != nil {
+	err := mkdirAllStamped(filepath.Join(first, "a", "b"), 0o755, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	time.Sleep(10 * time.Millisecond)
 
-	if err := mkdirAllStamped(filepath.Join(second, "a", "b"), 0o755, nil); err != nil {
+	err = mkdirAllStamped(filepath.Join(second, "a", "b"), 0o755, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,16 +90,19 @@ func TestAnExistingDirectoryIsNotRestampedByUs(t *testing.T) {
 	root := t.TempDir()
 
 	existing := filepath.Join(root, "earthly")
-	if err := os.MkdirAll(existing, 0o750); err != nil {
+	err := os.MkdirAll(existing, 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	when := time.Unix(1000000, 0)
-	if err := os.Chtimes(existing, when, when); err != nil {
+	err = os.Chtimes(existing, when, when)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := mkdirAllStamped(filepath.Join(existing, "made"), 0o755, nil); err != nil {
+	err = mkdirAllStamped(filepath.Join(existing, "made"), 0o755, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +123,8 @@ func TestAClampDecidesTheInventedTimeToo(t *testing.T) {
 	root := t.TempDir()
 	clamp := time.Unix(1600000000, 0)
 
-	if err := mkdirAllStamped(filepath.Join(root, "a", "b"), 0o755, &clamp); err != nil {
+	err := mkdirAllStamped(filepath.Join(root, "a", "b"), 0o755, &clamp)
+	if err != nil {
 		t.Fatal(err)
 	}
 

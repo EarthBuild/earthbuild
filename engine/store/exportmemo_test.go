@@ -16,11 +16,13 @@ func TestAMemoAnswersOnlyWhileTheFileIsThere(t *testing.T) {
 	stack := []ir.NodeID{{1}, {2}}
 	rel := filepath.Join("layers", "abc", "build", "earthly")
 
-	if err := os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(root, rel), []byte("x"), 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(root, rel), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,7 +35,8 @@ func TestAMemoAnswersOnlyWhileTheFileIsThere(t *testing.T) {
 
 	// The layer is collected. The memo still says where it was, and saying so
 	// would export a file that is not there - so the stat is what answers.
-	if err := os.Remove(filepath.Join(root, rel)); err != nil {
+	err = os.Remove(filepath.Join(root, rel))
+	if err != nil {
 		t.Fatal(err)
 	}
 

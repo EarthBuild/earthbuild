@@ -26480,3 +26480,54 @@ exactly the kind of thing that makes a change look ineffective when it was never
 rather than assumed: the sandbox was restarted, the fixes ran, and they still did not converge. The
 hypothesis was wrong and the check was still worth the minute it cost, because the alternative was
 attributing a real result to a stale binary or the reverse.
+
+## E578 - the engine was explaining itself to /dev/null
+
+Three ticks of instrumenting a build whose every run printed this:
+
+```text
+  cache   42 hit, 33 miss, 16 by observed inputs,
+          4 of 33 predictions stale (/etc/apk/world changed in the base
+            (observed c7d927f89f4a, base has 4d5d5f6a3311)),
+          1 unpredicted (Earthfile:510), 27 predicted and not stored
+  warning: 2 cache keys claimed two different results
+    a step read the same inputs twice and produced different output
+```
+
+Every measurement here was taken with `>/dev/null` on the command, because the numbers being chased
+were timings on stderr. The engine has a diagnostic for precisely this question, written by somebody
+who had it, and it went to the bit bucket for three sessions. **A tool that answers the question you
+are asking is worth nothing if you are throwing away its output** - and nothing in a timing run looks
+like a decision to discard an explanation.
+
+What it says, and it is not what E577 predicted:
+
+* **Κ₂ works.** 16 of 42 hits came through the observed-input tier, so the mechanism is live and
+  serving.
+* **The largest bucket is 27 "predicted and not stored"** - by `tryL2`'s own comment, "everything the
+  tier needs was true and there was nothing to serve". The read derives Κ₂ from the *class
+  prediction* and the write derives it from the *actual observation*, so the two agree only when the
+  step observed exactly what its class was predicted to observe. Where they differ, the entry is
+  written under a key nothing will look up.
+* **A stale prediction names a file that has not changed.** `/etc/apk/world` is reported as differing
+  between what was observed and what the base holds. Every copy of it in the store is identical -
+  same content, size, mode and ownership:
+
+```text
+    8c7127d5b166807eea94dd204f9bcc80  94  644  501:0   x5
+```
+
+That last one is the sharp end, and it is open. Both sides digest through one function
+(`layer.PathDigestIn`), which hashes `withoutTimes`, so timestamps are already excluded. The darwin
+ownership shift that would explain it was found and fixed once (E494): the host reads the store as
+the guest sees it, `SeenAsRoot(501, 20)` maps uid 501 to 0, and the file's gid is 0 on both sides.
+Checked, and it does not explain the difference.
+
+So: two digests of a file that is byte-identical, mode-identical and owner-identical, computed by one
+function that excludes times. One of those three premises is false and the next tick is finding out
+which.
+
+*Recorded as a correction as much as a finding.* E577 concluded the clock was the dominant term and
+demonstrated it with `SOURCE_DATE_EPOCH` - 104s to 54s, 62 layers to 6. That measurement stands. The
+inference that the remaining 6 were more of the same does not: the summary says they are a keying
+mismatch and an unexplained digest, which is a different problem wearing the same symptom.

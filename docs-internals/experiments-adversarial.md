@@ -27119,3 +27119,44 @@ check and a test, one with the tests that already existed - rather than the pair
 And the general point, which is the reason the branch was pushed: **a fortnight of local green says
 what one machine thinks.** The scanner is not on this laptop, the platforms are not on this laptop,
 and the first hour of CI produced a real cache-correctness defect that nothing here would have found.
+
+## E595 - the native engine on a machine that will not let it mount
+
+The first thing the pull request's report-only job did was build every platform the release ships,
+on a linux amd64 runner rather than the darwin arm64 laptop this engine grew on:
+
+```text
+    linux/amd64  ok    linux/arm64  ok    darwin/amd64  ok
+    darwin/arm64 ok    windows/amd64 ok
+```
+
+E581's five packages hold up somewhere other than where they were fixed, which is the first
+independent confirmation this branch has had of anything.
+
+**Then it tried to build, and could not.** Twice, and both messages are the engine working:
+
+```text
+    earth-guestd: no procfs of this namespace, so RUN steps will not be observed:
+      mount a procfs at /tmp/earth-proc...: permission denied
+      this needs CAP_SYS_ADMIN in this user namespace and a mount namespace of
+      this process's own
+
+    Error: materialise the base for Earthfile:11: mount overlay (2 layers)
+      at .../scratch/mounts/h-4213588524/merged: permission denied
+```
+
+The first is I11 doing its job: observation is unavailable, the build says so and carries on
+degraded rather than reporting an observation it did not make. The second is fatal, and it is the
+finding: **this engine's linux backend cannot mount an overlay on a stock GitHub runner.** Every
+`RUN` needs one, so there is no partial answer here - the backend does not work there at all.
+
+*What it is not yet.* Ubuntu 24.04 restricting unprivileged user namespaces through AppArmor is the
+obvious explanation and it is a guess. Four times this session an obvious explanation has been
+measured and found wrong (E567, E576, E588, E592), so the job now asks the machine instead - the
+three sysctls, an `unshare -Urm`, and whether the kernel offers overlay at all - and the next run
+says rather than suggests.
+
+**The shape of this is the argument for the report-only job.** It is not a regression, it is a
+platform this engine has never run on, and it took eleven minutes of CI to learn something a
+fortnight of local green could not: that the backend which works inside Apple's hypervisor has no
+answer on the runner where this project's CI actually lives.

@@ -356,6 +356,24 @@ jobs:
             printf '%-16s ' "$pair"
             GOOS="${pair%%/*}" GOARCH="${pair##*/}" go build ./... && echo ok
           done
+      - name: What this kernel permits
+        # Asked rather than assumed. The first run here failed to mount an
+        # overlay and to mount a procfs, and the obvious explanation - Ubuntu
+        # 24.04 restricting unprivileged user namespaces - is a guess until the
+        # machine is asked (E595).
+        run: |-
+          set -euo pipefail
+          for k in kernel.apparmor_restrict_unprivileged_userns \
+                   kernel.unprivileged_userns_clone \
+                   user.max_user_namespaces; do
+            printf '%-48s ' "$k"
+            sysctl -n "$k" 2>/dev/null || echo "(not set)"
+          done
+          printf '%-48s ' "unshare -Urm true"
+          unshare -Urm true 2>&1 && echo ok || true
+          printf '%-48s ' "overlay in /proc/filesystems"
+          grep -c overlay /proc/filesystems || true
+
       - name: Build a target with the native engine
         # Report, do not gate: this is the first time it has run here.
         continue-on-error: true

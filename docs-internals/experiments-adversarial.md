@@ -25604,3 +25604,110 @@ and what does a build that never wanted this feature pay if the answer costs a b
 the guest that is already running and never starts one - by the time a build reaches a
 `WITH DOCKER --load` it has run steps, so there is one, and where there is not, packing on the host
 is what a backend without a machine has always done.
+
+## E559 - the descriptor ceiling is not either kernel's, and that settles the disk
+
+`earth +earthly` fails on a fresh store, on a machine with no leaked sandboxes:
+
+```text
+    lstat /var/lib/earthbuild/store/layers/…/next/dist/client/components/segment-cache/bfcache.d.ts:
+      too many open files in system
+```
+
+The path is the *guest's*, so the message reads as a guest problem. It is not. Three ceilings,
+measured while that build ran:
+
+```text
+    guest kernel   fs/file-nr        peak       89   of 819,360     0.01%
+    host system    kern.num_files    peak  260,261   of 491,520       53%
+    host process   the VM's fds      peak ~114,198   of 245,760       46%
+```
+
+**None of them is the wall.** The host figure is 32,366 samples at about 2.5ms, and it bounds the
+per-process count from above as well: stopping the sandbox releases 248,807 down to 146,072 against a
+146,022 baseline, so the ~103,000 the VM holds are counted in the system total and the process cannot
+have exceeded the delta.
+
+So the limit that bites is inside the virtiofs device, not in a documented kernel limit either side of
+it. The engine cannot raise it, cannot ask about it, and cannot see it coming - a build simply stops
+at somewhere over a hundred thousand looked-up entries.
+
+**Which is the strongest argument the disk has, and it is not about speed.** E541's table already had
+it, in a row nobody weighted:
+
+```text
+                        shared directory      block device
+host descriptors    1 per entry walked        1 total
+```
+
+Every other line in that table is a percentage. This one is a build that does not finish. A tree with
+a large `node_modules` is not exotic - it is the repository's own examples directory - and the
+transport has a ceiling that the size of somebody's dependencies can reach.
+
+*Two wrong answers on the way here, both from measuring the wrong thing.* The first looked at
+`kern.num_files`, saw 53% of the system limit, and reported the state as healthy. The second read
+`kern.maxfilesperproc` at 245,760 against an idle-after-failure count of 102,762 and concluded the
+per-process cap was the wall - arithmetic that does not survive the peak being 114,198. The number
+that mattered was never a ceiling at all: it was the *shape*, a failure at a hundred thousand entries
+with every documented limit still half empty.
+
+**What the overnight work did and did not do.** It removed the steady state: twenty-six idle
+sandboxes, each holding about a hundred thousand descriptors, indefinitely (E555). That is real, it
+is about 2.6 million descriptors of standing waste, and the release is measured. It did not touch the
+peak, and nothing in it could have - the peak is one host descriptor per entry the guest looks up,
+which is a property of the transport rather than of anything the engine holds open.
+
+## E560 - the guest can hand the descriptors back, and `+earthly` finishes
+
+E559 established that the ceiling is inside the virtiofs device: not the guest kernel's file table,
+not the host's, not the host's per-process cap, and not askable. That reads like a wall to wait for
+the disk to remove. It is not, because the thing the host is holding is released by something the
+guest controls.
+
+A host descriptor is held per *name* the guest has looked up, until the guest's dentry cache evicts
+it (E540). The guest can make that happen:
+
+```text
+    before drop   host 258,610 descriptors     guest 181,133 names
+    after drop    host 146,219                 guest         (dropped)
+    baseline      host 146,022
+```
+
+**112,391 descriptors returned in under three seconds**, by writing `2` to `drop_caches` inside the
+sandbox.
+
+So the guest watches what it is holding and lets go before the wall. It reads the number rather than
+modelling it - `/proc/sys/fs/dentry-state` is exactly the quantity the host is paying for, and a
+count of walks would be a model of that, wrong about whichever caller nobody thought of:
+
+```text
+    names cached   558  ->  181,133   after walking 151,600 files
+    host fds   146,101  ->  258,164
+```
+
+Checked once per request, at the single point every request ends, rather than in each operation that
+touches the store - the one that gets forgotten is the one that fails a build.
+
+**The result.** `earth +earthly`, a fresh store, no leaked sandboxes:
+
+```text
+    before   fails at 83s   lstat …/node_modules/…: too many open files in system
+    after    completes in 172s, 45MB arm64 binary
+             peak 255,950 descriptors, and 146,080 afterwards against a 146,088 baseline
+```
+
+It is a trade and the cheap side of one. Releasing costs the next walk a cold cache - 201µs a file
+against 96µs warm (E551) - and the build that pays it is the build that was failing. *Slower beats
+stopped.*
+
+**What this does not do is retire the disk.** The peak is still a hundred thousand host descriptors
+for one build, the relief is a periodic surrender of work already done, and the whole arrangement
+exists because the store is reached through a transport that charges per name. The disk removes the
+charge (E541: one descriptor in total). This makes the engine survive until it arrives, which is a
+different claim and worth being clear about.
+
+*On the way here, two wrong answers.* The first measured `kern.num_files`, found 53% headroom, and
+called the state healthy. The second read `kern.maxfilesperproc` against an idle count and blamed the
+per-process cap - arithmetic that did not survive the peak. Both were answers to "which limit is
+full", and the limit was not full: what was needed was to ask what the host was holding *for*, which
+is a question about the mechanism rather than about the numbers.

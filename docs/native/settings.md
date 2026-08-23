@@ -89,6 +89,25 @@ per interrupted build until the machine runs out. Zero means never stop.
 
 Default: `30m`.
 
+### `EARTH_GUEST_DENTRY_LIMIT`
+
+How many looked-up names a sandbox holds before it releases them, as a count.
+
+A store shared from the host costs the host one open file descriptor per name the sandbox has looked
+up, held until the sandbox forgets it. There is a ceiling on those, it is not in either kernel's
+documented limits, and nothing can ask about it - a build simply stops with `too many open files in
+system` on a path that looks like the sandbox's. `earth +earthly` reached it on this repository's own
+`examples` directory.
+
+So the sandbox watches what it is holding and lets go before the ceiling. The cost is that the next
+walk of the same tree is cold: about 201µs a file rather than 96µs. The cost of not doing it is the
+build.
+
+Zero turns the release off, for a machine with descriptors to spare or a build that reads a large
+tree repeatedly.
+
+Default: `100000`.
+
 ### `EARTH_FLEET_DISCOVER`
 
 Whether a fleet uses relays and endpoint discovery to reach machines it cannot dial directly. Set to

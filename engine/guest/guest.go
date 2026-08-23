@@ -294,6 +294,17 @@ func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 			s.Idle.working()
 
 			defer func() {
+				// **After the work, at every request, in one place.** What
+				// costs the host a descriptor is a name this guest has looked
+				// up, and every request that touches the store looks some up -
+				// so the check belongs where they all end rather than in each
+				// of them, where the one that was forgotten is the one that
+				// fails a build (E560).
+				//
+				// A file read of a few bytes, and a drop only when there is
+				// something worth dropping.
+				relieveDentries()
+
 				s.Idle.done()
 				s.ended(req.ID)
 				cancel()

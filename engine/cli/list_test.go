@@ -2,6 +2,8 @@ package cli_test
 
 import (
 	"bytes"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +30,12 @@ func TestListNamesEveryTargetSorted(t *testing.T) {
 
 	src, err := os.ReadFile("../../tests/ls.earth")
 	if err != nil {
+		// See docOf: `tests/` is not copied into `+unit-test`'s context, so
+		// absent is "not here" rather than "wrong" (E605).
+		if errors.Is(err, fs.ErrNotExist) {
+			t.Skip("tests/ls.earth is not in this copy of the repository")
+		}
+
 		t.Fatal(err)
 	}
 

@@ -1,6 +1,7 @@
 package interp_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -119,6 +120,16 @@ build:
 `, "build")
 	if err != nil {
 		t.Fatalf("%v", err)
+	}
+
+	// **Unless there is no checkout.** `+unit-test` builds against a tree the
+	// Earthfile assembled and `.git` is excluded from every build context, so
+	// the builtins this asserts on have nothing to read and expand to nothing -
+	// correctly. Failing there says the mechanism is broken when the repository
+	// it needs is what is missing (E605).
+	if _, err := os.Stat("../../.git"); err != nil {
+		t.Skip("no .git here: a build context never carries one, so the git" +
+			" builtins have nothing to answer from")
 	}
 
 	// This test runs inside this repository's own checkout, so there is a

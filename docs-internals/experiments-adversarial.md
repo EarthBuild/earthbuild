@@ -27447,3 +27447,31 @@ encodes that machine: its filesystem's block accounting, its checkout's complete
 permissions. **Nothing about care prevents this** - the collector tests were written carefully, with
 a comment explaining the number - because the assumption is invisible from inside the assumption.
 What catches it is a second machine, and the branch had been on one for a fortnight.
+
+## E605 - the same shape, four more times
+
+E604 fixed two tests that encoded the machine they were written on. The rest of `+unit-test`'s linux
+failures are one shape repeated:
+
+```text
+    doc_test.go:60          open ../../tests/target-docs.earth: no such file
+    list_test.go:31         open ../../tests/ls.earth: no such file
+    settings_test.go:81     open ../../docs/native/settings.md: no such file
+    earthbuiltins_test.go   a declared git builtin expanded to nothing
+```
+
+Every one is a test reading something the *build context does not carry*. `+unit-test` runs against a
+tree the Earthfile assembled: it copies `docs/earthfile/earthfile.md` by name and not `docs/`, it
+does not copy `tests/` at all, and `.git` is excluded from every context by `ignore.Implicit`. So the
+fixture is absent, and the test reports the thing it guards as broken when nobody has looked at it.
+
+**A guard that fails on its own absence is worse than one that skips**, because it spends the reader's
+attention on a defect that is not there - and this repository already has the answer, written twice:
+`unpack`'s sibling says "no git here" and skips, and E585 taught the ignore guards to look for the
+file rather than infer it from a matcher. Four more now say which file they wanted and why it is not
+there.
+
+*The counting is the point.* Six occurrences of one mistake across four packages, three of them
+written by different hands at different times, and every one invisible until the tests ran somewhere
+the repository was not complete. **A test that reads the repository is a test with a dependency
+nobody declares**, and the build context is exactly where that dependency stops being satisfied.

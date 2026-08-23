@@ -396,6 +396,27 @@ jobs:
           set -euo pipefail
           /tmp/earth build --engine=native +earthly 2>&1 | tail -40
 
+      - name: Run this repository's tests under the native engine
+        # **The question darwin cannot answer.** Two packages hang under the
+        # engine on the laptop it was written on - `engine/interp` for the full
+        # `go test -timeout 5m`, `engine/trace` until its tests learned to skip -
+        # and every candidate cause was eliminated except the machine itself
+        # (E589, E592). Here there is no hypervisor between the step and the
+        # disk, so a hang that survives is the engine's and one that does not
+        # was the VM's.
+        #
+        # Timed, and bounded: a hang that reports is worth having and a job that
+        # sits for six hours is not.
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          EARTH_GUESTD: /tmp/earth-guestd
+        run: |-
+          set -euo pipefail
+          start=$(date +%s)
+          /tmp/earth build --engine=native +unit-test 2>&1 | tail -60 || true
+          echo "native +unit-test took $(( $(date +%s) - start ))s"
+
   ci-success:
     name: CI Success
     if: always()

@@ -26973,3 +26973,51 @@ inside a step, with tracing off, against buildkit doing the same thing in its ow
 is the obvious suspect and this benchmark refuses it: `FROM alpine:3.24.1` is three layers deep, not
 the fifty a real target carries. The cause is unknown and the number is 2.5s against 0.33s, which is
 the whole of what separates this engine from buildkit on a write-heavy step.
+
+## E591 - a setting that was read and never sent
+
+E590 left seven to ten times on file creation inside a step, tracing off, and no candidate. The
+answer is not in the engine.
+
+Measured in the guest with no step, no overlay and no tracer - twenty thousand file creations:
+
+| Where                              | Time      |
+| ---------------------------------- | --------- |
+| ext4 on `/dev/vdb` (scratch)       | 1.91s     |
+| ext4 on `/dev/vdc` (the fast disk) | 1.95s     |
+| tmpfs on `/dev/shm`                | **0.14s** |
+
+The engine's step machinery costs 0.6s of the 2.5s a step takes; the other 1.9s is the virtual
+machine's own storage, and it is fourteen times slower than memory on the same machine. Buildkit's VM
+does the same work in 0.33s, so this was never an engine measurement - it was a comparison of two
+hypervisors' disks with an engine in front of each.
+
+**And this engine already has the setting for it.** `EARTH_SCRATCH_TMPFS` asks for the scratch
+directory to be a tmpfs, is documented, is validated, and refuses a typo. It is read by
+`overlay.Materialise`, which runs in the guest, out of an environment that nothing on this backend
+populated:
+
+```text
+    setting absent                        5.44s
+    EARTH_SCRATCH_TMPFS=4g on the host    6.16s
+    tmpfs mounted at scratch                  0
+```
+
+Set it and nothing happens, silently. **That is the third instance of one failure in this
+repository**: `SOURCE_DATE_EPOCH` was read in the guest and forwarded by nobody (E555), `EnvIdle` was
+documented as "supplied by the host" and never supplied on this backend, and now this. The shape is
+always the same - a reader in one process, a writer in another, and a comment describing an
+arrangement that was true of the backend it was written for.
+
+Forwarded, and named: the value joins image, store, memory and idle in the sandbox's name, because a
+machine's scratch is made once when it starts and a build asking for a different size must not be
+handed the last one.
+
+| Twenty thousand creations in a step | Time      |
+| ----------------------------------- | --------- |
+| before                              | 5.44s     |
+| after                               | **1.22s** |
+
+Four and a half times, on a setting that already existed and did nothing. It stays opt-in: a tmpfs is
+memory, a step that outgrows it fails, and the engine's diagnostic for that names the setting - which
+is the right trade to leave with whoever knows how big their steps are.

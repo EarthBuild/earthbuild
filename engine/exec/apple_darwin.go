@@ -18,6 +18,7 @@ import (
 	"lukechampine.com/blake3"
 
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/mat/overlay"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
@@ -182,7 +183,9 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	// request that found it - so a build asking for an hour and a build asking
 	// for the default have to be asking about two machines, or the second gets
 	// whatever the first said (E549's failure class, E555's occasion).
-	for _, part := range append([]string{image, guestDir, store, memory, guestFast, idleSetting()}, command...) {
+	for _, part := range append(
+		[]string{image, guestDir, store, memory, guestFast, idleSetting(), scratchTmpfsSetting()},
+		command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
 	}
 
@@ -430,6 +433,17 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		// true here. A developer setting it against a VM sandbox was changing
 		// nothing (E555).
 		"-e", guest.EnvIdle + "=" + idleSetting(),
+		// **Read in the guest, and until now never sent there.** The scratch
+		// tmpfs option is consulted by the materialiser, which runs inside the
+		// VM, from an environment nothing on this backend populated - so setting
+		// it changed nothing and said nothing, which is the failure
+		// `SOURCE_DATE_EPOCH` already had here once (E555, E591).
+		//
+		// Worth sending: the guest's scratch is ext4 on a virtio block device
+		// and twenty thousand file creations cost 1.91s there against 0.14s on
+		// tmpfs. It is part of the machine's name below, so asking for a
+		// different size gets a different machine rather than the last one.
+		"-e", overlay.EnvScratchTmpfs + "=" + scratchTmpfsSetting(),
 		// This machine exists for this guest and is held open by the keep-alive
 		// in runArgs, so the guest going idle is the machine having nothing to
 		// do. Without it the agent stopped and the VM stayed up until its sleep
@@ -821,6 +835,14 @@ func (a *Apple) Prewarm(ctx context.Context) {
 // The host's own environment, passed on rather than interpreted: the guest
 // parses it and owns what an unparseable value means, and a second reading here
 // would be a second answer to the same question.
+// scratchTmpfsSetting is the size a scratch tmpfs was asked for, or empty.
+//
+// Part of the sandbox's name as well as its environment: a machine's scratch is
+// made once, when it starts, so a build asking for a different size must not be
+// handed the machine that was built for the last one. Exactly the reason
+// `idleSetting` is in that name.
+func scratchTmpfsSetting() string { return os.Getenv(overlay.EnvScratchTmpfs) }
+
 func idleSetting() string {
 	if v := os.Getenv(guest.EnvIdle); v != "" {
 		return v

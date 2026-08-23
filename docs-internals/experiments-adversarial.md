@@ -26897,3 +26897,46 @@ this measurement: a step that is cached is not run at all, so the tracer costs n
 this engine is fastest at, and everything on a test suite that re-runs because it is red. What the
 number changes is that the choice can now be made with a figure rather than an intuition - and that a
 `RUN` which will never be reused has no reason to be watched.
+
+**Corrected by E589. The last paragraph inferred a saving this does not buy.** Running the whole of
+`+unit-test` with `Trace: false` costs 653s against 651s traced - no difference at all, and
+`engine/interp` still times out at exactly 300s. The 25x is real and it is real about `cat f*`; the
+test suite's slowness is something else, and naming the tracer for it was a guess wearing a
+measurement.
+
+## E589 - the third time a microbenchmark did not predict the workload
+
+E588 measured the seccomp tracer at twenty-five times on a step that reads four thousand small
+files, showed that untraced this engine matches buildkit exactly, and concluded that the tracer is
+the whole of the difference. The first two are measurements. The third is an inference, and it is
+wrong.
+
+`+unit-test`, entire, with `Trace: false`:
+
+| Package         | Traced | Untraced   | earthly |
+| --------------- | ------ | ---------- | ------- |
+| `engine/interp` | 300.0s | **300.0s** | 40.4s   |
+| `engine/store`  | 134.8s | 150.0s     | 3.3s    |
+| `engine/cli`    | 87.7s  | 60.6s      | 5.1s    |
+| `engine/exec`   | 28.4s  | 33.0s      | 0.1s    |
+| total           | 651s   | **653s**   | 151s    |
+
+**Two seconds apart, in the wrong direction.** `engine/interp` still stops at exactly the timeout,
+`engine/store` is slower without the tracer than with it, and only `engine/cli` moved at all. The
+tracer costs what E588 says it costs, on what E588 measured, and it is not what makes this suite
+four times slower than earthly's.
+
+*This is the third time in one session.* E567 measured `dd` at four block sizes, found a clean
+four-fold spread, changed the copy and got nothing - the benchmark and the copy wrote to different
+disks. E576 fixed a proven source of identity churn and did not fix the convergence it was chasing.
+E588 measured a real 25x and attributed a slowness it does not cause. Each time the measurement was
+sound and the *step from measurement to workload* was not.
+
+The common shape is worth stating, because three instances is a pattern rather than bad luck: **a
+microbenchmark tells you the cost of the thing it does, and a workload is not made of that thing in
+that proportion.** The defence is cheap and was available every time - run the workload with the
+mechanism turned off - and in all three cases it was one command that would have refused the
+conclusion before it was written down.
+
+So what makes `engine/store` forty times slower is open, and this experiment's only contribution to
+that question is to have removed the answer everybody would have reached for first.

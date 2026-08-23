@@ -32,6 +32,10 @@ const (
 	sideGuest = "guest"
 	sideHost  = "host"
 	sideSetup = "setup"
+	// sideIndex reads the store's *index*, which is the host's half of the
+	// disk rather than a problem with it: the index exists precisely so a host
+	// that cannot open the store can still answer what it holds (E542).
+	sideIndex = "index"
 )
 
 var knowsTheLayout = map[string]string{
@@ -61,8 +65,16 @@ var knowsTheLayout = map[string]string{
 	// store is its own, so this is the same question one level up: either the
 	// fleet talks to the guest, or a worker's store stays a directory and only
 	// a developer's is a disk.
-	"engine/cli/images.go":   sideHost,
-	"engine/fleet/layers.go": sideHost,
+	"engine/cli/images.go":     sideHost,
+	"engine/fleet/layers.go":   sideHost,
+	"engine/exec/exec.go":      sideHost,
+	"engine/exec/packimage.go": sideHost,
+	"engine/exec/squash.go":    sideHost,
+
+	// The host asking the index what the store holds, which is the arrangement
+	// the disk is for rather than an obstacle to it.
+	"engine/cli/cli.go":        sideIndex,
+	"engine/cli/conditions.go": sideIndex,
 
 	// `decl/store.go` was host too, and is not any more. The host read the
 	// `.decl` files beside a base's layers to learn what the image declared;
@@ -118,10 +130,27 @@ func TestEveryFileThatKnowsTheStoreLayoutIsRegistered(t *testing.T) {
 		}
 
 		for line := range strings.SplitSeq(string(b), "\n") {
-			// A path built inside the store, rather than the word appearing in
-			// a JSON tag: `Layers []descriptor json:"layers"` is an OCI
-			// manifest field and knows nothing about this engine's directories.
-			if strings.Contains(line, `"layers"`) && strings.Contains(line, "Join(") {
+			// Two ways to reach the store, and the second was added because the
+			// first was evaded by an ordinary refactor: `cli/images.go` stopped
+			// joining `"layers"` when it started calling `LayerStore.Path`, and
+			// the register declared it cured. It was not - it reads the same
+			// directories through a helper.
+			//
+			// *A detector that names a spelling is one refactor from being
+			// decorative* (E545 said it about a different guard, and this is
+			// the same guard's turn). So this asks who *opens* the store, which
+			// is the question the disk actually poses.
+			//
+			// The path form still counts: `Layers []descriptor json:"layers"`
+			// is an OCI manifest field and knows nothing about this engine's
+			// directories, which is why the word alone is not enough.
+			builds := strings.Contains(line, `"layers"`) && strings.Contains(line, "Join(")
+			opens := strings.Contains(line, "store.LayerStore(") ||
+				strings.Contains(line, "store.DirStore(") ||
+				strings.Contains(line, "store.OpenBlobs(") ||
+				strings.Contains(line, "store.OpenIndex(")
+
+			if builds || opens {
 				rel := filepath.ToSlash(strings.TrimPrefix(filepath.Clean(p), "../../"))
 				found[rel] = true
 
@@ -153,9 +182,9 @@ func TestEveryFileThatKnowsTheStoreLayoutIsRegistered(t *testing.T) {
 		}
 
 		switch side {
-		case sideStore, sideGuest, sideHost, sideSetup:
+		case sideStore, sideGuest, sideHost, sideSetup, sideIndex:
 		default:
-			t.Errorf("%s is registered as %q, which is not one of store, guest, host, setup", p, side)
+			t.Errorf("%s is registered as %q, which is not one of store, guest, host, setup, index", p, side)
 		}
 	}
 

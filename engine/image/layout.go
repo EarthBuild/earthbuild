@@ -1,9 +1,12 @@
 package image
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,8 +27,16 @@ type Spec struct {
 	// Platform is what the image was built for. In the config because a runtime
 	// checks it before starting anything.
 	Platform ocispec.Platform
-	// Layers are directories, oldest first, in the order they stack.
-	Layers []string
+	// Layers write the image's layers as blobs, oldest first, in the order they
+	// stack.
+	//
+	// **A source rather than a directory**, because who can open the layer
+	// decides where this runs. A store the host can see is read here; a store
+	// on a disk the guest owns is packed inside the sandbox and streamed out,
+	// and the layout is assembled from the bytes either way (E556). The digest
+	// is computed from what arrives, so neither source has to be believed about
+	// what it sent.
+	Layers []LayerSource
 	// Config is what SAVE IMAGE declared: entrypoint, environment, labels.
 	Config ocispec.ImageConfig
 	// Healthcheck is how a running container reports its own health, nil when
@@ -158,13 +169,13 @@ func WriteLayout(dir string, spec Spec) error {
 // not compressed: a diff id names the uncompressed bytes and a layer descriptor
 // names what is stored, and storing them uncompressed makes those the same
 // thing.
-func writeLayers(blobs string, dirs []string) ([]ocispec.Descriptor, []digest.Digest, error) {
+func writeLayers(blobs string, sources []LayerSource) ([]ocispec.Descriptor, []digest.Digest, error) {
 	var (
 		descs   []ocispec.Descriptor
 		diffIDs []digest.Digest
 	)
 
-	for _, d := range dirs {
+	for _, source := range sources {
 		// Written to a temporary name and moved, because a blob's name is the
 		// digest of its contents and that is not known until it has been
 		// written. A partially written blob under its final name is a cache
@@ -174,7 +185,19 @@ func writeLayers(blobs string, dirs []string) ([]ocispec.Descriptor, []digest.Di
 			return nil, nil, fmt.Errorf("stage a layer: %w", err)
 		}
 
-		dgst, size, err := Pack(d, tmp)
+		// Hashed as it is written rather than reported by whoever wrote it. A
+		// blob is named by its contents, so a source that miscounted - or a
+		// stream that was cut short - is caught by the name not matching the
+		// bytes, which is the property that lets the layers come from a sandbox
+		// at all.
+		//
+		// The same composition `Pack` uses on the other side of this seam, so
+		// the digest of a layer read here and a layer streamed in is computed
+		// once, in one way.
+		sum := sha256.New()
+		count := &countingWriter{w: io.MultiWriter(tmp, sum)}
+
+		err = source(count)
 		if err != nil {
 			_ = tmp.Close()
 			_ = os.Remove(tmp.Name())
@@ -186,6 +209,8 @@ func writeLayers(blobs string, dirs []string) ([]ocispec.Descriptor, []digest.Di
 		if err != nil {
 			return nil, nil, fmt.Errorf("finish a layer: %w", err)
 		}
+
+		dgst, size := "sha256:"+hex.EncodeToString(sum.Sum(nil)), count.n
 
 		err = os.Rename(tmp.Name(), filepath.Join(blobs, strings.TrimPrefix(dgst, "sha256:")))
 		if err != nil {
@@ -262,4 +287,30 @@ func writeJSON(path string, v any) error {
 	}
 
 	return nil
+}
+
+// LayerSource writes one layer as an OCI blob.
+//
+// The seam between "who has the bytes" and "who assembles the image". A host
+// that can open the layer store reads it directly; a host whose store is a disk
+// inside a sandbox asks the guest and copies what comes back.
+type LayerSource func(w io.Writer) error
+
+// FromDir is the layer source for a store this process can open.
+func FromDir(dir string) LayerSource {
+	return func(w io.Writer) error {
+		_, _, err := Pack(dir, w)
+
+		return err
+	}
+}
+
+// FromDirs is FromDir for a stack, oldest first.
+func FromDirs(dirs []string) []LayerSource {
+	out := make([]LayerSource, 0, len(dirs))
+	for _, d := range dirs {
+		out = append(out, FromDir(d))
+	}
+
+	return out
 }

@@ -47,7 +47,7 @@ func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (c
 		layers = append(layers, st.LayerPath(id))
 	}
 
-	spec := image.Spec{Ref: n.Op.Args[0], Layers: layers}
+	spec := image.Spec{Ref: n.Op.Args[0], Layers: image.FromDirs(layers)}
 
 	// What the target declared about how the image runs. Written as layers
 	// alone, the loaded image had no entrypoint and no command, and the very

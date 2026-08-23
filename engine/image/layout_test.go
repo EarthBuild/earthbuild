@@ -16,13 +16,13 @@ import (
 )
 
 // layers writes two directories to stand in for a stack.
-func layers(t *testing.T) []string {
+func layers(t *testing.T) []image.LayerSource {
 	t.Helper()
 
-	return []string{
+	return image.FromDirs([]string{
 		tree(t, map[string]string{"bin/sh": "the base\n"}),
 		tree(t, map[string]string{"app/main": "what the build made\n"}),
-	}
+	})
 }
 
 // An image is written as an OCI layout that other tools can read.

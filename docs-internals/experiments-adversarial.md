@@ -25459,6 +25459,42 @@ A layer the store does not hold is refused by name, and writes nothing. The call
 empty stdout with a zero exit would be a blob filed under the digest of nothing, which is an image
 with a layer missing and no error anywhere.
 
-Not wired into `SAVE IMAGE` yet - that is `writeLayers` taking a packer instead of a directory, and
-it is a change to the OCI writer rather than to the transport. What is settled is the part that
-could have been wrong: the bytes cross, and they are the same bytes.
+Now wired into `SAVE IMAGE`. `image.Spec.Layers` is a `LayerSource` rather than a directory, the
+layout hashes what arrives rather than believing what it was told, and a sandbox that can pack is
+asked to. End to end, with every layer packed inside the VM:
+
+```text
+    demo:latest -> …/images/demo_latest
+    blobs/sha256/b7befaf10f61   tar -xO opt/greeting  ->  hello
+```
+
+A valid layout, readable by plain `tar`, holding the file the build wrote.
+
+**Two things fell out of doing it, and both are worth more than the feature.**
+
+*An image was being built from declarations.* A stack holds declarations as well as trees (§3.2a) and
+only the trees are layers; `writeImages` passed every element. The first real `SAVE IMAGE` through
+the guest asked the packer for a `.decl` and was told there was no such layer - which is true, and
+the packer was the first thing to say so, because reading a directory that is not there and packing
+a directory that is not there fail at different volumes. The materialiser has made this split since
+I18; the image writer now makes it too.
+
+*The register was under-counting, and it was my own guard's fault.* `TestEveryFileThatKnows…` matched
+files that *build a path* inside the store. `cli/images.go` stopped joining `"layers"` the moment it
+called `LayerStore.Path` instead - so the register declared it cured, while it read the same
+directories through a helper. Broadening the match from "spells the layout" to "opens the store"
+found five more host-side readers immediately:
+
+```text
+    engine/exec/exec.go        engine/exec/packimage.go     engine/exec/squash.go
+    engine/cli/cli.go          engine/cli/conditions.go
+```
+
+The last two are the index rather than the store, which is the arrangement the disk is *for*, so
+they have a category of their own. The other three are work E553 said was two items and is five.
+
+*A detector that names a spelling is one refactor from being decorative.* E545 said that about the
+mtime guard after a rename switched it off; this is the same sentence about the guard I wrote to
+avoid exactly this, three days of experiments later. The lesson does not transfer by being written
+down - it has to be applied to the next mechanism, and the next mechanism is always the one you are
+holding.

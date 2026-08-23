@@ -25821,3 +25821,48 @@ be told from what it replaces.
 binaries of the same size and different content say the build works, while forty bytes of missing
 version string say exactly which mechanism is absent. The measurement was aimed at parity and what it
 found was a feature.
+
+## E564 - the observed-input tier answered the same question on every build
+
+A warm `earth +earthly`, three runs, the same line each time:
+
+```text
+    cache   64 hit, 0 miss, 27 by observed inputs
+    cache   64 hit, 0 miss, 27 by observed inputs
+    cache   64 hit, 0 miss, 27 by observed inputs
+```
+
+Twenty-seven steps resolved through Κ₂ - the tier that derives a key from what the step read last
+time, consults a profile to do it, and exists for the case where L1 has nothing (green paper 4.3).
+Never twenty-six. A count that does not move is not a cache warming up.
+
+The write path after a *run* stores both keys, and its comment says why:
+
+> Both keys name the same result. Κ₁ is what the next identical build hits; Κ₂ is what a build over a
+> *different* base hits when it touched nothing that differs.
+
+The hit path stores neither. So a step answered by Κ₂ was answered by Κ₂ again on the next build, and
+on every build after that - the expensive tier doing the work of the cheap one, permanently, for any
+step that ever fell through to it once.
+
+Now an L2 hit is written back under Κ₁. Sound because **Κ₁ is the narrower claim**: it names this
+exact base, operation, environment and platform, and the hit has just established what those produce.
+The entry is stored as found, writer included - it is a record of somebody else's result being reused
+rather than of this build producing one, and rewriting the writer would launder that.
+
+```text
+    before   64 hit, 0 miss, 27 by observed inputs
+    after    91 hit, 0 miss
+```
+
+**And the wall clock did not move**: 1.52s against 1.50s. That is the second time in this session -
+after the whiteout scan, E561 - that removing real work changed no time, and the reason is the same
+both times: the work was not on the critical path. It is still worth having. The observed-input tier
+reads a profile and re-derives a key per step, and a build that does that twenty-seven times for
+answers it already holds is spending energy on a question it has settled.
+
+*What is still unattributed.* The warm build is 1.52s, of which the registry lookup is 0.42s,
+planning 91 nodes is 0.14s, and context digesting is 0.25s. Something near a second is not accounted
+for by any phase, and the honest thing to record is that it is not accounted for - rather than
+attributing it to whichever mechanism was measured next to it, which is exactly how `mat:markers`
+came to look like the answer.

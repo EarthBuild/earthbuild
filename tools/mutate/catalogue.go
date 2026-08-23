@@ -3067,9 +3067,14 @@ var Mutants = []Mutant{
 		Package:     "./engine/core/",
 	},
 	{
-		Name:        "core: a no-cache build still writing (E462)",
-		File:        "engine/core/schedule.go",
-		Anchor:      "\t\ts.Cache.Put(key, e)",
+		Name: "core: a no-cache build still writing (E462)",
+		File: "engine/core/schedule.go",
+		// The Κ₁ write that follows a *run*, distinguished from the one that
+		// follows an L2 hit (E564) by the comment above it: the two statements
+		// are identical and mean different things, so the anchor has to carry
+		// enough context to say which.
+		Anchor: "\t\t// hits; Κ₂ is what a build over a *different* base hits when it touched\n" +
+			"\t\t// nothing that differs.\n\t\ts.Cache.Put(key, e)",
 		Replacement: "",
 		Package:     "./engine/core/",
 	},

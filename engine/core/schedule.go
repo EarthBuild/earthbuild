@@ -1292,6 +1292,26 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			}, rec)
 			s.bump(&s.Stats.L2Hits)
 
+			// **Answered by Κ₂, remembered as Κ₁.** The observed-input tier is
+			// the expensive one - it derives a key from what the step read last
+			// time and consults a profile to do it - and without this the same
+			// step pays it on every build for ever: this repository's own
+			// `+earthly` reported "27 by observed inputs" on run after run,
+			// never once falling to fewer (E564).
+			//
+			// Sound because Κ₁ is the narrower claim. It names this exact base,
+			// operation, environment and platform, and the hit just established
+			// that this result is what those produce; a later build that
+			// matches all of them would read the same files and get the same
+			// answer, which is what Κ₁ means.
+			//
+			// The entry is stored as it was found, writer included. It is a
+			// record of somebody else's result being reused rather than of this
+			// build producing one, and rewriting the writer would launder that.
+			if s.Cache != nil {
+				s.Cache.Put(key, e)
+			}
+
 			return nil
 		}
 	}

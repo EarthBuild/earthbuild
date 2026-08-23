@@ -8911,11 +8911,23 @@ transport, and nothing else addresses that (E551). Both readings are about diffe
 engine has both kinds of user.
 
 Attach a second block device, put ext4 on it, mount it where the store is, and select the guest-backed
-implementation. The two open questions belong here and nowhere earlier:
+implementation. **The attaching is one command**: `container volume create -s` yields a sized,
+ext4-formatted `/dev/vd*` at a target, so the premise needs no new plumbing (E571). A raw
+`--mount type=block` is refused by `container` 0.9.0, which is worth knowing only so nobody spends a
+day on it.
+
+The open questions belonged here and nowhere earlier. They are answered, and not as expected:
 
 * **sizing.** A disk has one, a directory does not. Too small fails a build; too large wastes a
-  developer's disk. Growth is implementable - ext4 resizes online - and is a thing to build rather
-  than a thing to assume.
+  developer's disk. Growth is *not* implementable after all - there is no resize subcommand, so ext4
+  resizing online is unreachable from here. It also turns out not to be needed: the image is sparse,
+  and a 1GiB volume costs 2.3MB, so the answer is to over-provision and treat the declared size as a
+  ceiling that migration alone can raise.
+
+  **The cost of that answer is a filesystem that lies about space.** A sparse image reports free
+  space the host cannot supply, and a build then fails mid-write with a filesystem error for a
+  condition that is not one. The store has to check the host and say so itself (I11), because space
+  is the one property a filesystem is believed about (E571).
 * **not copy-on-use.** The smaller design - keep a copy of each layer on the guest's filesystem and
   mount from there - costs 8.96s to copy a 267MB base and saves about 5s per read-heavy step, because
   the copy reads through the very transport it exists to avoid (E552). The disk *writes* the layer
@@ -8925,6 +8937,18 @@ implementation. The two open questions belong here and nowhere earlier:
 * **who owns the bytes on the host.** The image is a file the host must not corrupt, and the sandbox
   that has it mounted is the only writer. A second sandbox wanting the same store has to wait or be
   refused, where today two builds share a directory happily.
+
+  Refused, it turns out, and by the hypervisor rather than by anything written here: a second
+  attachment fails with `VZErrorDomain Code=2, "The storage device attachment is invalid."` So the
+  rule costs nothing to enforce and everything to explain - that message names neither the store, nor
+  the build already holding it, nor what to do. **The work in this bullet is the diagnostic, not the
+  exclusion** (E571).
+
+* **a collector, which nothing above needed and this does.** Nothing in the store prunes, evicts or
+  has a ceiling: one project grew a store to 13GB and 38 of them filled a 3.7TB disk in a day. A
+  directory that only grows is somebody's disk-space problem; a *disk* that only grows fails every
+  build against it, so a size makes the missing collector sharper rather than softer, and it has to
+  land with the device rather than after it.
 
 ### What this is worth, from E540 and E541
 

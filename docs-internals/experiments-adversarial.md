@@ -26117,3 +26117,61 @@ checked by walking `git ls-files` through the real matcher, with `ignore.Implici
 sanctioned exception - the Earthfile and the ignore file are tracked and are deliberately not inputs.
 It caught those two the first time it ran. A second test asserts the generated trees *are* excluded,
 because a guard that only forbids stays green when somebody deletes every pattern.
+
+## E571 - phase 3 is available, and the disk lies about space
+
+Phase 3 asks for a block device with ext4 on it, mounted where the store is, and leaves three
+questions open. All three are answerable today, on `container` 0.9.0, without writing any of it.
+
+**The mechanism exists and is not a raw block device.** `--mount type=block` is refused - and the
+wording is worth reading twice, because `type=disk` is "unknown mount type" while `type=block` is
+"*unsupported* mount type": the vocabulary knows it and this build will not serve it. The route in is
+`container volume create -s`, which produces exactly what phase 3 describes:
+
+```text
+    /dev/vdc on /mnt/probe type ext4 (rw,relatime)
+    /dev/vdc   1007.9M   8.0K   991.9M   0%   /mnt/probe
+```
+
+A sized, ext4-formatted block device, attached at a target. Phase 3's premise is sound and its
+mechanism is one command.
+
+**Sizing: no growth, but none needed.** The subcommands are create, delete, list, inspect and prune.
+There is no resize, so ext4's online growth is not reachable from here and "implementable" was
+optimistic. It also does not matter, because the image is sparse - a 1GiB volume occupies 2.3MB:
+
+```text
+    apparent  1073741824 bytes
+    on disk        2.3 MB
+```
+
+So the answer is to over-provision rather than to grow, and the declared size becomes a ceiling that
+cannot be raised without migrating.
+
+***And that is where the disk starts lying.*** A sparse image reports free space it cannot supply:
+ext4 says 991.9M free while the host says 0, and the host is the one holding the bytes. The guest
+then fails at an arbitrary moment, in the middle of an unrelated write, and reports a filesystem
+error for a condition that is nothing of the kind. **Space is the one property a filesystem is
+believed about**, so this is not a wrinkle to note in passing: the store has to check the host's free
+space and say so itself (I11), because the disk it is standing on will not.
+
+Written the same day a 3.7TB volume filled with 39GB of this session's abandoned stores, which is the
+same failure from the other end - see the store's missing collector below.
+
+**One writer: already enforced, and unkindly.** The plan asks what happens when a second sandbox
+wants a store that is mounted. Virtualization.framework answers:
+
+```text
+    Error: internalError: "failed to bootstrap container"
+      (cause: "Error Domain=VZErrorDomain Code=2 "The storage device attachment is invalid.""")
+```
+
+Refused, by the hypervisor, before anything can be corrupted. So the engine does not have to build
+mutual exclusion - it has to *translate*, because that message names neither the store, nor the other
+build, nor the remedy. The rule is free; the diagnostic is the work.
+
+**What is left of phase 3 after this.** Not the disk - the disk is a command. It is the store's
+missing collector: nothing prunes, nothing evicts, nothing has a ceiling. One project's builds grew a
+store to 13GB, and 38 of them filled the machine. A disk with a size makes that failure *sharper*
+rather than softer, because a full store on a fixed device fails every build against it rather than
+one machine's next large write.

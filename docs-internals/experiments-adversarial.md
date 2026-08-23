@@ -25175,3 +25175,49 @@ decision not to:
 
 That is a fence with a sign on it. The sign says the decision belongs to a person, so it is left for
 one - noted here with the number attached, which is what was missing when the fence went up.
+
+## E551 - the disk's prize, measured on a real base instead of a synthetic one
+
+E550 found that a small warm build is 95% registry round trip and concluded the disk was not what it
+was waiting for. That is true and it is not the whole picture, because a small build is not what the
+disk was ever for. A large base, measured:
+
+```text
+FROM golang:1.27.0-alpine3.24      15,636 files under /usr/local/go
+earth: run   12.913s   RUN find /usr /go -xdev -type f | wc -l
+earth: run   16.041s   RUN find /usr /go -xdev -type f -exec cat {} +
+```
+
+**Twenty-nine seconds of a thirty-seven second build, in two steps that do nothing but touch the
+base.** Counting files - no reads at all - took thirteen seconds.
+
+The A/B, inside one step so the VM, the kernel and the `find` are the same in both arms. The lower
+is the shared store over virtiofs; the upper is the guest's own filesystem:
+
+```text
+    lower cold    3.14s     201µs per file
+    lower warm    1.50s      96µs per file
+    upper warm    0.92s      59µs per file
+    upper again   0.95s      61µs per file
+```
+
+Warm against warm the shared store is 1.6x slower; cold against warm it is 3.3x. The per-file figures
+land on top of E541's synthetic ones - 219µs and 64µs - which were measured a different way on
+different data, so the two agree about a mechanism rather than about a benchmark.
+
+The 12.9s first walk against the 3.14s one here is the same store on the same machine, and the
+difference is what the host had cached: the first is a base placed moments earlier, where every
+lookup goes all the way to a cold host page cache. So the honest range for a cold walk of a big base
+is 3 to 13 seconds, against about one second for the same tree on a local filesystem.
+
+**So both readings stand.** A no-op build is a network round trip and the disk cannot help it (E550).
+A build with a real base spends seconds per step in the store's transport, and the disk is the only
+thing that addresses it. The mistake would be to let the second measurement retire the first: they
+are about different builds, and the engine has both kinds of user.
+
+*Method note.* Three timers were wrong before one was right. `time (…)` is not busybox syntax;
+`date +%s%N` is accepted by busybox and returns whole seconds with `%N` left literal, so every
+interval measured zero; the engine's own phase timing covers a whole step and not the parts of one.
+Busybox's `time` builtin was the one that worked. **A timer that reports zero is not a fast
+operation**, and the reading before it - "15,636 files in 0ms" - was accepted for a moment before it
+was questioned, which is exactly how a measurement becomes a belief.

@@ -8905,6 +8905,11 @@ So Phase 2 has a second half, and it is the one Phase 3 actually depends on:
 
 ### Phase 3 - the disk
 
+Worth doing, and not for the build E550 measured. A no-op build is a registry round trip and the disk
+cannot help it; a build with a real base spends 3 to 13 seconds per cold step in the store's
+transport, and nothing else addresses that (E551). Both readings are about different builds and the
+engine has both kinds of user.
+
 Attach a second block device, put ext4 on it, mount it where the store is, and select the guest-backed
 implementation. The two open questions belong here and nowhere earlier:
 

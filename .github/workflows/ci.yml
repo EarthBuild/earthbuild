@@ -490,6 +490,49 @@ jobs:
           done
           git checkout -- docs-internals/README.md 2>/dev/null || true
 
+      - name: What the second cache tier is worth, with a base that moves
+        # E602 changed a file copied late, so almost nothing sat below it:
+        # sixty-nine L1 hits and no work for the second tier to do. This builds
+        # the case Κ₂ exists for instead - a base that genuinely differs, and a
+        # step that reads none of what differs.
+        #
+        # Categorical rather than extrapolated: what is read off this is whether
+        # the step hits, not a duration to scale up. That distinction is what
+        # four benchmarks in this file got wrong (E589).
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          EARTH_GUESTD: /tmp/earth-guestd
+        run: |-
+          set -euo pipefail
+          mkdir -p /tmp/l2case && cd /tmp/l2case
+          cat > Earthfile <<'EOF'
+          VERSION 0.8
+
+          base:
+              FROM alpine:3.24.1
+              ARG SALT=0
+              # Two files: one that differs between builds, one that does not.
+              RUN echo "$SALT" > /salt && echo constant > /needed
+
+          work:
+              FROM +base
+              # Reads /needed and never /salt, so its observation is the same
+              # over either base - which is the whole of what Κ₂ claims.
+              RUN cat /needed > /out && sleep 20
+          EOF
+          for mode in watched unwatched; do
+            trace=1; [ "$mode" = unwatched ] && trace=0
+            store=/tmp/store-l2b-$mode
+            EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
+              /tmp/earth build --engine=native --build-arg SALT=one +work >/dev/null 2>&1 || true
+            start=$(date +%s)
+            EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
+              /tmp/earth build --engine=native --build-arg SALT=two +work > /tmp/l2b-$mode.log 2>&1 || true
+            echo "$mode, base changed underneath: $(( $(date +%s) - start ))s"
+            grep -E '^\s+cache ' /tmp/l2b-$mode.log || true
+          done
+
       - name: The same target through buildkit, on the same machine
         # **The comparison every number so far has been missing.** 301s against
         # earthly's 147s compared two machines: a hosted runner and a laptop

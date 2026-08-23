@@ -26527,7 +26527,55 @@ So: two digests of a file that is byte-identical, mode-identical and owner-ident
 function that excludes times. One of those three premises is false and the next tick is finding out
 which.
 
+**Corrected by E579: the false premise was the first one, and it was mine.** There are two
+`/etc/apk/world` files - nineteen copies listing `git` and one, in the base image's own layer, that
+does not. The search that found "every copy identical" matched only the copies written *after*
+`apk add`. Recomputing both digests confirms the engine was right about everything: the observed
+value is the post-`apk` file and the base value is the image's own.
+
 *Recorded as a correction as much as a finding.* E577 concluded the clock was the dominant term and
 demonstrated it with `SOURCE_DATE_EPOCH` - 104s to 54s, 62 layers to 6. That measurement stands. The
 inference that the remaining 6 were more of the same does not: the summary says they are a keying
 mismatch and an unexplained digest, which is a different problem wearing the same symptom.
+
+## E579 - two hypotheses, both wrong, and what that leaves
+
+E578 ended with three premises and the claim that one was false. It was the first, and it was a
+measurement error rather than a defect.
+
+**There are two `/etc/apk/world` files.** Nineteen copies list `git`; one, inside the base image's
+layer `c96358…`, does not. Recomputing each digest with the engine's own function settles it exactly:
+
+```text
+    with git     seen-as-root  c7d927f89f4a   = what the step observed
+    without git  seen-as-root  4d5d5f6a3311   = what the base holds
+```
+
+So the tier was doing its job: a prediction learned over a base that already had `git` was tested
+against a base that does not, and reported stale. Correctly. The earlier "every copy is identical"
+came from a search that matched only the copies written *after* `apk add` - the one file that
+mattered was the one not found.
+
+Worth noting what this also proves, since it was in doubt: `layer.PathDigestIn` and the darwin
+ownership correction are exactly right. Reading the store as the guest sees it - `SeenAsRoot`,
+uid 501 to 0 - reproduces the observed digest to the character. E494's fix works.
+
+**The second hypothesis was that step classes collide.** `StepClass` is ℋ over the operation,
+environment and platform with no base, so two steps alike in all three share one profile and would
+overwrite each other's prediction - which would explain the 27 entries written under keys nothing
+looks up. The record has all three digests, so it is countable rather than arguable:
+
+```text
+    steps 91, distinct classes 91, steps sharing a class 0
+```
+
+No collisions. The hypothesis is dead, and it was attractive: 91 steps against 64 profile files on
+disk looked like the same arithmetic, and the profiles directory simply holds entries from earlier
+builds.
+
+*Two wrong guesses in one sitting is the finding.* Both were plausible, both had a number that seemed
+to fit, and both took minutes to disprove against data that already existed - the store, and the
+records the engine writes. What remains untested is that Κ₂'s key takes `refs` as well as the
+observation, and refs are layer identities, which churn for exactly the reason E577 describes. That
+is a candidate and is written here as one, unmeasured, because the two above also looked like more
+than that.

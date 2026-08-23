@@ -366,7 +366,17 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		s.handles[id] = h
 		s.mu.Unlock()
 
-		return Response{Handle: id, Root: h.Root()}
+		// The declaration travels with the handle it belongs to. A caller that
+		// asked for a base has been given what that base declares, without a
+		// second question and without reading the store (E554).
+		resp := Response{Handle: id, Root: h.Root()}
+
+		if d, ok := h.(interface{ Declaration() decl.Declaration }); ok {
+			said := d.Declaration()
+			resp.Declares = &said
+		}
+
+		return resp
 
 	case KindObserve:
 		h, ok := s.get(req.Handle)
@@ -1248,7 +1258,7 @@ func (c *Client) MaterialisePrepared(ctx context.Context, root string) (core.Han
 		return nil, err
 	}
 
-	return &remoteHandle{c: c, id: resp.Handle, root: resp.Root}, nil
+	return &remoteHandle{c: c, id: resp.Handle, root: resp.Root, declares: declaresIn(resp)}, nil
 }
 
 // Materialise implements core.Materialiser.
@@ -1258,7 +1268,7 @@ func (c *Client) Materialise(ctx context.Context, stack []ir.NodeID) (core.Handl
 		return nil, err
 	}
 
-	return &remoteHandle{c: c, id: resp.Handle, root: resp.Root}, nil
+	return &remoteHandle{c: c, id: resp.Handle, root: resp.Root, declares: declaresIn(resp)}, nil
 }
 
 // HandleID is the name the guest knows this handle by.
@@ -1273,11 +1283,22 @@ type remoteHandle struct {
 	id   string
 	root string
 
+	// declares is what the guest's materialiser said this stack declares,
+	// carried back with the handle rather than read out of the store (E554).
+	declares decl.Declaration
+
 	mu       sync.Mutex
 	released bool
 }
 
 func (h *remoteHandle) Root() string { return h.root }
+
+// Declaration is what the materialised stack declares.
+func (h *remoteHandle) Declaration() decl.Declaration { return h.declares }
+
+// Declared is the environment half of it, which is what the step's environment
+// is folded onto.
+func (h *remoteHandle) Declared() []string { return h.declares.Env }
 
 // Delta is not meaningful across the wire: the host cannot see the guest's
 // filesystem, which is why committing happens in the guest.
@@ -2395,4 +2416,17 @@ func clampAt(secs *int64) *time.Time {
 	at := time.Unix(*secs, 0)
 
 	return &at
+}
+
+// declaresIn is what a materialise reply said the stack declares.
+//
+// Absent is empty rather than an error: a guest too old to send one materialised
+// the same stack and knows the same things, and the caller's own defaults are
+// what it had before this field existed.
+func declaresIn(resp Response) decl.Declaration {
+	if resp.Declares == nil {
+		return decl.Declaration{}
+	}
+
+	return *resp.Declares
 }

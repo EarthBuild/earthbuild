@@ -491,12 +491,17 @@ func (e *Executor) Run(
 		return core.Result{}, err
 	}
 
-	// **From the stack, which is where a declaration lives** (green paper
-	// §3.2a). This read a file beside the base's lowest layer, which is right on
-	// a machine that materialised the image itself and wrong on one that was
-	// sent the layers: the sidecar does not travel, so a worker found nothing
-	// and ran steps without the PATH their image sets.
-	baseCfg := stackDeclaration(e.sb.StoreDir(), base)
+	// **From the handle, which is where a declaration arrives** (green paper
+	// §3.2a). It lives in the stack, and the party that materialised the stack
+	// is the one that read it - so it comes back with the handle rather than
+	// being looked up a second time from outside.
+	//
+	// This used to read the `.decl` files beside the base's layers from the
+	// host. That was right on a machine that materialised the image itself and
+	// wrong on one that was sent the layers, because the sidecar does not
+	// travel; and it is wrong on every machine once the store is a disk the
+	// host cannot open (E553, E554).
+	baseCfg := declarationOf(h)
 
 	// `RUN --entrypoint` runs the image's own entrypoint with these arguments.
 	// The entrypoint is read here rather than planned, because only the fetched

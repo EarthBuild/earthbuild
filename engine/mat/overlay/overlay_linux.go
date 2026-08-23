@@ -295,8 +295,14 @@ type handle struct {
 	upper   string
 	base    string
 	mounted bool
-	// declared is what the stack's declarations left, folded in stack order.
-	declared []string
+	// declared is what the stack's declarations left, composed in stack order.
+	//
+	// The whole declaration and not only its environment. **A declaration and a
+	// tree are a pair** - what an image says about how to run is as much a part
+	// of the base as the files are - and keeping half of it here meant the host
+	// re-read the other half out of the store, which is a read the disk cannot
+	// serve (E554).
+	declared decl.Declaration
 
 	mu       sync.Mutex
 	released bool
@@ -310,7 +316,12 @@ func (h *handle) Root() string { return h.root }
 // On the handle rather than fetched by the executor, because the materialiser is
 // what walked the stack - and an executor reaching back into the store for it is
 // how a worker came to run steps without the PATH their image sets.
-func (h *handle) Declared() []string { return h.declared }
+// Declared is what the stack's declarations left, for a caller that wants the
+// environment alone.
+func (h *handle) Declared() []string { return h.declared.Env }
+
+// Declaration is the whole of what the stack declares.
+func (h *handle) Declaration() decl.Declaration { return h.declared }
 
 // Delta is the overlay upper directory: exactly what the step wrote.
 func (h *handle) Delta() string { return h.upper }
@@ -376,7 +387,7 @@ func (m *Materialiser) translator() *translator {
 // that never arrived materialised as one contributing nothing, which is
 // indistinguishable from a declaration and is a silent wrong answer rather than
 // an error (I18).
-func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, []string, error) {
+func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, decl.Declaration, error) {
 	trees := make([]ir.NodeID, 0, len(stack))
 
 	var declarations []decl.Declaration
@@ -391,7 +402,7 @@ func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, []string, error
 
 		d, held, err := decl.Read(m.root, id)
 		if err != nil {
-			return nil, nil, fmt.Errorf("materialise %v: %w", id, err)
+			return nil, decl.Declaration{}, fmt.Errorf("materialise %v: %w", id, err)
 		}
 
 		if held {
@@ -400,7 +411,7 @@ func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, []string, error
 			continue
 		}
 
-		return nil, nil, fmt.Errorf(
+		return nil, decl.Declaration{}, fmt.Errorf(
 			"%v is in this step's base and this store holds neither a layer nor a"+
 				" declaration for it\n  looked for %s and %s\n  a base is materialised"+
 				" from what the store has, so the element has to be fetched before the"+
@@ -408,5 +419,5 @@ func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, []string, error
 			id, m.layerDir(id), decl.Path(m.root, id))
 	}
 
-	return trees, decl.Fold(nil, declarations...), nil
+	return trees, decl.Compose(declarations...), nil
 }

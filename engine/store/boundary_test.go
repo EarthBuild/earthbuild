@@ -53,17 +53,19 @@ var knowsTheLayout = map[string]string{
 	// `cli/images.go` reads layers to write an OCI image out; it becomes an
 	// export the guest performs, which is the shape `Export` already has.
 	//
-	// `decl/store.go` reads and writes the declaration beside a layer. It is
-	// small and it is filed by whoever files the layer, so it goes where
-	// `Publish` goes.
-	//
 	// `fleet/layers.go` serves layers to peers and receives them. A worker's
 	// store is its own, so this is the same question one level up: either the
 	// fleet talks to the guest, or a worker's store stays a directory and only
 	// a developer's is a disk.
 	"engine/cli/images.go":   sideHost,
-	"engine/decl/store.go":   sideHost,
 	"engine/fleet/layers.go": sideHost,
+
+	// `decl/store.go` was host too, and is not any more. The host read the
+	// `.decl` files beside a base's layers to learn what the image declared;
+	// the guest had already read them to build the mount, so the answer now
+	// travels back with the handle and there is one reader instead of two
+	// (E554). The remaining caller is the materialiser, inside the sandbox.
+	"engine/decl/store.go": sideGuest,
 
 	// Making the directory, which a disk does by being attached.
 	//
@@ -147,7 +149,7 @@ func TestEveryFileThatKnowsTheStoreLayoutIsRegistered(t *testing.T) {
 		}
 
 		switch side {
-		case sideStore, sideGuest, sideHost, "setup":
+		case sideStore, sideGuest, sideHost, sideSetup:
 		default:
 			t.Errorf("%s is registered as %q, which is not one of store, guest, host, setup", p, side)
 		}

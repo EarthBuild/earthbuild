@@ -25304,3 +25304,44 @@ which makes adding a host-side reader a decision somebody makes rather than one 
 
 The register also refuses to outlive what it registers: an entry for a file that no longer names the
 store fails too. A work list with items nobody can act on is a work list nobody reads.
+
+## E554 - the declaration travels with the handle, and one host reader goes
+
+E553 counted three places that open the store from the host. This is the first of them closed, and
+it turned out not to be a move at all - the work was already being done twice.
+
+A step's base declares things: a `PATH`, an entrypoint, a working directory. Green paper §3.2a puts
+those in the stack, as elements beside the layers, and both sides read them:
+
+```text
+    guest   classify() reads every .decl in the stack to build the mount, and keeps the env
+    host    stackDeclaration() reads every .decl in the stack again, for --entrypoint
+```
+
+Two readers of one fact, on opposite sides of a boundary, and the host's copy is the one the disk
+cannot serve. The guest already had the answer and was throwing most of it away: `classify` composed
+the whole declaration and returned `decl.Fold(…).Env`, so the environment survived and the
+entrypoint did not - which is exactly the half the host had to go and read for itself.
+
+So the guest keeps the composed declaration, the materialise reply carries it back with the handle,
+and the host asks the handle. `stackDeclaration` is deleted rather than reimplemented.
+
+**A declaration and a tree are a pair.** That is the shape the model was built to have, and it is
+what makes this a deletion instead of a protocol addition: the party that assembled the stack is the
+party that read what it declares, so the answer belongs to the thing it assembled. Reading it again
+from outside was always a second answer to a question that had one - correct on a machine that
+materialised the image itself, wrong on a worker that was sent the layers, since the sidecar does not
+travel, and wrong everywhere once the store is a disk.
+
+Verified where it can be seen from outside: `FROM golang:1.27.0-alpine3.24` then `RUN go version`
+resolves `go` on the image's own `PATH`, which is a value nothing in the Earthfile mentions.
+
+```text
+    PATH=/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    go version go1.27.0 linux/arm64
+```
+
+The register moves `engine/decl/store.go` from `host` to `guest`, which is the point of keeping it:
+the work list went down by one for a reason anybody can check, rather than because somebody
+remembered to cross it off. Two host readers remain - `cli/images.go`, which writes an OCI image out,
+and `fleet/layers.go`, which serves layers to peers.

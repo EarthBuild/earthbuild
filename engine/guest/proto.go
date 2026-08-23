@@ -22,6 +22,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -369,6 +370,17 @@ type Response struct {
 	// Layer and Content are a capture's two digests, hex. Layer is the identity
 	// (timestamps included); Content excludes them, so determinism screening
 	// judges a step on what it produced rather than on when it ran.
+	// Declares is what the materialised stack says about how a step should run.
+	//
+	// **Sent back with the handle, because a declaration and a tree are a pair**
+	// (green paper §3.2a). The host used to read it out of the store instead,
+	// from the `.decl` files beside the base's layers - a read the disk cannot
+	// serve, and one the guest had already done to build the mount (E554).
+	//
+	// Absent for a materialiser that has nothing to say, which is every
+	// backend's answer for a stack of plain layers.
+	Declares *decl.Declaration `json:"declares,omitempty"`
+
 	// Held is the subset of a store-has request's ids the store holds.
 	//
 	// The subset rather than a parallel array of booleans: absent means absent,

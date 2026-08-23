@@ -53,9 +53,7 @@ func TestStoppingADaemonStopsIt(t *testing.T) {
 
 	proc, err := launchWith(t.Context(),
 		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
-	if err != nil {
-		t.Fatal(err)
-	}
+	skipIfUnprivileged(t, err)
 
 	d, ok := proc.(*dockerd)
 	if !ok {
@@ -111,9 +109,7 @@ func TestADaemonThatDiedIsNoticed(t *testing.T) {
 
 	proc, err := launchWith(t.Context(),
 		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
-	if err != nil {
-		t.Fatal(err)
-	}
+	skipIfUnprivileged(t, err)
 
 	// Generous, because it is a *ceiling* and not a measurement: the loop returns
 	// as soon as it notices, so a longer budget costs nothing in the ordinary
@@ -153,9 +149,7 @@ func TestStoppingAnAlreadyNoticedDeadDaemonReturns(t *testing.T) {
 
 	proc, err := launchWith(t.Context(),
 		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
-	if err != nil {
-		t.Fatal(err)
-	}
+	skipIfUnprivileged(t, err)
 
 	// Notice the death first, which is what the wait does on every poll.
 	// Same ceiling, same reason.
@@ -214,9 +208,7 @@ func TestADaemonIsAskedOnItsOwnSocket(t *testing.T) {
 
 	proc, err := launchWith(t.Context(),
 		func(string) (string, error) { return script, nil }, nil, "/steps/h1/var/run/docker.sock")
-	if err != nil {
-		t.Fatal(err)
-	}
+	skipIfUnprivileged(t, err)
 
 	t.Cleanup(func() { _ = proc.Stop() })
 
@@ -255,9 +247,7 @@ func TestWhatTheDaemonSaidBeforeItDiedReachesTheAuthor(t *testing.T) {
 
 	proc, err := launchWith(t.Context(),
 		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
-	if err != nil {
-		t.Fatal(err)
-	}
+	skipIfUnprivileged(t, err)
 
 	t.Cleanup(func() { _ = proc.Stop() })
 
@@ -280,4 +270,31 @@ func TestWhatTheDaemonSaidBeforeItDiedReachesTheAuthor(t *testing.T) {
 	if !strings.Contains(said.Error(), "/run/docker/plugins") {
 		t.Errorf("the daemon's own complaint did not reach the caller:\n  %v", said)
 	}
+}
+
+// skipIfUnprivileged skips when starting the stub needed a privilege this
+// machine will not give.
+//
+// **The message was already right and the outcome was not.** These tests start a
+// process in a mount namespace with a private `/run`, both of which need
+// `CAP_SYS_ADMIN`; on a hosted runner AppArmor refuses the unprivileged user
+// namespace that would hold them (E596) and `fork/exec` returns "operation not
+// permitted". The test knew - it prints the requirement - and then failed,
+// which reports a defect where there is a restriction.
+//
+// Everything else in this repository that needs that privilege skips and says
+// so; `nstest.In` is the same sentence for the same reason (E606).
+func skipIfUnprivileged(t *testing.T, err error) {
+	t.Helper()
+
+	if err == nil {
+		return
+	}
+
+	if errors.Is(err, syscall.EPERM) || strings.Contains(err.Error(), "operation not permitted") {
+		t.Skipf("this machine will not start a daemon in a namespace of its own,"+
+			" so nothing ran: %v", err)
+	}
+
+	t.Fatal(err)
 }

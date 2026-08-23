@@ -27475,3 +27475,30 @@ there.
 written by different hands at different times, and every one invisible until the tests ran somewhere
 the repository was not complete. **A test that reads the repository is a test with a dependency
 nobody declares**, and the build context is exactly where that dependency stops being satisfied.
+
+## E606 - the message was right and the outcome was not
+
+`+unit-test` on linux went from twelve failures to five after E604 and E605, and the five that
+remained were the daemon tests, failing like this:
+
+```text
+    dockerdproc_test.go:57: start .../stubborn: fork/exec .../guest.test: operation not permitted
+      a mount namespace and a private /run both need CAP_SYS_ADMIN, which a ...
+```
+
+**The test already knew.** It prints the requirement in the sentence that follows the error - a
+mount namespace and a private `/run`, both needing `CAP_SYS_ADMIN` - and then fails, on a runner
+where AppArmor refuses the unprivileged user namespace that would hold them (E596). Everything else
+in this repository that needs that privilege skips and says so; `nstest.In` is the same sentence for
+the same reason, three packages away.
+
+So the diagnosis was written, correct, printed, and attached to the wrong outcome. A failure says
+*this is broken*; a skip says *this machine will not*. The five now skip.
+
+*Which completes a count worth keeping.* Twelve tests failed on the first machine that was not the
+one they were written on. Two encoded a filesystem's block accounting (E604), four assumed a
+complete checkout (E605), five assumed a privilege (this), and one was a genuine defect in the
+engine. **Eleven of twelve were the environment, and every one of them was written by somebody who
+had thought about the environment** - the messages prove it, they name the exact requirement. What
+they did not do is act on what they knew, because on the machine where they were written the
+requirement was always met.

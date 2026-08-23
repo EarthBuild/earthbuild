@@ -26761,3 +26761,54 @@ one target away; an unexported argument produced wrong binaries and a zero exit;
 package was never compiled; a hang printed nothing at all. **A bigger target does not find harder
 bugs - it finds the ones a smaller target cannot make visible**, and the cost of not running one is
 paid in artifacts nobody checks the format of.
+
+## E584 - a stage is a scope, and the limit that is not a defect
+
+`+all` is `+all-buildkitd`, `+all-binaries`, `+earthly-docker` and `+prerelease`. It reached none of
+them, and the first thing it did was exercise something no target had before: a **remote target**.
+
+```text
+    FROM github.com/EarthBuild/buildkit:51fe8fb…+build
+      ARG TARGETPLATFORM at …/Earthfile:10:0 is declared twice in this recipe
+```
+
+That worked - the engine fetched a pinned repository and read its Earthfile - and then refused it.
+The refusal is an Earthfile rule, and a good one: within a recipe a second `ARG` for a name already
+declared does nothing, so saying so beats silently keeping the first value (E438). **A Dockerfile's
+stages are separate scopes and the rule does not reach across them.** The buildkit Dockerfile
+declares `ARG TARGETPLATFORM` eight times, once per stage, which is not sloppiness - it is the only
+way a stage can see a predefined argument.
+
+The cause is one line that is not there. The stage builder does `sub := *rs` and then resets what a
+stage owns:
+
+```go
+    sub.env = map[string]string{}
+    sub.dir = ""
+    sub.user = ""
+    sub.cfg = Config{...}
+    sub.declared = map[string]bool{}   // <- the one that was missing
+```
+
+Copying a struct copies a map *header*, so every stage shared one `declared`. The comment beneath
+that block already explains this hazard for `cfg` - "the stage runs against a *copy*, so VOLUME and
+EXPOSE were lost while LABEL survived because a map header is [shared]" - which is the same fact,
+written down, one field away from where it was needed.
+
+**And then a limit that is not a defect.** With the scope fixed, `+all` gets into `+all-buildkitd`
+and stops:
+
+```text
+    no eligible worker: this step is for linux/amd64 and this build has linux/arm64
+      building one architecture on another needs emulation, which this engine does not have
+      - build the target for linux/arm64, or use --engine=buildkit
+```
+
+Correct, and said well: what, why, and two ways out. `+all-buildkitd` *runs* amd64 steps, and this
+engine has no emulation. **Cross-compiling needs none; cross-executing needs all of it**, and
+`+all-binaries` passes for exactly that reason - `go build` targeting windows runs on the host
+architecture, while `RUN` targeting amd64 does not.
+
+So `+all` cannot complete on an arm64 machine, and that is a capability gap with a name rather than
+a failure to fix. The bigger target still earned its keep: one compatibility defect on the way in,
+and a precise statement of where this engine stops.

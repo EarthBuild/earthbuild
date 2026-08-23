@@ -253,6 +253,20 @@ func (b *dockerfileBuild) stage(
 	sub.user = ""
 	sub.cfg = Config{Labels: map[string]string{}, Env: map[string]string{}}
 
+	// **And its own record of what it declared.** A Dockerfile's stages are
+	// separate scopes for ARG, so the same name may be declared in every one of
+	// them - which a multi-platform Dockerfile does as a matter of course, once
+	// per stage, because that is the only way a stage can see it.
+	//
+	// `sub := *rs` copies a map *header*, so every stage shared one map and the
+	// second stage to declare a name was refused for redeclaring it. The rule
+	// doing the refusing is an Earthfile rule and a good one - within a recipe a
+	// second ARG really does nothing (E438) - and it does not reach across
+	// stages. The line above already resets `cfg` for the same reason; this one
+	// was missed, and nothing exercised two stages declaring one name until
+	// `FROM DOCKERFILE` met a Dockerfile with eight of them (E584).
+	sub.declared = map[string]bool{}
+
 	for _, instr := range st.Commands {
 		n, err := b.instruction(instr, base, &sub, pending)
 		if err != nil {

@@ -411,6 +411,11 @@ jobs:
         timeout-minutes: 25
         env:
           EARTH_GUESTD: /tmp/earth-guestd
+          # Its own store. Three runs sharing one cache is three different
+          # questions: the first pays for the base and the rest do not, and the
+          # difference between them gets read as the difference being measured
+          # (E600).
+          EARTH_CACHE_DIR: /tmp/store-watched
         run: |-
           set -euo pipefail
           start=$(date +%s)
@@ -420,6 +425,7 @@ jobs:
           # interesting line is never the last one.
           EARTH_TIMINGS=1 /tmp/earth build --engine=native +unit-test > /tmp/native.log 2>&1 || true
           echo "native +unit-test took $(( $(date +%s) - start ))s"
+          grep -E '^\s+cache ' /tmp/native.log || true
           tail -20 /tmp/native.log
           echo "--- where the engine spent its time:"
           grep -oE '^earth: [a-z:]+ +[0-9]+\.[0-9]+s' /tmp/native.log \
@@ -441,11 +447,13 @@ jobs:
         env:
           EARTH_GUESTD: /tmp/earth-guestd
           EARTH_TRACE: "0"
+          EARTH_CACHE_DIR: /tmp/store-unwatched
         run: |-
           set -euo pipefail
           start=$(date +%s)
           /tmp/earth build --engine=native +unit-test > /tmp/untraced.log 2>&1 || true
           echo "native +unit-test unwatched took $(( $(date +%s) - start ))s"
+          grep -E '^\s+cache ' /tmp/untraced.log || true
           tail -6 /tmp/untraced.log
 
       - name: The same target through buildkit, on the same machine

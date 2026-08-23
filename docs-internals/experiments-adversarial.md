@@ -27294,3 +27294,36 @@ and the only reason it is now known is that somebody said push it and let CI ans
 
 The remaining eighty per cent is a real number about a real engine, and it is the first one this
 branch has had.
+
+## E600 - three numbers that are not comparable, and the reason to say so
+
+The three-way run on one machine produced three figures:
+
+| `+unit-test` on one runner | Time     |
+| -------------------------- | -------- |
+| native, watched            | 320s     |
+| native, unwatched          | **101s** |
+| buildkit                   | 448s     |
+
+Read carelessly, that is the answer to everything: the tracer costs three times, and this engine
+unwatched is four times faster than buildkit. Read carefully, it is three questions.
+
+**The two native runs shared a store.** The first reports `0 hit, 91 miss` and built everything; the
+second ran against what the first left behind, so it skipped almost every step. What saves the
+comparison - partly - is that the step which dominates cannot be cached by either: the suite is red,
+a failed step is never stored (E586), and the phase list says one `run` is 331 of 335 seconds. So
+most of 320 against 101 really is the same command, watched and not.
+
+Most is not all, and *most* is what four earlier experiments in this file were built on. So the runs
+now take a store each, and each prints its own cache line rather than leaving it to be inferred.
+
+**And buildkit moved from 181s to 448s between two runs of the same job.** Nothing in this branch
+changed it; it ran third instead of second on a shared runner. That is a two and a half fold spread
+on the number this engine is being measured against, and it means E599's "one point eight" was a
+single sample of something noisy - honest about the machines, and quiet about the variance.
+
+*What is actually established.* That the engine's own overhead is 2.3s of 335 (E599's phase list),
+which is a measurement of one run and a small number either way. Everything else here is an
+indication, and the difference between an indication and a result is a repeat under controlled
+conditions - which is what the next run is for. **Publishing the three numbers as an answer would
+have been the fifth time in this file, and the first one nobody would have caught.**

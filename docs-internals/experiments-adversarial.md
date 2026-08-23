@@ -25401,3 +25401,20 @@ variables go through `container exec -e` on the *agent's* invocation - the sourc
 comment warning about this exact mistake - so PID 1 never had them and a second exec has its own
 environment. The code was right and the measurement was wrong, for the third time this session in
 the same shape: *the tool answered the question I asked it, and I had asked a different one.*
+
+**The cycle, checked rather than assumed.** A reaper that stops machines is only an improvement if
+the next build is cheap and the caches survive - a sandbox's volume holds the `CACHE` mounts, so
+reaping one the way orphans are reaped would delete a developer's build cache to save some memory.
+
+```text
+    build            sandbox created, volume created
+    25s idle         machine stops itself; volume kept; container kept, stopped
+    build again      same sandbox resumed - one container, not two
+                     2 hit, 0 miss, 0.45s
+```
+
+So the trade is memory for nothing: a stopped VM holds no memory, keeps its cache, and comes back
+through the `container start` path the engine already had and already counted (`Resumes`). The
+alternative - removing the sandbox - is what `reapOrphans` does to *pid-named* VMs whose process is
+gone, and it is right there and would be wrong here, which is why the sweep leaves the reusable ones
+alone.

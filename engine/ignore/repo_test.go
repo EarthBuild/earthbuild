@@ -1,6 +1,7 @@
 package ignore_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -37,14 +38,7 @@ func TestNoTrackedFileIsExcludedFromTheContext(t *testing.T) {
 
 	root := repoRoot(t)
 
-	m, err := ignore.Read(root)
-	if err != nil {
-		t.Fatalf("read the repository's own ignore file: %v", err)
-	}
-
-	if m.Empty() {
-		t.Skip("this checkout has no ignore file to check")
-	}
+	m := matcherFor(t, root)
 
 	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
@@ -84,14 +78,7 @@ func TestNoTrackedFileIsExcludedFromTheContext(t *testing.T) {
 func TestGeneratedTreesAreExcludedFromTheContext(t *testing.T) {
 	t.Parallel()
 
-	m, err := ignore.Read(repoRoot(t))
-	if err != nil {
-		t.Fatalf("read the repository's own ignore file: %v", err)
-	}
-
-	if m.Empty() {
-		t.Skip("this checkout has no ignore file to check")
-	}
+	m := matcherFor(t, repoRoot(t))
 
 	for _, rel := range []string{
 		"examples/next-js/.next/cache/webpack/client-production/0.pack",
@@ -105,4 +92,32 @@ func TestGeneratedTreesAreExcludedFromTheContext(t *testing.T) {
 			t.Errorf("%s is hashed into the context and is generated content", rel)
 		}
 	}
+}
+
+// matcherFor reads the repository's ignore file, or skips.
+//
+// **The file has to be looked for, not inferred from the matcher.** `Empty`
+// reports whether there is a matcher, and `Read` always builds one - it seeds it
+// with `Implicit`, so a checkout with no ignore file still yields a matcher that
+// excludes the Earthfile. Skipping on `Empty` therefore never skipped, and these
+// tests ran against the implicit patterns alone.
+//
+// Which is only visible where the file is absent, and the one place that
+// reliably happens is inside a build context: `.earthlyignore` is implicitly
+// excluded from every context, so `+unit-test` runs these tests against a copy
+// of the repository that cannot contain the thing they are about. They failed
+// there and nowhere else (E585).
+func matcherFor(t *testing.T, root string) ignore.Matcher {
+	t.Helper()
+
+	if _, err := os.Stat(filepath.Join(root, ".earthlyignore")); err != nil {
+		t.Skip("no .earthlyignore here: a build context never carries one")
+	}
+
+	m, err := ignore.Read(root)
+	if err != nil {
+		t.Fatalf("read the repository's own ignore file: %v", err)
+	}
+
+	return m
 }

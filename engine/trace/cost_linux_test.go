@@ -26,6 +26,8 @@ import (
 // thing - that the loop has not stopped working - and tight enough to catch a
 // tracer that has started doing something quadratic.
 func TestWhatATracedOperationCosts(t *testing.T) {
+	SkipIfAlreadyFiltered(t)
+
 	dir := t.TempDir()
 
 	// A file that exists and one that does not, since the loader's traffic is

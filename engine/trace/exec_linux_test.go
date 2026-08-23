@@ -79,6 +79,8 @@ func TestMain(m *testing.M) {
 // program, and a test whose subject is the Go runtime opening its own files
 // would prove the tracer sees Go.
 func TestTheFilterSurvivesExecAndTracesTheStep(t *testing.T) {
+	trace.SkipIfAlreadyFiltered(t)
+
 	// Looked up rather than assumed: on NixOS there is no /bin/cat, and a test
 	// that skipped for that reason would report "seccomp unavailable" on a
 	// machine where the only thing missing was a conventional path.

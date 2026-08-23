@@ -28,6 +28,8 @@ import (
 // Forcing collections is the whole test: without them the file stays reachable
 // for the length of a short test and the bug never appears.
 func TestTheListenerSurvivesAGarbageCollection(t *testing.T) {
+	SkipIfAlreadyFiltered(t)
+
 	dir := t.TempDir()
 
 	target := filepath.Join(dir, "after-gc-4e2a.txt")

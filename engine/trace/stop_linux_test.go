@@ -21,6 +21,8 @@ import (
 // So stopping is its own mechanism rather than a side effect of closing, and
 // this is the assertion that says so.
 func TestRunReturnsWhenStopped(t *testing.T) {
+	SkipIfAlreadyFiltered(t)
+
 	ready := make(chan *Tracer, 1)
 	failed := make(chan error, 1)
 

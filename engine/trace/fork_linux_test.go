@@ -31,6 +31,8 @@ import (
 // the thread cannot be reused, and it must be left locked so the runtime
 // destroys it (E206).
 func TestAChildForkedFromAFilteredThreadIsTraced(t *testing.T) {
+	trace.SkipIfAlreadyFiltered(t)
+
 	program, err := exec.LookPath("cat")
 	if err != nil {
 		t.Skipf("no cat to exec: %v", err)
@@ -110,6 +112,8 @@ func TestAChildForkedFromAFilteredThreadIsTraced(t *testing.T) {
 // The notification carries the pid that made the call, so the two are
 // distinguishable - the fix is to ignore this process's own.
 func TestTheEnginesOwnThreadIsNotTheStep(t *testing.T) {
+	trace.SkipIfAlreadyFiltered(t)
+
 	dir := t.TempDir()
 	own := filepath.Join(dir, "opened-by-the-engine-2c4f.txt")
 

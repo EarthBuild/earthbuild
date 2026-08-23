@@ -32,6 +32,8 @@ import (
 // only - taken when the argument for exec was diagnostics, and the argument here
 // is correctness (E220).
 func TestTheProgramAStepRunsIsRecorded(t *testing.T) {
+	SkipIfAlreadyFiltered(t)
+
 	program, err := exec.LookPath("true")
 	if err != nil {
 		t.Skipf("no `true` to exec: %v", err)

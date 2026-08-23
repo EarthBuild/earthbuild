@@ -203,6 +203,16 @@ type Request struct {
 	// (E549).
 	Clamp *int64 `json:"clamp,omitempty"`
 
+	// MayShare permits an export to answer with a path in the store instead of
+	// the bytes. See Response.Shared.
+	//
+	// Asked per request rather than forwarded to the sandbox, for the reason
+	// `SOURCE_DATE_EPOCH` no longer is: a machine is named by its image, store
+	// and memory, so a per-build decision left on one is answered from whatever
+	// the first build wanted (E555). Off by default, so a host that has not
+	// heard of sharing is served the bytes.
+	MayShare bool `json:"mayshare,omitempty"`
+
 	// Trace asks for the step's reads to be observed.
 	//
 	// Off by default, and that is a cost decision rather than a safety one: a
@@ -418,6 +428,17 @@ type Response struct {
 	// Absent for a materialiser that has nothing to say, which is every
 	// backend's answer for a stack of plain layers.
 	Declares *decl.Declaration `json:"declares,omitempty"`
+
+	// Shared is where an export's bytes already sit in the store, relative to
+	// its root - so the host takes them off its own disk instead of having the
+	// guest write them back over virtiofs.
+	//
+	// **The store is a disk both sides can read**, and an export that ignores
+	// that ships 45 MB out of the VM to a host that already had it: 0.21s to
+	// 0.28s of a 1.16s build, its single largest item (E568). Empty whenever
+	// the guest cannot prove the merged file is the store's file unchanged, in
+	// which case the bytes follow the ordinary way.
+	Shared string `json:"shared,omitempty"`
 
 	// Held is the subset of a store-has request's ids the store holds.
 	//

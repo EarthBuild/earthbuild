@@ -50,6 +50,26 @@ type Handle interface {
 	Release() error
 }
 
+// SharedResolver reports that a path in a handle's merged view is, byte for
+// byte, a file the shared store already holds.
+//
+// It exists because the store is a disk that both sides can read. Without it,
+// exporting an artifact ships 45 MB out of the guest over virtiofs to a host
+// that already had those exact bytes on its own filesystem - measured at 0.21s
+// to 0.28s of a 1.16s build, and the largest single item in it (E568).
+//
+// Handles that cannot answer simply do not implement it; a caller that gets no
+// answer copies, which is always correct and never wrong, only slower.
+type SharedResolver interface {
+	// SharedFile returns a path relative to the store root, and whether the
+	// merged view at rel is exactly that file.
+	//
+	// False is the safe answer and is returned for anything the implementation
+	// cannot prove: a modified file, a directory, a symlink, a deletion, or a
+	// layer it does not know to be pristine.
+	SharedFile(rel string) (string, bool)
+}
+
 // Observation is green paper's 𝑟 ≡ (𝑅, 𝑁, 𝐷).
 //
 // Declared now, populated at S5. Recording it early keeps the shape of the

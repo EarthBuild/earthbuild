@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -217,19 +218,32 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 	}
 
 	lower := make([]string, 0, len(trees))
+	lowers := make([]lowerLayer, 0, len(trees))
+
 	for i := len(trees) - 1; i >= 0; i-- {
 		id := trees[i]
 
-		dir := m.layerDir(id)
+		store := m.layerDir(id)
 
 		// A layer that records a deletion is translated onto storage this VM
 		// owns, because a `.wh.` marker is what the shared store can hold and a
 		// character device is what overlayfs reads (E94). Layers without one -
 		// nearly all of them - are stacked from the store directly.
-		dir, err = m.translator().use(dir, id.String())
+		dir, err := m.translator().use(store, id.String())
 		if err != nil {
 			return nil, err
 		}
+
+		// Pristine means the mount reads the store's own directory, so a file
+		// found here is a file the host already has. A translated layer is a
+		// VM-local rewrite and cannot be pointed at, which is what the empty
+		// rel records. See SharedFile.
+		rel := ""
+		if dir == store {
+			rel = filepath.Join("layers", id.String())
+		}
+
+		lowers = append(lowers, lowerLayer{used: dir, rel: rel})
 
 		// Named short, because every byte of this path is charged against the
 		// one page of options the kernel will read. See link().
@@ -287,7 +301,21 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 			len(stack), merged, err, hint)
 	}
 
-	return &handle{root: merged, upper: upper, base: base, mounted: true, declared: declared}, nil
+	return &handle{
+		root: merged, upper: upper, base: base,
+		mounted: true, declared: declared, lowers: lowers,
+	}, nil
+}
+
+// lowerLayer is one entry of the mount's lowerdir list, highest first.
+type lowerLayer struct {
+	// used is the directory the mount actually reads, which is what resolution
+	// has to walk - translated or not.
+	used string
+
+	// rel is the same layer's place in the store, relative to its root, and is
+	// empty when the layer was translated and so has no pristine counterpart.
+	rel string
 }
 
 type handle struct {
@@ -295,6 +323,7 @@ type handle struct {
 	upper   string
 	base    string
 	mounted bool
+	lowers  []lowerLayer
 	// declared is what the stack's declarations left, composed in stack order.
 	//
 	// The whole declaration and not only its environment. **A declaration and a
@@ -325,6 +354,71 @@ func (h *handle) Declaration() decl.Declaration { return h.declared }
 
 // Delta is the overlay upper directory: exactly what the step wrote.
 func (h *handle) Delta() string { return h.upper }
+
+// SharedFile implements core.SharedResolver.
+//
+// The rule is overlayfs's own: a regular file with no entry in the upper is the
+// lower's file, unmodified - overlayfs does not merge regular files, only
+// directories. So the first lower holding the path is what the merged view
+// shows, byte for byte.
+//
+// Two ways that rule can be wrong, and both are refused rather than reasoned
+// about:
+//
+//   - An *opaque* directory hides everything below it, so a file present in a
+//     lower may not be in the merged view at all. Opacity is an xattr on a
+//     directory in a higher layer, so rather than walk ancestors reading
+//     xattrs, this refuses if the upper holds any ancestor of the path. Nothing
+//     in the upper means no copy-up, no whiteout and no opaque marker is
+//     possible, which is the same guarantee for a fraction of the work.
+//   - A *translated* layer above the winner may carry markers this cannot see
+//     from the pristine side, so passing one is a refusal too.
+//
+// Both are conservative in the safe direction: they cost a copy that was not
+// strictly needed, never an answer that is wrong. The export handle - a fresh
+// mount of a published stack, empty upper - takes the fast path, which is the
+// case worth having (E568).
+func (h *handle) SharedFile(rel string) (string, bool) {
+	if !h.mounted {
+		return "", false
+	}
+
+	rel = strings.TrimPrefix(filepath.Clean("/"+rel), "/")
+	if rel == "" || rel == "." {
+		return "", false
+	}
+
+	// The path itself and every directory above it. An entry anywhere along it
+	// puts the merged view beyond what this can prove.
+	for p := rel; p != "." && p != string(filepath.Separator); p = filepath.Dir(p) {
+		_, err := os.Lstat(filepath.Join(h.upper, p))
+		if !os.IsNotExist(err) {
+			return "", false
+		}
+	}
+
+	for _, l := range h.lowers {
+		fi, err := os.Lstat(filepath.Join(l.used, rel))
+		if os.IsNotExist(err) {
+			// Not in this layer, so a lower one may still hold it - but only if
+			// this layer is pristine, because a translated one could be hiding
+			// it with a marker.
+			if l.rel == "" {
+				return "", false
+			}
+
+			continue
+		}
+
+		if err != nil || !fi.Mode().IsRegular() || l.rel == "" {
+			return "", false
+		}
+
+		return filepath.Join(l.rel, rel), true
+	}
+
+	return "", false
+}
 
 func (h *handle) Observations() core.Observation {
 	// Empty, never nil. Populated at S5, when the fault path is instrumented.

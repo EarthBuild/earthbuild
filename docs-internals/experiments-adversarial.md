@@ -25981,3 +25981,61 @@ spends on a context (E562), one session earlier and with the lesson apparently u
 
 What this leaves: `export:stage` at 0.35s is the largest item in a 1.16s build and its cause is
 open. Worth saying plainly rather than attributing to the nearest plausible mechanism.
+
+## E568 - the bytes were already on the host
+
+E567 left `export:stage` at 0.35s with its cause open, having ruled out the write size. The thing it
+had not ruled out was the assumption underneath the whole measurement.
+
+First, partition the round trip from the work, by timing the export on the guest's own side:
+
+```text
+    guest:export   0.342s
+    export:stage   0.343s      what the host sees
+```
+
+One millisecond of protocol. The work is inside the guest. Then partition the copy itself, in the
+real path rather than in a benchmark resembling it - a counting reader and writer around the actual
+`io.Copy`, so the numbers are the ones the build pays:
+
+```text
+    read   0.024s - 0.029s
+    write  0.144s - 0.223s
+```
+
+Six to eight times more time writing than reading, and the destination is
+`/var/lib/earthbuild/store/exports/...` - the shared store, which inside the guest is **virtiofs from
+the host**. That is the assumption E567 never questioned: `dd` wrote to the VM's own disk at 592
+MB/s, and the real copy writes across a share to the host. The benchmark was measuring different
+hardware.
+
+Which reframes the problem entirely. The artifact is `store/layers/<digest>/earthly/build/earthly`,
+and the host already has it - it is on the host's own filesystem, published there before the export
+began. The build was shipping 45MB out of a VM to a machine that already had those exact bytes.
+
+overlayfs gives an exact test for when that is unnecessary: **a regular file with no entry in the
+upper is the lower's file, unmodified** - overlayfs merges directories, never regular files. So the
+guest can answer with a path instead of the bytes, and the host takes them off its own disk.
+
+Two ways the rule can be wrong, both refused rather than reasoned about: an *opaque* directory in a
+higher layer hides what is below it, so the check refuses if the upper holds any ancestor of the
+path at all - nothing in the upper means no copy-up, no whiteout and no opaque marker is possible,
+the same guarantee for a fraction of the work; and a *translated* layer may carry markers invisible
+from the pristine side, so passing one is a refusal too. Both are conservative in the safe
+direction: they cost a copy that was not needed, never an answer that is wrong.
+
+| Measure                       | Bytes shipped | Taken from the store |
+| ----------------------------- | ------------- | -------------------- |
+| `export:stage`, 45MB artifact | 0.585s        | 0.001s               |
+| warm `+earthly`, wall clock   | 1.17s - 1.29s | 0.78s - 0.89s        |
+
+The artifact is identical in content, mode and timestamp either way, checked by running the same
+build both ways behind `EARTH_SHARE_EXPORTS` and comparing - which is what the switch is for. A
+published layer is stamped when it is published (I8), so the times the host copies out are the times
+it would have copied out anyway.
+
+*What made E567 wrong was not the arithmetic.* Every number in it was real and reproducible. The
+error was that the benchmark and the copy ran on different storage, and nothing in a result that
+clean prompts you to ask which disk you are timing. The general form: **a microbenchmark inherits
+the assumptions of whoever wrote it, and the loudest of those is where the bytes go.** Partitioning
+inside the real path found in one run what three arrangements of a lookalike could not.

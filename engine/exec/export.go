@@ -100,7 +100,7 @@ func (e *Executor) exportTo(
 	// and so a partial export is visible as the wrong file rather than as a
 	// mysteriously absent one.
 	endStage := phase("export:stage", path)
-	err = c.Export(ctx, h, path, localDest)
+	shared, err := c.Export(ctx, h, path, localDest)
 	endStage()
 
 	if err != nil {
@@ -115,6 +115,15 @@ func (e *Executor) exportTo(
 	}
 
 	staged := filepath.Join(e.sb.StoreDir(), "exports", filepath.Clean("/"+localDest))
+
+	// Nothing was staged, because nothing needed to be: the guest recognised
+	// the artifact as a file the store already holds, so the host reads it off
+	// its own disk. Same bytes, same mode, same time - a published layer is
+	// stamped when it is published (I8) - and one fewer 45 MB trip out of the
+	// VM (E568).
+	if shared != "" {
+		staged = filepath.Join(e.sb.StoreDir(), filepath.Clean("/"+shared))
+	}
 
 	endOut := phase("export:copyout", localDest)
 	defer endOut()
@@ -161,7 +170,7 @@ func copyOut(src, dst string) error {
 	// and what makes it safe for a file the user then edits.
 	//
 	// The times are still set below: a clone carries the source's, and the
-	// source is the staged copy rather than the layer, so the stamp is what
+	// source is a staged copy or the store's layer itself, so the stamp is what
 	// decides what the artifact ends up with either way.
 	if mayClone() && cloneOneFile(src, dst) {
 		return stampOut(dst, fi)

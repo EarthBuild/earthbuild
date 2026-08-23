@@ -104,6 +104,26 @@ bisected in a single command.
 
 Default: on.
 
+### `EARTH_SHARE_EXPORTS`
+
+Whether a saved artifact may be taken from the store instead of being sent out of the sandbox.
+
+The store is a disk both sides can read. When the file a build is exporting is one the store already
+holds, unmodified, the sandbox says where it is rather than writing 45MB back across the shared
+mount, and the host takes it from its own filesystem. Exporting this repository's own binary went
+from 0.585s to 0.001s, and a warm build from 1.18s to 0.84s.
+
+The sandbox answers this way only when it can prove the file is the store's file unchanged - not
+rewritten by the step, not deleted, not a directory or a link, and in a layer it holds pristine.
+Anything it cannot prove is sent the ordinary way, so the switch changes what a build costs and not
+what it produces: the artifact is identical in bytes, mode and timestamp either way.
+
+Set to `0` to always send the bytes. Keep it for bisecting, and for the same reason
+`EARTH_CLONE_EXPORTS` exists - being able to run one build both ways is what turns "the artifact
+looks right" into "the artifact is the same".
+
+Default: on.
+
 ### `EARTH_GUEST_DENTRY_LIMIT`
 
 How many looked-up names a sandbox holds before it releases them, as a count.

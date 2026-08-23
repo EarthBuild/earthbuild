@@ -23,6 +23,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Server is the guest half: it runs inside the VM and serves a real
@@ -427,6 +428,16 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		h, ok := s.get(req.Handle)
 		if !ok {
 			return Response{Err: "unknown handle " + req.Handle}
+		}
+
+		// The store is a disk the host can read too, so an export whose bytes
+		// are already on it is a sentence rather than 45 MB (E568). The guest
+		// answers only when it can prove the merged file is the store's file
+		// unchanged; otherwise the bytes go the ordinary way.
+		if r, ok := h.(core.SharedResolver); ok && req.MayShare {
+			if rel, ok := r.SharedFile(req.Path); ok {
+				return Response{Shared: rel}
+			}
 		}
 
 		err := s.export(h, req.Path, req.Dest, clampAt(req.Clamp))
@@ -847,6 +858,12 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 // guest exists (experiment E1b) - so the copy happens here and the host collects
 // it from the mount they share.
 func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) error {
+	// Timed on this side of the boundary, because the host's `export:stage`
+	// covers a round trip as well as the work and 0.35s of a 1.16s build was
+	// being attributed to a copy without anybody having measured the copy
+	// (E567, E568).
+	defer timing.Phase("guest:export", path)()
+
 	if s.LayerDir == "" {
 		return errors.New("no shared store configured, so an artifact cannot be handed back")
 	}
@@ -894,7 +911,10 @@ func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) erro
 	// timestamps and `SAVE ARTIFACT` of a file quietly stamped it with the
 	// moment the build ran (I8). The asymmetry is what made it invisible:
 	// whichever one you looked at, the other was the broken one.
-	return copyPath(h.Root(), src, dst, copyOpts{Clamp: clamp})
+	done := timing.Phase("guest:export:copy", path)
+	err = copyPath(h.Root(), src, dst, copyOpts{Clamp: clamp})
+	done()
+	return err
 }
 
 // within joins a path onto a root and refuses anything that leaves it.
@@ -1956,17 +1976,28 @@ func (c *Client) Capture(ctx context.Context, h core.Handle) (ir.NodeID, ir.Node
 }
 
 // Export copies an artifact out of a step's filesystem into the shared store.
-func (c *Client) Export(ctx context.Context, h core.Handle, path, dest string) error {
+// Export places an artifact where the host can pick it up.
+//
+// The returned path, when not empty, is where the bytes already sit in the
+// store, relative to its root: nothing was copied and the host reads them off
+// its own disk. See Response.Shared.
+func (c *Client) Export(
+	ctx context.Context, h core.Handle, path, dest string,
+) (string, error) {
 	rh, ok := h.(*remoteHandle)
 	if !ok {
-		return errors.New("handle did not come from this guest")
+		return "", errors.New("handle did not come from this guest")
 	}
 
-	_, err := c.do(ctx, Request{
+	resp, err := c.do(ctx, Request{
 		Kind: KindExport, Handle: rh.id, Path: path, Dest: dest, Clamp: hostClamp(),
+		MayShare: shareExports(),
 	})
+	if err != nil {
+		return "", err
+	}
 
-	return err
+	return resp.Shared, nil
 }
 
 // Copy places a path from a stored layer into a step's filesystem.
@@ -2472,6 +2503,20 @@ func declaredBy(h core.Handle, req Request) []string {
 // until the sandbox outlives the build that started it: it is named by its
 // image, store and memory, so the next build finds a machine already holding
 // somebody else's instruction (E549).
+// EnvShareExports turns off taking an export straight from the store.
+//
+// An escape hatch and an A/B switch: the fast path is only sound because the
+// guest refuses everything it cannot prove (see overlay's SharedFile), and a
+// way to run the same build both ways is what shows the artifact is identical
+// rather than merely plausible.
+const EnvShareExports = "EARTH_SHARE_EXPORTS"
+
+// shareExports reports whether an export may come from the store directly.
+//
+// On unless switched off: the slow path is always correct, so the failure this
+// guards against is a wrong answer, not a missing one.
+func shareExports() bool { return os.Getenv(EnvShareExports) != "0" }
+
 func hostClamp() *int64 {
 	at, ok := fstime.Clamp()
 	if !ok {

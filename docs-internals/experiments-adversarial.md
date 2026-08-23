@@ -25263,3 +25263,44 @@ costs, and every step afterwards reads at 59µs a file instead of 201µs".
 Recorded because copy-on-use is the design somebody reaches for first - it is smaller, it needs no
 protocol, and it can be built in an afternoon. It is also strictly worse than doing nothing for the
 commonest build shape, and the measurement that says so takes ten minutes.
+
+## E553 - the disk's work list, kept by a test
+
+Phase 1 of the store-as-a-disk named the store's operations behind a port and found two defects by
+doing it. The same discipline applies to the thing phase 3 actually turns on: **the disk does not
+change what a layer is, it changes who can open one.** So the question is not how to build it, it is
+how many places open the store from the host - and the way that answer goes wrong is not a design
+that cannot work, it is a reader nobody counted, found on the day the store stops being a directory.
+
+Twenty sites build a path inside the store. Registered by category:
+
+```text
+    store   7   the store's own implementation; moves with the store
+    guest   2   inside the sandbox already, which is the shape the rest must take
+    host    3   opens the store from outside - this is the work
+    setup   3   makes the directory, which a disk does by existing
+```
+
+The three that are the work:
+
+* `cli/images.go` reads layers to write an OCI image out. It becomes an export the guest performs,
+  which is the shape `Export` already has.
+* `decl/store.go` reads and writes the declaration beside a layer. Small, and filed by whoever files
+  the layer, so it goes where `Publish` went.
+* `fleet/layers.go` serves layers to peers and receives them. The same question one level up: either
+  the fleet talks to the guest, or a worker's store stays a directory and only a developer's is a
+  disk.
+
+**The register found a site on its first run.** A grep over `engine/` and `cmd/` had already been
+read and had already been believed; the test walks the repository and named `tools/fleetprobe`, which
+makes a store for a measurement. It is a tool and not the engine, so it changes nothing about the
+work - and it is the twenty-first of twenty, found by the mechanism that exists because a person
+counting is how the count goes wrong.
+
+Kept as a test rather than as a section of the plan for the same reason the wire vocabulary is
+(E222): a list in a document is true when it is written, and a list a build checks is true when it is
+read. An unregistered file now fails with the four categories and a sentence about which to pick,
+which makes adding a host-side reader a decision somebody makes rather than one that happens.
+
+The register also refuses to outlive what it registers: an entry for a file that no longer names the
+store fails too. A work list with items nobody can act on is a work list nobody reads.

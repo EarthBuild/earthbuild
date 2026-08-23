@@ -26335,3 +26335,46 @@ something already true of any cold chain is open, and the store grew to 14GiB ov
 builds - about 44 layers a build - which suggests the accumulation predates any prune. The honest
 statement is that `-prune` reclaims space reliably and does not reliably leave a cache behind, and
 that is what its documentation now says.
+
+## E575 - a COPY cannot produce the same layer twice
+
+E574 left a pruned store publishing about 44 layers a build and matching none of them. The layers
+are not junk and not duplicates by accident: two of them hold `/earthly/util`, and their contents are
+identical - `diff -rq` reports nothing. Their identities differ, and the mtimes say exactly where:
+
+| path                     | one layer  | the other  |
+| ------------------------ | ---------- | ---------- |
+| `/` (the layer root)     | 1787481296 | 1787481192 |
+| `/earthly`               | 1787481296 | 1787481192 |
+| `/earthly/util`          | 1787481087 | 1787481087 |
+| `…/util/buildkitskipper` | 1787481087 | 1787481087 |
+
+Everything copied keeps the time it had. Everything *created to hold it* carries the wall clock of
+the build that ran - and the two wall clocks are 104 seconds apart, which is one build.
+
+The copy walks the source tree and preserves times as it goes (`copyPath`). What it does not
+preserve is what it invents: `os.MkdirAll(filepath.Dir(dstPath), 0o755)` makes the destination's
+ancestors, and nothing stamps them. A layer's identity includes its timestamps (I8, §3.3), so **an
+unchanged COPY of unchanged bytes produces a different layer every build**, forever, on every
+machine.
+
+That is already enough to explain a store that grows without bound - a fresh layer per COPY per
+build, none of which is a duplicate as far as any digest can tell, which is why 25 copies of one
+binary and four of one `node_modules` accumulated in a day (E571, E574).
+
+**What it is not yet is an explanation of the non-convergence**, and the distinction matters. A cache
+entry is keyed on a step's inputs, not on its output, so an output whose identity changes does not by
+itself cause a miss - the next build should find the entry and the layer it names. Something is
+re-keying, 48 keys a build, and this mechanism is a candidate rather than a cause. E567 is the
+standing warning about fixing the plausible thing: the numbers there were real too.
+
+So the fix is written down and not made. Stamping invented directories would change every layer
+identity once, on every machine, which is a decision to take deliberately and not as a drive-by while
+chasing something else.
+
+*And the guard that should have caught it was looking at the other spelling.*
+`TestEveryMtimeIsClampedOrExcused` scans for `os.Chtimes` and `lchtimes`, having already learned once
+that naming a single function misses a second spelling - its own comment says so, about `lchtimes`
+arriving because `os.Chtimes` follows symlinks, and again about the rename to `Lchtimes`. A directory
+created by `MkdirAll` is a timestamp nobody wrote and the guard cannot see: **not a call it failed to
+match, but a write that never looks like one.**

@@ -26812,3 +26812,47 @@ architecture, while `RUN` targeting amd64 does not.
 So `+all` cannot complete on an arm64 machine, and that is a capability gap with a name rather than
 a failure to fix. The bigger target still earned its keep: one compatibility defect on the way in,
 and a precise statement of where this engine stops.
+
+## E586 - the first head-to-head on a load that is not a no-op
+
+`+earthly` measured this engine at its best: a warm build is a no-op and finishes in 0.65s against
+earthly's 20.7s. `+unit-test` measures something else entirely - the same repository's own test
+suite, run inside a step - and the numbers go the other way.
+
+| Engine  | Cold   | Warm       |
+| ------- | ------ | ---------- |
+| earthly | 147.1s | 111.2s     |
+| earth   | 797.5s | **832.9s** |
+
+Five times slower cold, seven and a half warm, and warm slower than cold. **A single ratio is the
+wrong summary**, though, and the per-package split says why:
+
+| Package         | earthly | earth      | Ratio |
+| --------------- | ------- | ---------- | ----- |
+| `engine/trace`  | 0.6s    | **300.0s** | 464x  |
+| `engine/interp` | 40.4s   | **300.0s** | 7.4x  |
+| `engine/store`  | 3.3s    | 135.1s     | 41x   |
+| `engine/cli`    | 5.1s    | 93.2s      | 18x   |
+| `engine/exec`   | 0.1s    | 31.0s      | 517x  |
+| `engine/guest`  | 90.2s   | 95.0s      | 1.1x  |
+| `engine/core`   | 2.8s    | 2.7s       | 1.0x  |
+
+**Those two 300.0s are `go test -timeout 5m` to the tenth of a second.** They did not run slowly;
+they hung and were killed, and they are 600 of the 960 seconds. Meanwhile `engine/core` at 1.0x and
+`engine/guest` at 1.1x say the plain execution path is at parity - this engine is not five times
+slower at running things, it is at parity with two hangs and two heavy outliers.
+
+`engine/trace` is the tracer's own test suite, and it runs *inside a traced step*: tests that install
+seccomp filters, executed under a seccomp filter. Nested tracing, almost certainly the same family as
+E582's deadlock and now reproducible in two minutes rather than thirty.
+
+*And the cache question, which was not a cache question.* Warm barely helps either engine, and
+earthly's own log says why: 74 steps cached on the second run against 5 on the first, with only the
+test step re-running - because it exits 1. **A failed step is never cached**, correctly, so this
+target cannot warm while its tests are red. Nothing is broken and the target definition is fine; the
+suite is.
+
+What this is worth: `+earthly` said this engine is 17x faster and `+unit-test` says it is 7.5x
+slower, and both are true of what they measured. A no-op build measures the cache; a test suite
+measures execution and finds two deadlocks. **Choosing only the first target is how an engine gets
+shipped with a hang in it.**

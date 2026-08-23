@@ -27419,3 +27419,31 @@ thing differently. The first is a list already known; the second is what this is
 *What it does not change.* `--engine=buildkit` still works and the report-only job still uses it for
 the head-to-head, so the numbers in E601 remain reproducible. Nothing about this makes the native
 engine ready; it makes its gaps enumerable.
+
+## E604 - twelve tests that only work where they were written
+
+The pull request's `Fast Check & Build` had been red since the first push, and it was read as the
+default flip's doing until four earlier commits were checked and found red too. It is not the flip.
+It is twelve tests failing on linux that pass on darwin, and two of them were written this week.
+
+**A ceiling that meant different things on two filesystems.** `TestCollectionTakesTheLeastRecentlyUsedFirst`
+and `TestReadingALayerKeepsIt` said `Collect(root, 5000)`: room for one four-kilobyte layer and not
+two. That is true on APFS. On ext4 `occupies` counts allocated blocks, a layer costs its file's block
+*and* its directory's, and five thousand bytes holds nothing at all - so the collector removed
+everything and the assertions failed. The number is now derived from what the filesystem charges for
+a layer that was just written, which is what it always meant.
+
+**A file the build context does not carry.** `TestEverySettingIsDocumentedOrDeclaredInternal` reads
+`docs/native/settings.md` and the Earthfile copies `docs/earthfile/earthfile.md` by name, not `docs/`.
+Inside `+unit-test` the file is absent, and the test reported the settings undocumented when nobody
+had looked. It skips now, saying why - the same answer E585 reached for the ignore guards, and the
+second time this exact shape has appeared.
+
+The rest are honest already: no user namespace on this runner, no `EARTH_TEST_NETWORK`, no
+`earth-guestd` beside the test binary. They skip and say so.
+
+*The pattern is the one E598 named and it has not stopped being true.* A test written on one machine
+encodes that machine: its filesystem's block accounting, its checkout's completeness, its kernel's
+permissions. **Nothing about care prevents this** - the collector tests were written carefully, with
+a comment explaining the number - because the assumption is invisible from inside the assumption.
+What catches it is a second machine, and the branch had been on one for a fortnight.

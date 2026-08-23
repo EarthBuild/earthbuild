@@ -1,6 +1,8 @@
 package check_test
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -78,6 +80,19 @@ func TestEverySettingIsDocumentedOrDeclaredInternal(t *testing.T) {
 	} {
 		b, err := os.ReadFile(filepath.Join(append([]string{root}, at...)...))
 		if err != nil {
+			// **Absent is not wrong here.** This runs inside `+unit-test`, against
+			// a copy of the repository the Earthfile assembled - and it copies
+			// `docs/earthfile/earthfile.md` by name, not `docs/`. So the file
+			// this reads is simply not there, and failing said the settings were
+			// undocumented when nobody had looked (E604).
+			//
+			// The same shape as the ignore guards, which skip when there is no
+			// ignore file because a build context never carries one (E585).
+			if errors.Is(err, fs.ErrNotExist) {
+				t.Skipf("%s is not in this copy of the repository, so there is"+
+					" nothing to check it against", filepath.Join(at...))
+			}
+
 			t.Fatalf("a reference is not where this test expects it: %v", err)
 		}
 

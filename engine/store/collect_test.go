@@ -9,6 +9,26 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
+// roomForOne is a ceiling that holds one of these layers and not two.
+//
+// **Derived rather than written down.** The first version said 5000 bytes,
+// which holds one 4096-byte layer on APFS and none at all on ext4, where
+// `occupies` counts allocated blocks and a layer costs the file's block plus its
+// directory's. The tests passed where they were written and removed everything
+// on linux (E604).
+func roomForOne(t *testing.T, root string, id ir.NodeID) uint64 {
+	t.Helper()
+
+	one := SizeAll(LayerStore(root).Path(id))
+	if one == 0 {
+		t.Fatal("a layer that was just written measures nothing")
+	}
+
+	// Half a layer clear of one and well short of two, whatever a block costs
+	// here.
+	return one + one/2
+}
+
 // fill puts a layer of about size bytes into the store and dates its use.
 func fill(t *testing.T, root string, n byte, size int, used time.Time) ir.NodeID {
 	t.Helper()
@@ -51,8 +71,7 @@ func TestCollectionTakesTheLeastRecentlyUsedFirst(t *testing.T) {
 	mid := fill(t, root, 2, 4096, now.Add(-2*time.Hour))
 	new := fill(t, root, 3, 4096, now)
 
-	// Room for one.
-	report, err := Collect(root, 5000)
+	report, err := Collect(root, roomForOne(t, root, new))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +155,7 @@ func TestReadingALayerKeepsIt(t *testing.T) {
 		t.Fatal("the base layer is not there")
 	}
 
-	report, err := Collect(root, 5000)
+	report, err := Collect(root, roomForOne(t, root, base))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26641,3 +26641,51 @@ reference's behaviour and carries the differential that settled it.
 **Both defects share a shape**: the build succeeded. A missing artifact failed loudly one target
 later; a missing environment did not fail at all. Every target bigger than the last has found
 something, and this one found the kind that a passing build cannot tell you about.
+
+## E581 - the engine had never been cross-compiled, and said so five ways
+
+E580 made `GOOS` reach the toolchain. The first windows build that followed did not produce a wrong
+binary - it failed to compile:
+
+```text
+    engine/fdpass/fdpass.go:47:19: undefined: unix.Socketpair
+```
+
+**That error had been unreachable.** Every "platform" binary was built for the machine doing the
+building, so no file in this repository had ever been asked whether it belonged on the other side of
+a build tag. The release shipped a windows binary that was, in fact, linux/arm64; a windows build
+that could not compile was not a thing anybody could discover.
+
+Fixing each one uncovered the next, which is the shape of a constraint nobody has ever applied:
+
+| Package         | What only exists on unix                      |
+| --------------- | --------------------------------------------- |
+| `engine/fdpass` | `SCM_RIGHTS` over `AF_UNIX` - the whole point  |
+| `engine/layer`  | `observedOwner`, a test seam in a `_unix` file |
+| `engine/store`  | `unix.Statfs`, `syscall.Stat_t` - added by E574 this same week |
+| `engine/guest`  | `syscall.Kill`, `SysProcAttr.Setpgid`         |
+| `engine/fdpass` | `ErrNoDescriptorChannel`, declared on one side only |
+
+The third is worth pausing on: the collector's own `Free` and `occupies` were written *this week*,
+against a `go build ./...` that only ever meant the host. Portability is not a property somebody
+forgot to maintain - it is a property nothing was checking, so new code broke it as readily as old.
+
+Each is a `_unix.go` / `_other.go` split, the idiom the repository already uses for `fstime`, `mat`
+and half a dozen others. The non-unix side refuses rather than pretends: `fdpass` returns "passing an
+open file between processes needs SCM_RIGHTS over an AF_UNIX socket, which this platform does not
+have", because the CLI runs where no step ever will and a caller reaching it has gone wrong somewhere
+an error can name.
+
+All six combinations now build:
+
+```text
+    windows/amd64  windows/arm64  darwin/amd64  darwin/arm64  linux/amd64  linux/arm64
+```
+
+*And the binaries are finally what they claim.* `+earthly-linux-amd64` produces ELF x86-64 where it
+produced ELF ARM aarch64 the day before; `+earthly-darwin-arm64` produces Mach-O arm64. The sizes
+differ too, which the identical ones never did.
+
+**A `go build ./...` that names no platform is a test of one machine.** This repository has a guard
+for settings, for store layout, for mtimes, for mutation anchors - and none for the platforms it
+ships. That is the gap this found, and the fix for the gap is not these five files.

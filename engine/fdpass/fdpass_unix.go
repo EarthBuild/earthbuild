@@ -1,3 +1,5 @@
+//go:build unix
+
 // Package fdpass moves an open file between processes.
 //
 // A descriptor is not a number that can be sent as one: it indexes a table

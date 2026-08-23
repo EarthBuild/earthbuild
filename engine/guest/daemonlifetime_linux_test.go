@@ -10,8 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/sys/unix"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // The whole lifetime, against a real dockerd.

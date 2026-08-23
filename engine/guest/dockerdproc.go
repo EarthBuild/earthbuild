@@ -92,7 +92,8 @@ func launchWith(
 	// Its own group, so Stop reaches whatever it spawned. A daemon leaves
 	// containerd-shims behind, and a signal to the leader alone leaves them
 	// holding the step's filesystem open.
-	cmd.SysProcAttr = namespaced(&syscall.SysProcAttr{Setpgid: true})
+	cmd.SysProcAttr = namespaced(&syscall.SysProcAttr{})
+	ownGroup(cmd)
 
 	if err := cmd.Start(); err != nil {
 		// The hint here as well as at the mount: in a plain container the
@@ -172,7 +173,7 @@ func (d *dockerd) Stop() error {
 	d.stop.Do(func() {
 		pgid := -d.cmd.Process.Pid
 
-		_ = syscall.Kill(pgid, syscall.SIGTERM)
+		_ = killGroup(pgid, syscall.SIGTERM)
 
 		// A daemon that is already gone falls straight through here, because
 		// done is closed rather than delivered - which is also why no separate
@@ -184,7 +185,7 @@ func (d *dockerd) Stop() error {
 		case <-time.After(gracePeriod):
 		}
 
-		if err := syscall.Kill(pgid, syscall.SIGKILL); err != nil {
+		if err := killGroup(pgid, syscall.SIGKILL); err != nil {
 			d.after = fmt.Errorf("kill the step's daemon: %w", err)
 
 			return

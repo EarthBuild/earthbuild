@@ -1671,7 +1671,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// lives here rather than beside the map: reaching for cmd.Process from
 	// another goroutine races with Start.
 	cmd.Cancel = func() error {
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		err := killGroup(-cmd.Process.Pid, syscall.SIGKILL)
 		if err != nil {
 			return cmd.Process.Kill() //nolint:wrapcheck // os/exec reports this verbatim
 		}
@@ -1868,7 +1868,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// engine for no gain. LOCALLY and the tests are unconfined, and they are
 	// exactly the steps that would otherwise leak children.
 	if s.Unconfined {
-		cmd.SysProcAttr.Setpgid = true
+		ownGroup(cmd)
 	}
 
 	// Only ε reaches the step, over a *declared* baseline. Inheriting the

@@ -1,4 +1,4 @@
-package exec
+package fstime
 
 import (
 	"testing"
@@ -38,7 +38,7 @@ func TestSourceDateEpochDecidesTheClamp(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("SOURCE_DATE_EPOCH", tc.set)
 
-			got, ok := clampTime()
+			got, ok := Clamp()
 			if ok != tc.ok {
 				t.Fatalf("clamp is %v, want %v", ok, tc.ok)
 			}

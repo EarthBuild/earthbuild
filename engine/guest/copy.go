@@ -76,7 +76,7 @@ func copyPath(root, src, dst string, opts copyOpts) error {
 		return err
 	}
 
-	at := stamp(fi.ModTime())
+	at := opts.stamp(fi.ModTime())
 
 	err = os.Chtimes(dst, at, at)
 	if err != nil {
@@ -337,7 +337,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 			// A link's own mtime, which `os.Chtimes` cannot set because it
 			// follows. The digest records it - `layer.Take` lstats every entry -
 			// so a tree with one link in it digested differently after a copy.
-			at := stamp(fi.ModTime())
+			at := opts.stamp(fi.ModTime())
 
 			return fstime.Lchtimes(target, at, at)
 
@@ -414,7 +414,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 			return err
 		}
 
-		at := stamp(fi.ModTime())
+		at := opts.stamp(fi.ModTime())
 
 		err = os.Chtimes(target, at, at)
 		if err != nil {
@@ -466,7 +466,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 		// layer digests (E81): not the step, this copy. The Content digest was
 		// stable throughout, which is exactly the signature of a difference
 		// that is only timestamps.
-		at := stamp(owners[p].ModTime())
+		at := opts.stamp(owners[p].ModTime())
 
 		err = os.Chtimes(p, at, at)
 		if err != nil {

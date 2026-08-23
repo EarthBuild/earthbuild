@@ -25,10 +25,17 @@ import (
 // which is the property that was actually broken and the one that stays broken
 // if somebody adds a third arm.
 func TestCopyStampsAFileAndATreeAlike(t *testing.T) {
-	// Not parallel: SOURCE_DATE_EPOCH is process-wide, and t.Setenv says so.
+	t.Parallel()
+
 	const epoch = 1700000000
 
-	t.Setenv("SOURCE_DATE_EPOCH", "1700000000")
+	// Carried in the request rather than taken from the environment, which is
+	// where the clamp now comes from: the guest is a machine that outlives the
+	// build that started it, so a per-build instruction it read for itself
+	// would be the previous build's (E549). That also lets this run in
+	// parallel, which it could not while it set a process-wide variable.
+	at := time.Unix(epoch, 0)
+	clamped := copyOpts{Clamp: &at}
 
 	dir := t.TempDir()
 
@@ -66,12 +73,15 @@ func TestCopyStampsAFileAndATreeAlike(t *testing.T) {
 	s := &Server{LayerDir: dir}
 	h := fixedHandle{root: root}
 
-	err = s.copyIn(h, []string{testSrcLayer}, "loose.txt", "/code/", copyOpts{})
+	err = s.copyIn(h, []string{testSrcLayer}, "loose.txt", "/code/", clamped)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = s.copyIn(h, []string{testSrcLayer}, "tree", "/code/", copyOpts{AsDir: true})
+	asDir := clamped
+	asDir.AsDir = true
+
+	err = s.copyIn(h, []string{testSrcLayer}, "tree", "/code/", asDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +99,7 @@ func TestCopyStampsAFileAndATreeAlike(t *testing.T) {
 		}
 
 		if got := fi.ModTime().Unix(); got != epoch {
-			t.Errorf("%s is stamped %d, and SOURCE_DATE_EPOCH says %d", tc.name, got, epoch)
+			t.Errorf("%s is stamped %d, and the clamp says %d", tc.name, got, epoch)
 		}
 	}
 }
@@ -101,8 +111,10 @@ func TestCopyStampsAFileAndATreeAlike(t *testing.T) {
 // this the copy could satisfy the test above by stamping everything with a
 // constant, which would break every incremental tool downstream (I8).
 func TestCopyKeepsTheSourceTimeWhenNothingSaysOtherwise(t *testing.T) {
-	t.Setenv("SOURCE_DATE_EPOCH", "")
+	t.Parallel()
 
+	// No clamp in the options at all, which is what a build that has not asked
+	// for one sends.
 	dir := t.TempDir()
 	layer := filepath.Join(dir, "layers", testSrcLayer)
 

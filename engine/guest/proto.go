@@ -148,6 +148,22 @@ type Request struct {
 	// Interactive says a terminal is being sent on the descriptor channel and
 	// this step is to run on it. Exec only.
 	Interactive bool `json:"interactive,omitempty"`
+	// Clamp is the timestamp everything this operation writes should carry.
+	//
+	// Unix seconds, and nil for "keep what the file has", which is what a build
+	// that has not asked for reproducible timestamps wants: an incremental
+	// compiler downstream reads mtimes and a pinned one tells it nothing
+	// changed.
+	//
+	// **In the request rather than in the guest's environment.** The guest read
+	// `SOURCE_DATE_EPOCH` for itself and was duly given it at boot, and the
+	// value still never reached a step's captured delta - the only place it
+	// was consulted was `COPY`. Boot is the wrong place for it besides: a
+	// sandbox is named by its image, store and memory, so it outlives the build
+	// that started it and answers the next one with the last one's instruction
+	// (E549).
+	Clamp *int64 `json:"clamp,omitempty"`
+
 	// Trace asks for the step's reads to be observed.
 	//
 	// Off by default, and that is a cost decision rather than a safety one: a

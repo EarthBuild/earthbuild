@@ -25049,8 +25049,63 @@ writes carry the time it ran, and this engine takes its instruction on that rath
 ```
 
 The clamp reaches the host's own writes and the guest's `COPY`, and never a `RUN`'s captured delta.
-The guest reads `SOURCE_DATE_EPOCH` from its own environment - *"the value reaches it as an
-environment variable forwarded at exec"* - and nothing forwards it. A capability that is documented,
-believed, and silently partial is worse than one that is absent, because the build that most wants
-it is the one that will not check. That is the next piece: the epoch belongs in the request, not in
-the air.
+A capability that is documented, believed, and silently partial is worse than one that is absent,
+because the build that most wants it is the one that will not check. That is the next piece.
+
+*Corrected.* This first said the guest never receives `SOURCE_DATE_EPOCH` at all, on the strength of
+a comment in `engine/guest/clamp.go` saying the value "reaches it as an environment variable
+forwarded at exec" and a grep that found nothing forwarding it. The grep was for the constant's name
+and the forwarding used a different one: `apple_darwin.go` passes `-e SOURCE_DATE_EPOCH=…` when the
+sandbox starts, and always did. The reason the clamp did not apply is the one that survives - the
+capture never consulted it - and there is a second reason underneath, found only by reading the code
+rather than searching it (E549).
+
+## E549 - the clamp arrived at the machine and not at the work
+
+E548 left a build reproducible everywhere except in the layers a step actually produced, and pointed
+at `SOURCE_DATE_EPOCH` as the instruction that ought to fix it. Setting it fixed nothing. There were
+two reasons, and the second is the one worth keeping.
+
+**The capture never asked.** `engine/guest/clamp.go` read the variable and `copy.go` used what it
+returned, so `COPY` obeyed the clamp and a `RUN`'s captured delta - the files the build actually
+wrote - was digested exactly as the step left it. The mechanism existed, was tested, and covered the
+smaller half of what a build produces.
+
+**And the machine outlives the build.** The epoch was forwarded at sandbox start, correctly, and a
+sandbox is named by its image, store, memory and command - not by the epoch. So the first build to
+start a VM decides the clamp for every build that reuses it:
+
+```text
+    build 1   SOURCE_DATE_EPOCH=1600000000   starts the sandbox    clamps to 1600000000
+    build 2   SOURCE_DATE_EPOCH=1700000000   finds it running      clamps to 1600000000
+    build 3   unset                          finds it running      clamps to 1600000000
+```
+
+*Failure class: a per-invocation decision cached on a per-machine object.* It is the same shape as
+the image cache keyed by reference text (E536) and the sandbox that answered `""` for its store
+before it started - a value that is right when it is written and is read after the thing it
+described has gone.
+
+So the epoch travels in the request that it applies to. `Request.Clamp` is unix seconds or nil for
+"keep what the file has"; the host reads it once per request and the guest never consults an
+environment it cannot be trusted to have. The boot-time forwarding is removed rather than left as a
+fallback: a fallback here is a second answer to a question that must have one.
+
+With the clamp reaching the capture, a build whose steps genuinely write - a directory, a file, an
+`/etc` entry, a symlink - is byte-identical on two stores that share nothing:
+
+```text
+store M   9e8f1f38…  a43867dc…  d1a1f055…  e38d568e…
+store N   9e8f1f38…  a43867dc…  d1a1f055…  e38d568e…
+```
+
+Unset still means preserve, which is the default and the right one: a build handing its output to
+`make` or to an incremental compiler wants true times, and pinning them tells that compiler nothing
+changed.
+
+**A grep that answered the wrong question.** E548 said the epoch never reached the guest at all,
+because a search for the constant `sourceDateEpoch` found nothing forwarding it - and the forwarding
+spells the variable out. The conclusion was wrong and the fix was right anyway, which is the
+uncomfortable combination: the design that came out of it is better than the one the true story
+would have suggested, and it was arrived at from a false premise. *A grep proves the absence of a
+spelling, never the absence of a mechanism.*

@@ -19,6 +19,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -407,7 +408,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			return Response{Err: "unknown handle " + req.Handle}
 		}
 
-		err := s.export(h, req.Path, req.Dest)
+		err := s.export(h, req.Path, req.Dest, clampAt(req.Clamp))
 		if err != nil {
 			return Response{Err: err.Error()}
 		}
@@ -443,7 +444,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		err := s.copyIn(h, req.From, req.Path, req.Dest,
 			copyOpts{AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
-				Chown: req.Chown})
+				Chown: req.Chown, Clamp: clampAt(req.Clamp)})
 
 		unlock()
 
@@ -465,6 +466,16 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// In store terms, not namespace terms: this digest is what the layer
 		// is filed under and what a host recomputes to verify it (E135).
 		uids, gids := OwnIDMaps()
+
+		// Before the digest, so the identity this layer gets is the one any
+		// other machine computes for the same work (E549). Only when the build
+		// asked: unset means keep what each file has.
+		if req.Clamp != nil {
+			err := clampTree(h.Delta(), time.Unix(*req.Clamp, 0))
+			if err != nil {
+				return Response{Err: err.Error()}
+			}
+		}
 
 		// Whatever this guest faulted in is base, not delta (E293). Nil when
 		// nothing lazily materialised, and then this is exactly `TakeIn` - which
@@ -596,6 +607,19 @@ type copyOpts struct {
 	// chownIDs is the resolved pair, filled once per copy so the passwd file is
 	// read once rather than per file.
 	chownUID, chownGID int
+	// Clamp is the time everything this copy writes should carry, or nil to
+	// keep what each file has.
+	//
+	// Carried per operation rather than read from the environment. The guest
+	// *was* given `SOURCE_DATE_EPOCH` at boot and it worked, until a second
+	// build reused the sandbox: one machine serves builds that may each want a
+	// different epoch, so the value has to arrive with the work (E549).
+	Clamp *time.Time
+}
+
+// stamp is the time to write on a file this copy places.
+func (o copyOpts) stamp(actual time.Time) time.Time {
+	return fstime.Stamp(o.Clamp, actual)
 }
 
 func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts copyOpts) error {
@@ -736,7 +760,7 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 // The host cannot read the guest's filesystem - that is the whole reason the
 // guest exists (experiment E1b) - so the copy happens here and the host collects
 // it from the mount they share.
-func (s *Server) export(h core.Handle, path, dest string) error {
+func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) error {
 	if s.LayerDir == "" {
 		return errors.New("no shared store configured, so an artifact cannot be handed back")
 	}
@@ -784,7 +808,7 @@ func (s *Server) export(h core.Handle, path, dest string) error {
 	// timestamps and `SAVE ARTIFACT` of a file quietly stamped it with the
 	// moment the build ran (I8). The asymmetry is what made it invisible:
 	// whichever one you looked at, the other was the broken one.
-	return copyPath(h.Root(), src, dst, copyOpts{})
+	return copyPath(h.Root(), src, dst, copyOpts{Clamp: clamp})
 }
 
 // within joins a path onto a root and refuses anything that leaves it.
@@ -1821,7 +1845,7 @@ func (c *Client) Capture(ctx context.Context, h core.Handle) (ir.NodeID, ir.Node
 		return ir.NodeID{}, ir.NodeID{}, 0, errors.New("handle did not come from this guest")
 	}
 
-	resp, err := c.do(ctx, Request{Kind: KindCapture, Handle: rh.id})
+	resp, err := c.do(ctx, Request{Kind: KindCapture, Handle: rh.id, Clamp: hostClamp()})
 	if err != nil {
 		return ir.NodeID{}, ir.NodeID{}, 0, err
 	}
@@ -1841,7 +1865,9 @@ func (c *Client) Export(ctx context.Context, h core.Handle, path, dest string) e
 		return errors.New("handle did not come from this guest")
 	}
 
-	_, err := c.do(ctx, Request{Kind: KindExport, Handle: rh.id, Path: path, Dest: dest})
+	_, err := c.do(ctx, Request{
+		Kind: KindExport, Handle: rh.id, Path: path, Dest: dest, Clamp: hostClamp(),
+	})
 
 	return err
 }
@@ -1856,7 +1882,7 @@ func (c *Client) Copy(
 	}
 
 	_, err := c.do(ctx, Request{
-		Kind: KindCopy, Handle: rh.id, From: layerIDs(from),
+		Kind: KindCopy, Handle: rh.id, From: layerIDs(from), Clamp: hostClamp(),
 		Path: src, Dest: dest,
 		DirCopy: opts.AsDir, NoFollow: opts.NoFollow, KeepOwn: opts.KeepOwn,
 		Chown: opts.Chown,
@@ -2340,4 +2366,33 @@ func declaredBy(h core.Handle, req Request) []string {
 	}
 
 	return from
+}
+
+// hostClamp is the timestamp this build asked every file it writes to carry.
+//
+// Read here, on the host, and sent with each request that writes something.
+// The guest was given `SOURCE_DATE_EPOCH` at boot for a while, which is right
+// until the sandbox outlives the build that started it: it is named by its
+// image, store and memory, so the next build finds a machine already holding
+// somebody else's instruction (E549).
+func hostClamp() *int64 {
+	at, ok := fstime.Clamp()
+	if !ok {
+		return nil
+	}
+
+	secs := at.Unix()
+
+	return &secs
+}
+
+// clampAt turns a request's clamp into the time to write, or nil for "keep".
+func clampAt(secs *int64) *time.Time {
+	if secs == nil {
+		return nil
+	}
+
+	at := time.Unix(*secs, 0)
+
+	return &at
 }

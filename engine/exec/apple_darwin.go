@@ -421,13 +421,14 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		"-e", guest.EnvFillSocket + "=" + guestFillSocket,
 	}
 
-	// Forwarded, because the guest writes files too and the decision has to
-	// reach it. It is the invocation's instruction about this build, not the
-	// machine's about itself, so it travels with the build rather than being
-	// read from whatever the VM happens to have.
-	if at := os.Getenv(sourceDateEpoch); at != "" {
-		args = append(args, "-e", sourceDateEpoch+"="+at)
-	}
+	// `SOURCE_DATE_EPOCH` was forwarded here and no longer is. It reached the
+	// guest correctly and went stale: a sandbox is named by its image, store
+	// and memory, so a second build wanting a different epoch - or none - finds
+	// the first build's VM and is answered with the first build's instruction.
+	//
+	// It travels in the request that it applies to instead, which is the only
+	// place a per-build decision can live when the machine serving the build
+	// outlives it (E549).
 
 	// Likewise: the phases worth timing are mostly the guest's, and a switch
 	// that stops at the sandbox wall reports the round trip without ever saying

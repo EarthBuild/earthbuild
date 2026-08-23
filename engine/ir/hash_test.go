@@ -2,6 +2,7 @@ package ir
 
 import (
 	"encoding/hex"
+	"math"
 	"testing"
 )
 
@@ -117,4 +118,18 @@ func blake3Sum(b []byte) string {
 	id := h.Sum()
 
 	return hex.EncodeToString(id[:])
+}
+
+// A count that cannot be written is refused, because writing it truncated would
+// give two different sequences one encoding (§1.4).
+func TestACountTooLargeToEncodeIsRefused(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recover() == nil {
+			t.Error("a count of more than a u32 was encoded rather than refused")
+		}
+	}()
+
+	NewHasher().Count(math.MaxUint32 + 1)
 }

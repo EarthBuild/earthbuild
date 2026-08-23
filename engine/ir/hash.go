@@ -2,8 +2,10 @@ package ir
 
 import (
 	"encoding/binary"
+	"fmt"
 	"hash"
 	"io"
+	"math"
 
 	"lukechampine.com/blake3"
 )
@@ -73,10 +75,28 @@ func (w *Encoder) Write(p []byte) (int, error) { return w.w.Write(p) } //nolint:
 func (w *Encoder) Byte(b byte) { _, _ = w.w.Write([]byte{b}) }
 
 // Count writes a sequence length, once, ahead of its elements.
+//
+// **A count that does not fit is refused rather than truncated.** The previous
+// `uint32(n)` carried a comment saying it was bounded by the graph's size, which
+// is a claim and not a check: a length that wrapped would write a prefix
+// belonging to a different sequence, and two distinct sequences sharing an
+// encoding is precisely the non-injectivity green paper §1.4 forbids - a false
+// cache hit rather than a formatting error (E594).
+//
+// A panic, because there is no caller that can do anything with an error here
+// and every caller is passing `len(...)` of something it just built: reaching
+// this means the process holds four billion elements, and continuing with a
+// silently wrong key is the worse of the two outcomes.
 func (w *Encoder) Count(n int) {
+	if n < 0 || n > math.MaxUint32 {
+		panic(fmt.Sprintf(
+			"encoding a sequence of %d elements: the count is a u32 and this does"+
+				" not fit, so the encoding would not be injective (§1.4)", n))
+	}
+
 	var buf [4]byte
 
-	binary.BigEndian.PutUint32(buf[:], uint32(n)) //nolint:gosec // bounded by graph size
+	binary.BigEndian.PutUint32(buf[:], uint32(n))
 
 	_, _ = w.w.Write(buf[:])
 }

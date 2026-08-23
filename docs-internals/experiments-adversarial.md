@@ -27086,3 +27086,36 @@ refusing the phrase outright would keep a true statement out of the codebase. It
 `engine/` instead - where the reader is already in the native engine, and being told to switch to it
 is advice that cannot apply where it is printed. **A guard whose premise changes is not a guard to
 delete; it is one whose subject moved.**
+
+## E594 - CI found two, and one of them was real
+
+The first thing the pull request bought was a scanner this machine does not run. CodeQL reported two
+high-severity alerts on a branch that had passed every local check for a fortnight.
+
+**`go/incorrect-integer-conversion`, `engine/ir/hash.go:79`, and it is real.**
+
+```go
+    binary.BigEndian.PutUint32(buf[:], uint32(n)) //nolint:gosec // bounded by graph size
+```
+
+A comment saying a value is bounded is a claim, and the `nolint` silenced the tool that would have
+asked for a check. What the truncation would do is worse than it looks: `Count` writes the length
+prefix that makes ⟨"ab","c"⟩ and ⟨"a","bc"⟩ encode differently, so a wrapped count writes a prefix
+belonging to a different sequence - and two sequences sharing an encoding is exactly the
+non-injectivity §1.4 forbids. **A false cache hit, arriving as an integer conversion.** It is now
+refused rather than truncated, with a test.
+
+**`go/zipslip`, `engine/image/unpack.go:86`, and it is not.** Every entry goes through `safePath`,
+which refuses an empty name, an absolute one, anything cleaning to `..`, and resolves the parent
+through symlinks before writing. `unpack_test.go` already tries `../escape`, `a/../../escape` and
+`./../escape`; `unpackescape_test.go` exists for nothing else. The scanner cannot see through the
+helper, which is a limitation rather than a finding.
+
+*Both outcomes matter, and the second is the one worth stating.* A scanner that finds one real defect
+and one false positive is working; the temptation is to treat the false positive as noise and the
+real one as noise by association. The defence is that each was answered separately - one with a
+check and a test, one with the tests that already existed - rather than the pair being waved at.
+
+And the general point, which is the reason the branch was pushed: **a fortnight of local green says
+what one machine thinks.** The scanner is not on this laptop, the platforms are not on this laptop,
+and the first hour of CI produced a real cache-correctness defect that nothing here would have found.

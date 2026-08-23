@@ -26278,3 +26278,60 @@ the robustness fix landed first, on its own merit, exactly as E572 guessed it wo
 **A guard is not what the documentation says it is. It is what the caller does.** Both halves of this
 were in the repository the whole time: the invariant in `Index`'s doc comment, and a function that
 returned before honouring it.
+
+## E574 - a collector, and the thing it uncovered
+
+E573 made eviction degrade to a rebuild, so a collector became possible. `Collect` removes layers
+least-recently-used-first until the store fits, `-prune` asks for it by name, and neither a build nor
+a schedule ever calls it: a cache that empties itself is a build that is slow for reasons nobody can
+see.
+
+Three defects found while building it, each the same shape - **a number that was nearly right**.
+
+**A floor summed into a total.** Sizing a layer used the budgeted walk written for the diagnostic,
+which answers with a floor when it runs out of time, and the second return value saying so was
+discarded. The collector added the floors, decided a 15GiB store held 2.3GiB, found it already under
+the ceiling and removed nothing - cheerfully, with a report saying so. A mechanism switched off and
+one that found nothing produce the same output, and here it arrived through `size, _ :=`.
+
+**Content where the disk means blocks.** Measured on this store: 857,948 files, 2.00GiB of content,
+5.11GiB of blocks. A layer store is mostly small files and a one-byte file still costs a block, so
+sizing by content told somebody asking to be kept under 2GiB that they were while the disk gave up
+5.11. Counting what `rm` gives back - `st_blocks`, directories included - made the report and `du`
+agree exactly: 1015.8MiB against 1016M.
+
+**A test that reported the machine.** The regression test for the first defect grew a tree until a
+real 300ms budget expired; this machine walked 20,000 files inside it and the test skipped. A test
+that passes on a slow machine and skips on a fast one measures neither. Moving the budget rather than
+growing the tree made it deterministic and instant.
+
+The collector then did its job on the real store: 15GiB to 1016MiB, and the machine went from 22GiB
+free to 32GiB.
+
+### And then it did not come back
+
+**The pruned store never returned to warm.** Before: 0.65s. After: 206s to rebuild, then 101s, then
+101s, then 101s. It does not converge, and the reason is visible in the counting rather than in the
+clock:
+
+```text
+    layers before a run      695
+    layers after             783        44 layers and 44 markers, none reused
+    action-cache entries    1430 -> 1478   48 new keys, no key replaced
+```
+
+Entries are written every build and matched by none. New *keys*, not new values, so the steps'
+inputs are differing between builds that differ in nothing. Only six steps `run` at all, totalling
+7.5s of a 101s build; the rest is scheduling.
+
+The engine documents the mechanism that would do this, in `Entry.Content`: "two runs of one
+deterministic step produce two Layers: creating a directory stamps it with the wall clock". A layer
+identity that changes on re-run changes the key of everything standing on it, and the cascade is the
+whole graph. What is not explained is why it repeats - one full rebuild should settle the new
+identities and the next build should hit them.
+
+**Not attributed, because it is not established.** Whether collection causes this or exposes
+something already true of any cold chain is open, and the store grew to 14GiB over a day of warm
+builds - about 44 layers a build - which suggests the accumulation predates any prune. The honest
+statement is that `-prune` reclaims space reliably and does not reliably leave a cache behind, and
+that is what its documentation now says.

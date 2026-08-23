@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -98,6 +99,43 @@ func (i Index) Has(id ir.NodeID) bool {
 //
 // Called after the layer is filed and never before: an index entry that arrives
 // first describes a layer that may never exist.
+// Used is when this layer was last read, or the zero time if the index has never
+// heard of it.
+//
+// The index entry's own timestamp, not the layer's. A layer's mtimes are part of
+// what it *is* (I8), so a collector that dated layers by touching them would be
+// editing the thing it is deciding about; the bookkeeping beside it carries no
+// such meaning and is free to be written on.
+func (i Index) Used(id ir.NodeID) time.Time {
+	if i.dir == "" {
+		return time.Time{}
+	}
+
+	fi, err := os.Stat(i.path(id))
+	if err != nil {
+		return time.Time{}
+	}
+
+	return fi.ModTime()
+}
+
+// Touch records that a layer was read just now.
+//
+// What turns "least recently written" into "least recently used", which is the
+// difference between a collector that drops last month's throwaway layers and
+// one that drops the base image every build starts from. Best-effort: a
+// collection ordered by slightly stale times evicts a slightly wrong layer,
+// which costs a rebuild, and failing a build over it would cost more.
+func (i Index) Touch(id ir.NodeID) {
+	if i.dir == "" {
+		return
+	}
+
+	now := time.Now()
+
+	_ = os.Chtimes(i.path(id), now, now)
+}
+
 func (i Index) Note(id ir.NodeID) error {
 	if i.dir == "" {
 		return nil

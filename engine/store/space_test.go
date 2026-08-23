@@ -78,8 +78,11 @@ func TestSizeSaysWhenItIsAFloor(t *testing.T) {
 		t.Error("three small files did not finish within the budget")
 	}
 
-	if got != uint64(want) {
-		t.Errorf("measured %d bytes, want %d", got, want)
+	// At least their contents, and usually more: a file costs whole blocks, and
+	// what the disk gives back is what a collector is deciding about. See
+	// occupies.
+	if got < uint64(want) {
+		t.Errorf("measured %d bytes, want at least %d", got, want)
 	}
 
 	if _, complete := Size(""); complete {
@@ -119,5 +122,64 @@ func TestHumanReadsLikeADiskLabel(t *testing.T) {
 		if got := human(n); got != want {
 			t.Errorf("human(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+func TestASizeIsANumberAndAUnit(t *testing.T) {
+	t.Parallel()
+
+	for in, want := range map[string]uint64{
+		"0":    0,
+		"512":  512,
+		"1k":   1 << 10,
+		"512m": 512 << 20,
+		"4g":   4 << 30,
+		"4G":   4 << 30,
+		"2t":   2 << 40,
+		"100":  100,
+	} {
+		got, err := ParseSize(in)
+		if err != nil {
+			t.Errorf("ParseSize(%q): %v", in, err)
+
+			continue
+		}
+
+		if got != want {
+			t.Errorf("ParseSize(%q) = %d, want %d", in, got, want)
+		}
+	}
+
+	// A typo refused rather than ignored, which is this project's most recorded
+	// failure: a mechanism that is off and one that found nothing look alike.
+	for _, in := range []string{"", "4G8", "50%", "g", "-1", "4gb", "four"} {
+		if got, err := ParseSize(in); err == nil {
+			t.Errorf("ParseSize(%q) = %d, want a refusal", in, got)
+		}
+	}
+}
+
+// A store of small files costs the disk far more than it holds, and a collector
+// told the smaller number frees far less than it promised (E574).
+func TestASizeIsWhatTheDiskGivesBack(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	const files = 64
+
+	for i := range files {
+		p := filepath.Join(root, fmt.Sprintf("f%d", i))
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := SizeAll(root)
+
+	// Sixty-four one-byte files hold 64 bytes and occupy a block each.
+	if got <= files {
+		t.Errorf("%d one-byte files measured %d bytes, which is their contents"+
+			" rather than what they cost the disk", files, got)
 	}
 }

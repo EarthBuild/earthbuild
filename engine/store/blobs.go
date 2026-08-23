@@ -101,6 +101,9 @@ func (b Blobs) Has(id ir.NodeID) bool {
 	}
 
 	if b.index.Has(id) {
+		// Read, so it is not a candidate for collection yet. See Index.Touch.
+		b.index.Touch(id)
+
 		return true
 	}
 

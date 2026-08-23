@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // buildArgs collects repeated -build-arg flags.
@@ -46,6 +47,7 @@ func main() {
 		stopSb   = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
 		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
 		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
+		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
 		args     buildArgs
 	)
 
@@ -75,6 +77,21 @@ func main() {
 	// wrote, so it happens only when asked for by name.
 	if *doPin {
 		report(cli.Pin(cli.Options{Dir: *dir, Out: os.Stdout, Platform: *platform}))
+
+		return
+	}
+
+	// Not a build: it takes no target and removes things, so like -pin it
+	// happens only when asked for by name. See cli.Prune for why it is never
+	// something a build does on its way past.
+	if *prune != "" {
+		keep, err := store.ParseSize(*prune)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+
+		report(cli.Prune(cli.Options{Dir: *dir, Out: os.Stdout}, keep))
 
 		return
 	}

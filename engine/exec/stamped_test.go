@@ -28,6 +28,16 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 	// Files allowed to write a time that did not come through stamp(), and why.
 	excused := map[string]string{
 		"image/unpack.go": "the times belong to the image being unpacked, not to this build",
+		// The index entry beside a layer, not the layer. Its mtime is the only
+		// record of when a layer was last *read*, which is what lets a collector
+		// drop last month's throwaway rather than the base image every build
+		// starts from. Clamping it would stamp every entry with the build's
+		// clamp and leave the collector ordering by a constant - the mechanism
+		// still running and finding nothing, which is this project's most
+		// recorded failure. Nothing digests it: it is bookkeeping, and no
+		// layer's identity reaches it (E574).
+		"store/index.go": "the time records when a layer was last read, which is" +
+			" bookkeeping beside the layer rather than part of it",
 		// The translator materialises a layer that already exists, turning its
 		// portable deletion markers into what overlayfs reads (E94). Clamping
 		// there would make the mounted view differ from the layer that was

@@ -1561,9 +1561,12 @@ var Mutants = []Mutant{
 		// the race, report a failure.
 		Name: "store: losing a race to file a layer not being a failure (E347)",
 		File: "engine/store/publish.go",
-		Anchor: "\t\tif !LayerStore(root).Has(id) {\n\t\t\treturn fmt.Errorf(" +
-			"\"file layer %s at %s: %w\", id, at, err)\n\t\t}",
-		Replacement: "\t\treturn fmt.Errorf(\"file layer %s at %s: %w\", id, at, err)",
+		Anchor: "\t\tif !LayerStore(root).Has(id) {\n" +
+			"\t\t\t// A full disk is the one failure here that is usually this engine's\n" +
+			"\t\t\t// own doing, and the store cannot say so from inside the error it\n" +
+			"\t\t\t// was handed. See FullHint.\n" +
+			"\t\t\treturn fmt.Errorf(\"file layer %s at %s: %w%s\", id, at, err, FullHint(err, root))\n\t\t}",
+		Replacement: "\t\treturn fmt.Errorf(\"file layer %s at %s: %w%s\", id, at, err, FullHint(err, root))",
 		Package:     "./engine/store/",
 	},
 	{

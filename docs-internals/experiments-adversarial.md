@@ -26175,3 +26175,50 @@ missing collector: nothing prunes, nothing evicts, nothing has a ceiling. One pr
 store to 13GB, and 38 of them filled the machine. A disk with a size makes that failure *sharper*
 rather than softer, because a full store on a fixed device fails every build against it rather than
 one machine's next large write.
+
+## E572 - evicting a layer is safe, except where it matters
+
+Phase 3 needs a collector, and a collector needs to know what may go. `core.Lookup` looks like the
+answer: it refuses any entry whose layer is not present, so an evicted result degrades to a miss and
+a rebuild. Safe by construction, and the reasoning is sound as far as it goes.
+
+It does not go far enough, and the store is where that was settled rather than the reading. Take a
+warm build, delete one layer, run it again:
+
+| What was deleted                 | Result                                    |
+| -------------------------------- | ----------------------------------------- |
+| a layer no live entry points at  | 0.70s, warm, correct artifact             |
+| a second such layer              | 0.72s, warm, correct artifact             |
+| **the layer the build is using** | **exit 1**, and exit 1 on every run after |
+
+```text
+    materialise the filesystem holding /earthly/build/earthly: 08d8cb3a... is in this
+    step's base and this store holds neither a layer nor a declaration for it
+      looked for /var/lib/earthbuild/store/layers/08d8cb3a... and .../08d8cb3a....decl
+      a base is materialised from what the store has, so the element has to be fetched
+      before the step can run
+```
+
+**A stack is a list of layers, not a list of steps.** Once a step's entry is a hit its base is taken
+as given, so `Has` protects the entry's own layer and nothing protects the layers underneath it. The
+build does not fall back to re-running whatever produced that base; it stops.
+
+Nor does it recover. The same build fails identically every time; only *changing an input* clears it,
+and then at the full 113s - which did reproduce the byte-identical binary, so nothing is corrupt, only
+wedged.
+
+*The guard cited for this hazard does not cover the case that causes it.* `Index`'s own
+documentation says the stat exists to catch "a layer directory on a shared filesystem deleted by a
+GC, a half-finished copy, or a user with `rm`". A user with `rm` is far likelier to hit a base layer
+than a leaf - there are more of them, and the big ones are bases - and that is the half the stat does
+not reach.
+
+So the collector cannot be "sweep what no entry names". It has to mark from every layer *reachable*
+through a live entry, bases included, which needs entries to record their stacks and not only their
+results. **And the robustness fix is the same change as the performance one**: a missing base should
+invalidate the entry standing on it, turning a wedged store into a slow one. That is worth doing
+whether or not a collector ever lands, because today one `rm` in a store is permanent for every build
+that was hitting it.
+
+Found while assuming the opposite, and written down because the entry-level check reads exactly like
+a guarantee about the whole stack.

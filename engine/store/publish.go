@@ -34,7 +34,10 @@ func Publish(root string, id ir.NodeID, staged string) error {
 		// same thing. The remedy is not a lock - it is that the loser's work
 		// was redundant.
 		if !LayerStore(root).Has(id) {
-			return fmt.Errorf("file layer %s at %s: %w", id, at, err)
+			// A full disk is the one failure here that is usually this engine's
+			// own doing, and the store cannot say so from inside the error it
+			// was handed. See FullHint.
+			return fmt.Errorf("file layer %s at %s: %w%s", id, at, err, FullHint(err, root))
 		}
 	}
 

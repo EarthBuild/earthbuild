@@ -27228,3 +27228,36 @@ The restriction still stands for anyone on Ubuntu 24.04 (E596), so this is a sta
 the engine can do rather than about what a developer gets today. But it is the first evidence from
 outside this laptop that the thing works at all, and it arrived within a day of the branch being
 pushed.
+
+## E598 - the hang was the machine
+
+`engine/interp` ran for the full `go test -timeout 5m` and was killed, on every attempt, on the
+laptop this engine was written on. Four candidate causes were eliminated by measurement - the seccomp
+tracer, slow scratch storage, the corpus fallback, the network (E589, E592) - and the fifth was never
+tested because it could not be: the machine itself.
+
+CI can test it. Same engine, same target, no hypervisor between the step and the disk:
+
+| `+unit-test` under the native engine | Time     |
+| ------------------------------------ | -------- |
+| darwin, Apple `container`            | 712-832s |
+| linux, a hosted runner               | **301s** |
+
+**The hang does not reproduce.** It cannot have: `engine/interp`'s timeout is 300s on its own, and
+the whole target - base, test compilation, every other package - finished in 301. There is no
+arrangement of those numbers in which a package hung for five minutes.
+
+So the answer to E592's open question is that it was none of the four candidates and none of the
+engine: it was the virtual machine, which E591 had already measured at fourteen times slower than
+memory for file creation and which E597 had already shown costs two and a half times on a cold
+`+earthly`. Three experiments pointing at the same thing, and the one that settled it was the one
+run somewhere else.
+
+*What this does not say.* The suite is still red under both engines, and 301s against earthly's 147s
+on darwin compares two machines rather than two engines - the honest head-to-head needs earthly on a
+runner too, and that has not been run. What it does say is that the engine has no hang in it, which
+is a different claim from being fast, and it is the one that was blocking.
+
+**A defect that lives on one machine is invisible to any amount of care taken on that machine.** Four
+eliminations, several hundred lines of analysis and two working days went into a question that a
+different computer answered in five minutes.

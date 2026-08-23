@@ -26689,3 +26689,39 @@ differ too, which the identical ones never did.
 **A `go build ./...` that names no platform is a test of one machine.** This repository has a guard
 for settings, for store layout, for mtimes, for mutation anchors - and none for the platforms it
 ships. That is the gap this found, and the fix for the gap is not these five files.
+
+## E582 - the diagnosis was downstream of the hang it describes
+
+`+all-binaries` stopped twice in the same place: thirty minutes on a `printf` writing eight words
+into a file, with the machine idle.
+
+```text
+    CPU: 0% usr  0% sys  100% idle        load average 1.04
+    step   /bin/sh -c printf ... > ./build/tags     S
+    guest  wchan=seccomp_do_user_notification
+    guest  wchan=__futex_wait
+```
+
+Load one and no CPU: a thread blocked in the kernel, not work. The step had made an intercepted
+syscall and nothing was going to answer it.
+
+**The engine already knows this failure**, in as many words. `runObserved` reports it:
+
+> "this step's syscall tracer stopped while it was running: … anything the step did after that is
+> stopped in the kernel, so the step cannot be trusted to have finished"
+
+That report is E520's, and it is placed *after* `fn()` returns - which is precisely the one thing a
+step wedged in an unanswered syscall never does. **A diagnosis downstream of the hang it describes
+can only be printed by a build that did not hang.** The remedy is not another message: when the
+tracer stops with the step still filtered, the step has to be let go, and then the message that was
+always there gets its chance. `cmd.Cancel` already kills the process group; it needed reaching from
+the goroutine that watches the tracer stop.
+
+*Why now, and this is the part worth keeping.* Four `go build` shells sat wedged together, one per
+platform - and those four steps exist only because E580 made `GOOS` reach the toolchain. Before that
+they shared one cache key and ran as a single step. **The deadlock is not new; the concurrency is.**
+A correctness fix turned one traced step into four, and the fifth-oldest bug in the tracer came out
+to meet it.
+
+Which is the argument for bigger targets stated exactly: `+earthly` runs one traced step at a time
+and cannot find this. Nothing was wrong with the smaller target except that it was small.

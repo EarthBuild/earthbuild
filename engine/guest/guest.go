@@ -2458,8 +2458,20 @@ func runStep(
 		return run(cmd, sink)
 	}
 
+	// The step's own cancel, which kills its process group - see where
+	// cmd.Cancel is set. Passed rather than reached for, and guarded on
+	// cmd.Process, because os/exec fills that in only once the process exists
+	// and a tracer can stop before it does.
+	release := func() {
+		if cmd.Process == nil {
+			return
+		}
+
+		_ = cmd.Cancel()
+	}
+
 	out, err, seen := runObserved(
-		func() ([]byte, error) { return run(cmd, sink) }, s.filler(req.Handle))
+		func() ([]byte, error) { return run(cmd, sink) }, s.filler(req.Handle), release)
 
 	s.recordSightings(h, h.Root(), seen, provided)
 

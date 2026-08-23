@@ -30,7 +30,7 @@ import (
 // tier and nothing else - and says so, rather than returning an observation that
 // looks complete (I3, I11).
 func runObserved(
-	fn func() ([]byte, error), fill func(string) error,
+	fn func() ([]byte, error), fill func(string) error, release func(),
 ) ([]byte, error, trace.Sightings) {
 	type result struct {
 		out  []byte
@@ -60,10 +60,40 @@ func runObserved(
 		tr.Fill = fill
 
 		reading := make(chan struct{})
+		// Closed when the step is over, so the goroutine below can tell a
+		// tracer that outlived its step from one that stopped underneath it.
+		finished := make(chan struct{})
 
-		go func() { tr.Run(); close(reading) }()
+		go func() {
+			tr.Run()
+			close(reading)
+
+			// **The step has to be let go, or nothing below ever runs.** A
+			// tracer that stops while its step is still filtered leaves that
+			// step's next intercepted syscall stopped in the kernel with
+			// nothing coming to answer it. The report for exactly this is
+			// twenty lines further down (E520) - and it is downstream of
+			// `fn()`, which is the one thing a wedged step never does.
+			//
+			// Measured: `+all-binaries` sat for thirty minutes on a `printf`,
+			// the step blocked in `seccomp_do_user_notification` and the guest
+			// in `__futex_wait`, with the machine otherwise idle. The diagnosis
+			// was already written and could not be reached (E582).
+			if tr.Stopped() == nil || release == nil {
+				return
+			}
+
+			select {
+			case <-finished:
+				// Over already: whatever the tracer thinks, nothing is waiting.
+			default:
+				release()
+			}
+		}()
 
 		out, runErr := fn()
+
+		close(finished)
 
 		// **A file this engine could not obtain fails the step**, and it has to
 		// be checked here because the step itself cannot tell: it asked for a

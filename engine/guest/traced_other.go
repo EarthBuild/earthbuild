@@ -12,7 +12,7 @@ import "github.com/EarthBuild/earthbuild/engine/trace"
 // empty and complete-looking observation, which would serve L2 hits against
 // reads nobody looked for (I3, I10).
 func runObserved(
-	fn func() ([]byte, error), _ func(string) error,
+	fn func() ([]byte, error), _ func(string) error, _ func(),
 ) ([]byte, error, trace.Sightings) {
 	out, err := fn()
 

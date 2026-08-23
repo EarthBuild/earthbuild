@@ -414,8 +414,17 @@ jobs:
         run: |-
           set -euo pipefail
           start=$(date +%s)
-          /tmp/earth build --engine=native +unit-test 2>&1 | tail -60 || true
+          # Timed by phase, because 1.8x against buildkit (E599) is a real number
+          # and the next question is which part of it. Kept whole and summarised
+          # rather than tailed: a phase list is the one output where the
+          # interesting line is never the last one.
+          EARTH_TIMINGS=1 /tmp/earth build --engine=native +unit-test > /tmp/native.log 2>&1 || true
           echo "native +unit-test took $(( $(date +%s) - start ))s"
+          tail -20 /tmp/native.log
+          echo "--- where the engine spent its time:"
+          grep -oE '^earth: [a-z:]+ +[0-9]+\.[0-9]+s' /tmp/native.log \
+            | awk '{s[$2]+=$3; n[$2]++} END {for (k in s) printf "%9.2fs %5d  %s\n", s[k], n[k], k}' \
+            | sort -rn | head -12
 
       - name: The same target through buildkit, on the same machine
         # **The comparison every number so far has been missing.** 301s against

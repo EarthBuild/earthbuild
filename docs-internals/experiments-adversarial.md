@@ -27021,3 +27021,35 @@ handed the last one.
 Four and a half times, on a setting that already existed and did nothing. It stays opt-in: a tmpfs is
 memory, a step that outgrows it fails, and the engine's diagnostic for that names the setting - which
 is the right trade to leave with whoever knows how big their steps are.
+
+## E592 - the tmpfs gain did not arrive, and four causes are eliminated
+
+E591 made `EARTH_SCRATCH_TMPFS` work and measured 5.44s to 1.22s on a step that creates twenty
+thousand files. Run against `+unit-test`, which is what the setting was chased for:
+
+| Package         | ext4   | tmpfs      | earthly |
+| --------------- | ------ | ---------- | ------- |
+| `engine/interp` | 300.0s | **300.0s** | 40.4s   |
+| `engine/store`  | 134.8s | 124.9s     | 3.3s    |
+| `engine/cli`    | 87.7s  | 60.3s      | 5.1s    |
+| total           | 651s   | **627s**   | 151s    |
+
+Four and a half times on the benchmark, **3.7% on the workload**, and the wall clock slightly worse.
+**Fourth instance of E589's pattern**, and the only thing that has improved is that it was expected
+and checked rather than announced. The fix is still right - a setting that is read and never sent is
+a defect whatever it is worth - and it is worth 3.7% here.
+
+*What `engine/interp` is not.* It is half the remaining total and it is a hang, not slowness, and
+four candidates are now dead:
+
+| Candidate            | Test                                        | Result                  |
+| -------------------- | ------------------------------------------- | ----------------------- |
+| the seccomp tracer   | run the suite with `Trace: false`           | 300.0s unchanged (E589) |
+| scratch on slow ext4 | run the suite with scratch on tmpfs         | 300.0s unchanged        |
+| the `git` fallback   | count the "git cannot list this tree" lines | fires under earthly too |
+| no network in a step | resolve and fetch from a step, both engines | identical under both    |
+
+Each of those took one command and each would have been a paragraph of plausible reasoning. The
+value of writing them down is that the next person does not spend the afternoon this took: what
+remains is a hang that survives the removal of tracing, of slow storage, of the corpus fallback and
+of the network, in a package whose work is pure interpretation.

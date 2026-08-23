@@ -21,6 +21,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Options configure a build.
@@ -229,6 +230,14 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		}
 	}()
 
+	// **The three stages a build has, timed at the top.** Every phase inside
+	// them was instrumented and their sum came to about half the wall clock of
+	// a fully cached build - so the rest was being attributed to whichever
+	// mechanism happened to be measured next to it, which is how a scan that
+	// ran concurrently with the real work looked like the answer for a while
+	// (E561, E565).
+	endPlan := timing.Phase("plan", o.Target)
+
 	plan, err := interp.Build(string(src), o.Target,
 		interp.WithTerminal(tty != nil),
 		interp.WithContext(o.Dir), interp.WithArgs(args),
@@ -242,6 +251,9 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		// Withheld from a dry run, which promises to run nothing: a plan that
 		// needs a target built to exist is refused there, saying so (E488).
 		interp.WithArtifacts(artifactsFor(ctx, o, g, string(src))))
+
+	endPlan()
+
 	if err != nil {
 		return err
 	}
@@ -425,7 +437,9 @@ func runPlan(
 		Views:    viewsFor(sb),
 	}
 
+	endSchedule := timing.Phase("schedule", o.Target)
 	_, runErr := s.Run(ctx, plan.Graph)
+	endSchedule()
 
 	// Said while it can still be acted on, and once: the guest carries the
 	// reason back with each step and the first one is kept (E123).
@@ -486,7 +500,10 @@ func runPlan(
 	// diagnostic.
 	_ = saveRecord(sb.StoreDir(), o.Target, rec)
 
+	endExport := timing.Phase("export", o.Target)
 	err = exportAll(ctx, o, e, s, plan)
+	endExport()
+
 	if err != nil {
 		return nil, nil, err
 	}

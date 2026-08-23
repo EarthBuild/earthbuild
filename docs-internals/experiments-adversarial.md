@@ -25866,3 +25866,40 @@ planning 91 nodes is 0.14s, and context digesting is 0.25s. Something near a sec
 for by any phase, and the honest thing to record is that it is not accounted for - rather than
 attributing it to whichever mechanism was measured next to it, which is exactly how `mat:markers`
 came to look like the answer.
+
+## E565 - timing the three stages, and finding the one nobody suspected
+
+E564 ended by admitting that about a second of a 1.52s build belonged to no phase. Every phase inside
+planning and execution was instrumented and their sum came to half the wall clock, which meant the
+rest was being attributed to whatever happened to be measured beside it - the mistake `mat:markers`
+had already caused once (E561).
+
+So the three stages a build has are timed at the top, where the front end can do it without the pure
+scheduler importing a clock:
+
+```text
+    plan       0.634s     of which registry 0.41, context digest 0.16
+    export     0.472s
+    schedule   0.008s
+```
+
+**Scheduling ninety-one nodes takes eight milliseconds.** The tier work, the key derivations, the
+graph - all of it - is half a percent of the build. Every optimisation aimed at the scheduler this
+session was aimed at three-quarters of one percent of the wall clock, which is why removing real work
+from it twice changed no time at all.
+
+**And a fully cached build spends half a second exporting.** `+earthly` saves a 45MB binary, and
+saving it is two copies - the guest stages it into the store, and the store is copied to where the
+user asked - on a build where nothing changed and the destination already holds exactly those bytes.
+Nothing compares before copying.
+
+That is the next thing worth doing, and it has the shape of a question rather than a fix: comparing
+costs a read of the destination where copying costs a read and a write, so the saving is real but
+smaller than it looks; remembering what was last exported would avoid both, and a memo keyed on a
+destination's mtime is the trust that has been deferred once already this session.
+
+*What is still unaccounted.* Fixed cost is about 0.03s - a trivial target in a small context is
+0.44s, essentially all registry - so plan, export, schedule and startup together are 1.14s of 1.88s
+and roughly three-quarters of a second remains outside all of them. It is recorded here as
+unaccounted rather than assigned, which is the whole point of the exercise: the instrument's job is to
+say where time goes, and where it does not know, to say that.

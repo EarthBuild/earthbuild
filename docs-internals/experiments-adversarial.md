@@ -25946,3 +25946,38 @@ Against `earthly` on the same target, both warm: about seventeen times.
 scheduler, which is eight milliseconds of the build, because that is where the phases were. The
 duplicate was visible the moment the log covered the stage that contained it - not deduced, not
 suspected, just printed twice.
+
+## E567 - the buffer was four times too small and it did not matter
+
+`export:stage` is the largest single item left in a warm build: 0.35s to put a 45MB artifact from
+the guest's own filesystem into the shared store, which is 133 MB/s. Inside the sandbox, the same
+45MB with `dd`, varying only the block size:
+
+```text
+    32k    151 MB/s      what io.Copy uses
+    256k   524 MB/s
+    1M     592 MB/s
+    4M     292 MB/s      worse again
+```
+
+A four-fold difference, a clear peak at a megabyte, and the copy that matters was using the slow one.
+`io.Copy` takes 32KB, which over a share is a round trip per 32KB.
+
+**Changing it achieved nothing.** A megabyte through `io.CopyBuffer`: 0.339s. The same with the
+writer wrapped so the buffer could not be bypassed by `ReadFrom`: 0.339s. Reverting to plain
+`io.Copy`: 0.350s. Three arrangements, one number.
+
+So the model was wrong, and the honest position is that it is still wrong: the copy is not
+write-size-bound in the path that matters, `dd` says the destination can go four times faster, and
+what the remaining quarter-second is spent on has not been established. The change is reverted rather
+than kept, because an optimisation that measures as a no-op is complexity with a story attached.
+
+*The trap is the shape of the evidence.* A microbenchmark that varies one thing and shows a
+four-fold spread reads as a finding, and it is - about `dd` writing zeroes to a fresh file. The real
+copy reads from an overlay, writes through a different sequence of opens, and ends with a close that
+may do more than the benchmark's. The measurement was of a mechanism that resembles the one in
+question, which is the same error as measuring `layer.Take(".")` and concluding what the engine
+spends on a context (E562), one session earlier and with the lesson apparently unlearned.
+
+What this leaves: `export:stage` at 0.35s is the largest item in a 1.16s build and its cause is
+open. Worth saying plainly rather than attributing to the nearest plausible mechanism.

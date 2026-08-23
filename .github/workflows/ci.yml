@@ -417,6 +417,23 @@ jobs:
           /tmp/earth build --engine=native +unit-test 2>&1 | tail -60 || true
           echo "native +unit-test took $(( $(date +%s) - start ))s"
 
+      - name: The same target through buildkit, on the same machine
+        # **The comparison every number so far has been missing.** 301s against
+        # earthly's 147s compared two machines: a hosted runner and a laptop
+        # with a hypervisor in it. One binary, one runner, one target and two
+        # engines is the only arrangement in which the difference is the engine
+        # (E598).
+        #
+        # Its own bootstrap, so the clock includes starting buildkitd - which is
+        # a cost the native engine does not have and should not be hidden.
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |-
+          set -euo pipefail
+          start=$(date +%s)
+          /tmp/earth build --engine=buildkit +unit-test 2>&1 | tail -30 || true
+          echo "buildkit +unit-test took $(( $(date +%s) - start ))s"
+
   ci-success:
     name: CI Success
     if: always()

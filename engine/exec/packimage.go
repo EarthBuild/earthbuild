@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/containerd/platforms"
@@ -29,7 +28,7 @@ import (
 // attributes, and a Linux daemon reading one refuses it with `lsetxattr
 // com.apple.provenance: operation not supported` - a message with nothing in it
 // to connect to a build.
-func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (core.Result, error) {
+func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) (core.Result, error) {
 	if len(n.Op.Args) == 0 {
 		return core.Result{}, fmt.Errorf("%s: an image has to be packed under a name", n.Meta.Source)
 	}
@@ -40,14 +39,8 @@ func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (c
 	}
 
 	root := e.sb.StoreDir()
-	st := store.DirStore(root)
 
-	layers := make([]string, 0, len(base))
-	for _, id := range base {
-		layers = append(layers, st.LayerPath(id))
-	}
-
-	spec := image.Spec{Ref: n.Op.Args[0], Layers: image.FromDirs(layers)}
+	spec := image.Spec{Ref: n.Op.Args[0]}
 
 	// What the target declared about how the image runs. Written as layers
 	// alone, the loaded image had no entrypoint and no command, and the very
@@ -83,30 +76,37 @@ func (e *Executor) packImage(_ context.Context, n *ir.Node, base []ir.NodeID) (c
 
 	spec.Platform = p
 
+	// **Where the layers are, and where the archive is read.** A packed image
+	// is written from layers in the store and loaded by the daemon inside the
+	// sandbox, so on a backend with a machine both ends are the guest's and the
+	// host was in the middle of its own errand (E558).
+	//
+	// The guest that is already running, never one started for this: a build
+	// reaching a `WITH DOCKER --load` has run steps, so there is one - and if
+	// there is not, packing here is what every backend without a machine does.
+	c := e.startedClient()
+	if c != nil {
+		err = c.PackImage(ctx, n.ID(), base, spec)
+		if err != nil {
+			return core.Result{}, fmt.Errorf("pack %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
+		}
+
+		return core.Result{Captured: false}, nil
+	}
+
+	st := store.DirStore(root)
+
+	spec.Layers = make([]image.LayerSource, 0, len(base))
+	for _, id := range base {
+		spec.Layers = append(spec.Layers, image.FromDir(st.LayerPath(id)))
+	}
+
 	// Named after this step's own identity, so two loads of different images in
 	// one build do not land on each other and a repeat of the same one is the
 	// same file.
-	dir := filepath.Join(root, "images", n.ID().String())
-	err = os.RemoveAll(dir)
+	err = image.WriteArchive(filepath.Join(root, "images", n.ID().String()), spec)
 	if err != nil {
-		return core.Result{}, fmt.Errorf("clear the previous %s: %w", n.Op.Args[0], err)
-	}
-
-	err = image.WriteLayout(dir, spec)
-	if err != nil {
-		return core.Result{}, fmt.Errorf("write %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
-	}
-
-	f, err := os.Create(dir + ".tar") //nolint:gosec // a path this engine derived
-	if err != nil {
-		return core.Result{}, fmt.Errorf("create the archive for %s: %w", n.Op.Args[0], err)
-	}
-
-	defer f.Close()
-
-	_, _, err = image.Pack(dir, f)
-	if err != nil {
-		return core.Result{}, fmt.Errorf("archive %s: %w", n.Op.Args[0], err)
+		return core.Result{}, fmt.Errorf("pack %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
 	// Nothing entered the step's own filesystem: the image went to the store,

@@ -25,6 +25,7 @@ var wireVocabulary = map[Kind]string{
 	KindCopy:        "copy between layers this connection can name",
 	KindStoreHas:    "report which of these layer ids the store holds; reads, never runs",
 	KindSquash:      "merge a range of the stack into one layer in the store; reads and writes layers, never runs",
+	KindPackImage:   "write a loadable image archive into the store from layers it already holds; never runs",
 	KindCancel:      "abandon a request this connection made",
 }
 

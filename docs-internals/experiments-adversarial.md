@@ -25224,6 +25224,16 @@ was questioned, which is exactly how a measurement becomes a belief.
 
 ## E552 - copy-on-use is not the cheap version of the disk
 
+**This re-derives E513 and should have cited it.** E513 tested exactly this - copying each layer to
+the guest's volume before a step reads it - on a real cold `+deps`, three runs against one without:
+24.8s from the share, 26.6s, 26.7s and 26.9s copied first. That is better evidence than what follows,
+which is a single-run microbenchmark, and it was in this file the whole time. *An experiment that
+does not search the experiments is how a settled question gets a second answer.*
+
+What follows still earns its place, because it prices the *parts* rather than the whole and so says
+why E513 came out as it did - and because E514, taken to explain E513, is what makes the same idea
+worth revisiting with a prediction attached (see the end of this entry).
+
 E551 priced the transport. The obvious way to avoid paying it is to keep a copy of each layer on the
 guest's own filesystem and mount from there - no protocol changes, no store to move, the host keeps
 reading the store exactly as it does. Measured, in one step, on a 267MB base:
@@ -25263,6 +25273,33 @@ costs, and every step afterwards reads at 59µs a file instead of 201µs".
 Recorded because copy-on-use is the design somebody reaches for first - it is smaller, it needs no
 protocol, and it can be built in an afternoon. It is also strictly worse than doing nothing for the
 commonest build shape, and the measurement that says so takes ten minutes.
+
+### Unless it copies only what will be read
+
+Everything above prices copying the *whole* base, which is what E513 tested and what makes the trade
+hopeless: an eager copy pays 100% to avoid reading the fraction a step opens. E514 measured that
+fraction, inside the guest, atimes reset, on 5,410 files of a Go toolchain:
+
+```text
+    go version                                2 files    0.04%
+    go vet ./...                              3 files    0.06%
+    go build, trivial program, cold GOCACHE   1,752      32%
+```
+
+With a prediction, "copy 100%" becomes "copy 0.04% to 32%", and the arithmetic is no longer settled.
+It is also not obviously won, and the reason is worth stating before anybody builds it: **copying a
+predicted file costs one crossing to save one crossing.** A step that reads each file once gains
+nothing on totals. The gains are real and specific:
+
+* **re-reads across steps** - pay the crossing once and read locally many times;
+* **latency rather than throughput** - a prime runs *ahead of* the step, so an unchanged total leaves
+  the critical path;
+* **the fleet**, where the per-file cost is a network round trip and the arithmetic is not close.
+
+The third is why `Prime` and `Fetch` exist. They are set in `cmd/earth-worker` and nowhere else, so a
+developer's own build has never used them. Turning them on for the VM backend is a measurement
+against E513's 24.8s, not a guess - which is the difference between this and the version of the idea
+that was rejected above.
 
 ## E553 - the disk's work list, kept by a test
 
@@ -25536,3 +25573,34 @@ matter of finding the host-side call and replacing it. Each one asks the same tw
 open the bytes, and what does the caller lose if the answer costs a boot - and the second is the one
 that is easy to answer wrongly, because the cost lands on a build that had nothing to do with the
 feature.
+
+## E558 - the archive was produced on one side and read on the other
+
+`WITH DOCKER --load` needs the image as a tar the daemon inside the sandbox can read, built from
+layers in the store. The host built it and left it where the guest would find it - two parties
+sharing one directory, and neither half of that survives the store becoming a disk the guest owns.
+
+Both ends of that errand are the guest's: the layers are in the store and the reader is in the
+sandbox. The host was in the middle of a journey between two points it is not at.
+
+So `KindPackImage` sends what the *build* knows - the image's name, its configuration, the platform
+it is for - and the layers as ids. Ids and not paths, because the host and the guest see the store at
+different ones and a path from the wrong side names nothing there. The guest resolves them against
+the store it can actually open.
+
+**One implementation, called from both sides.** `image.WriteArchive` is the layout and the tar
+beside it; the host calls it where there is no machine, the guest calls it where there is. The
+alternative is two pieces of code that agree until they do not, which is the shape of E44 (two
+converters differing by `ExposedPorts` and `Volumes`) and of the `SAVE ARTIFACT` asymmetry where a
+file kept its timestamps and a directory did not. Checked rather than assumed: the archive the guest
+writes is the same size as the one the host writes from the same layers.
+
+A layer the store has not got is refused rather than skipped, and nothing is left behind. An image
+missing a layer *loads*, and the daemon then reports a program that is not there - a message with
+nothing in it to connect to the build that lost the layer.
+
+*The pattern, on the fourth of these.* Each move asks the same two questions: who can open the bytes,
+and what does a build that never wanted this feature pay if the answer costs a boot. `packImage` uses
+the guest that is already running and never starts one - by the time a build reaches a
+`WITH DOCKER --load` it has run steps, so there is one, and where there is not, packing on the host
+is what a backend without a machine has always done.

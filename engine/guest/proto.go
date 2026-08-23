@@ -23,7 +23,10 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/decl"
+	"github.com/EarthBuild/earthbuild/engine/image"
+
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // Version is the protocol version. Host and guest may be updated separately -
@@ -83,6 +86,18 @@ const (
 	KindCapture     Kind = "capture"
 	KindExport      Kind = "export"
 	KindCopy        Kind = "copy"
+	// KindPackImage writes a loadable image archive into the store.
+	//
+	// `WITH DOCKER --load` needs the image as a tar the daemon in the sandbox
+	// can read, and it is built from layers in the store. The host built it and
+	// left it where the guest would find it, which is two parties sharing one
+	// directory - and neither half of that survives the store becoming a disk
+	// the guest owns (E558).
+	//
+	// Produced and consumed on the same side once this moves: nothing on the
+	// host ever reads the archive.
+	KindPackImage Kind = "pack-image"
+
 	// KindSquash merges a range of the stack into one layer, in the store.
 	//
 	// Φ (green paper 4.8) replaces a run of layers with a single identity so
@@ -153,8 +168,16 @@ type Request struct {
 	Argv    []string `json:"argv,omitempty"`   // exec only
 	Path    string   `json:"path,omitempty"`   // export only: what to take
 	Dest    string   `json:"dest,omitempty"`   // export and copy: the destination
-	// Into is the identity a squash's range collapses to. Squash-only, with the
-	// range itself in Stack.
+	// Image is what a packed image declares: its name, its configuration, the
+	// platform it is for. Pack-image only, with the layers in Stack and the
+	// name to file it under in Into.
+	//
+	// The layers are ids rather than paths, because the host and the guest see
+	// the store at different ones and a path from the wrong side names nothing.
+	Image *ImageSpec `json:"image,omitempty"`
+
+	// Into is the identity a squash's range collapses to, or the identity a
+	// packed image is filed under. With the range or the layers in Stack.
 	//
 	// The caller's to decide: Φ derives it from the range (green paper 4.8), so
 	// the guest is told what the result is called rather than choosing, and two
@@ -534,4 +557,51 @@ func decodeStack(in []string) ([]ir.NodeID, error) {
 	}
 
 	return out, nil
+}
+
+// ImageSpec is what a packed image declares, as it crosses the wire.
+//
+// **Not `image.Spec`**, which carries its layers as functions - a
+// `LayerSource` is code that produces bytes, and code does not travel. Sending
+// the whole thing worked only while every caller remembered to blank that field
+// first, which is a rule the type did not enforce and the wire guard refused to
+// accept (E558).
+//
+// So the wire has its own shape, holding exactly what a build knows and a guest
+// cannot work out for itself. The layers are not here at all: they are ids in
+// `Stack`, resolved against the store the guest can open.
+type ImageSpec struct {
+	// Healthcheck is how a running container reports its own health, nil when
+	// the image declares none.
+	Healthcheck *image.Healthcheck `json:"healthcheck,omitempty"`
+	// Ref is what the image is called - `app:latest`.
+	Ref string `json:"ref"`
+	// Platform is what the image was built for. A runtime checks it before
+	// starting anything, so an image without one loads and will not run.
+	Platform ocispec.Platform `json:"platform"`
+	// Config is what the target declared: entrypoint, environment, labels.
+	Config ocispec.ImageConfig `json:"config"`
+}
+
+// Spec is this description as the image writer wants it, without layers.
+//
+// The layers are the guest's to resolve: it is the party that can open the
+// store they are in.
+func (i ImageSpec) Spec() image.Spec {
+	return image.Spec{
+		Ref:         i.Ref,
+		Platform:    i.Platform,
+		Config:      i.Config,
+		Healthcheck: i.Healthcheck,
+	}
+}
+
+// ImageSpecOf is a spec as it travels, with the layers left behind.
+func ImageSpecOf(spec image.Spec) ImageSpec {
+	return ImageSpec{
+		Ref:         spec.Ref,
+		Platform:    spec.Platform,
+		Config:      spec.Config,
+		Healthcheck: spec.Healthcheck,
+	}
 }

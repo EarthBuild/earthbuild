@@ -505,6 +505,33 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		return Response{Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes}
 
+	case KindPackImage:
+		if s.LayerDir == "" {
+			return Response{Err: "pack-image: this guest was started without a" +
+				" layer directory, so it has no store to pack from"}
+		}
+
+		if req.Image == nil {
+			return Response{Err: "pack-image: no image was described"}
+		}
+
+		into, err := ir.ParseNodeID(req.Into)
+		if err != nil {
+			return Response{Err: "pack-image: " + err.Error()}
+		}
+
+		ids, err := decodeStack(req.Stack)
+		if err != nil {
+			return Response{Err: "pack-image: " + err.Error()}
+		}
+
+		err = packImageInto(s.LayerDir, into, ids, req.Image.Spec())
+		if err != nil {
+			return Response{Err: err.Error()}
+		}
+
+		return Response{}
+
 	case KindSquash:
 		if s.LayerDir == "" {
 			return Response{Err: "squash: this guest was started without a layer" +

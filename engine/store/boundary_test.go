@@ -53,7 +53,10 @@ var knowsTheLayout = map[string]string{
 	// Packs one layer onto a pipe for a host that cannot open the store. It is
 	// the answer to a `host` entry rather than a new problem: the reading moved
 	// inside, which is the shape every remaining one has to take (E556).
-	"engine/guest/packlayer.go":           sideGuest,
+	"engine/guest/packlayer.go": sideGuest,
+	// Builds a loadable image archive from layers it holds, which the host used
+	// to build and leave where the guest would find it (E558).
+	"engine/guest/packimage.go":           sideGuest,
 	"engine/mat/overlay/overlay_linux.go": sideGuest,
 
 	// The work. Each of these opens the store from the host.

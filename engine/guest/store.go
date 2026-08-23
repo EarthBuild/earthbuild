@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -72,6 +73,30 @@ func (c *Client) Squash(ctx context.Context, into ir.NodeID, rng []ir.NodeID) er
 	}
 
 	_, err := c.do(ctx, Request{Kind: KindSquash, Into: into.String(), Stack: stack})
+
+	return err
+}
+
+// PackImage asks the guest to write a loadable image archive into its store.
+//
+// The layers are ids: the host and the guest see the store at different paths,
+// so a path from the wrong side names nothing there. Everything else about the
+// image is the build's and travels with the request (E558).
+func (c *Client) PackImage(
+	ctx context.Context, into ir.NodeID, layers []ir.NodeID, spec image.Spec,
+) error {
+	stack := make([]string, len(layers))
+	for i, id := range layers {
+		stack[i] = id.String()
+	}
+
+	// The layers do not travel: they are functions, and what crosses is the
+	// description a build has plus the ids the guest resolves for itself.
+	sent := ImageSpecOf(spec)
+
+	_, err := c.do(ctx, Request{
+		Kind: KindPackImage, Into: into.String(), Stack: stack, Image: &sent,
+	})
 
 	return err
 }

@@ -12,3 +12,18 @@ earthfile2llb/parser/*.go
 # and a developer's checkout of one commit never share a result (E562).
 **/node_modules
 **/testdata/bigtree-*
+
+# The same argument one directory down. `build` above matches only the top
+# level, so `examples/*/build` and `examples/next-js/.next` were still hashed
+# into every COPY: 18.8MB across 57 files, all of it gitignored, none of it in a
+# fresh clone - which is precisely the machine-dependent key E562 was about.
+#
+# **Not `**/dist`.** The obvious generalisation is wrong here: `examples/js/dist`
+# and `tests/remote-cache/test2/dist` are tracked, so that pattern drops source
+# from the context of every build that copies them. One example's `dist` is
+# generated and is named on its own; the rule is what git ignores, and the
+# pattern language cannot say that, so each one is checked rather than guessed.
+# TestNoTrackedFileIsExcludedFromTheContext is that check.
+**/build
+**/.next
+examples/typescript-node/dist

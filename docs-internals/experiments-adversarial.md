@@ -26083,3 +26083,37 @@ registry what `golang:1.27.0-alpine3.24` names right now. That is Θ working exa
 (§3.4d, I3) - the base images are referenced by tag, and a moved tag must be a different build. It is
 not a defect to be optimised away; it is a cost that pinning digests would remove and caching would
 trade for correctness.
+
+## E570 - the same defect, one directory down
+
+`context:digest` was the second-largest item in a warm build, and `examples` was most of it: 0.062s
+for 473 files and 19.9MB. **18.8MB of that, across 57 files, is gitignored generated content** -
+`examples/next-js/.next`, `examples/*/build`, one example's `dist`.
+
+E562 found this and fixed it for `node_modules`. It stayed true one directory down, because the
+ignore file's first line is `build`, and in this pattern language that matches the top level only. So
+`examples/go/build/go-example` was hashed into the cache key of every `COPY` on every build, and
+nobody looked again after the first fix landed.
+
+| Measure                       | Before | After      |
+| ----------------------------- | ------ | ---------- |
+| `context:digest`, `examples`  | 0.062s | 0.038s     |
+| `context:digest`, all sources | 0.144s | **0.115s** |
+| warm `+earthly`, wall clock   | 0.650s | 0.636s     |
+
+The 29ms is the smaller half. A cache key that includes untracked files depends on what a machine
+happens to have lying about, so a fresh clone and a developer's checkout of one commit cannot share
+a result for those COPYs at all - which is what E562 was about and what was still true here.
+
+**The obvious generalisation is wrong, and that is the finding worth keeping.** Excluding build
+output suggests `**/dist`. But `examples/js/dist/index.html` and `tests/remote-cache/test2/dist/*`
+are *tracked*: that pattern drops source out of the context of every build that copies them, the
+cache agrees with itself the whole way, and the artifact is quietly wrong. The rule everybody means
+is "what git ignores", the pattern language cannot say that, and the gap between the rule and its
+expression is where this lives.
+
+So the guard is the rule stated mechanically: **no tracked file may be excluded from the context**,
+checked by walking `git ls-files` through the real matcher, with `ignore.Implicit` as the one
+sanctioned exception - the Earthfile and the ignore file are tracked and are deliberately not inputs.
+It caught those two the first time it ran. A second test asserts the generated trees *are* excluded,
+because a guard that only forbids stays green when somebody deletes every pattern.

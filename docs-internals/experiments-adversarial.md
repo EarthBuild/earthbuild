@@ -26039,3 +26039,47 @@ error was that the benchmark and the copy ran on different storage, and nothing 
 clean prompts you to ask which disk you are timing. The general form: **a microbenchmark inherits
 the assumptions of whoever wrote it, and the loudest of those is where the bytes go.** Partitioning
 inside the real path found in one run what three arrangements of a lookalike could not.
+
+## E569 - the answer was worth keeping, and keeping it made the machine unnecessary
+
+E568 let the host take an artifact off its own disk instead of having it shipped out of the VM. What
+it did not remove was the reason the VM had to be there: deciding *which* layer wins for a path
+means mounting the stack and asking overlayfs. On a fully cached build that mount was the only thing
+in the build that needed a sandbox at all.
+
+The resolution is a pure function of things that cannot change. A stack is a list of
+content-addressed layers; a path is a path. The same pair names the same bytes forever, so the
+answer can simply be written down.
+
+**Which makes this memo safer than the one it sits beside.** `Index` spends a one-sided invariant on
+never leading the store, because a layer it claims and the store lacks is a cache hit against
+nothing - a wrong build reporting success. A memo here names a *file*, and Lookup stats it: an entry
+that outlived its layer is a miss and a mount, which is what would have happened anyway. So it may
+be written cheerfully and read without ceremony, and the test that matters is the one that removes
+the file and checks the memo stops answering.
+
+The key is ℋ over the stack and the path through the engine's own encoding rather than a joined
+string, because `["a","b"]` with `"c"` and `["a"]` with `"b/c"` must not collide - green paper §1.4's
+injectivity, where its absence would export one artifact in place of another.
+
+| Measure                     | E567 (session start) | E568   | E569       |
+| --------------------------- | -------------------- | ------ | ---------- |
+| `export` phase, three files | 0.149s               | 0.143s | **0.003s** |
+| warm `+earthly`, wall clock | 1.17s - 1.29s        | 0.85s  | **0.65s**  |
+
+The artifact is identical in content, mode and timestamp with the memo and without it, checked the
+same way as E568 - the same build run both ways behind `EARTH_SHARE_EXPORTS`.
+
+*The decisive test was not a timing.* Stop every sandbox, then run a warm build: it finished in
+0.65s and produced the right binary with no machine running. A VM was up again afterwards, which
+looks like the claim failing until you read `warm` in cli.go - the prewarm is deliberate, nothing
+waits for it, and it leaves behind the machine the next build wants (E537). Worth noticing that its
+own comment, "a build that turns out to need no machine is not slowed", was not quite true when it
+was written: every build exported something, and every export woke the machine. The comment
+described the intended design, and the export path quietly made it false. It is true now.
+
+What is left of a 0.65s build is mostly one thing: `pin:token` and `pin:manifest`, 0.416s, asking a
+registry what `golang:1.27.0-alpine3.24` names right now. That is Θ working exactly as specified
+(§3.4d, I3) - the base images are referenced by tag, and a moved tag must be a different build. It is
+not a defect to be optimised away; it is a cost that pinning digests would remove and caching would
+trade for correctness.

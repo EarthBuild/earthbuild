@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
@@ -58,6 +59,31 @@ func (e *Executor) exportTo(
 		// reference it - so this is not an error.
 		return nil
 	}
+
+	// Where this artifact was found last time. A stack is a list of
+	// content-addressed layers, so the answer cannot go stale - only the file
+	// can, and Lookup stats it. On a fully cached build this is the difference
+	// between waking a sandbox and not: nothing else in the build needs one
+	// (E569).
+	memo := store.OpenExportMemo(e.sb.StoreDir())
+	if guest.ShareExports() {
+		if rel, ok := memo.Lookup(stack, path); ok {
+			endMemo := phase("export:memo", path)
+			defer endMemo()
+
+			err := insideProject(project, localDest)
+			if err != nil {
+				return err
+			}
+
+			return copyOut(filepath.Join(e.sb.StoreDir(), rel), localDest)
+		}
+	}
+
+	// Kept before the flatten below reassigns it, because the memo is about what
+	// the caller asked for and a flattened stack is an implementation detail of
+	// how it gets mounted.
+	asked := stack
 
 	endClient := phase("export:client", path)
 	c, err := e.client()
@@ -136,6 +162,8 @@ func (e *Executor) exportTo(
 	// VM (E568).
 	if shared != "" {
 		staged = filepath.Join(e.sb.StoreDir(), filepath.Clean("/"+shared))
+
+		memo.Note(asked, path, shared)
 	}
 
 	endOut := phase("export:copyout", localDest)

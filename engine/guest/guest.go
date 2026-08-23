@@ -1991,7 +1991,7 @@ func (c *Client) Export(
 
 	resp, err := c.do(ctx, Request{
 		Kind: KindExport, Handle: rh.id, Path: path, Dest: dest, Clamp: hostClamp(),
-		MayShare: shareExports(),
+		MayShare: ShareExports(),
 	})
 	if err != nil {
 		return "", err
@@ -2511,11 +2511,11 @@ func declaredBy(h core.Handle, req Request) []string {
 // rather than merely plausible.
 const EnvShareExports = "EARTH_SHARE_EXPORTS"
 
-// shareExports reports whether an export may come from the store directly.
+// ShareExports reports whether an export may come from the store directly.
 //
 // On unless switched off: the slow path is always correct, so the failure this
 // guards against is a wrong answer, not a missing one.
-func shareExports() bool { return os.Getenv(EnvShareExports) != "0" }
+func ShareExports() bool { return os.Getenv(EnvShareExports) != "0" }
 
 func hostClamp() *int64 {
 	at, ok := fstime.Clamp()

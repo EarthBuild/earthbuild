@@ -10,6 +10,7 @@ import (
 	"slices"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/trace"
@@ -127,10 +128,31 @@ func TestTheFilterSurvivesExecAndTracesTheStep(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// **With a deadline, because the failure that matters does not fail.** The
+	// skip below catches a helper that reports a problem. A helper that cannot
+	// install a filter at all - no CAP_SYS_ADMIN, or already filtered by
+	// something above - reports nothing and sends nothing, and this waits for a
+	// descriptor that is not coming. On a hosted runner that is the whole
+	// `go test -timeout 5m`, spent on one test, and it is what kept this
+	// repository's own suite red (E587, E607).
+	//
+	// Ten seconds: the helper installs a filter and writes a descriptor, which
+	// takes milliseconds when it works at all.
+	err = here.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	listener, err := fdpass.RecvFile(here)
 	if err != nil {
 		_ = cmd.Process.Kill()
 		t.Skipf("the helper sent no listener, so seccomp is unavailable here: %v", err)
+	}
+
+	// Cleared, or every later read on this connection inherits it.
+	err = here.SetReadDeadline(time.Time{})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	tr := trace.NewTracer(int(listener.Fd()))

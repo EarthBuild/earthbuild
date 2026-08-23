@@ -27502,3 +27502,35 @@ engine. **Eleven of twelve were the environment, and every one of them was writt
 had thought about the environment** - the messages prove it, they name the exact requirement. What
 they did not do is act on what they knew, because on the machine where they were written the
 requirement was always met.
+
+## E607 - the failure that does not fail, one level up
+
+With twelve linux test failures fixed, `Fast Check & Build` stayed red, and the reason was not lint -
+`+lint` already carries `continue-on-error` and a comment saying "reported, not gating", which is one
+of the few places in this repository where the intent and the outcome already agree.
+
+It was this:
+
+```text
+    FAIL github.com/EarthBuild/earthbuild/engine/trace   300.061s
+```
+
+`engine/trace` hit `go test -timeout 5m` on a hosted runner, **under buildkit**, with none of this
+engine involved. E587 taught those tests to skip when they are already inside a seccomp filter, which
+is the darwin case. This is the other one: a helper that cannot install a filter at all, for want of
+`CAP_SYS_ADMIN`, which does not report a problem - it simply never sends the descriptor, and
+`fdpass.RecvFile` waits for it until the suite's clock runs out.
+
+E587 said this in as many words - "the existing skip covers a helper that reports a failure; it
+cannot catch this one, because nothing fails" - and then guarded only the case it could see. **The
+sentence describing the unsolved half was written next to the solution for the other half.**
+
+A read deadline is the general answer: ten seconds where the working path takes milliseconds, and
+the existing skip then reports what the wait found out. It covers both causes and any third, because
+it stops asking why the descriptor is missing and starts asking whether it arrived.
+
+*The pattern, four times now.* E582: a diagnosis placed after the call that never returns. E606: a
+message naming the exact requirement, attached to a failure rather than a skip. E585: a guard that
+skipped on the wrong condition and so never skipped. And this: a comment describing precisely the
+case it did not handle. **Every one of them knew. None of them acted, because on the machine where
+they were written the thing they knew about never happened.**

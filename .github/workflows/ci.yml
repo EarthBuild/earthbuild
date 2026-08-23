@@ -456,6 +456,40 @@ jobs:
           grep -E '^\s+cache ' /tmp/untraced.log || true
           tail -6 /tmp/untraced.log
 
+      - name: What the second cache tier is worth
+        # **The other half of E601's price.** Watching costs eighty per cent on a
+        # target that caches nothing, which is its worst case; what it buys is
+        # the tier that lets a step be reused over a base it was not computed on.
+        # That has never been measured, so the eighty per cent has been quoted
+        # without the thing it is paid for.
+        #
+        # The case is the ordinary one: change a file most steps never read.
+        # Every layer below it moves, so Κ₁ misses everywhere - and a step that
+        # did not read the file should still hit on what it observed. Watched
+        # against unwatched on that rebuild is what the tier is worth.
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          EARTH_GUESTD: /tmp/earth-guestd
+        run: |-
+          set -euo pipefail
+          for mode in watched unwatched; do
+            store=/tmp/store-l2-$mode
+            trace=1; [ "$mode" = unwatched ] && trace=0
+            git checkout -- docs-internals/README.md 2>/dev/null || true
+            EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
+              /tmp/earth build --engine=native +earthly > /dev/null 2>&1 || true
+            # A file the Go build never opens, so its layer moves and the
+            # compile's own inputs do not.
+            echo "<!-- $(date +%s%N) -->" >> docs-internals/README.md
+            start=$(date +%s)
+            EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
+              /tmp/earth build --engine=native +earthly > /tmp/l2-$mode.log 2>&1 || true
+            echo "$mode rebuild after an unread file changed: $(( $(date +%s) - start ))s"
+            grep -E '^\s+cache ' /tmp/l2-$mode.log || true
+          done
+          git checkout -- docs-internals/README.md 2>/dev/null || true
+
       - name: The same target through buildkit, on the same machine
         # **The comparison every number so far has been missing.** 301s against
         # earthly's 147s compared two machines: a hosted runner and a laptop

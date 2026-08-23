@@ -25221,3 +25221,45 @@ interval measured zero; the engine's own phase timing covers a whole step and no
 Busybox's `time` builtin was the one that worked. **A timer that reports zero is not a fast
 operation**, and the reading before it - "15,636 files in 0ms" - was accepted for a moment before it
 was questioned, which is exactly how a measurement becomes a belief.
+
+## E552 - copy-on-use is not the cheap version of the disk
+
+E551 priced the transport. The obvious way to avoid paying it is to keep a copy of each layer on the
+guest's own filesystem and mount from there - no protocol changes, no store to move, the host keeps
+reading the store exactly as it does. Measured, in one step, on a 267MB base:
+
+```text
+    walk lower (cold)     5.12s
+    copy lower -> local   8.96s
+    walk local            0.93s
+    walk lower (warm)     1.60s
+    read lower            6.79s
+    read local            1.69s
+```
+
+Local is 4x faster to read and 1.7x to 5.5x faster to walk, exactly as E551 said. **And the copy
+costs 8.96 seconds**, which is more than the whole of what two read-heavy steps would save. A
+one-step build loses outright; a build with several steps on one base breaks even somewhere around
+the second or third and only if they are read-heavy.
+
+The reason is the part worth keeping: **the copy is slow because it reads through the transport it
+exists to avoid.** Nothing about the destination is the problem. A mechanism whose setup cost is paid
+in the currency it was built to save can only ever pay back slowly, and only for the users who needed
+it least.
+
+The disk is not that mechanism, and the difference is not a matter of degree. The store on a disk is
+not *copied* there on use - it is *written* there when the layer is created or received, once,
+instead of being written to the host's filesystem instead. The bytes cross the boundary exactly as
+often as they do today:
+
+```text
+    today   host places the image on the host filesystem      image:place  1.138s
+    disk    host sends the image to the guest, which writes   ~0.7s at the 375-386 MB/s of E541
+```
+
+So the accounting is not "pay 8.96s to save 5.1s per step". It is "pay about what placement already
+costs, and every step afterwards reads at 59µs a file instead of 201µs".
+
+Recorded because copy-on-use is the design somebody reaches for first - it is smaller, it needs no
+protocol, and it can be built in an afternoon. It is also strictly worse than doing nothing for the
+commonest build shape, and the measurement that says so takes ten minutes.

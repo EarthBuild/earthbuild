@@ -8916,6 +8916,12 @@ implementation. The two open questions belong here and nowhere earlier:
 * **sizing.** A disk has one, a directory does not. Too small fails a build; too large wastes a
   developer's disk. Growth is implementable - ext4 resizes online - and is a thing to build rather
   than a thing to assume.
+* **not copy-on-use.** The smaller design - keep a copy of each layer on the guest's filesystem and
+  mount from there - costs 8.96s to copy a 267MB base and saves about 5s per read-heavy step, because
+  the copy reads through the very transport it exists to avoid (E552). The disk *writes* the layer
+  where it will be read, once, instead of writing it to the host's filesystem instead; the bytes
+  cross the boundary exactly as often as they do now. Written down because copy-on-use is what
+  somebody reaches for first and can be built in an afternoon.
 * **who owns the bytes on the host.** The image is a file the host must not corrupt, and the sandbox
   that has it mounted is the only writer. A second sandbox wanting the same store has to wait or be
   refused, where today two builds share a directory happily.

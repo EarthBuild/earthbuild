@@ -27363,3 +27363,34 @@ build that hits, which nothing here has measured.
 
 `EARTH_TRACE=0` exists now, so the trade is the operator's to make with two figures rather than a
 feeling.
+
+## E602 - the tier works without the tracer, and the test was too easy
+
+E601 priced watching at eighty per cent and said the figure to put beside it was what the second tier
+buys. This is a first attempt at that, and it answers a smaller question than it set out to.
+
+Change a file the compile never reads, rebuild, watched and unwatched, each with its own store:
+
+```text
+    watched     5s   69 hit, 5 miss, 17 by observed inputs, 3 of 5 predictions stale
+    unwatched   4s   69 hit, 6 miss, 16 by observed inputs, 4 not observed
+```
+
+**The tier is not the tracer.** Sixteen of the seventeen observed-input hits survive with watching
+turned off, because a COPY's observation is synthesised by the engine - it knows what a COPY reads -
+and only an exec step needs a syscall to be intercepted. `EARTH_TRACE=0` is working, and says so:
+"nothing observed this step" at Earthfile:508.
+
+So on this rebuild the tracer bought **one hit out of seventy-four cacheable steps**, and the watched
+run was a second slower for it. That is a real result about this repository and a poor advertisement
+for a mechanism costing eighty per cent.
+
+*And the experiment was weaker than it was designed to be.* The point was to move every layer below
+a changed file so Κ₁ missed widely and Κ₂ had something to rescue. Sixty-nine L1 hits says the base
+barely moved: `docs-internals` is copied late, so almost nothing sits below it. The scenario Κ₂ exists
+for - a step reused over a genuinely different base - was not created, and the honest reading is that
+the tracer added one hit *here*, not that it is worth one hit.
+
+What would answer it is a change low in the stack, where everything downstream re-keys and only
+observation can rescue it. That is the next measurement, and it is a different Earthfile rather than
+a different flag.

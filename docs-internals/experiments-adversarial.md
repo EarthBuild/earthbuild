@@ -27189,3 +27189,42 @@ owns the bytes.
 The job lifts it with `sudo` and carries on, because a runner is disposable and the rest of the run
 is worth more than the same fact repeated. What that buys is the first look at this engine executing
 a step on linux at all.
+
+## E597 - it works on linux, and it is faster there
+
+With AppArmor's restriction lifted, the report-only job built `+earthly` with `--engine=native` on a
+GitHub runner. It worked.
+
+```text
+    cache     0 hit, 91 miss, 48 unpredicted
+    pinned    golang:1.27.0-alpine3.24 -> golang@sha256:c0ef102...
+    Earthfile:530   /earthly/build/earthly -> build/linux/amd64/earthly
+```
+
+Ninety-one steps from an empty cache, every one of them run, the artifacts exported. **This engine
+had never executed a step on linux before today.** The namespace backend, the overlay materialiser,
+the store, the interpreter and the exporter all work on a platform none of them were developed on.
+
+And the clock is the surprise:
+
+| Cold `+earthly` | Time    | Where                                   |
+| --------------- | ------- | --------------------------------------- |
+| linux CI        | **73s** | 4-core hosted runner, namespaces, no VM |
+| darwin laptop   | ~200s   | Apple `container`, a VM per sandbox     |
+
+Two and a half times faster, on hardware that is slower and with a cache that was empty. The
+comparison is not clean - different machines, different core counts - but it points the same way as
+E591, which measured the darwin VM's ext4 at fourteen times slower than memory for file creation and
+found the engine's own step machinery accounted for a quarter of the cost. **On linux there is no
+VM**, and the number that has been chased for four experiments largely goes away.
+
+*Which reframes the head-to-head this branch has been keeping.* `+unit-test` measured this engine at
+five times earthly on darwin and the difference was never the engine: it was two hypervisors' disks
+with an engine in front of each (E590, E591). The linux figure is the first measurement taken
+without a hypervisor in the way, and it says the engine is not slow - the machine it was being
+developed on is.
+
+The restriction still stands for anyone on Ubuntu 24.04 (E596), so this is a statement about what
+the engine can do rather than about what a developer gets today. But it is the first evidence from
+outside this laptop that the thing works at all, and it arrived within a day of the branch being
+pushed.

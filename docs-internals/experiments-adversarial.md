@@ -27261,3 +27261,36 @@ is a different claim from being fast, and it is the one that was blocking.
 **A defect that lives on one machine is invisible to any amount of care taken on that machine.** Four
 eliminations, several hundred lines of analysis and two working days went into a question that a
 different computer answered in five minutes.
+
+## E599 - the head-to-head, at last on one machine
+
+Every comparison this branch has made was between two machines. `+earthly` warm at 0.65s against
+20.7s, `+unit-test` at 712s against 147s, 301s against 147s - all of them a laptop with a hypervisor
+in it on one side and something else on the other. E598 showed how much that was worth: a hang that
+existed only on the laptop.
+
+One binary, one runner, one target, two engines:
+
+| `+unit-test` on a hosted runner | Time     |
+| ------------------------------- | -------- |
+| `--engine=native`               | 333s     |
+| `--engine=buildkit`             | **181s** |
+
+**One point eight, not five.** Both runs end in `test(s) failed`, so both did the same work and
+neither cached the step that matters; buildkit's figure includes starting its daemon, which the
+native engine does not need and which is a real cost rather than an artefact.
+
+So the perf story this branch has been telling itself was wrong in both directions. `+earthly` said
+seventeen times faster and measured a no-op against a daemon start. `+unit-test` on darwin said five
+times slower and measured Apple's virtual disk. The number that survives contact with one machine is
+that this engine takes about eighty per cent longer than buildkit to run a Go test suite, on a
+target neither engine can cache because the suite is red.
+
+*What it costs to have learned this.* Four experiments chasing a slowness that was the hypervisor
+(E588 through E592), a fix for a setting that was worth 4.5x in a benchmark and 3.7% in the workload
+(E591), and two working days on a hang that a different computer refuted in five minutes (E598).
+**Every one of those was a measurement of the machine, described as a measurement of the engine** -
+and the only reason it is now known is that somebody said push it and let CI answer.
+
+The remaining eighty per cent is a real number about a real engine, and it is the first one this
+branch has had.

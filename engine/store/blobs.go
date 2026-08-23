@@ -59,13 +59,49 @@ func OpenBlobs(root string) (Blobs, error) {
 }
 
 // Has reports whether the layer is here.
+//
+// **The store answers; the index is checked against it.** Asking the index first
+// and returning on its word was the whole of this function, and it inverted the
+// invariant Index is built on: the index may lag the store, never lead it. It
+// leads the moment anything removes a layer without saying so - a collector, a
+// half-finished copy, a user with `rm` - and then this reports a layer that is
+// not there, a step is taken as cached, and the build fails materialising a base
+// it was promised. Permanently, for that build, until an input changes (E572,
+// E573).
+//
+// **Except where the store cannot be read at all**, which is the other half of
+// the rule and the reason this is not simply a stat. Once the store is a disk
+// only the guest mounts, a host asking this question has no store to consult and
+// the index is the whole of the answer - trustworthy there precisely because
+// nothing outside the guest can edit the disk behind it. Phase 2's argument for
+// dropping the stat is sound and is about that world.
+//
+// So the authority is whichever one exists: the store when it is there, the
+// index when it is not. Both readings of this function are correct in their own
+// world, and the mistake was letting the later world's answer be given in this
+// one.
 func (b Blobs) Has(id ir.NodeID) bool {
-	if b.index.Has(id) {
-		return true
+	if !b.layers.Has(id) {
+		// A layer that is not there, or a store that is not here. Distinguished
+		// only on this path, which a build reaches rarely, so the common answer
+		// still costs one stat.
+		if !b.layers.Readable() {
+			return b.index.Has(id)
+		}
+
+		// The store is readable and does not have it, so anything the index says
+		// otherwise is the index leading. The repair belongs here: a
+		// disagreement found and left alone is one every later build pays to
+		// rediscover.
+		if b.index.Has(id) {
+			_ = b.index.Forget(id)
+		}
+
+		return false
 	}
 
-	if !b.layers.Has(id) {
-		return false
+	if b.index.Has(id) {
+		return true
 	}
 
 	// The store has it and the index did not. Close the gap first: a build that
@@ -81,5 +117,6 @@ func (b Blobs) Has(id ir.NodeID) bool {
 	return true
 }
 
-// Index is the record this asks first, for a caller that needs it directly.
+// Index is the record this checks against the store, for a caller that needs it
+// directly.
 func (b Blobs) Index() Index { return b.index }

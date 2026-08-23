@@ -26222,3 +26222,59 @@ that was hitting it.
 
 Found while assuming the opposite, and written down because the entry-level check reads exactly like
 a guarantee about the whole stack.
+
+**Corrected by E573.** The observation above is right and the explanation is wrong. `Has` did not
+protect only the entry's own layer - it did not check the store at all, answering from the index,
+which still recorded the layer somebody had just deleted. So the step whose result was evicted was
+read as a hit rather than re-run, and *that* is why the base was missing when the mount came. With
+the store asked first, the same eviction re-runs the step: the fallback this section says does not
+exist does exist, and was being skipped over.
+
+## E573 - the index was answering for a store nobody asked
+
+E572 found that deleting the layer a build was using wedged that build permanently, and blamed the
+shape of a stack: a list of layers rather than of steps, so a base is taken as given once its entry
+hits. True of the data structure, and not the cause.
+
+The cause is four lines:
+
+```go
+    func (b Blobs) Has(id ir.NodeID) bool {
+        if b.index.Has(id) {
+            return true          // the store is never consulted
+        }
+```
+
+`Index` documents the invariant this breaks, in its own words: **the index may lag the store, never
+lead it**, because "a layer the index claims and the store lacks" is "a cache hit against nothing …
+a wrong build that reports success, which is the one outcome this engine spends its invariants
+avoiding". The index leads the moment anything removes a layer without telling it - and the plan
+names the culprits exactly: "a GC, a half-finished copy, or a user with `rm`".
+
+So the guard was written, documented, justified, and then bypassed by the function that needed it.
+
+**Both readings were right, in different worlds.** `TestTheIndexAnswersWithoutReadingTheStore` is
+deliberate: once the store is a disk only the guest mounts, a host has no store to consult and the
+index *is* the answer - trustworthy there precisely because nothing outside the guest can edit the
+disk. That is phase 2's argument for dropping the stat and it is sound. The mistake was giving the
+later world's answer in this one, where the store is a shared directory anybody can `rm`.
+
+The fix is therefore not a stat but a question about which world this is: the store answers when the
+store is there, the index answers when it is not. Told apart only on a miss, so the common path still
+costs one stat and no more than it did before the index existed. A disagreement found is also
+repaired, because one left alone is one every later build pays to rediscover.
+
+| Deleting the layer a warm build is using | Before     | After     |
+| ---------------------------------------- | ---------- | --------- |
+| exit code                                | 1, forever | 0         |
+| wall clock                               | -          | 7.17s     |
+| artifact                                 | none       | identical |
+
+*What this says about the collector.* E572 concluded that a collector must mark every reachable
+layer, bases included, because eviction could not degrade safely. That conclusion was built on the
+defect. Eviction degrades to a rebuild now, which is what makes a collector approachable at all - and
+the robustness fix landed first, on its own merit, exactly as E572 guessed it would need to.
+
+**A guard is not what the documentation says it is. It is what the caller does.** Both halves of this
+were in the repository the whole time: the invariant in `Index`'s doc comment, and a function that
+returned before honouring it.

@@ -42,6 +42,22 @@ func (s LayerStore) Has(id ir.NodeID) bool {
 	return err == nil && fi.IsDir()
 }
 
+// Readable reports whether this process can see the store's layers at all.
+//
+// The distinction Has needs on a miss: a layer that is absent from a store one
+// can read is absent, while a layer absent from a store one cannot read says
+// nothing about the layer. Once the store is a disk only the guest mounts, every
+// layer is absent to the host and none of them are missing.
+func (s LayerStore) Readable() bool {
+	if s == "" {
+		return false
+	}
+
+	fi, err := os.Stat(filepath.Join(string(s), "layers"))
+
+	return err == nil && fi.IsDir()
+}
+
 // Path is where a layer's tree lives.
 func (s LayerStore) Path(id ir.NodeID) string {
 	return filepath.Join(string(s), "layers", id.String())

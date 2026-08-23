@@ -27160,3 +27160,32 @@ says rather than suggests.
 platform this engine has never run on, and it took eleven minutes of CI to learn something a
 fortnight of local green could not: that the backend which works inside Apple's hypervisor has no
 answer on the runner where this project's CI actually lives.
+
+## E596 - the kernel was asked, and said AppArmor
+
+E595 refused to write down the obvious explanation for the runner's failed mounts. Asked instead:
+
+```text
+    kernel.apparmor_restrict_unprivileged_userns     1
+    kernel.unprivileged_userns_clone                 1
+    user.max_user_namespaces                         63882
+    unshare -Urm true                                unshare: write failed
+    overlay in /proc/filesystems                     1
+```
+
+Every part of what the backend needs is present except permission. The kernel offers overlay,
+namespaces are enabled, sixty-three thousand of them are available - and AppArmor refuses the
+unprivileged user namespace that would hold them. **The obvious explanation was right**, which is
+worth saying plainly after four in a row that were not (E567, E576, E588, E592): the discipline is
+not that guesses are usually wrong, it is that a guess and a measurement cost about the same here.
+
+*What it means beyond this runner.* Ubuntu 24.04 ships that restriction on, and it is not a CI
+peculiarity - it is what a developer on a current Ubuntu has. So the linux backend as it stands
+requires either a privilege it does not ask for, a container that already holds one (which is how
+buildkitd runs), or a sysctl the engine has no business changing on somebody's machine. That is a
+plan-level constraint rather than a defect, and it belongs beside the phase 3 questions about who
+owns the bytes.
+
+The job lifts it with `sudo` and carries on, because a runner is disposable and the rest of the run
+is worth more than the same fact repeated. What that buys is the first look at this engine executing
+a step on linux at all.

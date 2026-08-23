@@ -374,6 +374,19 @@ jobs:
           printf '%-48s ' "overlay in /proc/filesystems"
           grep -c overlay /proc/filesystems || true
 
+      - name: Let unprivileged user namespaces work
+        # The measurement above says which line to change:
+        # `kernel.apparmor_restrict_unprivileged_userns=1` and `unshare -Urm`
+        # denied, while overlay is in /proc/filesystems and there are 63,882
+        # namespaces to be had. So the kernel can do it and AppArmor is refusing
+        # (E596).
+        #
+        # A runner is disposable and this is one line of it; a user's machine is
+        # not, which is why this belongs here rather than in the engine. What it
+        # buys is the rest of the run: without it every RUN fails at the mount
+        # and this job reports one fact repeatedly.
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Build a target with the native engine
         # Report, do not gate: this is the first time it has run here.
         continue-on-error: true

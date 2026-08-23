@@ -55,3 +55,23 @@ func (c *Client) StoreHas(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, er
 
 	return held, nil
 }
+
+// Squash asks the guest to merge a range of the stack into one layer.
+//
+// Done where the store is, because a squash reads every layer in the range and
+// writes a new one - the largest thing this engine does to a store, and the
+// last thing that could sensibly be done from outside it (E557).
+//
+// The identity is the caller's: Φ derives it from the range, so the guest is
+// told what the result is called rather than being asked to decide, and a
+// second machine flattening the same range agrees without being consulted.
+func (c *Client) Squash(ctx context.Context, into ir.NodeID, rng []ir.NodeID) error {
+	stack := make([]string, len(rng))
+	for i, id := range rng {
+		stack[i] = id.String()
+	}
+
+	_, err := c.do(ctx, Request{Kind: KindSquash, Into: into.String(), Stack: stack})
+
+	return err
+}

@@ -505,6 +505,29 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		return Response{Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes}
 
+	case KindSquash:
+		if s.LayerDir == "" {
+			return Response{Err: "squash: this guest was started without a layer" +
+				" directory, so it has no store to merge into"}
+		}
+
+		into, err := ir.ParseNodeID(req.Into)
+		if err != nil {
+			return Response{Err: "squash: " + err.Error()}
+		}
+
+		rng, err := decodeStack(req.Stack)
+		if err != nil {
+			return Response{Err: "squash: " + err.Error()}
+		}
+
+		err = store.DirStore(s.LayerDir).Squash(ctx, into, rng)
+		if err != nil {
+			return Response{Err: err.Error()}
+		}
+
+		return Response{}
+
 	case KindStoreHas:
 		ids, err := decodeStack(req.Stack)
 		if err != nil {

@@ -25498,3 +25498,41 @@ mtime guard after a rename switched it off; this is the same sentence about the 
 avoid exactly this, three days of experiments later. The lesson does not transfer by being written
 down - it has to be applied to the next mechanism, and the next mechanism is always the one you are
 holding.
+
+## E557 - the flatten moves to the store, and does not boot a machine to get there
+
+Φ (green paper 4.8) replaces a run of layers with one identity so what remains can be mounted, and
+that identity is a tree somebody has to build by reading every layer in the range. It is the largest
+thing this engine does to a store and the last thing that could sensibly be done from outside one, so
+it goes over the wire: `KindSquash`, the range in `Stack`, the result's name in `Into`.
+
+The name is the caller's and not the guest's. Φ derives it from the range, so the guest is told what
+the result is called rather than deciding - which is what makes two machines flattening the same
+range agree without consulting each other, and what makes a guest that merged differently a detectable
+fault rather than a disagreement.
+
+**The interesting half is when *not* to use it.** The obvious wiring is `e.client()`, which returns
+the guest and starts one if there is none. That would have been a regression with no test to catch
+it: `export.go` asks for a flatten, an export can happen on a build whose every step was a cache hit,
+and booting a VM to merge directories the host can already see would put a machine back on the path
+this engine spent a quarter taking it off (E537).
+
+So it asks for the guest that is *already* running:
+
+```go
+c := e.startedClient()   // never starts one
+if c != nil {
+    return c.Squash(ctx, into, rng)
+}
+
+return store.DirStore(e.sb.StoreDir()).Squash(ctx, into, rng)
+```
+
+A backend with no machine flattens on the host, which is what it always did and what it always
+should: its store is local, and there is nothing to cross.
+
+*The general shape, now that three of these have been done.* Moving work to the guest is not a
+matter of finding the host-side call and replacing it. Each one asks the same two questions - who can
+open the bytes, and what does the caller lose if the answer costs a boot - and the second is the one
+that is easy to answer wrongly, because the cost lands on a build that had nothing to do with the
+feature.

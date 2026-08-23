@@ -69,7 +69,10 @@ var knowsTheLayout = map[string]string{
 	"engine/fleet/layers.go":   sideHost,
 	"engine/exec/exec.go":      sideHost,
 	"engine/exec/packimage.go": sideHost,
-	"engine/exec/squash.go":    sideHost,
+	// `exec/squash.go` asks a guest that is already running and flattens here
+	// only when there is none - which is every backend without a machine, and
+	// their store is local anyway (E557).
+	"engine/exec/squash.go": sideHost,
 
 	// The host asking the index what the store holds, which is the arrangement
 	// the disk is for rather than an obstacle to it.

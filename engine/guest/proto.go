@@ -83,6 +83,14 @@ const (
 	KindCapture     Kind = "capture"
 	KindExport      Kind = "export"
 	KindCopy        Kind = "copy"
+	// KindSquash merges a range of the stack into one layer, in the store.
+	//
+	// Φ (green paper 4.8) replaces a run of layers with a single identity so
+	// what remains can be mounted, and that identity is a tree somebody has to
+	// build by reading every layer in the range. On a store the host shares it
+	// did that itself; on a disk the guest owns, only the guest can (E557).
+	KindSquash Kind = "squash"
+
 	// KindStoreHas asks which of a set of layer ids the store holds.
 	//
 	// The first request that treats the guest's store as the store rather than
@@ -145,7 +153,14 @@ type Request struct {
 	Argv    []string `json:"argv,omitempty"`   // exec only
 	Path    string   `json:"path,omitempty"`   // export only: what to take
 	Dest    string   `json:"dest,omitempty"`   // export and copy: the destination
-	From    []string `json:"from,omitempty"`   // copy only: the layers to copy out of, oldest first
+	// Into is the identity a squash's range collapses to. Squash-only, with the
+	// range itself in Stack.
+	//
+	// The caller's to decide: Φ derives it from the range (green paper 4.8), so
+	// the guest is told what the result is called rather than choosing, and two
+	// machines flattening the same range agree without consulting each other.
+	Into string   `json:"into,omitempty"`
+	From []string `json:"from,omitempty"` // copy only: the layers to copy out of, oldest first
 	// Interactive says a terminal is being sent on the descriptor channel and
 	// this step is to run on it. Exec only.
 	Interactive bool `json:"interactive,omitempty"`

@@ -166,6 +166,23 @@ func New(sb Sandbox) (*Executor, error) {
 	return &Executor{sb: sb}, nil
 }
 
+// startedClient is the guest this executor already has, or nil.
+//
+// Distinct from client(), which *starts* one. A caller that merely prefers the
+// guest - because the guest is nearer the store - must not be the reason a
+// machine boots: a build whose every step was a cache hit is entitled to finish
+// without one (E537).
+func (e *Executor) startedClient() *guest.Client {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if !e.running || e.closed {
+		return nil
+	}
+
+	return e.c
+}
+
 // client starts the sandbox if it is not running, and returns the guest.
 //
 // Started on first use rather than at construction, which is worth the whole of

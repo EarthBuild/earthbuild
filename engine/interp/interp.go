@@ -21,6 +21,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -102,6 +103,14 @@ type Plan struct {
 	// memo behind it is keyed by the pair, so the *graph* is right either way
 	// and only this record is lossy. **[GAP]** per-platform provenance.
 	Pinned map[string]string
+
+	// PinCost is how long this build spent asking registries what its mutable
+	// references mean.
+	//
+	// Reported rather than merely measured: it is the whole of a build that has
+	// nothing else to do, and the remedy is a flag the engine can name. See
+	// recordPinning.
+	PinCost time.Duration
 	// pinned memoises Θ on (reference, platform), which is what makes it once
 	// per build rather than once per use (I17).
 	pinned map[string]string

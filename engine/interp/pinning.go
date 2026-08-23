@@ -1,5 +1,7 @@
 package interp
 
+import "time"
+
 // ResolveImage answers what a mutable reference names right now.
 //
 // It is given the reference as written and the platform being built for, and
@@ -51,7 +53,17 @@ func (p *Plan) pin(ref, platform string) string {
 		return to
 	}
 
+	// Timed because the answer is worth reporting: on a build with nothing else
+	// to do this *is* the build, and a reader told "resolving these cost 0.41s
+	// of 0.43s" acts on it where a reader told "consider --pin" does not
+	// (E550). Measured here rather than in the resolver, because this is the
+	// point that knows a round trip actually happened - the memo above means
+	// three uses of one tag cost one lookup, and reporting three would be
+	// reporting the Earthfile rather than the network.
+	started := time.Now()
 	to, err := p.opt.resolveImage(ref, platform)
+	p.PinCost += time.Since(started)
+
 	if err != nil || to == "" {
 		return ref
 	}

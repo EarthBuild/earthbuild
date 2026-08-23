@@ -25109,3 +25109,69 @@ spells the variable out. The conclusion was wrong and the fix was right anyway, 
 uncomfortable combination: the design that came out of it is better than the one the true story
 would have suggested, and it was arrived at from a false premise. *A grep proves the absence of a
 spelling, never the absence of a mechanism.*
+
+## E550 - the fully cached build is a network round trip with a build attached
+
+Before spending a fortnight on the store-as-a-disk, a measurement of where the time actually goes.
+Four steps, everything cached, `EARTH_TIMINGS=1`:
+
+```text
+earth: pin:token     0.262s  docker.io
+earth: pin:manifest  0.150s  alpine:3.22
+  cache              4 hit, 0 miss
+real 0.43
+```
+
+**0.41 of 0.43 seconds is asking a registry what `alpine:3.22` means.** Everything the engine does -
+planning, four cache lookups, the schedule, the report - is the remaining twenty milliseconds. The
+same build with its base written as a digest:
+
+```text
+  cache              4 hit, 0 miss
+real 0.03
+```
+
+Fourteen times faster, from a feature that already exists and needs no code: `--pin`. The disk would
+have addressed `image:place`, which on a cold build of this shape is 0.036s and on a warm one is not
+run at all.
+
+A cold build says the same thing from the other side:
+
+```text
+earth: image:fetch   0.759s   the pull
+earth: layer:get     0.272s   inside it
+earth: layer:unpack  0.097s   inside it
+earth: image:place   0.036s
+earth: materialise   0.003s   per step
+earth: run           0.023s   per step
+earth: capture       0.005s   per step
+```
+
+The engine's own work is milliseconds. What a build waits for is the network, and after that the
+filesystem work the disk would improve - which is real (E541) and is not what a small build is
+spending its time on.
+
+**What was already there, and what changed.** The engine prints a note after pinning: *"--pin writes
+these into the Earthfile, which makes the build reproducible and skips the lookup"*. True, general,
+and easy to read past. It now says what the lookup cost this invocation:
+
+```text
+  note   --pin writes these into the Earthfile, which makes the build
+         reproducible and skips the 0.44s these lookups cost
+```
+
+A reader told "these took 0.44s" has been handed a reason; a reader told "consider pinning" has been
+handed a chore. Measured at `Plan.pin`, which is the memoised choke point and therefore the only
+place that knows a round trip *happened* - three uses of one tag cost one lookup, and reporting three
+would be reporting the Earthfile rather than the network. Below 100ms the number is left out rather
+than shrunk to `0.00s`, which would read as advice not worth taking.
+
+**What is not done here, deliberately.** The remaining 0.41s is a token exchange and a manifest
+fetch. Caching the token would remove 0.26s of it, and `engine/image/challenge.go` already records a
+decision not to:
+
+> The *token* is not [remembered]: it is a credential, it expires, and putting one in a cache
+> directory is a decision about credentials rather than an optimisation (E535).
+
+That is a fence with a sign on it. The sign says the decision belongs to a person, so it is left for
+one - noted here with the number attached, which is what was missing when the fence went up.

@@ -27,6 +27,7 @@ func TestEveryPlanOutputIsConsumed(t *testing.T) {
 		"Artifacts": "exportAll: written to the project directory",
 		"Images":    "writeImages: written as an OCI layout under the build cache",
 		"Pinned":    "recordPinning: printed as provenance, and the digests are already in the graph",
+		"PinCost":   "recordPinning: quoted in the note, so the advice carries what it is worth",
 	}
 
 	plan := reflect.TypeFor[interp.Plan]()

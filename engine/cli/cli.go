@@ -466,7 +466,7 @@ func runPlan(
 
 	// What each mutable reference resolved to (§3.4d): the one input a key
 	// cannot be closed over, so the one worth naming.
-	recordPinning(o.Out, plan.Pinned)
+	recordPinning(o.Out, plan.Pinned, plan.PinCost)
 
 	// Whether the fleet this build waited for did anything (E505).
 	if d, ok := g.fleetEx.(*fleet.Delegating); ok {

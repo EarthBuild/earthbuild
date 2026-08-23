@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/image"
@@ -64,7 +65,7 @@ func (g *engine) imageResolver(ctx context.Context) interp.ResolveImage {
 // Silent when nothing resolved, which is a build whose references were already
 // digests or one that had no resolver. Saying "0 pinned" on every ordinary build
 // would train the reader to skip the line on the day it matters.
-func recordPinning(w io.Writer, pinned map[string]string) {
+func recordPinning(w io.Writer, pinned map[string]string, cost time.Duration) {
 	if w == nil || len(pinned) == 0 {
 		return
 	}
@@ -89,6 +90,24 @@ func recordPinning(w io.Writer, pinned map[string]string) {
 	// engine has just worked the digests out; `--pin` is how they get written
 	// down. Once, after the list, rather than against each line: the advice is
 	// the same for all of them.
+	// **The measurement rather than the advice.** This note used to say that
+	// pinning skips a lookup, which is true, general, and easy to read past. It
+	// now says what the lookup cost *this* build, because a reader told "these
+	// took 0.41s of a 0.43s build" has been handed a reason, and a reader told
+	// "consider pinning" has been handed a chore (E550).
+	//
+	// Below a tenth of a second it is left out rather than shrunk to "0.0s": a
+	// number too small to act on invites the reader to conclude the advice is
+	// not worth taking, which on the next build against a slower registry it
+	// is.
+	if cost >= 100*time.Millisecond {
+		fmt.Fprintf(w, "  note                      --pin writes these into the Earthfile,"+
+			" which makes the build reproducible and skips the %.2fs these lookups cost\n",
+			cost.Seconds())
+
+		return
+	}
+
 	fmt.Fprintf(w, "  note                      --pin writes these into the Earthfile,"+
 		" which makes the build reproducible and skips the lookup\n")
 }

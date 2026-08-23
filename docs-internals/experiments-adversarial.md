@@ -27327,3 +27327,39 @@ which is a measurement of one run and a small number either way. Everything else
 indication, and the difference between an indication and a result is a repeat under controlled
 conditions - which is what the next run is for. **Publishing the three numbers as an answer would
 have been the fifth time in this file, and the first one nobody would have caught.**
+
+## E601 - unwatched, it is buildkit; watched, it is eighty per cent more
+
+E600 refused to publish three numbers that shared a cache. Repeated with a store each, on one runner,
+one binary, one target:
+
+| `+unit-test`, each from a cold store | Time     |
+| ------------------------------------ | -------- |
+| native, watched                      | 326s     |
+| native, unwatched                    | **181s** |
+| buildkit                             | **184s** |
+
+Both native runs are cold by construction rather than by assertion: the watched one reports `0 hit,
+91 miss`, and the unwatched one was pointed at a directory that did not exist until it made it.
+
+**Unwatched, this engine and buildkit are the same speed.** Three seconds apart on a three-minute
+build is nothing, and it is the first time the two have been compared with the machine, the cache and
+the target all held still.
+
+**Watched, it costs eighty per cent.** 326 against 181, which is 1.80 - and E599 measured this engine
+at 1.84 against buildkit before anybody knew where it went. The same number twice, once as a mystery
+and once with a name: *the gap between this engine and buildkit is the syscall tracer, and nothing
+else that has been measured.*
+
+The confounded run said three times, because its unwatched half ran against a warm store. That
+number was flattering and wrong, and it is worth noting which direction the error ran in: **every
+uncontrolled measurement in this file has favoured the thing being argued for.**
+
+*What it leaves.* Observation is not free and is not fraud: it buys the second cache tier, which is
+what lets a result be reused over a base it was not computed on. Eighty per cent of a red test suite
+is the worst case for it - nothing is cached, so nothing is earned - and a build that hits L2 pays
+the tracer once and skips the step entirely. The number to put beside this one is what L2 saves on a
+build that hits, which nothing here has measured.
+
+`EARTH_TRACE=0` exists now, so the trade is the operator's to make with two figures rather than a
+feeling.

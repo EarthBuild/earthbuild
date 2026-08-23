@@ -45,7 +45,11 @@ var knowsTheLayout = map[string]string{
 	"engine/store/index.go":         sideStore,
 
 	// Inside the sandbox, which is where all of this ends up.
-	"engine/guest/guest.go":               sideGuest,
+	"engine/guest/guest.go": sideGuest,
+	// Packs one layer onto a pipe for a host that cannot open the store. It is
+	// the answer to a `host` entry rather than a new problem: the reading moved
+	// inside, which is the shape every remaining one has to take (E556).
+	"engine/guest/packlayer.go":           sideGuest,
 	"engine/mat/overlay/overlay_linux.go": sideGuest,
 
 	// The work. Each of these opens the store from the host.

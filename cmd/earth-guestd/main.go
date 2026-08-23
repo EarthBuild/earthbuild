@@ -19,6 +19,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 func main() {
@@ -33,6 +34,30 @@ func main() {
 
 		if err := guest.RelayFills(at, os.Stdin, os.Stdout); err != nil {
 			fmt.Fprintf(os.Stderr, "earth-guestd --fills: %v\n", err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
+	// Packing one layer of the store onto stdout, for a host that cannot open
+	// the store itself. One layer per invocation and nothing on stdout but the
+	// blob, so the caller is a pipe rather than a protocol (E556).
+	if len(os.Args) > 2 && os.Args[1] == "--pack" {
+		root := os.Getenv("EARTH_GUEST_ROOT")
+		if root == "" {
+			root = "/var/lib/earthbuild"
+		}
+
+		id, err := ir.ParseNodeID(os.Args[2])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "earth-guestd --pack: %v\n", err)
+			os.Exit(1)
+		}
+
+		err = guest.PackLayer(root, id, os.Stdout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "earth-guestd --pack: %v\n", err)
 			os.Exit(1)
 		}
 

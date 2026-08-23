@@ -25418,3 +25418,47 @@ through the `container start` path the engine already had and already counted (`
 alternative - removing the sandbox - is what `reapOrphans` does to *pid-named* VMs whose process is
 gone, and it is right there and would be wrong here, which is why the sweep leaves the reusable ones
 alone.
+
+## E556 - the first thing the guest hands over instead of filing
+
+Two host readers of the store remain (E553), and `cli/images.go` is the larger: `SAVE IMAGE` reads
+every layer of a stack from the host's filesystem and packs each into an OCI blob. Once the store is
+a disk the guest owns, it cannot.
+
+**The transport was already in the tree, in a comment about a different problem.** From
+`applefill_darwin.go`, explaining why faulting a path in needs its own channel:
+
+> Every other message is the host asking the guest, and `container exec` gives one stdio pair per
+> invocation, which the main protocol holds. A sandbox that spawns its guest as a child passes a
+> second descriptor; this one reaches its guest through a VM and cannot. [...] The guest therefore
+> listens on a socket inside the sandbox, and a second exec carries bytes between that socket and
+> here.
+
+A second exec carrying bytes. An export is the same shape and simpler, because it goes one way and
+needs no socket: `container exec -i <sandbox> earth-guestd --pack <id>`, and the blob is on stdout.
+
+Nothing comes back but bytes, and that is the design rather than an economy. A blob is named by the
+digest of its contents, so the caller hashes what it copies and has no reply to parse - which is
+exactly what lets this be a pipe instead of a protocol.
+
+**The property, checked against a real machine.** The guest runs the same `image.Pack` on the same
+directory the host would have, so the blob must be the one the host would have produced. A 9.35MB
+layer of `alpine:3.22`, packed inside the VM and streamed out:
+
+```text
+    guest   b182a7278511dddd…  9,353,728 bytes
+    host    b182a7278511dddd…  9,353,728 bytes
+    cmp     identical
+```
+
+Byte-for-byte and not "both are valid tars", because equal-but-different is a different image, and an
+image that changes according to *where it was assembled* is the failure this engine spends its
+invariants on.
+
+A layer the store does not hold is refused by name, and writes nothing. The caller is a pipe: an
+empty stdout with a zero exit would be a blob filed under the digest of nothing, which is an image
+with a layer missing and no error anywhere.
+
+Not wired into `SAVE IMAGE` yet - that is `writeLayers` taking a packer instead of a directory, and
+it is a change to the OCI writer rather than to the transport. What is settled is the part that
+could have been wrong: the bytes cross, and they are the same bytes.

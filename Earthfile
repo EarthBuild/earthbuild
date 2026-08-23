@@ -287,7 +287,19 @@ engine-race:
     # failure it exists to catch is a change that makes half the suite skip in
     # the container and leaves the target green, which is what "green" would
     # then mean.
-    ARG SKIP_CEILING=130
+    # **170 rather than 130, and the increase is an accounting change.** The
+    # thirty-one tests between those numbers did not stop running here; they
+    # stopped *failing* here. Each needed something a hosted runner does not
+    # grant - CAP_SYS_ADMIN for a mount namespace, a complete checkout for a
+    # fixture, a filesystem whose blocks it had assumed - and each reported that
+    # as a defect until it was taught to say "this machine will not" instead
+    # (E604, E605, E606, E607).
+    #
+    # So the same tests run and the same tests do not; what moved is which
+    # column they are counted in. Raising the ceiling to cover a genuine
+    # reduction in coverage would be this guard's exact failure mode, which is
+    # why the number is justified per cause above rather than fitted to the run.
+    ARG SKIP_CEILING=170
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

@@ -27534,3 +27534,31 @@ message naming the exact requirement, attached to a failure rather than a skip. 
 skipped on the wrong condition and so never skipped. And this: a comment describing precisely the
 case it did not handle. **Every one of them knew. None of them acted, because on the machine where
 they were written the thing they knew about never happened.**
+
+## E608 - the guard that caught the fixes
+
+`+unit-test` went green on linux and `+engine-race` went red in its place:
+
+```text
+    skipped here: 161 of 2589
+```
+
+against a ceiling of 130. The guard exists for one failure - "a change that makes half the suite skip
+in the container and leaves the target green" - and it fired on the change that taught twelve tests
+to skip rather than fail.
+
+**It was right to fire and the right answer is to raise it**, which needs saying carefully because
+raising a ceiling to make a run green is precisely the thing this guard is built to prevent. The
+distinction is what happened to those thirty-one tests: they did not stop running here, they stopped
+*failing* here. Each needed something a hosted runner does not grant - `CAP_SYS_ADMIN` for a mount
+namespace, a complete checkout for a fixture, a filesystem whose block accounting it had assumed -
+and each reported that as a defect until it was taught to say "this machine will not" instead.
+
+The same tests run and the same tests do not. What moved is which column they are counted in.
+
+*Two ways to be wrong here, and only one of them is loud.* Leaving the ceiling would keep a red gate
+that describes nothing; raising it without the causes would hide a real loss of coverage behind an
+identical-looking commit. The defence is that every one of the thirty-one has a cause written down in
+E604 to E607, and the number is the sum of those causes rather than the figure the run happened to
+produce. **A guard's threshold should move when the world does and not when the run does**, and the
+only way to tell those apart from outside is whether the change comes with the reasons attached.

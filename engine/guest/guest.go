@@ -1695,7 +1695,15 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// The step's WORKDIR, inside the step's own filesystem, so this is a
 		// directory the build will be judged on rather than one the engine
 		// keeps: it gets the mode the reference gives it.
-		err = os.MkdirAll(dir, 0o755) //nolint:gosec // a mode a build sees
+		//
+		// **And a deterministic time, because this is the root of the cascade.**
+		// `WORKDIR /earthly` creates a directory that lands in the step's delta,
+		// and taking the wall clock gave that layer a new identity on every run.
+		// Κ₁ hashes the identities of a step's base (4.5), so every step in the
+		// build re-keyed from this one line: 47 of 91 steps showed a moved base
+		// between two builds of one commit, while their op, env, platform and
+		// node were identical (E577).
+		err = mkdirAllStamped(dir, 0o755, clampAt(req.Clamp)) //nolint:gosec // a mode a build sees
 		if err != nil {
 			return Response{Err: fmt.Sprintf("create the working directory %s: %v", req.Dir, err)}
 		}

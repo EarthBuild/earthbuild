@@ -26424,3 +26424,59 @@ What the change is kept for is what it can be shown to do: identical inputs now 
 layer identity where one directory previously guaranteed they could not. That is determinism, it is
 worth having on its own, and it costs one invalidation of every layer identity - stated plainly
 rather than folded into a claim about cache convergence it does not support.
+
+## E577 - the clock is in the layer, and Κ₁ is standing on it
+
+E576 fixed one source of identity churn and did not fix the build. The step records settle what does.
+
+They carry per-component digests for exactly this purpose. Two builds of one commit, nothing changed
+between them:
+
+| Component | Differs in |
+| --------- | ---------- |
+| `op`      | 0 of 91    |
+| `env`     | 0 of 91    |
+| `plat`    | 0 of 91    |
+| `node`    | 0 of 91    |
+| `base`    | 47 of 91   |
+| `layer`   | 32 of 91   |
+
+**Every input is identical and the outputs are not.** So no step's description is changing; the
+identities of what they produce are, and `base` follows because a base *is* a previous step's output.
+
+The earliest moved layer is the `RUN apk add --no-cache git` delta, and the two copies differ in
+exactly what the command wrote:
+
+```text
+    ./etc/apk        1787484869   ->   1787484995
+    ./etc/apk/world  1787484869   ->   1787484995
+```
+
+126 seconds apart: one build. `apk` wrote that file, now, and now is different each time. No
+directory-stamping reaches it - it is not an invented path, it is the step's actual output carrying
+the time it was produced.
+
+Which makes the rule general and severe: **any step that re-runs gets a new layer identity, and Κ₁
+hashes `ids(𝑏)`, so it re-keys every step standing on it - for good.** A cache hit prevents this by
+preventing the re-run, which is why a warm store stays warm and a store that lost one layer never
+recovers. The engine half-knows: `Entry.Content` exists because "two runs of one deterministic step
+produce two Layers", and the remedy it reaches for is a *comparison* that tolerates the churn rather
+than a key that does not suffer it.
+
+**The prediction, and the test of it.** If wall-clock mtimes in deltas are the cause, then clamping
+the delta - which the engine already does whenever `SOURCE_DATE_EPOCH` is set - should mostly cure it:
+
+| Same store, same commit | Unclamped | `SOURCE_DATE_EPOCH` |
+| ----------------------- | --------- | ------------------- |
+| build                   | 104s      | **54s**             |
+| new layers a build      | 62        | **6**               |
+
+Confirmed, and not completely. Six layers still move every build and cost 54 seconds, so the clock is
+the dominant term and not the only one. That residue is the next thread.
+
+*A trap worth recording alongside it.* Two fixes appeared to fail before this, and the sandbox had
+been running for an hour while the guest binary was rebuilt underneath it - a persistent VM is
+exactly the kind of thing that makes a change look ineffective when it was never loaded. Checked
+rather than assumed: the sandbox was restarted, the fixes ran, and they still did not converge. The
+hypothesis was wrong and the check was still worth the minute it cost, because the alternative was
+attributing a real result to a stale binary or the reverse.

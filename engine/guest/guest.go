@@ -826,7 +826,7 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 	// 0755 deliberately: this becomes part of the image, and a directory a
 	// non-root user in that image cannot traverse is a build that works here
 	// and fails wherever the image is run.
-	err = os.MkdirAll(filepath.Dir(dstPath), 0o755) //nolint:gosec // see above
+	err = mkdirAllStamped(filepath.Dir(dstPath), 0o755, opts.Clamp) //nolint:gosec // see above
 	if err != nil {
 		return fmt.Errorf("create the destination directory for %s: %w", dest, err)
 	}

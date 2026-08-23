@@ -46,6 +46,20 @@ func Clamp() (time.Time, bool) {
 	return time.Unix(secs, 0), true
 }
 
+// Invented is the time a directory the build made up carries.
+//
+// **A directory nobody wrote has no time of its own**, and taking the wall clock
+// is what made an unchanged COPY of unchanged bytes produce a different layer
+// every build: identity includes mtimes (I8), so one invented ancestor re-keyed
+// every step standing on it and no store that had to rebuild ever went warm
+// again (E575, E576).
+//
+// The epoch rather than anything cleverer, because the only requirement is that
+// two machines choose the same one. Pass it to Stamp, so a build with a clamp
+// stamps these like everything else and a build without one still gets an
+// answer that does not depend on when it ran.
+var Invented = time.Unix(0, 0)
+
 // Stamp is the time to write on a file: the clamp when there is one, and the
 // file's own otherwise.
 func Stamp(clamp *time.Time, actual time.Time) time.Time {

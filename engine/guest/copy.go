@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/fstime"
 )
@@ -496,6 +497,57 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	_, err = io.Copy(out, in)
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", src, err)
+	}
+
+	return nil
+}
+
+// mkdirAllStamped makes a path and gives a deterministic time to whatever it had
+// to invent.
+//
+// **The one entry that differed.** Two layers holding the same copied tree were
+// compared entry by entry: 193 of them, identical in content, mode and time
+// except for the ancestor directory the copy created to hold the tree, which
+// carried the wall clock of whichever build made it. Layer identity includes
+// mtimes (I8), Κ₁ hashes the identities of a step's base (green paper 4.5), so
+// that one directory re-keyed every step above it and a store that once had to
+// rebuild never went warm again (E575, E576).
+//
+// Only what this call creates. A directory that was already there has a time
+// that means something - some earlier step wrote it - and stamping it would put
+// this copy's mark on somebody else's work.
+func mkdirAllStamped(path string, perm os.FileMode, clamp *time.Time) error {
+	// Deepest missing ancestor first, so the list is what MkdirAll will make.
+	var invented []string
+
+	for p := filepath.Clean(path); ; p = filepath.Dir(p) {
+		_, err := os.Lstat(p)
+		if err == nil {
+			break
+		}
+
+		invented = append(invented, p)
+
+		if parent := filepath.Dir(p); parent == p {
+			break
+		}
+	}
+
+	err := os.MkdirAll(path, perm)
+	if err != nil {
+		return err //nolint:wrapcheck // the caller says which copy this was
+	}
+
+	// Named `at` because that is what stamp() returns everywhere here, and what
+	// TestEveryMtimeIsClampedOrExcused reads to tell a stamped write from a
+	// wall-clock one.
+	at := fstime.Stamp(clamp, fstime.Invented)
+
+	for _, p := range invented {
+		// Best-effort: a directory that cannot be stamped is a layer that
+		// digests differently, which costs a rebuild. Failing the copy over it
+		// would cost the build.
+		_ = fstime.Lchtimes(p, at, at)
 	}
 
 	return nil

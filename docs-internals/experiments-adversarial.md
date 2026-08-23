@@ -26378,3 +26378,49 @@ that naming a single function misses a second spelling - its own comment says so
 arriving because `os.Chtimes` follows symlinks, and again about the rename to `Lchtimes`. A directory
 created by `MkdirAll` is a timestamp nobody wrote and the guard cannot see: **not a call it failed to
 match, but a write that never looks like one.**
+
+## E576 - what re-keys, and a fix that is not the fix
+
+E575 left a mechanism without a cause. The action cache settles it. Of 1581 entries there are **149
+distinct content digests**; 144 contents are reached by more than one key, one of them by 42, and
+1487 of 1581 keys sit on a content some other key already produced. The same work, keyed differently,
+over and over.
+
+Κ₁ says why (green paper 4.5):
+
+```text
+    Κ₁(s) ≡ ℋ(0x01 ‖ ids(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
+```
+
+`ids(𝑏)` is the *identities* of the base layers, identity includes mtimes (I8), and E575 showed an
+identity moving for reasons no build asked for. So one unstable base re-keys every step above it.
+
+**The fix that follows, made.** A copy preserves the times of everything it copies and invents the
+directories it needs to hold them; those carried the wall clock. `fstime.Invented` gives them the
+epoch, `Stamp` prefers the clamp where a build set one, and only directories this call creates are
+touched. Compared entry by entry, the two layers of E575 differed in exactly one of 193 entries, and
+it was such a directory.
+
+**And it does not fix the thing it was chasing.** A store pruned with its entries left behind still
+does not converge:
+
+| Build after a prune | Before the fix | After the fix |
+| ------------------- | -------------- | ------------- |
+| first               | 206s           | 216s          |
+| second              | 101s           | 206s          |
+| new layers a build  | 44             | 66            |
+
+So the invented directory was *a* source of identity churn and not the dominant one. Something else
+re-keys, and 205 of 265 entries name layers that are present while the build still rebuilds them.
+
+*Recorded this way round on purpose.* The clean-store check looked like a triumph - builds two and
+three added zero layers - and proved nothing, because a fresh store converged before this change as
+well. The test that discriminates is the one that reproduces the failure, and it says the fix did not
+work. E567 is the standing example of a real measurement of the wrong thing; this is the same trap
+with a correctness claim instead of a performance one, and the only defence was to go back and run
+the case that could say no.
+
+What the change is kept for is what it can be shown to do: identical inputs now produce an identical
+layer identity where one directory previously guaranteed they could not. That is determinism, it is
+worth having on its own, and it costs one invalidation of every layer identity - stated plainly
+rather than folded into a claim about cache convergence it does not support.

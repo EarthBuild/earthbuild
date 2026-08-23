@@ -26725,3 +26725,39 @@ to meet it.
 
 Which is the argument for bigger targets stated exactly: `+earthly` runs one traced step at a time
 and cannot find this. Nothing was wrong with the smaller target except that it was small.
+
+## E583 - five binaries, five formats, and one claim not made
+
+`+all-binaries` completes. It had never done so on this engine.
+
+| Output                      | Format               | Bytes      |
+| --------------------------- | -------------------- | ---------- |
+| `darwin/amd64/earthly`      | Mach-O x86_64        | 49,388,032 |
+| `darwin/arm64/earthly`      | Mach-O arm64         | 46,557,314 |
+| `linux/amd64/earthly`       | ELF x86-64           | 48,732,458 |
+| `linux/arm64/earthly`       | ELF ARM aarch64      | 45,476,013 |
+| `windows/amd64/earthly.exe` | PE32+ console x86-64 | 48,708,608 |
+
+Three executable formats and five distinct sizes, where two days ago there were five identical
+ELF ARM binaries and a green build. Six `go build` steps ran, where two did.
+
+Four defects stood between those two states, and every one of them was invisible to `+earthly`:
+
+* an artifact saved by a glob could not be named by a consumer (E580);
+* a build argument was substituted into command text and never exported, so `go build` never saw a
+  `GOOS` (E580);
+* five packages had never been compiled for a platform they ship to, because nothing had ever
+  cross-compiled them (E581);
+* a wedged step could not print the diagnosis written for it (E582).
+
+**And the claim not made.** The deadlock did not recur on this run: `syscall tracer stopped` appears
+zero times, so the release path added in E582 was never exercised. It is intermittent, it has been
+seen twice, and a run that did not hang is not evidence that it cannot. What is fixed is a build's
+ability to hang for ever; whether it now fails *well* is untested, and saying otherwise would be
+reading a green run as a proof.
+
+*The pattern across all four.* None of them failed. A glob published nothing and the failure surfaced
+one target away; an unexported argument produced wrong binaries and a zero exit; an uncompilable
+package was never compiled; a hang printed nothing at all. **A bigger target does not find harder
+bugs - it finds the ones a smaller target cannot make visible**, and the cost of not running one is
+paid in artifacts nobody checks the format of.

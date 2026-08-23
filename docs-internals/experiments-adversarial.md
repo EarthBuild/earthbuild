@@ -26658,13 +26658,13 @@ that could not compile was not a thing anybody could discover.
 
 Fixing each one uncovered the next, which is the shape of a constraint nobody has ever applied:
 
-| Package         | What only exists on unix                      |
-| --------------- | --------------------------------------------- |
-| `engine/fdpass` | `SCM_RIGHTS` over `AF_UNIX` - the whole point  |
-| `engine/layer`  | `observedOwner`, a test seam in a `_unix` file |
+| Package         | What only exists on unix                                       |
+| --------------- | -------------------------------------------------------------- |
+| `engine/fdpass` | `SCM_RIGHTS` over `AF_UNIX` - the whole point                  |
+| `engine/layer`  | `observedOwner`, a test seam in a `_unix` file                 |
 | `engine/store`  | `unix.Statfs`, `syscall.Stat_t` - added by E574 this same week |
-| `engine/guest`  | `syscall.Kill`, `SysProcAttr.Setpgid`         |
-| `engine/fdpass` | `ErrNoDescriptorChannel`, declared on one side only |
+| `engine/guest`  | `syscall.Kill`, `SysProcAttr.Setpgid`                          |
+| `engine/fdpass` | `ErrNoDescriptorChannel`, declared on one side only            |
 
 The third is worth pausing on: the collector's own `Free` and `occupies` were written *this week*,
 against a `go build ./...` that only ever meant the host. Portability is not a property somebody

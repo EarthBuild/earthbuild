@@ -2,7 +2,6 @@ package store
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -75,7 +74,7 @@ func TestAnIndexThatLagsTheStoreCatchesUp(t *testing.T) {
 
 	id := ir.NodeID{9}
 
-	if err := os.MkdirAll(filepath.Join(LayerStore(root).Path(id)), 0o750); err != nil {
+	if err := os.MkdirAll(LayerStore(root).Path(id), 0o750); err != nil {
 		t.Fatal(err)
 	}
 

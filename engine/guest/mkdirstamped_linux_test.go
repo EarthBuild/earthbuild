@@ -87,7 +87,7 @@ func TestAnExistingDirectoryIsNotRestampedByUs(t *testing.T) {
 	root := t.TempDir()
 
 	existing := filepath.Join(root, "earthly")
-	if err := os.MkdirAll(existing, 0o755); err != nil {
+	if err := os.MkdirAll(existing, 0o750); err != nil {
 		t.Fatal(err)
 	}
 

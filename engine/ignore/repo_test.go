@@ -55,7 +55,7 @@ func TestNoTrackedFileIsExcludedFromTheContext(t *testing.T) {
 
 	var dropped []string
 
-	for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+	for rel := range strings.SplitSeq(strings.TrimRight(string(out), "\x00"), "\x00") {
 		if rel == "" || implicit[filepath.Base(rel)] {
 			continue
 		}

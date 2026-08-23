@@ -23,6 +23,26 @@ Where images pulled from a registry are kept, if it should be somewhere other th
 
 Default: inside `EARTH_CACHE_DIR`.
 
+### `EARTH_TRACE`
+
+Whether a step's reads are watched.
+
+Watching is how a step earns a second-tier cache hit: the engine records what the step actually
+looked at, so the same step over a *different* base can reuse the result when nothing it read
+differs. That is worth a great deal on a build whose bases move and nothing on a build that always
+misses.
+
+It is paid for on every intercepted system call. Measured on a step that reads four thousand small
+files and does nothing else, watching costs twenty-five times; measured on this repository's own test
+suite, it cost nothing that could be seen behind a virtual machine. Both are true of what they
+measured, which is why the switch exists: the honest way to know what it costs on *your* build is to
+run it both ways.
+
+Set to `0` to run steps unwatched. Every step then misses the second tier and is cached only on its
+declared inputs, which is correct and slower in the way that usually matters more.
+
+Default: on.
+
 ### `EARTH_SCRATCH_TMPFS`
 
 Puts the scratch directory on a tmpfs of the given size, as `4g` or `512m`.

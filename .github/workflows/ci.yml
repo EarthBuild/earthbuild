@@ -426,6 +426,28 @@ jobs:
             | awk '{s[$2]+=$3; n[$2]++} END {for (k in s) printf "%9.2fs %5d  %s\n", s[k], n[k], k}' \
             | sort -rn | head -12
 
+      - name: The same target, unwatched
+        # The phase list says the engine's own work is 2.3s of 335 - scheduling,
+        # materialising, capturing and planning together - and the rest is the
+        # step running. So what is left to explain is inside the sandbox, and
+        # the one thing this sandbox does that buildkit's does not is watch every
+        # system call.
+        #
+        # Measured with it off rather than reasoned about, which is the whole of
+        # what E589 taught: a mechanism's cost in a benchmark says nothing about
+        # its cost in a workload.
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          EARTH_GUESTD: /tmp/earth-guestd
+          EARTH_TRACE: "0"
+        run: |-
+          set -euo pipefail
+          start=$(date +%s)
+          /tmp/earth build --engine=native +unit-test > /tmp/untraced.log 2>&1 || true
+          echo "native +unit-test unwatched took $(( $(date +%s) - start ))s"
+          tail -6 /tmp/untraced.log
+
       - name: The same target through buildkit, on the same machine
         # **The comparison every number so far has been missing.** 301s against
         # earthly's 147s compared two machines: a hosted runner and a laptop

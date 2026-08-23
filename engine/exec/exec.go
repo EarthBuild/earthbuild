@@ -555,7 +555,7 @@ func (e *Executor) Run(
 		// Not for an interactive step. A person at a prompt is not producing a
 		// layer anybody will reuse, and every keystroke's worth of shell
 		// completion would trap.
-		Trace: !n.Op.Interactive,
+		Trace: tracing() && !n.Op.Interactive,
 		// Only for a step that asked. Handing a terminal to every step would put
 		// a prompt's descriptor in front of a hundred non-interactive ones and
 		// make each of them the sole holder of it (E192).
@@ -947,6 +947,24 @@ func (e *Executor) Degraded() string {
 // GuestNote says the sandbox agent is older than this engine, or nothing.
 //
 // Asked of the executor rather than computed at the call site, because the
+// EnvTrace turns off watching what a step reads.
+//
+// **A lever and a measurement.** Observation is how a step earns an L2 hit - a
+// result reused over a base it was not computed on - and it is paid for on every
+// intercepted syscall. The price has been measured twice and read wrongly both
+// times: twenty-five-fold on a step that only reads (E588), and nothing at all
+// on a test suite where the hypervisor was the whole story (E589, E598). With
+// the hypervisor gone, the engine's own overhead on `+unit-test` is 2.3s of
+// 335s and the rest is the step itself running - so what remains to explain is
+// inside the sandbox, and this is the switch that says whether it is this.
+//
+// On unless switched off, because a build that cannot earn an L2 hit is slower
+// in the way that matters more.
+const EnvTrace = "EARTH_TRACE"
+
+// tracing reports whether steps are watched.
+func tracing() bool { return os.Getenv(EnvTrace) != "0" }
+
 // executor is what knows where the guest came from - `$EARTH_GUESTD`, or beside
 // this binary - and a note naming a different file than the one that ran would
 // be worse than none (E499).

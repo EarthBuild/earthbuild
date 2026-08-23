@@ -2662,14 +2662,14 @@ var Mutants = []Mutant{
 	{
 		Name:        "exec: an ordinary step asking to be observed (E480)",
 		File:        "engine/exec/exec.go",
-		Anchor:      "\t\tTrace: !n.Op.Interactive,",
+		Anchor:      "\t\tTrace: tracing() && !n.Op.Interactive,",
 		Replacement: "\t\tTrace: false,",
 		Package:     "./engine/exec/",
 	},
 	{
 		Name:        "exec: an interactive step left untraced (E480)",
 		File:        "engine/exec/exec.go",
-		Anchor:      "\t\tTrace: !n.Op.Interactive,",
+		Anchor:      "\t\tTrace: tracing() && !n.Op.Interactive,",
 		Replacement: "\t\tTrace: true,",
 		Package:     "./engine/exec/",
 	},

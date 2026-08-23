@@ -27394,3 +27394,28 @@ the tracer added one hit *here*, not that it is worth one hit.
 What would answer it is a change low in the stack, where everything downstream re-keys and only
 observation can rescue it. That is the next measurement, and it is a different Earthfile rather than
 a different flag.
+
+## E603 - native by default, so the suite becomes the differential
+
+`--engine=native` has been a flag since E593 and the default stayed `buildkit`, on the grounds that
+flipping it changes what every user of the branch gets from an engine that cannot run `LOCALLY`,
+cannot emulate another architecture, and needs a privilege Ubuntu 24.04 does not grant.
+
+That reasoning is about shipping. This branch is not shipping; it is looking for divergence, and
+there is a far better differential available than any test written on purpose: **a suite that has
+been run against buildkit for years.** Every job in this repository's CI becomes a comparison the
+moment the default moves, and none of them was written to flatter either engine.
+
+So the default is `native` here. What that buys is coverage nobody has to author - `+test-misc`, ten
+`+test-no-qemu` groups, five `+examples`, the podman and docker suites - each of them a claim about
+what a build engine does, made by somebody who had no idea this one would ever run it.
+
+**The pull request is expected to go red, and that is the output rather than a problem.** A green
+suite would mean the flag had not reached the jobs; a red one names, per target, where the two
+engines disagree. The distinction worth keeping is between a build that fails because this engine
+lacks a capability - `LOCALLY`, emulation, a daemon - and one that fails because it does the same
+thing differently. The first is a list already known; the second is what this is for.
+
+*What it does not change.* `--engine=buildkit` still works and the report-only job still uses it for
+the head-to-head, so the numbers in E601 remain reproducible. Nothing about this makes the native
+engine ready; it makes its gaps enumerable.

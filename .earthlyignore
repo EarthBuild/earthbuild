@@ -1,3 +1,14 @@
 build
 earthfile2llb/parser/*.go
 .git
+
+# Generated content, every line of it gitignored and none of it part of the
+# repository. It was in the build context until somebody measured: 958MB of
+# node_modules and 81MB of test fixtures, hashed into the cache key of every
+# COPY on every build.
+#
+# Slow, and worse than slow. A cache key that includes untracked files is a key
+# that depends on what a machine happens to have lying about, so a fresh clone
+# and a developer's checkout of one commit never share a result (E562).
+**/node_modules
+**/testdata/bigtree-*

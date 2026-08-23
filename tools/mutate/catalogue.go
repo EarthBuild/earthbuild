@@ -1653,8 +1653,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: packing part of a layer without reading the rest (E338)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\tentries, _, err := walkNeeding(root, len(want) == 0)",
-		Replacement: "\tentries, _, err := walkNeeding(root, true)",
+		Anchor:      "\tentries, _, err := walkNeeding(root, len(want) == 0, nil)",
+		Replacement: "\tentries, _, err := walkNeeding(root, true, nil)",
 		Package:     "./engine/layer/",
 	},
 	{

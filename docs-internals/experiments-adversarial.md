@@ -25711,3 +25711,67 @@ called the state healthy. The second read `kern.maxfilesperproc` against an idle
 per-process cap - arithmetic that did not survive the peak. Both were answers to "which limit is
 full", and the limit was not full: what was needed was to ask what the host was holding *for*, which
 is a question about the mechanism rather than about the numbers.
+
+## E562 - the build context was 1.1GB of things the repository does not contain
+
+A warm `earth +earthly` took eight seconds with everything cached: 91 hits, 0 misses, nothing to do.
+The phase list said `mat:markers`, 7.1 seconds, and that was the wrong answer twice over - it was
+concurrent with the real work and it disappeared without moving the wall clock.
+
+Instrumenting what planning actually does:
+
+```text
+    context:digest   7.265s   42 calls        the wall clock is 7.33s
+    run              6.829s    3 calls        overlapped, not the path
+    pin:token        0.308s
+```
+
+Digesting the build context *is* the build. And what was in it:
+
+```text
+    examples   958MB   3.288s      examples/**/node_modules
+    engine     167MB   3.923s      engine/**/testdata/bigtree-*
+    everything else            milliseconds
+```
+
+Both are gitignored. `git ls-files examples/next-js/node_modules` returns nothing: it is `npm
+install` output somebody left behind. `testdata/bigtree-*` is a fixture this repository's own tests
+generate and `.gitignore` excludes.
+
+**Slow, and worse than slow.** A COPY's key is the digest of what it names, so untracked local files
+are *in the key*: a fresh clone and a developer's checkout of one commit compute different keys and
+share no cache. Every layer this engine produces was made reproducible over four experiments (E545 to
+E549), and the thing they are made from was not.
+
+Two faults, and they compound:
+
+* **The engine never read `.earthlyignore`.** The repository has one, tracked, listing `build` and
+  `.git`, and the native engine had no ignore mechanism at all. Now it uses
+  `moby/patternmatcher` with `ignorefile.ReadAll` - the same library and the same file names as the
+  reference engine's `buildcontext/excludes.go`, because a context that means one thing under one
+  engine and another under the other is worse than no ignore file.
+* **The ignore file did not list the generated content**, and honouring it alone changed almost
+  nothing: `build` and `.git` are siblings of the copied directories rather than inside them.
+
+Together:
+
+```text
+                        warm +earthly      context:digest
+    before                    8.0s              6.413s
+    after                     1.4s              0.139s
+```
+
+**5.7x on the build, 46x on the digest**, and against `earthly`'s 17.5s on the same target it is
+about twelve times faster.
+
+*Three scopes for one parse, and the first two were wrong.* The ignore file was first read inside
+`Excludes` - once per entry of the walk, which would have made the exclusion cost more than what it
+excludes, and would have been reported as "the optimisation made it slower". Then once per digest,
+which is 42 reads of one small file. It is now read once per context root, which is what the answer
+depends on.
+
+*And a measurement invalidated by the measurer.* Sizing the prize, I wrote an `.earthignore` beside
+the `.earthlyignore` that was already there. The engine correctly refuses both at once, `Read`
+returned an error, the excluder fell back to excluding nothing, and three runs of timings said the
+change had achieved nothing. The mechanism under test reported the collision plainly; the harness
+around it discarded the message and kept the number.

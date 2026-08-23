@@ -15,9 +15,11 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -44,6 +46,16 @@ type Capture struct {
 	// a fleet scheduler that estimates time but not bytes places work as though
 	// transfers were free.
 	Bytes int64
+	// Marked says the tree carries whiteout markers - a deletion recorded as a
+	// `.wh.` entry rather than as an absence.
+	//
+	// **Answered by the walk that was happening anyway.** Materialising a layer
+	// has to know this, and the only way to find out is to look at every entry;
+	// a layer that has just been captured has *been* looked at, so asking again
+	// later is a second walk of a tree whose answer has not changed. The cost of
+	// not carrying it was 7.1 seconds of an 8 second build, in 36 scans of
+	// layers that had each been walked once already (E561).
+	Marked bool
 }
 
 // Take captures the tree at root.
@@ -148,7 +160,30 @@ func capture(entries []entry, size int64, uids, gids IDMap) Capture {
 		e.hash(&content.Encoder, withoutTimes)
 	}
 
-	return Capture{ID: full.Sum(), Content: content.Sum(), Bytes: size}
+	return Capture{ID: full.Sum(), Content: content.Sum(), Bytes: size, Marked: marked(entries)}
+}
+
+// whPrefix is how a deletion is carried between machines: an entry whose name
+// says the path it names is gone.
+//
+// The OCI spelling, and the one this engine's own packing uses. A layer with
+// none of these can be mounted as it stands, which is the question `Marked`
+// exists to answer without a second walk.
+const whPrefix = ".wh."
+
+// marked reports whether any entry records a deletion.
+//
+// Over the entries the capture already collected, so it costs a pass over a
+// slice rather than a pass over a filesystem - which on a shared store is the
+// difference between microseconds and a fifth of a second (E561).
+func marked(entries []entry) bool {
+	for _, e := range entries {
+		if strings.HasPrefix(path.Base(e.path), whPrefix) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Digest returns just the layer identity and size.
@@ -242,7 +277,33 @@ func kindOf(mode uint32) byte {
 	}
 }
 
-func walk(root string) ([]entry, int64, error) { return walkNeeding(root, true) }
+func walk(root string) ([]entry, int64, error) { return walkNeeding(root, true, nil) }
+
+// Excluder decides which paths a walk leaves out, relative to its root and
+// slash-separated.
+//
+// An interface rather than the matcher itself, because `engine/ignore` knows
+// about ignore files and this package knows about trees, and neither needs the
+// other's vocabulary.
+type Excluder interface {
+	Excludes(rel string) bool
+}
+
+// TakeIgnoring captures a tree, leaving out what the excluder names.
+//
+// **What a build context does not include.** Everything else here digests what
+// is there; a context digests what the build *said* is there, and the
+// difference is untracked local files - a `node_modules` somebody installed, a
+// build directory - which otherwise put the machine into the key and stop two
+// checkouts of one commit sharing anything (E562).
+func TakeIgnoring(root string, ex Excluder) (Capture, error) {
+	entries, size, err := walkNeeding(root, true, ex)
+	if err != nil {
+		return Capture{}, err
+	}
+
+	return capture(entries, size, IDMap{}, IDMap{}), nil
+}
 
 // walkNeeding is walk, optionally without reading any file's contents.
 //
@@ -255,7 +316,7 @@ func walk(root string) ([]entry, int64, error) { return walkNeeding(root, true) 
 //
 // The contents of what survives the filter are filled in afterwards, by
 // `fillContents`, which is the only place that knows what survived.
-func walkNeeding(root string, contents bool) ([]entry, int64, error) {
+func walkNeeding(root string, contents bool, ex Excluder) ([]entry, int64, error) {
 	// A root that is itself a file is handled whole by walkOne, contents
 	// included, and its entry is named by its basename rather than by a path
 	// under the root - so filling it again would look for `f/f`. The single-file
@@ -264,7 +325,7 @@ func walkNeeding(root string, contents bool) ([]entry, int64, error) {
 		return walkOne(root)
 	}
 
-	entries, size, err := walkMetadata(root)
+	entries, size, err := walkMetadata(root, ex)
 	if err != nil || !contents {
 		return entries, size, err
 	}
@@ -278,7 +339,7 @@ func walkNeeding(root string, contents bool) ([]entry, int64, error) {
 }
 
 // walkMetadata is the ordered half: every entry, without any file's contents.
-func walkMetadata(root string) ([]entry, int64, error) {
+func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 	// A root that is itself a file is digested as one entry named by its base.
 	// The walk below skips its own root - correct for a directory, where the root
 	// is the layer rather than a member of it - which for a file meant hashing
@@ -310,6 +371,18 @@ func walkMetadata(root string) ([]entry, int64, error) {
 
 		if rel == "." {
 			return nil // the root itself is the layer, not a member of it
+		}
+
+		// **Whole subtrees, not entry by entry.** An excluded directory is not
+		// descended into, which is the difference between skipping a
+		// `node_modules` and walking it to discard every file - 958MB and three
+		// seconds on this repository's own examples (E562).
+		if ex != nil && ex.Excludes(filepath.ToSlash(rel)) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+
+			return nil
 		}
 
 		info, err := d.Info()

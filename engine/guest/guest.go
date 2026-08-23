@@ -514,6 +514,21 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			return Response{Err: err.Error()}
 		}
 
+		// **The capture already knows.** Materialising a layer has to find out
+		// whether it carries deletion markers, and the only way to find out is
+		// to look at every entry - so a layer that has just been walked is a
+		// layer whose answer is in hand. Written down here, it is never asked
+		// again; not written down, it was asked on every materialise, and cost
+		// 7.1 seconds of an 8 second build in 36 scans of trees that had each
+		// been walked once already (E561).
+		//
+		// Only the negative is recorded. A layer *with* markers has to be
+		// translated whatever anybody noted, and the translation is what leaves
+		// the durable evidence.
+		if !c.Marked && s.LayerDir != "" {
+			store.DirStore(s.LayerDir).NoteUnmarked(c.ID)
+		}
+
 		return Response{Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes}
 
 	case KindPackImage:

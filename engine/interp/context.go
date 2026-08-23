@@ -6,9 +6,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
+	"github.com/EarthBuild/earthbuild/engine/ignore"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Option configures a build.
@@ -134,7 +137,14 @@ func resolveContext(root, src, where string) (*ir.Node, error) {
 	// Digest the named path and nothing else. Digesting the whole context would
 	// make an unrelated edit invalidate every COPY in the Earthfile, which is how
 	// a cache stops being worth having.
-	c, err := layer.Take(abs)
+	// Timed because it is the largest thing planning does and nothing said so.
+	// A warm build of this repository spends most of its wall clock here, and
+	// the phase list did not mention it - which is how a cost gets attributed
+	// to whatever *is* instrumented next to it (E562).
+	endDigest := timing.Phase("context:digest", src)
+	c, err := layer.TakeIgnoring(abs, excluderFor(root, abs))
+	endDigest()
+
 	if err != nil {
 		return nil, fmt.Errorf("read %s from the build context: %w", src, err)
 	}
@@ -323,4 +333,70 @@ type Artifacts func(ref, where string) (dir string, err error)
 // worth naming for the same reason.
 func WithArtifacts(fn Artifacts) Option {
 	return func(o *options) { o.artifacts = fn }
+}
+
+// contextExcluder applies a context's ignore file to a path inside it.
+//
+// **The patterns are written against the context root and the walk is under a
+// subdirectory of it**, so `examples/next-js/node_modules` in the ignore file
+// has to match `next-js/node_modules` when the walk started at `examples`. The
+// translation happens here rather than in the matcher, which is right to know
+// only about the root.
+//
+// Read once per digest rather than once per build, which is a stat of a file
+// that is nearly always absent - and reading it per build would mean caching an
+// ignore file that a caller may have just edited.
+type contextExcluder struct {
+	m    ignore.Matcher
+	from string
+}
+
+// matchers is one parsed ignore file per context root, for this process.
+//
+// **Per process, which is per build.** The engine's front end is a one-shot
+// command: it reads the ignore file, plans, builds and exits, so a file edited
+// between two builds is read again by the second one. A long-lived caller that
+// wanted to see an edit mid-process would need a different rule, and there is
+// no such caller.
+var matchers sync.Map // root -> ignore.Matcher
+
+// excluderFor reads a context's ignore file once and reuses it.
+//
+// Three scopes were possible here and the first two were wrong. Once per
+// *entry* is what the first version did - `Excludes` is called for every path
+// in a walk, so parsing a file there costs more than the files it excludes, and
+// it would have surfaced as "the optimisation made it slower" and been
+// believed. Once per *digest* is 42 reads of one small file for this
+// repository. Once per root is the one that matches what the answer depends on.
+func excluderFor(root, under string) contextExcluder {
+	m, cached := matchers.Load(root)
+	if !cached {
+		// A malformed ignore file excludes nothing rather than everything. The
+		// build then digests more than it should, which is slow and correct;
+		// the opposite silently drops files a COPY named.
+		read, err := ignore.Read(root)
+		if err != nil {
+			read = ignore.Matcher{}
+		}
+
+		m, _ = matchers.LoadOrStore(root, read)
+	}
+
+	matcher, _ := m.(ignore.Matcher)
+
+	from, err := filepath.Rel(root, under)
+	if err != nil || from == "." {
+		from = ""
+	}
+
+	return contextExcluder{m: matcher, from: from}
+}
+
+// Excludes reports whether a path under the walk's root is left out.
+func (c contextExcluder) Excludes(rel string) bool {
+	if c.from == "" {
+		return c.m.Excludes(rel)
+	}
+
+	return c.m.Excludes(filepath.ToSlash(filepath.Join(c.from, rel)))
 }

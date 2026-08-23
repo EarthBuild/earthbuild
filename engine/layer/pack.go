@@ -91,7 +91,7 @@ func PackOwned(root string, w io.Writer, want []string, own map[string]Owner) er
 	// **Metadata first, contents after the filter.** A pack of a whole layer
 	// needs every file read; a pack of part of one needs the part. Reading the
 	// rest made a fragment cost the size of the layer it came from (E338).
-	entries, _, err := walkNeeding(root, len(want) == 0)
+	entries, _, err := walkNeeding(root, len(want) == 0, nil)
 	if err != nil {
 		return fmt.Errorf("read the layer at %s: %w", root, err)
 	}

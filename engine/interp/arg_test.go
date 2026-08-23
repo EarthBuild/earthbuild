@@ -105,11 +105,28 @@ func TestArgValuesReachTheKey(t *testing.T) {
 	}
 }
 
-// An ARG that is declared and never used must not change anything.
+// An ARG that is declared and never mentioned still reaches the step, because a
+// build argument *is* an environment variable there.
 //
-// Otherwise adding an argument for one target invalidates every step in the
-// file, and people learn not to add arguments.
-func TestUnusedArgsDoNotChangeTheGraph(t *testing.T) {
+// **This asserted the opposite, and the opposite is not what the reference
+// does.** The rationale was a good one - "otherwise adding an argument for one
+// target invalidates every step in the file, and people learn not to add
+// arguments" - and it described a property this engine had and earthly does not.
+// Differentially, on an argument no command names:
+//
+//	ARG NEVER_MENTIONED=surprise
+//	RUN env | grep NEVER_MENTIONED || echo NOT-IN-ENV
+//
+//	earthly   NEVER_MENTIONED=surprise
+//	earth     NOT-IN-ENV
+//
+// So a declared argument changes the environment, the environment is part of
+// Κ₁ (green paper 4.5), and the graph moves. The cost of the old property was
+// not cache-friendliness: `+all-binaries` built five platforms, reported
+// success, and wrote five identical linux/arm64 binaries - the darwin ones and
+// the .exe included - because `go build` reads GOOS from an environment that
+// never had it (E580).
+func TestADeclaredArgReachesTheStepEvenWhenNothingNamesIt(t *testing.T) {
 	t.Parallel()
 
 	with, err := interp.Build(versioned+"\nbuild:\n    FROM alpine\n    ARG unused=1\n    RUN make\n", "build")
@@ -122,8 +139,15 @@ func TestUnusedArgsDoNotChangeTheGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if with.Graph.Root.ID() != without.Graph.Root.ID() {
-		t.Error("declaring an unused argument changed the graph")
+	if with.Graph.Root.ID() == without.Graph.Root.ID() {
+		t.Error("a declared argument did not reach the step:" +
+			"\n  it is an environment variable there, so the two graphs must differ")
+	}
+
+	for _, n := range with.Graph.Nodes() {
+		if strings.Contains(n.Meta.Description, "RUN make") && n.Op.Env["unused"] != "1" {
+			t.Errorf("the argument is not in the step's environment: %v", n.Op.Env)
+		}
 	}
 }
 

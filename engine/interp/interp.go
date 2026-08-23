@@ -1957,9 +1957,44 @@ func (p *Plan) savedAt(from *ir.Node, name string) string {
 		if a.Path == want || strings.HasSuffix(a.Path, want) {
 			return a.Path
 		}
+
+		// A pattern, matched against what the consumer asked for. `SAVE
+		// ARTIFACT ./*` in /s is recorded as `/s/*`, because the files it will
+		// match do not exist until the step has run - so the name is checked
+		// against the pattern rather than the other way round, and `+saver/one`
+		// is /s/one.
+		//
+		// A star does not cross a separator, here as it does not in the guest's
+		// own matcher: `./*` publishes what is beside it, not what is under it.
+		if at, ok := underPattern(a.Path, want); ok {
+			return at
+		}
 	}
 
 	return want
+}
+
+// underPattern resolves a name against a pattern a target saved under.
+//
+// The pattern's own directory plus the name asked for, accepted only if the
+// pattern matches it: that keeps `/s/*` answering for `one` and refusing
+// `nested/deep`, without this having to know what the step produced.
+func underPattern(pattern, want string) (string, bool) {
+	if !strings.ContainsAny(pattern, "*?[") {
+		return "", false
+	}
+
+	at := filepath.Join(filepath.Dir(pattern), strings.TrimPrefix(want, "/"))
+
+	// An unparseable pattern is not a match and not an error: the reference
+	// fails below naming what it looked for, which is more use than a message
+	// about syntax in a line the author may not have written.
+	ok, err := filepath.Match(pattern, at)
+	if err != nil || !ok {
+		return "", false
+	}
+
+	return at, true
 }
 
 // copyArgs strips COPY's flags, refusing any that change what is copied.

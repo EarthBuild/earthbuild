@@ -26579,3 +26579,65 @@ records the engine writes. What remains untested is that Κ₂'s key takes `refs
 observation, and refs are layer identities, which churn for exactly the reason E577 describes. That
 is a candidate and is written here as one, unmeasured, because the two above also looked like more
 than that.
+
+## E580 - a bigger target, and two ways a build can succeed at being wrong
+
+`+earthly` builds one binary. `+all-binaries` builds five, for linux amd64 and arm64, darwin amd64
+and arm64, and windows. Choosing it found two defects in one afternoon, and neither announced itself.
+
+**A glob on the save side publishes nothing anybody can name.** Every per-platform target ends
+`SAVE ARTIFACT ./*`, and the artifact is recorded as the pattern, because the files it matches do not
+exist until the step has run. A consumer asking for `+earthly-linux-amd64/earthly` matched neither
+the recorded name (`*`) nor the recorded path (`/earth/*`), fell through to the name as written, and
+asked for `/earthly` - which the target does not have. Reported one target away from the `SAVE` that
+was meant to publish it, as `COPY /earthly: nothing in that target has it`.
+
+Reproduced in ten lines, which is the shape worth keeping:
+
+```text
+    saver:    WORKDIR /s ; RUN echo a > one ; SAVE ARTIFACT ./*
+    consumer: COPY +saver/one ./one        ->  COPY /one: nothing in that target has it
+```
+
+The fix resolves a name against the pattern rather than the other way round: `/s/*` answers for
+`one` with `/s/one`, and refuses `nested/deep`, because a star does not cross a separator here any
+more than it does in the guest's own matcher.
+
+**A build argument is an environment variable, and here it was not.** With the glob fixed the build
+succeeded, and produced five identical binaries:
+
+```text
+    build/linux/amd64/earthly     ELF 64-bit ARM aarch64
+    build/darwin/arm64/earthly    ELF 64-bit ARM aarch64
+    build/windows/amd64/earthly.exe   ELF 64-bit ARM aarch64
+```
+
+Two `go build` steps ran for five platforms. `GOOS` and `GOARCH` appear nowhere in that command -
+the toolchain reads them from the environment - so four of the five collapsed onto one cache key,
+and the fifth differed only because `-o build/earthly.exe` changes the text.
+
+The differential is one line of Earthfile:
+
+```text
+    ARG NEVER_MENTIONED=surprise
+    RUN env | grep NEVER_MENTIONED || echo NOT-IN-ENV
+
+    earthly   NEVER_MENTIONED=surprise
+    earth     NOT-IN-ENV
+```
+
+Even an argument no command names is exported. So a declared argument reaches the step, and this
+engine substituted it into command text instead - identical wherever the command mentions the
+argument, and silently wrong exactly where it does not.
+
+*The test that had to change, and why that is not weakening it.*
+`TestUnusedArgsDoNotChangeTheGraph` asserted that declaring an unused argument leaves the graph
+alone, for a good reason: "otherwise adding an argument for one target invalidates every step in the
+file, and people learn not to add arguments". It described a property this engine had and the
+reference does not. An argument is environment, environment is in Κ₁ (4.5), so the graph moves - and
+the price of the old property was five wrong binaries and a green build. The test now asserts the
+reference's behaviour and carries the differential that settled it.
+
+**Both defects share a shape**: the build succeeded. A missing artifact failed loudly one target
+later; a missing environment did not fail at all. Every target bigger than the last has found
+something, and this one found the kind that a passing build cannot tell you about.

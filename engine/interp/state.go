@@ -98,12 +98,41 @@ func (s *state) clone() *state {
 // step was reached, and a later ENV must not reach backwards into a node already
 // built. Sharing the map made every step in a recipe see the last declaration.
 func (s *state) envFor() map[string]string {
-	if len(s.env) == 0 {
+	if len(s.env) == 0 && len(s.declared) == 0 {
 		return nil
 	}
 
-	out := make(map[string]string, len(s.env))
+	out := make(map[string]string, len(s.env)+len(s.declared))
+
+	// **A build argument is an environment variable inside the step**, which the
+	// reference does and this did not. Substituting `$GOOS` into a command is
+	// not the same thing and looks the same wherever the command names the
+	// argument - and cross-compilation is the case where it does not: `ARG
+	// GOOS` beside a `go build` that mentions neither, because the toolchain
+	// reads the environment. `+all-binaries` built five platforms, reported
+	// success and wrote five identical linux/arm64 binaries (E580).
+	//
+	// The names this recipe declared, not everything in scope: an ARG line is
+	// what says a name belongs to this step's world, and exporting inherited
+	// values a recipe never mentioned would put a caller's vocabulary into a
+	// command that never asked for it.
+	// The keys carry the scope that declared them - `local:` or `global:` - and
+	// the environment wants the name.
+	for key := range s.declared {
+		name := key[strings.IndexByte(key, ':')+1:]
+		if v, ok := s.args[name]; ok {
+			out[name] = v
+		}
+	}
+
+	// ENV last, because it is the stronger statement: `ARG` declares an input
+	// and `ENV` sets the image's own environment, so where both name one thing
+	// the image's is what a step - and anything built from it - should see.
 	maps.Copy(out, s.env)
+
+	if len(out) == 0 {
+		return nil
+	}
 
 	return out
 }

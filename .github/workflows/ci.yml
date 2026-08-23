@@ -428,6 +428,16 @@ jobs:
         # a cost the native engine does not have and should not be hidden.
         continue-on-error: true
         timeout-minutes: 30
+        env:
+          # A binary built from this branch names a buildkitd image that was
+          # never published for it, so it reaches for
+          # `buildkitd-dev-giles-post-buildkit-engine` and docker says "manifest
+          # unknown". The same pin `fast-check-and-build` uses.
+          #
+          # Worth noticing rather than only fixing: the native engine needed no
+          # image, no daemon and no registry to run three steps earlier in this
+          # job.
+          EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
         run: |-
           set -euo pipefail
           start=$(date +%s)

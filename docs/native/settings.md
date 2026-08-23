@@ -89,6 +89,21 @@ per interrupted build until the machine runs out. Zero means never stop.
 
 Default: `30m`.
 
+### `EARTH_CLONE_EXPORTS`
+
+Whether a saved artifact is copied by the filesystem rather than by reading and writing its bytes.
+
+On APFS a clone shares the extents and diverges on the first write, so an exported file costs almost
+nothing to produce and behaves exactly like a copy when you edit it. A 45MB binary went from 0.24s to
+0.015s. Where the store and the destination are on different volumes, or the filesystem cannot clone,
+the copy happens as it always did.
+
+Set to `0` to copy always. The switch exists because cloning has been blamed for a fault once before
+and turned out to be innocent, and a build that can be told to copy is one whose next mystery can be
+bisected in a single command.
+
+Default: on.
+
 ### `EARTH_GUEST_DENTRY_LIMIT`
 
 How many looked-up names a sandbox holds before it releases them, as a count.

@@ -25903,3 +25903,46 @@ destination's mtime is the trust that has been deferred once already this sessio
 and roughly three-quarters of a second remains outside all of them. It is recorded here as
 unaccounted rather than assigned, which is the whole point of the exercise: the instrument's job is to
 say where time goes, and where it does not know, to say that.
+
+## E566 - the artifacts were exported twice, and the log said so before anybody read it
+
+Following E565's `export 0.472s`, the span between a plan and the first step was timed too. It is
+`0.000s`: the executor, the action cache, the profile store and the blob question are free, and the
+whole of the unaccounted time is elsewhere.
+
+Splitting the export into its two halves is where it stopped being about milliseconds:
+
+```text
+    export:stage    0.346s   /earthly/build/earthly      the guest, into the store
+    export:copyout  0.018s   build/linux/arm64/earthly   the store, into the project
+    export          0.511s   +earthly
+    export:stage    0.390s   /earthly/build/earthly      … again
+    export:copyout  0.014s   build/linux/arm64/earthly   … again
+```
+
+**Every artifact was written out twice.** `build` calls `runPlan`, which exports, and then calls
+`exportAll` itself - two calls with identical arguments, one of them pure waste since the second
+produces exactly the bytes the first did.
+
+*Two calls that agree are the hardest kind of duplicate to see*, because nothing about the result is
+wrong: the artifact is correct, the build succeeds, and the only evidence is a timing log printing
+the same sequence twice. It has been there since the engine's first commit.
+
+The other half is a copy that need not move bytes at all. `copyOut` read a 45MB artifact into memory
+and wrote it back; APFS shares the extents instead and diverges on the first write, which is exactly
+what a caller of a *copy* is entitled to expect and what makes it safe for a file the user then
+edits. Staged beside the destination and renamed over it, because `clonefile` refuses a destination
+that exists and remove-then-clone is a window in which the last build's artifact is gone and this
+one has not arrived.
+
+```text
+    copyout   0.24s  ->  0.015s
+    warm build 1.62-1.79s  ->  1.20-1.31s
+```
+
+Against `earthly` on the same target, both warm: about seventeen times.
+
+*The lesson is about instruments rather than exports.* Three sessions of optimisation looked at the
+scheduler, which is eight milliseconds of the build, because that is where the phases were. The
+duplicate was visible the moment the log covered the stage that contained it - not deduced, not
+suspected, just printed twice.

@@ -318,10 +318,15 @@ func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os
 		return err
 	}
 
-	err = exportAll(ctx, o, e, s, plan)
-	if err != nil {
-		return err
-	}
+	// **`runPlan` has already exported.** There were two calls, with identical
+	// arguments, one here and one at the end of the run - so every artifact was
+	// written out twice and the second write was invisible because it produced
+	// the same bytes as the first.
+	//
+	// Found by timing, not by reading: the export phase logged its whole
+	// sequence twice in one build, 0.37s a time for a 45MB binary, on a build
+	// whose total was 1.6s (E566). Two calls that agree are the hardest kind of
+	// duplicate to see, because nothing about the result is wrong.
 
 	// After the artifacts, because a build that produced both should keep the
 	// artifacts even if writing an image fails.
@@ -342,6 +347,12 @@ func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os
 func runPlan(
 	ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os.File,
 ) (*exec.Executor, *core.Scheduler, error) {
+	// Everything between a plan and the first step: the executor, the action
+	// cache, the profile store, the blob question. Timed because it is the span
+	// the stage timings left out, and a span nobody has measured is one that
+	// gets blamed on its neighbours (E566).
+	endSetup := timing.Phase("setup", o.Target)
+
 	// A build whose every step runs on this machine needs no sandbox, and must
 	// not require one: a LOCALLY target is precisely what someone without a
 	// container runtime can run, so demanding one to run it is backwards. It
@@ -436,6 +447,8 @@ func runPlan(
 		Profiles: profiles,
 		Views:    viewsFor(sb),
 	}
+
+	endSetup()
 
 	endSchedule := timing.Phase("schedule", o.Target)
 	_, runErr := s.Run(ctx, plan.Graph)

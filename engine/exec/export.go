@@ -99,7 +99,10 @@ func (e *Executor) exportTo(
 	// Named by destination so two artifacts cannot collide in the staging area,
 	// and so a partial export is visible as the wrong file rather than as a
 	// mysteriously absent one.
+	endStage := phase("export:stage", path)
 	err = c.Export(ctx, h, path, localDest)
+	endStage()
+
 	if err != nil {
 		return err
 	}
@@ -112,6 +115,9 @@ func (e *Executor) exportTo(
 	}
 
 	staged := filepath.Join(e.sb.StoreDir(), "exports", filepath.Clean("/"+localDest))
+
+	endOut := phase("export:copyout", localDest)
+	defer endOut()
 
 	return copyOut(staged, localDest)
 }
@@ -147,6 +153,20 @@ func copyOut(src, dst string) error {
 		return copyDir(src, dst)
 	}
 
+	// **The filesystem's copy where it can make one.** An artifact is the
+	// largest thing a build hands back - 45MB for this repository's own binary
+	// - and reading it into memory to write it out again was half a second of a
+	// 1.6s build that had nothing else to do (E566). A clone shares the extents
+	// and diverges on the first write, which is what a caller of a copy expects
+	// and what makes it safe for a file the user then edits.
+	//
+	// The times are still set below: a clone carries the source's, and the
+	// source is the staged copy rather than the layer, so the stamp is what
+	// decides what the artifact ends up with either way.
+	if mayClone() && cloneOneFile(src, dst) {
+		return stampOut(dst, fi)
+	}
+
 	b, err := os.ReadFile(src) //nolint:gosec // our own staging directory
 	if err != nil {
 		return fmt.Errorf("read the staged artifact: %w", err)
@@ -169,9 +189,24 @@ func copyOut(src, dst string) error {
 	// otherwise. See clampTime: pinning timestamps and keeping them true are
 	// both right, for different builds, so the engine takes the instruction
 	// rather than choosing.
+	return stampOut(dst, fi)
+}
+
+// stampOut gives an exported artifact the time it should carry.
+//
+// Preserved because an artifact's mtime is part of what it is: a build tool that
+// stamps every output with the current time defeats every downstream tool that
+// compares timestamps, which is most of them (I8). The clamp when the
+// invocation asked for one, the file's own otherwise - see clamp.go for why the
+// engine takes the instruction rather than choosing.
+//
+// Shared by the copy and the clone, so the two cannot disagree about what an
+// artifact's time is. They did not, and a second implementation is how they
+// would start.
+func stampOut(dst string, fi os.FileInfo) error {
 	at := stamp(fi.ModTime())
 
-	err = os.Chtimes(dst, at, at)
+	err := os.Chtimes(dst, at, at)
 	if err != nil {
 		return fmt.Errorf("set the mtime on %s: %w", dst, err)
 	}

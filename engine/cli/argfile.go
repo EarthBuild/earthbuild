@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -123,13 +124,9 @@ func beneath(file, given map[string]string) map[string]string {
 
 	out := make(map[string]string, len(file)+len(given))
 
-	for k, v := range file {
-		out[k] = v
-	}
+	maps.Copy(out, file)
 
-	for k, v := range given {
-		out[k] = v
-	}
+	maps.Copy(out, given)
 
 	return out
 }

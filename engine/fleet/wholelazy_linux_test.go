@@ -4,6 +4,7 @@ package fleet_test
 
 import (
 	"context"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,9 +67,7 @@ func TestARealStepOnALazyBaseProducesTheRightLayer(t *testing.T) {
 		t.Fatal("nothing faulted in; the step read a path nobody predicted")
 	}
 
-	for p, id := range faulted {
-		placed[p] = id
-	}
+	maps.Copy(placed, faulted)
 
 	got, err := layer.TakeExcluding(work, placed)
 	if err != nil {

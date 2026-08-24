@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"testing"
 
@@ -48,9 +49,7 @@ func (c *memCache) all() map[core.Key]core.Entry {
 	defer c.mu.Unlock()
 
 	out := make(map[core.Key]core.Entry, len(c.m))
-	for k, v := range c.m {
-		out[k] = v
-	}
+	maps.Copy(out, c.m)
 
 	return out
 }

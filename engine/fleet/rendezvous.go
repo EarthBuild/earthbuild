@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"sort"
 	"strconv"
@@ -911,9 +912,7 @@ func (r *Rendezvous) load() map[string]int {
 	defer r.mu.Unlock()
 
 	out := make(map[string]int, len(r.inflight))
-	for id, n := range r.inflight {
-		out[id] = n
-	}
+	maps.Copy(out, r.inflight)
 
 	return out
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -265,9 +266,7 @@ func (f *Fills) FilledFor(handle string) map[string]ir.NodeID {
 	defer f.mu.Unlock()
 
 	out := make(map[string]ir.NodeID, len(f.placed[handle]))
-	for k, v := range f.placed[handle] {
-		out[k] = v
-	}
+	maps.Copy(out, f.placed[handle])
 
 	return out
 }

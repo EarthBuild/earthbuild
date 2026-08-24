@@ -107,7 +107,7 @@ func greetingOf(t *testing.T, o cli.Options) string {
 		t.Fatalf("planning: %v", err)
 	}
 
-	for _, line := range strings.Split(out.String(), "\n") {
+	for line := range strings.SplitSeq(out.String(), "\n") {
 		if i := strings.Index(line, "echo "); i >= 0 {
 			return strings.TrimSpace(line[i+len("echo "):])
 		}

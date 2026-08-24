@@ -3098,7 +3098,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "cli: the command line beating the file (E465)",
 		File:        "engine/cli/argfile.go",
-		Anchor:      "\tfor k, v := range given {\n\t\tout[k] = v\n\t}",
+		Anchor:      "\tmaps.Copy(out, given)",
 		Replacement: "",
 		Package:     "./engine/cli/",
 	},

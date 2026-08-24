@@ -126,6 +126,27 @@ type Mount struct {
 	// ID names what the mount comes from: a shared cache directory, or - when
 	// Secret is set - the secret the invocation supplied.
 	ID string
+	// Sandbox names a path in the sandbox's own filesystem rather than
+	// something in the layer store.
+	//
+	// A step runs chrooted into its own overlay, so a file sitting in the
+	// sandbox is not reachable from inside it however visible it is to the
+	// machine - which is how `docker load -i /var/lib/earthbuild/store/...`
+	// came to report a missing file that was demonstrably there. WITH DOCKER
+	// --load is what needs it: the archive is written by the host into the
+	// store both sides share, and mounted into the step that loads it.
+	Sandbox string
+	// Mode is the permission bits the mount is created with, or zero for the
+	// default. `RUN --mount=...,mode=0400`.
+	//
+	// In the key like every other field: a secret staged 0400 and one staged
+	// 0644 are different inputs to the same command, and the corpus has
+	// Earthfiles that write three modes for one secret in three targets - which
+	// keyed identically until now (E435).
+	// The strings first and the flags last, so the pointer-bearing fields sit
+	// together (govet fieldalignment). A mount is built per step, so the
+	// layout is worth more here than the reading order was.
+	Mode uint32
 	// Secret says the mount carries a credential rather than a cache.
 	//
 	// The *value* is deliberately absent from this struct and from every other
@@ -162,24 +183,6 @@ type Mount struct {
 	// In the key, because the two produce different images from the same
 	// command: one carries the cache's contents and one does not.
 	Persist bool
-	// Mode is the permission bits the mount is created with, or zero for the
-	// default. `RUN --mount=...,mode=0400`.
-	//
-	// In the key like every other field: a secret staged 0400 and one staged
-	// 0644 are different inputs to the same command, and the corpus has
-	// Earthfiles that write three modes for one secret in three targets - which
-	// keyed identically until now (E435).
-	Mode uint32
-	// Sandbox names a path in the sandbox's own filesystem rather than
-	// something in the layer store.
-	//
-	// A step runs chrooted into its own overlay, so a file sitting in the
-	// sandbox is not reachable from inside it however visible it is to the
-	// machine - which is how `docker load -i /var/lib/earthbuild/store/...`
-	// came to report a missing file that was demonstrably there. WITH DOCKER
-	// --load is what needs it: the archive is written by the host into the
-	// store both sides share, and mounted into the step that loads it.
-	Sandbox string
 }
 
 // Op is a node's operation: green paper's ω.
@@ -509,17 +512,6 @@ type Meta struct {
 	Source string
 	// Target names the Earthfile target this node belongs to.
 	Target string
-	// ReadsPredicted is what a step of this class read last time.
-	//
-	// Advice, and it travels here because the executor materialises a step's
-	// base and only the node reaches it. **Not in the identity** - `Meta` is not
-	// hashed, and there is a test that says so, because "this field is not in
-	// the key" is the kind of thing that is true when written and quietly false
-	// two refactors later (E301).
-	//
-	// A worker fills it from the assignment's hints; everywhere else it is
-	// empty, and empty means materialise the whole base.
-	ReadsPredicted []string
 	// ContextRoot is the directory a build-context entry was read from.
 	//
 	// A build has one `-dir`, and an Earthfile referred to across directories
@@ -532,6 +524,19 @@ type Meta struct {
 	// *content*: two identical files in different directories are the same
 	// layer, and should stay one.
 	ContextRoot string
+	// ReadsPredicted is what a step of this class read last time.
+	//
+	// Advice, and it travels here because the executor materialises a step's
+	// base and only the node reaches it. **Not in the identity** - `Meta` is not
+	// hashed, and there is a test that says so, because "this field is not in
+	// the key" is the kind of thing that is true when written and quietly false
+	// two refactors later (E301).
+	//
+	// A worker fills it from the assignment's hints; everywhere else it is
+	// empty, and empty means materialise the whole base.
+	// Last, so the string fields above keep their pointers together and the
+	// collector stops scanning sooner (govet fieldalignment).
+	ReadsPredicted []string
 }
 
 // NodeID is a node's content-derived identity.

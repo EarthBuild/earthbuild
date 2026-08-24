@@ -214,7 +214,8 @@ func (d *Delegating) Run(
 		return core.Result{}, fmt.Errorf("delegate %s: %w", n.Meta.Source, err)
 	}
 
-	d.NoteSpend(r, time.Since(began))
+	d.acct.delegated(0, r)
+	_ = began
 	d.held.record(r)
 	// **And what it stood on.** A worker that answered had the step's inputs, so
 	// it is now a copy of them - and holders were recorded only for layers a

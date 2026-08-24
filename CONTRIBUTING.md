@@ -30,7 +30,7 @@ To build EarthBuild from source for your target system, use
     ./earthly +for-darwin-m1
     ```
 
-This builds the earth binary in `./build/*/*/earthly`, typically one of:
+This builds the earth binary in `./build/*/*/earth`, typically one of:
 
 - `./build/linux/amd64/earthly`
 - `./build/darwin/amd64/earthly`

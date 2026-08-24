@@ -166,3 +166,77 @@ main:
 		t.Errorf("the refusal does not name what was not honoured: %v", err)
 	}
 }
+
+// A Dockerfile's secret mount is the Earthfile's secret mount.
+//
+// It needed no work of its own: translating the mounts rather than refusing
+// them was the whole of it, because `type=secret` means the same thing in both
+// languages and this engine has always provided it on the Earthfile side.
+//
+// Written down because the evidence said otherwise for a while. The refusal
+// list here carried `type=secret` on the strength of a test that supplied no
+// secret - and "the secret was not supplied" is a refusal any engine makes,
+// not a construct anybody is missing. A gap recorded from a misread failure is
+// work that never gets done, because it is already ticked off as known.
+func TestADockerfileSecretMountIsASecretMount(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22\n"+
+		"RUN --mount=type=secret,id=token,target=/run/t use-it\n")
+
+	p, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+`, testMain, interp.WithContext(dir),
+		interp.WithSecrets(map[string]string{"token": "value"}))
+	if err != nil {
+		t.Fatalf("a secret mount this engine provides was refused: %v", err)
+	}
+
+	var found bool
+
+	for _, n := range p.Graph.Nodes() {
+		for _, m := range n.Op.Mounts {
+			if m.Secret && m.ID == "token" {
+				found = true
+
+				// A credential is read, never written through.
+				if !m.ReadOnly {
+					t.Error("the secret mount is writable")
+				}
+			}
+		}
+	}
+
+	if !found {
+		t.Error("the step has no secret mount, so the command runs without it")
+	}
+}
+
+// And the value never reaches the graph.
+//
+// The mount says which secret, and the invocation supplies what it is. A value
+// in the graph is a value in a key, and a credential in a cache key is the
+// failure I19 exists to prevent - so this asks the plan for the secret's text
+// and requires not to find it.
+func TestADockerfileSecretsValueIsNotInTheGraph(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22\n"+
+		"RUN --mount=type=secret,id=token,target=/run/t use-it\n")
+
+	const value = "s3cr3t-canary"
+
+	p, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+`, testMain, interp.WithContext(dir),
+		interp.WithSecrets(map[string]string{"token": value}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if text := describe(p.Graph.Nodes()); strings.Contains(text, value) {
+		t.Errorf("the secret's value is in the graph, so it is in a key (I19):\n%s", text)
+	}
+}

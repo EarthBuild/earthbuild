@@ -696,21 +696,25 @@ main:
 // Dockerfile describes, and nothing downstream can tell". Its mounts are the
 // same instruction one level down.
 //
-// **Three of the original four have since been built**, each for its own
+// **All four of the original cases have since been built**, each for its own
 // reason: `type=cache` means the same thing in both languages and this engine
 // always provided it; a bind of the build context is a read-only view of
-// content the build already digests; and a bind of an earlier stage is that
-// stage's assembled filesystem, which the guest now builds (§3.3d).
+// content the build already digests; a bind of an earlier stage is that
+// stage's assembled filesystem, which the guest now builds (§3.3d); and
+// `type=secret` was never a gap at all - it worked as soon as the mounts were
+// translated rather than refused, and the case here failed only because this
+// test supplied no secret, which is a refusal any engine would make.
 //
-// `type=secret` is what is left. It is not a view of anything - a credential
-// comes from the invocation and never from the graph - so it is a mechanism
-// this engine has on the Earthfile side and has not connected to Dockerfile
-// syntax, which is a gap rather than a decision.
+// What is listed below is what this engine genuinely does not provide. A
+// `tmpfs` gives a step memory that disappears and an `ssh` hands it an agent;
+// neither is a cache, a credential or a view, and providing something else
+// instead would run the step with something other than what it asked for.
 func TestADockerfileRunWithMountsIsRefused(t *testing.T) {
 	t.Parallel()
 
 	for _, mount := range []string{
-		"--mount=type=secret,id=token",
+		"--mount=type=tmpfs,target=/scratch",
+		"--mount=type=ssh,target=/run/ssh",
 	} {
 		dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22\nRUN "+mount+" true\n")
 

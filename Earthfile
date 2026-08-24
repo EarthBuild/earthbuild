@@ -373,7 +373,19 @@ engine-daemon:
     # that passes because nothing ran is the failure worth catching, and these
     # tests skip themselves when there is no `dockerd` on the machine. A floor
     # turns "no daemon here" from a green run into a red one.
-    ARG RAN_FLOOR=7
+    # **Six, and the seventh is deliberate rather than lost.** The list below
+    # named `HowManyEarthTestsBuild`, which sweeps `tests/*.earth` - and
+    # `+code`, which this target mounts at /earthly, does not carry `tests/`. So
+    # it skipped every time this step has ever run, and the floor counted on a
+    # test that could not start.
+    #
+    # Shipping the corpus would make it run, and that is the wrong trade: it
+    # builds 286 invocations four at a time, which this suite's own note prices
+    # at an hour serially, and it pulls images. The same corpus is run properly
+    # by `+test-no-qemu-group1..8` and `+test-misc` in the docker and podman test
+    # suites - the jobs that *depend on this one*. Paying fifteen minutes here to
+    # preview work that the next job does thoroughly delays the thorough version.
+    ARG RAN_FLOOR=6
     # TMPDIR on a cache mount for the build test, and that is a requirement
     # rather than thrift: a container's root is overlayfs and **overlayfs cannot
     # stack on overlayfs**, so a build whose store is under the container's own
@@ -401,7 +413,7 @@ engine-daemon:
         --mount type=cache,target=/scratch,id=engine-daemon-scratch \
         sh -c "(cd /earthly/engine/guest && /tmp/daemon.test -test.v); \
                TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earthly /tmp/build.test -test.v \
-                   -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild|HowManyEarthTestsBuild'" \
+                   -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'" \
             > /tmp/d.log 2>&1; \
         rc=$?; \
         grep -E "^ *--- (FAIL|SKIP)" /tmp/d.log | head -20; \
@@ -416,7 +428,7 @@ engine-daemon:
         # A written-out list goes stale when a test is renamed, and that is the
         # trade: it goes stale *loudly*, by failing here, rather than quietly by
         # matching nothing.
-        passed=$(grep -cE "^ *--- PASS: Test(TheWholeDaemonLifetimeAgainstARealDockerd|ADaemonStartsInAUserNamespace|AStepIsGivenADaemonAtItsOwnPath|AStepReachesADaemonItDidNotStart|ABuildWithADockerBlockRuns|ABuildInsideABuild|HowManyEarthTestsBuild)" /tmp/d.log || true); \
+        passed=$(grep -cE "^ *--- PASS: Test(TheWholeDaemonLifetimeAgainstARealDockerd|ADaemonStartsInAUserNamespace|AStepIsGivenADaemonAtItsOwnPath|AStepReachesADaemonItDidNotStart|ABuildWithADockerBlockRuns|ABuildInsideABuild)" /tmp/d.log || true); \
         echo "daemon tests passed: $passed"; \
         if [ "$rc" -ne 0 ]; then grep -E "^ *--- FAIL|^ *[a-z_]+\.go:" /tmp/d.log | head -40; exit "$rc"; fi; \
         if [ "$passed" -lt "$RAN_FLOOR" ]; then \

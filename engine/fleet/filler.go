@@ -275,16 +275,16 @@ func place(from, to string, fi os.FileInfo) error {
 	}
 
 	if fi.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(from)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", from, err)
+		target, linkErr := os.Readlink(from)
+		if linkErr != nil {
+			return fmt.Errorf("read %s: %w", from, linkErr)
 		}
 
 		_ = os.Remove(to)
 
-		err = os.Symlink(target, to)
-		if err != nil {
-			return fmt.Errorf("place %s: %w", to, err)
+		linkErr = os.Symlink(target, to)
+		if linkErr != nil {
+			return fmt.Errorf("place %s: %w", to, linkErr)
 		}
 
 		return nil

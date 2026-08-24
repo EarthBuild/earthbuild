@@ -194,9 +194,9 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 	work := filepath.Join(base, "work")
 
 	for _, d := range []string{merged, upper, work} {
-		err := os.MkdirAll(d, 0o750)
-		if err != nil {
-			return nil, fmt.Errorf("create mount dirs: %w", err)
+		mkdirErr := os.MkdirAll(d, 0o750)
+		if mkdirErr != nil {
+			return nil, fmt.Errorf("create mount dirs: %w", mkdirErr)
 		}
 	}
 

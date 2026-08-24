@@ -407,9 +407,9 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 
 		switch {
 		case info.Mode()&fs.ModeSymlink != 0:
-			target, err := os.Readlink(p)
-			if err != nil {
-				return fmt.Errorf("read symlink %s: %w", p, err)
+			target, linkErr := os.Readlink(p)
+			if linkErr != nil {
+				return fmt.Errorf("read symlink %s: %w", p, linkErr)
 			}
 
 			// The target string, never what it points at: following it would
@@ -461,9 +461,9 @@ func walkOne(p string) ([]entry, int64, error) {
 
 	switch {
 	case fi.Mode()&fs.ModeSymlink != 0:
-		target, err := os.Readlink(p)
-		if err != nil {
-			return nil, 0, fmt.Errorf("read symlink %s: %w", p, err)
+		target, linkErr := os.Readlink(p)
+		if linkErr != nil {
+			return nil, 0, fmt.Errorf("read symlink %s: %w", p, linkErr)
 		}
 
 		e.link = target

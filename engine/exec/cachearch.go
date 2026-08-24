@@ -50,8 +50,8 @@ func archOfTree(root string) (string, bool) {
 		}
 
 		if fi.Mode()&os.ModeSymlink != 0 {
-			target, err := os.Readlink(at)
-			if err != nil {
+			target, linkErr := os.Readlink(at)
+			if linkErr != nil {
 				continue
 			}
 

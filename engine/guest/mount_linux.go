@@ -282,8 +282,8 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		// asked rather than assumed.
 		asFile := m.Secret != ""
 		if m.Sandbox != "" {
-			fi, err := os.Stat(source)
-			asFile = err == nil && !fi.IsDir()
+			fi, statErr := os.Stat(source)
+			asFile = statErr == nil && !fi.IsDir()
 		}
 
 		if asFile {
@@ -329,15 +329,15 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 			// Whether the directory was already there decides whether it is
 			// ours to remove afterwards. Asked before creating it, because
 			// afterwards there is no way to tell.
-			_, err := os.Lstat(target)
-			missing := err != nil
+			_, statErr := os.Lstat(target)
+			missing := statErr != nil
 
 			//nolint:gosec // a mount point carries the mode the mount asked for
-			err = os.MkdirAll(target, 0o755)
-			if err != nil {
+			statErr = os.MkdirAll(target, 0o755)
+			if statErr != nil {
 				unmount()
 
-				return nil, fmt.Errorf("prepare the mount point %s: %w", m.Target, err)
+				return nil, fmt.Errorf("prepare the mount point %s: %w", m.Target, statErr)
 			}
 
 			if missing {

@@ -27,8 +27,8 @@ import (
 func selfExe() (string, error) {
 	p, err := os.Executable()
 	if err == nil {
-		_, err := os.Stat(p)
-		if err == nil {
+		_, statErr := os.Stat(p)
+		if statErr == nil {
 			return p, nil
 		}
 	}

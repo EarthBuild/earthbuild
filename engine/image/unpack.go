@@ -394,9 +394,9 @@ func replacing(h *tar.Header, target string, written map[string]bool, folded map
 	// directory with contents - an image replacing a directory with a file is
 	// ordinary enough that docker's own do it.
 	if fi.IsDir() {
-		err := os.RemoveAll(target)
-		if err != nil {
-			return fmt.Errorf("replace the directory %q: %w", h.Name, err)
+		removeErr := os.RemoveAll(target)
+		if removeErr != nil {
+			return fmt.Errorf("replace the directory %q: %w", h.Name, removeErr)
 		}
 
 		return nil

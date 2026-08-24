@@ -96,14 +96,14 @@ func fetchImageFrom(ctx context.Context, imageRoot, ref, platform, dest string, 
 		// image was there, and build on a fragment.
 		staging, err := os.MkdirTemp(filepath.Dir(shared), ".pulling-*")
 		if err != nil {
-			err := os.MkdirAll(filepath.Join(root, "imagecache"), 0o750)
-			if err != nil {
-				return fmt.Errorf("prepare the image cache: %w", err)
+			mkdirErr := os.MkdirAll(filepath.Join(root, "imagecache"), 0o750)
+			if mkdirErr != nil {
+				return fmt.Errorf("prepare the image cache: %w", mkdirErr)
 			}
 
-			staging, err = os.MkdirTemp(filepath.Dir(shared), ".pulling-*")
-			if err != nil {
-				return fmt.Errorf("stage a pull of %s: %w", ref, err)
+			staging, mkdirErr = os.MkdirTemp(filepath.Dir(shared), ".pulling-*")
+			if mkdirErr != nil {
+				return fmt.Errorf("stage a pull of %s: %w", ref, mkdirErr)
 			}
 		}
 

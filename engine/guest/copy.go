@@ -302,9 +302,9 @@ func copyTree(src, dst string, opts copyOpts) error {
 			}
 
 			//nolint:gosec // a mode a build decided; §3.3 counts it as part of the layer
-			err := os.MkdirAll(target, 0o755)
-			if err != nil {
-				return fmt.Errorf("create %s: %w", target, err)
+			mkdirErr := os.MkdirAll(target, 0o755)
+			if mkdirErr != nil {
+				return fmt.Errorf("create %s: %w", target, mkdirErr)
 			}
 
 			// The other half of how an overlay records a removal: a directory
@@ -314,14 +314,14 @@ func copyTree(src, dst string, opts copyOpts) error {
 			return copyXattrs(p, target)
 
 		case fi.Mode()&os.ModeSymlink != 0:
-			link, err := os.Readlink(p)
-			if err != nil {
-				return fmt.Errorf("read symlink %s: %w", p, err)
+			link, linkErr := os.Readlink(p)
+			if linkErr != nil {
+				return fmt.Errorf("read symlink %s: %w", p, linkErr)
 			}
 
-			err = os.Symlink(link, target)
-			if err != nil {
-				return fmt.Errorf("create symlink %s: %w", target, err)
+			linkErr = os.Symlink(link, target)
+			if linkErr != nil {
+				return fmt.Errorf("create symlink %s: %w", target, linkErr)
 			}
 
 			// Mode and time would apply to the link's target, not the link.
@@ -333,14 +333,14 @@ func copyTree(src, dst string, opts copyOpts) error {
 			// search text did not match wrote nothing and said nothing. Its
 			// test skips on a store that cannot carry ownership, which is this
 			// one, so the gap had no way to show.
-			err = copyXattrs(p, target)
-			if err != nil {
-				return err
+			linkErr = copyXattrs(p, target)
+			if linkErr != nil {
+				return linkErr
 			}
 
-			err = keepOwn(fi, target, opts)
-			if err != nil {
-				return err
+			linkErr = keepOwn(fi, target, opts)
+			if linkErr != nil {
+				return linkErr
 			}
 
 			// A link's own mtime, which `os.Chtimes` cannot set because it
@@ -366,8 +366,8 @@ func copyTree(src, dst string, opts copyOpts) error {
 			// Keyed on inode *and device*, because inode numbers are only
 			// unique within a filesystem and a delta can span one bind mount.
 			if first, ok := seen[idOf(fi)]; ok {
-				err := os.Link(first, target)
-				if err == nil {
+				linkErr := os.Link(first, target)
+				if linkErr == nil {
 					return nil
 				}
 

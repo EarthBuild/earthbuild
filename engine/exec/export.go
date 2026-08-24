@@ -129,8 +129,8 @@ func (e *Executor) exportTo(
 	// the same answer - treating them alike would turn a broken export into a
 	// silently skipped artifact.
 	if ifExists {
-		_, err := os.Stat(filepath.Join(h.Root(), filepath.Clean("/"+path)))
-		if err != nil {
+		_, statErr := os.Stat(filepath.Join(h.Root(), filepath.Clean("/"+path)))
+		if statErr != nil {
 			return nil
 		}
 	}

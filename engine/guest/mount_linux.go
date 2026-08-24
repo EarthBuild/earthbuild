@@ -89,7 +89,7 @@ func waitFor(path string) error {
 // Bound before the chroot, because the source is a path the guest can name and
 // the target is a path inside a root that does not exist yet as far as the
 // process is concerned. Afterwards there would be no way to reach the source.
-func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
+func bindMounts(root, store, layers string, mounts []Mount) (undo func(), err error) {
 	var (
 		done   []string
 		staged []string
@@ -164,7 +164,7 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		// the contents themselves. A secret has always been the fourth and
 		// carried an id as well; the step's `/etc/hosts` is the first mount to
 		// be only its contents, which is what found this condition rejecting it.
-		if (m.ID == "" && m.Sandbox == "" && !m.Ephemeral && m.Secret == "") || m.Target == "" {
+		if (m.ID == "" && m.Sandbox == "" && m.Layer == "" && !m.Ephemeral && m.Secret == "") || m.Target == "" {
 			unmount()
 
 			return nil, errors.New(
@@ -172,6 +172,18 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		}
 
 		source := filepath.Join(store, m.ID)
+
+		// A bound view resolves against the *layer* store, which is a different
+		// directory from the cache store above. Read-only is not a courtesy
+		// here: the layer store is shared by every step that stands on it, and
+		// a step writing through this would edit another step's input - the one
+		// thing a content-addressed store cannot survive (§3.3b, I20).
+		if m.Layer != "" {
+			source = filepath.Join(layers, "layers", m.Layer)
+			if m.Sub != "" {
+				source = filepath.Join(source, m.Sub)
+			}
+		}
 
 		// A sandbox path is the machine's own, not the store's: the docker
 		// client and its socket, which belong to the VM and outlive the step.

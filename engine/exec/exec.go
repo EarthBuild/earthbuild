@@ -446,6 +446,14 @@ func (e *Executor) Run(
 			Exclusive: m.Exclusive, Ephemeral: m.Ephemeral, Mode: m.Mode,
 		}
 
+		// A bound view names the object it shows by identity, and the guest
+		// resolves that against the layer store rather than the cache store
+		// (§3.3d). Zero for a cache mount and a secret, which show nothing this
+		// build made.
+		if m.From != (ir.NodeID{}) {
+			gm.Layer, gm.Sub = m.From.String(), m.Sub
+		}
+
 		// The value is looked up here and nowhere earlier: it is not in the
 		// node, not in the key, and not in any plan anyone can print.
 		if m.Secret {

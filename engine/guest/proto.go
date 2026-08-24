@@ -331,6 +331,17 @@ type Mount struct {
 	// its own filesystem, so the first build's cache was written somewhere that
 	// vanished with the VM and the second build found nothing.
 	ID string `json:"id"`
+	// Layer names a layer in the layer store, bound read-only: a bound view of
+	// something this build already made (green paper §3.3d).
+	//
+	// Separate from ID, which the guest resolves against the *cache* store.
+	// The two stores are different directories and a bound view resolved
+	// against the wrong one is a step reading an empty directory rather than
+	// the object it asked for.
+	Layer string `json:"layer,omitempty"`
+	// Sub is the subtree of Layer that appears at Target, or empty for all of
+	// it. 𝑢 of green paper §3.3d.
+	Sub string `json:"sub,omitempty"`
 	// Target is where it appears inside the step's filesystem, absolute.
 	Target string `json:"target"`
 	// ReadOnly binds it so the step cannot write through it.

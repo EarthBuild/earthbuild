@@ -59,6 +59,11 @@ var knowsTheLayout = map[string]string{
 	// the answer to a `host` entry rather than a new problem: the reading moved
 	// inside, which is the shape every remaining one has to take (E556).
 	"engine/guest/packlayer.go": sideGuest,
+	// A bound view resolves a layer's directory to bind it read-only into a
+	// step (green paper §3.3d). Guest-side by construction: it is the mount
+	// itself, performed where the step's filesystem is assembled, so it moves
+	// with the store rather than reaching across the boundary.
+	"engine/guest/mount_linux.go": sideGuest,
 	// Builds a loadable image archive from layers it holds, which the host used
 	// to build and leave where the guest would find it (E558).
 	"engine/guest/packimage.go":           sideGuest,

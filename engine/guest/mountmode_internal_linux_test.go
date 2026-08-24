@@ -53,7 +53,7 @@ func TestAMountIsStagedWithTheModeAsked(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			root, store := t.TempDir(), t.TempDir()
 
-			undo, err := bindMounts(root, store, []Mount{tc.mount})
+			undo, err := bindMounts(root, store, layerStoreForTest(t), []Mount{tc.mount})
 			if err != nil {
 				t.Fatalf("binding %+v: %v", tc.mount, err)
 			}

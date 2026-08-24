@@ -1840,7 +1840,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// concurrency the design wants; holding it across these two short
 		// sections costs nothing and closes the window.
 		unlock := s.lockHandle(req.Handle)
-		undo, bindErr := bindMounts(h.Root(), s.mountStore(), mounts)
+		undo, bindErr := bindMounts(h.Root(), s.mountStore(), s.LayerDir, mounts)
 		unlock()
 
 		if bindErr != nil {

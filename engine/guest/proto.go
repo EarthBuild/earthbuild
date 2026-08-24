@@ -471,6 +471,28 @@ type Response struct {
 // Framing is explicit rather than newline-delimited because a path can contain
 // anything, and a protocol that breaks on an unusual filename is a protocol
 // that breaks in exactly the situations worth debugging.
+// maxMessage is the largest frame either side will read or write.
+//
+// One constant for both directions. It was a literal in `recv` alone, so the
+// writer would happily emit a frame the reader was certain to reject - and the
+// failure arrived as a dead connection several requests later (E617).
+const maxMessage = 1 << 24
+
+// kindOf names what is being sent, for the refusal above.
+//
+// Best effort: the two message types carry a kind, and anything else is
+// described rather than guessed at.
+func kindOf(v any) string {
+	switch m := v.(type) {
+	case Request:
+		return string(m.Kind)
+	case *Request:
+		return string(m.Kind)
+	default:
+		return "response"
+	}
+}
+
 type conn struct {
 	r *bufio.Reader
 
@@ -491,6 +513,20 @@ func (c *conn) send(v any) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
+	}
+
+	// **Refused here, because the reader refuses it there.** `recv` gives up on
+	// a frame this large, which kills the connection rather than the call - so
+	// the error surfaced against whichever request came next and named neither
+	// the sender nor what it was sending (E617). Nothing is written: a partial
+	// frame leaves the reader mid-message and every later request is misread as
+	// its continuation, which is why the symptom was a lost connection.
+	if len(b) > maxMessage {
+		return fmt.Errorf(
+			"a %s message of %d bytes exceeds the %d MiB the other side will read"+
+				"\n  this is a limit of the protocol rather than of the build,"+
+				" and the message that hit it is the thing to make smaller",
+			kindOf(v), len(b), maxMessage>>20)
 	}
 
 	var hdr [4]byte
@@ -519,8 +555,10 @@ func (c *conn) recv(v any) error {
 	}
 
 	n := binary.BigEndian.Uint32(hdr[:])
-	if n > 1<<24 {
-		return fmt.Errorf("message of %d bytes exceeds the limit", n)
+	if n > maxMessage {
+		return fmt.Errorf("message of %d bytes exceeds the %d MiB limit"+
+			"\n  the sender refuses these too, so this is a version older than"+
+			" that check on the other side of the connection", n, maxMessage>>20)
 	}
 
 	b := make([]byte, n)

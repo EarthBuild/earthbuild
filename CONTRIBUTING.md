@@ -65,7 +65,7 @@ For development purposes, you may use the built `earth` binary to rebuild itself
 To use the [delve debugger](https://github.com/go-delve/delve) with the earth binary, you need to disable optimizations in the 'go build' command. This is done using the -GO_GCFLAGS arg:
 
 ```sh
-./earthly +for-own -GO_GCFLAGS='all=-N -l'
+./earth +for-own -GO_GCFLAGS='all=-N -l'
 ```
 
 From there, you may use `dlv exec` against the binary, using `--` to separate dlv args from earth args:

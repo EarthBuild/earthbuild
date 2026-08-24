@@ -27,17 +27,20 @@ type Invocation struct {
 	Target string
 	// Extra are the arguments the tree passes, split into words.
 	Extra []string
-	// ShouldFail is the tree saying this target is meant to be refused.
-	//
-	// Seventy-odd invocations say it. Without reading it, a file whose whole
-	// purpose is to be refused reads as an engine defect, and the number is
-	// wrong in the direction that flatters nobody (E455).
-	ShouldFail bool
 	// Exec names a script the tree runs instead of building anything.
 	Exec string
 	// Env are variables the tree exports first, from a `--pre_command` that is
 	// a single export.
 	Env map[string]string
+	// ShouldFail is the tree saying this target is meant to be refused.
+	//
+	// Seventy-odd invocations say it. Without reading it, a file whose whole
+	// purpose is to be refused reads as an engine defect, and the number is
+	// wrong in the direction that flatters nobody (E455).
+	//
+	// Last, so the pointer-bearing fields above sit together and the collector
+	// stops scanning sooner (govet fieldalignment).
+	ShouldFail bool
 	// Pre is a `--pre_command` that is not a single export, empty otherwise.
 	Pre string
 }
@@ -173,11 +176,11 @@ func statements(src string) []string {
 		join strings.Builder
 	)
 
-	for _, line := range strings.Split(src, "\n") {
+	for line := range strings.SplitSeq(src, "\n") {
 		trimmed := strings.TrimRight(line, " \t")
 
-		if strings.HasSuffix(trimmed, "\\") {
-			join.WriteString(strings.TrimSuffix(trimmed, "\\"))
+		if cut, ok := strings.CutSuffix(trimmed, "\\"); ok {
+			join.WriteString(cut)
 			join.WriteString(" ")
 
 			continue

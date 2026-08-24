@@ -1,7 +1,6 @@
 package check_test
 
 import (
-	"github.com/EarthBuild/earthbuild/docs-internals/check"
 	"go/parser"
 	"go/token"
 	"os"
@@ -9,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/EarthBuild/earthbuild/docs-internals/check"
 )
 
 // A comment where a test used to be says where the test went.
@@ -63,8 +64,9 @@ func TestATombstoneNamesATestThatExists(t *testing.T) {
 // tombstone is a comment block after the last declaration in a test file.
 type tombstone struct {
 	file string
-	line int
 	text string
+	// Last, so the two strings sit together (govet fieldalignment).
+	line int
 }
 
 // tombstones finds them.
@@ -125,8 +127,8 @@ func tombstones(t *testing.T) []tombstone {
 
 // firstLineOf is the claim, for a diagnostic.
 func firstLineOf(s string) string {
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return s[:i]
+	if first, _, ok := strings.Cut(s, "\n"); ok {
+		return first
 	}
 
 	return s
@@ -154,7 +156,8 @@ func declaredTests(t *testing.T) map[string]bool {
 			return nil
 		}
 
-		b, readErr := os.ReadFile(filepath.Clean(p))
+		// As above: a walk of this repository's own tree, in a test.
+		b, readErr := os.ReadFile(filepath.Clean(p)) //nolint:gosec // our own source tree
 		if readErr != nil {
 			return nil //nolint:nilerr // as above
 		}

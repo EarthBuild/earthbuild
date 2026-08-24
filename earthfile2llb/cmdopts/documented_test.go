@@ -29,13 +29,13 @@ func TestEveryWithDockerOptionIsInTheReference(t *testing.T) {
 		t.Fatalf("the language reference is not where this test expects it: %v", err)
 	}
 
-	rt := reflect.TypeOf(cmdopts.WithDocker{})
+	rt := reflect.TypeFor[cmdopts.WithDocker]()
 
-	for i := range rt.NumField() {
-		long := rt.Field(i).Tag.Get("long")
+	for field := range rt.Fields() {
+		long := field.Tag.Get("long")
 		if long == "" {
 			t.Errorf("%s has no long flag, so nothing can be written about it",
-				rt.Field(i).Name)
+				field.Name)
 
 			continue
 		}

@@ -18,30 +18,40 @@ import (
 // that this one is plumbing, made once and visible. A prefix rule would let the
 // next `EARTH_GUEST_SOMETHING` in without anybody deciding, which is how the
 // twenty-seven of these came to be undocumented in the first place.
+// The two explanations that repeat, named once.
+//
+// Nine and eleven occurrences respectively, which `goconst` is right about: a
+// typo in one of them would read as a *different* reason and nothing would say
+// so.
+const (
+	setByDriver = "set by the fleet driver on a worker"
+	hostToGuest = "passed to the guest by the host"
+)
+
 var internalSettings = map[string]string{
 	"EARTH_CORPUS_DIR":          "the corpus test's tree",
-	"EARTH_FLEET_ATTEMPT":       "set by the fleet driver on a worker",
-	"EARTH_FLEET_CAPACITY":      "set by the fleet driver on a worker",
-	"EARTH_FLEET_DRIVER":        "set by the fleet driver on a worker",
-	"EARTH_FLEET_REPO":          "set by the fleet driver on a worker",
-	"EARTH_FLEET_RUN":           "set by the fleet driver on a worker",
-	"EARTH_FLEET_SECRET":        "set by the fleet driver on a worker",
-	"EARTH_FLEET_SESSION":       "set by the fleet driver on a worker",
-	"EARTH_FLEET_WAIT":          "set by the fleet driver on a worker",
-	"EARTH_FLEET_WORKERS":       "set by the fleet driver on a worker",
+	"EARTH_FLEET_ATTEMPT":       setByDriver,
+	"EARTH_FLEET_CAPACITY":      setByDriver,
+	"EARTH_FLEET_DRIVER":        setByDriver,
+	"EARTH_FLEET_REPO":          setByDriver,
+	"EARTH_FLEET_RUN":           setByDriver,
+	"EARTH_FLEET_SECRET":        setByDriver,
+	"EARTH_FLEET_SESSION":       setByDriver,
+	"EARTH_FLEET_WAIT":          setByDriver,
+	"EARTH_FLEET_WORKERS":       setByDriver,
 	"EARTH_FULL_TARGET":         "passed to a target's own sub-build",
-	"EARTH_GUEST_ARCH":          "passed to the guest by the host",
-	"EARTH_GUEST_CGROUP_PARENT": "passed to the guest by the host",
-	"EARTH_GUEST_FAST":          "passed to the guest by the host",
+	"EARTH_GUEST_ARCH":          hostToGuest,
+	"EARTH_GUEST_CGROUP_PARENT": hostToGuest,
+	"EARTH_GUEST_FAST":          hostToGuest,
 	"EARTH_GUEST_OWNS_MACHINE":  "passed to the guest by the host: a grant, not a preference",
-	"EARTH_GUEST_FILL_SOCKET":   "passed to the guest by the host",
-	"EARTH_GUEST_FILLS":         "passed to the guest by the host",
-	"EARTH_GUEST_ID_GATE":       "passed to the guest by the host",
-	"EARTH_GUEST_MEMORY_MAX":    "passed to the guest by the host",
-	"EARTH_GUEST_PIDS_MAX":      "passed to the guest by the host",
-	"EARTH_GUEST_ROOT":          "passed to the guest by the host",
-	"EARTH_GUEST_SCRATCH":       "passed to the guest by the host",
-	"EARTH_GUEST_TERMINALS":     "passed to the guest by the host",
+	"EARTH_GUEST_FILL_SOCKET":   hostToGuest,
+	"EARTH_GUEST_FILLS":         hostToGuest,
+	"EARTH_GUEST_ID_GATE":       hostToGuest,
+	"EARTH_GUEST_MEMORY_MAX":    hostToGuest,
+	"EARTH_GUEST_PIDS_MAX":      hostToGuest,
+	"EARTH_GUEST_ROOT":          hostToGuest,
+	"EARTH_GUEST_SCRATCH":       hostToGuest,
+	"EARTH_GUEST_TERMINALS":     hostToGuest,
 	"EARTH_PROBE":               "marks a process as the engine's own probe",
 	"EARTH_PROBE_PATH":          "marks a process as the engine's own probe",
 	"EARTH_TEST_IN_USERNS":      "set by the namespace test harness on its own child",
@@ -119,7 +129,8 @@ func TestEverySettingIsDocumentedOrDeclaredInternal(t *testing.T) {
 			return nil
 		}
 
-		b, err := os.ReadFile(p)
+		// A walk of this repository, in a test: `p` has no other provenance.
+		b, err := os.ReadFile(p) //nolint:gosec // our own source tree
 		if err != nil {
 			return nil //nolint:nilerr // ditto
 		}

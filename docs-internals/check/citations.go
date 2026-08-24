@@ -53,7 +53,7 @@ func Equations(doc string) map[string]bool {
 func CitationProblems(path, source string, paper, plan, equations map[string]bool) []string {
 	var out []string
 
-	for _, line := range strings.Split(source, "\n") {
+	for line := range strings.SplitSeq(source, "\n") {
 		for _, m := range parenRe.FindAllStringSubmatch(line, -1) {
 			if !paper[m[1]] && !equations[m[1]] {
 				out = append(out, fmt.Sprintf(

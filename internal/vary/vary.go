@@ -28,12 +28,18 @@ func Value(v reflect.Value, which int) bool {
 		return true
 
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-		v.SetUint(uint64(which) + 1)
+		// Indexed rather than converted, exactly as the string case above is.
+		// `uint64(which) + 1` is a sign-extending cast of a parameter documented
+		// as 0 or 1 and enforced by nobody, so a negative `which` produced an
+		// enormous value in silence (gosec G115). Indexing states the same
+		// contract and fails on the same input the string case already fails on.
+		v.SetUint([]uint64{1, 2}[which])
 
 		return true
 
 	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-		v.SetInt(int64(which) + 1)
+		// As above: one contract, stated once, in the form the string case uses.
+		v.SetInt([]int64{1, 2}[which])
 
 		return true
 

@@ -126,7 +126,7 @@ func TestEveryInvariantTheCodeCitesExists(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		for _, line := range strings.Split(string(src), "\n") {
+		for line := range strings.SplitSeq(string(src), "\n") {
 			if !strings.Contains(line, "//") {
 				continue
 			}

@@ -1,11 +1,12 @@
 package check_test
 
 import (
-	"github.com/EarthBuild/earthbuild/docs-internals/check"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/EarthBuild/earthbuild/docs-internals/check"
 )
 
 // docRoot is this package's directory's parent: docs-internals.
@@ -143,7 +144,9 @@ func TestTheCitationCheckNoticesWhatItIsFor(t *testing.T) {
 func docOf(t *testing.T, name string) string {
 	t.Helper()
 
-	b, err := os.ReadFile(filepath.Join(docRoot, name))
+	// The name comes from this test's own table, joined onto this
+	// repository's docs directory. There is no caller to supply a path.
+	b, err := os.ReadFile(filepath.Join(docRoot, name)) //nolint:gosec // our own docs tree
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)
 	}
@@ -375,7 +378,9 @@ func TestEveryCitedTestExists(t *testing.T) {
 			return nil
 		}
 
-		b, err := os.ReadFile(filepath.Clean(p))
+		// `p` is what the walk of this repository handed us (G122): a walk of a
+		// checkout, in a test, with no untrusted input anywhere near it.
+		b, err := os.ReadFile(filepath.Clean(p)) //nolint:gosec // our own source tree
 		if err != nil {
 			return nil //nolint:nilerr // as above
 		}

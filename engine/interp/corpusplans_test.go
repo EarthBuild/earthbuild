@@ -98,40 +98,102 @@ func buildCorpusPlans() {
 	}
 }
 
-// corpusTree is the tree to sweep, which is not always a copy of one.
+// corpusTree is an immutable copy of the tree to sweep.
 //
-// The same three answers `corpus` gives, and for the same reasons. An explicit
-// `EARTH_CORPUS_DIR` wins, because the binary may be running somewhere that is
-// not the package directory - a Linux container with the tree mounted, which is
-// exactly where this ran when it first went wrong. Failing that, a copy of what
-// git says is tracked, so the sweep does not depend on what a developer happens
-// to have lying about (E562). And where git will not answer - an exported tree,
-// a checkout somebody else owns - the working directory itself, because a corpus
-// test that refuses to run finds nothing, which is the one outcome worth less
-// than a slightly noisy one (I11).
+// **Always a copy, and that is the load-bearing word.** A target whose context
+// is the whole repository - `COPY . .`, which `+markdown-spellcheck` does -
+// hashes every file in it, so anything editing the tree while a sweep reads it
+// changes the answer legitimately and the sweep reports the planner as
+// non-deterministic. Three investigations went into that before anybody noticed
+// the editor was open (E70). One copy for the binary is 0.4 seconds and removes
+// the whole class.
 //
-// The first version of this had only the middle answer, and CI exited 128 on
-// every corpus sweep at once.
+// Where the files come from has three answers, the same three `corpus` gives
+// and in the same order. An explicit `EARTH_CORPUS_DIR` wins, because the binary
+// may be running somewhere that is not the package directory - a container with
+// the tree mounted. Failing that, what git says is tracked, so the sweep does
+// not depend on what a developer has lying about (E562). And where git will not
+// answer - an exported tree, or `+code/earthly`, which carries the source and no
+// `.git` - the working directory is walked instead, because a corpus test that
+// refuses to run finds nothing (I11).
+//
+// The first version had only the middle answer and CI exited 128 on every corpus
+// sweep at once.
 func corpusTree() string {
-	if dir := os.Getenv("EARTH_CORPUS_DIR"); dir != "" {
-		return dir
-	}
-
-	root, err := os.MkdirTemp("", "corpus") // outlives any one test; see above
+	root, err := os.MkdirTemp("", "corpus") //nolint:usetesting // outlives any one test; see above
 	if err != nil {
 		return "../.."
 	}
 
-	err = copyTrackedTo(root)
+	from := os.Getenv("EARTH_CORPUS_DIR")
+	if from == "" {
+		if copyTrackedTo(root) == nil {
+			corpusPlansRoot = root
+
+			return root
+		}
+
+		from = "../.."
+	}
+
+	err = copyTreeTo(from, root)
 	if err != nil {
 		_ = os.RemoveAll(root)
 
-		return "../.."
+		return from
 	}
 
 	corpusPlansRoot = root
 
 	return root
+}
+
+// copyTreeTo copies a tree, leaving out what no build reads.
+//
+// The same exclusions the corpus itself uses plus what a build leaves behind.
+// `examples` alone is most of a gigabyte of node_modules on a machine that has
+// built them, and none of it is input.
+func copyTreeTo(src, dst string) error {
+	skip := map[string]bool{
+		".git": true, "node_modules": true, ".next": true, "build": true, "vendor": true,
+	}
+
+	return filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil //nolint:nilerr // an unreadable corner is not this fixture's problem
+		}
+
+		if fi.IsDir() {
+			if skip[fi.Name()] {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(src, p)
+		if relErr != nil {
+			return nil //nolint:nilerr // ditto
+		}
+
+		b, readErr := os.ReadFile(filepath.Clean(p))
+		if readErr != nil {
+			return nil //nolint:nilerr // ditto
+		}
+
+		at := filepath.Join(dst, rel)
+
+		mkErr := os.MkdirAll(filepath.Dir(at), 0o750)
+		if mkErr != nil {
+			return mkErr
+		}
+
+		return os.WriteFile(at, b, 0o600)
+	})
 }
 
 // copyTrackedTo writes this repository's tracked files under dst.

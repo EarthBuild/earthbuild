@@ -3,7 +3,6 @@ package interp_test
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -46,17 +45,23 @@ func TestPlanningIsDeterministic(t *testing.T) {
 	//
 	// The engine is what is under test, not the filesystem's willingness to hold
 	// still, so the tree is copied once and every run reads the copy.
-	for _, f := range corpusSnapshot(t) {
+	//
+	// **The first run is the shared pass**, which five other sweeps already paid
+	// for: `corpusPlans` plans every target once, over a copy nothing writes to,
+	// with the arguments `plainPlan` uses. Three runs still get compared; what
+	// changed is that this test builds two of them instead of three, and the one
+	// it does not build happened earlier under different conditions - which is a
+	// slightly better first run than a fresh one, not a worse one.
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
+
 		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		for _, target := range targetsIn(string(src)) {
-			first, err := plainPlan(string(src), target, filepath.Dir(f))
-			if err != nil {
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, first := pl.target, renderPlan(pl.plan)
 
 			compared++
 
@@ -93,6 +98,12 @@ func plainPlan(src, target, dir string) (string, error) {
 		return "", err
 	}
 
+	return renderPlan(p), nil
+}
+
+// renderPlan is plainPlan's second half, apart so a plan that was built
+// elsewhere can be compared against one built here.
+func renderPlan(p *interp.Plan) string {
 	var b strings.Builder
 
 	for _, n := range p.Graph.Nodes() {
@@ -119,7 +130,7 @@ func plainPlan(src, target, dir string) (string, error) {
 		b.WriteString("image " + img.Ref + "\n")
 	}
 
-	return b.String(), nil
+	return b.String()
 }
 
 // firstDifference names the first line that differs, which is where to look.
@@ -155,98 +166,4 @@ func itoa(n int) string {
 	}
 
 	return string(d)
-}
-
-// corpusSnapshot copies the whole tree and returns the Earthfiles in the copy.
-//
-// The whole tree, recursively, because `COPY . .` hashes every file underneath
-// it - a snapshot of one level per Earthfile would make this test fast by
-// making it read almost nothing, which is the way a determinism check stops
-// checking determinism over anything.
-//
-// Deliberately a copy rather than a lock or a retry: a test that asks the world
-// to hold still fails on a busy machine, and one that retries passes for the
-// wrong reason on a moving one.
-func corpusSnapshot(t *testing.T) []string {
-	t.Helper()
-
-	root := t.TempDir()
-
-	// The same exclusions the corpus itself uses, plus what a build leaves
-	// behind. None of it is input, and `examples` alone is most of a gigabyte
-	// of node_modules on a machine that has built them.
-	skip := map[string]bool{
-		".git": true, "node_modules": true, ".next": true, "build": true, "vendor": true,
-	}
-
-	err := filepath.Walk("../..", func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return nil //nolint:nilerr // an unreadable corner is not this test's problem
-		}
-
-		if fi.IsDir() {
-			if skip[fi.Name()] {
-				return filepath.SkipDir
-			}
-
-			return nil
-		}
-
-		if !fi.Mode().IsRegular() {
-			return nil
-		}
-
-		rel, err := filepath.Rel("../..", p)
-		if err != nil {
-			return nil //nolint:nilerr // as above
-		}
-
-		dst := filepath.Join(root, rel)
-
-		err = os.MkdirAll(filepath.Dir(dst), 0o750)
-		if err != nil {
-			return err //nolint:wrapcheck // the caller reports the path
-		}
-
-		b, err := os.ReadFile(p)
-		if err != nil {
-			// A file that vanished while the snapshot was taken is exactly what
-			// the snapshot is for: skipped, rather than failing the test with
-			// somebody else's editor.
-			return nil //nolint:nilerr // deliberate
-		}
-
-		return os.WriteFile(dst, b, 0o600) //nolint:wrapcheck // as above
-	})
-	if err != nil {
-		t.Fatalf("snapshot the corpus: %v", err)
-	}
-
-	return corpusUnder(t, root)
-}
-
-// corpusUnder finds the Earthfiles in a snapshot.
-func corpusUnder(t *testing.T, root string) []string {
-	t.Helper()
-
-	var found []string
-
-	err := filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return nil //nolint:nilerr // an unreadable corner is not this test's problem
-		}
-
-		if !fi.IsDir() && fi.Name() == testEarthfile {
-			found = append(found, p)
-		}
-
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sort.Strings(found)
-
-	return found
 }

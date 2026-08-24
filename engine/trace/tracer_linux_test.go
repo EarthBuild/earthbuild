@@ -119,7 +119,13 @@ func TestSightingsAreSortedAndDeduplicated(t *testing.T) {
 	for _, n := range names {
 		want := filepath.Join(dir, n)
 		if !slices.Contains(got.Paths, want) {
-			t.Errorf("%q was opened twice and is not among the sightings", want)
+			// **What was seen, not only what was missed.** This failed on a
+			// hosted runner and said which path was absent, which is the one
+			// thing that cannot explain why: an empty list and a list of
+			// different paths fail identically here, and they have nothing in
+			// common as causes (E609).
+			t.Errorf("%q was opened twice and is not among the %d sightings: %v",
+				want, len(got.Paths), got.Paths)
 		}
 	}
 }

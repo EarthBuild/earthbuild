@@ -31,7 +31,7 @@ import (
 // looks complete (I3, I11).
 func runObserved(
 	fn func() ([]byte, error), fill func(string) error, release func(),
-) ([]byte, error, trace.Sightings) {
+) ([]byte, trace.Sightings, error) {
 	type result struct {
 		out  []byte
 		err  error
@@ -133,5 +133,5 @@ func runObserved(
 
 	r := <-done
 
-	return r.out, r.err, r.seen
+	return r.out, r.seen, r.err
 }

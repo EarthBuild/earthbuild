@@ -147,7 +147,7 @@ func TestTheEnvironmentIsWrittenInOrder(t *testing.T) {
 		t.Fatalf("an environment key is missing from the encoding: %q", raw)
 	}
 
-	if !(alpha < mike && mike < zed) {
+	if alpha >= mike || mike >= zed {
 		t.Errorf("the environment is not in ascending key order:"+
 			" ALPHA at %d, MIKE at %d, ZED at %d", alpha, mike, zed)
 	}

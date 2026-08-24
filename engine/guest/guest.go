@@ -2544,7 +2544,7 @@ func runStep(
 		_ = cmd.Cancel()
 	}
 
-	out, err, seen := runObserved(
+	out, seen, err := runObserved(
 		func() ([]byte, error) { return run(cmd, sink) }, s.filler(req.Handle), release)
 
 	s.recordSightings(h, h.Root(), seen, provided)

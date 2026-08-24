@@ -63,9 +63,7 @@ func (f *Fetch) Get(ctx context.Context, ids []ir.NodeID) (map[ir.NodeID][]byte,
 	out := make(map[ir.NodeID][]byte, len(ids))
 
 	want := make([]ir.NodeID, 0, len(ids))
-	for _, id := range ids {
-		want = append(want, id)
-	}
+	want = append(want, ids...)
 
 	for _, src := range f.order() {
 		if len(want) == 0 {

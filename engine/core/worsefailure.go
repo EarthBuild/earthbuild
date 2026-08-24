@@ -18,9 +18,9 @@ import (
 // consequence in place of a cause, and the cause is the only actionable half.
 //
 // Two cancellations, or two genuine failures, fall back to graph order.
-func worseFailure(cur error, curAt int, next error, nextAt int) (error, int) {
+func worseFailure(cur error, curAt int, next error, nextAt int) (int, error) {
 	if cur == nil {
-		return next, nextAt
+		return nextAt, next
 	}
 
 	curCancel, nextCancel := isCancellation(cur), isCancellation(next)
@@ -29,17 +29,17 @@ func worseFailure(cur error, curAt int, next error, nextAt int) (error, int) {
 	// their positions, and is never displaced by one.
 	if curCancel != nextCancel {
 		if nextCancel {
-			return cur, curAt
+			return curAt, cur
 		}
 
-		return next, nextAt
+		return nextAt, next
 	}
 
 	if nextAt < curAt {
-		return next, nextAt
+		return nextAt, next
 	}
 
-	return cur, curAt
+	return curAt, cur
 }
 
 // isCancellation reports whether an error is the build being stopped rather than

@@ -13,8 +13,8 @@ import "github.com/EarthBuild/earthbuild/engine/trace"
 // reads nobody looked for (I3, I10).
 func runObserved(
 	fn func() ([]byte, error), _ func(string) error, _ func(),
-) ([]byte, error, trace.Sightings) {
+) ([]byte, trace.Sightings, error) {
 	out, err := fn()
 
-	return out, err, trace.Unobserved(nil)
+	return out, trace.Unobserved(nil), err
 }

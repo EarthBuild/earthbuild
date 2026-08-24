@@ -510,7 +510,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 			// build that blames a different command depending on which goroutine
 			// lost a race is a build nobody can act on - and a cancellation
 			// never outranks the failure that caused it, however the order falls.
-			failure, failAt = worseFailure(failure, failAt, err, indexOf[n.ID()])
+			failAt, failure = worseFailure(failure, failAt, err, indexOf[n.ID()])
 
 			mu.Unlock()
 

@@ -102,15 +102,15 @@ func receiveWith(next func(*seccompNotif) unix.Errno) (seccompNotif, error) {
 
 		errno := next(&n)
 
-		switch {
-		case errno == 0:
+		switch errno {
+		case 0:
 			return n, nil
 
-		case errno == unix.EINTR:
+		case unix.EINTR:
 			// A signal, not a failure. Round again with a clear buffer.
 			continue
 
-		case errno == unix.ENOENT:
+		case unix.ENOENT:
 			// **The notification evaporated, and that is ordinary.** The target
 			// thread was killed as it was being generated, or its blocked
 			// syscall was interrupted by a signal handler - seccomp_unotify(2)
@@ -166,11 +166,11 @@ func respond(fd int, id uint64) error {
 			uintptr(uint(unix.SECCOMP_IOCTL_NOTIF_SEND)),
 			uintptr(unsafe.Pointer(&r)))
 
-		switch {
-		case errno == 0:
+		switch errno {
+		case 0:
 			return nil
 
-		case errno == unix.EINTR:
+		case unix.EINTR:
 			// **A signal, not a failure - and `receive` has always known that.**
 			// The Go runtime preempts goroutines by sending SIGURG, so an ioctl
 			// on a busy thread is interrupted routinely rather than rarely.
@@ -182,7 +182,7 @@ func respond(fd int, id uint64) error {
 			// stall that survived five investigations (E520).
 			continue
 
-		case errno == unix.ENOENT:
+		case unix.ENOENT:
 			// The target died while this engine was deciding. Nothing to answer
 			// and nothing wrong: a step that exits mid-syscall is ordinary, and
 			// treating it as an error would fail builds for finishing.

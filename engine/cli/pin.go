@@ -29,7 +29,7 @@ import (
 func Pin(o Options) error {
 	// Declared as the interface rather than converted to it: `out` is
 	// reassigned below, so the concrete type of the default must not be its type.
-	var out io.Writer = io.Discard
+	out := io.Discard
 	if o.Out != nil {
 		out = o.Out
 	}

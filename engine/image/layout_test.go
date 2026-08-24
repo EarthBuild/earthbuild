@@ -117,8 +117,8 @@ func TestWriteLayoutProducesAReadableImage(t *testing.T) {
 		t.Errorf("the working directory is %q, want /app", config.Config.WorkingDir)
 	}
 
-	if config.Platform.Architecture != testArch || config.Platform.OS != testOS {
-		t.Errorf("the config says %s/%s, want linux/arm64", config.Platform.OS, config.Platform.Architecture)
+	if config.Architecture != testArch || config.OS != testOS {
+		t.Errorf("the config says %s/%s, want linux/arm64", config.OS, config.Architecture)
 	}
 }
 

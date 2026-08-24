@@ -53,7 +53,7 @@ func TestACancellationNeverOutranksItsCause(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, at := worseFailure(tc.cur, tc.curAt, tc.next, tc.nextAt)
+			at, got := worseFailure(tc.cur, tc.curAt, tc.next, tc.nextAt)
 
 			if tc.want != nil && !errors.Is(got, tc.want) {
 				t.Errorf("reported %v, want %v", got, tc.want)

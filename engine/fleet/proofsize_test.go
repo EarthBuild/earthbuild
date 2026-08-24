@@ -31,7 +31,7 @@ func TestAProofCrossesCompressed(t *testing.T) {
 	var proof bytes.Buffer
 
 	for i := range 2000 {
-		proof.WriteString(fmt.Sprintf("usr/lib/lib%d.so", i))
+		fmt.Fprintf(&proof, "usr/lib/lib%d.so", i)
 		proof.Write(make([]byte, 60))
 	}
 

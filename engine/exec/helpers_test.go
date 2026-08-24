@@ -62,7 +62,7 @@ func putProbeLayerAt(t *testing.T, store string) *ir.Node {
 		t.Skip("no go toolchain and EARTH_TEST_PROBE is unset, so the probe cannot be provided")
 	}
 
-	build := osexec.Command("go", "build", "-o", dst,
+	build := osexec.CommandContext(t.Context(), "go", "build", "-o", dst,
 		"github.com/EarthBuild/earthbuild/engine/exec/testdata/probe")
 	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+probeArch(), "CGO_ENABLED=0")
 

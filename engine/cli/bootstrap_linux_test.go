@@ -45,7 +45,7 @@ func TestTheEngineBuildsItselfOnLinux(t *testing.T) { // not parallel: one store
 	// case: there it is cross-built for the VM's platform.
 	guest := filepath.Join(t.TempDir(), "earth-guestd")
 
-	build := osexec.Command("go", testTarget, "-o", guest,
+	build := osexec.CommandContext(t.Context(), "go", testTarget, "-o", guest,
 		"github.com/EarthBuild/earthbuild/cmd/earth-guestd")
 	build.Dir = repo
 
@@ -114,7 +114,7 @@ probe:
 	second := filepath.Join(t.TempDir(), "store2")
 	t.Cleanup(func() { makeWritable(second) })
 
-	run := osexec.Command(engine, "+probe")
+	run := osexec.CommandContext(t.Context(), engine, "+probe")
 	run.Dir = dir
 	run.Env = append(os.Environ(),
 		"EARTH_GUESTD="+built,

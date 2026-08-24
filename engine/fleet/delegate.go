@@ -128,7 +128,7 @@ func expressible(op ir.Op) error {
 // filter here would be the send-what-fits answer, and it would send a step
 // missing an input.
 func scratch(mounts []ir.Mount) []string {
-	var out []string
+	out := make([]string, 0, len(mounts))
 
 	for _, m := range mounts {
 		out = append(out, m.Target)

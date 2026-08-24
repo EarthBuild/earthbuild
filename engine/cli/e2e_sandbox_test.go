@@ -152,7 +152,7 @@ func buildGuestd(t *testing.T) string {
 
 	out := filepath.Join(t.TempDir(), "earth-guestd")
 
-	build := osexec.Command("go", testTarget, "-o", out,
+	build := osexec.CommandContext(t.Context(), "go", testTarget, "-o", out,
 		"github.com/EarthBuild/earthbuild/cmd/earth-guestd")
 	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+runtime.GOARCH, "CGO_ENABLED=0")
 
@@ -529,7 +529,7 @@ build:
 		t.Errorf("the build did not say where the image went:\n%s", out.String())
 	}
 
-	raw, err := osexec.Command(skopeo, "inspect", "--raw",
+	raw, err := osexec.CommandContext(t.Context(), skopeo, "inspect", "--raw",
 		"oci:"+layout+":written-by-earthbuild:latest").Output()
 	if err != nil {
 		t.Fatalf("skopeo refused the image this build wrote: %v", err)
@@ -576,7 +576,7 @@ func TestTheImageABuildWroteActuallyRuns(t *testing.T) { // not parallel: boots 
 
 	// Named for what it is, so it does not collide with the build's own output
 	// buffer further down - which the hoist out of `if` made visible.
-	info, err := osexec.Command(docker, "info", "--format", "{{.ServerVersion}}").Output()
+	info, err := osexec.CommandContext(t.Context(), docker, "info", "--format", "{{.ServerVersion}}").Output()
 	if err != nil {
 		t.Skipf("the docker daemon is not running: %v (%s)", err, info)
 	}
@@ -624,9 +624,9 @@ build:
 		t.Fatalf("the image would not load: %v\n%s", err, b)
 	}
 
-	t.Cleanup(func() { _ = osexec.Command(docker, "rmi", "-f", name).Run() })
+	t.Cleanup(func() { _ = osexec.CommandContext(t.Context(), docker, "rmi", "-f", name).Run() })
 
-	ran, err := osexec.Command(docker, "run", "--rm", name).Output()
+	ran, err := osexec.CommandContext(t.Context(), docker, "run", "--rm", name).Output()
 	if err != nil {
 		t.Fatalf("the image would not run: %v", err)
 	}

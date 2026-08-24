@@ -73,7 +73,7 @@ func TestParallelismBoundsWhatRunsAtOnce(t *testing.T) {
 	// Six independent steps under a merge: all ready at once, so nothing but
 	// the limit decides how many overlap.
 	graph := func() *ir.Graph {
-		var in []*ir.Node
+		in := make([]*ir.Node, 0, 6)
 
 		for i := range 6 {
 			in = append(in, &ir.Node{
@@ -137,7 +137,7 @@ func TestZeroParallelismIsNotSerialAndNotUnbounded(t *testing.T) {
 
 	o := &occupancy{}
 
-	var in []*ir.Node
+	in := make([]*ir.Node, 0, 4)
 
 	for i := range 4 {
 		in = append(in, &ir.Node{

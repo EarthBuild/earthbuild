@@ -70,7 +70,7 @@ func TestAChildForkedFromAFilteredThreadIsTraced(t *testing.T) {
 		go tr.Run()
 
 		// Started from *this* thread, which is the whole experiment.
-		cmd := exec.Command(program, target)
+		cmd := exec.CommandContext(t.Context(), program, target)
 		cmd.Stdout, cmd.Stderr = nil, nil
 
 		err = cmd.Run()

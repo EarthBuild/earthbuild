@@ -55,7 +55,7 @@ func TestADeclarationIsFoldedRatherThanStacked(t *testing.T) {
 	}
 
 	if len(entries) != 1 {
-		var names []string
+		names := make([]string, 0, len(entries))
 		for _, e := range entries {
 			names = append(names, e.Name())
 		}

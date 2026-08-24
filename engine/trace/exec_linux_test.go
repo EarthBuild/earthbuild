@@ -117,7 +117,7 @@ func TestTheFilterSurvivesExecAndTracesTheStep(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(self)
+	cmd := exec.CommandContext(t.Context(), self)
 	cmd.Env = append(os.Environ(),
 		helperEnv+"=1", targetEnv+"="+target, programEnv+"="+program)
 	cmd.ExtraFiles = []*os.File{channel}

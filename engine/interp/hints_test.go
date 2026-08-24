@@ -48,7 +48,7 @@ func TestACacheHintDoesNotChangeTheGraph(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var ids []ir.NodeID
+		ids := make([]ir.NodeID, 0, len(p.Graph.Nodes()))
 		for _, n := range p.Graph.Nodes() {
 			ids = append(ids, n.ID())
 		}

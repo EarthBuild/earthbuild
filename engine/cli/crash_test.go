@@ -23,7 +23,7 @@ func buildNativeCLI(t *testing.T) string {
 
 	out := filepath.Join(t.TempDir(), "earth-native")
 
-	build := osexec.Command("go", testTarget, "-o", out,
+	build := osexec.CommandContext(t.Context(), "go", testTarget, "-o", out,
 		"github.com/EarthBuild/earthbuild/cmd/earth-native")
 
 	msg, err := build.CombinedOutput()

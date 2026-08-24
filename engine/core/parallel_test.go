@@ -189,7 +189,7 @@ func TestConcurrencyDoesNotReachTheResult(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var got []string
+		got := make([]string, 0, len(s.Record.Steps))
 		for _, r := range s.Record.Steps {
 			got = append(got, r.Meta.Source+"="+r.Layer.String())
 		}

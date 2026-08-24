@@ -35,7 +35,7 @@ func TestTargetsInheritTheBaseRecipe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var kinds []string
+	kinds := make([]string, 0, len(p.Graph.Nodes()))
 
 	for _, n := range p.Graph.Nodes() {
 		kinds = append(kinds, n.Op.Kind.String())

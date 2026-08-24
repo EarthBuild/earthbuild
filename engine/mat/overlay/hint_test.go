@@ -46,7 +46,7 @@ func TestOverlayOnOverlayExplainsItself(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var stack []ir.NodeID
+	stack := make([]ir.NodeID, 0, 2)
 
 	for i := range 2 {
 		id := ir.NodeID{byte(i + 1)}

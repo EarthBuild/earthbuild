@@ -97,7 +97,7 @@ func TestACleanBuildWarnsAboutNothing(t *testing.T) {
 func TestAnOverflowingConflictListSaysHowManyAreMissing(t *testing.T) {
 	t.Parallel()
 
-	var recorded []cache.Conflict
+	recorded := make([]cache.Conflict, 0, 32)
 
 	for i := range 32 {
 		recorded = append(recorded, cache.Conflict{

@@ -58,7 +58,7 @@ func (o *observed) pathsFor(nr int32) []string {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	var out []string
+	out := make([]string, 0, len(o.paths[nr]))
 	for p := range o.paths[nr] {
 		out = append(out, p)
 	}

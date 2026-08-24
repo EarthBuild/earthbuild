@@ -213,7 +213,7 @@ func runTraced(
 
 		go func() { tr.Run(); close(done) }()
 
-		cmd := exec.Command("/bin/sh", "-c", script)
+		cmd := exec.CommandContext(t.Context(), "/bin/sh", "-c", script)
 		cmd.Dir = dir
 		runErr := cmd.Run()
 

@@ -78,6 +78,14 @@ func corpusPlans(t *testing.T) []plannedFile {
 // Its own copy of the tree rather than `corpus`'s, because that one is under a
 // `t.TempDir` belonging to whichever test asked first - which is removed when
 // that test ends, while the other five are still reading paths out of it.
+// corpusDigests is one digest of each context path for the whole shared pass.
+//
+// The pass plans every target of every corpus Earthfile against a copy nothing
+// writes to, which is the condition [interp.ContextCache] asks for stated as
+// plainly as it can be: five hundred plans, one tree, and the tree is a
+// snapshot by construction.
+var corpusDigests = &interp.ContextCache{}
+
 func buildCorpusPlans() {
 	root := corpusTree()
 
@@ -92,7 +100,9 @@ func buildCorpusPlans() {
 		entry := plannedFile{file: f}
 
 		for _, target := range targetsIn(string(src)) {
-			p, buildErr := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
+			p, buildErr := interp.Build(string(src), target,
+				interp.WithContext(filepath.Dir(f)),
+				interp.WithContextCache(corpusDigests))
 			if buildErr != nil {
 				continue
 			}

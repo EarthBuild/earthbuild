@@ -91,3 +91,39 @@ func TestAnEntryCannotBeWrittenThroughAPlantedSymlink(t *testing.T) {
 		t.Errorf("the refusal does not say why: %v", err)
 	}
 }
+
+// A legitimate entry whose name merely contains ".." is still unpacked.
+//
+// **This is the test that says why CodeQL's suggested fix was not adopted.** Its
+// documented remedy for Zip Slip is `!strings.Contains(name, "..")`, and a tar
+// entry called `foo..bar` or `a..b/x` is a perfectly ordinary file: that check
+// would refuse to unpack an image over a substring. The guard here is about
+// where a path *resolves*, not about which characters are in it, and anyone
+// tempted to swap one for the other will fail this.
+func TestANameContainingDotDotIsNotAnEscape(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	for _, name := range []string{
+		"foo..bar",
+		"a..b/c",
+		"usr/lib/libstdc++.so.6..1",
+		"x/..y/z",
+		"..leading",
+		"trailing..",
+	} {
+		got, err := safePath(root, name)
+		if err != nil {
+			t.Errorf("safePath(%q) refused a legitimate name: %v"+
+				"\n  the guard is about where a path resolves, not which"+
+				" characters it contains", name, err)
+
+			continue
+		}
+
+		if !strings.HasPrefix(got, root+string(filepath.Separator)) {
+			t.Errorf("safePath(%q) = %q, outside the root", name, got)
+		}
+	}
+}

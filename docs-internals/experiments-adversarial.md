@@ -28343,3 +28343,40 @@ park now waits for the test to finish and then calls `runtime.Goexit`:
 Two steps because `t.Cleanup` has to be registered before the test can end, and a worker goroutine
 calling it races the thing it is registering against. `Goexit` rather than a bare return so that
 anything added after it is a visible mistake rather than a silently immortal filter.
+
+## E628 - the test written to refuse CodeQL's advice found a real bug
+
+CodeQL reports `engine/image/unpack.go` as Zip Slip and its documented remedy is
+
+```go
+    if !strings.Contains(f.Name, "..") {
+```
+
+which is **weaker than what was already there**. It refuses legitimate entries - `foo..bar`,
+`libstdc++.so.6..1` - says nothing about absolute names, and does nothing about the vector a `..`
+check cannot see: an entry whose name is innocent and whose *parent* resolves through a symlink out of
+the layer. `safePath` handles all three. So the answer was a barrier the analyser can read placed
+beside the guard that actually works, not instead of it.
+
+*And a test to stop anyone swapping one for the other*, asserting that a name merely containing `..`
+is still unpacked. It failed:
+
+```text
+    safePath("foo..bar") refused a legitimate name: layer entry "foo..bar" writes
+      through a symlink out of the layer, to /private/var/folders/.../001
+```
+
+**The reason has nothing to do with the dots.** For a top-level entry the parent *is* the root, and
+`EvalSymlinks` resolves the root's own symlinks - on darwin `/var` is `/private/var` - so a resolved
+parent was being compared against an unresolved root. Every entry at depth one was refused whenever
+the unpack root sat under a symlink: `bin`, `etc`, `usr`, all of them, with an error blaming the entry
+for a property of the root.
+
+*Latent rather than live.* The unpack that matters runs guest-side at `/var/lib/earthbuild/store`,
+which is not symlinked, which is why a pull has never failed this way. `filepath.EvalSymlinks(root)`
+once, compared like with like, and the case is gone.
+
+*What this says about the sweep.* The finding was a false positive, the advice was worse than the code,
+and writing the test to prove both turned up a defect neither the tool nor I was looking at. **The
+value was in constructing the case, not in the verdict** - which is the third time in this file that a
+test written to defend existing behaviour has found the behaviour wrong (E585, E625).

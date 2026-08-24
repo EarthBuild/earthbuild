@@ -102,6 +102,29 @@ func Unpack(r io.Reader, dir string) error {
 			return err
 		}
 
+		// **Redundant, and here to be read by a machine.** `safePath` is the
+		// guard: it refuses an empty or absolute name, `..` at any depth, and an
+		// entry whose parent resolves through a symlink out of the layer -
+		// which is the vector a `..` check alone misses, because there the name
+		// is innocent and only the path is not.
+		//
+		// CodeQL cannot see it, because the check is a function away from the
+		// use rather than inline at it, and reports this loop as Zip Slip. Its
+		// documented remedy is `!strings.Contains(name, "..")`, which is weaker
+		// than what is already here: it rejects legitimate entries like
+		// `foo..bar`, says nothing about absolute names, and does not address
+		// symlinks at all. Adopting it would trade a real guard for a
+		// recognisable one.
+		//
+		// So this asserts containment where the analyser is looking, in the form
+		// it understands, and states the same property `safePath` returned. If
+		// the two ever disagree the unpack stops, which is the right outcome for
+		// a disagreement about whether a write leaves the layer.
+		err = insideRoot(root, target, h.Name)
+		if err != nil {
+			return err
+		}
+
 		// Whiteouts are markers, not files: they name a deletion, and writing
 		// them literally would put `.wh.foo` into the merged filesystem instead
 		// of removing `foo` from it.
@@ -139,6 +162,29 @@ func Unpack(r io.Reader, dir string) error {
 // `../` in the name, and a path whose *parent* is a symlink pointing out of the
 // layer. An archive can create `link -> /tmp` and then write `link/x`, which
 // contains no `..` at all and lands outside the layer regardless.
+// insideRoot asserts that a resolved entry path lies within the layer.
+//
+// **The guard is `safePath`; this is the same statement placed where the writes
+// are.** CodeQL traces `h.Name` through `filepath.Join` into `target` and out to
+// `os.MkdirAll` in `writeEntry`, and reports Zip Slip because the check it can
+// see is a function call away. Its documented remedy - `!strings.Contains(name,
+// "..")` - is weaker than what is already here: it refuses legitimate entries
+// like `foo..bar`, ignores absolute names, and cannot see the vector where the
+// name is innocent and the parent is a symlink out of the layer (E628).
+//
+// So the property is asserted twice: once where the path is derived and once
+// immediately before the syscalls that use it. One function, two call sites, so
+// there is one rule rather than two that must agree - and a disagreement between
+// them stops the unpack, which is the right outcome for a disagreement about
+// whether a write leaves the layer.
+func insideRoot(root, target, name string) error {
+	if target == root || strings.HasPrefix(target, root+string(filepath.Separator)) {
+		return nil
+	}
+
+	return fmt.Errorf("layer entry %q resolved to %s, which is outside the layer", name, target)
+}
+
 func safePath(root, name string) (string, error) {
 	if name == "" {
 		return "", errors.New("layer entry has an empty name")
@@ -151,6 +197,24 @@ func safePath(root, name string) (string, error) {
 	clean := filepath.Clean(name)
 	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("layer entry %q escapes the layer", name)
+	}
+
+	// **The root is resolved too, or the comparison below is not like with
+	// like.** `EvalSymlinks` on a parent resolves the *root's* own symlinks as
+	// well - on darwin `/tmp` is `/private/tmp` - so a resolved parent compared
+	// against an unresolved root differs for every top-level entry, and the
+	// guard refused `bin`, `etc` and everything else at depth one whenever the
+	// store sat under a symlinked path. Found by a test asking whether a name
+	// containing `..` is still unpacked: `foo..bar` was refused, and the reason
+	// had nothing to do with the dots (E628).
+	//
+	// A root that cannot be resolved is used as given: it may not exist yet,
+	// which is not this function's business.
+	realRoot := root
+
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err == nil {
+		realRoot = resolvedRoot
 	}
 
 	target := filepath.Join(root, clean)
@@ -179,7 +243,7 @@ func safePath(root, name string) (string, error) {
 		return target, nil
 	}
 
-	if resolved != root && !strings.HasPrefix(resolved, root+string(filepath.Separator)) {
+	if resolved != realRoot && !strings.HasPrefix(resolved, realRoot+string(filepath.Separator)) {
 		return "", fmt.Errorf("layer entry %q writes through a symlink out of the layer, to %s",
 			name, resolved)
 	}
@@ -191,7 +255,14 @@ func writeEntry(
 	tr *tar.Reader, h *tar.Header, root, target string,
 	written map[string]bool, folded map[string]foldedEntry,
 ) error {
-	err := os.MkdirAll(filepath.Dir(target), 0o755) //nolint:gosec // a mode a build decided: 0750 would alter the layer, and §3.3 lists a mode among what a layer records
+	// Immediately before the syscalls, so the assertion dominates the sink
+	// rather than sitting a call away from it. See insideRoot.
+	err := insideRoot(root, target, h.Name)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Dir(target), 0o755) //nolint:gosec // a mode a build decided: 0750 would alter the layer, and §3.3 lists a mode among what a layer records
 	if err != nil {
 		return fmt.Errorf("create the parent of %q: %w", h.Name, err)
 	}

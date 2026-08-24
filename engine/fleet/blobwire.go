@@ -299,7 +299,7 @@ func serveBlobConn(ctx context.Context, conn *iroh.Conn, held Held, onError func
 }
 
 // serveBlobStream answers one request.
-func serveBlobStream(ctx context.Context, st io.ReadWriteCloser, held Held, onError func(error)) {
+func serveBlobStream(_ context.Context, st io.ReadWriteCloser, held Held, onError func(error)) {
 	defer func() { _ = st.Close() }()
 
 	ids, want, proof, err := readRequest(st)

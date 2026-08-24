@@ -122,7 +122,7 @@ func (f *fakeRegistry) start(t *testing.T) string {
 	// realm and the URL is not known until then.
 	var realm string
 
-	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/token", func(w http.ResponseWriter, _ *http.Request) {
 		f.tokens++
 
 		_ = json.NewEncoder(w).Encode(map[string]any{"token": "issued"})

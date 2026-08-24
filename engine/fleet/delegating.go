@@ -879,7 +879,7 @@ func (d *Delegating) learned() {
 // *not* a scheduler - it does not model this machine's own capacity, because a
 // step kept here still runs through the ordinary executor, which has whatever
 // limits it has.
-func (d *Delegating) fleetFull(a Assignment) (string, bool) {
+func (d *Delegating) fleetFull(_ Assignment) (string, bool) {
 	if d.Fleet == nil || d.Local == nil || d.Store == nil {
 		return "", false
 	}

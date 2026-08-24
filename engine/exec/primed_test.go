@@ -23,7 +23,7 @@ func TestAFaultInIsAnsweredAgainstTheBaseItNamed(t *testing.T) {
 	var asked []string
 
 	e := &Executor{
-		Prime: func(_ context.Context, stack []ir.NodeID, _ []string, into string) error {
+		Prime: func(_ context.Context, _ []ir.NodeID, _ []string, into string) error {
 			asked = append(asked, into)
 
 			return nil

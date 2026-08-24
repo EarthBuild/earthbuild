@@ -80,7 +80,7 @@ func localRemotes(t *testing.T) interp.Remotes {
 		return nil
 	}
 
-	return func(repo, rev string) (string, error) {
+	return func(repo, _ string) (string, error) {
 		dir := filepath.Join(home, "git", strings.TrimPrefix(repo, "github.com/"))
 		_, err := os.Stat(filepath.Join(dir, ".git"))
 		if err != nil {

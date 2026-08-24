@@ -428,7 +428,7 @@ func (p *Plan) gitCloneNode(c earthfile.Command, prev *ir.Node, rs *state) (*ir.
 // exactly what `SAVE ARTIFACT ... AS LOCAL` already does. Reusing that path
 // means one implementation of "put this where the user asked", and one place
 // for it to be wrong.
-func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, error) {
+func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node, error) {
 	where := loc(c.SourceLocation)
 
 	spec, err := copyArgs(c)

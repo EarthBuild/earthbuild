@@ -114,8 +114,16 @@ func TestDependenciesAreStillRespected(t *testing.T) {
 	)
 
 	base := &ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{testImage}}, Meta: ir.Meta{Source: testBase}}
-	mid := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: []string{testMid}}, Inputs: []*ir.Node{base}, Meta: ir.Meta{Source: testMid}}
-	top := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: []string{testTop}}, Inputs: []*ir.Node{mid}, Meta: ir.Meta{Source: testTop}}
+	mid := &ir.Node{
+		Op:     ir.Op{Kind: ir.OpExec, Args: []string{testMid}},
+		Inputs: []*ir.Node{base},
+		Meta:   ir.Meta{Source: testMid},
+	}
+	top := &ir.Node{
+		Op:     ir.Op{Kind: ir.OpExec, Args: []string{testTop}},
+		Inputs: []*ir.Node{mid},
+		Meta:   ir.Meta{Source: testTop},
+	}
 
 	s := &core.Scheduler{
 		Workers: []core.Worker{{ID: "w", IsInvoker: true}},

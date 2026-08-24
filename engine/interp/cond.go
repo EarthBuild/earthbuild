@@ -66,7 +66,7 @@ func condFlags(cond []string, where string) ([]string, error) {
 	return rest, nil
 }
 
-func decide(cond []string, sc scope, env map[string]string) (bool, error) {
+func decide(cond []string, _ scope, env map[string]string) (bool, error) {
 	// An unexpanded `$name` is a name no ARG declared. It may still be a real
 	// variable - ENV sets some, and a base image sets more - so it is looked up
 	// in the environment this build state carries, and only what is left over

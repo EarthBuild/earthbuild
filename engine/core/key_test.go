@@ -177,8 +177,14 @@ func TestEditInvalidatesDownstreamOnly(t *testing.T) {
 func TestEnvIsInTheKey(t *testing.T) {
 	t.Parallel()
 
-	n1 := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: []string{"go build"}, Env: map[string]string{"GOFLAGS": "-race"}}, Platform: amd64}
-	n2 := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: []string{"go build"}, Env: map[string]string{"GOFLAGS": ""}}, Platform: amd64}
+	n1 := &ir.Node{
+		Op:       ir.Op{Kind: ir.OpExec, Args: []string{"go build"}, Env: map[string]string{"GOFLAGS": "-race"}},
+		Platform: amd64,
+	}
+	n2 := &ir.Node{
+		Op:       ir.Op{Kind: ir.OpExec, Args: []string{"go build"}, Env: map[string]string{"GOFLAGS": ""}},
+		Platform: amd64,
+	}
 
 	if core.DeriveChainKey(n1, nil, nil) == core.DeriveChainKey(n2, nil, nil) {
 		t.Fatal("steps differing only in ε share a key: I3 violated")

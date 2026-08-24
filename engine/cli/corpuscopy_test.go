@@ -69,7 +69,7 @@ func TestTheCorpusCopyLeavesOutBuildOutput(t *testing.T) {
 	for _, junk := range []string{"node_modules", ".next"} {
 		found := 0
 
-		_ = filepath.Walk(filepath.Join(root, ".."), func(p string, fi os.FileInfo, err error) error {
+		_ = filepath.Walk(filepath.Join(root, ".."), func(_ string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return nil //nolint:nilerr // an unreadable corner is not the point here
 			}

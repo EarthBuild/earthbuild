@@ -58,7 +58,7 @@ func launchDockerd(ctx context.Context, argv []string, sock string) (daemonProce
 // exactly the wrong advice: the daemon runs beside the step (E368), so the image
 // needs a client and the machine needs the daemon.
 func launchWith(
-	ctx context.Context, look lookFn, argv []string, sock string,
+	_ context.Context, look lookFn, argv []string, sock string,
 ) (daemonProcess, error) {
 	bin, err := look("dockerd")
 	if err != nil {

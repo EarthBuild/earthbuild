@@ -128,7 +128,7 @@ type primingTransport struct {
 }
 
 func (p *primingTransport) Assign(
-	_ context.Context, a fleet.Assignment,
+	_ context.Context, _ fleet.Assignment,
 ) (fleet.Reply, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

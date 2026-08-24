@@ -435,7 +435,11 @@ jobs:
           # about not blocking the merge, not about not saying.
           if grep -qE '^\s+--- FAIL|test\(s\) failed' /tmp/native.log; then
             echo "::error::the native engine's +unit-test had failing tests"
-            grep -E '^\s+--- FAIL|FAIL\s+github' /tmp/native.log | sort -u | head -20
+            # **Before the FAIL line, not after.** Go prints a failing test's own
+            # output above its `--- FAIL`, so a grep with only `-A` shows the
+            # next test and never the reason (E624).
+            grep -E -B 6 '^\s+--- FAIL' /tmp/native.log | head -60
+            grep -E 'FAIL\s+github' /tmp/native.log | sort -u | head -20
           fi
           # A build that died before its tests produces neither a cache summary
           # nor a FAIL, and used to report only a duration (E611, E616).
@@ -470,7 +474,11 @@ jobs:
 
           if grep -qE '^\s+--- FAIL|test\(s\) failed' /tmp/untraced.log; then
             echo "::error::the unwatched native +unit-test had failing tests"
-            grep -E '^\s+--- FAIL|FAIL\s+github' /tmp/untraced.log | sort -u | head -20
+            # **Before the FAIL line, not after.** Go prints a failing test's own
+            # output above its `--- FAIL`, so a grep with only `-A` shows the
+            # next test and never the reason (E624).
+            grep -E -B 6 '^\s+--- FAIL' /tmp/untraced.log | head -60
+            grep -E 'FAIL\s+github' /tmp/untraced.log | sort -u | head -20
           fi
           echo "native +unit-test unwatched took $(( $(date +%s) - start ))s"
           grep -E '^\s+cache ' /tmp/untraced.log \

@@ -323,7 +323,7 @@ engine-race:
             echo "--- what failed:"; \
             grep -E "^ *--- FAIL" /tmp/t.log | head -20 || echo "(no test reported FAIL)"; \
             echo "--- with context:"; \
-            grep -E -A 3 "^ *--- FAIL" /tmp/t.log | head -40; \
+            grep -E -B 8 -A 1 "^ *--- FAIL" /tmp/t.log | head -80; \
             echo "--- and the last of the log, for a run that failed without one:"; \
             tail -20 /tmp/t.log; \
             exit "$rc"; \

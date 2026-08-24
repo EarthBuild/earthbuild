@@ -28183,3 +28183,36 @@ times.
 as though it returned `(code, out, err)` and it has returned a struct since the branch's base commit
 four days ago. `go vet -tags integration` finds it in a second and nothing local runs it - the same
 hazard the code comments already name at E415.
+
+## E624 - the diagnostic was reading the wrong side of the line
+
+`+engine-race` reported a failing test and nothing about why:
+
+```text
+    --- what failed:
+    --- FAIL: TestEachSyscallsPathArgumentIsTheOneRecovered (0.00s)
+    --- with context:
+    --- FAIL: TestEachSyscallsPathArgumentIsTheOneRecovered (0.00s)
+    === RUN   TestTheSightingsAreSortedNotMerelyOftenSorted
+```
+
+The "context" is the *next test starting*. E609 wrote that grep - `grep -E -A 3 "^ *--- FAIL"` -
+and **`go test` prints a failing test's own output above its `--- FAIL` line, not below it.** So the
+one thing the diagnostic existed to show was the one thing it could never show, and it has been that
+way through every failure since.
+
+The test in question prints exactly what would have answered the question: which syscall was not
+seen, and the addresses that were read instead. Four rounds of this failure have gone by with that
+message sitting eight lines above the grep's window.
+
+*Corrected in three places.* `-B 8 -A 1` here, and the two `+unit-test` greps in the workflow that
+E616 added with the same mistake, an hour after fixing the step next to them for a different version
+of the same fault. **A diagnostic is a mechanism and needs its own test more than most**, because the
+thing it fails at is telling you it failed.
+
+*Also recorded: I contaminated my own reproduction.* The local `+engine-race` run meant to reproduce
+this was done while several other builds and test suites of mine were running on the same laptop, and
+it produced a different and much larger set of failures - corpus tests at 245s, a memory-limit test,
+timing-sensitive dedup. That is E619 again, on my own machine, within the hour of writing E619 about
+somebody else's. The rule earned there - *state who else is on the machine before timing on it* -
+turns out to need a second clause: **including yourself.**

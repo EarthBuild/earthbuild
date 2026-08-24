@@ -177,6 +177,12 @@ func cacheID(target string) string {
 // cache instead would run the step with something other than what it asked for.
 // A silently absent secret is the worst of them, because the command that needed
 // it fails somewhere else entirely.
+// mountFieldTarget is where a mount appears, named because two files spell it:
+// this one reads it and dockerfile.go writes it. The tables below keep the
+// literal, because there the field name *is* the content - a list of what a
+// mount kind accepts is read against the specification, not against a name.
+const mountFieldTarget = "target"
+
 func parseMount(spec, where string) (ir.Mount, error) {
 	fields := map[string]string{}
 
@@ -222,7 +228,7 @@ func parseMount(spec, where string) (ir.Mount, error) {
 		return ir.Mount{}, err
 	}
 
-	target := fields["target"]
+	target := fields[mountFieldTarget]
 	if target == "" {
 		target = fields["dst"]
 	}

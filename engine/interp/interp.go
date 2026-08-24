@@ -2631,7 +2631,6 @@ var flagMeanings = map[string]string{
 	"--sharing": "decides whether concurrent builds wait for the cache mount, share it, or each get their own",
 	"--chmod":   "changes the permissions of the copied files, given in octal",
 	"--network": "isolates the command from the networking stack and the internet",
-	"--mount":   "mounts a file or directory in the context of the build environment",
 	"--oidc":    "obtains temporary AWS credentials for the command through a federated session",
 	// Documented as *absent from the language*, so this describes what it does
 	// in the syntax that has it. The refusal for it is notInLanguage, not

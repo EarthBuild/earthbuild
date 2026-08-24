@@ -146,7 +146,13 @@ func TestEveryRefusedFlagSaysWhatItWas(t *testing.T) {
 	// `--allow-privileged` before it: the flag asks for a faster route to the
 	// answer this engine already gives, so there is nothing left to refuse and
 	// `TestTheAutoSkipOptionIsAccepted` is the test of it.
-	if len(flags) < 12 {
+	// Eleven since `RUN --mount` stopped being refused as a flag: a Dockerfile
+	// mount is now written back into the Earthfile spelling and refused by
+	// *kind* where the kind is absent, so the bare flag is refused nowhere and
+	// the message names `type=bind` rather than `--mount`. That is a better
+	// refusal, not a missing one - TestADockerfileBindMountIsRefusedByKind is
+	// the test of it - and this scan counts flags, so the number moved.
+	if len(flags) < 11 {
 		t.Fatalf("only %d refused flags found (%v), so the scan is wrong rather"+
 			" than the source", len(flags), flags)
 	}

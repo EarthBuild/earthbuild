@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -620,12 +621,22 @@ func translate(instr instructions.Command, where string) (earthfile.Command, err
 		// The same rule as the Earthfile side, where a flag that changes what a
 		// step can *do* is refused rather than stripped (runflags.go): a step
 		// that quietly loses one does not fail, it produces the wrong thing.
-		if len(instructions.GetMounts(v)) > 0 {
-			return earthfile.Command{}, unsupported("RUN --mount", where, "")
+		//
+		// **Translated rather than judged here.** Each mount is written back
+		// into the Earthfile spelling and the Earthfile parser decides, so the
+		// two syntaxes cannot drift: a kind provided for one is provided for
+		// the other, and a kind refused is refused in both with the same words.
+		// Refusing every mounted RUN outright was the first version and was too
+		// broad - `type=cache` means the same thing in both languages and this
+		// engine has always provided it.
+		mounts, err := mountsOf(v, where)
+		if err != nil {
+			return earthfile.Command{}, err
 		}
 
 		return earthfile.Command{
-			Name: earthfile.CmdRun, Args: v.CmdLine,
+			Name:     earthfile.CmdRun,
+			Args:     append(mounts, v.CmdLine...),
 			ExecMode: !v.PrependShell, SourceLocation: loc,
 		}, nil
 
@@ -832,4 +843,74 @@ func dockerfileFromTarget(opt dockerfileOptions, fromTarget *ir.Node) string {
 	}
 
 	return ""
+}
+
+// mountFlags writes Dockerfile mounts back into the Earthfile spelling.
+//
+// The two languages share the comma-separated `key=value` form, so this is a
+// rendering and not a conversion - which is the point: whatever the Earthfile
+// parser accepts or refuses, a Dockerfile saying the same thing gets the same
+// answer, including the wording of the refusal.
+//
+// An absent type is written out as `bind`, because that is what a Dockerfile
+// means by it. Leaving it absent would have the parser report `type=(none)`,
+// naming something the author did not write and could not look up.
+// mountsOf reads a RUN's mounts, which are not read until it is expanded.
+//
+// **An identity expander, and that is the whole trick.** buildkit parses a
+// mount's fields only when it has something to substitute variables with; given
+// nothing it skips every field and hands back a default `type=bind` with no
+// target - so a `type=cache` mount arrived here looking like a bind and was
+// refused as one. Substituting nothing leaves `$FOO` as `$FOO`, and the
+// Earthfile side expands the rendered specification anyway (runflags.go), which
+// is where variables are in scope. Expanding here would be the second expander
+// this file has already decided it does not need.
+func mountsOf(v *instructions.RunCommand, where string) ([]string, error) {
+	err := v.Expand(func(word string) (string, error) { return word, nil })
+	if err != nil {
+		return nil, fmt.Errorf("RUN --mount at %s: %w", where, err)
+	}
+
+	return mountFlags(instructions.GetMounts(v)), nil
+}
+
+func mountFlags(mounts []*instructions.Mount) []string {
+	if len(mounts) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(mounts))
+
+	for _, m := range mounts {
+		kind := string(m.Type)
+		if kind == "" {
+			kind = "bind"
+		}
+
+		fields := []string{"type=" + kind}
+
+		for _, kv := range []struct{ k, v string }{
+			{mountFieldTarget, m.Target},
+			{"source", m.Source},
+			{"from", m.From},
+			{"id", m.CacheID},
+			{"sharing", string(m.CacheSharing)},
+		} {
+			if kv.v != "" {
+				fields = append(fields, kv.k+"="+kv.v)
+			}
+		}
+
+		if m.ReadOnly {
+			fields = append(fields, "readonly=true")
+		}
+
+		if m.Mode != nil {
+			fields = append(fields, "mode="+strconv.FormatUint(*m.Mode, 8))
+		}
+
+		out = append(out, "--mount="+strings.Join(fields, ","))
+	}
+
+	return out
 }

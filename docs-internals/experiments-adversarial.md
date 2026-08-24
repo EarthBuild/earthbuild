@@ -27962,3 +27962,46 @@ carries a size and not a subject, so `kindOf` could only ever call it "response"
 frame went three rounds of diagnosis without anybody able to say what it held. `reply` takes the
 request's kind and puts it in the error, and the next occurrence identifies itself in one line
 instead of four experiments.
+
+## E619 - the machine was not idle, and I did not check
+
+Every linux measurement in E614 through E618 was taken on the 32-core box, and the box was running
+somebody else's work the whole time:
+
+```text
+    load average: 16.07, 18.21, 18.71      on 32 cores, 10 users
+    14 live test binaries, 8 distinct go-build trees
+    exec.test -test.run ^TestOneSandboxServesEveryStep$ -test.v   (repeatedly)
+```
+
+A sibling session is flake-hunting this engine's own suite, in a loop, on the same machine. **THE
+STACK exists to be read before starting work for exactly this reason and I did not read it.**
+
+*What that costs, item by item.*
+
+| Result                                  | Still stands?                                       |
+| --------------------------------------- | --------------------------------------------------- |
+| E614's tracer A/B (7.82 vs 8.12µs)      | interleaved old/new, so drift cancels - **stands**  |
+| E616's three test failures              | a race with a named cause and a fix - **stands**    |
+| E617's frame-limit error                | a real error message from a real build - **stands** |
+| the two "hangs" blamed on my guard      | **unsafe**: load 17 and shared mounts explain them  |
+| every `+unit-test` duration on that box | **unusable**: measured against unknown competition  |
+
+The tax measurement was the point of all three attempts and it has produced nothing, which is the
+right answer rather than a disappointing one: **a duration measured on a machine at load 18 is not a
+slow number, it is not a number.**
+
+*And I did worse than mismeasure.* `pkill -9 -f "earth build"` and `pkill -9 -f earth-guestd`, run
+three times to clear what I took for my own leaked processes, match another session's test processes
+exactly as well as mine. Some of what I killed was not mine to kill. The pattern was written for a
+machine I assumed was empty, and the assumption was never stated, so it was never checked.
+
+*What the leak evidence really shows.* Guest processes an hour old, pids that reappeared after being
+killed, and a build still alive fifty minutes after its own run printed `rc=0` - I read all of it as
+one engine defect. On a machine running eight concurrent test trees, orphaned `earth-guestd`
+processes are the *expected* debris of a suite being killed and restarted in a loop, and at least
+some were another session's. **The leak may be real; nothing here establishes it**, and the way to
+find out is a machine with one user on it.
+
+*The rule this earns.* Before a timing on a shared machine: state who else is on it. `uptime` and
+`pgrep` are two seconds, and they are the difference between a measurement and a number.

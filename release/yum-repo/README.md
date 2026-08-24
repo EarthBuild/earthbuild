@@ -61,7 +61,7 @@ To package all platforms
 
 To package a specific platform
 
-    earth +rpm --RELEASE_TAG --EARTHLY_PLATFORM=arm7
+    earth +rpm --RELEASE_TAG --EARTH_PLATFORM=arm7
 
 #### Cloning the s3 repo to your local disk
 

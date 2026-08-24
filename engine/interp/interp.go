@@ -1207,23 +1207,26 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				earthfile.CmdSaveImage, loc(c.SourceLocation), err)
 		}
 
-		// `--cache-from` is accepted and ignored, and the distinction it draws
-		// is worth stating: it names somewhere to *look* for cache, so a build
-		// that heeds it and one that ignores it produce the same image. That is
-		// I5 - a hint may not change results - which is exactly what makes
-		// ignoring it safe, and what separates it from the flags below, each of
-		// which changes what is produced. Refusing a flag that cannot affect
-		// the output turns a working Earthfile away for nothing.
+		// `--cache-from` and `--insecure` are accepted and ignored, and the
+		// distinction they draw is worth stating. `--cache-from` names
+		// somewhere to *look* for cache; `--insecure` says the push may use
+		// plain HTTP, and this engine does not push - `pushNote` is what says
+		// so to the operator. Neither can change the image, which is I5: a hint
+		// may not change results. Refusing a flag that cannot affect the output
+		// turns a working Earthfile away for nothing.
 		//
-		// It is also kept out of the key, by not reaching the graph at all: two
-		// builds differing only in where they were told to look must share
-		// cache entries, which they cannot do if the hint is part of what is
-		// keyed.
+		// Both are kept out of the key by not reaching the graph at all: two
+		// builds differing only in where they were told to look, or in a
+		// transport that is never opened, must share cache entries - which they
+		// cannot do if either is part of what is keyed.
+		//
+		// `--no-manifest-list` is refused because it is not a hint. It says
+		// what shape the artefact takes, so an engine that ignored it would
+		// hand back something other than what was asked for.
 		for _, u := range []struct {
 			set  bool
 			name string
 		}{
-			{img.Insecure, "--insecure"},
 			{img.NoManifestList, "--no-manifest-list"},
 		} {
 			if u.set {

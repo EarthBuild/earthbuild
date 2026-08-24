@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
+	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
@@ -71,6 +72,10 @@ func main() {
 
 		return
 	}
+
+	// Having got past that, this binary demonstrably dispatches the agent - so
+	// the engine may run it as one rather than hunting for a separate file.
+	exec.SelfServesAsGuest()
 
 	var (
 		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")

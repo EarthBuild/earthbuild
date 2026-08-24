@@ -25,6 +25,7 @@ import (
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/internal/env"
@@ -86,6 +87,10 @@ func main() {
 
 		return
 	}
+
+	// Having got past that, this binary demonstrably dispatches the agent - so
+	// the engine may run it as one rather than hunting for a separate file.
+	exec.SelfServesAsGuest()
 
 	os.Exit(run())
 }

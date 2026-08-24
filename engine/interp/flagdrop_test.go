@@ -247,6 +247,7 @@ var knownDropped = []string{
 	"SAVE ARTIFACT --symlink-no-follow",   // deliberate: a layer holds a symlink as one
 	"SAVE IMAGE --cache-from",             // deliberate: a hint may not change results (I5)
 	"SAVE IMAGE --cache-hint",             // deliberate: as above
+	"SAVE IMAGE --insecure",               // deliberate: governs a push, and this engine does not push
 	"SAVE IMAGE --without-earthly-labels", // deliberate: this engine adds no such labels
 }
 

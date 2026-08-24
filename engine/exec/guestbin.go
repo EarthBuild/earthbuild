@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/EarthBuild/earthbuild/engine/guestd"
 )
@@ -85,15 +86,38 @@ func crossPrefix() string {
 // process asking is a darwin one - there, a separate binary is the only answer
 // and [findGuestBinary] is what to call.
 func findGuestCommand() (string, []string, error) {
+	return guestCommandGiven(selfIsGuest.Load())
+}
+
+// guestCommandGiven is [findGuestCommand] with the declaration passed in.
+//
+// Split out so a test can ask both questions without writing to the package
+// variable: every sandbox test in this package calls the lookup, they run in
+// parallel with each other, and a test that flipped the flag would hand them
+// its own binary as the agent - which is the failure this whole arrangement
+// exists to have caught once.
+func guestCommandGiven(selfServes bool) (string, []string, error) {
 	bin, err := findGuestBinary()
 	if err == nil {
 		return bin, nil, nil
 	}
 
-	// **This binary is the agent as well.** `earth guestd ...` runs it, so a CLI
-	// that travelled somewhere on its own - copied into a step, which is what a
-	// nested build does - has the agent with it and needs no second file. Tried
-	// second, because an operator who put a separate one beside us meant it.
+	// **This binary is the agent as well - if it says so.** `earth guestd ...`
+	// runs the agent, so a CLI that travelled somewhere on its own - copied
+	// into a step, which is what a nested build does - has the agent with it
+	// and needs no second file. Tried second, because an operator who put a
+	// separate one beside us meant it.
+	//
+	// Declared rather than assumed. The first version took `os.Executable()`
+	// and appended the subcommand, which is right for the CLI and wrong for
+	// every other process that links this package: a test binary is not the
+	// CLI, has no `guestd` subcommand, and answered the lookup with itself -
+	// so three sandbox tests launched `exec.test guestd` and hung until their
+	// deadline. Only a main that dispatches the subcommand can know it does.
+	if !selfServes {
+		return "", nil, err
+	}
+
 	exe, exeErr := os.Executable()
 	if exeErr != nil {
 		return "", nil, err
@@ -101,3 +125,14 @@ func findGuestCommand() (string, []string, error) {
 
 	return exe, []string{guestd.Command}, nil
 }
+
+// selfIsGuest records that this executable dispatches [guestd.Command].
+var selfIsGuest atomic.Bool
+
+// SelfServesAsGuest declares that this binary runs the sandbox agent when it is
+// given [guestd.Command], which lets the engine use it instead of looking for a
+// separate file.
+//
+// Called by the mains that dispatch it. Anything that does not call it gets the
+// old behaviour, which is what a test binary and an embedding program want.
+func SelfServesAsGuest() { selfIsGuest.Store(true) }

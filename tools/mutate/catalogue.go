@@ -2427,10 +2427,10 @@ var Mutants = []Mutant{
 	},
 	{
 		Name:        "guest: the scratch relocated off an overlay (E634)",
-		File:        "cmd/earth-guestd/mat_linux.go",
+		File:        "engine/guestd/mat_linux.go",
 		Anchor:      "\tat, cleanup, err := overlay.Mountable(scratch)",
 		Replacement: "\tat, cleanup, err := scratch, func() {}, error(nil)",
-		Package:     "./cmd/earth-guestd/",
+		Package:     "./engine/guestd/",
 	},
 	{
 		Name:        "guest: the daemon wait bounded (E395)",
@@ -2534,10 +2534,10 @@ var Mutants = []Mutant{
 	},
 	{
 		Name:        "guestd: a scratch directory removed when its mount fails (E473)",
-		File:        "cmd/earth-guestd/scratch.go",
+		File:        "engine/guestd/scratch.go",
 		Anchor:      "\t\t_ = os.RemoveAll(dir)",
 		Replacement: "",
-		Package:     "./cmd/earth-guestd/",
+		Package:     "./engine/guestd/",
 	},
 	{
 		Name:        "cli: ls naming the base recipe (E474)",

@@ -50,6 +50,14 @@ var (
 // another sweep's fixture, which is the one way this can go wrong - and the
 // reason it says so here rather than leaving the next reader to find out.
 //
+// **A digest memo was tried and is slower**, which is worth recording because
+// the profile argues loudly for one: 60% of this package's CPU samples are in
+// `layer.contentDigest`, and one pass digests 2,590 distinct files 73,544
+// times. Memoising by path cut that to 259 digests and took the package from
+// 15s to 19-30s. The samples are parallel reads of a page-cached tree - cheap
+// in wall-clock and expensive in the profile - while the memo adds a `sync.Map`
+// every worker contends on. Sample share is not critical-path share.
+//
 // Refusals are not carried, because all six skip them. What a refusal ought to
 // say is TestCorpusIsAcceptedOrRefusedActionably's subject, and that one still
 // plans the corpus itself.

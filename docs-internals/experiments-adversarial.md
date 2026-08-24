@@ -27867,3 +27867,56 @@ engine cannot *read* must not be silently copied half-complete. The fixture also
 eighty megabytes per sweep, and not copying it is the fix and the saving at once. The CI steps now
 grep their own logs and raise `::error::` with the failing test names, report-only being about not
 blocking a merge rather than about not saying.
+
+## E617 - nineteen megabytes sent twice, and the two failures that hid it
+
+E616 fixed a test race and the build got further than it ever had on linux: all 93 steps, `test(s)
+passed`, and then
+
+```text
+    Error: materialise the filesystem holding /earthly/go.mod:
+      guest connection lost: message of 19580676 bytes exceeds the limit
+```
+
+*Three wrong guesses first, each cheap and each refuted by running it.* A capture manifest - 120,000
+files captured and exported without complaint. A large observation - the same 120,000 files read
+under tracing, watched and unwatched, both fine. Only then, reading the wire format rather than
+guessing at it: `Response.Output` carries a step's **whole combined output**, and `+unit-test`
+produces about nineteen megabytes of it.
+
+**And the host had already been sent every byte.** The step streams as it runs, and `core.StepError`
+prints the reply's copy only `if !e.Streamed` - so the second copy crossed the boundary to be
+discarded. It was not merely too big, it was **never read**.
+
+*Two defects on the way to that, both mine, both instructive.*
+
+**The limit was on one side of the connection.** `recv` refused frames over 16 MiB and `send` had no
+opinion, so an oversized message was written in full, the reader gave up on the frame, and the error
+surfaced against whichever request came next - `materialise`, which was innocent. A limit enforced
+where a message is *read* names the wrong culprit by construction.
+
+**Then refusing to send it hung the build.** The write was refused and the error dropped by
+
+```go
+    // A send failure means the connection is gone, which the read loop
+    // will discover too. Reporting it from here would race with that.
+    _ = c.send(resp)
+```
+
+which had been true and which the guard made false: the connection was fine and only this reply was
+impossible, so the caller waited for a message nobody would ever write. `+unit-test` sat silent for
+nineteen minutes where it used to fail in seven. **A guard that refuses to do something must deliver
+the refusal**, or it has converted a loud failure into a quiet one - and only one of those can be
+diagnosed.
+
+*What found it was `SIGQUIT`.* Twenty minutes of no output, a goroutine dump, and the host sitting in
+`doStream` waiting for a stream that would never end. That named the path and left one question -
+which message - where before there had been three.
+
+**`+unit-test` now completes under the native engine on linux, `rc=0`.** It never has before: the test
+race stopped it, then the frame limit, then the hang. Each had to be cleared to see the next, which is
+the same shape as E610 and is becoming this engine's characteristic bug - **not one deep fault but a
+queue of shallow ones, each masking its successor.**
+
+*The saving is not incidental.* Every streamed step was sending its output twice; a build's worth of
+that is megabytes per step, transferred to be thrown away.

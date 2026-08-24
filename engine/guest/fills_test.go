@@ -1,6 +1,7 @@
 package guest_test
 
 import (
+	"bufio"
 	"errors"
 	"net"
 	"os"
@@ -388,5 +389,48 @@ func TestTheDirectoriesAboveAFaultedInFileAreBase(t *testing.T) {
 	if _, ok := got[root]; ok {
 		t.Error("the root itself was recorded; a step's own root is not" +
 			" something the engine placed inside it")
+	}
+}
+
+// A host that vanishes mid-request is a failure, never a silent absence.
+//
+// **The step would otherwise be keyed on a lie.** A fault-in has two honest
+// answers - the file arrived, or the host looked and it is not there - and the
+// second is a fact the step is entitled to act on: it takes the other branch,
+// and the layer it produces is correct for a base without that file.
+//
+// A host that went away is neither. Reporting it as "no such file" makes the
+// step produce that same layer, cached under a key that says the file was
+// absent, with nothing anywhere reporting a problem. Every later build that
+// hits the key inherits it (I3, E291).
+//
+// The wire is closed *after* the request has been read, which is the branch this
+// is about. Closing it earlier fails the encode instead, which is a different
+// error on a different line and would leave this one untested - as it was.
+func TestAHostThatVanishesIsNotAnAbsentFile(t *testing.T) {
+	t.Parallel()
+
+	here, there := net.Pipe()
+
+	go func() {
+		// One whole request, then nothing: the host has heard the question and
+		// died before answering it.
+		sc := bufio.NewScanner(there)
+		sc.Scan()
+
+		_ = there.Close()
+	}()
+
+	err := guest.NewFills(here).Fill("/base/usr/bin/cc")
+	if err == nil {
+		t.Fatal("a host that went away was reported as 'no such file'," +
+			" so the step would take the absent branch and cache a layer" +
+			" keyed on a file that was never looked for (I3, E291)")
+	}
+
+	// Named, because "the fault-in failed" is not actionable and "the host went
+	// away while we were asking about this path" is.
+	if !strings.Contains(err.Error(), "/base/usr/bin/cc") {
+		t.Errorf("the failure does not say what was being asked for: %v", err)
 	}
 }

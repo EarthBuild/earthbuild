@@ -319,7 +319,7 @@ func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 			// except for a reply too large to write, where the connection is
 			// fine and only this answer is impossible, and dropping it hangs
 			// the caller for ever (E617). `reply` answers that one.
-			_ = reply(c, resp)
+			_ = reply(c, req.Kind, resp)
 		}()
 	}
 }

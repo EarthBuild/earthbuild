@@ -94,7 +94,7 @@ func TestAReplyTooLargeToSendIsStillAnswered(t *testing.T) {
 
 	huge := Response{ID: 7, Root: strings.Repeat("x", maxMessage+1)}
 
-	err := reply(c, huge)
+	err := reply(c, KindObserve, huge)
 	if err != nil {
 		t.Fatalf("answering with the reason failed: %v", err)
 	}
@@ -115,6 +115,13 @@ func TestAReplyTooLargeToSendIsStillAnswered(t *testing.T) {
 
 	if !bytes.Contains(buf.Bytes(), []byte("exceeds")) {
 		t.Error("the refusal does not say why")
+	}
+
+	// And which request it answers. A response carries a size and not a
+	// subject, so without this the refusal says only "response" - which is how
+	// an oversized frame survived three rounds of diagnosis unnamed (E618).
+	if !bytes.Contains(buf.Bytes(), []byte("observe")) {
+		t.Error("the refusal does not name the request it answers")
 	}
 }
 

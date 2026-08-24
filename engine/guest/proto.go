@@ -506,13 +506,20 @@ func kindOf(v any) string {
 // A send that fails because the *reply* is too big leaves a healthy connection
 // and a caller waiting for ever, so the reason goes back in a frame that fits.
 // Any other failure is the connection itself, which the read loop discovers.
-func reply(c *conn, resp Response) error {
+func reply(c *conn, kind Kind, resp Response) error {
 	err := c.send(resp)
 	if !errors.Is(err, errTooLarge) {
 		return err
 	}
 
-	return c.send(Response{ID: resp.ID, Err: err.Error()})
+	// **Named by the request it answers.** A response knows its size and not its
+	// subject, so `kindOf` can only call it "response" - which is how a 19.5 MB
+	// frame went three rounds without anybody being able to say what it held
+	// (E617, E618). The request kind is the one thing that identifies it.
+	return c.send(Response{
+		ID:  resp.ID,
+		Err: fmt.Sprintf("the reply to %s could not be sent: %v", kind, err),
+	})
 }
 
 type conn struct {

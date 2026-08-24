@@ -27880,13 +27880,17 @@ passed`, and then
 
 *Three wrong guesses first, each cheap and each refuted by running it.* A capture manifest - 120,000
 files captured and exported without complaint. A large observation - the same 120,000 files read
-under tracing, watched and unwatched, both fine. Only then, reading the wire format rather than
-guessing at it: `Response.Output` carries a step's **whole combined output**, and `+unit-test`
-produces about nineteen megabytes of it.
+under tracing, watched and unwatched, both fine. Then a fourth: `Response.Output` carries a step's
+whole combined output, and `+unit-test` produces about nineteen megabytes of it.
 
-**And the host had already been sent every byte.** The step streams as it runs, and `core.StepError`
-prints the reply's copy only `if !e.Streamed` - so the second copy crossed the boundary to be
-discarded. It was not merely too big, it was **never read**.
+**That fourth answer is wrong, and E618 is the correction.** `out` is truncated to `maxOutput`, 64
+KiB, before any response is built - so `Output` was never the oversized frame and could not have
+been. The paragraph stood here for one commit claiming otherwise.
+
+*What survives of it.* The host is sent a streamed step's output twice, and `core.StepError` prints
+the reply's copy only `if !e.Streamed`, so the second copy crosses the boundary to be discarded. That
+is real and worth not doing - but it is 64 KiB a step, not nineteen megabytes, and it is a tidy-up
+rather than a fix.
 
 *Two defects on the way to that, both mine, both instructive.*
 
@@ -27918,5 +27922,43 @@ race stopped it, then the frame limit, then the hang. Each had to be cleared to 
 the same shape as E610 and is becoming this engine's characteristic bug - **not one deep fault but a
 queue of shallow ones, each masking its successor.**
 
-*The saving is not incidental.* Every streamed step was sending its output twice; a build's worth of
-that is megabytes per step, transferred to be thrown away.
+*Why it passes is not established*, and E618 says so rather than claiming the last change did it.
+
+## E618 - the correction: a 64 KiB field cannot hold nineteen megabytes
+
+E617 named `Response.Output` as the frame that would not fit. It is not, and the code says so four
+lines above where the response is built:
+
+```go
+    if len(out) > maxOutput {
+        out = out[:maxOutput]
+    }
+```
+
+`maxOutput` is `64 << 10`. **The field is bounded to 64 KiB before any reply carries it**, so it was
+never the 19,580,676-byte message and could never have been. The claim went out in a commit and
+stood for one round.
+
+*How it got past me.* Three hypotheses had been refuted by experiment, the fourth was reached by
+reading the wire format, it explained the size and the timing - and I stopped there rather than
+reading the forty lines between the field and the send. **A hypothesis that explains the evidence is
+not the same as one that survives the code**, and the first three had been checked against a running
+build precisely because they were guesses. The fourth felt like a finding, so it was not checked at
+all.
+
+*And the second hypothesis was never actually refuted.* The observation was tested with 120,000 files
+at paths like `/big/d123/f45678` - about 90 bytes an entry, some 10.8 MB, comfortably under the limit
+and therefore proving nothing about a case that exceeds it. A Go module cache has paths near a
+hundred characters: `/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/...`. **The repro was built to
+the shape of the hypothesis and not to the size of it**, which is a way of confirming what you
+already think while appearing to test it.
+
+*Where that leaves the failure.* Unidentified. `+unit-test` passes on linux now and passed with the
+same cache summary as the run that failed - same steps, same observations, same 93 misses - so
+nothing in the evidence says the last change is what fixed it, and E617 no longer claims it did.
+
+*What is done instead of another guess.* The refusal now names the request it answers. A `Response`
+carries a size and not a subject, so `kindOf` could only ever call it "response" - which is how a
+frame went three rounds of diagnosis without anybody able to say what it held. `reply` takes the
+request's kind and puts it in the error, and the next occurrence identifies itself in one line
+instead of four experiments.

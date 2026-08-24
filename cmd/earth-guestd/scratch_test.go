@@ -39,7 +39,8 @@ func TestAScratchDirectoryDoesNotOutliveAFailedMount(t *testing.T) {
 		t.Fatal("no directory was made, so the mount was never given one")
 	}
 
-	if _, err := os.Stat(made); !os.IsNotExist(err) {
+	_, err = os.Stat(made)
+	if !os.IsNotExist(err) {
 		t.Errorf("%s outlived the mount it was made for (%v)"+
 			"\n  a temporary that outlives its owner is not temporary", made, err)
 	}
@@ -67,7 +68,8 @@ func TestAScratchDirectorySurvivesAMountThatWorked(t *testing.T) {
 			" nothing was mounted on", mounted, dir)
 	}
 
-	if _, err := os.Stat(dir); err != nil {
+	_, err = os.Stat(dir)
+	if err != nil {
 		t.Errorf("the directory the mount is on is gone: %v", err)
 	}
 }

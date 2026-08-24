@@ -261,7 +261,9 @@ func run() error {
 // that did not check it (A5). Nothing here trusts it: a name that will not parse
 // is refused, and bytes that do arrive are checked against the digest that was
 // asked for - so the worst a wrong address can do is cost a retry.
-func dialPeer(ctx context.Context, e *iroh.Endpoint, found *fleet.Reachable, driver string) func(string) (fleet.Source, error) {
+func dialPeer(
+	ctx context.Context, e *iroh.Endpoint, found *fleet.Reachable, driver string,
+) func(string) (fleet.Source, error) {
 	// Empty where this worker was never told the driver's address, and
 	// `AtDriver` then leaves every hint alone - which is right: the fixup exists
 	// to replace an *unspecified* host with the one we dialled, and a worker

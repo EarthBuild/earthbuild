@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -16,7 +17,7 @@ import (
 func workerSandbox() (exec.Sandbox, error) {
 	root := os.Getenv("EARTH_CACHE_DIR")
 	if root == "" {
-		return nil, fmt.Errorf("set EARTH_CACHE_DIR to where this worker keeps" +
+		return nil, errors.New("set EARTH_CACHE_DIR to where this worker keeps" +
 			" its layers" +
 			"\n  a worker materialises bases and captures results, so it needs" +
 			" a store of its own")

@@ -32,7 +32,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err := guest.RelayFills(at, os.Stdin, os.Stdout); err != nil {
+		err := guest.RelayFills(at, os.Stdin, os.Stdout)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "earth-guestd --fills: %v\n", err)
 			os.Exit(1)
 		}
@@ -152,10 +153,13 @@ func run() error {
 	// rather than an error.
 	if at := os.Getenv(guest.EnvFillSocket); at != "" {
 		go func() {
-			c, err := guest.ListenForFills(at)
-			if err != nil {
+			// Named for what it is rather than `err`, which shadows the outer
+			// one this goroutine closes over and makes the two impossible to
+			// tell apart in a diff (govet shadow).
+			c, listenErr := guest.ListenForFills(at)
+			if listenErr != nil {
 				fmt.Fprintf(os.Stderr, "earth-guestd: no fault-in channel: %v"+
-					"\n  steps will take whole layers\n", err)
+					"\n  steps will take whole layers\n", listenErr)
 
 				return
 			}

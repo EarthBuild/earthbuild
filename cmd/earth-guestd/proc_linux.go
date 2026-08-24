@@ -48,7 +48,8 @@ func procForTracing() {
 			"earth-guestd: the procfs mounted at %s is not this namespace's"+
 				" either (%v), so RUN steps will not be observed\n", dir, err)
 
-		if umountErr := trace.UnmountProc(dir); umountErr == nil {
+		umountErr := trace.UnmountProc(dir)
+		if umountErr == nil {
 			_ = os.RemoveAll(dir)
 		}
 

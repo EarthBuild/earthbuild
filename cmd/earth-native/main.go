@@ -19,7 +19,10 @@ import (
 // buildArgs collects repeated -build-arg flags.
 type buildArgs map[string]string
 
-func (a buildArgs) String() string { return "" }
+// Pointer receiver to match Set, because a type whose methods disagree about
+// it satisfies `flag.Value` only by accident of which one is addressable
+// (recvcheck).
+func (a *buildArgs) String() string { return "" }
 
 func (a *buildArgs) Set(v string) error {
 	name, value, ok := strings.Cut(v, "=")
@@ -135,6 +138,12 @@ func main() {
 		// Bare, with no "error:" prefix: these diagnostics are written to be read
 		// as prose and already name the construct, the line and the remedy.
 		fmt.Fprintln(os.Stderr, err)
+
+		// **Before the exit, because `defer` does not survive it.** `stop()`
+		// releases the signal handler this installed; leaving it to a deferred
+		// call that `os.Exit` skips means the tidy-up is written down and never
+		// performed (gocritic exitAfterDefer).
+		stop()
 		os.Exit(1)
 	}
 }

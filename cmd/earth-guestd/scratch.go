@@ -25,7 +25,8 @@ func mountScratch(prefix string, mount func(dir string) error) (string, error) {
 		return "", fmt.Errorf("nowhere to scratch: %w", err)
 	}
 
-	if err := mount(dir); err != nil {
+	err = mount(dir)
+	if err != nil {
 		// The removal's own failure is not reported: the mount's failure is the
 		// news, and a second error about the cleanup would bury it.
 		_ = os.RemoveAll(dir)

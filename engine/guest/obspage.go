@@ -87,10 +87,13 @@ const (
 	entryNegative
 )
 
+// Strings first, so the pointer-bearing fields sit together and the garbage
+// collector stops scanning sooner - `fieldalignment` asks for it and the
+// ordering carries no other meaning.
 type entry struct {
-	kind   int
 	path   string
 	digest string
+	kind   int
 }
 
 // flatten is the observation as one deterministic sequence.

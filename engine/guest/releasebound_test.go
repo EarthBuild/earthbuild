@@ -52,7 +52,10 @@ func TestReleasingAHandleGivesUpEventually(t *testing.T) {
 
 	done := make(chan error, 1)
 
-	go func() { done <- h.Release() }()
+	// The deadline is this test's rather than production's: what is on trial is
+	// that a cleanup bounds itself at all, and a bound that fires in fifty
+	// milliseconds proves that as well as one that fires in sixty seconds.
+	go func() { done <- h.releaseWithin(50 * time.Millisecond) }()
 
 	select {
 	case err := <-done:
@@ -66,7 +69,8 @@ func TestReleasingAHandleGivesUpEventually(t *testing.T) {
 			t.Errorf("gave up with %q, which does not say what was being done", err)
 		}
 
-	case <-time.After(90 * time.Second):
+	// Far longer than the bound above: reaching this means no bound applied.
+	case <-time.After(30 * time.Second):
 		t.Error("releasing a handle waited for a guest that never answers" +
 			"\n  a cleanup with no deadline is a build nothing can stop")
 	}
@@ -87,7 +91,7 @@ func TestTheHandshakeGivesUpEventually(t *testing.T) {
 	done := make(chan error, 1)
 
 	go func() {
-		_, err := Dial(g)
+		_, err := dialWithin(g, 50*time.Millisecond)
 		done <- err
 	}()
 
@@ -101,7 +105,7 @@ func TestTheHandshakeGivesUpEventually(t *testing.T) {
 			t.Errorf("gave up with %q, which does not say what was being waited for", err)
 		}
 
-	case <-time.After(greetingAtMost + 30*time.Second):
+	case <-time.After(30 * time.Second):
 		t.Error("Dial waited for a greeting that never came")
 	}
 }

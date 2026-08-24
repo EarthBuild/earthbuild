@@ -2417,17 +2417,24 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "guest: the daemon wait bounded (E395)",
+		File:        "engine/guest/awaitdaemon.go",
+		Anchor:      "const waitAtMost = 90 * time.Second",
+		Replacement: "const waitAtMost = 100 * time.Hour",
+		Package:     "./engine/guest/",
+	},
+	{
 		Name:        "guest: the release wait bounded (E442)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\tctx, stop := context.WithTimeout(context.Background(), releaseAtMost)",
-		Replacement: "\tctx, stop := context.WithCancel(context.Background())",
+		Anchor:      "const releaseAtMost = 60 * time.Second",
+		Replacement: "const releaseAtMost = 100 * time.Hour",
 		Package:     "./engine/guest/",
 	},
 	{
 		Name:        "guest: the handshake wait bounded (E442)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\tcase <-time.After(greetingAtMost):",
-		Replacement: "\tcase <-time.After(time.Hour):",
+		Anchor:      "const greetingAtMost = 30 * time.Second",
+		Replacement: "const greetingAtMost = 100 * time.Hour",
 		Package:     "./engine/guest/",
 	},
 	{

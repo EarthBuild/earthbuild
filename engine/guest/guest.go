@@ -1124,6 +1124,16 @@ func (c *Client) noteDegraded(reason string) {
 
 // Dial performs the version handshake and returns a client.
 func Dial(rw io.ReadWriter) (*Client, error) {
+	return dialWithin(rw, greetingAtMost)
+}
+
+// dialWithin is Dial with the handshake bound named rather than assumed.
+//
+// The bound is a parameter so the test that proves the handshake gives up does
+// not have to sit out the production thirty seconds to watch it: what is on
+// trial is that a guest which never speaks is reported rather than waited for,
+// and that is the same fact at fifty milliseconds.
+func dialWithin(rw io.ReadWriter, within time.Duration) (*Client, error) {
 	cl := &Client{c: newConn(rw), pending: map[uint64]chan Response{}, sinks: map[uint64]func(string){}}
 
 	// The handshake is exchanged *synchronously*, before the demultiplexer
@@ -1167,11 +1177,11 @@ func Dial(rw io.ReadWriter) (*Client, error) {
 	select {
 	case g := <-said:
 		resp, err = g.resp, g.err
-	case <-time.After(greetingAtMost):
+	case <-time.After(within):
 		return nil, fmt.Errorf(
 			"the guest did not answer the handshake within %s"+
 				"\n  it is running and not speaking: check the sandbox agent is"+
-				" the one this build produced", greetingAtMost)
+				" the one this build produced", within)
 	}
 
 	if err != nil {
@@ -1506,6 +1516,13 @@ func (h *remoteHandle) Observations() core.Observation {
 }
 
 func (h *remoteHandle) Release() error {
+	return h.releaseWithin(releaseAtMost)
+}
+
+// releaseWithin is Release with the deadline named rather than assumed, so the
+// test that proves a deaf guest is given up on need not wait the minute a real
+// one is given.
+func (h *remoteHandle) releaseWithin(atMost time.Duration) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -1528,7 +1545,7 @@ func (h *remoteHandle) Release() error {
 	// Long enough that a busy guest finishes - unmounting an overlay under load
 	// is seconds, not minutes - and short enough that a stuck one is reported
 	// while somebody is still watching.
-	ctx, stop := context.WithTimeout(context.Background(), releaseAtMost)
+	ctx, stop := context.WithTimeout(context.Background(), atMost)
 	defer stop()
 
 	_, err := h.c.do(ctx, Request{Kind: KindRelease, Handle: h.id})

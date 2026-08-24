@@ -110,10 +110,14 @@ func TestAWaitWithNoDeadlineOfItsOwnStillEnds(t *testing.T) {
 
 	go func() {
 		// context.Background(), deliberately: no deadline, no cancel, exactly
-		// what a step gets.
-		_, err := awaitDaemon(context.Background(), func(context.Context) (string, error) {
+		// what a step gets. The cap is this test's rather than production's,
+		// which is the only difference between the two - it is the *existence*
+		// of a cap the caller did not supply that is on trial here, and waiting
+		// out the real ninety seconds to see it demonstrated nothing the fifty
+		// milliseconds below does not.
+		_, err := awaitDaemonWithin(context.Background(), func(context.Context) (string, error) {
 			return "", errors.New("connection refused")
-		}, time.Millisecond)
+		}, time.Millisecond, 50*time.Millisecond)
 		done <- err
 	}()
 
@@ -129,7 +133,10 @@ func TestAWaitWithNoDeadlineOfItsOwnStillEnds(t *testing.T) {
 			t.Errorf("the daemon's last complaint did not survive: %v", err)
 		}
 
-	case <-time.After(waitAtMost + 30*time.Second):
+	// Far longer than the cap above and still nothing like the production one:
+	// what a failure here means is that no cap applied at all, and that is the
+	// hang a build saw.
+	case <-time.After(30 * time.Second):
 		t.Fatalf("the wait has not returned after %v, and nothing else will stop"+
 			" it: this is the hang a build saw", time.Since(began))
 	}

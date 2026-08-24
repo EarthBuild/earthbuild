@@ -57,7 +57,15 @@ func TestTheKeyDistinguishesWhereTheJoinWas(t *testing.T) {
 		t.Error("two different exports share a key")
 	}
 
-	if exportMemoKey([]ir.NodeID{{1}}, "a") != exportMemoKey([]ir.NodeID{{1}}, "a") {
+	// **Two calls, not one call twice**, which is the point: a key derived from
+	// anything unordered would differ between them. Bound to variables so the
+	// comparison is between two results rather than two identical expressions,
+	// which staticcheck reads - correctly, syntactically - as comparing a thing
+	// to itself (SA4000).
+	first := exportMemoKey([]ir.NodeID{{1}}, "a")
+	again := exportMemoKey([]ir.NodeID{{1}}, "a")
+
+	if first != again {
 		t.Error("the same export got two keys")
 	}
 

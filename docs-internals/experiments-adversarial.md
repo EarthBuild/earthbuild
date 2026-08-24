@@ -28216,3 +28216,45 @@ it produced a different and much larger set of failures - corpus tests at 245s, 
 timing-sensitive dedup. That is E619 again, on my own machine, within the hour of writing E619 about
 somebody else's. The rule earned there - *state who else is on the machine before timing on it* -
 turns out to need a second clause: **including yourself.**
+
+## E625 - two guards that were never guarding, found by linting the new code
+
+The lint debt on this branch is not inherited: `Fast Check` passes on `main`, and `.golangci.yaml`
+differs from it by one added `disable`. So the 1,693 findings are this engine's own new code, and
+working through them has turned up defects rather than only style. Two are worth recording.
+
+**A refusal that could not refuse.** `store.relative` turns a path in the merged view into one under a
+layer root, and its doc said it refused anything that would escape:
+
+```go
+    func relative(p string) (string, bool)
+```
+
+`unparam` reports the second result as always `true`, and it is: `filepath.Clean("/" + p)` resolves
+`..` against the root it has just prefixed, so `../../etc/passwd` becomes `etc/passwd` - contained,
+and never rejected. Both callers dutifully checked the bool and neither could ever see `false`.
+
+**The containment is real and the guard was theatre.** That is the interesting shape: a caller reading
+the signature would believe a check existed, and the property it names is actually delivered one line
+earlier by the normalisation. The bool is gone, the doc says which line does the work, and two tests
+now assert what holds - that an escape is normalised inward, and that nothing returned can be joined
+out of a tree. Neither existed before, for a property the view's correctness rests on.
+
+**A determinism test comparing a thing to itself.** `staticcheck` SA4000 on
+
+```go
+    if exportMemoKey(...) != exportMemoKey(...) {
+```
+
+is syntactically right and misses the point: two calls, not one call twice, is exactly the assertion -
+a key derived from anything unordered would differ between them. Bound to two variables, the intent is
+legible to a reader and to the tool, and the property survives. **The interesting cases in a lint
+sweep are the ones where the tool is wrong about the reason and right about the line.**
+
+*Method, since the sweep is large.* Package by package, compiler- and test-verified, with `-race`
+where the package's own tests are about concurrency. Two exclusions argued in `.golangci.yaml` rather
+than assumed - `goconst` on the mutation catalogue, whose repetition is its content, and
+`fieldalignment` on test files, where field order is a table's column order. The 116 production
+`fieldalignment` findings are not excluded. `engine/ir` is deliberately last: `Op`, `Node`, `Mount`,
+`ImageConfig` and `Meta` are the types identity is computed from, and reordering them wants the digest
+tests in front of it rather than a batch.

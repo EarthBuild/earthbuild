@@ -104,10 +104,7 @@ type stackView struct {
 // it, and L2 would serve a result computed without a file the rebuild would
 // have seen (I3).
 func (v stackView) Digest(path string) (ir.NodeID, bool) {
-	rel, ok := relative(path)
-	if !ok {
-		return ir.NodeID{}, false
-	}
+	rel := relative(path)
 
 	name := filepath.Base(rel)
 
@@ -142,10 +139,7 @@ func (v stackView) Digest(path string) (ir.NodeID, bool) {
 // a correct-but-useless digest: it would never match across the base bumps L2
 // exists to survive, and the entries that were read are already in 𝑅.
 func (v stackView) ListingDigest(dir string) (ir.NodeID, bool) {
-	rel, ok := relative(dir)
-	if !ok {
-		return ir.NodeID{}, false
-	}
+	rel := relative(dir)
 
 	names := map[string]bool{}
 	found := false
@@ -230,15 +224,25 @@ func deleted(root, rel string) bool {
 	return false
 }
 
-// relative turns an absolute path in the merged view into one under a layer
-// root, refusing anything that would escape it.
-func relative(p string) (string, bool) {
+// relative turns an absolute path in the merged view into one under a layer root.
+//
+// **Nothing can escape, and the containment is the `Clean`, not a refusal.** The
+// doc here used to promise that an escaping path was refused, and the second
+// return value was how it said so - except that it was `true` on every path
+// through the function (unparam), because `filepath.Clean("/" + p)` resolves
+// `..` against the root it just prefixed. `../../etc/passwd` becomes
+// `etc/passwd`: contained, and not rejected.
+//
+// So the promise was kept by the normalisation and checked by nobody, and a
+// caller reading the signature would have believed a guard existed. The bool is
+// gone and TestAnEscapingPathIsContained asserts what actually holds.
+func relative(p string) string {
 	clean := filepath.Clean("/" + p)
 
 	rel := strings.TrimPrefix(clean, "/")
 	if rel == "" || rel == "." {
-		return ".", true
+		return "."
 	}
 
-	return rel, true
+	return rel
 }

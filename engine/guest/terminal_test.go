@@ -58,11 +58,23 @@ func TestAStepAttachedToATerminalHasOne(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The guest keeps no copy: the child owns it now, and holding one here would
-	// stop the reader below ever seeing EOF.
-	_ = tty.Close()
-
-	t.Cleanup(func() { _ = cmd.Wait() })
+	// **Held until the test is done reading, not closed here.** The child owns
+	// its own descriptor either way; what the parent's copy decides is when the
+	// master reports end-of-file. Closed immediately, the master can reach EOF
+	// the moment the shell exits - and a shell that prints two lines and exits
+	// is then racing this test's reader, with the loop below reporting "the
+	// terminal closed after []" if it loses.
+	//
+	// This failed once in about five whole-suite runs and never alone, in forty
+	// repeats, or on a deliberately loaded machine - so the race is *suspected*
+	// rather than shown. The change stands either way: the assertions want two
+	// lines and not an end-of-file, so nothing here needs the descriptor closed
+	// early, and holding it removes the one ordering this test depends on and
+	// does not control.
+	t.Cleanup(func() {
+		_ = tty.Close()
+		_ = cmd.Wait()
+	})
 
 	lines := make(chan string, 4)
 
@@ -83,7 +95,12 @@ func TestAStepAttachedToATerminalHasOne(t *testing.T) {
 		select {
 		case l, ok := <-lines:
 			if !ok {
-				t.Fatalf("the terminal closed after %v", saw)
+				// The child's fate, not only what it managed to say: "the
+				// terminal closed" is the symptom of either a shell that died
+				// early or a read that lost a race, and those want different
+				// answers.
+				t.Fatalf("the terminal closed after %v; the step exited with %v",
+					saw, cmd.ProcessState)
 			}
 
 			if l != "" {

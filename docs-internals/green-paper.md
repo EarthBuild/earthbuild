@@ -466,6 +466,35 @@ waiting, and the steps that would have used it are the ones needing no cache at 
 acquisitions are ordered - cache, then share - which is also what makes them safe: a share is held
 only by a step that already holds its caches, so no share ever waits for one.
 
+### 3.3d Bound views
+
+A step may also mount, **read-only**, a subtree of an object this build already produces: the
+local context 𝑐, or the result ρ of an earlier step. Such a mount is a **bound view** β:
+
+```text
+(3.12)   β ≡ (ν, 𝑢, 𝑚)      ν ∈ 𝕂 ∪ { 𝑐 },  𝑢 the subtree within ν,  𝑚 where it appears
+```
+
+β is a component of ω and enters Κ₁ by (4.5) - **including what it holds**, which is where it
+parts company with a cache mount (§3.3c). A cache mount's contents deliberately stay out of the
+key because they are a function of history rather than of the graph, and a step is entitled to
+find one empty. A bound view's contents are a function of ν, which is already a key; the step
+reads them and they decide its result, so a key that omitted them would be a false hit (I3). They
+cost nothing to include, because ν has been digested already.
+
+**Read-only, and that is what makes it admissible at all.** The engine holds a step's writes to
+its own layer (A3), and a writable window onto anything shared is the position §3.3c's `private`
+mode exists to preserve. A bound view is not such a window: nothing is written through it, ν is
+unchanged by the step that reads it, and two steps binding one ν see the same bytes.
+
+**ν = 𝑐 binds the local context.** The context is content-addressed like any other object, so this
+is the same construction with the same key; it is named separately only because 𝑐 is not a step's
+result and so is not in 𝕂.
+
+A bound view is not a way to reach the machine running the build. A source that is neither 𝑐 nor
+any ρ has no ν, cannot be keyed, and is refused - which is a different answer from "not built
+yet", and the two are kept apart because only one of them is work.
+
 ### 3.4a Conditions
 
 A conditional selects a branch. Where the condition is a function of ε alone - a comparison of
@@ -952,6 +981,11 @@ Normative. An implementation that violates any of these is defective, not merely
   as contributing none; an element the store does not hold is refused. A materialiser that answers
   both with an empty directory cannot tell an image that declares from a base that never arrived
   (§3.2a).
+* **I20 (A bound view is read-only and keyed by what it holds).** Every β (§3.3d) names a ν that
+  is a key or the local context, is mounted read-only, and enters Κ₁ with its contents. A source
+  with no ν is refused rather than bound. Omitting the contents would admit the false hit I3
+  forbids, and a writable one would breach A3.
+
 * **I19 (A secret is never written down).** A declared secret enters ε by identity and never by
   value, and never becomes a declaration: declarations are stored, content-addressed and shared, so a
   secret in one is a secret published to every machine that materialises the stack (§3.2a).
@@ -996,6 +1030,7 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | I17       | Θ memoised on (reference, platform); the digest reaches Op.Args before the key. An unpinned build says so                                            | 2     | E508; interp pinning tests                                    |
 | I18       | the materialiser distinguishes a declaration from a layer the store does not hold, rather than creating an empty directory for whatever is absent    | 2     | **[GAP]**                                                     |
 | I19       | a secret reaches a step through the secret mechanism and has no path into a declaration; the type that carries a declaration carries no secret value | 1     | **[GAP]**                                                     |
+| I20       | **[GAP]** - the mechanism is specified and not built; a plain `type=bind` is refused as unbuilt, and a host bind is refused by decision              |       |                                                               |
 
 An invariant with two mechanisms takes the **weaker** level, not the better one: I3 needs both the
 observation set to be closed and every field of ω to reach the key, so it is enforced only as well as
@@ -1422,6 +1457,10 @@ found and fixed in the process, listed at the end.
 | ρ      | a result                                 | (3.3)          |
 | δ      | a container daemon's provenance          | (3.5), §3.4b   |
 | μ      | a cache mount's sharing mode             | (3.6), §3.3c   |
+| β      | a bound view                             | (3.12), §3.3d  |
+| ν      | what a bound view is a view of           | (3.12)         |
+| 𝑢      | the subtree a bound view exposes         | (3.12)         |
+| 𝑚      | where a bound view appears in the step   | (3.12)         |
 | 𝑒      | an exit code                             | (3.3)          |
 | 𝑟      | an observation set                       | (3.4)          |
 | 𝑅      | paths read, with digests                 | (3.4)          |

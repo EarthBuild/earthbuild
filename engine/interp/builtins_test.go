@@ -1,6 +1,7 @@
 package interp_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -256,7 +257,7 @@ probe:
 func lastRun(t *testing.T, nodes []*ir.Node) string {
 	t.Helper()
 
-	for i := len(nodes) - 1; i >= 0; i-- {
+	for i := range slices.Backward(nodes) {
 		if nodes[i].Op.Kind == ir.OpExec {
 			return strings.Join(nodes[i].Op.Args, " ")
 		}

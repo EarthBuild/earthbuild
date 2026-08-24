@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -220,7 +221,7 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 	lower := make([]string, 0, len(trees))
 	lowers := make([]lowerLayer, 0, len(trees))
 
-	for i := len(trees) - 1; i >= 0; i-- {
+	for i := range slices.Backward(trees) {
 		id := trees[i]
 
 		store := m.layerDir(id)

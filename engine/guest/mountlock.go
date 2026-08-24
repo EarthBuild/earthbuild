@@ -45,7 +45,7 @@ func (l *mountLocks) hold(mounts []Mount) func() {
 	return func() {
 		// Released in reverse, which costs nothing and keeps the pairing
 		// obvious to anybody reading it beside the acquisition above.
-		for i := len(held) - 1; i >= 0; i-- {
+		for i := range slices.Backward(held) {
 			held[i].Unlock()
 		}
 	}

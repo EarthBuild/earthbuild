@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -155,7 +156,7 @@ func bigTree(t *testing.T, n int) string {
 		t.Fatalf("stamp the fixture: %v", err)
 	}
 
-	for i := len(dirs) - 1; i >= 0; i-- {
+	for i := range slices.Backward(dirs) {
 		_ = os.Chtimes(dirs[i], stamp, stamp)
 	}
 

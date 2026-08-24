@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -119,7 +120,7 @@ func (f *Filler) Fill(ctx context.Context, path string) error {
 	// Top down: the layer nearest the top wins, because that is what the step
 	// would see if the whole stack were materialised. A filler that took the
 	// first answer it got would hand the step a file the base has overwritten.
-	for i := len(f.Stack) - 1; i >= 0; i-- {
+	for i := range slices.Backward(f.Stack) {
 		got, err := f.fromLayer(ctx, f.Stack[i], rel)
 		if err != nil {
 			return err
@@ -209,7 +210,7 @@ func makeAncestors(from, to string) error {
 	}
 
 	// Deepest last, so each is made after its parent.
-	for i := len(missing) - 1; i >= 0; i-- {
+	for i := range slices.Backward(missing) {
 		at := missing[i]
 
 		rel, err := filepath.Rel(dir, at)

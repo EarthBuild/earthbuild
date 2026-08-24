@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -115,7 +116,7 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 	unmount := func() {
 		// Reverse order: a mount inside another has to go first, and the list is
 		// applied outermost-first.
-		for i := len(done) - 1; i >= 0; i-- {
+		for i := range slices.Backward(done) {
 			unmountAll(done[i])
 		}
 
@@ -145,7 +146,7 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		// Deepest first, and only when empty - `os.Remove` on a non-empty
 		// directory fails, which is exactly the guard wanted: a mount point the
 		// image already had keeps whatever the image put in it.
-		for i := len(created) - 1; i >= 0; i-- {
+		for i := range slices.Backward(created) {
 			_ = os.Remove(created[i])
 		}
 

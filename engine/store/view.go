@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -114,7 +115,7 @@ func (v stackView) Digest(path string) (ir.NodeID, bool) {
 		return ir.NodeID{}, false
 	}
 
-	for i := len(v.roots) - 1; i >= 0; i-- {
+	for i := range slices.Backward(v.roots) {
 		root := v.roots[i]
 
 		if deleted(root, rel) {

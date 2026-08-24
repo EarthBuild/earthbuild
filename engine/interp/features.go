@@ -87,7 +87,18 @@ var ignoredFeatures = map[string]bool{
 	// name. Accepting the flag is therefore a statement about the dialect and
 	// not a claim to the feature (E414); eight targets in `tests/` were refused
 	// at their VERSION line for an option they never used.
-	"--build-auto-skip":                     true,
+	"--build-auto-skip": true,
+	// `.dockerignore` is read by this engine already, and unconditionally:
+	// `engine/ignore` looks for `.earthignore`, then `.earthlyignore`, then
+	// `.dockerignore`, the last "so a project that has one and no
+	// Earthfile-specific one gets what it plainly meant". The reference gates
+	// that behind this flag and only for a Dockerfile's context.
+	//
+	// So naming it is a statement about the dialect rather than a claim to a
+	// feature - the first of the two conditions this table states. Refusing it
+	// took a whole file down at its VERSION line over behaviour the file already
+	// had, which is what `docker-build-integration` hit.
+	"--use-docker-ignore":                   true,
 	"--global-cache":                        true,
 	"--use-cache-command":                   true,
 	"--use-host-command":                    true,

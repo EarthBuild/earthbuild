@@ -47,6 +47,16 @@ const (
 // which is slow and bounded to steps that run one. Correct and slow beats fast
 // and quietly wrong - and the alternative is not "fast", it is "unable to say
 // what it did not see".
+// jumpPreamble and maxJump are the program's shape and its encoding's limit.
+//
+// `preamble` inside `program` is the same three instructions; named here too
+// because `filter` has to know the distance before `program` is allowed to
+// compute it. maxJump is what a `uint8` skip field can express.
+const (
+	jumpPreamble = 3
+	maxJump      = 255
+)
+
 func program(arch uint32, traced []uint32) []bpf.Instruction {
 	// Indices, so the jumps are derived rather than counted by hand. Layout is
 	// [0] load arch, [1] arch test, [2] load nr, [3..3+n) syscall tests,
@@ -102,6 +112,29 @@ const retUserNotif = 0x7fc00000
 // the layouts match - and that would be an `unsafe` for a loop over a dozen
 // instructions run once per step.
 func filter(arch uint32, traced []uint32) ([]unix.SockFilter, error) {
+	// **Checked before the jumps are computed, and against the encoding rather
+	// than the kernel.** `program` writes its skip distances into `uint8`
+	// fields, and the bound below is 4096 because that is what the kernel takes
+	// - so a program between 256 and 4096 instructions passed every check and
+	// had its jumps silently truncated (gosec G115).
+	//
+	// A seccomp filter that jumps to the wrong instruction does not fail: it
+	// traps the wrong syscalls, and the tracer then reports a set of reads that
+	// is not the set the step made. An observation missing a read is the false
+	// hit I3 exists to prevent (§3.4), so this is a refusal rather than a
+	// truncation, and it happens first.
+	//
+	// The furthest jump is from the architecture test to the notify verdict,
+	// which is `preamble + len(traced) + 1` instructions away.
+	if skip := jumpPreamble + len(traced) + 1; skip > maxJump {
+		return nil, fmt.Errorf(
+			"tracing %d syscalls needs a jump of %d instructions and the filter"+
+				" encodes jumps in one byte (max %d)"+
+				"\n  the filter would assemble with wrapped jumps and trap the"+
+				" wrong calls, which is worse than refusing to build it",
+			len(traced), skip, maxJump)
+	}
+
 	raw, err := bpf.Assemble(program(arch, traced))
 	if err != nil {
 		return nil, fmt.Errorf("assemble the seccomp filter: %w", err)

@@ -28380,3 +28380,36 @@ once, compared like with like, and the case is gone.
 and writing the test to prove both turned up a defect neither the tool nor I was looking at. **The
 value was in constructing the case, not in the verdict** - which is the third time in this file that a
 test written to defend existing behaviour has found the behaviour wrong (E585, E625).
+
+## E629 - two guards that failed for having been moved, and a bound on the wrong number
+
+E627's fix held: `engine/trace` no longer fails as a package. The next thing the repaired reporter
+surfaced was `+engine-daemon`, and two of its failures were not about the code at all.
+
+`TestTheWireVocabularyCannotReachTheHost` opens `proto.go` to enumerate the request kinds - the list
+is the assertion, so it reads the source rather than trusting a copy of it. The target compiles the
+package's tests with `go test -c` and runs the binary from `/earthly`, where there is no `proto.go`.
+**`go test` guarantees the package directory as the working directory and compiling the binary out of
+the tree takes that away**, so a guard failed for having been relocated. Fixed by running it from its
+own directory; the alternative - teaching the test to find its source - would make it pass in a
+container where the file it is asserting about is absent, which is worse.
+
+*And the sweep found a real one in the seccomp filter.* `program` writes its jump distances into
+`uint8` fields, and `filter` refused a program over **4096** instructions because that is the kernel's
+limit:
+
+```go
+    SkipTrue: uint8(notifyAt - at - 1),   // 8-bit field
+    ...
+    if len(raw) > 4096 {                 // the kernel's bound, not the encoding's
+```
+
+A program between 256 and 4096 instructions passes that check and has every jump silently wrapped.
+**A seccomp filter that jumps to the wrong instruction does not fail - it traps the wrong syscalls**,
+and the tracer then reports a set of reads that is not the set the step made, which is the false hit
+I3 exists to prevent. Nineteen instructions today from fourteen traced calls, so nothing was ever
+going to notice; the bound was simply the wrong number, checked after the damage.
+
+Now refused before the jumps are computed, against what the field can express, naming the arithmetic.
+This is the fifth defect `gosec` G115 has found in this sweep, and the first where a silent truncation
+would have weakened a security mechanism rather than a fixture.

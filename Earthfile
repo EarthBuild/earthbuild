@@ -389,9 +389,17 @@ engine-daemon:
     #
     # EARTH_TEST_NETWORK because the build test pulls a base image; the guest's
     # tests need none.
+    # **The daemon binary runs from its own package directory.** `go test -c`
+    # relocates the binary and this ran it from `/earthly`, where several of
+    # `engine/guest`'s tests cannot find what they read: the wire-vocabulary
+    # guard opens `proto.go` to enumerate the request kinds, and the isolation
+    # gate reads source too. `go test` guarantees the package directory as the
+    # working directory and compiling the binary out of the tree took that away,
+    # so two guards failed for having been moved rather than for being wrong
+    # (E629).
     RUN --privileged \
         --mount type=cache,target=/scratch,id=engine-daemon-scratch \
-        sh -c "/tmp/daemon.test -test.v; \
+        sh -c "(cd /earthly/engine/guest && /tmp/daemon.test -test.v); \
                TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earthly /tmp/build.test -test.v \
                    -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild|HowManyEarthTestsBuild'" \
             > /tmp/d.log 2>&1; \

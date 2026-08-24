@@ -35,6 +35,17 @@ type Ref struct {
 // a digest *and* a `latest` tag, so a pull pinned to a digest also carried a tag
 // that contradicted it - and would have gone on being wrong in ways nobody finds
 // until a reference in the wild uses the shape it mishandles.
+// The two schemes a registry is reached over, named once.
+//
+// Three occurrences each across this package, and goconst is right for a reason
+// that is not tidiness: `http` and `https` differ by one character, and a
+// registry reached over the wrong one is a credential sent in clear. A typo in
+// one of three copies would read as a deliberate choice.
+const (
+	schemeHTTPS = "https"
+	schemePlain = "http"
+)
+
 func ParseRef(s string) (Ref, error) {
 	named, err := reference.ParseNormalizedNamed(strings.TrimSpace(s))
 	if err != nil {
@@ -161,9 +172,9 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 		client = http.DefaultClient
 	}
 
-	scheme := "https"
+	scheme := schemeHTTPS
 	if opt.Plain {
-		scheme = "http"
+		scheme = schemePlain
 	}
 
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)

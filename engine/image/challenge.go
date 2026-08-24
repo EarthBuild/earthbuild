@@ -52,7 +52,7 @@ func rememberedChallenge(dir, key string) string {
 	// fetched with a bearer request. A scheme check is the cheap half of not
 	// being redirected somewhere odd by a scribbled-on cache.
 	u, err := url.Parse(at)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
+	if err != nil || (u.Scheme != schemeHTTPS && u.Scheme != schemePlain) {
 		return ""
 	}
 

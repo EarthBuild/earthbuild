@@ -43,9 +43,9 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 		client = http.DefaultClient
 	}
 
-	scheme := "https"
+	scheme := schemeHTTPS
 	if opt.Plain {
-		scheme = "http"
+		scheme = schemePlain
 	}
 
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)

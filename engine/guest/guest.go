@@ -2175,12 +2175,6 @@ func (c *Client) ExecIn(
 	return got.Exit, got.Output, err
 }
 
-// RunStep runs a step, including anything mounted into it.
-//
-// Named apart from Exec because that one is the old three-argument form the
-// rest of the package still uses; one method taking a Step and another taking a
-// loose argv would be two ways to say the same thing, and the mounts would be
-// missing from whichever a caller happened to pick.
 // StepOutcome is what running a step came to.
 //
 // A value rather than a widening tuple: this returned three things and needed a
@@ -2197,6 +2191,12 @@ type StepOutcome struct {
 	MaxRSS uint64
 }
 
+// RunStep runs a step, including anything mounted into it.
+//
+// Named apart from Exec because that one is the old three-argument form the
+// rest of the package still uses; one method taking a Step and another taking a
+// loose argv would be two ways to say the same thing, and the mounts would be
+// missing from whichever a caller happened to pick.
 func (c *Client) RunStep(
 	ctx context.Context, h core.Handle, step Step, sink func(string),
 ) (StepOutcome, error) {

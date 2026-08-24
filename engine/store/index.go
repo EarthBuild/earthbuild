@@ -95,10 +95,6 @@ func (i Index) Has(id ir.NodeID) bool {
 	return err == nil
 }
 
-// Note records that the store holds this layer.
-//
-// Called after the layer is filed and never before: an index entry that arrives
-// first describes a layer that may never exist.
 // Used is when this layer was last read, or the zero time if the index has never
 // heard of it.
 //
@@ -136,6 +132,10 @@ func (i Index) Touch(id ir.NodeID) {
 	_ = os.Chtimes(i.path(id), now, now)
 }
 
+// Note records that the store holds this layer.
+//
+// Called after the layer is filed and never before: an index entry that arrives
+// first describes a layer that may never exist.
 func (i Index) Note(id ir.NodeID) error {
 	if i.dir == "" {
 		return nil

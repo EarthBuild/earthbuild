@@ -254,12 +254,6 @@ func onlyPresent(root string, sources []string) []string {
 	return out
 }
 
-// WithSecrets declares which secrets the invocation supplied.
-//
-// Names, not values. The interpreter needs to know a secret exists so it can
-// refuse a step asking for one nobody supplied; it needs the value for nothing,
-// and not having it is what makes a value in the graph impossible rather than
-// merely avoided.
 // WithTerminal says the invocation has a terminal an interactive step could run
 // on.
 //
@@ -278,6 +272,12 @@ func WithTerminal(has bool) Option {
 	return func(o *options) { o.terminal = has }
 }
 
+// WithSecrets declares which secrets the invocation supplied.
+//
+// Names, not values. The interpreter needs to know a secret exists so it can
+// refuse a step asking for one nobody supplied; it needs the value for nothing,
+// and not having it is what makes a value in the graph impossible rather than
+// merely avoided.
 func WithSecrets(secrets map[string]string) Option {
 	names := make(map[string]bool, len(secrets))
 	for k := range secrets {

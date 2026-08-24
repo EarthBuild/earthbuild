@@ -1228,12 +1228,6 @@ func (e *Executor) Close() error {
 	return nil
 }
 
-// LoopbackConn serves a guest in this process over an in-memory pipe, against
-// the host filesystem.
-//
-// Not a mock: it is the real Server and the real wire format, only without a
-// machine boundary, so the protocol is exercised identically to a real sandbox.
-// Callers are responsible for nothing; the temporary root is left to the OS.
 // ClosedConn is a connection to a machine that is not there.
 //
 // The listing can say a VM is running when it is gone or wedged, and this is
@@ -1248,6 +1242,12 @@ func ClosedConn() Conn {
 	return &pipeConn{Conn: host, other: other}
 }
 
+// LoopbackConn serves a guest in this process over an in-memory pipe, against
+// the host filesystem.
+//
+// Not a mock: it is the real Server and the real wire format, only without a
+// machine boundary, so the protocol is exercised identically to a real sandbox.
+// Callers are responsible for nothing; the temporary root is left to the OS.
 func LoopbackConn() Conn {
 	// A failure here means no directory to remove either, so the fallback is
 	// recorded as *not ours*: removing os.TempDir() on Close would take the

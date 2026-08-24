@@ -184,18 +184,6 @@ type BaseView interface {
 	ListingDigest(dir string) (ir.NodeID, bool)
 }
 
-// Consistent reports whether a predicted observation set still describes the
-// base, green paper (4.7):
-//
-//	consistent(𝑟̂, 𝑏) ⟹ Κ₂(s, 𝑟̂) is the key this step would produce
-//
-// Every path in 𝑅̂ must resolve to the digest recorded, every path in 𝑁̂ must
-// still be absent, and every listing in 𝐷̂ must still hash as recorded.
-//
-// The middle condition is the one that is easy to omit and fatal to omit. A
-// prediction that a file was *absent* is a claim about the base exactly as much
-// as a claim about what was read, and a check that skips it will happily reuse
-// a result computed when the file did not exist.
 // WhyStale names the first way a prediction no longer describes a base, or
 // empty when it still does.
 //
@@ -272,6 +260,18 @@ func sortedKeys(m map[string]ir.NodeID) []string {
 	return out
 }
 
+// Consistent reports whether a predicted observation set still describes the
+// base, green paper (4.7):
+//
+//	consistent(𝑟̂, 𝑏) ⟹ Κ₂(s, 𝑟̂) is the key this step would produce
+//
+// Every path in 𝑅̂ must resolve to the digest recorded, every path in 𝑁̂ must
+// still be absent, and every listing in 𝐷̂ must still hash as recorded.
+//
+// The middle condition is the one that is easy to omit and fatal to omit. A
+// prediction that a file was *absent* is a claim about the base exactly as much
+// as a claim about what was read, and a check that skips it will happily reuse
+// a result computed when the file did not exist.
 func Consistent(obs Observation, base BaseView) bool {
 	return WhyStale(obs, base) == ""
 }

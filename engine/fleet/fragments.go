@@ -68,13 +68,14 @@ func (f *Fragments) Manifest(id ir.NodeID) ([]byte, bool) {
 func (f *Fragments) keepManifest(id ir.NodeID, manifest []byte) {
 	at := f.manifestAt(id)
 
-	if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Dir(at), 0o750)
+	if err != nil {
 		return
 	}
 
 	tmp := at + ".incoming"
 
-	err := os.WriteFile(tmp, manifest, 0o600)
+	err = os.WriteFile(tmp, manifest, 0o600)
 	if err != nil {
 		return
 	}

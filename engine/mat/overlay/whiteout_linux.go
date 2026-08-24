@@ -72,7 +72,8 @@ func (t *translator) use(src, id string) (string, error) {
 	// placed the layer knew the answer without looking, and CI gets a new VM
 	// for every build, so a note this guest wrote last time never exists there
 	// (E531).
-	if _, err := os.Stat(UnmarkedNote(src)); err == nil {
+	_, err := os.Stat(UnmarkedNote(src))
+	if err == nil {
 		t.mu.Lock()
 		t.done[id] = src
 		t.mu.Unlock()
@@ -80,7 +81,7 @@ func (t *translator) use(src, id string) (string, error) {
 		return src, nil
 	}
 
-	_, err := os.Stat(unmarkedFile(t.dir, id))
+	_, err = os.Stat(unmarkedFile(t.dir, id))
 	if err == nil {
 		t.mu.Lock()
 		t.done[id] = src
@@ -167,7 +168,8 @@ func (t *translator) use(src, id string) (string, error) {
 		// Another build committed the same translation while this one was
 		// building it, which is a race worth losing: the id names the layer, so
 		// the two results are the same bytes.
-		if _, statErr := os.Stat(out); statErr != nil {
+		_, statErr := os.Stat(out)
+		if statErr != nil {
 			return "", fmt.Errorf("commit the translation of %s: %w", id, err)
 		}
 	}

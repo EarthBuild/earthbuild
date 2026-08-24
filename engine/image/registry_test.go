@@ -394,12 +394,13 @@ func TestPlatformIsSelectedFromAnIndex(t *testing.T) {
 
 	dir := t.TempDir()
 
-	if _, err := image.Pull(context.Background(), host+"/library/test:1", dir,
-		image.Options{Plain: true, Platform: testPlatform}); err != nil {
+	_, err := image.Pull(context.Background(), host+"/library/test:1", dir,
+		image.Options{Plain: true, Platform: testPlatform})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := os.ReadFile(filepath.Join(dir, "arch-file"))
+	_, err = os.ReadFile(filepath.Join(dir, "arch-file"))
 	if err != nil {
 		t.Errorf("the selected manifest's layer was not unpacked: %v", err)
 	}

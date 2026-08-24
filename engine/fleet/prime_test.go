@@ -96,8 +96,9 @@ func TestEveryWorkerIsToldWhatTheBuildStandsOn(t *testing.T) {
 	}
 
 	for range 3 {
-		if _, err := d.Run(t.Context(), execNode(), core.Worker{ID: "w"},
-			[]ir.NodeID{base}, nil); err != nil {
+		_, err := d.Run(t.Context(), execNode(), core.Worker{ID: "w"},
+			[]ir.NodeID{base}, nil)
+		if err != nil {
 			t.Fatalf("%v", err)
 		}
 	}

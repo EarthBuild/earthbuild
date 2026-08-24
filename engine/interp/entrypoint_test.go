@@ -151,11 +151,12 @@ main:
 func TestAnEmptyRunIsStillRefused(t *testing.T) {
 	t.Parallel()
 
-	if _, err := interp.Build(versioned+`
+	_, err := interp.Build(versioned+`
 main:
     FROM alpine:3.22
     RUN
-`, testMain); err == nil {
+`, testMain)
+	if err == nil {
 		t.Fatal("an empty RUN was accepted")
 	}
 }

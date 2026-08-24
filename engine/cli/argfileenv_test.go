@@ -31,8 +31,9 @@ func TestTheEnvironmentCanNameTheArgumentFile(t *testing.T) {
 func TestTheFlagOutranksTheExportedArgumentFile(t *testing.T) {
 	dir := argProject(t, ".some-other-arg", "GREETING=hello\n")
 
-	if err := os.WriteFile(filepath.Join(dir, ".ignored-arg"),
-		[]byte("GREETING=wrong\n"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, ".ignored-arg"),
+		[]byte("GREETING=wrong\n"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -132,8 +133,9 @@ func greetingOf(t *testing.T, o cli.Options) string {
 func TestAnInvocationCarriesItsOwnEnvironment(t *testing.T) {
 	dir := argProject(t, ".some-other-arg", "GREETING=hello\n")
 
-	if err := os.WriteFile(filepath.Join(dir, ".arg"),
-		[]byte("GREETING=wrong\n"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, ".arg"),
+		[]byte("GREETING=wrong\n"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,8 +155,9 @@ func TestAnInvocationCarriesItsOwnEnvironment(t *testing.T) {
 func TestTheInvocationsEnvironmentBeatsTheProcesss(t *testing.T) {
 	dir := argProject(t, ".some-other-arg", "GREETING=hello\n")
 
-	if err := os.WriteFile(filepath.Join(dir, ".ignored-arg"),
-		[]byte("GREETING=wrong\n"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, ".ignored-arg"),
+		[]byte("GREETING=wrong\n"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

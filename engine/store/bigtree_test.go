@@ -56,7 +56,8 @@ func bigTree(t *testing.T, n int) string {
 
 	// Both, because either alone lies: a marker outlives a directory somebody
 	// deleted, and a directory without a marker is one that may be half built.
-	if b, err := os.ReadFile(marker); err == nil && string(b) == fmt.Sprint(n) {
+	b, err := os.ReadFile(marker)
+	if err == nil && string(b) == fmt.Sprint(n) {
 		_, err := os.Stat(dir)
 		if err == nil {
 			return dir
@@ -65,7 +66,7 @@ func bigTree(t *testing.T, n int) string {
 
 	// Whatever is there is the wrong size or unfinished; neither is worth
 	// keeping.
-	err := os.RemoveAll(dir)
+	err = os.RemoveAll(dir)
 	if err != nil {
 		t.Fatalf("clear a stale fixture: %v", err)
 	}

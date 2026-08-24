@@ -124,8 +124,9 @@ func TestTheProbeInheritsTheStepsContext(t *testing.T) {
 	// step's Dir is whatever it happened to be and not where the build now is.
 	// `WORKDIR /var/app` then `SAVE IMAGE app:$(cat version)` reads a file the
 	// line above put in /var/app, and the last step may have run anywhere.
-	if _, err := decideByRunning(context.Background(), run,
-		[]string{"[", "-f", "config", "]"}, base, "/work/sub", "Earthfile:9"); err != nil {
+	_, err := decideByRunning(context.Background(), run,
+		[]string{"[", "-f", "config", "]"}, base, "/work/sub", "Earthfile:9")
+	if err != nil {
 		t.Fatal(err)
 	}
 

@@ -124,8 +124,9 @@ func TestAMatchingOrSilentImageIsPulled(t *testing.T) {
 			config: []byte(cfg),
 		}
 
-		if _, err := image.Pull(context.Background(), reg.start(t)+"/library/thing:1",
-			t.TempDir(), image.Options{Plain: true, Platform: testPlatform}); err != nil {
+		_, err := image.Pull(context.Background(), reg.start(t)+"/library/thing:1",
+			t.TempDir(), image.Options{Plain: true, Platform: testPlatform})
+		if err != nil {
 			t.Errorf("an image that should have been pulled was refused: %v", err)
 		}
 	}

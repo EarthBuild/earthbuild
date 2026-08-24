@@ -214,8 +214,9 @@ func readFeatures(v *earthfile.Version, overrides []string) (features, error) {
 		// caller who copies the flag off a VERSION line writes them; the two
 		// name the same feature, and telling the second that it does not exist
 		// would be a diagnosis about punctuation.
-		if err := applyFeature(&f, "--"+strings.TrimPrefix(arg, "--"),
-			"--version-flag-overrides "); err != nil {
+		err := applyFeature(&f, "--"+strings.TrimPrefix(arg, "--"),
+			"--version-flag-overrides ")
+		if err != nil {
 			return f, err
 		}
 	}

@@ -73,9 +73,10 @@ func TestARemoteReferenceCarriesItsRevision(t *testing.T) {
 
 			f := remoteRepo(t, "")
 
-			if _, err := interp.Build(versioned+
+			_, err := interp.Build(versioned+
 				"\nmain:\n    FROM github.com/org/repo:"+rev+"+build\n",
-				testMain, interp.WithRemotes(f.fetch)); err != nil {
+				testMain, interp.WithRemotes(f.fetch))
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -119,11 +120,12 @@ func TestARepositoryIsFetchedOnce(t *testing.T) {
 
 	f := remoteRepo(t, "")
 
-	if _, err := interp.Build(versioned+`
+	_, err := interp.Build(versioned+`
 main:
     FROM github.com/org/repo+build
     BUILD github.com/org/repo+build
-`, testMain, interp.WithRemotes(f.fetch)); err != nil {
+`, testMain, interp.WithRemotes(f.fetch))
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -141,11 +143,12 @@ func TestTwoRevisionsAreTwoFetches(t *testing.T) {
 
 	f := remoteRepo(t, "")
 
-	if _, err := interp.Build(versioned+`
+	_, err := interp.Build(versioned+`
 main:
     FROM github.com/org/repo:v1+build
     BUILD github.com/org/repo:v2+build
-`, testMain, interp.WithRemotes(f.fetch)); err != nil {
+`, testMain, interp.WithRemotes(f.fetch))
+	if err != nil {
 		t.Fatal(err)
 	}
 

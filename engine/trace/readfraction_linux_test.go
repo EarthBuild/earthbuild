@@ -42,13 +42,14 @@ func TestWhatFractionOfATreeAStepReads(t *testing.T) {
 
 	// Through the symlink: `/run/current-system/sw` is one, and walking a
 	// symlink finds one file.
-	if actual, err := filepath.EvalSymlinks(root); err == nil {
+	actual, err := filepath.EvalSymlinks(root)
+	if err == nil {
 		root = actual
 	}
 
 	total := 0
 
-	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr // an unreadable corner is not the measurement
 		}

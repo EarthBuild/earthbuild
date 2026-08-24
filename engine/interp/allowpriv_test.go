@@ -31,12 +31,13 @@ func TestAllowPrivilegedIsAPermissionThisEngineNeverUses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := interp.Build(`
+	_, err = interp.Build(`
 VERSION 0.8
 build:
     FROM alpine
     COPY --allow-privileged ./a.txt /x
-`, "build", interp.WithContext(dir)); err != nil {
+`, "build", interp.WithContext(dir))
+	if err != nil {
 		t.Errorf("a COPY granting a permission this engine cannot use was refused: %v", err)
 	}
 }

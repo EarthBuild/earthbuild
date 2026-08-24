@@ -74,9 +74,10 @@ func TestGitCloneBranchIsPassedOn(t *testing.T) {
 
 	c := &cloner{dir: ctxWith(t, map[string]string{"x": "y\n"})}
 
-	if _, err := interp.Build(versioned+
+	_, err := interp.Build(versioned+
 		"\nmain:\n    FROM alpine:3.22\n    GIT CLONE --branch stable https://example.test/repo /src\n",
-		testMain, interp.WithGitClone(c.clone)); err != nil {
+		testMain, interp.WithGitClone(c.clone))
+	if err != nil {
 		t.Fatal(err)
 	}
 

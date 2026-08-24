@@ -23,8 +23,9 @@ func TestQuotedPathsAreUnquoted(t *testing.T) {
 		t.Run(src, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := interp.Build(versioned+"\nbuild:\n    FROM alpine\n    COPY "+src+" /dst\n",
-				"build", interp.WithContext(ctx)); err != nil {
+			_, err := interp.Build(versioned+"\nbuild:\n    FROM alpine\n    COPY "+src+" /dst\n",
+				"build", interp.WithContext(ctx))
+			if err != nil {
 				t.Errorf("%s was not resolved: %v", src, err)
 			}
 		})

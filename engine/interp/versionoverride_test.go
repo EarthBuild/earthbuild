@@ -33,8 +33,9 @@ func TestAVersionFlagCanBeSuppliedByTheCaller(t *testing.T) {
 		t.Fatal("SET without its feature was accepted, so the flag gates nothing")
 	}
 
-	if _, err := interp.Build(src, testMain,
-		interp.WithVersionFlags([]string{"arg-scope-and-set"})); err != nil {
+	_, err = interp.Build(src, testMain,
+		interp.WithVersionFlags([]string{"arg-scope-and-set"}))
+	if err != nil {
 		t.Fatalf("the caller turned the feature on and the file was still refused: %v", err)
 	}
 }

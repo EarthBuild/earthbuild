@@ -104,10 +104,11 @@ func TestUnpackWritesFiles(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := image.Unpack(tarOf(t,
+	err := image.Unpack(tarOf(t,
 		file("bin/sh", "#!/bin/sh\n", 0o755),
 		file("etc/os-release", "NAME=test\n", 0o644),
-	), root); err != nil {
+	), root)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -141,13 +142,14 @@ func TestNanosecondMtimesSurviveUnpacking(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := image.Unpack(tarOf(t, func(w *tar.Writer) {
+	err := image.Unpack(tarOf(t, func(w *tar.Writer) {
 		_ = w.WriteHeader(&tar.Header{
 			Typeflag: tar.TypeReg, Name: "f", Mode: 0o644, Size: 1,
 			ModTime: stamp, Format: tar.FormatPAX,
 		})
 		_, _ = w.Write([]byte("x"))
-	}), root); err != nil {
+	}), root)
+	if err != nil {
 		t.Fatal(err)
 	}
 

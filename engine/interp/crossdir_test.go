@@ -27,12 +27,13 @@ func monorepo(t *testing.T) string {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(root, "html", testEarthfile), []byte(`VERSION 0.8
+	err = os.WriteFile(filepath.Join(root, "html", testEarthfile), []byte(`VERSION 0.8
 html:
     FROM alpine:3.22
     COPY index.html ./
     SAVE ARTIFACT index.html
-`), 0o600); err != nil {
+`), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

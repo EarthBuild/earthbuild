@@ -417,10 +417,11 @@ FROM a AS b
 RUN y
 `)
 
-	if _, err := interp.Build(versioned+`
+	_, err := interp.Build(versioned+`
 main:
     FROM DOCKERFILE .
-`, testMain, interp.WithContext(dir)); err == nil {
+`, testMain, interp.WithContext(dir))
+	if err == nil {
 		t.Fatal("a loop between stages was followed")
 	}
 }

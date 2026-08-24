@@ -40,9 +40,10 @@ func TestTheCaseNoteIsNotPrintedWhenNothingFailed(t *testing.T) {
 
 	// A dry run resolves the plan and reports it: nothing fails, so nothing
 	// needs explaining.
-	if err := cli.Run(context.Background(), cli.Options{
+	err = cli.Run(context.Background(), cli.Options{
 		Dir: dir, Target: "+main", DryRun: true, Out: &out,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("planning: %v", err)
 	}
 
@@ -74,9 +75,10 @@ func TestTheCaseNoteIsPrintedWhenSomethingFailed(t *testing.T) { //nolint:parall
 
 	var out strings.Builder
 
-	if err := cli.Run(context.Background(), cli.Options{
+	err = cli.Run(context.Background(), cli.Options{
 		Dir: dir, Target: "+main", Out: &out,
-	}); err == nil {
+	})
+	if err == nil {
 		t.Fatal("the build was expected to fail")
 	}
 
@@ -115,9 +117,10 @@ func TestTheCaseNoteReachesAFailureAfterPlanning(t *testing.T) { //nolint:parall
 
 	var out strings.Builder
 
-	if err := cli.Run(context.Background(), cli.Options{
+	err = cli.Run(context.Background(), cli.Options{
 		Dir: dir, Target: "+main", Out: &out,
-	}); err == nil {
+	})
+	if err == nil {
 		t.Fatal("a build with no guest binary was expected to fail")
 	}
 

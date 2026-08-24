@@ -370,9 +370,9 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 			return walkErr
 		}
 
-		rel, err := filepath.Rel(root, p)
-		if err != nil {
-			return fmt.Errorf("relative path of %s: %w", p, err)
+		rel, relErr := filepath.Rel(root, p)
+		if relErr != nil {
+			return fmt.Errorf("relative path of %s: %w", p, relErr)
 		}
 
 		if rel == "." {
@@ -391,9 +391,9 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 			return nil
 		}
 
-		info, err := d.Info()
-		if err != nil {
-			return fmt.Errorf("stat %s: %w", p, err)
+		info, relErr := d.Info()
+		if relErr != nil {
+			return fmt.Errorf("stat %s: %w", p, relErr)
 		}
 
 		e := entry{
@@ -427,8 +427,8 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 			// machine has. See fillContents.
 		}
 
-		xs, err := readXattrs(p)
-		if err == nil {
+		xs, relErr := readXattrs(p)
+		if relErr == nil {
 			e.xattrs = xs
 		}
 

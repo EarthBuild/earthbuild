@@ -358,10 +358,10 @@ func drive(
 
 			for range steps {
 				wg.Go(func() {
-					_, err := d.Run(ctx, node(), core.Worker{ID: "w"},
+					_, runErr := d.Run(ctx, node(), core.Worker{ID: "w"},
 						[]ir.NodeID{first.Layer}, nil)
-					if err != nil {
-						fmt.Fprintln(os.Stderr, "step:", err)
+					if runErr != nil {
+						fmt.Fprintln(os.Stderr, "step:", runErr)
 					}
 				})
 			}

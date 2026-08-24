@@ -403,19 +403,12 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// what this server saw doing the step's own work. The copy path is the
 		// second, and is the engine's first real observation source (E119).
 		obs := merge(h.Observations(), s.observationOf(h))
-		resp := Response{Reads: map[string]string{}, Listings: map[string]string{}}
 
-		for p, d := range obs.Reads {
-			resp.Reads[p] = d.String()
-		}
-
-		for p, d := range obs.Listings {
-			resp.Listings[p] = d.String()
-		}
-
-		resp.Negative = obs.Negative
-		resp.Incomplete = obs.Incomplete
-		resp.Why = obs.Why
+		// **One page.** The whole observation used to go in one frame, and a
+		// step whose observation exceeded it was reported as having been watched
+		// by nothing at all (E620). The host asks for the rest.
+		resp, _, more := observationPage(obs, req.FromEntry)
+		resp.More = more
 
 		return resp
 
@@ -1403,6 +1396,39 @@ func (h *remoteHandle) Declared() []string { return h.declares.Env }
 // filesystem, which is why committing happens in the guest.
 func (h *remoteHandle) Delta() string { return "" }
 
+// errNoProgress is a guest that promises more entries and sends none.
+var errNoProgress = errors.New("the guest asked for another page and sent no entries")
+
+// absorb folds one page of an observe reply into the observation being built.
+//
+// The guest's admissions are carried through rather than recomputed: a host that
+// decoded the paths and dropped `Incomplete` would turn a careful source into a
+// lying one. They travel on every page, so the last page cannot quietly clear
+// what an earlier one admitted - `Incomplete` only ever goes one way.
+func absorb(obs *core.Observation, resp Response) {
+	for p, d := range resp.Reads {
+		ids, err := decodeStack([]string{d})
+		if err == nil {
+			obs.Reads[p] = ids[0]
+		}
+	}
+
+	for p, d := range resp.Listings {
+		ids, err := decodeStack([]string{d})
+		if err == nil {
+			obs.Listings[p] = ids[0]
+		}
+	}
+
+	obs.Negative = append(obs.Negative, resp.Negative...)
+
+	if resp.Incomplete {
+		obs.Incomplete = true
+	}
+
+	obs.Why = append(obs.Why, resp.Why...)
+}
+
 // unfetchedObservation is what a step observed when the answer never arrived.
 //
 // **Incomplete, and with the reason attached.** The error used to be discarded
@@ -1429,36 +1455,44 @@ func (h *remoteHandle) Observations() core.Observation {
 		Listings: map[string]ir.NodeID{},
 	}
 
+	// **Fetched in pages, because a large one does not fit in a frame.** A step
+	// whose observation exceeded 16 MiB used to be reported as watched by
+	// nothing at all, losing it the second cache tier - and the steps that
+	// exceed it are the expensive ones (E620, E621).
+	//
 	// No caller context: an observation is asked for while the step's
 	// result is being assembled, and there is nobody left to cancel it.
-	resp, err := h.c.do(context.Background(), Request{Kind: KindObserve, Handle: h.id})
-	if err != nil {
-		// An observation that cannot be fetched is an absent observation, never
-		// an empty one presented as fact: silence must not be recorded as "read
-		// nothing", or every later step would falsely satisfy it.
-		return unfetchedObservation(err)
-	}
+	from := 0
 
-	for p, s := range resp.Reads {
-		ids, err := decodeStack([]string{s})
-		if err == nil {
-			obs.Reads[p] = ids[0]
+	for page := 0; ; page++ {
+		resp, err := h.c.do(context.Background(),
+			Request{Kind: KindObserve, Handle: h.id, FromEntry: from})
+		if err != nil {
+			// An observation that cannot be fetched is an absent observation,
+			// never an empty one presented as fact: silence must not be
+			// recorded as "read nothing", or every later step would falsely
+			// satisfy it. A page that fails discards what came before it for
+			// the same reason - half an observation names fewer paths than the
+			// step read, which is precisely the false hit I3 forbids.
+			return unfetchedObservation(err)
 		}
-	}
 
-	for p, s := range resp.Listings {
-		ids, err := decodeStack([]string{s})
-		if err == nil {
-			obs.Listings[p] = ids[0]
+		absorb(&obs, resp)
+
+		if !resp.More {
+			break
 		}
+
+		next := from + len(resp.Reads) + len(resp.Listings) + len(resp.Negative)
+		if next <= from {
+			// A guest that says "more" and sends nothing would spin here. It
+			// cannot happen while both sides agree about paging, which is why
+			// it is checked rather than assumed.
+			return unfetchedObservation(errNoProgress)
+		}
+
+		from = next
 	}
-
-	obs.Negative = resp.Negative
-
-	// The guest's admission, carried through. A host that decoded the paths and
-	// dropped the flag would turn a careful source into a lying one.
-	obs.Incomplete = resp.Incomplete
-	obs.Why = resp.Why
 
 	// A gap with no reason is still a gap, but it is one nobody can act on -
 	// and the whole point of carrying reasons is that "this step never earns an

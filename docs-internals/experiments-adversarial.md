@@ -28048,3 +28048,47 @@ threshold proves nothing about crossing it. The first one was built from the hyp
 *description* ("a large observation"), and 120,000 files certainly sounds large. The dimension that
 mattered was bytes per entry, and it was never computed. **Sizing the repro is part of the hypothesis,
 not part of the setup.**
+
+## E621 - the tier the biggest steps could not have, and whether it was worth restoring
+
+E620 established that an observation over 16 MiB cannot be delivered, and that the engine survives it
+by recording the step as unobserved. Surviving is not the same as working: **the steps whose
+observations are too large are the expensive ones**, and they are exactly the steps an L2 hit is worth
+most on.
+
+*Measured before building anything*, because E614 is what happens otherwise. Twenty thousand files
+under four 180-character directories - 16.06 MB of observation, 720 KB under the limit, so it is
+stored - then the base moved underneath a step that reads none of what changed:
+
+```text
+    2 hit, 1 miss, 1 by observed inputs        second build 5s, against a 20s body
+```
+
+**So the tier does work at that scale**, and restoring it is worth a protocol change. Had this said
+"miss", nothing below would have been written.
+
+*A first attempt at the same experiment was wrong and said so.* The step ran `find / -path ...`, which
+walks the whole filesystem and therefore stats `/salt` - so the prediction was correctly stale, and
+the engine said precisely that: `/salt changed in the base (observed 9de1027670e8, base has
+1ae3877cc940)`. A diagnostic good enough to debug the experiment rather than the engine.
+
+*The change.* The observe reply is a page: `FromEntry` on the request, `More` on the response, and the
+entries sorted before they are cut - because two runs of one build must not key differently, which is
+the argument (4.6) already makes about the observed key itself. The budget is half a frame, so the
+fixed part of a response cannot push a page over the limit the budget exists to respect.
+
+```text
+    26,000 files, before:   1 not observed (nothing observed this step), no profile
+    26,000 files, after:    profile 20,862,836 bytes, and on the next build
+                            1 by observed inputs, 6s against a 20s body
+```
+
+*Two things it refuses to do.* A page that fails discards the pages before it - half an observation
+names fewer paths than the step read, which is the false hit I3 forbids, and a prefix is exactly the
+shape that would pass every check while being wrong. And `Incomplete` travels on every page and only
+ever goes one way, so a last page cannot quietly clear what an earlier one admitted.
+
+*Version skew, in both directions.* An older guest ignores `FromEntry`, answers with everything and
+sets no `More` - which is one page, correctly. An older host sends no `FromEntry`, which is zero,
+which is the first page; it then ignores `More` and keeps a prefix. That last case is the one that
+would be wrong, and it is the case that cannot arise: host and guest ship in the same binary.

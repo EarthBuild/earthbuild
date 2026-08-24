@@ -163,6 +163,18 @@ type Request struct {
 	// both does not know which it wants (E300).
 	Prepared string `json:"prepared,omitempty"`
 
+	// FromEntry is the entry an observe reply should start at.
+	//
+	// Observe-only. A large observation does not fit in one frame - this
+	// repository's own `+unit-test` produces 19.58 MB against a 16 MiB limit -
+	// and a step whose observation cannot be delivered loses the second cache
+	// tier entirely (E620). Paging it costs a round trip per page and keeps the
+	// tier for exactly the steps that are most expensive to rerun.
+	//
+	// Absent means zero, which is what an older host sends and what a first page
+	// asks for, so the two are the same request.
+	FromEntry int `json:"fromEntry,omitempty"`
+
 	Version int      `json:"version,omitempty"`
 	Stack   []string `json:"stack,omitempty"`  // layer ids, hex, oldest first
 	Handle  string   `json:"handle,omitempty"` // returned by materialise
@@ -392,6 +404,12 @@ type Response struct {
 	// Streaming marks such a frame. A separate flag rather than "Chunk is
 	// non-empty", because a step legitimately prints an empty line.
 	Streaming bool `json:"streaming,omitempty"`
+
+	// More says this observe reply is a page and further entries remain.
+	//
+	// Absent from an older guest, which is exactly right: it answers with
+	// everything it has and there is nothing further to ask for.
+	More bool `json:"more,omitempty"`
 
 	Err      string            `json:"err,omitempty"`
 	Version  int               `json:"version,omitempty"`

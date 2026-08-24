@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/EarthBuild/earthbuild/engine/nstest"
 )
 
 // A bound view shows a layer this build made, and the step cannot write to it.
@@ -20,6 +22,14 @@ import (
 // writing through this would edit another step's input - the one thing a
 // content-addressed store cannot survive (§3.3b).
 func TestABoundViewShowsALayerAndCannotBeWrittenThrough(t *testing.T) {
+	// Binding needs a namespace this process is root in, which CI's unit-test
+	// container is not - `mount: operation not permitted` is what that looks
+	// like. nstest re-runs this test inside one, which is what every other
+	// mount test here does.
+	if !nstest.In(t) {
+		return
+	}
+
 	root, cache, layers := t.TempDir(), t.TempDir(), t.TempDir()
 
 	const id = "0123456789abcdef"
@@ -68,6 +78,10 @@ func TestABoundViewShowsALayerAndCannotBeWrittenThrough(t *testing.T) {
 // one path inside the object, not the object - so binding the whole of it would
 // put a tree where a file was expected.
 func TestABoundViewCanShowASubtree(t *testing.T) {
+	if !nstest.In(t) {
+		return
+	}
+
 	root, cache, layers := t.TempDir(), t.TempDir(), t.TempDir()
 
 	const id = "fedcba9876543210"

@@ -71,6 +71,11 @@ func TestAskingForAnAgentNobodyIsRunning(t *testing.T) {
 func listening(t *testing.T) string {
 	t.Helper()
 
+	// Not t.TempDir: this holds a unix socket, whose path is capped near 104
+	// bytes, and a t.TempDir name carries the test's full name - which for this
+	// package's names is most of the budget before the socket is even named
+	// (usetesting).
+	//nolint:usetesting // a unix socket path is capped near 104 bytes; see above
 	dir, err := os.MkdirTemp("", "eb")
 	if err != nil {
 		t.Fatal(err)

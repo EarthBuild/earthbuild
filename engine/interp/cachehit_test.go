@@ -2,8 +2,6 @@ package interp_test
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/cache"
@@ -35,17 +33,11 @@ func TestASecondBuildOfAnUnchangedGraphHitsEveryStep(t *testing.T) {
 
 	var graphs, steps int
 
-	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
 
-		for _, target := range targetsIn(string(src)) {
-			p, err := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
-			if err != nil {
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, p := pl.target, pl.plan
 
 			// Some steps are *meant* to run again: a host step is never cached
 			// (I7) and a `--no-cache` step was declared not to be a function of

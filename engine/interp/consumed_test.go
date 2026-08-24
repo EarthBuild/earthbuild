@@ -1,12 +1,9 @@
 package interp_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/distribution/reference"
 )
@@ -41,19 +38,11 @@ func TestNoConsumedSyntaxSurvivesIntoAValue(t *testing.T) {
 
 	var checked int
 
-	for _, f := range files {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
 
-		for _, target := range targetsIn(string(src)) {
-			p, err := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
-			if err != nil {
-				// A refusal is not this test's business: it is about what
-				// survives into a plan that was accepted.
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, p := pl.target, pl.plan
 
 			checked++
 
@@ -152,17 +141,11 @@ func TestEveryImageReferenceParses(t *testing.T) {
 
 	var checked int
 
-	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
 
-		for _, target := range targetsIn(string(src)) {
-			p, err := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
-			if err != nil {
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, p := pl.target, pl.plan
 
 			for _, n := range p.Graph.Nodes() {
 				if n.Op.Kind != ir.OpImage || len(n.Op.Args) == 0 {
@@ -211,17 +194,11 @@ func TestEveryArtifactIsProducedByTheGraph(t *testing.T) {
 
 	var checked int
 
-	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
 
-		for _, target := range targetsIn(string(src)) {
-			p, err := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
-			if err != nil {
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, p := pl.target, pl.plan
 
 			in := map[ir.NodeID]bool{}
 			for _, n := range p.Graph.Nodes() {

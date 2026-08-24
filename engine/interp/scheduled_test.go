@@ -3,13 +3,10 @@ package interp_test
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
-	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -73,17 +70,11 @@ func TestEveryCorpusGraphSchedulesSoundly(t *testing.T) {
 
 	var graphs, steps, refused int
 
-	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
 
-		for _, target := range targetsIn(string(src)) {
-			p, err := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
-			if err != nil {
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, p := pl.target, pl.plan
 
 			graphs++
 
@@ -97,7 +88,7 @@ func TestEveryCorpusGraphSchedulesSoundly(t *testing.T) {
 				Record:   rec,
 			}
 
-			_, err = s.Run(context.Background(), p.Graph)
+			_, err := s.Run(context.Background(), p.Graph)
 			if err != nil {
 				// A platform this worker cannot run is a legitimate refusal and
 				// says so - the rule exists to stop a build silently producing
@@ -218,17 +209,11 @@ func TestMostOfABuildCouldBeSpeculatedOn(t *testing.T) {
 
 	var freely, retryable, never, graphs int
 
-	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, pf := range corpusPlans(t) {
+		f := pf.file
 
-		for _, target := range targetsIn(string(src)) {
-			p, err := interp.Build(string(src), target, interp.WithContext(filepath.Dir(f)))
-			if err != nil {
-				continue
-			}
+		for _, pl := range pf.plans {
+			target, p := pl.target, pl.plan
 
 			graphs++
 

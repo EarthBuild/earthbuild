@@ -23,11 +23,12 @@ import (
 // Failures are here too, with Err set and To empty: a caller that reports only
 // what it pinned is silent about what it could not, which reads as nothing to do.
 type Change struct {
-	// Line is 1-based, as an editor counts.
-	Line int
 	From string
 	To   string
 	Err  error
+	// Line is 1-based, as an editor counts. Last, so the pointer-bearing fields
+	// above sit together (govet fieldalignment).
+	Line int
 }
 
 // Rewrite returns the file with every image reference pinned, and what it did.

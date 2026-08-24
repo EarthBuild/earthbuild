@@ -16,7 +16,7 @@ import (
 func TestSimulatedMaterialiserConforms(t *testing.T) {
 	t.Parallel()
 
-	coretest.MaterialiserSuite(t, func(t *testing.T) (core.Materialiser, func()) {
+	coretest.MaterialiserSuite(t, func(*testing.T) (core.Materialiser, func()) {
 		return &sim.Materialiser{}, func() {}
 	})
 }

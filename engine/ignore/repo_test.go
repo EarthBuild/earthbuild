@@ -40,7 +40,11 @@ func TestNoTrackedFileIsExcludedFromTheContext(t *testing.T) {
 
 	m := matcherFor(t, root)
 
-	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
+	// `root` is this repository, found by walking up from the test's own
+	// directory. Context-bound so a wedged git dies with the test (noctx), and
+	// the argv is fixed apart from that root (gosec G204).
+	out, err := exec.CommandContext(t.Context(), //nolint:gosec // our own checkout
+		"git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
 		t.Skipf("no git here: %v", err)
 	}
@@ -110,7 +114,8 @@ func TestGeneratedTreesAreExcludedFromTheContext(t *testing.T) {
 func matcherFor(t *testing.T, root string) ignore.Matcher {
 	t.Helper()
 
-	if _, err := os.Stat(filepath.Join(root, ".earthlyignore")); err != nil {
+	_, err := os.Stat(filepath.Join(root, ".earthlyignore"))
+	if err != nil {
 		t.Skip("no .earthlyignore here: a build context never carries one")
 	}
 

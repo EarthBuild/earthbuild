@@ -8,11 +8,15 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
+// rootUser is the user these fixtures declare, named once because a typo in
+// one of three copies would read as a different declaration (goconst).
+const rootUser = "root"
+
 func full() decl.Declaration {
 	return decl.Declaration{
 		Env:        []string{"PATH=/go/bin:/usr/local/go/bin", "GOPATH=/go"},
 		WorkingDir: "/go",
-		User:       "root",
+		User:       rootUser,
 		Entrypoint: []string{"/entry"},
 		Cmd:        []string{"/bin/sh"},
 	}

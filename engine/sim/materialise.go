@@ -19,8 +19,8 @@ import (
 // semantics whatsoever. A green run here is not evidence about overlayfs, and
 // is not meant to be.
 type Materialiser struct {
-	mu   sync.Mutex
 	live map[string]int // root -> outstanding handles, for leak detection
+	mu   sync.Mutex
 }
 
 // Materialise implements core.Materialiser.

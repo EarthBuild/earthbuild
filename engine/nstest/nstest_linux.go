@@ -21,8 +21,8 @@ import (
 // nsMarker tells a re-executed test binary it is already inside a namespace.
 const nsMarker = "EARTH_TEST_IN_USERNS"
 
-// inUserNamespace runs this test again inside a user namespace, and reports
-// what happened there.
+// In runs this test again inside a user namespace, and reports what happened
+// there.
 //
 // **Why a test has to do this.** Unprivileged overlayfs works, and it works
 // because the capability is checked in the namespace the mount happens in
@@ -51,7 +51,10 @@ func In(t *testing.T) bool {
 
 	// Exactly this test, so the child does not re-run the whole package - and
 	// anchored, so a test whose name is a prefix of another does not drag it in.
-	cmd := osexec.Command(self, "-test.run", "^"+t.Name()+"$", "-test.v") //nolint:gosec // this binary
+	// CommandContext, so a child that hangs dies with the test rather than
+	// outliving it (noctx). The context is the test's own.
+	cmd := osexec.CommandContext(t.Context(), //nolint:gosec // this binary
+		self, "-test.run", "^"+t.Name()+"$", "-test.v")
 	cmd.Env = append(os.Environ(), nsMarker+"=1")
 
 	// One uid, which is all an unprivileged process may map on its own and all

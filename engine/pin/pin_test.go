@@ -209,7 +209,8 @@ func TestThePinnedFormKeepsTheTag(t *testing.T) {
 func TestAResolutionWithoutADigestIsRefused(t *testing.T) {
 	t.Parallel()
 
-	if _, err := pin.WithDigest("golang:1.26", "golang:1.26"); err == nil {
+	_, err := pin.WithDigest("golang:1.26", "golang:1.26")
+	if err == nil {
 		t.Error("a reference with no digest was accepted as a pin")
 	}
 }

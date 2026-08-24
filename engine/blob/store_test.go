@@ -3,6 +3,7 @@ package blob_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -196,7 +197,10 @@ func TestConcurrentPutsAreSafe(t *testing.T) {
 			// Half write identical content, half unique.
 			content := "shared"
 			if i%2 == 1 {
-				content = "unique-" + string(rune('a'+i))
+				// Formatted rather than cast: `rune('a'+i)` is an int
+				// conversion that would wrap into nonsense for a large i, and
+				// nothing here bounds i (gosec G115).
+				content = fmt.Sprintf("unique-%d", i)
 			}
 
 			id, _, err := s.Put(strings.NewReader(content))

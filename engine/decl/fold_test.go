@@ -171,7 +171,7 @@ func TestDeclarationsCompose(t *testing.T) {
 	t.Parallel()
 
 	got := decl.Compose(
-		decl.Declaration{Env: env("A=1"), WorkingDir: "/base", User: "root", Cmd: env("/bin/sh")},
+		decl.Declaration{Env: env("A=1"), WorkingDir: "/base", User: rootUser, Cmd: env("/bin/sh")},
 		decl.Declaration{Env: env("B=2"), WorkingDir: "/later"},
 	)
 
@@ -182,7 +182,7 @@ func TestDeclarationsCompose(t *testing.T) {
 	// Unset by the later one is not "set to nothing": a declaration that says
 	// nothing about the user leaves the user alone, exactly as a Dockerfile that
 	// omits USER inherits it.
-	if got.User != "root" {
+	if got.User != rootUser {
 		t.Errorf("user %q, want the earlier one to survive a declaration that is silent", got.User)
 	}
 

@@ -69,6 +69,18 @@ linters:
       - path: tools/mutate/catalogue\.go
         linters:
           - goconst
+      # `fieldalignment` in a test is a suggestion about a struct built a handful
+      # of times, and the structs it reports are almost all table-driven cases
+      # whose field order *is* the table's column order - reordering them to
+      # save the collector eight bytes it will never scan makes the table harder
+      # to read to no measurable end.
+      #
+      # Production structs are not excluded: 116 of the 207 findings are in real
+      # types on real paths, and those are worth the layout.
+      - path: _test\.go
+        text: fieldalignment
+        linters:
+          - govet
   settings:
     govet:
       enable-all: true

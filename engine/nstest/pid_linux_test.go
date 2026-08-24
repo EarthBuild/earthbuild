@@ -18,7 +18,12 @@ import (
 // that rather than trusting the difference.
 //
 // pid 1 is the observable: the first process in a pid namespace is always pid 1.
-func TestTheChildIsInANewPidNamespace(t *testing.T) {
+func TestTheChildIsInANewPidNamespace(t *testing.T) { //nolint:paralleltest // re-execs itself, see below
+	// **Not parallel, deliberately.** This test re-executes the test binary
+	// inside a new user and pid namespace and waits for it, so running it
+	// alongside the rest of the package means the child competes with the
+	// parent's own siblings for the machine (paralleltest asks; the answer is
+	// no).
 	if !nstest.In(t) {
 		return
 	}

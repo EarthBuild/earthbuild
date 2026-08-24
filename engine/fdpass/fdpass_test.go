@@ -56,8 +56,12 @@ func TestATerminalCanBeHandedOverAUnixSocket(t *testing.T) {
 
 	// Read the first two bytes here, so the offset is not zero when it travels.
 	head := make([]byte, 2)
-	if _, err := f.Read(head); err != nil {
-		t.Fatal(err)
+
+	// Named, because a bare `err` here shadows the socketpair's and the two are
+	// indistinguishable in a diff (govet shadow).
+	_, readErr := f.Read(head)
+	if readErr != nil {
+		t.Fatal(readErr)
 	}
 
 	// **Waited for, and its error read.** `go func() { _ = SendFile(...) }()`

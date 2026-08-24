@@ -44,25 +44,33 @@ type Executor struct {
 	// retry, propagation, WAIT/END - are reachable without a real executor.
 	FailNodes map[ir.NodeID]int
 
-	// Sleep, when true, actually waits the simulated duration. Off by default:
-	// a scheduler test wants the model's arithmetic, not its latency.
-	Sleep bool
-
 	// Log records every step in execution order, which is what determinism
 	// assertions compare.
 	Log []Step
+
+	// Sleep, when true, actually waits the simulated duration. Off by default:
+	// a scheduler test wants the model's arithmetic, not its latency.
+	//
+	// Last, with the other scalars, so the pointer-bearing fields above sit
+	// together (govet fieldalignment).
+	Sleep bool
 }
 
 // Step is one simulated execution.
 type Step struct {
-	Node     ir.NodeID
+	// Worker first: it is the only field here carrying a pointer, and a digest
+	// array in front of it makes the collector scan the whole struct (govet
+	// fieldalignment).
 	Worker   string
+	Node     ir.NodeID
 	Duration time.Duration
 	Bytes    int64
 }
 
 // Run implements core.Executor.
-func (e *Executor) Run(ctx context.Context, n *ir.Node, w core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *Executor) Run(
+	ctx context.Context, n *ir.Node, w core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	err := ctx.Err()
 	if err != nil {
 		return core.Result{}, err
@@ -115,7 +123,11 @@ func (e *Executor) estimate(n *ir.Node) (time.Duration, int64) {
 		base = 400 * time.Millisecond
 	case ir.OpExec, ir.OpHost, ir.OpBuild:
 		base = 200 * time.Millisecond
-	case ir.OpFile, ir.OpMerge:
+	// OpScratch beside the cheap ones for the reason OpPackImage sits beside the
+	// expensive: `FROM scratch` is the empty base, so there is nothing to fetch
+	// and nothing to run, and letting it fall to the default would have modelled
+	// it at five times a file operation by omission rather than by decision.
+	case ir.OpFile, ir.OpMerge, ir.OpScratch:
 		base = 20 * time.Millisecond
 	default:
 		base = 100 * time.Millisecond
@@ -133,7 +145,7 @@ func (e *Executor) estimate(n *ir.Node) (time.Duration, int64) {
 		scale = 64 << 20
 	case ir.OpExec, ir.OpHost, ir.OpBuild:
 		scale = 4 << 20
-	case ir.OpFile, ir.OpMerge:
+	case ir.OpFile, ir.OpMerge, ir.OpScratch:
 		scale = 64 << 10
 	default:
 		scale = 64 << 10

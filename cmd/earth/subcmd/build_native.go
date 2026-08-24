@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/domain"
@@ -50,21 +51,9 @@ func (b *Build) runNative(ctx context.Context, target domain.Target, flagArgs []
 		dir = "."
 	}
 
-	// `NAME=VALUE`, which is what both engines' `--build-arg` means. A bare name
-	// is the shell's value in the reference and is refused here rather than
-	// guessed at, because a build that silently took a different value is worse
-	// than one that stops.
-	args := map[string]string{}
-
-	for _, a := range flagArgs {
-		name, value, ok := strings.Cut(a, "=")
-		if !ok {
-			return fmt.Errorf(
-				"--engine=%s: build argument %q has no value"+
-					"\n  write it as %s=<value>", nativeEngine, a, a)
-		}
-
-		args[name] = value
+	args, err := nativeArgs(flagArgs, b.buildArgs)
+	if err != nil {
+		return err
 	}
 
 	return cli.Run(ctx, cli.Options{
@@ -77,4 +66,36 @@ func (b *Build) runNative(ctx context.Context, target domain.Target, flagArgs []
 		Args:     args,
 		Out:      os.Stdout,
 	})
+}
+
+// nativeArgs is the build arguments a native build starts with.
+//
+// **Two spellings, both of which must arrive.** `--build-arg NAME=VALUE` lands
+// in `b.buildArgs`; a trailing `+target --NAME=VALUE` lands in `flagArgs`.
+// Buildkit's path combines them in `common.CombineVariables` and this one read
+// only the second, so `--build-arg` was parsed, stored and never looked at: the
+// build ran on the Earthfile's default and reported nothing amiss (E611).
+//
+// Order matches buildkit's `slices.Concat(buildFlagArgs, flagArgs)` - the
+// trailing form overrides the flag - because two engines that disagree about
+// precedence are worse than either rule alone.
+//
+// `NAME=VALUE`, and a bare name is refused rather than guessed at: taking the
+// shell's value, as the reference does, makes a build that silently used
+// something else, which is worse than one that stops.
+func nativeArgs(flagArgs, buildArgs []string) (map[string]string, error) {
+	args := map[string]string{}
+
+	for _, a := range slices.Concat(buildArgs, flagArgs) {
+		name, value, ok := strings.Cut(a, "=")
+		if !ok {
+			return nil, fmt.Errorf(
+				"--engine=%s: build argument %q has no value"+
+					"\n  write it as %s=<value>", nativeEngine, a, a)
+		}
+
+		args[name] = value
+	}
+
+	return args, nil
 }

@@ -493,8 +493,15 @@ jobs:
       - name: What the second cache tier is worth, with a base that moves
         # E602 changed a file copied late, so almost nothing sat below it:
         # sixty-nine L1 hits and no work for the second tier to do. This builds
-        # the case Κ₂ exists for instead - a base that genuinely differs, and a
+        # the case K2 exists for instead - a base that genuinely differs, and a
         # step that reads none of what differs.
+        #
+        # **The first three versions of this step measured nothing and said so
+        # in seconds** (E611): `base` is a reserved target name so the Earthfile
+        # never parsed, `--build-arg` was dropped by the native engine, and
+        # declaring an ARG on the target defeats the tier outright by splitting
+        # the step's profile class. Hence no ARG here and two literal
+        # Earthfiles - the base differs because the base differs.
         #
         # Categorical rather than extrapolated: what is read off this is whether
         # the step hits, not a duration to scale up. That distinction is what
@@ -506,31 +513,48 @@ jobs:
         run: |-
           set -euo pipefail
           mkdir -p /tmp/l2case && cd /tmp/l2case
-          cat > Earthfile <<'EOF'
+
+          mk() {
+            cat > Earthfile <<EOF
           VERSION 0.8
 
-          base:
+          bottom:
               FROM alpine:3.24.1
-              ARG SALT=0
               # Two files: one that differs between builds, one that does not.
-              RUN echo "$SALT" > /salt && echo constant > /needed
+              RUN echo "$1" > /salt && echo constant > /needed
 
           work:
-              FROM +base
+              FROM +bottom
               # Reads /needed and never /salt, so its observation is the same
-              # over either base - which is the whole of what Κ₂ claims.
+              # over either base - which is the whole of what K2 claims. The
+              # sleep is the thing a hit is supposed to skip.
               RUN cat /needed > /out && sleep 20
           EOF
+          }
+
           for mode in watched unwatched; do
             trace=1; [ "$mode" = unwatched ] && trace=0
             store=/tmp/store-l2b-$mode
+
+            mk one
             EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
-              /tmp/earth build --engine=native --build-arg SALT=one +work >/dev/null 2>&1 || true
+              /tmp/earth build --engine=native +work > /tmp/l2b-$mode-first.log 2>&1 || true
+
+            mk two
             start=$(date +%s)
             EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
-              /tmp/earth build --engine=native --build-arg SALT=two +work > /tmp/l2b-$mode.log 2>&1 || true
+              /tmp/earth build --engine=native +work > /tmp/l2b-$mode.log 2>&1 || true
             echo "$mode, base changed underneath: $(( $(date +%s) - start ))s"
-            grep -E '^\s+cache ' /tmp/l2b-$mode.log || true
+
+            # **Loud when it did not run.** Every earlier version of this step
+            # printed a plausible duration for a build that had failed to parse,
+            # because `|| true` swallowed the error and the grep below printed
+            # nothing. A measurement that cannot fail is not a measurement.
+            if ! grep -E '^\s+cache ' /tmp/l2b-$mode.log; then
+              echo "::error::the $mode L2 case produced no cache summary - it did not run"
+              tail -30 /tmp/l2b-$mode-first.log
+              tail -30 /tmp/l2b-$mode.log
+            fi
           done
 
       - name: The same target through buildkit, on the same machine

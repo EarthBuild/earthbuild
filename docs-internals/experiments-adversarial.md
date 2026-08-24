@@ -27598,3 +27598,90 @@ next was visible, and none of them was the interesting one until it was the only
 
 One thing remains: `TestAStepAttachedToATerminalHasOne` passes alone and fails under `-shuffle`,
 which is the other half of what that flag is for and a separate question.
+
+## E611 - the flag the engine dropped, and the experiment that could not fail
+
+E602 named its own successor: a change *low* in the stack, where everything downstream re-keys and
+only Κ₂ can rescue it. A CI step was written to do exactly that - a base carrying a `SALT` that
+differs, and a step that reads only a file that does not. It ran on every push and reported:
+
+```text
+    watched, base changed underneath: 1s
+    unwatched, base changed underneath: 1s
+```
+
+**One second, both ways, and no cache summary at all.** A build of that Earthfile cannot take one
+second: the step it is meant to skip sleeps twenty. The number was not a fast build, it was no build.
+
+Three defects, stacked, each hidden by the next:
+
+| What was wrong                                | What it produced                        |                                               |                                            |
+| --------------------------------------------- | --------------------------------------- | --------------------------------------------- | ------------------------------------------ |
+| `base:` is a reserved target name             | the Earthfile never parsed              |                                               |                                            |
+| `--build-arg` is dropped by the native engine | the base would not have differed anyway |                                               |                                            |
+| `\                                            | \                                       | true` plus a grep printing nothing on failure | a plausible duration for a build that died |
+
+Only the third is why it went unnoticed for a fortnight. **A measurement that cannot fail is not a
+measurement**, and this one reported a duration whether or not anything ran - the same shape as the
+report that hid a data race for three rounds (E610), one week later and in a file that exists to
+catch it.
+
+*The second is an engine defect and not a harness one.* Buildkit's path combines three sources of
+build arguments; `runNative` read one of them. `--build-arg NAME=VALUE` was accepted, parsed, stored
+in `b.buildArgs` and never looked at again, so the build ran on the Earthfile's default and said
+nothing was amiss:
+
+```text
+    earth build --engine=native --build-arg SALT=one +work
+      Earthfile:5    | SALT-IS-0
+```
+
+Fixed, with the precedence buildkit uses - trailing `+target --NAME=v` over `--build-arg` - because
+two engines that disagree about which wins are worse than either rule alone. Three tests hold it,
+and the argument now arrives: `SALT-IS-one`.
+
+## E612 - the tier is real, and an argument nobody reads switches it off
+
+With the harness repaired, the measurement E602 asked for at last. One store, one machine, a base
+that genuinely differs, a step that reads only what does not:
+
+```text
+    Earthfile:9    L2 hit     RUN cat /needed > /out && sleep 20
+    cache          1 hit, 1 miss, 1 by observed inputs, 1 unpredicted
+    -> 1s
+```
+
+**One second against twenty-one.** The step is reused over a base it was never computed on, which is
+the whole claim of the second tier, and this is the first time in this file that the claim has been
+tested rather than asserted. Put beside E601's eighty per cent, the trade now has both its numbers.
+
+*But it took three attempts to see it, and the reason is the finding.* The same experiment, differing
+only in that the target declared `ARG SALT` and forwarded it to the base, reports:
+
+```text
+    Earthfile:11   miss       RUN cat /needed > /out && sleep 20
+    cache          1 hit, 2 miss, 2 unpredicted (Earthfile:11, Earthfile:6)
+    -> 21s
+```
+
+Same command, same reads, same profile on disk - written correctly, naming `/needed` and its digest.
+It is never found, because `StepClass` hashes the step's environment and the argument is in it.
+**An `ARG` the step never reads splits its profile class**, so the prediction stored under one value
+is invisible to a build using another, and Κ₂ degrades to nothing for that target.
+
+Two things follow. The mechanism is conservative rather than broken: a class that is too specific
+costs a rebuild and can never cause a false hit, which is the direction I3 requires it to fail in.
+And it matters more than the toy suggests - **real Earthfiles are parameterised by `ARG` almost
+everywhere**, including this repository's, so the tier is switched off precisely where a base most
+often moves.
+
+Whether the class can safely narrow to the environment the step *references* is the next question. It
+is not obviously sound and it is not obviously unsound: the derived key still separates two runs whose
+environments differ, so broadening the class broadens what may be *predicted* rather than what may be
+*reused*. That is a change to the specification and not a patch, so it is written down here and not
+made.
+
+*Also recorded, unexplained.* `TestAStepAttachedToATerminalHasOne` failed once, in one shuffled race
+run, with the terminal at EOF before the step wrote anything. Re-run with the same seed it passes,
+which rules out the ordering `-shuffle` exists to expose; six further race runs of the package pass.
+One sighting, no cause, and saying so beats the tidier account.

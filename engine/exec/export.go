@@ -265,6 +265,26 @@ func stampOut(dst string, fi os.FileInfo) error {
 }
 
 func copyDir(src, dst string) error {
+	return copyDirExcluding(src, dst, nil)
+}
+
+// excluder is what decides a path is left out of a copy.
+//
+// An interface rather than the concrete type so that a copy with nothing to
+// exclude passes nil and reads as "no opinion" rather than "an empty one".
+type excluder interface{ Excludes(rel string) bool }
+
+// copyDirExcluding copies a tree, leaving out what an excluder names.
+//
+// **The context's bytes and the context's identity have to agree.** The digest
+// is taken with the ignore file applied and this copied everything, so
+// `.earthlyignore` decided the cache key and did not decide what the container
+// got - a context whose contents do not match its own identity (E623).
+//
+// The cost was visible as well as wrong: this repository generates about sixty
+// thousand fixture files into gitignored `testdata/`, every one of them named by
+// `.earthlyignore`, and every native build copied all of them.
+func copyDirExcluding(src, dst string, ex excluder) error {
 	return filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -273,6 +293,17 @@ func copyDir(src, dst string) error {
 		rel, err := filepath.Rel(src, p)
 		if err != nil {
 			return fmt.Errorf("relative path: %w", err)
+		}
+
+		if ex != nil && rel != "." && ex.Excludes(filepath.ToSlash(rel)) {
+			// A directory that is excluded takes its contents with it, which is
+			// the whole saving: descending into a twenty-thousand-file fixture
+			// to reject each file individually costs what it was meant to avoid.
+			if fi.IsDir() {
+				return filepath.SkipDir
+			}
+
+			return nil
 		}
 
 		target := filepath.Join(dst, rel)

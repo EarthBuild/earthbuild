@@ -46,7 +46,7 @@ func TestAStepResolvesByItsDeclaredHosts(t *testing.T) {
 
 	t.Cleanup(func() { _ = h.Release() })
 
-	errStep, err := c.RunStep(context.Background(), h, guest.Step{
+	step, err := c.RunStep(context.Background(), h, guest.Step{
 		Argv:  []string{"/prober", "--earthbuild-test-resolve", "api.test"},
 		Hosts: []string{"api.test 10.1.2.3"},
 	}, nil)
@@ -54,11 +54,11 @@ func TestAStepResolvesByItsDeclaredHosts(t *testing.T) {
 		t.Fatalf("the step could not be run: %v", err)
 	}
 
-	if code != 0 {
-		t.Fatalf("the step did not resolve the name it was given (exit %d):\n%s", code, out)
+	if step.Exit != 0 {
+		t.Fatalf("the step did not resolve the name it was given (exit %d):\n%s", step.Exit, step.Output)
 	}
 
-	if !strings.Contains(out, "10.1.2.3") {
-		t.Errorf("the name resolved to something else:\n%s", out)
+	if !strings.Contains(step.Output, "10.1.2.3") {
+		t.Errorf("the name resolved to something else:\n%s", step.Output)
 	}
 }

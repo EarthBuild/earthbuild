@@ -27,6 +27,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/ignore"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -826,7 +827,11 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 	}
 
 	if fi.IsDir() {
-		err = copyDir(src, dst)
+		// **The same exclusions the digest was taken with.** The interpreter
+		// applies the ignore file when it computes this context's identity, and
+		// this used to copy everything - so `.earthlyignore` decided the cache
+		// key and not what the container got (E623).
+		err = copyDirExcluding(src, dst, ignore.For(root, src))
 	} else {
 		err = copyOut(src, dst)
 	}

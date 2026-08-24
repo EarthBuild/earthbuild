@@ -86,7 +86,7 @@ func TestAStepReachesADaemonItDidNotStart(t *testing.T) {
 		// The outer daemon's socket, bound into the inner step at the path its
 		// client will look. This is what `withSocket` arranges for a block that
 		// shares (E385).
-		errStep, err := c.RunStep(context.Background(), h, guest.Step{
+		step, err := c.RunStep(context.Background(), h, guest.Step{
 			Argv: []string{"/prober", "--earthbuild-test-probe", "/var/run/docker.sock"},
 			Mounts: []guest.Mount{{
 				Sandbox: filepath.Join(outer, "var/run/docker.sock"),
@@ -97,8 +97,8 @@ func TestAStepReachesADaemonItDidNotStart(t *testing.T) {
 			t.Fatalf("the step could not be run at all: %v", err)
 		}
 
-		if code != 0 || !strings.Contains(out, "reached the daemon") {
-			t.Fatalf("the step did not reach the daemon it was given (exit %d):\n%s", code, out)
+		if step.Exit != 0 || !strings.Contains(step.Output, "reached the daemon") {
+			t.Fatalf("the step did not reach the daemon it was given (exit %d):\n%s", step.Exit, step.Output)
 		}
 
 		return nil

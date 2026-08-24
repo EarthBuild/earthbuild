@@ -28092,3 +28092,94 @@ ever goes one way, so a last page cannot quietly clear what an earlier one admit
 sets no `More` - which is one page, correctly. An older host sends no `FromEntry`, which is zero,
 which is the first page; it then ignores `More` and keeps a prefix. That last case is the one that
 would be wrong, and it is the case that cannot arise: host and guest ship in the same binary.
+
+## E622 - twenty-five sandboxes, and the failure I could not pin on them
+
+`+unit-test` under the native engine on this laptop, having passed on linux:
+
+```text
+    Error: Earthfile:50: lstat /var/lib/earthbuild/store/layers/e16bbe9c.../
+      engine/exec/testdata/bigtree-20000/d31/e45/f11103: too many open files in system
+```
+
+`ENFILE`, not `EMFILE` - the *system* ran out of file entries, not this process. And on the machine:
+
+```text
+    25 sandboxes: 10 running, 15 stopped
+    the oldest stopped one started 2026-08-23T05:19:24Z, twenty-three hours earlier
+    each reserving 4 CPUs and 8192 MB
+    kern.num_files 258726 of kern.maxfiles 491520
+```
+
+The story assembles itself: leaked VMs, exhausted descriptors, a build that falls over. **It is not
+supported.** Each container-runtime process holds 49 descriptors, so twenty-five of them account for
+something like 1,200 of the 258,726 in use, and no process on the machine holds more than 525. The
+sandboxes were present at the failure and are not shown to have caused it - which is a different
+sentence from the one I was about to write, and the difference is E618's lesson arriving a second
+time in one day.
+
+*What is established.* There is no lifecycle for a content-named sandbox, by an explicit decision:
+
+> A content-named VM is never an orphan. It has no owning process by design - that is what makes it
+> reusable - and reaping one would take the sandbox out from under a concurrent build in another
+> project.
+
+That is right about *orphans* and silent about *accumulation*. The earlier fix reaped
+`earthbuild-<pid>-<n>` VMs left by dead processes (38 of them, once); content-named ones have no
+bound, no age-out and no idle stop, so **every build leaves a running VM behind** - ten of them
+appeared in the twenty minutes of building that preceded this, each holding a four-CPU, eight-gigabyte
+reservation.
+
+It is the same shape as the store's missing collector, which the plan already argues for: *a directory
+that only grows is somebody's disk-space problem*. A machine that only gains sandboxes is somebody's
+memory problem, and reuse is the reason they are kept rather than a reason to keep all of them for
+ever.
+
+*Not built here, deliberately.* A reaper is defensible - stopped, beyond a count, beyond an age - but
+the evidence that would size it is the evidence I have just failed to produce. Removing the fifteen
+stopped VMs and rerunning is the cheap next measurement, and it decides whether this is a resource bug
+or a tidiness one.
+
+## E623 - the ignore file decided the key and not the bytes
+
+E622 ended with a machine out of file-table entries and a build that died staging its own context. The
+path it died on was the clue:
+
+```text
+    stage the build context: write .../layers/.context-.../engine/store/testdata/bigtree-20000/d57/e06/f16825
+```
+
+`.earthlyignore` names `**/testdata/bigtree-*`, and it names it for a reason recorded in the file
+itself: a cache key that includes untracked files depends on what a machine happens to have lying
+about (E562). **The matcher was working.** Asked directly, with the repository as its root, it
+excludes that path and every path under it.
+
+*The gap is between two answers to the same question.* `engine/interp` applies the ignore file when it
+computes the context's identity. `engine/exec` staged the context with `copyDir`, which consults
+nothing. So the ignore file decided the **digest** and did not decide the **bytes**, and the two
+disagreed by:
+
+```text
+    41,008 files, 162 MB, copied into every native build
+```
+
+It is a correctness gap before it is a slow one - a context whose contents do not match the identity
+computed for it is a layer nothing downstream can reason about - and the slowness is what made it
+visible, by exhausting the file table of the machine it ran on.
+
+*One definition now.* `ignore.For(root, under)` moved out of the interpreter into `engine/ignore`, and
+both sides ask it. Two things that must agree are one thing; the excluded directory is skipped whole,
+because descending into a twenty-thousand-file fixture to reject each file individually costs exactly
+what the exclusion is for.
+
+*Nearly published as a matcher bug.* The first probe called `ignore.Read(".")` from inside
+`engine/ignore`, got `excluded=false` for both paths, and looked like a confirmed defect in the
+pattern matching. It was the probe's root that was wrong. **Twice in one day a plausible cause has
+been one command from being written up as fact** (E618 was the other), and the command was cheap both
+times.
+
+*And a whole class of breakage was invisible.* `+engine-daemon` builds `engine/guest`'s
+`integration`-tagged tests, which no local `go test` compiles; three of them still called `RunStep`
+as though it returned `(code, out, err)` and it has returned a struct since the branch's base commit
+four days ago. `go vet -tags integration` finds it in a second and nothing local runs it - the same
+hazard the code comments already name at E415.

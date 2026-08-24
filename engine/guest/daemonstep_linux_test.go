@@ -62,7 +62,7 @@ func TestAStepIsGivenADaemonAtItsOwnPath(t *testing.T) {
 
 	t.Cleanup(func() { _ = h.Release() })
 
-	errStep, err := c.RunStep(context.Background(), h, guest.Step{
+	step, err := c.RunStep(context.Background(), h, guest.Step{
 		Argv: []string{"/prober", "--earthbuild-test-probe", "/var/run/docker.sock"},
 		Daemon: &guest.Daemon{
 			Root:   "/var/lib/earthbuild-docker",
@@ -73,11 +73,11 @@ func TestAStepIsGivenADaemonAtItsOwnPath(t *testing.T) {
 		t.Fatalf("the step could not be run at all: %v", err)
 	}
 
-	if code != 0 {
-		t.Fatalf("the step did not reach its daemon (exit %d):\n%s", code, out)
+	if step.Exit != 0 {
+		t.Fatalf("the step did not reach its daemon (exit %d):\n%s", step.Exit, step.Output)
 	}
 
-	if !strings.Contains(out, "reached the daemon") {
-		t.Errorf("the step ran but said something else:\n%s", out)
+	if !strings.Contains(step.Output, "reached the daemon") {
+		t.Errorf("the step ran but said something else:\n%s", step.Output)
 	}
 }

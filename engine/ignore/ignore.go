@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
@@ -139,4 +140,70 @@ func ignoreFileIn(root string) (string, error) {
 	}
 
 	return "", nil
+}
+
+// Excluder decides whether a path under some walk root is left out.
+//
+// The walk's root is not always the context's root - a `COPY engine/ ...`
+// walks `engine/` while the ignore file speaks about `engine/store/testdata/...`
+// - so an excluder carries the prefix that turns one into the other.
+type Excluder struct {
+	m    Matcher
+	from string
+}
+
+// matchers is one parsed ignore file per context root, for this process.
+//
+// **Per process, which is per build.** The engine's front end is a one-shot
+// command: it reads the ignore file, plans, builds and exits, so a file edited
+// between two builds is read again by the second one. A long-lived caller that
+// wanted to see an edit mid-process would need a different rule, and there is no
+// such caller.
+var matchers sync.Map // root -> Matcher
+
+// For reads a context's ignore file once and reuses it, for a walk under `under`.
+//
+// **One definition, because two would drift.** The interpreter uses this to
+// decide what a context's digest covers and the executor uses it to decide what
+// gets staged, and those two answers must be the same answer: a context whose
+// contents do not match the identity computed for it is a layer nothing
+// downstream can reason about (E623).
+//
+// Three scopes were possible for the caching and the first two were wrong. Once
+// per *entry* is what the first version did - `Excludes` is called for every path
+// in a walk, so parsing a file there costs more than the files it excludes, and
+// it would have surfaced as "the optimisation made it slower" and been believed.
+// Once per *digest* is 42 reads of one small file for this repository. Once per
+// root is the one that matches what the answer depends on.
+func For(root, under string) Excluder {
+	m, cached := matchers.Load(root)
+	if !cached {
+		// A malformed ignore file excludes nothing rather than everything. The
+		// build then digests more than it should, which is slow and correct; the
+		// opposite silently drops files a COPY named.
+		read, err := Read(root)
+		if err != nil {
+			read = Matcher{}
+		}
+
+		m, _ = matchers.LoadOrStore(root, read)
+	}
+
+	matcher, _ := m.(Matcher)
+
+	from, err := filepath.Rel(root, under)
+	if err != nil || from == "." {
+		from = ""
+	}
+
+	return Excluder{m: matcher, from: from}
+}
+
+// Excludes reports whether a path under the walk's root is left out.
+func (e Excluder) Excludes(rel string) bool {
+	if e.from == "" {
+		return e.m.Excludes(rel)
+	}
+
+	return e.m.Excludes(filepath.ToSlash(filepath.Join(e.from, rel)))
 }

@@ -121,6 +121,16 @@ func decideByRunning(
 type engine struct {
 	o Options
 
+	// contexts digests each path of the build context once for this
+	// invocation, however many plans ask for it.
+	//
+	// There is more than one plan: `FROM DOCKERFILE +target/artifact` plans the
+	// producing target as well, once per reference, and every one of them
+	// digests the same tree. A build sees one snapshot of its context - which
+	// is what every COPY here already assumes - so the invocation is exactly
+	// the right lifetime for this, and it ends with the invocation.
+	contexts *interp.ContextCache
+
 	// caseNote is what to say about a case-insensitive store *if this build
 	// fails*. Empty where the store distinguishes case, or where the answer is
 	// not known (E491).

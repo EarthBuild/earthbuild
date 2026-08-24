@@ -50,6 +50,7 @@ func (g *engine) artifacts(ctx context.Context, o Options, src string) interp.Ar
 
 		sub, err := interp.Build(src, target,
 			interp.WithContext(o.Dir),
+			interp.WithContextCache(g.contexts),
 			interp.WithArgs(o.Args),
 			interp.WithSecrets(o.Secrets),
 			interp.WithPlatform(o.platformOrDefault()),

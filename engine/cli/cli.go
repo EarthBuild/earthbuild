@@ -142,7 +142,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	// it: a condition the interpreter cannot decide is answered by running it,
 	// which needs a sandbox. It builds one lazily, so a plan that decides all
 	// its conditions - which is nearly all of them - still boots nothing.
-	g := &engine{o: o}
+	g := &engine{o: o, contexts: &interp.ContextCache{}}
 
 	defer g.close()
 
@@ -247,6 +247,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	endPlan := timing.Phase("plan", o.Target)
 
 	plan, err := interp.Build(string(src), o.Target,
+		interp.WithContextCache(g.contexts),
 		interp.WithTerminal(tty != nil),
 		interp.WithContext(o.Dir), interp.WithArgs(args),
 		interp.WithCommands(g.commands(ctx)),

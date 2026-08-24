@@ -42,8 +42,8 @@ func TestWhatFractionOfATreeAStepReads(t *testing.T) {
 
 	// Through the symlink: `/run/current-system/sw` is one, and walking a
 	// symlink finds one file.
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		root = real
+	if actual, err := filepath.EvalSymlinks(root); err == nil {
+		root = actual
 	}
 
 	total := 0

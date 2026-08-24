@@ -73,9 +73,9 @@ func TestCollectionTakesTheLeastRecentlyUsedFirst(t *testing.T) {
 	// Same size, so only the dates can decide.
 	old := fill(t, root, 1, 4096, now.Add(-72*time.Hour))
 	mid := fill(t, root, 2, 4096, now.Add(-2*time.Hour))
-	new := fill(t, root, 3, 4096, now)
+	fresh := fill(t, root, 3, 4096, now)
 
-	report, err := Collect(root, roomForOne(t, root, new))
+	report, err := Collect(root, roomForOne(t, root, fresh))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestCollectionTakesTheLeastRecentlyUsedFirst(t *testing.T) {
 		t.Error("a layer used longer ago survived one used recently")
 	}
 
-	if !LayerStore(root).Has(new) {
+	if !LayerStore(root).Has(fresh) {
 		t.Error("the most recently used layer was collected")
 	}
 

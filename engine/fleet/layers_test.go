@@ -106,7 +106,7 @@ func TestAStoreRefusesALayerThatIsNotWhatItClaims(t *testing.T) {
 	t.Parallel()
 
 	theirs := t.TempDir()
-	real := aLayer(t, theirs)
+	actual := aLayer(t, theirs)
 
 	// A source that answers for one digest with a different layer's bytes.
 	other := t.TempDir()
@@ -115,15 +115,15 @@ func TestAStoreRefusesALayerThatIsNotWhatItClaims(t *testing.T) {
 	mine := &fleet.Layers{Root: t.TempDir()}
 
 	_, err := fleet.Provision(t.Context(), mine,
-		fleet.Assignment{Version: fleet.Version, Base: []ir.NodeID{real}},
+		fleet.Assignment{Version: fleet.Version, Base: []ir.NodeID{actual}},
 		&fleet.LayerSource{Label: "liar", Held: swapped{
-			from: &fleet.Layers{Root: other}, want: real, give: wrong,
+			from: &fleet.Layers{Root: other}, want: actual, give: wrong,
 		}})
 	if err == nil {
 		t.Fatal("a layer that was not what it claimed was accepted")
 	}
 
-	if mine.Has(real) {
+	if mine.Has(actual) {
 		t.Error("and it was filed under the digest that was asked for" +
 			"\n  every key derived from that base would name something else")
 	}

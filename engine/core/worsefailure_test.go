@@ -26,7 +26,7 @@ import (
 func TestACancellationNeverOutranksItsCause(t *testing.T) {
 	t.Parallel()
 
-	real := errors.New("run doomed: exit status 3")
+	actual := errors.New("run doomed: exit status 3")
 	cancelled := fmt.Errorf("run sibling: %w", context.Canceled)
 
 	for _, tc := range []struct {
@@ -38,9 +38,9 @@ func TestACancellationNeverOutranksItsCause(t *testing.T) {
 		want            error
 		wantAtIsNextsAt bool
 	}{
-		{"the cause arrives first, later in order", real, 9, cancelled, 1, real, false},
-		{"the cancellation arrives first, earlier in order", cancelled, 1, real, 9, real, true},
-		{"two real failures, earliest in order wins", real, 9,
+		{"the cause arrives first, later in order", actual, 9, cancelled, 1, actual, false},
+		{"the cancellation arrives first, earlier in order", cancelled, 1, actual, 9, actual, true},
+		{"two actual failures, earliest in order wins", actual, 9,
 			errors.New("run other: exit status 1"), 1, nil, true},
 		{"two cancellations, earliest in order wins", cancelled, 9,
 			fmt.Errorf("run third: %w", context.Canceled), 1, nil, true},

@@ -139,9 +139,9 @@ func Unpack(r io.Reader, dir string) error {
 			// Kept whole rather than as a path and a mode: setMeta wants the
 			// times too, and a second representation of the same header is a
 			// second thing to keep in step.
-			copy := *h
-			copy.Name = target
-			dirs = append(dirs, &copy)
+			copied := *h
+			copied.Name = target
+			dirs = append(dirs, &copied)
 		}
 
 		err = relax(filepath.Dir(target), relaxed)

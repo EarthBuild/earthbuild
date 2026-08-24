@@ -24,7 +24,7 @@ func TestTheCorpusIsBuiltInACopy(t *testing.T) {
 	root := corpusRoot(t)
 
 	// Somewhere other than the tree the test was pointed at.
-	real, err := filepath.Abs(filepath.Join("..", "..", "examples"))
+	actual, err := filepath.Abs(filepath.Join("..", "..", "examples"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestTheCorpusIsBuiltInACopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got == real {
+	if got == actual {
 		t.Fatal("the corpus is built where it lives, so a sweep writes into the repository")
 	}
 

@@ -37,14 +37,14 @@ func socketTargetIn(root, at string) (string, error) {
 		return at, nil
 	}
 
-	real, err := resolveLast(root, dir)
+	actual, err := resolveLast(root, dir)
 	if err != nil {
 		return "", fmt.Errorf("find where %s leads inside the step: %w", dir, err)
 	}
 
-	if err := os.MkdirAll(real, 0o755); err != nil { //nolint:gosec // a mode a build sees
-		return "", fmt.Errorf("make %s for the daemon's socket: %w", real, err)
+	if err := os.MkdirAll(actual, 0o755); err != nil { //nolint:gosec // a mode a build sees
+		return "", fmt.Errorf("make %s for the daemon's socket: %w", actual, err)
 	}
 
-	return filepath.Join(real, filepath.Base(at)), nil
+	return filepath.Join(actual, filepath.Base(at)), nil
 }

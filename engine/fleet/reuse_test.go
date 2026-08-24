@@ -101,7 +101,7 @@ func TestTheKeptManifestIsTheVerifiedOne(t *testing.T) {
 	t.Parallel()
 
 	store := t.TempDir()
-	real := aBaseOf(t, store, 20)
+	actual := aBaseOf(t, store, 20)
 	other := aBaseOf(t, store, 21)
 
 	layers := &fleet.Layers{Root: store}
@@ -112,14 +112,14 @@ func TestTheKeptManifestIsTheVerifiedOne(t *testing.T) {
 
 	_, err := fleet.ProvisionFragments(context.Background(), mine,
 		fleet.Assignment{
-			Base:  []ir.NodeID{real},
+			Base:  []ir.NodeID{actual},
 			Hints: fleet.Hints{ReadsPredicted: []string{"usr/lib/lib1.so"}},
 		}, liar)
 	if err == nil {
 		t.Fatal("a fragment of another layer was accepted")
 	}
 
-	if mine.HasManifest(real) {
+	if mine.HasManifest(actual) {
 		t.Error("and its manifest was kept as this layer's proof" +
 			"\n  every later fragment would be checked against a forgery")
 	}

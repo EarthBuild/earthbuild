@@ -21,7 +21,7 @@ import (
 func TestEqualAssignmentsEncodeToEqualBytes(t *testing.T) {
 	t.Parallel()
 
-	make := func() fleet.Assignment {
+	made := func() fleet.Assignment {
 		return fleet.Assignment{
 			Version: fleet.Version,
 			Base:    []ir.NodeID{{1}, {2}},
@@ -37,10 +37,10 @@ func TestEqualAssignmentsEncodeToEqualBytes(t *testing.T) {
 		}
 	}
 
-	want := fleet.Encode(make())
+	want := fleet.Encode(made())
 
 	for i := range 20 {
-		if got := fleet.Encode(make()); !bytes.Equal(got, want) {
+		if got := fleet.Encode(made()); !bytes.Equal(got, want) {
 			t.Fatalf("round %d: two equal assignments encoded differently"+
 				"\n  a map walked in iteration order, most likely", i)
 		}

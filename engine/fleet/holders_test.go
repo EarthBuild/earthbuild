@@ -154,8 +154,8 @@ func TestAHolderThatServesRubbishIsSkipped(t *testing.T) {
 
 	body := []byte("the real bytes")
 
-	real := newMapStore()
-	id := putBlob(t, real, body)
+	actual := newMapStore()
+	id := putBlob(t, actual, body)
 
 	// A peer that answers for the same digest with something else entirely.
 	liar := newMapStore()
@@ -168,7 +168,7 @@ func TestAHolderThatServesRubbishIsSkipped(t *testing.T) {
 	moved, err := fleet.Provision(t.Context(), mine,
 		fleet.Assignment{Version: fleet.Version, Base: []ir.NodeID{id}},
 		&fleet.LayerSource{Label: "liar", Held: liar},
-		&fleet.LayerSource{Label: "driver", Held: real})
+		&fleet.LayerSource{Label: "driver", Held: actual})
 	if err != nil {
 		t.Fatalf("a lying holder failed the build instead of costing a retry: %v", err)
 	}

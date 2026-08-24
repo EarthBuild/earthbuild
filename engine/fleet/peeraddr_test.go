@@ -46,7 +46,7 @@ func TestABadPeerAddressIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	real := id.String()
+	actual := id.String()
 
 	for _, s := range []string{
 		"",
@@ -54,13 +54,13 @@ func TestABadPeerAddressIsRefused(t *testing.T) {
 		"@192.0.2.7:41000",
 		"notanidentity@192.0.2.7:41000",
 		"deadbeef@",
-		// A real identity and nowhere to go. The one the identity parser
+		// A actual identity and nowhere to go. The one the identity parser
 		// cannot catch, because the half it checks is perfectly good - and
 		// dialling a host of "" is a dial to whatever the default is.
-		real + "@",
-		// A real identity and no separator at all: the whole string reads as
+		actual + "@",
+		// A actual identity and no separator at all: the whole string reads as
 		// an identity, and the host is silently nothing.
-		real,
+		actual,
 	} {
 		_, err := fleet.ParsePeerAddr(s)
 		if err == nil {

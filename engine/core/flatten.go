@@ -53,22 +53,22 @@ func (f Flattening) Applied() bool { return f.To > f.From }
 // squash derives the identity of a collapsed range. In S3 it becomes a real
 // filesystem operation; here it is the identity function over the range, which
 // is enough for the scheduler to be correct and for the choice to be tested.
-func Flatten(stack []ir.NodeID, max int, squash func([]ir.NodeID) ir.NodeID) ([]ir.NodeID, Flattening) {
-	if max < 2 {
-		max = 2 // a stack must keep at least the squashed base and one layer
+func Flatten(stack []ir.NodeID, largest int, squash func([]ir.NodeID) ir.NodeID) ([]ir.NodeID, Flattening) {
+	if largest < 2 {
+		largest = 2 // a stack must keep at least the squashed base and one layer
 	}
 
-	if len(stack) <= max {
+	if len(stack) <= largest {
 		return stack, Flattening{Was: len(stack)}
 	}
 
-	// Keep the newest max-1 layers; squash everything older into one.
-	keep := max - 1
+	// Keep the newest largest-1 layers; squash everything older into one.
+	keep := largest - 1
 	cut := len(stack) - keep
 
 	into := squash(stack[:cut])
 
-	out := make([]ir.NodeID, 0, max)
+	out := make([]ir.NodeID, 0, largest)
 	out = append(out, into)
 	out = append(out, stack[cut:]...)
 

@@ -84,8 +84,8 @@ func TestAWildcardBindDoesNotOfferItselfAsAnAddress(t *testing.T) {
 	}
 
 	// And a real address is still offered as one.
-	real := announcement("abc123", "192.168.1.20:60965", 25, 2)
-	if !strings.Contains(real, EnvDriver+"=192.168.1.20:60965") {
-		t.Errorf("a routable address is not offered:\n%s", real)
+	actual := announcement("abc123", "192.168.1.20:60965", 25, 2)
+	if !strings.Contains(actual, EnvDriver+"=192.168.1.20:60965") {
+		t.Errorf("a routable address is not offered:\n%s", actual)
 	}
 }

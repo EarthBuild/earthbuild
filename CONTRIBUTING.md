@@ -239,7 +239,7 @@ changed to `~/.earthly-dev/config.yml`. The standard location is not used as a f
 
 ## Prereleases
 
-In addition to the `./earthly` prerelease script, we maintain a repository dedicated to [prereleases versions](https://github.com/earthbuild/earthbuild-staging/releases) of earth.
+In addition to the `./earth` prerelease script, we maintain a repository dedicated to [prereleases versions](https://github.com/earthbuild/earthbuild-staging/releases) of earth.
 
 The prerelease versions follow a pseudo-semantic versioning scheme: `0.<epoch>.<decimal-git-sha>`; which is described in greater detail in the repository's [README](https://github.com/earthbuild/earthbuild-staging).
 

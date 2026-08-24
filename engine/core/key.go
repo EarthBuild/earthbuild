@@ -149,6 +149,13 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		h.Bool(m.Persist)
 		h.Count(int(m.Mode))
 		h.Str(m.Sandbox)
+		// A bound view's object and subtree. **Its contents are keyed**, unlike
+		// a cache mount's - and they are keyed by this, because From is already
+		// a key over them (I20, §3.3d). A cache mount is a function of history
+		// and a step may find one empty; a bound view is a function of the
+		// graph, the step reads it, and it decides the result.
+		h.Fixed(m.From[:])
+		h.Str(m.Sub)
 	}
 
 	// The operation's external content - the bytes a local context names. Fixed

@@ -147,6 +147,19 @@ type Mount struct {
 	// together (govet fieldalignment). A mount is built per step, so the
 	// layout is worth more here than the reading order was.
 	Mode uint32
+	// From is the object a bound view shows, by identity: an earlier step's
+	// result, or the node that materialises the local context. ν of §3.3d.
+	//
+	// Zero for a cache mount and a secret, which show nothing this build made.
+	// A bound view's From is also one of the node's Sources, which is what puts
+	// the object in the key and what makes the scheduler build it first; this
+	// field says *which* of them, since a step may bind more than one.
+	From NodeID
+	// Sub is the subtree of From that appears at Target. 𝑢 of §3.3d.
+	//
+	// Empty means the whole of it. In the key beside From, because two steps
+	// binding different subtrees of one object read different bytes.
+	Sub string
 	// Secret says the mount carries a credential rather than a cache.
 	//
 	// The *value* is deliberately absent from this struct and from every other
@@ -632,8 +645,9 @@ func (n *Node) ID() NodeID {
 	HashImage(h, n.Op.Image)
 
 	// Mount paths, in order: mounting the same directory somewhere else is a
-	// different step. Contents are deliberately absent - they are exactly what
-	// a key cannot bound.
+	// different step. A *cache* mount's contents are deliberately absent - they
+	// are exactly what a key cannot bound. A bound view's are not: they are
+	// bounded by From, which is a key over them (§3.3d).
 	h.Count(len(n.Op.Mounts))
 
 	for _, m := range n.Op.Mounts {
@@ -650,6 +664,13 @@ func (n *Node) ID() NodeID {
 		h.Bool(m.Persist)
 		h.Count(int(m.Mode))
 		h.Str(m.Sandbox)
+		// A bound view's object and subtree. **Its contents are keyed**, unlike
+		// a cache mount's - and they are keyed by this, because From is already
+		// a key over them (I20, §3.3d). A cache mount is a function of history
+		// and a step may find one empty; a bound view is a function of the
+		// graph, the step reads it, and it decides the result.
+		h.Fixed(m.From[:])
+		h.Str(m.Sub)
 	}
 	h.Fixed(n.Op.Content[:])
 

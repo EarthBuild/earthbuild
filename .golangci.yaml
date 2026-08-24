@@ -54,6 +54,21 @@ linters:
     - wsl_v5
   exclusions:
     generated: lax
+    rules:
+      # `tools/mutate/catalogue.go` is a data table: one entry per deliberate
+      # defect, naming the file it belongs to, the package that should notice
+      # it, and the snippet it replaces. Its repetition *is* its content -
+      # 164 mutants live in `./engine/fleet/`, and that string appearing 164
+      # times is the catalogue saying so.
+      #
+      # Extracting sixty-five constants would put a layer of names between a
+      # reader and a table whose whole value is being read literally against
+      # the source it mutates. `TestEveryAnchorStillMatchesItsSource` is what
+      # keeps the strings honest, and it checks the thing a constant would be
+      # hiding.
+      - path: tools/mutate/catalogue\.go
+        linters:
+          - goconst
   settings:
     govet:
       enable-all: true

@@ -79,6 +79,11 @@ func main() {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fleetprobe: %v\n", err)
+
+		// Before the exit: `os.Exit` skips deferred calls, so leaving the
+		// signal handler to `defer stop()` releases it in writing and not in
+		// fact (gocritic exitAfterDefer).
+		stop()
 		os.Exit(1)
 	}
 }
@@ -127,7 +132,7 @@ func drive(
 
 	defer func() { _ = os.RemoveAll(root) }()
 
-	err = os.MkdirAll(filepath.Join(root, "layers"), 0o755)
+	err = os.MkdirAll(filepath.Join(root, "layers"), 0o750)
 	if err != nil {
 		return fmt.Errorf("make a store: %w", err)
 	}
@@ -139,7 +144,7 @@ func drive(
 	// second build starts knowing what the first measured (E351). This is how
 	// that regime is reachable here.
 	if remember != "" {
-		if err = os.MkdirAll(filepath.Join(remember, "layers"), 0o755); err != nil {
+		if err = os.MkdirAll(filepath.Join(remember, "layers"), 0o750); err != nil {
 			return fmt.Errorf("make a store: %w", err)
 		}
 
@@ -308,11 +313,9 @@ func drive(
 				)
 
 				for i := range width {
-					wg.Add(1)
-
-					go func() {
-						defer wg.Done()
-
+					// `wg.Go` is `Add(1)` and `defer Done()` in one place, so the
+					// pair cannot drift apart (modernize waitgroupgo).
+					wg.Go(func() {
 						res, err := d.Run(ctx, node(), core.Worker{ID: "w"},
 							[]ir.NodeID{on}, nil)
 						if err != nil {
@@ -322,7 +325,7 @@ func drive(
 						}
 
 						made[i] = res.Layer
-					}()
+					})
 				}
 
 				wg.Wait()
@@ -354,17 +357,13 @@ func drive(
 			var wg sync.WaitGroup
 
 			for range steps {
-				wg.Add(1)
-
-				go func() {
-					defer wg.Done()
-
+				wg.Go(func() {
 					_, err := d.Run(ctx, node(), core.Worker{ID: "w"},
 						[]ir.NodeID{first.Layer}, nil)
 					if err != nil {
 						fmt.Fprintln(os.Stderr, "step:", err)
 					}
-				}()
+				})
 			}
 
 			wg.Wait()
@@ -455,7 +454,7 @@ func serve(
 
 	defer func() { _ = os.RemoveAll(root) }()
 
-	err = os.MkdirAll(filepath.Join(root, "layers"), 0o755)
+	err = os.MkdirAll(filepath.Join(root, "layers"), 0o750)
 	if err != nil {
 		return fmt.Errorf("make a store: %w", err)
 	}
@@ -541,9 +540,7 @@ func serve(
 
 // making is a step: wait, then leave a layer of the stated size behind.
 type making struct {
-	store   *fleet.Layers
-	size    int
-	compute time.Duration
+	store *fleet.Layers
 
 	// frags and from turn this worker lazy: a base primed with the paths a step
 	// was predicted to read, instead of the whole layer (E308).
@@ -556,6 +553,11 @@ type making struct {
 	// that always predicts perfectly, which is what every measurement before
 	// this one was.
 	miss int
+
+	// Sized fields last, so the pointer-bearing ones above sit together and the
+	// collector stops scanning sooner (govet fieldalignment).
+	size    int
+	compute time.Duration
 
 	// room bounds how many steps run at once, which is what makes this machine
 	// a machine. A synthetic step is a sleep, so without it eight steps take
@@ -791,7 +793,7 @@ func seedBase(store *fleet.Layers, n, salt int) (ir.NodeID, int64, error) {
 
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	err = os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o755)
+	err = os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o750)
 	if err != nil {
 		return ir.NodeID{}, 0, fmt.Errorf("seed a base: %w", err)
 	}
@@ -808,7 +810,7 @@ func seedBase(store *fleet.Layers, n, salt int) (ir.NodeID, int64, error) {
 		body := bytes.Repeat([]byte(fmt.Sprintf("%04d%04d", salt, i)), 1024)
 
 		err = os.WriteFile(
-			filepath.Join(tmp, "usr", "lib", fmt.Sprintf("lib%d.so", i)), body, 0o644)
+			filepath.Join(tmp, "usr", "lib", fmt.Sprintf("lib%d.so", i)), body, 0o600)
 		if err != nil {
 			return ir.NodeID{}, 0, fmt.Errorf("seed a base: %w", err)
 		}
@@ -821,7 +823,7 @@ func seedBase(store *fleet.Layers, n, salt int) (ir.NodeID, int64, error) {
 
 	at := filepath.Join(store.Root, "layers", c.ID.String())
 
-	err = os.MkdirAll(filepath.Dir(at), 0o755)
+	err = os.MkdirAll(filepath.Dir(at), 0o750)
 	if err != nil {
 		return ir.NodeID{}, 0, fmt.Errorf("seed a base: %w", err)
 	}

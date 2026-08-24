@@ -35,16 +35,13 @@ func TestTheLocalExecutorRunsWhatItSaysAtOnce(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 6 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		// `wg.Go` keeps `Add(1)` and `Done()` in one place (modernize).
+		wg.Go(func() {
 			_, err := m.Run(context.Background(), &ir.Node{}, core.Worker{}, nil, nil)
 			if err != nil {
 				t.Errorf("%v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -63,7 +60,7 @@ func layersIn(t *testing.T) *fleet.Layers {
 
 	root := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(root, "layers"), 0o755)
+	err := os.MkdirAll(filepath.Join(root, "layers"), 0o750)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

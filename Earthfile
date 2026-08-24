@@ -784,6 +784,18 @@ earthly-docker:
     # engine builds only from a checkout. The workflow sets EARTH_ENGINE for the
     # job, and a job's environment does not cross into `docker run`, so the
     # image is the only thing that can say this about itself.
+    #
+    # **It reaches the integration tests too**, which are built FROM this image,
+    # and that is what makes their nested `earth` invocations work: a test that
+    # runs a build inside a step gets this CLI, and this CLI now knows which
+    # engine it has. Without it, `tests/scrub-https-credentials` expected
+    # "failed to fetch remote" from a remote target and got native's "it is not
+    # a local target" instead.
+    #
+    # A consequence worth stating: the Native jobs run their *outer* build on
+    # the native engine and their nested builds on buildkit. That is what is
+    # being tested - the engine under test is the one running the suite - and
+    # `-e EARTH_ENGINE=native` overrides it if inner-native is ever wanted.
     ENV EARTH_ENGINE=buildkit
     # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port

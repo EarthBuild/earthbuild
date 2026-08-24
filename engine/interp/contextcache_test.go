@@ -1,6 +1,7 @@
 package interp_test
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/interp"
@@ -63,4 +64,37 @@ main:
 		t.Errorf("sharing saved only %d reads of %d, which is not once per path",
 			without-withCache, without)
 	}
+}
+
+// The cache is used from several goroutines at once, as its doc claims.
+//
+// Planning several targets concurrently is the obvious reason to share one, so
+// the claim is not idle - and a map read while another goroutine writes it is
+// the kind of fault that appears once a month on somebody else's machine. Run
+// under -race this either passes or names the two goroutines.
+func TestAContextCacheIsSafeToShareBetweenPlans(t *testing.T) {
+	t.Parallel()
+
+	dir := contextHolding(t, "data/f", "hello")
+	shared := &interp.ContextCache{}
+
+	const src = `
+main:
+    FROM alpine:3.22
+    COPY data/f /f
+`
+
+	var wg sync.WaitGroup
+
+	for range 8 {
+		wg.Go(func() {
+			_, err := interp.Build(versioned+src, testMain,
+				interp.WithContext(dir), interp.WithContextCache(shared))
+			if err != nil {
+				t.Errorf("planning: %v", err)
+			}
+		})
+	}
+
+	wg.Wait()
 }

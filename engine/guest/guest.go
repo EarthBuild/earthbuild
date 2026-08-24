@@ -1498,6 +1498,25 @@ const greetingAtMost = 30 * time.Second
 // cancellation that just fired.
 const releaseAtMost = 60 * time.Second
 
+// outputFor is the output a reply carries.
+//
+// **Nothing, when the host asked for a stream.** Every byte has already crossed
+// as chunks, and `core.StepError` prints the reply's copy only `if !e.Streamed` -
+// so repeating it transfers megabytes to be discarded. This repository's own
+// `+unit-test` produces about nineteen of them, which is past the frame limit:
+// the reply could not be written, and the build failed and then hung on it
+// (E617).
+//
+// A step the host did not ask to stream still gets its output here, because
+// nothing else delivered it.
+func outputFor(req Request, out []byte) string {
+	if req.Stream {
+		return ""
+	}
+
+	return string(out)
+}
+
 // streamer returns a sink that forwards a step's output to the host as it
 // appears, or nil when the host did not ask for it.
 func streamer(c *conn, req Request) func([]byte) {
@@ -1934,7 +1953,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		cpu, rss := usageOf(cmd.ProcessState)
 
 		return Response{
-			Exit: exitErr.ExitCode(), Output: string(out), Degraded: degradedNow,
+			Exit: exitErr.ExitCode(), Output: outputFor(req, out), Degraded: degradedNow,
 			CPUNanos: cpu.Nanoseconds(), MaxRSS: rss,
 		}
 	}
@@ -1957,7 +1976,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	cpu, rss := usageOf(cmd.ProcessState)
 
 	return Response{
-		Exit: 0, Output: string(out), Degraded: degradedNow,
+		Exit: 0, Output: outputFor(req, out), Degraded: degradedNow,
 		CPUNanos: cpu.Nanoseconds(), MaxRSS: rss,
 	}
 }

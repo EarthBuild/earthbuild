@@ -117,3 +117,32 @@ func TestAReplyTooLargeToSendIsStillAnswered(t *testing.T) {
 		t.Error("the refusal does not say why")
 	}
 }
+
+// A step whose output was streamed does not send it a second time.
+//
+// **The 18.7 MiB message, found.** `Response.Output` carries a step's whole
+// combined output, and a streamed step has already delivered every byte of it as
+// chunks - so the reply repeats it. For this repository's `+unit-test` that is
+// about nineteen megabytes, which is over the frame limit, which is why the build
+// died on linux and then hung (E617).
+//
+// It was not merely oversized, it was **unread**: `core.StepError` prints the
+// output only `if !e.Streamed`, so the second copy is transferred and discarded.
+// Not sending it removes a multi-megabyte round trip per streamed step as well as
+// the failure.
+//
+// A step the host did not ask to stream still gets its output, because nothing
+// else delivered it.
+func TestAStreamedStepDoesNotSendItsOutputTwice(t *testing.T) {
+	t.Parallel()
+
+	const out = "the step said this"
+
+	if got := outputFor(Request{Stream: true}, []byte(out)); got != "" {
+		t.Errorf("a streamed step repeated %d bytes of output in its reply: %q", len(got), got)
+	}
+
+	if got := outputFor(Request{}, []byte(out)); got != out {
+		t.Errorf("an unstreamed step lost its output: %q, want %q", got, out)
+	}
+}

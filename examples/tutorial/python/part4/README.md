@@ -1,6 +1,6 @@
 # Tutorial
 
-This example is part of the [EarthBuild Basics tutorial](https://docs.earthly.dev/basics).
+This example is part of the [EarthBuild Basics tutorial](https://docs.earthbuild.dev/basics).
 
 ## Are you stuck?
 

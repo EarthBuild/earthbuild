@@ -154,6 +154,12 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		// a key over them (I20, §3.3d). A cache mount is a function of history
 		// and a step may find one empty; a bound view is a function of the
 		// graph, the step reads it, and it decides the result.
+		//
+		// Not redundant with `refs`, which is the reasonable objection: refs
+		// carry the sources' result *layers* and so already bring the bytes
+		// into Κ₁. What they cannot say is *which* source a mount shows. A step
+		// binding one of its two sources and a step binding the other read
+		// different files and would otherwise key identically.
 		h.Fixed(m.From[:])
 		h.Str(m.Sub)
 		// Whether it is a view at all. A cache mount at the same target with

@@ -439,7 +439,7 @@ func dockerfileArgs(args []string, where string) (dockerfileOptions, error) {
 		return "", false
 	}
 
-	for i := range len(args) {
+	for i := range args {
 		switch {
 		case strings.HasPrefix(args[i], "-f"):
 			v, ok := value(&i, "-f")

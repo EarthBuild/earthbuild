@@ -16,7 +16,6 @@ import (
 // takes 2.31s, and removing the tree 0.00s against 0.62s, because a metadata
 // operation on a block device never crosses the VM boundary.
 func TestACacheMountPrefersStorageTheGuestOwns(t *testing.T) { //nolint:paralleltest // t.Setenv
-
 	fast := t.TempDir()
 	t.Setenv(EnvFast, fast)
 
@@ -34,7 +33,6 @@ func TestACacheMountPrefersStorageTheGuestOwns(t *testing.T) { //nolint:parallel
 // namespaces and has no such device, and a build there must keep working
 // exactly as it did.
 func TestWithoutOwnedStorageCacheMountsAreBesideTheLayers(t *testing.T) { //nolint:paralleltest // t.Setenv
-
 	t.Setenv(EnvFast, "")
 
 	s := &Server{LayerDir: "/var/lib/earthbuild/store"}
@@ -51,7 +49,6 @@ func TestWithoutOwnedStorageCacheMountsAreBesideTheLayers(t *testing.T) { //noli
 // put a build's caches somewhere that is not there, and the failure would name a
 // cache rather than a missing volume.
 func TestAnAbsentVolumeIsNotUsed(t *testing.T) { //nolint:paralleltest // t.Setenv
-
 	t.Setenv(EnvFast, filepath.Join(os.TempDir(), "definitely-not-attached-earthbuild"))
 
 	s := &Server{LayerDir: "/var/lib/earthbuild/store"}

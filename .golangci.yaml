@@ -216,6 +216,14 @@ linters:
         linters:
           - lll
   settings:
+    misspell:
+      # `hardlinked` is what a hard link is called here and in every filesystem
+      # manual; misspell believes it is a typo for `hardline` and rewrites it.
+      # Its --fix did exactly that once, turning a correct sentence into a
+      # wrong one - which is the failure mode of an autofixing dictionary and
+      # the reason this is configured rather than suppressed at the line.
+      ignore-rules:
+        - hardlinked
     govet:
       enable-all: true
       disable:

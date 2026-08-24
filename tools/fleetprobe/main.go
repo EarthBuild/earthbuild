@@ -672,7 +672,7 @@ type refusingLocal struct{}
 func (refusingLocal) Run(
 	context.Context, *ir.Node, core.Worker, []ir.NodeID, [][]ir.NodeID,
 ) (core.Result, error) {
-	return core.Result{}, fmt.Errorf("this probe has no local executor;" +
+	return core.Result{}, errors.New("this probe has no local executor;" +
 		" a step that fell back to it is a fleet that did not take it")
 }
 

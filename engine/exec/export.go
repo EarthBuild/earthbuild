@@ -86,6 +86,7 @@ func (e *Executor) exportTo(
 	asked := stack
 
 	endClient := phase("export:client", path)
+	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	endClient()
 

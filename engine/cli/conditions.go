@@ -200,6 +200,16 @@ func (g *engine) profileStore(store string) (*cache.Profiles, error) {
 }
 
 // sandboxed returns the shared sandbox executor and a scheduler over it.
+//
+// **No context, deliberately, and contextcheck is told so at each call.** The
+// sandbox is built once and shared by everything after it, so a context
+// threaded here would be whichever caller happened to be first - and cancelling
+// that one would take the sandbox away from all the others. A `sync.Once` over
+// a shared resource cannot borrow one caller's lifetime.
+//
+// Cancellation still reaches the work: each build and each step carries the
+// caller's context, and it is the work that gets cancelled rather than the
+// machine it runs on.
 func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 	g.once.Do(func() {
 		sb, err := sandbox(g.image)
@@ -351,6 +361,7 @@ func (g *engine) runGraph(ctx context.Context, graph *ir.Graph) (string, error) 
 	g.started, g.used = true, true
 	g.mu.Unlock()
 
+	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	e, s, err := g.sandboxed()
 	if err != nil {
 		return "", err
@@ -409,6 +420,7 @@ func (g *engine) close() {
 // nothing else: the host executor and the rest of the engine outlive the
 // machine a probe happened to start.
 func (g *engine) closeSandbox() {
+	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	e, _, err := g.sandboxed()
 	if err == nil && e != nil {
 		_ = e.Close()
@@ -686,6 +698,7 @@ func (g *engine) warm(ctx context.Context) {
 	g.mu.Unlock()
 
 	go func() {
+		//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 		e, _, err := g.sandboxed()
 		if err != nil || e == nil {
 			return
@@ -729,6 +742,7 @@ func (g *engine) switchTo(image string) error {
 	// reason close() does it: a warm-up fills it on another goroutine, and
 	// replacing it while that boot is in flight would leave a VM nobody owns.
 	if started {
+		//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 		_, _, _ = g.sandboxed()
 		g.closeSandbox()
 	}

@@ -37,6 +37,7 @@ func (c *countingSandbox) Start(context.Context) (exec.Conn, error) {
 
 	c.boots++
 
+	//nolint:contextcheck // see LoopbackConn: the connection's lifetime, not a request's
 	return exec.LoopbackConn(), nil
 }
 

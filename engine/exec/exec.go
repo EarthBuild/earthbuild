@@ -196,6 +196,15 @@ func (e *Executor) startedClient() *guest.Client {
 // build whose every step is cached is entitled to succeed on a machine whose VM
 // backend is broken, and a build that must run something gets the diagnosis at
 // the step that needed it.
+// **No context, deliberately, and contextcheck is told so at each call.** The
+// connection is made once and shared by every step afterwards, so the context
+// that would be threaded here is whichever caller happened to be first - and
+// cancelling that one caller would take the sandbox away from all the others.
+// A `sync.Once` over a shared resource cannot borrow one caller's lifetime.
+//
+// Cancellation still reaches the work: every step's own call carries the
+// caller's context, and it is the step that gets cancelled rather than the
+// machine it runs on.
 func (e *Executor) client() (*guest.Client, error) {
 	e.start.Do(func() {
 		c, err := e.connect()
@@ -279,6 +288,7 @@ func (e *Executor) connect() (*guest.Client, error) {
 // calls it; it exists so the lazy start is observable to a test without
 // materialising a layer stack.
 func (e *Executor) Ping(ctx context.Context) error {
+	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	if err != nil {
 		return err
@@ -382,6 +392,7 @@ func (e *Executor) Run(
 		return core.Result{}, fmt.Errorf("exec backend cannot evaluate %s (%s)", n.Op.Kind, n.Meta.Source)
 	}
 
+	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	if err != nil {
 		return core.Result{}, err
@@ -881,6 +892,7 @@ func (e *Executor) copyStep(
 
 	from := sources[0]
 
+	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	if err != nil {
 		return core.Result{}, err
@@ -1267,6 +1279,11 @@ func ClosedConn() Conn {
 // Not a mock: it is the real Server and the real wire format, only without a
 // machine boundary, so the protocol is exercised identically to a real sandbox.
 // Callers are responsible for nothing; the temporary root is left to the OS.
+// **No context, deliberately.** It serves a guest for as long as the test that
+// made it wants one, and the goroutine it starts is stopped by closing the
+// connection rather than by cancelling somebody's request. A context threaded
+// here would be whichever caller happened to construct it, which is not the
+// lifetime being managed.
 func LoopbackConn() Conn {
 	// A failure here means no directory to remove either, so the fallback is
 	// recorded as *not ours*: removing os.TempDir() on Close would take the

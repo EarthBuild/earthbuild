@@ -370,6 +370,12 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 		// `container run` that fails on the name in use, an `rm -f`, and then
 		// the boot. 953ms measured, against 592ms to start the one already
 		// there (E524).
+		// De Morgan's law would turn this into `!= "stopped" || !resume(...)`,
+		// which is the same condition and a worse sentence: what is being asked
+		// is whether the machine was stopped *and* came back, and the negation
+		// belongs to that pair rather than to each half (QF1001).
+		//
+		//nolint:staticcheck // see above
 		if !(seen[a.name] == "stopped" && a.resume(ctx)) {
 			run := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
@@ -397,6 +403,10 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	return nil
 }
 
+// Start boots the sandbox if it is not up and returns a connection to its guest.
+//
+// Idempotent: a VM that is already running is reused, which is what makes the
+// second build of a session fast (E524).
 func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	err := a.ensureRunning(ctx)
 	if err != nil {

@@ -95,7 +95,10 @@ linters:
       # nolintlint then fails the Linux run. A rule that is right on one GOOS and
       # wrong on the other belongs in configuration, where it says so once, rather
       # than at the call site twice.
-      - path: engine/guestd/guestd\.go
+      # `copySpecial` is the same shape: a device node or a fifo cannot be
+      # reproduced off Linux, so the `!linux` implementation always refuses and
+      # the check on its error reads as always-true there.
+      - path: engine/(guestd/guestd|guest/copy)\.go
         text: SA4023
         linters:
           - staticcheck

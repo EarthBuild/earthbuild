@@ -36,12 +36,18 @@ func TestTheGuestBuildAdviceCanBeFollowed(t *testing.T) {
 
 	got := err.Error()
 
-	if runtime.GOOS != "linux" && !strings.Contains(got, "GOOS=linux") {
+	// **The `runtime.GOOS != "linux"` these conditions used to carry was dead.**
+	// This file is `//go:build darwin`, so it was always true and read as
+	// though the assertions were conditional on something. They are not: on a
+	// Mac the advice must always name the target platform and always say cgo is
+	// off, because following it without either produces a binary the sandbox
+	// refuses with `Exec format error`.
+	if !strings.Contains(got, "GOOS=linux") {
 		t.Errorf("the advice is %q\n  on %s that builds a binary the sandbox"+
 			" cannot run", got, runtime.GOOS)
 	}
 
-	if runtime.GOOS != "linux" && !strings.Contains(got, "CGO_ENABLED=0") {
+	if !strings.Contains(got, "CGO_ENABLED=0") {
 		t.Errorf("the advice is %q\n  a cross-build with cgo on does not"+
 			" compile, which is the next thing that happens to whoever follows"+
 			" it", got)

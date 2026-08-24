@@ -1,5 +1,9 @@
 //go:build !linux
 
+// Package nstest re-runs a test inside a user namespace, where one can be made.
+//
+// This file is the answer for platforms where one cannot: the test says so and
+// skips, rather than failing with a mount error that names nothing.
 package nstest
 
 import "testing"

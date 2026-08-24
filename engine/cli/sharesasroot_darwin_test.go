@@ -17,6 +17,8 @@ import (
 //
 // So the one implementation that must answer is asserted to. **A rule that can
 // be forgotten silently needs a test that cannot be.**
+//
+// The assertion is on the darwin backend, which is the one that shares.
 func TestTheDarwinSandboxSaysHowItShares(t *testing.T) {
 	t.Parallel()
 

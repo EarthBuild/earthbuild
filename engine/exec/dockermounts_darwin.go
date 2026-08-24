@@ -27,7 +27,11 @@ import (
 // loaded, and an isolated block is cached (E381). A key claiming an empty daemon
 // against an execution that saw another block's images is a wrong build reported
 // as a hit, and one Earthfile with two blocks reaches it (E391).
-func dockerFor(isolate bool, cache string) (dockerPlan, error) {
+// The cache directory is the Linux backend's business: there a step's daemon
+// gets one of its own, and here every block shares the VM's, so there is
+// nothing to point at a directory. Named rather than dropped because the two
+// backends implement one signature (revive unused-parameter).
+func dockerFor(isolate bool, _ string) (dockerPlan, error) {
 	if isolate {
 		return dockerPlan{}, errors.New(
 			"WITH DOCKER --isolate asks for a daemon of this step's own, and this" +

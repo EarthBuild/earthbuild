@@ -153,4 +153,11 @@ func (i *idle) Watch(stop func()) {
 }
 
 // NewIdle is newIdle for the command that starts a guest.
+//
+// Returns the unexported type deliberately: a caller outside this package can
+// hold one and hand it back, which is all the guest command does with it, and
+// exporting the type would invite writing to fields whose meaning is this
+// package's business (revive unexported-return).
+//
+//nolint:revive // see above
 func NewIdle(after time.Duration) *idle { return newIdle(after, nil) }

@@ -86,18 +86,32 @@ func TestATrappedOpenIsSeenAndProceeds(t *testing.T) {
 		t.Fatal("the filter was never installed")
 	}
 
-	defer func() { _ = unix.Close(fd) }()
+	// **Deliberately not closed.** The answering loop below parks in
+	// `NOTIF_RECV`, which no close wakes, so at the end of this test a thread is
+	// still referring to this number. Releasing it hands that number to the next
+	// listener installed in this process, and from that moment the parked thread
+	// is a second waiter on somebody else's listener - the kernel gives a
+	// notification to one waiter, so the test that owns it waits for something
+	// already delivered. That is what hung `engine/trace` for the full
+	// five-minute timeout in CI, with two threads parked on fd 19 and only one
+	// test still running (E634).
+	//
+	// Keeping the descriptor costs one number for the life of the binary and
+	// makes the aliasing impossible, which is the whole of the bug. Waiting for
+	// the loop instead does not work and is not a near miss: poll can report a
+	// listener readable and the `NOTIF_RECV` that follows still block, so a test
+	// that waits for the loop to finish hangs exactly as often.
 
 	// Answer everything, and remember whether the open was among it. The
 	// runtime's own calls arrive on the same listener and are indistinguishable
 	// from the test's until the syscall number is looked at, which is the
 	// position the real tracer is in too.
 	//
-	// It is never asked to *finish*. A `NOTIF_RECV` blocks in the kernel and
-	// closing the descriptor from another thread does not reliably wake it, so a
-	// test that waited for this loop to return would wait for ever - which is
-	// how the first version of it failed. It reports the moment it has the
-	// answer instead, and is left to be torn down with the process.
+	// It is never asked to *finish*. A `NOTIF_RECV` blocks in the kernel, no
+	// close wakes it, and polling first does not help - a listener can poll
+	// readable and the receive after it still block. It reports the moment it
+	// has the answer instead, and is left to be torn down with the process,
+	// which is safe only because the descriptor above is never released.
 	sawOpen := make(chan struct{}, 1)
 
 	go func() {
@@ -205,6 +219,20 @@ func TestTheListenerRefusesADirtyBuffer(t *testing.T) {
 	}
 
 	defer func() { close(done); _ = unix.Close(fd) }()
+
+	// Asked first, so a notification that never arrives is a sentence rather
+	// than the five-minute timeout it used to be: `receive` blocks in the kernel
+	// with nothing to bound it, and a test binary that hangs reports the whole
+	// package as failed without naming what was waiting (E634).
+	awake, pollErr := waitReadable(fd, 30*time.Second)
+	if pollErr != nil {
+		t.Fatalf("waiting for the notification: %v", pollErr)
+	}
+
+	if !awake {
+		t.Fatal("no notification arrived in thirty seconds, so the traced" +
+			" thread's stat was never trapped - or something else took it")
+	}
 
 	n, err := receive(fd)
 	if err != nil {

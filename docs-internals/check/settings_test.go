@@ -130,7 +130,7 @@ func TestEverySettingIsDocumentedOrDeclaredInternal(t *testing.T) {
 		}
 
 		// A walk of this repository, in a test: `p` has no other provenance.
-		b, err := os.ReadFile(p) //nolint:gosec // our own source tree
+		b, err := os.ReadFile(p)
 		if err != nil {
 			return nil //nolint:nilerr // ditto
 		}

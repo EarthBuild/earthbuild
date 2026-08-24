@@ -62,12 +62,12 @@ func TestTheGuestPacksTheArchiveTheHostWouldHave(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fromGuest, err := os.ReadFile(at + ".tar") //nolint:gosec // a path this test made
+	fromGuest, err := os.ReadFile(at + ".tar")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fromHost, err := os.ReadFile(host + ".tar") //nolint:gosec // a path this test made
+	fromHost, err := os.ReadFile(host + ".tar")
 	if err != nil {
 		t.Fatal(err)
 	}

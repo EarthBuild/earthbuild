@@ -41,7 +41,7 @@ func TestAShortNameResolvesToItsLayer(t *testing.T) {
 		t.Errorf("the short name is not shorter: %s", got)
 	}
 
-	b, err := os.ReadFile(filepath.Join(got, "marker")) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(got, "marker"))
 	if err != nil {
 		t.Fatalf("the short name does not lead to the layer: %v", err)
 	}

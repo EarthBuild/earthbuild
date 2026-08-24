@@ -26,7 +26,6 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
-
 	tests := []struct {
 		testName string
 		args     parsedCLIVals
@@ -153,7 +152,6 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
-
 
 	tests := []struct {
 		testName string

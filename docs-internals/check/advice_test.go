@@ -52,7 +52,7 @@ func TestNoAdviceNamesAFlagThatDoesNotExist(t *testing.T) {
 		}
 
 		// `p` came from walking this repository's own tree in a test.
-		b, err := os.ReadFile(p) //nolint:gosec // our own source tree
+		b, err := os.ReadFile(p)
 		if err != nil {
 			return nil //nolint:nilerr // ditto
 		}

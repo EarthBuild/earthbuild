@@ -162,7 +162,7 @@ func TestWritingAnImageIsReproducible(t *testing.T) {
 func readJSON(t *testing.T, path string, into any) {
 	t.Helper()
 
-	b, err := os.ReadFile(path) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", filepath.Base(path), err)
 	}

@@ -82,7 +82,7 @@ func same(t *testing.T, a, b string) {
 				return err
 			}
 
-			b, err := os.ReadFile(p) //nolint:gosec // a path this test made
+			b, err := os.ReadFile(p)
 			if err != nil {
 				return err
 			}

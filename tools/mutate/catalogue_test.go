@@ -23,7 +23,7 @@ func TestEveryAnchorStillMatchesItsSource(t *testing.T) {
 	root := repoRoot(t)
 
 	for _, m := range Mutants {
-		src, err := os.ReadFile(filepath.Join(root, m.File)) //nolint:gosec // from the catalogue
+		src, err := os.ReadFile(filepath.Join(root, m.File))
 		if err != nil {
 			t.Errorf("%s: %v\n  the file moved and the catalogue did not", m.Name, err)
 

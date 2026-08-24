@@ -36,7 +36,7 @@ func TestNoMutantIsStillApplied(t *testing.T) {
 			continue
 		}
 
-		src, err := os.ReadFile(filepath.Join(root, m.File)) //nolint:gosec // from the catalogue
+		src, err := os.ReadFile(filepath.Join(root, m.File))
 		if err != nil {
 			continue
 		}

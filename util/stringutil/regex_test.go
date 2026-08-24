@@ -10,7 +10,6 @@ import (
 func TestNamedGroupMatches(t *testing.T) {
 	t.Parallel()
 
-
 	tests := map[string]struct {
 		s             string
 		re            *regexp.Regexp

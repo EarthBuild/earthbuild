@@ -97,7 +97,7 @@ func TestAMissingPathIsFilledBeforeTheStepSeesItIsMissing(t *testing.T) {
 			return errors.New("not this one")
 		}
 
-		return os.WriteFile(p, []byte("here after all\n"), 0o600) //nolint:gosec // a fixture
+		return os.WriteFile(p, []byte("here after all\n"), 0o600)
 	}, func() {
 		fd, err := unix.Openat(unix.AT_FDCWD, want, unix.O_RDONLY, 0)
 		if err == nil {

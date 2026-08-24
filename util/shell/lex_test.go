@@ -68,7 +68,6 @@ func TestProcessWordEscapedDoubleQuote(t *testing.T) {
 func TestShellParserReplace(t *testing.T) {
 	t.Parallel()
 
-
 	cases := []struct {
 		envs map[string]string
 		word string

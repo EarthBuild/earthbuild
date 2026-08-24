@@ -50,7 +50,7 @@ func TestASquashOverTheWireIsTheSquashTheHostWouldMake(t *testing.T) {
 		overridden: "from the newer",
 		"keep.txt": "only here",
 	} {
-		b, err := os.ReadFile(filepath.Join(at, name)) //nolint:gosec // a path this test made
+		b, err := os.ReadFile(filepath.Join(at, name))
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}

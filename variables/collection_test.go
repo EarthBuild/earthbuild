@@ -37,7 +37,6 @@ func TestCollection(t *testing.T) {
 		})
 	}
 
-
 	t.Run("Defaults", func(t *testing.T) {
 		t.Parallel()
 

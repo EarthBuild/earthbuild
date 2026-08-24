@@ -54,7 +54,7 @@ func TestBuildsThatActuallyRun(t *testing.T) { //nolint:paralleltest // boots a 
 				t.Fatalf("%v\n%s", err, out.String())
 			}
 
-			b, err := os.ReadFile(filepath.Join(dir, tc.file)) //nolint:gosec // a fixture this test wrote
+			b, err := os.ReadFile(filepath.Join(dir, tc.file))
 			if err != nil {
 				t.Fatalf("%v\n%s", err, out.String())
 			}
@@ -91,7 +91,7 @@ build:
 	}
 
 	// The step after the failure did not run.
-	b, err := os.ReadFile(filepath.Join(dir, testArtefact)) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(dir, testArtefact))
 	if err != nil {
 		t.Fatal(err)
 	}

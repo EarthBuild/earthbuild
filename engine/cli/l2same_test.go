@@ -103,12 +103,12 @@ build:
 
 	run(t, cold, storeDir(t), "3.22")
 
-	a, err := os.ReadFile(filepath.Join(warm, testArtefact)) //nolint:gosec // a path this test made
+	a, err := os.ReadFile(filepath.Join(warm, testArtefact))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(cold, testArtefact)) //nolint:gosec // as above
+	b, err := os.ReadFile(filepath.Join(cold, testArtefact))
 	if err != nil {
 		t.Fatal(err)
 	}

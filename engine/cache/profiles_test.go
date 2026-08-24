@@ -212,7 +212,7 @@ func TestAProfileIsWrittenDeterministically(t *testing.T) {
 		}
 
 		// A file this test just wrote, under a directory it made (gosec G304).
-		b, err := os.ReadFile(filepath.Join(dir, "profiles", entries[0].Name())) //nolint:gosec // our own temp dir
+		b, err := os.ReadFile(filepath.Join(dir, "profiles", entries[0].Name()))
 		if err != nil {
 			t.Fatal(err)
 		}

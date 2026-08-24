@@ -157,7 +157,7 @@ func declaredTests(t *testing.T) map[string]bool {
 		}
 
 		// As above: a walk of this repository's own tree, in a test.
-		b, readErr := os.ReadFile(filepath.Clean(p)) //nolint:gosec // our own source tree
+		b, readErr := os.ReadFile(filepath.Clean(p))
 		if readErr != nil {
 			return nil //nolint:nilerr // as above
 		}

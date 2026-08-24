@@ -113,7 +113,7 @@ two:
 	// would produce two builds that both succeeded and one that is wrong -
 	// which is the failure mode a shared cache has and an unshared one does not.
 	for target, dir := range dirs {
-		b, err := os.ReadFile(filepath.Join(dir, target+".txt")) //nolint:gosec // a path this test made
+		b, err := os.ReadFile(filepath.Join(dir, target+".txt"))
 		if err != nil {
 			t.Fatalf("+%s produced no artifact: %v\n%s", target, err, logs[target])
 		}
@@ -209,7 +209,7 @@ build:
 	var first string
 
 	for i, dir := range dirs {
-		b, err := os.ReadFile(filepath.Join(dir, testArtefact)) //nolint:gosec // a path this test made
+		b, err := os.ReadFile(filepath.Join(dir, testArtefact))
 		if err != nil {
 			t.Fatalf("build %d produced no artifact: %v\n%s", i, err, logs[i])
 		}

@@ -213,7 +213,7 @@ func buildable(t *testing.T) []buildTarget {
 			return nil //nolint:nilerr // an unreadable corner of the tree is not this test's problem
 		}
 
-		src, err := os.ReadFile(p) //nolint:gosec // a file in this repository
+		src, err := os.ReadFile(p)
 		if err != nil {
 			return nil //nolint:nilerr // likewise
 		}
@@ -473,7 +473,7 @@ func copyCorpus(src, dst string) error {
 			return nil
 		}
 
-		b, err := os.ReadFile(p) //nolint:gosec // a path from this repository
+		b, err := os.ReadFile(p)
 		if err != nil {
 			return err
 		}

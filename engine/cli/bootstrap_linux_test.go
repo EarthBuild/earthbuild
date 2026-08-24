@@ -83,7 +83,7 @@ func TestTheEngineBuildsItselfOnLinux(t *testing.T) { // not parallel: one store
 
 	built := filepath.Join(repo, testTarget, "linux", runtimeArch(), "earth-guestd")
 
-	head, err := os.ReadFile(built) //nolint:gosec // a path this build wrote
+	head, err := os.ReadFile(built)
 	if err != nil {
 		t.Fatalf("no guest binary came out: %v", err)
 	}
@@ -125,7 +125,7 @@ probe:
 		t.Fatalf("the engine this engine built cannot run a build: %v\n%s", err, out)
 	}
 
-	body, err := os.ReadFile(filepath.Join(dir, "r.txt")) //nolint:gosec // a path this test made
+	body, err := os.ReadFile(filepath.Join(dir, "r.txt"))
 	if err != nil {
 		t.Fatalf("no artifact: %v\n%s", err, out)
 	}

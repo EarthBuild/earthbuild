@@ -111,7 +111,7 @@ func TestUnpackWritesFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(root, "bin", "sh")) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(root, "bin", "sh"))
 	if err != nil {
 		t.Fatal(err)
 	}

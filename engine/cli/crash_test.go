@@ -189,7 +189,7 @@ probe:
 		t.Fatalf("the build did not recover from a crash: %v\n%s", err, out)
 	}
 
-	body, err := os.ReadFile(filepath.Join(dir, "c.txt")) //nolint:gosec // a path this test made
+	body, err := os.ReadFile(filepath.Join(dir, "c.txt"))
 	if err != nil {
 		t.Fatalf("the recovered build produced no artifact: %v\n%s", err, out)
 	}
@@ -237,7 +237,7 @@ func cacheEntries(t *testing.T, store string) []string {
 	var out []string
 
 	for _, e := range entries {
-		b, err := os.ReadFile(filepath.Join(store, "actions", e.Name())) //nolint:gosec // the engine's own store
+		b, err := os.ReadFile(filepath.Join(store, "actions", e.Name()))
 		if err != nil {
 			continue
 		}

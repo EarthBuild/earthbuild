@@ -324,7 +324,7 @@ func TestACopyTakesTheNewestLayersVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(root, "f")) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(root, "f"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -47,7 +47,7 @@ func TestPlanningIsDeterministic(t *testing.T) {
 	// The engine is what is under test, not the filesystem's willingness to hold
 	// still, so the tree is copied once and every run reads the copy.
 	for _, f := range corpusSnapshot(t) {
-		src, err := os.ReadFile(f) //nolint:gosec // a fixture this test wrote
+		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -208,7 +208,7 @@ func corpusSnapshot(t *testing.T) []string {
 			return err //nolint:wrapcheck // the caller reports the path
 		}
 
-		b, err := os.ReadFile(p) //nolint:gosec // our own tree
+		b, err := os.ReadFile(p)
 		if err != nil {
 			// A file that vanished while the snapshot was taken is exactly what
 			// the snapshot is for: skipped, rather than failing the test with

@@ -88,7 +88,7 @@ probe:
 		t.Fatalf("%v\n%s", err, log.String())
 	}
 
-	body, err := os.ReadFile(filepath.Join(dir, "r.txt")) //nolint:gosec // a path this test made
+	body, err := os.ReadFile(filepath.Join(dir, "r.txt"))
 	if err != nil {
 		t.Fatalf("no artifact: %v\n%s", err, log.String())
 	}

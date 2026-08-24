@@ -72,7 +72,7 @@ func git(t *testing.T, dir string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := osexec.CommandContext(ctx, "git", //nolint:gosec // a fixed argv
+	cmd := osexec.CommandContext(ctx, "git",
 		append([]string{
 			"-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null",
 			"-c", "user.email=test@example.invalid", "-c", "user.name=Test",
@@ -114,7 +114,7 @@ func TestGitCheckout(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			b, err := os.ReadFile(filepath.Join(dest, testEarthfile)) //nolint:gosec // a fixture this test wrote
+			b, err := os.ReadFile(filepath.Join(dest, testEarthfile))
 			if err != nil {
 				t.Fatalf("the checkout has no Earthfile: %v", err)
 			}
@@ -302,7 +302,7 @@ func TestGitClonerKeysOnUrlAndRef(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = os.ReadFile(filepath.Join(first, "README.md")) //nolint:gosec // a fixture this test wrote
+	_, err = os.ReadFile(filepath.Join(first, "README.md"))
 	if err != nil {
 		t.Fatalf("the checkout is missing its files: %v", err)
 	}

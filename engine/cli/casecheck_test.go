@@ -34,7 +34,7 @@ func TestCaseSensitivityIsAskedOfTheStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(dir, testProbe)) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(dir, testProbe))
 	if err != nil {
 		t.Fatal(err)
 	}

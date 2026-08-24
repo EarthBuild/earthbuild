@@ -11,7 +11,6 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
-
 	tests := []struct {
 		in  []string
 		out [][]string

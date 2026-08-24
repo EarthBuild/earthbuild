@@ -10,7 +10,6 @@ import (
 func TestParseEscapedKeyValue(t *testing.T) {
 	t.Parallel()
 
-
 	tests := []struct {
 		kv string
 		k  string

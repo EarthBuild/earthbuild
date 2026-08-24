@@ -111,7 +111,7 @@ func TestAFileMountPointTheImageHadSurvives(t *testing.T) { //nolint:paralleltes
 
 	undo()
 
-	b, err := os.ReadFile(at) //nolint:gosec // a path this test made
+	b, err := os.ReadFile(at)
 	if err != nil {
 		t.Fatalf("a file the image shipped was removed with the mount: %v", err)
 	}

@@ -78,7 +78,7 @@ build:
 		t.Fatalf("the build failed: %v\n%s", err, log.String())
 	}
 
-	out, err := os.ReadFile(filepath.Join(dir, testArtefact)) //nolint:gosec // a path this test made
+	out, err := os.ReadFile(filepath.Join(dir, testArtefact))
 	if err != nil {
 		t.Fatalf("no artifact: %v\n%s", err, log.String())
 	}

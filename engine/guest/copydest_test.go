@@ -72,7 +72,7 @@ func TestACopyIntoAnExistingDirectoryLandsInside(t *testing.T) {
 				want = filepath.Join(h.root, "src.txt")
 			}
 
-			b, err := os.ReadFile(want) //nolint:gosec // a fixture this test wrote
+			b, err := os.ReadFile(want)
 			if err != nil {
 				t.Fatalf("the file is not at %s: %v", want, err)
 			}

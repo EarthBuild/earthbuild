@@ -92,7 +92,7 @@ build:
 		t.Fatalf("a build after a failed one could not use the store: %v\n%s", err, log)
 	}
 
-	b, err := os.ReadFile(filepath.Join(dir, testArtefact)) //nolint:gosec // a path this test made
+	b, err := os.ReadFile(filepath.Join(dir, testArtefact))
 	if err != nil {
 		t.Fatalf("no artifact: %v\n%s", err, log)
 	}

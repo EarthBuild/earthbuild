@@ -70,7 +70,7 @@ func TestADescriptorChannelReachesAChildProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(payload) //nolint:gosec // a path this test made
+	f, err := os.Open(payload)
 	if err != nil {
 		t.Fatal(err)
 	}

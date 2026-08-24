@@ -168,7 +168,7 @@ func stagedCopy(t *testing.T, b buildTarget) (string, bool) {
 			return os.MkdirAll(filepath.Join(dst, rel), 0o750) //nolint:wrapcheck // as above
 		}
 
-		body, err := os.ReadFile(p) //nolint:gosec // a file in this repository
+		body, err := os.ReadFile(p)
 		if err != nil {
 			return err //nolint:wrapcheck // as above
 		}
@@ -186,7 +186,7 @@ func stagedCopy(t *testing.T, b buildTarget) (string, bool) {
 
 // perturb moves a build's base without changing anything a step reads.
 func perturb(path string, n int) error {
-	body, err := os.ReadFile(path) //nolint:gosec // a path this test made
+	body, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}

@@ -8,7 +8,6 @@ import (
 	"testing"
 )
 
-
 func Test_readExcludes(t *testing.T) {
 	t.Parallel()
 

@@ -15,7 +15,7 @@ func writable(t *testing.T, parts ...string) string {
 
 	p := filepath.Join(parts...)
 
-	err := os.MkdirAll(p, 0o750) //nolint:gosec // a cgroup directory's conventional mode
+	err := os.MkdirAll(p, 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestTheEngineStepsAsideBeforeEnablingControllers(t *testing.T) {
 
 	// The pid was written there, which is the whole point: a parent with no
 	// processes is what lets the controllers be enabled.
-	b, err := os.ReadFile(filepath.Join(leaf, "cgroup.procs")) //nolint:gosec // a path this test made
+	b, err := os.ReadFile(filepath.Join(leaf, "cgroup.procs"))
 	if err != nil {
 		t.Fatalf("nothing was written to the leaf's cgroup.procs: %v", err)
 	}

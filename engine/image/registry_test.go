@@ -289,7 +289,7 @@ func TestPullUnpacksVerifiedLayers(t *testing.T) {
 	}
 
 	for name, want := range map[string]string{"base": "one", "top": "two"} {
-		b, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // a fixture this test wrote
+		b, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			t.Errorf("%s: %v", name, err)
 
@@ -399,7 +399,7 @@ func TestPlatformIsSelectedFromAnIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := os.ReadFile(filepath.Join(dir, "arch-file")) //nolint:gosec // a fixture this test wrote
+	_, err := os.ReadFile(filepath.Join(dir, "arch-file"))
 	if err != nil {
 		t.Errorf("the selected manifest's layer was not unpacked: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestAZstdLayerPullsEndToEnd(t *testing.T) {
 		t.Fatalf("a registry serving a zstd layer could not be pulled: %v", err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(dir, "compressed")) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(dir, "compressed"))
 	if err != nil {
 		t.Fatal(err)
 	}

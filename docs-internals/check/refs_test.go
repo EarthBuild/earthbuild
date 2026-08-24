@@ -146,7 +146,7 @@ func docOf(t *testing.T, name string) string {
 
 	// The name comes from this test's own table, joined onto this
 	// repository's docs directory. There is no caller to supply a path.
-	b, err := os.ReadFile(filepath.Join(docRoot, name)) //nolint:gosec // our own docs tree
+	b, err := os.ReadFile(filepath.Join(docRoot, name))
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)
 	}
@@ -380,7 +380,7 @@ func TestEveryCitedTestExists(t *testing.T) {
 
 		// `p` is what the walk of this repository handed us (G122): a walk of a
 		// checkout, in a test, with no untrusted input anywhere near it.
-		b, err := os.ReadFile(filepath.Clean(p)) //nolint:gosec // our own source tree
+		b, err := os.ReadFile(filepath.Clean(p))
 		if err != nil {
 			return nil //nolint:nilerr // as above
 		}

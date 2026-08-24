@@ -78,7 +78,6 @@ func getPotentials(cmd string) ([]string, error) {
 	return GetPotentials(context.TODO(), resolver, nil, cmd, len(cmd), getApp())
 }
 
-
 func TestFlagCompletion(t *testing.T) {
 	t.Parallel()
 

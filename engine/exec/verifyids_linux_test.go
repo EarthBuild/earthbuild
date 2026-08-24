@@ -80,7 +80,7 @@ func TestALayerCapturedInANamespaceVerifiesOutsideIt(t *testing.T) { //nolint:pa
 	// The parent, unmapped, is the host half.
 	t.Cleanup(func() { _ = os.RemoveAll(root); _ = os.Remove(note) })
 
-	b, err := os.ReadFile(note) //nolint:gosec // this test wrote it
+	b, err := os.ReadFile(note)
 	if err != nil {
 		t.Skipf("the child did not run here: %v", err)
 	}

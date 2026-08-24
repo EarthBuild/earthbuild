@@ -78,7 +78,7 @@ func TestASquashedLayerIsTheRangeMerged(t *testing.T) {
 		// reduced to one file.
 		{testTwiceFile, "from b\n"},
 	} {
-		b, err := os.ReadFile(filepath.Join(got, filepath.FromSlash(tc.path))) //nolint:gosec // a fixture this test wrote
+		b, err := os.ReadFile(filepath.Join(got, filepath.FromSlash(tc.path)))
 		if err != nil {
 			t.Errorf("%s is missing from the squashed layer: %v", tc.path, err)
 

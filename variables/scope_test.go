@@ -49,7 +49,6 @@ func TestScope(t *testing.T) {
 		require.Equal(t, []string{"a", "b", "z"}, active)
 	})
 
-
 	for _, tt := range []struct {
 		testName    string
 		name        string

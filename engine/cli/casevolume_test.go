@@ -81,7 +81,7 @@ func run(t *testing.T, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	out, err := osexec.CommandContext(ctx, name, args...).CombinedOutput() //nolint:gosec // a test's own argv
+	out, err := osexec.CommandContext(ctx, name, args...).CombinedOutput()
 
 	return string(out), err
 }

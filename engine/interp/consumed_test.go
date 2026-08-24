@@ -42,7 +42,7 @@ func TestNoConsumedSyntaxSurvivesIntoAValue(t *testing.T) {
 	var checked int
 
 	for _, f := range files {
-		src, err := os.ReadFile(f) //nolint:gosec // a fixture this test wrote
+		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -153,7 +153,7 @@ func TestEveryImageReferenceParses(t *testing.T) {
 	var checked int
 
 	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f) //nolint:gosec // a fixture this test wrote
+		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -212,7 +212,7 @@ func TestEveryArtifactIsProducedByTheGraph(t *testing.T) {
 	var checked int
 
 	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f) //nolint:gosec // a fixture this test wrote
+		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}

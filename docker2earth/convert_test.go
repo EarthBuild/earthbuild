@@ -7,7 +7,6 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 )
 
-
 func TestGenerateEarthfile(t *testing.T) {
 	t.Parallel()
 

@@ -74,7 +74,7 @@ func TestEveryCorpusGraphSchedulesSoundly(t *testing.T) {
 	var graphs, steps, refused int
 
 	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f) //nolint:gosec // a fixture this test wrote
+		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -219,7 +219,7 @@ func TestMostOfABuildCouldBeSpeculatedOn(t *testing.T) {
 	var freely, retryable, never, graphs int
 
 	for _, f := range corpus(t) {
-		src, err := os.ReadFile(f) //nolint:gosec // a fixture this test wrote
+		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}

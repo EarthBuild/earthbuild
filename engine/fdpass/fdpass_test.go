@@ -47,7 +47,7 @@ func TestATerminalCanBeHandedOverAUnixSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(path) //nolint:gosec // a path this test made
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}

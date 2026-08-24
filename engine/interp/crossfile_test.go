@@ -35,7 +35,7 @@ func tree(t *testing.T, files map[string]string) string {
 func buildIn(t *testing.T, dir, target string) (*interp.Plan, error) {
 	t.Helper()
 
-	src, err := os.ReadFile(filepath.Join(dir, testEarthfile)) //nolint:gosec // a fixture this test wrote
+	src, err := os.ReadFile(filepath.Join(dir, testEarthfile))
 	if err != nil {
 		t.Fatal(err)
 	}

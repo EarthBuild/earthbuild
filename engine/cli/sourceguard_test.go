@@ -32,7 +32,7 @@ func nonTestFilesContaining(dir, needle string) (map[string]int, error) {
 			continue
 		}
 
-		b, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // this package's own source
+		b, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			return nil, err
 		}

@@ -43,7 +43,7 @@ func TestNoTrackedFileIsExcludedFromTheContext(t *testing.T) {
 	// `root` is this repository, found by walking up from the test's own
 	// directory. Context-bound so a wedged git dies with the test (noctx), and
 	// the argv is fixed apart from that root (gosec G204).
-	out, err := exec.CommandContext(t.Context(), //nolint:gosec // our own checkout
+	out, err := exec.CommandContext(t.Context(),
 		"git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
 		t.Skipf("no git here: %v", err)

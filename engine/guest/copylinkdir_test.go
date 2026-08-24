@@ -78,7 +78,7 @@ func TestCopyingALinkToADirectoryBringsTheTree(t *testing.T) {
 		t.Fatalf("the copy placed a symlink naming %q, not the tree it names", target)
 	}
 
-	body, err := os.ReadFile(filepath.Join(got, "a.txt")) //nolint:gosec // a path this test made
+	body, err := os.ReadFile(filepath.Join(got, "a.txt"))
 	if err != nil {
 		t.Fatalf("the tree behind the link did not arrive: %v", err)
 	}

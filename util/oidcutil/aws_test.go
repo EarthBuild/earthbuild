@@ -15,7 +15,6 @@ import (
 func TestAWSOIDCInfoString(t *testing.T) {
 	t.Parallel()
 
-
 	tests := map[string]struct {
 		subject  *AWSOIDCInfo
 		expected string
@@ -125,7 +124,6 @@ func TestAWSOIDCInfoRoleARNString(t *testing.T) {
 
 func TestParseAWSOIDCInfo(t *testing.T) {
 	t.Parallel()
-
 
 	tests := map[string]struct {
 		expectedErr error

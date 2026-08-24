@@ -62,7 +62,7 @@ func TestALaterLayerReplacesAnEarlierFile(t *testing.T) {
 		t.Fatalf("the second layer: %v", err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(dir, "etc", testConfigField)) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(dir, "etc", testConfigField))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestAFileMayReplaceADirectoryFromAnEarlierLayer(t *testing.T) {
 		t.Fatalf("replacing a directory with a file: %v", err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(dir, "opt", "thing")) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(filepath.Join(dir, "opt", "thing"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestALayerCannotWriteThroughAPlantedSymlink(t *testing.T) {
 		t.Logf("the entry was refused: %v", err)
 	}
 
-	b, readErr := os.ReadFile(outside) //nolint:gosec // a fixture this test wrote
+	b, readErr := os.ReadFile(outside)
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
@@ -569,7 +569,7 @@ func caseSensitive(t *testing.T, dir string) bool {
 
 	defer func() { _ = os.Remove(upper) }()
 
-	b, err := os.ReadFile(lower) //nolint:gosec // a fixture this test wrote
+	b, err := os.ReadFile(lower)
 	if err != nil {
 		t.Fatal(err)
 	}

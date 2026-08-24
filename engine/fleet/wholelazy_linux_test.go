@@ -143,7 +143,7 @@ func placedUnder(t *testing.T, root string) map[string]ir.NodeID {
 			return nil
 		}
 
-		body, readErr := os.ReadFile(p) //nolint:gosec // a path this test wrote
+		body, readErr := os.ReadFile(p)
 		if readErr != nil {
 			return nil //nolint:nilerr // gone between walk and read
 		}
@@ -190,7 +190,7 @@ func runTraced(
 				return ferr
 			}
 
-			body, rerr := os.ReadFile(path) //nolint:gosec // a path the step named
+			body, rerr := os.ReadFile(path)
 			if rerr != nil {
 				// Genuinely absent, which is an answer (E289).
 				return nil

@@ -122,7 +122,7 @@ func TestPackRoundTripsThroughUnpack(t *testing.T) {
 	}
 
 	for name, want := range files {
-		got, err := os.ReadFile(filepath.Join(out, name)) //nolint:gosec // a fixture this test wrote
+		got, err := os.ReadFile(filepath.Join(out, name))
 		if err != nil {
 			t.Errorf("%s did not survive the round trip: %v", name, err)
 

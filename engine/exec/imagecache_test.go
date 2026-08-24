@@ -36,7 +36,7 @@ func TestAnImageIsPulledOncePerReference(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		b, err := os.ReadFile(filepath.Join(dest, "layer-content")) //nolint:gosec // a fixture this test wrote
+		b, err := os.ReadFile(filepath.Join(dest, "layer-content"))
 		if err != nil {
 			t.Fatalf("%s did not get the image: %v", node, err)
 		}

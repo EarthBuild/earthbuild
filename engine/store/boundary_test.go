@@ -135,7 +135,7 @@ func TestEveryFileThatKnowsTheStoreLayoutIsRegistered(t *testing.T) {
 			return nil
 		}
 
-		b, err := os.ReadFile(p) //nolint:gosec // our own source tree
+		b, err := os.ReadFile(p)
 		if err != nil {
 			return err
 		}

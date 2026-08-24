@@ -181,7 +181,7 @@ func TestCorpusIsAcceptedOrRefusedActionably(t *testing.T) {
 	)
 
 	for _, f := range files {
-		src, err := os.ReadFile(f) //nolint:gosec // a file in this repository
+		src, err := os.ReadFile(f)
 		if err != nil {
 			continue
 		}

@@ -59,7 +59,6 @@ func TestParseParams(t *testing.T) {
 
 	r := require.New(t)
 
-
 	tests := []struct {
 		in    string
 		first string
@@ -186,7 +185,6 @@ func TestGetBoolFlagNames(t *testing.T) {
 
 func TestPreprocessArgs(t *testing.T) {
 	t.Parallel()
-
 
 	modFunc := func(_ string, _ *flags.Option, flagVal *string) (*string, error) {
 		if flagVal != nil && *flagVal == "$VAR" {

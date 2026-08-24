@@ -104,7 +104,7 @@ func TestTheHistoryFileIsDeterministic(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		b, err := os.ReadFile(filepath.Join(dir, "predictions.json")) //nolint:gosec // a fixture this test wrote
+		b, err := os.ReadFile(filepath.Join(dir, "predictions.json"))
 		if err != nil {
 			t.Fatal(err)
 		}

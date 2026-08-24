@@ -115,7 +115,7 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 			return err
 		}
 
-		b, err := os.ReadFile(p) //nolint:gosec // our own source tree
+		b, err := os.ReadFile(p)
 		if err != nil {
 			return err
 		}

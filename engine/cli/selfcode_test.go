@@ -30,7 +30,7 @@ func TestEveryGoDirectoryReachesTheBuildImage(t *testing.T) {
 
 	root := filepath.Join("..", "..")
 
-	src, err := os.ReadFile(filepath.Join(root, testEarthfile)) //nolint:gosec // a fixture this test wrote
+	src, err := os.ReadFile(filepath.Join(root, testEarthfile))
 	if err != nil {
 		// The tree under test is not a checkout. That is the ordinary state
 		// inside the build image this test is *about*: `+code` copies source

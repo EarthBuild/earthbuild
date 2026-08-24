@@ -23,6 +23,8 @@ func filling(t *testing.T, fill func(string) error, body func()) *Tracer {
 	failed := make(chan error, 1)
 	finished := make(chan struct{})
 
+	park := parking(t)
+
 	go func() {
 		runtime.LockOSThread() // never unlocked: the thread ends with this goroutine
 
@@ -47,7 +49,7 @@ func filling(t *testing.T, fill func(string) error, body func()) *Tracer {
 		body()
 		close(finished)
 
-		select {}
+		park()
 	}()
 
 	var tr *Tracer

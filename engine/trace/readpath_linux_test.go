@@ -87,6 +87,8 @@ func watch(t *testing.T, body func()) *observed {
 	failed := make(chan error, 1)
 	finished := make(chan struct{})
 
+	park := parking(t)
+
 	go func() {
 		runtime.LockOSThread()
 
@@ -103,7 +105,7 @@ func watch(t *testing.T, body func()) *observed {
 
 		// Held open so the reader keeps answering while the assertions run;
 		// the goroutine ends with the test and takes its thread with it.
-		select {}
+		park()
 	}()
 
 	var fd int

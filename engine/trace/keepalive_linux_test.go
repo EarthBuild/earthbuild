@@ -44,6 +44,8 @@ func TestTheListenerSurvivesAGarbageCollection(t *testing.T) {
 	opened := make(chan struct{})
 	finished := make(chan struct{})
 
+	park := parking(t)
+
 	go func() {
 		runtime.LockOSThread()
 
@@ -64,7 +66,7 @@ func TestTheListenerSurvivesAGarbageCollection(t *testing.T) {
 
 		close(finished)
 
-		select {}
+		park()
 	}()
 
 	var tr *Tracer

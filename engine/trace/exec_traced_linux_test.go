@@ -49,6 +49,8 @@ func TestTheProgramAStepRunsIsRecorded(t *testing.T) {
 	failed := make(chan error, 1)
 	done := make(chan error, 1)
 
+	park := parking(t)
+
 	go func() {
 		// Locked and never unlocked (E206).
 		runtime.LockOSThread()
@@ -65,7 +67,7 @@ func TestTheProgramAStepRunsIsRecorded(t *testing.T) {
 		// Started from this thread, so the child inherits the filter (E211).
 		done <- exec.Command(program).Run()
 
-		select {}
+		park()
 	}()
 
 	var tr *Tracer

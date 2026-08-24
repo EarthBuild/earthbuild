@@ -240,6 +240,8 @@ func withTracer(t *testing.T, body func()) *Tracer {
 	failed := make(chan error, 1)
 	finished := make(chan struct{})
 
+	park := parking(t)
+
 	go func() {
 		// Never unlocked: the filter cannot be removed, so the thread has to be
 		// destroyed rather than returned to the pool (E206).
@@ -256,7 +258,7 @@ func withTracer(t *testing.T, body func()) *Tracer {
 		body()
 		close(finished)
 
-		select {}
+		park()
 	}()
 
 	var fd int

@@ -63,6 +63,8 @@ func TestWhatATracedOperationCosts(t *testing.T) {
 	out := make(chan time.Duration, 1)
 	fail := make(chan error, 1)
 
+	park := parking(t)
+
 	go func() {
 		runtime.LockOSThread()
 
@@ -81,7 +83,7 @@ func TestWhatATracedOperationCosts(t *testing.T) {
 
 		out <- time.Since(start)
 
-		select {}
+		park()
 	}()
 
 	var observed time.Duration

@@ -53,6 +53,8 @@ func TestAChildForkedFromAFilteredThreadIsTraced(t *testing.T) {
 
 	out := make(chan result, 1)
 
+	park := parking(t)
+
 	go func() {
 		// Never unlocked: the filter cannot come off, so this thread must be
 		// destroyed with the goroutine rather than returned to the pool.
@@ -76,7 +78,7 @@ func TestAChildForkedFromAFilteredThreadIsTraced(t *testing.T) {
 
 		// Held, so the thread lives until the process does. A goroutine
 		// returning here would be tidier and would take the listener with it.
-		select {}
+		park()
 	}()
 
 	got := <-out
@@ -125,6 +127,8 @@ func TestTheEnginesOwnThreadIsNotTheStep(t *testing.T) {
 	out := make(chan *trace.Tracer, 1)
 	fail := make(chan error, 1)
 
+	park := parking(t)
+
 	go func() {
 		runtime.LockOSThread()
 
@@ -145,7 +149,7 @@ func TestTheEnginesOwnThreadIsNotTheStep(t *testing.T) {
 
 		out <- tr
 
-		select {}
+		park()
 	}()
 
 	var tr *trace.Tracer

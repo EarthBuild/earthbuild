@@ -28296,3 +28296,50 @@ its own success at reporting.**
 The pattern worth naming: each was built to answer a question, each answered a *narrower* question,
 and nothing checked the difference - because the thing that would notice is the very thing being
 tested. Which is why this one now has tests of its own, asserting the case that used to vanish.
+
+## E627 - nine filtered threads that never ended, and a package that failed without a test
+
+E626's repaired reporter answered its question on the first run:
+
+```text
+    --- What Failed ---
+    github.com/EarthBuild/earthbuild/engine/trace
+    test(s) failed
+```
+
+`engine/trace` fails as a **package** with every one of its tests passing. That is a binary that exits
+non-zero after its work is done, and the log carries no panic, no signal and no `--- FAIL`.
+
+*What is a fact.* Nine of this package's tests install a seccomp filter on a thread they have locked,
+and park that thread in `select {}`:
+
+```go
+    // Held open so the reader keeps answering while the assertions run;
+    // the goroutine ends with the test and takes its thread with it.
+    select {}
+```
+
+The comment is wrong in its second clause. `select {}` blocks for ever, so the goroutine does *not*
+end with the test - it ends with the process, and **a thread cannot remove a seccomp filter once it
+has one.** Nine filtered threads are therefore alive at exit, each with a notification fd whose reader
+loop has long since returned, so a syscall on any of them has nobody to answer it. `SkipIfAlreadyFiltered`
+exists because of this, which is the package admitting the shape of the problem without naming it.
+
+*What is a hypothesis.* That this is what makes the package exit non-zero. It is the best available
+explanation and it is not proved: darwin cannot run these tests, and the one local reproduction was
+contaminated (E624). **CI is the adjudicator and the change is worth making either way** - a test that
+leaves a filtered thread running for the rest of the process is wrong on its own terms.
+
+*The fix is which line ends the thread.* `runtime.LockOSThread` means the runtime destroys the thread
+when its goroutine ends, and the filter goes with it - the only way a filter ever goes anywhere. So the
+park now waits for the test to finish and then calls `runtime.Goexit`:
+
+```go
+    park := parking(t)      // registered on the test's goroutine, before it can finish
+    ...
+    park()                  // last statement of the locked goroutine
+```
+
+Two steps because `t.Cleanup` has to be registered before the test can end, and a worker goroutine
+calling it races the thing it is registering against. `Goexit` rather than a bare return so that
+anything added after it is a visible mistake rather than a silently immortal filter.

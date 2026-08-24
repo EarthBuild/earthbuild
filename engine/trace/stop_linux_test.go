@@ -26,6 +26,8 @@ func TestRunReturnsWhenStopped(t *testing.T) {
 	ready := make(chan *Tracer, 1)
 	failed := make(chan error, 1)
 
+	park := parking(t)
+
 	go func() {
 		// Never unlocked; the goroutine parks so the thread outlives the check.
 		runtime.LockOSThread()
@@ -39,7 +41,7 @@ func TestRunReturnsWhenStopped(t *testing.T) {
 
 		ready <- tr
 
-		select {}
+		park()
 	}()
 
 	var tr *Tracer

@@ -160,7 +160,22 @@ linters:
       # are left for a reading each - several drive real builds against a shared
       # cache directory, where parallel is a question about the cache and not
       # about the test.
-      - path: (engine/trace/|engine/nstest/)
+      # `paralleltest` asks why a test is not parallel, and in these the answer is
+      # a property of the test rather than an oversight.
+      #
+      # `engine/trace` installs a seccomp filter on a thread it has locked, and a
+      # filter cannot be removed - which is why `SkipIfAlreadyFiltered` exists.
+      # `engine/nstest` re-executes the test binary into a new user and pid
+      # namespace and waits for it. `engine/guest`'s `*_internal_linux_test.go`
+      # run inside a user namespace and unshare pid, uts, ipc and network
+      # namespaces or chroot - process-wide state, by definition shared with
+      # every sibling that might run beside them. `engine/cli`'s e2e sandbox
+      # tests boot a VM each.
+      #
+      # Running any of them alongside their own siblings is not a speed-up, it is
+      # the tests interfering with each other - and this suite has already lost
+      # time to a fixture race under parallelism (E616).
+      - path: (engine/trace/|engine/nstest/|engine/guest/.*_internal_linux_test\.go|engine/cli/e2e_sandbox_test\.go)
         linters:
           - paralleltest
       # The catalogue's anchors are source snippets quoted verbatim, and a

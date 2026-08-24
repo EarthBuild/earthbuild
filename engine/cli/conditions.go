@@ -89,8 +89,24 @@ func decideByRunning(
 	// condition that changes its mind is not held to its old answer - and its
 	// output is carried back, because a command that failed is often the one
 	// whose message matters most.
+	//
+	// **From whichever of the two has it.** The scheduler's StepError carries
+	// no output for a step that *streamed*, which every step does once a build
+	// has a progress display - and a probe's lines are not shown on that
+	// display anyway, being a value rather than progress. So the capture above
+	// is the one that has them, and reading only the error printed
+	//
+	//	ENV at Earthfile:862: "..." exited 128
+	//
+	// with an empty line where the reason belonged. A native CI job failed on
+	// exactly that and said nothing about why.
 	if stepErr, ok := errors.AsType[*core.StepError](err); ok {
-		return interp.Result{Exit: stepErr.Exit, Output: stepErr.Output}, nil
+		said := stepErr.Output
+		if said == "" {
+			said = out
+		}
+
+		return interp.Result{Exit: stepErr.Exit, Output: said}, nil
 	}
 
 	return interp.Result{}, err

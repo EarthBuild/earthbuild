@@ -71,7 +71,7 @@ To use the [delve debugger](https://github.com/go-delve/delve) with the earth bi
 From there, you may use `dlv exec` against the binary, using `--` to separate dlv args from earth args:
 
 ```sh
-dlv exec ./build/own/earthly -- +base
+dlv exec ./build/own/earth -- +base
 Type 'help' for list of commands.
 
 (dlv) break /earthly/earthfile2llb/interpreter.go:670

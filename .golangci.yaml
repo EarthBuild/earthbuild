@@ -248,6 +248,13 @@ linters:
         linters:
           - lll
   settings:
+    goconst:
+      # A boolean written down is not a magic constant. `"false"` appears
+      # wherever this engine reads or writes a flag as text - an environment
+      # variable, an Earthfile argument, a docker daemon setting - and
+      # `const falseValue = "false"` puts a name in front of the one string
+      # whose meaning nobody has to look up.
+      ignore-strings: '^(true|false)$'
     exhaustive:
       # A `default` arm is an exhaustive switch, because some of these types
       # cannot be enumerated by anybody: `syscall.Errno` and `reflect.Kind`

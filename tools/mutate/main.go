@@ -74,6 +74,19 @@ func putBack() {
 	}
 }
 
+// The verdicts, which are a closed set and are matched as well as printed.
+//
+// Named because the set grew: STUCK was added when a wedged `go test` turned
+// out to read as SURVIVED, and a verdict that is only ever a literal is one a
+// new case can be added to without the tally noticing.
+const (
+	verdictAnchor    = "ANCHOR"
+	verdictNoCompile = "NOCOMPILE"
+	verdictStuck     = "STUCK"
+	verdictSurvived  = "SURVIVED"
+	verdictKilled    = "killed"
+)
+
 func main() {
 	// A sweep is long and gets interrupted - by a timeout, by a person. Putting
 	// the file back is the last thing this process does either way.
@@ -113,9 +126,9 @@ func main() {
 		}
 
 		switch verdict {
-		case "SURVIVED":
+		case verdictSurvived:
 			survived++
-		case "ANCHOR", "NOCOMPILE", "STUCK":
+		case verdictAnchor, verdictNoCompile, verdictStuck:
 			// STUCK counts as a problem rather than as a survivor: nothing was
 			// measured, and a mutant nobody measured must not read as one
 			// nobody caught.
@@ -155,11 +168,11 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 
 	src, err := os.ReadFile(path) //nolint:gosec // a path from the catalogue
 	if err != nil {
-		return "ANCHOR", err.Error()
+		return verdictAnchor, err.Error()
 	}
 
 	if n := strings.Count(string(src), m.Anchor); n != 1 {
-		return "ANCHOR", fmt.Sprintf("%d matches in %s, want exactly 1", n, m.File)
+		return verdictAnchor, fmt.Sprintf("%d matches in %s, want exactly 1", n, m.File)
 	}
 
 	mutant := strings.Replace(string(src), m.Anchor, m.Replacement, 1)
@@ -168,7 +181,7 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 	// and not anybody's input (gosec G703).
 	err = os.WriteFile(path, []byte(mutant), 0o600) //nolint:gosec // a path from the catalogue
 	if err != nil {
-		return "ANCHOR", err.Error()
+		return verdictAnchor, err.Error()
 	}
 
 	holding(path, src)
@@ -212,17 +225,17 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 		// and "the tests never ran" are different answers about a mutant, and
 		// counting the second as the first records a mechanism as unguarded
 		// when nothing has been measured at all.
-		return "STUCK", "go test did not finish within " + (timeout + time.Minute).String()
+		return verdictStuck, "go test did not finish within " + (timeout + time.Minute).String()
 
 	case strings.Contains(text, "[build failed]"),
 		strings.Contains(text, "declared and not used"):
-		return "NOCOMPILE", firstLine(text, "declared and not used", "undefined:")
+		return verdictNoCompile, firstLine(text, "declared and not used", "undefined:")
 
 	case err == nil:
-		return "SURVIVED", ""
+		return verdictSurvived, ""
 
 	default:
-		return "killed", firstLine(text, "--- FAIL")
+		return verdictKilled, firstLine(text, "--- FAIL")
 	}
 }
 

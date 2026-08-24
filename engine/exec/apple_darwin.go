@@ -788,15 +788,16 @@ func volumeFor(name string) string { return name + "-fast" }
 // the same list separately, so anything added to a build's sandbox had to be
 // added twice or it applied only until the first crash.
 func (a *Apple) runArgs() []string {
-	args := []string{
+	args := make([]string, 0, 13+len(a.keepAlive()))
+	args = append(args,
 		"run", "-d",
 		"--name", a.name,
 		"-m", a.memory(),
-		"-v", a.dir + ":/earth",
-		"-v", a.Store + ":" + guestStore,
-		"-v", a.volumeName() + ":" + guestFast,
+		"-v", a.dir+":/earth",
+		"-v", a.Store+":"+guestStore,
+		"-v", a.volumeName()+":"+guestFast,
 		a.Image,
-	}
+	)
 
 	return append(args, a.keepAlive()...)
 }

@@ -53,10 +53,10 @@ func TestSandboxPhaseTimings(t *testing.T) { //nolint:paralleltest // boots a VM
 
 	// The first step pays for connecting to the guest; the rest do not, which is
 	// the whole distinction being measured.
-	var phases []struct {
+	phases := make([]struct {
 		name string
 		d    time.Duration
-	}
+	}, 0, 3)
 
 	for i, name := range []string{"first step (connect + run + capture)", "second step", "third step"} {
 		n := guestStep(string(rune('a'+i)), "/probe")

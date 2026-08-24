@@ -28,6 +28,8 @@ func TestABuiltinIsRefusedWhereverItIsSet(t *testing.T) {
 			"    RUN echo $EARTHLY_VERSION\n",
 	} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := interp.Build(src, testMain)
 			if err == nil {
 				t.Fatalf("%s: the engine's answer was overwritten and nothing said so", name)

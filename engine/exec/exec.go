@@ -446,12 +446,13 @@ func (e *Executor) Run(
 			Exclusive: m.Exclusive, Ephemeral: m.Ephemeral, Mode: m.Mode,
 		}
 
-		// A bound view names the object it shows by identity, and the guest
-		// resolves that against the layer store rather than the cache store
-		// (§3.3d). Zero for a cache mount and a secret, which show nothing this
-		// build made.
+		// A bound view names the object it shows by identity (§3.3d). Zero for
+		// a cache mount and a secret, which show nothing this build made.
 		if m.From != (ir.NodeID{}) {
-			gm.Layer, gm.Sub = m.From.String(), m.Sub
+			viewErr := fillView(&gm, m, n, sources)
+			if viewErr != nil {
+				return core.Result{}, viewErr
+			}
 		}
 
 		// The value is looked up here and nowhere earlier: it is not in the
@@ -1522,4 +1523,51 @@ func (e *Executor) Prewarm(ctx context.Context) {
 	if p, ok := e.sb.(interface{ Prewarm(context.Context) }); ok {
 		p.Prewarm(ctx)
 	}
+}
+
+// fillView tells the guest what a bound view shows, and at what size.
+//
+// The scheduler already hands this step the *stacks* of its sources, so the
+// object is not looked up again here - it is matched by identity to the source
+// it names. Matching rather than indexing because a step may bind several
+// views and copy from other targets besides, and a position would be a second
+// place for the two lists to agree.
+//
+// One layer goes as a layer and is bound directly; more than one has to be
+// assembled first. They are the same idea at two sizes, and the small one is
+// worth keeping: a view of the local context is the common case and needs no
+// overlay, which also means it works where overlay cannot stack.
+func fillView(gm *guest.Mount, m ir.Mount, n *ir.Node, sources [][]ir.NodeID) error {
+	for i, src := range n.Sources {
+		if src.ID() != m.From {
+			continue
+		}
+
+		if i >= len(sources) {
+			break
+		}
+
+		stack := sources[i]
+		gm.Sub = m.Sub
+
+		if len(stack) == 1 {
+			gm.Layer = stack[0].String()
+
+			return nil
+		}
+
+		gm.Stack = make([]string, 0, len(stack))
+		for _, id := range stack {
+			gm.Stack = append(gm.Stack, id.String())
+		}
+
+		return nil
+	}
+
+	// A view naming an object that is not one of this step's sources is a
+	// planning fault, not an execution one: nothing would have built it and
+	// nothing would have keyed it. Refused here rather than mounted empty,
+	// because an empty mount is what a step reads as "the file is missing".
+	return fmt.Errorf("%s binds %s at %s, which is not one of its sources",
+		n.Meta.Source, m.From, m.Target)
 }

@@ -2724,7 +2724,17 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a bound view of the context resolved to a node (E645)",
 		File:        "engine/interp/cache.go",
-		Anchor:      "\t\tmounts[v.at].From = n.ID()",
+		Anchor:      "\t\tmounts[v.at].From = n.ID()\n\t\tout = append(out, n)\n\t}",
+		Replacement: "\t\tout = append(out, n)\n\t}",
+		Package:     "./engine/interp/",
+	},
+	{
+		// The other half of §3.3d. A view of a stage that never named the stage
+		// it shows keys against nothing, and the step reads a mount point that
+		// no source built.
+		Name:        "interp: a bound view of a stage resolved to a node (E646)",
+		File:        "engine/interp/cache.go",
+		Anchor:      "\t\t\tmounts[v.at].From = n.ID()",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},

@@ -592,7 +592,7 @@ func appendOnce(nodes []*ir.Node, n *ir.Node) []*ir.Node {
 // already builds for COPY - so it drops straight in. A view of an earlier stage
 // is not: a stage's filesystem is an assembled stack, and showing one needs
 // machinery that does not exist yet (§3.3d, ν ∈ 𝕂).
-func (p *Plan) resolveViews(mounts []ir.Mount, views []view, where string) ([]*ir.Node, error) {
+func (p *Plan) resolveViews(mounts []ir.Mount, views []view, rs *state, where string) ([]*ir.Node, error) {
 	if len(views) == 0 {
 		return nil, nil
 	}
@@ -605,17 +605,31 @@ func (p *Plan) resolveViews(mounts []ir.Mount, views []view, where string) ([]*i
 	// The ordering is also the better behaviour: a build told it cannot do
 	// something should be told before it waits.
 	for _, v := range views {
-		if v.from != "" {
-			return nil, unsupported("RUN --mount type=bind,from="+v.from, where,
-				"a view of another stage needs that stage's assembled"+
-					" filesystem, which is more than one layer"+
-					"\n  COPY what the step needs in, or bind the build context")
+		if v.from != "" && rs.stage == nil {
+			return nil, notInLanguage("RUN --mount type=bind,from="+v.from, where,
+				"`from` names a Dockerfile stage and an Earthfile has none"+
+					"\n  COPY from the other target instead")
 		}
 	}
 
 	out := make([]*ir.Node, 0, len(views))
 
 	for _, v := range views {
+		// A stage is built on demand, so binding one may be the only reason it
+		// is built at all - and it has to be, because a view that named an
+		// unbuilt object would key against something nothing produces.
+		if v.from != "" {
+			n, err := rs.stage(v.from)
+			if err != nil {
+				return nil, err
+			}
+
+			mounts[v.at].From = n.ID()
+			out = append(out, n)
+
+			continue
+		}
+
 		// The subtree names a path in the context, and the context node this
 		// engine builds for COPY holds exactly that path - digested, so what it
 		// shows reaches the key (I20). Empty means the whole of it.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/interp"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // A Dockerfile's cache mount is the Earthfile's cache mount.
@@ -66,25 +67,99 @@ main:
 	}
 }
 
-// A view of an earlier stage is still refused, and says it is unbuilt.
+// A view of an earlier stage names that stage, and reads it.
 //
-// A stage's filesystem is an assembled stack of layers rather than one layer,
-// so showing it needs machinery a view of the context does not (§3.3d, ν ∈ 𝕂).
-// Refused rather than stripped: a step that quietly loses a mount does not
-// fail, it produces the wrong thing.
-func TestADockerfileBindFromAStageSaysItIsUnbuilt(t *testing.T) {
+// §3.3d with ν ∈ 𝕂. Two things have to be true and neither is automatic: the
+// stage has to be *built* - it may not have been, since stages are built on
+// demand and only the ones something needs - and it has to end up among the
+// step's sources, or nothing keys it and nothing orders it.
+//
+// This is the shape buildkit's own Dockerfile uses:
+//
+//	RUN --mount=source=/tmp/.ldflags,target=/tmp/.ldflags,from=buildkit-version
+func TestADockerfileBindFromAStageReadsThatStage(t *testing.T) {
 	t.Parallel()
 
 	dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22 AS other\n"+
+		"RUN make the-other-thing\n"+
 		"FROM alpine:3.22\n"+
 		"RUN --mount=from=other,source=/x,target=/x make it\n")
+
+	p, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+`, testMain, interp.WithContext(dir))
+	if err != nil {
+		t.Fatalf("a view of another stage was refused: %v", err)
+	}
+
+	// The stage it binds was built, which is not implied by the Dockerfile
+	// naming it: nothing else in this file depends on `other`.
+	if text := describe(p.Graph.Nodes()); !strings.Contains(text, "make the-other-thing") {
+		t.Errorf("the bound stage was never built:\n%s", text)
+	}
+
+	// **And the mount names it.** Building the stage is not enough on its own:
+	// a view that never recorded which object it shows keys against nothing,
+	// and the step reads a mount point no source filled. E646 is that mutant,
+	// and it survived a test that checked only that the stage got built.
+	var bound *ir.Node
+
+	for _, n := range p.Graph.Nodes() {
+		for _, m := range n.Op.Mounts {
+			if !m.View {
+				continue
+			}
+
+			if m.From == (ir.NodeID{}) {
+				t.Fatalf("the view at %s shows nothing: no object was recorded", m.Target)
+			}
+
+			for _, src := range n.Sources {
+				if src.ID() == m.From {
+					bound = src
+				}
+			}
+		}
+	}
+
+	if bound == nil {
+		t.Fatal("no step binds a view of anything among its sources")
+	}
+}
+
+// A view naming a stage that does not exist says which ones do.
+func TestADockerfileBindFromAnUnknownStageNamesTheOnesThereAre(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22 AS real\n"+
+		"FROM alpine:3.22\n"+
+		"RUN --mount=from=absent,target=/x make it\n")
 
 	_, err := interp.Build(versioned+`
 main:
     FROM DOCKERFILE .
 `, testMain, interp.WithContext(dir))
 	if err == nil {
-		t.Fatal("a view of another stage was accepted")
+		t.Fatal("a view of a stage that is not there was accepted")
+	}
+
+	if !strings.Contains(err.Error(), "real") {
+		t.Errorf("the refusal does not say what stages exist: %v", err)
+	}
+}
+
+// In an Earthfile, `from=` names nothing: there are no stages.
+func TestAnEarthfileBindHasNoStagesToNameFrom(t *testing.T) {
+	t.Parallel()
+
+	_, err := interp.Build(versioned+`
+main:
+    FROM alpine:3.22
+    RUN --mount=type=bind,from=other,target=/x true
+`, testMain)
+	if err == nil {
+		t.Fatal("from= was accepted in an Earthfile, which has no stages")
 	}
 
 	if !strings.Contains(err.Error(), "from") {

@@ -870,7 +870,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// From into it, and rf's slice is the caller's (§3.3d).
 		mounts := append(append([]ir.Mount{}, rs.mounts...), rf.mounts...)
 
-		views, err := p.resolveViews(mounts[len(rs.mounts):], rf.views, loc(c.SourceLocation))
+		views, err := p.resolveViews(mounts[len(rs.mounts):], rf.views, rs, loc(c.SourceLocation))
 		if err != nil {
 			return nil, err
 		}

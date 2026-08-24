@@ -16,7 +16,15 @@ import (
 // base recipe inherits its *state* - not a channel back into it. Two targets
 // setting different working directories must not see each other's.
 type state struct {
-	args scope
+	// stage resolves a Dockerfile stage by name, building it if it has not been
+	// built yet. Nil outside a FROM DOCKERFILE, which is what makes
+	// `--mount=type=bind,from=x` refusable in an Earthfile: there are no stages
+	// there, so there is nothing the name could mean.
+	//
+	// A function rather than a map because a stage is built on demand, and
+	// because the loop detection lives in the builder rather than in the state.
+	stage func(name string) (*ir.Node, error)
+	args  scope
 	// declared are the names this *recipe* has an ARG line for.
 	//
 	// ARG declares a name and a default; it does not assign. So a second ARG for

@@ -268,6 +268,19 @@ func (b *dockerfileBuild) stage(
 	// `FROM DOCKERFILE` met a Dockerfile with eight of them (E584).
 	sub.declared = map[string]bool{}
 
+	// What a bound view's `from=` means, published for the duration of this
+	// stage's instructions. On demand and through the same builder as a FROM,
+	// so a stage bound before it is built is built, and a stage that binds
+	// itself is diagnosed rather than recursed into (§3.3d, ν ∈ 𝕂).
+	sub.stage = func(name string) (*ir.Node, error) {
+		other, err := selectStage(b.stages, name, b.where)
+		if err != nil {
+			return nil, err
+		}
+
+		return b.stage(other, prev, rs, pending)
+	}
+
 	for _, instr := range st.Commands {
 		n, err := b.instruction(instr, base, &sub, pending)
 		if err != nil {

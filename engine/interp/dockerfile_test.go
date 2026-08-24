@@ -673,3 +673,69 @@ main:
 		})
 	}
 }
+
+// A Dockerfile RUN that carries mounts is refused rather than run without them.
+//
+// **This is the buildkit Dockerfile, and it is not a corner.** Its buildkitd
+// stage reads
+//
+//	RUN --mount=target=. --mount=target=/go/pkg/mod,type=cache \
+//	    --mount=source=/tmp/.ldflags,target=/tmp/.ldflags,from=buildkit-version \
+//	    xx-go build -ldflags "$(cat /tmp/.ldflags)" ...
+//
+// and the translation kept the command while dropping every mount. What a
+// caller then saw was `cat: can't open '/tmp/.ldflags'` and `go: go.mod file
+// not found in current directory` - two confusing errors from inside somebody
+// else's Dockerfile, neither of them naming the thing that was missing.
+//
+// The rule is already written twice in this repository and applies here
+// unchanged: a RUN flag that changes what the step can *do* is "refused rather
+// than stripped, because a step that quietly loses its secret does not fail, it
+// produces the wrong thing" (runflags.go), and `translate`'s own note says an
+// instruction silently dropped "produces an image that is not what the
+// Dockerfile describes, and nothing downstream can tell". Its mounts are the
+// same instruction one level down.
+func TestADockerfileRunWithMountsIsRefused(t *testing.T) {
+	t.Parallel()
+
+	for _, mount := range []string{
+		"--mount=target=.",
+		"--mount=type=cache,target=/go/pkg/mod",
+		"--mount=source=/tmp/.ldflags,target=/tmp/.ldflags,from=other",
+		"--mount=type=secret,id=token",
+	} {
+		dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22\nRUN "+mount+" true\n")
+
+		_, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+`, testMain, interp.WithContext(dir))
+		if err == nil {
+			t.Errorf("%s was accepted, so the step runs without it", mount)
+
+			continue
+		}
+
+		// Named, because the whole point is that the refusal says which
+		// construct went unhonoured rather than leaving the step to fail
+		// somewhere inside itself.
+		if !strings.Contains(err.Error(), "--mount") {
+			t.Errorf("%s: the refusal never mentions --mount: %v", mount, err)
+		}
+	}
+}
+
+// A Dockerfile RUN with no mounts is untouched.
+func TestAPlainDockerfileRunStillWorks(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22\nRUN make the-thing\n")
+
+	_, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+`, testMain, interp.WithContext(dir))
+	if err != nil {
+		t.Fatalf("a RUN with no mounts was refused: %v", err)
+	}
+}

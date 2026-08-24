@@ -1,6 +1,6 @@
-darwin 491
+darwin 486
 linux 483
-darwin-docker 192
+darwin-docker 188
 linux-docker 186
 darwin-earthtests 253
 linux-earthtests 252

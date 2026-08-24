@@ -605,6 +605,25 @@ func translate(instr instructions.Command, where string) (earthfile.Command, err
 
 	switch v := instr.(type) {
 	case *instructions.RunCommand:
+		// **Its mounts are part of the instruction.** Keeping the command and
+		// dropping them is the failure `translate`'s own note describes, one
+		// level down: the step runs, without the source bound at `.`, without
+		// the cache, without the file another stage wrote - and fails somewhere
+		// inside itself with an error about none of that.
+		//
+		// buildkit's own Dockerfile is the case that found this. Its buildkitd
+		// stage binds the context at `.`, mounts two caches, and mounts
+		// `/tmp/.ldflags` from an earlier stage; run without them it reports
+		// `cat: can't open '/tmp/.ldflags'` and `go: go.mod file not found`,
+		// which names neither the mounts nor the engine.
+		//
+		// The same rule as the Earthfile side, where a flag that changes what a
+		// step can *do* is refused rather than stripped (runflags.go): a step
+		// that quietly loses one does not fail, it produces the wrong thing.
+		if len(instructions.GetMounts(v)) > 0 {
+			return earthfile.Command{}, unsupported("RUN --mount", where, "")
+		}
+
 		return earthfile.Command{
 			Name: earthfile.CmdRun, Args: v.CmdLine,
 			ExecMode: !v.PrependShell, SourceLocation: loc,

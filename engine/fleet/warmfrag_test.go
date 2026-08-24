@@ -41,7 +41,8 @@ func TestAStepThatNeedsNothingDoesNotQueueBehindATransfer(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	if err = frags.PutVerified(id, want, manifest, bytes.NewReader(packed)); err != nil {
+	err = frags.PutVerified(id, want, manifest, bytes.NewReader(packed))
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

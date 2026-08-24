@@ -2281,7 +2281,8 @@ func (s *Server) mountStore() string {
 	if fast := os.Getenv(EnvFast); fast != "" {
 		// An operator's environment variable, not a path a build named: whoever
 		// sets it already runs this engine (gosec G703).
-		if fi, err := os.Stat(fast); err == nil && fi.IsDir() { //nolint:gosec // an operator's own setting
+		fi, err := os.Stat(fast) //nolint:gosec // an operator's own setting
+		if err == nil && fi.IsDir() {
 			return filepath.Join(fast, "mounts")
 		}
 	}
@@ -2328,29 +2329,6 @@ func stepEnv(base, env []string) []string {
 	// values mean the characters they contain, not whatever this step's
 	// environment would substitute.
 	return decl.Fold(nil, decl.Literal(floor), decl.Literal(base), decl.Declaration{Env: env})
-}
-
-// overlay adds entries to an environment, replacing any of the same name.
-func overlay(env, add []string) []string {
-	for _, kv := range add {
-		name, _, _ := strings.Cut(kv, "=")
-
-		replaced := false
-
-		for i, have := range env {
-			if existing, _, _ := strings.Cut(have, "="); existing == name {
-				env[i], replaced = kv, true
-
-				break
-			}
-		}
-
-		if !replaced {
-			env = append(env, kv)
-		}
-	}
-
-	return env
 }
 
 // lookIn resolves a bare command name against a filesystem that is about to

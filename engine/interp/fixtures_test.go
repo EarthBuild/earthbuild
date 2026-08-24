@@ -38,8 +38,6 @@ const (
 	testArch = "amd64"
 	// testShell is the interpreter a RUN command is handed to.
 	testShell = "/bin/sh"
-	// testTrue is the shell's cheapest success.
-	testTrue = "true"
 
 	// testSecret is the name a secret is mounted under.
 	testSecret = "TOKEN"

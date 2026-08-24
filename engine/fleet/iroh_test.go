@@ -7,16 +7,7 @@ import (
 
 	"github.com/tmc/go-iroh/iroh"
 	"github.com/tmc/go-iroh/netaddr"
-
-	"github.com/EarthBuild/earthbuild/engine/fleet"
 )
-
-// endpoints binds two, and stops them with the test.
-func endpoints(t *testing.T) (driver, worker *iroh.Endpoint) {
-	t.Helper()
-
-	return endpointsFor(t, fleet.ALPNControl)
-}
 
 // endpointsFor binds a pair, the second listening on this protocol.
 func endpointsFor(t *testing.T, alpn string) (client, server *iroh.Endpoint) {

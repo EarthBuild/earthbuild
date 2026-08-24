@@ -44,7 +44,8 @@ func TestAFragmentWithTheWrongModeIsRefused(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	if err = layer.VerifyFragment(m, src); err == nil {
+	err = layer.VerifyFragment(m, src)
+	if err == nil {
 		t.Error("a fragment whose file is world-writable passed as one that is" +
 			" not\n  the manifest carries the mode and the check threw it away" +
 			" (E324)")
@@ -86,7 +87,8 @@ func TestAFragmentIsNotSealedOnWhatItCannotReproduce(t *testing.T) {
 		return uid + 1, gid + 1
 	})
 
-	if err = layer.VerifyFragment(m, src); err != nil {
+	err = layer.VerifyFragment(m, src)
+	if err != nil {
 		t.Errorf("%v\n  a worker that cannot chown cannot use a lazy base"+
 			" at all, which is the whole of E313 again", err)
 	}
@@ -118,7 +120,8 @@ func TestAFragmentIsCheckedAgainstTheManifestNotItself(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	if err = layer.VerifyFragment(m, src); err == nil {
+	err = layer.VerifyFragment(m, src)
+	if err == nil {
 		t.Error("a fragment passed against another layer's manifest")
 	}
 }
@@ -154,7 +157,8 @@ func TestAManifestWhoseKindContradictsItsModeIsRefused(t *testing.T) {
 
 	m[i] = 'd'
 
-	if err = layer.VerifyFragment(m, src); err == nil {
+	err = layer.VerifyFragment(m, src)
+	if err == nil {
 		t.Error("a manifest calling a regular file a directory was accepted")
 	}
 }

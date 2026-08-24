@@ -39,7 +39,8 @@ func TestALayerStoresUnderItsOwnDigestWhenUnpackedAsAnotherUser(t *testing.T) {
 
 	var packed bytes.Buffer
 
-	if err = layer.Pack(src, &packed); err != nil {
+	err = layer.Pack(src, &packed)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -90,7 +91,8 @@ func TestALayerPassedOnKeepsItsIdentity(t *testing.T) {
 
 	var packed bytes.Buffer
 
-	if err = layer.Pack(src, &packed); err != nil {
+	err = layer.Pack(src, &packed)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -152,7 +154,8 @@ func TestAFragmentOfARelayedLayerProvesTheOriginal(t *testing.T) {
 
 	var packed bytes.Buffer
 
-	if err = layer.Pack(src, &packed); err != nil {
+	err = layer.Pack(src, &packed)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -211,7 +214,8 @@ func TestTwoStepsFetchingTheSameLayerBothGetIt(t *testing.T) {
 	for i := range packs {
 		var buf bytes.Buffer
 
-		if err = layer.Pack(src, &buf); err != nil {
+		err = layer.Pack(src, &buf)
+		if err != nil {
 			t.Fatalf("%v", err)
 		}
 

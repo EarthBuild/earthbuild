@@ -126,17 +126,20 @@ func TestAFragmentCarriesTheBytesItSaysItCarries(t *testing.T) {
 
 	var packed bytes.Buffer
 
-	if err = layer.PackPaths(root, &packed, want); err != nil {
+	err = layer.PackPaths(root, &packed, want)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	into := t.TempDir()
 
-	if err = layer.Unpack(&packed, into); err != nil {
+	err = layer.Unpack(&packed, into)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	if err = layer.VerifyFragment(manifest, into); err != nil {
+	err = layer.VerifyFragment(manifest, into)
+	if err != nil {
 		t.Fatalf("a fragment of a layer did not check out against it: %v", err)
 	}
 
@@ -158,7 +161,8 @@ func TestAFragmentCarriesTheBytesItSaysItCarries(t *testing.T) {
 
 	// And nothing else came with them: a fragment that quietly carried the
 	// whole layer would pass every check above and cost what E338 removed.
-	if _, err = os.Stat(filepath.Join(into, "usr", "lib", "lib0.so")); err == nil {
+	_, err = os.Stat(filepath.Join(into, "usr", "lib", "lib0.so"))
+	if err == nil {
 		t.Error("a fragment of two files carried a third")
 	}
 }
@@ -190,13 +194,15 @@ func TestWhatAFragmentWeighs(t *testing.T) {
 
 	var packed bytes.Buffer
 
-	if err = layer.PackPaths(root, &packed, want); err != nil {
+	err = layer.PackPaths(root, &packed, want)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	var whole bytes.Buffer
 
-	if err = layer.Pack(root, &whole); err != nil {
+	err = layer.Pack(root, &whole)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

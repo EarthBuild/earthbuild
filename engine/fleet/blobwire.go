@@ -461,11 +461,13 @@ func squeeze(b []byte) ([]byte, error) {
 		return nil, fmt.Errorf("compress a proof: %w", err)
 	}
 
-	if _, err = w.Write(b); err != nil {
+	_, err = w.Write(b)
+	if err != nil {
 		return nil, fmt.Errorf("compress a proof: %w", err)
 	}
 
-	if err = w.Close(); err != nil {
+	err = w.Close()
+	if err != nil {
 		return nil, fmt.Errorf("compress a proof: %w", err)
 	}
 

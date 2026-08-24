@@ -99,7 +99,8 @@ func TestUnpackReportsTheOwnershipItWasGiven(t *testing.T) {
 
 	var packed bytes.Buffer
 
-	if err = layer.Pack(src, &packed); err != nil {
+	err = layer.Pack(src, &packed)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

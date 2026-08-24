@@ -38,7 +38,8 @@ func TestTwoMessagesAreNotOneLongOne(t *testing.T) {
 		}
 	}
 
-	if _, err := fleet.ReadMessage(&buf); !errors.Is(err, io.EOF) &&
+	_, err := fleet.ReadMessage(&buf)
+	if !errors.Is(err, io.EOF) &&
 		!errors.Is(err, fleet.ErrMalformed) {
 		t.Errorf("reading past the end gave %v", err)
 	}

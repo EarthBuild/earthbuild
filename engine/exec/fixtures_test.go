@@ -13,6 +13,4 @@ const (
 	testLocal = "local"
 	// testTool is a program an image carries, relative as a tar entry is.
 	testTool = "usr/tool"
-	// testHeader is an included file, where the nesting is the point.
-	testHeader = "inc/b.h"
 )

@@ -874,7 +874,8 @@ func idleSetting() string {
 func keepAliveUntilIdle(idle string) []string {
 	secs := int((30 * time.Minute).Seconds())
 
-	if d, err := time.ParseDuration(idle); err == nil && d > 0 {
+	d, err := time.ParseDuration(idle)
+	if err == nil && d > 0 {
 		secs = int(d.Seconds())
 	} else if err == nil {
 		// Zero is `EnvIdle`'s "keep it up", which a developer debugging a

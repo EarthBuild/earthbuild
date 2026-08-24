@@ -321,7 +321,7 @@ const (
 	// as unused and deleting it breaks the macOS build. `unused` findings are
 	// per-platform, which is E106's lesson arriving from the linter's side: a
 	// file behind a build tag is not compiled, not counted, and here not seen.
-	dockerPluginDir = "/usr/local/libexec/docker/cli-plugins"
+	dockerPluginDir = "/usr/local/libexec/docker/cli-plugins" //nolint:unused // read only by dockermounts_darwin.go; see above
 )
 
 // Run executes one step against a materialised base, and captures what it

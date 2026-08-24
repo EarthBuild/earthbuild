@@ -174,30 +174,3 @@ func TestAQueuedStepFetchesWhileTheMachineIsBusy(t *testing.T) {
 			src.windows(), steps.windows())
 	}
 }
-
-// asking runs a step and looks at the world while it does.
-//
-// A fixture rather than a clock: what this file is about is two things
-// happening at once, and "at once" is a question something inside one of them
-// can answer directly.
-type asking struct {
-	hold time.Duration
-	ask  func()
-}
-
-func (a *asking) Run(
-	ctx context.Context, _ *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
-) (core.Result, error) {
-	a.ask()
-
-	select {
-	case <-time.After(a.hold):
-	case <-ctx.Done():
-	}
-
-	// Asked again on the way out: the queued step's fetch may start after this
-	// one began, and either sighting is the overlap.
-	a.ask()
-
-	return core.Result{}, nil
-}

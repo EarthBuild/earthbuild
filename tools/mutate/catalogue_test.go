@@ -135,7 +135,8 @@ func TestASweepThatIsKilledPutsTheFileBack(t *testing.T) {
 	// And nothing is put back twice: the ordinary path restores and clears, and
 	// a signal arriving afterwards must not overwrite a file somebody has since
 	// edited.
-	if err = os.WriteFile(at, []byte("package p // edited since\n"), 0o600); err != nil {
+	err = os.WriteFile(at, []byte("package p // edited since\n"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

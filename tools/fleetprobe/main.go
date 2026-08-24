@@ -144,7 +144,8 @@ func drive(
 	// second build starts knowing what the first measured (E351). This is how
 	// that regime is reachable here.
 	if remember != "" {
-		if err = os.MkdirAll(filepath.Join(remember, "layers"), 0o750); err != nil {
+		err = os.MkdirAll(filepath.Join(remember, "layers"), 0o750)
+		if err != nil {
 			return fmt.Errorf("make a store: %w", err)
 		}
 

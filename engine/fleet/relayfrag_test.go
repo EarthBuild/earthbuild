@@ -66,7 +66,8 @@ func TestAWorkerServesOnThePartOfABaseItHolds(t *testing.T) {
 	// relay did (E324).
 	next := &fleet.Fragments{Root: t.TempDir()}
 
-	if err = next.PutVerified(id, want, onward, bytes.NewReader(body)); err != nil {
+	err = next.PutVerified(id, want, onward, bytes.NewReader(body))
+	if err != nil {
 		t.Errorf("a relayed fragment was refused downstream: %v\n  a worker"+
 			" that cannot pass on what it just fetched makes a fleet a star"+
 			" (E325)", err)
@@ -132,7 +133,8 @@ func TestAWorkerServesPartsOfLayersItDoesNotWhollyHold(t *testing.T) {
 
 	frags := &fleet.Fragments{Root: t.TempDir()}
 
-	if err = frags.PutVerified(id, want, manifest, bytes.NewReader(packed)); err != nil {
+	err = frags.PutVerified(id, want, manifest, bytes.NewReader(packed))
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -150,7 +152,8 @@ func TestAWorkerServesPartsOfLayersItDoesNotWhollyHold(t *testing.T) {
 
 	next := &fleet.Fragments{Root: t.TempDir()}
 
-	if err = next.PutVerified(id, want, onward, bytes.NewReader(body)); err != nil {
+	err = next.PutVerified(id, want, onward, bytes.NewReader(body))
+	if err != nil {
 		t.Errorf("a relayed fragment was refused downstream: %v", err)
 	}
 }

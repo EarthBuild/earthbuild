@@ -107,8 +107,9 @@ func TestSandboxPhaseTimings(t *testing.T) { //nolint:paralleltest // boots a VM
 
 	start := time.Now()
 
-	if _, err := e2.Run(context.Background(), n, core.Worker{ID: "vm"},
-		[]ir.NodeID{base.ID()}, nil); err != nil {
+	_, err = e2.Run(context.Background(), n, core.Worker{ID: "vm"},
+		[]ir.NodeID{base.ID()}, nil)
+	if err != nil {
 		t.Fatalf("reusing the VM: %v", err)
 	}
 

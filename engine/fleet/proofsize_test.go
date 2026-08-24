@@ -100,7 +100,8 @@ func TestAProofThatExpandsWithoutLimitIsRefused(t *testing.T) {
 	// parameter and the mechanism is checked at a size a test can hold. A bound
 	// that could only be tested by allocating what it exists to prevent would be
 	// a bound nobody ever ran.
-	if _, err = unsqueeze(huge, 1<<20); err == nil {
+	_, err = unsqueeze(huge, 1<<20)
+	if err == nil {
 		t.Error("a proof expanding to 16 MiB passed a 1 MiB limit\n  a" +
 			" compressed length says nothing about what it becomes (E340)")
 	}

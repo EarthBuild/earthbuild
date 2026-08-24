@@ -2,12 +2,10 @@ package fleet_test
 
 import (
 	"bytes"
-	"path/filepath"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/fleet"
 	"github.com/EarthBuild/earthbuild/engine/ir"
-	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // A fragment is never visible as the layer it came from.
@@ -128,20 +126,6 @@ func TestAPartialFragmentIsNotLeftBehind(t *testing.T) {
 	if mine.Has(id, []string{"etc/hosts"}) {
 		t.Error("a partial fragment is sitting under its name")
 	}
-}
-
-// fragmentOf packs part of a layer that is sitting in a store.
-func fragmentOf(t *testing.T, root string, id ir.NodeID, want []string) []byte {
-	t.Helper()
-
-	var buf bytes.Buffer
-
-	err := layer.PackPaths(filepath.Join(root, "layers", id.String()), &buf, want)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return buf.Bytes()
 }
 
 // The test that stood here recorded that a fragment reaching this store was not

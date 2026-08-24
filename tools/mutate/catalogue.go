@@ -2717,7 +2717,14 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a host bind refused as a decision (E485)",
 		File:        "engine/interp/cache.go",
-		Anchor:      "\tif strings.HasPrefix(kind, \"bind\") {",
+		Anchor:      "\tif kind == \"bind-experimental\" {",
+		Replacement: "\tif false {",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "interp: a Dockerfile bind filed as a gap, not a decision (E645)",
+		File:        "engine/interp/cache.go",
+		Anchor:      "\tif kind == \"bind\" {",
 		Replacement: "\tif false {",
 		Package:     "./engine/interp/",
 	},

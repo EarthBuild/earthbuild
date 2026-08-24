@@ -212,11 +212,28 @@ func parseMount(spec, where string) (ir.Mount, error) {
 	// Marked as such rather than as unimplemented, because the sentinel is what
 	// both sweeps read: filed as a gap it was work somebody should do, and the
 	// work would be reversing a position.
-	if strings.HasPrefix(kind, "bind") {
+	if kind == "bind-experimental" {
 		return ir.Mount{}, refusedOnPurpose("RUN --mount type="+kind, where,
 			"a step's writes are held to its own layer, and a bind is a window"+
 				" out of it\n  COPY what the step needs in, and SAVE ARTIFACT"+
 				" what it produces out")
+	}
+
+	// **A plain `bind` is a different thing wearing the same word**, and gets a
+	// different answer. It can only have come from a Dockerfile - the shipping
+	// engine accepts `bind-experimental` and nothing else in an Earthfile
+	// (earthfile2llb/runmount.go) - where it means a read-only view of the build
+	// context, or of an earlier stage. Content this build already has and
+	// already digests. Nothing about it is a window onto the machine, so the
+	// decision above does not reach it.
+	//
+	// So: unbuilt, not declined. The distinction is the sentinel both corpus
+	// sweeps count, and it decides whether 371 targets read as a settled
+	// question or as the largest piece of work left. They are the latter.
+	if kind == "bind" {
+		return ir.Mount{}, unsupported("RUN --mount type=bind", where,
+			"a Dockerfile binds its build context, or an earlier stage,"+
+				" read-only\n  COPY the same paths in for now")
 	}
 
 	if kind != "cache" && kind != "secret" {

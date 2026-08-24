@@ -27675,13 +27675,47 @@ And it matters more than the toy suggests - **real Earthfiles are parameterised 
 everywhere**, including this repository's, so the tier is switched off precisely where a base most
 often moves.
 
-Whether the class can safely narrow to the environment the step *references* is the next question. It
-is not obviously sound and it is not obviously unsound: the derived key still separates two runs whose
-environments differ, so broadening the class broadens what may be *predicted* rather than what may be
-*reused*. That is a change to the specification and not a patch, so it is written down here and not
-made.
+Whether the class can safely narrow is the next question. **It was answered by trying it, and the
+answer is no - see E613.** The reasoning left here was half right and the wrong half mattered: it is
+true that broadening the class broadens what may be predicted rather than what may be reused, and it
+does not follow that anything is gained.
 
 *Also recorded, unexplained.* `TestAStepAttachedToATerminalHasOne` failed once, in one shuffled race
 run, with the terminal at EOF before the step wrote anything. Re-run with the same seed it passes,
 which rules out the ordering `-shuffle` exists to expose; six further race runs of the package pass.
 One sighting, no cause, and saying so beats the tidier account.
+
+## E613 - the optimisation that cannot help, and the reason it cannot
+
+E612 ended on a question: can the profile class drop the environment, so that a build differing only
+by an argument the step never reads can find the prediction the previous one learned? It was
+written - a second, environment-free class, stored alongside the exact one and consulted only when
+the exact one missed - and the end-to-end test refused it:
+
+```text
+    a new base and an argument the step never reads reran 2 steps, want 1
+```
+
+**Finding a prediction is only the first half.** The entry is then looked up under `DeriveObservedKey`,
+which hashes 𝒮(ε) exactly as (4.6) says it does. A prediction borrowed across two environments derives
+a key no entry was ever stored under; and had the key matched, the exact class would have hit already
+and the fallback would never have been consulted. So the fallback can never add a hit - not rarely,
+not in this test: never, and by construction rather than by measurement.
+
+*And (4.6) is right.* The environment is an input **no observation can capture**. A tracer sees the
+paths a step opens; `getenv` is a read of memory the kernel handed the process at `execve`, and no
+syscall reports it. A tier crossing an environment change would be guessing that the step ignored a
+value it was given - the false-hit shape I3 exists to prevent - and the one case where that guess is
+most tempting is the one where it is most wrong: `ARG GOOS` beside a `go build` that mentions neither,
+which is how five identical binaries were once produced and reported as five platforms (E580).
+
+So the eighty-per-cent tracer buys a tier that switches off whenever an argument moves, and there is no
+patch for it here. The way out is upstream of the engine: **an Earthfile that does not declare
+arguments its steps never read.** That is a lint this repository could run against its own Earthfile,
+and it is worth more than the fallback would have been.
+
+*What is kept.* The code is reverted; the test is not. It now asserts the boundary in the direction
+that is true - the step *does* rerun - beside the existing test that asserts a hit when the
+environment holds still. The pair is what pins it, and either alone would pass against an engine that
+had lost the distinction. **A refuted optimisation is worth a test, because the next person to have
+the idea will have it in good faith**, and this file's own reasoning got two paragraphs into it.

@@ -400,10 +400,18 @@ a stage cannot quietly count itself finished.
 | S5    | observation source           | **real for COPY and RUN** - a command reused over a base it never ran on (E217)                                                                                                                             |
 | S6    | fleet transport              | **end to end** - both protocols cross a real wire (E247, E248), `earth-worker` joins from a machine that is told only where the driver is (E254), and a build finds its fleet through `fleet.Driver` (E255) |
 
-**The corpus reports no unimplemented construct.** 487 targets across 192 Earthfiles: none blocked
-on something this engine has not built. What remains is 476 withheld by a plan-only caller - a probe
-to run, a repository to fetch, an argument, a secret, a terminal - 38 invalid Earthfiles, and 4
-refused by decision. The last entry on that list was `RUN --interactive`, which now runs (E195).
+**The corpus reports no unimplemented construct.** 491 targets across 193 Earthfiles: none blocked
+on something this engine has not built. What remains is 474 withheld by a plan-only caller - a probe
+to run, a repository to fetch, an argument, a secret, a terminal - 45 invalid Earthfiles from 36
+causes, and 5 refused by decision from 2.
+
+The number moved twice for the same construct. A `RUN` carrying mounts inside a `FROM DOCKERFILE`
+blocked 371 targets - every target of the buildkit sibling - and was first *reclassified* rather than
+built: a Dockerfile's `bind` was filed under the decision taken about an Earthfile's
+`bind-experimental`, which is a different thing wearing the same word. One takes a host path and is
+written through; the other is a read-only view of the build context or of an earlier stage, which is
+content this build already digests. §3.3d and I20 say so, and the engine now builds it - both kinds
+of view, keyed by what they hold.
 
 **The engine builds this repository.** Not a stage - a stage is a port, and this is what the ports
 add up to - but the milestone the staging was for, and the one that cannot be claimed by a

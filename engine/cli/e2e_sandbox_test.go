@@ -976,7 +976,7 @@ func TestASecretEnvReachesTheStepAndNotTheCache(t *testing.T) {
 
 	requireSandbox(t)
 
-	const secret = "hunter3-env-must-not-persist"
+	const secret = "hunter3-env-must-not-persist" //nolint:gosec // a fixture value, not a credential
 
 	guest := buildGuestd(t)
 	cache := storeDir(t)

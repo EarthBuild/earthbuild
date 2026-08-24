@@ -120,7 +120,7 @@ func buildCorpusPlans() {
 // The first version had only the middle answer and CI exited 128 on every corpus
 // sweep at once.
 func corpusTree() string {
-	root, err := os.MkdirTemp("", "corpus") //nolint:usetesting // outlives any one test; see above
+	root, err := os.MkdirTemp("", "corpus") // outlives any one test; see above
 	if err != nil {
 		return "../.."
 	}

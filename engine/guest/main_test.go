@@ -39,7 +39,7 @@ func runProbeIfAsked() {
 		return
 	}
 
-	c, err := net.Dial("unix", os.Args[2])
+	c, err := net.Dial("unix", os.Args[2]) //nolint:gosec // arguments this test wrote
 	if err != nil {
 		fmt.Println("no daemon at", os.Args[2]+":", err)
 		os.Exit(1)
@@ -64,7 +64,7 @@ func runResolveIfAsked() {
 		return
 	}
 
-	addrs, err := net.LookupHost(os.Args[2])
+	addrs, err := net.LookupHost(os.Args[2]) //nolint:gosec // arguments this test wrote
 	if err != nil {
 		fmt.Println("cannot resolve", os.Args[2]+":", err)
 		os.Exit(1)

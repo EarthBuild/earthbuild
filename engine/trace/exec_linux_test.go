@@ -62,7 +62,8 @@ func TestMain(m *testing.M) {
 	// one: if the filter did not survive that, nothing below sees a thing.
 	program := os.Getenv(programEnv)
 
-	err = syscall.Exec(program, []string{program, os.Getenv(targetEnv)}, os.Environ())
+	// A program this test built.
+	err = syscall.Exec(program, []string{program, os.Getenv(targetEnv)}, os.Environ()) //nolint:gosec
 
 	os.Stderr.WriteString("exec: " + err.Error() + "\n")
 	os.Exit(5)

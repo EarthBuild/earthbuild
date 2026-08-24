@@ -105,7 +105,7 @@ func TestTheCLIFindsATerminalWhenThereIsOne(t *testing.T) {
 	}
 
 	// This binary.
-	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestTheCLIFindsATerminalWhenThereIsOne$") //nolint:gosec
+	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestTheCLIFindsATerminalWhenThereIsOne$")
 	cmd.Env = append(os.Environ(), "EARTH_TEST_TTY_CHILD=1")
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}

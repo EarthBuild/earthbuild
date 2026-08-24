@@ -66,7 +66,7 @@ func install(arch uint32, traced []uint32) (int, error) {
 	fd, _, errno := unix.Syscall(unix.SYS_SECCOMP,
 		uintptr(unix.SECCOMP_SET_MODE_FILTER),
 		uintptr(unix.SECCOMP_FILTER_FLAG_NEW_LISTENER),
-		uintptr(unsafe.Pointer(&prog)))
+		uintptr(unsafe.Pointer(&prog))) //nolint:gosec // the note at the head of this file
 
 	runtime.KeepAlive(f)
 
@@ -145,7 +145,7 @@ func receiveInto(fd int, n *seccompNotif) unix.Errno {
 	// there is nothing further for the collector to follow.
 	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd),
 		uintptr(uint(unix.SECCOMP_IOCTL_NOTIF_RECV)),
-		uintptr(unsafe.Pointer(n)))
+		uintptr(unsafe.Pointer(n))) //nolint:gosec // the note at the head of this file
 
 	return errno
 }
@@ -164,7 +164,7 @@ func respond(fd int, id uint64) error {
 		// retains nothing; `r` holds no pointers.
 		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd),
 			uintptr(uint(unix.SECCOMP_IOCTL_NOTIF_SEND)),
-			uintptr(unsafe.Pointer(&r)))
+			uintptr(unsafe.Pointer(&r))) //nolint:gosec // the note at the head of this file
 
 		switch errno {
 		case 0:
@@ -212,7 +212,7 @@ func stillRunning(fd int, id uint64) bool {
 	// argument list, read by the kernel for the duration of the ioctl only.
 	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd),
 		uintptr(uint(unix.SECCOMP_IOCTL_NOTIF_ID_VALID)),
-		uintptr(unsafe.Pointer(&id)))
+		uintptr(unsafe.Pointer(&id))) //nolint:gosec // the note at the head of this file
 
 	return errno == 0
 }
@@ -235,5 +235,5 @@ func unsafePointerTo(v *uint64) unsafe.Pointer {
 	// SAFETY: the caller passes a pointer to a live local and uses the result
 	// only in the argument list of the syscall that follows, which is the same
 	// pattern as the three calls above.
-	return unsafe.Pointer(v)
+	return unsafe.Pointer(v) //nolint:gosec // the note at the head of this file
 }

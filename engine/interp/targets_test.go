@@ -336,7 +336,7 @@ func TestTheRecursionFixtureIsDetected(t *testing.T) {
 
 	path := filepath.Join(dir, "tests", "cli", "testdata", "infinite-recursion", testEarthfile)
 
-	src, err := os.ReadFile(path) //nolint:gosec // a fixture this test wrote
+	src, err := os.ReadFile(path) // a fixture this test wrote
 	if err != nil {
 		t.Skipf("the recursion fixture is not here: %v", err)
 	}

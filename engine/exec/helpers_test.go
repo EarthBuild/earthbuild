@@ -44,7 +44,7 @@ func putProbeLayerAt(t *testing.T, store string) *ir.Node {
 	dst := filepath.Join(dir, "probe")
 
 	if pre := os.Getenv("EARTH_TEST_PROBE"); pre != "" {
-		b, readErr := os.ReadFile(pre) //nolint:gosec // a test fixture path
+		b, readErr := os.ReadFile(pre) // a test fixture path
 		if readErr != nil {
 			t.Fatalf("read the prebuilt probe at %s: %v", pre, readErr)
 		}

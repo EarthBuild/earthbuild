@@ -60,7 +60,7 @@ func TestABuildPromptsAndReadsTheAnswer(t *testing.T) {
 	}
 
 	// This binary.
-	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestABuildPromptsAndReadsTheAnswer$") //nolint:gosec
+	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestABuildPromptsAndReadsTheAnswer$")
 	cmd.Env = append(os.Environ(),
 		"EARTH_TEST_INTERACTIVE_CHILD=1",
 		"EARTH_GUESTD="+guestd,

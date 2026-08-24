@@ -49,7 +49,7 @@ func TestNoGraphIsReachableFromAnAssignment(t *testing.T) {
 		seen[typ] = true
 
 		switch typ.Kind() {
-		case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Chan:
+		case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
 			walk(t, typ.Elem(), path+" -> "+typ.Kind().String())
 
 		case reflect.Map:

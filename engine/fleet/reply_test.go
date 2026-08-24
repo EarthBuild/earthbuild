@@ -53,7 +53,7 @@ func TestAReplyCarriesNoPayload(t *testing.T) {
 			t.Errorf("%s is an interface, so a payload can travel in it"+
 				" whatever the declared type says", path)
 
-		case reflect.Ptr, reflect.Chan:
+		case reflect.Pointer, reflect.Chan:
 			walk(t, typ.Elem(), path+" -> "+typ.Kind().String())
 
 		case reflect.Map:

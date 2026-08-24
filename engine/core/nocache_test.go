@@ -70,7 +70,11 @@ func TestANoCacheBuildIgnoresWhatIsThereAndStillFillsIt(t *testing.T) {
 	// Both tiers, not just the first. `tryL2` looks up a second key, and a
 	// build that skipped one lookup and made the other would be a build with an
 	// opinion about which parts of the cache it trusted.
-	if rec != nil && (len(rec.Steps) > 0 && rec.Steps[0].Outcome == core.OutcomeL2Hit) {
+	// `rec` is the record this test made, so the nil guard was checking
+	// something the compiler can already prove (govet nilness). Dropped rather
+	// than kept as reassurance: a condition that cannot be false reads as a
+	// case somebody considered, and there is no such case here.
+	if len(rec.Steps) > 0 && rec.Steps[0].Outcome == core.OutcomeL2Hit {
 		t.Error("a --no-cache build hit on the observed key")
 	}
 

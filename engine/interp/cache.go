@@ -82,7 +82,7 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 
 	target = filepath.Clean("/" + strings.TrimPrefix(target, "./"))
 
-	mode, err := mountMode(map[string]string{"chmod": opts.Mode}, loc(c.SourceLocation))
+	mode, err := mountMode(map[string]string{mountFieldChmod: opts.Mode}, loc(c.SourceLocation))
 	if err != nil {
 		return ir.Mount{}, err
 	}
@@ -178,9 +178,7 @@ func cacheID(target string) string {
 // A silently absent secret is the worst of them, because the command that needed
 // it fails somewhere else entirely.
 // mountFieldTarget is where a mount appears, named because two files spell it:
-// this one reads it and dockerfile.go writes it. The tables below keep the
-// literal, because there the field name *is* the content - a list of what a
-// mount kind accepts is read against the specification, not against a name.
+// this one reads it and dockerfile.go writes it.
 const mountFieldTarget = "target"
 
 // mountKindBind is a bound view's spelling. Named because four places test for
@@ -190,9 +188,16 @@ const mountFieldTarget = "target"
 const mountKindBind = "bind"
 
 // mountFieldDst is `target` under its other name, which both languages accept.
-// Named for the same reason mountFieldTarget is: the tables below keep the
-// literal, because there the field name is the content.
 const mountFieldDst = "dst"
+
+// The remaining field and kind names this file both reads and lists.
+const (
+	mountFieldMode  = "mode"
+	mountFieldChmod = "chmod"
+	mountKindSecret = "secret"
+	mountFieldRO    = "readonly"
+	mountFieldType  = "type"
+)
 
 // parseMount also reports a bound view's `from`, which it cannot resolve.
 //
@@ -211,7 +216,7 @@ func parseMount(spec, where string) (ir.Mount, string, error) {
 		fields[strings.TrimSpace(k)] = strings.TrimSpace(v)
 	}
 
-	kind := fields["type"]
+	kind := fields[mountFieldType]
 	if kind == "" {
 		kind = "(none)"
 	}
@@ -246,7 +251,7 @@ func parseMount(spec, where string) (ir.Mount, string, error) {
 	// So: unbuilt, not declined. The distinction is the sentinel both corpus
 	// sweeps count, and it decides whether 371 targets read as a settled
 	// question or as the largest piece of work left. They are the latter.
-	if kind != "cache" && kind != "secret" && kind != "bind" {
+	if kind != "cache" && kind != mountKindSecret && kind != mountKindBind {
 		return ir.Mount{}, "", unsupported("RUN --mount type="+kind, where, "")
 	}
 
@@ -282,7 +287,7 @@ func parseMount(spec, where string) (ir.Mount, string, error) {
 	// A secret is read, never written: a step that could write through the
 	// mount would be writing into wherever the invocation keeps its
 	// credentials.
-	if kind == "secret" {
+	if kind == mountKindSecret {
 		return ir.Mount{Target: target, ID: id, Secret: true, ReadOnly: true, Mode: mode}, "", nil
 	}
 
@@ -325,7 +330,7 @@ func parseMount(spec, where string) (ir.Mount, string, error) {
 // nobody asked for and nobody would look for, which is the silent-wrong failure
 // this engine is arranged against (E435).
 func mountMode(fields map[string]string, where string) (uint32, error) {
-	for _, k := range []string{"mode", "chmod"} {
+	for _, k := range []string{mountFieldMode, mountFieldChmod} {
 		raw, set := fields[k]
 
 		// An empty value is not a bad mode. The spec is expanded before it is
@@ -358,13 +363,22 @@ func mountMode(fields map[string]string, where string) (uint32, error) {
 // refused. Parsing a field is not providing it, and nothing in a map can tell
 // the two apart (E435).
 var mountFields = map[string][]string{
-	"cache":  {"type", "target", "dst", "id", "readonly", "ro", "sharing", "mode", "chmod"},
-	"secret": {"type", "target", "dst", "id", "readonly", "ro", "mode", "chmod"},
+	"cache": {
+		mountFieldType, mountFieldTarget, mountFieldDst, "id",
+		mountFieldRO, "ro", "sharing", mountFieldMode, mountFieldChmod,
+	},
+	mountKindSecret: {
+		mountFieldType, mountFieldTarget, mountFieldDst, "id",
+		mountFieldRO, "ro", mountFieldMode, mountFieldChmod,
+	},
 	// A bound view (§3.3d). `from` names an earlier stage and is read here so
 	// that it can be refused by name at the point of use rather than dropped:
 	// a view of a stage needs that stage's assembled stack, which a view of the
 	// context does not, so one of the two is built and the other is not.
-	mountKindBind: {"type", "target", "dst", "source", "src", "from", "readonly", "ro"},
+	mountKindBind: {
+		mountFieldType, mountFieldTarget, mountFieldDst,
+		"source", "src", "from", mountFieldRO, "ro",
+	},
 }
 
 // onlyKnownFields refuses a field this engine would have dropped.
@@ -401,7 +415,7 @@ func onlyKnownFields(fields map[string]string, kind, where string) error {
 // is how it is usually written. Compared against "true", the bare form was
 // false, so a mount the author asked to be read-only was writable.
 func readOnly(fields map[string]string) bool {
-	for _, k := range []string{"readonly", "ro"} {
+	for _, k := range []string{mountFieldRO, "ro"} {
 		v, set := fields[k]
 		if set && (v == "" || v == trueWord) {
 			return true

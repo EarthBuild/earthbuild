@@ -437,7 +437,10 @@ jobs:
             echo "::error::the native engine's +unit-test had failing tests"
             grep -E '^\s+--- FAIL|FAIL\s+github' /tmp/native.log | sort -u | head -20
           fi
-          grep -E '^\s+cache ' /tmp/native.log || true
+          # A build that died before its tests produces neither a cache summary
+          # nor a FAIL, and used to report only a duration (E611, E616).
+          grep -E '^\s+cache ' /tmp/native.log \
+            || echo "::error::the native +unit-test produced no cache summary - it did not run"
           tail -20 /tmp/native.log
           echo "--- where the engine spent its time:"
           grep -oE '^earth: [a-z:]+ +[0-9]+\.[0-9]+s' /tmp/native.log \
@@ -470,7 +473,8 @@ jobs:
             grep -E '^\s+--- FAIL|FAIL\s+github' /tmp/untraced.log | sort -u | head -20
           fi
           echo "native +unit-test unwatched took $(( $(date +%s) - start ))s"
-          grep -E '^\s+cache ' /tmp/untraced.log || true
+          grep -E '^\s+cache ' /tmp/untraced.log \
+            || echo "::error::the unwatched +unit-test produced no cache summary - it did not run"
           tail -6 /tmp/untraced.log
 
       - name: What the second cache tier is worth
@@ -503,7 +507,10 @@ jobs:
             EARTH_CACHE_DIR=$store EARTH_TRACE=$trace \
               /tmp/earth build --engine=native +earthly > /tmp/l2-$mode.log 2>&1 || true
             echo "$mode rebuild after an unread file changed: $(( $(date +%s) - start ))s"
-            grep -E '^\s+cache ' /tmp/l2-$mode.log || true
+            if ! grep -E '^\s+cache ' /tmp/l2-$mode.log; then
+              echo "::error::the $mode L2 case produced no cache summary - it did not run"
+              tail -30 /tmp/l2-$mode.log
+            fi
           done
           git checkout -- docs-internals/README.md 2>/dev/null || true
 

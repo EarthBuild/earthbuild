@@ -28258,3 +28258,41 @@ than assumed - `goconst` on the mutation catalogue, whose repetition is its cont
 `fieldalignment` findings are not excluded. `engine/ir` is deliberately last: `Op`, `Node`, `Mount`,
 `ImageConfig` and `Meta` are the types identity is computed from, and reordering them wants the digest
 tests in front of it rather than a batch.
+
+## E626 - "test(s) failed", and not one FAIL in twenty thousand lines
+
+The run that was supposed to show E624's repaired diagnostic showed something else instead:
+
+```text
+    +unit-test | test(s) failed
+    ERROR Earthfile:251:5
+```
+
+and `grep -c -- '--- FAIL' /tmp/fc4.log` returns **0**. No test failed. The verdict is right and names
+nothing.
+
+`scripts/unit-test-parser` reads `go test -json` and fails the run on any event with
+`Action == "fail"`. `go test` emits one of those per failing *package* as well as per failing test,
+with `Test` empty - and the table the parser prints is filtered to `event.Test != ""`. **So a package
+that fails without a test failing is invisible by construction**: a build error, a panic, a timeout, a
+binary that exits non-zero. The reporter knows exactly what failed and prints the one line that does
+not say.
+
+Fixed: the failures are collected as they arrive, deduplicated - a failing test produces a
+package-level failure too, so the same package arrives once per test - and printed under `--- What
+Failed ---` before the verdict. Proved against a fixture where the only failing event is a package:
+
+```text
+    --- What Failed ---
+      example/broken
+    test(s) failed
+```
+
+*Three in one day, and they are the same mechanism.* E611 and E616: `|| true` beside a grep that
+prints nothing on failure. E624: a grep reading the wrong side of the `--- FAIL` line. This: a summary
+filtered to the rows that cannot contain the answer. **Every one of them is a reporter that reports
+its own success at reporting.**
+
+The pattern worth naming: each was built to answer a question, each answered a *narrower* question,
+and nothing checked the difference - because the thing that would notice is the very thing being
+tested. Which is why this one now has tests of its own, asserting the case that used to vanish.

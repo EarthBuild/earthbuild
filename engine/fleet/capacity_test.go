@@ -61,16 +61,12 @@ func TestAWorkerRunsNoMoreStepsAtOnceThanItHasRoomFor(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range steps {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, _ = run(t.Context(), fleet.Assignment{
 				Version: fleet.Version,
 				Op:      fleet.Op{Kind: fleet.KindExec, Args: []string{"make"}},
 			})
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -108,11 +104,7 @@ func TestAWorkerAtCapacityQueuesRatherThanRefuses(t *testing.T) {
 	)
 
 	for range 6 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			reply, err := run(t.Context(), fleet.Assignment{
 				Version: fleet.Version,
 				Op:      fleet.Op{Kind: fleet.KindExec, Args: []string{"make"}},
@@ -126,7 +118,7 @@ func TestAWorkerAtCapacityQueuesRatherThanRefuses(t *testing.T) {
 			} else if reply.Refused != "" {
 				refs++
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -158,16 +150,12 @@ func TestAWorkerDefaultsToTheMachinesCores(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 64 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, _ = run(t.Context(), fleet.Assignment{
 				Version: fleet.Version,
 				Op:      fleet.Op{Kind: fleet.KindExec, Args: []string{"make"}},
 			})
-		}()
+		})
 	}
 
 	wg.Wait()

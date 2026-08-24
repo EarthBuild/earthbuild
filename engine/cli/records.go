@@ -207,7 +207,7 @@ func whyItReran(store, target string, now *core.Record) string {
 
 	b.WriteString("  since the last build of this target:\n")
 
-	for _, line := range strings.Split(strings.TrimRight(core.Report(d), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(core.Report(d), "\n"), "\n") {
 		fmt.Fprintf(&b, "    %s\n", line)
 	}
 

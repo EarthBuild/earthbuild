@@ -54,12 +54,7 @@ func TestEveryTransferThatHappenedIsAccountedFor(t *testing.T) {
 	for range 2 {
 		run := fleet.Runner(&countingLocal{}, core.Worker{ID: "w"},
 			fleet.WithBlobs(newMapStore(), src))
-
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			reply, err := run(t.Context(), a)
 			if err != nil {
 				return
@@ -68,7 +63,7 @@ func TestEveryTransferThatHappenedIsAccountedFor(t *testing.T) {
 			mu.Lock()
 			reported += reply.FetchedBytes
 			mu.Unlock()
-		}()
+		})
 	}
 
 	wg.Wait()

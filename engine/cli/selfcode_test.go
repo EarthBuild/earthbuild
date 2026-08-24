@@ -108,7 +108,7 @@ func copiedByCode(t *testing.T, src string) map[string]bool {
 
 	var continued string
 
-	for _, line := range strings.Split(src, "\n") {
+	for line := range strings.SplitSeq(src, "\n") {
 		trimmed := strings.TrimSpace(line)
 
 		// Targets are unindented, so an unindented line that is not `code:` ends

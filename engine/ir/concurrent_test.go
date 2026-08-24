@@ -42,18 +42,14 @@ func TestIdentityCanBeAskedForConcurrently(t *testing.T) {
 	)
 
 	for range 16 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			id := n.ID()
 
 			mu.Lock()
 			defer mu.Unlock()
 
 			seen[id] = true
-		}()
+		})
 	}
 
 	wg.Wait()

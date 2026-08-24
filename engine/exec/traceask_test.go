@@ -101,7 +101,7 @@ func (t *requestTap) Write(p []byte) (int, error) {
 
 	// One request per write is how this protocol is framed; a decoder over the
 	// stream would be the same answer with a goroutine.
-	for _, line := range strings.Split(string(p), "\n") {
+	for line := range strings.SplitSeq(string(p), "\n") {
 		if line == "" || json.Unmarshal([]byte(line), &req) != nil {
 			continue
 		}

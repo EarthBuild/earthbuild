@@ -228,11 +228,7 @@ func TestTwoStepsFetchingTheSameLayerBothGetIt(t *testing.T) {
 	)
 
 	for i := range packs {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			<-open
 
 			id, _, err := store.Put(bytes.NewReader(packs[i]))
@@ -249,7 +245,7 @@ func TestTwoStepsFetchingTheSameLayerBothGetIt(t *testing.T) {
 				bad = append(bad, errWrongLayer)
 				mu.Unlock()
 			}
-		}()
+		})
 	}
 
 	close(open)

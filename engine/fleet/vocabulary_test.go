@@ -90,7 +90,7 @@ func check(t *testing.T, of any, from, to string) {
 func namesIn(spec string) []string {
 	var out []string
 
-	for _, line := range strings.Split(spec, "\n") {
+	for line := range strings.SplitSeq(spec, "\n") {
 		if !strings.HasPrefix(strings.TrimSpace(line), "| `") {
 			continue
 		}

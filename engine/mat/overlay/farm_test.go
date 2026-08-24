@@ -78,17 +78,13 @@ func TestTheSameLayerAsksForTheSameName(t *testing.T) {
 	)
 
 	for range 16 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			got := link(farm, target, id)
 
 			mu.Lock()
 			seen[got]++
 			mu.Unlock()
-		}()
+		})
 	}
 
 	wg.Wait()

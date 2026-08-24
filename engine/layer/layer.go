@@ -570,11 +570,7 @@ func fillContents(root string, entries []entry) error {
 	)
 
 	for range workers {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			// Claimed one at a time rather than sliced into equal parts: a
 			// layer's files vary in size by orders of magnitude, and a fixed
 			// split leaves one worker holding every large file while the rest
@@ -598,7 +594,7 @@ func fillContents(root string, entries []entry) error {
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

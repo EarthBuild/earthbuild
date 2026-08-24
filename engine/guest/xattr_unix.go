@@ -106,7 +106,7 @@ func listXattrs(p string) ([]string, error) {
 
 	var out []string
 
-	for _, name := range strings.Split(string(buf[:size]), "\x00") {
+	for name := range strings.SplitSeq(string(buf[:size]), "\x00") {
 		if name != "" {
 			out = append(out, name)
 		}

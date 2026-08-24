@@ -127,7 +127,7 @@ probe:
 
 	got := err.Error()
 
-	for _, line := range strings.Split(got, "\n") {
+	for line := range strings.SplitSeq(got, "\n") {
 		if strings.TrimSpace(line) == "" {
 			t.Errorf("the refusal has an empty line in it:\n%q", got)
 		}

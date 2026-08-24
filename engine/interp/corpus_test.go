@@ -610,7 +610,7 @@ func trackedCopy(t *testing.T) string {
 
 	dst := t.TempDir()
 
-	for _, rel := range strings.Split(string(out), "\x00") {
+	for rel := range strings.SplitSeq(string(out), "\x00") {
 		if rel == "" {
 			continue
 		}

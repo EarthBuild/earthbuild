@@ -28,12 +28,7 @@ func TestAFaultReachesTheHostThroughARelay(t *testing.T) {
 		wg     sync.WaitGroup
 		guestC interface{ Close() error }
 	)
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		c, err := ListenForFills(at)
 		if err != nil {
 			t.Errorf("listen: %v", err)
@@ -50,7 +45,7 @@ func TestAFaultReachesTheHostThroughARelay(t *testing.T) {
 		if err != nil {
 			t.Errorf("fault in: %v", err)
 		}
-	}()
+	})
 
 	// The relay is a pipe pair in this test; in a sandbox it is a second exec.
 	hostSide, relaySide := relayPipes(t)

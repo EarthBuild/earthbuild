@@ -49,13 +49,9 @@ func TestConcurrentStepsFetchOneBaseOnce(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range steps {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, _ = run(t.Context(), a)
-		}()
+		})
 	}
 
 	wg.Wait()

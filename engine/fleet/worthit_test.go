@@ -297,17 +297,13 @@ func TestOneStepTeachesTheRestWhatTheFleetCosts(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 6 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, err := d.Run(t.Context(), node(), core.Worker{ID: "w"},
 				[]ir.NodeID{base}, nil)
 			if err != nil {
 				t.Errorf("%v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -361,17 +357,13 @@ func TestNoMoreStepsWaitForThePriceThanCouldActOnIt(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 4 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, err := d.Run(t.Context(), node(), core.Worker{ID: "w"},
 				[]ir.NodeID{base}, nil)
 			if err != nil {
 				t.Errorf("%v", err)
 			}
-		}()
+		})
 	}
 
 	// The pilot, plus the two that had nowhere to wait for: three assignments

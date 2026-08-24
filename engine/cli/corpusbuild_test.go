@@ -502,7 +502,7 @@ func lastLines(s string, n int) string {
 // The summary is one row of a table the engine prints; this finds it rather than
 // reproducing the format, so a change to the row does not need a change here.
 func cacheLine(log string) string {
-	for _, l := range strings.Split(log, "\n") {
+	for l := range strings.SplitSeq(log, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(l), "cache ") {
 			return strings.Join(strings.Fields(l), " ")
 		}

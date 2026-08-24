@@ -414,17 +414,13 @@ func TestAFanOutSpreadsAcrossARealFleet(t *testing.T) {
 	errs := make(chan error, wide)
 
 	for range wide {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, err := d.Run(t.Context(), delegable(), core.Worker{ID: "w"},
 				[]ir.NodeID{first.Layer}, nil)
 			if err != nil {
 				errs <- err
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

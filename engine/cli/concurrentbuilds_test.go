@@ -78,11 +78,7 @@ two:
 	)
 
 	for target, dir := range dirs {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var out bytes.Buffer
 
 			err := cli.Run(context.Background(), cli.Options{
@@ -92,7 +88,7 @@ two:
 			mu.Lock()
 			logs[target], errs[target] = out.String(), err
 			mu.Unlock()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -188,11 +184,7 @@ build:
 	)
 
 	for i, dir := range dirs {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var out bytes.Buffer
 
 			err := cli.Run(context.Background(), cli.Options{
@@ -202,7 +194,7 @@ build:
 			mu.Lock()
 			logs[i], errs[i] = out.String(), err
 			mu.Unlock()
-		}()
+		})
 	}
 
 	wg.Wait()

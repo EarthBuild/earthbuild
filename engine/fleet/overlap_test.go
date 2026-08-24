@@ -133,17 +133,13 @@ func TestAQueuedStepFetchesWhileTheMachineIsBusy(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for _, id := range []ir.NodeID{first, second} {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, _ = run(t.Context(), fleet.Assignment{
 				Version: fleet.Version,
 				Op:      fleet.Op{Kind: fleet.KindExec, Args: []string{"make"}},
 				Base:    []ir.NodeID{id},
 			})
-		}()
+		})
 	}
 
 	wg.Wait()

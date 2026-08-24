@@ -43,7 +43,7 @@ func TestWhatPrivilegeAStepCanBeGiven(t *testing.T) {
 
 		var eff string
 
-		for _, line := range strings.Split(string(b), "\n") {
+		for line := range strings.SplitSeq(string(b), "\n") {
 			if strings.HasPrefix(line, "CapEff:") {
 				eff = strings.TrimSpace(strings.TrimPrefix(line, "CapEff:"))
 			}

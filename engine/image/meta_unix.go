@@ -120,7 +120,7 @@ func readXattrs(p string) (map[string]string, error) {
 
 	out := map[string]string{}
 
-	for _, name := range strings.Split(string(buf[:size]), "\x00") {
+	for name := range strings.SplitSeq(string(buf[:size]), "\x00") {
 		if name == "" || strings.HasPrefix(name, "com.apple.") {
 			// The host operating system's own bookkeeping about files it
 			// stores, which is not part of any layer (E90).

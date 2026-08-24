@@ -61,7 +61,7 @@ func Doc(o Options) error {
 // would break the corpus's multiline match, which is a diff nobody can see -
 // so the emptiness is checked here rather than trusted to a trailing-space lint.
 func writeDocs(b *strings.Builder, docs string) {
-	for _, line := range strings.Split(strings.TrimRight(docs, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(docs, "\n"), "\n") {
 		if line == "" {
 			b.WriteString("\n")
 

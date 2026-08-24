@@ -55,14 +55,9 @@ func TestAStepThatNeedsNothingDoesNotQueueBehindATransfer(t *testing.T) {
 	other := seedLayer(t, held, 2)
 
 	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		_, _ = run(t.Context(), assignmentOn(other, want))
-	}()
+	})
 
 	// Give the blocked fetch time to take the lock.
 	time.Sleep(50 * time.Millisecond)
@@ -172,12 +167,7 @@ func TestWaitingForTheUplinkIsCountedAsTransfer(t *testing.T) {
 		if i == 1 {
 			<-inside
 		}
-
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			reply, err := run(t.Context(), assignmentOn(id, want))
 			if err != nil {
 				t.Errorf("%v", err)
@@ -188,7 +178,7 @@ func TestWaitingForTheUplinkIsCountedAsTransfer(t *testing.T) {
 			mu.Lock()
 			spent = append(spent, reply.FetchMillis)
 			mu.Unlock()
-		}()
+		})
 	}
 
 	wg.Wait()

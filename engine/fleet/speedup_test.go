@@ -118,14 +118,10 @@ func timeFanOut(t *testing.T, n, wide int, compute time.Duration) time.Duration 
 	var wg sync.WaitGroup
 
 	for range wide {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, _ = d.Run(t.Context(), delegable(), core.Worker{ID: "w"},
 				[]ir.NodeID{first.Layer}, nil)
-		}()
+		})
 	}
 
 	wg.Wait()

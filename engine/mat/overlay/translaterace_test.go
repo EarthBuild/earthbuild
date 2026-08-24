@@ -82,17 +82,13 @@ func TestTwoTranslationsOfOneLayerDoNotCollide(t *testing.T) {
 	// Separate translators over one directory, which is two builds sharing a
 	// scratch: the per-materialiser lock does not span them.
 	for range 8 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			out, err := (&translator{dir: shared, done: map[string]string{}}).use(src, id)
 
 			mu.Lock()
 			outs, errs = append(outs, out), append(errs, err)
 			mu.Unlock()
-		}()
+		})
 	}
 
 	wg.Wait()

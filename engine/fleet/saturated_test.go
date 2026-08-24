@@ -48,18 +48,13 @@ func TestAStepDoesNotQueueBehindAFullFleet(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		_, err := d.Run(t.Context(), node(), core.Worker{ID: "w"},
 			[]ir.NodeID{base}, nil)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-	}()
+	})
 
 	// The first step is now inside the transport, occupying the fleet's only
 	// slot - and stays there until released, so the fleet is genuinely full

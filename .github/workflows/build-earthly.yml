@@ -48,7 +48,7 @@ jobs:
       packages: write
     env:
       # Use fixed buildkitd image with Docker 29+ ulimit fix until next release
-      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
     steps:
       - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
         with:
@@ -147,11 +147,11 @@ jobs:
           ${INPUTS_SUDO} ./build/linux/amd64/earthly bootstrap
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       # Computed once: three later steps need it, and it is a pure function of
       # the workflow inputs.
       - name: Set TAG_SUFFIX env

@@ -131,6 +131,8 @@ func (d *dockerd) Ask(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	// G204: a fixed command and a socket path this process made.
+	//nolint:gosec // see above
 	out, err := osexec.CommandContext(ctx, "docker", "-H", "unix://"+d.sock,
 		"info", "--format", "{{.ServerVersion}} {{.Driver}}").CombinedOutput()
 	if err != nil {

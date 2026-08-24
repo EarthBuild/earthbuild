@@ -320,7 +320,10 @@ func copyTree(src, dst string, opts copyOpts) error {
 				return fmt.Errorf("read symlink %s: %w", p, linkErr)
 			}
 
-			linkErr = os.Symlink(link, target)
+			// G122 reads the shape: a path from a walk, used to write. The tree
+			// being walked is one this step is assembling into a directory
+			// nothing else can see yet, so there is no second writer to race.
+			linkErr = os.Symlink(link, target) //nolint:gosec // see above
 			if linkErr != nil {
 				return fmt.Errorf("create symlink %s: %w", target, linkErr)
 			}

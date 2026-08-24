@@ -28,12 +28,12 @@ func TestAFilterTooBigForItsJumpsIsRefused(t *testing.T) {
 
 	// One instruction per traced syscall, plus the preamble and the two
 	// verdicts: enough of them and the skip distance leaves a byte.
-	traced := make([]uint32, 300)
-	for i := range traced {
-		traced[i] = uint32(i)
+	tracedCalls := make([]uint32, 300)
+	for i := range tracedCalls {
+		tracedCalls[i] = uint32(i)
 	}
 
-	_, err := filter(auditArch, traced)
+	_, err := filter(auditArch, tracedCalls)
 	if err == nil {
 		t.Fatal("a filter whose jumps cannot reach its verdicts was assembled")
 	}

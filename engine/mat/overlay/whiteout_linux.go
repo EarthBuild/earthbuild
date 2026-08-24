@@ -250,7 +250,10 @@ func translate(src, dst string) error {
 			// step and its bytes are identical by construction, so a link is
 			// both cheaper and impossible to disagree with. A cross-device
 			// store falls back to a copy.
-			err := os.Link(p, target)
+			// G122 as in guest/copy: the source is a layer this store owns and
+			// the destination is a directory being built, so neither end has a
+			// writer to race with.
+			err := os.Link(p, target) //nolint:gosec // see above
 			if err == nil {
 				return nil
 			}

@@ -83,9 +83,9 @@ func newCgroup(name string, l Limits) (*cgroup, error) {
 	}
 
 	for _, dir := range []string{base, parent} {
-		err := os.WriteFile(filepath.Join(dir, "cgroup.subtree_control"), //nolint:gosec // the kernel made this file; the mode is never applied
+		writeErr := os.WriteFile(filepath.Join(dir, "cgroup.subtree_control"), //nolint:gosec // the kernel made this file; the mode is never applied
 			[]byte("+memory +pids +cpu"), 0o644)
-		if err != nil {
+		if writeErr != nil {
 			// Not fatal on the root: a delegated subtree often has the
 			// controllers enabled already and refuses the write.
 			continue

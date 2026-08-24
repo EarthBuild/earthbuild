@@ -85,8 +85,8 @@ func TestAnInteractiveStepRunsOnTheCallersTerminal(t *testing.T) { //nolint:para
 		// so here, and waiting for the terminal to speak would report the
 		// silence rather than the cause.
 		select {
-		case err := <-done:
-			t.Fatalf("the step never spoke on the terminal it was given: %v", err)
+		case stepErr := <-done:
+			t.Fatalf("the step never spoke on the terminal it was given: %v", stepErr)
 		default:
 			t.Fatal("the step never spoke on the terminal it was given, and has not returned")
 		}

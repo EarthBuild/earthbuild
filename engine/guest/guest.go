@@ -760,12 +760,12 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 	resolved := srcPath.path
 
 	if !opts.NoFollow {
-		var err error
-
-		resolved, err = resolveLast(srcPath.root, srcPath.path)
-		if err != nil {
-			return fmt.Errorf("COPY %s: %w", src, err)
+		followed, followErr := resolveLast(srcPath.root, srcPath.path)
+		if followErr != nil {
+			return fmt.Errorf("COPY %s: %w", src, followErr)
 		}
+
+		resolved = followed
 	}
 
 	fi, err := os.Lstat(resolved)

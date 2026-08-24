@@ -34,7 +34,10 @@ func RunDaemonShimIfAsked() {
 	// Exec, not run: the daemon becomes this process, so the parent's Wait sees
 	// the daemon's own exit and a signal reaches the daemon rather than a
 	// wrapper that would have to forward it.
-	err = syscall.Exec(os.Args[2], os.Args[2:], os.Environ())
+	// G204: the arguments are the ones this process was given to pass on -
+	// being a shim is the whole job, and refusing to exec what it was handed
+	// would leave nothing for it to do.
+	err = syscall.Exec(os.Args[2], os.Args[2:], os.Environ()) //nolint:gosec // see above
 
 	fmt.Fprintf(os.Stderr, "earthbuild daemon shim: exec %s: %v\n", os.Args[2], err)
 	os.Exit(1)

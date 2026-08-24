@@ -175,6 +175,9 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 	// and the signal handler in `main` cover that; this covers the rest.
 	defer putBack()
 
+	// G204: the package comes from this tool's own catalogue, which is a Go
+	// file in this repository and not anybody's input.
+	//nolint:gosec // see above
 	cmd := exec.Command("go", "test", m.Package, "-count=1",
 		"-timeout", timeout.String())
 	cmd.Dir = root

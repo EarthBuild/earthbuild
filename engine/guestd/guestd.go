@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -32,6 +33,22 @@ import (
 // Named here rather than spelled at each call site, because the engine has to
 // build the same invocation when it launches one.
 const Command = "guestd"
+
+// label is the command as the operator typed it.
+//
+// The agent is reachable two ways, and a message that always said
+// `earth-guestd` sent somebody looking for a file a one-binary installation
+// does not have. Read from os.Args rather than passed in, because Main is given
+// the agent's own arguments and the invocation is not one of them.
+func label() string {
+	name := filepath.Base(os.Args[0])
+
+	if len(os.Args) > 1 && os.Args[1] == Command {
+		return name + " " + Command
+	}
+
+	return name
+}
 
 // Main runs the sandbox agent. args is what follows the command that selected
 // it, so `earth-guestd --fills` and `earth guestd --fills` reach here alike.
@@ -51,13 +68,13 @@ func Main(args []string) {
 	if len(args) > 0 && args[0] == "--fills" {
 		at := os.Getenv(guest.EnvFillSocket)
 		if at == "" {
-			fmt.Fprintf(os.Stderr, "earth-guestd --fills: %s is not set\n", guest.EnvFillSocket)
+			fmt.Fprintf(os.Stderr, "%s --fills: %s is not set\n", label(), guest.EnvFillSocket)
 			os.Exit(1)
 		}
 
 		err := guest.RelayFills(at, os.Stdin, os.Stdout)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "earth-guestd --fills: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s --fills: %v\n", label(), err)
 			os.Exit(1)
 		}
 
@@ -75,13 +92,13 @@ func Main(args []string) {
 
 		id, err := ir.ParseNodeID(args[1])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "earth-guestd --pack: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s --pack: %v\n", label(), err)
 			os.Exit(1)
 		}
 
 		err = guest.PackLayer(root, id, os.Stdout)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "earth-guestd --pack: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s --pack: %v\n", label(), err)
 			os.Exit(1)
 		}
 
@@ -100,7 +117,7 @@ func Main(args []string) {
 	// (E105).
 	err := guest.WaitForIDs()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "earth-guestd: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s: %v\n", label(), err)
 		os.Exit(1)
 	}
 
@@ -110,7 +127,7 @@ func Main(args []string) {
 
 	err = run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "earth-guestd: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s: %v\n", label(), err)
 		os.Exit(1)
 	}
 }
@@ -188,8 +205,8 @@ func run() error {
 			// tell apart in a diff (govet shadow).
 			c, listenErr := guest.ListenForFills(at)
 			if listenErr != nil {
-				fmt.Fprintf(os.Stderr, "earth-guestd: no fault-in channel: %v"+
-					"\n  steps will take whole layers\n", listenErr)
+				fmt.Fprintf(os.Stderr, "%s: no fault-in channel: %v"+
+					"\n  steps will take whole layers\n", label(), listenErr)
 
 				return
 			}
@@ -222,9 +239,9 @@ func run() error {
 	// Started before serving and never joined: it outlives every request by
 	// design, and the only way it ends is by ending the process.
 	go srv.Idle.Watch(func() {
-		fmt.Fprintf(os.Stderr, "earth-guestd: nothing has used this sandbox for %v, stopping"+
+		fmt.Fprintf(os.Stderr, "%s: nothing has used this sandbox for %v, stopping"+
 			"\n  set %s to change that, or 0 to keep it up\n",
-			envDuration(guest.EnvIdle, guest.DefaultIdle), guest.EnvIdle)
+			label(), envDuration(guest.EnvIdle, guest.DefaultIdle), guest.EnvIdle)
 
 		// **Stopping the agent is not stopping the sandbox.** In a VM the
 		// machine is held open by a keep-alive at PID 1, so exiting here left a
@@ -236,7 +253,7 @@ func run() error {
 		// in.
 		stopErr := guest.StopMachine()
 		if stopErr != nil {
-			fmt.Fprintf(os.Stderr, "earth-guestd: %v\n", stopErr)
+			fmt.Fprintf(os.Stderr, "%s: %v\n", label(), stopErr)
 		}
 
 		os.Exit(0)
@@ -248,7 +265,7 @@ func run() error {
 	}
 
 	if reason := srv.Degraded(); reason != "" {
-		fmt.Fprintf(os.Stderr, "earth-guestd: resource limits not applied: %s\n", reason)
+		fmt.Fprintf(os.Stderr, "%s: resource limits not applied: %s\n", label(), reason)
 	}
 
 	return nil
@@ -286,8 +303,8 @@ func envDuration(name string, fallback time.Duration) time.Duration {
 
 	d, err := time.ParseDuration(v)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "earth-guestd: %s is %q, which is not a duration"+
-			" (try 30m, 2h, 90s); using %v\n", name, v, fallback)
+		fmt.Fprintf(os.Stderr, "%s: %s is %q, which is not a duration"+
+			" (try 30m, 2h, 90s); using %v\n", label(), name, v, fallback)
 
 		return fallback
 	}

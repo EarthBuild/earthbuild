@@ -14,5 +14,5 @@ import (
 // silently ran without layering would produce results that look like layers and
 // are not.
 func newMaterialiser(_, _ string) (core.Materialiser, func(), error) {
-	return nil, nil, errors.New("earth-guestd requires Linux: it assembles layers with overlayfs")
+	return nil, nil, errors.New("the sandbox agent requires Linux: it assembles layers with overlayfs")
 }

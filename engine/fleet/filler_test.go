@@ -170,8 +170,8 @@ func aLayerWithFile(t *testing.T, root, path, body string) ir.NodeID {
 
 	tmp := t.TempDir()
 
-	must(t, os.MkdirAll(filepath.Join(tmp, filepath.Dir(path)), 0o755))
-	must(t, os.WriteFile(filepath.Join(tmp, path), []byte(body), 0o644))
+	must(t, os.MkdirAll(filepath.Join(tmp, filepath.Dir(path)), 0o750))
+	must(t, os.WriteFile(filepath.Join(tmp, path), []byte(body), 0o600))
 
 	c, err := layer.Take(tmp)
 	if err != nil {
@@ -179,7 +179,7 @@ func aLayerWithFile(t *testing.T, root, path, body string) ir.NodeID {
 	}
 
 	at := filepath.Join(root, "layers", c.ID.String())
-	must(t, os.MkdirAll(filepath.Dir(at), 0o755))
+	must(t, os.MkdirAll(filepath.Dir(at), 0o750))
 	must(t, os.Rename(tmp, at))
 
 	return c.ID

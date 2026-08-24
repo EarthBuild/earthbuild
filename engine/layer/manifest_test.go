@@ -156,9 +156,9 @@ func TestAFragmentOfAnotherTreeIsRefused(t *testing.T) {
 
 	// The same paths, different contents.
 	other := t.TempDir()
-	must(t, os.MkdirAll(filepath.Join(other, "usr", "bin"), 0o755))
+	must(t, os.MkdirAll(filepath.Join(other, "usr", "bin"), 0o750))
 	must(t, os.WriteFile(filepath.Join(other, "usr", "bin", "tool"),
-		[]byte("#!/bin/sh\nrm -rf /\n"), 0o755))
+		[]byte("#!/bin/sh\nrm -rf /\n"), 0o750))
 
 	var buf bytes.Buffer
 
@@ -197,7 +197,7 @@ func TestAFragmentWithAnExtraPathIsRefused(t *testing.T) {
 
 	// Somebody adds a file after the fact.
 	must(t, os.WriteFile(filepath.Join(into, "usr", "bin", "extra"),
-		[]byte("not in the layer\n"), 0o755))
+		[]byte("not in the layer\n"), 0o750))
 
 	err = layer.VerifyFragment(m, into)
 	if err == nil {

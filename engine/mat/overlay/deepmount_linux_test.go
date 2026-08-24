@@ -37,7 +37,7 @@ func TestADeepStackMountsFromADeepStore(t *testing.T) {
 	deep := filepath.Join(t.TempDir(),
 		strings.Repeat("a", 40), strings.Repeat("b", 40), "store")
 
-	err := os.MkdirAll(deep, 0o755)
+	err := os.MkdirAll(deep, 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -150,16 +150,16 @@ func aBiggerLayer(t *testing.T, root string) ir.NodeID {
 
 	tmp := t.TempDir()
 
-	must(t, os.MkdirAll(filepath.Join(tmp, "etc"), 0o755))
-	must(t, os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o755))
+	must(t, os.MkdirAll(filepath.Join(tmp, "etc"), 0o750))
+	must(t, os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o750))
 	must(t, os.WriteFile(filepath.Join(tmp, "etc", "hosts"),
-		[]byte("127.0.0.1 localhost\n"), 0o644))
+		[]byte("127.0.0.1 localhost\n"), 0o600))
 
 	// The rest of a base: the part nobody reads.
 	for i := range 40 {
 		must(t, os.WriteFile(
 			filepath.Join(tmp, "usr", "lib", fmt.Sprintf("lib%d.so", i)),
-			bytes.Repeat([]byte{byte(i)}, 4096), 0o644))
+			bytes.Repeat([]byte{byte(i)}, 4096), 0o600))
 	}
 
 	c, err := layer.Take(tmp)
@@ -168,7 +168,7 @@ func aBiggerLayer(t *testing.T, root string) ir.NodeID {
 	}
 
 	at := filepath.Join(root, "layers", c.ID.String())
-	must(t, os.MkdirAll(filepath.Dir(at), 0o755))
+	must(t, os.MkdirAll(filepath.Dir(at), 0o750))
 	must(t, os.Rename(tmp, at))
 
 	return c.ID

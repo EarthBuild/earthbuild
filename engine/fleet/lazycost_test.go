@@ -156,7 +156,7 @@ func aBaseOf(t *testing.T, root string, n int) ir.NodeID {
 
 	tmp := t.TempDir()
 
-	must(t, os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o755))
+	must(t, os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o750))
 
 	for i := range n {
 		// **Distinct contents.** `byte(i)` wraps at 256, so five thousand files
@@ -168,7 +168,7 @@ func aBaseOf(t *testing.T, root string, n int) ir.NodeID {
 
 		must(t, os.WriteFile(
 			filepath.Join(tmp, "usr", "lib", fmt.Sprintf("lib%d.so", i)),
-			body, 0o644))
+			body, 0o600))
 	}
 
 	c, err := layer.Take(tmp)
@@ -177,7 +177,7 @@ func aBaseOf(t *testing.T, root string, n int) ir.NodeID {
 	}
 
 	at := filepath.Join(root, "layers", c.ID.String())
-	must(t, os.MkdirAll(filepath.Dir(at), 0o755))
+	must(t, os.MkdirAll(filepath.Dir(at), 0o750))
 	must(t, os.Rename(tmp, at))
 
 	return c.ID

@@ -34,12 +34,12 @@ func TestAnUnpackAsAnotherUserStillCapturesTheSameLayer(t *testing.T) {
 	// ownership silently unrestored.
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o600)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	err = os.Mkdir(filepath.Join(src, "d"), 0o755)
+	err = os.Mkdir(filepath.Join(src, "d"), 0o750)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -92,7 +92,7 @@ func TestUnpackReportsTheOwnershipItWasGiven(t *testing.T) {
 
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o600)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

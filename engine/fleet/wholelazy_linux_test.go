@@ -78,7 +78,7 @@ func TestARealStepOnALazyBaseProducesTheRightLayer(t *testing.T) {
 	// What the same step produces with the whole base: only its own writes.
 	whole := t.TempDir()
 
-	err = os.WriteFile(filepath.Join(whole, "out"), []byte("made by the step\n"), 0o644)
+	err = os.WriteFile(filepath.Join(whole, "out"), []byte("made by the step\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

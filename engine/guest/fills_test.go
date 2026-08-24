@@ -175,7 +175,7 @@ func TestTheGuestRemembersWhatItFaultedIn(t *testing.T) {
 				return nil // absent, and not an error
 			}
 
-			return os.WriteFile(p, body, 0o644) //nolint:gosec // a fixture
+			return os.WriteFile(p, body, 0o600) //nolint:gosec // a fixture
 		})
 	}()
 
@@ -302,7 +302,7 @@ func TestFaultInsAreRememberedAgainstTheirHandle(t *testing.T) {
 
 	go func() {
 		_ = guest.ServeFills(there, func(_, p string) error {
-			return os.WriteFile(p, []byte("x"), 0o644) //nolint:gosec // a fixture
+			return os.WriteFile(p, []byte("x"), 0o600) //nolint:gosec // a fixture
 		})
 	}()
 
@@ -353,11 +353,11 @@ func TestTheDirectoriesAboveAFaultedInFileAreBase(t *testing.T) {
 
 	go func() {
 		_ = guest.ServeFills(there, func(_, p string) error {
-			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
 				return err
 			}
 
-			return os.WriteFile(p, []byte("from the base\n"), 0o644) //nolint:gosec // a fixture
+			return os.WriteFile(p, []byte("from the base\n"), 0o600) //nolint:gosec // a fixture
 		})
 	}()
 

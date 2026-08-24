@@ -82,7 +82,7 @@ func treeOfSized(t *testing.T, n, each int) string {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "usr", "lib"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "usr", "lib"), 0o750); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -91,7 +91,7 @@ func treeOfSized(t *testing.T, n, each int) string {
 
 		err := os.WriteFile(
 			filepath.Join(root, "usr", "lib", fmt.Sprintf("lib%d.so", i)),
-			body, 0o644)
+			body, 0o600)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}

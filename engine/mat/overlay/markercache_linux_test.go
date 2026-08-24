@@ -108,7 +108,7 @@ func TestAStoreNoteIsBelieved(t *testing.T) {
 	store := t.TempDir()
 
 	src := filepath.Join(store, "layer-3")
-	if err := os.MkdirAll(src, 0o755); err != nil {
+	if err := os.MkdirAll(src, 0o750); err != nil {
 		t.Fatal(err)
 	}
 

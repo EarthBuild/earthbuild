@@ -35,7 +35,7 @@ func BenchmarkTeardownParts(b *testing.B) {
 		base := b.TempDir()
 
 		for _, d := range []string{"l", "u", "w", "m"} {
-			if err := os.MkdirAll(filepath.Join(base, d), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Join(base, d), 0o750); err != nil {
 				b.Fatal(err)
 			}
 		}

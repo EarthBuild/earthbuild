@@ -27,7 +27,7 @@ func TestALayerStoresUnderItsOwnDigestWhenUnpackedAsAnotherUser(t *testing.T) {
 	// Not parallel: the seam is a package variable in engine/layer.
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o600)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -78,7 +78,7 @@ func TestALayerPassedOnKeepsItsIdentity(t *testing.T) {
 	// Not parallel: the seam is a package variable in engine/layer.
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o600)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -140,7 +140,7 @@ func TestAFragmentOfARelayedLayerProvesTheOriginal(t *testing.T) {
 	// Not parallel: the seam is a package variable in engine/layer.
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o600)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -196,7 +196,7 @@ func TestTwoStepsFetchingTheSameLayerBothGetIt(t *testing.T) {
 
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hello"), 0o600)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

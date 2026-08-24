@@ -283,7 +283,7 @@ func startWorker(
 
 	root := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(root, "layers"), 0o755)
+	err := os.MkdirAll(filepath.Join(root, "layers"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}

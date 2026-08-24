@@ -18,12 +18,12 @@ func aLayer(t *testing.T, root string) ir.NodeID {
 
 	tmp := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(tmp, "etc"), 0o755)
+	err := os.MkdirAll(filepath.Join(tmp, "etc"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(tmp, "etc", "hosts"), []byte("127.0.0.1 localhost\n"), 0o644)
+	err = os.WriteFile(filepath.Join(tmp, "etc", "hosts"), []byte("127.0.0.1 localhost\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func aLayer(t *testing.T, root string) ir.NodeID {
 
 	at := filepath.Join(root, "layers", c.ID.String())
 
-	err = os.MkdirAll(filepath.Dir(at), 0o755)
+	err = os.MkdirAll(filepath.Dir(at), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func aLayerWithContent(t *testing.T, root, content string) ir.NodeID {
 
 	tmp := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(tmp, "file"), []byte(content), 0o644)
+	err := os.WriteFile(filepath.Join(tmp, "file"), []byte(content), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func aLayerWithContent(t *testing.T, root, content string) ir.NodeID {
 
 	at := filepath.Join(root, "layers", c.ID.String())
 
-	err = os.MkdirAll(filepath.Dir(at), 0o755)
+	err = os.MkdirAll(filepath.Dir(at), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestALayerIsUnpackedBesideTheStore(t *testing.T) {
 
 	mine := &fleet.Layers{Root: t.TempDir()}
 
-	err = os.MkdirAll(filepath.Join(mine.Root, "layers"), 0o755)
+	err = os.MkdirAll(filepath.Join(mine.Root, "layers"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}

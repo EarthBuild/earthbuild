@@ -20,14 +20,14 @@ func TestChownNamesResolveAgainstTheImage(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 
 	write := func(name, body string) {
 		t.Helper()
 
-		if err := os.WriteFile(filepath.Join(root, "etc", name), []byte(body), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(root, "etc", name), []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -74,12 +74,12 @@ func TestAChownNameTheImageLacksIsRefused(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"),
-		[]byte("root:x:0:0:root:/root:/bin/sh\n"), 0o644); err != nil {
+		[]byte("root:x:0:0:root:/root:/bin/sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

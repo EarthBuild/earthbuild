@@ -27,7 +27,7 @@ func TestASymlinkToAnAncestorDoesNotLoop(t *testing.T) {
 	src := t.TempDir()
 
 	inner := filepath.Join(src, "inner")
-	if err := os.MkdirAll(inner, 0o755); err != nil {
+	if err := os.MkdirAll(inner, 0o750); err != nil {
 		t.Fatal(err)
 	}
 

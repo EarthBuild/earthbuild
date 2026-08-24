@@ -82,13 +82,13 @@ func TestAnHonestManifestDoesNotExcuseATamperedFragment(t *testing.T) {
 	// A fragment with the right shape and the wrong contents.
 	fake := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(fake, "etc"), 0o755)
+	err := os.MkdirAll(filepath.Join(fake, "etc"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = os.WriteFile(filepath.Join(fake, "etc", "hosts"),
-		[]byte("127.0.0.1 somewhere-else\n"), 0o644)
+		[]byte("127.0.0.1 somewhere-else\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

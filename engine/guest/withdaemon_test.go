@@ -269,7 +269,7 @@ func TestTheSocketIsPublishedWhereTheImagesSymlinkLeads(t *testing.T) {
 	root := t.TempDir()
 
 	for _, dir := range []string{"run", "var"} {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o750); err != nil {
 			t.Fatal(err)
 		}
 	}

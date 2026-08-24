@@ -30,10 +30,10 @@ func tree(t *testing.T) string {
 		}
 	}
 
-	must(os.MkdirAll(filepath.Join(root, "usr", "bin"), 0o755))
+	must(os.MkdirAll(filepath.Join(root, "usr", "bin"), 0o750))
 	must(os.MkdirAll(filepath.Join(root, "var", "empty"), 0o700))
-	must(os.WriteFile(filepath.Join(root, "usr", "bin", "tool"), []byte("#!/bin/sh\n"), 0o755))
-	must(os.WriteFile(filepath.Join(root, "usr", "bin", "same"), []byte("#!/bin/sh\n"), 0o644))
+	must(os.WriteFile(filepath.Join(root, "usr", "bin", "tool"), []byte("#!/bin/sh\n"), 0o750))
+	must(os.WriteFile(filepath.Join(root, "usr", "bin", "same"), []byte("#!/bin/sh\n"), 0o600))
 	must(os.WriteFile(filepath.Join(root, "readme"), bytes.Repeat([]byte("x"), 4096), 0o600))
 	must(os.Symlink("usr/bin/tool", filepath.Join(root, "tool")))
 
@@ -234,7 +234,7 @@ func TestALinkIsStampedWithoutFollowingIt(t *testing.T) {
 
 	root := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(root, "target"), []byte("x"), 0o644)
+	err := os.WriteFile(filepath.Join(root, "target"), []byte("x"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

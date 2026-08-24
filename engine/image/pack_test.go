@@ -146,7 +146,7 @@ func TestPackKeepsModesAndSymlinks(t *testing.T) {
 
 	dir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(dir, "script"), []byte("#!/bin/sh\n"), 0o755)
+	err := os.WriteFile(filepath.Join(dir, "script"), []byte("#!/bin/sh\n"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}

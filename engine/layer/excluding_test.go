@@ -28,7 +28,7 @@ func TestAFileFaultedInIsNotSomethingTheStepWrote(t *testing.T) {
 	root := t.TempDir()
 
 	// What the step wrote.
-	err := os.WriteFile(filepath.Join(root, "output"), []byte("made by the step\n"), 0o644)
+	err := os.WriteFile(filepath.Join(root, "output"), []byte("made by the step\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestAFileFaultedInIsNotSomethingTheStepWrote(t *testing.T) {
 	// What the engine faulted in for it.
 	faulted := []byte("from the base\n")
 
-	err = os.WriteFile(filepath.Join(root, "libc.so"), faulted, 0o644)
+	err = os.WriteFile(filepath.Join(root, "libc.so"), faulted, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestAFileFaultedInIsNotSomethingTheStepWrote(t *testing.T) {
 	// And it is the same layer the step would have produced with a whole base.
 	only := t.TempDir()
 
-	err = os.WriteFile(filepath.Join(only, "output"), []byte("made by the step\n"), 0o644)
+	err = os.WriteFile(filepath.Join(only, "output"), []byte("made by the step\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,13 +107,13 @@ func TestAFaultedInFileTheStepChangedIsTheStepsAfterAll(t *testing.T) {
 
 	faulted := []byte("from the base\n")
 
-	err := os.WriteFile(filepath.Join(root, "config"), faulted, 0o644)
+	err := os.WriteFile(filepath.Join(root, "config"), faulted, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// The step edits it.
-	err = os.WriteFile(filepath.Join(root, "config"), []byte("edited\n"), 0o644)
+	err = os.WriteFile(filepath.Join(root, "config"), []byte("edited\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestAStepDeletingFromALazyBaseIsRefused(t *testing.T) {
 	faulted := []byte("from the base\n")
 	at := filepath.Join(root, "libc.so")
 
-	err := os.WriteFile(at, faulted, 0o644)
+	err := os.WriteFile(at, faulted, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,13 +231,13 @@ func TestADirectoryMadeForAFaultedInFileIsNotTheSteps(t *testing.T) {
 	root := t.TempDir()
 
 	// What priming left behind.
-	must(t, os.MkdirAll(filepath.Join(root, "usr", "lib"), 0o755))
+	must(t, os.MkdirAll(filepath.Join(root, "usr", "lib"), 0o750))
 
 	faulted := []byte("from the base\n")
-	must(t, os.WriteFile(filepath.Join(root, "usr", "lib", "libc.so"), faulted, 0o644))
+	must(t, os.WriteFile(filepath.Join(root, "usr", "lib", "libc.so"), faulted, 0o600))
 
 	// What the step wrote.
-	must(t, os.WriteFile(filepath.Join(root, "out"), []byte("made\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(root, "out"), []byte("made\n"), 0o600))
 
 	got, err := layer.TakeExcluding(root, map[string]ir.NodeID{
 		"usr":             {},
@@ -250,7 +250,7 @@ func TestADirectoryMadeForAFaultedInFileIsNotTheSteps(t *testing.T) {
 
 	// Only the step's own write, and the root's own entry for it.
 	only := t.TempDir()
-	must(t, os.WriteFile(filepath.Join(only, "out"), []byte("made\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(only, "out"), []byte("made\n"), 0o600))
 	must(t, os.Chtimes(filepath.Join(only, "out"), modOf(t, filepath.Join(root, "out")),
 		modOf(t, filepath.Join(root, "out"))))
 	must(t, os.Chtimes(only, modOf(t, root), modOf(t, root)))

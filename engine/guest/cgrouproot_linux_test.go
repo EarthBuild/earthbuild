@@ -15,7 +15,7 @@ func writable(t *testing.T, parts ...string) string {
 
 	p := filepath.Join(parts...)
 
-	err := os.MkdirAll(p, 0o755) //nolint:gosec // a cgroup directory's conventional mode
+	err := os.MkdirAll(p, 0o750) //nolint:gosec // a cgroup directory's conventional mode
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestTheEngineStepsAsideBeforeEnablingControllers(t *testing.T) {
 	// directory does not, so the fixture does - rather than the code opening
 	// with O_CREATE, which would be inert on cgroupfs and would silently write
 	// pids into an ordinary file anywhere else.
-	err = os.MkdirAll(filepath.Join(base, "earthbuild.main"), 0o755)
+	err = os.MkdirAll(filepath.Join(base, "earthbuild.main"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}

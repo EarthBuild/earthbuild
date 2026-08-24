@@ -104,7 +104,8 @@ func TestFreeIsWhatThisUserMayHave(t *testing.T) {
 		t.Skip("this filesystem has nothing left, which is its own problem")
 	}
 
-	if _, err := Free(filepath.Join(t.TempDir(), "absent")); err == nil {
+	_, err = Free(filepath.Join(t.TempDir(), "absent"))
+	if err == nil {
 		t.Error("a path that is not there reported free space")
 	}
 }
@@ -155,7 +156,8 @@ func TestASizeIsANumberAndAUnit(t *testing.T) {
 	// A typo refused rather than ignored, which is this project's most recorded
 	// failure: a mechanism that is off and one that found nothing look alike.
 	for _, in := range []string{"", "4G8", "50%", "g", "-1", "4gb", "four"} {
-		if got, err := ParseSize(in); err == nil {
+		got, err := ParseSize(in)
+		if err == nil {
 			t.Errorf("ParseSize(%q) = %d, want a refusal", in, got)
 		}
 	}

@@ -19,7 +19,8 @@ func withConfig(t *testing.T, cfg ocispec.ImageConfig) (store string, layer ir.N
 	layer = ir.NodeID{4, 2}
 
 	at := filepath.Join(store, "layers", layer.String())
-	if err := os.MkdirAll(at, 0o750); err != nil {
+	err := os.MkdirAll(at, 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 

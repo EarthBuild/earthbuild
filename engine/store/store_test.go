@@ -49,7 +49,8 @@ func TestTheStoreAnswersWhatAnImageDeclared(t *testing.T) {
 	id := ir.NodeID{9}
 
 	at := filepath.Join(root, "layers", id.String())
-	if err := os.MkdirAll(at, 0o750); err != nil {
+	err := os.MkdirAll(at, 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,17 +96,20 @@ func TestTheStoreTakesACapturedTree(t *testing.T) {
 		t.Helper()
 
 		at := filepath.Join(root, "layers", name)
-		if err := os.MkdirAll(at, 0o750); err != nil {
+		err := os.MkdirAll(at, 0o750)
+		if err != nil {
 			t.Fatal(err)
 		}
 
 		f := filepath.Join(at, "a")
-		if err := os.WriteFile(f, []byte("hello"), 0o600); err != nil {
+		err = os.WriteFile(f, []byte("hello"), 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 
 		for _, p := range []string{f, at} {
-			if err := os.Chtimes(p, when, when); err != nil {
+			err := os.Chtimes(p, when, when)
+			if err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -182,7 +186,8 @@ func TestANamedLayerArrivesWholeOrNotAtAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.PutNamed(id, second); err != nil {
+	err = s.PutNamed(id, second)
+	if err != nil {
 		t.Errorf("committing the same name twice: %v", err)
 	}
 }

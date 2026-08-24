@@ -176,7 +176,8 @@ func TestReadingALayerKeepsIt(t *testing.T) {
 func TestCollectingNothingIsNotAnError(t *testing.T) {
 	t.Parallel()
 
-	if _, err := Collect("", 0); err != nil {
+	_, err := Collect("", 0)
+	if err != nil {
 		t.Errorf("collecting a store with no root: %v", err)
 	}
 

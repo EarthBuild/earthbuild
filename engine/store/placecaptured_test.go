@@ -25,7 +25,7 @@ func aTree(t *testing.T, body string) string {
 
 	at := filepath.Join(dir, "f")
 
-	err := os.WriteFile(at, []byte(body), 0o644)
+	err := os.WriteFile(at, []byte(body), 0o600)
 	if err != nil {
 		t.Fatalf("write: %v", err)
 	}

@@ -37,7 +37,11 @@ func placeCaptured(store, staging string) (ir.NodeID, error) {
 
 	layers := filepath.Join(store, "layers")
 
-	err = os.MkdirAll(layers, 0o755)
+	// 0o750, as every other directory this store makes is - `place.go`,
+	// `index.go`, `store.go` and `exportmemo.go` all agree, and this one line
+	// did not (gosec G301). The store root above it is already 0o750, so the
+	// looser mode bought nothing but an inconsistency.
+	err = os.MkdirAll(layers, 0o750)
 	if err != nil {
 		return ir.NodeID{}, fmt.Errorf("prepare the layer store: %w", err)
 	}

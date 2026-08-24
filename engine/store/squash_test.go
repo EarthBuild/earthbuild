@@ -157,7 +157,8 @@ func TestAnInterruptedSquashLeavesNoLayer(t *testing.T) {
 		t.Fatal("a range naming a layer that is not there was squashed anyway")
 	}
 
-	if _, err := os.Stat(filepath.Join(store, "layers", into.String())); err == nil {
+	_, err = os.Stat(filepath.Join(store, "layers", into.String()))
+	if err == nil {
 		t.Error("a failed squash left a layer behind, which a later mount would use")
 	}
 }

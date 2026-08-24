@@ -44,12 +44,12 @@ func treeOf(t *testing.T, n int) string {
 		// Spread across directories, as a real layer is.
 		sub := filepath.Join(dir, "d"+strconv.Itoa(i%64))
 
-		err := os.MkdirAll(sub, 0o755)
+		err := os.MkdirAll(sub, 0o750)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = os.WriteFile(filepath.Join(sub, "f"+strconv.Itoa(i)), []byte("x"), 0o644)
+		err = os.WriteFile(filepath.Join(sub, "f"+strconv.Itoa(i)), []byte("x"), 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -163,7 +163,8 @@ func copyOfBigTree(t *testing.T, n int) string {
 // skipped. Validated at 100,000; set EARTH_TEST_FD_SCALE to run it there.
 func fdScale() int {
 	if v := os.Getenv("EARTH_TEST_FD_SCALE"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		n, err := strconv.Atoi(v)
+		if err == nil && n > 0 {
 			return n
 		}
 	}

@@ -24,12 +24,12 @@ func TestALinkedTreeIsTheTreeItCameFrom(t *testing.T) {
 	for i := range 40 {
 		dir := filepath.Join(src, "d"+strconv.Itoa(i%4), "e"+strconv.Itoa(i%3))
 
-		err := os.MkdirAll(dir, 0o755)
+		err := os.MkdirAll(dir, 0o750)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = os.WriteFile(filepath.Join(dir, "f"+strconv.Itoa(i)), []byte("body"+strconv.Itoa(i)), 0o644)
+		err = os.WriteFile(filepath.Join(dir, "f"+strconv.Itoa(i)), []byte("body"+strconv.Itoa(i)), 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,7 +113,7 @@ func TestASharedDestinationIsReplacedAtomically(t *testing.T) {
 
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "f"), []byte("new"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "f"), []byte("new"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestASharedDestinationIsReplacedAtomically(t *testing.T) {
 
 	// Something is already there, as it would be if another build got here
 	// first.
-	err = os.WriteFile(filepath.Join(dst, "f"), []byte("old"), 0o644)
+	err = os.WriteFile(filepath.Join(dst, "f"), []byte("old"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestAPrivateDestinationIsFilledDirectly(t *testing.T) {
 
 	src := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(src, "f"), []byte("body"), 0o644)
+	err := os.WriteFile(filepath.Join(src, "f"), []byte("body"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

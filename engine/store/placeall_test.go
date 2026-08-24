@@ -69,7 +69,8 @@ func TestTheReportedFailureIsStable(t *testing.T) {
 	}
 
 	for range 5 {
-		if got := placeAll(files); got.Error() != first.Error() {
+		got := placeAll(files)
+		if got.Error() != first.Error() {
 			t.Errorf("reported %v, then %v", first, got)
 		}
 	}

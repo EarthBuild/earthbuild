@@ -57,7 +57,8 @@ func bigTree(t *testing.T, n int) string {
 	// Both, because either alone lies: a marker outlives a directory somebody
 	// deleted, and a directory without a marker is one that may be half built.
 	if b, err := os.ReadFile(marker); err == nil && string(b) == fmt.Sprint(n) {
-		if _, err := os.Stat(dir); err == nil {
+		_, err := os.Stat(dir)
+		if err == nil {
 			return dir
 		}
 	}
@@ -87,7 +88,7 @@ func bigTree(t *testing.T, n int) string {
 
 	stamp := time.Unix(1000000000, 0)
 
-	err = os.MkdirAll(staging, 0o755)
+	err = os.MkdirAll(staging, 0o750)
 	if err != nil {
 		t.Fatalf("build the fixture: %v", err)
 	}
@@ -105,7 +106,7 @@ func bigTree(t *testing.T, n int) string {
 	// could be moved outside; this one cannot.
 	indexed := filepath.Join(staging, ".metadata_never_index")
 
-	err = os.WriteFile(indexed, nil, 0o644)
+	err = os.WriteFile(indexed, nil, 0o600)
 	if err != nil {
 		t.Fatalf("mark the fixture unindexable: %v", err)
 	}
@@ -120,14 +121,14 @@ func bigTree(t *testing.T, n int) string {
 	for i := range n {
 		sub := filepath.Join(staging, fmt.Sprintf("d%02d", i%64), fmt.Sprintf("e%02d", (i/64)%64))
 
-		err := os.MkdirAll(sub, 0o755)
+		err := os.MkdirAll(sub, 0o750)
 		if err != nil {
 			t.Fatalf("build the fixture: %v", err)
 		}
 
 		at := filepath.Join(sub, fmt.Sprintf("f%d", i))
 
-		err = os.WriteFile(at, fmt.Appendf(nil, "file %d\n", i), 0o644)
+		err = os.WriteFile(at, fmt.Appendf(nil, "file %d\n", i), 0o600)
 		if err != nil {
 			t.Fatalf("build the fixture: %v", err)
 		}
@@ -161,12 +162,13 @@ func bigTree(t *testing.T, n int) string {
 	if err != nil {
 		// Somebody else finished first, which is a race worth losing: their
 		// tree was built by this function from the same loop.
-		if _, again := os.Stat(dir); again != nil {
+		_, again := os.Stat(dir)
+		if again != nil {
 			t.Fatalf("place the fixture: %v", err)
 		}
 	}
 
-	err = os.WriteFile(marker, []byte(fmt.Sprint(n)), 0o644)
+	err = os.WriteFile(marker, []byte(fmt.Sprint(n)), 0o600)
 	if err != nil {
 		t.Fatalf("mark the fixture complete: %v", err)
 	}

@@ -30,12 +30,14 @@ func TestAViewDigestsAStoreSharedAsRootTheWayAGuestSeesIt(t *testing.T) {
 	id := ir.NodeID{7}
 
 	root := filepath.Join(store, "layers", id.String())
-	if err := os.MkdirAll(filepath.Join(root, "bin"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "bin"), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	file := filepath.Join(root, "bin", "cat")
-	if err := os.WriteFile(file, []byte("#!/bin/sh\n"), 0o600); err != nil {
+	err = os.WriteFile(file, []byte("#!/bin/sh\n"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

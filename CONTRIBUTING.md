@@ -139,7 +139,7 @@ Since EarthBuild uses itself for running the tests (EarthBuild-in-EarthBuild), s
 embedded version of EarthBuild to use the cache via build-args:
 
 ```bash
-./build/*/*/earthly -P ./tests+all --DOCKERHUB_MIRROR=<ip-address-or-hostname>:<port> --DOCKERHUB_MIRROR_INSECURE=true
+./build/*/*/earth -P ./tests+all --DOCKERHUB_MIRROR=<ip-address-or-hostname>:<port> --DOCKERHUB_MIRROR_INSECURE=true
 ```
 
 or if you are using a plain http cache, use:

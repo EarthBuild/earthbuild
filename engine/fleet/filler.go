@@ -250,13 +250,15 @@ func place(from, to string, fi os.FileInfo) error {
 	// **The ancestors get the mode they have in the source, not 0o755.**
 	// `MkdirAll` invented every directory between the base root and this entry
 	// with a fixed mode, and only a directory that is *itself* faulted in ever
-	// got the right one. A lazy base therefore differed from an eager one by the
-	// modes of the directories nobody asked for - and §3.3 counts a mode among
-	// what a layer records, so the two produced different layers (E631).
+	// got the right one.
 	//
-	// It went unseen because 0o755 is what a fixture happens to write. Tightening
-	// some test trees to 0o750 made lazy and eager disagree, which is the whole
-	// property `TestARealStepOnALazyBaseProducesTheRightLayer` exists to assert.
+	// **This does not reach a layer, and the first version of this comment said
+	// it did.** A capture excludes what the engine placed, ancestors included,
+	// so their modes never enter an identity. What they do reach is the step:
+	// the sentence above this function is "a base assembled with the wrong modes
+	// is a base the step behaves differently against", and a directory invented
+	// at 0o755 where the source had 0o700 is a base the step can walk into and
+	// should not (E631, corrected in E632).
 	err := makeAncestors(from, to)
 	if err != nil {
 		return fmt.Errorf("make room for %s: %w", to, err)

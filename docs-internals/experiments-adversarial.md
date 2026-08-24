@@ -28498,3 +28498,48 @@ that does *not* leave can hand a later reader a value it would not have had. **E
 all eleven hold: two are production functions that return nothing and never read `err` again
 (`fragments.go`'s manifest write and `challenge.go`'s cache write, both best-effort), and nine are the
 last statement of a test. Nothing to fix, and now stated rather than suspected.
+
+## E632 - the correction: the failure was mine, and the engine was right
+
+E631 read a CI failure - a lazily materialised step producing a different layer from an eagerly
+materialised one - as a defect in `place`, fixed the ancestor modes, and said so. **The fix did not
+fix it.** The next run failed with two new digests, which is the shape of a change that did something
+and not the thing.
+
+*Reproduced in ten milliseconds, on this laptop, after three CI rounds.* The test is linux-only, so it
+had been left to CI - but the binary cross-compiles and Apple's `container` will run it:
+
+```bash
+    GOOS=linux GOARCH=arm64 go test -c -o /tmp/fleet.test ./engine/fleet/
+    container run --rm -v /tmp:/host -v "$PWD":/repo -w /repo/engine/fleet alpine:3.24.1 \
+        /host/fleet.test -test.run TestARealStepOnALazyBase -test.v
+```
+
+Three rounds of twenty-minute CI, and the loop was ten seconds away the whole time. **Linux-only is
+not the same as CI-only**, and I had been treating them as the same thing.
+
+*Then the answer, in two steps.* `Capture` carries `ID` and `Content`, and content excludes mtimes -
+so comparing both says whether two trees disagree about *when* or about *what*. They disagreed about
+what. A probe listing everything the capture would include printed one line:
+
+```text
+    PROBE captured: out    dir=false mode=644
+```
+
+The step's shell writes `out` through the umask, so 0644. The eager half of the test writes the same
+file to compare against - and **I had tightened it to 0600 in the `gosec` permission sweep.** The
+expected value was a mirror of what a shell produces, and I changed the mirror.
+
+*So the engine was right, twice.* The lazy path was correct, and E631's "defect" was a misreading of a
+failure I had caused two commits earlier. Worse, its stated mechanism cannot happen: **a capture
+excludes what the engine placed**, ancestors included, so an ancestor's mode never enters an identity
+at all. The comment I wrote in `place` asserting otherwise has been corrected in place rather than
+deleted, because the change itself still stands on the ground the function's original doc already
+gave - a base with the wrong modes is one the step behaves differently against, which is about the
+step and not about the layer.
+
+*What a permission sweep can break, stated for the next one.* A mode in a test is one of two things: a
+fixture the test owns, where tightening is free, or **a value that mirrors something else** - what a
+shell writes, what a source layer has, what a kernel returns. The second kind is an assertion wearing
+a permission, and there is no way to tell them apart by grepping for `0o644`. Every other swept
+package was re-run on linux the same way and passes; this was the only one.

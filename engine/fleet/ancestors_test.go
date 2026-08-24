@@ -9,13 +9,13 @@ import (
 // A lazily placed entry brings its ancestors' modes with it.
 //
 // **`MkdirAll(dir, 0o755)` invented them.** Only a directory that was itself
-// faulted in ever received its real mode, so a lazy base differed from an eager
-// one by the modes of the directories nobody asked for - and §3.3 counts a mode
-// among what a layer records, so the two produced different layers (E631).
+// faulted in ever received its real mode, so a lazily assembled base could let a
+// step walk into a directory the source had closed.
 //
-// It stayed hidden because 0o755 is what a fixture usually writes. Tightening
-// some test trees to 0o750 made lazy and eager disagree, which is exactly what
-// TestARealStepOnALazyBaseProducesTheRightLayer exists to notice.
+// It does *not* reach the layer: a capture excludes what the engine placed,
+// ancestors included, so their modes never enter an identity. The first version
+// of this test claimed otherwise and was wrong (E631, corrected in E632). What
+// it does reach is the step, which is what `place` says it is for.
 func TestAPlacedEntryBringsItsAncestorsModes(t *testing.T) {
 	t.Parallel()
 

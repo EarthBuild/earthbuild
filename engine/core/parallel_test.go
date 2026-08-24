@@ -83,22 +83,24 @@ func TestIndependentStepsRunConcurrently(t *testing.T) {
 		Blobs:    allBlobs{},
 	}
 
-	start := time.Now()
-
 	_, err := s.Run(context.Background(), g)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	elapsed := time.Since(start)
-
-	// Six steps of 80ms: serial is ~480ms, concurrent is base + leaves + merge,
-	// about 240ms. Generous bound, because this must not be flaky on a loaded
-	// machine - it is testing that concurrency happens at all, not how much.
-	if elapsed > 400*time.Millisecond {
-		t.Errorf("a fan of 4 independent steps took %v; steps are running serially", elapsed)
-	}
-
+	// **The clock is gone and the counter stays**, which is the same trade E350
+	// records for the fragment-cost test. A "serial is ~480ms, concurrent is
+	// ~240ms, so fail over 400ms" bound is a ratio of two clocks: it is a
+	// generous margin on an idle laptop and no margin at all on a machine
+	// running the rest of this suite, or in a container given two cores. It
+	// failed twice under full-suite load and once in Docker while the property
+	// it guards held perfectly.
+	//
+	// The property is "steps are not serialised", and `peak` answers that
+	// exactly - it is the number that were running at one moment, counted.
+	// Bounded below by 2 rather than by the number of leaves, because how many
+	// run at once is the scheduler's business and the machine's; that any two
+	// did is the claim.
 	if peak := e.peak.Load(); peak < 2 {
 		t.Errorf("at most %d step ran at a time; nothing was concurrent", peak)
 	}

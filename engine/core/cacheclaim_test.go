@@ -62,15 +62,22 @@ func TestALockedCacheDoesNotSpendTheBuildsParallelism(t *testing.T) {
 	// the answer is one base step. Twice, taking the slower: the load that
 	// matters is whatever the machine is doing *during* the run, and one
 	// baseline taken before a quiet moment is no baseline at all.
-	base := max(freeStartsAfter(t, 1, slots, step), freeStartsAfter(t, 1, slots, step))
-
-	// One base step, then everything is ready at once. Anything past another
-	// step and a half is a slot spent waiting rather than working - the same
-	// distance as the fixed bar, now relative to what this machine manages
-	// uncontended.
-	bar := base + step*3/2
-
+	//
+	// **Re-measured each round rather than once**, which is that same sentence
+	// followed all the way. A baseline taken before six rounds is a baseline
+	// taken before a quiet moment as soon as the machine gets busy in round
+	// three - and this failed exactly once that way, in a full-suite run, while
+	// the property it guards held. The pair is now adjacent in time: whatever
+	// the machine is doing, it is doing it to both.
 	for range repeats {
+		base := max(freeStartsAfter(t, 1, slots, step), freeStartsAfter(t, 1, slots, step))
+
+		// One base step, then everything is ready at once. Anything past
+		// another step and a half is a slot spent waiting rather than working -
+		// the same distance as the fixed bar, now relative to what this machine
+		// manages uncontended, a moment ago.
+		bar := base + step*3/2
+
 		if at := freeStartsAfter(t, users, slots, step); at > bar {
 			t.Fatalf("the step needing no cache started %v in, and %v uncontended"+
 				"\n  %d steps queueing on one cache are holding slots while they"+

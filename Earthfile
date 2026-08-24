@@ -909,6 +909,13 @@ for-linux:
     BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
+    # The agent goes with it. `--engine=native` runs the step inside a sandbox
+    # and `earth-guestd` is what runs in there, looked for beside this binary or
+    # at $EARTH_GUESTD - so a CLI shipped on its own reports "cannot find
+    # earth-guestd" the first time anybody selects the engine, which is what
+    # `+ci-release` did the moment native became the default.
+    COPY (+native-engine/earth-guestd --GOOS=linux --GOARCH=amd64) ./
+    SAVE ARTIFACT ./earth-guestd AS LOCAL ./build/linux/amd64/earth-guestd
 
 # for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
@@ -921,6 +928,9 @@ for-linux-arm64:
     BUILD --platform=linux/arm64 +build-ticktock
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
+    # The agent goes with it; see +for-linux.
+    COPY (+native-engine/earth-guestd --GOOS=linux --GOARCH=arm64) ./
+    SAVE ARTIFACT ./earth-guestd AS LOCAL ./build/linux/arm64/earth-guestd
 
 # for-darwin builds earthly-buildkitd and the earthly CLI for the a darwin amd64 system
 # and saves the final CLI binary locally in the ./build/darwin folder.

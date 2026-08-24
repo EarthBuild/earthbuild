@@ -35,7 +35,8 @@ func TestTwoMountDirectoriesAreNeverTheSame(t *testing.T) {
 	// Enough to catch a scheme that repeats after a few, and cheap: these are
 	// directories, not mounts.
 	for range 64 {
-		d, err := os.MkdirTemp(root, mountPrefix) //nolint:usetesting // under root, with the engine's prefix: both are what is under test
+		//nolint:usetesting // under root, with the engine's prefix: both are what is under test
+		d, err := os.MkdirTemp(root, mountPrefix)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -63,12 +64,14 @@ func TestANewMountAvoidsWhatIsLeftBehind(t *testing.T) {
 
 	root := t.TempDir()
 
-	dead, err := os.MkdirTemp(root, mountPrefix) //nolint:usetesting // under root, with the engine's prefix: both are what is under test
+	//nolint:usetesting // under root, with the engine's prefix: both are what is under test
+	dead, err := os.MkdirTemp(root, mountPrefix)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	live, err := os.MkdirTemp(root, mountPrefix) //nolint:usetesting // under root, with the engine's prefix: both are what is under test
+	//nolint:usetesting // under root, with the engine's prefix: both are what is under test
+	live, err := os.MkdirTemp(root, mountPrefix)
 	if err != nil {
 		t.Fatal(err)
 	}

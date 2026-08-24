@@ -32,7 +32,9 @@ import (
 // what is at risk is everything below the cut, and a test that looked at the
 // last file written would pass against an engine that had thrown away the first
 // sixty.
-func TestABuildDeeperThanTheMountStillKeepsItsBase(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestABuildDeeperThanTheMountStillKeepsItsBase(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}

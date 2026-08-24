@@ -297,7 +297,8 @@ func place(from, to string, fi os.FileInfo) error {
 
 	defer func() { _ = src.Close() }()
 
-	dst, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode().Perm()) //nolint:gosec // a path this engine composed
+	//nolint:gosec // a path this engine composed
+	dst, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode().Perm())
 	if err != nil {
 		return fmt.Errorf("place %s: %w", to, err)
 	}

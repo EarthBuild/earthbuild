@@ -262,7 +262,8 @@ func writeEntry(
 		return err
 	}
 
-	err = os.MkdirAll(filepath.Dir(target), 0o755) //nolint:gosec // a mode a build decided: 0750 would alter the layer, and §3.3 lists a mode among what a layer records
+	//nolint:gosec // a mode a build decided; §3.3 counts it as part of the layer
+	err = os.MkdirAll(filepath.Dir(target), 0o755)
 	if err != nil {
 		return fmt.Errorf("create the parent of %q: %w", h.Name, err)
 	}
@@ -285,7 +286,8 @@ func writeEntry(
 	switch h.Typeflag {
 	case tar.TypeDir:
 		// Permissive now, the archive's mode later: see applyDirModes.
-		err := os.MkdirAll(target, 0o755) //nolint:gosec // a mode a build decided: 0750 would alter the layer, and §3.3 lists a mode among what a layer records
+		//nolint:gosec // a mode a build decided; §3.3 counts it as part of the layer
+		err := os.MkdirAll(target, 0o755)
 		if err != nil {
 			return fmt.Errorf("create directory %q: %w", h.Name, err)
 		}
@@ -409,7 +411,8 @@ func replacing(h *tar.Header, target string, written map[string]bool, folded map
 }
 
 func writeFile(tr *tar.Reader, h *tar.Header, target string) error {
-	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(h.Mode)) //nolint:gosec // the archive's mode
+	//nolint:gosec // the archive's mode
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(h.Mode))
 	if err != nil {
 		return fmt.Errorf("create %q: %w", h.Name, err)
 	}

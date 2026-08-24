@@ -21,7 +21,10 @@ import (
 func TestNoCommandSwallowsItsOwnFlags(t *testing.T) {
 	t.Parallel()
 
-	ctx := ctxWith(t, map[string]string{testSourceFile: "x\n", testLibEarthfile: versioned + "\nthing:\n    FROM alpine\n"})
+	ctx := ctxWith(t, map[string]string{
+		testSourceFile:   "x\n",
+		testLibEarthfile: versioned + "\nthing:\n    FROM alpine\n",
+	})
 
 	// witness is a word from the construct itself, which must be somewhere in
 	// the plan. The assertions below are all *negative* - the flag must not
@@ -111,7 +114,9 @@ func TestNoCommandSwallowsItsOwnFlags(t *testing.T) {
 func TestImportFlagsAreNotThePath(t *testing.T) {
 	t.Parallel()
 
-	ctx := ctxWith(t, map[string]string{testLibEarthfile: versioned + "\nthing:\n    FROM alpine:3.22\n    RUN in-the-lib\n"})
+	ctx := ctxWith(t, map[string]string{
+		testLibEarthfile: versioned + "\nthing:\n    FROM alpine:3.22\n    RUN in-the-lib\n",
+	})
 
 	p, err := interp.Build(versioned+
 		"\nIMPORT --allow-privileged ./lib AS lib\n\nmain:\n    FROM lib+thing\n",

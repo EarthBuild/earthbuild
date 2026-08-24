@@ -146,6 +146,22 @@ linters:
       - path: (engine/trace/|engine/nstest/)
         linters:
           - paralleltest
+      # The catalogue's anchors are source snippets quoted verbatim, and a
+      # snippet is one line because the line it quotes is one line. Wrapping the
+      # literal would change the string, and the string is the thing that has to
+      # match the source it mutates - `TestEveryAnchorStillMatchesItsSource`
+      # would say so immediately.
+      - path: tools/mutate/catalogue\.go
+        linters:
+          - lll
+      # The long lines left in these two are *inside* raw string literals: the
+      # CLI's help text, and a fixture Earthfile quoted in a test. A line-level
+      # directive cannot go in one - it would print, which was demonstrated by
+      # putting it there - and wrapping the string changes what a user reads or
+      # what the fixture builds.
+      - path: (cmd/earth/subcmd/(config|prune)_cmds\.go|engine/cli/oracle_test\.go)
+        linters:
+          - lll
   settings:
     govet:
       enable-all: true

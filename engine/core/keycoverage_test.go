@@ -158,7 +158,8 @@ func TestEveryObservationFieldReachesTheObservedKey(t *testing.T) {
 				}
 
 				n := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: []string{"x"}}}
-				keys[which] = core.DeriveObservedKey(n, nil, obs.Interface().(core.Observation)) //nolint:forcetypeassert // constructed
+				//nolint:forcetypeassert // constructed
+				keys[which] = core.DeriveObservedKey(n, nil, obs.Interface().(core.Observation))
 			}
 
 			if keys[0] == keys[1] {

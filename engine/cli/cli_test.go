@@ -87,7 +87,9 @@ func TestUnknownTargetListsWhatExists(t *testing.T) { //nolint:paralleltest // b
 
 // An unsupported construct is refused before anything runs, and says which
 // engine can do it. This is I10 reaching the person at the terminal.
-func TestUnsupportedConstructIsRefusedWithAnAlternative(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestUnsupportedConstructIsRefusedWithAnAlternative(t *testing.T) {
 	// `RUN --privileged`, because LOCALLY and now WITH DOCKER are supported. The
 	// construct here only has to be one the engine genuinely cannot evaluate,
 	// and this test has outlived two of them - which is the point of it.
@@ -108,7 +110,9 @@ func TestUnsupportedConstructIsRefusedWithAnAlternative(t *testing.T) { //nolint
 // DryRun resolves the whole build - parse, context digests, graph - without a
 // sandbox, which is what makes these tests runnable anywhere and what a user
 // wants when checking an Earthfile on a machine with no VM.
-func TestDryRunReportsThePlanWithoutRunningIt(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestDryRunReportsThePlanWithoutRunningIt(t *testing.T) {
 	dir := project(t, `VERSION 0.8
 
 build:

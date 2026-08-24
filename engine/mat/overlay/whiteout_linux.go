@@ -228,7 +228,8 @@ func translate(src, dst string) error {
 			// The directory holding it replaces the one below, which overlayfs
 			// reads as an attribute rather than as a file. The marker itself
 			// must not survive into the merged view.
-			return unix.Lsetxattr(filepath.Dir(target), opaqueXattr(needsUserXattr(dst)), []byte("y"), 0) //nolint:wrapcheck // named by the caller
+			//nolint:wrapcheck // named by the caller
+			return unix.Lsetxattr(filepath.Dir(target), opaqueXattr(needsUserXattr(dst)), []byte("y"), 0)
 
 		case strings.HasPrefix(d.Name(), whPrefix):
 			// `.wh.<name>` means <name> was deleted: a character device 0:0

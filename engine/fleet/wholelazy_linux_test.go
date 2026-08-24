@@ -83,7 +83,8 @@ func TestARealStepOnALazyBaseProducesTheRightLayer(t *testing.T) {
 	// Tightening it for gosec made the eager side a file the lazy side could
 	// never be, and the comparison then failed for the fixture's reason rather
 	// than the engine's (E632).
-	err = os.WriteFile(filepath.Join(whole, "out"), []byte("made by the step\n"), 0o644) //nolint:gosec // mirrors what the step wrote
+	//nolint:gosec // mirrors what the step wrote
+	err = os.WriteFile(filepath.Join(whole, "out"), []byte("made by the step\n"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

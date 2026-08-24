@@ -169,7 +169,9 @@ func buildGuestd(t *testing.T) string {
 // `[ -f /flag ]` after a step that writes /flag is the case the host backend
 // cannot do at all: the file does not exist when the plan is made, so nothing
 // short of executing the prefix can decide it. Green paper §3.4a, end to end.
-func TestASandboxedConditionIsDecidedByRunningIt(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestASandboxedConditionIsDecidedByRunningIt(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -350,7 +352,9 @@ build:
 // Before the flag was parsed it *became* the artifact's path, so the build
 // exported a file called `--if-exists` and treated the real path as the
 // destination - the wrong file, in the wrong place, reported as success.
-func TestSaveArtifactIfExistsSkipsWhatIsAbsent(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestSaveArtifactIfExistsSkipsWhatIsAbsent(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -409,7 +413,9 @@ build:
 // value is entirely in what happens *after* something goes wrong, and a
 // simulator cannot vouch for it - whether a failed step's filesystem survives
 // to be exported is a question only a real sandbox answers.
-func TestTrySavesTheFailedStepsArtifactAndStillFails(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestTrySavesTheFailedStepsArtifactAndStillFails(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -466,7 +472,9 @@ build:
 // with skopeo rather than with this engine's own reader, because the layout
 // exists to be handed to something else and only something else can say whether
 // it is right.
-func TestABuildWritesAnImageAnotherToolCanRead(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestABuildWritesAnImageAnotherToolCanRead(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -867,7 +875,9 @@ build:
 // in the image - shipped, pushed, and public. Mounting it from outside the
 // overlay is what prevents that, and this is the only way to know it worked:
 // the step reads the secret, and the layer it produced does not contain it.
-func TestASecretReachesTheStepAndNotTheLayer(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestASecretReachesTheStepAndNotTheLayer(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -954,7 +964,9 @@ build:
 // different trap: `Op.Env` is hashed, so a value placed there would be in the
 // cache key - written to disk, shared between machines, and impossible to
 // retract. The node records the *name*; the value is added at execution.
-func TestASecretEnvReachesTheStepAndNotTheCache(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestASecretEnvReachesTheStepAndNotTheCache(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -1032,7 +1044,9 @@ build:
 // `--persist` asks for the contents to be in the image as well, which is why it
 // is copied rather than bound. A test that only checked persistence would pass
 // against a plain bind and prove nothing about the flag.
-func TestAPersistedCacheIsInTheImageAndSurvives(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+//
+//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestAPersistedCacheIsInTheImageAndSurvives(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}

@@ -301,7 +301,8 @@ func copyTree(src, dst string, opts copyOpts) error {
 				}
 			}
 
-			err := os.MkdirAll(target, 0o755) //nolint:gosec // a mode a build decided: 0750 would alter the layer, and §3.3 lists a mode among what a layer records
+			//nolint:gosec // a mode a build decided; §3.3 counts it as part of the layer
+			err := os.MkdirAll(target, 0o755)
 			if err != nil {
 				return fmt.Errorf("create %s: %w", target, err)
 			}

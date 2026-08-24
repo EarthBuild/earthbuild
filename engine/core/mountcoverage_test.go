@@ -51,10 +51,14 @@ func TestEveryMountFieldReachesTheKey(t *testing.T) {
 					m.FieldByName("Target").SetString([]string{"/a", "/b"}[which])
 				}
 
+				mount, ok := m.Interface().(ir.Mount)
+				if !ok {
+					t.Fatalf("this guard built a %T rather than a mount", m.Interface())
+				}
+
 				op := ir.Op{
 					Kind: ir.OpExec, Args: []string{"make"},
-					// constructed from ir.Mount
-					Mounts: []ir.Mount{m.Interface().(ir.Mount)},
+					Mounts: []ir.Mount{mount},
 				}
 
 				keys[which] = core.DeriveChainKey(&ir.Node{Op: op}, nil, nil)

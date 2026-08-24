@@ -26,7 +26,7 @@ func (u *unobtainable) Run(
 		if id == u.missing && !u.refused {
 			u.refused = true
 
-			return core.Result{}, core.MissingInput{Layer: id}
+			return core.Result{}, core.MissingInputError{Layer: id}
 		}
 	}
 
@@ -120,7 +120,7 @@ func TestARebuildIsAttemptedOnceAndThenTheFailureStands(t *testing.T) {
 		t.Fatal("an input that is never obtainable produced a successful build")
 	}
 
-	if !errors.As(err, &core.MissingInput{}) && !errors.Is(err, core.ErrInputMissing) {
+	if !errors.As(err, &core.MissingInputError{}) && !errors.Is(err, core.ErrInputMissing) {
 		t.Errorf("%v\n  the reported failure should still say what could not be"+
 			" obtained", err)
 	}
@@ -144,7 +144,7 @@ func (a *alwaysMissing) Run(
 
 	for _, id := range base {
 		if id == a.missing {
-			return core.Result{}, core.MissingInput{Layer: id}
+			return core.Result{}, core.MissingInputError{Layer: id}
 		}
 	}
 

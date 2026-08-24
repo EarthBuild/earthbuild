@@ -92,7 +92,7 @@ func (f *faultingExec) Run(
 	f.predicted = append(f.predicted, n.Meta.ReadsPredicted)
 
 	if f.always || f.runs == 1 {
-		return core.Result{}, core.MissingInput{
+		return core.Result{}, core.MissingInputError{
 			Layer: f.missing,
 			Path:  f.path,
 			Where: "read and not predicted",

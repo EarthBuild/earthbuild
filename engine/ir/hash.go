@@ -37,8 +37,6 @@ func NewHasher() *Hasher {
 // wrong is not a formatting matter: a non-injective encoding maps two distinct
 // steps to one key, which is a false cache hit (I3).
 type Hasher struct {
-	h hash.Hash
-
 	// Encoder is the encoding itself, which is the same one the wire uses.
 	//
 	// Separated because §1.4's injective encoding and Appendix B.1's canonical
@@ -46,6 +44,8 @@ type Hasher struct {
 	// drifts. A hasher is that encoding with a hash on the end of it; an
 	// assignment on the wire is the same bytes into a buffer.
 	Encoder
+
+	h hash.Hash
 }
 
 // Encoder writes the canonical encoding of green paper B.1.

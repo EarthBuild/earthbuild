@@ -478,7 +478,7 @@ func runPlan(
 	// FINALLY declared still has to be exported - which is the entire point of
 	// TRY. Returning here would fail the build correctly and throw away the one
 	// thing it exists to keep.
-	var tolerated *core.ToleratedFailure
+	var tolerated *core.ToleratedFailureError
 
 	if runErr != nil && !errors.As(runErr, &tolerated) {
 		// The step's own diagnostic is the useful part and already names the

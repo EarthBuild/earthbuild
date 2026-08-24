@@ -212,7 +212,7 @@ func TestTheDriverNamesItselfLastAmongHolders(t *testing.T) {
 
 // A layer that cannot be brought back is reported as missing, not as broken.
 //
-// The scheduler answers `MissingInput` by rebuilding whatever made the layer
+// The scheduler answers `MissingInputError` by rebuilding whatever made the layer
 // (E278); it answers a plain error by failing the build. So the distinction is
 // the whole difference between a fleet that degrades and a fleet that is a
 // single point of failure, and it has to be made here - the driver is the party
@@ -252,7 +252,7 @@ func TestALayerThatCannotBeBroughtBackIsReportedAsMissing(t *testing.T) {
 		t.Fatal("a step ran without a base nobody could supply")
 	}
 
-	var missing core.MissingInput
+	var missing core.MissingInputError
 	if !errors.As(err, &missing) {
 		t.Fatalf("%v\n  reported as a failure rather than as a layer that has"+
 			" to be made again; the scheduler can only act on the second", err)

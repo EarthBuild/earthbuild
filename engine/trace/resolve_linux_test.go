@@ -82,17 +82,9 @@ func TestAtFdcwdResolvesAgainstTheWorkingDirectory(t *testing.T) {
 
 	// Process-wide, so this test cannot be parallel - and neither can it be,
 	// since it installs a filter.
-	was, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.Chdir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Cleanup(func() { _ = os.Chdir(was) })
+	// t.Chdir puts the working directory back when the test ends, which is
+	// what the manual Getwd-and-restore pair here used to do by hand.
+	t.Chdir(dir)
 
 	seen := watch(t, func() {
 		fd, openatErr := unix.Openat(unix.AT_FDCWD, name, unix.O_RDONLY, 0)

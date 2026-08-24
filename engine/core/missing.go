@@ -10,7 +10,7 @@ import (
 // ErrInputMissing marks a step that could not be given something it stands on.
 var ErrInputMissing = errors.New("an input could not be obtained")
 
-// MissingInput says which layer an executor could not get hold of.
+// MissingInputError says which layer an executor could not get hold of.
 //
 // **Not the same as a layer that does not exist.** A worker went behind a
 // firewall, a machine left the fleet, a network went away - and the step that
@@ -21,7 +21,7 @@ var ErrInputMissing = errors.New("an input could not be obtained")
 //
 // An executor returns it instead of a failure, and the scheduler answers by
 // rebuilding whatever made the layer, here.
-type MissingInput struct {
+type MissingInputError struct {
 	// Layer is what could not be obtained.
 	Layer ir.NodeID
 	// Path is the file the step wanted and was not given, when the executor
@@ -41,7 +41,7 @@ type MissingInput struct {
 	Where string
 }
 
-func (m MissingInput) Error() string {
+func (m MissingInputError) Error() string {
 	at := ""
 	if m.Path != "" {
 		at = " at " + m.Path
@@ -55,7 +55,7 @@ func (m MissingInput) Error() string {
 }
 
 // Is makes errors.Is(err, ErrInputMissing) true for this.
-func (m MissingInput) Is(target error) bool { return target == ErrInputMissing }
+func (m MissingInputError) Is(target error) bool { return target == ErrInputMissing }
 
 // producerOf is the node whose result is this layer.
 //

@@ -9,7 +9,7 @@ import (
 
 var (
 	isoOnce sync.Once
-	isoErr  error
+	errIso  error
 )
 
 // NeedsIsolation skips when this process cannot create the namespaces a
@@ -50,10 +50,10 @@ func NeedsIsolation(t *testing.T) bool {
 		return false
 	}
 
-	isoOnce.Do(func() { isoErr = CanIsolate() })
+	isoOnce.Do(func() { errIso = CanIsolate() })
 
-	if isoErr != nil {
-		t.Skipf("this machine cannot isolate a step: %v", isoErr)
+	if errIso != nil {
+		t.Skipf("this machine cannot isolate a step: %v", errIso)
 	}
 
 	return true

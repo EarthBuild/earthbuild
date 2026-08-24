@@ -51,7 +51,11 @@ func relayPipes(t *testing.T) (host twoWay, relay twoWay) {
 func shortSocketPath(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp("/tmp", "efs")
+	// **`/tmp` on purpose, not for want of `t.TempDir`.** A unix socket's path
+	// lives in `sun_path`, which is 108 bytes; `t.TempDir` builds one out of
+	// the test's full name and overruns that on any test named descriptively.
+	// The function is called shortSocketPath for this reason.
+	dir, err := os.MkdirTemp("/tmp", "efs") //nolint:usetesting // see above
 	if err != nil {
 		t.Fatal(err)
 	}

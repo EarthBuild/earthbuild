@@ -681,7 +681,7 @@ const faultRounds = 4
 func (c *runnerCfg) faultIn(
 	ctx context.Context, a *Assignment, n *ir.Node, why error,
 ) (moved Transfer, again bool, err error) {
-	var miss core.MissingInput
+	var miss core.MissingInputError
 
 	if c.frags != nil && errors.As(why, &miss) && miss.Path != "" {
 		a.Hints.ReadsPredicted = append(a.Hints.ReadsPredicted, miss.Path)

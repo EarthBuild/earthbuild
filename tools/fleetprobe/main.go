@@ -615,7 +615,7 @@ func (m *making) Run(
 	// mechanism under measurement is what tells the two attempts apart and this
 	// needs no memory of which step it is.
 	if m.miss > 0 && len(n.Meta.ReadsPredicted) > 0 && seq%m.miss == 0 {
-		return core.Result{}, core.MissingInput{
+		return core.Result{}, core.MissingInputError{
 			Layer: baseOf(base),
 			// A file the base has and the prediction did not name, which is
 			// what a misprediction looks like: not a missing file, a file

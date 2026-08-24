@@ -15,6 +15,7 @@ import (
 // slowFetch answers after a while, so a transfer can be seen to overlap.
 type slowFetch struct {
 	*fleet.LayerSource
+
 	wait time.Duration
 
 	mu   sync.Mutex

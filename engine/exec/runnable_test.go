@@ -86,7 +86,8 @@ func TestAnOrdinaryFailureIsNotExplainedAway(t *testing.T) {
 
 	in := errors.New("exit status 1")
 
-	if got := exec.ExplainExec(in, testPlatform, "Earthfile:7"); !errors.Is(got, in) {
+	got := exec.ExplainExec(in, testPlatform, "Earthfile:7")
+	if !errors.Is(got, in) {
 		t.Errorf("an ordinary failure was rewritten as %v", got)
 	}
 }

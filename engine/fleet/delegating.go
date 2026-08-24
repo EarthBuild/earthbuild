@@ -418,7 +418,7 @@ func (d *Delegating) bringBack(
 	// for the layer to be made again, here.
 	for _, id := range append(append([]ir.NodeID{}, base...), flatten(sources)...) {
 		if at := d.held.where(id); at != "" && !d.Store.Has(id) {
-			return core.MissingInput{Layer: id, Where: at}
+			return core.MissingInputError{Layer: id, Where: at}
 		}
 	}
 

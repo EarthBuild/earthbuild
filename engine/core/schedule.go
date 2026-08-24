@@ -581,7 +581,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	// had to run has run - the first one, because it is the one that happened
 	// and the others may only be its consequences.
 	if len(s.tolerated) > 0 {
-		return s.sched, &ToleratedFailure{StepError: s.tolerated[0]}
+		return s.sched, &ToleratedFailureError{StepError: s.tolerated[0]}
 	}
 
 	return s.sched, nil
@@ -891,7 +891,7 @@ func (s *Scheduler) runStep(
 
 	res, err := s.runStepOnce(ctx, n, w, base, sources)
 
-	var missing MissingInput
+	var missing MissingInputError
 	if !errors.As(err, &missing) || !s.rebuild(ctx, missing.Layer) {
 		return res, err
 	}

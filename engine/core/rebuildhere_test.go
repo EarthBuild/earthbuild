@@ -36,7 +36,7 @@ func (e *ranOn) Run(
 	if !e.done && len(n.Inputs) == 1 && n.Inputs[0].ID() == e.miss {
 		e.done = true
 
-		return core.Result{}, core.MissingInput{Layer: e.miss}
+		return core.Result{}, core.MissingInputError{Layer: e.miss}
 	}
 
 	return core.Result{Layer: n.ID(), Captured: true}, nil

@@ -66,7 +66,7 @@ func (e *StepError) Error() string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// ToleratedFailure is a step that failed without stopping the build where it
+// ToleratedFailureError is a step that failed without stopping the build where it
 // happened: TRY.
 //
 // A separate type because the caller has to treat it differently, and the
@@ -75,9 +75,9 @@ func (e *StepError) Error() string {
 // the build fails. Returning a plain StepError made the CLI stop before
 // exporting, so the artifact from the failed step was discarded: the build
 // failed correctly and lost the one thing TRY exists to keep.
-type ToleratedFailure struct {
+type ToleratedFailureError struct {
 	*StepError
 }
 
 // Unwrap lets a caller that only cares that a step failed find the StepError.
-func (e *ToleratedFailure) Unwrap() error { return e.StepError }
+func (e *ToleratedFailureError) Unwrap() error { return e.StepError }

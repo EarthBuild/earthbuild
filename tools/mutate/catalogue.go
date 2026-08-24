@@ -897,7 +897,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: reporting an unreachable layer as missing, not broken (E278)",
 		File:        "engine/fleet/delegating.go",
-		Anchor:      "\t\t\treturn core.MissingInput{Layer: id, Where: at}",
+		Anchor:      "\t\t\treturn core.MissingInputError{Layer: id, Where: at}",
 		Replacement: "\t\t\treturn fmt.Errorf(\"cannot get %v\", id)",
 		Package:     "./engine/fleet/",
 	},

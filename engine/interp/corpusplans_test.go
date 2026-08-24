@@ -28,7 +28,7 @@ type plannedFile struct {
 var (
 	corpusPlansOnce sync.Once
 	corpusPlansAll  []plannedFile
-	corpusPlansErr  error
+	errCorpusPlans  error
 	corpusPlansRoot string
 )
 
@@ -66,8 +66,8 @@ func corpusPlans(t *testing.T) []plannedFile {
 
 	corpusPlansOnce.Do(buildCorpusPlans)
 
-	if corpusPlansErr != nil {
-		t.Fatal(corpusPlansErr)
+	if errCorpusPlans != nil {
+		t.Fatal(errCorpusPlans)
 	}
 
 	return corpusPlansAll
@@ -84,7 +84,7 @@ func buildCorpusPlans() {
 	for _, f := range earthfilesUnder(root) {
 		src, readErr := os.ReadFile(f)
 		if readErr != nil {
-			corpusPlansErr = readErr
+			errCorpusPlans = readErr
 
 			return
 		}

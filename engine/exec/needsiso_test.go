@@ -26,10 +26,10 @@ func needsIsolation(t *testing.T) bool {
 		return false
 	}
 
-	isoOnce.Do(func() { isoErr = guest.CanIsolate() })
+	isoOnce.Do(func() { errIso = guest.CanIsolate() })
 
-	if isoErr != nil {
-		t.Skipf("this machine cannot isolate a step: %v", isoErr)
+	if errIso != nil {
+		t.Skipf("this machine cannot isolate a step: %v", errIso)
 	}
 
 	return true
@@ -37,5 +37,5 @@ func needsIsolation(t *testing.T) bool {
 
 var (
 	isoOnce sync.Once
-	isoErr  error
+	errIso  error
 )

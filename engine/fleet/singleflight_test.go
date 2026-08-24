@@ -135,6 +135,7 @@ func TestAStepThatNeedsNothingDoesNotWaitForATransfer(t *testing.T) {
 // slowSource answers, eventually.
 type slowSource struct {
 	*fleet.LayerSource
+
 	wait time.Duration
 }
 

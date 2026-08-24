@@ -619,8 +619,9 @@ build:
 	// --insecure-policy because skopeo wants a signature-trust policy file that
 	// a developer machine has no reason to have, and the question here is
 	// whether the image runs rather than who signed it.
-	if b, commandErr := osexec.Command(skopeo, "copy", "--insecure-policy",
-		"oci:"+layout+":"+name, "docker-daemon:"+name).CombinedOutput(); commandErr != nil {
+	b, commandErr := osexec.Command(skopeo, "copy", "--insecure-policy",
+		"oci:"+layout+":"+name, "docker-daemon:"+name).CombinedOutput()
+	if commandErr != nil {
 		t.Fatalf("the image would not load: %v\n%s", commandErr, b)
 	}
 

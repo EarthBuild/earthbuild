@@ -115,3 +115,40 @@ func TestAProbeSaysWhichStepFailed(t *testing.T) {
 		}
 	}
 }
+
+// A probe that failed silently still says something.
+//
+// The worst case for a diagnostic is the one that produced nothing: a step that
+// exited non-zero having written not a byte. The message then reads
+//
+//	ENV at Earthfile:862: "..." exited 128
+//
+// followed by an empty line, and a reader has a number and nowhere to go. It
+// happened, in CI, and cost three passes of reading logs that could not have
+// answered the question.
+//
+// So where there is no output, say what is known instead: which step, what it
+// ran, and that it said nothing - because "the command printed nothing" is
+// itself a fact worth having, and it rules out half of what a reader would
+// otherwise go and check.
+func TestASilentFailureStillSaysSomething(t *testing.T) {
+	t.Parallel()
+
+	run := func(context.Context, *ir.Graph) (string, error) {
+		// The probe itself, so Source matches where: nothing to attribute
+		// elsewhere, and nothing printed.
+		return "", &core.StepError{Source: "Earthfile:862", Desc: "IF cat x", Exit: 128}
+	}
+
+	base := &ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{"alpine"}}}
+
+	res, err := decideByRunning(context.Background(), run, []string{"cat", "x"}, base, "/", "Earthfile:862")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(res.Output) == "" {
+		t.Error("a step that failed silently produced an empty explanation," +
+			" which is a number and nowhere to go")
+	}
+}

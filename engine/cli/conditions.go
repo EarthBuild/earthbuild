@@ -114,11 +114,29 @@ func decideByRunning(
 		// fifteen seconds in, on a base that takes minutes, and said its ENV
 		// had exited 128.
 		//
-		// Only when it is a different step. Where the probe itself failed, its
-		// command is already in the caller's message and repeating it is noise.
-		if stepErr.Source != "" && stepErr.Source != where {
-			said = stepErr.Source + ": " + stepErr.Desc + " exited " +
-				strconv.Itoa(stepErr.Exit) + "\n  " + said
+		// Named when it is a different step, because then the caller's message
+		// points at the wrong line. Named *also* when there is no output at
+		// all, whichever step it was: "exited 128" followed by an empty line is
+		// a number and nowhere to go, and that this step printed nothing is
+		// itself a fact - it rules out half of what a reader would otherwise
+		// go and check.
+		switch elsewhere := stepErr.Source != "" && stepErr.Source != where; {
+		case elsewhere:
+			at := stepErr.Source + ": " + stepErr.Desc + " exited " +
+				strconv.Itoa(stepErr.Exit)
+			if strings.TrimSpace(said) == "" {
+				at += ", and printed nothing"
+			} else {
+				at += "\n  " + said
+			}
+
+			said = at
+
+		case strings.TrimSpace(said) == "":
+			// The probe itself, so the caller has already named the command and
+			// the line. All that is left to say is the thing a reader cannot
+			// see: that it said nothing.
+			said = "it printed nothing"
 		}
 
 		return interp.Result{Exit: stepErr.Exit, Output: said}, nil

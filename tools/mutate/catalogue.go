@@ -2861,7 +2861,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "cli: the build scheduling over the fleet it joined (E500)",
 		File:        "engine/cli/cli.go",
-		Anchor:      "\tif g.fleetEx == nil {\n\t\treturn local, workers\n\t}",
+		Anchor:      "\tif fleetEx == nil {\n\t\treturn local, workers\n\t}",
 		Replacement: "\tif true {\n\t\treturn local, workers\n\t}",
 		Package:     "./engine/cli/",
 	},

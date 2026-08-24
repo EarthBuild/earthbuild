@@ -778,6 +778,13 @@ earthly-docker:
     FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
     ENV EARTHLY_IMAGE=true
+    # **This image is a buildkitd, so its CLI speaks to it.** The entrypoint
+    # starts that daemon; a CLI in here defaulting to the native engine would
+    # boot a daemon it never used, and refuse every remote target - the native
+    # engine builds only from a checkout. The workflow sets EARTH_ENGINE for the
+    # job, and a job's environment does not cross into `docker run`, so the
+    # image is the only thing that can say this about itself.
+    ENV EARTH_ENGINE=buildkit
     # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based

@@ -87,9 +87,9 @@ func DigestOf(b []byte) string {
 func sortedEntries(root string) ([]string, error) {
 	var names []string
 
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 
 		if p == root {

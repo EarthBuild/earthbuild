@@ -365,9 +365,9 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 		inodes = map[uint64]string{}
 	)
 
-	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 
 		rel, err := filepath.Rel(root, p)

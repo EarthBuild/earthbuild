@@ -186,9 +186,9 @@ func (t *translator) use(src, id string) (string, error) {
 func hasMarkers(dir string) (bool, error) {
 	found := false
 
-	err := filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	err := filepath.WalkDir(dir, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 
 		if !d.IsDir() && strings.HasPrefix(d.Name(), whPrefix) {
@@ -208,9 +208,9 @@ func hasMarkers(dir string) (bool, error) {
 
 // translate copies a layer, turning its markers into what overlayfs reads.
 func translate(src, dst string) error {
-	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	return filepath.WalkDir(src, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 
 		rel, err := filepath.Rel(src, p)

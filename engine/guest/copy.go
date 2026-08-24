@@ -262,9 +262,15 @@ func copyTree(src, dst string, opts copyOpts) error {
 	// name for one inode is linked rather than copied.
 	seen := map[fileID]string{}
 
-	err := filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	// `walkErr` rather than `err`, because everything inside this callback that
+	// touches the filesystem declares an `err` of its own and every one of them
+	// shadowed the parameter (govet shadow). Six sightings in one function, all
+	// harmless and all noise - the parameter is checked here and dead
+	// afterwards, so naming it for what it is says that once instead of six
+	// times.
+	err := filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 
 		rel, err := filepath.Rel(src, p)

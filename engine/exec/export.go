@@ -285,9 +285,9 @@ type excluder interface{ Excludes(rel string) bool }
 // thousand fixture files into gitignored `testdata/`, every one of them named by
 // `.earthlyignore`, and every native build copied all of them.
 func copyDirExcluding(src, dst string, ex excluder) error {
-	return filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	return filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 
 		rel, err := filepath.Rel(src, p)

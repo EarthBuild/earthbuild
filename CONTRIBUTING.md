@@ -132,7 +132,7 @@ DOCKERHUB_PASS=<my-docker-password-or-token>
 
 ### Running tests with an insecure pull through cache
 
-The [Insecure Docker Hub Cache Example](https://docs.earthly.dev/ci-integration/pull-through-cache#insecure-docker-hub-cache-example), provides a guide on both
+The [Insecure Docker Hub Cache Example](https://docs.earthbuild.dev/ci-integration/pull-through-cache#insecure-docker-hub-cache-example), provides a guide on both
 running an insecure docker hub pull through cache as well as configuring EarthBuild to use that cache.
 
 Since EarthBuild uses itself for running the tests (EarthBuild-in-EarthBuild), simply configuring `~/.earth/config.yml`[^dir] is insufficient -- one must also configure the

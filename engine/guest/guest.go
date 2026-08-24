@@ -1403,6 +1403,26 @@ func (h *remoteHandle) Declared() []string { return h.declares.Env }
 // filesystem, which is why committing happens in the guest.
 func (h *remoteHandle) Delta() string { return "" }
 
+// unfetchedObservation is what a step observed when the answer never arrived.
+//
+// **Incomplete, and with the reason attached.** The error used to be discarded
+// and an empty observation returned, so a step whose observation was too large
+// to send - around 16 MB, which this repository's own `+unit-test` reaches -
+// was reported as "nothing observed this step" (E620). That is false: something
+// was watching and it saw a great deal, and what failed was delivering it. I11
+// asks for a degradation that says so, and this was doing only the first half.
+//
+// Incomplete matters as much as the reason. An empty observation offered as fact
+// agrees with every base there is, which is exactly the false hit I3 forbids.
+func unfetchedObservation(err error) core.Observation {
+	return core.Observation{
+		Reads:      map[string]ir.NodeID{},
+		Listings:   map[string]ir.NodeID{},
+		Incomplete: true,
+		Why:        []string{"the step's observation never arrived: " + err.Error()},
+	}
+}
+
 func (h *remoteHandle) Observations() core.Observation {
 	obs := core.Observation{
 		Reads:    map[string]ir.NodeID{},
@@ -1416,7 +1436,7 @@ func (h *remoteHandle) Observations() core.Observation {
 		// An observation that cannot be fetched is an absent observation, never
 		// an empty one presented as fact: silence must not be recorded as "read
 		// nothing", or every later step would falsely satisfy it.
-		return obs
+		return unfetchedObservation(err)
 	}
 
 	for p, s := range resp.Reads {

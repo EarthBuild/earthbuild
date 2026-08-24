@@ -27953,9 +27953,8 @@ hundred characters: `/go/pkg/mod/github.com/aws/aws-sdk-go-v2/service/...`. **Th
 the shape of the hypothesis and not to the size of it**, which is a way of confirming what you
 already think while appearing to test it.
 
-*Where that leaves the failure.* Unidentified. `+unit-test` passes on linux now and passed with the
-same cache summary as the run that failed - same steps, same observations, same 93 misses - so
-nothing in the evidence says the last change is what fixed it, and E617 no longer claims it did.
+*Where that leaves the failure.* Unidentified here; **identified in E620**, which built the repro to
+the size of the hypothesis instead of its shape and got it in two attempts.
 
 *What is done instead of another guess.* The refusal now names the request it answers. A `Response`
 carries a size and not a subject, so `kindOf` could only ever call it "response" - which is how a
@@ -28005,3 +28004,47 @@ find out is a machine with one user on it.
 
 *The rule this earns.* Before a timing on a shared machine: state who else is on it. `uptime` and
 `pgrep` are two seconds, and they are the difference between a measurement and a number.
+
+## E620 - it was the observation, and the repro had been built to the wrong dimension
+
+E618 left the 19,580,676-byte frame unidentified and named the reason the second hypothesis had never
+really been tested: 120,000 files at paths like `/big/d123/f45678` is about 90 bytes an entry and
+10.8 MB, comfortably under a limit it was supposed to exceed. **The repro had been built to the shape
+of the hypothesis rather than to its size.**
+
+Built to the size instead - 20,000 files under four 180-character directories - and measured rather
+than assumed:
+
+```text
+    profiles/3d343ae0....json     16,056,836 bytes
+```
+
+**720 KB under the limit, on the first attempt.** Twenty-six thousand files instead of twenty:
+
+```text
+    1 not observed (Earthfile:7: the step's observation never arrived: the reply to
+      observe could not be sent: message exceeds the frame limit: a response message
+      of 20862852 bytes exceeds the 16 MiB the other side will read
+```
+
+So the oversized frame is the **observe response**, and `+unit-test`'s 19.58 MB is the same thing at
+the same scale. Two things follow that were guesses until now.
+
+*Why the build started passing.* Not `outputFor`, which E618 already refused to credit. The send-side
+guard plus `reply` turned a frame the host would reject into an error the host receives, and a failed
+observation is something the engine already knows how to survive: no L2 for that step, build
+continues. **The fix that mattered was the one that made the failure answerable rather than fatal**,
+and it was written to improve a diagnostic.
+
+*What it was still getting wrong.* The operator was told `nothing observed this step`, which is
+false - something was watching and it saw twenty megabytes; what failed was delivering it. The error
+was discarded at the point of failure, so I11's "degrade and say so" was doing only the first half.
+The reason is now carried through, and the observation is marked incomplete rather than empty:
+**an empty observation offered as fact agrees with every base in existence**, which is the false hit
+I3 forbids, and returning one from a failure was a hair's breadth from that.
+
+*The lesson, stated plainly because it has now cost four experiments.* A repro that does not reach the
+threshold proves nothing about crossing it. The first one was built from the hypothesis's own
+*description* ("a large observation"), and 120,000 files certainly sounds large. The dimension that
+mattered was bytes per entry, and it was never computed. **Sizing the repro is part of the hypothesis,
+not part of the setup.**

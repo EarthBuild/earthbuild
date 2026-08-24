@@ -2,6 +2,7 @@ package guest
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -151,5 +152,43 @@ func TestAStreamedStepDoesNotSendItsOutputTwice(t *testing.T) {
 
 	if got := outputFor(Request{}, []byte(out)); got != out {
 		t.Errorf("an unstreamed step lost its output: %q, want %q", got, out)
+	}
+}
+
+// An observation that could not be fetched says why.
+//
+// **The reason was thrown away.** `Observations` discarded the error and
+// returned an empty observation, so a step whose observation was too large to
+// send - about 16 MB is the boundary, and this repository's `+unit-test` reaches
+// it (E618, E620) - was reported to the operator as
+//
+//	1 not observed (Earthfile:7: nothing observed this step)
+//
+// which is false. Something *was* watching, and it saw a great deal; what failed
+// was delivering it. I11 asks the engine to degrade and to say so, and it was
+// doing the first half.
+//
+// Marked incomplete as well as explained: an empty observation presented as fact
+// agrees with every base in existence, which is the false hit I3 forbids.
+func TestAnObservationThatCouldNotBeFetchedSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	obs := unfetchedObservation(errors.New("the reply to observe could not be sent: too big"))
+
+	if !obs.Incomplete {
+		t.Error("an observation that never arrived was presented as complete")
+	}
+
+	if len(obs.Why) == 0 {
+		t.Fatal("no reason was recorded, so the operator is told nothing was watching")
+	}
+
+	if !strings.Contains(obs.Why[0], "observe") {
+		t.Errorf("the reason does not name what failed: %q", obs.Why[0])
+	}
+
+	// Empty rather than nil, because the caller ranges over them.
+	if obs.Reads == nil || obs.Listings == nil {
+		t.Error("the maps are nil, which the caller does not expect")
 	}
 }

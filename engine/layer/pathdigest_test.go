@@ -64,6 +64,8 @@ func TestPathDigestRecordsWhatWasReadAndNotWhenItWasWritten(t *testing.T) {
 	}
 
 	t.Run("the same bytes written later digest the same", func(t *testing.T) {
+		t.Parallel()
+
 		later := filepath.Join(t.TempDir(), "a.txt")
 		writeAt(t, later, "body\n", 0o644)
 
@@ -86,6 +88,8 @@ func TestPathDigestRecordsWhatWasReadAndNotWhenItWasWritten(t *testing.T) {
 	})
 
 	t.Run("different bytes digest differently", func(t *testing.T) {
+		t.Parallel()
+
 		other := filepath.Join(t.TempDir(), "a.txt")
 		writeAt(t, other, "edited\n", 0o644)
 
@@ -100,6 +104,8 @@ func TestPathDigestRecordsWhatWasReadAndNotWhenItWasWritten(t *testing.T) {
 	})
 
 	t.Run("a mode change digests differently", func(t *testing.T) {
+		t.Parallel()
+
 		exe := filepath.Join(t.TempDir(), "a.txt")
 		writeAt(t, exe, "body\n", 0o755)
 
@@ -115,6 +121,8 @@ func TestPathDigestRecordsWhatWasReadAndNotWhenItWasWritten(t *testing.T) {
 	})
 
 	t.Run("a symlink is not its target", func(t *testing.T) {
+		t.Parallel()
+
 		d := t.TempDir()
 		writeAt(t, filepath.Join(d, "a.txt"), "body\n", 0o644)
 
@@ -137,6 +145,8 @@ func TestPathDigestRecordsWhatWasReadAndNotWhenItWasWritten(t *testing.T) {
 	})
 
 	t.Run("an absent path is an error, not a zero digest", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := layer.PathDigest(filepath.Join(dir, "nothing-here"))
 		if err == nil {
 			t.Error("a missing path returned a digest, and the zero value is a" +

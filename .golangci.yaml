@@ -129,6 +129,23 @@ linters:
         text: "G703:"
         linters:
           - gosec
+      # `paralleltest` asks why a test is not parallel, and in these packages the
+      # answer is a property of the test rather than an oversight.
+      #
+      # `engine/trace` installs a seccomp filter on a thread it has locked, and a
+      # filter cannot be removed - which is why `SkipIfAlreadyFiltered` exists.
+      # `engine/nstest` re-executes the test binary into a new user and pid
+      # namespace and waits for it. Running either alongside its own siblings is
+      # not a speed-up, it is the tests interfering with each other.
+      #
+      # This is not a blanket answer for the rest: the subtests that could be
+      # parallel have been made parallel, and the top-level tests that are not
+      # are left for a reading each - several drive real builds against a shared
+      # cache directory, where parallel is a question about the cache and not
+      # about the test.
+      - path: (engine/trace/|engine/nstest/)
+        linters:
+          - paralleltest
   settings:
     govet:
       enable-all: true

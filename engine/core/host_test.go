@@ -88,13 +88,17 @@ func TestHostStepsNeverHitTheCache(t *testing.T) {
 
 type capturingExec struct{}
 
-func (capturingExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (capturingExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	return core.Result{Layer: n.ID(), Captured: true}, nil
 }
 
 type countingExec struct{ n int }
 
-func (c *countingExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (c *countingExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	c.n++
 
 	return core.Result{Layer: n.ID(), Captured: true}, nil

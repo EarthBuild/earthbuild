@@ -13,7 +13,9 @@ import (
 // tracer that started late.
 type lossyExec struct{}
 
-func (lossyExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (lossyExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	return core.Result{
 		Layer:    n.ID(),
 		Captured: true,

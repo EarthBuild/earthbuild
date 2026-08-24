@@ -18,7 +18,9 @@ import (
 // misses the exec itself, reports exactly this.
 type blindExec struct{}
 
-func (blindExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (blindExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	return core.Result{
 		Layer:    n.ID(),
 		Captured: true,

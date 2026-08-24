@@ -12,7 +12,9 @@ import (
 // executor whose layer capture is not yet built.
 type uncapturedExec struct{}
 
-func (uncapturedExec) Run(_ context.Context, _ *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (uncapturedExec) Run(
+	_ context.Context, _ *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	return core.Result{Exit: 0}, nil // no Layer, and Captured is false
 }
 

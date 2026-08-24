@@ -15,7 +15,9 @@ type placingExec struct {
 	on map[string]string // step arg -> worker id
 }
 
-func (e *placingExec) Run(_ context.Context, n *ir.Node, w core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *placingExec) Run(
+	_ context.Context, n *ir.Node, w core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

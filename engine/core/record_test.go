@@ -45,7 +45,9 @@ var alpine = &ir.Node{
 // rather than the order things happened to run.
 type nodeExec struct{ salt byte }
 
-func (e nodeExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e nodeExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	l := n.ID()
 	l[31] ^= e.salt // salt lets a test force a differing result
 

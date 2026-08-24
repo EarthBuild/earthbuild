@@ -22,7 +22,9 @@ type slowExec struct {
 	order []string // completion order, which must not reach any result
 }
 
-func (e *slowExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *slowExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	now := e.inFlight.Add(1)
 	for {
 		peak := e.peak.Load()
@@ -147,7 +149,9 @@ func TestDependenciesAreStillRespected(t *testing.T) {
 
 type orderExec struct{ before, after func(string) }
 
-func (e orderExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e orderExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.before(n.Meta.Source)
 	time.Sleep(5 * time.Millisecond)
 	e.after(n.Meta.Source)
@@ -231,7 +235,9 @@ func TestTheReportedFailureIsDeterministic(t *testing.T) {
 // flakyOrder fails every leaf, at randomly varying speeds.
 type flakyOrder struct{}
 
-func (flakyOrder) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (flakyOrder) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	if n.Op.Kind != ir.OpExec {
 		return core.Result{Layer: n.ID(), Captured: true}, nil
 	}

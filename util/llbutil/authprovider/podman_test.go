@@ -56,7 +56,7 @@ type credentialsProvider interface {
 	Credentials(ctx context.Context, req *auth.CredentialsRequest) (*auth.CredentialsResponse, error)
 }
 
-//nolint:goconst
+
 func TestPodmanProvider(t *testing.T) {
 	t.Parallel()
 

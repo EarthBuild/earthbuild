@@ -22,7 +22,9 @@ type recordingExec struct {
 	fixed *ir.NodeID
 }
 
-func (e *recordingExec) Run(_ context.Context, n *ir.Node, _ core.Worker, base []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *recordingExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, base []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

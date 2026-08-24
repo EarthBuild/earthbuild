@@ -11,7 +11,9 @@ import (
 
 type failingExec struct{ code int }
 
-func (f failingExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (f failingExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	return core.Result{
 		Layer: n.ID(), Captured: true, Exit: f.code,
 		Output: "sh: echo produced: not found",

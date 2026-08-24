@@ -33,7 +33,9 @@ type observingExec struct {
 	runs int
 }
 
-func (e *observingExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *observingExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.mu.Lock()
 	e.runs++
 	e.mu.Unlock()

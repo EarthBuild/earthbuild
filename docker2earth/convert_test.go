@@ -7,7 +7,7 @@ import (
 	"github.com/EarthBuild/earthbuild/docker2earth"
 )
 
-//nolint:goconst
+
 func TestGenerateEarthfile(t *testing.T) {
 	t.Parallel()
 

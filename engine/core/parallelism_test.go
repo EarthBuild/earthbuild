@@ -17,7 +17,9 @@ type occupancy struct {
 	most int
 }
 
-func (o *occupancy) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (o *occupancy) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	o.mu.Lock()
 	o.now++
 

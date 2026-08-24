@@ -17,7 +17,6 @@ const errUnsupportedVersion = "invalid VERSION in Earthfile, supported versions 
 func TestParseOpts(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		check     func(*require.Assertions, Tree, error)
 		note      string
@@ -651,7 +650,6 @@ test:
 	}
 }
 
-//nolint:goconst
 func TestParse(t *testing.T) {
 	t.Parallel()
 

@@ -16,7 +16,9 @@ type unwindExec struct {
 	ran []string
 }
 
-func (e *unwindExec) Run(_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *unwindExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.mu.Lock()
 	e.ran = append(e.ran, n.Meta.Source)
 	e.mu.Unlock()

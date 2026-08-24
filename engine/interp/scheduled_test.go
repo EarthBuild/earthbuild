@@ -38,7 +38,9 @@ type simExec struct {
 	bases map[ir.NodeID][]ir.NodeID
 }
 
-func (e *simExec) Run(_ context.Context, n *ir.Node, _ core.Worker, base []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *simExec) Run(
+	_ context.Context, n *ir.Node, _ core.Worker, base []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

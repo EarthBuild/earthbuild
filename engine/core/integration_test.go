@@ -30,7 +30,9 @@ type storingExec struct {
 	t     *testing.T
 }
 
-func (e storingExec) Run(ctx context.Context, n *ir.Node, w core.Worker, base []ir.NodeID, sources [][]ir.NodeID) (core.Result, error) {
+func (e storingExec) Run(
+	ctx context.Context, n *ir.Node, w core.Worker, base []ir.NodeID, sources [][]ir.NodeID,
+) (core.Result, error) {
 	res, err := e.inner.Run(ctx, n, w, base, sources)
 	if err != nil {
 		return res, err
@@ -170,7 +172,9 @@ type failExec struct {
 	n     int
 }
 
-func (e *failExec) Run(_ context.Context, _ *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID) (core.Result, error) {
+func (e *failExec) Run(
+	_ context.Context, _ *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
+) (core.Result, error) {
 	e.n++
 	if e.n > e.after {
 		return core.Result{}, errBoom

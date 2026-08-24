@@ -111,6 +111,23 @@ linters:
         text: "(G304|G204|G104|G122):"
         linters:
           - gosec
+      # G115 in a test is nearly always a kernel identifier being converted to
+      # the type the kernel's own struct uses - `uint32(os.Getpid())`,
+      # `int32(traced[0])` from a fixed syscall table, `uint32(os.Getuid())`. A
+      # pid is not negative and a syscall number is from a list in this
+      # repository; the conversion is the shape of the API, not a risk.
+      #
+      # **Production is deliberately not excluded.** G115 has found five real
+      # defects in this sweep - a sign-extending cast in internal/vary, three
+      # truncating fixture indices in engine/cache, and a seccomp filter bounded
+      # on the kernel's limit rather than its own encoding - and the sixth was in
+      # a test: a fixture whose layer ids wrapped at 256 and would have started
+      # agreeing with itself. That one is fixed rather than excluded, which is
+      # what this rule is for and why it stays on where it earns its keep.
+      - path: _test\.go
+        text: "G115:"
+        linters:
+          - gosec
       # `engine/mat/overlay` walks trees this engine has just placed and joins
       # their entries onto directories it owns, so G703 fires on nearly every
       # line that touches a path - eleven of the eighteen in production.

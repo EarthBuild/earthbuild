@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"strings"
 	"testing"
@@ -180,7 +181,15 @@ func (e *failExec) Run(
 		return core.Result{}, errBoom
 	}
 
-	return core.Result{Layer: ir.NodeID{byte(e.n)}, Captured: true}, nil
+	// A distinct layer per call, and distinct is the whole of what it must be.
+	// `byte(e.n)` wraps at 256, so a fixture that ran long enough would start
+	// handing back a layer it had already produced and the test would pass by
+	// agreeing with itself (gosec G115).
+	var id ir.NodeID
+
+	binary.BigEndian.PutUint64(id[:8], uint64(e.n))
+
+	return core.Result{Layer: id, Captured: true}, nil
 }
 
 var errBoom = errors.New("boom")

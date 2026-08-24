@@ -76,3 +76,42 @@ func TestAFailedProbePrefersTheOutputTheSchedulerCarried(t *testing.T) {
 		t.Errorf("the result carries %q", res.Output)
 	}
 }
+
+// A probe whose *base* failed says which step failed, not the probe's own.
+//
+// Running a condition or a substitution means running the steps it stands on,
+// and any of those can fail. The exit status comes back on the StepError - and
+// so do the step's source line and its command, which were dropped. What a
+// caller then read was
+//
+//	ENV at Earthfile:862: "export tmp=$(cat ...); ..." exited 128
+//
+// naming a command that had not run: the build failed fifteen seconds in, with
+// no step or cache output at all, on a base that takes minutes to build. The
+// number 128 belonged to something else entirely, and the message pointed at
+// the wrong line of the wrong file.
+func TestAProbeSaysWhichStepFailed(t *testing.T) {
+	t.Parallel()
+
+	run := func(context.Context, *ir.Graph) (string, error) {
+		return "", &core.StepError{
+			Source: "buildkitd/Earthfile:14",
+			Desc:   "RUN git describe --tags",
+			Exit:   128,
+		}
+	}
+
+	base := &ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{"alpine"}}}
+
+	res, err := decideByRunning(context.Background(), run, []string{"cat", "x"}, base, "/", "Earthfile:862")
+	if err != nil {
+		t.Fatalf("a step that ran and failed is a result: %v", err)
+	}
+
+	for _, want := range []string{"buildkitd/Earthfile:14", "git describe"} {
+		if !strings.Contains(res.Output, want) {
+			t.Errorf("the result says %q, which does not name the step that"+
+				" failed (%q)", res.Output, want)
+		}
+	}
+}

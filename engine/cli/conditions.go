@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -104,6 +105,20 @@ func decideByRunning(
 		said := stepErr.Output
 		if said == "" {
 			said = out
+		}
+
+		// **Which step failed, when it was not this one.** Running a probe
+		// means running the steps it stands on, and any of those can fail: the
+		// status comes back attached to that step, and reporting it against the
+		// probe's own command names a line that did not run. A build failed
+		// fifteen seconds in, on a base that takes minutes, and said its ENV
+		// had exited 128.
+		//
+		// Only when it is a different step. Where the probe itself failed, its
+		// command is already in the caller's message and repeating it is noise.
+		if stepErr.Source != "" && stepErr.Source != where {
+			said = stepErr.Source + ": " + stepErr.Desc + " exited " +
+				strconv.Itoa(stepErr.Exit) + "\n  " + said
 		}
 
 		return interp.Result{Exit: stepErr.Exit, Output: said}, nil

@@ -25,7 +25,9 @@ import (
 // find a file that is not a socket and say so, rather than finding nothing and
 // blaming the daemon.
 func publishSocket(from, to string) (func(), error) {
-	f, err := os.OpenFile(to, os.O_CREATE|os.O_RDONLY, 0o600)
+	// `to` is the mount target this guest chose inside its own sandbox, not a
+	// path a build named (gosec G304).
+	f, err := os.OpenFile(to, os.O_CREATE|os.O_RDONLY, 0o600) //nolint:gosec // a path this guest chose
 	if err != nil {
 		return func() {}, fmt.Errorf("make somewhere to bind the daemon's socket: %w", err)
 	}

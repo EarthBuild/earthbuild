@@ -752,7 +752,9 @@ const layerSuffix = ".layer"
 // the caller checks the named layer is present, and what it names was computed
 // by capturing the tree.
 func imageLayerNamed(shared string) (ir.NodeID, bool) {
-	b, err := os.ReadFile(shared + layerSuffix)
+	// `shared` is a store path this engine computed, and the note beside it is
+	// one it wrote (gosec G304). Nothing here comes from a build.
+	b, err := os.ReadFile(shared + layerSuffix) //nolint:gosec // a path this engine derived
 	if err != nil {
 		return ir.NodeID{}, false
 	}

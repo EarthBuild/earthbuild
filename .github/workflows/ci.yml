@@ -131,19 +131,34 @@ jobs:
           set -euo pipefail
           EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      # **`--engine=buildkit` on every invocation of the binary this branch
+      # built.** These steps produce the release artifacts - the buildkitd image
+      # and the CLI - and buildkitd is built through `FROM DOCKERFILE`, whose
+      # `RUN --mount` the native engine refuses rather than running without the
+      # mounts it was given. So the engine that builds the *other* engine's
+      # image is the other engine.
+      #
+      # Not a retreat from the default. Everything above this - lint, unit
+      # tests, the race sweep, the daemon tests - still runs native, and so do
+      # the suites that gate on this job. What changed is that the steps whose
+      # output is buildkitd say so.
+      #
+      # `earth` itself needs no flag: that is the released binary from
+      # actions-setup, which predates the native engine and has no such
+      # default.
       - name: Build and push +ci-release using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest"
-          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="latest"
           # Build ci-release (builds binary and buildkitd but doesn't push)
-          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --engine=buildkit --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
-          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          ./build/linux/amd64/earthly --ci --engine=buildkit --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
       - name: Save buildkitd image tarball (all runs)
         # Shipping buildkitd as a GHA artifact -- rather than having every
         # downstream test job pull it from ghcr -- moves ~67 in-run image
@@ -167,6 +182,13 @@ jobs:
             docker pull "$IMG"
           fi
           docker save "$IMG" -o ./artifacts-standard/buildkitd-image.tar
+
+          # The sandbox agent travels with the CLI. A native job has no buildkitd
+          # to talk to and needs `earth-guestd` beside the binary instead - it is
+          # what runs inside the sandbox, and the engine looks for it there or at
+          # $EARTH_GUESTD. `+for-linux` saves it next to the CLI it built, so
+          # shipping it costs one copy.
+          cp ./build/linux/amd64/earth-guestd ./artifacts-standard/earth-guestd
       - name: Build earth binary artifact (fork only)
         # Fork PRs cannot read the binary from ghcr, so it ships in the
         # artifact. Non-fork jobs fetch it via `earth upgrade` instead --
@@ -178,7 +200,7 @@ jobs:
 
           # Build earth CLI binary with correct installation name (earthly, not earthly-dev)
           # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
-          ./build/linux/amd64/earthly --ci --artifact \
+          ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
@@ -200,15 +222,15 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest-ticktock"
-          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release (next) using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="latest-ticktock"
           # Build ci-release (builds binary and buildkitd but doesn't push)
-          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --engine=buildkit --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
-          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          ./build/linux/amd64/earthly --ci --engine=buildkit --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
       - name: Save buildkitd image tarball (next, all runs)
         # See the standard-variant step above for why this is unconditional.
         run: |-
@@ -230,7 +252,7 @@ jobs:
 
           # Build earth CLI binary with correct installation name (earthly, not earthly-dev)
           # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
-          ./build/linux/amd64/earthly --ci --artifact \
+          ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
@@ -244,6 +266,35 @@ jobs:
           retention-days: 1
 
   # --- Docker Suite ---
+  # The native engine's own run of the docker suite, target for target.
+  #
+  # **The same matrix, not a subset.** The docker suite is the full one - podman
+  # runs a slice of it - so the engine that is meant to replace buildkit is
+  # measured against the whole thing or against nothing worth comparing.
+  #
+  # It shares `ci-test-suite.yml` and differs only in what `FRONTEND` selects.
+  # That input names what hosts buildkitd: with docker it loads the image into
+  # the docker daemon, with podman into podman, and with native there is no
+  # buildkitd to load - so `stage2-setup` skips the load and the outer-buildkit
+  # pointer, and installs the sandbox agent beside the CLI instead.
+  #
+  # Alongside the buildkit suites rather than in place of them, deliberately.
+  # What this branch is for is the difference between the two engines on a suite
+  # that has been run against buildkit for years, and a difference is only
+  # visible while both are running.
+  native-tests:
+    name: Native
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/ci-test-suite.yml
+    with:
+      FRONTEND: "native"
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
   docker-tests:
     name: Docker
     needs: fast-check-and-build
@@ -373,6 +424,7 @@ jobs:
     if: always()
     needs:
       - fast-check-and-build
+      - native-tests
       - docker-tests
       - docker-examples
       - docker-integrations

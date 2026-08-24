@@ -90,7 +90,10 @@ jobs:
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
           INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
       - name: Display buildkit version
-        if: ${{ !inputs.SKIP_JOB }}
+        # Not on a native job: there is no buildkitd to ask, and `BINARY` there
+        # names an engine rather than a container runtime - so `native ps -a`
+        # is not a command.
+        if: ${{ !inputs.SKIP_JOB && inputs.BINARY != 'native' }}
         run: |-
           ${INPUTS_SUDO} "${INPUTS_BINARY}" ps -a
           ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd |& grep 'starting earthly-buildkit'

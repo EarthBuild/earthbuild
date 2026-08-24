@@ -189,6 +189,7 @@ runs:
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
     - name: Load buildkitd image from artifact
+      if: inputs.BINARY != 'native'
       # Must run AFTER the Docker and Podman setup steps above: on podman jobs
       # the engine is apt-installed there (and docker is purged), so loading any
       # earlier fails with `podman: command not found`.
@@ -201,6 +202,7 @@ runs:
         INPUTS_SUDO: ${{inputs.SUDO}}
         INPUTS_BINARY: ${{inputs.BINARY}}
     - name: Point outer buildkit at the PR's own staging image
+      if: inputs.BINARY != 'native'
       # Non-fork runs previously hardcoded the stable pinned buildkitd image.
       # That meant the outer layer ran the PR's earth CLI against the *old*
       # buildkit, and the PR's own buildkit was only exercised inside
@@ -256,6 +258,29 @@ runs:
         "${INPUTS_BUILT_EARTH_PATH}" config global.buildkit_additional_config "'[registry.\"docker.io\"]
         mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
       shell: bash
+      env:
+        INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+    - name: Put the sandbox agent beside the CLI
+      # **A native job has no buildkitd and needs this instead.** `earth-guestd`
+      # is what runs inside the sandbox, and the engine looks for it beside the
+      # binary or at $EARTH_GUESTD - so a CLI installed on its own reports
+      # "cannot find earth-guestd" at the first step it tries to run.
+      #
+      # Tolerant of its absence on purpose: the buildkit jobs neither have it
+      # nor want it, and a setup step that failed for them would make every
+      # existing suite depend on a file only the native one reads.
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ ! -f ./build-artifacts/earth-guestd ]; then
+          echo "no earth-guestd in the artifact - fine for a buildkit job, fatal for a native one"
+          exit 0
+        fi
+        beside="$(dirname "${INPUTS_BUILT_EARTH_PATH}")"
+        mkdir -p "$beside"
+        cp ./build-artifacts/earth-guestd "$beside/earth-guestd"
+        chmod +x "$beside/earth-guestd"
+        echo "sandbox agent installed at $beside/earth-guestd"
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
     - if: ${{ inputs.USE_NEXT == 'true' }}

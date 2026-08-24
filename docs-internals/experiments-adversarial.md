@@ -27772,3 +27772,43 @@ eleven minutes and would have taken eleven minutes at any point before writing t
 
 *Kept:* nothing but this. The tests went with the mechanism - unlike E613, where the test outlives the
 idea because it pins a boundary that must hold. A cache that no longer exists has no boundary to pin.
+
+## E615 - the lint I recommended would have found the wrong nine per cent
+
+E613 ended by pointing somewhere other than the engine: "the way out is an Earthfile that does not
+declare arguments its steps never read. That is a lint this repository could run against its own."
+Run against this repository's own, before writing it:
+
+| `Earthfile`, 83 targets                              | Count |
+| ---------------------------------------------------- | ----- |
+| `ARG` declarations                                   | 118   |
+| never interpolated, read from the environment anyway | 5     |
+| never interpolated, not a known toolchain name       | 6     |
+
+**Six candidates in eighty-three targets, and the lint is not worth writing.** The five above them
+are `TARGETARCH`, `GOOS` and their kin, which are read out of the environment by a toolchain that
+never names them (E580) - so the lint's most confident findings are the ones that must not be acted
+on.
+
+*And the premise was wrong, which is the part worth keeping.* `envFor` exports **every declared
+argument that has a value**, whether the recipe interpolates it or not - so all 118 reach the step
+environment and all 118 are in its class. Removing the six would change nothing at all. What defeats
+Κ₂ is not an argument the step never reads, it is an argument whose **value changes**, and being read
+has nothing to do with it.
+
+That reframes the cost and makes it worse. `+earthly` declares `EARTHLY_GIT_HASH` and a `VERSION`
+derived from the tag, because the binary embeds both through `-ldflags`. They change every commit. So
+every step of that recipe gets a fresh class and a fresh Κ₂ key on every commit - **correctly**, since
+the step genuinely depends on the value, and by construction rather than by any defect. There is no
+lint, no flag and no keying trick that recovers it, because there is nothing there to recover.
+
+*A first draft of this counted 22 and was wrong.* It stripped every `ARG` line before looking for
+uses, so `ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"` hid a use of `EARTHLY_TARGET_TAG_DOCKER` and
+`ARG GOOS=$TARGETOS` hid one of `TARGETOS`. **A default expression is a use**, and the number was
+twice the truth in the direction that made the recommendation look worthwhile. Caught by reading the
+target the number pointed at, which is the only reason it was caught at all.
+
+*Three in a row.* E613 refuted an optimisation, E614 refuted another, and this refutes the
+recommendation E613 closed on. The common shape is not carelessness about mechanism - each was
+mechanically sound - it is **acting on the size of a problem before measuring it**. Sixteen lines of
+Python answered this one; they were available before the paragraph recommending the lint was written.

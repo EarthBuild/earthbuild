@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -601,39 +602,57 @@ func Start(
 					if exists, _ := fileutil.FileExists(settings.TLSCA); !exists {
 						return fmt.Errorf("TLS CA file %q is missing: %w", settings.TLSCA, os.ErrNotExist)
 					}
-
-					mounts = append(mounts, engine.Mount{
-						Type:     engine.MountBind,
-						Source:   settings.TLSCA,
-						Dest:     "/etc/ca.pem",
-						ReadOnly: true,
-					})
 				}
 
 				if settings.ServerTLSCert != "" {
 					if exists, _ := fileutil.FileExists(settings.ServerTLSCert); !exists {
 						return fmt.Errorf("TLS certificate %q is missing: %w", settings.ServerTLSCert, os.ErrNotExist)
 					}
-
-					mounts = append(mounts, engine.Mount{
-						Type:     engine.MountBind,
-						Source:   settings.ServerTLSCert,
-						Dest:     "/etc/cert.pem",
-						ReadOnly: true,
-					})
 				}
 
 				if settings.ServerTLSKey != "" {
 					if exists, _ := fileutil.FileExists(settings.ServerTLSKey); !exists {
 						return fmt.Errorf("TLS private key %q is missing: %w", settings.ServerTLSKey, os.ErrNotExist)
 					}
+				}
 
+				if eng.Metadata().Scheme == engine.SchemeApple {
+					// Apple Container requires directory-level bind mounts.
+					// Mount the certificates directory to /etc/earthly-certs (entrypoint.sh will symlink to /etc/*.pem).
+					certsDir := filepath.Dir(settings.ServerTLSCert)
 					mounts = append(mounts, engine.Mount{
 						Type:     engine.MountBind,
-						Source:   settings.ServerTLSKey,
-						Dest:     "/etc/key.pem",
+						Source:   certsDir,
+						Dest:     "/etc/earthly-certs",
 						ReadOnly: true,
 					})
+				} else {
+					if settings.TLSCA != "" {
+						mounts = append(mounts, engine.Mount{
+							Type:     engine.MountBind,
+							Source:   settings.TLSCA,
+							Dest:     "/etc/ca.pem",
+							ReadOnly: true,
+						})
+					}
+
+					if settings.ServerTLSCert != "" {
+						mounts = append(mounts, engine.Mount{
+							Type:     engine.MountBind,
+							Source:   settings.ServerTLSCert,
+							Dest:     "/etc/cert.pem",
+							ReadOnly: true,
+						})
+					}
+
+					if settings.ServerTLSKey != "" {
+						mounts = append(mounts, engine.Mount{
+							Type:     engine.MountBind,
+							Source:   settings.ServerTLSKey,
+							Dest:     "/etc/key.pem",
+							ReadOnly: true,
+						})
+					}
 				}
 			}
 		}
@@ -822,12 +841,8 @@ func waitForConnection(
 		case <-time.After(retryInterval):
 			if isLocal {
 				// Make sure that our managed buildkit has not crashed on startup.
-				isRunning, err := isContainerRunning(ctxTimeout, containerName, eng)
-				if err != nil {
-					return nil, nil, err
-				}
-
-				if !isRunning {
+				info, inspectErr := eng.InspectContainer(ctxTimeout, containerName)
+				if inspectErr == nil && (info.Status == engine.StatusExited || info.Status == engine.StatusDead) {
 					return nil, nil, ErrBuildkitCrashed
 				}
 			}
@@ -1094,11 +1109,15 @@ func isContainerRunning(ctx context.Context, containerName string, eng *engine.C
 		return false, fmt.Errorf("failed to get container info while checking if running: %w", err)
 	}
 
-	if info.Status == engine.StatusMissing {
-		return false, fmt.Errorf("status for container %s was not found", containerName)
+	if info.Status == engine.StatusExited || info.Status == engine.StatusDead {
+		return false, nil
 	}
 
-	return info.Status == engine.StatusRunning, nil
+	if info.Status == engine.StatusRunning {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("container %s is in state %q", containerName, info.Status)
 }
 
 func printBuildkitInfo(

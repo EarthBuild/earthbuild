@@ -221,7 +221,7 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 		for _, m := range spec.Mounts {
 			mount := fmt.Sprintf("type=%s,src=%s,dst=%s", m.Type, m.Source, m.Dest)
 			if m.ReadOnly {
-				mount += ",readonly" //nolint:goconst
+				mount += ",readonly"
 			}
 
 			args = append(args, "--mount", mount)

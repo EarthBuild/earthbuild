@@ -156,3 +156,92 @@ func TestUnmarshalSingleOrSlice(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+//nolint:goconst
+func TestBuildAppleMountArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		mounts   []Mount
+		expected []string
+	}{
+		{
+			name:     "empty mounts",
+			mounts:   nil,
+			expected: []string{},
+		},
+		{
+			name: "volume mount",
+			mounts: []Mount{
+				{
+					Type:     MountVolume,
+					Source:   "earthly-cache",
+					Dest:     "/tmp/earthbuild",
+					ReadOnly: false,
+				},
+			},
+			expected: []string{
+				"--mount", "type=volume,source=earthly-cache,target=/tmp/earthbuild",
+			},
+		},
+		{
+			name: "bind mount read-write",
+			mounts: []Mount{
+				{
+					Type:     MountBind,
+					Source:   "/sys/fs/cgroup",
+					Dest:     "/sys/fs/cgroup",
+					ReadOnly: false,
+				},
+			},
+			expected: []string{
+				"--mount", "type=bind,source=/sys/fs/cgroup,target=/sys/fs/cgroup",
+			},
+		},
+		{
+			name: "bind mount read-only",
+			mounts: []Mount{
+				{
+					Type:     MountBind,
+					Source:   "/Users/test/.earthly/certs",
+					Dest:     "/etc/earthly-certs",
+					ReadOnly: true,
+				},
+			},
+			expected: []string{
+				"--mount", "type=bind,source=/Users/test/.earthly/certs,target=/etc/earthly-certs,readonly",
+			},
+		},
+		{
+			name: "multiple mixed mounts",
+			mounts: []Mount{
+				{
+					Type:     MountVolume,
+					Source:   "my-vol",
+					Dest:     "/data",
+					ReadOnly: false,
+				},
+				{
+					Type:     MountBind,
+					Source:   "/host/certs",
+					Dest:     "/etc/earthly-certs",
+					ReadOnly: true,
+				},
+			},
+			expected: []string{
+				"--mount", "type=volume,source=my-vol,target=/data",
+				"--mount", "type=bind,source=/host/certs,target=/etc/earthly-certs,readonly",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			args := buildAppleMountArgs(tt.mounts)
+			assert.Equal(t, tt.expected, args)
+		})
+	}
+}

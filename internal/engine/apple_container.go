@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -95,14 +94,14 @@ func newAppleEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 		},
 	}
 
-	output, err := e.CommandOutput(ctx, "system", "info", "--format", "json")
+	output, err := e.CommandOutput(ctx, "system", "status", "--format", "json")
 	if err != nil {
 		return nil, err
 	}
 
 	trimmedStdOut := strings.TrimSpace(output.Stdout.String())
 	if trimmedStdOut == "" {
-		return nil, errors.New("empty output from system info")
+		return nil, errors.New("empty output from system status")
 	}
 
 	e.Endpoints, err = e.ResolveEndpoints(AppleContainer, cfg)
@@ -131,7 +130,7 @@ func (e *appleEngine) IsAvailable(ctx context.Context) bool {
 
 // Version returns version and platform information.
 func (e *appleEngine) Version(ctx context.Context) (Version, error) {
-	output, err := e.CommandOutput(ctx, "version")
+	output, err := e.CommandOutput(ctx, "--version")
 	if err != nil {
 		return Version{}, err
 	}
@@ -465,51 +464,12 @@ func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string)
 	return volumes, nil
 }
 
-// appleBindFileDir converts a single-file bind mount into a directory mount,
-// as Apple Container requires directory-level bind mounts.
-func appleBindFileDir(mnt Mount, seenDirs map[string]struct{}) (string, bool) {
-	if mnt.Type != MountBind {
-		return "", false
-	}
-
-	fileInfo, err := os.Stat(mnt.Source)
-	if err != nil || fileInfo.IsDir() {
-		return "", false
-	}
-
-	dir := filepath.Dir(mnt.Source)
-	if _, seen := seenDirs[dir]; seen {
-		return "", true
-	}
-
-	seenDirs[dir] = struct{}{}
-	mountSpec := fmt.Sprintf("type=bind,source=%s,target=/etc/earthly-certs", dir)
-
-	if mnt.ReadOnly {
-		mountSpec += ",readonly" //nolint:goconst
-	}
-
-	return mountSpec, true
-}
-
 // buildAppleMountArgs constructs CLI mount flags for Apple Container.
 func buildAppleMountArgs(mounts []Mount) []string {
-	var args []string
-
-	seenMountDirs := make(map[string]struct{}, len(mounts))
+	args := make([]string, 0, len(mounts)*2)
 
 	for _, mnt := range mounts {
-		mountSpec, handled := appleBindFileDir(mnt, seenMountDirs)
-		if handled {
-			if mountSpec != "" {
-				args = append(args, "--mount", mountSpec)
-			}
-
-			continue
-		}
-
-		mountSpec = fmt.Sprintf("type=%s,source=%s,target=%s", mnt.Type, mnt.Source, mnt.Dest)
-
+		mountSpec := fmt.Sprintf("type=%s,source=%s,target=%s", mnt.Type, mnt.Source, mnt.Dest)
 		if mnt.ReadOnly {
 			mountSpec += ",readonly"
 		}

@@ -17,6 +17,8 @@ import (
 //
 // `DigestedForTest` counts files whose contents this process has read, which is
 // exactly the work the cache exists to remove.
+//
+//nolint:paralleltest // reads a package-wide counter; see the first line
 func TestASharedContextCacheDigestsOncePerPath(t *testing.T) {
 	// Not parallel: the counter it reads is the package's, and another test
 	// digesting a tree at the same moment would be counted here.

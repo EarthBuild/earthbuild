@@ -20,7 +20,7 @@ func linkCount(t *testing.T, path string) uint64 {
 		t.Skip("this platform does not report link counts")
 	}
 
-	return uint64(st.Nlink)
+	return uint64(st.Nlink) //nolint:unconvert // this field is not this width on every platform
 }
 
 // Two paths that share an inode still share one after a copy.

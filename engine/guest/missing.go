@@ -34,7 +34,7 @@ func explainMissing(path string) string {
 	for at := dir; ; at = filepath.Dir(at) {
 		parent := filepath.Dir(at)
 		if parent == at {
-			return fmt.Sprintf("%s does not exist, and neither does anything above it", dir)
+			return dir + " does not exist, and neither does anything above it"
 		}
 
 		_, err := os.Stat(parent)

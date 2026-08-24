@@ -32,7 +32,7 @@ func (g *deafGuest) Read([]byte) (int, error) {
 //
 // Found in a goroutine dump after the execution gate sat on one target for
 // thirteen minutes under a sixty-second deadline (E442). **Not the caller's
-// context is a reason to make a new one, not a reason to have none.**
+// context is a reason to make a new one, not a reason to have none**.
 func TestReleasingAHandleGivesUpEventually(t *testing.T) {
 	t.Parallel()
 

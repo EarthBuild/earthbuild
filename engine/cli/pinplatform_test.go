@@ -16,7 +16,7 @@ import (
 //
 // The same lesson as E503, where a darwin worker declared `darwin/arm64` to the
 // fleet and was therefore never given a step it could have run: *the platform
-// that matters is the sandbox's, not the process's.*
+// that matters is the sandbox's, not the process's*.
 func TestAReferenceIsResolvedForThePlatformStepsRunOn(t *testing.T) {
 	t.Parallel()
 

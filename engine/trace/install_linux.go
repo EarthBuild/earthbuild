@@ -3,7 +3,7 @@
 package trace
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"runtime"
 )
@@ -37,7 +37,7 @@ import (
 // tracer that knows to disregard this thread's own syscalls.
 func InstallOnSelf() (*os.File, error) {
 	if !threadIsLocked() {
-		return nil, fmt.Errorf(
+		return nil, errors.New(
 			"the calling goroutine has not locked its thread" +
 				"\n  a seccomp filter applies to one thread and cannot be" +
 				" removed, so the goroutine must own its thread and must exit" +

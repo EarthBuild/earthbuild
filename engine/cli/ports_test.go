@@ -23,7 +23,7 @@ import (
 // design here - "with no cache every step executes, which is slower and never
 // wrong" - and that same tolerance is what lets one go unset for the life of a
 // branch with nothing to say so. **A field whose absence is harmless is a field
-// nothing will notice the absence of.**
+// nothing will notice the absence of**.
 type portRole int
 
 const (

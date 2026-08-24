@@ -151,5 +151,6 @@ func hardLinkID(fi os.FileInfo) (linkID, bool) {
 		return linkID{}, false
 	}
 
-	return linkID{dev: uint64(st.Dev), ino: st.Ino}, true
+	// This field is not this width on every platform.
+	return linkID{dev: uint64(st.Dev), ino: st.Ino}, true //nolint:unconvert
 }

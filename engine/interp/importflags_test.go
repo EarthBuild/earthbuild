@@ -17,7 +17,7 @@ import (
 //
 // The same shape as `ARG --global IMAGE=...` declaring an argument called
 // `--global`, which this engine had and fixed: **a flag consumed as the
-// positional argument, diagnosed at the use rather than at the declaration.**
+// positional argument, diagnosed at the use rather than at the declaration**.
 func TestAnImportWithAFlagStillNamesSomething(t *testing.T) {
 	t.Parallel()
 

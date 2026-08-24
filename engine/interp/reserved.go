@@ -49,7 +49,7 @@ func refuseReservedLabel(key, where string) error {
 // cross-building target states what it is for, and the engine's value applies
 // only when no default was written. The first version of this refused those too
 // and broke a test that had been asserting it for months. *A rule read off two
-// examples is a rule about two examples.*
+// examples is a rule about two examples*.
 func refuseBuiltinArgument(name, where, how string) error {
 	if !strings.HasPrefix(name, "EARTH_") && !strings.HasPrefix(name, "EARTHLY_") {
 		return nil

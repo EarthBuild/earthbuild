@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 )
@@ -21,10 +22,10 @@ func checkDaemon(d *Daemon) error {
 
 	switch {
 	case d.Root == "":
-		return fmt.Errorf("a daemon was asked for with no root to keep its storage in")
+		return errors.New("a daemon was asked for with no root to keep its storage in")
 
 	case d.Socket == "":
-		return fmt.Errorf("a daemon was asked for with no socket to listen on")
+		return errors.New("a daemon was asked for with no socket to listen on")
 
 	case !filepath.IsAbs(d.Root):
 		return fmt.Errorf("a daemon's root must be absolute inside the step, and %q is not",

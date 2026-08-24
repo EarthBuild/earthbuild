@@ -16,6 +16,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/netip"
@@ -436,7 +437,7 @@ func serve(
 	lazy bool, miss int,
 ) error {
 	if at == "" {
-		return fmt.Errorf("-driver is required for a worker")
+		return errors.New("-driver is required for a worker")
 	}
 
 	addr, err := netip.ParseAddrPort(at)

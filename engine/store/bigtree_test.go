@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func bigTree(t *testing.T, n int) string {
 	// Both, because either alone lies: a marker outlives a directory somebody
 	// deleted, and a directory without a marker is one that may be half built.
 	b, err := os.ReadFile(marker)
-	if err == nil && string(b) == fmt.Sprint(n) {
+	if err == nil && string(b) == strconv.Itoa(n) {
 		_, statErr := os.Stat(dir)
 		if statErr == nil {
 			return dir
@@ -170,7 +171,7 @@ func bigTree(t *testing.T, n int) string {
 		}
 	}
 
-	err = os.WriteFile(marker, []byte(fmt.Sprint(n)), 0o600)
+	err = os.WriteFile(marker, []byte(strconv.Itoa(n)), 0o600)
 	if err != nil {
 		t.Fatalf("mark the fixture complete: %v", err)
 	}

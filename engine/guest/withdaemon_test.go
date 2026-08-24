@@ -168,7 +168,7 @@ func TestTheSocketsDirectoryIsMadeBeforeTheDaemonStarts(t *testing.T) {
 // that would not die is the *only* thing that went wrong - and discarding it
 // there leaves a process running against a released handle with nobody told.
 //
-// *The return value that says what was not understood, assigned to `_`.*
+// *The return value that says what was not understood, assigned to `_`*.
 func TestADaemonThatWillNotStopIsNewsWhenNothingElseWentWrong(t *testing.T) {
 	t.Parallel()
 

@@ -40,7 +40,8 @@ func TestAFragmentWithTheWrongModeIsRefused(t *testing.T) {
 	}
 
 	// The bytes a lying peer sends: same content, different mode.
-	if err = os.Chmod(at, 0o750); err != nil { //nolint:gosec // the mode is what this test is about
+	err = os.Chmod(at, 0o750) //nolint:gosec // the mode is what this test is about
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

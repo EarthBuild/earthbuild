@@ -22,7 +22,7 @@ func onOverlay(path string) bool {
 		return false
 	}
 
-	return int64(st.Type) == overlayfsMagic
+	return int64(st.Type) == overlayfsMagic //nolint:unconvert // this field is not this width on every platform
 }
 
 // unavailable reports that a mount failure is the machine's rather than the

@@ -28,7 +28,7 @@ func TestOverlayOnOverlayExplainsItself(t *testing.T) {
 		t.Skip(err)
 	}
 
-	if int64(st.Type) != overlayfsMagic {
+	if int64(st.Type) != overlayfsMagic { //nolint:unconvert // this field is not this width on every platform
 		t.Skip("this filesystem is not overlayfs, so the stacking case cannot arise here")
 	}
 

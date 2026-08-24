@@ -153,8 +153,9 @@ func TestExecRunsInTheMaterialisedRoot(t *testing.T) {
 	// about to use it - "unknown handle h1", three subtests at once.
 	t.Cleanup(func() { _ = h.Release() })
 
-	if _, _, execErr := c.Exec(context.Background(), h,
-		[]string{"sh", "-c", "echo written > out.txt"}, nil); execErr != nil {
+	_, _, execErr := c.Exec(context.Background(), h,
+		[]string{"sh", "-c", "echo written > out.txt"}, nil)
+	if execErr != nil {
 		t.Fatal(execErr)
 	}
 

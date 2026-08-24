@@ -18,7 +18,7 @@ import (
 // Its own failure note then says "check that the workers were given
 // `EARTH_FLEET_DRIVER=<this driver's address>`", naming something it has never
 // printed. **A diagnostic that refers to a value the tool did not emit is a
-// diagnostic nobody can act on.**
+// diagnostic nobody can act on**.
 func TestTheDriverAnnouncementSaysWhereToDial(t *testing.T) {
 	t.Parallel()
 

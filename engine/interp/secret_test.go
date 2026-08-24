@@ -26,29 +26,27 @@ main:
 		t.Fatal(err)
 	}
 
-	rendered := describe(p.Graph.Nodes())
+	// Everything the graph carries, in one string: the rendering a person would
+	// read, every argument, every identity, and both maps a step holds. Order
+	// does not matter because the question is whether the value appears at all.
+	var rendered strings.Builder
 
-	var renderedSb29 strings.Builder
+	rendered.WriteString(describe(p.Graph.Nodes()))
+
 	for _, n := range p.Graph.Nodes() {
-		renderedSb29.WriteString(strings.Join(n.Op.Args, " "))
+		rendered.WriteString(strings.Join(n.Op.Args, " "))
+		rendered.WriteString(n.ID().String())
 
-		var renderedSb32 strings.Builder
 		for _, m := range n.Op.Mounts {
-			renderedSb32.WriteString(m.ID + m.Target)
+			rendered.WriteString(m.ID + m.Target)
 		}
-		rendered += renderedSb32.String()
 
-		var renderedSb36 strings.Builder
 		for k, v := range n.Op.Env {
-			renderedSb36.WriteString(k + v)
+			rendered.WriteString(k + v)
 		}
-		rendered += renderedSb36.String()
-
-		renderedSb29.WriteString(n.ID().String())
 	}
-	rendered += renderedSb29.String()
 
-	if strings.Contains(rendered, "hunter2") {
+	if strings.Contains(rendered.String(), "hunter2") {
 		t.Error("the secret's value is somewhere in the graph")
 	}
 }

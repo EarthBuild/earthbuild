@@ -502,7 +502,7 @@ func (c *runnerCfg) sources(a Assignment) []Source {
 			// already keeps the last source's reason and this way it reaches
 			// the refusal the driver prints.
 			if err == nil {
-				err = fmt.Errorf("nothing to dial")
+				err = errors.New("nothing to dial")
 			}
 
 			out = append(out, &unreachable{at: at, why: err})

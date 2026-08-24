@@ -59,7 +59,8 @@ func TestALazyBaseServesAStepThatReadsBeyondItsPrediction(t *testing.T) {
 	// here; this is what the tracer calls.
 	unpredicted := filepath.Join(base, "usr", "lib", "lib7.so")
 
-	if _, lstatErr := os.Lstat(unpredicted); lstatErr == nil {
+	_, lstatErr := os.Lstat(unpredicted)
+	if lstatErr == nil {
 		t.Fatal("the whole layer was materialised; there is nothing lazy about" +
 			" this")
 	}

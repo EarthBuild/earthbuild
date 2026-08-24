@@ -81,8 +81,9 @@ func TestAChownNameTheImageLacksIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if writeErr := os.WriteFile(filepath.Join(root, "etc", "passwd"),
-		[]byte("root:x:0:0:root:/root:/bin/sh\n"), 0o600); writeErr != nil {
+	writeErr := os.WriteFile(filepath.Join(root, "etc", "passwd"),
+		[]byte("root:x:0:0:root:/root:/bin/sh\n"), 0o600)
+	if writeErr != nil {
 		t.Fatal(writeErr)
 	}
 

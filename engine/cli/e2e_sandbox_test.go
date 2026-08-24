@@ -1048,7 +1048,7 @@ build:
 // is copied rather than bound. A test that only checked persistence would pass
 // against a plain bind and prove nothing about the flag.
 //
-// boots a VM, see e2e_sandbox_test.go
+// boots a VM, see e2e_sandbox_test.go.
 func TestAPersistedCacheIsInTheImageAndSurvives(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")

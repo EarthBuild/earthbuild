@@ -294,7 +294,8 @@ func copyTree(src, dst string, opts copyOpts) error {
 			//
 			// Sound because the walk is top-down: every directory on a path is
 			// visited before anything inside it.
-			if link, lstatErr := os.Lstat(target); lstatErr == nil && link.Mode()&os.ModeSymlink != 0 {
+			link, lstatErr := os.Lstat(target)
+			if lstatErr == nil && link.Mode()&os.ModeSymlink != 0 {
 				lstatErr = os.Remove(target)
 				if lstatErr != nil {
 					return fmt.Errorf("clear a symlink at %s: %w", target, lstatErr)

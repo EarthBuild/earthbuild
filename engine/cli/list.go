@@ -44,7 +44,9 @@ func List(o Options) error {
 	// answer says where to put it. `Run` has the same rule, and a listing that
 	// went to stdout regardless would be the one command here that decides for
 	// its caller.
-	out := io.Writer(io.Discard)
+	// Declared as the interface rather than converted to it: `out` is
+	// reassigned below, so the concrete type of the default must not be its type.
+	var out io.Writer = io.Discard
 	if o.Out != nil {
 		out = o.Out
 	}

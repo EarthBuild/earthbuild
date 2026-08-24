@@ -3,6 +3,7 @@
 package guest
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -166,7 +167,7 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		if (m.ID == "" && m.Sandbox == "" && !m.Ephemeral && m.Secret == "") || m.Target == "" {
 			unmount()
 
-			return nil, fmt.Errorf(
+			return nil, errors.New(
 				"a mount needs an id, a sandbox path, contents or ephemeral, and a target")
 		}
 

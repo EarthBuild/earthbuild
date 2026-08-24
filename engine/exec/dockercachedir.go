@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 )
@@ -46,7 +47,7 @@ func dockerCacheDir(store, name string) (string, error) {
 // (A5, E360).
 func checkCacheName(name string) error {
 	if name == "" {
-		return fmt.Errorf("a shared daemon cache needs a name")
+		return errors.New("a shared daemon cache needs a name")
 	}
 
 	if len(name) > cacheNameLimit {

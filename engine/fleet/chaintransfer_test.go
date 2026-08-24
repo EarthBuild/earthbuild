@@ -274,7 +274,7 @@ func TestAChainDoesNotShipItsBaseEveryStep(t *testing.T) {
 // because the worker is serving before this returns: assigning to it from the
 // test races the goroutine reading it, which `-race` reports on any test sharing
 // the package. *Failure class: a field set after the thing that reads it has
-// started.*
+// started*.
 func startWorker(
 	t *testing.T, n int, local netip.AddrPort, driver netaddr.EndpointAddr,
 	room int, compute time.Duration,

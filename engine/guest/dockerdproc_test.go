@@ -71,7 +71,8 @@ func TestStoppingADaemonStopsIt(t *testing.T) {
 	// the moment the launch began re-executing this binary through the shim
 	// (E374).
 	for range 200 {
-		if _, statErr := os.Stat(filepath.Join("/proc", strconv.Itoa(pid))); statErr == nil {
+		_, statErr := os.Stat(filepath.Join("/proc", strconv.Itoa(pid)))
+		if statErr == nil {
 			break
 		}
 

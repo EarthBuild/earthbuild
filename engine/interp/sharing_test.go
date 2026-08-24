@@ -21,6 +21,9 @@ import (
 // | `locked`  | the shared directory, one step in it at a time      |
 // | `shared`  | the shared directory, several steps at once         |
 // | `private` | a directory of its own, thrown away with the step   |
+//
+// One subtest per row, so a mode that stops meaning what the table says fails
+// against the table rather than against somebody's memory of it.
 func TestTheThreeSharingModes(t *testing.T) {
 	t.Parallel()
 

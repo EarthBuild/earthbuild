@@ -22,5 +22,6 @@ func idOf(fi os.FileInfo) fileID {
 		return fileID{}
 	}
 
-	return fileID{dev: uint64(st.Dev), ino: st.Ino, ok: true}
+	// This field is not this width on every platform.
+	return fileID{dev: uint64(st.Dev), ino: st.Ino, ok: true} //nolint:unconvert
 }

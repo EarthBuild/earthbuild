@@ -24,7 +24,7 @@ func platformMeta(e *entry, info fs.FileInfo, inodes map[uint64]string) {
 	}
 
 	e.uid, e.gid = observedOwner(st.Uid, st.Gid)
-	e.rdev = uint64(st.Rdev)
+	e.rdev = uint64(st.Rdev) //nolint:unconvert // this field is not this width on every platform
 
 	if st.Nlink > 1 && info.Mode().IsRegular() {
 		ino := uint64(st.Ino) //nolint:unconvert // widths differ across platforms

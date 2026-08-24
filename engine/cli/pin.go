@@ -27,7 +27,9 @@ import (
 // unreachable registry means a file this could not improve, which is the same
 // trade the resolver makes during a build, and not a file it damaged.
 func Pin(o Options) error {
-	out := io.Writer(io.Discard)
+	// Declared as the interface rather than converted to it: `out` is
+	// reassigned below, so the concrete type of the default must not be its type.
+	var out io.Writer = io.Discard
 	if o.Out != nil {
 		out = o.Out
 	}

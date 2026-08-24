@@ -19,7 +19,7 @@ import (
 // relay the declaration arrives a round trip later, and every step ran on the
 // driver (E505).
 //
-// *A barrier that counts connections is not a barrier on readiness.*
+// *A barrier that counts connections is not a barrier on readiness*.
 func TestWaitingForWorkersWaitsForOnesThatCanBeGivenWork(t *testing.T) {
 	t.Parallel()
 

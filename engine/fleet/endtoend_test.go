@@ -3,6 +3,7 @@ package fleet_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -94,7 +95,7 @@ func chain(n int) *ir.Graph {
 
 	for i := range n {
 		node = &ir.Node{
-			Op:     ir.Op{Kind: ir.OpExec, Args: []string{"step", fmt.Sprint(i)}},
+			Op:     ir.Op{Kind: ir.OpExec, Args: []string{"step", strconv.Itoa(i)}},
 			Inputs: []*ir.Node{node},
 			Meta:   ir.Meta{Source: fmt.Sprintf("Earthfile:%d", i+2)},
 		}

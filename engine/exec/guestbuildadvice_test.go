@@ -68,11 +68,12 @@ func TestAGuestThatIsNotAnELFIsRefusedHere(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "earth-guestd")
 
 	// A Mach-O header, which is what `go build` produces on this machine.
-	if err := os.WriteFile(path, []byte{0xcf, 0xfa, 0xed, 0xfe, 0x0c, 0, 0, 1}, 0o600); err != nil {
+	err := os.WriteFile(path, []byte{0xcf, 0xfa, 0xed, 0xfe, 0x0c, 0, 0, 1}, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	err := checkGuestArch(path, "arm64")
+	err = checkGuestArch(path, "arm64")
 	if err == nil {
 		t.Fatal("a Mach-O binary was passed to a Linux sandbox without" +
 			" comment, so the failure arrives from inside the VM")

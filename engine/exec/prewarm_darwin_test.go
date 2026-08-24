@@ -25,7 +25,8 @@ func TestAPrewarmedSandboxIsTheOneTheBuildUses(t *testing.T) { //nolint:parallel
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 
-	if err := sb.Available(); err != nil {
+	err := sb.Available()
+	if err != nil {
 		t.Skipf("apple container backend unavailable: %v", err)
 	}
 
@@ -48,7 +49,8 @@ func TestAPrewarmedSandboxIsTheOneTheBuildUses(t *testing.T) { //nolint:parallel
 	n := guestStep("after-prewarm", "/probe")
 	n.Inputs = []*ir.Node{base}
 
-	if _, err := e.Run(context.Background(), n, core.Worker{ID: "vm"}, []ir.NodeID{base.ID()}, nil); err != nil {
+	_, err = e.Run(context.Background(), n, core.Worker{ID: "vm"}, []ir.NodeID{base.ID()}, nil)
+	if err != nil {
 		t.Fatalf("step: %v", err)
 	}
 

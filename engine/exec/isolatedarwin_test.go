@@ -40,7 +40,8 @@ func TestThisBackendRefusesIsolateRatherThanPretending(t *testing.T) {
 
 	// And a block that asked for nothing still works: the refusal is about the
 	// promise this backend cannot keep, not about WITH DOCKER.
-	if _, err := dockerFor(false, ""); err != nil {
+	_, err = dockerFor(false, "")
+	if err != nil {
 		t.Errorf("an ordinary block was refused too: %v", err)
 	}
 }

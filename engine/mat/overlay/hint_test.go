@@ -36,7 +36,8 @@ func TestOverlayOnOverlayExplainsItself(t *testing.T) {
 	// same one `CanIsolate`'s doc comment rejects by name. In a build container
 	// euid is 0 and mounting is refused anyway, so this ran and failed for
 	// wanting a message the kernel never got far enough to produce.
-	if err := canMountOverlay(t); err != nil {
+	err = canMountOverlay(t)
+	if err != nil {
 		t.Skipf("this environment refuses an overlay mount outright, so the"+
 			" stacking case cannot be reached: %v", err)
 	}

@@ -39,7 +39,8 @@ func TestListNamesEveryTargetSorted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "Earthfile"), src, 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(dir, "Earthfile"), src, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

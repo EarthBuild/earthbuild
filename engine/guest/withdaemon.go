@@ -79,7 +79,8 @@ func withDaemon(
 	//
 	// The directory the socket appears in is made by `publish`, because it is
 	// made *after* the daemon is up rather than before it starts.
-	if err := os.MkdirAll(root, 0o755); err != nil { //nolint:gosec // a mode a build sees
+	err = os.MkdirAll(root, 0o755) //nolint:gosec // a mode a build sees
+	if err != nil {
 		return fmt.Errorf("make %s for the step's daemon: %w", root, err)
 	}
 
@@ -114,7 +115,8 @@ func withDaemon(
 		}
 	}()
 
-	if _, err := awaitDaemon(ctx, proc.Ask, howOftenToAsk); err != nil {
+	_, err = awaitDaemon(ctx, proc.Ask, howOftenToAsk)
+	if err != nil {
 		return fmt.Errorf("this step asked for a daemon and did not get one: %w", err)
 	}
 

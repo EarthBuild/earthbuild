@@ -281,7 +281,8 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 	// outer generated afterwards claimed to share nothing while running against
 	// a daemon that shares everything: cacheable, and reading another build's
 	// images (E356).
-	if err := checkCacheID(opts.CacheID, where); err != nil {
+	err = checkCacheID(opts.CacheID, where)
+	if err != nil {
 		return nil, err
 	}
 

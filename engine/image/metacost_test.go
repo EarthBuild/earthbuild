@@ -69,7 +69,8 @@ func BenchmarkMetaByPath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := os.Chmod(name, 0o600); err != nil {
+		err = os.Chmod(name, 0o600)
+		if err != nil {
 			b.Fatal(err)
 		}
 
@@ -173,7 +174,8 @@ func BenchmarkWriteParallel(b *testing.B) {
 				return
 			}
 
-			if err := os.Chmod(name, 0o600); err != nil {
+			err = os.Chmod(name, 0o600)
+			if err != nil {
 				b.Error(err)
 
 				return
@@ -233,7 +235,8 @@ func BenchmarkWriteParallelSpread(b *testing.B) {
 				return
 			}
 
-			if err := os.Chmod(name, 0o600); err != nil {
+			err = os.Chmod(name, 0o600)
+			if err != nil {
 				b.Error(err)
 
 				return

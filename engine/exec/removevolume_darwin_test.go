@@ -24,7 +24,8 @@ func TestRemovingASandboxRemovesItsVolume(t *testing.T) { //nolint:paralleltest 
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 
-	if err := sb.Available(); err != nil {
+	err := sb.Available()
+	if err != nil {
 		t.Skipf("apple container backend unavailable: %v", err)
 	}
 
@@ -38,7 +39,8 @@ func TestRemovingASandboxRemovesItsVolume(t *testing.T) { //nolint:paralleltest 
 	n := guestStep("probe", "/probe")
 	n.Inputs = []*ir.Node{base}
 
-	if _, err := e.Run(context.Background(), n, core.Worker{ID: "vm"}, []ir.NodeID{base.ID()}, nil); err != nil {
+	_, err = e.Run(context.Background(), n, core.Worker{ID: "vm"}, []ir.NodeID{base.ID()}, nil)
+	if err != nil {
 		t.Fatalf("step: %v", err)
 	}
 
@@ -50,7 +52,8 @@ func TestRemovingASandboxRemovesItsVolume(t *testing.T) { //nolint:paralleltest 
 		t.Fatalf("%s was never created, so its removal proves nothing", volume)
 	}
 
-	if err := sb.Remove(); err != nil {
+	err = sb.Remove()
+	if err != nil {
 		t.Fatalf("remove the sandbox: %v", err)
 	}
 

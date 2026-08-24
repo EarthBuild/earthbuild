@@ -26,7 +26,8 @@ import (
 // the step that reaches it is confined and chrooted with nothing in its root but
 // the prober.
 func TestAStepReachesADaemonItDidNotStart(t *testing.T) {
-	if _, err := osexec.LookPath("dockerd"); err != nil {
+	_, err := osexec.LookPath("dockerd")
+	if err != nil {
 		t.Skipf("no dockerd on this machine: %v", err)
 	}
 
@@ -47,7 +48,8 @@ func TestAStepReachesADaemonItDidNotStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(inner, "prober"), self, 0o700); err != nil {
+	err := os.WriteFile(filepath.Join(inner, "prober"), self, 0o700)
+	if err != nil {
 		t.Fatal(err)
 	}
 

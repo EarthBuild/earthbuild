@@ -168,7 +168,8 @@ func TestHowManyEarthTestsBuild(t *testing.T) {
 		}
 
 		if src, err := os.ReadFile(filepath.Join(root, "Earthfile")); err == nil {
-			if err := os.WriteFile(filepath.Join(trees[i], "Earthfile"), src, 0o600); err != nil {
+			err := os.WriteFile(filepath.Join(trees[i], "Earthfile"), src, 0o600)
+			if err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -503,7 +504,8 @@ func attemptOne(t *testing.T, tree string, in corpus.Invocation, root string, pe
 	if verb := verbOf(in); verb != "" {
 		dir := filepath.Join(tree, "tests")
 
-		if err := os.WriteFile(filepath.Join(dir, "Earthfile"), src, 0o600); err != nil {
+		err := os.WriteFile(filepath.Join(dir, "Earthfile"), src, 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -514,7 +516,8 @@ func attemptOne(t *testing.T, tree string, in corpus.Invocation, root string, pe
 			read = cli.Doc
 		}
 
-		if err := read(opts); err != nil {
+		err := read(opts)
+		if err != nil {
 			got.reason = firstLine(err.Error())
 
 			return got

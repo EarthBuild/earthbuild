@@ -129,7 +129,8 @@ func TestAFragmentIsCheckedAgainstItsManifest(t *testing.T) {
 	}
 
 	into := filepath.Join(t.TempDir(), "fragment")
-	if err := layer.Unpack(&buf, into); err != nil {
+	err = layer.Unpack(&buf, into)
+	if err != nil {
 		t.Fatal(err)
 	}
 

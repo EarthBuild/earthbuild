@@ -34,7 +34,8 @@ func TestAVersionOverrideReachesThePlan(t *testing.T) {
 
 	base := cli.Options{Dir: dir, Target: "+main", DryRun: true}
 
-	if err := cli.Run(context.Background(), base); err != nil {
+	err = cli.Run(context.Background(), base)
+	if err != nil {
 		t.Fatalf("the file plans without an override: %v", err)
 	}
 

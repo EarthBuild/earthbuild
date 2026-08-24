@@ -30,7 +30,8 @@ func TestABuildWithADockerBlockRuns(t *testing.T) {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
 
-	if _, err := osexec.LookPath("dockerd"); err != nil {
+	_, err := osexec.LookPath("dockerd")
+	if err != nil {
 		t.Skipf("no dockerd on this machine: %v", err)
 	}
 

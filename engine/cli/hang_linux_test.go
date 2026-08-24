@@ -37,7 +37,8 @@ func TestABuildStopsWhenItsContextDoes(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "Earthfile"), src, 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, "Earthfile"), src, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

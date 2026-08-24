@@ -237,7 +237,8 @@ func (r *Rendezvous) askWhatItIs(
 
 	defer func() { _ = s.Close() }()
 
-	if _, err := s.Write([]byte{kindHello}); err != nil {
+	_, err = s.Write([]byte{kindHello})
+	if err != nil {
 		onError(fmt.Errorf("ask %s what it is: %w", id, err))
 
 		return
@@ -603,7 +604,8 @@ func answer(
 
 	// What this worker is, asked before it has run anything.
 	if kind[0] == kindHello {
-		if err := replyWith(s, self); err != nil {
+		err := replyWith(s, self)
+		if err != nil {
 			onError(fmt.Errorf("say what this worker is: %w", err))
 		}
 

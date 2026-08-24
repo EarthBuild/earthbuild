@@ -163,7 +163,8 @@ func TestANamedLayerArrivesWholeOrNotAtAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(staging, "a"), []byte("x"), 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(staging, "a"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -172,7 +173,8 @@ func TestANamedLayerArrivesWholeOrNotAtAll(t *testing.T) {
 		t.Error("the store holds a layer nobody has committed")
 	}
 
-	if err := s.PutNamed(id, staging); err != nil {
+	err = s.PutNamed(id, staging)
+	if err != nil {
 		t.Fatalf("put named: %v", err)
 	}
 

@@ -25,7 +25,8 @@ import (
 // condition a `FROM scratch` step is in, and the only kind of program that can
 // run in it.
 func TestAStepIsGivenADaemonAtItsOwnPath(t *testing.T) {
-	if _, err := osexec.LookPath("dockerd"); err != nil {
+	_, err := osexec.LookPath("dockerd")
+	if err != nil {
 		t.Skipf("no dockerd on this machine: %v", err)
 	}
 
@@ -49,7 +50,8 @@ func TestAStepIsGivenADaemonAtItsOwnPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(root, "prober"), self, 0o700); err != nil {
+	err := os.WriteFile(filepath.Join(root, "prober"), self, 0o700)
+	if err != nil {
 		t.Fatal(err)
 	}
 

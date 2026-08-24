@@ -207,8 +207,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: checking a cache name before it becomes a directory (E358)",
 		File:        "engine/interp/loop.go",
-		Anchor:      "\tif err := checkCacheID(opts.CacheID, where); err != nil {",
-		Replacement: "\tif err := error(nil); err != nil {",
+		Anchor:      "\terr = checkCacheID(opts.CacheID, where)\n\tif err != nil {",
+		Replacement: "\terr = error(nil)\n\tif err != nil {",
 		Package:     "./engine/interp/",
 	},
 	{
@@ -1880,7 +1880,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: the body waiting for the daemon to answer (E369)",
 		File:        "engine/guest/withdaemon.go",
-		Anchor:      "\tif _, err := awaitDaemon(ctx, proc.Ask, howOftenToAsk); err != nil {\n\t\treturn fmt.Errorf(\"this step asked for a daemon and did not get one: %w\", err)\n\t}",
+		Anchor:      "\t_, err = awaitDaemon(ctx, proc.Ask, howOftenToAsk)\n\tif err != nil {\n\t\treturn fmt.Errorf(\"this step asked for a daemon and did not get one: %w\", err)\n\t}",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},
@@ -2882,8 +2882,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: a worker answering what it is (E504)",
 		File:        "engine/fleet/rendezvous.go",
-		Anchor:      "\t\tif err := replyWith(s, self); err != nil {",
-		Replacement: "\t\tif err := replyWith(s, Reply{Version: Version}); err != nil {",
+		Anchor:      "\t\terr := replyWith(s, self)\n\t\tif err != nil {",
+		Replacement: "\t\terr := replyWith(s, Reply{Version: Version})\n\t\tif err != nil {",
 		Package:     "./engine/fleet/",
 	},
 	{

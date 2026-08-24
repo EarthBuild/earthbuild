@@ -31,7 +31,8 @@ func TestADaemonStartsInAUserNamespace(t *testing.T) {
 	// this test asks the cheaper question directly: is there a dockerd at all.
 	// What the probe adds - subuid ranges, the id-mapping helpers - is the
 	// host's decision about whether to *offer* a daemon, and is tested there.
-	if _, err := osexec.LookPath("dockerd"); err != nil {
+	_, err := osexec.LookPath("dockerd")
+	if err != nil {
 		t.Skipf("no dockerd on this machine: %v", err)
 	}
 
@@ -61,7 +62,8 @@ func TestADaemonStartsInAUserNamespace(t *testing.T) {
 
 	cmd.Stdout, cmd.Stderr = &log, &log
 
-	if err := cmd.Start(); err != nil {
+	err := cmd.Start()
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

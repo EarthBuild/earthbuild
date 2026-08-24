@@ -42,7 +42,8 @@ func TestALayerIsScannedForMarkersOnce(t *testing.T) {
 	}
 
 	// Only a rescan can see this.
-	if err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -81,7 +82,8 @@ func TestTheAnswerSurvivesTheProcessThatFoundIt(t *testing.T) {
 
 	// Only a rescan can see this, and a rescan is what a second process was
 	// doing.
-	if err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

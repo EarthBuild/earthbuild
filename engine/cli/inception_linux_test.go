@@ -36,7 +36,8 @@ func TestABuildInsideABuild(t *testing.T) {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
 
-	if _, err := osexec.LookPath("dockerd"); err != nil {
+	_, err := osexec.LookPath("dockerd")
+	if err != nil {
 		t.Skipf("no dockerd on this machine: %v", err)
 	}
 
@@ -50,7 +51,8 @@ func TestABuildInsideABuild(t *testing.T) {
 		"github.com/EarthBuild/earthbuild/cmd/earth-native")
 	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+runtime.GOARCH, "CGO_ENABLED=0")
 
-	if msg, err := build.CombinedOutput(); err != nil {
+	msg, err := build.CombinedOutput()
+	if err != nil {
 		t.Fatalf("build earth-native: %v: %s", err, msg)
 	}
 
@@ -82,7 +84,8 @@ inner:
 			t.Fatal(err)
 		}
 
-		if err := os.WriteFile(filepath.Join(dir, from[1]), b, 0o700); err != nil {
+		err := os.WriteFile(filepath.Join(dir, from[1]), b, 0o700)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}

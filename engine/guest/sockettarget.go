@@ -30,7 +30,8 @@ func socketTargetIn(root, at string) (string, error) {
 
 	_, err := os.Lstat(dir)
 	if err != nil {
-		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // a mode a build sees
+		err := os.MkdirAll(dir, 0o755) //nolint:gosec // a mode a build sees
+		if err != nil {
 			return "", fmt.Errorf("make the directory the step's client looks in: %w", err)
 		}
 
@@ -42,7 +43,8 @@ func socketTargetIn(root, at string) (string, error) {
 		return "", fmt.Errorf("find where %s leads inside the step: %w", dir, err)
 	}
 
-	if err := os.MkdirAll(actual, 0o755); err != nil { //nolint:gosec // a mode a build sees
+	err = os.MkdirAll(actual, 0o755) //nolint:gosec // a mode a build sees
+	if err != nil {
 		return "", fmt.Errorf("make %s for the daemon's socket: %w", actual, err)
 	}
 

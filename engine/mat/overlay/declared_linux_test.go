@@ -45,7 +45,8 @@ func TestADeclarationIsFoldedRatherThanStacked(t *testing.T) {
 	defer func() { _ = h.Release() }()
 
 	// The tree is the layer's, and the declaration put nothing in it.
-	if _, err := os.Stat(filepath.Join(h.Root(), "in-the-tree")); err != nil {
+	_, err = os.Stat(filepath.Join(h.Root(), "in-the-tree"))
+	if err != nil {
 		t.Errorf("the layer's file is missing: %v", err)
 	}
 

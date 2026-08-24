@@ -66,7 +66,8 @@ func TestALayerIsFiledUnderWhatIsInIt(t *testing.T) {
 	}
 
 	at := filepath.Join(store, "layers", id.String())
-	if _, err := os.Stat(at); err != nil {
+	_, err = os.Stat(at)
+	if err != nil {
 		t.Fatalf("filed as %s and it is not there: %v", id, err)
 	}
 

@@ -30,7 +30,8 @@ func TestTheWholeDaemonLifetimeAgainstARealDockerd(t *testing.T) {
 	// takes CAP_SYS_ADMIN. Asked rather than assumed, and asked *before* a
 	// daemon is started, so an unprivileged run skips in milliseconds instead of
 	// failing after a dockerd has come up (E160's rule, E415's occasion).
-	if err := canBind(t); err != nil {
+	err := canBind(t)
+	if err != nil {
 		t.Skipf("this machine cannot bind-mount, so a step's socket cannot be"+
 			" published into it: %v", err)
 	}
@@ -74,7 +75,8 @@ func TestTheWholeDaemonLifetimeAgainstARealDockerd(t *testing.T) {
 	// The storage is where it was told to put it, not where dockerd defaults to.
 	// A daemon writing to the host's `/var/lib/docker` would work perfectly and
 	// share everything with every other step on the machine (E362).
-	if _, err := os.Stat(filepath.Join(root, "var/lib/earthbuild-docker/data")); err != nil {
+	_, err := os.Stat(filepath.Join(root, "var/lib/earthbuild-docker/data"))
+	if err != nil {
 		t.Errorf("the daemon did not store where it was told: %v", err)
 	}
 }
@@ -92,12 +94,14 @@ func canBind(t *testing.T) error {
 	from, to := filepath.Join(dir, "from"), filepath.Join(dir, "to")
 
 	for _, p := range []string{from, to} {
-		if err := os.WriteFile(p, nil, 0o600); err != nil {
+		err := os.WriteFile(p, nil, 0o600)
+		if err != nil {
 			return err
 		}
 	}
 
-	if err := unix.Mount(from, to, "", unix.MS_BIND, ""); err != nil {
+	err := unix.Mount(from, to, "", unix.MS_BIND, "")
+	if err != nil {
 		return err
 	}
 

@@ -120,7 +120,21 @@ func TestAWorkerWhoseMachineWentAwayIsDropped(t *testing.T) {
 	// Short, because the point being measured is that a dead worker costs a
 	// bounded wait rather than QUIC's idle timeout - which is 30 seconds, and
 	// is 30 seconds *per step* for as long as the corpse stays in the fleet.
-	r := &fleet.Rendezvous{Reach: 2 * time.Second}
+	//
+	// Short is exactly what the race detector cannot afford. Two seconds is
+	// picked to sit just above a live worker's handshake, and under `-race` that
+	// handshake no longer fits inside it - so the *live* worker is dropped for
+	// being slow and the test fails claiming the driver never learned what it
+	// was. Five times out of five, deterministically, which is worth saying:
+	// this reads like a flake and is not one.
+	//
+	// The property is "bounded, and nothing like thirty seconds". Ten still is.
+	reach := 2 * time.Second
+	if underRace {
+		reach = 10 * time.Second
+	}
+
+	r := &fleet.Rendezvous{Reach: reach}
 
 	go func() { _ = r.Accept(t.Context(), driver, func(err error) { t.Logf("driver: %v", err) }) }()
 

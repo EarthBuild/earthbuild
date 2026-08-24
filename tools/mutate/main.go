@@ -15,6 +15,9 @@
 //	SURVIVED   nothing noticed. A mechanism with no guard.
 //	ANCHOR     the code moved and the catalogue did not. Fix the entry.
 //	NOCOMPILE  the mutant is not valid Go. Tests the compiler, not the suite.
+//	STUCK      `go test` never finished, so nothing was measured. Not a
+//	           survivor: "the tests did not notice" and "the tests never ran"
+//	           are different answers.
 //	unrun      this platform cannot compile the mechanism at all.
 //
 // **`unrun` is not `killed`.** A mutation the platform compiled away looks
@@ -24,6 +27,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -111,7 +115,10 @@ func main() {
 		switch verdict {
 		case "SURVIVED":
 			survived++
-		case "ANCHOR", "NOCOMPILE":
+		case "ANCHOR", "NOCOMPILE", "STUCK":
+			// STUCK counts as a problem rather than as a survivor: nothing was
+			// measured, and a mutant nobody measured must not read as one
+			// nobody caught.
 			problems++
 		}
 	}
@@ -175,10 +182,23 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 	// and the signal handler in `main` cover that; this covers the rest.
 	defer putBack()
 
+	// **Bounded twice, because the two bounds catch different failures.**
+	// `-timeout` is go test's own and stops a *test* that hangs, reporting
+	// which one. It does nothing about `go test` itself wedging - waiting on a
+	// module download, a build cache lock, a child that ignored its parent -
+	// and a sweep of four hundred mutants that stops making progress looks
+	// exactly like one that is merely slow.
+	//
+	// The outer bound is deliberately the looser of the two, so the inner one
+	// reports first wherever it can: a named test is a better answer than a
+	// killed process.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Minute)
+	defer cancel()
+
 	// G204: the package comes from this tool's own catalogue, which is a Go
 	// file in this repository and not anybody's input.
 	//nolint:gosec // see above
-	cmd := exec.Command("go", "test", m.Package, "-count=1",
+	cmd := exec.CommandContext(ctx, "go", "test", m.Package, "-count=1",
 		"-timeout", timeout.String())
 	cmd.Dir = root
 
@@ -186,6 +206,14 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 	text := string(out)
 
 	switch {
+	case ctx.Err() != nil:
+		// The outer bound fired, so `go test` itself was stuck rather than a
+		// test in it. Reported as its own verdict: "the tests did not notice"
+		// and "the tests never ran" are different answers about a mutant, and
+		// counting the second as the first records a mechanism as unguarded
+		// when nothing has been measured at all.
+		return "STUCK", "go test did not finish within " + (timeout + time.Minute).String()
+
 	case strings.Contains(text, "[build failed]"),
 		strings.Contains(text, "declared and not used"):
 		return "NOCOMPILE", firstLine(text, "declared and not used", "undefined:")

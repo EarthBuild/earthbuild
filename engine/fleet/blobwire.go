@@ -528,7 +528,7 @@ func (s *PeerSource) Fragment(
 
 	defer func() { _ = st.Close() }()
 
-	bound(st, ctx)
+	bound(ctx, st)
 
 	err = writeRequest(st, []ir.NodeID{id}, want, proof)
 	if err != nil {
@@ -576,7 +576,7 @@ func readFragment(r io.Reader, id ir.NodeID) (manifest, packed []byte, err error
 // no context, so a peer whose machine vanished after the stream was opened would
 // block until QUIC gave up on the connection - tens of seconds, once per step
 // (E256). A deadline on the stream is what actually applies it.
-func bound(st *iroh.Stream, ctx context.Context) {
+func bound(ctx context.Context, st *iroh.Stream) {
 	if dl, ok := ctx.Deadline(); ok {
 		_ = st.SetDeadline(dl)
 	}

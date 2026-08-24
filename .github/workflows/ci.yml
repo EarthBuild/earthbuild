@@ -48,6 +48,28 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
       - name: Lint
         run: earth --ci +lint-gating
       # Reported, not gating. The Go linter configuration is maximal and the

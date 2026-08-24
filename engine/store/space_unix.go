@@ -41,7 +41,7 @@ func freeOn(path string) (uint64, error) {
 // of them here and each one is a block that `rm` gives back.
 func occupies(fi os.FileInfo) uint64 {
 	if st, ok := fi.Sys().(*syscall.Stat_t); ok && st.Blocks >= 0 {
-		return uint64(st.Blocks) * 512 //nolint:gosec // guarded non-negative above
+		return uint64(st.Blocks) * 512
 	}
 
 	return apparent(fi)

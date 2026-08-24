@@ -56,7 +56,7 @@ func condFlags(cond []string, where string) ([]string, error) {
 		// A literal, deliberately: TestEveryRefusedFlagSaysWhatItWas reads
 		// these tables out of the source text, and a flag named through a
 		// constant is invisible to it. The guard outranks the lint rule.
-		{opts.WithSSH, "--ssh"}, //nolint:goconst // read from source, see above
+		{opts.WithSSH, "--ssh"},
 	} {
 		if u.set {
 			return nil, unsupported("IF "+u.name, where, "")

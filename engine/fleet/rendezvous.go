@@ -1026,7 +1026,7 @@ func (c *connSource) Fetch(
 		if err != nil {
 			// What arrived is still useful, and the caller asks somebody else
 			// for the rest.
-			return out, nil //nolint:nilerr // a short answer is not an error
+			return out, nil
 		}
 
 		if present {

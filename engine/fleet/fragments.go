@@ -51,7 +51,7 @@ func (f *Fragments) HasManifest(id ir.NodeID) bool {
 
 // Manifest is a layer's proof, if this worker has it.
 func (f *Fragments) Manifest(id ir.NodeID) ([]byte, bool) {
-	b, err := os.ReadFile(f.manifestAt(id)) //nolint:gosec // a path this engine composed
+	b, err := os.ReadFile(f.manifestAt(id))
 	if err != nil {
 		return nil, false
 	}

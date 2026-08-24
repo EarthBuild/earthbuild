@@ -333,7 +333,6 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 			missing := err != nil
 
 			//nolint:gosec // a mount point carries the mode the mount asked for
-
 			err = os.MkdirAll(target, 0o755)
 			if err != nil {
 				unmount()
@@ -419,7 +418,6 @@ func mountProc(root string) (undo func(), err error) {
 	target := filepath.Join(root, "proc")
 
 	//nolint:gosec // a mount point carries the mode the mount asked for
-
 	err = os.MkdirAll(target, 0o755)
 	if err != nil {
 		return nil, fmt.Errorf("make room for /proc: %w", err)

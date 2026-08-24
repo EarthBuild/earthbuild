@@ -31,7 +31,6 @@ func (a *Config) Cmds() []*cli.Command {
 			Name:   "config",
 			Usage:  "Edits your earth configuration file",
 			Action: a.action,
-			//nolint:lll
 			UsageText: `Examples of common settings:
 
 						Set your cache size:
@@ -54,7 +53,6 @@ func (a *Config) Cmds() []*cli.Command {
 							* is recognized to earth as example.com/name-of-repo
 
 							config git "{example: {pattern: 'example.com/([^/]+)', substitute: 'ssh://git@example.com:2222/var/git/repos/\$1.git', auth: ssh}}`,
-			//nolint:lll
 			Description: `This command takes both a path and a value. It then sets them in your configuration file.
 
 						As the configuration file is YAML, the key must be a valid key within the file. You can specify sub-keys by using "." to separate levels.

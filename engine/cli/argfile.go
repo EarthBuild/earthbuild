@@ -203,7 +203,7 @@ func secretsFromFiles(entries []string, home string) (map[string]string, error) 
 					"\n  write it as NAME=path", entry)
 		}
 
-		b, err := os.ReadFile(expandTilde(path, home)) //nolint:gosec // a path the caller named
+		b, err := os.ReadFile(expandTilde(path, home))
 		if err != nil {
 			return nil, fmt.Errorf("--secret-file %s: %w", name, err)
 		}

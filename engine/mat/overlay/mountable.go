@@ -44,16 +44,16 @@ func Mountable(preferred string) (dir string, cleanup func(), err error) {
 
 		// base comes from this file's own candidate list and the name from
 		// MkdirTemp, so nothing a build says reaches either.
-		alt, mkErr := os.MkdirTemp(base, "earth-overlay-*") //nolint:gosec // see above
+		alt, mkErr := os.MkdirTemp(base, "earth-overlay-*")
 		if mkErr != nil {
 			continue
 		}
 
 		if Available(alt) == nil {
-			return alt, func() { _ = os.RemoveAll(alt) }, nil //nolint:gosec // MkdirTemp made it
+			return alt, func() { _ = os.RemoveAll(alt) }, nil
 		}
 
-		_ = os.RemoveAll(alt) //nolint:gosec // MkdirTemp made it, as above
+		_ = os.RemoveAll(alt)
 	}
 
 	// Made, and handed back with the way to remove it. A finalizer was the

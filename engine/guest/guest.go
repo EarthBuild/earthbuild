@@ -823,7 +823,7 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 	// 0755 deliberately: this becomes part of the image, and a directory a
 	// non-root user in that image cannot traverse is a build that works here
 	// and fails wherever the image is run.
-	err = mkdirAllStamped(filepath.Dir(dstPath), 0o755, opts.Clamp) //nolint:gosec // see above
+	err = mkdirAllStamped(filepath.Dir(dstPath), 0o755, opts.Clamp)
 	if err != nil {
 		return fmt.Errorf("create the destination directory for %s: %w", dest, err)
 	}
@@ -1781,7 +1781,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// build re-keyed from this one line: 47 of 91 steps showed a moved base
 		// between two builds of one commit, while their op, env, platform and
 		// node were identical (E577).
-		err = mkdirAllStamped(dir, 0o755, clampAt(req.Clamp)) //nolint:gosec // a mode a build sees
+		err = mkdirAllStamped(dir, 0o755, clampAt(req.Clamp))
 		if err != nil {
 			return Response{Err: fmt.Sprintf("create the working directory %s: %v", req.Dir, err)}
 		}

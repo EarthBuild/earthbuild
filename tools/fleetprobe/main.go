@@ -693,7 +693,7 @@ func chainFrom(base ir.NodeID, n int, size int64) []fleet.Step {
 	on := base
 
 	for i := range n {
-		made := ir.NodeID{byte(i + 2)} //nolint:gosec // a probe
+		made := ir.NodeID{byte(i + 2)}
 		out = append(out, fleet.Step{
 			Base:     []ir.NodeID{on},
 			Produces: made,
@@ -721,7 +721,7 @@ func levelsFrom(base ir.NodeID, levels, width int, size int64) []fleet.Step {
 		var first ir.NodeID
 
 		for range width {
-			made := ir.NodeID{byte(next)} //nolint:gosec // a probe
+			made := ir.NodeID{byte(next)}
 			next++
 
 			out = append(out, fleet.Step{
@@ -747,7 +747,7 @@ func fanOut(base ir.NodeID, n int, size int64) []fleet.Step {
 	for i := range n {
 		out = append(out, fleet.Step{
 			Base:     []ir.NodeID{base},
-			Produces: ir.NodeID{byte(i + 2)}, //nolint:gosec // a probe
+			Produces: ir.NodeID{byte(i + 2)},
 			Size:     size,
 		})
 	}

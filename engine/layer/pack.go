@@ -142,7 +142,7 @@ func PackOwned(root string, w io.Writer, want []string, own map[string]Owner) er
 	e.Count(len(ids))
 
 	for _, id := range ids {
-		body, err := os.ReadFile(bodies[id]) //nolint:gosec // a path this walk produced
+		body, err := os.ReadFile(bodies[id])
 		if err != nil {
 			return fmt.Errorf("read %s: %w", bodies[id], err)
 		}

@@ -2633,7 +2633,6 @@ var flagMeanings = map[string]string{
 	"--from":             "takes files out of an earlier build stage, as classical Dockerfile syntax does",
 	"--privileged":       "lets the command use privileged capabilities",
 	"--allow-privileged": "lets a remotely-referenced target request privileged capabilities",
-	//nolint:goconst // a map key matched by name; see cond.go
 	"--ssh":              "gives the command the host's ssh authentication client",
 	"--with-docker":      "starts a Docker daemon for the duration of the command",
 	"--interactive-keep": "opens a prompt in the container and keeps what the session changed",

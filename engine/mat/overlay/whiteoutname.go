@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+// The names overlayfs gives a deletion, which are a *format* rather than a
+// syscall: a layer built on any platform carries them, and reading one is not a
+// linux-only act even though acting on it is. They live here, in the file with no
+// build tag, so the rule about what a marker may name can be tested anywhere.
+const (
+	whPrefix = ".wh."
+	whOpaque = ".wh..wh..opq"
+)
+
 // whiteoutTarget is the name a `.wh.` marker deletes.
 //
 // **A marker names a sibling, and only a sibling.** Overlayfs spells a deletion
@@ -25,8 +34,8 @@ import (
 // So the shape is asserted here instead: one component, not empty, not `.`, not
 // `..`, no separator. Pure and platform-neutral on purpose - the syscalls are
 // linux-only and this is the part worth testing everywhere.
-func whiteoutTarget(marker, prefix string) (string, error) {
-	name, ok := strings.CutPrefix(marker, prefix)
+func whiteoutTarget(marker string) (string, error) {
+	name, ok := strings.CutPrefix(marker, whPrefix)
 	if !ok {
 		return "", fmt.Errorf("layer entry %q is not a whiteout marker", marker)
 	}

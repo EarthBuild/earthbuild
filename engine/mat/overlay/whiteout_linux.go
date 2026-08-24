@@ -15,11 +15,6 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
-const (
-	whPrefix = ".wh."
-	whOpaque = ".wh..wh..opq"
-)
-
 // translator turns a layer's portable deletion markers back into the form
 // overlayfs understands, on storage this VM owns.
 //
@@ -237,7 +232,7 @@ func translate(src, dst string) error {
 			// Through whiteoutTarget, because `TrimPrefix` alone let a layer
 			// name the parent: `.wh...` strips to `..` and Join resolves it
 			// outside the directory being translated (E630).
-			name, err := whiteoutTarget(d.Name(), whPrefix)
+			name, err := whiteoutTarget(d.Name())
 			if err != nil {
 				return err
 			}

@@ -19,8 +19,6 @@ import (
 func TestAWhiteoutCannotNameSomethingOutsideItsDirectory(t *testing.T) {
 	t.Parallel()
 
-	const prefix = ".wh."
-
 	for _, marker := range []string{
 		".wh...",   // strips to ".."
 		".wh..",    // strips to "."
@@ -28,7 +26,7 @@ func TestAWhiteoutCannotNameSomethingOutsideItsDirectory(t *testing.T) {
 		".wh./etc", // a path rather than a name
 		".wh.a/b",
 	} {
-		got, err := whiteoutTarget(marker, prefix)
+		got, err := whiteoutTarget(marker)
 		if err == nil {
 			t.Errorf("%q was accepted as a whiteout for %q", marker, got)
 		}
@@ -46,7 +44,7 @@ func TestAnOrdinaryWhiteoutIsAccepted(t *testing.T) {
 		".wh.libstdc++.so.6": "libstdc++.so.6",
 		".wh...hidden":       "..hidden",
 	} {
-		got, err := whiteoutTarget(marker, ".wh.")
+		got, err := whiteoutTarget(marker)
 		if err != nil {
 			t.Errorf("%q was refused: %v", marker, err)
 
@@ -63,7 +61,7 @@ func TestAnOrdinaryWhiteoutIsAccepted(t *testing.T) {
 func TestANonMarkerIsRefused(t *testing.T) {
 	t.Parallel()
 
-	_, err := whiteoutTarget("ordinary.txt", ".wh.")
+	_, err := whiteoutTarget("ordinary.txt")
 	if err == nil {
 		t.Error("a file that is not a whiteout was read as one")
 	}

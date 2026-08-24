@@ -28,10 +28,7 @@ import (
 // step's work discarded, and the only honest alternative to carrying it is
 // saying so.
 func copyXattrs(src, dst string) error {
-	names, err := listXattrs(src)
-	if err != nil {
-		return err
-	}
+	names := listXattrs(src)
 
 	for _, name := range names {
 		if !ours(name) {
@@ -89,19 +86,27 @@ func ours(name string) bool {
 	return !strings.HasPrefix(name, "com.apple.")
 }
 
-func listXattrs(p string) ([]string, error) {
+// listXattrs is the extended attributes a path carries, or none.
+//
+// **No error, because there is no failure.** Every way this can go wrong means
+// the same thing to the only caller - a filesystem without extended attributes,
+// or a path that has none - and both are "the source has no attributes, so the
+// copy loses none". Returning an error that is always nil made the caller check
+// something that could not happen (unparam), which is the same guard-shaped
+// nothing E625 removed from `store.relative`.
+func listXattrs(p string) []string {
 	size, err := unix.Llistxattr(p, nil)
 	if err != nil || size == 0 {
 		// Unsupported or none. A filesystem without them is not an error: the
 		// source has no attributes, so the copy loses none.
-		return nil, nil //nolint:nilerr // see above
+		return nil
 	}
 
 	buf := make([]byte, size)
 
 	size, err = unix.Llistxattr(p, buf)
 	if err != nil {
-		return nil, nil //nolint:nilerr // as above
+		return nil
 	}
 
 	var out []string
@@ -112,7 +117,7 @@ func listXattrs(p string) ([]string, error) {
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 func getXattr(p, name string) ([]byte, error) {

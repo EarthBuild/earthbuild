@@ -129,6 +129,14 @@ type engine struct {
 	// digests the same tree. A build sees one snapshot of its context - which
 	// is what every COPY here already assumes - so the invocation is exactly
 	// the right lifetime for this, and it ends with the invocation.
+	//
+	// **The nested plans cannot invalidate what the outer one cached**, which
+	// is the question to ask of any cache spanning two plans: a produced
+	// Dockerfile is exported to a temporary directory of this engine's choosing
+	// (see dockerfileartifact), not into the project, so nothing a plan makes
+	// appears at a path another plan has already digested. If that ever changes
+	// - if an artifact is written back into the context - this cache serves the
+	// digest from before it was written, which is a false hit.
 	contexts *interp.ContextCache
 
 	// caseNote is what to say about a case-insensitive store *if this build

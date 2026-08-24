@@ -29,7 +29,8 @@ func TestAFragmentWithTheWrongModeIsRefused(t *testing.T) {
 	src := t.TempDir()
 	at := filepath.Join(src, "a.txt")
 
-	if err := os.WriteFile(at, []byte("hello"), 0o600); err != nil {
+	err := os.WriteFile(at, []byte("hello"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -69,7 +70,8 @@ func TestAFragmentIsNotSealedOnWhatItCannotReproduce(t *testing.T) {
 	// test, which is what a global seam does when it escapes.
 	src := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hi"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hi"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -99,13 +101,15 @@ func TestAFragmentIsCheckedAgainstTheManifestNotItself(t *testing.T) {
 
 	src := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hi"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hi"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	other := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(other, "a.txt"), []byte("bye"), 0o600); err != nil {
+	err = os.WriteFile(filepath.Join(other, "a.txt"), []byte("bye"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -130,7 +134,8 @@ func TestAManifestWhoseKindContradictsItsModeIsRefused(t *testing.T) {
 
 	src := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hi"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("hi"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

@@ -78,7 +78,8 @@ func layerStore(t *testing.T) *fleet.Layers {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "layers"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "layers"), 0o750)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -91,7 +92,8 @@ func seedLayer(t *testing.T, into *fleet.Layers, n int) ir.NodeID {
 
 	tmp := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o750)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -108,7 +110,7 @@ func seedLayer(t *testing.T, into *fleet.Layers, n int) ir.NodeID {
 
 	var packed bytes.Buffer
 
-	err := layer.Pack(tmp, &packed)
+	err = layer.Pack(tmp, &packed)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

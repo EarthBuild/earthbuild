@@ -202,7 +202,8 @@ func BenchmarkWriteParallelSpread(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		dir := filepath.Join(root, "w"+itoa(int(workers.Add(1))))
-		if err := os.MkdirAll(dir, 0o750); err != nil {
+		err := os.MkdirAll(dir, 0o750)
+		if err != nil {
 			b.Error(err)
 
 			return

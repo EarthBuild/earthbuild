@@ -20,13 +20,14 @@ func TestPlacingAnImageRecordsThatItHasNoMarkers(t *testing.T) {
 	store := t.TempDir()
 
 	layer := filepath.Join(store, "layers", "abc123")
-	if err := os.MkdirAll(layer, 0o750); err != nil {
+	err := os.MkdirAll(layer, 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	noteUnmarked(layer)
 
-	_, err := os.Stat(overlay.UnmarkedNote(layer))
+	_, err = os.Stat(overlay.UnmarkedNote(layer))
 	if err != nil {
 		t.Fatalf("no note beside a layer that cannot carry markers: %v", err)
 	}

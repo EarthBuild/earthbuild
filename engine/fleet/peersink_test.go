@@ -39,11 +39,12 @@ func TestWhatAStepFaultsInComesFromItsOwnPeers(t *testing.T) {
 	// Nothing has arrived yet, so there is nobody to ask - and saying so is the
 	// point: a sink that answered before it had been filled would be a source
 	// pointing at whatever was configured at start-up, which is the fault.
-	if _, _, err := peers.Fragment(t.Context(), id, []string{"usr/lib/lib0.so"}, true); err == nil {
+	_, _, err := peers.Fragment(t.Context(), id, []string{"usr/lib/lib0.so"}, true)
+	if err == nil {
 		t.Error("an empty sink answered for a layer")
 	}
 
-	_, err := run(t.Context(), fleet.Assignment{
+	_, err = run(t.Context(), fleet.Assignment{
 		Version: fleet.Version,
 		Op:      fleet.Op{Kind: fleet.KindExec, Args: []string{"make"}},
 		Base:    []ir.NodeID{id},

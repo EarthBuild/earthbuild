@@ -82,7 +82,8 @@ func treeOfSized(t *testing.T, n, each int) string {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "usr", "lib"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "usr", "lib"), 0o750)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

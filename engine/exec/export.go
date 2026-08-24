@@ -386,7 +386,8 @@ func insideProject(root, dest string) error {
 // existingAncestor is the closest directory on a path that exists.
 func existingAncestor(p string) string {
 	for at := p; ; at = filepath.Dir(at) {
-		if _, err := os.Stat(at); err == nil {
+		_, err := os.Stat(at)
+		if err == nil {
 			return at
 		}
 

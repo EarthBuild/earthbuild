@@ -108,12 +108,13 @@ func TestAStoreNoteIsBelieved(t *testing.T) {
 	store := t.TempDir()
 
 	src := filepath.Join(store, "layer-3")
-	if err := os.MkdirAll(src, 0o750); err != nil {
+	err := os.MkdirAll(src, 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Only a scan can see this, and the note says no scan is needed.
-	err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600)
+	err = os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

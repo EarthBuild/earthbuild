@@ -58,14 +58,16 @@ func TestAStagedContextLeavesOutWhatTheIgnoreFileNames(t *testing.T) {
 	}
 
 	// Named by the ignore file, so it must not be here.
-	if _, err := os.Lstat(filepath.Join(dst, "store/testdata/bigtree-20000/d01/f1")); err == nil {
+	_, err = os.Lstat(filepath.Join(dst, "store/testdata/bigtree-20000/d01/f1"))
+	if err == nil {
 		t.Error("a file the ignore file names was staged into the context")
 	}
 
 	// Everything else must be, or the fix drops source instead of fixtures -
 	// which is the failure mode `.earthlyignore` warns about in its own comments.
 	for _, rel := range []string{"store/testdata/keep.txt", "store/store.go"} {
-		if _, err := os.Lstat(filepath.Join(dst, rel)); err != nil {
+		_, err := os.Lstat(filepath.Join(dst, rel))
+		if err != nil {
 			t.Errorf("%s was left out of the context, and a build may read it", rel)
 		}
 	}

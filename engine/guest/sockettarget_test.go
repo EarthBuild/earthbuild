@@ -25,16 +25,18 @@ func TestTheSocketFollowsTheImagesOwnSymlink(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "run"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "run"), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.MkdirAll(filepath.Join(root, "var"), 0o750); err != nil {
+	err = os.MkdirAll(filepath.Join(root, "var"), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Exactly what the image ships.
-	err := os.Symlink("../run", filepath.Join(root, "var", "run"))
+	err = os.Symlink("../run", filepath.Join(root, "var", "run"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,11 +85,12 @@ func TestALinkThatClimbsOutIsClamped(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "var"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "var"), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	err := os.Symlink("../../../../etc", filepath.Join(root, "var", "run"))
+	err = os.Symlink("../../../../etc", filepath.Join(root, "var", "run"))
 	if err != nil {
 		t.Fatal(err)
 	}

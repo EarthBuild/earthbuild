@@ -20,14 +20,16 @@ func TestChownNamesResolveAgainstTheImage(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "etc"), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	write := func(name, body string) {
 		t.Helper()
 
-		if err := os.WriteFile(filepath.Join(root, "etc", name), []byte(body), 0o600); err != nil {
+		err := os.WriteFile(filepath.Join(root, "etc", name), []byte(body), 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -74,7 +76,8 @@ func TestAChownNameTheImageLacksIsRefused(t *testing.T) {
 
 	root := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o750); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "etc"), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,7 +86,7 @@ func TestAChownNameTheImageLacksIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err := chownIDs(root, "nobody-here:nobody-here")
+	_, _, err = chownIDs(root, "nobody-here:nobody-here")
 	if err == nil {
 		t.Fatal("a user the image does not have was accepted")
 	}

@@ -137,7 +137,8 @@ func watch(t *testing.T, body func()) *observed {
 				}
 			}
 
-			if err := respond(fd, n.ID); err != nil {
+			err = respond(fd, n.ID)
+			if err != nil {
 				return
 			}
 		}

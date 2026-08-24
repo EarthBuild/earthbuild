@@ -353,7 +353,8 @@ func TestTheDirectoriesAboveAFaultedInFileAreBase(t *testing.T) {
 
 	go func() {
 		_ = guest.ServeFills(there, func(_, p string) error {
-			if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			err := os.MkdirAll(filepath.Dir(p), 0o750)
+			if err != nil {
 				return err
 			}
 

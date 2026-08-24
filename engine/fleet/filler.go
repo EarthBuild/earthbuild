@@ -200,7 +200,8 @@ func makeAncestors(from, to string) error {
 
 	missing := []string{}
 	for at := dir; at != "" && at != string(filepath.Separator); at = filepath.Dir(at) {
-		if _, err := os.Lstat(at); err == nil {
+		_, err := os.Lstat(at)
+		if err == nil {
 			break
 		}
 

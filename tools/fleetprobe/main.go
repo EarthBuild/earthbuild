@@ -385,7 +385,8 @@ func drive(
 
 	// What this build measured, for the next one - which is what a real build
 	// does when it exits (E351).
-	if err := d.Keep(); err != nil {
+	err = d.Keep()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "keeping the rate:", err)
 	}
 

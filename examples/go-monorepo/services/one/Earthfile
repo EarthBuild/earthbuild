@@ -1,7 +1,7 @@
 VERSION 0.8
 
 deps:
-    FROM golang:1.26-alpine3.23
+    FROM golang:1.27-alpine3.24
     WORKDIR /services/one
     COPY ../../libs/hello+artifact/* /libs/hello
     COPY go.mod go.sum ./
@@ -19,11 +19,11 @@ unit-test:
 
 docker:
     FROM +compile
-    ENTRYPOINT ["./service-one"] 
+    ENTRYPOINT ["./service-one"]
     SAVE IMAGE service-one:latest
 
 release-tag:
-    FROM golang:1.26-alpine3.23
+    FROM golang:1.27-alpine3.24
     RUN go install github.com/maykonlf/semver-cli/cmd/semver@v1.0.2
     COPY .semver.yaml .
     RUN semver get release > version

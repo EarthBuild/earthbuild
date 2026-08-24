@@ -391,7 +391,7 @@ type FlagValuePotentialFn func(ctx context.Context, prefix string) []string
 // GetPotentials returns a list of potential arguments for shell auto completion
 // NOTE: you can cause earth to run this command with:
 //
-//	COMP_LINE="earth -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earthly/main.go
+//	COMP_LINE="earth -" COMP_POINT=$(echo -n $COMP_LINE | wc -c) go run cmd/earth/main.go
 func GetPotentials(
 	ctx context.Context,
 	resolver *buildcontext.Resolver,

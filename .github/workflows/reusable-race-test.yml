@@ -82,7 +82,7 @@ jobs:
         run: |
           # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
           scripts/ci/earth-retry.sh -c '
-            GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
+            GORACE="halt_on_error=1" go run -race ./cmd/earth --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
               "${INPUTS_TEST_TARGET}"
           '
         env:

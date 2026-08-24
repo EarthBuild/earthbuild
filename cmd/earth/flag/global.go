@@ -6,18 +6,12 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/urfave/cli/v3"
 )
 
 const (
-	// DefaultBuildkitdContainerSuffix is the suffix of the buildkitd container.
-	DefaultBuildkitdContainerSuffix = "-buildkitd"
-
-	// DefaultBuildkitdVolumeSuffix is the suffix of the docker volume used for storing the cache.
-	DefaultBuildkitdVolumeSuffix = "-cache"
-
 	// DefaultEnvFile is the default path to the env file.
 	DefaultEnvFile = ".env"
 
@@ -384,7 +378,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "buildkit-container-name",
-			Value:       defaultInstallationName + DefaultBuildkitdContainerSuffix,
+			Value:       buildkitd.ContainerName(defaultInstallationName),
 			Sources:     EarthEnvVars("CONTAINER_NAME"),
 			Usage:       "The docker container name to use for the buildkit daemon",
 			Destination: &global.ContainerName,
@@ -392,7 +386,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "buildkit-volume-name",
-			Value:       defaultInstallationName + DefaultBuildkitdVolumeSuffix,
+			Value:       buildkitd.VolumeName(defaultInstallationName),
 			Sources:     EarthEnvVars("VOLUME_NAME"),
 			Usage:       "The docker volume name to use for the buildkit daemon cache",
 			Destination: &global.BuildkitdSettings.VolumeName,

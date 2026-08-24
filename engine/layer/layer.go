@@ -198,18 +198,23 @@ func Digest(root string) (ir.NodeID, int64, error) {
 // Deliberately absent: atime and ctime. Reading a file changes its atime, so
 // including it would make a layer's identity depend on who last read the source
 // tree - a cache that misses because something looked at it.
+// Ordered for size rather than for reading: one of these exists per file in a
+// layer, so the eight bytes of padding the old order carried were eight bytes a
+// hundred thousand times on a real base. The four `uint32`s sit together and
+// fill two words exactly; scattering them among the 64-bit fields is what paid
+// for the padding. TestAnEntryHasNoPaddingToSpare pins it.
 type entry struct {
 	path     string
+	link     string // symlinks only
+	hardlink string // the first path sharing this inode, if any
+	xattrs   []xattr
+	content  ir.NodeID // regular files only
+	mtimeSec int64
+	size     int64
+	rdev     uint64 // device nodes only
 	mode     uint32
 	uid, gid uint32
-	mtimeSec int64
 	mtimeNs  uint32
-	size     int64
-	content  ir.NodeID // regular files only
-	link     string    // symlinks only
-	rdev     uint64    // device nodes only
-	hardlink string    // the first path sharing this inode, if any
-	xattrs   []xattr
 }
 
 type xattr struct{ name, value string }

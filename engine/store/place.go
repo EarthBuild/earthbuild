@@ -272,12 +272,15 @@ func PlaceAtomically(target string, write func(tmp string) error) error {
 }
 
 // linkJob is one entry of a tree waiting to be placed.
+// The two flags last, so they share one word rather than being padded apart by
+// the fields between them: one of these exists per entry placed, and the order
+// was costing eight bytes each (govet fieldalignment).
 type linkJob struct {
 	from, to string
-	symlink  bool
 	// mtime is the time a recreated symlink should carry. Symlinks only:
 	// everything else is hard-linked and keeps its own.
-	mtime time.Time
+	mtime   time.Time
+	symlink bool
 	// exclusive says the destination is one nobody else can reach, so the entry
 	// can be created directly instead of being staged and renamed over.
 	exclusive bool

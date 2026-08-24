@@ -53,7 +53,7 @@ func TestEveryMountFieldReachesTheKey(t *testing.T) {
 
 				op := ir.Op{
 					Kind: ir.OpExec, Args: []string{"make"},
-					//nolint:forcetypeassert // constructed from ir.Mount
+					// constructed from ir.Mount
 					Mounts: []ir.Mount{m.Interface().(ir.Mount)},
 				}
 

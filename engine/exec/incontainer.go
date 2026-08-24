@@ -1,6 +1,9 @@
 package exec
 
-import "os"
+import (
+	"os"
+	"slices"
+)
 
 // containerMarkers are the files a container runtime leaves behind.
 //
@@ -17,13 +20,7 @@ var containerMarkers = []string{"/.dockerenv", "/run/.containerenv"}
 // inner build down the machine's-daemon path and have it refused for a reason
 // that is not true, which is worse than not asking.
 func inContainer(exists func(string) bool) bool {
-	for _, m := range containerMarkers {
-		if exists(m) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(containerMarkers, exists)
 }
 
 // hereInContainer answers for this process.

@@ -72,7 +72,12 @@ type Healthcheck struct {
 type configWith struct {
 	ocispec.Image
 
-	Config configBody `json:"config,omitempty"`
+	// `config`, with no `omitempty` and deliberately no `omitzero` either.
+	// `omitempty` never fires for a struct, so it was a no-op that read like a
+	// decision; `omitzero` is not a no-op - it would drop the field when the
+	// config is zero, and this JSON is hashed. A manifest that loses a key
+	// gets a different digest, which is not a formatting change.
+	Config configBody `json:"config"`
 }
 
 // configBody is `config` with the extension in it.

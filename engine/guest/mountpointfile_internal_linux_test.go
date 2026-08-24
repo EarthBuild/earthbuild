@@ -29,7 +29,8 @@ import (
 // resolverPath is the one mount point every step gets and no image ships.
 const resolverPath = "/etc/resolv.conf"
 
-func TestAFileMountPointThisEngineMadeIsRemoved(t *testing.T) { //nolint:paralleltest // mounts
+// Not parallel: mounts.
+func TestAFileMountPointThisEngineMadeIsRemoved(t *testing.T) {
 	if !nstest.In(t) {
 		return
 	}
@@ -76,7 +77,8 @@ func TestAFileMountPointThisEngineMadeIsRemoved(t *testing.T) { //nolint:paralle
 // afterwards there is no way to tell. An image that ships `/etc/resolv.conf`
 // keeps it, with whatever it contained - removing it would delete a file the
 // build is entitled to.
-func TestAFileMountPointTheImageHadSurvives(t *testing.T) { //nolint:paralleltest // mounts
+// Not parallel: mounts.
+func TestAFileMountPointTheImageHadSurvives(t *testing.T) {
 	if !nstest.In(t) {
 		return
 	}
@@ -135,7 +137,8 @@ func TestAFileMountPointTheImageHadSurvives(t *testing.T) { //nolint:paralleltes
 // engine made its mount point and after it took it away, the net effect on that
 // directory was nothing and its time is restored. A step that wrote there
 // changes the set, and then the time is the step's and is left alone.
-func TestTheDirectoryAMountPointWasMadeInKeepsItsTime(t *testing.T) { //nolint:paralleltest // mounts
+// Not parallel: mounts.
+func TestTheDirectoryAMountPointWasMadeInKeepsItsTime(t *testing.T) {
 	if !nstest.In(t) {
 		return
 	}
@@ -192,7 +195,8 @@ func TestTheDirectoryAMountPointWasMadeInKeepsItsTime(t *testing.T) { //nolint:p
 // rather than as "put it back": a step that creates a file in `/etc` has
 // changed that directory, and restoring the time it had before would hide what
 // the step did.
-func TestADirectoryTheStepWroteInKeepsTheStepsTime(t *testing.T) { //nolint:paralleltest // mounts
+// Not parallel: mounts.
+func TestADirectoryTheStepWroteInKeepsTheStepsTime(t *testing.T) {
 	if !nstest.In(t) {
 		return
 	}

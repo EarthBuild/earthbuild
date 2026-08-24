@@ -172,7 +172,7 @@ func dialFrom(t *testing.T, reply func(guest.Request) guest.Response) *guest.Cli
 				return
 			}
 
-			binary.BigEndian.PutUint32(hdr[:], uint32(len(b))) //nolint:gosec // a marshalled reply
+			binary.BigEndian.PutUint32(hdr[:], uint32(len(b))) // a marshalled reply
 
 			_, err = guestSide.Write(append(hdr[:], b...))
 			if err != nil {

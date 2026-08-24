@@ -61,8 +61,7 @@ func TestAReplyCarriesNoPayload(t *testing.T) {
 			walk(t, typ.Elem(), path+" -> value")
 
 		case reflect.Struct:
-			for i := range typ.NumField() {
-				f := typ.Field(i)
+			for f := range typ.Fields() {
 				walk(t, f.Type, path+"."+f.Name)
 			}
 

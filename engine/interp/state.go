@@ -202,9 +202,7 @@ func (s *state) forTarget() *state {
 	out.args = scope{}
 	out.declared = map[string]bool{}
 
-	for name, v := range s.globals {
-		out.args[name] = v
-	}
+	maps.Copy(out.args, s.globals)
 
 	return out
 }

@@ -131,7 +131,7 @@ func TestABuildPromptsAndReadsTheAnswer(t *testing.T) {
 
 // interactiveChild runs the build, from a process that has a terminal.
 func interactiveChild() {
-	dir, err := os.MkdirTemp("", "interactive-*") //nolint:usetesting // no *testing.T here
+	dir, err := os.MkdirTemp("", "interactive-*") // no *testing.T here
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "child:", err)
 		os.Exit(3)

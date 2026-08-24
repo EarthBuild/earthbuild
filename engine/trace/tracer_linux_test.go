@@ -332,10 +332,10 @@ func TestAWriteOnlyOpenIsNotARead(t *testing.T) {
 	} {
 		tr := NewTracer(-1)
 
-		n := seccompNotif{Pid: uint32(os.Getpid())} //nolint:gosec // a pid is not negative
+		n := seccompNotif{Pid: uint32(os.Getpid())} // a pid is not negative
 		n.Data.Arch = auditArch
 		n.Data.NR = unix.SYS_OPENAT
-		n.Data.Args[0] = uint64(uint32(fdcwd)) //nolint:gosec // as the kernel delivers it
+		n.Data.Args[0] = uint64(uint32(fdcwd)) // as the kernel delivers it
 		n.Data.Args[1] = 0                     // an address that cannot be read
 		n.Data.Args[2] = tc.flags
 

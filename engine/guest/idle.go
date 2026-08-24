@@ -139,9 +139,7 @@ func (i *idle) Watch(stop func()) {
 	}
 
 	every := i.after / 10
-	if every < time.Second {
-		every = time.Second
-	}
+	every = max(every, time.Second)
 
 	for {
 		time.Sleep(every)

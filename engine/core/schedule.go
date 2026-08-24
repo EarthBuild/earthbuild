@@ -149,14 +149,12 @@ func noWorkerFor(n *ir.Node, workers []Worker) error {
 
 	want := n.Platform.String()
 
-	for _, p := range have {
-		if p == want {
-			// The platform matches and something else excluded them, so saying
-			// "the platform is wrong" would send the reader somewhere there is
-			// nothing to find.
-			return fmt.Errorf("%w: %d worker(s) run %s and none of them accepted this step",
-				ErrNoEligibleWorker, len(workers), strings.Join(have, ", "))
-		}
+	// The platform matches and something else excluded them, so saying "the
+	// platform is wrong" would send the reader somewhere there is nothing to
+	// find.
+	if slices.Contains(have, want) {
+		return fmt.Errorf("%w: %d worker(s) run %s and none of them accepted this step",
+			ErrNoEligibleWorker, len(workers), strings.Join(have, ", "))
 	}
 
 	return fmt.Errorf(

@@ -23,7 +23,7 @@ import (
 // naming the one that was waiting. Asking first turns that into a sentence
 // (E634).
 func waitReadable(fd int, within time.Duration) (bool, error) {
-	fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}} //nolint:gosec // a descriptor is not that big
+	fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}} // a descriptor is not that big
 
 	for {
 		n, err := unix.Poll(fds, int(within.Milliseconds()))

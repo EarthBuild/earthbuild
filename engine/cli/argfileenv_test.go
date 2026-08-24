@@ -109,8 +109,8 @@ func greetingOf(t *testing.T, o cli.Options) string {
 	}
 
 	for line := range strings.SplitSeq(out.String(), "\n") {
-		if i := strings.Index(line, "echo "); i >= 0 {
-			return strings.TrimSpace(line[i+len("echo "):])
+		if _, after, found := strings.Cut(line, "echo "); found {
+			return strings.TrimSpace(after)
 		}
 	}
 

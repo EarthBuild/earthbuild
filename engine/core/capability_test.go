@@ -36,8 +36,8 @@ func TestUnsupportedConstructsAreRefused(t *testing.T) {
 		t.Fatal("an unsupported construct was accepted")
 	}
 
-	var ue *core.UnsupportedError
-	if !errors.As(err, &ue) {
+	_, ok := errors.AsType[*core.UnsupportedError](err)
+	if !ok {
 		t.Fatalf("error is not an UnsupportedError: %v", err)
 	}
 

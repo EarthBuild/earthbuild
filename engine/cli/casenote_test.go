@@ -99,7 +99,8 @@ func TestTheCaseNoteIsPrintedWhenSomethingFailed(t *testing.T) {
 //
 // No sandbox needed: a guest binary that is not there fails the build for a
 // reason this machine can produce on demand.
-func TestTheCaseNoteReachesAFailureAfterPlanning(t *testing.T) { //nolint:paralleltest // t.Setenv
+// Not parallel: t.Setenv.
+func TestTheCaseNoteReachesAFailureAfterPlanning(t *testing.T) {
 	store := t.TempDir()
 	if sensitive, known := cli.CaseSensitive(store); !known || sensitive {
 		t.Skip("this machine's temporary directory is case-sensitive")

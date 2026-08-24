@@ -2377,7 +2377,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a global reaching the target that inherits it (E438)",
 		File:        "engine/interp/state.go",
-		Anchor:      "\tfor name, v := range s.globals {\n\t\tout.args[name] = v\n\t}",
+		Anchor:      "\tmaps.Copy(out.args, s.globals)",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},

@@ -132,11 +132,9 @@ func (a *account) delegated(round time.Duration, r Reply) {
 	queue := millis(r.QueueMillis)
 
 	over := round - fetch - compute - queue
-	if over < 0 {
-		// The worker claims more than the round trip took. Its clock, not this
-		// one's - so the overhead is nothing rather than negative.
-		over = 0
-	}
+	// A worker claiming more than the round trip took is reporting its clock
+	// rather than this one's, so the overhead is nothing rather than negative.
+	over = max(over, 0)
 
 	a.mu.Lock()
 	defer a.mu.Unlock()

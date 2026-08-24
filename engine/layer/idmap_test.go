@@ -100,8 +100,8 @@ func TestADigestThroughAMappingMatchesTheStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	me := uint32(os.Getuid())   //nolint:gosec // a uid fits
-	mine := uint32(os.Getgid()) //nolint:gosec // as above
+	me := uint32(os.Getuid())   // a uid fits
+	mine := uint32(os.Getgid()) // as above
 
 	// The host's view: no translation, the ids the store holds.
 	host, err := layer.PathDigest(p)

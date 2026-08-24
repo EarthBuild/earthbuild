@@ -117,7 +117,7 @@ func corpusTree() string {
 		return dir
 	}
 
-	root, err := os.MkdirTemp("", "corpus") //nolint:usetesting // outlives any one test; see above
+	root, err := os.MkdirTemp("", "corpus") // outlives any one test; see above
 	if err != nil {
 		return "../.."
 	}

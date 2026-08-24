@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -34,13 +35,7 @@ func (e *unwindExec) did(source string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	for _, s := range e.ran {
-		if s == source {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(e.ran, source)
 }
 
 // A handler runs when the step it guards fails, even though the build stops.

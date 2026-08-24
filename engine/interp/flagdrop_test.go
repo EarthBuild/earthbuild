@@ -130,15 +130,15 @@ func TestNoFlagIsSilentlyDropped(t *testing.T) {
 
 		typ := reflect.TypeOf(c.opts)
 
-		for i := range typ.NumField() {
-			flag := typ.Field(i).Tag.Get("long")
+		for field := range typ.Fields() {
+			flag := field.Tag.Get("long")
 			if flag == "" {
 				continue
 			}
 
 			where := c.name + " --" + flag
 
-			with, err := planOf(c, writtenAs(typ.Field(i), flag))
+			with, err := planOf(c, writtenAs(field, flag))
 			switch {
 			case baseErr != nil:
 				// Asked first: if the template does not plan without the flag,

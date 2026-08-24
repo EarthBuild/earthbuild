@@ -60,7 +60,7 @@ func TestEveryRecordedFlagMeaningSaysSomething(t *testing.T) {
 
 		left := 0
 
-		for _, w := range strings.Fields(strings.ToLower(meaning)) {
+		for w := range strings.FieldsSeq(strings.ToLower(meaning)) {
 			if !drop[strings.Trim(w, ",'`$")] {
 				left++
 			}

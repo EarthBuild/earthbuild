@@ -643,7 +643,8 @@ build:
 // fetching them twice. Measured rather than asserted about: the second target
 // is timed against the first, and a second pull over the network is not
 // something that hides inside a margin.
-func TestAnImageNamedTwiceIsFetchedOnce(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
+func TestAnImageNamedTwiceIsFetchedOnce(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -719,7 +720,8 @@ second:
 // interpreting anything. Nothing here changes what is built - the condition is
 // still evaluated and still decides (green paper I5) - only when the bytes
 // move.
-func TestABuildLearnsWhatItsConditionsNeed(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
+func TestABuildLearnsWhatItsConditionsNeed(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -799,7 +801,8 @@ build:
 // directory is bound into the step's filesystem by the guest, what the step
 // writes there goes to the bound source rather than into the layer, and the
 // next build sees it. Written by the first build, read by the second.
-func TestACacheMountOutlivesTheBuild(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
+func TestACacheMountOutlivesTheBuild(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -1045,7 +1048,7 @@ build:
 // is copied rather than bound. A test that only checked persistence would pass
 // against a plain bind and prove nothing about the flag.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// boots a VM, see e2e_sandbox_test.go
 func TestAPersistedCacheIsInTheImageAndSurvives(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")

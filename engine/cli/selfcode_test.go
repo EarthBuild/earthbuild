@@ -127,8 +127,8 @@ func copiedByCode(t *testing.T, src string) map[string]bool {
 			trimmed, continued = continued+" "+trimmed, ""
 		}
 
-		if strings.HasSuffix(trimmed, "\\") {
-			continued = strings.TrimSuffix(trimmed, "\\")
+		if cut, found := strings.CutSuffix(trimmed, "\\"); found {
+			continued = cut
 
 			continue
 		}
@@ -137,7 +137,7 @@ func copiedByCode(t *testing.T, src string) map[string]bool {
 			continue
 		}
 
-		for _, f := range strings.Fields(trimmed) {
+		for f := range strings.FieldsSeq(trimmed) {
 			// Flags, the command, and the destination are not sources.
 			if strings.HasPrefix(f, "-") || f == "COPY" || f == "./" {
 				continue

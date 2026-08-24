@@ -3,6 +3,7 @@ package guest
 import (
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -96,9 +97,7 @@ func (w *watcher) observation() core.Observation {
 	// (I12).
 	slices.Sort(obs.Why)
 
-	for p, id := range w.reads {
-		obs.Reads[p] = id
-	}
+	maps.Copy(obs.Reads, w.reads)
 
 	return obs
 }
@@ -252,13 +251,8 @@ func merge(a, b core.Observation) core.Observation {
 	}
 
 	for _, src := range []core.Observation{a, b} {
-		for p, id := range src.Reads {
-			out.Reads[p] = id
-		}
-
-		for p, id := range src.Listings {
-			out.Listings[p] = id
-		}
+		maps.Copy(out.Reads, src.Reads)
+		maps.Copy(out.Listings, src.Listings)
 	}
 
 	return out

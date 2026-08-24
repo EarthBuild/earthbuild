@@ -322,6 +322,13 @@ engine-race:
         if [ "$rc" -ne 0 ]; then \
             echo "--- what failed:"; \
             grep -E "^ *--- FAIL" /tmp/t.log | head -20 || echo "(no test reported FAIL)"; \
+            # The package line as well as the test line, because a package can fail
+            # without any test failing - a binary that will not build, a TestMain
+            # that exits, a panic outside a test - and then every diagnostic above
+            # is empty. That happened, and the run reported a bare "FAIL" with
+            # nothing anywhere naming which of the twenty-odd packages it was.
+            echo "--- packages that failed:"; \
+            grep -E "^FAIL[[:space:]]" /tmp/t.log | head -20 || echo "(none named)"; \
             echo "--- with context:"; \
             grep -E -B 8 -A 1 "^ *--- FAIL" /tmp/t.log | head -80; \
             echo "--- and the last of the log, for a run that failed without one:"; \

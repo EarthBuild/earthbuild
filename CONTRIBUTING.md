@@ -27,7 +27,7 @@ To build EarthBuild from source for your target system, use
 - Mac with M1 chip
 
     ```bash
-    ./earthly +for-darwin-m1
+    ./earth +for-darwin-m1
     ```
 
 This builds the earth binary in `./build/*/*/earth`, typically one of:

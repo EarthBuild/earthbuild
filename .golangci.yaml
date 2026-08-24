@@ -55,6 +55,21 @@ linters:
   exclusions:
     generated: lax
     rules:
+      # `SA4023` reads one build tag at a time and calls the result a tautology.
+      # `newMaterialiser` has two implementations: the Linux one can fail, and the
+      # `!linux` one *always* fails, because assembling layers without overlayfs
+      # would produce results that look like layers and are not (mat_other.go). So
+      # on the darwin build `err != nil` is indeed always true - and on the build
+      # that ships, it is a real check.
+      #
+      # `//nolint` cannot express that: the directive is unused on Linux, so
+      # nolintlint then fails the Linux run. A rule that is right on one GOOS and
+      # wrong on the other belongs in configuration, where it says so once, rather
+      # than at the call site twice.
+      - path: engine/guestd/guestd\.go
+        text: SA4023
+        linters:
+          - staticcheck
       # `tools/mutate/catalogue.go` is a data table: one entry per deliberate
       # defect, naming the file it belongs to, the package that should notice
       # it, and the snippet it replaces. Its repetition *is* its content -

@@ -29,6 +29,10 @@ type Native struct {
 	// GuestBinary is earth-guestd. Built on demand when empty, which is not
 	// possible everywhere, so EARTH_GUESTD overrides it.
 	GuestBinary string
+
+	// guestArgs selects the agent when GuestBinary is this very binary, which
+	// is how a CLI copied somewhere on its own still has an agent.
+	guestArgs []string
 	// Root holds the layer store and scratch. A temporary directory when empty,
 	// made by root() on first use and not moved afterwards.
 	Root   string
@@ -155,7 +159,7 @@ func (n *Native) Available() error {
 		return nil
 	}
 
-	_, err := findGuestBinary()
+	_, _, err := findGuestCommand()
 	if err != nil {
 		return err
 	}
@@ -170,7 +174,7 @@ func (n *Native) Start(ctx context.Context) (Conn, error) {
 		return nil, err
 	}
 
-	bin, err := n.guestBinary()
+	bin, guestArgs, err := n.guestBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +203,7 @@ func (n *Native) Start(ctx context.Context) (Conn, error) {
 		return nil, fmt.Errorf("create the layer store: %w", err)
 	}
 
-	cmd := osexec.CommandContext(ctx, bin) //nolint:gosec // our own binary
+	cmd := osexec.CommandContext(ctx, bin, guestArgs...) //nolint:gosec // our own binary
 
 	// Seeded before anything appends to it. The namespace block below adds one
 	// variable and the store paths are added after, and an assignment between
@@ -411,19 +415,19 @@ func (n *Native) Stop() error {
 	return nil
 }
 
-func (n *Native) guestBinary() (string, error) {
+func (n *Native) guestBinary() (string, []string, error) {
 	if n.GuestBinary != "" {
-		return n.GuestBinary, nil
+		return n.GuestBinary, n.guestArgs, nil
 	}
 
-	p, err := findGuestBinary()
+	p, args, err := findGuestCommand()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	n.GuestBinary = p
+	n.GuestBinary, n.guestArgs = p, args
 
-	return p, nil
+	return p, args, nil
 }
 
 // Terminals is the descriptor channel to this guest, for an interactive step.

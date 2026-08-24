@@ -26,6 +26,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
@@ -71,6 +72,20 @@ func main() {
 	// Linux the guest runs in this process, so it is this binary that gets
 	// re-executed.
 	guest.RunDaemonShimIfAsked()
+
+	// **This binary is also the sandbox agent.** `earth guestd ...` runs it, and
+	// that is how the agent reaches places the CLI is copied into - a nested
+	// build inside a step runs a copy of this binary and has nowhere beside it
+	// to put a second file.
+	//
+	// After the shim above and before flag parsing: the shim is the more
+	// primitive re-exec and an agent process may need it too, while the agent's
+	// own arguments are not the CLI's and must not be parsed as them.
+	if len(os.Args) > 1 && os.Args[1] == guestd.Command {
+		guestd.Main(os.Args[2:])
+
+		return
+	}
 
 	os.Exit(run())
 }

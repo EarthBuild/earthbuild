@@ -183,11 +183,10 @@ jobs:
           fi
           docker save "$IMG" -o ./artifacts-standard/buildkitd-image.tar
 
-          # The sandbox agent travels with the CLI. A native job has no buildkitd
-          # to talk to and needs `earth-guestd` beside the binary instead - it is
-          # what runs inside the sandbox, and the engine looks for it there or at
-          # $EARTH_GUESTD. `+for-linux` saves it next to the CLI it built, so
-          # shipping it costs one copy.
+          # The standalone sandbox agent, shipped for anyone who wants one -
+          # not for the native jobs, which run the CLI as their own agent. It
+          # is deliberately *not* installed beside the CLI in stage2-setup; see
+          # the note there for why supplying it would hide the bug it fixes.
           cp ./build/linux/amd64/earth-guestd ./artifacts-standard/earth-guestd
       - name: Build earth binary artifact (fork only)
         # Fork PRs cannot read the binary from ghcr, so it ships in the

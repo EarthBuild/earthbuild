@@ -986,7 +986,7 @@ func (e *Executor) GuestNote() string {
 		return ""
 	}
 
-	guest, err := findGuestBinary()
+	guest, _, err := findGuestCommand()
 	if err != nil {
 		return ""
 	}

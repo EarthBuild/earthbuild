@@ -284,29 +284,15 @@ runs:
       shell: bash
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
-    - name: Put the sandbox agent beside the CLI
-      # **A native job has no buildkitd and needs this instead.** `earth-guestd`
-      # is what runs inside the sandbox, and the engine looks for it beside the
-      # binary or at $EARTH_GUESTD - so a CLI installed on its own reports
-      # "cannot find earth-guestd" at the first step it tries to run.
-      #
-      # Tolerant of its absence on purpose: the buildkit jobs neither have it
-      # nor want it, and a setup step that failed for them would make every
-      # existing suite depend on a file only the native one reads.
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [ ! -f ./build-artifacts/earth-guestd ]; then
-          echo "no earth-guestd in the artifact - fine for a buildkit job, fatal for a native one"
-          exit 0
-        fi
-        beside="$(dirname "${INPUTS_BUILT_EARTH_PATH}")"
-        mkdir -p "$beside"
-        cp ./build-artifacts/earth-guestd "$beside/earth-guestd"
-        chmod +x "$beside/earth-guestd"
-        echo "sandbox agent installed at $beside/earth-guestd"
-      env:
-        INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+    # **No sandbox agent is installed, deliberately.** The CLI is its own
+    # agent - `earth guestd ...` runs it - so a native job needs one file and
+    # not two, and this step used to copy the second one into place.
+    #
+    # Removing it is what tests the arrangement. A nested build copies the CLI
+    # into a step and has nowhere beside it to put a sibling, which is how every
+    # nested native build failed with "cannot find earth-guestd"; a CI that
+    # quietly supplied the sibling to the outer build would prove only that the
+    # outer build was not the one that was broken.
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
         export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"

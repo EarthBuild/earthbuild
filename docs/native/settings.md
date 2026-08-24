@@ -83,7 +83,11 @@ up.
 
 The path to the `earth-guestd` binary, which runs a step's filesystem operations.
 
-Default: found next to `earth-native`.
+Default: on Linux, the CLI runs the agent out of itself (`earth guestd`), so
+there is nothing to find and nothing to set. On macOS the agent runs inside a
+Linux VM and so must be a separate Linux binary, looked for next to the CLI.
+
+Set it when you are testing an agent you built yourself.
 
 ### `EARTH_SANDBOX_MEMORY`
 

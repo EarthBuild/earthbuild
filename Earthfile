@@ -916,11 +916,10 @@ for-linux:
     BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
-    # The agent goes with it. `--engine=native` runs the step inside a sandbox
-    # and `earth-guestd` is what runs in there, looked for beside this binary or
-    # at $EARTH_GUESTD - so a CLI shipped on its own reports "cannot find
-    # earth-guestd" the first time anybody selects the engine, which is what
-    # `+ci-release` did the moment native became the default.
+    # The standalone agent, saved beside the CLI for anyone who wants one. The
+    # CLI no longer needs it: `earth guestd ...` runs the agent out of the CLI
+    # itself, which is the only arrangement a nested build can use - a step
+    # copies in one binary and has nowhere to put a sibling.
     COPY (+native-engine/earth-guestd --GOOS=linux --GOARCH=amd64) ./
     SAVE ARTIFACT ./earth-guestd AS LOCAL ./build/linux/amd64/earth-guestd
 

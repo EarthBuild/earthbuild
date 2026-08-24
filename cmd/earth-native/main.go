@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
+	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
@@ -60,6 +61,17 @@ func (a *buildArgs) Set(v string) error {
 }
 
 func main() {
+	// **This binary is also the sandbox agent.** `earth guestd ...` runs it, and
+	// that is how the agent reaches places the CLI is copied into - a nested
+	// build inside a step runs a copy of this binary and has nowhere beside it
+	// to put a second file. Before flag parsing, because the agent's arguments
+	// are its own.
+	if len(os.Args) > 1 && os.Args[1] == guestd.Command {
+		guestd.Main(os.Args[2:])
+
+		return
+	}
+
 	var (
 		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")
 		platform = flag.String("platform", "", "os/arch to build for; the sandbox's own when empty")

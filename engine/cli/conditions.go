@@ -261,7 +261,16 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		g.ex = e
 		// Kept for the *build's* scheduler as well, not only for conditions
 		// (E500).
+		//
+		// **Under the lock, because the reader does not join this Once.**
+		// `sync.Once` publishes to whoever calls `Do`, and `scheduling` reads
+		// `fleetEx` without calling it - so on the prewarm path, which runs this
+		// on a goroutine nothing waits for (E537), the build reads a field this
+		// is writing. The race detector found it on the first run that used
+		// `-race`; nothing here had ever run one (E610).
+		g.mu.Lock()
 		g.fleetEx = x
+		g.mu.Unlock()
 
 		// The same question the build's scheduler asks, asked the same way:
 		// a conditions pass that verified against the store while the build

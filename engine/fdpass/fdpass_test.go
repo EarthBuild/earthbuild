@@ -60,11 +60,22 @@ func TestATerminalCanBeHandedOverAUnixSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go func() { _ = fdpass.SendFile(here, f) }()
+	// **Waited for, and its error read.** `go func() { _ = SendFile(...) }()`
+	// discarded whatever the send said and left it running past the end of the
+	// test, where the deferred Close raced `SendFile`'s own `f.Fd()`. The race
+	// detector caught it on the first CI run that used `-race`; nothing here had
+	// ever run one (E610).
+	sent := make(chan error, 1)
+	go func() { sent <- fdpass.SendFile(here, f) }()
 
 	got, err := fdpass.RecvFile(there)
 	if err != nil {
 		t.Fatalf("the descriptor did not arrive: %v", err)
+	}
+
+	err = <-sent
+	if err != nil {
+		t.Fatalf("the descriptor did not leave: %v", err)
 	}
 
 	defer got.Close()

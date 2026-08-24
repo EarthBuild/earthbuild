@@ -27562,3 +27562,39 @@ identical-looking commit. The defence is that every one of the thirty-one has a 
 E604 to E607, and the number is the sum of those causes rather than the figure the run happened to
 produce. **A guard's threshold should move when the world does and not when the run does**, and the
 only way to tell those apart from outside is whether the change comes with the reasons attached.
+
+## E610 - two data races, one of them real, found by a flag nobody ran
+
+Fixing `+engine-race`'s diagnostic (E609) made it legible, and what it had been failing to say for
+three rounds was:
+
+```text
+    --- FAIL: TestATerminalCanBeHandedOverAUnixSocket
+    --- FAIL: TestADescriptorChannelReachesAChildProcess
+        testing.go:1865: race detected during execution of test
+    FAIL github.com/EarthBuild/earthbuild/engine/fdpass
+```
+
+**Both reproduce on this laptop.** `go test ./engine/fdpass/ -race` shows them immediately; nothing
+here had ever passed `-race`, and `go test ./...` without it is silent on both.
+
+*The first is a test.* `go func() { _ = fdpass.SendFile(here, f) }()` discards the send's error and
+leaves the goroutine running past the end of the test, where `defer f.Close()` races `SendFile`'s own
+`f.Fd()`. Two defects in one line: the race, and an error nobody was ever going to read.
+
+*The second is not a test.* `engine/cli` writes `fleetEx` inside `sandboxed`'s `sync.Once` and reads
+it in `scheduling`, which does not call that Once - so it gets no happens-before from it. On the
+prewarm path that write is on a goroutine nothing waits for (E537), and the build reads the field
+while it is being written. **A `sync.Once` publishes to whoever calls `Do` and to nobody else**, which
+is easy to forget precisely because the Once looks like the synchronisation.
+
+Both fixed; `./engine/... -race -shuffle=on` now reports no races at all.
+
+*What it cost to find.* The race was in the branch from the day the prewarm landed. It survived a
+fortnight of local green because the local command has never had `-race` in it - CI's does, and CI
+could not say so because its diagnostic printed skip reasons until it ran out of room. **Three
+failures deep: a race, hidden by a report, hidden by a hang.** Each one had to be cleared before the
+next was visible, and none of them was the interesting one until it was the only one left.
+
+One thing remains: `TestAStepAttachedToATerminalHasOne` passes alone and fails under `-shuffle`,
+which is the other half of what that flag is for and a separate question.

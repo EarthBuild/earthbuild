@@ -496,7 +496,7 @@ func runPlan(
 	recordPinning(o.Out, plan.Pinned, plan.PinCost)
 
 	// Whether the fleet this build waited for did anything (E505).
-	if d, ok := g.fleetEx.(*fleet.Delegating); ok {
+	if d, ok := g.fleetExec().(*fleet.Delegating); ok {
 		fmt.Fprint(o.Out, fleetSummary(d.Spend()))
 	}
 
@@ -638,16 +638,29 @@ func viewsFor(sb exec.Sandbox) core.ViewSource {
 // A method rather than a function taking the fleet: a free function let the
 // *call site* pass nil and no test noticed, which is the seam E465 named -
 // something set and then not read is indistinguishable from something never set.
+// fleetExec is the fleet executor the sandbox built, or nil.
+//
+// Behind the lock because it is written on the prewarm goroutine and read here,
+// and the `sync.Once` that writes it only synchronises with callers of `Do` -
+// which this is not (E610).
+func (g *engine) fleetExec() core.Executor {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	return g.fleetEx
+}
+
 func (g *engine) scheduling(local core.Executor, platform string) (core.Executor, []core.Worker) {
 	workers := []core.Worker{localWorker(platform)}
 
-	if g.fleetEx == nil {
+	fleetEx := g.fleetExec()
+	if fleetEx == nil {
 		return local, workers
 	}
 
-	if d, ok := g.fleetEx.(*fleet.Delegating); ok {
+	if d, ok := fleetEx.(*fleet.Delegating); ok {
 		workers = append(workers, d.Remote()...)
 	}
 
-	return g.fleetEx, workers
+	return fleetEx, workers
 }

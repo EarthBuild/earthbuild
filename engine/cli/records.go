@@ -145,8 +145,12 @@ func loadRecord(store, target string) (*core.Record, bool) {
 			hex  string
 			into *ir.NodeID
 		}{
-			{s.Node, &step.Node}, {s.Base, &step.Base}, {s.Op, &step.Op},
-			{s.Env, &step.Env}, {s.Plat, &step.Plat}, {s.Layer, &step.Layer},
+			{s.Node, &step.Node},
+			{s.Base, &step.Base},
+			{s.Op, &step.Op},
+			{s.Env, &step.Env},
+			{s.Plat, &step.Plat},
+			{s.Layer, &step.Layer},
 		} {
 			id, err := parseNodeID(f.hex)
 			if err != nil {

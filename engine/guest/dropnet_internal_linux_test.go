@@ -36,7 +36,7 @@ func TestDropNetAddsANetworkNamespace(t *testing.T) {
 		{"an ordinary step", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := exec.Command("/bin/true")
+			cmd := exec.CommandContext(t.Context(), "/bin/true")
 
 			err := isolate(cmd, t.TempDir(), tc.drop)
 			if err != nil {

@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-
 	"context"
 	"crypto/sha256"
 	"encoding/hex"

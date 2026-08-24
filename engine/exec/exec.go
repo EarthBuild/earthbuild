@@ -884,8 +884,10 @@ func (e *Executor) copyStep(
 	defer func() { _ = h.Release() }()
 
 	err = c.Copy(ctx, h, from, n.Op.Args[0], n.Op.Args[1],
-		guest.CopyOpts{AsDir: n.Op.DirCopy, NoFollow: n.Op.NoFollow, KeepOwn: n.Op.KeepOwn,
-			Chown: n.Op.Chown})
+		guest.CopyOpts{
+			AsDir: n.Op.DirCopy, NoFollow: n.Op.NoFollow, KeepOwn: n.Op.KeepOwn,
+			Chown: n.Op.Chown,
+		})
 	if err != nil {
 		return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)
 	}
@@ -1270,7 +1272,6 @@ func LoopbackConn() Conn {
 
 // loopbackIn serves a guest rooted at `root`, owning `own` if it is not empty.
 func loopbackIn(root, own string) Conn {
-
 	host, guestSide := net.Pipe()
 
 	srv := &guest.Server{Mat: &hostMat{root: root}, Unconfined: true}

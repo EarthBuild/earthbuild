@@ -40,10 +40,14 @@ func TestACancellationNeverOutranksItsCause(t *testing.T) {
 	}{
 		{"the cause arrives first, later in order", actual, 9, cancelled, 1, actual, false},
 		{"the cancellation arrives first, earlier in order", cancelled, 1, actual, 9, actual, true},
-		{"two actual failures, earliest in order wins", actual, 9,
-			errors.New("run other: exit status 1"), 1, nil, true},
-		{"two cancellations, earliest in order wins", cancelled, 9,
-			fmt.Errorf("run third: %w", context.Canceled), 1, nil, true},
+		{
+			"two actual failures, earliest in order wins", actual, 9,
+			errors.New("run other: exit status 1"), 1, nil, true,
+		},
+		{
+			"two cancellations, earliest in order wins", cancelled, 9,
+			fmt.Errorf("run third: %w", context.Canceled), 1, nil, true,
+		},
 		{"nothing yet", nil, 1 << 30, cancelled, 4, cancelled, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

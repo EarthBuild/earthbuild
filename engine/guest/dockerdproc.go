@@ -80,7 +80,8 @@ func launchWith(
 	// Not CommandContext: the context ends the *step*, and a daemon killed by it
 	// would die before the deferred Stop can shut it down cleanly. Stop is the
 	// only thing that ends this process, and withDaemon calls it on every path.
-	cmd := osexec.Command(self, shimArgv(bin, argv)...) //nolint:gosec // argv is this package's
+	//nolint:gosec,noctx // argv is this package's; the context reason is above
+	cmd := osexec.Command(self, shimArgv(bin, argv)...)
 	// Kept as well as forwarded. A daemon that will not start says why, and every
 	// such message in this project has been the answer - `needs to be started
 	// with root privileges`, `mkdir /run/docker/plugins`, `unix socket path too

@@ -32,30 +32,44 @@ func TestEveryMeasuredMechanismIsWiredIn(t *testing.T) {
 	t.Parallel()
 
 	for _, c := range []struct{ file, calls, why string }{
-		{"engine/fleet/driver.go", "wire(d, DefaultCapacity(), store)",
+		{
+			"engine/fleet/driver.go", "wire(d, DefaultCapacity(), store)",
 			"a driver with no stated capacity finishes every step in one wave," +
 				" and one that cannot size a layer prices the network at nothing" +
-				" (E330)"},
-		{"cmd/earth-worker/main.go", "fleet.WithFragments(frags",
+				" (E330)",
+		},
+		{
+			"cmd/earth-worker/main.go", "fleet.WithFragments(frags",
 			"a worker that does not provision fragments fetches whole layers," +
-				" which is 2.8x slower than one machine (E326)"},
-		{"cmd/earth-worker/main.go", "fleet.WithPeerSink(peers)",
+				" which is 2.8x slower than one machine (E326)",
+		},
+		{
+			"cmd/earth-worker/main.go", "fleet.WithPeerSink(peers)",
 			"a step faults in from an address chosen before any assignment" +
-				" existed, which speaks the wrong protocol (E329)"},
-		{"engine/fleet/driver.go", "d.Remember(store)",
+				" existed, which speaks the wrong protocol (E329)",
+		},
+		{
+			"engine/fleet/driver.go", "d.Remember(store)",
 			"a build that does not load what the last one measured is round" +
 				" one, and round one delegates everything and keeps nothing" +
-				" (E350, E351)"},
-		{"engine/fleet/driver.go", "_ = d.Keep()",
+				" (E350, E351)",
+		},
+		{
+			"engine/fleet/driver.go", "_ = d.Keep()",
 			"a build that measures its fleet and does not write it down leaves" +
-				" the next one to earn the same knowledge again (E351)"},
-		{"engine/fleet/driver.go", "if src, ok := r.SourceFor(at); ok {",
+				" the next one to earn the same knowledge again (E351)",
+		},
+		{
+			"engine/fleet/driver.go", "if src, ok := r.SourceFor(at); ok {",
 			"a driver that dials a worker to fetch what it produced reaches a" +
 				" machine that may be behind a NAT, and the back-channel it" +
-				" opened is right there (E279, E347)"},
-		{"cmd/earth-worker/main.go", "&fleet.Parts{Whole: layers, Some: frags}",
+				" opened is right there (E279, E347)",
+		},
+		{
+			"cmd/earth-worker/main.go", "&fleet.Parts{Whole: layers, Some: frags}",
 			"a worker serving only whole layers cannot pass on the part of a" +
-				" base it just fetched, so lazy transfer is a star (E325, E331)"},
+				" base it just fetched, so lazy transfer is a star (E325, E331)",
+		},
 	} {
 		b, err := os.ReadFile(filepath.Join("..", "..", c.file))
 		if err != nil {

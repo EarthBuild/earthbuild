@@ -3,11 +3,12 @@ package interp
 import (
 	"errors"
 	"fmt"
-	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
-	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
+	"github.com/EarthBuild/earthbuild/util/flagutil"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"

@@ -76,7 +76,6 @@ probe:
 	err = cli.Run(context.Background(), cli.Options{
 		Dir: dir, Target: testProbe, Out: &log, Platform: testPlatform(),
 	})
-
 	// No longer skipped anywhere. A store that cannot hold a device node holds
 	// a `.wh.` marker instead - the spelling every registry already uses - and
 	// the materialiser turns it back into what overlayfs reads, on storage
@@ -85,7 +84,6 @@ probe:
 	// This test going from SKIP to PASS on a macOS host is the whole point of
 	// that change: it is what "a build that deletes something" costs, and it
 	// cost every Earthfile containing `rm`.
-
 	if err != nil {
 		t.Fatalf("%v\n%s", err, log.String())
 	}

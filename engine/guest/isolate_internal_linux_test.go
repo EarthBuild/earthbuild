@@ -30,7 +30,7 @@ func TestAConfinedStepIsChrootedIntoItsOwnFilesystem(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command("/bin/true")
+	cmd := exec.CommandContext(t.Context(), "/bin/true")
 
 	err := isolate(cmd, "/some/root", false)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestDroppingTheNetworkUnsharesIt(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command("/bin/true")
+	cmd := exec.CommandContext(t.Context(), "/bin/true")
 
 	err := isolate(cmd, "/some/root", true)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestIsolationDoesNotDiscardWhatACallerAlreadySet(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command("/bin/true")
+	cmd := exec.CommandContext(t.Context(), "/bin/true")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	err := isolate(cmd, "/some/root", false)

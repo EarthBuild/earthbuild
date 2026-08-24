@@ -1,10 +1,11 @@
 package interp
 
 import (
-	"github.com/EarthBuild/earthbuild/internal/version"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/internal/version"
 )
 
 // UserPlatform is the machine that invoked the build.

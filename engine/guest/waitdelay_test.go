@@ -26,7 +26,7 @@ import (
 func TestAStepWhoseGrandchildOutlivesItStillFinishes(t *testing.T) {
 	t.Parallel()
 
-	cmd := osexec.Command("sh", "-c", "sleep 60 & exit 0")
+	cmd := osexec.CommandContext(t.Context(), "sh", "-c", "sleep 60 & exit 0")
 
 	done := make(chan error, 1)
 
@@ -56,7 +56,7 @@ func TestAnOrdinaryStepIsNotDelayed(t *testing.T) {
 
 	start := time.Now()
 
-	out, err := run(osexec.Command("sh", "-c", "echo hello"), func([]byte) {})
+	out, err := run(osexec.CommandContext(t.Context(), "sh", "-c", "echo hello"), func([]byte) {})
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}

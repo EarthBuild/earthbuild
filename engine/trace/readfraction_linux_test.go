@@ -126,7 +126,7 @@ func traced(t *testing.T, args []string) map[string]bool {
 
 		go func() { tr.Run(); close(done) }()
 
-		cmd := exec.Command(args[0], args[1:]...) //nolint:gosec // a fixture
+		cmd := exec.CommandContext(t.Context(), args[0], args[1:]...) //nolint:gosec // a fixture
 		_ = cmd.Run()
 
 		_ = tr.Close()

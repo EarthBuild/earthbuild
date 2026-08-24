@@ -3,9 +3,9 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
-	"time"
 
 	"github.com/dustin/go-humanize"
 )

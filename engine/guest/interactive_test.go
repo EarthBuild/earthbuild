@@ -236,7 +236,7 @@ func pairWithTerminals(t *testing.T, srv *guest.Server) *guest.Client {
 
 	c.Terminals = hostFDs
 
-	var _ = errors.New
+	_ = errors.New
 
 	return c
 }

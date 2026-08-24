@@ -65,7 +65,7 @@ func TestTheProgramAStepRunsIsRecorded(t *testing.T) {
 		ready <- tr
 
 		// Started from this thread, so the child inherits the filter (E211).
-		done <- exec.Command(program).Run()
+		done <- exec.CommandContext(t.Context(), program).Run()
 
 		park()
 	}()

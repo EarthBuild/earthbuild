@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -471,8 +470,10 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		unlock := s.lockHandle(req.Handle)
 
 		err := s.copyIn(h, req.From, req.Path, req.Dest,
-			copyOpts{AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
-				Chown: req.Chown, Clamp: clampAt(req.Clamp)})
+			copyOpts{
+				AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
+				Chown: req.Chown, Clamp: clampAt(req.Clamp),
+			})
 
 		unlock()
 

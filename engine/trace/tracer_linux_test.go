@@ -41,7 +41,6 @@ func TestTheSightingsAreSortedNotMerelyOftenSorted(t *testing.T) {
 		t.Errorf("40 paths came back unsorted, so nothing sorts them: %v",
 			got.Paths[:5])
 	}
-
 }
 
 // The reasons are sorted too, and there are only three of them.

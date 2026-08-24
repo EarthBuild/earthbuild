@@ -26,26 +26,46 @@ func TestWhereAStepGoesIsOneComparison(t *testing.T) {
 		ship                      int
 		want                      bool
 	}{
-		{name: "both idle, nothing to ship: the fleet, because a tie does",
-			room: 2, slots: 2, want: false},
-		{name: "both idle and a transfer worth half a step: here",
-			room: 2, slots: 2, ship: 1, want: true},
-		{name: "both idle, a base worth ten steps: here",
-			room: 2, slots: 2, ship: 20, want: true},
-		{name: "fleet full, this machine free: here",
-			room: 2, slots: 1, flight: 1, want: true},
-		{name: "both full: the fleet, which starts the moment it can",
-			here: 1, room: 1, flight: 1, slots: 1, want: false},
-		{name: "this machine a wave behind: the fleet",
-			here: 2, room: 2, slots: 2, want: false},
-		{name: "the fleet a wave behind: here",
-			room: 2, flight: 2, slots: 2, want: true},
-		{name: "the fleet a wave behind but the base is dear: still here",
-			room: 2, flight: 2, slots: 2, ship: 10, want: true},
-		{name: "this machine two waves behind, a dear base: here anyway",
-			here: 4, room: 2, slots: 2, ship: 20, want: true},
-		{name: "no stated room means as many as arrive",
-			here: 9, flight: 1, slots: 1, want: true},
+		{
+			name: "both idle, nothing to ship: the fleet, because a tie does",
+			room: 2, slots: 2, want: false,
+		},
+		{
+			name: "both idle and a transfer worth half a step: here",
+			room: 2, slots: 2, ship: 1, want: true,
+		},
+		{
+			name: "both idle, a base worth ten steps: here",
+			room: 2, slots: 2, ship: 20, want: true,
+		},
+		{
+			name: "fleet full, this machine free: here",
+			room: 2, slots: 1, flight: 1, want: true,
+		},
+		{
+			name: "both full: the fleet, which starts the moment it can",
+			here: 1, room: 1, flight: 1, slots: 1, want: false,
+		},
+		{
+			name: "this machine a wave behind: the fleet",
+			here: 2, room: 2, slots: 2, want: false,
+		},
+		{
+			name: "the fleet a wave behind: here",
+			room: 2, flight: 2, slots: 2, want: true,
+		},
+		{
+			name: "the fleet a wave behind but the base is dear: still here",
+			room: 2, flight: 2, slots: 2, ship: 10, want: true,
+		},
+		{
+			name: "this machine two waves behind, a dear base: here anyway",
+			here: 4, room: 2, slots: 2, ship: 20, want: true,
+		},
+		{
+			name: "no stated room means as many as arrive",
+			here: 9, flight: 1, slots: 1, want: true,
+		},
 	} {
 		if got := cheaperHere(c.here, c.room, c.flight, c.slots, c.ship); got != c.want {
 			t.Errorf("%s: kept here = %v, want %v", c.name, got, c.want)
@@ -103,14 +123,22 @@ func TestWhatThisMachineWouldFetchIsACostNotAVeto(t *testing.T) {
 		ship, bring               int
 		want                      bool
 	}{
-		{name: "the fleet has room and holds it: send it there",
-			room: 2, slots: 4, bring: 4, want: false},
-		{name: "the fleet is two waves behind and this machine is idle: fetch it",
-			room: 2, flight: 8, slots: 4, bring: 1, want: true},
-		{name: "the fleet is behind but fetching costs more than waiting",
-			room: 2, flight: 4, slots: 4, bring: 8, want: false},
-		{name: "nothing to fetch and nothing to ship: the fleet, as a tie does",
-			room: 2, slots: 2, want: false},
+		{
+			name: "the fleet has room and holds it: send it there",
+			room: 2, slots: 4, bring: 4, want: false,
+		},
+		{
+			name: "the fleet is two waves behind and this machine is idle: fetch it",
+			room: 2, flight: 8, slots: 4, bring: 1, want: true,
+		},
+		{
+			name: "the fleet is behind but fetching costs more than waiting",
+			room: 2, flight: 4, slots: 4, bring: 8, want: false,
+		},
+		{
+			name: "nothing to fetch and nothing to ship: the fleet, as a tie does",
+			room: 2, slots: 2, want: false,
+		},
 	} {
 		got := cheaperHereFetching(c.here, c.room, c.flight, c.slots, c.ship, c.bring)
 		if got != c.want {

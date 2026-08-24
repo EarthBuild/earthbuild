@@ -35,8 +35,10 @@ func TestARemountAsksForOneAtimePolicy(t *testing.T) {
 		want  int
 	}{
 		{"nothing", 0, 0},
-		{"the locked triple", unix.ST_NODEV | unix.ST_NOSUID | unix.ST_NOEXEC,
-			unix.MS_NODEV | unix.MS_NOSUID | unix.MS_NOEXEC},
+		{
+			"the locked triple", unix.ST_NODEV | unix.ST_NOSUID | unix.ST_NOEXEC,
+			unix.MS_NODEV | unix.MS_NOSUID | unix.MS_NOEXEC,
+		},
 		{"relatime alone", unix.ST_RELATIME, unix.MS_RELATIME},
 		{"noatime alone", unix.ST_NOATIME, unix.MS_NOATIME},
 		// The pair the kernel refuses. noatime is the stronger policy and the

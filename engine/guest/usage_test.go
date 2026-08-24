@@ -17,7 +17,7 @@ func TestAFinishedProcessReportsWhatItSpent(t *testing.T) {
 	// Something that costs measurable CPU rather than sleeping: a sleep spends
 	// wall time and no CPU at all, which is the number this would then be
 	// asserting nothing about.
-	cmd := exec.Command("/bin/sh", "-c", "i=0; while [ $i -lt 40000 ]; do i=$((i+1)); done")
+	cmd := exec.CommandContext(t.Context(), "/bin/sh", "-c", "i=0; while [ $i -lt 40000 ]; do i=$((i+1)); done")
 
 	err := cmd.Run()
 	if err != nil {

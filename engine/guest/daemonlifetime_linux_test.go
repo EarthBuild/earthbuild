@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
 	"time"
 
 	"golang.org/x/sys/unix"

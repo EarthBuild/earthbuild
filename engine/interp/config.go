@@ -2,11 +2,12 @@ package interp
 
 import (
 	"errors"
-	"github.com/EarthBuild/earthbuild/engine/ir"
 	"maps"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
 
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )

@@ -41,7 +41,7 @@ func TestAStepAttachedToATerminalHasOne(t *testing.T) {
 	// means, and it is the definition rather than a proxy for it. `ps -o stat=`
 	// would do as well on a developer machine and not in a busybox container,
 	// where the flag is not supported.
-	cmd := exec.Command(testShell, "-c",
+	cmd := exec.CommandContext(t.Context(), testShell, "-c",
 		// The redirection is inside a subshell so that its *failure* message is
 		// caught too: `2>/dev/null` on the compound covers the command's stderr
 		// and not the shell's complaint about the redirect, which then arrives

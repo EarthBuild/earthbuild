@@ -600,7 +600,7 @@ func sortedSites(sites map[string]bool) []string {
 func trackedCopy(t *testing.T) string {
 	t.Helper()
 
-	out, err := exec.Command("git", "-C", "../..", "ls-files", "-z").Output()
+	out, err := exec.CommandContext(t.Context(), "git", "-C", "../..", "ls-files", "-z").Output()
 	if err != nil {
 		t.Logf("git cannot list this tree (%v), so the corpus is the working"+
 			" directory and its cost depends on what is untracked in it", err)

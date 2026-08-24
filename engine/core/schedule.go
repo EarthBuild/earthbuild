@@ -14,13 +14,13 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
-	"slices"
-	"strings"
-	"time"
 )
 
 // Worker is a place a step can run. Identity is a stable string so that

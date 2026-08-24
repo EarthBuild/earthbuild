@@ -110,7 +110,11 @@ func mapIDs(pid int, uids, gids subRange) error {
 			return fmt.Errorf("%s is not installed", m.tool)
 		}
 
-		out, err := osexec.Command(bin, strconv.Itoa(pid), //nolint:gosec // a path from a fixed list
+		// No context: `newuidmap` writes a map and exits in milliseconds, and
+		// there is no context here to thread one from - this runs while the
+		// sandbox is being built, before a step exists to cancel (noctx).
+		//nolint:gosec,noctx // a path from a fixed list, and see above
+		out, err := osexec.Command(bin, strconv.Itoa(pid),
 			"0", strconv.Itoa(m.host), "1",
 			"1", strconv.Itoa(m.block.first), strconv.Itoa(m.block.count),
 		).CombinedOutput()

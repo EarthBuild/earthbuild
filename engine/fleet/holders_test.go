@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/tmc/go-iroh/iroh"
-	"github.com/tmc/go-iroh/netaddr"
 	"net/netip"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/tmc/go-iroh/iroh"
+	"github.com/tmc/go-iroh/netaddr"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/fleet"

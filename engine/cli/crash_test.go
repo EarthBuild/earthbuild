@@ -104,7 +104,7 @@ probe:
 	}
 
 	run := func() *osexec.Cmd {
-		c := osexec.Command(engine, "+probe")
+		c := osexec.CommandContext(t.Context(), engine, "+probe")
 		c.Dir = dir
 		c.Env = append(os.Environ(),
 			"EARTH_CACHE_DIR="+store,

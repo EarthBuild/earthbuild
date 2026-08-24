@@ -89,9 +89,23 @@ func nativeArgs(flagArgs, buildArgs []string) (map[string]string, error) {
 	for _, a := range slices.Concat(buildArgs, flagArgs) {
 		name, value, ok := strings.Cut(a, "=")
 		if !ok {
-			return nil, fmt.Errorf(
-				"--engine=%s: build argument %q has no value"+
-					"\n  write it as %s=<value>", nativeEngine, a, a)
+			// **A bare name means the environment**, which is what the other
+			// backend has always done and what this repository's own workflow
+			// passes: `--build-arg TAG_SUFFIX +ci-release`, with the value
+			// exported by the job. The two engines are chosen by a flag, so a
+			// command line one accepts and the other refuses is a build that
+			// works until somebody switches.
+			value, ok = os.LookupEnv(name)
+			if !ok {
+				// Not defaulted to empty: an empty string is a value a build can
+				// legitimately be given, so guessing one would make "you forgot
+				// to export it" and "you meant it to be empty" the same command.
+				return nil, fmt.Errorf(
+					"--engine=%s: build argument %q has no value and %s is not"+
+						" set in the environment"+
+						"\n  write it as %s=<value>, or export %s before building",
+					nativeEngine, a, name, a, name)
+			}
 		}
 
 		args[name] = value

@@ -205,6 +205,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "layer: a fragment reading only the files it was asked for (E337, E338)",
+		File:        "engine/layer/pack.go",
+		Anchor:      "\tentries, _, err := walkNeeding(root, len(want) == 0, nil)",
+		Replacement: "\tentries, _, err := walkNeeding(root, true, nil)",
+		Package:     "./engine/fleet/",
+	},
+	{
 		Name:        "interp: checking a cache name before it becomes a directory (E358)",
 		File:        "engine/interp/loop.go",
 		Anchor:      "\terr = checkCacheID(opts.CacheID, where)\n\tif err != nil {",

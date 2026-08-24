@@ -93,7 +93,8 @@ func TestWhatAFetchCostsBeforeItMovesAnything(t *testing.T) {
 
 	batched := time.Now()
 
-	if _, err = src.Fetch(t.Context(), ids); err != nil {
+	_, err = src.Fetch(t.Context(), ids)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -105,7 +106,8 @@ func TestWhatAFetchCostsBeforeItMovesAnything(t *testing.T) {
 	alone := time.Now()
 
 	for range rounds {
-		if _, _, err = held.Fragment(id, []string{"usr/lib/lib0.so"}); err != nil {
+		_, _, err = held.Fragment(id, []string{"usr/lib/lib0.so"})
+		if err != nil {
 			t.Fatalf("%v", err)
 		}
 	}
@@ -119,76 +121,72 @@ func TestWhatAFetchCostsBeforeItMovesAnything(t *testing.T) {
 	}
 }
 
-// Serving part of a layer does not cost a walk of the whole layer.
+// **Structural rather than timed.** This asserted a ratio between two
+// wall-clock measurements and failed under `-race -shuffle` on a busy CI runner
+// while passing alone on a quiet laptop. A threshold on a clock measures the
+// machine (E473, E481), and a *ratio* of two clocks is worse than one: the two
+// halves drift independently, so the bound moves even when nothing regresses.
 //
-// **The answer to E336.** The same fragment computed and never sent costs what
-// it costs over a network, to the microsecond: the transport contributes
-// nothing, and both `Manifest` and `Pack` walk the whole tree hashing every
-// file's contents in order to send one of them.
+// The property was never about speed. Serving one file must not read the other
+// three hundred and ninety-nine, and allocated bytes are that work directly -
+// `fillContents` allocates each file it reads, so a fragment that read the whole
+// layer allocates the whole layer. Load does not change that number.
 //
-// For a 200-file layer that is 26ms. The base measured between machines has
-// 2000 files, four workers each ask for a fragment of it, and the account called
-// the result transfer-bound - which it was, in the sense that the bytes were
-// waiting on a hash of ten times as many bytes as they contained (E337).
+// **Serial on purpose.** `runtime.MemStats` counts the process, so a parallel
+// neighbour allocating mid-measurement would be charged to this store. Go pauses
+// parallel tests for the serial pass, which is the only way to be alone in it.
 func TestServingPartOfALayerDoesNotCostTheWholeLayer(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the counter is process-wide; see above (paralleltest).
+	const (
+		files = 400
+		each  = 16 << 10
+	)
 
-	small := layerStore(t)
-	big := layerStore(t)
-
-	few := seedLayer(t, small, 20)
-	many := seedLayer(t, big, 400)
+	held := layerStore(t)
+	id := seedSizedLayer(t, held, files, each)
 
 	one := []string{"usr/lib/lib0.so"}
 
-	_, _, err := small.Fragment(few, one)
+	// Outside the measurement: the first fragment fills the manifest memo,
+	// which is a once-per-layer cost and not what this is about.
+	_, _, err := held.Fragment(id, one)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	_, _, err = big.Fragment(many, one)
-	if err != nil {
-		t.Fatalf("%v", err)
+	before, ok := bytesRead(t)
+	if !ok {
+		t.Skip("nothing here counts this process's reads; the gate runs on Linux")
 	}
 
-	began := time.Now()
+	const rounds = 4
 
-	for range 3 {
-		_, _, err := small.Fragment(few, one)
-		if err != nil {
-			t.Fatalf("%v", err)
+	for range rounds {
+		_, _, fragErr := held.Fragment(id, one)
+		if fragErr != nil {
+			t.Fatalf("%v", fragErr)
 		}
 	}
 
-	cheap := time.Since(began) / 3
+	after, _ := bytesRead(t)
+	per := (after - before) / rounds
 
-	began = time.Now()
+	t.Logf("serving one %d-byte file of a %d-file layer reads %d bytes",
+		each, files, per)
 
-	for range 3 {
-		_, _, err := big.Fragment(many, one)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-	}
-
-	dear := time.Since(began) / 3
-
-	t.Logf("one file of a 20-file layer costs %v; of a 400-file layer, %v",
-		cheap.Round(time.Microsecond), dear.Round(time.Microsecond))
-
-	// **Not asserted as a ratio yet, and that is deliberate.** Serving a
-	// fragment walks the layer twice - once for the manifest, once for the pack
-	// - and hashes every file's contents both times. The manifest is memoised
-	// below, which removes one walk; the pack's is the next thing to remove and
-	// needs `walk` to hash only what is being sent, which is a change to
-	// `engine/layer` rather than to a store.
-	//
-	// A ratio asserted now would either fail on the half that is fixed or pass
-	// on the half that is not.
-	if dear > 40*cheap {
-		t.Errorf("serving one file cost %v from a 400-file layer against %v"+
-			" from a 20-file one, which is worse than the twentyfold the layers"+
-			" differ by (E337)", dear, cheap)
+	// **Twenty times the file, against four hundred times it.** Serving one file
+	// reads that file; serving it by reading the layer reads four hundred of
+	// them. The walk itself reads a little - directory entries are bytes too -
+	// so the bound is not one file exactly, but it sits an order of magnitude
+	// below the wrong answer and an order above the right one. A bound with that
+	// much room does not move when the machine is busy, which a clock does
+	// (E473, E481): this test asserted a ratio between two wall-clock
+	// measurements and failed under `-race -shuffle` on a loaded runner while
+	// passing alone on a quiet laptop.
+	if per > 20*each {
+		t.Errorf("serving one %d-byte file read %d bytes, which is more of the"+
+			" layer than the file - so a fragment is reading files nobody asked"+
+			" for (E337, E338)", each, per)
 	}
 }
 

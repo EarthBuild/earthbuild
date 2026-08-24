@@ -90,6 +90,18 @@ func layerStore(t *testing.T) *fleet.Layers {
 func seedLayer(t *testing.T, into *fleet.Layers, n int) ir.NodeID {
 	t.Helper()
 
+	return seedSizedLayer(t, into, n, 4096)
+}
+
+// seedSizedLayer is seedLayer with a say in how big each file is.
+//
+// Separate from the count because the two answer different questions: what a
+// fragment costs per *file* is the walk, and what it costs per *byte* is
+// whether the contents were read at all. A fixture that ties them together
+// cannot tell those apart.
+func seedSizedLayer(t *testing.T, into *fleet.Layers, n, each int) ir.NodeID {
+	t.Helper()
+
 	tmp := t.TempDir()
 
 	err := os.MkdirAll(filepath.Join(tmp, "usr", "lib"), 0o750)
@@ -98,7 +110,9 @@ func seedLayer(t *testing.T, into *fleet.Layers, n int) ir.NodeID {
 	}
 
 	for i := range n {
-		body := bytes.Repeat([]byte(fmt.Sprintf("%08d", i)), 512)
+		// Distinct per file, so no two share a digest and the store cannot
+		// quietly hold one layer where the test means n.
+		body := bytes.Repeat([]byte(fmt.Sprintf("%08d", i)), each/8)
 
 		writeErr := os.WriteFile(
 			filepath.Join(tmp, "usr", "lib", fmt.Sprintf("lib%d.so", i)),

@@ -32,8 +32,8 @@ To build EarthBuild from source for your target system, use
 
 This builds the earth binary in `./build/*/*/earth`, typically one of:
 
-- `./build/linux/amd64/earthly`
-- `./build/darwin/amd64/earthly`
+- `./build/linux/amd64/earth`
+- `./build/darwin/amd64/earth`
 - `./build/darwin/arm64/earthly`
 
 It also builds the buildkitd image.

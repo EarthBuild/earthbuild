@@ -884,7 +884,8 @@ func (d *Delegating) learned() {
 // and reasoned about; installing it changes where steps run, which wants a
 // measurement rather than a lint sweep. Recorded rather than quietly deleted,
 // because the queue it describes is still there.
-func (d *Delegating) fleetFull(_ Assignment) (string, bool) { //nolint:unused // written but never wired into keepHere; see the note above
+// Written but never wired into keepHere; see the note above.
+func (d *Delegating) fleetFull(_ Assignment) (string, bool) { //nolint:unused
 	if d.Fleet == nil || d.Local == nil || d.Store == nil {
 		return "", false
 	}

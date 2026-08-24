@@ -38,7 +38,8 @@ func copySpecial(src, dst, name string, fi os.FileInfo) (placed bool, err error)
 	// `Perm()` is already masked to nine bits and `Rdev` is a device number the
 	// kernel just gave us, going straight back to the kernel. Neither widens or
 	// narrows into anything (gosec G115).
-	err = unix.Mknod(dst, uint32(fi.Mode().Perm())|deviceBits(fi.Mode()), int(st.Rdev)) //nolint:gosec // kernel values, unchanged
+	// Kernel values, unchanged.
+	err = unix.Mknod(dst, uint32(fi.Mode().Perm())|deviceBits(fi.Mode()), int(st.Rdev)) //nolint:gosec
 	if err == nil {
 		return true, nil
 	}

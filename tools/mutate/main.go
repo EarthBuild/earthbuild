@@ -157,7 +157,9 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 
 	mutant := strings.Replace(string(src), m.Anchor, m.Replacement, 1)
 
-	err = os.WriteFile(path, []byte(mutant), 0o600)
+	// The path comes from the catalogue, which is a literal in this repository
+	// and not anybody's input (gosec G703).
+	err = os.WriteFile(path, []byte(mutant), 0o600) //nolint:gosec // a path from the catalogue
 	if err != nil {
 		return "ANCHOR", err.Error()
 	}

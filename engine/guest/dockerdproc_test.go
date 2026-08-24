@@ -46,7 +46,8 @@ func TestStoppingADaemonStopsIt(t *testing.T) {
 	// well-behaved process would exit on the first signal and prove nothing
 	// about the second.
 	script := filepath.Join(t.TempDir(), "stubborn")
-	err := os.WriteFile(script, []byte("#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n"), 0o700)
+	// A script this test executes; 0600 cannot run.
+	err := os.WriteFile(script, []byte("#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 1; done\n"), 0o700) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +107,8 @@ func TestADaemonThatDiedIsNoticed(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "quitter")
-	err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700)
+	// A script this test executes; 0600 cannot run.
+	err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +150,8 @@ func TestStoppingAnAlreadyNoticedDeadDaemonReturns(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "quitter")
-	err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700)
+	// A script this test executes; 0600 cannot run.
+	err := os.WriteFile(script, []byte("#!/bin/sh\nexit 3\n"), 0o700) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +212,8 @@ func TestADaemonIsAskedOnItsOwnSocket(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "sleeper")
-	err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o700)
+	// A script this test executes; 0600 cannot run.
+	err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o700) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +250,7 @@ func TestWhatTheDaemonSaidBeforeItDiedReachesTheAuthor(t *testing.T) {
 	t.Parallel()
 
 	script := filepath.Join(t.TempDir(), "complainer")
-	err := os.WriteFile(script,
+	err := os.WriteFile(script, //nolint:gosec // a script this test executes; 0600 cannot run
 		[]byte("#!/bin/sh\necho 'mkdir /run/docker/plugins: permission denied' >&2\nexit 1\n"),
 		0o700)
 	if err != nil {

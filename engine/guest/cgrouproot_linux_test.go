@@ -82,7 +82,7 @@ func TestTheStepCgroupGoesWhereThisProcessMayWrite(t *testing.T) {
 
 		root := writable(t, t.TempDir(), "cg")
 
-		err := os.Chmod(root, 0o500)
+		err := os.Chmod(root, 0o500) //nolint:gosec // the mode is what this test is about
 		if err != nil {
 			t.Skipf("cannot make a read-only directory here: %v", err)
 		}

@@ -59,7 +59,8 @@ func TestABuildPromptsAndReadsTheAnswer(t *testing.T) {
 		t.Skipf("cannot find this test binary: %v", err)
 	}
 
-	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestABuildPromptsAndReadsTheAnswer$") //nolint:gosec // this binary
+	// This binary.
+	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestABuildPromptsAndReadsTheAnswer$") //nolint:gosec
 	cmd.Env = append(os.Environ(),
 		"EARTH_TEST_INTERACTIVE_CHILD=1",
 		"EARTH_GUESTD="+guestd,

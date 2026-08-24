@@ -107,8 +107,14 @@ linters:
       # Deliberately not the whole of `gosec`: G301 and G306 are file modes, and
       # a mode in a test is sometimes a fixture and sometimes a value mirroring
       # what a shell writes. Excluding those would have hidden E632.
+      #
+      # G703 is the same family as G304 - a path that reached an open from a
+      # variable rather than a literal - and in a test the variable is the
+      # test's own `t.TempDir` or a fixture name it wrote a moment earlier.
+      # There is no untrusted input in a test binary; the taint it traces is
+      # the fixture.
       - path: _test\.go
-        text: "(G304|G204|G104|G122):"
+        text: "(G304|G204|G104|G122|G703):"
         linters:
           - gosec
       # G115 in a test is nearly always a kernel identifier being converted to

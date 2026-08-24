@@ -175,7 +175,8 @@ func (f *Fills) die(err error) {
 // than by id" - the failure that hands one fault-in another's verdict. Not used
 // by anything else, and deliberately absurd, because a mutant has to be able to
 // name the mistake it is checking for.
-func (f *Fills) anyWaiterForTest() (any, bool) { //nolint:unused // called only by a mutant the catalogue injects; see above
+// Called only by a mutant the catalogue injects; see above.
+func (f *Fills) anyWaiterForTest() (any, bool) { //nolint:unused
 	var (
 		found any
 		ok    bool

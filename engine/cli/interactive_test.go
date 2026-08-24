@@ -104,7 +104,8 @@ func TestTheCLIFindsATerminalWhenThereIsOne(t *testing.T) {
 		t.Skipf("cannot find this test binary: %v", err)
 	}
 
-	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestTheCLIFindsATerminalWhenThereIsOne$") //nolint:gosec // this binary
+	// This binary.
+	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestTheCLIFindsATerminalWhenThereIsOne$") //nolint:gosec
 	cmd.Env = append(os.Environ(), "EARTH_TEST_TTY_CHILD=1")
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}

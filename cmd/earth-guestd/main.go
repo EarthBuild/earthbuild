@@ -103,10 +103,14 @@ func run() error {
 		scratch = "/var/lib/earthbuild/scratch"
 	}
 
-	mat, err := newMaterialiser(root, scratch)
+	mat, releaseScratch, err := newMaterialiser(root, scratch)
 	if err != nil {
 		return err
 	}
+
+	// The scratch may be a tmpfs this process mounted, and a mount outlives the
+	// process that made it unless somebody unmounts it.
+	defer releaseScratch()
 
 	srv := &guest.Server{
 		Mat:      mat,

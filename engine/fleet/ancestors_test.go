@@ -88,7 +88,7 @@ func TestAnExistingAncestorIsNotRewritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.MkdirAll(filepath.Join(dst, "a"), 0o755)
+	err = os.MkdirAll(filepath.Join(dst, "a"), 0o755) //nolint:gosec // a directory mode a build produces
 	if err != nil {
 		t.Fatal(err)
 	}

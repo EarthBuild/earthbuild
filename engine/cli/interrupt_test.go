@@ -57,7 +57,8 @@ func TestASecondInterruptIsNotSwallowed(t *testing.T) {
 		t.Skipf("cannot find this test binary to re-run it: %v", err)
 	}
 
-	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestASecondInterruptIsNotSwallowed$") //nolint:gosec // this binary
+	// This binary.
+	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestASecondInterruptIsNotSwallowed$") //nolint:gosec
 	cmd.Env = append(os.Environ(), "EARTH_TEST_INTERRUPT_CHILD=1")
 
 	err = cmd.Start()

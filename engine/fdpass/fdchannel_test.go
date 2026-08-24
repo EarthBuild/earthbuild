@@ -57,7 +57,8 @@ func TestADescriptorChannelReachesAChildProcess(t *testing.T) {
 		t.Skipf("cannot find this test binary: %v", err)
 	}
 
-	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestADescriptorChannelReachesAChildProcess$") //nolint:gosec // this binary
+	//nolint:gosec // this binary
+	cmd := exec.CommandContext(t.Context(), self, "-test.run", "^TestADescriptorChannelReachesAChildProcess$")
 	cmd.Env = append(os.Environ(), "EARTH_TEST_FD_CHILD=1")
 	// Inherited as fd 3, the number after the three standard streams - the same
 	// place the id gate uses.

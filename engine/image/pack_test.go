@@ -146,7 +146,8 @@ func TestPackKeepsModesAndSymlinks(t *testing.T) {
 
 	dir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(dir, "script"), []byte("#!/bin/sh\n"), 0o750)
+	// A script this test executes; 0600 cannot run.
+	err := os.WriteFile(filepath.Join(dir, "script"), []byte("#!/bin/sh\n"), 0o750) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}

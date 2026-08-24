@@ -107,7 +107,9 @@ func ownCgroupPath(body string) (string, bool) {
 // **Nothing is created by asking.** A probe that made the directory to find out
 // would leave one behind on every machine it decided against.
 func writableDir(p string) bool {
-	fi, err := os.Stat(p)
+	// The path is one this engine names - a cgroup root candidate - and asking
+	// about it reads nothing and creates nothing (gosec G703).
+	fi, err := os.Stat(p) //nolint:gosec // a path this engine names; see above
 	if err != nil || !fi.IsDir() {
 		return false
 	}
@@ -153,7 +155,8 @@ func TakeOverCgroup() (string, error) {
 // A machine that delegates only some of them should get those rather than none:
 // a memory ceiling and no cpu weight is most of what a build wants.
 func enableControllers(dir string) error {
-	err := os.WriteFile(filepath.Join(dir, "cgroup.subtree_control"),
+	// The kernel made this file; the mode is never applied.
+	err := os.WriteFile(filepath.Join(dir, "cgroup.subtree_control"), //nolint:gosec
 		[]byte("+memory +pids +cpu"), 0o644) // written by the kernel's rules
 	if err == nil {
 		return nil
@@ -164,7 +167,8 @@ func enableControllers(dir string) error {
 	var last error
 
 	for _, c := range []string{"+memory", "+pids", "+cpu"} {
-		werr := os.WriteFile(filepath.Join(dir, "cgroup.subtree_control"),
+		// The kernel made this file; the mode is never applied.
+		werr := os.WriteFile(filepath.Join(dir, "cgroup.subtree_control"), //nolint:gosec
 			[]byte(c), 0o644) // as above
 		if werr != nil {
 			last = werr

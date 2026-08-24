@@ -2417,6 +2417,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "guest: the scratch relocated off an overlay (E634)",
+		File:        "cmd/earth-guestd/mat_linux.go",
+		Anchor:      "\tat, cleanup, err := overlay.Mountable(scratch)",
+		Replacement: "\tat, cleanup, err := scratch, func() {}, error(nil)",
+		Package:     "./cmd/earth-guestd/",
+	},
+	{
 		Name:        "guest: the daemon wait bounded (E395)",
 		File:        "engine/guest/awaitdaemon.go",
 		Anchor:      "const waitAtMost = 90 * time.Second",

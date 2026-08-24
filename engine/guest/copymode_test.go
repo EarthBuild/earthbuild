@@ -33,12 +33,13 @@ func TestATreeWithAnUnwritableDirectoryIsCopied(t *testing.T) {
 	}
 
 	// Restrictive on the way out, so the copy meets it before its contents.
-	err = os.Chmod(filepath.Join(src, "root"), 0o500)
+	err = os.Chmod(filepath.Join(src, "root"), 0o500) //nolint:gosec // the mode is what this test is about
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(func() { _ = os.Chmod(filepath.Join(src, "root"), 0o700) })
+	// The mode is what this test is about.
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(src, "root"), 0o700) }) //nolint:gosec
 
 	dst := filepath.Join(t.TempDir(), "out")
 
@@ -47,7 +48,8 @@ func TestATreeWithAnUnwritableDirectoryIsCopied(t *testing.T) {
 		t.Fatalf("a tree with a read-only directory was not copied: %v", err)
 	}
 
-	t.Cleanup(func() { _ = os.Chmod(filepath.Join(dst, "root"), 0o700) })
+	// The mode is what this test is about.
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(dst, "root"), 0o700) }) //nolint:gosec
 
 	_, err = os.Stat(filepath.Join(dst, "root", "cache", "file"))
 	if err != nil {

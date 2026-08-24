@@ -321,7 +321,8 @@ const (
 	// as unused and deleting it breaks the macOS build. `unused` findings are
 	// per-platform, which is E106's lesson arriving from the linter's side: a
 	// file behind a build tag is not compiled, not counted, and here not seen.
-	dockerPluginDir = "/usr/local/libexec/docker/cli-plugins" //nolint:unused // read only by dockermounts_darwin.go; see above
+	// Read only by dockermounts_darwin.go; see above.
+	dockerPluginDir = "/usr/local/libexec/docker/cli-plugins" //nolint:unused
 )
 
 // Run executes one step against a materialised base, and captures what it
@@ -823,7 +824,7 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 	// Staged under the path it has in the context, so the guest can name it the
 	// way the Earthfile does.
 	dst := filepath.Join(dir, filepath.Clean("/"+n.Op.Args[0]))
-	err = os.MkdirAll(filepath.Dir(dst), 0o755)
+	err = os.MkdirAll(filepath.Dir(dst), 0o755) //nolint:gosec // a directory a build writes into, as a shell would make it
 	if err != nil {
 		return core.Result{}, fmt.Errorf("prepare the context layer: %w", err)
 	}

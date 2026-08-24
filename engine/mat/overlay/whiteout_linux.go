@@ -85,7 +85,8 @@ func (t *translator) use(src, id string) (string, error) {
 		return src, nil
 	}
 
-	if _, err := os.Stat(unmarkedFile(t.dir, id)); err == nil {
+	_, err := os.Stat(unmarkedFile(t.dir, id))
+	if err == nil {
 		t.mu.Lock()
 		t.done[id] = src
 		t.mu.Unlock()

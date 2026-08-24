@@ -141,18 +141,21 @@ func TestServingPartOfALayerDoesNotCostTheWholeLayer(t *testing.T) {
 
 	one := []string{"usr/lib/lib0.so"}
 
-	if _, _, err := small.Fragment(few, one); err != nil {
+	_, _, err := small.Fragment(few, one)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	if _, _, err := big.Fragment(many, one); err != nil {
+	_, _, err = big.Fragment(many, one)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	began := time.Now()
 
 	for range 3 {
-		if _, _, err := small.Fragment(few, one); err != nil {
+		_, _, err := small.Fragment(few, one)
+		if err != nil {
 			t.Fatalf("%v", err)
 		}
 	}
@@ -162,7 +165,8 @@ func TestServingPartOfALayerDoesNotCostTheWholeLayer(t *testing.T) {
 	began = time.Now()
 
 	for range 3 {
-		if _, _, err := big.Fragment(many, one); err != nil {
+		_, _, err := big.Fragment(many, one)
+		if err != nil {
 			t.Fatalf("%v", err)
 		}
 	}
@@ -257,7 +261,8 @@ func TestAWorkerDialsAPeerOnceNotOnceAStep(t *testing.T) {
 		a := assignmentOn(id, want)
 		a.Hints.Holders = []string{"peer@host:2"}
 
-		if _, err := run(t.Context(), a); err != nil {
+		_, err := run(t.Context(), a)
+		if err != nil {
 			t.Fatalf("%v", err)
 		}
 	}

@@ -32,13 +32,15 @@ func TestAGuestOlderThanTheEngineIsReported(t *testing.T) {
 	guest := filepath.Join(dir, "earth-guestd")
 
 	for _, p := range []string{engine, guest} {
-		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+		err := os.WriteFile(p, []byte("x"), 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	old := time.Now().Add(-2 * time.Hour)
-	if err := os.Chtimes(guest, old, old); err != nil {
+	err := os.Chtimes(guest, old, old)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,11 +77,13 @@ func TestAGuestTheSameAgeIsNotReported(t *testing.T) {
 	at := time.Now().Add(-time.Hour)
 
 	for _, p := range []string{engine, guest} {
-		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+		err := os.WriteFile(p, []byte("x"), 0o600)
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		if err := os.Chtimes(p, at, at); err != nil {
+		err = os.Chtimes(p, at, at)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}

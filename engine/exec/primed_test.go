@@ -98,7 +98,8 @@ func TestAReleasedBaseIsForgotten(t *testing.T) {
 
 	e.Fetch = func(context.Context, []ir.NodeID, string, string) error { return nil }
 
-	if err := e.FillFor(context.Background(), "h1", "/x"); err == nil {
+	err := e.FillFor(context.Background(), "h1", "/x")
+	if err == nil {
 		t.Error("a released base still answers fault-ins")
 	}
 }

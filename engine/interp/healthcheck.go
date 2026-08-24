@@ -50,7 +50,8 @@ func readHealthcheck(args []string, where string) (*Healthcheck, error) {
 			value = args[i]
 		}
 
-		if err := out.set(name, value, where); err != nil {
+		err := out.set(name, value, where)
+		if err != nil {
 			return nil, err
 		}
 	}

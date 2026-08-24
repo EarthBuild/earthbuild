@@ -213,7 +213,8 @@ func interpreterOf(t *testing.T, path string) string {
 		}
 
 		b := make([]byte, p.Filesz)
-		if _, err := p.ReadAt(b, 0); err != nil {
+		_, err := p.ReadAt(b, 0)
+		if err != nil {
 			return "an interpreter this test could not read"
 		}
 

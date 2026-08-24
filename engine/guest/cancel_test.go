@@ -105,7 +105,8 @@ func TestACancelledStepIsKilled(t *testing.T) {
 	// Past when the command would have written it, had it been left alone.
 	time.Sleep(3 * time.Second)
 
-	if _, err := os.Stat(marker); err == nil {
+	_, err = os.Stat(marker)
+	if err == nil {
 		t.Error("the cancelled step ran to completion, so nothing was killed")
 	}
 }

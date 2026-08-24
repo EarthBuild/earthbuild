@@ -26,7 +26,8 @@ func TestAllowPrivilegedIsAPermissionThisEngineNeverUses(t *testing.T) {
 
 	dir := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

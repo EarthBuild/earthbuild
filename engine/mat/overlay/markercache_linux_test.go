@@ -25,7 +25,8 @@ func TestALayerIsScannedForMarkersOnce(t *testing.T) {
 
 	src := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(src, "ordinary"), []byte("x"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(src, "ordinary"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,7 +69,8 @@ func TestTheAnswerSurvivesTheProcessThatFoundIt(t *testing.T) {
 	src := t.TempDir()
 	shared := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(src, "ordinary"), []byte("x"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(src, "ordinary"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,11 +113,13 @@ func TestAStoreNoteIsBelieved(t *testing.T) {
 	}
 
 	// Only a scan can see this, and the note says no scan is needed.
-	if err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(src, ".wh.gone"), nil, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(UnmarkedNote(src), nil, 0o600); err != nil {
+	err = os.WriteFile(UnmarkedNote(src), nil, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

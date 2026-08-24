@@ -251,7 +251,8 @@ func (r *Rendezvous) askWhatItIs(
 
 	var said Reply
 
-	if err := json.Unmarshal(body, &said); err != nil {
+	err = json.Unmarshal(body, &said)
+	if err != nil {
 		onError(fmt.Errorf("%s said something that is not a reply: %w", id, err))
 
 		return

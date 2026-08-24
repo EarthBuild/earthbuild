@@ -1806,7 +1806,8 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// only remaining evidence of which spelling it was. A COPY already
 		// depends on what the context holds, so this asks a question the command
 		// was going to ask anyway.
-		if n, cerr := resolveContext(p.here.dir, src, where); cerr == nil {
+		n, cerr := resolveContext(p.here.dir, src, where)
+		if cerr == nil {
 			return n, src, nil
 		}
 

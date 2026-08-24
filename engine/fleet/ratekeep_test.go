@@ -32,13 +32,15 @@ func TestWhatTheFleetCostsSurvivesTheProcess(t *testing.T) {
 
 	want := was.Slots(4 << 20)
 
-	if err := was.Save(at); err != nil {
+	err := was.Save(at)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	var now fleet.Rate
 
-	if err := now.Load(at); err != nil {
+	err = now.Load(at)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -64,7 +66,8 @@ func TestAMissingRateIsNotAnError(t *testing.T) {
 
 	var r fleet.Rate
 
-	if err := r.Load(filepath.Join(t.TempDir(), "absent.json")); err != nil {
+	err := r.Load(filepath.Join(t.TempDir(), "absent.json"))
+	if err != nil {
 		t.Errorf("loading a rate that has never been written: %v", err)
 	}
 
@@ -83,13 +86,15 @@ func TestADamagedRateIsIgnored(t *testing.T) {
 
 	at := filepath.Join(t.TempDir(), "rate.json")
 
-	if err := os.WriteFile(at, []byte("this is not json"), 0o600); err != nil {
+	err := os.WriteFile(at, []byte("this is not json"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	var r fleet.Rate
 
-	if err := r.Load(at); err != nil {
+	err = r.Load(at)
+	if err != nil {
 		t.Errorf("a damaged rate failed a build: %v", err)
 	}
 
@@ -120,7 +125,8 @@ func TestADriverKeepsWhatItLearns(t *testing.T) {
 		FetchedBytes: 1 << 10, FetchMillis: 300, DurationMillis: 1000,
 	}, time.Second)
 
-	if err := d.Keep(); err != nil {
+	err := d.Keep()
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

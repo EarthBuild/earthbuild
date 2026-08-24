@@ -126,7 +126,8 @@ func docOf(t *testing.T, path string, o cli.Options) string {
 
 	o.Dir, o.Out = dir, &out
 
-	if err := cli.Doc(o); err != nil {
+	err = cli.Doc(o)
+	if err != nil {
 		t.Fatalf("documenting %s: %v", path, err)
 	}
 

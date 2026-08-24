@@ -74,11 +74,13 @@ func (f *Fragments) keepManifest(id ir.NodeID, manifest []byte) {
 
 	tmp := at + ".incoming"
 
-	if err := os.WriteFile(tmp, manifest, 0o600); err != nil {
+	err := os.WriteFile(tmp, manifest, 0o600)
+	if err != nil {
 		return
 	}
 
-	if err := os.Rename(tmp, at); err != nil {
+	err = os.Rename(tmp, at)
+	if err != nil {
 		_ = os.Remove(tmp)
 	}
 }

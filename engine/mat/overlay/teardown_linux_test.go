@@ -44,7 +44,8 @@ func BenchmarkTeardownParts(b *testing.B) {
 			",upperdir=" + filepath.Join(base, "u") +
 			",workdir=" + filepath.Join(base, "w")
 
-		if err := unix.Mount("overlay", filepath.Join(base, "m"), "overlay", 0, opts); err != nil {
+		err := unix.Mount("overlay", filepath.Join(base, "m"), "overlay", 0, opts)
+		if err != nil {
 			b.Skipf("this machine cannot mount overlayfs: %v", err)
 		}
 
@@ -59,7 +60,8 @@ func BenchmarkTeardownParts(b *testing.B) {
 
 			b.StartTimer()
 
-			if err := unix.Unmount(filepath.Join(base, "m"), 0); err != nil {
+			err := unix.Unmount(filepath.Join(base, "m"), 0)
+			if err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -73,7 +75,8 @@ func BenchmarkTeardownParts(b *testing.B) {
 
 			b.StartTimer()
 
-			if err := unix.Unmount(filepath.Join(base, "m"), unix.MNT_DETACH); err != nil {
+			err := unix.Unmount(filepath.Join(base, "m"), unix.MNT_DETACH)
+			if err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -85,13 +88,15 @@ func BenchmarkTeardownParts(b *testing.B) {
 
 			base := setUp(b)
 
-			if err := unix.Unmount(filepath.Join(base, "m"), 0); err != nil {
+			err := unix.Unmount(filepath.Join(base, "m"), 0)
+			if err != nil {
 				b.Fatal(err)
 			}
 
 			b.StartTimer()
 
-			if err := os.RemoveAll(base); err != nil {
+			err = os.RemoveAll(base)
+			if err != nil {
 				b.Fatal(err)
 			}
 		}

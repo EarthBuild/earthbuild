@@ -231,7 +231,8 @@ func stampLike(t *testing.T, to, from string) {
 		t.Fatal(err)
 	}
 
-	if err := os.Chtimes(to, fi.ModTime(), fi.ModTime()); err != nil {
+	err = os.Chtimes(to, fi.ModTime(), fi.ModTime())
+	if err != nil {
 		t.Fatal(err)
 	}
 }

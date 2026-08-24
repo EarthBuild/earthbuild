@@ -19,7 +19,8 @@ func TestAFinishedProcessReportsWhatItSpent(t *testing.T) {
 	// asserting nothing about.
 	cmd := exec.Command("/bin/sh", "-c", "i=0; while [ $i -lt 40000 ]; do i=$((i+1)); done")
 
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+	if err != nil {
 		t.Fatalf("the probe command did not run: %v", err)
 	}
 

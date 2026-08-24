@@ -39,7 +39,8 @@ func TestTheDaemonListensSomewhereThatFits(t *testing.T) {
 
 	// The directory is real, because the daemon binds into it rather than
 	// creating it.
-	if _, err := os.Stat(filepath.Dir(at)); err != nil {
+	_, err = os.Stat(filepath.Dir(at))
+	if err != nil {
 		t.Errorf("the directory the daemon will bind in does not exist: %v", err)
 	}
 }
@@ -83,7 +84,8 @@ func TestTheShortSocketIsCleanedUp(t *testing.T) {
 
 	done()
 
-	if _, err := os.Stat(filepath.Dir(at)); err == nil {
+	_, err = os.Stat(filepath.Dir(at))
+	if err == nil {
 		t.Errorf("%s survived cleanup", filepath.Dir(at))
 	}
 }

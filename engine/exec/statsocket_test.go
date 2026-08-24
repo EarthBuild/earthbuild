@@ -22,7 +22,8 @@ func TestASocketIsFoundByExistingNotByBeingExecutable(t *testing.T) {
 	// A plain, non-executable file stands in for the socket: what matters is
 	// that it exists and cannot be run, which is true of both.
 	at := filepath.Join(t.TempDir(), "docker.sock")
-	if err := os.WriteFile(at, nil, 0o600); err != nil {
+	err := os.WriteFile(at, nil, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

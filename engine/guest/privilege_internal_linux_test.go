@@ -62,11 +62,12 @@ func TestWhatPrivilegeAStepCanBeGiven(t *testing.T) {
 	// is why rootless `apt` and overlayfs work at all.
 	t.Run("mounting a tmpfs", func(t *testing.T) {
 		at := filepath.Join(dir, "tmp")
-		if err := os.Mkdir(at, 0o750); err != nil {
+		err := os.Mkdir(at, 0o750)
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		err := unix.Mount("tmpfs", at, "tmpfs", 0, "")
+		err = unix.Mount("tmpfs", at, "tmpfs", 0, "")
 		if err != nil {
 			t.Errorf("a namespace-owned mount was refused: %v", err)
 

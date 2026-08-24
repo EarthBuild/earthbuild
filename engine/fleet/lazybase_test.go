@@ -69,7 +69,8 @@ func TestALazyBaseServesAStepThatReadsBeyondItsPrediction(t *testing.T) {
 		t.Fatalf("faulting in an unpredicted path: %v", err)
 	}
 
-	if _, err := os.Stat(unpredicted); err != nil {
+	_, err = os.Stat(unpredicted)
+	if err != nil {
 		t.Fatalf("the unpredicted path did not arrive: %v", err)
 	}
 
@@ -78,7 +79,8 @@ func TestALazyBaseServesAStepThatReadsBeyondItsPrediction(t *testing.T) {
 
 	for i := range 40 {
 		p := filepath.Join(base, "usr", "lib", "lib"+itoa(i)+".so")
-		if _, err := os.Lstat(p); err != nil {
+		_, err := os.Lstat(p)
+		if err != nil {
 			absent++
 		}
 	}

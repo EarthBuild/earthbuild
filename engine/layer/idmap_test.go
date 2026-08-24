@@ -76,7 +76,8 @@ func TestAnAbsentIDMapChangesNothing(t *testing.T) {
 func TestAMalformedIDMapIsRefused(t *testing.T) {
 	t.Parallel()
 
-	if _, err := layer.ParseIDMap(strings.NewReader("0 1000\n")); err == nil {
+	_, err := layer.ParseIDMap(strings.NewReader("0 1000\n"))
+	if err == nil {
 		t.Error("a line with two fields was accepted as a mapping")
 	}
 }

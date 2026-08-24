@@ -45,7 +45,8 @@ func TestListNamesEveryTargetSorted(t *testing.T) {
 
 	var out bytes.Buffer
 
-	if err := cli.List(cli.Options{Dir: dir, Out: &out}); err != nil {
+	err = cli.List(cli.Options{Dir: dir, Out: &out})
+	if err != nil {
 		t.Fatalf("listing: %v", err)
 	}
 
@@ -75,7 +76,8 @@ func TestListIsSortedRatherThanAsWritten(t *testing.T) {
 
 	var out bytes.Buffer
 
-	if err := cli.List(cli.Options{Dir: dir, Out: &out}); err != nil {
+	err = cli.List(cli.Options{Dir: dir, Out: &out})
+	if err != nil {
 		t.Fatalf("listing: %v", err)
 	}
 
@@ -134,7 +136,8 @@ func TestAReadingCommandNeedsNothingButTheFile(t *testing.T) {
 
 	var out bytes.Buffer
 
-	if err := cli.List(cli.Options{Dir: dir, Out: &out}); err != nil {
+	err = cli.List(cli.Options{Dir: dir, Out: &out})
+	if err != nil {
 		t.Fatalf("ls needed more than the file: %v", err)
 	}
 
@@ -144,7 +147,8 @@ func TestAReadingCommandNeedsNothingButTheFile(t *testing.T) {
 
 	out.Reset()
 
-	if err := cli.Doc(cli.Options{Dir: dir, Out: &out, Long: true}); err != nil {
+	err = cli.Doc(cli.Options{Dir: dir, Out: &out, Long: true})
+	if err != nil {
 		t.Fatalf("doc needed more than the file: %v", err)
 	}
 

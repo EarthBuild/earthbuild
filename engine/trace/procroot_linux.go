@@ -96,7 +96,8 @@ func MountPrivateProc(dir string) error {
 // busy mount would otherwise refuse and leave exactly the litter this exists to
 // prevent.
 func UnmountProc(dir string) error {
-	if err := unix.Unmount(dir, unix.MNT_DETACH); err != nil {
+	err := unix.Unmount(dir, unix.MNT_DETACH)
+	if err != nil {
 		return fmt.Errorf("unmount the procfs at %s: %w", dir, err)
 	}
 

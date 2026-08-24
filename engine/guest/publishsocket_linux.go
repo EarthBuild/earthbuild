@@ -32,7 +32,8 @@ func publishSocket(from, to string) (func(), error) {
 
 	_ = f.Close()
 
-	if err := unix.Mount(from, to, "", unix.MS_BIND, ""); err != nil {
+	err = unix.Mount(from, to, "", unix.MS_BIND, "")
+	if err != nil {
 		return func() {}, fmt.Errorf("bind the daemon's socket into the step: %w", err)
 	}
 

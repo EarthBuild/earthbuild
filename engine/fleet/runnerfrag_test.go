@@ -108,7 +108,8 @@ func seedLayer(t *testing.T, into *fleet.Layers, n int) ir.NodeID {
 
 	var packed bytes.Buffer
 
-	if err := layer.Pack(tmp, &packed); err != nil {
+	err := layer.Pack(tmp, &packed)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

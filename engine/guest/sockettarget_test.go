@@ -34,7 +34,8 @@ func TestTheSocketFollowsTheImagesOwnSymlink(t *testing.T) {
 	}
 
 	// Exactly what the image ships.
-	if err := os.Symlink("../run", filepath.Join(root, "var", "run")); err != nil {
+	err := os.Symlink("../run", filepath.Join(root, "var", "run"))
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,7 +67,8 @@ func TestASocketPathThatDoesNotExistIsMade(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	if _, err := os.Stat(filepath.Dir(got)); err != nil {
+	_, err = os.Stat(filepath.Dir(got))
+	if err != nil {
 		t.Errorf("the directory the socket appears in was not made: %v", err)
 	}
 }
@@ -85,7 +87,8 @@ func TestALinkThatClimbsOutIsClamped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.Symlink("../../../../etc", filepath.Join(root, "var", "run")); err != nil {
+	err := os.Symlink("../../../../etc", filepath.Join(root, "var", "run"))
+	if err != nil {
 		t.Fatal(err)
 	}
 

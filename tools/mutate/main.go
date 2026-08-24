@@ -64,7 +64,8 @@ func putBack() {
 		return
 	}
 
-	if err := os.WriteFile(p.path, p.src, 0o600); err != nil {
+	err := os.WriteFile(p.path, p.src, 0o600)
+	if err != nil {
 		panic("mutate: could not restore " + p.path + ": " + err.Error())
 	}
 }

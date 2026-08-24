@@ -220,7 +220,8 @@ func TestTheListenerRefusesADirtyBuffer(t *testing.T) {
 			" per attempt because the kernel is expected to refuse it", errno)
 	}
 
-	if err := respond(fd, n.ID); err != nil {
+	err = respond(fd, n.ID)
+	if err != nil {
 		t.Fatalf("answering: %v", err)
 	}
 }

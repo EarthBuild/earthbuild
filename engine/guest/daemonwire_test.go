@@ -27,7 +27,8 @@ func TestAStepCanAskForADaemonOfItsOwn(t *testing.T) {
 	}
 
 	var got Request
-	if err := json.Unmarshal(b, &got); err != nil {
+	err = json.Unmarshal(b, &got)
+	if err != nil {
 		t.Fatalf("it will not come back: %v", err)
 	}
 

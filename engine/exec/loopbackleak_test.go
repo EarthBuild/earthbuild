@@ -42,15 +42,18 @@ func TestALoopbackConnectionTakesItsScratchWithIt(t *testing.T) {
 			" none or it does not know it owns one")
 	}
 
-	if _, err := os.Stat(dir); err != nil {
+	_, err := os.Stat(dir)
+	if err != nil {
 		t.Fatalf("the directory the guest lives in is not there: %v", err)
 	}
 
-	if err := c.Close(); err != nil {
+	err = c.Close()
+	if err != nil {
 		t.Fatalf("closing: %v", err)
 	}
 
-	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+	_, err = os.Stat(dir)
+	if !os.IsNotExist(err) {
 		t.Errorf("%s outlived the connection that made it (%v)"+
 			"\n  a temporary that outlives its owner is not temporary", dir, err)
 	}

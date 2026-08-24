@@ -48,7 +48,8 @@ func TestAWorkerAnswersWhatItIs(t *testing.T) {
 
 	var got Reply
 
-	if err := json.Unmarshal(body, &got); err != nil {
+	err = json.Unmarshal(body, &got)
+	if err != nil {
 		t.Fatalf("decoding what the worker said: %v", err)
 	}
 

@@ -311,11 +311,13 @@ func TestFaultInsAreRememberedAgainstTheirHandle(t *testing.T) {
 	one := filepath.Join(dir, "one")
 	two := filepath.Join(dir, "two")
 
-	if err := f.For("h1", dir)(one); err != nil {
+	err := f.For("h1", dir)(one)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := f.For("h2", dir)(two); err != nil {
+	err = f.For("h2", dir)(two)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -361,7 +363,8 @@ func TestTheDirectoriesAboveAFaultedInFileAreBase(t *testing.T) {
 
 	f := guest.NewFills(here)
 
-	if err := f.For("h1", root)(deep); err != nil {
+	err := f.For("h1", root)(deep)
+	if err != nil {
 		t.Fatal(err)
 	}
 

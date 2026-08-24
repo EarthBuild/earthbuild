@@ -155,7 +155,8 @@ func TestADifferentSessionIsADifferentDriver(t *testing.T) {
 	}
 
 	// And without the secret there is no identity at all.
-	if _, err := fleet.DriverID(base, nil); err == nil {
+	_, err = fleet.DriverID(base, nil)
+	if err == nil {
 		t.Error("a driver identity was derived from public metadata alone;" +
 			" anyone watching the repository could join")
 	}

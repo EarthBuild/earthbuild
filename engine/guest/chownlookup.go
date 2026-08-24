@@ -42,7 +42,8 @@ func chownIDs(root, spec string) (int, int, error) {
 
 // lookUpUser finds a user's id and primary group in the image's passwd file.
 func lookUpUser(root, user string) (int, int, error) {
-	if n, err := strconv.Atoi(user); err == nil {
+	n, err := strconv.Atoi(user)
+	if err == nil {
 		// A number is an id, and the group is the same number unless one was
 		// given - `chown 1000 file` behaves this way and a build that meant
 		// otherwise can say so.
@@ -73,7 +74,8 @@ func lookUpUser(root, user string) (int, int, error) {
 
 // lookUpGroup finds a group's id in the image's group file.
 func lookUpGroup(root, group string) (int, error) {
-	if n, err := strconv.Atoi(group); err == nil {
+	n, err := strconv.Atoi(group)
+	if err == nil {
 		return n, nil
 	}
 

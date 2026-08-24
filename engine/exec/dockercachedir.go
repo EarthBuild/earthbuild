@@ -29,7 +29,8 @@ const cacheNameLimit = 64
 // and beside the layers for the same reason the rate is (E351): a cache belongs
 // to the machine that holds the layers it was built against.
 func dockerCacheDir(store, name string) (string, error) {
-	if err := checkCacheName(name); err != nil {
+	err := checkCacheName(name)
+	if err != nil {
 		return "", err
 	}
 

@@ -31,12 +31,14 @@ func TestASymlinkToAnAncestorDoesNotLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(inner, "f"), []byte("x"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(inner, "f"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	// The link that closes the circle: inner/up -> src.
-	if err := os.Symlink(src, filepath.Join(inner, "up")); err != nil {
+	err = os.Symlink(src, filepath.Join(inner, "up"))
+	if err != nil {
 		t.Skipf("this filesystem will not make a symlink: %v", err)
 	}
 
@@ -50,7 +52,7 @@ func TestASymlinkToAnAncestorDoesNotLoop(t *testing.T) {
 	// `os.ReadFile` following it, failing on a directory, and returning an error
 	// the test called success. **A test with two acceptable outcomes tests
 	// neither of them.**
-	err := copyOut(src, dst)
+	err = copyOut(src, dst)
 	if err != nil {
 		t.Fatalf("exporting a tree containing a link to its own parent: %v", err)
 	}

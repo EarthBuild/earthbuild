@@ -62,7 +62,8 @@ func TestAFragmentCarriesWhatWasAskedForAndItsAncestors(t *testing.T) {
 
 	// And nothing else.
 	for _, absent := range []string{"readme", "tool", "var/empty", "usr/bin/same"} {
-		if _, err := os.Lstat(filepath.Join(into, absent)); err == nil {
+		_, err := os.Lstat(filepath.Join(into, absent))
+		if err == nil {
 			t.Errorf("%s arrived, and nobody asked for it"+
 				"\n  a fragment that carries the whole layer is a layer", absent)
 		}
@@ -161,11 +162,13 @@ func TestAPredictedPathThatIsNotThereIsNotAnError(t *testing.T) {
 	}
 
 	into := filepath.Join(t.TempDir(), "fragment")
-	if err := layer.Unpack(&buf, into); err != nil {
+	err = layer.Unpack(&buf, into)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(into, "usr", "bin", "tool")); err != nil {
+	_, err = os.Stat(filepath.Join(into, "usr", "bin", "tool"))
+	if err != nil {
 		t.Errorf("the path that does exist did not arrive: %v", err)
 	}
 }
@@ -189,18 +192,21 @@ func TestADirectoryAskedForBringsItsContents(t *testing.T) {
 	}
 
 	into := filepath.Join(t.TempDir(), "fragment")
-	if err := layer.Unpack(&buf, into); err != nil {
+	err = layer.Unpack(&buf, into)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, want := range []string{"usr/bin/tool", "usr/bin/same"} {
-		if _, err := os.Stat(filepath.Join(into, want)); err != nil {
+		_, err := os.Stat(filepath.Join(into, want))
+		if err != nil {
 			t.Errorf("%s did not arrive with the directory that was asked for", want)
 		}
 	}
 
 	// And still nothing outside it.
-	if _, err := os.Lstat(filepath.Join(into, "readme")); err == nil {
+	_, err = os.Lstat(filepath.Join(into, "readme"))
+	if err == nil {
 		t.Error("readme arrived, and it is not under usr/bin")
 	}
 }
@@ -218,11 +224,13 @@ func TestHowMuchAFragmentSaves(t *testing.T) {
 
 	var whole, part bytes.Buffer
 
-	if err := layer.Pack(root, &whole); err != nil {
+	err := layer.Pack(root, &whole)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := layer.PackPaths(root, &part, []string{"usr/bin/tool"}); err != nil {
+	err = layer.PackPaths(root, &part, []string{"usr/bin/tool"})
+	if err != nil {
 		t.Fatal(err)
 	}
 

@@ -217,7 +217,8 @@ func (r *Rate) Save(at string) error {
 		return fmt.Errorf("record what this fleet costs: %w", err)
 	}
 
-	if err := os.WriteFile(at, b, 0o600); err != nil {
+	err = os.WriteFile(at, b, 0o600)
+	if err != nil {
 		return fmt.Errorf("record what this fleet costs: %w", err)
 	}
 

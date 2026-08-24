@@ -28,7 +28,8 @@ func TestAskingForAScratchTmpfsGetsOne(t *testing.T) {
 		t.Helper()
 
 		var fs unix.Statfs_t
-		if err := unix.Statfs(dir, &fs); err != nil {
+		err := unix.Statfs(dir, &fs)
+		if err != nil {
 			t.Fatalf("statfs %s: %v", dir, err)
 		}
 
@@ -40,7 +41,8 @@ func TestAskingForAScratchTmpfsGetsOne(t *testing.T) {
 
 		scratch := t.TempDir()
 
-		if _, err := NewSplit(t.TempDir(), scratch); err != nil {
+		_, err := NewSplit(t.TempDir(), scratch)
+		if err != nil {
 			t.Skipf("this machine will not mount a tmpfs: %v", err)
 		}
 
@@ -57,7 +59,8 @@ func TestAskingForAScratchTmpfsGetsOne(t *testing.T) {
 
 		scratch := t.TempDir()
 
-		if _, err := NewSplit(t.TempDir(), scratch); err != nil {
+		_, err := NewSplit(t.TempDir(), scratch)
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -71,7 +74,8 @@ func TestAskingForAScratchTmpfsGetsOne(t *testing.T) {
 	t.Run("a typo", func(t *testing.T) {
 		t.Setenv(EnvScratchTmpfs, "4G8")
 
-		if _, err := NewSplit(t.TempDir(), t.TempDir()); err == nil {
+		_, err := NewSplit(t.TempDir(), t.TempDir())
+		if err == nil {
 			t.Error("a misspelt size was accepted, and the operator would see the" +
 				" old speed with nothing to explain it")
 		}

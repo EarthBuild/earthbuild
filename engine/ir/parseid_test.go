@@ -36,7 +36,8 @@ func TestSomethingThatIsNotAnIDIsRefused(t *testing.T) {
 		strings.Repeat("a", 2*ir.HashSize-2), // one byte short
 		strings.Repeat("a", 2*ir.HashSize+2), // one byte long
 	} {
-		if _, err := ir.ParseNodeID(s); err == nil {
+		_, err := ir.ParseNodeID(s)
+		if err == nil {
 			t.Errorf("%q parsed as an id", s)
 		}
 	}

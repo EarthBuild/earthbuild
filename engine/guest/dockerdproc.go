@@ -95,7 +95,8 @@ func launchWith(
 	cmd.SysProcAttr = namespaced(&syscall.SysProcAttr{})
 	ownGroup(cmd)
 
-	if err := cmd.Start(); err != nil {
+	err = cmd.Start()
+	if err != nil {
 		// The hint here as well as at the mount: in a plain container the
 		// refusal arrives at `clone`, so the shim never runs and a hint written
 		// inside it is a hint nobody reaches (E387).
@@ -124,7 +125,8 @@ func (d *dockerd) Ask(ctx context.Context) (string, error) {
 	// A process that has already exited is answered immediately. Otherwise a
 	// dockerd that refuses its own flags costs every step the whole timeout
 	// before the author is told anything at all.
-	if err := d.exited(); err != nil {
+	err := d.exited()
+	if err != nil {
 		return "", err
 	}
 
@@ -185,7 +187,8 @@ func (d *dockerd) Stop() error {
 		case <-time.After(gracePeriod):
 		}
 
-		if err := killGroup(pgid, syscall.SIGKILL); err != nil {
+		err := killGroup(pgid, syscall.SIGKILL)
+		if err != nil {
 			d.after = fmt.Errorf("kill the step's daemon: %w", err)
 
 			return

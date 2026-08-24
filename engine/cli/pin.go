@@ -87,14 +87,16 @@ func Pin(o Options) error {
 		return fmt.Errorf("stage the pinned Earthfile: %w", err)
 	}
 
-	if _, err := tmp.Write(pinned); err != nil {
+	_, err = tmp.Write(pinned)
+	if err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
 
 		return fmt.Errorf("write the pinned Earthfile: %w", err)
 	}
 
-	if err := tmp.Close(); err != nil {
+	err = tmp.Close()
+	if err != nil {
 		_ = os.Remove(tmp.Name())
 
 		return fmt.Errorf("write the pinned Earthfile: %w", err)
@@ -102,11 +104,13 @@ func Pin(o Options) error {
 
 	// The mode the file already had: this edits somebody's file and has no
 	// business changing what may read it.
-	if fi, err := os.Stat(at); err == nil {
+	fi, err := os.Stat(at)
+	if err == nil {
 		_ = os.Chmod(tmp.Name(), fi.Mode().Perm())
 	}
 
-	if err := os.Rename(tmp.Name(), at); err != nil {
+	err = os.Rename(tmp.Name(), at)
+	if err != nil {
 		_ = os.Remove(tmp.Name())
 
 		return fmt.Errorf("replace %s with the pinned version: %w", at, err)

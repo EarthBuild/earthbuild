@@ -202,7 +202,8 @@ func readFeatures(v *earthfile.Version, overrides []string) (features, error) {
 			continue // the version number itself
 		}
 
-		if err := applyFeature(&f, arg, "VERSION "); err != nil {
+		err := applyFeature(&f, arg, "VERSION ")
+		if err != nil {
 			return f, err
 		}
 	}

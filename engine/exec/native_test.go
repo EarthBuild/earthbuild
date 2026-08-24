@@ -50,7 +50,8 @@ func TestTheNativeBackendTurnsOnUserNamespaces(t *testing.T) {
 	// `err == nil` here conflated "not refused for privilege" with "everything
 	// else is in place", which is how the first version of this failed on the
 	// very machine that proved the feature works.
-	if _, statErr := os.Stat("/proc/self/ns/user"); statErr == nil {
+	_, statErr := os.Stat("/proc/self/ns/user")
+	if statErr == nil {
 		if err != nil && strings.Contains(err.Error(), "euid") {
 			t.Errorf("a machine with user namespaces was refused for being unprivileged:\n%s", err)
 		}

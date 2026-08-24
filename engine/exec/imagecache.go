@@ -41,7 +41,8 @@ func ImageCacheKey(ref, platform string) string {
 	// tag is that it moves - so it is what names one until something resolves it.
 	name := ref
 
-	if r, err := image.ParseRef(ref); err == nil && r.Digest != "" {
+	r, err := image.ParseRef(ref)
+	if err == nil && r.Digest != "" {
 		name = r.Digest
 	}
 

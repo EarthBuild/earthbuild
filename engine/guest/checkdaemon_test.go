@@ -12,7 +12,8 @@ import (
 func TestNoDaemonAskedForIsNotRefused(t *testing.T) {
 	t.Parallel()
 
-	if err := checkDaemon(nil); err != nil {
+	err := checkDaemon(nil)
+	if err != nil {
 		t.Errorf("a step wanting no daemon was refused: %v", err)
 	}
 }

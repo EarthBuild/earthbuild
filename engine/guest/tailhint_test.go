@@ -16,11 +16,13 @@ func TestTheTailKeepsTheEndNotTheBeginning(t *testing.T) {
 
 	var keep tail
 
-	if _, err := keep.Write([]byte(strings.Repeat("chatter\n", 1000))); err != nil {
+	_, err := keep.Write([]byte(strings.Repeat("chatter\n", 1000)))
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := keep.Write([]byte("and here is the reason")); err != nil {
+	_, err = keep.Write([]byte("and here is the reason"))
+	if err != nil {
 		t.Fatal(err)
 	}
 

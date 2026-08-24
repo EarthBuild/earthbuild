@@ -78,7 +78,8 @@ func TestTheProbeIsPaidOnce(t *testing.T) {
 	opt := image.Options{Plain: true, Challenges: t.TempDir()}
 
 	for i := range 3 {
-		if _, err := image.Resolve(context.Background(), host+"/thing:latest", opt); err != nil {
+		_, err := image.Resolve(context.Background(), host+"/thing:latest", opt)
+		if err != nil {
 			t.Fatalf("resolve %d: %v", i, err)
 		}
 	}
@@ -124,7 +125,8 @@ func TestAStaleChallengeFallsBackToTheProbe(t *testing.T) {
 	}
 
 	// And the replacement is used next time.
-	if _, err := image.Resolve(context.Background(), host+"/thing:latest", opt); err != nil {
+	_, err = image.Resolve(context.Background(), host+"/thing:latest", opt)
+	if err != nil {
 		t.Fatalf("second resolve: %v", err)
 	}
 
@@ -149,7 +151,8 @@ func TestTheRegistryIsDialledWhileTheTokenIsFetched(t *testing.T) {
 
 	// First resolution learns the challenge; it probes, so there is nothing to
 	// warm in parallel with.
-	if _, err := image.Resolve(context.Background(), host+"/thing:latest", opt); err != nil {
+	_, err := image.Resolve(context.Background(), host+"/thing:latest", opt)
+	if err != nil {
 		t.Fatalf("first resolve: %v", err)
 	}
 
@@ -157,7 +160,8 @@ func TestTheRegistryIsDialledWhileTheTokenIsFetched(t *testing.T) {
 		t.Errorf("%d pings on the resolution that probed, want 0 - the probe warms it", f.pings)
 	}
 
-	if _, err := image.Resolve(context.Background(), host+"/thing:latest", opt); err != nil {
+	_, err = image.Resolve(context.Background(), host+"/thing:latest", opt)
+	if err != nil {
 		t.Fatalf("second resolve: %v", err)
 	}
 

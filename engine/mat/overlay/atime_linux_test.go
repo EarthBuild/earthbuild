@@ -76,7 +76,8 @@ func TestAccessTimesDoNotSurviveAnOverlay(t *testing.T) {
 		return
 	}
 
-	if err := canMountOverlay(t); err != nil {
+	err := canMountOverlay(t)
+	if err != nil {
 		t.Skipf("no overlay here: %v", err)
 	}
 
@@ -107,7 +108,7 @@ func TestAccessTimesDoNotSurviveAnOverlay(t *testing.T) {
 	// pass while saying nothing.
 	direct := filepath.Join(lower, "direct.txt")
 
-	_, err := os.ReadFile(direct)
+	_, err = os.ReadFile(direct)
 	if err != nil {
 		t.Fatal(err)
 	}

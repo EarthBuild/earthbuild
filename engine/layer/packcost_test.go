@@ -35,7 +35,8 @@ func TestPackingPartOfALayerDoesNotReadTheWholeLayer(t *testing.T) {
 
 	before := layer.DigestedForTest()
 
-	if err := layer.PackPaths(root, &buf, one); err != nil {
+	err := layer.PackPaths(root, &buf, one)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -58,7 +59,8 @@ func TestPackingPartOfALayerDoesNotReadTheWholeLayer(t *testing.T) {
 
 	buf.Reset()
 
-	if err := layer.Pack(root, &buf); err != nil {
+	err = layer.Pack(root, &buf)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

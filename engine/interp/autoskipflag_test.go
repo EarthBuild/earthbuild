@@ -22,7 +22,8 @@ func TestNamingTheAutoSkipFlagDoesNotRefuseTheFile(t *testing.T) {
 
 	src := "VERSION --build-auto-skip 0.8\nmain:\n    FROM alpine\n    RUN true\n"
 
-	if _, err := interp.Build(src, "main"); err != nil {
+	_, err := interp.Build(src, "main")
+	if err != nil {
 		t.Errorf("a file naming --build-auto-skip was refused although it uses no"+
 			" --auto-skip: %v", err)
 	}

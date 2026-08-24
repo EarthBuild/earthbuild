@@ -113,7 +113,8 @@ func freeStartsAfter(t *testing.T, users, slots int, step time.Duration) time.Du
 		Parallelism: slots,
 	}
 
-	if _, err := s.Run(context.Background(), cacheFan(t, users, 1)); err != nil {
+	_, err := s.Run(context.Background(), cacheFan(t, users, 1))
+	if err != nil {
 		t.Fatal(err)
 	}
 

@@ -28,7 +28,8 @@ func TestAVersionFlagCanBeSuppliedByTheCaller(t *testing.T) {
 	src := versioned + "\nFROM alpine:3.22\nARG --global x=1\n" +
 		"\nmain:\n    SET x = 2\n    RUN echo $x\n"
 
-	if _, err := interp.Build(src, testMain); err == nil {
+	_, err := interp.Build(src, testMain)
+	if err == nil {
 		t.Fatal("SET without its feature was accepted, so the flag gates nothing")
 	}
 

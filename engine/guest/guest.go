@@ -1708,7 +1708,8 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// Before anything is started, because the alternative is a step running with
 	// a socket and nothing behind it - which reads to the author as Docker being
 	// broken rather than as this engine declining the request (I10).
-	if err := checkDaemon(req.Daemon); err != nil {
+	err := checkDaemon(req.Daemon)
+	if err != nil {
 		return Response{Err: err.Error()}
 	}
 

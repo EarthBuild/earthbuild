@@ -135,7 +135,8 @@ func withDaemon(
 
 	defer unpublish()
 
-	if err := body(); err != nil {
+	err = body()
+	if err != nil {
 		return err
 	}
 

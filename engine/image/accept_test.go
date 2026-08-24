@@ -132,7 +132,8 @@ func TestAMultiPlatformImageIsAskedForAsAnIndex(t *testing.T) {
 			err, reg.accepted)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "f")); err != nil {
+	_, err = os.Stat(filepath.Join(dir, "f"))
+	if err != nil {
 		t.Errorf("the selected manifest's layer was not unpacked: %v", err)
 	}
 }

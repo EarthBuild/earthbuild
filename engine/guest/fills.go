@@ -314,7 +314,8 @@ func ServeFills(rw io.ReadWriter, fill func(handle, path string) error) error {
 		go func() {
 			out := filled{ID: req.ID}
 
-			if err := fill(req.Handle, req.Path); err != nil {
+			err := fill(req.Handle, req.Path)
+			if err != nil {
 				out.Error = err.Error()
 			}
 

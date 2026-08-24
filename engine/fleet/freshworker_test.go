@@ -130,7 +130,8 @@ func TestAFreshWorkerCanBeGivenWork(t *testing.T) {
 		Writer:   "test",
 	}
 
-	if _, err := s.Run(t.Context(), graph); err != nil {
+	_, err = s.Run(t.Context(), graph)
+	if err != nil {
 		t.Fatal(err)
 	}
 

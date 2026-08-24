@@ -74,7 +74,8 @@ func TestAPathNoLayerHasIsAbsentRatherThanAnError(t *testing.T) {
 			" honestly not there", err)
 	}
 
-	if _, err := os.Lstat(filepath.Join(into, "etc", "not-here")); err == nil {
+	_, err = os.Lstat(filepath.Join(into, "etc", "not-here"))
+	if err == nil {
 		t.Error("something was created for a path no layer has")
 	}
 }

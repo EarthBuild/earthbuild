@@ -142,7 +142,8 @@ func readConfigBlob(t *testing.T, dir string, into any) {
 			continue
 		}
 
-		if err := json.Unmarshal(b, into); err != nil {
+		err = json.Unmarshal(b, into)
+		if err != nil {
 			t.Fatalf("decoding the config: %v", err)
 		}
 

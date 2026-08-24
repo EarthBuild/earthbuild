@@ -92,7 +92,8 @@ func TestAnInteractiveStepRunsOnTheCallersTerminal(t *testing.T) {
 		}
 	}
 
-	if err := <-done; err != nil {
+	err = <-done
+	if err != nil {
 		t.Errorf("the step failed: %v", err)
 	}
 }

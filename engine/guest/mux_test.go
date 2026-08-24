@@ -142,7 +142,8 @@ func TestConcurrentRequestsOverlap(t *testing.T) {
 
 	for range requests {
 		wg.Go(func() {
-			if _, err := c.Materialise(ctx, nil); err != nil {
+			_, err := c.Materialise(ctx, nil)
+			if err != nil {
 				t.Error(err)
 			}
 		})

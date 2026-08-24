@@ -59,7 +59,8 @@ func TestAMissingFileIsOnlyAnErrorWhenItWasAskedFor(t *testing.T) {
 		t.Errorf("a project with no .arg gave (%v, %v), want (nil, nil)", got, err)
 	}
 
-	if _, err := valuesFrom(dir, ".some-other-arg", true); err == nil {
+	_, err = valuesFrom(dir, ".some-other-arg", true)
+	if err == nil {
 		t.Error("a file the caller named and this engine could not open was" +
 			" passed over in silence")
 	}
@@ -107,7 +108,8 @@ func TestTheCommandLineBeatsTheFile(t *testing.T) {
 func write(t *testing.T, dir, name, body string) {
 	t.Helper()
 
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 }

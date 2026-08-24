@@ -321,7 +321,8 @@ func walkNeeding(root string, contents bool, ex Excluder) ([]entry, int64, error
 	// included, and its entry is named by its basename rather than by a path
 	// under the root - so filling it again would look for `f/f`. The single-file
 	// case is the one where the split below does not apply.
-	if fi, err := os.Lstat(root); err == nil && !fi.IsDir() {
+	fi, err := os.Lstat(root)
+	if err == nil && !fi.IsDir() {
 		return walkOne(root)
 	}
 

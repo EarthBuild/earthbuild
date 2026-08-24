@@ -83,7 +83,8 @@ func canMountOverlay(t *testing.T) error {
 	dir := t.TempDir()
 
 	for _, sub := range []string{"lower", "upper", "work", "merged"} {
-		if err := os.MkdirAll(filepath.Join(dir, sub), 0o750); err != nil {
+		err := os.MkdirAll(filepath.Join(dir, sub), 0o750)
+		if err != nil {
 			return err
 		}
 	}

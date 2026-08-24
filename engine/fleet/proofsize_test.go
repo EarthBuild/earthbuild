@@ -39,7 +39,8 @@ func TestAProofCrossesCompressed(t *testing.T) {
 
 	var out bytes.Buffer
 
-	if err := writeFragment(&out, proof.Bytes(), body); err != nil {
+	err := writeFragment(&out, proof.Bytes(), body)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

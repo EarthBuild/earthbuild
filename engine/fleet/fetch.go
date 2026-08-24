@@ -99,7 +99,8 @@ func (f *Fetch) Get(ctx context.Context, ids []ir.NodeID) (map[ir.NodeID][]byte,
 			// "what is this" and "keep this" are one operation (E263).
 			var b bytes.Buffer
 
-			if _, err := io.Copy(&b, r); err != nil {
+			_, err := io.Copy(&b, r)
+			if err != nil {
 				still = append(still, id)
 
 				continue

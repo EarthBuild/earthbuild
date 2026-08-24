@@ -50,7 +50,8 @@ func List(o Options) error {
 	}
 
 	for _, name := range names {
-		if _, err := fmt.Fprintf(out, "+%s\n", name); err != nil {
+		_, err := fmt.Fprintf(out, "+%s\n", name)
+		if err != nil {
 			return err
 		}
 	}

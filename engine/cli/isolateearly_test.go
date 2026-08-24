@@ -54,7 +54,8 @@ func TestAnOrdinaryDockerPlanIsNotRefused(t *testing.T) {
 
 	plain := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: []string{"docker"}, Docker: true}}
 
-	if err := checkIsolationSupported(&ir.Graph{Root: plain}); err != nil {
+	err := checkIsolationSupported(&ir.Graph{Root: plain})
+	if err != nil {
 		t.Errorf("an ordinary WITH DOCKER block was refused: %v", err)
 	}
 }

@@ -34,7 +34,8 @@ const EnvClone = "EARTH_CLONE_TREES"
 // path skips the per-entry staging that defends against a second writer.
 func placeTree(src, dst string) error {
 	if v := os.Getenv(EnvClone); v != "0" && v != "false" && v != "no" {
-		if err := cloneTree(src, dst); err == nil {
+		err := cloneTree(src, dst)
+		if err == nil {
 			return nil
 		}
 		// Falling through is not an error path: a separated image cache is often

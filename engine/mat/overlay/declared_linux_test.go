@@ -27,7 +27,8 @@ func TestADeclarationIsFoldedRatherThanStacked(t *testing.T) {
 	m, root := materialiserFor(t)
 
 	layer := ir.NodeID{1}
-	if err := m.WriteLayer(layer, map[string]string{"in-the-tree": "yes"}); err != nil {
+	err := m.WriteLayer(layer, map[string]string{"in-the-tree": "yes"})
+	if err != nil {
 		t.Fatal(err)
 	}
 

@@ -103,7 +103,8 @@ func PackOwned(root string, w io.Writer, want []string, own map[string]Owner) er
 	entries = keeping(entries, want)
 
 	if len(want) > 0 {
-		if err := fillContents(root, entries); err != nil {
+		err := fillContents(root, entries)
+		if err != nil {
 			return fmt.Errorf("read the layer at %s: %w", root, err)
 		}
 	}

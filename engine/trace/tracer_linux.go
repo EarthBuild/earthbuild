@@ -148,7 +148,8 @@ func NewTracer(fd int) *Tracer {
 	// it. A failure here leaves Run relying on the listener alone, which is the
 	// behaviour without this and still terminates when the last filtered process
 	// is gone.
-	if err := unix.Pipe2(p[:], unix.O_CLOEXEC); err == nil {
+	err := unix.Pipe2(p[:], unix.O_CLOEXEC)
+	if err == nil {
 		t.stopR, t.stopW = p[0], p[1]
 	}
 
@@ -179,7 +180,8 @@ func (t *Tracer) Run() {
 		// Always, and last. A notification left unanswered leaves the step
 		// stopped in the kernel, so this happens whatever was made of it -
 		// including nothing.
-		if err := respond(t.fd, n.ID); err != nil {
+		err = respond(t.fd, n.ID)
+		if err != nil {
 			t.stopped(fmt.Errorf("answering notification %d: %w", n.ID, err))
 
 			return
@@ -377,11 +379,12 @@ func (t *Tracer) fill(path string) {
 		return
 	}
 
-	if _, err := os.Lstat(path); err == nil {
+	_, err := os.Lstat(path)
+	if err == nil {
 		return
 	}
 
-	err := t.Fill(path)
+	err = t.Fill(path)
 	if err == nil {
 		return
 	}

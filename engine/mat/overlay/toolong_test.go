@@ -52,7 +52,8 @@ func TestAnOverlongStackSaysWhetherShorteningWasAvailable(t *testing.T) {
 	t.Run("short enough", func(t *testing.T) {
 		t.Parallel()
 
-		if err := tooLong("lowerdir=/a", 2, false); err != nil {
+		err := tooLong("lowerdir=/a", 2, false)
+		if err != nil {
 			t.Errorf("a string that fits was refused: %v", err)
 		}
 	})

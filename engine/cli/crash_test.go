@@ -212,7 +212,8 @@ probe:
 	// would turn every crash into a store full of claims a later build has to
 	// disbelieve one at a time.
 	for _, k := range cacheEntries(t, store) {
-		if _, err := os.Stat(filepath.Join(store, "layers", k)); err != nil {
+		_, err := os.Stat(filepath.Join(store, "layers", k))
+		if err != nil {
 			t.Errorf("a cache entry survived the crash naming a layer that did not: %s", k)
 		}
 	}

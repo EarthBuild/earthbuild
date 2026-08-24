@@ -394,7 +394,8 @@ func announcement(id, addr string, wait time.Duration, want int) string {
 	// identity it derives from the shared secret - so offering one that cannot
 	// work would send a reader looking for a networking problem they do not
 	// have (E505).
-	if ap, err := netip.ParseAddrPort(addr); err == nil && ap.Addr().IsUnspecified() {
+	ap, err := netip.ParseAddrPort(addr)
+	if err == nil && ap.Addr().IsUnspecified() {
 		return fmt.Sprintf(
 			"%s\n  a worker elsewhere needs only the same %s; on this machine,"+
 				" %s=127.0.0.1:%d",

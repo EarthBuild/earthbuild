@@ -101,7 +101,8 @@ func (g *engine) artifacts(ctx context.Context, o Options, src string) interp.Ar
 			// for writing outside a project it was never asked to write into
 			// (E490).
 			dest := filepath.Join(into, filepath.Base(a.Path))
-			if err := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists); err != nil {
+			err := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists)
+			if err != nil {
 				return "", err
 			}
 		}

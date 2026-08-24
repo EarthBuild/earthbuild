@@ -69,7 +69,7 @@ func TestAnIdentityWithNoAddressIsLookedUp(t *testing.T) {
 	}
 
 	if len(got.Addrs()) == 0 {
-		t.Fatalf("resolved nothing for an identity a resolver knows"+
+		t.Fatalf("resolved nothing for an identity a resolver knows" +
 			"\n  Connect would refuse this with no reachable address")
 	}
 }

@@ -165,7 +165,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "exec: naming every missing piece, not the first (E361)",
 		File:        "engine/exec/rootlessready.go",
-		Anchor:      "\tif n, err := p.userns(); err != nil || n <= 0 {",
+		Anchor:      "\tn, err := p.userns()\n\tif err != nil || n <= 0 {",
 		Replacement: "\tif false {",
 		Package:     "./engine/exec/",
 	},
@@ -179,7 +179,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "exec: checking a cache name that arrived from a peer (E360)",
 		File:        "engine/exec/dockershared.go",
-		Anchor:      "\t\tif err := checkCacheName(cache); err != nil {",
+		Anchor:      "\t\terr := checkCacheName(cache)\n\t\tif err != nil {",
 		Replacement: "\t\tif err := error(nil); err != nil {",
 		Package:     "./engine/exec/",
 	},
@@ -1065,7 +1065,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "trace: not fetching a path that is already here (E289)",
 		File:        "engine/trace/tracer_linux.go",
-		Anchor:      "\tif _, err := os.Lstat(path); err == nil {\n\t\treturn\n\t}",
+		Anchor:      "\t_, err := os.Lstat(path)\n\tif err == nil {\n\t\treturn\n\t}",
 		Replacement: "",
 		Package:     "./engine/trace/",
 		Linux:       true,
@@ -1663,7 +1663,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: reading the files a fragment does carry (E338)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\t\tif err := fillContents(root, entries); err != nil {",
+		Anchor:      "\t\terr := fillContents(root, entries)\n\t\tif err != nil {",
 		Replacement: "\t\tif err := error(nil); err != nil {",
 		Package:     "./engine/layer/",
 	},
@@ -1859,7 +1859,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: the daemon check being called at all (E367)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\tif err := checkDaemon(req.Daemon); err != nil {\n\t\treturn Response{Err: err.Error()}\n\t}",
+		Anchor:      "\terr := checkDaemon(req.Daemon)\n\tif err != nil {\n\t\treturn Response{Err: err.Error()}\n\t}",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},
@@ -1901,7 +1901,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a dead daemon noticed before the socket is asked (E371)",
 		File:        "engine/guest/dockerdproc.go",
-		Anchor:      "\tif err := d.exited(); err != nil {\n\t\treturn \"\", err\n\t}",
+		Anchor:      "\terr := d.exited()\n\tif err != nil {\n\t\treturn \"\", err\n\t}",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},
@@ -2055,7 +2055,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "cli: the early isolation refusal being called at all (E394)",
 		File:        "engine/cli/conditions.go",
-		Anchor:      "\tif err := checkIsolationSupported(plan.Graph); err != nil {\n\t\treturn nil, err\n\t}",
+		Anchor:      "\terr := checkIsolationSupported(plan.Graph)\n\tif err != nil {\n\t\treturn nil, err\n\t}",
 		Replacement: "",
 		Package:     "./engine/cli/",
 	},
@@ -2405,7 +2405,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a file whose name holds a plus copied as a file (E441)",
 		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tif n, cerr := resolveContext(p.here.dir, src, where); cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
+		Anchor:      "\t\tn, cerr := resolveContext(p.here.dir, src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},
@@ -2778,7 +2778,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "cli: a produced Dockerfile exported to the engine's own directory (E490)",
 		File:        "engine/cli/dockerfileartifact.go",
-		Anchor:      "\t\t\tif err := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists); err != nil {",
+		Anchor:      "\t\t\terr := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists)\n\t\t\tif err != nil {",
 		Replacement: "\t\t\tif err := e.Export(ctx, stack, a.Path, dest, a.IfExists); err != nil {",
 		Package:     "./engine/cli/",
 	},

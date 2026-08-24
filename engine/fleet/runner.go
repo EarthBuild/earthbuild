@@ -438,7 +438,8 @@ func (c *runnerCfg) uplink(ctx context.Context, fetch func() (Transfer, error)) 
 	c.fetching.Lock()
 	defer c.fetching.Unlock()
 
-	if err := ctx.Err(); err != nil {
+	err := ctx.Err()
+	if err != nil {
 		return Transfer{Took: time.Since(began)}, fmt.Errorf("wait for this worker's uplink: %w", err)
 	}
 

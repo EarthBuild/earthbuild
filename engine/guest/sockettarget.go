@@ -28,7 +28,8 @@ import (
 func socketTargetIn(root, at string) (string, error) {
 	dir := filepath.Dir(at)
 
-	if _, err := os.Lstat(dir); err != nil {
+	_, err := os.Lstat(dir)
+	if err != nil {
 		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // a mode a build sees
 			return "", fmt.Errorf("make the directory the step's client looks in: %w", err)
 		}

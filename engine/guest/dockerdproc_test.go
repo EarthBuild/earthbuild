@@ -90,7 +90,8 @@ func TestStoppingADaemonStopsIt(t *testing.T) {
 	// Signal 0 asks whether it is there without touching it. A reaped child is
 	// gone from this process's point of view, which is the point of view that
 	// matters: nothing of ours is holding the step's filesystem.
-	if err := syscall.Kill(pid, 0); err == nil {
+	err = syscall.Kill(pid, 0)
+	if err == nil {
 		t.Errorf("pid %d is still running after Stop", pid)
 	}
 }
@@ -122,7 +123,8 @@ func TestADaemonThatDiedIsNoticed(t *testing.T) {
 	// before (E336).
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, err := proc.Ask(t.Context()); err != nil && strings.Contains(err.Error(), "exited") {
+		_, err := proc.Ask(t.Context())
+		if err != nil && strings.Contains(err.Error(), "exited") {
 			return
 		}
 
@@ -158,7 +160,8 @@ func TestStoppingAnAlreadyNoticedDeadDaemonReturns(t *testing.T) {
 	// Notice the death first, which is what the wait does on every poll.
 	// Same ceiling, same reason.
 	for range 3000 {
-		if _, err := proc.Ask(t.Context()); err != nil && strings.Contains(err.Error(), "exited") {
+		_, err := proc.Ask(t.Context())
+		if err != nil && strings.Contains(err.Error(), "exited") {
 			break
 		}
 
@@ -259,7 +262,8 @@ func TestWhatTheDaemonSaidBeforeItDiedReachesTheAuthor(t *testing.T) {
 	var said error
 
 	for range 3000 {
-		if _, e := proc.Ask(t.Context()); e != nil && strings.Contains(e.Error(), "exited") {
+		_, e := proc.Ask(t.Context())
+		if e != nil && strings.Contains(e.Error(), "exited") {
 			said = e
 
 			break

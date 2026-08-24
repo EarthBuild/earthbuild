@@ -56,7 +56,8 @@ func BenchmarkMountCostByStackDepth(b *testing.B) {
 				b.Skipf("this machine cannot mount overlayfs: %v", err)
 			}
 
-			if err := h.Release(); err != nil {
+			err = h.Release()
+			if err != nil {
 				b.Fatal(err)
 			}
 
@@ -68,7 +69,8 @@ func BenchmarkMountCostByStackDepth(b *testing.B) {
 					b.Fatal(err)
 				}
 
-				if err := h.Release(); err != nil {
+				err = h.Release()
+				if err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -112,7 +114,8 @@ func BenchmarkMountAndUnmountSeparately(b *testing.B) {
 		b.Skipf("this machine cannot mount overlayfs: %v", err)
 	}
 
-	if err := h.Release(); err != nil {
+	err = h.Release()
+	if err != nil {
 		b.Fatal(err)
 	}
 
@@ -151,7 +154,8 @@ func BenchmarkMountAndUnmountSeparately(b *testing.B) {
 
 			b.StartTimer()
 
-			if err := h.Release(); err != nil {
+			err = h.Release()
+			if err != nil {
 				b.Fatal(err)
 			}
 		}

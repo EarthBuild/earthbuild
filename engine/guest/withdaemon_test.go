@@ -276,13 +276,14 @@ func TestTheSocketIsPublishedWhereTheImagesSymlinkLeads(t *testing.T) {
 
 	// What an Alpine-derived image ships, which is every image a WITH DOCKER
 	// step is likely to use.
-	if err := os.Symlink("../run", filepath.Join(root, "var", "run")); err != nil {
+	err := os.Symlink("../run", filepath.Join(root, "var", "run"))
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	var where [2]string
 
-	err := withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err = withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
 		func(context.Context, []string, string) (daemonProcess, error) {
 			return &fakeDaemon{says: "29.4.3 vfs"}, nil
 		},

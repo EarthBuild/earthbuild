@@ -62,7 +62,8 @@ func Discovery(sk key.SecretKey) *Reachable {
 	// Writing: where this endpoint can be reached. A failure to configure it
 	// leaves an endpoint that can still be dialled directly, so it is not a
 	// reason to refuse to start.
-	if pub, err := iroh.N0PkarrPublisher(sk, nil); err == nil {
+	pub, err := iroh.N0PkarrPublisher(sk, nil)
+	if err == nil {
 		services.AddPublisher(pub)
 	}
 

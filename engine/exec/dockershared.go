@@ -32,7 +32,8 @@ func sharedDockerFor(
 	// name a directory will be made of the moment there is a daemon to give one
 	// (E360).
 	if cache != "" {
-		if err := checkCacheName(cache); err != nil {
+		err := checkCacheName(cache)
+		if err != nil {
 			return nil, "", fmt.Errorf("this WITH DOCKER block names a cache"+
 				" this machine will not use: %w", err)
 		}

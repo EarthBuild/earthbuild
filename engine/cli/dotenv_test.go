@@ -46,7 +46,8 @@ func TestADotEnvBesideAnArgFileIsNotReported(t *testing.T) {
 
 	dir := dotEnvProject(t)
 
-	if err := os.WriteFile(filepath.Join(dir, ".arg"), nil, 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(dir, ".arg"), nil, 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,7 +88,8 @@ func runFor(t *testing.T, o cli.Options) string {
 
 	o.Target, o.DryRun, o.Out = "+main", true, &out
 
-	if err := cli.Run(context.Background(), o); err != nil {
+	err := cli.Run(context.Background(), o)
+	if err != nil {
 		t.Fatalf("planning: %v", err)
 	}
 

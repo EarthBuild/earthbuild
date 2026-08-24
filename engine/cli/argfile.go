@@ -91,7 +91,8 @@ func valuesFrom(dir, name string, required bool) (map[string]string, error) {
 		out[strings.TrimSpace(key)] = unquoted(strings.TrimSpace(value))
 	}
 
-	if err := scan.Err(); err != nil {
+	err = scan.Err()
+	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", name, err)
 	}
 

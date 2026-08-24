@@ -103,7 +103,8 @@ func keepOwn(fi os.FileInfo, dst string, opts copyOpts) error {
 	// `--chown` names the owner outright, so there is nothing to take from the
 	// source. Resolved once per copy against the destination image (E419).
 	if opts.Chown != "" {
-		if err := os.Lchown(dst, opts.chownUID, opts.chownGID); err != nil {
+		err := os.Lchown(dst, opts.chownUID, opts.chownGID)
+		if err != nil {
 			return fmt.Errorf("--chown=%s: set the owner of %s: %w", opts.Chown, dst, err)
 		}
 

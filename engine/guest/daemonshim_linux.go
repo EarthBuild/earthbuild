@@ -16,7 +16,8 @@ import (
 // that dies badly leaves nothing on the machine, and two daemons cannot see each
 // other's plugin sockets.
 func prepareShim() error {
-	if err := unix.Mount("none", "/run", "tmpfs", 0, ""); err != nil {
+	err := unix.Mount("none", "/run", "tmpfs", 0, "")
+	if err != nil {
 		return fmt.Errorf("mount a private /run: %w%s", err, sysAdminHint(err))
 	}
 

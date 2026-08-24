@@ -49,7 +49,8 @@ func waitFor(path string) error {
 		//
 		// Being wrong here costs a fast refusal instead of a slow one, with the
 		// same message. That is the direction to be wrong in.
-		if _, dirErr := os.Stat(filepath.Dir(path)); dirErr != nil {
+		_, dirErr := os.Stat(filepath.Dir(path))
+		if dirErr != nil {
 			return fmt.Errorf(
 				"the sandbox has no %s to give this step"+
 					"\n  %s"+

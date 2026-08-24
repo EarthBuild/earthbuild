@@ -34,7 +34,8 @@ func TestAStepsOwnRootIsNotRecorded(t *testing.T) {
 	h := ownRootHandle{root: root}
 
 	// A file inside the base, named the way the tracer saw it.
-	if err := os.WriteFile(filepath.Join(root, "etc-hosts"), []byte("x"), 0o600); err != nil {
+	err := os.WriteFile(filepath.Join(root, "etc-hosts"), []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

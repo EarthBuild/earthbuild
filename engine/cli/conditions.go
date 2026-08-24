@@ -432,7 +432,8 @@ func (g *engine) executorFor(plan *interp.Plan) (*exec.Executor, error) {
 	// Before anything is chosen or started. The executor refuses this too and
 	// that refusal is the guarantee (E391); this one exists so an author is not
 	// told about a flag after a machine has booted for them (E394).
-	if err := checkIsolationSupported(plan.Graph); err != nil {
+	err := checkIsolationSupported(plan.Graph)
+	if err != nil {
 		return nil, err
 	}
 

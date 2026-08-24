@@ -62,7 +62,8 @@ func TestTwoTranslationsOfOneLayerDoNotCollide(t *testing.T) {
 	//
 	// The probe is the operation, not the uid: euid is 0 in a container and the
 	// call is still refused.
-	if err := canMakeWhiteout(t); err != nil {
+	err := canMakeWhiteout(t)
+	if err != nil {
 		t.Skipf("this environment cannot create a whiteout device, so no"+
 			" translation can run here: %v", err)
 	}
@@ -109,11 +110,13 @@ func TestTwoTranslationsOfOneLayerDoNotCollide(t *testing.T) {
 			continue
 		}
 
-		if _, err := os.Stat(filepath.Join(out, "kept.txt")); err != nil {
+		_, err := os.Stat(filepath.Join(out, "kept.txt"))
+		if err != nil {
 			t.Errorf("%s is missing a file the layer holds: %v", out, err)
 		}
 
-		if _, err := os.Lstat(filepath.Join(out, ".wh.gone.txt")); err == nil {
+		_, err = os.Lstat(filepath.Join(out, ".wh.gone.txt"))
+		if err == nil {
 			t.Errorf("%s still carries the marker, so it was stacked half-translated", out)
 		}
 	}

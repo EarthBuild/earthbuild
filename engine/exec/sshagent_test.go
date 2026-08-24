@@ -97,7 +97,8 @@ func written(t *testing.T) string {
 
 	path := filepath.Join(t.TempDir(), "not-a-socket")
 
-	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+	err := os.WriteFile(path, []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

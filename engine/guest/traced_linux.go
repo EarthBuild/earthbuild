@@ -101,7 +101,8 @@ func runObserved(
 		//
 		// Only when a fill was configured at all - a tracer that only watches
 		// never sets this, which is every use today.
-		if unfilled := tr.Unfilled(); unfilled != nil && runErr == nil {
+		unfilled := tr.Unfilled()
+		if unfilled != nil && runErr == nil {
 			runErr = unfilled
 		}
 
@@ -109,7 +110,8 @@ func runObserved(
 		// outlives it, so anything the step does afterwards is stopped in the
 		// kernel with nothing coming to release it. Until this was reported, a
 		// build in that state hung with no message on either side (E520).
-		if stopped := tr.Stopped(); stopped != nil && runErr == nil {
+		stopped := tr.Stopped()
+		if stopped != nil && runErr == nil {
 			runErr = fmt.Errorf("this step's syscall tracer stopped while it was"+
 				" running: %w\n  anything the step did after that is stopped in"+
 				" the kernel, so the step cannot be trusted to have finished", stopped)

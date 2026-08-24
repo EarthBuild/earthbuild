@@ -77,7 +77,8 @@ func TestADeepStackMountsFromADeepStore(t *testing.T) {
 	// is not by itself evidence that every layer arrived.
 	for i := range depth {
 		at := filepath.Join(h.Root(), "f"+string(rune('a'+i%26)))
-		if _, err := os.Lstat(at); err != nil {
+		_, err := os.Lstat(at)
+		if err != nil {
 			t.Fatalf("layer %d is not in the merged view: %v", i, err)
 		}
 	}

@@ -24,7 +24,8 @@ func TestACacheDirectoryIsNotComposedFromAPeersClaim(t *testing.T) {
 		"../escape", "a/b", "/absolute", ".", "..", "with space", "",
 		strings.Repeat("x", 200), "a\x00b",
 	} {
-		if _, err := dockerCacheDir("/store", id); err == nil {
+		_, err := dockerCacheDir("/store", id)
+		if err == nil {
 			t.Errorf("a daemon cache called %q was given a directory", id)
 		}
 	}

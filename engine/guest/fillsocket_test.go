@@ -46,7 +46,8 @@ func TestAFaultReachesTheHostThroughARelay(t *testing.T) {
 		// The guest end: ask for one path and report what came back.
 		f := NewFills(c)
 
-		if err := f.Fill("/usr/bin/needed"); err != nil {
+		err = f.Fill("/usr/bin/needed")
+		if err != nil {
 			t.Errorf("fault in: %v", err)
 		}
 	}()
@@ -73,7 +74,8 @@ func TestAFaultReachesTheHostThroughARelay(t *testing.T) {
 	go func() {
 		defer close(done)
 
-		if err := dec.Decode(&asked); err != nil {
+		err := dec.Decode(&asked)
+		if err != nil {
 			t.Errorf("read the fault: %v", err)
 
 			return

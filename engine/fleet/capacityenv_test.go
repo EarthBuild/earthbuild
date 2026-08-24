@@ -65,7 +65,8 @@ func TestACapacityIsHonouredOrRefused(t *testing.T) {
 			// not parse reads as zero to anything that clamps - so the two
 			// refusals have to be distinguishable or the message is worth
 			// nothing.
-			if _, numeric := strconv.Atoi(tc.set); numeric != nil {
+			_, numeric := strconv.Atoi(tc.set)
+			if numeric != nil {
 				if !strings.Contains(err.Error(), "not a number") {
 					t.Errorf("%q refused with %q, which does not say it is not"+
 						" a number", tc.set, err)

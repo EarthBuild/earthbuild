@@ -74,7 +74,8 @@ func repoRoot(t *testing.T) string {
 	}
 
 	for range 10 {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		_, err := os.Stat(filepath.Join(dir, "go.mod"))
+		if err == nil {
 			return dir
 		}
 
@@ -104,14 +105,16 @@ func TestASweepThatIsKilledPutsTheFileBack(t *testing.T) {
 	at := filepath.Join(t.TempDir(), "source.go")
 	was := []byte("package p // the original\n")
 
-	if err := os.WriteFile(at, was, 0o600); err != nil {
+	err := os.WriteFile(at, was, 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	// A mutant applied, as `run` applies one.
 	holding(at, was)
 
-	if err := os.WriteFile(at, []byte("package p // mutated\n"), 0o600); err != nil {
+	err = os.WriteFile(at, []byte("package p // mutated\n"), 0o600)
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

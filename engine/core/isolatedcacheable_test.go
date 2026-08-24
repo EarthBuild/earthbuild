@@ -46,7 +46,8 @@ func TestAnIsolatedDockerBlockIsCacheable(t *testing.T) {
 		Meta: ir.Meta{Source: at(11)},
 	}
 
-	if _, err := s.Run(context.Background(), &ir.Graph{Root: n}); err != nil {
+	_, err := s.Run(context.Background(), &ir.Graph{Root: n})
+	if err != nil {
 		t.Fatalf("%v", err)
 	}
 

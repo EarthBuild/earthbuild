@@ -46,7 +46,8 @@ func TestAFaultAgainstAnUnknownHandleIsRefused(t *testing.T) {
 
 	e := &Executor{}
 
-	if err := e.FillFor(context.Background(), "nobody", "/x"); err == nil {
+	err := e.FillFor(context.Background(), "nobody", "/x")
+	if err == nil {
 		t.Error("a fault against an unknown base was answered")
 	}
 }
@@ -59,7 +60,8 @@ func TestAPrimedBaseWithNoFetcherSaysSo(t *testing.T) {
 
 	e.remember("h2", primedBase{into: "/tmp/x"})
 
-	if err := e.FillFor(context.Background(), "h2", "/x"); err == nil {
+	err := e.FillFor(context.Background(), "h2", "/x")
+	if err == nil {
 		t.Error("a primed base with no fetcher answered a fault")
 	}
 }

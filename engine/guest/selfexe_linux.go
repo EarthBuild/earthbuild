@@ -25,13 +25,16 @@ import (
 // problem (E376). So the started-from path is preferred, and the kernel's link
 // is the fallback for when it has gone.
 func selfExe() (string, error) {
-	if p, err := os.Executable(); err == nil {
-		if _, err := os.Stat(p); err == nil {
+	p, err := os.Executable()
+	if err == nil {
+		_, err := os.Stat(p)
+		if err == nil {
 			return p, nil
 		}
 	}
 
-	if _, err := os.Stat("/proc/self/exe"); err != nil {
+	_, err = os.Stat("/proc/self/exe")
+	if err != nil {
 		return "", fmt.Errorf(
 			"find this binary, to re-execute it as the daemon's shim: neither the"+
 				" path it was started from nor /proc/self/exe is usable: %w", err)

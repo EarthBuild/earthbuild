@@ -127,7 +127,8 @@ build:
 	// the builtins this asserts on have nothing to read and expand to nothing -
 	// correctly. Failing there says the mechanism is broken when the repository
 	// it needs is what is missing (E605).
-	if _, err := os.Stat("../../.git"); err != nil {
+	_, err = os.Stat("../../.git")
+	if err != nil {
 		t.Skip("no .git here: a build context never carries one, so the git" +
 			" builtins have nothing to answer from")
 	}

@@ -58,7 +58,7 @@ func TestDiscoveryReachesTheWorld(t *testing.T) { //nolint:paralleltest // netwo
 	t.Logf("endpoint says it is at: %q", addr)
 
 	if addr == "" {
-		t.Fatalf("the endpoint never learned an address to publish"+
+		t.Fatalf("the endpoint never learned an address to publish" +
 			"\n  with no relay and no net report there is nothing true to say")
 	}
 

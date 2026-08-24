@@ -30,7 +30,8 @@ func TestJoiningWaitsOutADriverThatIsNotFindableYet(t *testing.T) {
 		return nil
 	}
 
-	if err := KeepJoining(context.Background(), time.Second, time.Millisecond, join, nil); err != nil {
+	err := KeepJoining(context.Background(), time.Second, time.Millisecond, join, nil)
+	if err != nil {
 		t.Fatalf("joined on the third try and reported: %v", err)
 	}
 
@@ -97,7 +98,8 @@ func TestJoiningStopsWhenTheWorkerIsCancelled(t *testing.T) {
 		return fmt.Errorf("dial the driver: %w", iroh.ErrNoAddress)
 	}
 
-	if err := KeepJoining(ctx, time.Minute, time.Millisecond, join, nil); err == nil {
+	err := KeepJoining(ctx, time.Minute, time.Millisecond, join, nil)
+	if err == nil {
 		t.Fatalf("a cancelled worker reported success")
 	}
 }

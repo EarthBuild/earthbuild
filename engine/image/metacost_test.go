@@ -32,11 +32,13 @@ func BenchmarkWriteOnly(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if _, err := f.Write(benchPayload); err != nil {
+		_, err = f.Write(benchPayload)
+		if err != nil {
 			b.Fatal(err)
 		}
 
-		if err := f.Close(); err != nil {
+		err = f.Close()
+		if err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -57,11 +59,13 @@ func BenchmarkMetaByPath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if _, err := f.Write(benchPayload); err != nil {
+		_, err = f.Write(benchPayload)
+		if err != nil {
 			b.Fatal(err)
 		}
 
-		if err := f.Close(); err != nil {
+		err = f.Close()
+		if err != nil {
 			b.Fatal(err)
 		}
 
@@ -69,7 +73,8 @@ func BenchmarkMetaByPath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := os.Chtimes(name, when, when); err != nil {
+		err = os.Chtimes(name, when, when)
+		if err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -91,19 +96,23 @@ func BenchmarkMetaByDescriptor(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if _, err := f.Write(benchPayload); err != nil {
+		_, err = f.Write(benchPayload)
+		if err != nil {
 			b.Fatal(err)
 		}
 
-		if err := f.Chmod(0o644); err != nil {
+		err = f.Chmod(0o644)
+		if err != nil {
 			b.Fatal(err)
 		}
 
-		if err := f.Close(); err != nil {
+		err = f.Close()
+		if err != nil {
 			b.Fatal(err)
 		}
 
-		if err := os.Chtimes(name, when, when); err != nil {
+		err = os.Chtimes(name, when, when)
+		if err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -150,13 +159,15 @@ func BenchmarkWriteParallel(b *testing.B) {
 				return
 			}
 
-			if _, err := f.Write(benchPayload); err != nil {
+			_, err = f.Write(benchPayload)
+			if err != nil {
 				b.Error(err)
 
 				return
 			}
 
-			if err := f.Close(); err != nil {
+			err = f.Close()
+			if err != nil {
 				b.Error(err)
 
 				return
@@ -168,7 +179,8 @@ func BenchmarkWriteParallel(b *testing.B) {
 				return
 			}
 
-			if err := os.Chtimes(name, when, when); err != nil {
+			err = os.Chtimes(name, when, when)
+			if err != nil {
 				b.Error(err)
 
 				return
@@ -206,13 +218,15 @@ func BenchmarkWriteParallelSpread(b *testing.B) {
 				return
 			}
 
-			if _, err := f.Write(benchPayload); err != nil {
+			_, err = f.Write(benchPayload)
+			if err != nil {
 				b.Error(err)
 
 				return
 			}
 
-			if err := f.Close(); err != nil {
+			err = f.Close()
+			if err != nil {
 				b.Error(err)
 
 				return
@@ -224,7 +238,8 @@ func BenchmarkWriteParallelSpread(b *testing.B) {
 				return
 			}
 
-			if err := os.Chtimes(name, when, when); err != nil {
+			err = os.Chtimes(name, when, when)
+			if err != nil {
 				b.Error(err)
 
 				return
@@ -247,7 +262,8 @@ func BenchmarkCreateEmpty(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := f.Close(); err != nil {
+		err = f.Close()
+		if err != nil {
 			b.Fatal(err)
 		}
 	}

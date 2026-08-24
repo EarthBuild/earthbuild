@@ -113,7 +113,8 @@ func TestABuildPromptsAndReadsTheAnswer(t *testing.T) {
 			}
 
 			if strings.Contains(l, "GOT-friend") {
-				if err := cmd.Wait(); err != nil {
+				err := cmd.Wait()
+				if err != nil {
 					t.Errorf("the step read the answer and the build still failed: %v", err)
 				}
 

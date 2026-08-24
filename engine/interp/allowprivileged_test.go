@@ -36,7 +36,8 @@ func TestAllowPrivilegedIsAcceptedWhereverItIsWritten(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := interp.Build(versioned+src, testMain); err != nil {
+			_, err := interp.Build(versioned+src, testMain)
+			if err != nil {
 				t.Errorf("%s --allow-privileged was refused: %v"+
 					"\n  it grants a permission this engine never takes up", name, err)
 			}

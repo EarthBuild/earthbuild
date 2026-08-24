@@ -49,7 +49,8 @@ func TestAnUnreadableRecordIsNotAnAnswer(t *testing.T) {
 	rememberLayer(store, key, ir.NodeID{1})
 
 	// Truncated on disk, which is what an interrupted write leaves.
-	if err := writeFileForTest(store, key, "not a digest"); err != nil {
+	err := writeFileForTest(store, key, "not a digest")
+	if err != nil {
 		t.Fatal(err)
 	}
 

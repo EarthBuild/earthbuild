@@ -68,7 +68,8 @@ func rememberChallenge(dir, key, at string) {
 
 	p := challengePath(dir, key)
 
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+	err := os.MkdirAll(filepath.Dir(p), 0o700)
+	if err != nil {
 		return
 	}
 
@@ -78,20 +79,23 @@ func rememberChallenge(dir, key, at string) {
 		return
 	}
 
-	if _, err := tmp.WriteString(at); err != nil {
+	_, err = tmp.WriteString(at)
+	if err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
 
 		return
 	}
 
-	if err := tmp.Close(); err != nil {
+	err = tmp.Close()
+	if err != nil {
 		_ = os.Remove(tmp.Name())
 
 		return
 	}
 
-	if err := os.Rename(tmp.Name(), p); err != nil {
+	err = os.Rename(tmp.Name(), p)
+	if err != nil {
 		_ = os.Remove(tmp.Name())
 	}
 }

@@ -91,7 +91,8 @@ func rootlessReady(p rootlessProbe) Readiness {
 				" needs one to give it, and this engine does not ship a copy")
 	}
 
-	if n, err := p.userns(); err != nil || n <= 0 {
+	n, err := p.userns()
+	if err != nil || n <= 0 {
 		missing = append(missing,
 			"this kernel allows no user namespace to be created unprivileged"+
 				" (user.max_user_namespaces), which a distribution sets and a"+

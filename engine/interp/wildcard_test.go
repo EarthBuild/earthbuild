@@ -70,7 +70,8 @@ func TestNamingTheWildcardFlagDoesNotRefuseTheFile(t *testing.T) {
 
 			src := "VERSION " + flag + " 0.8\nmain:\n    FROM alpine\n    RUN true\n"
 
-			if _, err := interp.Build(src, "main"); err != nil {
+			_, err := interp.Build(src, "main")
+			if err != nil {
 				t.Errorf("a file naming %s was refused although it uses no wildcard: %v",
 					flag, err)
 			}

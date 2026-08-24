@@ -20,7 +20,7 @@ func TestAChainIsPredictedToMoveNothing(t *testing.T) {
 
 	const size = 256 << 10
 
-	steps := []Step{}
+	steps := make([]Step, 0, 4)
 	for i := range 4 {
 		s := Step{Produces: layerOf(byte(i + 1)), Size: size}
 		if i > 0 {
@@ -50,7 +50,9 @@ func TestAFanOutIsPredictedToCostOneCopyPerMachine(t *testing.T) {
 
 	const size = 256 << 10
 
-	steps := []Step{{Produces: layerOf(1), Size: size}}
+	steps := make([]Step, 0, 9)
+	steps = append(steps, Step{Produces: layerOf(1), Size: size})
+
 	for i := range 8 {
 		steps = append(steps, Step{
 			Base:     []ir.NodeID{layerOf(1)},

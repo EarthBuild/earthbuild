@@ -60,11 +60,10 @@ func hostDockerMounts(look func(string) (string, bool), allowed bool) ([]guest.M
 	// whole build for it (as this did) is right about the client and too strong
 	// about the step: it declines a feature that would have worked on every
 	// image carrying its own client (E145).
-	mounts := []guest.Mount{
-		{Sandbox: dockerSocketPath, Target: dockerSocketPath},
-	}
-
 	cm, note := clientMounts(look)
+
+	mounts := make([]guest.Mount, 0, 1+len(cm))
+	mounts = append(mounts, guest.Mount{Sandbox: dockerSocketPath, Target: dockerSocketPath})
 
 	return append(mounts, cm...), note, nil
 }

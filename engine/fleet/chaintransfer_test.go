@@ -493,7 +493,8 @@ func chainOf(n int, size int64) []fleet.Step {
 
 // fanOutOf is one step and then n independent steps from it.
 func fanOutOf(n int, size int64) []fleet.Step {
-	out := []fleet.Step{{Produces: ir.NodeID{1}, Size: size}}
+	out := make([]fleet.Step, 0, 1+n)
+	out = append(out, fleet.Step{Produces: ir.NodeID{1}, Size: size})
 
 	for i := range n {
 		out = append(out, fleet.Step{

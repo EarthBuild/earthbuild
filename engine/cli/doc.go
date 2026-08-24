@@ -109,6 +109,12 @@ func writeRecipe(b *strings.Builder, recipe earthfile.Block) {
 
 		case earthfile.CmdSaveImage:
 			images = append(images, imageNames(c.Args, c.Docs)...)
+
+		default:
+			// Everything else is a step rather than part of a target's
+			// interface. `earth doc` describes what a caller may pass in and
+			// what they get back; how the target gets there is the Earthfile's
+			// business and not the reader's.
 		}
 	}
 

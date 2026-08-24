@@ -216,6 +216,15 @@ linters:
         linters:
           - lll
   settings:
+    exhaustive:
+      # A `default` arm is an exhaustive switch, because some of these types
+      # cannot be enumerated by anybody: `syscall.Errno` and `reflect.Kind`
+      # have hundreds of members and a switch listing them all would be wrong
+      # the next time the standard library grows one. Where a type IS small
+      # and closed - core.Cause, earthfile.Cmd - the check still fires on a
+      # switch with no default, which is where it earns its keep: those are
+      # the switches that must be revisited when a member is added.
+      default-signifies-exhaustive: true
     misspell:
       # `hardlinked` is what a hard link is called here and in every filesystem
       # manual; misspell believes it is a typo for `hardline` and rewrites it.

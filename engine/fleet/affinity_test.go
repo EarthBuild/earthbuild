@@ -58,7 +58,7 @@ func TestPreferringOneWorkerDoesNotExcludeTheOthers(t *testing.T) {
 
 	got := prefer(order, []string{"b@host:2"})
 
-	ids := []string{}
+	ids := make([]string, 0, len(got))
 	for _, w := range got {
 		ids = append(ids, w.id)
 	}

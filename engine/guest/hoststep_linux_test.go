@@ -33,7 +33,7 @@ func TestAStepResolvesByItsDeclaredHosts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := os.WriteFile(filepath.Join(root, "prober"), self, 0o700)
+	err = os.WriteFile(filepath.Join(root, "prober"), self, 0o700)
 	if err != nil {
 		t.Fatal(err)
 	}

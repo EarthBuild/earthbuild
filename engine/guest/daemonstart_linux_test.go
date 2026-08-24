@@ -62,7 +62,7 @@ func TestADaemonStartsInAUserNamespace(t *testing.T) {
 
 	cmd.Stdout, cmd.Stderr = &log, &log
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

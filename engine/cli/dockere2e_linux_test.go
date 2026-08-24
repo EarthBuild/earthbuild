@@ -54,7 +54,7 @@ build:
 
 	var out bytes.Buffer
 
-	err := cli.Run(context.Background(), cli.Options{
+	err = cli.Run(context.Background(), cli.Options{
 		Dir: dir, Target: testTarget, Out: &out, Platform: testPlatform(),
 	})
 	if err != nil {

@@ -516,7 +516,7 @@ func attemptOne(t *testing.T, tree string, in corpus.Invocation, root string, pe
 			read = cli.Doc
 		}
 
-		err := read(opts)
+		err = read(opts)
 		if err != nil {
 			got.reason = firstLine(err.Error())
 

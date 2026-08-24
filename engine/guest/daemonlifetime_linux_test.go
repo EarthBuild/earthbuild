@@ -52,7 +52,7 @@ func TestTheWholeDaemonLifetimeAgainstARealDockerd(t *testing.T) {
 
 	began := time.Now()
 
-	err := withDaemon(ctx, root, d, launchDockerd, publishSocket, func() error {
+	err = withDaemon(ctx, root, d, launchDockerd, publishSocket, func() error {
 		_, sock := daemonPaths(root, d)
 
 		out, err := osexec.Command("docker", "-H", "unix://"+sock,
@@ -75,7 +75,7 @@ func TestTheWholeDaemonLifetimeAgainstARealDockerd(t *testing.T) {
 	// The storage is where it was told to put it, not where dockerd defaults to.
 	// A daemon writing to the host's `/var/lib/docker` would work perfectly and
 	// share everything with every other step on the machine (E362).
-	_, err := os.Stat(filepath.Join(root, "var/lib/earthbuild-docker/data"))
+	_, err = os.Stat(filepath.Join(root, "var/lib/earthbuild-docker/data"))
 	if err != nil {
 		t.Errorf("the daemon did not store where it was told: %v", err)
 	}

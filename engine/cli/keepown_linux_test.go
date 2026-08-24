@@ -105,7 +105,7 @@ main:
 				target = "capture"
 			}
 
-			err := cli.Run(ctx, cli.Options{
+			err = cli.Run(ctx, cli.Options{
 				Dir: dir, Target: target, Out: &out, Platform: testPlatform(),
 			})
 

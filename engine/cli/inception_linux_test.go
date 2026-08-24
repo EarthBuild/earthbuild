@@ -84,7 +84,7 @@ inner:
 			t.Fatal(err)
 		}
 
-		err := os.WriteFile(filepath.Join(dir, from[1]), b, 0o700)
+		err = os.WriteFile(filepath.Join(dir, from[1]), b, 0o700)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,7 @@ inner:
 
 	var out bytes.Buffer
 
-	err := cli.Run(context.Background(), cli.Options{
+	err = cli.Run(context.Background(), cli.Options{
 		Dir: dir, Target: testTarget, Out: &out, Platform: testPlatform(),
 	})
 	if err != nil {

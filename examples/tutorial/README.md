@@ -1,3 +1,3 @@
 # Tutorial
 
-These examples are explained in the [EarthBuild Basics tutorial](https://docs.earthly.dev/basics).
+These examples are explained in the [EarthBuild Basics tutorial](https://docs.earthbuild.dev/basics).

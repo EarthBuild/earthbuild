@@ -305,6 +305,12 @@ engine-race:
     # with the reason, because each asks whether the *operation* works rather
     # than whether the uid is zero (E160). The portable tests are swept; the
     # rest say out loud what this machine will not do.
+    # **The failure branch grepped for skip reasons too.** `^ *[a-z_]+\.go:`
+    # matches "casenote_test.go:102: this machine's temporary directory is
+    # case-sensitive" exactly as well as it matches a failure, and this suite
+    # skips 161 tests - so `head -40` printed forty skips and stopped, and a run
+    # that failed reported nothing about why. Twice, before anybody noticed the
+    # diagnostic was the thing that was broken (E609).
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
@@ -313,7 +319,15 @@ engine-race:
         grep -E "^ *--- (FAIL|SKIP)" /tmp/t.log | sort | uniq -c | sort -rn | head -40; \
         skipped=$(grep -cE "^ *--- SKIP" /tmp/t.log || true); \
         echo "skipped here: $skipped of $(grep -cE "^ *--- (PASS|SKIP|FAIL)" /tmp/t.log)"; \
-        if [ "$rc" -ne 0 ]; then grep -E "^ *--- FAIL|^ *[a-z_]+\.go:" /tmp/t.log | head -40; exit "$rc"; fi; \
+        if [ "$rc" -ne 0 ]; then \
+            echo "--- what failed:"; \
+            grep -E "^ *--- FAIL" /tmp/t.log | head -20 || echo "(no test reported FAIL)"; \
+            echo "--- with context:"; \
+            grep -E -A 3 "^ *--- FAIL" /tmp/t.log | head -40; \
+            echo "--- and the last of the log, for a run that failed without one:"; \
+            tail -20 /tmp/t.log; \
+            exit "$rc"; \
+        fi; \
         if [ "$skipped" -gt "$SKIP_CEILING" ]; then \
             echo "more tests skipped than this container should need ($skipped > $SKIP_CEILING):"; \
             echo "a green run that verified less is the failure this ceiling exists to catch"; \

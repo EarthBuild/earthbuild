@@ -28446,3 +28446,47 @@ ordinary names and must still work, which is half of what the test says.
 them one at a time to establish that is how the twenty-eighth was found. The same held for the Zip
 Slip alert, which was a false positive whose investigation found a real bug in `safePath` (E628).
 **Two security defects so far have come from auditing alerts that were wrong.**
+
+## E631 - a lazy base and an eager one disagreed, and a fixture mode is what said so
+
+`TestARealStepOnALazyBaseProducesTheRightLayer` passed in five consecutive CI runs and then failed:
+
+```text
+    a lazily materialised step produced 5eaa8257... and an eagerly materialised one produces f4e0c255...
+    predicted 1 path(s), faulted in 3
+```
+
+**Lazy and eager producing different layers is the failure the fleet exists not to have.** A layer is
+its identity (§3.3, I8), so two ways of assembling the same base must agree to the byte.
+
+*The cause is in `place`, and its own doc comment describes the property it missed:*
+
+> Modes and times come with it: a step that reads a file also stats it, and a base assembled with the
+> wrong modes is a base the step behaves differently against.
+
+```go
+    err := os.MkdirAll(filepath.Dir(to), 0o755)      // every ancestor, one fixed mode
+    ...
+    err = os.MkdirAll(to, fi.Mode().Perm())          // the entry itself, the right mode
+```
+
+An entry got its mode. Every directory *above* it was invented at `0o755`, and only got the right one
+if it was later faulted in on its own account. In a lazy base most ancestors never are - that is what
+lazy means - so a lazily materialised base differed from an eager one by the modes of the directories
+nobody asked for.
+
+*What made it visible is the part worth keeping.* `0o755` is what a fixture usually writes, so the
+invented mode and the real one coincided and the test passed for the wrong reason. Tightening some
+test trees to `0o750` for `gosec` broke the coincidence. **A lint change to a fixture exposed a
+correctness bug in the engine**, which is not a use anyone plans for a permission sweep.
+
+Fixed by creating each ancestor with the mode and times its source has, walking down so a parent
+exists before its child is stamped, and stamping only what it creates - a directory already placed has
+been given its mode by `place` and must not be rewritten by a guess.
+
+*Two lessons, and the second is uncomfortable.* A test that passes because two independent numbers
+happen to be equal is a test that will pass until something unrelated moves. And my own account of the
+tree-wide hoist claimed the compiler was the safety net; it is not, for the 87 sites where
+`no new variables` forced `:=` into `=` and an inner error began assigning to an outer one. That
+transform wants auditing on its own terms rather than trusting a green build - **this failure was not
+caused by it, and finding that out took reading the diff rather than assuming.**

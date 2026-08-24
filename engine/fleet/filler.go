@@ -184,13 +184,80 @@ func (f *Filler) inside(path string) (string, bool) {
 	return rel, true
 }
 
+// makeAncestors creates the directories above an entry, each with the mode and
+// times it has in the source.
+//
+// Walks down rather than up, so a parent exists before its child is stamped, and
+// stamps only what it creates: a directory already placed has been given its own
+// mode by `place` and must not be rewritten by a guess.
+//
+// A source ancestor that cannot be stated is created with the restrictive
+// default. That is a base which will differ from an eager one, and it is the
+// honest outcome for a source that has gone: better a wrong mode than a
+// fabricated one that claims to be right.
+func makeAncestors(from, to string) error {
+	dir := filepath.Dir(to)
+
+	missing := []string{}
+	for at := dir; at != "" && at != string(filepath.Separator); at = filepath.Dir(at) {
+		if _, err := os.Lstat(at); err == nil {
+			break
+		}
+
+		missing = append(missing, at)
+	}
+
+	// Deepest last, so each is made after its parent.
+	for i := len(missing) - 1; i >= 0; i-- {
+		at := missing[i]
+
+		rel, err := filepath.Rel(dir, at)
+		if err != nil {
+			return fmt.Errorf("locate %s under %s: %w", at, dir, err)
+		}
+
+		src := filepath.Clean(filepath.Join(filepath.Dir(from), rel))
+
+		mode := os.FileMode(0o750)
+
+		fi, err := os.Lstat(src)
+		if err == nil {
+			mode = fi.Mode().Perm()
+		}
+
+		err = os.Mkdir(at, mode)
+		if err != nil && !os.IsExist(err) {
+			return fmt.Errorf("create %s: %w", at, err)
+		}
+
+		if fi != nil {
+			err = stampLike(at, fi)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // place copies one entry into the materialised base.
 //
 // Modes and times come with it: a step that reads a file also stats it, and a
 // base assembled with the wrong modes is a base the step behaves differently
 // against.
 func place(from, to string, fi os.FileInfo) error {
-	err := os.MkdirAll(filepath.Dir(to), 0o755)
+	// **The ancestors get the mode they have in the source, not 0o755.**
+	// `MkdirAll` invented every directory between the base root and this entry
+	// with a fixed mode, and only a directory that is *itself* faulted in ever
+	// got the right one. A lazy base therefore differed from an eager one by the
+	// modes of the directories nobody asked for - and §3.3 counts a mode among
+	// what a layer records, so the two produced different layers (E631).
+	//
+	// It went unseen because 0o755 is what a fixture happens to write. Tightening
+	// some test trees to 0o750 made lazy and eager disagree, which is the whole
+	// property `TestARealStepOnALazyBaseProducesTheRightLayer` exists to assert.
+	err := makeAncestors(from, to)
 	if err != nil {
 		return fmt.Errorf("make room for %s: %w", to, err)
 	}

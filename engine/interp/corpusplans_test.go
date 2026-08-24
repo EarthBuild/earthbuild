@@ -71,21 +71,7 @@ func corpusPlans(t *testing.T) []plannedFile {
 // `t.TempDir` belonging to whichever test asked first - which is removed when
 // that test ends, while the other five are still reading paths out of it.
 func buildCorpusPlans() {
-	root, err := os.MkdirTemp("", "corpus") //nolint:usetesting // outlives any one test; see above
-	if err != nil {
-		corpusPlansErr = err
-
-		return
-	}
-
-	corpusPlansRoot = root
-
-	err = copyTrackedTo(root)
-	if err != nil {
-		corpusPlansErr = err
-
-		return
-	}
+	root := corpusTree()
 
 	for _, f := range earthfilesUnder(root) {
 		src, readErr := os.ReadFile(f)
@@ -110,6 +96,42 @@ func buildCorpusPlans() {
 			corpusPlansAll = append(corpusPlansAll, entry)
 		}
 	}
+}
+
+// corpusTree is the tree to sweep, which is not always a copy of one.
+//
+// The same three answers `corpus` gives, and for the same reasons. An explicit
+// `EARTH_CORPUS_DIR` wins, because the binary may be running somewhere that is
+// not the package directory - a Linux container with the tree mounted, which is
+// exactly where this ran when it first went wrong. Failing that, a copy of what
+// git says is tracked, so the sweep does not depend on what a developer happens
+// to have lying about (E562). And where git will not answer - an exported tree,
+// a checkout somebody else owns - the working directory itself, because a corpus
+// test that refuses to run finds nothing, which is the one outcome worth less
+// than a slightly noisy one (I11).
+//
+// The first version of this had only the middle answer, and CI exited 128 on
+// every corpus sweep at once.
+func corpusTree() string {
+	if dir := os.Getenv("EARTH_CORPUS_DIR"); dir != "" {
+		return dir
+	}
+
+	root, err := os.MkdirTemp("", "corpus") //nolint:usetesting // outlives any one test; see above
+	if err != nil {
+		return "../.."
+	}
+
+	err = copyTrackedTo(root)
+	if err != nil {
+		_ = os.RemoveAll(root)
+
+		return "../.."
+	}
+
+	corpusPlansRoot = root
+
+	return root
 }
 
 // copyTrackedTo writes this repository's tracked files under dst.

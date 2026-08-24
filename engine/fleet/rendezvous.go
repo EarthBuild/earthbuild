@@ -169,8 +169,11 @@ func (r *Rendezvous) Accept(ctx context.Context, e *iroh.Endpoint, onError func(
 	for {
 		conn, err := e.Accept(ctx)
 		if err != nil {
+			// A refusal to accept *because this build is over* is the loop
+			// ending, not a fault. Reported as an error it would fail builds
+			// that succeeded (nilerr reads the shape, not the condition).
 			if ctx.Err() != nil {
-				return nil
+				return nil //nolint:nilerr // cancellation, not failure
 			}
 
 			return fmt.Errorf("accept a worker: %w", err)

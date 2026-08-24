@@ -192,7 +192,7 @@ func runTraced(
 			body, rerr := os.ReadFile(path)
 			if rerr != nil {
 				// Genuinely absent, which is an answer (E289).
-				return nil
+				return nil //nolint:nilerr // absence is the observation
 			}
 
 			rel, rerr := filepath.Rel(dir, path)

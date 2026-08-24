@@ -271,14 +271,17 @@ func writeEntry(
 	// A directory is the one kind that may legitimately already be there: two
 	// layers both containing `/usr/bin` are not in conflict, and MkdirAll says
 	// so. Everything else replaces what a lower layer left.
-	if h.Typeflag != tar.TypeDir {
+	switch {
+	case h.Typeflag != tar.TypeDir:
 		err := replacing(h, target, written, folded)
 		if err != nil {
 			return err
 		}
-	} else if written[target] {
+
+	case written[target]:
 		return fmt.Errorf("%q: the layer names it twice", h.Name)
-	} else {
+
+	default:
 		written[target] = true
 		folded[strings.ToLower(target)] = foldedEntry{target: target, name: h.Name}
 	}

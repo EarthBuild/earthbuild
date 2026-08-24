@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -283,10 +284,8 @@ func TestAPathIsReadUpToItsTerminator(t *testing.T) {
 	// The path at a non-zero offset, with more after the terminator, so a reader
 	// that ignored it would return something longer and be caught. Padded before
 	// so an implementation that quietly starts at zero is caught too.
-	mem := make([]byte, offset)
-	mem = append(mem, want...)
-	mem = append(mem, 0)
-	mem = append(mem, "AND THEN SOME MORE"...)
+	mem := slices.Concat(
+		make([]byte, offset), []byte(want), []byte{0}, []byte("AND THEN SOME MORE"))
 
 	got, err := readPathFrom(bytes.NewReader(mem), offset)
 	if err != nil {

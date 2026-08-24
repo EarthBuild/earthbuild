@@ -178,7 +178,7 @@ func main() {
 		// call that `os.Exit` skips means the tidy-up is written down and never
 		// performed (gocritic exitAfterDefer).
 		stop()
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // stop() is called above, which is the point
 	}
 }
 

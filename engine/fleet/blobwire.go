@@ -262,8 +262,12 @@ func ServeBlobs(ctx context.Context, e *iroh.Endpoint, held Held, onError func(e
 	for {
 		conn, err := e.Accept(ctx)
 		if err != nil {
+			// A refusal to accept *because this build is over* is the loop
+			// ending, not a fault: the caller cancelled and there is nothing
+			// left to serve. Reported as an error it would fail builds that
+			// succeeded (nilerr reads the shape, not the condition).
 			if ctx.Err() != nil {
-				return nil
+				return nil //nolint:nilerr // cancellation, not failure
 			}
 
 			return fmt.Errorf("accept for blobs: %w", err)

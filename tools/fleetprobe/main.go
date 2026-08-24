@@ -85,7 +85,7 @@ func main() {
 		// signal handler to `defer stop()` releases it in writing and not in
 		// fact (gocritic exitAfterDefer).
 		stop()
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // stop() is called above, which is the point
 	}
 }
 

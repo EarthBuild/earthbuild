@@ -219,8 +219,7 @@ func TestSkopeoCanReadTheLayout(t *testing.T) {
 
 	out, err := osexec.CommandContext(ctx, skopeo, "inspect", "--raw", "oci:"+dir+":app:latest").Output()
 	if err != nil {
-		var ee *osexec.ExitError
-		if errors.As(err, &ee) {
+		if ee, ok := errors.AsType[*osexec.ExitError](err); ok {
 			t.Fatalf("skopeo refused the layout: %v\n%s", err, ee.Stderr)
 		}
 

@@ -1131,8 +1131,7 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 		out = out[:maxHostOutput]
 	}
 
-	var exitErr *osexec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*osexec.ExitError](err); ok {
 		// It ran and failed. That is a result.
 		return core.Result{Exit: exitErr.ExitCode(), Output: string(out)}, nil
 	}

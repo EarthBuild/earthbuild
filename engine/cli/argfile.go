@@ -57,8 +57,7 @@ func valuesFrom(dir, name string, required bool) (map[string]string, error) {
 		// caller's own word for the file. A message that says
 		// `/tmp/build-1234/.this-should-fail` answers a question about a
 		// directory the caller never typed (E475).
-		var path *fs.PathError
-		if errors.As(err, &path) {
+		if path, ok := errors.AsType[*fs.PathError](err); ok {
 			err = path.Err
 		}
 

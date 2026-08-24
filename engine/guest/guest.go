@@ -2001,8 +2001,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		out = out[:maxOutput]
 	}
 
-	var exitErr *osexec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*osexec.ExitError](err); ok {
 		// The step ran and failed. That is a result.
 		// A step that ran and failed spent time too, and a build asked for its
 		// stats wants the expensive failure counted (E467).

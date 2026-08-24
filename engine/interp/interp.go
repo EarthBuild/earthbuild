@@ -2589,8 +2589,7 @@ func platformOf(s string) ir.Platform {
 // wrapRef adds the location of a target reference, unless the error already
 // says everything worth saying.
 func wrapRef(cmd string, c earthfile.Command, err error) error {
-	var cycle *CycleError
-	if errors.As(err, &cycle) {
+	if _, ok := errors.AsType[*CycleError](err); ok {
 		// The loop is the diagnosis. Prefixing it with every hop that led here
 		// buries it under a path the reader can already see in the loop.
 		return err

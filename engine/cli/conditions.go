@@ -89,8 +89,7 @@ func decideByRunning(
 	// condition that changes its mind is not held to its old answer - and its
 	// output is carried back, because a command that failed is often the one
 	// whose message matters most.
-	var stepErr *core.StepError
-	if errors.As(err, &stepErr) {
+	if stepErr, ok := errors.AsType[*core.StepError](err); ok {
 		return interp.Result{Exit: stepErr.Exit, Output: stepErr.Output}, nil
 	}
 

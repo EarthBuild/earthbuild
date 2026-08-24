@@ -474,13 +474,11 @@ func isOpenNR(nr int32) bool {
 
 // errnoOf names the system error at the bottom of a failure, or its type.
 func errnoOf(err error) string {
-	var errno unix.Errno
-	if errors.As(err, &errno) {
+	if errno, ok := errors.AsType[unix.Errno](err); ok {
 		return errno.Error()
 	}
 
-	var perr *fs.PathError
-	if errors.As(err, &perr) {
+	if perr, ok := errors.AsType[*fs.PathError](err); ok {
 		return perr.Err.Error()
 	}
 

@@ -425,6 +425,18 @@ jobs:
           # interesting line is never the last one.
           EARTH_TIMINGS=1 /tmp/earth build --engine=native +unit-test > /tmp/native.log 2>&1 || true
           echo "native +unit-test took $(( $(date +%s) - start ))s"
+
+          # **Loud when the suite failed.** This step ran for a fortnight
+          # printing a duration and a cache line for a build whose tests were
+          # failing, because `|| true` swallowed the status and nothing read the
+          # log for `FAIL`. Three real failures hid behind it - a walk of the
+          # source tree racing a fixture another package generates - and they
+          # were found by running the same build by hand (E616). Report-only is
+          # about not blocking the merge, not about not saying.
+          if grep -qE '^\s+--- FAIL|test\(s\) failed' /tmp/native.log; then
+            echo "::error::the native engine's +unit-test had failing tests"
+            grep -E '^\s+--- FAIL|FAIL\s+github' /tmp/native.log | sort -u | head -20
+          fi
           grep -E '^\s+cache ' /tmp/native.log || true
           tail -20 /tmp/native.log
           echo "--- where the engine spent its time:"
@@ -452,6 +464,11 @@ jobs:
           set -euo pipefail
           start=$(date +%s)
           /tmp/earth build --engine=native +unit-test > /tmp/untraced.log 2>&1 || true
+
+          if grep -qE '^\s+--- FAIL|test\(s\) failed' /tmp/untraced.log; then
+            echo "::error::the unwatched native +unit-test had failing tests"
+            grep -E '^\s+--- FAIL|FAIL\s+github' /tmp/untraced.log | sort -u | head -20
+          fi
           echo "native +unit-test unwatched took $(( $(date +%s) - start ))s"
           grep -E '^\s+cache ' /tmp/untraced.log || true
           tail -6 /tmp/untraced.log

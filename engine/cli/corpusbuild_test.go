@@ -3,7 +3,9 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -397,6 +399,32 @@ var skipInCorpus = map[string]bool{
 	"vendor":       true,
 }
 
+// bigTreePrefix names `engine/store`'s generated fixture.
+//
+// A hundred thousand files written into gitignored `testdata/` on demand, so it
+// is what `skipInCorpus` is about - a build makes it rather than reads it - and
+// it is eighty megabytes per sweep. It is also *live*: the fixture is staged as
+// `bigtree-20000.building-<pid>` and renamed, so a walk that copies it races the
+// package that is writing it (E616). Not copying it is the fix and the saving at
+// once.
+const bigTreePrefix = "bigtree-"
+
+// skipCorpusDir reports a directory a build makes rather than reads.
+func skipCorpusDir(name string) bool {
+	return skipInCorpus[name] || strings.HasPrefix(name, bigTreePrefix)
+}
+
+// vanished reports a file that stopped existing between being listed and being
+// looked at.
+//
+// Not an error worth failing a walk for: `engine/store` generates and renames a
+// fixture inside the tree while other packages walk it, so a path can be
+// enumerated and gone a moment later. Everything else still fails - a corpus
+// this engine cannot *read* is a corpus it must not silently copy half of.
+func vanished(err error) bool {
+	return err != nil && errors.Is(err, fs.ErrNotExist)
+}
+
 // copyCorpus copies a tree, leaving out what a build would only make again.
 //
 // Not os.CopyFS, which cannot decline a directory: it copied 1.3 GB and
@@ -409,6 +437,10 @@ func copyCorpus(src, dst string) error {
 	}
 
 	return filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
+		if vanished(err) {
+			return nil
+		}
+
 		if err != nil {
 			return err
 		}
@@ -419,7 +451,7 @@ func copyCorpus(src, dst string) error {
 		}
 
 		if fi.IsDir() {
-			if skipInCorpus[fi.Name()] {
+			if skipCorpusDir(fi.Name()) {
 				return filepath.SkipDir
 			}
 

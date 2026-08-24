@@ -27812,3 +27812,58 @@ target the number pointed at, which is the only reason it was caught at all.
 recommendation E613 closed on. The common shape is not carelessness about mechanism - each was
 mechanically sound - it is **acting on the size of a problem before measuring it**. Sixteen lines of
 Python answered this one; they were available before the paragraph recommending the lint was written.
+
+## E616 - three failures, one cause, and a report that said "took 407s"
+
+The measurement was meant to be the tracer's tax on Linux: this repository's own `+unit-test`, watched
+against unwatched, on a 32-core box where the engine runs without a VM. The first run came back
+`rc=1`. It had not measured a build; it had measured a failing one.
+
+```text
+    --- FAIL: TestEveryMtimeIsClampedOrExcused        engine/exec
+    --- FAIL: TestTheCorpusCopyLeavesOutBuildOutput   engine/cli
+    --- FAIL: TestTheCorpusIsBuiltInACopy             engine/cli
+```
+
+**One cause under all three:**
+
+```text
+    lstat .../engine/store/testdata/bigtree-20000.building-26675/d35/e50/f11427:
+      no such file or directory
+```
+
+`engine/store` generates a hundred-thousand-file fixture into gitignored `testdata/` and renames it
+into place - deliberately, because it is a `for` loop rather than something to commit, and caching it
+there is what makes every later run cheap. Two other packages walk the same tree. `filepath.Walk`
+hands an `lstat` failure to the callback, all three callbacks returned it, and a path that was listed
+a moment earlier is enough to fail the test.
+
+*It needs a machine with enough cores to lose the race.* Darwin's suite has never shown it, and 32
+cores show it on the first attempt.
+
+**And CI has been running this since the job was written.** The native `+unit-test` step ends
+`|| true`, prints a duration and a cache line, and reads the log for neither `FAIL` nor `test(s)
+failed` - both of which were in it, twice. The buildkit run beside it says `test(s) passed`. So the
+report contained the answer and the summary contained a time:
+
+```text
+    native +unit-test took 407s          <- with three tests failing
+    buildkit +unit-test took 298s        <- passing
+```
+
+Which makes **every native-versus-buildkit figure in E601 and after a comparison between a suite that
+passed and a suite that did not.** Not by much - three tests of several thousand - but the direction
+is unknown and the numbers are not clean, which is worth more than the apology.
+
+*This is the second time in three days, in the step next door.* E611 caught the L2 case reporting `1s`
+for a build that had failed to parse, fixed that step, and did not look at the one above it doing the
+same thing with a different swallow. **`|| true` next to a `grep` that prints nothing on failure is
+this repository's most productive bug**, and it has now hidden a parse error, a data race and three
+test failures.
+
+*Fixed, in both directions.* The walks skip a path that vanished - and only that, since a corpus this
+engine cannot *read* must not be silently copied half-complete. The fixture also joins
+`skipInCorpus`, where it always belonged: it is a directory a build makes rather than reads, it is
+eighty megabytes per sweep, and not copying it is the fix and the saving at once. The CI steps now
+grep their own logs and raise `::error::` with the failing test names, report-only being about not
+blocking a merge rather than about not saying.

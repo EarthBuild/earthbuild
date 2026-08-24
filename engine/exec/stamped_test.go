@@ -1,6 +1,8 @@
 package exec
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -89,6 +91,17 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 	found := 0
 
 	err = filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
+		// **A file that vanished is not a source file with an opinion about
+		// mtimes.** `engine/store` generates a hundred-thousand-file fixture
+		// into gitignored `testdata/` and renames it into place while this
+		// walks the same tree, so a path can be listed and gone a moment later
+		// (E616). Everything else still fails the walk: a source file this
+		// cannot read is one the guard has not checked, and passing for that
+		// reason is what the `found < 3` floor below is also about.
+		if err != nil && errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+
 		if err != nil {
 			return err
 		}

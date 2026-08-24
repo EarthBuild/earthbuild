@@ -189,6 +189,11 @@ const mountFieldTarget = "target"
 // a reader skims past.
 const mountKindBind = "bind"
 
+// mountFieldDst is `target` under its other name, which both languages accept.
+// Named for the same reason mountFieldTarget is: the tables below keep the
+// literal, because there the field name is the content.
+const mountFieldDst = "dst"
+
 // parseMount also reports a bound view's `from`, which it cannot resolve.
 //
 // ν is a node, and this function has no graph: the caller has the plan, the
@@ -252,7 +257,7 @@ func parseMount(spec, where string) (ir.Mount, string, error) {
 
 	target := fields[mountFieldTarget]
 	if target == "" {
-		target = fields["dst"]
+		target = fields[mountFieldDst]
 	}
 
 	if target == "" {
@@ -578,8 +583,13 @@ func (p *Plan) resolveViews(mounts []ir.Mount, views []view, where string) ([]*i
 		return nil, nil
 	}
 
-	out := make([]*ir.Node, 0, len(views))
-
+	// **Every refusal first, then the expensive part.** Resolving a view of the
+	// context digests it, and a step binding both the context and a stage was
+	// digesting a whole tree before refusing the stage - work thrown away, and
+	// on this repository's own corpus it was two minutes of it per sweep.
+	//
+	// The ordering is also the better behaviour: a build told it cannot do
+	// something should be told before it waits.
 	for _, v := range views {
 		if v.from != "" {
 			return nil, unsupported("RUN --mount type=bind,from="+v.from, where,
@@ -587,7 +597,11 @@ func (p *Plan) resolveViews(mounts []ir.Mount, views []view, where string) ([]*i
 					" filesystem, which is more than one layer"+
 					"\n  COPY what the step needs in, or bind the build context")
 		}
+	}
 
+	out := make([]*ir.Node, 0, len(views))
+
+	for _, v := range views {
 		// The subtree names a path in the context, and the context node this
 		// engine builds for COPY holds exactly that path - digested, so what it
 		// shows reaches the key (I20). Empty means the whole of it.

@@ -180,6 +180,11 @@ func TestCorpusIsAcceptedOrRefusedActionably(t *testing.T) {
 		declined = map[string]bool{}
 	)
 
+	// Owned by this sweep and no longer: a build sees one snapshot of its
+	// context, and this is that assumption held one level out, for the length
+	// of one test over a tree nothing is writing to.
+	digests := &interp.ContextCache{}
+
 	for _, f := range files {
 		src, err := os.ReadFile(f)
 		if err != nil {
@@ -196,7 +201,15 @@ func TestCorpusIsAcceptedOrRefusedActionably(t *testing.T) {
 			}()
 
 			for _, target := range targetsIn(string(src)) {
-				opts := []interp.Option{interp.WithContext(filepath.Dir(f))}
+				// One digest of one tree, however many targets stand on it.
+				// This sweep plans every target of every Earthfile, and the
+				// large ones bind their build context on several steps - which
+				// digested that context once per target, 68% of this test's
+				// time over a tree nothing was changing.
+				opts := []interp.Option{
+					interp.WithContext(filepath.Dir(f)),
+					interp.WithContextCache(digests),
+				}
 				if fetch != nil {
 					opts = append(opts, interp.WithRemotes(fetch))
 				}

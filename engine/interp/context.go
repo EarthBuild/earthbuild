@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/ignore"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -17,7 +18,10 @@ import (
 type Option func(*options)
 
 type options struct {
-	context string
+	// contextCache shares digested context paths between builds, when the
+	// caller supplies one. Nil means no sharing, which is the default.
+	contextCache *ContextCache
+	context      string
 	// versionFlags are features the *caller* turns on, whatever the file's
 	// VERSION line says: `--version-flag-overrides`. Seven of the corpus's
 	// invocations pass it, and it is how a tree drives one file through two
@@ -358,4 +362,64 @@ func WithArtifacts(fn Artifacts) Option {
 // on this repository (E623). Both sides now ask the same function.
 func excluderFor(root, under string) ignore.Excluder {
 	return ignore.For(root, under)
+}
+
+// ContextCache lets a caller planning several targets digest one tree once.
+//
+// **A build sees one snapshot of its context**, which is what every COPY here
+// already assumes: the path is digested at graph construction, and a tree
+// changing under a running build is a build whose answer was never defined.
+// Sharing that snapshot between targets is the same assumption held one level
+// out, and it is the caller's to make - the cache is theirs, so its lifetime is
+// theirs, and a caller who does not create one gets no sharing at all.
+//
+// It exists because the cost is not small. Planning every target of a large
+// Earthfile whose steps bind the build context digested that context once per
+// target: 68% of the corpus sweep's time, and 213 seconds of it, over a tree
+// that had not changed between the first target and the last.
+//
+// Not a package-level cache, deliberately. A long-lived process planning two
+// builds minutes apart must digest twice, and a cache with no owner cannot know
+// that.
+type ContextCache struct {
+	mu sync.Mutex
+	m  map[string]*ir.Node
+}
+
+// WithContextCache shares digested context paths across builds.
+//
+// Safe for concurrent use, because planning several targets at once is the
+// obvious reason to want it.
+func WithContextCache(c *ContextCache) Option {
+	return func(o *options) { o.contextCache = c }
+}
+
+// node returns the cached node for a path, and whether there was one.
+func (c *ContextCache) node(key string) (*ir.Node, bool) {
+	if c == nil {
+		return nil, false
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	n, ok := c.m[key]
+
+	return n, ok
+}
+
+// put records a digested path.
+func (c *ContextCache) put(key string, n *ir.Node) {
+	if c == nil {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.m == nil {
+		c.m = map[string]*ir.Node{}
+	}
+
+	c.m[key] = n
 }

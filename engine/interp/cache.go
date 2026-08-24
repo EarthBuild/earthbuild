@@ -638,22 +638,9 @@ func (p *Plan) resolveViews(mounts []ir.Mount, views []view, rs *state, where st
 			at = "."
 		}
 
-		key := p.here.dir + "\x00" + at
-
-		n, seen := p.viewed[key]
-		if !seen {
-			var err error
-
-			n, err = resolveContext("RUN --mount", p.here.dir, at, where)
-			if err != nil {
-				return nil, err
-			}
-
-			if p.viewed == nil {
-				p.viewed = map[string]*ir.Node{}
-			}
-
-			p.viewed[key] = n
+		n, err := p.contextNode("RUN --mount", at, where)
+		if err != nil {
+			return nil, err
 		}
 
 		mounts[v.at].From = n.ID()
@@ -661,4 +648,37 @@ func (p *Plan) resolveViews(mounts []ir.Mount, views []view, rs *state, where st
 	}
 
 	return out, nil
+}
+
+// contextNode digests a path of the build context, once per plan and - when the
+// caller supplied a [ContextCache] - once per caller.
+//
+// Two memos rather than one because they answer different questions. The
+// plan's is always right: a build sees one snapshot of its context, and a
+// Dockerfile binding `.` on five stages must not digest it five times. The
+// caller's is only right if the caller says so, which is why it is theirs.
+func (p *Plan) contextNode(what, at, where string) (*ir.Node, error) {
+	key := p.here.dir + "\x00" + at
+
+	if n, ok := p.viewed[key]; ok {
+		return n, nil
+	}
+
+	if n, ok := p.opt.contextCache.node(key); ok {
+		return n, nil
+	}
+
+	n, err := resolveContext(what, p.here.dir, at, where)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.viewed == nil {
+		p.viewed = map[string]*ir.Node{}
+	}
+
+	p.viewed[key] = n
+	p.opt.contextCache.put(key, n)
+
+	return n, nil
 }

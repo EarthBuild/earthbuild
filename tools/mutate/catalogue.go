@@ -2421,7 +2421,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a file whose name holds a plus copied as a file (E441)",
 		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tn, cerr := resolveContext(\"COPY\", p.here.dir, src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
+		Anchor:      "\t\tn, cerr := p.contextNode(\"COPY\", src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},

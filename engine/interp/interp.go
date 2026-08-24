@@ -1800,7 +1800,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// resolving it against the calling Earthfile would silently copy
 		// something else, or report a file missing that is sitting exactly where
 		// its own Earthfile says it is.
-		n, err := resolveContext("COPY", p.here.dir, src, where)
+		n, err := p.contextNode("COPY", src, where)
 
 		return n, src, err
 	}
@@ -1830,7 +1830,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// only remaining evidence of which spelling it was. A COPY already
 		// depends on what the context holds, so this asks a question the command
 		// was going to ask anyway.
-		n, cerr := resolveContext("COPY", p.here.dir, src, where)
+		n, cerr := p.contextNode("COPY", src, where)
 		if cerr == nil {
 			return n, src, nil
 		}

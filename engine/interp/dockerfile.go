@@ -400,7 +400,7 @@ func (b *dockerfileBuild) instruction(
 		}, nil
 	}
 
-	cmd, err := translate(instr, b.where)
+	cmd, err := translate(instr, b.where, b.globals)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +614,7 @@ func selectStage(stages []instructions.Stage, target, where string) (instruction
 // Anything not here is refused by name rather than skipped: an instruction
 // silently dropped produces an image that is not what the Dockerfile describes,
 // and nothing downstream can tell.
-func translate(instr instructions.Command, where string) (earthfile.Command, error) {
+func translate(instr instructions.Command, where string, globals map[string]string) (earthfile.Command, error) {
 	loc := c(where)
 
 	switch v := instr.(type) {
@@ -687,8 +687,24 @@ func translate(instr instructions.Command, where string) (earthfile.Command, err
 		}
 
 		args := []string{v.Args[0].Key}
-		if v.Args[0].Value != nil {
+
+		switch value, global := globals[v.Args[0].Key]; {
+		case v.Args[0].Value != nil:
 			args = append(args, "=", *v.Args[0].Value)
+
+		case global:
+			// **A bare `ARG X` in a stage asks for the global `ARG X`.** That
+			// is the Dockerfile rule: an ARG above the first FROM belongs to
+			// the file, and a stage brings it into scope by naming it without a
+			// value. Read instead as "declare it empty", a stage that pins a
+			// version this way interpolates nothing - buildkit's own Dockerfile
+			// does exactly that for runc, and the step became
+			//
+			//	git checkout -q ""
+			//
+			// which exits 128 saying nothing. Eight Native CI jobs failed on
+			// it, reported against an ENV in another repository's Earthfile.
+			args = append(args, "=", value)
 		}
 
 		return earthfile.Command{Name: earthfile.CmdArg, Args: args, SourceLocation: loc}, nil

@@ -28,10 +28,18 @@ type Mutant struct {
 	Replacement string
 	// Package is what to run. Narrow, because the sweep runs it once per mutant.
 	Package string
-	// Linux says this mechanism only exists on Linux, so a sweep elsewhere must
-	// report it as unrun rather than as unguarded - a mutation the platform
-	// compiled away looks exactly like one nothing tested (E241).
-	Linux bool
+	// OS names the only platform this mechanism exists on, or is empty for one
+	// that exists everywhere. A sweep on another platform reports it as unrun
+	// rather than as unguarded - a mutation the platform compiled away looks
+	// exactly like one nothing tested (E241).
+	//
+	// One field rather than a flag per platform, because the two-flag version
+	// has a meaningless state - both set - and the field is read in a place that
+	// would have to decide what that meant. It was `Linux bool` until a sweep on
+	// Linux reported three darwin-only mechanisms as unguarded, which is the
+	// same fault E241 records, arriving from the other direction: the entries
+	// had no way to say which platform they belonged to.
+	OS string
 }
 
 // Mutants are the mechanisms this engine's correctness rests on.
@@ -104,7 +112,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tfor i := range slices.Backward(trees) {\n\t\tid := trees[i]",
 		Replacement: "\tfor i := range trees {\n\t\tid := trees[i]",
 		Package:     "./engine/mat/overlay/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "overlay: refusing an option string the kernel truncates (E163)",
@@ -315,7 +323,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tcmd.SysProcAttr.Chroot = root",
 		Replacement: "\t_ = root",
 		Package:     "./engine/guest/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "guest: dropping MS_RELATIME beside MS_NOATIME (E172)",
@@ -323,7 +331,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t\tout &^= unix.MS_RELATIME",
 		Replacement: "\t\t_ = out",
 		Package:     "./engine/guest/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "guest: creating a mount point with O_EXCL (TOCTOU)",
@@ -331,7 +339,7 @@ var Mutants = []Mutant{
 		Anchor:      "os.O_CREATE|os.O_EXCL|os.O_RDONLY",
 		Replacement: "os.O_CREATE|os.O_RDONLY",
 		Package:     "./engine/guest/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "trace: setting no-new-privs before the filter",
@@ -339,7 +347,7 @@ var Mutants = []Mutant{
 		Anchor:      "\terr := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)",
 		Replacement: "\tvar err error",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "trace: checking the architecture before the syscall number (E209)",
@@ -347,7 +355,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif n.Data.Arch != auditArch {",
 		Replacement: "\tif false && n.Data.Arch != auditArch {",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "trace: disregarding the engine's own thread (E211)",
@@ -355,7 +363,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif t.mine != 0 && n.Pid == t.mine {",
 		Replacement: "\tif false && t.mine != 0 && n.Pid == t.mine {",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "trace: not recording the root as a read (E221)",
@@ -363,7 +371,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif path == \"/\" {",
 		Replacement: "\tif false {",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "fleet: a build with no fleet asked for taking the plain path (E255)",
@@ -1067,7 +1075,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tt.fill(path)\n\tt.record(path)",
 		Replacement: "\tt.record(path)",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "trace: not fetching a path that is already here (E289)",
@@ -1075,7 +1083,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t_, err := os.Lstat(path)\n\tif err == nil {\n\t\treturn\n\t}",
 		Replacement: "",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "trace: a fetch that failed being fatal rather than a lie (E289)",
@@ -1083,7 +1091,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif t.unfilled == nil {\n\t\tt.unfilled = fmt.Errorf(\"could not obtain %s: %w\", path, err)\n\t}",
 		Replacement: "\t_ = err",
 		Package:     "./engine/trace/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "fleet: a path outside the base not being fetched (E290)",
@@ -1196,7 +1204,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t\ttr.Fill = fill",
 		Replacement: "",
 		Package:     "./engine/guest/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "guest: offering no filler when there is no channel (E296)",
@@ -1211,7 +1219,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif n.Fill != nil {",
 		Replacement: "\tif false {",
 		Package:     "./engine/exec/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "fleet: asking for the proof only when this worker lacks it (E299)",
@@ -1317,7 +1325,7 @@ var Mutants = []Mutant{
 		Anchor:      "func (n *Native) SetFill(f func(handle, path string) error) { n.Fill = f }",
 		Replacement: "func (n *Native) SetFill(f func(handle, path string) error) { _ = f }",
 		Package:     "./engine/exec/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "exec: handing on the base a fault-in is relative to (E305)",
@@ -2044,6 +2052,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif isolate {\n\t\treturn dockerPlan{}, errors.New(",
 		Replacement: "\tif false {\n\t\treturn dockerPlan{}, errors.New(",
 		Package:     "./engine/exec/",
+		OS:          "darwin",
 	},
 	{
 		Name:        "core: an uncacheable docker step naming its remedy (E393)",
@@ -2332,7 +2341,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif m.Mode == 0 || os.FileMode(m.Mode).Perm() == deflt {\n\t\treturn nil\n\t}",
 		Replacement: "\treturn nil",
 		Package:     "./engine/guest/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "interp: CACHE --chmod reaching the mount (E436)",
@@ -2795,6 +2804,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t\treturn fmt.Errorf(\n\t\t\t\"%s is not a Linux executable",
 		Replacement: "\t\treturn nil\n\t\t_ = fmt.Errorf(\n\t\t\t\"%s is not a Linux executable",
 		Package:     "./engine/exec/",
+		OS:          "darwin",
 	},
 	{
 		Name:        "cli: a produced Dockerfile exported to the engine's own directory (E490)",
@@ -2840,6 +2850,7 @@ var Mutants = []Mutant{
 		Anchor:      "func (a *Apple) SharesStoreAsRoot() bool { return true }",
 		Replacement: "func (a *Apple) SharesStoreAsRoot() bool { return false }",
 		Package:     "./engine/cli/",
+		OS:          "darwin",
 	},
 	{
 		Name: "guest: the step's own root left out of its observation (E497)",
@@ -2920,7 +2931,7 @@ var Mutants = []Mutant{
 		Anchor:      "\terr = copyTree(delta, tmp, copyOpts{KeepOwn: true})",
 		Replacement: "\terr = copyTree(delta, tmp, copyOpts{})",
 		Package:     "./engine/cli/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "interp: the engine naming itself when nothing stamped it (E448)",
@@ -3171,7 +3182,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tcpu = st.UserTime() + st.SystemTime()",
 		Replacement: "\tcpu = 0",
 		Package:     "./engine/guest/",
-		Linux:       true,
+		OS:          "linux",
 	},
 	{
 		Name:        "interp: scratch read as the empty base (E468)",

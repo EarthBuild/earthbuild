@@ -94,7 +94,7 @@ func main() {
 			continue
 		}
 
-		if m.Linux && runtime.GOOS != "linux" {
+		if m.OS != "" && runtime.GOOS != m.OS {
 			fmt.Printf("%-10s %s\n", "unrun", m.Name)
 
 			continue

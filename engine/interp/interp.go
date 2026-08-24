@@ -2616,6 +2616,10 @@ func wrapRef(cmd string, c earthfile.Command, err error) error {
 // printed, and unreachable text is the one kind that never gets corrected.
 // TestNoMeaningDescribesAFlagThatIsNotRefused keeps it that way.
 //
+// `--keep-ts` is the worked example and no longer has an entry: it was refused
+// while this engine did exactly what it asks, the last such refusal has gone,
+// and its description went with it. That is the rule working, not an omission.
+//
 // The refusals were "X is not supported by the native engine" and nothing else,
 // which tells a reader the door is shut and nothing about whether they wanted
 // to go through it. That is the E68 shape: the refusal named the refusal and
@@ -2625,7 +2629,6 @@ func wrapRef(cmd string, c earthfile.Command, err error) error {
 // somebody can contradict.
 var flagMeanings = map[string]string{
 	"--sharing": "decides whether concurrent builds wait for the cache mount, share it, or each get their own",
-	"--keep-ts": "keeps the file timestamps rather than overwriting them with a constant",
 	"--chmod":   "changes the permissions of the copied files, given in octal",
 	"--network": "isolates the command from the networking stack and the internet",
 	"--mount":   "mounts a file or directory in the context of the build environment",

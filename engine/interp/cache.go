@@ -378,9 +378,16 @@ func (p *Plan) gitCloneNode(c earthfile.Command, prev *ir.Node, rs *state) (*ir.
 		return nil, flagFault("GIT CLONE", where, err)
 	}
 
-	if opts.KeepTs {
-		return nil, unsupported("GIT CLONE --keep-ts", where, "")
-	}
+	// --keep-ts is absent on purpose: it asks for what this engine already
+	// does. A capture records timestamps to the nanosecond (I8), so a checkout
+	// with the flag and one without produce the same tree - which is the same
+	// reasoning that already accepts `COPY --keep-ts` and
+	// `SAVE ARTIFACT --keep-ts`, and which this one was left out of.
+	//
+	// Refusing a flag while doing what it asks is the expensive direction: it
+	// turns away a working Earthfile and tells its author the opposite of the
+	// truth. See flagMeanings, which records that this exact mistake has been
+	// made here once before.
 
 	if len(rest) != 2 {
 		return nil, fmt.Errorf(

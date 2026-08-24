@@ -15,12 +15,8 @@ import (
 // buildkitd with the CLI beside it, and its entrypoint starts that daemon. A
 // CLI in there which then defaulted to the native engine would boot a daemon it
 // never spoke to - and, because the native engine builds only from a checkout,
-// would refuse every remote target with
-//
-//	--engine=native cannot build github.com/...+hello: build it from a
-//	checkout, or use --engine=buildkit
-//
-// which is what happened. The workflow sets EARTH_ENGINE for the *job*, and a
+// would refuse every remote target as not being a local one. Which is what
+// happened. The workflow sets EARTH_ENGINE for the *job*, and a
 // job's environment does not cross into `docker run`; only the image can say
 // this about itself.
 //

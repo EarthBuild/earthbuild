@@ -339,8 +339,16 @@ type Mount struct {
 	// against the wrong one is a step reading an empty directory rather than
 	// the object it asked for.
 	Layer string `json:"layer,omitempty"`
-	// Sub is the subtree of Layer that appears at Target, or empty for all of
-	// it. 𝑢 of green paper §3.3d.
+	// Stack is a bound view of an earlier step's *result*: the layers of its
+	// filesystem, in the order a base is stacked. ν ∈ 𝕂 of §3.3d.
+	//
+	// A stage is not one layer. Layer above names a single object - the local
+	// context, which is materialised whole - while this one has to be assembled
+	// before it can be shown, which the guest does with the same materialiser
+	// it uses for a step's own base.
+	Stack []string `json:"stack,omitempty"`
+	// Sub is the subtree of Layer or Stack that appears at Target, or empty for
+	// all of it. 𝑢 of green paper §3.3d.
 	Sub string `json:"sub,omitempty"`
 	// Target is where it appears inside the step's filesystem, absolute.
 	Target string `json:"target"`

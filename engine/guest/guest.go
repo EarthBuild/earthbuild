@@ -1817,6 +1817,16 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	mounts := stepMounts(req)
 
+	// A view of an earlier result is a stack and has to be assembled before
+	// anything can be bound to it (§3.3d, ν ∈ 𝕂). Released after the step, not
+	// after the binding: the mount reads through the handle.
+	mounts, releaseViews, err := s.resolveStacks(ctx, mounts)
+	if err != nil {
+		return Response{Err: err.Error()}
+	}
+
+	defer releaseViews()
+
 	// `--sharing=locked`, the default, which was accepted and not provided: two
 	// steps naming one cache used it at once (E427). Held for the whole step,
 	// because that is what the mode means - a cache is in use until the command

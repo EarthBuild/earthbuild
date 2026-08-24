@@ -71,6 +71,13 @@ func (a *Apple) serveFills() {
 		return
 	}
 
+	// **No context and no timeout**, unlike the `container` calls in
+	// apple_darwin.go. Those are probes and cleanups; this is the fault-in
+	// relay, which serves the sandbox for as long as it is up. A bound would
+	// stop it part way through a build, and the caller's context is not it
+	// either: the relay outlives any one step.
+	//
+	//nolint:noctx // the sandbox's lifetime, not a request's
 	relay := osexec.Command("container", "exec", "-i", //nolint:gosec // fixed argv
 		"-e", guest.EnvFillSocket+"="+guestFillSocket,
 		a.name, "/earth/"+filepath.Base(guestBin), "--fills")

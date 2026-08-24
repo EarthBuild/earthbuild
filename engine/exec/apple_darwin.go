@@ -285,7 +285,10 @@ func (a *Apple) Available() error {
 		return errors.New("the `container` CLI is not installed (macOS 26 or later)")
 	}
 
-	out, err := osexec.Command(bin, "system", "status").CombinedOutput() //nolint:gosec // fixed argv
+	ctx, cancel := briefly()
+	defer cancel()
+
+	out, err := osexec.CommandContext(ctx, bin, "system", "status").CombinedOutput() //nolint:gosec // fixed argv
 	if err != nil {
 		return fmt.Errorf("`container system status` failed - is the service running? %w: %s", err, out)
 	}
@@ -385,7 +388,7 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 				// remains of a crash. Removed and retried once rather than
 				// reported, because the alternative is a machine that cannot
 				// build until someone is told to run a cleanup command.
-				_ = osexec.Command("container", "rm", "-f", a.name).Run() //nolint:gosec // fixed argv
+				_ = osexec.CommandContext(ctx, "container", "rm", "-f", a.name).Run() //nolint:gosec // fixed argv
 
 				retry := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
@@ -603,7 +606,10 @@ func (a *Apple) Remove() error {
 		name = SandboxNameWith(a.Image, filepath.Dir(guestBin), a.StoreDir(), a.memory(), a.keepAlive())
 	}
 
-	out, err := osexec.Command("container", "rm", "-f", name).CombinedOutput() //nolint:gosec // fixed argv
+	ctx, cancel := briefly()
+	defer cancel()
+
+	out, err := osexec.CommandContext(ctx, "container", "rm", "-f", name).CombinedOutput() //nolint:gosec // fixed argv
 	if err != nil {
 		return fmt.Errorf("remove the sandbox VM %s: %w: %s", name, err, out)
 	}
@@ -619,7 +625,10 @@ func (a *Apple) Remove() error {
 	//
 	// After the container, not before: a volume still attached to a container is
 	// refused, and the refusal would be the only news this returned.
-	_ = osexec.Command("container", "volume", "rm", volumeFor(name)).Run() //nolint:gosec // fixed argv
+	volCtx, volCancel := briefly()
+	defer volCancel()
+
+	_ = osexec.CommandContext(volCtx, "container", "volume", "rm", volumeFor(name)).Run() //nolint:gosec // fixed argv
 
 	return nil
 }
@@ -703,7 +712,10 @@ func reapOrphans(seen map[string]string) {
 			continue
 		}
 
-		_ = osexec.Command("container", "rm", "-f", name).Run() //nolint:gosec // fixed argv
+		reapCtx, reapCancel := briefly()
+		_ = osexec.CommandContext(reapCtx, "container", "rm", "-f", name).Run() //nolint:gosec // fixed argv
+
+		reapCancel()
 	}
 }
 
@@ -711,7 +723,10 @@ func reapOrphans(seen map[string]string) {
 // the caller's next move is to boot, which is the right move when the question
 // cannot be answered.
 func listContainers() map[string]string {
-	out, err := osexec.Command("container", "ls", "-a").Output() //nolint:gosec // fixed argv
+	ctx, cancel := briefly()
+	defer cancel()
+
+	out, err := osexec.CommandContext(ctx, "container", "ls", "-a").Output() //nolint:gosec // fixed argv
 	if err != nil {
 		return nil
 	}
@@ -906,4 +921,18 @@ func keepAliveUntilIdle(idle string) []string {
 			`if pgrep earth-guestd >/dev/null 2>&1; then idle=0; `+
 			`else idle=$((idle+%d)); fi; `+
 			`[ "$idle" -lt %d ] || exit 0; done`, poll, poll, secs)}
+}
+
+// briefly bounds a `container` invocation that has no caller's context to take.
+//
+// These are probes and cleanups - is the backend there, take that VM away, list
+// what is running - and none of them is the build's work. Unbounded they can
+// hang it: a wedged `container ls` at startup stops a build that has not begun,
+// with nothing on screen to say what it is waiting for.
+//
+// Not the caller's context even where one exists nearby: a cleanup that stops
+// because the build was cancelled leaves the VM behind, which is the thing the
+// cleanup was for.
+func briefly() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 30*time.Second)
 }

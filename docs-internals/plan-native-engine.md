@@ -4794,7 +4794,17 @@ like any other result. After a step has run once anywhere in the fleet:
 
 eStargz does a weaker version of this: a prioritised-files list baked in at *image build* time.
 Nydus does chunk-level prefetch by pattern. Neither can key the profile by step identity,
-because neither has one. Keying it by the step hash makes the prefetch exact and shareable
+because neither has one.
+
+**Between the two, nydusd is the better reference and probably the better dependency** (Giles,
+2026-08-24). It is a purpose-built lazy-loading daemon with chunk-level deduplication and a real
+prefetch story, where eStargz is a tar-compatibility trick: a seekable gzip whose prioritised-files
+list is fixed when the image is built and cannot know anything about the step that will read it. The
+places this matters here are the fragment format (§2 lazy bases) and anything that later fetches a
+layer over the network without materialising it whole. What this engine has that neither does is the
+step's *observed* read-set as a key, so a borrowed design should be read for its chunking and its
+daemon shape rather than for its prefetch policy - the policy is the part already answered better
+here. Keying it by the step hash makes the prefetch exact and shareable
 across the whole fleet through the machinery the CAS already provides. Prior art for the general
 shape is real and worth reading before building: Meta's EdenFS, Buildbarn's `bb_clientd` for
 Bazel remote execution, and CernVM-FS.

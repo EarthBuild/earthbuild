@@ -26,12 +26,12 @@ func TestABoundViewShowsALayerAndCannotBeWrittenThrough(t *testing.T) {
 
 	at := filepath.Join(layers, "layers", id)
 
-	err := os.MkdirAll(filepath.Join(at, "inner"), 0o755)
+	err := os.MkdirAll(filepath.Join(at, "inner"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(at, "inner", "f"), []byte("from the layer"), 0o644)
+	err = os.WriteFile(filepath.Join(at, "inner", "f"), []byte("from the layer"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestABoundViewShowsALayerAndCannotBeWrittenThrough(t *testing.T) {
 	}
 
 	// Through the target, because that is the door the step has.
-	err = os.WriteFile(filepath.Join(root, "view", "inner", "g"), []byte("no"), 0o644)
+	err = os.WriteFile(filepath.Join(root, "view", "inner", "g"), []byte("no"), 0o600)
 	if err == nil {
 		t.Error("a step wrote through a bound view, which edits another step's" +
 			" input; the layer store is read-only to a step (§3.3b)")
@@ -74,12 +74,12 @@ func TestABoundViewCanShowASubtree(t *testing.T) {
 
 	at := filepath.Join(layers, "layers", id, "inner")
 
-	err := os.MkdirAll(at, 0o755)
+	err := os.MkdirAll(at, 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(at, "f"), []byte("subtree"), 0o644)
+	err = os.WriteFile(filepath.Join(at, "f"), []byte("subtree"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

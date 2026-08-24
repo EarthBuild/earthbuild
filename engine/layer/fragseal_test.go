@@ -65,7 +65,7 @@ func TestAFragmentWithTheWrongModeIsRefused(t *testing.T) {
 // *Hardlinks*, because a fragment is a subset and a link's partner may not be in
 // it. A seal over that field would refuse honest fragments of any layer
 // containing a hardlink, which is every layer built from a package manager.
-func TestAFragmentIsNotSealedOnWhatItCannotReproduce(t *testing.T) {
+func TestAFragmentIsNotSealedOnWhatItCannotReproduce(t *testing.T) { //nolint:paralleltest // see the note above
 	// **Not parallel**, because it swaps a package variable - the rule written
 	// beside `ObservedOwnerForTest` and broken by the next test to use it. It
 	// passed alone and failed in a full run, corrupting an unrelated symlink

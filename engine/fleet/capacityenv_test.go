@@ -35,7 +35,8 @@ func TestAWorkerTakesEveryCoreUnlessTold(t *testing.T) {
 // `EARTH_FLEET_CAPACITY=eight` would take the whole machine on the one occasion
 // somebody was explicitly trying to stop it, which is the failure the setting
 // exists to prevent.
-func TestACapacityIsHonouredOrRefused(t *testing.T) {
+func TestACapacityIsHonouredOrRefused(t *testing.T) { //nolint:paralleltest // see the note below
+	// Not parallel: t.Setenv, which panics in a parallel test.
 	for _, tc := range []struct {
 		set  string
 		want int

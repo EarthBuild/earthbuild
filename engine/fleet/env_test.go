@@ -73,7 +73,8 @@ func TestAnUnreadableAttemptIsRefused(t *testing.T) {
 }
 
 // The session reaches the identity, so a misconfigured fleet is a separate one.
-func TestTheEnvironmentReachesTheIdentity(t *testing.T) {
+func TestTheEnvironmentReachesTheIdentity(t *testing.T) { //nolint:paralleltest // see the note below
+	// Not parallel: t.Setenv, which panics in a parallel test.
 	id := func(session string) string {
 		t.Helper()
 

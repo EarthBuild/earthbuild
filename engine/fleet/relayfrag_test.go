@@ -26,7 +26,7 @@ import (
 // because a fragment's seal excludes ownership by construction (E324) - the
 // receiver could not reproduce it either - and the test runs with the ownership
 // seam swapped so the relay's tree genuinely differs from the origin's.
-func TestAWorkerServesOnThePartOfABaseItHolds(t *testing.T) {
+func TestAWorkerServesOnThePartOfABaseItHolds(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: it swaps engine/layer's ownership seam, and that helper now
 	// refuses a parallel test outright rather than letting it corrupt one
 	// somewhere else (E324). It caught this test on the first run.
@@ -115,7 +115,7 @@ func TestAWorkerDoesNotServeAPartItLacks(t *testing.T) {
 //
 // `Parts` is what a worker's blob endpoint is given: whole layers where it has
 // them, parts where it has only those.
-func TestAWorkerServesPartsOfLayersItDoesNotWhollyHold(t *testing.T) {
+func TestAWorkerServesPartsOfLayersItDoesNotWhollyHold(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: swaps engine/layer's ownership seam.
 	origin := layerStore(t)
 	id := seedLayer(t, origin, 3)

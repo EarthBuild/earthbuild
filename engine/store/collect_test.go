@@ -211,7 +211,7 @@ func TestAReportReadsAsASentence(t *testing.T) {
 // Not parallel, and the budget is moved rather than the tree grown: a test that
 // needs a real 300ms to expire passes on a slow machine and skips on a fast one,
 // which reports the machine rather than the code.
-func TestASlowStoreIsStillMeasuredWholly(t *testing.T) {
+func TestASlowStoreIsStillMeasuredWholly(t *testing.T) { //nolint:paralleltest // see the note above
 	was := sizeBudget
 	sizeBudget = time.Nanosecond
 

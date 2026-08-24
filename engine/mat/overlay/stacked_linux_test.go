@@ -26,7 +26,7 @@ import (
 // of this branch's life nothing did - it was reached from tests only, so the
 // escape the engine wrote for itself was the one thing production never took.
 // That is what this pins (E634).
-func TestAScratchOnOverlayfsIsRelocated(t *testing.T) {
+func TestAScratchOnOverlayfsIsRelocated(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: mounts.
 	base := t.TempDir()
 

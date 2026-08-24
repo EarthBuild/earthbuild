@@ -68,7 +68,7 @@ func mtimeOf(t *testing.T, p string) time.Time {
 // The control matters as much as the case: a plain read of the same file on the
 // same filesystem *does* move the stamp, so a failure to observe one through the
 // overlay is the overlay's doing and not a filesystem mounted `noatime`.
-func TestAccessTimesDoNotSurviveAnOverlay(t *testing.T) {
+func TestAccessTimesDoNotSurviveAnOverlay(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: nstest.In re-executes this binary, and the namespace is the
 	// point of the measurement - an overlay mounted outside one is not the
 	// arrangement a step runs in.

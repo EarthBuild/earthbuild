@@ -24,7 +24,7 @@ import (
 // point at a pty passes the easy check and has no job control, and the whole
 // reason `RUN --interactive` needs a descriptor rather than a relay is the
 // difference between those two.
-func TestAnInteractiveStepRunsOnTheCallersTerminal(t *testing.T) {
+func TestAnInteractiveStepRunsOnTheCallersTerminal(t *testing.T) { //nolint:paralleltest // see the note above
 	// Inside a user namespace on Linux: the guest mounts /proc for every step,
 	// confined or not, and an unprivileged process cannot. Not parallel, because
 	// nstest re-executes this test on its own.
@@ -104,7 +104,7 @@ func TestAnInteractiveStepRunsOnTheCallersTerminal(t *testing.T) {
 // interactive step would take its input from the same descriptor - both reading,
 // each getting some of the keystrokes - which is not a degraded session but a
 // wrong one. Refused while another is running, by name.
-func TestASecondInteractiveStepIsRefused(t *testing.T) {
+func TestASecondInteractiveStepIsRefused(t *testing.T) { //nolint:paralleltest // see the note above
 	// Inside a user namespace on Linux: the guest mounts /proc for every step,
 	// confined or not, and an unprivileged process cannot. Not parallel, because
 	// nstest re-executes this test on its own.

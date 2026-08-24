@@ -93,7 +93,8 @@ func TestConfinementCanBeWaivedExplicitly(t *testing.T) {
 // +unit-test --pkgname=./engine/...` and in every container since. On an
 // ordinary Linux developer machine euid is not 0, so it skipped and had
 // therefore never run at all; through `nstest` it now does.
-func TestChrootHidesTheHost(t *testing.T) {
+func TestChrootHidesTheHost(t *testing.T) { //nolint:paralleltest // see the note below
+	// Not parallel: it enters a namespace, which belongs to a thread and not to a test.
 	if !guest.NeedsIsolation(t) {
 		return
 	}

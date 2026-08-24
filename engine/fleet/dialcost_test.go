@@ -135,7 +135,7 @@ func TestWhatAFetchCostsBeforeItMovesAnything(t *testing.T) {
 // **Serial on purpose.** `runtime.MemStats` counts the process, so a parallel
 // neighbour allocating mid-measurement would be charged to this store. Go pauses
 // parallel tests for the serial pass, which is the only way to be alone in it.
-func TestServingPartOfALayerDoesNotCostTheWholeLayer(t *testing.T) {
+func TestServingPartOfALayerDoesNotCostTheWholeLayer(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: the counter is process-wide; see above (paralleltest).
 	const (
 		files = 400

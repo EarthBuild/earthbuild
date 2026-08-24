@@ -25,7 +25,7 @@ import (
 //
 // Measured by scale rather than by a threshold: a machine's absolute speed is
 // not the property, the shape of the curve is.
-func TestPackingPartOfALayerDoesNotReadTheWholeLayer(t *testing.T) {
+func TestPackingPartOfALayerDoesNotReadTheWholeLayer(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: it counts work done by the whole package.
 	root := treeOf(t, 400)
 

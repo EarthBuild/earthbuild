@@ -27,7 +27,7 @@ import (
 // The stream declares the ownership; what the filesystem accepted is not the
 // authority on what the layer *is*. Provoked with a seam rather than described,
 // because the real condition needs two users and this must fail on one.
-func TestAnUnpackAsAnotherUserStillCapturesTheSameLayer(t *testing.T) {
+func TestAnUnpackAsAnotherUserStillCapturesTheSameLayer(t *testing.T) { //nolint:paralleltest // see the note above
 	// **Not parallel.** The seam it needs is a package variable, and a parallel
 	// test that swaps one is a data race against every other test in the
 	// package - including the ones that would then be capturing trees with

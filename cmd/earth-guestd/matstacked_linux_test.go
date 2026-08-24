@@ -21,7 +21,7 @@ import (
 // overlay root, got `invalid argument`, and failed the build. The helper being
 // right is no use if nothing calls it, which is what this asserts and what
 // TestAScratchOnOverlayfsIsRelocated does not (E634).
-func TestAGuestScratchOnOverlayfsStillMaterialises(t *testing.T) {
+func TestAGuestScratchOnOverlayfsStillMaterialises(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: mounts.
 	base := t.TempDir()
 

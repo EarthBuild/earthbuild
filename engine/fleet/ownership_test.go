@@ -23,7 +23,7 @@ import (
 // Same-user, same-OS runs pass with or without the fix, which is why every
 // in-repo test was green through six experiments (E313). The seam is what makes
 // the two-user case reachable from one.
-func TestALayerStoresUnderItsOwnDigestWhenUnpackedAsAnotherUser(t *testing.T) {
+func TestALayerStoresUnderItsOwnDigestWhenUnpackedAsAnotherUser(t *testing.T) { //nolint:paralleltest
 	// Not parallel: the seam is a package variable in engine/layer.
 	src := t.TempDir()
 
@@ -75,7 +75,7 @@ func TestALayerStoresUnderItsOwnDigestWhenUnpackedAsAnotherUser(t *testing.T) {
 // This is the mesh C.4 exists to allow: the machine that produced a layer is
 // the closest copy of it, and a fleet where only the driver can serve a base is
 // a star with the driver's uplink as its whole bandwidth.
-func TestALayerPassedOnKeepsItsIdentity(t *testing.T) {
+func TestALayerPassedOnKeepsItsIdentity(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: the seam is a package variable in engine/layer.
 	src := t.TempDir()
 
@@ -138,7 +138,7 @@ func TestALayerPassedOnKeepsItsIdentity(t *testing.T) {
 // unnoticed behind a flag that is off by default (E314). It is still the
 // difference between a lazy base that works between machines and one that never
 // does.
-func TestAFragmentOfARelayedLayerProvesTheOriginal(t *testing.T) {
+func TestAFragmentOfARelayedLayerProvesTheOriginal(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: the seam is a package variable in engine/layer.
 	src := t.TempDir()
 

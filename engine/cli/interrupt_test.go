@@ -13,7 +13,7 @@ import (
 )
 
 // An interrupt cancels the build context.
-func TestAnInterruptCancelsTheBuild(t *testing.T) {
+func TestAnInterruptCancelsTheBuild(t *testing.T) { //nolint:paralleltest // see the note above
 	// Not parallel: it signals this process, and a sibling would see it too.
 	ctx, stop := cli.InterruptContext(context.Background())
 	defer stop()

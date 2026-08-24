@@ -23,7 +23,8 @@ import (
 // **A seam tested only through its fake is a seam whose other side is untested.**
 // What the fakes could not exercise is exactly the layer that failed: a real
 // sub-build, producing a real artifact, exported to a real directory.
-func TestADockerfileProducedByATargetBuilds(t *testing.T) { //nolint:paralleltest // boots a sandbox
+// Not parallel: boots a sandbox.
+func TestADockerfileProducedByATargetBuilds(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}

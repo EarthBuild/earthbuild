@@ -35,7 +35,8 @@ import (
 // E125 - so `1 by observed inputs` would be satisfied by the thing that already
 // worked, and the RUN could have rebuilt every time without the test noticing.
 // Put underneath, the only step that can earn that line is the command.
-func TestARunIsReusedOverABaseItDidNotRunOn(t *testing.T) { //nolint:paralleltest // boots a sandbox
+// Not parallel: boots a sandbox.
+func TestARunIsReusedOverABaseItDidNotRunOn(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}

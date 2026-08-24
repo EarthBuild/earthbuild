@@ -25,7 +25,7 @@ import (
 // downstream that surfaces as `find . -name go.mod` returning nothing, which is
 // not a sentence anybody can trace back to a copy.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestAnArtifactCarriesEveryStepThatBuiltIt(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")

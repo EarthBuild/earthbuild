@@ -170,7 +170,7 @@ func buildGuestd(t *testing.T) string {
 // cannot do at all: the file does not exist when the plan is made, so nothing
 // short of executing the prefix can decide it. Green paper §3.4a, end to end.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestASandboxedConditionIsDecidedByRunningIt(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
@@ -353,7 +353,7 @@ build:
 // exported a file called `--if-exists` and treated the real path as the
 // destination - the wrong file, in the wrong place, reported as success.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestSaveArtifactIfExistsSkipsWhatIsAbsent(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
@@ -414,7 +414,7 @@ build:
 // simulator cannot vouch for it - whether a failed step's filesystem survives
 // to be exported is a question only a real sandbox answers.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestTrySavesTheFailedStepsArtifactAndStillFails(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
@@ -473,7 +473,7 @@ build:
 // exists to be handed to something else and only something else can say whether
 // it is right.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestABuildWritesAnImageAnotherToolCanRead(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
@@ -876,7 +876,7 @@ build:
 // overlay is what prevents that, and this is the only way to know it worked:
 // the step reads the secret, and the layer it produced does not contain it.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestASecretReachesTheStepAndNotTheLayer(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
@@ -965,7 +965,7 @@ build:
 // cache key - written to disk, shared between machines, and impossible to
 // retract. The node records the *name*; the value is added at execution.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestASecretEnvReachesTheStepAndNotTheCache(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")

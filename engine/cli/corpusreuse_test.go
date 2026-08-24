@@ -34,7 +34,8 @@ import (
 // perturbation available: bumping a base image tag changes the shell and the
 // libc, so a step that reads them should miss and a hit would be the false hit
 // I3 forbids (E217).
-func TestHowMuchOfTheCorpusTheObservedTierReuses(t *testing.T) { //nolint:paralleltest // boots a sandbox
+// Not parallel: boots a sandbox.
+func TestHowMuchOfTheCorpusTheObservedTierReuses(t *testing.T) {
 	if os.Getenv("EARTH_TEST_BUILD") == "" {
 		t.Skip("set EARTH_TEST_BUILD=1 to build corpus targets rather than plan them")
 	}

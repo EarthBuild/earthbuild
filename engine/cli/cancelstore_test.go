@@ -28,7 +28,7 @@ import (
 // The two builds share a store deliberately. With separate stores this would
 // assert nothing at all, which is the way a test like this usually goes wrong.
 //
-//nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+// Not parallel: boots a VM, see e2e_sandbox_test.go.
 func TestACancelledBuildLeavesAStoreTheNextBuildCanTrust(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")

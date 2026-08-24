@@ -54,7 +54,8 @@ func TestTheCaseNoteIsNotPrintedWhenNothingFailed(t *testing.T) {
 }
 
 // And on a failure it is there, where the store is one.
-func TestTheCaseNoteIsPrintedWhenSomethingFailed(t *testing.T) { //nolint:paralleltest // t.Setenv
+// Not parallel: t.Setenv.
+func TestTheCaseNoteIsPrintedWhenSomethingFailed(t *testing.T) {
 	store := t.TempDir()
 	if sensitive, known := cli.CaseSensitive(store); !known || sensitive {
 		t.Skip("this machine's temporary directory is case-sensitive, so there" +

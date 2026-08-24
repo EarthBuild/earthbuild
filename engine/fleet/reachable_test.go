@@ -126,7 +126,8 @@ func TestAnnouncingWithoutDiscoveryDoesNothing(t *testing.T) {
 // Off by default because turning it on regressed the direct-dial path that was
 // working; see EnvDiscover. Complete when on, because a resolver without a
 // publisher is the E505 bug and a publisher without a resolver is its mirror.
-func TestDiscoveryIsOffUnlessAskedFor(t *testing.T) { //nolint:paralleltest // t.Setenv
+// Not parallel: t.Setenv.
+func TestDiscoveryIsOffUnlessAskedFor(t *testing.T) {
 	sk, err := key.GenerateSecretKey()
 	if err != nil {
 		t.Fatalf("a key: %v", err)

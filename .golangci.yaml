@@ -111,6 +111,24 @@ linters:
         text: "(G304|G204|G104|G122):"
         linters:
           - gosec
+      # `engine/mat/overlay` walks trees this engine has just placed and joins
+      # their entries onto directories it owns, so G703 fires on nearly every
+      # line that touches a path - eleven of the eighteen in production.
+      #
+      # **Excluded after auditing them rather than instead of auditing them**,
+      # which is the distinction that matters for a security rule. Reading the
+      # eleven one at a time is how E630 was found: a `.wh...` marker stripped to
+      # `..` and let a layer name the directory above the one being translated.
+      # That one is fixed and has three tests; the rest join a walk's own output
+      # onto the walk's own root, which is the same sentence eleven times.
+      #
+      # A new path-joining mechanism in this package is not covered by this rule
+      # having been written - it is covered by somebody reading it, exactly as
+      # these were.
+      - path: engine/mat/overlay/
+        text: "G703:"
+        linters:
+          - gosec
   settings:
     govet:
       enable-all: true

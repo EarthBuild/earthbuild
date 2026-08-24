@@ -67,7 +67,10 @@ func (m ExportMemo) Lookup(stack []ir.NodeID, path string) (string, bool) {
 	// when somebody last looked".
 	root := filepath.Dir(m.dir)
 
-	fi, err := os.Lstat(filepath.Join(root, rel))
+	// Guarded four lines above - empty, absolute and `..` are all refused - and
+	// `rel` is a name this store wrote into its own memo. gosec traces the read
+	// and not the refusal (G703).
+	fi, err := os.Lstat(filepath.Join(root, rel)) //nolint:gosec // refused above
 	if err != nil || !fi.Mode().IsRegular() {
 		return "", false
 	}

@@ -2279,7 +2279,9 @@ func (s *Server) mountStore() string {
 	// caches somewhere that is not there, and the failure would name a cache
 	// rather than a missing volume.
 	if fast := os.Getenv(EnvFast); fast != "" {
-		if fi, err := os.Stat(fast); err == nil && fi.IsDir() {
+		// An operator's environment variable, not a path a build named: whoever
+		// sets it already runs this engine (gosec G703).
+		if fi, err := os.Stat(fast); err == nil && fi.IsDir() { //nolint:gosec // an operator's own setting
 			return filepath.Join(fast, "mounts")
 		}
 	}

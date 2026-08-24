@@ -268,7 +268,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 	// harmless and all noise - the parameter is checked here and dead
 	// afterwards, so naming it for what it is says that once instead of six
 	// times.
-	err := filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
+	walked := filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -432,8 +432,8 @@ func copyTree(src, dst string, opts copyOpts) error {
 
 		return nil
 	})
-	if err != nil {
-		return err
+	if walked != nil {
+		return walked
 	}
 
 	// Deepest first, so a directory that denies writing is never made read-only

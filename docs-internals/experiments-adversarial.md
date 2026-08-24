@@ -28490,3 +28490,11 @@ tree-wide hoist claimed the compiler was the safety net; it is not, for the 87 s
 `no new variables` forced `:=` into `=` and an inner error began assigning to an outer one. That
 transform wants auditing on its own terms rather than trusting a green build - **this failure was not
 caused by it, and finding that out took reading the diff rather than assuming.**
+
+*The audit, done.* 86 sites turned `:=` into `=`. The dangerous shape is narrow enough to find
+mechanically: if the `if err != nil` body **leaves** - returns, continues, `t.Fatal` - then falling
+through means the error was nil and assigning it to an outer variable changes nothing. Only a branch
+that does *not* leave can hand a later reader a value it would not have had. **Eleven of the 86**, and
+all eleven hold: two are production functions that return nothing and never read `err` again
+(`fragments.go`'s manifest write and `challenge.go`'s cache write, both best-effort), and nine are the
+last statement of a test. Nothing to fix, and now stated rather than suspected.

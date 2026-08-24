@@ -2,8 +2,10 @@ package layer_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/layer"
@@ -205,5 +207,86 @@ func TestAFragmentWithAnExtraPathIsRefused(t *testing.T) {
 	err = layer.VerifyFragment(m, into)
 	if err == nil {
 		t.Fatal("a fragment carrying a path the layer does not have was accepted")
+	}
+}
+
+// A fragment carrying a path the manifest does not mention is refused.
+//
+// **This is the one an attacker wants.** A fragment is a subset of a layer, so
+// absence proves nothing and the verifier deliberately does not check for it -
+// which leaves presence as the only thing it can check, and the only thing it
+// must. A peer that adds a file to somebody else's base has added it to every
+// step built on that base, and the file it added is not in the manifest that
+// hashes to the layer's name (A5, C.4.1).
+//
+// Nothing checked it. The catalogue pins the refusal, and replacing it with
+// `continue` - accept the extra file and carry on - left every test in the
+// package passing, including the one directly above that verifies an honest
+// fragment.
+func TestAFragmentCarryingSomethingExtraIsRefused(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t)
+
+	m, err := layer.Manifest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+
+	err = layer.PackPaths(root, &buf, []string{"usr/bin/tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	into := filepath.Join(t.TempDir(), "fragment")
+
+	err = layer.Unpack(&buf, into)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// What a hostile peer sends: the fragment that was asked for, plus one file
+	// nobody asked for and the manifest has never heard of.
+	dir := filepath.Join(into, "usr", "bin")
+	smuggled := filepath.Join(dir, "not-in-the-manifest")
+
+	// **The directory's timestamps are put back.** Writing a file into it moves
+	// its mtime, and the mtime is sealed too - so without this the fragment is
+	// refused for the *directory* having changed and the extra file is never
+	// reached. That refusal is real and would mask this one, which is precisely
+	// how a mechanism ends up with no test: something else fails first, in every
+	// case anybody tried.
+	was, err := os.Stat(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(smuggled, []byte("#!/bin/sh\nexfiltrate\n"), 0o700) //nolint:gosec // an executable is the point
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Chtimes(dir, was.ModTime(), was.ModTime())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = layer.VerifyFragment(m, into)
+	if err == nil {
+		t.Fatal("a fragment carrying a file the manifest does not mention was" +
+			" accepted, so a peer can add one to somebody else's base")
+	}
+
+	// Named, because the operator needs to know which file arrived uninvited -
+	// and refused as malformed rather than as a mismatch, since there is
+	// nothing to have mismatched.
+	if !strings.Contains(err.Error(), "not-in-the-manifest") {
+		t.Errorf("the refusal does not name the file that arrived: %v", err)
+	}
+
+	if !errors.Is(err, layer.ErrMalformed) {
+		t.Errorf("refused as %v, want ErrMalformed", err)
 	}
 }

@@ -47,7 +47,6 @@ func buildGuestd(t *testing.T) string {
 var (
 	guestdOnce sync.Once
 	guestdPath string
-	guestdDir  string
 	guestdSkip string
 	errGuestd  error
 )
@@ -66,14 +65,16 @@ func compileGuestd() {
 		return
 	}
 
-	guestdDir, err = os.MkdirTemp("", "guestd")
+	dir, err := os.MkdirTemp("", "guestd")
 	if err != nil {
 		errGuestd = fmt.Errorf("make a directory for earth-guestd: %w", err)
 
 		return
 	}
 
-	out := filepath.Join(guestdDir, "earth-guestd")
+	keepUntilTheEnd(dir)
+
+	out := filepath.Join(dir, "earth-guestd")
 
 	// Background: this outlives any one test by design, so there is no test's
 	// context to inherit and cancelling it would strand the tests that follow.
@@ -89,15 +90,4 @@ func compileGuestd() {
 	}
 
 	guestdPath = out
-}
-
-// TestMain removes the shared agent, which no single test owns.
-func TestMain(m *testing.M) {
-	code := m.Run()
-
-	if guestdDir != "" {
-		_ = os.RemoveAll(guestdDir)
-	}
-
-	os.Exit(code)
 }

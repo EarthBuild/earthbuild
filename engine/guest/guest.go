@@ -655,14 +655,6 @@ func isDir(p string) bool {
 // The source layer is read from the store rather than stacked into the mount,
 // because COPY is about where a file *lands*, not where it came from. Stacking
 // would put the host's directory layout into the image.
-// copyIn implements COPY: it takes a path out of the stack an artifact came
-// from and places it in the step's filesystem.
-//
-// A *stack*, not one layer: an artifact need not be made by its target's last
-// step. Clojure's build runs `lein uberjar`, extracts a version from the jar,
-// and then saves the jar - so the jar is two layers down, and reading the
-// producing node's own layer said the pattern matched nothing, which was true
-// of that layer and false of the target.
 // CopyOpts is how a COPY differs from the plain one, across the wire.
 //
 // Exported because the executor builds one: it is the only way to add the
@@ -715,6 +707,14 @@ func (o copyOpts) stamp(actual time.Time) time.Time {
 	return fstime.Stamp(o.Clamp, actual)
 }
 
+// copyIn implements COPY: it takes a path out of the stack an artifact came
+// from and places it in the step's filesystem.
+//
+// A *stack*, not one layer: an artifact need not be made by its target's last
+// step. Clojure's build runs `lein uberjar`, extracts a version from the jar,
+// and then saves the jar - so the jar is two layers down, and reading the
+// producing node's own layer said the pattern matched nothing, which was true
+// of that layer and false of the target.
 func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts copyOpts) error {
 	if s.LayerDir == "" {
 		return errors.New("no layer store configured, so there is nothing to copy from")
@@ -2595,13 +2595,6 @@ func declaredBy(h core.Handle, req Request) []string {
 	return from
 }
 
-// hostClamp is the timestamp this build asked every file it writes to carry.
-//
-// Read here, on the host, and sent with each request that writes something.
-// The guest was given `SOURCE_DATE_EPOCH` at boot for a while, which is right
-// until the sandbox outlives the build that started it: it is named by its
-// image, store and memory, so the next build finds a machine already holding
-// somebody else's instruction (E549).
 // EnvShareExports turns off taking an export straight from the store.
 //
 // An escape hatch and an A/B switch: the fast path is only sound because the
@@ -2616,6 +2609,13 @@ const EnvShareExports = "EARTH_SHARE_EXPORTS"
 // guards against is a wrong answer, not a missing one.
 func ShareExports() bool { return os.Getenv(EnvShareExports) != "0" }
 
+// hostClamp is the timestamp this build asked every file it writes to carry.
+//
+// Read here, on the host, and sent with each request that writes something.
+// The guest was given `SOURCE_DATE_EPOCH` at boot for a while, which is right
+// until the sandbox outlives the build that started it: it is named by its
+// image, store and memory, so the next build finds a machine already holding
+// somebody else's instruction (E549).
 func hostClamp() *int64 {
 	at, ok := fstime.Clamp()
 	if !ok {

@@ -46,6 +46,15 @@ const (
 	schemePlain = "http"
 )
 
+// ParseRef reads an image reference the way a registry client does.
+//
+// Normalised, not merely split: `alpine` is `docker.io/library/alpine:latest`
+// and `ubuntu:24.04` is `docker.io/library/ubuntu:24.04`, so two spellings of
+// one image cannot become two cache keys. A digest survives if the reference
+// carries one, because a pinned reference is the whole point of pinning.
+//
+// Refuses rather than guessing: a reference this cannot read is one the build
+// asked for and would otherwise be silently replaced by something else.
 func ParseRef(s string) (Ref, error) {
 	named, err := reference.ParseNormalizedNamed(strings.TrimSpace(s))
 	if err != nil {

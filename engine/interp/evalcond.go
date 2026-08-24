@@ -53,25 +53,13 @@ func WithCommands(fn Commands) Option {
 	return func(o *options) { o.commands = fn }
 }
 
-// evaluate answers a condition the plan could not decide.
+// ErrNoRunner says a value cannot be known without running something.
 //
-// Green paper §3.4a: where a condition requires evaluation in a sandbox, the
-// graph is not fully known in advance. This is the point at which that becomes
-// true - the interpreter stops being a pure function of the source and the
-// arguments, and the untaken branch is decided by something that ran.
-//
-// Prediction is not here yet. When it arrives it changes *when* the work
-// starts, never which branch is taken (I5): this call remains the authority on
-// the answer.
-// ErrNoRunner is what a plan gives back when the answer exists only by running
-// something and the caller supplied nowhere to run it.
-//
-// Typed rather than a message to read, because it is a different kind of number
-// from an unimplemented construct and adding the two together overstates the
-// work left: `LET v = $(cat version)` is finished, and a caller that plans
-// without a sandbox - the corpus does exactly that - simply cannot be given an
-// answer. Counting those as missing features had them filling the top of the
-// list of what to build next.
+// A kind of ErrNotProvided, so a caller that treats every missing prerequisite
+// alike still does the right thing, and one that wants to *supply* a runner can
+// tell this apart from a missing secret. The plan says so rather than guessing:
+// a condition evaluated by assumption is a branch taken for a reason nobody
+// recorded (I5).
 var ErrNoRunner = fmt.Errorf(
 	"this value is only known by running something: %w", ErrNotProvided)
 
@@ -92,6 +80,25 @@ var ErrNoRunner = fmt.Errorf(
 // this caller declined to make is the other.
 var ErrNotProvided = errors.New("this plan needs something the caller did not provide")
 
+// evaluate answers a condition the plan could not decide.
+//
+// Green paper §3.4a: where a condition requires evaluation in a sandbox, the
+// graph is not fully known in advance. This is the point at which that becomes
+// true - the interpreter stops being a pure function of the source and the
+// arguments, and the untaken branch is decided by something that ran.
+//
+// Prediction is not here yet. When it arrives it changes *when* the work
+// starts, never which branch is taken (I5): this call remains the authority on
+// the answer.
+// ErrNoRunner is what a plan gives back when the answer exists only by running
+// something and the caller supplied nowhere to run it.
+//
+// Typed rather than a message to read, because it is a different kind of number
+// from an unimplemented construct and adding the two together overstates the
+// work left: `LET v = $(cat version)` is finished, and a caller that plans
+// without a sandbox - the corpus does exactly that - simply cannot be given an
+// answer. Counting those as missing features had them filling the top of the
+// list of what to build next.
 func (p *Plan) evaluate(cond []string, base *ir.Node, dir, where string) (bool, error) {
 	if p.opt.commands == nil {
 		return false, fmt.Errorf(

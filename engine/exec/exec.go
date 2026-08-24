@@ -967,6 +967,14 @@ func (e *Executor) Degraded() string {
 //
 // On unless switched off, because a build that cannot earn an L2 hit is slower
 // in the way that matters more.
+// EnvTrace names the setting that turns the syscall tracer off.
+//
+// `0` disables it and anything else leaves it on, which is the direction that
+// matters: a build that forgets to set it observes its steps, and observing is
+// what the second cache tier is derived from. The cost is measured rather than
+// assumed - eighty per cent on a target that caches nothing (E601) - and the
+// tier it buys is measured too (E621), so the trade is an operator's to make
+// with two numbers.
 const EnvTrace = "EARTH_TRACE"
 
 // tracing reports whether steps are watched.

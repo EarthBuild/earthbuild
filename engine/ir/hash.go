@@ -122,6 +122,12 @@ func (w *Encoder) Bool(b bool) {
 	_, _ = w.w.Write([]byte{v})
 }
 
+// Sum is the identity of everything written so far.
+//
+// Truncated to a NodeID, which is 32 bytes: the hash is wider and the identity
+// is not. Nothing here re-reads the hasher, so a Sum is the end of an encoding
+// rather than a checkpoint in one - and two encodings that differ anywhere
+// before this differ here (green paper 1.4).
 func (w *Hasher) Sum() NodeID {
 	var id NodeID
 

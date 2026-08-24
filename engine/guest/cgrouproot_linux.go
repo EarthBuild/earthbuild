@@ -115,33 +115,14 @@ func writableDir(p string) bool {
 	return unix.Access(p, unix.W_OK|unix.X_OK) == nil
 }
 
-// stepAside moves this process into a leaf of base, so base can enable
-// controllers for its other children.
+// TakeOverCgroup makes this process's cgroup one it may put children into, and
+// reports where.
 //
-// cgroup v2's **"no internal processes" rule**: a cgroup holding processes may
-// not enable controllers in `cgroup.subtree_control`. A delegated scope holds
-// the process that was started in it - the engine - so inside
-// `systemd-run --user --scope --property=Delegate=yes` the controllers are
-// listed as available and enabling them is still refused:
-//
-//	cgroup.controllers              cpu io memory pids
-//	echo +memory > subtree_control  FAILS
-//
-// Which reads as "not delegated" unless you know the rule, and is why this is a
-// named step rather than a retry.
-//
-// Idempotent: a leaf that already exists is reused, so a second call after a
-// reconnect does not pile up directories.
-// TakeOverCgroup steps this process's cgroup aside so its children's limits can
-// be enforced. Exported because the caller has to be the **host**.
-//
-// The guest runs in a pid namespace, and pids written to `cgroup.procs` are
-// interpreted in the writer's pid namespace - so a guest reading the host pids
-// in its scope and writing them back is naming processes that do not exist for
-// it. The move silently does nothing, `subtree_control` is refused exactly as
-// before, and the fix is indistinguishable from no fix (E124).
-//
-// Idempotent, and a no-op where there is nothing to take over.
+// Two halves, and neither works alone: a process cannot enable controllers for
+// the cgroup it is *in*, so it steps aside into a leaf first, and only then may
+// write the subtree mask its children need. Empty and no error where there is no
+// cgroup to take over, because a machine without one is not a machine that has
+// failed.
 func TakeOverCgroup() (string, error) {
 	base, ok := cgroupParent()
 	if !ok {
@@ -197,6 +178,33 @@ func enableControllers(dir string) error {
 	return nil
 }
 
+// stepAside moves this process into a leaf of base, so base can enable
+// controllers for its other children.
+//
+// cgroup v2's **"no internal processes" rule**: a cgroup holding processes may
+// not enable controllers in `cgroup.subtree_control`. A delegated scope holds
+// the process that was started in it - the engine - so inside
+// `systemd-run --user --scope --property=Delegate=yes` the controllers are
+// listed as available and enabling them is still refused:
+//
+//	cgroup.controllers              cpu io memory pids
+//	echo +memory > subtree_control  FAILS
+//
+// Which reads as "not delegated" unless you know the rule, and is why this is a
+// named step rather than a retry.
+//
+// Idempotent: a leaf that already exists is reused, so a second call after a
+// reconnect does not pile up directories.
+// TakeOverCgroup steps this process's cgroup aside so its children's limits can
+// be enforced. Exported because the caller has to be the **host**.
+//
+// The guest runs in a pid namespace, and pids written to `cgroup.procs` are
+// interpreted in the writer's pid namespace - so a guest reading the host pids
+// in its scope and writing them back is naming processes that do not exist for
+// it. The move silently does nothing, `subtree_control` is refused exactly as
+// before, and the fix is indistinguishable from no fix (E124).
+//
+// Idempotent, and a no-op where there is nothing to take over.
 func stepAside(base string) (string, error) {
 	leaf := filepath.Join(base, "earthbuild.main")
 

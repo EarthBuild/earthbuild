@@ -32,6 +32,13 @@ import (
 // anything reading the record is concerned.
 const writerName = "earthbuild"
 
+// Options is a build, as a caller describes it.
+//
+// Everything the engine needs to run one and nothing about how: the fields say
+// what to build and where to report, and the choices - which engine, how many
+// workers, what to trace - are read from the environment or decided by the
+// engine itself. A caller that had to answer those would be a caller that has
+// to be updated whenever the engine learns a new one.
 type Options struct {
 	// Dir holds the Earthfile and is the build context.
 	Dir string

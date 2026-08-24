@@ -27719,3 +27719,56 @@ that is true - the step *does* rerun - beside the existing test that asserts a h
 environment holds still. The pair is what pins it, and either alone would pass against an engine that
 had lost the distinction. **A refuted optimisation is worth a test, because the next person to have
 the idea will have it in good faith**, and this file's own reasoning got two paragraphs into it.
+
+## E614 - the fifth time a microbenchmark has been wrong about a workload
+
+E601 priced the tracer at eighty per cent and nothing since has attacked the price. The hot path is
+`Tracer.handle`, and it opened `/proc/<pid>/mem` on **every notification** - once per open, stat,
+access and readlink a traced step makes, which for a configure script is thousands, always the same
+path, always for a process still running.
+
+Measured on the 32-core linux box, in isolation:
+
+```text
+    open + read + close    5.808µs
+    read alone             0.875µs
+    the open and close      4.933µs
+```
+
+Against a whole traced path call costing 8.61µs, that is **more than half of what tracing costs, spent
+opening a file it had just closed.** A handle cached per process removes it, and is safer besides: a
+descriptor on `/proc/<pid>/mem` is bound to the task it was opened on, so it reads that process or
+fails, while resolving the path afresh can be re-pointed at whoever inherits a recycled pid.
+
+So it was written - one handle per pid, bounded at 128, dropped and reopened on a failed read, three
+tests covering reuse, retry and the bound, all passing. Then the end-to-end measurement, interleaved
+old and new to cancel drift:
+
+| Version                | Traced, per path call |
+| ---------------------- | --------------------- |
+| before                 | 7.82µs                |
+| with the handle cached | 8.12µs                |
+
+**No gain, and if anything slightly slower.** Four thousand opens removed from the critical path of a
+32ms measurement, and the measurement did not move - so the 4.9µs the isolated test attributed to
+`open` and `close` is not being paid there, and the ~20ms it predicted never existed.
+
+*And the test was the favourable case, which is what settles it.* `StartOnSelf` traces the calling
+process, so all four thousand notifications carry one tid and the cache holds exactly one entry, hit
+every time. A cache that shows nothing where every lookup hits will show less in a build, where most
+processes are short-lived and make one call each. There is no workload hiding behind this that the
+microbenchmark was right about.
+
+*Why the isolated number is what it is, this does not say.* Something about opening `/proc/self/mem`
+in a tight loop from a running multi-threaded Go process costs five microseconds and the same call in
+the tracer does not, and inventing a mechanism for that would be the same error one level down.
+
+**Reverted, and this is the fifth time.** E588 blamed the tracer for a gap it did not cause, E589
+named the pattern, E599 published a ratio from one noisy sample, E602 measured a tier against a case
+too easy for it - and now a change with a microbenchmark, a mechanism, three green tests and no
+effect. The pattern is not that microbenchmarks lie; it is that **a mechanism plus a plausible
+number is indistinguishable from a result**, and only the workload can tell them apart. The A/B took
+eleven minutes and would have taken eleven minutes at any point before writing the code.
+
+*Kept:* nothing but this. The tests went with the mechanism - unlike E613, where the test outlives the
+idea because it pins a boundary that must hold. A cache that no longer exists has no boundary to pin.

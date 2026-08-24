@@ -28543,3 +28543,31 @@ fixture the test owns, where tightening is free, or **a value that mirrors somet
 shell writes, what a source layer has, what a kernel returns. The second kind is an assertion wearing
 a permission, and there is no way to tell them apart by grepping for `0o644`. Every other swept
 package was re-run on linux the same way and passes; this was the only one.
+
+## E633 - twenty-one modes tightened, three that could not be, and the difference measured
+
+E632 left a rule for the next permission sweep: a mode in a test is either a fixture the test owns or
+a value mirroring something else, and grepping cannot tell them apart. The same question applies to
+production, where a mode may be part of the artefact - and this time it was answered by running the
+tests rather than by reasoning about them.
+
+Twenty-four production `MkdirAll` and `WriteFile` modes tightened at once, then the whole engine suite
+cross-compiled and run on linux in a local container. One failure, and it named itself:
+
+```text
+    mountmode_internal_linux_test.go:73: /c is 0750, and the mount asked for 0755
+```
+
+**A mount point carries the mode the mount asked for.** Three sites in `engine/guest/mount_linux.go`
+create the source and target of a bind mount, and the mode is not this engine's to choose - it is what
+the build asked for, and a test exists that says so. Reverted, and each now carries that sentence.
+
+The other twenty-one hold: overlay's upper, work and merged directories, the layer unpack root, the
+fleet's layer paths and the store's own. All of them are directories this engine invents for itself,
+and 0o755 was a habit rather than a decision - `place.go`, `index.go`, `store.go` and `exportmemo.go`
+were already 0o750 and disagreed with their neighbours.
+
+*What made this cheap is the loop, not the judgement.* Cross-compiling the engine's tests and running
+them in a container is ten seconds; the same question went to CI three times in E631 and cost an hour
+to answer wrongly. **A sweep that can be tested should be tested, and the reason to reason about it is
+that you cannot.**

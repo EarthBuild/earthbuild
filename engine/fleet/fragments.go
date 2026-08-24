@@ -68,7 +68,7 @@ func (f *Fragments) Manifest(id ir.NodeID) ([]byte, bool) {
 func (f *Fragments) keepManifest(id ir.NodeID, manifest []byte) {
 	at := f.manifestAt(id)
 
-	if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
 		return
 	}
 
@@ -189,7 +189,7 @@ func (f *Fragments) PutVerified(
 // unpackBeside unpacks a fragment next to where it will live, so that filing it
 // is a rename rather than a copy (E263).
 func (f *Fragments) unpackBeside(at string, r io.Reader) (string, error) {
-	err := os.MkdirAll(filepath.Dir(at), 0o755)
+	err := os.MkdirAll(filepath.Dir(at), 0o750)
 	if err != nil {
 		return "", fmt.Errorf("make room for a fragment: %w", err)
 	}

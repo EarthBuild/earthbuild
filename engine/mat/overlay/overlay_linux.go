@@ -58,12 +58,12 @@ func New(dir string) (*Materialiser, error) { return NewSplit(dir, dir) }
 // corrupt the cache it is reading - and a practical necessity, since overlayfs
 // refuses such a filesystem as an upper layer.
 func NewSplit(layerDir, scratchDir string) (*Materialiser, error) {
-	err := os.MkdirAll(filepath.Join(layerDir, "layers"), 0o755)
+	err := os.MkdirAll(filepath.Join(layerDir, "layers"), 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("prepare the layer store: %w", err)
 	}
 
-	err = os.MkdirAll(scratchDir, 0o755)
+	err = os.MkdirAll(scratchDir, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("prepare the scratch directory: %w", err)
 	}
@@ -88,7 +88,7 @@ func NewSplit(layerDir, scratchDir string) (*Materialiser, error) {
 		}
 	}
 
-	err = os.MkdirAll(filepath.Join(scratchDir, "mounts"), 0o755)
+	err = os.MkdirAll(filepath.Join(scratchDir, "mounts"), 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("prepare the scratch directory: %w", err)
 	}
@@ -149,19 +149,19 @@ func (m *Materialiser) farmDir() string { return filepath.Join(m.scratch, "l") }
 // layer arrives from Δ (green paper §4.6), not from a map of strings.
 func (m *Materialiser) WriteLayer(id ir.NodeID, files map[string]string) error {
 	dir := m.layerDir(id)
-	err := os.MkdirAll(dir, 0o755)
+	err := os.MkdirAll(dir, 0o750)
 	if err != nil {
 		return fmt.Errorf("create layer dir: %w", err)
 	}
 
 	for name, content := range files {
 		path := filepath.Join(dir, name)
-		err := os.MkdirAll(filepath.Dir(path), 0o755)
+		err := os.MkdirAll(filepath.Dir(path), 0o750)
 		if err != nil {
 			return fmt.Errorf("create layer subdir: %w", err)
 		}
 
-		err = os.WriteFile(path, []byte(content), 0o644)
+		err = os.WriteFile(path, []byte(content), 0o600)
 		if err != nil {
 			return fmt.Errorf("write layer file: %w", err)
 		}
@@ -194,7 +194,7 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 	work := filepath.Join(base, "work")
 
 	for _, d := range []string{merged, upper, work} {
-		err := os.MkdirAll(d, 0o755)
+		err := os.MkdirAll(d, 0o750)
 		if err != nil {
 			return nil, fmt.Errorf("create mount dirs: %w", err)
 		}

@@ -124,7 +124,7 @@ func (l *Layers) keepOwners(id ir.NodeID, own map[string]layer.Owner) error {
 // the right digest is worse than no layer at all, because `Has` would say yes
 // and the build would proceed on a tree missing files.
 func (l *Layers) Put(r io.Reader) (ir.NodeID, int64, error) {
-	err := os.MkdirAll(filepath.Join(l.Root, "layers"), 0o755)
+	err := os.MkdirAll(filepath.Join(l.Root, "layers"), 0o750)
 	if err != nil {
 		return ir.NodeID{}, 0, fmt.Errorf("make the layer store: %w", err)
 	}

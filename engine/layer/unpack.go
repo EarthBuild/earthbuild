@@ -69,7 +69,7 @@ func UnpackOwned(r io.Reader, root string) (map[string]Owner, error) {
 		return nil, d.err
 	}
 
-	err := os.MkdirAll(root, 0o755)
+	err := os.MkdirAll(root, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("make the layer root: %w", err)
 	}

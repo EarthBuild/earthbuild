@@ -213,7 +213,7 @@ func (r *Rate) Save(at string) error {
 		return fmt.Errorf("record what this fleet costs: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
 		return fmt.Errorf("record what this fleet costs: %w", err)
 	}
 

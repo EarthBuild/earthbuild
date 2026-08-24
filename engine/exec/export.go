@@ -194,7 +194,7 @@ func copyOut(src, dst string) error {
 		return copyLink(src, dst)
 	}
 
-	err = os.MkdirAll(filepath.Dir(dst), 0o755)
+	err = os.MkdirAll(filepath.Dir(dst), 0o750)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
 	}

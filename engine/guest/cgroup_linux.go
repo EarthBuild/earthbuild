@@ -77,7 +77,7 @@ func newCgroup(name string, l Limits) (*cgroup, error) {
 
 	parent := filepath.Join(base, "earthbuild")
 
-	err = os.MkdirAll(parent, 0o755)
+	err = os.MkdirAll(parent, 0o750)
 	if err != nil {
 		return degraded("cannot create the parent cgroup: " + err.Error())
 	}
@@ -92,7 +92,7 @@ func newCgroup(name string, l Limits) (*cgroup, error) {
 	}
 
 	path := filepath.Join(parent, name)
-	err = os.MkdirAll(path, 0o755)
+	err = os.MkdirAll(path, 0o750)
 	if err != nil {
 		return degraded("cannot create the step cgroup: " + err.Error())
 	}

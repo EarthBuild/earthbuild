@@ -40,7 +40,7 @@ func layerNamed(store string, key ir.NodeID) (ir.NodeID, bool) {
 // rememberLayer records what a derivation produced. Best-effort: losing it costs
 // one capture, so a failure here is not worth failing a build over.
 func rememberLayer(store string, key, id ir.NodeID) {
-	if os.MkdirAll(layerMapDir(store), 0o755) != nil {
+	if os.MkdirAll(layerMapDir(store), 0o750) != nil {
 		return
 	}
 

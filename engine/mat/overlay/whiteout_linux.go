@@ -114,8 +114,8 @@ func (t *translator) use(src, id string) (string, error) {
 		// one walk in some later process, which is what happened before it
 		// existed. Failing the materialise over it would turn a slow build into
 		// a broken one.
-		if err := os.MkdirAll(t.dir, 0o755); err == nil {
-			_ = os.WriteFile(unmarkedFile(t.dir, id), nil, 0o644)
+		if err := os.MkdirAll(t.dir, 0o750); err == nil {
+			_ = os.WriteFile(unmarkedFile(t.dir, id), nil, 0o600)
 		}
 
 		return src, nil
@@ -136,7 +136,7 @@ func (t *translator) use(src, id string) (string, error) {
 		return out, nil
 	}
 
-	err = os.MkdirAll(t.dir, 0o755)
+	err = os.MkdirAll(t.dir, 0o750)
 	if err != nil {
 		return "", fmt.Errorf("prepare the translation directory: %w", err)
 	}
@@ -222,7 +222,7 @@ func translate(src, dst string) error {
 
 		switch {
 		case d.IsDir():
-			return os.MkdirAll(target, 0o755) //nolint:wrapcheck // named by the caller
+			return os.MkdirAll(target, 0o750) //nolint:wrapcheck // named by the caller
 
 		case d.Name() == whOpaque:
 			// The directory holding it replaces the one below, which overlayfs

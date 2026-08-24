@@ -254,6 +254,7 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 		// The source must exist before it can be bound, and a cache mount names
 		// a directory that is empty on the first build by definition.
 		if m.Secret == "" && m.Sandbox == "" && !m.Ephemeral {
+			//nolint:gosec // a mount point carries the mode the mount asked for
 			err := os.MkdirAll(source, 0o755)
 			if err != nil {
 				unmount()
@@ -330,6 +331,8 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 			// afterwards there is no way to tell.
 			_, err := os.Lstat(target)
 			missing := err != nil
+
+			//nolint:gosec // a mount point carries the mode the mount asked for
 
 			err = os.MkdirAll(target, 0o755)
 			if err != nil {
@@ -414,6 +417,8 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 // observe and no key describes (I3).
 func mountProc(root string) (undo func(), err error) {
 	target := filepath.Join(root, "proc")
+
+	//nolint:gosec // a mount point carries the mode the mount asked for
 
 	err = os.MkdirAll(target, 0o755)
 	if err != nil {

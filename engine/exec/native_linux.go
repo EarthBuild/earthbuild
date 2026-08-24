@@ -194,7 +194,7 @@ func (n *Native) Start(ctx context.Context) (Conn, error) {
 		return nil, err
 	}
 
-	err = os.MkdirAll(filepath.Join(n.Root, "layers"), 0o755)
+	err = os.MkdirAll(filepath.Join(n.Root, "layers"), 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("create the layer store: %w", err)
 	}

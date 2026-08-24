@@ -89,6 +89,24 @@ runs:
         echo "Earth binary installed from artifact to ${INPUTS_BUILT_EARTH_PATH}"
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+    - name: Let unprivileged user namespaces work
+      # **Every job in this suite is a native-engine job now.** The engine's
+      # sandbox is an unprivileged user namespace, and ubuntu-24.04 ships
+      # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one
+      # to any binary without an AppArmor profile - so `unshare -Urm` fails and
+      # every RUN fails at the mount.
+      #
+      # This was set in the report-only native job and nowhere else, which was
+      # correct while `--engine=buildkit` was the default and is not now: the
+      # suites never reached the failure because they are gated behind
+      # `fast-check-and-build`, so nothing had told us yet.
+      #
+      # A sysctl on a throwaway runner rather than a profile, and it stops
+      # mattering the moment the default goes back to buildkit.
+      run: |
+        sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+        unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+      shell: bash
     - name: Set up Docker Hub Mirrors and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |

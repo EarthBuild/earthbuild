@@ -650,12 +650,6 @@ func isDir(p string) bool {
 	return err == nil && fi.IsDir()
 }
 
-// copyIn implements COPY: it takes a path out of a layer in the store and places
-// it in the step's filesystem.
-//
-// The source layer is read from the store rather than stacked into the mount,
-// because COPY is about where a file *lands*, not where it came from. Stacking
-// would put the host's directory layout into the image.
 // CopyOpts is how a COPY differs from the plain one, across the wire.
 //
 // Exported because the executor builds one: it is the only way to add the

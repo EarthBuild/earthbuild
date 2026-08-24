@@ -948,15 +948,6 @@ func (e *Executor) Degraded() string {
 	return c.Degraded()
 }
 
-// DockerNote reports why a WITH DOCKER step was given no docker client, or
-// empty if it was given one.
-//
-// Kept once and asked of the executor rather than announced, so the caller
-// decides when a build-level note belongs in its output - the same shape as
-// Degraded and as the case-insensitive store warning.
-// GuestNote says the sandbox agent is older than this engine, or nothing.
-//
-// Asked of the executor rather than computed at the call site, because the
 // EnvTrace turns off watching what a step reads.
 //
 // **A lever and a measurement.** Observation is how a step earns an L2 hit - a
@@ -983,6 +974,9 @@ const EnvTrace = "EARTH_TRACE"
 // tracing reports whether steps are watched.
 func tracing() bool { return os.Getenv(EnvTrace) != "0" }
 
+// GuestNote says the sandbox agent is older than this engine, or nothing.
+//
+// Asked of the executor rather than computed at the call site, because the
 // executor is what knows where the guest came from - `$EARTH_GUESTD`, or beside
 // this binary - and a note naming a different file than the one that ran would
 // be worse than none (E499).
@@ -1000,6 +994,12 @@ func (e *Executor) GuestNote() string {
 	return staleGuestNote(self, guest)
 }
 
+// DockerNote reports why a WITH DOCKER step was given no docker client, or
+// empty if it was given one.
+//
+// Kept once and asked of the executor rather than announced, so the caller
+// decides when a build-level note belongs in its output - the same shape as
+// Degraded and as the case-insensitive store warning.
 func (e *Executor) DockerNote() string {
 	e.mu.Lock()
 	defer e.mu.Unlock()

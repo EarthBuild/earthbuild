@@ -324,12 +324,12 @@ func (ix *indexRegistry) start(t *testing.T) string {
 		case strings.HasSuffix(r.URL.Path, "/manifests/1"):
 			ms := make([]map[string]any, 0, len(ix.platforms))
 			for _, p := range ix.platforms {
-				os_, arch, _ := strings.Cut(p, "/")
+				wantOS, arch, _ := strings.Cut(p, "/")
 				ms = append(ms, map[string]any{
 					testMediaType: ocispec.MediaTypeImageManifest,
 					testDigest:    digestOf([]byte(p)),
 					testSize:      100,
-					"platform":    map[string]any{"os": os_, "architecture": arch},
+					"platform":    map[string]any{"os": wantOS, "architecture": arch},
 				})
 			}
 

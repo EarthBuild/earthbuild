@@ -17,7 +17,7 @@ const Env = "EARTH_TIMINGS"
 
 // To is where phases are reported, or nil when nobody asked. Read once, because
 // a build with a thousand steps asks several thousand times.
-var To io.Writer = func() io.Writer {
+var To = func() io.Writer {
 	if os.Getenv(Env) == "" {
 		return nil
 	}

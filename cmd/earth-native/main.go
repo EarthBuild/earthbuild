@@ -26,11 +26,28 @@ func (a *buildArgs) String() string { return "" }
 
 func (a *buildArgs) Set(v string) error {
 	name, value, ok := strings.Cut(v, "=")
-	if !ok || name == "" {
-		// Refused rather than guessed: `-build-arg version` is a typo, and
-		// treating it as an empty value would build something the user did not
-		// ask for and say nothing.
+	if name == "" {
 		return fmt.Errorf("expected NAME=VALUE, found %q", v)
+	}
+
+	if !ok {
+		// **A bare name means the environment**, which is the spelling
+		// `earthly --build-arg NAME` accepts and what `variables` has always
+		// done for the other backend. The two front ends put the same argument
+		// in front of the same engine, so a flag one takes and the other refuses
+		// is a script that works until somebody changes which binary they call.
+		//
+		// What the refusal here was right about was *guessing an empty value* -
+		// `-build-arg version` being a typo that built something nobody asked
+		// for and said nothing. Looking the name up does not guess, and a name
+		// nobody exported is still refused below.
+		value, ok = os.LookupEnv(name)
+		if !ok {
+			return fmt.Errorf(
+				"%q has no value and %s is not set in the environment"+
+					"\n  write it as %s=<value>, or export %s before building",
+				v, name, v, name)
+		}
 	}
 
 	if *a == nil {

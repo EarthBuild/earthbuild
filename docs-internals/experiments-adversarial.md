@@ -28413,3 +28413,36 @@ going to notice; the bound was simply the wrong number, checked after the damage
 Now refused before the jumps are computed, against what the field can express, naming the arithmetic.
 This is the fifth defect `gosec` G115 has found in this sweep, and the first where a silent truncation
 would have weakened a security mechanism rather than a fixture.
+
+## E630 - a layer that could name the parent, found in the taint the linter pointed at
+
+`gosec` G703 - "path traversal via taint analysis" - reports twenty-eight sites, and most are paths
+built from layer *ids*: hex digests, which cannot traverse. One is not.
+
+Overlayfs spells a deletion as `.wh.<name>` beside where `<name>` would be, and the translation did:
+
+```go
+    gone := filepath.Join(filepath.Dir(target), strings.TrimPrefix(d.Name(), whPrefix))
+
+    return unix.Mknod(gone, unix.S_IFCHR|0o600, 0)
+```
+
+**`.wh...` strips to `..`.** The name comes out of a layer archive, so an image can contain that file;
+`filepath.Join` then resolves it to the *parent* of the directory being translated, and the engine
+calls `Mknod` on a path outside the destination.
+
+*Nothing escaped, and the reason is luck rather than design.* The parent exists, and `Mknod` refuses an
+existing path - so the build failed with whatever the kernel said, naming neither the layer nor the
+marker. **The guard was the filesystem's, not the engine's**, and a destination whose parent happened
+not to exist would have had a device node written beside it. `.wh..` strips to `.` and fails the same
+way for the same accidental reason.
+
+Now `whiteoutTarget` asserts the shape a marker can have: one component, not empty, not `.`, not `..`,
+no separator. It lives in a file with no build tag and is tested on any platform, because the syscalls
+are linux-only and the *rule* is the part worth testing everywhere - `.wh.a..b` and `.wh...hidden` are
+ordinary names and must still work, which is half of what the test says.
+
+*What this says about the sweep.* Twenty-seven of those twenty-eight findings are noise, and reading
+them one at a time to establish that is how the twenty-eighth was found. The same held for the Zip
+Slip alert, which was a false positive whose investigation found a real bug in `safePath` (E628).
+**Two security defects so far have come from auditing alerts that were wrong.**

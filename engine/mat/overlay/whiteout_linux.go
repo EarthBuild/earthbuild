@@ -233,7 +233,15 @@ func translate(src, dst string) error {
 		case strings.HasPrefix(d.Name(), whPrefix):
 			// `.wh.<name>` means <name> was deleted: a character device 0:0
 			// where the entry would be.
-			gone := filepath.Join(filepath.Dir(target), strings.TrimPrefix(d.Name(), whPrefix))
+			// Through whiteoutTarget, because `TrimPrefix` alone let a layer
+			// name the parent: `.wh...` strips to `..` and Join resolves it
+			// outside the directory being translated (E630).
+			name, err := whiteoutTarget(d.Name(), whPrefix)
+			if err != nil {
+				return err
+			}
+
+			gone := filepath.Join(filepath.Dir(target), name)
 
 			return unix.Mknod(gone, unix.S_IFCHR|0o600, 0) //nolint:wrapcheck // named by the caller
 

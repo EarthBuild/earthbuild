@@ -72,9 +72,11 @@ func TestCorruptEntriesAreMissesNotFailures(t *testing.T) {
 
 	for _, e := range entries {
 		p := filepath.Join(dir, "actions", e.Name())
-		err := os.WriteFile(p, []byte("{not json at all"), 0o600)
-		if err != nil {
-			t.Fatal(err)
+
+		// Named, so it does not shadow the cache's own err above (govet shadow).
+		writeErr := os.WriteFile(p, []byte("{not json at all"), 0o600)
+		if writeErr != nil {
+			t.Fatal(writeErr)
 		}
 	}
 
@@ -127,7 +129,7 @@ func TestConcurrentWritersDoNotCorrupt(t *testing.T) {
 	// fixture starting at zero tests the rejection rather than concurrency.
 	for i := 1; i <= 32; i++ {
 		wg.Go(func() {
-			c.Put(key(byte(i)), entry(byte(i)))
+			c.Put(key(byteOf(i)), entry(byteOf(i)))
 		})
 	}
 

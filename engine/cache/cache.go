@@ -35,12 +35,16 @@ const maxRecordedConflicts = 32
 type Cache struct {
 	dir string
 
+	conflicts []Conflict
+
 	// Guards the conflict record only. The entries themselves need no lock -
 	// one file each, inserted atomically - which is the arrangement this
 	// package's doc comment is about.
-	mu        sync.Mutex
-	conflicts []Conflict
-	count     int
+	//
+	// Below the slice it guards, so the pointer-bearing fields sit together
+	// (govet fieldalignment); the mutex carries no pointers of its own.
+	mu    sync.Mutex
+	count int
 }
 
 // Open prepares a cache under root.
@@ -79,15 +83,18 @@ type stored struct {
 	// and an absent field must stay absent rather than becoming a zero digest -
 	// Get distinguishes the two, and the comparison in Put depends on it.
 	Content string `json:"content,omitempty"`
-	Exit    int    `json:"exit"`
-	Bytes   int64  `json:"bytes"`
 	Writer  string `json:"writer"`
 	// Declares is the declaration the result carries, and Declared says somebody
 	// looked. Both omitempty for the reason Content is: an entry written before
 	// they existed has neither, and absent must stay absent rather than becoming
 	// "this image declares nothing".
 	Declares string `json:"declares,omitempty"`
-	Declared bool   `json:"declared,omitempty"`
+	// The sized fields last, so the strings above sit together (govet
+	// fieldalignment). Field order is not part of the format: JSON is read by
+	// name, and every reader here goes through these tags.
+	Exit     int   `json:"exit"`
+	Bytes    int64 `json:"bytes"`
+	Declared bool  `json:"declared,omitempty"`
 }
 
 // Get returns a claim, if there is a readable one.

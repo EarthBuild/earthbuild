@@ -59,8 +59,11 @@ func OpenProfiles(root string) (*Profiles, error) {
 // no way to tell. What cannot be written cannot be misread.
 type storedProfile struct {
 	Reads    map[string]string `json:"reads,omitempty"`
-	Negative []string          `json:"negative,omitempty"`
 	Listings map[string]string `json:"listings,omitempty"`
+	// The slice last: a map header is one word and a slice is three, so putting
+	// it between the maps makes the collector scan the whole struct (govet
+	// fieldalignment). JSON is read by name, so the order is not the format.
+	Negative []string `json:"negative,omitempty"`
 }
 
 func (p *Profiles) path(class core.Key) string {

@@ -1,6 +1,7 @@
 package cache_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,7 +14,7 @@ import (
 
 func classOf(n int) core.Key {
 	return core.StepClass(&ir.Node{
-		Op: ir.Op{Kind: ir.OpExec, Args: []string{"cc", string(rune('a' + n))}},
+		Op: ir.Op{Kind: ir.OpExec, Args: []string{"cc", fmt.Sprintf("f%d", n)}},
 	})
 }
 
@@ -167,13 +168,9 @@ func TestConcurrentWritersLeaveAReadableProfile(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 16 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			p.Put(classOf(4), sample())
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -214,7 +211,8 @@ func TestAProfileIsWrittenDeterministically(t *testing.T) {
 			t.Fatalf("expected one profile: %v", err)
 		}
 
-		b, err := os.ReadFile(filepath.Join(dir, "profiles", entries[0].Name()))
+		// A file this test just wrote, under a directory it made (gosec G304).
+		b, err := os.ReadFile(filepath.Join(dir, "profiles", entries[0].Name())) //nolint:gosec // our own temp dir
 		if err != nil {
 			t.Fatal(err)
 		}

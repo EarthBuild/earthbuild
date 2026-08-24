@@ -94,6 +94,8 @@ func TestPuttingTheSameClaimTwiceIsNotAConflict(t *testing.T) {
 // violation was worth knowing: that a key which is supposed to determine a
 // result did not. **Refusing without reporting turns a determinism bug into a
 // cache miss nobody can explain.**
+//
+// See TestAConflictingPutIsRecorded below.
 func TestAConflictingPutIsRecorded(t *testing.T) {
 	t.Parallel()
 
@@ -135,15 +137,11 @@ func TestConflictsAreReportedInAStableOrder(t *testing.T) {
 
 	// Appended from parallel steps, which is how they arrive in a real build.
 	for _, seed := range []byte{0x44, 0x45, 0x46, 0x47} {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			k := key(seed)
 			c.Put(k, core.Entry{Layer: ir.NodeID{0xf0}, Bytes: 1, Writer: testFirst})
 			c.Put(k, core.Entry{Layer: ir.NodeID{0xf1}, Bytes: 2, Writer: testSecond})
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -197,19 +195,15 @@ func TestConcurrentPutsOfOneKeyLeaveAReadableEntry(t *testing.T) {
 		var wg sync.WaitGroup
 
 		for i := range 8 {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				// Deliberately different lengths: identical payloads overwrite
 				// each other harmlessly and the race stays invisible.
 				c.Put(k, core.Entry{
-					Layer:  ir.NodeID{byte(0x60 + i)},
+					Layer:  ir.NodeID{byteOf(0x60 + i)},
 					Bytes:  int64(1) << (8 * i),
 					Writer: strings.Repeat("w", i+1),
 				})
-			}()
+			})
 		}
 
 		wg.Wait()

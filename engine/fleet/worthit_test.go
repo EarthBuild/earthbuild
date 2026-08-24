@@ -404,9 +404,7 @@ func TestTheGateIsClosedOnceHoweverManyStepsFinishTogether(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 64 {
-		wg.Add(1)
-
-		go func() { defer wg.Done(); d.learned() }()
+		wg.Go(func() { d.learned() })
 	}
 
 	wg.Wait()
@@ -467,9 +465,7 @@ func TestAStepWithAPredictionIsShippedDespiteALargeBase(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// One step occupies this machine's only slot.
-	wg.Add(1)
-
-	go func() { defer wg.Done(); run() }()
+	wg.Go(func() { run() })
 
 	<-ran
 
@@ -539,9 +535,7 @@ func TestShippingToAMachineThatHasTheInputsIsFree(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// One step occupies this machine, so the comparison is not a walkover.
-	wg.Add(1)
-
-	go func() { defer wg.Done(); run() }()
+	wg.Go(func() { run() })
 
 	<-ran
 

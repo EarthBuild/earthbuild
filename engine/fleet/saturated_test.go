@@ -188,10 +188,7 @@ func TestAWorkersAdmittedRoomWidensTheFleet(t *testing.T) {
 	run()
 
 	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() { defer wg.Done(); run() }()
+	wg.Go(func() { run() })
 
 	<-fleet.entered
 
@@ -264,24 +261,18 @@ func TestAStepIsNotKeptWhenThisMachineIsFullToo(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// One occupies the fleet's only slot.
-	wg.Add(1)
-
-	go func() { defer wg.Done(); run() }()
+	wg.Go(func() { run() })
 
 	<-fleet.entered
 
 	// One is kept, and occupies this machine's only slot.
-	wg.Add(1)
-
-	go func() { defer wg.Done(); run() }()
+	wg.Go(func() { run() })
 
 	<-ran
 
 	// Both full now: this one belongs with the fleet, which is the side that
 	// starts the moment it can.
-	wg.Add(1)
-
-	go func() { defer wg.Done(); run() }()
+	wg.Go(func() { run() })
 
 	for fleet.count() < 2 && t.Context().Err() == nil {
 		time.Sleep(time.Millisecond)

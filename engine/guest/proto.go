@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -471,6 +472,13 @@ type Response struct {
 // Framing is explicit rather than newline-delimited because a path can contain
 // anything, and a protocol that breaks on an unusual filename is a protocol
 // that breaks in exactly the situations worth debugging.
+// errTooLarge marks a message that will not fit in a frame.
+//
+// Recognisable on purpose: a caller has to tell "this reply is impossible" from
+// "the connection is gone", because the first is answerable and the second is
+// not. Conflating them is what hung a build (E617).
+var errTooLarge = errors.New("message exceeds the frame limit")
+
 // maxMessage is the largest frame either side will read or write.
 //
 // One constant for both directions. It was a literal in `recv` alone, so the
@@ -491,6 +499,20 @@ func kindOf(v any) string {
 	default:
 		return "response"
 	}
+}
+
+// reply answers a request, or says why it cannot.
+//
+// A send that fails because the *reply* is too big leaves a healthy connection
+// and a caller waiting for ever, so the reason goes back in a frame that fits.
+// Any other failure is the connection itself, which the read loop discovers.
+func reply(c *conn, resp Response) error {
+	err := c.send(resp)
+	if !errors.Is(err, errTooLarge) {
+		return err
+	}
+
+	return c.send(Response{ID: resp.ID, Err: err.Error()})
 }
 
 type conn struct {
@@ -522,11 +544,11 @@ func (c *conn) send(v any) error {
 	// frame leaves the reader mid-message and every later request is misread as
 	// its continuation, which is why the symptom was a lost connection.
 	if len(b) > maxMessage {
-		return fmt.Errorf(
+		return fmt.Errorf("%w: "+
 			"a %s message of %d bytes exceeds the %d MiB the other side will read"+
-				"\n  this is a limit of the protocol rather than of the build,"+
-				" and the message that hit it is the thing to make smaller",
-			kindOf(v), len(b), maxMessage>>20)
+			"\n  this is a limit of the protocol rather than of the build,"+
+			" and the message that hit it is the thing to make smaller",
+			errTooLarge, kindOf(v), len(b), maxMessage>>20)
 	}
 
 	var hdr [4]byte

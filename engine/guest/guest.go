@@ -315,8 +315,11 @@ func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 			resp.ID = req.ID
 
 			// A send failure means the connection is gone, which the read loop
-			// will discover too. Reporting it from here would race with that.
-			_ = c.send(resp)
+			// will discover too. Reporting it from here would race with that -
+			// except for a reply too large to write, where the connection is
+			// fine and only this answer is impossible, and dropping it hangs
+			// the caller for ever (E617). `reply` answers that one.
+			_ = reply(c, resp)
 		}()
 	}
 }

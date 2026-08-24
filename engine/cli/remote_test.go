@@ -29,14 +29,14 @@ func gitRepo(t *testing.T, files map[string]string) (dir, head string) {
 
 	for name, body := range files {
 		p := filepath.Join(dir, name)
-		err := os.MkdirAll(filepath.Dir(p), 0o750)
-		if err != nil {
-			t.Fatal(err)
+		mkdirErr := os.MkdirAll(filepath.Dir(p), 0o750)
+		if mkdirErr != nil {
+			t.Fatal(mkdirErr)
 		}
 
-		err = os.WriteFile(p, []byte(body), 0o600)
-		if err != nil {
-			t.Fatal(err)
+		mkdirErr = os.WriteFile(p, []byte(body), 0o600)
+		if mkdirErr != nil {
+			t.Fatal(mkdirErr)
 		}
 	}
 

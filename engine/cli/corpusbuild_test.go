@@ -461,9 +461,9 @@ func copyCorpus(src, dst string) error {
 		// Symlinks are recreated rather than followed: a link into a directory
 		// that was skipped would otherwise copy it back in.
 		if fi.Mode()&os.ModeSymlink != 0 {
-			target, err := os.Readlink(p)
-			if err != nil {
-				return err
+			target, linkErr := os.Readlink(p)
+			if linkErr != nil {
+				return linkErr
 			}
 
 			return os.Symlink(target, filepath.Join(dst, rel)) //nolint:wrapcheck // as above

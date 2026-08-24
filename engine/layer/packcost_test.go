@@ -141,14 +141,14 @@ func TestAFragmentCarriesTheBytesItSaysItCarries(t *testing.T) {
 	}
 
 	for _, p := range want {
-		got, err := os.ReadFile(filepath.Join(into, filepath.FromSlash(p)))
-		if err != nil {
-			t.Fatalf("%v", err)
+		got, readErr := os.ReadFile(filepath.Join(into, filepath.FromSlash(p)))
+		if readErr != nil {
+			t.Fatalf("%v", readErr)
 		}
 
-		was, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
-		if err != nil {
-			t.Fatalf("%v", err)
+		was, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
+		if readErr != nil {
+			t.Fatalf("%v", readErr)
 		}
 
 		if !bytes.Equal(got, was) {

@@ -35,9 +35,9 @@ func TestAPlacedEntryBringsItsAncestorsModes(t *testing.T) {
 		filepath.Join(src, "usr", "lib"):           0o750,
 		filepath.Join(src, "usr", "lib", "x86_64"): 0o755,
 	} {
-		err := os.Chmod(dir, mode)
-		if err != nil {
-			t.Fatal(err)
+		chmodErr := os.Chmod(dir, mode)
+		if chmodErr != nil {
+			t.Fatal(chmodErr)
 		}
 	}
 

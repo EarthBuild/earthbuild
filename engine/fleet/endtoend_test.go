@@ -144,9 +144,9 @@ func TestABuildThroughAFleetProducesWhatALocalBuildProduces(t *testing.T) {
 	f.AddWorker(func(ctx context.Context, a fleet.Assignment) (fleet.Reply, error) {
 		n := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: a.Op.Args}}
 
-		r, err := remote.Run(ctx, n, core.Worker{ID: "w1"}, a.Base, a.Sources)
-		if err != nil {
-			return fleet.Reply{}, err
+		r, runErr := remote.Run(ctx, n, core.Worker{ID: "w1"}, a.Base, a.Sources)
+		if runErr != nil {
+			return fleet.Reply{}, runErr
 		}
 
 		return fleet.Reply{

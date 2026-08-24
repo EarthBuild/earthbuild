@@ -100,11 +100,11 @@ func seedLayer(t *testing.T, into *fleet.Layers, n int) ir.NodeID {
 	for i := range n {
 		body := bytes.Repeat([]byte(fmt.Sprintf("%08d", i)), 512)
 
-		err := os.WriteFile(
+		writeErr := os.WriteFile(
 			filepath.Join(tmp, "usr", "lib", fmt.Sprintf("lib%d.so", i)),
 			body, 0o600)
-		if err != nil {
-			t.Fatalf("%v", err)
+		if writeErr != nil {
+			t.Fatalf("%v", writeErr)
 		}
 	}
 

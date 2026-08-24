@@ -83,9 +83,9 @@ func TestAccessTimesDoNotSurviveAnOverlay(t *testing.T) {
 
 	dir := t.TempDir()
 	for _, sub := range []string{"lower", "upper", "work", "merged"} {
-		err := os.MkdirAll(filepath.Join(dir, sub), 0o750)
-		if err != nil {
-			t.Fatal(err)
+		mkdirErr := os.MkdirAll(filepath.Join(dir, sub), 0o750)
+		if mkdirErr != nil {
+			t.Fatal(mkdirErr)
 		}
 	}
 
@@ -93,9 +93,9 @@ func TestAccessTimesDoNotSurviveAnOverlay(t *testing.T) {
 	merged := filepath.Join(dir, "merged")
 
 	for _, n := range []string{"direct.txt", "through.txt"} {
-		err := os.WriteFile(filepath.Join(lower, n), []byte("x"), 0o600)
-		if err != nil {
-			t.Fatal(err)
+		writeErr := os.WriteFile(filepath.Join(lower, n), []byte("x"), 0o600)
+		if writeErr != nil {
+			t.Fatal(writeErr)
 		}
 	}
 

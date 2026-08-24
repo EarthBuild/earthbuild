@@ -57,10 +57,10 @@ func TestALinkedTreeIsTheTreeItCameFrom(t *testing.T) {
 		rel, _ := filepath.Rel(src, p)
 
 		if fi.Mode()&os.ModeSymlink != 0 {
-			to, err := os.Readlink(p)
+			to, linkErr := os.Readlink(p)
 			want[rel] = "->" + to
 
-			return err
+			return linkErr
 		}
 
 		b, err := os.ReadFile(p)

@@ -198,8 +198,8 @@ func TestADirectoryAskedForBringsItsContents(t *testing.T) {
 	}
 
 	for _, want := range []string{"usr/bin/tool", "usr/bin/same"} {
-		_, err := os.Stat(filepath.Join(into, want))
-		if err != nil {
+		_, statErr := os.Stat(filepath.Join(into, want))
+		if statErr != nil {
 			t.Errorf("%s did not arrive with the directory that was asked for", want)
 		}
 	}

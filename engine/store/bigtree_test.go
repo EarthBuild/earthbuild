@@ -58,8 +58,8 @@ func bigTree(t *testing.T, n int) string {
 	// deleted, and a directory without a marker is one that may be half built.
 	b, err := os.ReadFile(marker)
 	if err == nil && string(b) == fmt.Sprint(n) {
-		_, err := os.Stat(dir)
-		if err == nil {
+		_, statErr := os.Stat(dir)
+		if statErr == nil {
 			return dir
 		}
 	}
@@ -122,21 +122,21 @@ func bigTree(t *testing.T, n int) string {
 	for i := range n {
 		sub := filepath.Join(staging, fmt.Sprintf("d%02d", i%64), fmt.Sprintf("e%02d", (i/64)%64))
 
-		err := os.MkdirAll(sub, 0o750)
-		if err != nil {
-			t.Fatalf("build the fixture: %v", err)
+		mkdirErr := os.MkdirAll(sub, 0o750)
+		if mkdirErr != nil {
+			t.Fatalf("build the fixture: %v", mkdirErr)
 		}
 
 		at := filepath.Join(sub, fmt.Sprintf("f%d", i))
 
-		err = os.WriteFile(at, fmt.Appendf(nil, "file %d\n", i), 0o600)
-		if err != nil {
-			t.Fatalf("build the fixture: %v", err)
+		mkdirErr = os.WriteFile(at, fmt.Appendf(nil, "file %d\n", i), 0o600)
+		if mkdirErr != nil {
+			t.Fatalf("build the fixture: %v", mkdirErr)
 		}
 
-		err = os.Chtimes(at, stamp, stamp)
-		if err != nil {
-			t.Fatalf("stamp the fixture: %v", err)
+		mkdirErr = os.Chtimes(at, stamp, stamp)
+		if mkdirErr != nil {
+			t.Fatalf("stamp the fixture: %v", mkdirErr)
 		}
 	}
 

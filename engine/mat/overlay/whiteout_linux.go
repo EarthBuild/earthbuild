@@ -267,9 +267,9 @@ func copyOne(src, dst string) error {
 	}
 
 	if fi.Mode()&os.ModeSymlink != 0 {
-		link, err := os.Readlink(src)
-		if err != nil {
-			return fmt.Errorf("read symlink %s: %w", src, err)
+		link, linkErr := os.Readlink(src)
+		if linkErr != nil {
+			return fmt.Errorf("read symlink %s: %w", src, linkErr)
 		}
 
 		return os.Symlink(link, dst) //nolint:wrapcheck // named by the caller

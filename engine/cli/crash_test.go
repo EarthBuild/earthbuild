@@ -174,9 +174,9 @@ probe:
 		// consequence for this test is that the recovery below is the real
 		// check, and this loop only catches a directory that cannot be walked
 		// at all.
-		_, err := layer.Take(filepath.Join(store, "layers", name))
-		if err != nil {
-			t.Errorf("the store lists a layer it cannot read: %s: %v", name, err)
+		_, takeErr := layer.Take(filepath.Join(store, "layers", name))
+		if takeErr != nil {
+			t.Errorf("the store lists a layer it cannot read: %s: %v", name, takeErr)
 		}
 	}
 

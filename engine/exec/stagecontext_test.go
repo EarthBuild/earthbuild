@@ -39,14 +39,14 @@ func TestAStagedContextLeavesOutWhatTheIgnoreFileNames(t *testing.T) {
 	} {
 		p := filepath.Join(root, rel)
 
-		err := os.MkdirAll(filepath.Dir(p), 0o750)
-		if err != nil {
-			t.Fatal(err)
+		mkdirErr := os.MkdirAll(filepath.Dir(p), 0o750)
+		if mkdirErr != nil {
+			t.Fatal(mkdirErr)
 		}
 
-		err = os.WriteFile(p, []byte("x"), 0o600)
-		if err != nil {
-			t.Fatal(err)
+		mkdirErr = os.WriteFile(p, []byte("x"), 0o600)
+		if mkdirErr != nil {
+			t.Fatal(mkdirErr)
 		}
 	}
 

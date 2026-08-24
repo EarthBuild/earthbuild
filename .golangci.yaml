@@ -69,18 +69,6 @@ linters:
       - path: tools/mutate/catalogue\.go
         linters:
           - goconst
-      # `fieldalignment` in a test is a suggestion about a struct built a handful
-      # of times, and the structs it reports are almost all table-driven cases
-      # whose field order *is* the table's column order - reordering them to
-      # save the collector eight bytes it will never scan makes the table harder
-      # to read to no measurable end.
-      #
-      # Production structs are not excluded: 116 of the 207 findings are in real
-      # types on real paths, and those are worth the layout.
-      - path: _test\.go
-        text: fieldalignment
-        linters:
-          - govet
       # `goconst` in a test reports the fixture vocabulary. The strings it names
       # here are `make` (32 occurrences), `FROM`, `COPY`, `BUILD`, `+main`,
       # `peer` - Earthfile keywords and the words the fixtures are built from,
@@ -103,6 +91,31 @@ linters:
   settings:
     govet:
       enable-all: true
+      disable:
+        # **Measured before disabling, which is why it is disabled.**
+        # `fieldalignment` reported 207 findings: 91 in tests, where field order
+        # is a table's column order, and 116 in production. Those 116 are two
+        # different claims - 17 that a struct is larger than it needs to be, and
+        # 99 that the collector scans further than it needs to - and both are
+        # worth something only in proportion to how often the type is allocated.
+        #
+        # So the types were counted rather than argued about. Two are allocated
+        # in volume: `layer.entry`, one per file in a layer, and `store.linkJob`,
+        # one per entry placed. Both were reordered by hand and now carry tests
+        # asserting `unsafe.Sizeof`, because there the arithmetic is real - eight
+        # bytes a hundred thousand times on a real base, and a size class in the
+        # second case.
+        #
+        # The rest are singletons or near enough: `Executor`, `Server`, `Plan`
+        # and `engine` are one per build; `ir.Op` is one per graph node, and a
+        # large corpus graph is hundreds of nodes, so its sixteen bytes is tens
+        # of kilobytes. Against that, these are the types this engine documents
+        # most heavily and whose field order groups things a reader needs
+        # together.
+        #
+        # An unmeasured win against a certain cost is not a trade worth taking,
+        # and the two places it *was* worth taking are done.
+        - fieldalignment
 formatters:
   enable:
     - gofumpt
